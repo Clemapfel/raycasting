@@ -1,8 +1,6 @@
 --- @class rt.FluidSimulation
 rt.FluidSimulation = meta.class("FluidSimulation")
 
-local log = require "egg_fluid_simulation.log"
-
 --- @brief create a new simulation handler instance. Usually this function is not called directly, use `instance = rt.FluidSimulation()` instead
 --- @return rt.FluidSimulation
 function rt.FluidSimulation:instantiate()
@@ -141,31 +139,31 @@ function rt.FluidSimulation:add(
         (math.pi * yolk_radius^2) / (math.pi * yolk_particle_radius^2)
     )
 
-    log.assert(
-        x, "number",
-        y, "number",
-        white_radius, "number",
-        yolk_radius, "number",
-        white_color, "table",
-        yolk_color, "table",
-        white_n_particles, "number",
-        yolk_n_particles, "number"
+    meta.assert(
+        x, "Number",
+        y, "Number",
+        white_radius, "Number",
+        yolk_radius, "Number",
+        white_color, "Table",
+        yolk_color, "Table",
+        white_n_particles, "Number",
+        yolk_n_particles, "Number"
     )
 
     if white_radius <= 0 then
-        log.error( "In rt.FluidSimulation.add: white radius cannot be 0 or negative")
+        rt.error( "In rt.FluidSimulation.add: white radius cannot be 0 or negative")
     end
 
     if yolk_radius <= 0 then
-        log.error( "In rt.FluidSimulation.add: yolk radius cannot be 0 or negative")
+        rt.error( "In rt.FluidSimulation.add: yolk radius cannot be 0 or negative")
     end
 
     if white_n_particles <= 1 then
-        log.error( "In rt.FluidSimulation.add: white particle count cannot be 1 or negative")
+        rt.error( "In rt.FluidSimulation.add: white particle count cannot be 1 or negative")
     end
 
     if yolk_n_particles <= 1 then
-        log.error( "In rt.FluidSimulation.add: yolk particle count cannot be 1 or negative")
+        rt.error( "In rt.FluidSimulation.add: yolk particle count cannot be 1 or negative")
     end
 
     do -- assert color
@@ -177,13 +175,13 @@ function rt.FluidSimulation:add(
 
         for name, color in pairs(which) do
             for i, component_name in ipairs(component_names) do
-                if type(color[i]) ~= "number" or math.is_nan(color[i]) then
-                    log.error("In rt.FluidSimulation.add: ", name, " color component `", component_name, "` is not a number")
+                if not meta.is_number(color[i]) or math.is_nan(color[i]) then
+                    rt.error("In rt.FluidSimulation.add: ", name, " color component `", component_name, "` is not a number")
                     return
                 end
 
                 if color[i] < 0 or color[i] > 1 then
-                    log.warning("In rt.FluidSimulation.add: ", name, " color component `", component_name, "` is outside of [0, 1]")
+                    rt.warning("In rt.FluidSimulation.add: ", name, " color component `", component_name, "` is outside of [0, 1]")
                 end
 
                 color[i] = math.clamp(color[i], 0, 1)
@@ -192,7 +190,7 @@ function rt.FluidSimulation:add(
     end
 
     local warn = function(which, egg_radius, particle_radius, n_particles)
-        log.warning("In rt.FluidSimulation.add: trying to add ", which, " of radius `", egg_radius, "`, but the ", which, " particle radius is `~", particle_radius, "`, so only `", n_particles, "` particles will be created. Consider increasing the ", which, " radius or decreasing the ", which, " particle size")
+        rt.warning("In rt.FluidSimulation.add: trying to add ", which, " of radius `", egg_radius, "`, but the ", which, " particle radius is `~", particle_radius, "`, so only `", n_particles, "` particles will be created. Consider increasing the ", which, " radius or decreasing the ", which, " particle size")
     end
 
     if white_n_particles < 10 then
@@ -222,11 +220,11 @@ end
 --- @param batch_id number id of the batch to remove, acquired from rt.FluidSimulation.add
 --- @return nil
 function rt.FluidSimulation:remove(batch_id)
-    log.assert(batch_id, "number")
+    meta.assert(batch_id, "Number")
 
     local batch = self._batch_id_to_batch[batch_id]
     if batch == nil then
-        log.warning("In rt.FluidSimulation.remove: no batch with id `", batch_id, "`")
+        rt.warning("In rt.FluidSimulation.remove: no batch with id `", batch_id, "`")
         return
     end
 
@@ -254,11 +252,11 @@ function rt.FluidSimulation:update(delta, step_delta, n_substeps, n_collision_st
     if n_substeps == nil then n_substeps = 2 end
     if n_collision_steps == nil then n_collision_steps = 3 end
 
-    log.assert(
-        delta, "number",
-        step_delta, "number",
-        n_substeps, "number",
-        n_collision_steps, "number"
+    meta.assert(
+        delta, "Number",
+        step_delta, "Number",
+        n_substeps, "Number",
+        n_collision_steps, "Number"
     )
 
     -- catch floats instead of ints
@@ -266,17 +264,17 @@ function rt.FluidSimulation:update(delta, step_delta, n_substeps, n_collision_st
     n_collision_steps = math.ceil(n_collision_steps)
 
     if step_delta < 0 or math.is_nan(step_delta) then
-        log.error("In rt.FluidSimulation.update: `step_delta` is not a number > 0")
+        rt.error("In rt.FluidSimulation.update: `step_delta` is not a number > 0")
         return
     end
 
     if n_substeps < 1 or math.is_nan(n_substeps) then
-        log.error("In rt.FluidSimulation.update: `n_substeps` is not a number > 0")
+        rt.error("In rt.FluidSimulation.update: `n_substeps` is not a number > 0")
         return
     end
 
     if n_collision_steps < 1 or math.is_nan(n_collision_steps) then
-        log.error("In rt.FluidSimulation.update: `n_collision_steps` is not a number > 0")
+        rt.error("In rt.FluidSimulation.update: `n_collision_steps` is not a number > 0")
         return
     end
 
@@ -308,14 +306,14 @@ end
 --- @brief update the mutable simulation parameters for the white
 --- @param config table table of properties, see the readme for a list of valid properties
 function rt.FluidSimulation:set_white_config(config)
-    log.assert(config, "table")
+    meta.assert(config, "Table")
     self:_load_config(config, true) -- egg white
 end
 
 --- @brief update the mutable simulation parameters for the yolk
 --- @param config table table of properties, see the readme for a list of valid properties
 function rt.FluidSimulation:set_yolk_config(config)
-    log.assert(config, "table")
+    meta.assert(config, "Table")
     self:_load_config(config, false) -- egg yolk
 end
 
@@ -336,11 +334,11 @@ end
 --- @param x number x coordinate, in px
 --- @param y number y coordinate, in px
 function rt.FluidSimulation:set_target_position(batch_id, x, y)
-    log.assert(batch_id, "number", x, "number", y, "number")
+    meta.assert(batch_id, "Number", x, "Number", y, "Number")
 
     local batch = self._batch_id_to_batch[batch_id]
     if batch == nil then
-        log.warning( "In rt.FluidSimulation.set_target_position: no batch with id `", batch_id, "`")
+        rt.warning( "In rt.FluidSimulation.set_target_position: no batch with id `", batch_id, "`")
     else
         batch.target_x = x
         batch.target_y = y
@@ -350,11 +348,11 @@ end
 --- @brief get the target position a batch should move to
 --- @return number, number
 function rt.FluidSimulation:get_target_position(batch_id)
-    log.assert(batch_id, "number")
+    meta.assert(batch_id, "Number")
 
     local batch = self._batch_id_to_batch[batch_id]
     if batch == nil then
-        log.error( "In rt.FluidSimulation.get_target_position: no batch with id `", batch_id, "`")
+        rt.error( "In rt.FluidSimulation.get_target_position: no batch with id `", batch_id, "`")
         return nil, nil
     else
         return batch.target_x, batch.target_y
@@ -363,11 +361,11 @@ end
 
 --- @brief get average of all particle positions of a batch
 function rt.FluidSimulation:get_position(batch_id)
-    log.assert(batch_id, "number")
+    meta.assert(batch_id, "Number")
 
     local batch = self._batch_id_to_batch[batch_id]
     if batch == nil then
-        log.error( "In rt.FluidSimulation.get_target_position: no batch with id `", batch_id, "`")
+        rt.error( "In rt.FluidSimulation.get_target_position: no batch with id `", batch_id, "`")
         return nil, nil
     else
         if batch.centroid_needs_update then
@@ -383,18 +381,18 @@ do
     local _assert_color = function(scope, r, g, b, a)
         if a == nil then a = 1 end
 
-        log.assert(
-            r, "number",
-            g, "number",
-            b, "number",
-            a, "number"
+        meta.assert(
+            r, "Number",
+            g, "Number",
+            b, "Number",
+            a, "Number"
         )
         if r > 1 or r < 0
             or g > 1 or g < 0
             or b > 1 or b < 0
             or a > 1 or a < 0
         then
-            log.warning( "In rt.FluidSimulation.", scope, ": color component is outside of [0, 1]")
+            rt.warning( "In rt.FluidSimulation.", scope, ": color component is outside of [0, 1]")
         end
 
         return math.clamp(r, 0, 1),
@@ -413,7 +411,7 @@ do
                                               r, g, b, a,
                                               outline_r, outline_g, outline_b, outline_a
     )
-        log.assert(batch_id, "number")
+        meta.assert(batch_id, "Number")
         r, g, b, a = _assert_color("set_egg_yolk_color", r, g, b, a)
 
         local config = self._yolk_config
@@ -428,7 +426,7 @@ do
 
         local batch = self._batch_id_to_batch[batch_id]
         if batch == nil then
-            log.warning( "In rt.FluidSimulation.set_egg_yolk_color: no batch with id `", batch_id, "`")
+            rt.warning( "In rt.FluidSimulation.set_egg_yolk_color: no batch with id `", batch_id, "`")
         else
             local color = batch.yolk_color
             color[1], color[2], color[3], color[4] = r, g, b, a
@@ -450,7 +448,7 @@ do
                                                r, g, b, a,
                                                outline_r, outline_g, outline_b, outline_a
     )
-        log.assert(batch_id, "number")
+        meta.assert(batch_id, "Number")
         r, g, b, a = _assert_color("set_white_color", r, g, b, a)
 
         local config = self._white_config
@@ -465,7 +463,7 @@ do
 
         local batch = self._batch_id_to_batch[batch_id]
         if batch == nil then
-            log.warning( "In rt.FluidSimulation.set_white_color: no batch with id `", batch_id, "`")
+            rt.warning( "In rt.FluidSimulation.set_white_color: no batch with id `", batch_id, "`")
         else
             local color = batch.white_color
             color[1], color[2], color[3], color[4] = r, g, b, a
@@ -496,7 +494,7 @@ function rt.FluidSimulation:get_n_particles(batch_or_nil)
     else
         local batch = self._batch_id_to_batch[batch_or_nil]
         if batch == nil then
-            log.error("In rt.FluidSimulation:get_n_particles: no batch with id `", batch_or_nil, "`")
+            rt.error("In rt.FluidSimulation:get_n_particles: no batch with id `", batch_or_nil, "`")
         end
         return batch.n_white_particles, batch.n_yolk_particles
     end
@@ -1177,7 +1175,7 @@ do
     -- parameter to type and bounds for error handling
     local _valid_config_keys = {
         damping = {
-            type = "number",
+            type = "Number",
             min = 0,
             max = 1
         },
@@ -1191,84 +1189,84 @@ do
         },
 
         outline_thickness = {
-            type = "number",
+            type = "Number",
             min = 0
         },
 
         collision_strength = {
-            type = "number",
+            type = "Number",
             min = 0,
             max = 1
         },
 
         collision_overlap_factor = {
-            type = "number",
+            type = "Number",
             min = 0,
             max = nil
         },
 
         cohesion_strength = {
-            type = "number",
+            type = "Number",
             min = 0,
             max = 1
         },
 
         cohesion_interaction_distance_factor = {
-            type = "number",
+            type = "Number",
             min = 0,
             max = nil
         },
 
         follow_strength = {
-            type = "number",
+            type = "Number",
             min = 0,
             max = 1
         },
 
         min_radius = {
-            type = "number",
+            type = "Number",
             min = 0,
             max = nil
         },
 
         max_radius = {
-            type = "number",
+            type = "Number",
             min = 0,
             max = nil
         },
 
         min_mass = {
-            type = "number",
+            type = "Number",
             min = 0,
             max = nil
         },
 
         max_mass = {
-            type = "number",
+            type = "Number",
             min = 0,
             max = nil
         },
 
         motion_blur = {
-            type = "number",
+            type = "Number",
             min = 0,
             max = 1
         },
 
         texture_scale = {
-            type = "number",
+            type = "Number",
             min = 1,
             max = nil
         },
 
         highlight_strength = {
-            type = "number",
+            type = "Number",
             min = 0,
             max = nil
         },
 
         shadow_strength = {
-            type = "number",
+            type = "Number",
             min = 0,
             max = nil
         }
@@ -1279,17 +1277,17 @@ do
     function rt.FluidSimulation:_load_config(config, white_or_yolk)
         local error = function(...)
             if white_or_yolk == true then
-                log.error("In rt.FluidSimulation.set_white_config: ", ...)
+                rt.error("In rt.FluidSimulation.set_white_config: ", ...)
             else
-                log.error("In rt.FluidSimulation.set_yolk_config: ", ...)
+                rt.error("In rt.FluidSimulation.set_yolk_config: ", ...)
             end
         end
 
         local warning = function(...)
             if white_or_yolk == true then
-                log.warning("In rt.FluidSimulation.set_white_config: ", ...)
+                rt.warning("In rt.FluidSimulation.set_white_config: ", ...)
             else
-                log.warning("In rt.FluidSimulation.set_yolk_config: ", ...)
+                rt.warning("In rt.FluidSimulation.set_yolk_config: ", ...)
             end
         end
 
@@ -1307,7 +1305,7 @@ do
                     if component == nil or #value > 4 then
                         error("color `", key, "` does not have 4 components")
                         return
-                    elseif type(component) ~= "number" or math.is_nan(component) then
+                    elseif not meta.is_number(component) or math.is_nan(component) then
                         error("color `", key, "` has a component that is not a number")
                         return
                     elseif component < 0 or component > 1 then
@@ -1318,10 +1316,10 @@ do
                 end
             else
                 -- assert type and bounds
-                if entry.type ~= nil and type(value) ~= entry.type then
-                    error("wrong type for config key `", key, "`, expected `", entry.type, "`, got `", type(value), "`")
+                if entry.type ~= nil and meta.typeof(value) ~= entry.type then
+                    error("wrong type for config key `", key, "`, expected `", entry.type, "`, got `", meta.typeof(value), "`")
                     return
-                elseif entry.type ~= nil and entry.type == "number" and math.is_nan(value) then
+                elseif entry.type ~= nil and entry.type == "Number" and math.is_nan(value) then
                     warning("config key `", key, "` is NaN, it will be ignored")
                     goto ignore
                 elseif entry.min ~= nil and value < entry.min then
@@ -2211,7 +2209,7 @@ end
 --- @private
 function rt.FluidSimulation:_deepcopy(t)
     local function _deepcopy_inner(original, seen)
-        if type(original) ~= 'table' then
+        if meta.typeof(original) ~= 'table' then
             return original
         end
 
@@ -2231,6 +2229,6 @@ function rt.FluidSimulation:_deepcopy(t)
         return copy
     end
 
-    if type(t) ~= "table" then return t end
+    if meta.typeof(t) ~= "Table" then return t end
     return _deepcopy_inner(t, {})
 end
