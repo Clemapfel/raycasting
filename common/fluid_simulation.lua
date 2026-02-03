@@ -25,8 +25,8 @@ function rt.FluidSimulation:instantiate()
         collision_strength = 1 - 0.0025,
         collision_overlap_factor = 2,
 
-        color = { 0.961, 0.961, 0.953, 1 },
-        outline_color = { 0.973, 0.796, 0.529, 1 },
+        color = rt.RGBA(0.961, 0.961, 0.953, 1),
+        outline_color = rt.RGBA(0.973, 0.796, 0.529, 1),
         outline_thickness = outline_thickness,
 
         highlight_strength = 0,
@@ -55,8 +55,8 @@ function rt.FluidSimulation:instantiate()
         collision_strength = 1 - 0.001,
         collision_overlap_factor = 2,
 
-        color = { 0.969, 0.682, 0.141, 1 },
-        outline_color = { 0.984, 0.522, 0.271, 1 },
+        color = rt.RGBA(0.969, 0.682, 0.141, 1),
+        outline_color = rt.RGBA(0.984, 0.522, 0.271, 1),
         outline_thickness = outline_thickness,
 
         highlight_strength = 1,
@@ -84,7 +84,6 @@ function rt.FluidSimulation:instantiate()
 
     self._mass_distribution_variance = 4 -- unitless, (2 * n) with n >= 1
     self._max_collision_fraction = 0.05 -- fraction
-    self._use_particle_color = false -- whether particle rgb should be accumulated for the final image
     self._use_lighting = true -- whether specular highlight and shadows should be drawn
 
     -- render texture config
@@ -101,8 +100,8 @@ end
 --- @param y number y position, px
 --- @param white_radius number? radius of the egg white, px
 --- @param yolk_radius number? radius of egg yolk, px
---- @param white_color table? color in rgba format, components in [0, 1]
---- @param yolk_color table? color in rgba format, components in [0, 1]
+--- @param white_color rt.RGBA? color in rgba format, components in [0, 1]
+--- @param yolk_color rt.RGBA? color in rgba format, components in [0, 1]
 --- @param white_n_particles number? optional override option for white particle count
 --- @param yolk_n_particles number? optional override option for yolk particle count
 --- @return number integer id of the new batch
@@ -144,8 +143,8 @@ function rt.FluidSimulation:add(
         y, "Number",
         white_radius, "Number",
         yolk_radius, "Number",
-        white_color, "Table",
-        yolk_color, "Table",
+        white_color, rt.RGBA,
+        yolk_color, rt.RGBA,
         white_n_particles, "Number",
         yolk_n_particles, "Number"
     )
@@ -164,29 +163,6 @@ function rt.FluidSimulation:add(
 
     if yolk_n_particles <= 1 then
         rt.error( "In rt.FluidSimulation.add: yolk particle count cannot be 1 or negative")
-    end
-
-    do -- assert color
-        local component_names = { "r", "g", "b", "a" }
-        local which = {
-            white = white_color,
-            yolk = yolk_color
-        }
-
-        for name, color in pairs(which) do
-            for i, component_name in ipairs(component_names) do
-                if not meta.is_number(color[i]) or math.is_nan(color[i]) then
-                    rt.error("In rt.FluidSimulation.add: ", name, " color component `", component_name, "` is not a number")
-                    return
-                end
-
-                if color[i] < 0 or color[i] > 1 then
-                    rt.warning("In rt.FluidSimulation.add: ", name, " color component `", component_name, "` is outside of [0, 1]")
-                end
-
-                color[i] = math.clamp(color[i], 0, 1)
-            end
-        end
     end
 
     local warn = function(which, egg_radius, particle_radius, n_particles)
@@ -318,13 +294,13 @@ end
 --- @brief get current config for the white, contains all keys
 --- @return table read-only, writing to this table will not affect the handler
 function rt.FluidSimulation:get_white_config()
-    return self:_deepcopy(self._white_config)
+    return table.deepcopy(self._white_config)
 end
 
 --- @brief get current config for the white, contains all keys
 --- @return table read-only, writing to this table will not affect the handler
 function rt.FluidSimulation:get_yolk_config()
-    return self:_deepcopy(self._yolk_config)
+    return table.deepcopy(self._yolk_config)
 end
 
 --- @brief set the target position a batch should move to
@@ -371,102 +347,6 @@ function rt.FluidSimulation:get_position(batch_id)
         end
 
         return batch.centroid_x, batch.centroid_y
-    end
-end
-
-do
-    --- argument assertion helper for set_*_color functions
-    local _assert_color = function(scope, r, g, b, a)
-        if a == nil then a = 1 end
-
-        meta.assert(
-            r, "Number",
-            g, "Number",
-            b, "Number",
-            a, "Number"
-        )
-        if r > 1 or r < 0
-            or g > 1 or g < 0
-            or b > 1 or b < 0
-            or a > 1 or a < 0
-        then
-            rt.warning( "In rt.FluidSimulation.", scope, ": color component is outside of [0, 1]")
-        end
-
-        return math.clamp(r, 0, 1),
-        math.clamp(g, 0, 1),
-        math.clamp(b, 0, 1),
-        math.clamp(a, 0, 1)
-    end
-
-    --- @brief overwrite the color of the yolk particles
-    --- @param batch_id number id of the batch, returned by rt.FluidSimulation.add
-    --- @param r number red component, in [0, 1]
-    --- @param g number green component, in [0, 1]
-    --- @param b number blue component, in [0, 1]
-    --- @param a number opacity component, in [0, 1]
-    function rt.FluidSimulation:set_yolk_color(batch_id,
-                                              r, g, b, a,
-                                              outline_r, outline_g, outline_b, outline_a
-    )
-        meta.assert(batch_id, "Number")
-        r, g, b, a = _assert_color("set_egg_yolk_color", r, g, b, a)
-
-        local config = self._yolk_config
-        if outline_r == nil then outline_r = config.outline_color[1] end
-        if outline_g == nil then outline_g = config.outline_color[2] end
-        if outline_b == nil then outline_b = config.outline_color[3] end
-        if outline_a == nil then outline_a = config.outline_color[4] end
-
-        outline_r, outline_g, outline_b, outline_a = _assert_color("set_white_color",
-            outline_r, outline_g, outline_b, outline_a
-        )
-
-        local batch = self._batch_id_to_batch[batch_id]
-        if batch == nil then
-            rt.warning( "In rt.FluidSimulation.set_egg_yolk_color: no batch with id `", batch_id, "`")
-        else
-            local color = batch.yolk_color
-            color[1], color[2], color[3], color[4] = r, g, b, a
-            self:_update_particle_color(batch, true) -- yolk only
-        end
-
-        self:_update_color_mesh()
-    end
-
-    --- @brief overwrite the color of the white particles
-    --- @param batch_id number id of the batch, returned by rt.FluidSimulation.add
-    --- @param r number red component, in [0, 1]
-    --- @param g number green component, in [0, 1]
-    --- @param b number blue component, in [0, 1]
-    --- @param a number opacity component, in [0, 1]
-    function rt.FluidSimulation:set_white_color(batch_id,
-                                               r, g, b, a,
-                                               outline_r, outline_g, outline_b, outline_a
-    )
-        meta.assert(batch_id, "Number")
-        r, g, b, a = _assert_color("set_white_color", r, g, b, a)
-
-        local config = self._white_config
-        if outline_r == nil then outline_r = config.outline_color[1] end
-        if outline_g == nil then outline_g = config.outline_color[2] end
-        if outline_b == nil then outline_b = config.outline_color[3] end
-        if outline_a == nil then outline_a = config.outline_color[4] end
-
-        outline_r, outline_g, outline_b, outline_a = _assert_color("set_white_color",
-            outline_r, outline_g, outline_b, outline_a
-        )
-
-        local batch = self._batch_id_to_batch[batch_id]
-        if batch == nil then
-            rt.warning( "In rt.FluidSimulation.set_white_color: no batch with id `", batch_id, "`")
-        else
-            local color = batch.white_color
-            color[1], color[2], color[3], color[4] = r, g, b, a
-            self:_update_particle_color(batch, false) -- white only
-        end
-
-        self:_update_color_mesh()
     end
 end
 
@@ -562,27 +442,7 @@ function rt.FluidSimulation:_reinitialize()
 
     self._last_white_env = nil -- cf. _step
     self._last_yolk_env = nil
-
-    do -- texture format needs to have non [0, 1] range, find first available on this machine
-        local available_formats
-        available_formats = love.graphics.getTextureFormats({
-            canvas = true
-        })
-
-        local texture_format = nil
-        for _, format in ipairs({
-            "rgba8",
-            "rgba16f",
-            "rgba32f",
-        }) do
-            if available_formats[format] == true then
-                texture_format = format
-                break
-            end
-        end
-
-        self._render_texture_format = texture_format
-    end
+    self._render_texture_format = "rgba8"
 
     -- step once to init environments
     self:_step(0, 1, 1)
@@ -972,18 +832,10 @@ function rt.FluidSimulation:_new_batch(
         array[i + _cell_x_offset] = -math.huge
         array[i + _cell_y_offset] = -math.huge
         array[i + _batch_id_offset] = batch_id
-
-        if self._use_particle_color then
-            array[i + _r_offset] = color[1]
-            array[i + _g_offset] = color[2]
-            array[i + _b_offset] = color[3]
-            array[i + _a_offset] = color[4]
-        else
-            array[i + _r_offset] = 1
-            array[i + _g_offset] = 1
-            array[i + _b_offset] = 1
-            array[i + _a_offset] = 1
-        end
+        array[i + _r_offset] = color.r
+        array[i + _g_offset] = color.g
+        array[i + _b_offset] = color.b
+        array[i + _a_offset] = color.a
 
         array[i + _last_update_x_offset] = x
         array[i + _last_update_y_offset] = y
@@ -1111,7 +963,7 @@ function rt.FluidSimulation:_update_particle_color(batch, yolk_or_white)
         color = batch.white_color
     end
 
-    local r, g, b, a = (unpack or table.unpack)(color)
+    local r, g, b, a = color:unpack()
     for _, particle_i in ipairs(indices) do
         local i = _particle_i_to_data_offset(particle_i)
         particles[i + _r_offset] = r
@@ -1268,19 +1120,8 @@ do
 
             if entry.type == "color" then
                 -- assert value is rgba table
-                for i = 1, 4 do
-                    local component = value[i]
-                    if component == nil or #value > 4 then
-                        error("color `", key, "` does not have 4 components")
-                        return
-                    elseif not meta.is_number(component) or math.is_nan(component) then
-                        error("color `", key, "` has a component that is not a number")
-                        return
-                    elseif component < 0 or component > 1 then
-                        warning("color `", key, "` has a component that is outside of [0, 1]")
-                    end
-
-                    value[i] = math.clamp(component, 0, 1)
+                if not meta.isa(value, rt.RGBA) then
+                    error("expected `rt.RGBA`, got `", meta.typeof(value), "`")
                 end
             else
                 -- assert type and bounds
@@ -2061,7 +1902,7 @@ do
 
         self._lighting_shader:send("threshold", self._thresholding_threshold)
         self._lighting_shader:send("smoothness", self._thresholding_smoothness)
-        self._lighting_shader:send("use_particle_color", self._use_particle_color)
+        self._lighting_shader:send("use_particle_color", true)
 
         local draw_canvas = function(canvas, env, config)
             local canvas_width, canvas_height = canvas:get_size()
@@ -2075,17 +1916,12 @@ do
             if outline_thickness > 0 then
                 self._outline_shader:bind()
                 self._outline_shader:send("outline_thickness", outline_thickness)
-                love.graphics.setColor(outline_color)
+                love.graphics.setColor(outline_color:unpack())
                 canvas:draw(canvas_x, canvas_y)
-
-                if self._use_particle_color then
-                    love.graphics.setColor(1, 1, 1, 1)
-                else
-                    love.graphics.setColor(color)
-                end
                 self._outline_shader:unbind()
             end
 
+            love.graphics.setColor(color:unpack())
             self._lighting_shader:bind()
 
             self._lighting_shader:send("highlight_strength", config.highlight_strength)
@@ -2115,32 +1951,4 @@ do
 
         love.graphics.pop()
     end
-end
-
---- @brief [internal] utility function that deepcopies a non-looping table
---- @private
-function rt.FluidSimulation:_deepcopy(t)
-    local function _deepcopy_inner(original, seen)
-        if meta.typeof(original) ~= 'table' then
-            return original
-        end
-
-        if seen[original] then
-            error("In deepcopy: table `" .. tostring(original) .. "` is recursive, it cannot be deepcopied")
-            return {}
-        end
-
-        local copy = {}
-
-        seen[original] = copy
-        for k, v in pairs(original) do
-            copy[_deepcopy_inner(k, seen)] = _deepcopy_inner(v, seen)
-        end
-        seen[original] = nil
-
-        return copy
-    end
-
-    if meta.typeof(t) ~= "Table" then return t end
-    return _deepcopy_inner(t, {})
 end
