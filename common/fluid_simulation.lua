@@ -736,19 +736,7 @@ function rt.FluidSimulation:_new_batch(
         ))
     end
 
-    for i = 1, yolk_n_particles do
-        table.insert(batch.yolk_particle_indices, add_particle(
-            self._yolk_data,
-            self._yolk_config,
-            yolk_x_radius, yolk_y_radius,
-            i, yolk_n_particles,
-            batch.yolk_color,
-            batch_id
-        ))
-    end
-
     batch.n_particles = n_particles
-    batch.n_yolk_particles = yolk_n_particles
 
     self:_update_data_mesh()
     self:_update_color_mesh()
@@ -758,7 +746,7 @@ end
 
 --- @brief [internal] remove particle data from shared array
 --- @private
-function rt.FluidSimulation:_remove(indices, yolk_indices)
+function rt.FluidSimulation:_remove(indices)
     local function remove_particles(indices, data, list_name)
         if not indices or #indices == 0 then return end
 
@@ -821,7 +809,6 @@ function rt.FluidSimulation:_remove(indices, yolk_indices)
     end
 
     remove_particles(indices, self._data, "particle_indices")
-    remove_particles(yolk_indices,  self._yolk_data,  "yolk_particle_indices")
 
     self:_update_data_mesh()
     self:_update_color_mesh()
@@ -829,20 +816,10 @@ end
 
 --- @brief [internal] write new color for all particles
 --- @private
-function rt.FluidSimulation:_update_particle_color(batch, yolk_or_white)
-    local particles, indices, color
-    if yolk_or_white == true then
-        particles = self._yolk_data
-        indices = batch.yolk_particle_indices
-        color = batch.yolk_color
-    elseif yolk_or_white == false then
-        particles = self._data
-        indices = batch.particle_indices
-        color = batch.color
-    end
-
-    local r, g, b, a = color:unpack()
-    for _, particle_i in ipairs(indices) do
+function rt.FluidSimulation:_update_particle_color(batch)
+    local particles = self._data
+    local r, g, b, a = batch.color:unpack()
+    for _, particle_i in ipairs(batch.particle_indices) do
         local i = _particle_i_to_data_offset(particle_i)
         particles[i + _r_offset] = r
         particles[i + _g_offset] = g
@@ -860,13 +837,8 @@ function rt.FluidSimulation:_update_batch_centroid(batch)
         y = y + self._data[i + _y_offset]
     end
 
-    for _, i in ipairs(batch.yolk_particle_indices) do
-        x = x + self._yolk_data[i + _x_offset]
-        y = y + self._yolk_data[i + _y_offset]
-    end
-
-    batch.centroid_x = x / (batch.n_particles + batch.n_yolk_particles)
-    batch.centroid_y = y / (batch.n_particles + batch.n_yolk_particles)
+    batch.centroid_x = x / batch.n_particles
+    batch.centroid_y = y / batch.n_particles
 end
 
 do
@@ -972,21 +944,13 @@ do
 
     --- @brief [internal] override config setting
     --- @private
-    function rt.FluidSimulation:_load_config(config, or_yolk)
+    function rt.FluidSimulation:_load_config(config)
         local error = function(...)
-            if or_yolk == true then
-                rt.error("In rt.FluidSimulation.set_config: ", ...)
-            else
-                rt.error("In rt.FluidSimulation.set_yolk_config: ", ...)
-            end
+            rt.error("In rt.FluidSimulation.set_config: ", ...)
         end
 
         local warning = function(...)
-            if or_yolk == true then
-                rt.warning("In rt.FluidSimulation.set_config: ", ...)
-            else
-                rt.warning("In rt.FluidSimulation.set_yolk_config: ", ...)
-            end
+            rt.warning("In rt.FluidSimulation.set_config: ", ...)
         end
 
         for key, value in pairs(config) do
@@ -1018,11 +982,7 @@ do
                 end
             end
 
-            if or_yolk == true then
-                self._config[key] = value
-            elseif or_yolk == false then
-                self._yolk_config[key] = value
-            end
+            self._config[key] = value
 
             ::ignore::
         end
@@ -1049,7 +1009,7 @@ do
         return alpha_per_substep
     end
 
-    --- setup environments for yolks and white separately
+    --- setup environment
     local _create_environment = function(current_env)
         if current_env == nil then
             -- create new environment
@@ -1431,7 +1391,6 @@ do
     function rt.FluidSimulation:_step(delta, n_sub_steps, n_collision_steps)
         local sub_delta = math.max(delta / n_sub_steps, math.eps)
 
-        -- setup environments for yolk / white separately
         local function update_environment(old_env, config, particles, n_particles)
             local env = _create_environment(old_env)
             env.particles = particles
@@ -1488,16 +1447,9 @@ do
             self._data, self._total_n_particles
         )
 
-        local yolk_config = self._yolk_config
-        local yolk_env = update_environment(
-            self._last_yolk_env, yolk_config,
-            self._yolk_data,  self._total_n_yolk_particles
-        )
-
         -- update radii
         for batch_id, batch in pairs(self._batch_id_to_batch) do
             env.batch_id_to_radius[batch_id] = math.sqrt(batch.radius)
-            yolk_env.batch_id_to_radius[batch_id] = math.sqrt(batch.yolk_radius)
         end
 
         -- update pre-step positions for frame interpolation
@@ -1524,7 +1476,6 @@ do
         end
 
         update_last_positions(env)
-        update_last_positions(yolk_env)
 
         -- step the simulation
         for sub_step_i = 1, n_sub_steps do
@@ -1541,19 +1492,6 @@ do
                 env.max_radius
             )
 
-            _pre_solve(
-                yolk_env.particles,
-                yolk_env.n_particles,
-                yolk_env.damping,
-                sub_delta,
-                yolk_env.should_update_mass,
-                yolk_env.min_mass,
-                yolk_env.max_mass,
-                yolk_env.should_update_radius,
-                yolk_env.min_radius,
-                yolk_env.max_radius
-            )
-
             _solve_follow_constraint(
                 env.particles,
                 env.n_particles,
@@ -1563,28 +1501,12 @@ do
                 env.follow_compliance
             )
 
-            _solve_follow_constraint(
-                yolk_env.particles,
-                yolk_env.n_particles,
-                yolk_env.batch_id_to_radius,
-                yolk_env.batch_id_to_follow_x,
-                yolk_env.batch_id_to_follow_y,
-                yolk_env.follow_compliance
-            )
-
             for collision_i = 1, n_collision_steps do
                 _rebuild_spatial_hash(
                     env.particles,
                     env.n_particles,
                     env.spatial_hash,
                     env.spatial_hash_cell_radius
-                )
-
-                _rebuild_spatial_hash(
-                    yolk_env.particles,
-                    yolk_env.n_particles,
-                    yolk_env.spatial_hash,
-                    yolk_env.spatial_hash_cell_radius
                 )
 
                 _solve_collision(
@@ -1599,25 +1521,11 @@ do
                     env.max_n_collisions
                 )
 
-                _solve_collision(
-                    yolk_env.particles,
-                    yolk_env.n_particles,
-                    yolk_env.spatial_hash,
-                    yolk_env.collided,
-                    yolk_config.collision_overlap_factor,
-                    yolk_env.collision_compliance,
-                    yolk_config.cohesion_interaction_distance_factor,
-                    yolk_env.cohesion_compliance,
-                    yolk_env.max_n_collisions
-                )
-
                 if collision_i < n_collision_steps then
                     -- clear after each pass to avoid double counting
                     -- do not clear on last, already done in _update_environment
                     table.clear(env.spatial_hash)
                     table.clear(env.collided)
-                    table.clear(yolk_env.spatial_hash)
-                    table.clear(yolk_env.collided)
                 end
             end
 
@@ -1627,15 +1535,6 @@ do
             env.max_radius, env.max_velocity = _post_solve(
                 env.particles,
                 env.n_particles,
-                sub_delta
-            )
-
-            yolk_env.min_x, yolk_env.min_y,
-            yolk_env.max_x, yolk_env.max_y,
-            yolk_env.centroid_x, yolk_env.centroid_y,
-            yolk_env.max_radius, yolk_env.max_velocity = _post_solve(
-                yolk_env.particles,
-                yolk_env.n_particles,
                 sub_delta
             )
         end -- sub-steps
@@ -1682,11 +1581,9 @@ do
         end
 
         self._canvas = resize_canvas_maybe(self._canvas, env)
-        self._yolk_canvas  = resize_canvas_maybe(self._yolk_canvas,  yolk_env)
 
         -- keep env of last step
         self._last_env = env
-        self._last_yolk_env  = yolk_env
 
         self._canvases_need_update = true
 
@@ -1701,7 +1598,6 @@ do
     --- @private
     function rt.FluidSimulation:_update_canvases()
         if self._canvases_need_update == false
-            or self._yolk_canvas == nil
             or self._canvas == nil
         then return end
 
@@ -1727,39 +1623,20 @@ do
         self._instanced_draw_shader:bind()
         self._instanced_draw_shader:send("interpolation_alpha", t)
 
-        do -- egg white
-            local canvas = self._canvas
-            local canvas_width, canvas_height = canvas:get_size()
-            local env = self._last_env
-            self._instanced_draw_shader:send("motion_blur", env.motion_blur)
-            self._instanced_draw_shader:send("texture_scale", env.texture_scale)
-            canvas:bind()
-            love.graphics.clear(0, 0, 0, 0)
+        local canvas = self._canvas
+        local canvas_width, canvas_height = canvas:get_size()
+        local env = self._last_env
+        self._instanced_draw_shader:send("motion_blur", env.motion_blur)
+        self._instanced_draw_shader:send("texture_scale", env.texture_scale)
+        canvas:bind()
+        love.graphics.clear(0, 0, 0, 0)
 
-            love.graphics.push()
-            love.graphics.translate(canvas_width / 2, canvas_height / 2)
-            draw_particles(self._last_env, self._instance_mesh)
-            love.graphics.pop()
+        love.graphics.push()
+        love.graphics.translate(canvas_width / 2, canvas_height / 2)
+        draw_particles(self._last_env, self._instance_mesh)
+        love.graphics.pop()
 
-            canvas:unbind()
-        end
-
-        do -- egg yolk
-            local canvas = self._yolk_canvas
-            local canvas_width, canvas_height = canvas:get_size()
-            local env = self._last_yolk_env
-            self._instanced_draw_shader:send("motion_blur", env.motion_blur)
-            self._instanced_draw_shader:send("texture_scale", env.texture_scale)
-
-            canvas:bind()
-            love.graphics.clear(0, 0, 0, 0)
-
-            love.graphics.push()
-            love.graphics.translate(canvas_width / 2, canvas_height / 2)
-            draw_particles(self._last_yolk_env, self._yolk_instance_mesh)
-            love.graphics.pop()
-            canvas:unbind()
-        end
+        canvas:unbind()
 
         self._instanced_draw_shader:unbind()
 
@@ -1770,7 +1647,7 @@ do
     --- @brief [internal] composite canvases to final image
     --- @private
     function rt.FluidSimulation:_draw_canvases()
-        if self._canvas == nil or self._yolk_canvas == nil then return end
+        if self._canvas == nil then return end
 
         love.graphics.push("all")
         love.graphics.setBlendMode("alpha", "alphamultiply")
@@ -1820,11 +1697,6 @@ do
         draw_canvas(self._canvas,
             self._last_env,
             self._config
-        )
-
-        draw_canvas(self._yolk_canvas,
-            self._last_yolk_env,
-            self._yolk_config
         )
 
         love.graphics.pop()

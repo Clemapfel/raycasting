@@ -126,8 +126,8 @@ love.load = function(args)
         fluid_sim = rt.FluidSimulation()
         fluid_sim:add(
             0.5 * w, 0.5 * h,
-            50, 10,
-            rt.Palette.WHITE, rt.Palette.BLACK
+            50,
+            rt.Palette.WHITE
         )
     end
     -- TODO
