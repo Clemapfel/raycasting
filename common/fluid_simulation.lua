@@ -4,7 +4,7 @@ rt.FluidSimulation = meta.class("FluidSimulation")
 --- @brief create a new simulation handler instance. Usually this function is not called directly, use `instance = rt.FluidSimulation()` instead
 --- @return rt.FluidSimulation
 function rt.FluidSimulation:instantiate()
-    -- default white / yolk configs
+    -- default
     local outline_thickness = 1
     local particle_radius = 4
     local base_damping = 0.1
@@ -13,7 +13,7 @@ function rt.FluidSimulation:instantiate()
 
     -- see README.md for a description of the parameters below
 
-    self._config = {
+    self._default_config = {
         -- dynamic
         damping = base_damping,
 
@@ -58,6 +58,7 @@ function rt.FluidSimulation:instantiate()
 
     -- render texture config
     self._canvas_msaa = 4 -- msaa for render textures
+    self._particle_texture_radius = 40 * rt.get_pixel_scale()
     self._particle_texture_padding = 3 -- px
     self._particle_texture_resolution_factor = 4 -- fraction
 
@@ -70,38 +71,29 @@ end
 --- @param y number y position, px
 --- @param radius number? radius of the egg white, px
 --- @param color rt.RGBA? color in rgba format, components in [0, 1]
---- @param n_particles number? optional override option for white particle count
+--- @param config table?
 --- @return number integer id of the new batch
-function rt.FluidSimulation:add(
-    x, y,
-    radius,
-    color,
-    n_particles
-)
-    local particle_radius = math.mix(
-        self._config.min_radius,
-        self._config.max_radius,
-        0.5
-    ) -- expected value. symmetrically normal distributed around mean
-
-
-    if radius == nil then
-        radius = particle_radius * 15
-    end
-
-    color = color or self._config.color
-
-    n_particles = n_particles or math.ceil(
-        (math.pi * radius^2) / (math.pi * particle_radius^2)
-    ) -- (area of white) / (area of particle), where circular area = pi r^2
+function rt.FluidSimulation:add(x, y, radius, color, config)
+    config = config or table.deepcopy(self._default_config)
+    color = color or config.color
 
     meta.assert(
         x, "Number",
         y, "Number",
         radius, "Number",
         color, rt.RGBA,
-        n_particles, "Number"
+        config, "Table"
     )
+
+    local particle_radius = math.mix(
+        config.min_radius,
+        config.max_radius,
+        0.5
+    ) -- expected value. symmetrically normal distributed around mean
+
+    local n_particles = math.ceil(
+        (math.pi * radius^2) / (math.pi * particle_radius^2)
+    ) -- (area of white) / (area of particle), where circular area = pi r^2
 
     if radius <= 0 then
         rt.error( "In rt.FluidSimulation.add: white radius cannot be 0 or negative")
@@ -123,7 +115,9 @@ function rt.FluidSimulation:add(
 
     local batch_id, batch = self:_new_batch(
         x, y,
-        radius, radius, n_particles, color
+        radius, radius,
+        n_particles,
+        config
     )
 
     self._batch_id_to_batch[batch_id] = batch
@@ -218,15 +212,22 @@ end
 
 --- @brief update the mutable simulation parameters for the white
 --- @param config table table of properties, see the readme for a list of valid properties
-function rt.FluidSimulation:set_config(config)
+function rt.FluidSimulation:set_config(batch_id, config)
     meta.assert(config, "Table")
-    self:_load_config(config, true) -- egg white
+    self:_load_config(batch_id, config) -- egg white
 end
 
---- @brief get current config for the white, contains all keys
---- @return table read-only, writing to this table will not affect the handler
-function rt.FluidSimulation:get_config()
-    return table.deepcopy(self._config)
+--- @brief
+function rt.FluidSimulation:get_config(batch_id)
+    meta.assert(batch_id, "Number")
+
+    local batch = self._batch_id_to_batch[batch_id]
+    if batch == nil then
+        rt.error( "In rt.FluidSimulation.get_target_position: no batch with id `", batch_id, "`")
+        return nil
+    else
+        return batch.config
+    end
 end
 
 --- @brief set the target position a batch should move to
@@ -403,7 +404,7 @@ function rt.FluidSimulation:_initialize_particle_texture()
     -- instead love.graphics.scale'ing based on particle size,
     -- this way all draws are batched
 
-    local radius = self._config.max_radius * self._particle_texture_resolution_factor
+    local radius = self._particle_texture_radius * self._particle_texture_resolution_factor
 
     local padding = self._particle_texture_padding -- px
 
@@ -618,12 +619,13 @@ end
 --- @private
 function rt.FluidSimulation:_new_batch(
     center_x, center_y,
-    x_radius, y_radius, n_particles, color
+    x_radius, y_radius, n_particles, config
 )
     local batch = {
         particle_indices = {},
         radius = math.max(x_radius, y_radius),
-        color = color,
+        color = config.color,
+        config = config,
         target_x = center_x,
         target_y = center_y,
         centroid_x = center_x,
@@ -728,7 +730,7 @@ function rt.FluidSimulation:_new_batch(
     for i = 1, n_particles do
         table.insert(batch.particle_indices, add_particle(
             self._data,
-            self._config,
+            batch.config,
             x_radius, y_radius,
             i, n_particles,
             batch.color,
@@ -944,13 +946,19 @@ do
 
     --- @brief [internal] override config setting
     --- @private
-    function rt.FluidSimulation:_load_config(config)
+    function rt.FluidSimulation:_load_config(batch_id, config)
         local error = function(...)
             rt.error("In rt.FluidSimulation.set_config: ", ...)
         end
 
         local warning = function(...)
             rt.warning("In rt.FluidSimulation.set_config: ", ...)
+        end
+
+        local batch = self._batch_id_to_batch[batch_id]
+        if batch == nil then
+            rt.error("In rt.FluidSimulation._load_config: no batch with id `", batch_id, "`")
+            return
         end
 
         for key, value in pairs(config) do
@@ -982,7 +990,7 @@ do
                 end
             end
 
-            self._config[key] = value
+            batch.config[key] = value
 
             ::ignore::
         end
@@ -1441,9 +1449,8 @@ do
             return env
         end
 
-        local config = self._config
         local env = update_environment(
-            self._last_env, config,
+            self._last_env, self._default_config,
             self._data, self._total_n_particles
         )
 
@@ -1514,9 +1521,9 @@ do
                     env.n_particles,
                     env.spatial_hash,
                     env.collided,
-                    config.collision_overlap_factor,
+                    self._default_config.collision_overlap_factor,
                     env.collision_compliance,
-                    config.cohesion_interaction_distance_factor,
+                    self._default_config.cohesion_interaction_distance_factor,
                     env.cohesion_compliance,
                     env.max_n_collisions
                 )
@@ -1696,7 +1703,7 @@ do
 
         draw_canvas(self._canvas,
             self._last_env,
-            self._config
+            self._default_config
         )
 
         love.graphics.pop()
