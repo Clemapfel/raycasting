@@ -8,6 +8,16 @@ require "common.input_manager"
 local toast, toast_tris, circles = {}, {}, {}
 local toast_coverage = {}
 local fluid_sim = nil
+local max_scale = false
+local use_shape, shape_needs_update = false, true
+local fade_in_animation = rt.TimedAnimation(1, 0, 1, rt.InterpolationFunctions.GAUSSIAN_HIGHPASS)
+fade_in_animation:set_is_paused(true)
+
+local toast_x, toast_y, toast_w, toast_h
+
+local shape_i = 0
+
+local texture, toast_mesh = rt.Texture("assets/sprites/why.png")
 do
     local min_x, min_y, max_x, max_y = math.huge, math.huge, -math.huge, -math.huge
     for xy in range(
@@ -80,14 +90,22 @@ love.load = function(args)
 
     -- TODO
     do
-        local toast_x = 0.5 * w
-        local toast_y = 0.5 * h
-        local toast_w = 0.25 * math.min(w, h)
-        local toast_h = 0.25 * math.min(w, h)
+        toast_x = 0.5 * w
+        toast_y = 0.5 * h
+        toast_w = 0.25 * math.min(w, h)
+        toast_h = 0.25 * math.min(w, h)
         for i = 1, #toast, 2 do
             toast[i+0] = toast_x + toast[i+0] * toast_w
             toast[i+1] = toast_y + toast[i+1] * toast_h
         end
+
+        toast_mesh = rt.MeshRectangle(
+            toast_x - toast_w,
+            toast_y - toast_h,
+            2 * toast_w,
+            2 * toast_h
+        )
+        toast_mesh:set_texture(texture)
 
         require "common.triangulate"
         toast_tris = rt.math.triangulate(toast)
@@ -120,7 +138,6 @@ love.load = function(args)
         require "common.circle_coverage"
         local before = love.timer.getTime()
         toast_coverage = rt.contour.distribute_circles(toast_tris, circles)
-        dbg((love.timer.getTime() - before) / (1 / 60))
 
         require "common.fluid_simulation"
         fluid_sim = rt.FluidSimulation()
@@ -132,9 +149,25 @@ love.load = function(args)
 
         DEBUG_INPUT:signal_connect("keyboard_key_released", function(_, which)
             if which == "l" then
-                fluid_sim:set_config(batch_id, {
-                    batch_radius = 0
-                })
+                use_shape = not use_shape
+                if use_shape then
+                    shape_needs_update = true
+                    for id in values(fluid_sim:list_ids()) do
+                        fluid_sim:set_config(id, {
+                            min_radius = 3,
+                            max_radius = 3,
+                            texture_scale = 1
+                        })
+                    end
+
+                    shape_i = shape_i + 1
+                else
+                    for id in values(fluid_sim:list_ids()) do
+                        fluid_sim:set_config(id, nil)
+                    end
+                end
+            elseif which == "j" then
+                fade_in_animation:set_is_paused(false)
             end
         end)
     end
@@ -193,7 +226,69 @@ love.update = function(delta)
 
     fluid_sim:update(delta)
     for id in values(fluid_sim:list_ids()) do
-        fluid_sim:set_target_position(id, love.mouse.getPosition())
+        if use_shape then
+            if shape_needs_update then
+                local x, y, radius = toast_x, toast_y, toast_h
+                if shape_needs_update then
+                    local x, y, radius = toast_x, toast_y, toast_h
+                    if shape_needs_update then
+                        local x, y, radius = toast_x, toast_y, toast_h
+                        if shape_i == 3 then
+                            -- Equilateral triangle pointing up
+                            local h = radius * math.sqrt(3) / 2  -- height from center to vertex
+                            fluid_sim:set_target_shape(id, {
+                                {x, y - radius, x - radius * math.sqrt(3)/2, y + radius/2, x + radius * math.sqrt(3)/2, y + radius/2}
+                            })
+                        elseif shape_i == 4 then
+                            -- Square rotated 45° (corner pointing up)
+                            fluid_sim:set_target_shape(id, {
+                                {x, y - radius, x + radius, y, x, y + radius},
+                                {x, y - radius, x, y + radius, x - radius, y}
+                            })
+                        elseif shape_i == 6 then
+                            fluid_sim:set_target_shape(id, toast_tris)
+                        elseif shape_i == 5 then
+                            -- Donut (annulus)
+                            local outer_r = radius
+                            local inner_r = radius - 0.25 * toast_h
+                            local segments = 16  -- number of segments around the circle
+                            local tris = {}
+
+                            for i = 0, segments - 1 do
+                                local angle1 = (i / segments) * 2 * math.pi
+                                local angle2 = ((i + 1) / segments) * 2 * math.pi
+
+                                local x1_outer = x + outer_r * math.cos(angle1)
+                                local y1_outer = y + outer_r * math.sin(angle1)
+                                local x2_outer = x + outer_r * math.cos(angle2)
+                                local y2_outer = y + outer_r * math.sin(angle2)
+
+                                local x1_inner = x + inner_r * math.cos(angle1)
+                                local y1_inner = y + inner_r * math.sin(angle1)
+                                local x2_inner = x + inner_r * math.cos(angle2)
+                                local y2_inner = y + inner_r * math.sin(angle2)
+
+                                -- Two triangles per segment
+                                table.insert(tris, {x1_outer, y1_outer, x2_outer, y2_outer, x1_inner, y1_inner})
+                                table.insert(tris, {x2_outer, y2_outer, x2_inner, y2_inner, x1_inner, y1_inner})
+                            end
+
+                            fluid_sim:set_target_shape(id, tris)
+                        end
+                        shape_needs_update = false
+                    end
+                    shape_needs_update = false
+                end
+                shape_needs_update = false
+            end
+        else
+            fluid_sim:set_target_position(id, love.mouse.getPosition())
+        end
+    end
+
+    fade_in_animation:update(delta)
+    if fade_in_animation:get_value() >= 1 then
+        max_scale = true
     end
 end
 
@@ -203,10 +298,18 @@ love.draw = function()
         rt.SceneManager:draw()
     end
 
-    love.graphics.setColor(1, 1, 1, 0.5)
+    love.graphics.push()
+    local w, h = love.graphics.getDimensions()
+    love.graphics.translate(0.5 * w, 0.5 * h)
+    love.graphics.scale(2.5)
+    love.graphics.translate(-0.5 * w, -0.5 * h)
+
+    love.graphics.setColor(1, 1, 1, 0.25)
+    love.graphics.setWireframe(true)
     for tri in values(toast_tris) do
         love.graphics.polygon("fill", tri)
     end
+    love.graphics.setWireframe(false)
 
     local circle_i = 1
     for i = 1, #toast_coverage, 2 do
@@ -218,7 +321,16 @@ love.draw = function()
         circle_i = circle_i + 1
     end
 
+    if max_scale == false then
+        love.graphics.pop()
+    end
     fluid_sim:draw()
+
+    love.graphics.push()
+    local a = fade_in_animation:get_value()
+    love.graphics.setColor(a, a, a, a)
+    toast_mesh:draw()
+    love.graphics.pop()
 end
 
 love.resize = function(width, height)

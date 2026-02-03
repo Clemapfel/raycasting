@@ -21,6 +21,7 @@ function rt.TimedAnimation:instantiate(duration, start_value, end_value, interpo
         _args = {...},
         _should_loop = false,
         _is_reversed = false,
+        _is_paused = false,
         _direction = ternary(start_value <= end_value, 1, -1),
         _elapsed = 0
     })
@@ -53,6 +54,8 @@ end
 
 --- @brief
 function rt.TimedAnimation:update(delta)
+    if self._is_paused then return end
+
     local before = self._elapsed
     self._elapsed = self._elapsed + delta
     if before < self._duration and self._elapsed > self._duration then
@@ -127,4 +130,9 @@ end
 --- @brief
 function rt.TimedAnimation:get_fraction()
     return math.clamp(self._elapsed / self._duration, 0, 1)
+end
+
+--- @brief
+function rt.TimedAnimation:set_is_paused(b)
+    self._is_paused = b
 end
