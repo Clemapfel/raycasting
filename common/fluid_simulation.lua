@@ -297,10 +297,8 @@ function rt.FluidSimulation:update(delta, step_delta, n_substeps, n_collision_st
 
     self._interpolation_alpha = math.clamp(self._elapsed / step, 0, 1)
 
-    if self._use_instancing then
-        self:_update_data_mesh()
-        -- no need to update color mesh
-    end
+    self:_update_data_mesh()
+    -- no need to update color mesh
 end
 
 --- @brief update the mutable simulation parameters for the white
@@ -433,9 +431,7 @@ do
             self:_update_particle_color(batch, true) -- yolk only
         end
 
-        if self._use_instancing then
-            self:_update_color_mesh()
-        end
+        self:_update_color_mesh()
     end
 
     --- @brief overwrite the color of the white particles
@@ -470,9 +466,7 @@ do
             self:_update_particle_color(batch, false) -- white only
         end
 
-        if self._use_instancing then
-            self:_update_color_mesh()
-        end
+        self:_update_color_mesh()
     end
 end
 
@@ -532,46 +526,36 @@ function rt.FluidSimulation:_reinitialize()
     self:_initialize_shaders()
     self:_initialize_particle_texture()
 
-    -- instancing is unavailable on certain GL EES
-    local supported = love.graphics.getSupported()
-    self._use_instancing = supported.instancing == true
-        and (supported.glsl3 == true or supported.glsl4 == true)
+    local position_name = "particle_position"
+    local velocity_name = "particle_velocity"
+    local radius_name = "particle_radius"
+    local color_name = "particle_color"
 
-    if self._use_instancing then
-        local position_name = "particle_position"
-        local velocity_name = "particle_velocity"
-        local radius_name = "particle_radius"
-        local color_name = "particle_color"
+    assert(love.getVersion() >= 12, "Love v12.0 or later required, mesh data format is incompatible with earlier versions")
 
-        assert(love.getVersion() >= 12, "Love v12.0 or later required, mesh data format is incompatible with earlier versions")
+    do
+        -- default love mesh format
+        -- location = 0: VertexPosition
+        -- location = 1: VertexTexCoord
+        -- location = 2: VertexColor
 
-        do
-            -- default love mesh format
-            -- location = 0: VertexPosition
-            -- location = 1: VertexTexCoord
-            -- location = 2: VertexColor
+        local i = 2
+        self._data_mesh_format = {
+            { location = i+1, name = position_name, format = "floatvec4" }, -- xy: position, zw: previous position
+            { location = i+2, name = velocity_name, format = "floatvec2" },
+            { location = i+3, name = radius_name, format = "float" },
+        }
 
-            local i = 2
-            self._data_mesh_format = {
-                { location = i+1, name = position_name, format = "floatvec4" }, -- xy: position, zw: previous position
-                { location = i+2, name = velocity_name, format = "floatvec2" },
-                { location = i+3, name = radius_name, format = "float" },
-            }
-
-            -- data and color mesh are separate, as only the data mesh changes every
-            -- frame, uploading the same color every frame to vram is suboptimal
-            self._color_mesh_format = {
-                { location = i+4, name = color_name, format = "floatvec4" }
-            }
-        end
-
-        self:_initialize_instance_mesh()
-
-        if self._use_instancing then
-            self:_update_data_mesh()
-            self:_update_color_mesh()
-        end
+        -- data and color mesh are separate, as only the data mesh changes every
+        -- frame, uploading the same color every frame to vram is suboptimal
+        self._color_mesh_format = {
+            { location = i+4, name = color_name, format = "floatvec4" }
+        }
     end
+
+    self:_initialize_instance_mesh()
+    self:_update_data_mesh()
+    self:_update_color_mesh()
 
     self._white_canvas = nil -- love.Canvas
     self._yolk_canvas = nil -- love.Canvas
@@ -1048,10 +1032,8 @@ function rt.FluidSimulation:_new_batch(
     batch.n_white_particles = white_n_particles
     batch.n_yolk_particles = yolk_n_particles
 
-    if self._use_instancing then
-        self:_update_data_mesh()
-        self:_update_color_mesh()
-    end
+    self:_update_data_mesh()
+    self:_update_color_mesh()
 
     return batch_id, batch
 end
@@ -1123,10 +1105,8 @@ function rt.FluidSimulation:_remove(white_indices, yolk_indices)
     remove_particles(white_indices, self._white_data, "white_particle_indices")
     remove_particles(yolk_indices,  self._yolk_data,  "yolk_particle_indices")
 
-    if self._use_instancing then
-        self:_update_data_mesh()
-        self:_update_color_mesh()
-    end
+    self:_update_data_mesh()
+    self:_update_color_mesh()
 end
 
 --- @brief [internal] write new color for all particles
@@ -2021,69 +2001,16 @@ do
         then return end
 
         local t = self._interpolation_alpha
+        local draw_particles = function(env, instance_mesh)
+            -- frame interpolation for the centroid
+            local predicted_centroid_x = math.mix(env.last_centroid_x or env.centroid_x, env.centroid_x, t)
+            local predicted_centroid_y = math.mix(env.last_centroid_y or env.centroid_y, env.centroid_y, t)
 
-        local draw_particles
-        if not self._use_instancing then
-            draw_particles = function(env, _)
-                -- interpolate centroid to match particle interpolation
-                local cx = math.mix(env.last_centroid_x or env.centroid_x, env.centroid_x, t)
-                local cy = math.mix(env.last_centroid_y or env.centroid_y, env.centroid_y, t)
-
-                love.graphics.push()
-                love.graphics.translate(-cx, -cy)
-
-                local particles = env.particles
-                local texture_scale = env.texture_scale
-                local texture_w, texture_h = self._particle_texture:getDimensions()
-                for particle_i = 1, env.n_particles do
-                    local i = _particle_i_to_data_offset(particle_i)
-                    local radius = particles[i + _radius_offset]
-                    local x = particles[i + _x_offset]
-                    local y = particles[i + _y_offset]
-                    local velocity_x = particles[i + _velocity_x_offset]
-                    local velocity_y = particles[i + _velocity_y_offset]
-
-                    local velocity_angle = math.atan2(velocity_y, velocity_x)
-                    local base_scale = radius * texture_scale
-                    local smear_amount = 1 + math.magnitude(velocity_x, velocity_y) * env.motion_blur
-
-                    local scale_x = base_scale * smear_amount
-                    local scale_y = base_scale
-
-                    -- frame interpolation
-                    local predicted_x = math.mix(particles[i + _last_update_x_offset], x, t)
-                    local predicted_y = math.mix(particles[i + _last_update_y_offset], y, t)
-
-                    local alpha = particles[i + _a_offset]
-                    love.graphics.setColor(
-                        particles[i + _r_offset] * alpha,
-                        particles[i + _g_offset] * alpha,
-                        particles[i + _b_offset] * alpha,
-                        particles[i + _a_offset]
-                    )
-
-                    love.graphics.draw(self._particle_texture,
-                        predicted_x, predicted_y,
-                        velocity_angle,
-                        scale_x / texture_w * 2, scale_y / texture_w * 2,
-                        0.5 * texture_w, 0.5 * texture_h
-                    )
-                end
-
-                love.graphics.pop()
-            end
-        else
-            draw_particles = function(env, instance_mesh)
-                -- frame interpolation for the centroid
-                local predicted_centroid_x = math.mix(env.last_centroid_x or env.centroid_x, env.centroid_x, t)
-                local predicted_centroid_y = math.mix(env.last_centroid_y or env.centroid_y, env.centroid_y, t)
-
-                love.graphics.push()
-                love.graphics.translate(-predicted_centroid_x, -predicted_centroid_y)
-                love.graphics.setColor(1, 1, 1, 1)
-                love.graphics.drawInstanced(instance_mesh, env.n_particles)
-                love.graphics.pop()
-            end
+            love.graphics.push()
+            love.graphics.translate(-predicted_centroid_x, -predicted_centroid_y)
+            love.graphics.setColor(1, 1, 1, 1)
+            love.graphics.drawInstanced(instance_mesh, env.n_particles)
+            love.graphics.pop()
         end
 
         love.graphics.push("all")
@@ -2092,10 +2019,8 @@ do
         -- alpha is accumulated by additive blending, then normalized to 0, 1 automatically
         love.graphics.setBlendMode("screen", "premultiplied")
 
-        if self._use_instancing then
-            self._instanced_draw_shader:bind()
-            self._instanced_draw_shader:send("interpolation_alpha", t)
-        end
+        self._instanced_draw_shader:bind()
+        self._instanced_draw_shader:send("interpolation_alpha", t)
 
         do -- egg white
             local canvas = self._white_canvas
@@ -2128,9 +2053,7 @@ do
             love.graphics.pop()
         end
 
-        if self._use_instancing then
-            self._instanced_draw_shader:unbind()
-        end
+        self._instanced_draw_shader:unbind()
 
         love.graphics.pop() -- all
         self._canvases_need_update = false
