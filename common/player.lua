@@ -1235,7 +1235,10 @@ function rt.Player:update(delta)
 
             if acceleration_duration < math.eps then
                 next_velocity_x = target_velocity_x
-            else
+            elseif math.sign(target_velocity_x) ~= math.sign(current_velocity_x)
+                or math.abs(target_velocity_x) >= math.abs(current_velocity_x)
+            then
+                -- maintain momentum, if going in the same direction only apply positive acceleration
                 local acceleration_rate = math.abs(target_velocity_x) / acceleration_duration
                 local velocity_step = acceleration_rate * delta
                 next_velocity_x = current_velocity_x + math.clamp(velocity_delta, -velocity_step, velocity_step)

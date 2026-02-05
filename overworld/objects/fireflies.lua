@@ -258,6 +258,7 @@ function ow.Fireflies:instantiate(object, stage, scene)
         entry.light_color.a = rt.settings.overworld.fireflies.light_color_alpha
         body:set_collides_with(0x0)
         body:set_collision_group(0x0)
+        body:set_is_sensor(true)
         body:add_tag("point_light_source")
         body:set_user_data({
             get_point_light_sources = function()
@@ -336,6 +337,7 @@ function ow.Fireflies:update(delta)
         _last_frame = rt.SceneManager:get_frame_index()
     end
 
+
     for entry in values(self._fly_entries) do
         if self._stage:get_is_body_visible(entry.body) then
             -- glow update
@@ -357,44 +359,40 @@ function ow.Fireflies:update(delta)
         end
 
         if entry.mode == _MODE_FOLLOW_PLAYER then
-            if bounds == nil then
-                bounds = self._scene:get_camera():get_world_bounds()
-                local padding = 0.25
-                bounds.x = bounds.x - padding * bounds.width
-                bounds.y = bounds.y - padding * bounds.height
-                bounds.width = bounds.width + 2 * padding * bounds.width
-                bounds.height = bounds.height + 2 * padding * bounds.height
-            end
+            if self._stage:get_is_body_visible(entry.body) then
+                if bounds == nil then
+                    bounds = self._scene:get_camera():get_world_bounds()
+                    local padding = 0.25
+                    bounds.x = bounds.x - padding * bounds.width
+                    bounds.y = bounds.y - padding * bounds.height
+                    bounds.width = bounds.width + 2 * padding * bounds.width
+                    bounds.height = bounds.height + 2 * padding * bounds.height
+                end
 
-            -- clamp follow target so it never enters player radius
-            local cx, cy = entry.follow_motion:get_position()
-            local dx = cx - px
-            local dy = cy - py
-            local distance = math.magnitude(dx, dy)
+                -- clamp follow target so it never enters player radius
+                local cx, cy = entry.follow_motion:get_position()
+                local dx = cx - px
+                local dy = cy - py
+                local distance = math.magnitude(dx, dy)
 
+                local tx, ty = _path:at(math.mix(0, 0.15, entry.follow_speed))
+                local min_distance = get_min_distance(entry)
+                if distance < min_distance and distance > 1e-4 then
+                    local nx, ny = dx / distance, dy / distance
+                    tx = px + nx * min_distance
+                    ty = py + ny * min_distance
+                end
 
-            local tx, ty = _path:at(math.mix(0, 0.15, entry.follow_speed))
-            local min_distance = get_min_distance(entry)
-            if distance < min_distance and distance > 1e-4 then
-                local nx, ny = dx / distance, dy / distance
-                tx = px + nx * min_distance
-                ty = py + ny * min_distance
-            end
+                local before_x, before_y = cx, cy
+                entry.follow_motion:set_target_position(tx, ty)
+                entry.follow_motion:update(delta * entry.scale)
+                entry.follow_x, entry.follow_y = entry.follow_motion:get_position()
 
-            local before_x, before_y = cx, cy
-            entry.follow_motion:set_target_position(tx, ty)
-            entry.follow_motion:update(delta * entry.scale)
-            entry.follow_x, entry.follow_y = entry.follow_motion:get_position()
-
-            entry.body:set_velocity(
-                (entry.follow_x - before_x) / delta,
-                (entry.follow_y - before_y) / delta
-            )
-
-            -- reset when far off-screen
-            if math.distance(entry.follow_x, entry.follow_y, px, py) >
-                0.5 * math.max(bounds.width, bounds.height) then
-                self:_reset_entry(entry)
+                entry.body:set_position(
+                    cx, cy
+                    --(entry.follow_x - before_x) / delta,
+                    --(entry.follow_y - before_y) / delta
+                )
             end
         end
 

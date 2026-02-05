@@ -14,10 +14,6 @@ ow.DeceleratorSurface = meta.class("DeceleratorSurface", ow.MovableObject)
 local padding = 20
 local _shader = rt.Shader("overworld/objects/decelerator_surface.glsl")
 
-DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
-    if which == "k" then _shader:recompile() end
-end)
-
 --- @brief
 function ow.DeceleratorSurface:instantiate(object, stage, scene)
     self._scene = scene
@@ -206,7 +202,7 @@ function ow.DeceleratorSurface:draw()
     local line_width = 1.5
     rt.Palette.BLACK:bind()
     love.graphics.setLineWidth(line_width + 1.5)
-    --love.graphics.line(self._contour)
+    love.graphics.line(self._contour)
 
     rt.Palette.DECELERATOR_SURFACE_OUTLINE:bind()
     love.graphics.setLineWidth(line_width)

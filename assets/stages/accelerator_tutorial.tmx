@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="7" nextobjectid="473">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="490">
  <editorsettings>
   <export target="accelerator_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -8,7 +8,7 @@
  <imagelayer id="3" name="background" repeatx="1" repeaty="1">
   <image source="../tilesets/debug_tileset_16x16/tile.png" width="16" height="16"/>
  </imagelayer>
- <objectgroup id="5" name="aux">
+ <objectgroup id="5" name="aux" visible="0">
   <object id="375" name="Coin" type="Coin" x="-1168" y="2224">
    <point/>
   </object>
@@ -40,7 +40,7 @@
    </properties>
    <point/>
   </object>
-  <object id="464" type="CameraBounds" x="-7856" y="-1232" width="2016" height="654.778"/>
+  <object id="464" type="CameraBounds" x="-7856" y="-1232" width="9784.14" height="654.778"/>
   <object id="465" type="KillPlane" x="-8288" y="-560">
    <properties>
     <property name="is_visible" type="bool" value="false"/>
@@ -72,6 +72,17 @@
   </object>
   <object id="472" type="PortalNode" x="-7154.61" y="-1398.85">
    <point/>
+  </object>
+ </objectgroup>
+ <objectgroup id="7" name="back" visible="0">
+  <object id="476" type="Wall" x="-8544" y="-848" width="495.646" height="495.646">
+   <properties>
+    <property name="type" value="spheres"/>
+   </properties>
+   <ellipse/>
+  </object>
+  <object id="474" type="Wall" x="-7664" y="-672">
+   <polygon points="0,0 0,-256 3344,-240 3344,96 0,96"/>
   </object>
  </objectgroup>
  <objectgroup id="6" name="hitbox">
@@ -245,14 +256,14 @@
   <object id="435" type="Wall" x="-6816" y="-96.0818">
    <polygon points="0,0 0,351.1 3271.61,335.141 3271.61,-31.9182"/>
   </object>
-  <object id="444" type="Hitbox" x="-7584" y="-679.498">
-   <polygon points="-112,23.4982 1216,23.4982 1216,7.49815 1664,7.49815 1664,103.498 -112,103.498"/>
+  <object id="444" type="Hitbox" x="-7904" y="-679.498">
+   <polygon points="-112,23.4982 4704,23.4982 4704,103.498 -112,103.498"/>
   </object>
   <object id="445" type="SlipperyHitbox" x="-7696" y="-679.498">
    <polygon points="16,7.49815 -16,7.49815 -16,103.498 0,103.498 0,23.4982 288,23.4982 288,7.49815 256,7.49815 192,-48 80,-48"/>
   </object>
   <object id="446" type="AcceleratorSurface" x="-7424" y="-679.498">
-   <polygon points="16,7.49815 16,23.4982 1056,23.4982 1056,7.49815"/>
+   <polygon points="16,7.49815 16,23.4982 2592,23.4982 2592,-56.5018 2608,-56.5018 2608,-72.5018 2592,-72.5018 2576,-72.5018 2563.18,-46.4239 2542.14,-19.6872 2514.75,-3.69151 2480.08,5.51593 2448,7.49815 1584,7.49815 1440,-40.5018 1296,7.49815"/>
   </object>
   <object id="447" type="SlipperyHitbox" x="-8032" y="-567.498">
    <polygon points="0,-8.50185 0,-104.502 -240,-104.502 -240,-664.502 -256,-664.502 -256,-8.50185 -240,-8.50185 -240,-88.5018 -16,-88.5018 -16,-8.50185"/>
@@ -260,11 +271,32 @@
   <object id="448" type="Hitbox" x="-8272" y="-663.498">
    <polygon points="0,7.49815 0,87.4982 224,87.4982 224,7.49815"/>
   </object>
-  <object id="449" name="Coin" type="Coin" x="-8160" y="-743.498">
+  <object id="449" name="Coin" type="Coin" x="-8198.51" y="-721.73">
    <point/>
   </object>
-  <object id="461" type="SlipperyMovableHitbox" x="-8032" y="-528">
+  <object id="461" type="MovableHitbox" x="-8032" y="-528">
    <polygon points="0,0 320,0 320,16 0,16"/>
+  </object>
+  <object id="473" name="Flies" type="Fireflies" x="-5984" y="-864">
+   <point/>
+  </object>
+  <object id="481" type="SlipperyHitbox" x="-4640" y="-880">
+   <polygon points="0,0 0,224 800,224 800,128 640,128 640,112 624,112 582.487,149.959 542.206,179.723 492.276,190.88 443.387,194.933 391.201,191.022 339.521,172.907 295.708,148.268 231.822,108.71 64,0"/>
+  </object>
+  <object id="483" type="AcceleratorSurface" x="-3200" y="-880">
+   <polygon points="0,0 39.7231,-1.4042 11.0853,12.4895 0,32 0,224 -640,224 -640,112 -624,112 -582.487,149.959 -542.206,179.723 -492.276,190.88 -443.387,194.933 -391.201,191.022 -339.521,172.907 -295.708,148.268 -231.822,108.71 -57.6811,12.6378 -27.7874,3.5105"/>
+  </object>
+  <object id="484" type="DeceleratorSurface" x="-3680" y="-768">
+   <polygon points="0,0 0,16 160,16 160,0"/>
+  </object>
+  <object id="487" type="AcceleratorSurface" x="-2192" y="-880">
+   <polygon points="0,0 -16,0 -16,16 0,16 0,224 640,224 640,112 624,112 582.487,149.959 542.206,179.723 492.276,190.88 443.387,194.933 391.201,191.022 339.521,172.907 295.708,148.268 231.822,108.71 57.6811,12.6378 27.7874,3.5105"/>
+  </object>
+  <object id="488" type="Hitbox" x="-2080" y="-678.863">
+   <polygon points="-112,23.4982 3088,23.4982 3088,87.4982 3264,87.4982 3264,23.4982 4704,23.4982 4704,103.498 -128,102.863 -128,-185.137 -112,-185.137"/>
+  </object>
+  <object id="489" type="Hitbox" x="-4832" y="-736">
+   <polygon points="0,0 0,80 16,80 16,0"/>
   </object>
  </objectgroup>
  <objectgroup id="2" name="front"/>
