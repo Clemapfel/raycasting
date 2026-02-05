@@ -4,18 +4,23 @@
 --- @field target ow.ObjectWrapper
 --- @field value any?
 --- @signal activate (self, rt.Player) -> nil
-ow.OverlapTrigger = meta.class("OverlapTrigger", rt.Drawable) -- TODO
+ow.OverlapTrigger = meta.class("OverlapTrigger")
 meta.add_signals(ow.OverlapTrigger, "activate")
 
 --- @brief
 function ow.OverlapTrigger:instantiate(object, stage, scene)
-    meta.install(self, {
-        _body = object:create_physics_body(stage:get_physics_world(), b2.BodyType.STATIC),
-        _target =  object:get_object("target", true),
-        _signal = object:get_string("signal", true),
-        _value = object:get("value", false),
-        _receiver = nil
-    })
+    self._scene = scene
+    self._stage = stage
+    self._body = object:create_physics_body(stage:get_physics_world(), b2.BodyType.STATIC)
+    self._target =  object:get_object("target", true)
+    self._signal = object:get_string("signal", true)
+    self._value = object:get("value", false)
+    self._receiver = nil
+
+    -- if player overlaps, activate
+    self._body:set_is_sensor(true)
+    self._body:set_collision_group(0x0)
+    self._body:set_collides_with(0x0)
 
     -- add receive once stage is initialized
     stage:signal_connect("initialized", function(stage)
@@ -29,25 +34,14 @@ function ow.OverlapTrigger:instantiate(object, stage, scene)
             rt.error("In ow.OverlapTrigger: trigger `",  object:get_id(),  "` is set to trigger signal `",  self._signal,  "` in object `",  meta.typeof(self._receiver),  "`, but it does not have that signal")
         end
 
+        self._body:set_collides_with(rt.settings.player.bounce_collision_group)
+        self._body:set_collision_group(rt.settings.player.bounce_collision_group)
+        self._body:signal_connect("collision_start", function(self_body, other_body)
+            if other_body:has_tag("player") then
+                dbg(self._receiver:signal_try_emit(self._signal, self._value))
+            end
+        end)
+
         return meta.DISCONNECT_SIGNAL
     end)
-
-    -- if player overlaps, activate
-    self._body:set_is_sensor(true)
-    self._body:set_collides_with(rt.settings.player.bounce_collision_group)
-    self._body:set_collision_group(rt.settings.player.bounce_collision_group)
-    self._body:signal_connect("collision_start", function(self_body, other_body, x, y, nx, ny)
-        self:signal_emit("activate")
-    end)
-
-    -- if activated, emit receiver
-    self:signal_connect("activate", function()
-        self._receiver:signal_try_emit(self._signal, self._value)
-    end)
-end
-
---- @brief
-function ow.OverlapTrigger:draw()
-    love.graphics.setColor(1, 1, 1, 1)
-    self._body:draw()
 end

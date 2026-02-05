@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 7,
-  nextobjectid = 440,
+  nextobjectid = 462,
   properties = {},
   tilesets = {
     {
@@ -142,6 +142,53 @@ return {
           properties = {
             ["is_visible"] = true
           }
+        },
+        {
+          id = 458,
+          name = "overlap",
+          type = "OverlapTrigger",
+          shape = "rectangle",
+          x = -8272,
+          y = -880,
+          width = 240,
+          height = 208,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["signal"] = "unpause",
+            ["target"] = { id = 460 }
+          }
+        },
+        {
+          id = 459,
+          name = "PathTo",
+          type = "PathNode",
+          shape = "point",
+          x = -7984,
+          y = -672,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 460,
+          name = "PathFrom",
+          type = "Path",
+          shape = "point",
+          x = -7984,
+          y = -544,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["is_paused"] = true,
+            ["n_cycles"] = 0.5,
+            ["next"] = { id = 459 },
+            ["target"] = { id = 461 }
+          }
         }
       }
     },
@@ -212,8 +259,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = -6904.41,
-          y = 61.0265,
+          x = -7568,
+          y = -711.498,
           width = 0,
           height = 0,
           rotation = 0,
@@ -293,57 +340,6 @@ return {
             { x = -384, y = -784 },
             { x = -384, y = 32 },
             { x = 0, y = 32 }
-          },
-          properties = {}
-        },
-        {
-          id = 345,
-          name = "From",
-          type = "Path",
-          shape = "point",
-          x = 432,
-          y = 1347.92,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["next"] = { id = 346 },
-            ["target"] = { id = 348 }
-          }
-        },
-        {
-          id = 346,
-          name = "To",
-          type = "PathNode",
-          shape = "point",
-          x = 720,
-          y = 1344,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["easing"] = "LINEAR",
-            ["velocity"] = 3
-          }
-        },
-        {
-          id = 348,
-          name = "",
-          type = "AcceleratorSurface",
-          shape = "polygon",
-          x = 368,
-          y = 1312,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = 0 },
-            { x = 0, y = 64 },
-            { x = 320, y = 64 },
-            { x = 320, y = 0 }
           },
           properties = {}
         },
@@ -1308,58 +1304,143 @@ return {
           properties = {}
         },
         {
-          id = 439,
-          name = "Toast",
-          type = "",
+          id = 444,
+          name = "",
+          type = "Hitbox",
           shape = "polygon",
-          x = -2730.02,
-          y = 352.773,
+          x = -7584,
+          y = -679.498,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
           polygon = {
-            { x = 0, y = 0 },
-            { x = -49.2611, y = 28.6032 },
-            { x = -92.1659, y = 76.2752 },
-            { x = -109.646, y = 155.729 },
-            { x = -109.646, y = 255.84 },
-            { x = -88.9878, y = 349.595 },
-            { x = 30.1923, y = 416.336 },
-            { x = 209.757, y = 468.775 },
-            { x = 313.046, y = 457.651 },
-            { x = 370.253, y = 370.253 },
-            { x = 370.253, y = 192.277 },
-            { x = 319.403, y = 52.4392 },
-            { x = 281.265, y = 9.5344 },
-            { x = 198.633, y = -38.1376 },
-            { x = 100.111, y = -38.1376 },
-            { x = 38.1376, y = -14.3016 },
-            { x = 14.3016, y = -3.17813 },
-            { x = 39.7267, y = 38.1376 },
-            { x = 104.878, y = 4.7672 },
-            { x = 177.976, y = 12.7125 },
-            { x = 230.415, y = 31.7813 },
-            { x = 259.018, y = 41.3157 },
-            { x = 298.745, y = 108.057 },
-            { x = 324.17, y = 162.085 },
-            { x = 338.471, y = 189.099 },
-            { x = 336.882, y = 332.115 },
-            { x = 324.17, y = 362.307 },
-            { x = 297.156, y = 403.623 },
-            { x = 241.538, y = 425.87 },
-            { x = 185.921, y = 427.459 },
-            { x = 128.714, y = 406.801 },
-            { x = 46.0829, y = 375.02 },
-            { x = -22.2469, y = 343.239 },
-            { x = -61.9736, y = 293.977 },
-            { x = -63.5627, y = 189.099 },
-            { x = -49.2611, y = 109.646 },
-            { x = -17.4797, y = 74.6862 },
-            { x = 12.7125, y = 50.8502 },
-            { x = 22.2469, y = 47.672 },
-            { x = 66.7408, y = 14.3016 },
-            { x = 39.7267, y = -15.8907 }
+            { x = -112, y = 16 },
+            { x = 1216, y = 16 },
+            { x = 1216, y = 0 },
+            { x = 1664, y = 0 },
+            { x = 1664, y = 112 },
+            { x = -112, y = 112 }
+          },
+          properties = {}
+        },
+        {
+          id = 445,
+          name = "",
+          type = "SlipperyHitbox",
+          shape = "polygon",
+          x = -7696,
+          y = -679.498,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 16, y = 0 },
+            { x = -16, y = 0 },
+            { x = -16, y = 112 },
+            { x = 0, y = 112 },
+            { x = 0, y = 16 },
+            { x = 288, y = 16 },
+            { x = 288, y = 0 },
+            { x = 256, y = 0 },
+            { x = 192, y = -48 },
+            { x = 80, y = -48 }
+          },
+          properties = {}
+        },
+        {
+          id = 446,
+          name = "",
+          type = "AcceleratorSurface",
+          shape = "polygon",
+          x = -7424,
+          y = -679.498,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 16, y = 0 },
+            { x = 16, y = 16 },
+            { x = 1056, y = 16 },
+            { x = 1056, y = 0 }
+          },
+          properties = {}
+        },
+        {
+          id = 447,
+          name = "",
+          type = "SlipperyHitbox",
+          shape = "polygon",
+          x = -8032,
+          y = -567.498,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = -8.50185 },
+            { x = 0, y = -104.502 },
+            { x = -240, y = -104.502 },
+            { x = -240, y = -664.502 },
+            { x = -256, y = -664.502 },
+            { x = -256, y = -8.50185 },
+            { x = -240, y = -8.50185 },
+            { x = -240, y = -88.5018 },
+            { x = -16, y = -88.5018 },
+            { x = -16, y = -8.50185 }
+          },
+          properties = {}
+        },
+        {
+          id = 448,
+          name = "",
+          type = "Hitbox",
+          shape = "polygon",
+          x = -8272,
+          y = -663.498,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 7.49815 },
+            { x = 0, y = 87.4982 },
+            { x = 224, y = 87.4982 },
+            { x = 224, y = 7.49815 }
+          },
+          properties = {}
+        },
+        {
+          id = 449,
+          name = "Coin",
+          type = "Coin",
+          shape = "point",
+          x = -8160,
+          y = -743.498,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 461,
+          name = "",
+          type = "AcceleratorSurface",
+          shape = "polygon",
+          x = -8032,
+          y = -560,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = -240, y = 0 },
+            { x = 336, y = 0 },
+            { x = 336, y = 16 },
+            { x = -240, y = 16 }
           },
           properties = {}
         }
