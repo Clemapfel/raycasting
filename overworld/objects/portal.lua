@@ -502,8 +502,12 @@ function ow.Portal:_set_player_disabled(b)
     end
 
     -- ghost disable happens in _teleport
-
-    self._scene:set_camera_mode(ow.CameraMode.MANUAL)
+    if b == true then
+        self._scene:push_camera_mode(ow.CameraMode.CUTSCENE)
+        self._scene:get_camera():set_apply_bounds(true)
+    else
+        self._scene:pop_camera_mode(ow.CameraMode.CUTSCENE)
+    end
 end
 
 -- clamp point such that it does not cross an infinite line
@@ -599,7 +603,6 @@ function ow.Portal:update(delta)
             player:set_trail_is_visible(true)
             self:_set_player_disabled(false)
             self:_teleport()
-            self._scene:set_camera_mode(ow.CameraMode.AUTO)
 
             self._transition_active = false
             target._pulse_elapsed = 0

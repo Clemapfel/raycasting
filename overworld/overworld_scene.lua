@@ -17,13 +17,6 @@ require "common.blur"
 do
     local bloom = 0.2
     rt.settings.overworld_scene = {
-        camera_translation_velocity = 400, -- px / s,
-        camera_scale_velocity = 0.05, -- % / s
-        camera_rotate_velocity = 2 * math.pi / 10, -- rad / s
-        camera_pan_width_factor = 0.15,
-        camera_freeze_duration = 0.25,
-        allow_translation = true,
-
         bloom_blur_strength = 1.5, -- > 0
         bloom_composite_strength = bloom, -- [0, 1]
         title_card_min_duration = 3, -- seconds
@@ -45,8 +38,10 @@ end
 ow.OverworldScene = meta.class("OverworldScene", rt.Scene)
 
 ow.CameraMode = meta.enum("CameraMode", {
-    AUTO = "AUTO",
-    MANUAL = "MANUAL"
+    FREEZE = "FREEZE",       -- all movement disabled
+    CUTSCENE = "CUTSCENE",   -- fully controlled externally
+    BOUNDED = "BOUNDED",     -- follow player, stay in camera bounds
+    UNBOUNDED = "UNBOUNDED", -- follow player, camera bounds ignored
 })
 
 local _bloom_shader = nil
@@ -71,13 +66,6 @@ function ow.OverworldScene:instantiate(state)
     ow.StageConfig._tileset_atlas = {}
     rt.Sprite._path_to_spritesheet = {}
 
-    DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
-        if which == "j" then
-            self:set_control_indicator_type(ow.ControlIndicatorType.INTERACT, true)
-        elseif which == "h" then
-            self:set_control_indicator_type(ow.ControlIndicatorType.NONE)
-        end
-    end)
 
     meta.install(self, {
         _state = state,
@@ -86,31 +74,9 @@ function ow.OverworldScene:instantiate(state)
         _stage = nil,
         _player = state:get_player(),
         _input = rt.InputSubscriber(false),
-
-        _camera_translation_velocity_x = 0,
-        _camera_translation_velocity_y = 0,
-        _camera_scale_velocity = 0,
-        _camera_rotate_velocity = 0,
-        _camera_position_offset_x = 0,
-        _camera_position_offset_y = 0,
-        _player_is_focused = true,
-
-        _stage_mapping = {}, -- cf _notify_stage_transition
-
-        _camera_pan_area_width = 0,
-        _camera_pan_gradient_top = nil,
-        _camera_pan_up_speed = 0,
-        _camera_pan_gradient_right = nil,
-        _camera_pan_right_speed = 0,
-        _camera_pan_gradient_bottom = nil,
-        _camera_pan_down_speed = 0,
-        _camera_pan_gradient_left = nil,
-        _camera_pan_left_speed = 0,
+        _background = nil, -- ow.Background
 
         _cursor_active = false,
-        _camera_freeze_elapsed = 0, -- sic, freeze at initialization
-
-        _background = nil, -- ow.Background
 
         _pause_menu = mn.PauseMenu(self),
         _pause_menu_active = false,
@@ -123,6 +89,8 @@ function ow.OverworldScene:instantiate(state)
         _title_card_active = false,
         _title_card_elapsed = 0,
 
+        _player_is_visible = true,
+
         _player_canvas = nil,
         _player_canvas_needs_update = true,
 
@@ -131,19 +99,22 @@ function ow.OverworldScene:instantiate(state)
         _timer_stopped = false,
         _timer = 0,
 
-        _player_is_visible = true,
-        _hide_debug_information = false,
-
         _fade_to_black = 0,
         _blur_t = 0,
         _blur = nil, -- rt.Blur
-        _screenshot = nil
+        _screenshot = nil,
+
+        _camera_modes = {}
     })
+
+    for mode in values(meta.instances(ow.CameraMode)) do
+        dbg(mode)
+        self._camera_modes[mode] = 0
+    end
 
     self._background = ow.Background(self)
 
     local translation = rt.Translation.overworld_scene
-
     local dialog_control_indicator = function(can_advance, can_exit)
         if can_advance == false and can_exit == false then return nil end
 
@@ -234,18 +205,8 @@ function ow.OverworldScene:instantiate(state)
     self._control_indicator_particle_effect = ow.RevealParticleEffect()
 
     self._input:signal_connect("pressed", function(_, which)
-        self:_set_is_cursor_visible(false) -- on any input action
-
-        if which == rt.InputAction.PAUSE then
-            if not self._pause_menu_active then
-                self:pause()
-            end
-        elseif which == rt.InputAction.RESET and self._camera_mode ~= ow.CameraMode.MANUAL then
-            self._camera:set_scale(1)
-            self._camera_scale_velocity = 0
-            self._camera:set_position(self._player:get_position())
-            self._camera_translation_velocity_x = 0
-            self._camera_translation_velocity_y = 0
+        if not self._pause_menu_active and which == rt.InputAction.PAUSE then
+            self:pause()
         elseif self._pause_menu_active and which == rt.InputAction.BACK then
             self:unpause()
         end
@@ -265,152 +226,6 @@ function ow.OverworldScene:instantiate(state)
             self:unpause()
             self:reset()
             self._input:activate()
-        elseif which == "h" then
-            rt.ImpulseManager:beat()
-        elseif which == "j" then
-            rt.ImpulseManager:pulse()
-        end
-    end)
-
-    self._input:signal_connect("left_joystick_moved", function(_, x, y)
-        self:_handle_joystick(x, y, true)
-        self:_set_cursor_is_active(false)
-    end)
-
-    self._input:signal_connect("right_joystick_moved", function(_, x, y)
-        self:_handle_joystick(x, y, false)
-        self:_set_cursor_is_active(false)
-    end)
-
-    self._input:signal_connect("left_trigger_moved", function(_, value)
-        self:_handle_trigger(value, true)
-        self:_set_cursor_is_active(false)
-    end)
-
-    self._input:signal_connect("right_trigger_moved", function(_, value)
-        self:_handle_trigger(value, false)
-        self:_set_cursor_is_active(false)
-    end)
-
-    -- raw inputs
-
-    self._input:signal_connect("controller_button_pressed", function(_, which, count, controller_id)
-        if which == "leftstick" or which == "rightstick" and self._camera_mode ~= ow.CameraMode.MANUAL then
-            self._camera:reset()
-            self._camera:set_position(self._player:get_position())
-        end
-        self:_set_cursor_is_active(false)
-    end)
-
-    local _up_pressed = false
-    local _right_pressed = false
-    local _down_pressed = false
-    local _left_pressed = false
-
-    local function _update_velocity()
-        local max_velocity = rt.settings.overworld_scene.camera_translation_velocity
-        if _left_pressed == _right_pressed then
-            self._camera_translation_velocity_x = 0
-        elseif _left_pressed then
-            self._camera_translation_velocity_x = -max_velocity
-            self._player_is_focused = false
-        elseif _right_pressed then
-            self._camera_translation_velocity_x = max_velocity
-            self._player_is_focused = false
-        end
-
-        if _up_pressed == _down_pressed then
-            self._camera_translation_velocity_y = 0
-        elseif _up_pressed then
-            self._camera_translation_velocity_y = -max_velocity
-            self._player_is_focused = false
-        elseif _down_pressed then
-            self._camera_translation_velocity_y = max_velocity
-            self._player_is_focused = false
-        end
-    end
-
-    function self:_set_is_cursor_visible(b)
-        rt.SceneManager:set_is_cursor_visible(b)
-        if b == false then
-            self._camera_pan_up_speed = 0
-            self._camera_pan_right_speed = 0
-            self._camera_pan_down_speed = 0
-            self._camera_pan_left_speed = 0
-        end
-    end
-    
-    function self:_set_cursor_is_active(b)
-        self._cursor_active = b
-    end
-
-    self._input:signal_connect("keyboard_key_pressed", function(_, which)
-        local max_velocity = rt.settings.overworld_scene.camera_translation_velocity
-        if which == "up" then
-            _up_pressed = true
-        elseif which == "right" then
-            _right_pressed = true
-        elseif which == "down" then
-            _down_pressed = true
-        elseif which == "left" then
-            _left_pressed = true
-        end
-
-        _update_velocity()
-        self:_set_cursor_is_active(false)
-        self._camera_pan_up_speed = 0
-        self._camera_pan_right_speed = 0
-        self._camera_pan_down_speed = 0
-        self._camera_pan_left_speed = 0
-    end)
-
-    self._input:signal_connect("keyboard_key_released", function(_, which)
-        if which == "up" then
-            _up_pressed = false
-        elseif which == "right" then
-            _right_pressed = false
-        elseif which == "down" then
-            _down_pressed = false
-        elseif which == "left" then
-            _left_pressed = false
-        end
-
-        _update_velocity()
-        self:_set_cursor_is_active(false)
-    end)
-
-    self._input:signal_connect("mouse_moved", function(_, x, y)
-        self:_set_cursor_is_active(true)
-        if self._input:get_input_method() == rt.InputMethod.KEYBOARD then
-            local w = self._camera_pan_area_width
-            self._camera_pan_up_speed = math.max((w - y) / w, 0)
-            self._camera_pan_right_speed = math.max((x - (self._bounds.x + self._bounds.width - w)) / w, 0)
-            self._camera_pan_down_speed = math.max((y - (self._bounds.y + self._bounds.height - w)) / w, 0)
-            self._camera_pan_left_speed = math.max((w - x) / w, 0)
-            self:_set_is_cursor_visible(true)
-        end
-    end)
-
-    self._input:signal_connect("input_method_changed", function(_, which)
-        if which ~= rt.InputMethod.KEYBOARD then
-            self:_set_is_cursor_visible(false)
-            self:_set_cursor_is_active(false)
-            -- only hide, reveal could mess up out-of-window disable
-        end
-    end)
-
-    self._input:signal_connect("mouse_entered_screen", function(_)
-    end)
-
-    self._input:signal_connect("mouse_left_screen", function(_)
-        self:_set_is_cursor_visible(false)
-    end)
-
-    self._input:signal_connect("mouse_wheel_moved", function(_, dx, dy)
-        if self._camera_mode ~= ow.CameraMode.MANUAL and love.keyboard.isDown("lctrl") or love.keyboard.isDown("rctrl") then
-            local current = self._camera:get_scale()
-            current = current + dy * rt.settings.overworld_scene.camera_scale_velocity
-            self._camera:set_scale(math.clamp(current, 1 / 100, 4))
         end
     end)
 
@@ -426,16 +241,12 @@ function ow.OverworldScene:instantiate(state)
         indicator:realize()
     end
 
-    do
-        local settings = rt.settings.overworld_scene
-        self._player_canvas_scale = settings.player_canvas_scale
-        local radius = rt.settings.player.radius * settings.player_canvas_size_radius_factor
-        local texture_w, texture_h = 2 * radius * self._player_canvas_scale, 2 * radius * self._player_canvas_scale
-        self._player_canvas = rt.RenderTexture(texture_w, texture_h)
-    end
+    local settings = rt.settings.overworld_scene
+    self._player_canvas_scale = settings.player_canvas_scale
+    local radius = rt.settings.player.radius * settings.player_canvas_size_radius_factor
+    local texture_w, texture_h = 2 * radius * self._player_canvas_scale, 2 * radius * self._player_canvas_scale
+    self._player_canvas = rt.RenderTexture(texture_w, texture_h)
 end
-
-local _blocked = 0
 
 --- @brief
 function ow.OverworldScene:enter(new_stage_id, show_title_card)
@@ -450,6 +261,7 @@ function ow.OverworldScene:enter(new_stage_id, show_title_card)
     if new_stage_id ~= nil then
         self:set_stage(new_stage_id, show_title_card)
     end
+
     -- do not reset player or pause state
 end
 
@@ -528,28 +340,30 @@ end
 
 --- @brief
 function ow.OverworldScene:exit()
-    love.mouse.setGrabbed(false)
-    love.mouse.setCursor(nil)
-
     self._input:deactivate()
 end
 
 --- @brief
 function ow.OverworldScene:size_allocate(x, y, width, height)
-    local factor = rt.settings.overworld_scene.camera_pan_width_factor
-    local gradient_w = factor * math.min(width, height)
-    local gradient_h = gradient_w
-    local r, g, b, a = 1, 1, 1, 0.2
-    self._camera_pan_area_width = gradient_w
-
-    if self._screenshot == nil or self._screenshot:get_width() ~= width or self._screenshot:get_height() ~= height then
+    if self._screenshot == nil
+        or self._screenshot:get_width() ~= width
+        or self._screenshot:get_height() ~= height
+    then
         if self._screenshot ~= nil then self._screenshot:free() end
+
         self._screenshot = rt.RenderTexture(
             width, height,
             0, -- msaa
             rt.settings.overworld_scene.screenshot_texture_format
         )
         self._screenshot_needs_update = true
+    end
+
+    if self._blur == nil
+        or self._blur:get_width() ~= width
+        or self._blur:get_height() ~= height
+    then
+        self._blur = rt.Blur(width, height)
     end
 
     local m = rt.settings.margin_unit
@@ -568,44 +382,12 @@ function ow.OverworldScene:size_allocate(x, y, width, height)
         self._control_indicator_max_offset = 2 * max_h
     end
 
-    self._pan_gradient_top = rt.Mesh({
-        { x, y,                       0, 0, r, g, b, a },
-        { x + width, y,               0, 0, r, g, b, a },
-        { x + width, y + gradient_h,  0, 0, r, g, b, 0 },
-        { x, y + gradient_h,          0, 0, r, g, b, 0 }
-    })
-
-    self._pan_gradient_bottom = rt.Mesh({
-        { x, y + height - gradient_h,         0, 0, r, g, b, 0 },
-        { x + width, y + height - gradient_h, 0, 0, r, g, b, 0 },
-        { x + width, y + height,              0, 0, r, g, b, a },
-        { x, y + height,                      0, 0, r, g, b, a }
-    })
-
-    self._pan_gradient_left = rt.Mesh({
-        { x, y,                       0, 0, r, g, b, a },
-        { x + gradient_w, y,          0, 0, r, g, b, 0 },
-        { x + gradient_w, y + height, 0, 0, r, g, b, 0 },
-        { x, y + height,              0, 0, r, g, b, a }
-    })
-
-    self._pan_gradient_right = rt.Mesh({
-        { x + width - gradient_w, y,          0, 0, r, g, b, 0 },
-        { x + width, y,                       0, 0, r, g, b, a },
-        { x + width, y + height,              0, 0, r, g, b, a },
-        { x + width - gradient_w, y + height, 0, 0, r, g, b, 0 }
-    })
-
     for widget in range(
         self._background,
         self._pause_menu,
         self._title_card
     ) do
         widget:reformat(0, 0, width, height)
-    end
-
-    if self._blur == nil or self._blur:get_width() ~= width or self._blur:get_height() ~= height then
-        self._blur = rt.Blur(width, height)
     end
 end
 
@@ -642,10 +424,6 @@ end
 function ow.OverworldScene:stop_timer()
     self._timer_stopped = true
 end
-
-local _white_r, _white_g, _white_b = rt.color_unpack(rt.Palette.WHITE)
-local _black_r, _black_g, _black_b = rt.color_unpack(rt.Palette.BLACK)
-
 function ow.OverworldScene:draw()
     if self._stage == nil then return end
 
@@ -759,25 +537,6 @@ function ow.OverworldScene:draw()
     end
 
     love.graphics.pop()
-
-    if rt.settings.overworld_scene.allow_translation
-        and not self._pause_menu_active
-        and not self._fade:get_is_active()
-        and rt.SceneManager:get_is_cursor_visible()
-    then
-        local factor = 2
-        love.graphics.setColor(1, 1, 1, factor * self._camera_pan_up_speed)
-        love.graphics.draw(self._pan_gradient_top._native)
-
-        love.graphics.setColor(1, 1, 1, factor * self._camera_pan_right_speed)
-        love.graphics.draw(self._pan_gradient_right._native)
-
-        love.graphics.setColor(1, 1, 1, factor * self._camera_pan_down_speed)
-        love.graphics.draw(self._pan_gradient_bottom._native)
-
-        love.graphics.setColor(1, 1, 1, factor * self._camera_pan_left_speed)
-        love.graphics.draw(self._pan_gradient_left._native)
-    end
 
     if self._pause_menu_active then
         self._pause_menu:draw()
@@ -1012,8 +771,6 @@ function ow.OverworldScene:_draw_debug_information()
 end
 
 
-local _last_x, _last_y
-
 --- @brief
 function ow.OverworldScene:update(delta)
     -- wait for stage to finish
@@ -1044,7 +801,6 @@ function ow.OverworldScene:update(delta)
     end
 
     -- update control indicator
-
     do
         -- if idle for too long in overworld, display scene control indicator
         -- only override if other indicator is not currently active
@@ -1077,17 +833,9 @@ function ow.OverworldScene:update(delta)
         return
     end
 
-    _blocked = _blocked - 1
-    if _blocked >= 0 then return end
-    if self._stage == nil then return end
-
-    local x, y = self._camera:world_xy_to_screen_xy(self._player:get_physics_body():get_predicted_position())
-
     self._player:update(delta)
     self._camera:update(delta)
-    self._stage:update(delta)
-
-     -- stage has to happen after player
+    self._stage:update(delta) -- order matters
 
     self._background:notify_camera_changed(self._camera)
     self._background:update(delta)
@@ -1116,101 +864,7 @@ function ow.OverworldScene:update(delta)
         love.graphics.pop()
     end
 
-    -- mouse-based scrolling
-    if rt.SceneManager:get_is_cursor_visible() and not self._fade:get_is_active() then
-        local max_velocity = rt.settings.overworld_scene.camera_translation_velocity
-        self._camera_translation_velocity_x = (-1 * self._camera_pan_left_speed + 1 * self._camera_pan_right_speed) * max_velocity
-        self._camera_translation_velocity_y = (-1 * self._camera_pan_up_speed + 1 * self._camera_pan_down_speed) * max_velocity
-
-        if math.magnitude(self._camera_translation_velocity_x, self._camera_translation_velocity_y) > 0 then
-            self._player_is_focused = false
-            self._camera_freeze_elapsed = self._camera_freeze_elapsed + delta
-        end
-    end
-
-    -- measure actual player velocity, if moving, disable manual camera
-    local px, py = self._player:get_predicted_position()
-    if _last_x == nil then
-        _last_x, _last_y = px, py
-    end
-
-    local player_velocity = math.magnitude(px - _last_x, py - _last_y)
-    if player_velocity > 1 then
-        self._player_is_focused = true
-        self._camera_freeze_elapsed = 0
-    end
-    _last_x, _last_y = px, py
-
-    if self._player_is_focused and self._camera_mode ~= ow.CameraMode.MANUAL then
-        local new_x, new_y = self._player:get_position()
-        self._camera:move_to(new_x + self._camera_position_offset_x, new_y + self._camera_position_offset_y)
-
-        local bounds = self._camera:get_bounds()
-        local is_contained = false
-        for bound in values(bounds) do
-            if bound:contains(new_x, new_y) then
-                is_contained = true
-                break
-            end
-        end
-
-        if not is_contained then
-            self._camera:set_apply_bounds(false) -- unhook from bounds if player leaves them
-        else
-            self._camera:set_apply_bounds(true)
-        end
-
-        if self._camera:get_apply_bounds() then
-            -- freeze player until camera catches up
-            local pos_x, pos_y = self._player:get_position()
-            local top_left_x, top_left_y = self._camera:screen_xy_to_world_xy(0, 0)
-            local bottom_right_x, bottom_right_y = self._camera:screen_xy_to_world_xy(love.graphics.getWidth(), love.graphics.getHeight())
-
-            local buffer = -1 * self._player:get_radius() * 2 -- to prevent softlock at edge of screen
-            top_left_x = top_left_x + buffer
-            top_left_y = top_left_y + buffer
-            bottom_right_x = bottom_right_x - buffer
-            bottom_right_y = bottom_right_y - buffer
-
-            local on_screen = new_x > top_left_x and new_x < bottom_right_x and new_y > top_left_y and new_y < bottom_right_y
-        end
-    elseif rt.settings.overworld_scene.allow_translation and self._camera_freeze_elapsed > rt.settings.overworld_scene.camera_freeze_duration and love.window.hasMouseFocus() then
-        local cx, cy = self._camera:get_position()
-        cx = cx + self._camera_translation_velocity_x * delta
-        cy = cy + self._camera_translation_velocity_y * delta
-        self._camera:set_position(cx, cy)
-    end
-
-    local max_velocity = rt.settings.overworld_scene.camera_scale_velocity
-    if love.keyboard.isDown("m") then
-        self._camera_scale_velocity = 1 * max_velocity * 5
-    elseif love.keyboard.isDown("n") then
-        self._camera_scale_velocity = -1 * max_velocity * 5
-    else
-        if self._input:get_input_method() == rt.InputMethod.KEYBOARD then
-            self._camera_scale_velocity = 0
-        end
-    end
-end
-
---- @brief
-function ow.OverworldScene:_handle_joystick(x, y, left_or_right)
-    if left_or_right == false then
-        -- when moving, allow look-ahead but keep player on screen
-        local radius = 0.15 * math.min(love.graphics.getWidth(), love.graphics.getHeight())
-        self._camera_position_offset_x = x * radius
-        self._camera_position_offset_y = y * radius
-    end
-end
-
---- @brief
-function ow.OverworldScene:_handle_trigger(value, left_or_right)
-    local max_velocity = rt.settings.overworld_scene.camera_scale_velocity
-    if left_or_right == false then
-        self._camera_scale_velocity = value * max_velocity * 20
-    else
-        self._camera_scale_velocity = -value * max_velocity * 20
-    end
+    self:_update_camera()
 end
 
 --- @brief
@@ -1231,11 +885,6 @@ end
 --- @brief
 function ow.OverworldScene:get_player()
     return self._player
-end
-
---- @brief
-function ow.OverworldScene:set_camera_mode(mode)
-    self._camera_mode = mode
 end
 
 --- @brief
@@ -1405,3 +1054,58 @@ function ow.OverworldScene:set_blur(t)
     self._blur_t = t
 end
 
+--- @brief
+function ow.OverworldScene:push_camera_mode(mode)
+    meta.assert_enum_value(mode, ow.CameraMode)
+    self._camera_modes[mode] = self._camera_modes[mode] + 1
+end
+
+--- @brief
+function ow.OverworldScene:pop_camera_mode(mode)
+    meta.assert_enum_value(mode, ow.CameraMode)
+    self._camera_modes[mode] = math.max(0, self._camera_modes[mode] - 1)
+end
+
+--- @brief
+function ow.OverworldScene:clear_camera_mode()
+    for mode in keys(self._camera_modes) do
+        self._camera_modes[mode] = 0
+    end
+end
+
+--- @brief
+function ow.OverworldScene:_update_camera(delta)
+    local top = self._camera_modes[1]
+    local camera = self._camera
+    local px, py = self._player:get_position()
+
+    local is_frozen = self._camera_modes[ow.CameraMode.FREEZE] > 0
+    local has_cutscene = self._camera_modes[ow.CameraMode.CUTSCENE] > 0
+    local has_bounded = self._camera_modes[ow.CameraMode.BOUNDED] > 0
+    local has_unbounded = self._camera_modes[ow.CameraMode.UNBOUNDED] > 0
+
+    if is_frozen then
+        camera:set_is_enabled(false)
+        return
+    else
+        camera:set_is_enabled(true)
+    end
+
+    if has_cutscene then
+        -- noop, controlled externally
+        return
+    elseif has_bounded then
+        -- scale and bounds controlled externaly
+        camera:set_apply_bounds(true)
+        camera:move_to(px, py)
+    elseif has_unbounded then
+        -- only scale controlled externally
+        camera:set_apply_bounds(false)
+        camera:move_to(px, py)
+    else
+        -- nothing controlled externally, follow player
+        camera:set_apply_bounds(false)
+        camera:scale_to(1)
+        camera:move_to(px, py)
+    end
+end

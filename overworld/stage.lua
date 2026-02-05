@@ -61,6 +61,8 @@ function ow.Stage:instantiate(scene, id)
 
         -- stage objects
         _coins = {}, -- cf. add_coin
+        _camera_bounds = meta.make_weak({}), -- Table<ow.CameraBounds>
+        _camera_walls = meta.make_weak({}), -- Table<ow.CameraWalls>
         _checkpoints = meta.make_weak({}), -- Table<ow.Checkpoint, Number>
         _blood_splatter = ow.BloodSplatter(scene),
         _mirror = nil, -- ow.Mirror
@@ -175,6 +177,9 @@ function ow.Stage:instantiate(scene, id)
     self._checkpoints = meta.make_weak({})
     local n_goals = 0 -- number ow.Goal, for warning
 
+    self._camera_bounds = meta.make_weak({})
+    self._camera_walls = meta.make_weak({})
+
     local coins = {}
 
     -- parse layers
@@ -208,6 +213,10 @@ function ow.Stage:instantiate(scene, id)
                     table.insert(coins, instance)
                 elseif meta.isa(instance, ow.Goal) then
                     n_goals = n_goals + 1
+                elseif meta.isa(instance, ow.CameraBounds) then
+                    table.insert(self._camera_bounds, instance)
+                elseif meta.isa(instance, ow.CameraWall) then
+                    table.insert(self._camera_walls, instance)
                 end
 
                 -- inject id
@@ -876,5 +885,17 @@ function ow.Stage:reset()
 
     for body in values(self._world:get_bodies()) do
         body:set_is_enabled(body_to_is_enabled[body])
+    end
+end
+
+--- @brief
+function ow.Stage:apply_camera_bounds(x, y, should_snap)
+    meta.assert(x, "Number", y, "Number")
+    for bounds in values(self._camera_bounds) do
+        bounds:try_bind(x, y)
+    end
+
+    if should_snap == true then
+        self._scene:get_camera():snap_to_bounds()
     end
 end

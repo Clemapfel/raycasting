@@ -63,6 +63,8 @@ end
 
 --- @brief
 function ow.ObjectWrapper:_as_sprite(gid, x, y, width, height, origin_x, origin_y, flip_horizontally, flip_vertically, flip_origin_x, flip_origin_y)
+    x, y, width, height = _snap(x, y, width, height)
+
     self.type = ow.ObjectType.SPRITE
     return meta.install(self, {
         gid = gid,

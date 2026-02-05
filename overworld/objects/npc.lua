@@ -551,7 +551,7 @@ function ow.NPC:_set_is_interactable(b)
         self._scene:set_control_indicator_type(ow.ControlIndicatorType.INTERACT)
 
         if self._should_focus then
-            self._scene:set_camera_mode(ow.CameraMode.MANUAL)
+            self._scene:push_camera_mode(ow.CameraMode.CUTSCENE)
             self._scene:get_camera():set_apply_bounds(true)
             self._scene:get_camera():move_to(self._x, self._y)
         end
@@ -561,7 +561,7 @@ function ow.NPC:_set_is_interactable(b)
         self._scene:set_control_indicator_type(ow.ControlIndicatorType.NONE)
 
         if self._should_focus then
-            self._scene:set_camera_mode(ow.CameraMode.AUTO)
+            self._scene:pop_camera_mode(ow.CameraMode.CUTSCENE)
         end
 
         self._interact_allowed = false

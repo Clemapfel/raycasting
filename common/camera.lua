@@ -70,6 +70,8 @@ function rt.Camera:instantiate()
         _world_bounds = rt.AABB(0, 0, 0, 0),
         _world_bounds_needs_update = true,
 
+        _is_enabled = true,
+
         _push_stack = {},
         _transform = rt.Transform()
     })
@@ -97,7 +99,7 @@ function rt.Camera:bind()
     love.graphics.push()
     love.graphics.replaceTransform(self._transform:get_native()) -- rounded
 
-    if rt.GameState:get_is_screen_shake_enabled() then
+    if self._is_enabled == true and rt.GameState:get_is_screen_shake_enabled() then
         -- leave shake unrounded, subpixel precision
         love.graphics.translate(
             _clamp(self._shake_offset_x + self._shake_impulse_offset_x),
@@ -298,8 +300,9 @@ end
 
 --- @brief
 function rt.Camera:set_rotation(r)
-    self._current_angle = r
+    if self._is_enabled ~= true then return end
 
+    self._current_angle = r
     self._world_bounds_needs_update = true
 end
 
@@ -316,6 +319,8 @@ end
 
 --- @brief
 function rt.Camera:set_position(x, y, override_bounds)
+    if self._is_enabled ~= true then return end
+
     if override_bounds ~= true then
         x, y = self:constrain(x, y)
     end
@@ -331,6 +336,8 @@ end
 --- @brief
 function rt.Camera:move_to(x, y, override_bounds)
     meta.assert(x, "Number", y, "Number")
+    if self._is_enabled ~= true then return end
+
     if override_bounds ~= true then
         self._target_x, self._target_y = self:constrain(x, y)
     else
@@ -355,6 +362,8 @@ end
 
 --- @brief
 function rt.Camera:set_scale(s, override_bounds)
+    if self._is_enabled ~= true then return end
+
     self._current_scale = s
     self._target_scale = s
 
@@ -368,11 +377,14 @@ end
 
 --- @brief
 function rt.Camera:scale_to(s)
+    if self._is_enabled ~= true then return end
+
     self._target_scale = s
 end
 
 function rt.Camera:fit_to(bounds, center_x, center_y)
     meta.assert(bounds, rt.AABB)
+    if self._is_enabled ~= true then return end
 
     local screen_w, screen_h = love.graphics.getDimensions()
     local pixel_scale = self:get_scale_delta()
@@ -415,6 +427,8 @@ end
 
 --- @brief
 function rt.Camera:snap_to_bounds()
+    if self._is_enabled ~= true then return end
+
     self:set_position(self:constrain(self:get_position()))
 end
 
@@ -605,4 +619,14 @@ end
 --- @brief
 function rt.Camera:get_speed()
     return self._speed
+end
+
+--- @brief
+function rt.Camera:set_is_enabled(b)
+    self._is_enabled = b
+end
+
+--- @brief
+function rt.Camera:get_is_enabled()
+    return self._is_enabled
 end

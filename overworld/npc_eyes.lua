@@ -424,7 +424,7 @@ function ow.NPCEyes:draw()
         if stencil_active then
             stencil_value = rt.graphics.get_stencil_value()
             rt.graphics.push_stencil()
-            rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW, rt.StencilReplaceMode.REPLACE)
+            rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW, rt.StencilDrawMode.REPLACE)
 
             local visible_fraction = 1 - self._blink_progress
 
@@ -558,7 +558,7 @@ function ow.NPCEyes:draw_bloom()
     if stencil_active then
         stencil_value = rt.graphics.get_stencil_value()
         rt.graphics.push_stencil()
-        rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW, rt.StencilReplaceMode.REPLACE)
+        rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW, rt.StencilDrawMode.REPLACE)
 
         local visible_fraction = 1 - self._blink_progress
         local s = 1 + 0.35 * self._surprised:get_value()

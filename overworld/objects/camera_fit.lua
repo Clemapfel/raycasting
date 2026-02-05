@@ -25,7 +25,6 @@ function ow.CameraFit:instantiate(object, stage, scene)
     end
 
     self._before = {
-        mode = ow.CameraMode.AUTO,
         scale = 1,
         scale_speed = 1,
         speed = 1
@@ -72,21 +71,15 @@ end
 function ow.CameraFit:_bind()
     local camera = self._scene:get_camera()
 
-    local before = self._before
-    before.mode = self._scene:get_camera_mode()
-    before.scale = camera:get_scale()
-    before.speed = camera:get_speed()
-    before.scale_speed = camera:get_scale_speed()
-
-    self._scene:set_camera_mode(ow.CameraMode.MANUAL)
+    self._scene:push_camera_mode(ow.CameraMode.CUTSCENE)
+    camera:set_apply_bounds(false)
     camera:set_scale_speed(self._scale_speed)
     camera:set_speed(self._speed)
-
+    camera:move_to(self._bounds.x + 0.5 * self._bounds.width, self._bounds.y + 0.5 * self._bounds.height)
     camera:fit_to(self._bounds, self._focus_x, self._focus_y)
 
     self._stage:signal_connect("respawn", function()
-        self._body:signal_emit("collision_end")
-        self._is_active = false
+        self:_unbind()
         return meta.DISCONNECT_SIGNAL
     end)
 end
@@ -94,12 +87,7 @@ end
 --- @brief
 function ow.CameraFit:_unbind()
     local camera = self._scene:get_camera()
-    self._scene:set_camera_mode(self._camera_mode_before)
-
-    local before = self._before
-    camera:scale_to(before.scale)
-    camera:set_scale_speed(before.scale_speed)
-    camera:set_speed(before.speed)
+    self._scene:pop_camera_mode(ow.CameraMode.CUTSCENE)
 end
 
 --- @brief

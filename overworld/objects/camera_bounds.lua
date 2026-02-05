@@ -25,22 +25,10 @@ function ow.CameraBounds:instantiate(object, stage, scene)
     self._scale_before = nil
     self._bounds_before = nil
 
-    self._stage:signal_connect("respawn", function(_, is_first_spawn)
-        self:_unbind()
-
-        local px, py = self._scene:get_player():get_position()
-        if self._body:test_point(px, py) then
-            self:_bind()
-            self._scene:get_camera():snap_to_bounds()
-        end
-
-        return meta.DISCONNECT_SIGNAL
-    end)
-
     self._body:signal_connect("collision_start", function()
         self:_bind()
         self._stage:signal_connect("respawn", function()
-            self._body:signal_emit("collision_end")
+            self:_unbind()
             return meta.DISCONNECT_SIGNAL
         end)
     end)
@@ -56,6 +44,7 @@ function ow.CameraBounds:_bind()
     if self._should_apply_bounds then
         self._bounds_before = camera:get_bounds()
         camera:add_bounds(self._bounds)
+        self._scene:push_camera_mode(ow.CameraMode.BOUNDED)
     end
 
     if self._should_apply_scale then
@@ -64,14 +53,25 @@ function ow.CameraBounds:_bind()
     end
 end
 
---- @brie
+--- @brief
 function ow.CameraBounds:_unbind()
     local camera = self._scene:get_camera()
     if self._should_apply_bounds then
         camera:remove_bounds(self._bounds)
+        self._scene:pop_camera_mode(ow.CameraMode.BOUNDED)
     end
 
     if self._should_apply_scale then
         camera:scale_to(self._scale_before)
     end
+end
+
+--- @brief
+function ow.CameraBounds:try_bind(px, py)
+    if self._bounds:contains(px, py) then
+        self:_bind()
+        return true
+    end
+
+    return false
 end

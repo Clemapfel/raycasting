@@ -1,11 +1,3 @@
---- @class rt.StencilMode
-rt.StencilReplaceMode = meta.enum("StencilReplaceMode", {
-    KEEP = "keep",
-    REPLACE = "replace",
-    INCREMENT = "increment",
-    DECREMENT = "decrement"
-})
-
 function rt.graphics.get_stencil_value()
     local out = rt.graphics._stencil_value
     if out == nil then
@@ -18,6 +10,15 @@ function rt.graphics.get_stencil_value()
     return out
 end
 
+--- @class rt.StencilDrawMode
+rt.StencilDrawMode = meta.enum("StencilDrawMode", {
+    KEEP = "keep",
+    REPLACE = "replace",
+    INCREMENT = "increment",
+    DECREMENT = "decrement"
+})
+
+--- @class rt.StencilCompareMode
 rt.StencilCompareMode = meta.enum("StencilCompareMode", {
     EQUAL = "equal",
     NOT_EQUAL = "notequal",
@@ -28,6 +29,7 @@ rt.StencilCompareMode = meta.enum("StencilCompareMode", {
     ALWAYS = "always"
 })
 
+--- @class rt.StencilMode
 rt.StencilMode = meta.enum("StencilMode", {
     DRAW = "draw",
     TEST = "Test"
@@ -71,18 +73,18 @@ function rt.graphics.set_stencil_mode(value, mode, draw_or_compare_mode)
         if mode == rt.StencilMode.TEST then
             meta.assert_enum_value(draw_or_compare_mode, rt.StencilCompareMode)
         elseif mode == rt.StencilMode.DRAW then
-            meta.assert_enum_value(draw_or_compare_mode, rt.StencilReplaceMode)
+            meta.assert_enum_value(draw_or_compare_mode, rt.StencilDrawMode)
         end
     end
 
     local replace_mode, test_mode, mask
     if mode == rt.StencilMode.TEST then
-        replace_mode = rt.StencilReplaceMode.KEEP
+        replace_mode = rt.StencilDrawMode.KEEP
         test_mode = draw_or_compare_mode or rt.StencilCompareMode.EQUAL
         mask = _draw_to_backbuffer
         rt.graphics._stencil_mode_active = false
     elseif mode == rt.StencilMode.DRAW then
-        replace_mode = draw_or_compare_mode or rt.StencilReplaceMode.REPLACE
+        replace_mode = draw_or_compare_mode or rt.StencilDrawMode.REPLACE
         test_mode = rt.StencilCompareMode.ALWAYS
         mask = not _draw_to_backbuffer
         rt.graphics._stencil_mode_active = true

@@ -346,15 +346,12 @@ function ow.Path:reset()
 
     self._is_paused = self._starts_paused
 
-    -- Calculate initial position based on cycle_offset
     local length = self._path:get_length()
     local t
 
     if self._should_loop then
-        -- For looping paths, offset directly maps to t
         t = self._cycle_offset % 1.0
     else
-        -- For ping-pong paths, offset within a full cycle (forward + backward)
         local offset_in_cycle = (self._cycle_offset * 2) % 2.0
         if offset_in_cycle <= 1.0 then
             t = offset_in_cycle

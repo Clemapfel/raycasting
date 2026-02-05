@@ -110,9 +110,10 @@ function ow.DialogEmitter:present()
     end
 
     if self._should_focus then
-        self._scene:set_camera_mode(ow.CameraMode.MANUAL)
+        self._scene:push_camera_mode(ow.CameraMode.CUTSCENE)
         local camera = self._scene:get_camera()
         camera:set_apply_bounds(true)
+        camera:scale_to(1)
         if self._target ~= nil then
             if self._target.get_position ~= nil then
                 camera:move_to(self._target:get_position())
@@ -145,7 +146,7 @@ function ow.DialogEmitter:close()
     end
 
     if self._should_focus then
-        self._scene:set_camera_mode(ow.CameraMode.AUTO)
+        self._scene:pop_camera_mode(ow.CameraMode.CUTSCENE)
     end
 
     self._dialog_box_motion:set_target_value(_HIDDEN)

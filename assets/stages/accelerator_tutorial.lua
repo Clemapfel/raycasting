@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 7,
-  nextobjectid = 462,
+  nextobjectid = 473,
   properties = {},
   tilesets = {
     {
@@ -165,7 +165,7 @@ return {
           type = "PathNode",
           shape = "point",
           x = -7984,
-          y = -672,
+          y = -656,
           width = 0,
           height = 0,
           rotation = 0,
@@ -178,7 +178,7 @@ return {
           type = "Path",
           shape = "point",
           x = -7984,
-          y = -544,
+          y = -512,
           width = 0,
           height = 0,
           rotation = 0,
@@ -189,6 +189,132 @@ return {
             ["next"] = { id = 459 },
             ["target"] = { id = 461 }
           }
+        },
+        {
+          id = 464,
+          name = "",
+          type = "CameraBounds",
+          shape = "rectangle",
+          x = -7856,
+          y = -1232,
+          width = 2016,
+          height = 654.778,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 465,
+          name = "",
+          type = "KillPlane",
+          shape = "polygon",
+          x = -8288,
+          y = -560,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 1239.75, y = 0 },
+            { x = 1239.75, y = 16 },
+            { x = 0, y = 16 }
+          },
+          properties = {
+            ["is_visible"] = false
+          }
+        },
+        {
+          id = 467,
+          name = "",
+          type = "CameraBounds",
+          shape = "rectangle",
+          x = -8288,
+          y = -1232,
+          width = 432,
+          height = 655.527,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 468,
+          name = "",
+          type = "",
+          shape = "polygon",
+          x = -7418.54,
+          y = -1305.83,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 112, y = -112 },
+            { x = 256, y = -112 },
+            { x = 304, y = 0 }
+          },
+          properties = {}
+        },
+        {
+          id = 469,
+          name = "",
+          type = "Portal",
+          shape = "point",
+          x = -7400.65,
+          y = -1321.66,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["left_or_right"] = true,
+            ["other"] = { id = 470 },
+            ["target"] = { id = 471 }
+          }
+        },
+        {
+          id = 470,
+          name = "",
+          type = "PortalNode",
+          shape = "point",
+          x = -7330.43,
+          y = -1395.27,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 471,
+          name = "",
+          type = "Portal",
+          shape = "point",
+          x = -7116.34,
+          y = -1322.52,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["left_or_right"] = false,
+            ["other"] = { id = 472 },
+            ["target"] = { id = 469 }
+          }
+        },
+        {
+          id = 472,
+          name = "",
+          type = "PortalNode",
+          shape = "point",
+          x = -7154.61,
+          y = -1398.85,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
         }
       }
     },
@@ -1315,12 +1441,12 @@ return {
           rotation = 0,
           visible = true,
           polygon = {
-            { x = -112, y = 16 },
-            { x = 1216, y = 16 },
-            { x = 1216, y = 0 },
-            { x = 1664, y = 0 },
-            { x = 1664, y = 112 },
-            { x = -112, y = 112 }
+            { x = -112, y = 23.4982 },
+            { x = 1216, y = 23.4982 },
+            { x = 1216, y = 7.49815 },
+            { x = 1664, y = 7.49815 },
+            { x = 1664, y = 103.498 },
+            { x = -112, y = 103.498 }
           },
           properties = {}
         },
@@ -1336,14 +1462,14 @@ return {
           rotation = 0,
           visible = true,
           polygon = {
-            { x = 16, y = 0 },
-            { x = -16, y = 0 },
-            { x = -16, y = 112 },
-            { x = 0, y = 112 },
-            { x = 0, y = 16 },
-            { x = 288, y = 16 },
-            { x = 288, y = 0 },
-            { x = 256, y = 0 },
+            { x = 16, y = 7.49815 },
+            { x = -16, y = 7.49815 },
+            { x = -16, y = 103.498 },
+            { x = 0, y = 103.498 },
+            { x = 0, y = 23.4982 },
+            { x = 288, y = 23.4982 },
+            { x = 288, y = 7.49815 },
+            { x = 256, y = 7.49815 },
             { x = 192, y = -48 },
             { x = 80, y = -48 }
           },
@@ -1361,10 +1487,10 @@ return {
           rotation = 0,
           visible = true,
           polygon = {
-            { x = 16, y = 0 },
-            { x = 16, y = 16 },
-            { x = 1056, y = 16 },
-            { x = 1056, y = 0 }
+            { x = 16, y = 7.49815 },
+            { x = 16, y = 23.4982 },
+            { x = 1056, y = 23.4982 },
+            { x = 1056, y = 7.49815 }
           },
           properties = {}
         },
@@ -1428,19 +1554,19 @@ return {
         {
           id = 461,
           name = "",
-          type = "AcceleratorSurface",
+          type = "SlipperyMovableHitbox",
           shape = "polygon",
           x = -8032,
-          y = -560,
+          y = -528,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
           polygon = {
-            { x = -240, y = 0 },
-            { x = 336, y = 0 },
-            { x = 336, y = 16 },
-            { x = -240, y = 16 }
+            { x = 0, y = 0 },
+            { x = 320, y = 0 },
+            { x = 320, y = 16 },
+            { x = 0, y = 16 }
           },
           properties = {}
         }

@@ -284,10 +284,15 @@ function ow.Checkpoint:_set_state(state)
     local player = self._scene:get_player()
     local camera = self._scene:get_camera()
 
+    if self._state ~= _STATE_DEFAULT then
+        self._scene:clear_camera_mode()
+        self._scene:push_camera_mode(ow.CameraMode.CUTSCENE)
+    else
+        self._scene:pop_camera_mode(ow.CameraMode.CUTSCENE)
+    end
+
     if self._state == _STATE_STAGE_ENTRY then
         self._spawn_elapsed = 0
-        local before = camera:get_apply_bounds()
-        camera:set_apply_bounds(false)
 
         -- find top most point to spawn player
         local screen_h = camera:get_world_bounds().height
@@ -301,9 +306,12 @@ function ow.Checkpoint:_set_state(state)
 
         self._top_y = spawn_y
 
-        self._scene:set_camera_mode(ow.CameraMode.MANUAL)
         camera:set_apply_bounds(true)
         camera:set_position(self._bottom_x, self._bottom_y)
+        self._stage:apply_camera_bounds(
+            self._bottom_x, self._bottom_y,
+            true -- snap instantly
+        )
 
         player:reset()
         player:set_is_ghost(true)
@@ -318,7 +326,6 @@ function ow.Checkpoint:_set_state(state)
         local factor = rt.settings.overworld.checkpoint.explosion_radius_factor
         self._explosion_size = { 2 * factor * player_radius, 2 * factor * player_radius }
 
-        self._scene:set_camera_mode(ow.CameraMode.MANUAL)
         camera:set_apply_bounds(true)
         camera:move_to(explosion_x, explosion_y)
 
@@ -333,8 +340,12 @@ function ow.Checkpoint:_set_state(state)
     elseif self._state == _STATE_RAY then
         self._spawn_elapsed = 0
 
-        self._scene:set_camera_mode(ow.CameraMode.MANUAL)
-        camera:set_position(camera:constrain(self._bottom_x, self._bottom_y))
+        self._stage:apply_camera_bounds(
+            self._bottom_x, self._bottom_y,
+            true -- snap instantly
+        )
+        camera:set_apply_bounds(true)
+        camera:set_position(self._bottom_x, self._bottom_y)
 
         self._ray_fraction = 0
         self._ray_fade_out_elapsed = 0
@@ -360,8 +371,6 @@ function ow.Checkpoint:_set_state(state)
         player:disable()
 
     elseif self._state == _STATE_DEFAULT then
-        self._scene:set_camera_mode(ow.CameraMode.AUTO)
-
         player:reset()
         player:clear_forces()
         player:enable()

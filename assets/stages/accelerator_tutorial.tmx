@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="7" nextobjectid="462">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="7" nextobjectid="473">
  <editorsettings>
   <export target="accelerator_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -28,16 +28,49 @@
     <property name="target" type="object" value="460"/>
    </properties>
   </object>
-  <object id="459" name="PathTo" type="PathNode" x="-7984" y="-672">
+  <object id="459" name="PathTo" type="PathNode" x="-7984" y="-656">
    <point/>
   </object>
-  <object id="460" name="PathFrom" type="Path" x="-7984" y="-544">
+  <object id="460" name="PathFrom" type="Path" x="-7984" y="-512">
    <properties>
     <property name="is_paused" type="bool" value="true"/>
     <property name="n_cycles" type="float" value="0.5"/>
     <property name="next" type="object" value="459"/>
     <property name="target" type="object" value="461"/>
    </properties>
+   <point/>
+  </object>
+  <object id="464" type="CameraBounds" x="-7856" y="-1232" width="2016" height="654.778"/>
+  <object id="465" type="KillPlane" x="-8288" y="-560">
+   <properties>
+    <property name="is_visible" type="bool" value="false"/>
+   </properties>
+   <polygon points="0,0 1239.75,0 1239.75,16 0,16"/>
+  </object>
+  <object id="467" type="CameraBounds" x="-8288" y="-1232" width="432" height="655.527"/>
+  <object id="468" x="-7418.54" y="-1305.83">
+   <polygon points="0,0 112,-112 256,-112 304,0"/>
+  </object>
+  <object id="469" type="Portal" x="-7400.65" y="-1321.66">
+   <properties>
+    <property name="left_or_right" type="bool" value="true"/>
+    <property name="other" type="object" value="470"/>
+    <property name="target" type="object" value="471"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="470" type="PortalNode" x="-7330.43" y="-1395.27">
+   <point/>
+  </object>
+  <object id="471" type="Portal" x="-7116.34" y="-1322.52">
+   <properties>
+    <property name="left_or_right" type="bool" value="false"/>
+    <property name="other" type="object" value="472"/>
+    <property name="target" type="object" value="469"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="472" type="PortalNode" x="-7154.61" y="-1398.85">
    <point/>
   </object>
  </objectgroup>
@@ -213,13 +246,13 @@
    <polygon points="0,0 0,351.1 3271.61,335.141 3271.61,-31.9182"/>
   </object>
   <object id="444" type="Hitbox" x="-7584" y="-679.498">
-   <polygon points="-112,16 1216,16 1216,0 1664,0 1664,112 -112,112"/>
+   <polygon points="-112,23.4982 1216,23.4982 1216,7.49815 1664,7.49815 1664,103.498 -112,103.498"/>
   </object>
   <object id="445" type="SlipperyHitbox" x="-7696" y="-679.498">
-   <polygon points="16,0 -16,0 -16,112 0,112 0,16 288,16 288,0 256,0 192,-48 80,-48"/>
+   <polygon points="16,7.49815 -16,7.49815 -16,103.498 0,103.498 0,23.4982 288,23.4982 288,7.49815 256,7.49815 192,-48 80,-48"/>
   </object>
   <object id="446" type="AcceleratorSurface" x="-7424" y="-679.498">
-   <polygon points="16,0 16,16 1056,16 1056,0"/>
+   <polygon points="16,7.49815 16,23.4982 1056,23.4982 1056,7.49815"/>
   </object>
   <object id="447" type="SlipperyHitbox" x="-8032" y="-567.498">
    <polygon points="0,-8.50185 0,-104.502 -240,-104.502 -240,-664.502 -256,-664.502 -256,-8.50185 -240,-8.50185 -240,-88.5018 -16,-88.5018 -16,-8.50185"/>
@@ -230,8 +263,8 @@
   <object id="449" name="Coin" type="Coin" x="-8160" y="-743.498">
    <point/>
   </object>
-  <object id="461" type="AcceleratorSurface" x="-8032" y="-560">
-   <polygon points="-240,0 336,0 336,16 -240,16"/>
+  <object id="461" type="SlipperyMovableHitbox" x="-8032" y="-528">
+   <polygon points="0,0 320,0 320,16 0,16"/>
   </object>
  </objectgroup>
  <objectgroup id="2" name="front"/>
