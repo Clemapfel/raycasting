@@ -1,9 +1,8 @@
 rt.settings.overworld.decelerator_body = {
-    n_arms = 32,
-    n_segments_per_arm = 16,
-    arm_radius = 5,
+    n_arms = 64,
     arm_length = 32,
-    arm_segment_density = 1,
+    arm_area_radius_factor = 32,
+    arm_segment_density = 1 / 8,
 
     min_radius = 1,
     max_radius = 1,
@@ -11,7 +10,7 @@ rt.settings.overworld.decelerator_body = {
     max_mass = 1,
 
     n_sub_steps = 2,
-    n_constraint_iterations = 4,
+    n_constraint_iterations = 8,
     damping = 1 - 0.05,
 
     distance_compliance = 0,
@@ -32,7 +31,7 @@ function ow.DeceleratorBody:instantiate(contour)
 
     self._t_motion = rt.SmoothedMotion1D(
         0,
-        1 / 6 -- velocity factor
+        1  -- velocity factor
     )
     self._t_motion:set_is_periodic(true, 0, 1)
 
@@ -48,9 +47,8 @@ local _previous_y_offset = 5
 local _radius_offset = 6
 local _mass_offset = 7
 local _inverse_mass_offset = 8
-local _segment_length_offset = 9
-local _distance_lambda_offset = 10
-local _bending_lambda_offset = 11
+local _distance_lambda_offset = 9
+local _bending_lambda_offset = 10
 
 local _stride = _bending_lambda_offset + 1
 local _particle_i_to_data_offset = function(particle_i)
@@ -77,7 +75,6 @@ function ow.DeceleratorBody:_initialize()
         self._data[i + _radius_offset] = radius
         self._data[i + _mass_offset] = mass
         self._data[i + _inverse_mass_offset] = 1 / mass
-        self._data[i + _segment_length_offset] = segment_length
         self._data[i + _distance_lambda_offset] = 0
         self._data[i + _bending_lambda_offset] = 0
 
@@ -93,8 +90,7 @@ function ow.DeceleratorBody:_initialize()
     end
 
     local arm_length_easing = function(i, n)
-        local t = (i - 1) / n
-        return -math.abs(2 * (t - 0.5)) + 1
+        return 1
     end
 
     local start_x, start_y = self._path:at(0)
@@ -136,18 +132,72 @@ function ow.DeceleratorBody:_initialize()
 
             target_x = start_x,
             target_y = start_y,
-            target_lambda = 0
+            target_lambda = 0,
+
+            n_segments = n_segments,
+
+            attachment_angle = 0, -- set in set_target
+            length = 0 -- ^
         })
     end
 
     self._n_particles = particle_i - 1
 
     -- initialize t offsets, symmetric around midpoint arm
-    local t_step = settings.arm_radius / self._path:get_length()
-    local t_width = n_arms * t_step
+    local radius = rt.settings.player.radius
+    local arm_radius = (radius * rt.settings.overworld.decelerator_body.arm_area_radius_factor) / n_arms
+    local t_step = 1 / n_arms --math.min(1 / n_arms, arm_radius / self._path:get_length())
+    local t_width = 1--n_arms * t_step
     for arm_i = 1, n_arms do
         self._arm_i_to_t_offset[arm_i] = -0.5 * t_width + (arm_i - 1) * t_step
     end
+end
+
+--- @brief
+function ow.DeceleratorBody:set_target(x, y, radius)
+    self._target_x, self._target_y, self._target_radius = x, y, radius
+    local _, _, closest_t = self._path:get_closest_point(x, y)
+    self._t_motion:set_target_value(closest_t)
+end
+
+--- @brief
+function ow.DeceleratorBody:update(delta)
+    self._t_motion:update(delta)
+    local current_t = self._t_motion:get_value()
+
+    -- get anchor point
+    local n_arms = #self._arms
+    local center_arm_t = self._arm_i_to_t_offset[math.floor(n_arms / 2) + 1]
+    local final_x, final_y = self._path:at(current_t + center_arm_t)
+
+    -- vector from center to target
+    local dx, dy = math.subtract(self._target_x, self._target_y, final_x, final_y)
+
+    -- get angle, line along dx, dy bisects the circle
+    local angle = math.angle(dx, dy)
+
+    -- each arm gets a unique point on the circle, with center arm going along dx, dy
+    local min_distance = math.huge
+
+    local arm_length_easing = function(t)
+        return 1
+    end
+
+    for arm_i, arm in ipairs(self._arms) do
+        arm.attachment_angle = angle + (((arm_i - 1) / n_arms) + 0.5) * math.pi
+        arm.target_x = self._target_x + math.cos(arm.attachment_angle) * self._target_radius
+        arm.target_y = self._target_y + math.sin(arm.attachment_angle) * self._target_radius
+
+        local offset = self._arm_i_to_t_offset[arm_i]
+        arm.anchor_x, arm.anchor_y = self._path:at(math.fract(current_t + offset))
+
+        arm.length = arm_length_easing(offset) * math.min(
+            rt.settings.overworld.decelerator_body.arm_length,
+            math.distance(arm.anchor_x, arm.anchor_y, arm.target_x, arm.target_y)
+        )
+    end
+
+    self:_step(delta)
 end
 
 do -- step helpers
@@ -396,7 +446,7 @@ do -- step helpers
                     local inverse_mass_a = data[a_i + _inverse_mass_offset]
                     local inverse_mass_b = data[b_i + _inverse_mass_offset]
 
-                    local segment_length = data[a_i + _segment_length_offset]
+                    local segment_length = arm.length / arm.n_segments
 
                     local correction_ax, correction_ay, correction_bx, correction_by, lambda_new = _enforce_distance(
                         ax, ay, bx, by,
@@ -427,8 +477,8 @@ do -- step helpers
                     local inverse_mass_b = data[b_i + _inverse_mass_offset]
                     local inverse_mass_c = data[c_i + _inverse_mass_offset]
 
-                    local segment_length_ab = data[a_i + _segment_length_offset]
-                    local segment_length_bc = data[b_i + _segment_length_offset]
+                    local segment_length_ab = arm.length / arm.n_segments
+                    local segment_length_bc = arm.length / arm.n_segments
                     local target_length = segment_length_ab + segment_length_bc
 
                     local correction_ax, correction_ay, _, _, correction_cxx, correction_cxy, lambda_new = _enforce_bending(
@@ -466,30 +516,6 @@ do -- step helpers
 end
 
 --- @brief
-function ow.DeceleratorBody:set_target(x, y, radius)
-    self._target_x, self._target_y, self._target_radius = x, y, radius
-    local _, _, closest_t = self._path:get_closest_point(x, y)
-    self._t_motion:set_target_value(closest_t)
-
-    for arm in values(self._arms) do
-        arm.target_x = self._target_x
-        arm.target_y = self._target_y
-    end
-end
-
---- @brief
-function ow.DeceleratorBody:update(delta)
-    self._t_motion:update(delta)
-    local current_t = self._t_motion:get_value()
-    for arm_i, arm in ipairs(self._arms) do
-        local offset = self._arm_i_to_t_offset[arm_i]
-        arm.anchor_x, arm.anchor_y = self._path:at(current_t + offset)
-    end
-
-    self:_step(delta)
-end
-
---- @brief
 function ow.DeceleratorBody:draw()
     rt.Palette.WHITE:bind()
     love.graphics.line(self._path:get_points())
@@ -524,6 +550,8 @@ function ow.DeceleratorBody:draw()
         end
     end
 
+    love.graphics.setPointSize(3)
+
     for _, arm in ipairs(arms) do
         for particle_i = arm.start_i, arm.end_i - 1 do
             local a_i = _particle_i_to_data_offset(particle_i + 0)
@@ -535,6 +563,8 @@ function ow.DeceleratorBody:draw()
                 data[b_i + _x_offset],
                 data[b_i + _y_offset]
             )
+
+            love.graphics.points(arm.target_x, arm.target_y)
         end
     end
 end

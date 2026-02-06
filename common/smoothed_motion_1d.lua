@@ -95,7 +95,7 @@ end
 --- @brief
 function rt.SmoothedMotion1D:set_speed(speed)
     self._attack_speed = speed
-    self._defense_speed = speed
+    self._decay_speed = speed
 end
 
 --- @brief
@@ -104,8 +104,8 @@ function rt.SmoothedMotion1D:set_attack_speed(speed)
 end
 
 --- @brief
-function rt.SmoothedMotion1D:set_defense_speed(speed)
-    self._defense_speed = speed
+function rt.SmoothedMotion1D:set_decay_speed(speed)
+    self._decay_speed = speed
 end
 
 --- @brief
@@ -115,11 +115,11 @@ function rt.SmoothedMotion1D:set_is_periodic(b, lower, upper)
     end
 
     self._is_periodic = b
-    if self._lower_bound ~= nil then
+    if lower ~= nil then
         self._lower_bound = lower
     end
 
-    if self._upper_bound ~= nil then
+    if upper ~= nil then
         self._upper_bound = upper
     end
 end
