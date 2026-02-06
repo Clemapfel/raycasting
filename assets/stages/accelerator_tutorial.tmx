@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="496">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="497">
  <editorsettings>
   <export target="accelerator_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -304,8 +304,8 @@
   <object id="490" x="-9136" y="-1456">
    <polygon points="0,0 0,448 640,448 640,-80 0,-80 0,16 -32,16 -32,-112 672,-112 672,480 -32,480 -32,0"/>
   </object>
-  <object id="495" type="DeceleratorSurface" x="-8992" y="-1296">
-   <polygon points="0,0 0,32 304,32 304,0"/>
+  <object id="491" type="DeceleratorSurface" x="-8885.05" y="-1314.27">
+   <polygon points="3.42245,-5.15924 -16.4373,-4.87047 -36.9934,-2.52228 -54.6494,4.2038 -72.3054,12.6114 -85.7575,26.0636 -93.3244,44.5603 -98.3689,67.2608 -97.5282,84.076 -90.5017,103.216 -74.8276,122.751 -47.0826,138.725 -11.7706,143.77 20.1782,142.929 43.2927,133.564 58.0124,125.273 67.8677,107.861 72.4333,95.7376 69.6951,82.0847 70.6359,69.38 75.8697,59.977 85.1908,53.7138 97.5282,47.0826 118.547,35.3119 142.929,26.9043 170.674,20.1782 194.216,8.4076 210.19,0.84076 228.687,-8.4076 238.776,-26.0636 237.389,-42.6361 230.368,-52.9679 211.031,-63.057 183.479,-61.762 151.563,-76.4055 127.174,-75.9459 104.966,-67.969 87.049,-55.5114 59.9694,-53.9801 46.2836,-51.1279 30.9579,-41.0182 18.8919,-18.8122"/>
   </object>
  </objectgroup>
  <objectgroup id="2" name="front"/>

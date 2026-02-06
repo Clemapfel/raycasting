@@ -30,7 +30,7 @@ do
         screenshot_texture_format = rt.RGBA8,
 
         max_blur_strength = 10, -- gaussian sigma
-        max_blur_darkening = 0.82 -- fraction
+        max_blur_darkening = 0.82, -- fraction
     }
 end
 
@@ -450,7 +450,7 @@ function ow.OverworldScene:draw()
     love.graphics.origin()
     if self._blur_t == 0 and not (self._show_title_card == true and (self._fade:get_is_active() or self._fade:get_is_visible())) then
         love.graphics.clear(0, 0, 0, 0)
-        self._background:draw()
+        --self._background:draw()
 
         if self._fade_to_black > 0 then
             local r, g, b, _ = rt.Palette.BLACK:unpack()
@@ -1107,4 +1107,9 @@ function ow.OverworldScene:_update_camera(delta)
         camera:scale_to(1)
         camera:move_to(px, py)
     end
+end
+
+--- @brief
+function ow.OverworldScene:set_player_is_visible(b)
+    self._player_is_visible = b
 end
