@@ -108,7 +108,6 @@ function ow.OverworldScene:instantiate(state)
     })
 
     for mode in values(meta.instances(ow.CameraMode)) do
-        dbg(mode)
         self._camera_modes[mode] = 0
     end
 

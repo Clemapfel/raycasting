@@ -38,7 +38,7 @@ function ow.OverlapTrigger:instantiate(object, stage, scene)
         self._body:set_collision_group(rt.settings.player.bounce_collision_group)
         self._body:signal_connect("collision_start", function(self_body, other_body)
             if other_body:has_tag("player") then
-                dbg(self._receiver:signal_try_emit(self._signal, self._value))
+                self._receiver:signal_try_emit(self._signal, self._value)
             end
         end)
 

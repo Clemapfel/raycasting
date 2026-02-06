@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="490">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="493">
  <editorsettings>
   <export target="accelerator_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -84,6 +84,9 @@
   <object id="474" type="Wall" x="-7664" y="-672">
    <polygon points="0,0 0,-256 3344,-240 3344,96 0,96"/>
   </object>
+  <object id="492" type="Wall" x="-9168" y="-1568">
+   <polygon points="0,0 0,592 704,592 704,0"/>
+  </object>
  </objectgroup>
  <objectgroup id="6" name="hitbox">
   <object id="339" type="Hitbox" x="-960" y="1440">
@@ -92,7 +95,7 @@
   <object id="340" type="AcceleratorSurface" x="96" y="416">
    <polygon points="0,368 384,368 384,352 -16,352 -16,1024 -880,1024 -880,1040 0,1040"/>
   </object>
-  <object id="341" name="Spawn" type="PlayerSpawn" x="-7568" y="-711.498">
+  <object id="341" name="Spawn" type="PlayerSpawn" x="-9104" y="-992">
    <point/>
   </object>
   <object id="343" type="AcceleratorSurface" x="-960" y="1440">
@@ -286,7 +289,7 @@
   <object id="483" type="AcceleratorSurface" x="-3200" y="-880">
    <polygon points="0,0 39.7231,-1.4042 11.0853,12.4895 0,32 0,224 -640,224 -640,112 -624,112 -582.487,149.959 -542.206,179.723 -492.276,190.88 -443.387,194.933 -391.201,191.022 -339.521,172.907 -295.708,148.268 -231.822,108.71 -57.6811,12.6378 -27.7874,3.5105"/>
   </object>
-  <object id="484" type="DeceleratorSurface" x="-3680" y="-768">
+  <object id="484" type="DeceleratorSurface" x="-7312" y="-1088">
    <polygon points="0,0 0,16 160,16 160,0"/>
   </object>
   <object id="487" type="AcceleratorSurface" x="-2192" y="-880">
@@ -297,6 +300,12 @@
   </object>
   <object id="489" type="Hitbox" x="-4832" y="-736">
    <polygon points="0,0 0,80 16,80 16,0"/>
+  </object>
+  <object id="490" x="-9136" y="-1456">
+   <polygon points="0,0 0,448 640,448 640,-80 0,-80 0,16 -32,16 -32,-112 672,-112 672,480 -32,480 -32,0"/>
+  </object>
+  <object id="491" type="DeceleratorSurface" x="-8885.05" y="-1314.27">
+   <polygon points="10.0891,0.84076 -11.7706,-4.2038 -36.9934,-2.52228 -54.6494,4.2038 -72.3054,12.6114 -85.7575,26.0636 -93.3244,44.5603 -98.3689,67.2608 -97.5282,84.076 -90.5017,103.216 -74.8276,122.751 -47.0826,138.725 -11.7706,143.77 20.1782,142.929 43.2927,133.564 58.0124,125.273 67.8677,107.861 72.4333,95.7376 69.6951,82.0847 70.6359,69.38 75.8697,59.977 85.1908,53.7138 97.5282,47.0826 118.547,35.3119 142.929,26.9043 170.674,20.1782 194.216,8.4076 210.19,0.84076 228.687,-8.4076 238.776,-26.0636 237.389,-42.6361 230.368,-52.9679 211.031,-63.057 183.479,-61.762 160.585,-54.6494 141.248,-41.1972 121.91,-26.9043 105.095,-14.2929 90.8021,-5.88532 71.4646,3.36304 50.4456,10.0891 36.1527,10.9299"/>
   </object>
  </objectgroup>
  <objectgroup id="2" name="front"/>

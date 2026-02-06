@@ -842,7 +842,7 @@ do -- update helpers (XPBD with lambdas)
                 end
             end
 
-            for _ = 1, n_constraint_iterations do
+            for __ = 1, n_constraint_iterations do
                 for rope in values(self._ropes) do
                     local anchor_x = self._position_x + rope.anchor_x
                     local anchor_y = self._position_y + rope.anchor_y

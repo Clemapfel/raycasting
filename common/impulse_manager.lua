@@ -32,7 +32,6 @@ end
 
 --- @brief
 function rt.ImpulseManager:beat()
-    dbg("beat")
     local timestamp = love.timer.getTime()
     for subscriber in values(self._subscribers) do
         subscriber._beat_start = timestamp
