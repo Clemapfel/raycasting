@@ -44,7 +44,7 @@ rt.settings.player_body = {
         n_constraint_iterations = 4,
         bending_compliance = 1,
         axis_compliance = 1,
-        distance_compliance = 1e-5,
+        distance_compliance = 5e-5,
         collision_compliance = 0.0005,
 
         damping = 1 - 0.2,

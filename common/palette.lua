@@ -136,8 +136,6 @@ do -- load from image
     rt.Palette[rt.StageGrade.NONE] = rt.Palette.GRAY_5
 end
 
-
-
 local _backup = rt.Palette
 rt.Palette = {}
 setmetatable(rt.Palette, {

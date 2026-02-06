@@ -106,7 +106,6 @@ local _particle_i_to_data_offset = function(particle_i)
     return (particle_i - 1) * _stride + 1 -- 1-based
 end
 
-
 --- @brief add a new batch to the simulation
 --- @param x number x position, px
 --- @param y number y position, px
@@ -137,6 +136,8 @@ function rt.FluidSimulation:add(x, y, radius, color, config)
     local n_particles = math.ceil(
         (math.pi * radius^2) / (math.pi * particle_radius^2)
     ) -- (area of white) / (area of particle), where circular area = pi r^2
+
+    n_particles = math.min(n_particles, 256)
 
     if radius <= 0 then
         rt.error( "In rt.FluidSimulation.add: white radius cannot be 0 or negative")

@@ -9,8 +9,8 @@ rt.settings.overworld.decelerator_body = {
     min_mass = 1,
     max_mass = 1,
 
-    n_sub_steps = 2,
-    n_constraint_iterations = 8,
+    n_sub_steps = 1,
+    n_constraint_iterations = 4,
     damping = 1 - 0.05,
 
     distance_compliance = 0,
@@ -24,10 +24,12 @@ ow.DeceleratorBody = meta.class("DeceleratorSurface")
 --- @brief
 function ow.DeceleratorBody:instantiate(contour)
     self._path = rt.Path()
-    self._path:create_from_and_resample(rt.contour.close(contour))
+    self._path:create_from_and_reparameterize(contour)
 
     self._target_x, self._target_y = math.huge, math.huge
     self._target_radius, self._target_t = 0, 0
+
+    self._quads = {}
 
     self._t_motion = rt.SmoothedMotion1D(
         0,
@@ -146,8 +148,8 @@ function ow.DeceleratorBody:_initialize()
     -- initialize t offsets, symmetric around midpoint arm
     local radius = rt.settings.player.radius
     local arm_radius = (radius * rt.settings.overworld.decelerator_body.arm_area_radius_factor) / n_arms
-    local t_step = 1 / n_arms --math.min(1 / n_arms, arm_radius / self._path:get_length())
-    local t_width = 1--n_arms * t_step
+    local t_step = math.min(1 / n_arms, arm_radius / self._path:get_length())
+    local t_width = n_arms * t_step
     for arm_i = 1, n_arms do
         self._arm_i_to_t_offset[arm_i] = -0.5 * t_width + (arm_i - 1) * t_step
     end
@@ -184,7 +186,7 @@ function ow.DeceleratorBody:update(delta)
     end
 
     for arm_i, arm in ipairs(self._arms) do
-        arm.attachment_angle = angle + (((arm_i - 1) / n_arms) + 0.5) * math.pi
+        arm.attachment_angle = angle + (((arm_i - 1) / n_arms) + 0.5) * (math.pi)
         arm.target_x = self._target_x + math.cos(arm.attachment_angle) * self._target_radius
         arm.target_y = self._target_y + math.sin(arm.attachment_angle) * self._target_radius
 
@@ -198,7 +200,7 @@ function ow.DeceleratorBody:update(delta)
     end
 
     self:_step(delta)
-end
+ end
 
 do -- step helpers
     local function _pre_solve(
@@ -401,23 +403,6 @@ do -- step helpers
             end
 
             for arm in values(self._arms) do
-                do -- move first node towards anchor
-                    local i = _particle_i_to_data_offset(arm.start_i)
-                    local x, y = data[i + _x_offset], data[i + _y_offset]
-
-                    local correction_x, correction_y, lambda_new = _enforce_anchor(
-                        x, y,
-                        arm.anchor_x, arm.anchor_y,
-                        data[i + _inverse_mass_offset],
-                        0, -- anchor should follow contour
-                        arm.anchor_lambda
-                    )
-
-                    data[i + _x_offset] = x + correction_x
-                    data[i + _y_offset] = y + correction_y
-                    arm.anchor_lambda = lambda_new
-                end
-
                 do -- move last node towards target
                     local i = _particle_i_to_data_offset(arm.end_i)
                     local x, y = data[i + _x_offset], data[i + _y_offset]
@@ -463,37 +448,21 @@ do -- step helpers
                     data[a_i + _distance_lambda_offset] = lambda_new
                 end
 
-                -- bending constraints (XPBD)
-                for node_i = arm.start_i, arm.end_i - 2, 1 do
-                    local a_i = _particle_i_to_data_offset(node_i + 0)
-                    local b_i = _particle_i_to_data_offset(node_i + 1)
-                    local c_i = _particle_i_to_data_offset(node_i + 2)
+                do -- move first node towards anchor
+                    local i = _particle_i_to_data_offset(arm.start_i)
+                    local x, y = data[i + _x_offset], data[i + _y_offset]
 
-                    local ax, ay = data[a_i + _x_offset], data[a_i + _y_offset]
-                    local bx, by = data[b_i + _x_offset], data[b_i + _y_offset]
-                    local particle_c_x, particle_c_y = data[c_i + _x_offset], data[c_i + _y_offset]
-
-                    local inverse_mass_a = data[a_i + _inverse_mass_offset]
-                    local inverse_mass_b = data[b_i + _inverse_mass_offset]
-                    local inverse_mass_c = data[c_i + _inverse_mass_offset]
-
-                    local segment_length_ab = arm.length / arm.n_segments
-                    local segment_length_bc = arm.length / arm.n_segments
-                    local target_length = segment_length_ab + segment_length_bc
-
-                    local correction_ax, correction_ay, _, _, correction_cxx, correction_cxy, lambda_new = _enforce_bending(
-                        ax, ay, bx, by, particle_c_x, particle_c_y,
-                        inverse_mass_a, inverse_mass_b, inverse_mass_c,
-                        target_length,
-                        bending_alpha,
-                        data[a_i + _bending_lambda_offset]
+                    local correction_x, correction_y, lambda_new = _enforce_anchor(
+                        x, y,
+                        arm.anchor_x, arm.anchor_y,
+                        data[i + _inverse_mass_offset],
+                        0, -- anchor should follow contour
+                        arm.anchor_lambda
                     )
 
-                    data[a_i + _x_offset] = ax + correction_ax
-                    data[a_i + _y_offset] = ay + correction_ay
-                    data[c_i + _x_offset] = particle_c_x + correction_cxx
-                    data[c_i + _y_offset] = particle_c_y + correction_cxy
-                    data[a_i + _bending_lambda_offset] = lambda_new
+                    data[i + _x_offset] = arm.anchor_x --x + correction_x
+                    data[i + _y_offset] = arm.anchor_y --y + correction_y
+                    arm.anchor_lambda = lambda_new
                 end
             end
 

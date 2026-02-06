@@ -1,5 +1,5 @@
 require "overworld.movable_object"
-require "overworld.decelerator_body"
+require "common.fluid_simulation"
 require "common.contour"
 
 rt.settings.overworld.decelerator_surface = {
@@ -23,7 +23,14 @@ function ow.DeceleratorSurface:instantiate(object, stage, scene)
     self._body = object:create_physics_body(stage:get_physics_world())
     self._body:add_tag("stencil", "slippery")
 
-    self._graphics_body = ow.DeceleratorBody(object:create_contour())
+    self._mesh, self._tris = object:create_mesh()
+    self._fluid = rt.FluidSimulation()
+
+    local x, y = object:get_centroid()
+    local area = object:get_area()
+
+    local batch_id = self._fluid:add(x, y, area / math.pi)
+    self._fluid:set_target_shape(batch_id, self._tris)
 end
 
 --- @brief
@@ -36,8 +43,7 @@ function ow.DeceleratorSurface:update(delta)
 
     local offset_x, offset_y = 0, 0 --TODO self._body:get_position()
 
-    self._graphics_body:set_target(px - offset_x, py - offset_y, pr)
-    self._graphics_body:update(delta)
+    self._fluid:update(delta)
 end
 
 --- @brief
@@ -45,7 +51,9 @@ function ow.DeceleratorSurface:draw()
     if not self._stage:get_is_body_visible(self._body) then return end
 
     local offset_x, offset_y = self._body:get_position()
-    self._graphics_body:draw()
+
+    self._mesh:draw()
+    self._fluid:draw()
 end
 
 --- @brief

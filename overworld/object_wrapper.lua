@@ -539,6 +539,33 @@ function ow.ObjectWrapper:get_centroid()
 end
 
 --- @brief
+function ow.ObjectWrapper:get_area()
+    if self.type == ow.ObjectType.POINT then
+        return 0
+    elseif self.type == ow.ObjectType.RECTANGLE or self.type == ow.ObjectType.SPRITE then
+        return self.width * self.height
+    elseif self.type == ow.ObjectType.ELLIPSE then
+        return math.pi * self.x_radius * self.y_radius
+    elseif self.type == ow.ObjectType.POLYGON then
+        local triangles = self:triangulate()
+        local area = 0
+
+        for tri in values(triangles) do
+            local x1, y1 = tri[1], tri[2]
+            local x2, y2 = tri[3], tri[4]
+            local x3, y3 = tri[5], tri[6]
+
+            area = area + 0.5 * math.abs(x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2))
+        end
+
+        return area
+    else
+        rt.error("In ow.ObjectWrapper:get_area: unhandled object type `", tostring(self.type), "`")
+        return 0
+    end
+end
+
+--- @brief
 function ow.ObjectWrapper:get_string(id, assert_exists)
     if assert_exists == nil then assert_exists = false end
 
