@@ -52,8 +52,7 @@ local _particle_i_to_data_offset = function(particle_i)
 end
 
 local _particle_texture_shader = rt.Shader("common/player_body_particle_texture.glsl") -- sic
-local _threshold_shader = rt.Shader("common/player_body_threshold.glsl")
-local _outline_shader = rt.Shader("common/player_body_outline.glsl")
+local _threshold_shader = rt.Shader("overworld/decelerator_body_threshold.glsl")
 local _instance_draw_shader = rt.Shader("overworld/decelerator_body_instanced_draw.glsl")
 
 --- @brief
@@ -887,9 +886,12 @@ function ow.DeceleratorBody:draw()
     love.graphics.push()
     love.graphics.translate(mean_x - 0.5 * w, mean_y - 0.5 * h)
     love.graphics.setColor(1, 1, 1, 1)
+
     _threshold_shader:bind()
     _threshold_shader:send("threshold", debugger.get("threshold"))
     _threshold_shader:send("smoothness", debugger.get("smoothness"))
+    _threshold_shader:send("smoothness", debugger.get("outline_thickness"))
+    _threshold_shader:send("outline_color", { rt.Palette.MIND:unpack() })
     rt.Palette.BLACK:bind()
     self._canvas:draw()
     _threshold_shader:unbind()
