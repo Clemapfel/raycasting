@@ -3,10 +3,7 @@ require "overworld.decelerator_body"
 require "common.contour"
 
 rt.settings.overworld.decelerator_surface = {
-    friction = 1.15,
-    subdivision_length = 4,
-
-    max_penetration = rt.settings.player.radius * 0.25
+    max_damping = 0.8
 }
 
 --- @class ow.DeceleratorSurface
@@ -53,16 +50,20 @@ function ow.DeceleratorSurface:update(delta)
 
     local offset_x, offset_y = 0, 0 --TODO self._body:get_position()
 
-    px, py = self._scene:get_camera():screen_xy_to_world_xy(love.mouse.getPosition())
-    self._graphics_body:set_target(px - offset_x, py - offset_y, pr)
+    self._graphics_body:set_target(px - offset_x, py - offset_y, player:get_radius())
     self._graphics_body:update(delta)
 
-    player:set_damping(self._graphics_body:get_player_damping())
+    local damping_t = self._graphics_body:get_player_damping()
+    local damping = 1 - math.mix(0, rt.settings.overworld.decelerator_surface.max_damping, damping_t)
+
+    dbg(damping)
+    player:set_damping(
+        damping
+    )
 
     self._scene:push_camera_mode(ow.CameraMode.CUTSCENE)
     local camera = self._scene:get_camera()
     camera:set_position(self._body:get_position())
-
 end
 
 --- @brief
@@ -71,11 +72,6 @@ function ow.DeceleratorSurface:draw()
 
     local offset_x, offset_y = self._body:get_position()
     self._graphics_body:draw()
-
-    love.graphics.setColor(1, 1, 1, 0.5)
-    local px, py = self._scene:get_camera():screen_xy_to_world_xy(love.mouse.getPosition())
-    love.graphics.circle("line", px, py, self._scene:get_player():get_radius())
-    self._scene:set_player_is_visible(false)
 end
 
 --- @brief

@@ -5,9 +5,9 @@ uniform float smoothness = 0.0;
 
 float finalize(float x) {
     return smoothstep(
-        threshold - smoothness,
-        threshold + smoothness,
-        x
+    max(0, threshold - smoothness),
+    min(1, threshold + smoothness),
+    x
     );
 }
 

@@ -1,5 +1,5 @@
 return {
-    threshold = 0.49,
-    smoothness = 0.1,
+    threshold = 0.5,
+    smoothness = 0.05,
     outline_thickness = 1
 }

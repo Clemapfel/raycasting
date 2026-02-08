@@ -51,15 +51,25 @@ local _particle_i_to_data_offset = function(particle_i)
     return (particle_i - 1) * _stride + 1 -- 1-based
 end
 
-local _particle_texture_shader = rt.Shader("common/player_body_particle_texture.glsl") -- sic
+local _particle_texture_shader = rt.Shader("overworld/decelerator_body_particle_texture.glsl") -- sic
 local _threshold_shader = rt.Shader("overworld/decelerator_body_threshold.glsl")
 local _instance_draw_shader = rt.Shader("overworld/decelerator_body_instanced_draw.glsl")
+
+DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
+    if which == "k" then
+        for s in range(_particle_texture_shader, _threshold_shader, _instance_draw_shader) do
+            s:recompile()
+        end
+    end
+end)
 
 --- @brief
 function ow.DeceleratorBody:instantiate(contour, mesh)
     self._target_x, self._target_y = math.huge, math.huge
     self._target_radius, self._target_t = 0, 0
     self._is_active = false
+
+    self._n_connected = 0
 
     local settings = rt.settings.overworld.decelerator_body
     self._particle_texture_radius = settings.particle_texture_r
@@ -97,7 +107,8 @@ function ow.DeceleratorBody:instantiate(contour, mesh)
     self._aabb.height = self._aabb.height + 2 * padding
 
     self._canvas = rt.RenderTexture(
-        self._aabb.width, self._aabb.height
+        self._aabb.width, self._aabb.height,
+        rt.TextureFormat.R8
     )
     self._canvas_needs_update = true
 
@@ -310,7 +321,7 @@ function ow.DeceleratorBody:set_target(x, y, radius)
             local arm = self._arms[arm_i]
             local slot = self._slots[arm.slot_i]
 
-            if is_in_interval(slot.t, left_t, right_t) then
+            if slot ~= nil and is_in_interval(slot.t, left_t, right_t) then
                 arm.is_extending = math.distance(
                     slot.anchor_x, slot.anchor_y,
                     slot.target_x, slot.target_y
@@ -844,6 +855,23 @@ do -- step helpers
                 data[i + _velocity_x_offset] = new_velocity_x
                 data[i + _velocity_y_offset] = new_velocity_y
             end
+
+            self._n_connected = 0
+            for arm_i = 1, #self._arms do
+                local arm = self._arms[arm_i]
+                if self._free_arms[arm_i] == nil and arm.is_extending == true then
+                    local i = _particle_i_to_data_offset(arm.end_i)
+                    local slot = self._slots[arm.slot_i]
+                    if math.distance(
+                        data[i + _x_offset],
+                        data[i + _y_offset],
+                        slot.target_x,
+                        slot.target_y
+                    ) < max_radius then
+                        self._n_connected = self._n_connected + 1
+                    end
+                end
+            end
         end
 
         self._canvas_needs_update = true
@@ -862,6 +890,7 @@ function ow.DeceleratorBody:draw()
 
         self._canvas:bind()
         love.graphics.clear(0, 0, 0, 0)
+        love.graphics.setBlendMode("add", "premultiplied")
 
         love.graphics.translate(
             -mean_x + 0.5 * w, -mean_y + 0.5 * h
@@ -869,7 +898,6 @@ function ow.DeceleratorBody:draw()
 
         local data = self._data
 
-        rt.graphics.set_blend_mode(rt.BlendMode.ADD, rt.BlendMode.ADD)
         love.graphics.setColor(1, 1, 1, 1)
 
         self._mesh:draw()
@@ -881,19 +909,21 @@ function ow.DeceleratorBody:draw()
 
         self._canvas:unbind()
         love.graphics.pop()
+
+        self._canvas_needs_update = true
     end
 
-    love.graphics.push()
+    love.graphics.push("all")
+    love.graphics.setBlendMode("alpha", "premultiplied")
     love.graphics.translate(mean_x - 0.5 * w, mean_y - 0.5 * h)
     love.graphics.setColor(1, 1, 1, 1)
 
     _threshold_shader:bind()
     _threshold_shader:send("threshold", debugger.get("threshold"))
     _threshold_shader:send("smoothness", debugger.get("smoothness"))
-    _threshold_shader:send("smoothness", debugger.get("outline_thickness"))
-    _threshold_shader:send("outline_color", { rt.Palette.MIND:unpack() })
-    rt.Palette.BLACK:bind()
-    self._canvas:draw()
+    _threshold_shader:send("outline_color", { rt.Palette.MINT:unpack() })
+    _threshold_shader:send("body_color", { rt.Palette.BLACK:unpack() })
+    love.graphics.draw(self._canvas:get_native())
     _threshold_shader:unbind()
 
     love.graphics.pop()
@@ -901,5 +931,5 @@ end
 
 --- @brief
 function ow.DeceleratorBody:get_player_damping()
-    return 0
+    return math.min(1, self._n_connected / 8)
 end

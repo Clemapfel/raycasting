@@ -952,7 +952,7 @@ function rt.Player:update(delta)
         if next_velocity_x > 0 then next_velocity_x = next_velocity_x * self._direction_to_damping[rt.Direction.RIGHT] end
         if next_velocity_y < 0 then next_velocity_y = next_velocity_y * self._direction_to_damping[rt.Direction.UP] end
         if next_velocity_y > 0 then next_velocity_y = next_velocity_y * self._direction_to_damping[rt.Direction.DOWN] end
-        return next_velocity_x, next_velocity_y
+        return next_velocity_x * self._damping, next_velocity_y * self._damping
     end
 
     -- check if tethers should be cleared
@@ -1929,22 +1929,7 @@ function rt.Player:update(delta)
                     target_y = 1
                 end
             else
-                local threshold = math.eps -- deadzone handled by input manager
-                if self._joystick_gesture:get_magnitude(rt.InputAction.LEFT) > threshold then
-                    target_x = -1
-                end
-
-                if self._joystick_gesture:get_magnitude(rt.InputAction.RIGHT) > threshold then
-                    target_x = 1
-                end
-
-                if self._joystick_gesture:get_magnitude(rt.InputAction.UP) > threshold then
-                    target_y = -1
-                end
-
-                if self._joystick_gesture:get_magnitude(rt.InputAction.DOWN) > threshold then
-                    target_y = 1
-                end
+                target_x, target_y = self._joystick_position_x, self._joystick_position_y
             end
         end
 
@@ -1966,7 +1951,7 @@ function rt.Player:update(delta)
             end
         end
 
-        self._bubble_body:apply_force(_apply_damping(next_force_x, next_force_y))
+        self._bubble_body:apply_force(delta * _apply_damping(next_force_x / delta, next_force_y / delta))
         self._last_bubble_force_x, self._last_bubble_force_y = next_force_x, next_force_y
 
         if self._bounce_elapsed <= _settings.bounce_duration then
