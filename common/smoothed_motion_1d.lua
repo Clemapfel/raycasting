@@ -53,6 +53,7 @@ function rt.SmoothedMotion1D:update(delta)
         distance = self._target_value - self._current_value
     end
 
+
     local step
     if distance > 0 then
         step = self._ramp * distance * self._attack_speed * delta

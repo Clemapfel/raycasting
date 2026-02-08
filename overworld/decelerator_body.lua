@@ -1,8 +1,9 @@
 rt.settings.overworld.decelerator_body = {
-    n_arms = 3,
-    arm_length = 64,
-    arm_area_radius_factor = 4,
+    n_arms = 16,
+    arm_length = 32,
+    arm_area_radius_factor = 8,
     arm_n_segments = 32,
+    extend_velocity_factor = 1 / 200,
 
     min_radius = 1,
     max_radius = 2,
@@ -15,7 +16,7 @@ rt.settings.overworld.decelerator_body = {
 
     distance_compliance = 0.0,
     bending_compliance = 0.0001,
-    target_compliance = 0.0,
+    target_compliance = 0.001,
     collision_compliance = 0.0001
 }
 
@@ -140,11 +141,9 @@ function ow.DeceleratorBody:_initialize()
             target_lambda = 0,
 
             n_segments = n_segments,
-            grab_radius_motion = rt.SmoothedMotion1D(1, 1 / 2),
-
-            is_attached = false,
-            attachment_angle = 0, -- set in set_target
-            length = 0 -- ^
+            motion = rt.SmoothedMotion1D(0, settings.extend_velocity_factor),
+            length = settings.arm_length,
+            segment_length = settings.arm_length / n_segments
         })
     end
 
@@ -189,29 +188,38 @@ function ow.DeceleratorBody:update(delta)
 
     for arm_i, arm in ipairs(self._arms) do
         arm.attachment_angle = angle + (((arm_i - 1) / n_arms) + 0.5) * (math.pi)
-        arm.normal_x = math.cos(arm.attachment_angle)
-        arm.normal_y = math.sin(arm.attachment_angle)
+        local normal_x = math.cos(arm.attachment_angle)
+        local normal_y = math.sin(arm.attachment_angle)
 
-        arm.target_x = self._target_x + arm.normal_x * self._target_radius
-        arm.target_y = self._target_y + arm.normal_y * self._target_radius
+        -- closest point on circle
+        local closest_x = self._target_x + normal_x * self._target_radius
+        local closest_y = self._target_y + normal_y * self._target_radius
 
         local offset = self._arm_i_to_t_offset[arm_i]
         arm.anchor_x, arm.anchor_y = self._path:at(math.fract(current_t + offset))
 
-        local distance = math.distance(arm.anchor_x, arm.anchor_y, arm.target_x, arm.target_y)
-        arm.is_attached = distance <= arm.length
-        arm.length = rt.settings.overworld.decelerator_body.arm_length
-
-
-            if not arm.is_attached then
-            local dx, dy = math.normalize(math.subtract(arm.target_x, arm.target_y, arm.anchor_x, arm.anchor_y))
-            arm.target_x, arm.target_y = math.add(arm.anchor_x, arm.anchor_y, dx * arm.length, dy * arm.length)
-            arm.grab_radius_motion:set_target_value(1 + math.min(1, 1 - math.distance(self._target_x, self._target_y, arm.target_x, arm.target_y) / arm.length))
+        local distance = math.distance(arm.anchor_x, arm.anchor_y, closest_x, closest_y)
+        -- if in range, extend, else retract
+        if arm.length >= distance then
+            arm.motion:set_target_value(1)
+            arm.target_x = closest_x
+            arm.target_y = closest_y
         else
-            arm.grab_radius_motion:set_target_value(0)
+            arm.motion:set_target_value(0)
+            arm.target_x = arm.anchor_x
+            arm.target_y = arm.anchor_y
         end
 
-        arm.grab_radius_motion:update(delta)
+        arm.motion:update(delta)
+
+        local rest_segment_length = arm.length / arm.n_segments
+        arm.segment_length = math.clamp(
+            arm.motion:get_value() * rest_segment_length,
+            1e-6, -- prevent singularity
+            rest_segment_length
+        )
+
+        arm.segment_length = rest_segment_length
     end
 
     self:_step(delta)
@@ -241,35 +249,25 @@ do -- step helpers
         previous_x, previous_y
     end
 
+    -- XPBD distance constraint between two particles (A,B)
+    -- C = |b - a| - d0 = 0
     local function _enforce_distance(
         ax, ay, bx, by,
         inverse_mass_a, inverse_mass_b,
         target_distance,
-        alpha,         -- set to 0 for infinite stiffness (rigid rod)
-        lambda_before
+        alpha,         -- compliance (already scaled by sub_delta^2)
+        lambda_before    -- accumulated lambda for this constraint
     )
         local delta_x = bx - ax
         local delta_y = by - ay
         local length = math.magnitude(delta_x, delta_y)
-
-        local normal_x, normal_y
-
-        -- Handle singularity: If particles are perfectly overlapping but target > 0,
-        -- we must force a direction (arbitrary X axis) to separate them.
         if length < math.eps then
-            if target_distance < math.eps then
-                -- Distance is 0 and target is 0: Constraint satisfied.
-                return 0, 0, 0, 0, lambda_before
-            end
-            normal_x, normal_y = 1, 0
-            length = 0 -- Treat current distance as 0
-        else
-            normal_x, normal_y = math.normalize(delta_x, delta_y)
+            return 0, 0, 0, 0, lambda_before
         end
 
-        -- Equality constraint: C = |b - a| - d0 = 0
-        local constraint = length - target_distance
+        local normal_x, normal_y = math.normalize(delta_x, delta_y)
 
+        local constraint = length - target_distance
         local weight_sum = inverse_mass_a + inverse_mass_b
         local denominator = weight_sum + alpha
         if denominator < math.eps then
@@ -279,12 +277,10 @@ do -- step helpers
         local delta_lambda = -(constraint + alpha * lambda_before) / denominator
         local lambda_new = lambda_before + delta_lambda
 
-        -- Apply corrections
-        -- A moves along -normal (away from B if compressed, towards B if stretched)
-        -- B moves along +normal
-        local correction_ax = inverse_mass_a * delta_lambda * (-normal_x)
+        -- x_i += w_i * d_lambda * gradC_i
+        local correction_ax = inverse_mass_a * delta_lambda * (-normal_x) -- grad_a = -n
         local correction_ay = inverse_mass_a * delta_lambda * (-normal_y)
-        local correction_bx = inverse_mass_b * delta_lambda * ( normal_x)
+        local correction_bx = inverse_mass_b * delta_lambda * ( normal_x) -- grad_b = +n
         local correction_by = inverse_mass_b * delta_lambda * ( normal_y)
 
         return correction_ax, correction_ay, correction_bx, correction_by, lambda_new
@@ -487,12 +483,10 @@ do -- step helpers
                         local inverse_mass_a = data[a_i + _inverse_mass_offset]
                         local inverse_mass_b = data[b_i + _inverse_mass_offset]
 
-                        local segment_length = arm.length / arm.n_segments
-
                         local correction_ax, correction_ay, correction_bx, correction_by, lambda_new = _enforce_distance(
                             ax, ay, bx, by,
                             inverse_mass_a, inverse_mass_b,
-                            segment_length,
+                            arm.segment_length,
                             distance_alpha,
                             data[a_i + _distance_lambda_offset]
                         )
@@ -518,8 +512,8 @@ do -- step helpers
                         local inverse_mass_b = data[b_i + _inverse_mass_offset]
                         local inverse_mass_c = data[c_i + _inverse_mass_offset]
 
-                        local segment_length_ab = arm.length / arm.n_segments
-                        local segment_length_bc = segment_length_ab
+                        local segment_length_ab = arm.segment_length
+                        local segment_length_bc = arm.segment_length
                         local target_length = segment_length_ab + segment_length_bc
 
                         local correction_ax, correction_ay, _, _, correction_cxx, correction_cxy, lambda_new = _enforce_bending(
@@ -587,7 +581,7 @@ do -- step helpers
                             x, y,
                             arm.target_x, arm.target_y,
                             data[i + _inverse_mass_offset],
-                            ternary(arm.is_attached, 0, collision_alpha),
+                            target_alpha,
                             arm.target_lambda
                         )
 
@@ -664,9 +658,6 @@ function ow.DeceleratorBody:draw()
                 data[b_i + _x_offset],
                 data[b_i + _y_offset]
             )
-
-            local value = math.mix(1, 2, arm.grab_radius_motion:get_value()) * max_radius
-            love.graphics.circle("fill", arm.target_x, arm.target_y, value)
         end
     end
 end
