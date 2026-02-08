@@ -309,6 +309,7 @@ function rt.contour.is_convex(vertices)
     return true
 end
 
+--- @brief
 function rt.contour.close(contour)
     if #contour < 4 then return contour end
 
@@ -320,4 +321,24 @@ function rt.contour.close(contour)
     end
 
     return contour
+end
+
+--- @brief
+function rt.contour.get_aabb(contour)
+    if #contour < 4 then return rt.AABB(0, 0, 0, 0) end
+
+    local min_x, min_y, max_x, max_y = math.huge, math.huge, -math.huge, -math.huge
+
+    for i = 1, #contour, 2 do
+        local x, y = contour[i+0], contour[i+1]
+        min_x = math.min(min_x, x)
+        min_y = math.min(min_y, y)
+        max_x = math.max(max_x, x)
+        max_y = math.max(max_y, y)
+    end
+
+    return rt.AABB(
+        min_x, min_y,
+        max_x - min_x, max_y - min_y
+    )
 end

@@ -25,7 +25,9 @@ function ow.DeceleratorSurface:instantiate(object, stage, scene)
     self._body = object:create_physics_body(stage:get_physics_world())
 
     self._body:add_tag("stencil", "slippery")
-    self._graphics_body = ow.DeceleratorBody(object:create_contour())
+    local contour = object:create_contour()
+    local mesh = object:create_mesh()
+    self._graphics_body = ow.DeceleratorBody(contour, mesh)
 
     if first then
         DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)

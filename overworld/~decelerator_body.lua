@@ -1,36 +1,38 @@
 rt.settings.overworld.decelerator_body = {
-    n_arms = 32,
-    arm_radius = rt.settings.player.radius,
-    arm_length = 64,
+    n_arms = 16,
+    arm_radius = 10,
+    arm_length = 32,
     arm_n_segments = 32,
+    extend_velocity_factor = 1 / 200,
 
     min_radius = 1,
-    max_radius = 3,
+    max_radius = 2,
     min_mass = 1,
     max_mass = 1,
-
-    particle_texture_r = 20,
-    texture_scale = 1.5,
 
     n_sub_steps = 2,
     n_constraint_iterations = 2,
     damping = 1 - 0.2,
 
     distance_compliance = 0.0,
-    bending_compliance = 0.001,
-    retract_compliance = 0.01,
-    extend_compliance = 0.004,
-    collision_compliance = 0.0001,
-
-    threshold = 0.6,
-    smoothness = 0.15
+    bending_compliance = 0.0001,
+    retract_compliance = 0.0025,
+    extend_compliance = 0.00025,
+    collision_compliance = 0.0001
 }
-
-rt.settings.overworld.decelerator_body.retract_threshold = rt.settings.overworld.decelerator_body.max_radius
-rt.settings.overworld.decelerator_body.slot_radius = 2 * rt.settings.overworld.decelerator_body.max_radius
 
 --- @class ow.DeceleratorBody
 ow.DeceleratorBody = meta.class("DeceleratorSurface")
+
+--- @brief
+function ow.DeceleratorBody:instantiate(contour)
+    self._target_x, self._target_y = math.huge, math.huge
+    self._target_radius, self._target_t = 0, 0
+    self._is_active = false
+
+    self._contour = contour
+    self:_initialize()
+end
 
 local _x_offset = 0
 local _y_offset = 1
@@ -51,66 +53,18 @@ local _particle_i_to_data_offset = function(particle_i)
     return (particle_i - 1) * _stride + 1 -- 1-based
 end
 
-local _particle_texture_shader = rt.Shader("common/player_body_particle_texture.glsl") -- sic
-local _threshold_shader = rt.Shader("common/player_body_threshold.glsl")
-local _outline_shader = rt.Shader("common/player_body_outline.glsl")
-local _instance_draw_shader = rt.Shader("overworld/decelerator_body_instanced_draw.glsl")
+local _extend, _retract = true, false
 
 --- @brief
-function ow.DeceleratorBody:instantiate(contour, mesh)
-    self._target_x, self._target_y = math.huge, math.huge
-    self._target_radius, self._target_t = 0, 0
-    self._is_active = false
-
+function ow.DeceleratorBody:_initialize()
     local settings = rt.settings.overworld.decelerator_body
-    self._particle_texture_radius = settings.particle_texture_r
-    do -- init particle texture
-        local w = (self._particle_texture_radius + 2) * 2
-        local h = w
-        self._particle_texture = rt.RenderTexture(w, h)
-
-        love.graphics.push("all")
-        love.graphics.reset()
-        self._particle_texture:bind()
-        _particle_texture_shader:bind()
-
-        love.graphics.setColor(1, 1, 1, 1)
-        love.graphics.rectangle("fill",
-            0, 0, w, h
-        )
-
-        _particle_texture_shader:unbind()
-        self._particle_texture:unbind()
-        love.graphics.pop()
-    end
-
-    self._contour = contour
-    self._mesh = mesh
-
-    local arm_length = settings.arm_length
-
-    self._aabb = rt.contour.get_aabb(self._contour)
-
-    local padding = arm_length + 5 -- safety
-    self._aabb.x = self._aabb.x - padding
-    self._aabb.y = self._aabb.y - padding
-    self._aabb.width = self._aabb.width + 2 * padding
-    self._aabb.height = self._aabb.height + 2 * padding
-
-    self._canvas = rt.RenderTexture(
-        self._aabb.width, self._aabb.height
-    )
-    self._canvas_needs_update = true
 
     self._path = rt.Path()
     self._path:create_from_and_resample(rt.contour.close(self._contour))
 
     self._data = {} -- Table<Number>, properties inline
     self._n_particles = 0
-
-    self._arms = {}
-    self._slots = {}
-    self._free_arms = {} -- Set<ArmIndex>
+    self._arms = {} -- Table<Table<ParticleIndex>>
 
     local add_particle = function(x, y, mass, radius)
         local i = #self._data + 1
@@ -136,8 +90,11 @@ function ow.DeceleratorBody:instantiate(contour, mesh)
     end
 
     local radius_easing = function(i, n)
-        local t = (i - 1) / n
-        return 1 - t
+        return 1
+    end
+
+    local arm_length_easing = function(i, n)
+        return 1
     end
 
     local start_x, start_y = self._path:at(0)
@@ -145,16 +102,19 @@ function ow.DeceleratorBody:instantiate(contour, mesh)
     local min_radius, max_radius = settings.min_radius, settings.max_radius
 
     local n_arms = settings.n_arms
-    local n_segments = settings.arm_n_segments
+    if n_arms % 2 == 0 then n_arms = n_arms + 1 end
 
     local particle_i = 1
     for arm_i = 1, n_arms do
+        local arm_length = settings.arm_length * arm_length_easing(arm_i, n_arms)
+        local n_segments = settings.arm_n_segments
+
         local start_i = particle_i
         for segment_i = 1, n_segments do
             add_particle(
                 start_x, start_y,
                 math.mix(min_mass, max_mass, mass_easing(segment_i, n_segments)),
-                math.max(1, math.mix(min_radius, max_radius, radius_easing(segment_i, n_segments)))
+                math.mix(min_radius, max_radius, radius_easing(segment_i, n_segments))
             )
 
             particle_i = particle_i + 1
@@ -163,37 +123,46 @@ function ow.DeceleratorBody:instantiate(contour, mesh)
         table.insert(self._arms, {
             start_i = start_i,
             end_i = particle_i - 1,
-            slot_i = nil,
+            anchor_x = start_x,
+            anchor_y = start_y,
+            anchor_lambda = 0,
 
-            length = arm_length,
+            target_x = start_x,
+            target_y = start_y,
+            target_lambda = 0,
+
             n_segments = n_segments,
-            segment_length = arm_length / n_segments,
+            motion = rt.SmoothedMotion1D(0, settings.extend_velocity_factor),
+            length = settings.arm_length,
+            segment_length = settings.arm_length / n_segments,
 
-            is_extending = false
+            slot_i = nil,
+            extend_or_retract = _retract
         })
     end
 
     self._n_particles = particle_i - 1
 
     -- initialize t offsets, symmetric around midpoint arm
-    local n_slots = math.floor(self._path:get_length() / settings.arm_radius)
+    local num_slots = math.floor(self._path:get_length() / settings.arm_radius)
+    local t_step = 1 / num_slots
+
+    self._arm_slot_t_step = t_step
+    self._slots = {} -- static slots
+    self._free_arms = {} -- indices of arms
+
     local n_arms_left = n_arms
-    for i = 1, n_slots do
-        local t = (i - 1) / n_slots
+    for i = 1, num_slots do
+        local t = (i - 1) * t_step
         local anchor_x, anchor_y = self._path:at(t)
 
-        local normal_x, normal_y = math.turn_right(self._path:tangent_at(t))
         local arm_slot = {
             arm_i = nil,
-            origin_x = anchor_x,
-            origin_y = anchor_y,
             anchor_x = anchor_x,
             anchor_y = anchor_y,
             target_x = anchor_x,
             target_y = anchor_y,
-            t = t,
-            normal_x = normal_x,
-            normal_y = normal_y
+            t = t
         }
 
         self._slots[i] = arm_slot
@@ -206,33 +175,48 @@ function ow.DeceleratorBody:instantiate(contour, mesh)
 end
 
 --- @brief
+function ow.DeceleratorBody:set_target(x, y, radius)
+    self._is_active = true
+    self._target_x, self._target_y, self._target_radius = x, y, radius
+    local _, _, closest_t = self._path:get_closest_point(x, y)
+    self._target_t = closest_t
+end
+
+--- @brief
 function ow.DeceleratorBody:_add_to_slot(slot_i, arm_i)
     local slot = self._slots[slot_i]
-    assert(slot.arm_i == nil)
+    if slot.arm_i ~= nil then
+        self._remove_from_slot(slot_i)
+    end
+
     slot.arm_i = arm_i
 
-    -- reset to fully retracted
     local arm = self._arms[arm_i]
     arm.slot_i = slot_i
-    arm.is_extending = false
+
+    self._free_arms[arm_i] = nil
+
+    arm.anchor_x = slot.anchor_x
+    arm.anchor_y = slot.anchor_y
+    arm.target_x = slot.anchor_x
+    arm.target_y = slot.anchor_y
+
     local data = self._data
     for particle_i = arm.start_i, arm.end_i do
         local i = _particle_i_to_data_offset(particle_i)
-        data[i + _x_offset] = slot.anchor_x
-        data[i + _y_offset] = slot.anchor_y
+        data[i + _x_offset] = arm.anchor_x
+        data[i + _y_offset] = arm.anchor_y
     end
-
-    self._free_arms[arm_i] = nil
 end
 
 --- @brief
 function ow.DeceleratorBody:_remove_from_slot(slot_i)
     local slot = self._slots[slot_i]
+    if slot.arm_i == nil then return end
+
     local arm_i = slot.arm_i
-    assert(arm_i ~= nil)
 
     slot.arm_i = nil
-
     local arm = self._arms[arm_i]
     arm.slot_i = nil
 
@@ -240,20 +224,23 @@ function ow.DeceleratorBody:_remove_from_slot(slot_i)
 end
 
 --- @brief
-function ow.DeceleratorBody:set_target(x, y, radius)
-    self._is_active = true
-    self._target_x, self._target_y, self._target_radius = x, y, radius
-    local final_x, final_y, closest_t = self._path:get_closest_point(x, y)
-    self._target_t = closest_t
-
-    -- update slot targets
+function ow.DeceleratorBody:update(delta)
+    if not self._is_active then return end
     local n_slots, n_arms = #self._slots, #self._arms
-    local dx, dy = math.subtract(self._target_x, self._target_y, final_x, final_y)
-    local t_step = 1 / #self._slots
 
+    -- get anchor point
+    local final_x, final_y = self._path:at(self._target_t)
+
+    -- vector from center to target
+    local dx, dy = math.subtract(self._target_x, self._target_y, final_x, final_y)
+
+    -- get angle, line along dx, dy bisects the circle
+    local angle = math.angle(dx, dy)
+
+    -- get closest slot
     local mid_t = self._target_t
-    local right_t = self._target_t + math.floor(0.5 * n_arms) * t_step
-    local left_t = self._target_t - math.ceil(0.5 * n_arms) * t_step
+    local right_t = self._target_t + math.floor(0.5 * n_arms) * self._arm_slot_t_step
+    local left_t = self._target_t - math.ceil(0.5 * n_arms) * self._arm_slot_t_step
 
     local function is_in_interval(value, left, right)
         value = math.fract(value)
@@ -267,8 +254,6 @@ function ow.DeceleratorBody:set_target(x, y, radius)
         end
     end
 
-    local inlay = rt.settings.overworld.decelerator_body.retract_threshold
-
     local range = math.pi
     local mid_point = math.pi + math.angle(dx, dy)
 
@@ -276,165 +261,45 @@ function ow.DeceleratorBody:set_target(x, y, radius)
         local slot = self._slots[slot_i]
         local slot_t = slot.t
 
-        if is_in_interval(slot_t, left_t, right_t) then
+        if not is_in_interval(slot_t, left_t, right_t) then
+            slot.target_x = slot.anchor_x
+            slot.target_y = slot.anchor_y
+        else
             local attachment_angle = math.mix(
                 mid_point - 0.5 * math.pi,
                 mid_point + 0.5 * math.pi,
                 (slot_t - left_t) / (right_t - left_t)
             )
 
+            -- closest point on circle
             slot.target_x = self._target_x + math.cos(attachment_angle) * self._target_radius
             slot.target_y = self._target_y + math.sin(attachment_angle) * self._target_radius
 
-            slot.anchor_x = slot.origin_x - slot.normal_x * inlay
-            slot.anchor_y = slot.origin_y - slot.normal_y * inlay
-
-            -- add first free arm
             if slot.arm_i == nil then
                 local next_arm_i = select(1, next(self._free_arms))
                 if next_arm_i ~= nil then
                     self:_add_to_slot(slot_i, next_arm_i)
                 end
             end
-        else
-            slot.anchor_x = slot.origin_x
-            slot.anchor_y = slot.origin_y
-            slot.target_x = slot.anchor_x
-            slot.target_y = slot.anchor_y
+        end
 
-            -- removal done in _step when arm is retracted
+        if slot.arm_i ~= nil then
+            local arm = self._arms[slot.arm_i]
+            arm.anchor_x = slot.anchor_x
+            arm.anchor_y = slot.anchor_y
+            arm.target_x = slot.target_x
+            arm.target_y = slot.target_y
         end
     end
 
-    for arm_i = 1, #self._arms do
-        if self._free_arms[arm_i] == nil then
-            local arm = self._arms[arm_i]
-            local slot = self._slots[arm.slot_i]
-
-            if is_in_interval(slot.t, left_t, right_t) then
-                arm.is_extending = math.distance(
-                    slot.anchor_x, slot.anchor_y,
-                    slot.target_x, slot.target_y
-                ) <= arm.length
-            else
-                arm.is_extending = false
-            end
-        end
+    for arm in values(self._arms) do
+        arm.extend_or_retract = ternary(math.distance(
+            arm.anchor_x, arm.anchor_y,
+            arm.target_x, arm.target_y
+        ) >= arm.length, _extend, _retract)
     end
 
-    self:_update_instance_mesh()
-end
-
---- @brief
-function ow.DeceleratorBody:_update_instance_mesh()
-    if self._instance_mesh == nil then
-        local x, y, r = 0, 0, 1
-        local mesh = rt.Mesh({
-            { x    , y    , 0.5, 0.5,  1, 1, 1, 1 },
-            { x - r, y - r, 0.0, 0.0,  1, 1, 1, 1 },
-            { x + r, y - r, 1.0, 0.0,  1, 1, 1, 1 },
-            { x + r, y + r, 1.0, 1.0,  1, 1, 1, 1 },
-            { x - r, y + r, 0.0, 1.0,  1, 1, 1, 1 }
-        }, rt.MeshDrawMode.TRIANGLES, rt.VertexFormat2D, rt.GraphicsBufferUsage.STATIC)
-
-        mesh:set_vertex_map(
-            1, 2, 3,
-            1, 3, 4,
-            1, 4, 5,
-            1, 5, 2
-        )
-        mesh:set_texture(self._particle_texture)
-        self._instance_mesh = mesh
-    end
-
-
-    local is_initialized = self._data_mesh_data ~= nil
-    if self._data_mesh_data == nil then self._data_mesh_data = {} end
-
-    local data_i = 1
-    local get_data = function()
-        local data
-        if is_initialized then
-            data = self._data_mesh_data[data_i]
-        else
-            data = {}
-            self._data_mesh_data[data_i] = data
-        end
-
-        data_i = data_i + 1
-        return data
-    end
-
-    local particle_w, particle_h = self._particle_texture:get_size()
-    assert(particle_w == particle_h)
-
-    -- slot particles
-    local slot_radius = rt.settings.overworld.decelerator_body.slot_radius
-    for i = 1, #self._slots, 1 do
-        local slot_a, slot_b = self._slots[i], self._slots[math.wrap(i + 1, #self._slots)]
-
-        do
-            local data = get_data()
-            data[1] = slot_a.origin_x
-            data[2] = slot_a.origin_y
-            data[3] = slot_radius
-        end
-
-        do
-            local mid_x, mid_y = math.mix2(
-                slot_a.origin_x, slot_a.origin_y,
-                slot_b.origin_x, slot_b.origin_y,
-                0.5
-            )
-
-            local data = get_data()
-            data[1] = mid_x
-            data[2] = mid_y
-            data[3] = slot_radius
-        end
-    end
-
-    -- arm particles
-    local particle_data = self._data
-    for particle_i = 1, self._n_particles do
-        local i = _particle_i_to_data_offset(particle_i)
-        local data = get_data()
-        data[1] = particle_data[i + _x_offset]
-        data[2] = particle_data[i + _y_offset]
-        data[3] = particle_data[i + _radius_offset]
-    end
-
-    if not is_initialized then
-        self._n_instances = data_i - 1
-
-        self._data_mesh_format = {
-            { location = 3, name = "position", format = "floatvec2" },
-            { location = 4, name = "radius", format = "float" },
-        }
-
-        self._data_mesh = rt.Mesh(
-            self._data_mesh_data,
-            rt.MeshDrawMode.POINTS,
-            self._data_mesh_format,
-            rt.GraphicsBufferUsage.STREAM
-        )
-
-        for entry in values(self._data_mesh_format) do
-            self._instance_mesh:attach_attribute(
-                self._data_mesh,
-                entry.name,
-                rt.MeshAttributeAttachmentMode.PER_INSTANCE
-            )
-        end
-    else
-        self._data_mesh:replace_data(self._data_mesh_data)
-    end
-end
-
---- @brief
-function ow.DeceleratorBody:update(delta)
     self:_step(delta)
-    self:_update_instance_mesh()
 end
 
 do -- step helpers
@@ -647,6 +512,7 @@ do -- step helpers
         local collision_alpha = settings.collision_compliance / (sub_delta^2)
 
         local data = self._data
+
         local player_x, player_y, player_r = self._target_x, self._target_y, self._target_radius
 
         for _ = 1, n_sub_steps do
@@ -654,8 +520,8 @@ do -- step helpers
             for particle_i = 1, self._n_particles do
                 local offset = _particle_i_to_data_offset(particle_i)
                 local new_position_x, new_position_y,
-                    new_velocity_x, new_velocity_y,
-                    previous_x, previous_y
+                new_velocity_x, new_velocity_y,
+                previous_x, previous_y
                 = _pre_solve(
                     data[offset + _x_offset],
                     data[offset + _y_offset],
@@ -677,67 +543,18 @@ do -- step helpers
                 data[offset + _target_lambda_offset] = 0
             end
 
+            -- reset per-arm lambdas
+            for arm in values(self._arms) do
+                arm.anchor_lambda = 0
+            end
+
             -- Gauss-Seidel style iterations over constraints
             for __ = 1, n_constraint_iterations do
                 for arm in values(self._arms) do
                     if arm.slot_i == nil then goto next_arm end
 
-                    local slot = self._slots[arm.slot_i]
-                    local is_extending = arm.is_extending
-                    local segment_length = arm.segment_length
-                    local start_i, end_i = arm.start_i, arm.end_i
-                    local anchor_x, anchor_y = slot.anchor_x, slot.anchor_y
-
-                    do
-                        local retraction_sum = 0
-                        local target_start_i, target_end_i, target_x, target_y, alpha
-                        if is_extending then
-                            alpha = extend_alpha
-                            target_start_i = start_i + 1
-                            target_end_i = end_i
-                            target_x, target_y = slot.target_x, slot.target_y
-                        else
-                            alpha = retract_alpha
-                            target_start_i = start_i + 1 -- first is anchor
-                            target_end_i = end_i
-                            target_x, target_y = slot.anchor_x, slot.anchor_y
-                        end
-
-                        -- end node target
-                        for node_i = target_start_i, target_end_i do
-                            local i = _particle_i_to_data_offset(node_i)
-                            local x, y = data[i + _x_offset], data[i + _y_offset]
-                            local correction_x, correction_y, lambda_new = _enforce_anchor(
-                                x, y,
-                                target_x, target_y,
-                                data[i + _inverse_mass_offset],
-                                alpha,
-                                data[i + _target_lambda_offset]
-                            )
-
-                            local new_x = x + correction_x
-                            local new_y = y + correction_y
-                            data[i + _x_offset] = new_x
-                            data[i + _y_offset] = new_y
-                            data[i + _target_lambda_offset] = lambda_new
-                        end
-
-                        -- if retracting, check if fully done, if yes, free and add to buffer
-                        if not is_extending then
-                            local i = _particle_i_to_data_offset(end_i)
-                            if math.distance(
-                                data[i + _x_offset],
-                                data[i + _y_offset],
-                                anchor_x,
-                                anchor_y
-                            ) < settings.retract_threshold then
-                                self:_remove_from_slot(arm.slot_i)
-                            end
-                        end
-                    end
-
                     -- segment distance constraints
-                    for node_i = start_i, end_i - 1 do
+                    for node_i = arm.start_i, arm.end_i - 1, 1 do
                         local a_i = _particle_i_to_data_offset(node_i + 0)
                         local b_i = _particle_i_to_data_offset(node_i + 1)
 
@@ -750,7 +567,7 @@ do -- step helpers
                         local correction_ax, correction_ay, correction_bx, correction_by, lambda_new = _enforce_distance(
                             ax, ay, bx, by,
                             inverse_mass_a, inverse_mass_b,
-                            segment_length,
+                            arm.segment_length,
                             distance_alpha,
                             data[a_i + _distance_lambda_offset]
                         )
@@ -762,41 +579,40 @@ do -- step helpers
                         data[a_i + _distance_lambda_offset] = lambda_new
                     end
 
-                    if is_extending then
-                        -- bending constraints (XPBD)
-                        for node_i = start_i, end_i - 2 do
-                            local a_i = _particle_i_to_data_offset(node_i + 0)
-                            local b_i = _particle_i_to_data_offset(node_i + 1)
-                            local c_i = _particle_i_to_data_offset(node_i + 2)
+                    -- bending constraints (XPBD)
+                    for node_i = arm.start_i, arm.end_i - 2, 1 do
+                        local a_i = _particle_i_to_data_offset(node_i + 0)
+                        local b_i = _particle_i_to_data_offset(node_i + 1)
+                        local c_i = _particle_i_to_data_offset(node_i + 2)
 
-                            local ax, ay = data[a_i + _x_offset], data[a_i + _y_offset]
-                            local bx, by = data[b_i + _x_offset], data[b_i + _y_offset]
-                            local particle_c_x, particle_c_y = data[c_i + _x_offset], data[c_i + _y_offset]
+                        local ax, ay = data[a_i + _x_offset], data[a_i + _y_offset]
+                        local bx, by = data[b_i + _x_offset], data[b_i + _y_offset]
+                        local particle_c_x, particle_c_y = data[c_i + _x_offset], data[c_i + _y_offset]
 
-                            local inverse_mass_a = data[a_i + _inverse_mass_offset]
-                            local inverse_mass_b = data[b_i + _inverse_mass_offset]
-                            local inverse_mass_c = data[c_i + _inverse_mass_offset]
+                        local inverse_mass_a = data[a_i + _inverse_mass_offset]
+                        local inverse_mass_b = data[b_i + _inverse_mass_offset]
+                        local inverse_mass_c = data[c_i + _inverse_mass_offset]
 
-                            local segment_length_ab = segment_length
-                            local segment_length_bc = segment_length
-                            local target_length = segment_length_ab + segment_length_bc
+                        local segment_length_ab = arm.segment_length
+                        local segment_length_bc = arm.segment_length
+                        local target_length = segment_length_ab + segment_length_bc
 
-                            local correction_ax, correction_ay, _, _, correction_cxx, correction_cxy, lambda_new = _enforce_bending(
-                                ax, ay, bx, by, particle_c_x, particle_c_y,
-                                inverse_mass_a, inverse_mass_b, inverse_mass_c,
-                                target_length,
-                                bending_alpha,
-                                data[a_i + _bending_lambda_offset]
-                            )
+                        local correction_ax, correction_ay, _, _, correction_cxx, correction_cxy, lambda_new = _enforce_bending(
+                            ax, ay, bx, by, particle_c_x, particle_c_y,
+                            inverse_mass_a, inverse_mass_b, inverse_mass_c,
+                            target_length,
+                            bending_alpha,
+                            data[a_i + _bending_lambda_offset]
+                        )
 
-                            data[a_i + _x_offset] = ax + correction_ax
-                            data[a_i + _y_offset] = ay + correction_ay
-                            data[c_i + _x_offset] = particle_c_x + correction_cxx
-                            data[c_i + _y_offset] = particle_c_y + correction_cxy
-                            data[a_i + _bending_lambda_offset] = lambda_new
-                        end
+                        data[a_i + _x_offset] = ax + correction_ax
+                        data[a_i + _y_offset] = ay + correction_ay
+                        data[c_i + _x_offset] = particle_c_x + correction_cxx
+                        data[c_i + _y_offset] = particle_c_y + correction_cxy
+                        data[a_i + _bending_lambda_offset] = lambda_new
                     end
 
+                    -- player collision
                     for node_i = arm.start_i, arm.end_i, 1 do
                         local i = _particle_i_to_data_offset(node_i)
                         local x, y = data[i + _x_offset], data[i + _y_offset]
@@ -821,10 +637,54 @@ do -- step helpers
                         data[i + _collision_lambda_offset] = lambda_new
                     end
 
-                    do -- pin anchor
-                        local i = _particle_i_to_data_offset(start_i)
-                        data[i + _x_offset] = anchor_x
-                        data[i + _y_offset] = anchor_y
+                    -- pin anchor
+                    do
+                        local i = _particle_i_to_data_offset(arm.start_i)
+                        data[i + _x_offset] = arm.anchor_x
+                        data[i + _y_offset] = arm.anchor_y
+                    end
+
+                    local is_retracting = arm.extend_or_retract == _retract
+
+                    local target_start_i, target_end_i, target_alpha
+                    if not is_retracting then
+                        target_start_i, target_end_i = arm.start_i + 1, arm.end_i
+                        target_alpha = extend_alpha
+                    else
+                        target_start_i, target_end_i = arm.start_i + 1, arm.end_i
+                        target_alpha = retract_alpha
+                    end
+
+                    -- end node target
+                    local retraction_sum = 0
+                    for node_i = target_start_i, target_end_i do
+                        local i = _particle_i_to_data_offset(node_i)
+                        local x, y = data[i + _x_offset], data[i + _y_offset]
+                        local correction_x, correction_y, lambda_new = _enforce_anchor(
+                            x, y,
+                            arm.target_x, arm.target_y,
+                            data[i + _inverse_mass_offset],
+                            target_alpha,
+                            data[i + _target_lambda_offset]
+                        )
+
+                        local new_x = x + correction_x
+                        local new_y = y + correction_y
+                        data[i + _x_offset] = new_x
+                        data[i + _y_offset] = new_y
+                        data[i + _target_lambda_offset] = lambda_new
+
+                        if is_retracting then
+                            retraction_sum = retraction_sum + math.distance(
+                                new_x, new_y,
+                                arm.target_x, arm.target_y
+                            )
+                        end
+                    end
+
+                    -- if retracting, check if fully done, then free and add to buffer
+                    if is_retracting and (retraction_sum / (arm.n_segments - 1)) < max_radius then
+                        self:_remove_from_slot(arm.slot_i)
                     end
 
                     ::next_arm::
@@ -846,58 +706,67 @@ do -- step helpers
                 data[i + _velocity_y_offset] = new_velocity_y
             end
         end
-
-        self._canvas_needs_update = true
     end
 end
 
 --- @brief
 function ow.DeceleratorBody:draw()
-    local mean_x = math.mix(self._aabb.x, self._aabb.x + self._aabb.width, 0.5)
-    local mean_y = math.mix(self._aabb.y, self._aabb.y + self._aabb.height, 0.5)
-    local w, h = self._canvas:get_size()
+    rt.Palette.WHITE:bind()
+    love.graphics.line(self._path:get_points())
 
-    if self._canvas_needs_update then
-        love.graphics.push("all")
-        love.graphics.reset()
+    love.graphics.setLineJoin("none")
+    love.graphics.setLineStyle("smooth")
 
-        self._canvas:bind()
-        love.graphics.clear(0, 0, 0, 0)
+    local max_radius = rt.settings.overworld.decelerator_body.max_radius
+    love.graphics.setLineWidth(max_radius)
 
-        love.graphics.translate(
-            -mean_x + 0.5 * w, -mean_y + 0.5 * h
-        )
+    local data = self._data
+    local arms = self._arms
 
-        local data = self._data
+    for _, arm in ipairs(arms) do
+        local is_first = true
+        for particle_i = arm.start_i, arm.end_i do
+            local i = _particle_i_to_data_offset(particle_i)
+            love.graphics.circle("fill",
+                data[i + _x_offset],
+                data[i + _y_offset],
+                max_radius / 2
+            )
 
-        rt.graphics.set_blend_mode(rt.BlendMode.ADD, rt.BlendMode.ADD)
-        love.graphics.setColor(1, 1, 1, 1)
-
-        self._mesh:draw()
-
-        _instance_draw_shader:bind()
-        _instance_draw_shader:send("texture_scale", rt.settings.overworld.decelerator_body.texture_scale)
-        self._instance_mesh:draw_instanced(self._n_instances)
-        _instance_draw_shader:unbind()
-
-        self._canvas:unbind()
-        love.graphics.pop()
+            if is_first then
+                love.graphics.circle("line",
+                    data[i + _x_offset],
+                    data[i + _y_offset],
+                    max_radius
+                )
+                is_first = false
+            end
+        end
     end
 
-    love.graphics.push()
-    love.graphics.translate(mean_x - 0.5 * w, mean_y - 0.5 * h)
-    love.graphics.setColor(1, 1, 1, 1)
-    _threshold_shader:bind()
-    _threshold_shader:send("threshold", debugger.get("threshold"))
-    _threshold_shader:send("smoothness", debugger.get("smoothness"))
-    rt.Palette.BLACK:bind()
-    self._canvas:draw()
-    _threshold_shader:unbind()
+    love.graphics.setPointSize(3)
 
-    love.graphics.pop()
+    for _, arm in ipairs(arms) do
+        for particle_i = arm.start_i, arm.end_i - 1 do
+            local a_i = _particle_i_to_data_offset(particle_i + 0)
+            local b_i = _particle_i_to_data_offset(particle_i + 1)
+
+            love.graphics.line(
+                data[a_i + _x_offset],
+                data[a_i + _y_offset],
+                data[b_i + _x_offset],
+                data[b_i + _y_offset]
+            )
+        end
+    end
 end
 
 --- @brief
 function ow.DeceleratorBody:get_player_damping()
-    return 0
+    local n_attached = 0
+    for arm in values(self._arms) do
+        if arm.is_attached then n_attached = n_attached + 1 end
+    end
+
+    return 1 - n_attached / #self._arms
 end
