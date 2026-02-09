@@ -1,8 +1,10 @@
 rt.settings.overworld.decelerator_body = {
-    n_arms = 32,
+    n_arms = 16,
     arm_radius = rt.settings.player.radius,
     arm_length = 64,
     arm_n_segments = 32,
+
+    n_arms_for_full_force = 3,
 
     min_radius = 1,
     max_radius = 3,
@@ -19,11 +21,12 @@ rt.settings.overworld.decelerator_body = {
     distance_compliance = 0.0,
     bending_compliance = 0.001,
     retract_compliance = 0.01,
-    extend_compliance = 0.004,
+    extend_compliance = 0.002,
     collision_compliance = 0.0001,
 
-    threshold = 0.6,
-    smoothness = 0.15
+    threshold = 0.5,
+    smoothness = 0.05,
+    outline_thickness = 1 / 4
 }
 
 rt.settings.overworld.decelerator_body.retract_threshold = rt.settings.overworld.decelerator_body.max_radius
@@ -64,9 +67,11 @@ DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
 end)
 
 --- @brief
-function ow.DeceleratorBody:instantiate(contour, mesh)
+function ow.DeceleratorBody:instantiate(scene, contour, mesh)
+    self._scene = scene
+
     self._target_x, self._target_y = math.huge, math.huge
-    self._target_radius, self._target_t = 0, 0
+    self._target_radius = 0
     self._is_active = false
 
     self._n_connected = 0
@@ -97,6 +102,8 @@ function ow.DeceleratorBody:instantiate(contour, mesh)
     self._mesh = mesh
 
     local arm_length = settings.arm_length
+    self._arm_length = arm_length
+    self._arm_length_extension = 0
 
     self._aabb = rt.contour.get_aabb(self._contour)
 
@@ -174,10 +181,7 @@ function ow.DeceleratorBody:instantiate(contour, mesh)
             start_i = start_i,
             end_i = particle_i - 1,
             slot_i = nil,
-
-            length = arm_length,
             n_segments = n_segments,
-            segment_length = arm_length / n_segments,
 
             is_extending = false
         })
@@ -254,6 +258,8 @@ function ow.DeceleratorBody:set_target(x, y, radius)
     self._is_active = true
     self._target_x, self._target_y, self._target_radius = x, y, radius
     local final_x, final_y, closest_t = self._path:get_closest_point(x, y)
+    self._closest_x, self._closest_y = final_x, final_y
+    self._closest_normal_x, self._closest_normal_y = self._path:get_normal_at(closest_t)
     self._target_t = closest_t
 
     -- update slot targets
@@ -279,8 +285,8 @@ function ow.DeceleratorBody:set_target(x, y, radius)
 
     local inlay = rt.settings.overworld.decelerator_body.retract_threshold
 
-    local range = math.pi
-    local mid_point = math.pi + math.angle(dx, dy)
+    local range = 2 * math.pi
+    local mid_point = math.angle(dx, dy)
 
     for slot_i = 1, n_slots do
         local slot = self._slots[slot_i]
@@ -325,7 +331,7 @@ function ow.DeceleratorBody:set_target(x, y, radius)
                 arm.is_extending = math.distance(
                     slot.anchor_x, slot.anchor_y,
                     slot.target_x, slot.target_y
-                ) <= arm.length
+                ) <= (self._arm_length + self._arm_length_extension)
             else
                 arm.is_extending = false
             end
@@ -443,6 +449,12 @@ end
 
 --- @brief
 function ow.DeceleratorBody:update(delta)
+    self._arm_length_extension = ternary(
+        self._scene:get_player():get_is_bubble(),
+        rt.settings.player.radius * (rt.settings.player.bubble_radius_factor - 1),
+        0
+    )
+
     self:_step(delta)
     self:_update_instance_mesh()
 end
@@ -694,7 +706,7 @@ do -- step helpers
 
                     local slot = self._slots[arm.slot_i]
                     local is_extending = arm.is_extending
-                    local segment_length = arm.segment_length
+                    local segment_length = (self._arm_length + self._arm_length_extension) / arm.n_segments
                     local start_i, end_i = arm.start_i, arm.end_i
                     local anchor_x, anchor_y = slot.anchor_x, slot.anchor_y
 
@@ -918,11 +930,19 @@ function ow.DeceleratorBody:draw()
     love.graphics.translate(mean_x - 0.5 * w, mean_y - 0.5 * h)
     love.graphics.setColor(1, 1, 1, 1)
 
+    local transform = self._scene:get_camera():get_transform()
+    transform = transform:inverse()
+
+    local settings = rt.settings.overworld.decelerator_body
     _threshold_shader:bind()
-    _threshold_shader:send("threshold", debugger.get("threshold"))
-    _threshold_shader:send("smoothness", debugger.get("smoothness"))
+    _threshold_shader:send("threshold", settings.threshold)
+    _threshold_shader:send("smoothness", settings.smoothness)
+    _threshold_shader:send("outline_thickness", settings.outline_thickness)
     _threshold_shader:send("outline_color", { rt.Palette.MINT:unpack() })
     _threshold_shader:send("body_color", { rt.Palette.BLACK:unpack() })
+    _threshold_shader:send("screen_to_world_transform", transform)
+    _threshold_shader:send("elapsed", rt.SceneManager:get_elapsed() + meta.hash(self))
+
     love.graphics.draw(self._canvas:get_native())
     _threshold_shader:unbind()
 
@@ -930,6 +950,16 @@ function ow.DeceleratorBody:draw()
 end
 
 --- @brief
-function ow.DeceleratorBody:get_player_damping()
-    return math.min(1, self._n_connected / 8)
+function ow.DeceleratorBody:get_penetration()
+    if self._target_t == nil then return nil end
+    local normal_x, normal_y = self._closest_normal_x, self._closest_normal_y
+
+    local to_target_x = self._target_x - self._closest_x
+    local to_target_y = self._target_y - self._closest_y
+
+    local signed_dist = -1 * math.dot(to_target_x, to_target_y, normal_x, normal_y)
+    local penetration = math.min(1, 1 - math.min(1, (signed_dist - self._target_radius) / (rt.settings.overworld.decelerator_body.arm_length)))
+
+    penetration = penetration * math.min(1, self._n_connected / rt.settings.overworld.decelerator_body.n_arms_for_full_force)
+    return penetration, -self._closest_normal_x, -self._closest_normal_y
 end

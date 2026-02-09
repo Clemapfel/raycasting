@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 498,
+  nextobjectid = 501,
   properties = {},
   tilesets = {
     {
@@ -455,7 +455,7 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = -9104,
+          x = -9086.27,
           y = -992,
           width = 0,
           height = 0,
@@ -1855,8 +1855,8 @@ return {
           name = "",
           type = "DeceleratorSurface",
           shape = "polygon",
-          x = -8950.36,
-          y = -1367.01,
+          x = -8985.69,
+          y = -1591.87,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1906,6 +1906,38 @@ return {
             { x = 62.9903, y = 1.45582 },
             { x = 47.4987, y = -1.13574 },
             { x = 30.8681, y = -2.10973 }
+          },
+          properties = {}
+        },
+        {
+          id = 498,
+          name = "",
+          type = "AirDashNode",
+          shape = "ellipse",
+          x = -8852.29,
+          y = -1841.91,
+          width = 120,
+          height = 120,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 500,
+          name = "",
+          type = "DeceleratorSurface",
+          shape = "polygon",
+          x = -8960,
+          y = -1008,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 0, y = -32 },
+            { x = 320, y = -32 },
+            { x = 320, y = 0 }
           },
           properties = {}
         }

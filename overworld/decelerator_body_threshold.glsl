@@ -58,17 +58,76 @@ vec2 derivative(sampler2D img, vec2 position) {
     return vec2(dx, dy);
 }
 
+vec3 random_3d(in vec3 p) {
+    return fract(sin(vec3(
+    dot(p, vec3(127.1, 311.7, 74.7)),
+    dot(p, vec3(269.5, 183.3, 246.1)),
+    dot(p, vec3(113.5, 271.9, 124.6)))
+    ) * 43758.5453123);
+}
+
+float gradient_noise(vec3 p) {
+    vec3 i = floor(p);
+    vec3 v = fract(p);
+
+    vec3 u = v * v * v * (v *(v * 6.0 - 15.0) + 10.0);
+
+    return mix( mix( mix( dot( -1 + 2 * random_3d(i + vec3(0.0,0.0,0.0)), v - vec3(0.0,0.0,0.0)),
+    dot( -1 + 2 * random_3d(i + vec3(1.0,0.0,0.0)), v - vec3(1.0,0.0,0.0)), u.x),
+    mix( dot( -1 + 2 * random_3d(i + vec3(0.0,1.0,0.0)), v - vec3(0.0,1.0,0.0)),
+    dot( -1 + 2 * random_3d(i + vec3(1.0,1.0,0.0)), v - vec3(1.0,1.0,0.0)), u.x), u.y),
+    mix( mix( dot( -1 + 2 * random_3d(i + vec3(0.0,0.0,1.0)), v - vec3(0.0,0.0,1.0)),
+    dot( -1 + 2 * random_3d(i + vec3(1.0,0.0,1.0)), v - vec3(1.0,0.0,1.0)), u.x),
+    mix( dot( -1 + 2 * random_3d(i + vec3(0.0,1.0,1.0)), v - vec3(0.0,1.0,1.0)),
+    dot( -1 + 2 * random_3d(i + vec3(1.0,1.0,1.0)), v - vec3(1.0,1.0,1.0)), u.x), u.y), u.z );
+}
+
+
+float dirac(float x) {
+    float a = 0.045 * exp(log(1.0 / 0.045 + 1.0) * x) - 0.045;
+    float b = 0.045 * exp(log(1.0 / 0.045 + 1.0) * (1.0 - x)) - 0.045;
+    const float t = 5.81894409826698685315796808094;
+    return t * min(a, b);
+}
+
+
+float net_texture(vec2 uv, float elapsed) {
+
+    uv = uv / 4;
+    float noise = 0;
+    for (int i = 1; i < 3; ++i)
+    {
+        noise = dirac(noise + gradient_noise(vec3(uv, elapsed)));
+        uv *= 1.5;
+    }
+    return noise;
+}
+
+uniform mat4x4 screen_to_world_transform;
+uniform float elapsed;
+
+vec2 to_world_position(vec2 xy) {
+    vec4 result = screen_to_world_transform * vec4(xy, 0.0, 1.0);
+    return result.xy / result.w;
+}
+
 uniform vec4 outline_color = vec4(1, 1, 1, 1);
-uniform vec4 body_color = vec4(0, 0, 0.5, 1);
+uniform vec4 body_color = vec4(0.3, 0.3, 0.3, 1);
 
 vec4 effect(vec4 color, sampler2D tex, vec2 texture_coordinates, vec2 screen_coords)
 {
     // threshold
     float body = finalize(texture(tex, texture_coordinates).r);
-
     float outline = smoothstep(0, 0.5, min(1, length(derivative(tex, texture_coordinates))));
 
-    return min(vec4(1), vec4(body_color * body + outline_color * outline));
+    // texture
+    const float noise_scale = 1.f / 10;
+    vec2 world_position = to_world_position(screen_coords);
+    float noise = net_texture(world_position * noise_scale, elapsed);
+
+    vec3 texture = mix(body_color.rgb, outline_color.rgb, noise);
+
+    return min(vec4(1), vec4(vec4(texture, 1) * body + outline_color * outline));
 }
 
 #endif

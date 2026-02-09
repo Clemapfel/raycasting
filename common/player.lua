@@ -42,7 +42,6 @@ do
         sprint_multiplier = 2,
         sprint_multiplier_transition_duration = 5 / 60,
 
-
         flow_increase_velocity = 1 / 200, -- fraction
         flow_decrease_velocity = 1, -- fraction
 
@@ -108,9 +107,6 @@ do
         spring_constant = 1.8,
         joint_force_threshold = 1000,
         joint_length_threshold = 100,
-
-        spring_damping = 1000,
-        spring_stiffness = 10,
 
         bubble_radius_factor = 2.5,
         bubble_inner_radius_scale = 1.7,
@@ -334,12 +330,11 @@ function rt.Player:instantiate()
         _gravity_direction_y = 1,
         _gravity_multiplier = 1,
 
-        _direction_to_damping = {
-            [rt.Direction.UP] = 1,
-            [rt.Direction.RIGHT] = 1,
-            [rt.Direction.DOWN] = 1,
-            [rt.Direction.LEFT] = 1
-        },
+        _damping_sources = {}, -- cf. add_damping_source
+        _damping_id = 1,
+
+        _force_sources = {}, -- cf. add_force_source
+        _force_id = 1,
 
         _is_ghost = false,
         _collision_disabled = false,
@@ -944,15 +939,6 @@ function rt.Player:update(delta)
 
         self._left_wall_jump_buffer_elapsed = self._left_wall_jump_buffer_elapsed + delta
         self._right_wall_jump_buffer_elapsed = self._right_wall_jump_buffer_elapsed + delta
-    end
-
-    -- damping here so it's vailable for both bubble and non-bubble
-    local function _apply_damping(next_velocity_x, next_velocity_y)
-        if next_velocity_x < 0 then next_velocity_x = next_velocity_x * self._direction_to_damping[rt.Direction.LEFT] end
-        if next_velocity_x > 0 then next_velocity_x = next_velocity_x * self._direction_to_damping[rt.Direction.RIGHT] end
-        if next_velocity_y < 0 then next_velocity_y = next_velocity_y * self._direction_to_damping[rt.Direction.UP] end
-        if next_velocity_y > 0 then next_velocity_y = next_velocity_y * self._direction_to_damping[rt.Direction.DOWN] end
-        return next_velocity_x * self._damping, next_velocity_y * self._damping
     end
 
     -- check if tethers should be cleared
@@ -1890,11 +1876,20 @@ function rt.Player:update(delta)
             self._queue_turn_around = false
         end
 
-        next_velocity_x, next_velocity_y = _apply_damping(next_velocity_x, next_velocity_y)
+        next_velocity_x, next_velocity_y = self:_apply_damping(next_velocity_x, next_velocity_y)
         next_velocity_x = self._platform_velocity_x + next_velocity_x
         next_velocity_y = self._platform_velocity_y + next_velocity_y
 
-        self._body:set_velocity(next_velocity_x, next_velocity_y)
+        local net_force_x, net_force_y = 0, 0
+        for entry in values(self._force_sources) do
+            net_force_x = net_force_x + (entry.dx or 0)
+            net_force_y = net_force_y + (entry.dy or 0)
+        end
+
+        self._body:set_velocity(
+            next_velocity_x + net_force_x * delta,
+            next_velocity_y + net_force_y * delta
+        )
         self._last_velocity_x, self._last_velocity_y = next_velocity_x, next_velocity_y
 
         ::skip_velocity_update::
@@ -1951,7 +1946,13 @@ function rt.Player:update(delta)
             end
         end
 
-        self._bubble_body:apply_force(delta * _apply_damping(next_force_x / delta, next_force_y / delta))
+        -- apply external forces
+        for entry in values(self._force_sources) do
+            next_force_x = next_force_x + entry.dx
+            next_force_y = next_force_y + entry.dy
+        end
+
+        self._bubble_body:apply_force(next_force_x, next_force_y)
         self._last_bubble_force_x, self._last_bubble_force_y = next_force_x, next_force_y
 
         if self._bounce_elapsed <= _settings.bounce_duration then
@@ -1969,6 +1970,8 @@ function rt.Player:update(delta)
             self._gravity_direction_x * bubble_gravity,
             self._gravity_direction_y * bubble_gravity
         )
+
+        self._bubble_body:set_velocity(self:_apply_damping(self._bubble_body:get_velocity()))
 
         self._graphics_body:set_up_squish(false)
         self._graphics_body:set_down_squish(false)
@@ -2896,21 +2899,6 @@ function rt.Player:get_gravity()
 end
 
 --- @brief
-function rt.Player:set_directional_damping(direction, x)
-    meta.assert_enum_value(direction, rt.Direction, 1)
-    meta.assert_typeof(x, "Number", 2)
-
-    self._direction_to_damping[direction] = x
-end
-
---- @brief
-function rt.Player:get_directional_damping(direction)
-    meta.assert_enum_value(direction, rt.Direction, 1)
-
-    return self._direction_to_damping[direction]
-end
-
---- @brief
 function rt.Player:set_is_bubble(b)
     if b == self._is_bubble then
         return
@@ -3410,6 +3398,10 @@ function rt.Player:reset()
         self._next_sprint_multiplier_update_when_grounded = false
     end
 
+    table.clear(self._double_jump_sources)
+    table.clear(self._damping_sources)
+    table.clear(self._force_sources)
+
     self:clear_forces()
     self._graphics_body:set_use_contour(self._is_bubble)
     self._graphics_body:set_position(ternary(self._is_bubble, self._bubble_body, self._body):get_position())
@@ -3505,8 +3497,96 @@ function rt.Player:set_ignore_next_jump(b)
 end
 
 --- @brief
-function rt.Player:set_damping(t)
-    self._damping = t
+--- @return Number id
+function rt.Player:add_damping_source(up_damping, right_damping, down_damping, left_damping)
+    local id = self._damping_id
+    self._damping_id = self._damping_id + 1
+
+    local entry = {}
+    entry[rt.Direction.UP] = up_damping
+    entry[rt.Direction.RIGHT] = right_damping
+    entry[rt.Direction.DOWN] = down_damping
+    entry[rt.Direction.LEFT] = left_damping
+
+    self._damping_sources[id] = entry
+    return id
+end
+
+--- @brief
+--- @return Number id
+function rt.Player:update_damping_source(id, up_damping, right_damping, down_damping, left_damping)
+    local entry = self._damping_sources[id]
+
+    if entry == nil then
+        entry = {}
+        self._damping_sources[id] = entry
+        return
+    end
+
+    entry[rt.Direction.UP] = up_damping
+    entry[rt.Direction.RIGHT] = right_damping
+    entry[rt.Direction.DOWN] = down_damping
+    entry[rt.Direction.LEFT] = left_damping
+end
+
+--- @brief
+--- @param id Number
+function rt.Player:remove_damping_source(id)
+    self._damping_sources[id] = nil
+end
+
+--- @brief
+function rt.Player:_apply_damping(vx, vy)
+    for entry in values(self._damping_sources) do
+        local left = entry[rt.Direction.LEFT]
+        local right = entry[rt.Direction.RIGHT]
+        local up = entry[rt.Direction.UP]
+        local down = entry[rt.Direction.DOWN]
+
+        if vx < 0 and left ~= nil then vx = vx * left end
+        if vx > 0 and right ~= nil then vx = vx * right end
+        if vy < 0 and up ~= nil then vy = vy * up end
+        if vy > 0 and down ~= nil then vy = vy * down end
+    end
+
+    return vx, vy
+end
+
+--- @brief
+--- @return Number id
+function rt.Player:add_force_source(dx, dy)
+    local id = self._force_id
+    self._force_id = self._force_id + 1
+
+    local entry = {
+        dx = dx or 0,
+        dy = dy or 0
+    }
+
+    self._force_sources[id] = entry
+    return id
+end
+
+--- @brief
+--- @return Number id
+function rt.Player:update_force_source(id, dx, dy)
+    meta.assert(id, "Number")
+
+    local entry = self._force_sources[id]
+    if entry == nil then
+        entry = {}
+        self._force_sources[id] = entry
+        return
+    end
+
+    entry.dx = dx or 0
+    entry.dy = dy or 0
+end
+
+--- @brief
+--- @param id Number
+function rt.Player:remove_force_source(id)
+    self._force_sources[id] = nil
 end
 
 --- @brief

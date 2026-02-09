@@ -22,7 +22,8 @@ function rt.Path:instantiate(points, ...)
         _length = 0,
         _first_distance = 0,
         _last_distance = 0,
-        _use_arclength = false  -- track whether to use arc-length parameterization
+        _use_arclength = false,  -- track whether to use arc-length parameterization
+        _orientation = 0         -- winding orientation: 1 (CCW), -1 (CW), 0 (degenerate)
     })
     out:create_from(points, ...)
     return out
@@ -36,6 +37,26 @@ function rt.Path:_update()
     local total_length = 0
     local n_entries = 0
 
+    -- compute winding based on signed area (shoelace); positive => CCW, negative => CW
+    local signed_area2 = 0
+    if n_points >= 6 then
+        for i = 1, n_points - 2, 2 do
+            local x1, y1 = points[i], points[i + 1]
+            local x2, y2 = points[i + 2], points[i + 3]
+            signed_area2 = signed_area2 + (x1 * y2 - x2 * y1)
+        end
+        -- close the polygon by adding last -> first
+        local lx, ly = points[n_points - 1], points[n_points]
+        local fx, fy = points[1], points[2]
+        signed_area2 = signed_area2 + (lx * fy - fx * ly)
+    end
+
+    local orientation = 0
+    if math.abs(signed_area2) > math.eps then
+        orientation = signed_area2 > 0 and 1 or -1
+    end
+    self._orientation = orientation
+
     -- create entries for each line segment
     for i = 1, n_points - 2, 2 do
         local x1, y1 = points[i], points[i+1]
@@ -46,6 +67,16 @@ function rt.Path:_update()
         local distance = math.distance(x1, y1, x2, y2)
         dx, dy = math.normalize(dx, dy)
 
+        -- precompute normal using winding
+        local nx, ny
+        if orientation >= 0 then
+            -- CCW or degenerate: use left-hand normal
+            nx, ny = -dy, dx
+        else
+            -- CW: use right-hand normal
+            nx, ny = dy, -dx
+        end
+
         local entry = {
             from_x = x1,
             from_y = y1,
@@ -53,6 +84,8 @@ function rt.Path:_update()
             to_y = y2,
             dx = dx,  -- normalized direction vector
             dy = dy,
+            nx = nx,  -- precomputed normal vector
+            ny = ny,
             distance = distance,
             cumulative_distance = total_length,
             fraction = 0, -- set below
@@ -177,6 +210,12 @@ end
 function rt.Path:tangent_at(t)
     local segment = self:_find_segment(math.clamp(t, 0, 1))
     return segment.dx, segment.dy
+end
+
+--- @brief return normal at parameter t [0, 1]; normal is precomputed per segment and depends on path winding
+function rt.Path:get_normal_at(t)
+    local segment = self:_find_segment(math.clamp(t, 0, 1))
+    return segment.nx, segment.ny
 end
 
 --- @brief

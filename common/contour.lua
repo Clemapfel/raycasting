@@ -342,3 +342,4 @@ function rt.contour.get_aabb(contour)
         max_x - min_x, max_y - min_y
     )
 end
+

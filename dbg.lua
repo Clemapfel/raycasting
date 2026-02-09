@@ -1,5 +1,3 @@
 return {
-    threshold = 0.5,
-    smoothness = 0.05,
-    outline_thickness = 1
+    bubble_force = 1600
 }

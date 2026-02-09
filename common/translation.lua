@@ -205,10 +205,10 @@ rt.Translation = {
         fullscreen_description = "If enabled, automatically resizes the window to cover the entire monitor",
 
         msaa_title = "Multi-Sample Anti Aliasing (MSAA)",
-        msaa_description = "Reduces jagged lines and other artifacts, may impact performance",
+        msaa_description = "Reduces jagged lines and other artifacts, higher levels may decrease performance",
 
         bloom_title = "Bloom",
-        bloom_description = "TODO",
+        bloom_description = "If enabled, light souces will have a soft glow around them. Disabling this may improve performance",
 
         hdr_title = "HDR (High Dynamic Range)",
         hdr_description = "Use a larger range of colors for rendering, which can result in better video output on certain monitors, at worse performance",
@@ -220,7 +220,7 @@ rt.Translation = {
         music_level_description = "Volume of music playback",
 
         shake_enabled_title = "Screen Shake",
-        shake_enabled_description = "TODO",
+        shake_enabled_description = "If disabled, ",
 
         joystick_deadzone_title = "Deadzone",
         joystick_deadzone_description = "How far the controllers joystick has to be moved away from the center before an input is registered",
@@ -232,7 +232,7 @@ rt.Translation = {
         input_buffering_enabled_description = "If enabled, pressing jump slightly before touching the ground or a wall will instantly jump",
 
         color_blind_mode_enabled_title = "Color Blind Mode",
-        color_blind_mode_enabled_description = "Adds various non-diagetic visual elements to objects that rely on the user being able to differentiate colors",
+        color_blind_mode_enabled_description = "Adds various non-diagetic visual elements to objects that rely on the player being able to differentiate colors",
 
         draw_debug_info_enabled_title = "Draw Debug Information",
         draw_debug_info_enabled_description = "Whether to show various information at the top of the screen",

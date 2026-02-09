@@ -25,6 +25,8 @@ function ow.AirDashNodeManager:instantiate(scene, stage)
     self._tether_dx, self._tether_dy = 0, 0 -- direction
     self._tether_exit_line = {} -- Array<Number, 4>
     self._tether_exit_sign = 0
+    
+    self._damping_entry_id = nil
 
     self._input = rt.InputSubscriber(rt.settings.player.input_subscriber_priority + 1)
     self._input = rt.InputSubscriber()
@@ -47,6 +49,21 @@ local function _get_side(px, py, line)
     local dpy = py - y1
 
     return math.sign(math.cross(dx, dy, dpx, dpy))
+end
+
+--- @brief
+function ow.AirDashNodeManager:_update_damping(value)
+    local player = self._scene:get_player()
+    if self._damping_entry_id == nil then
+        self._damping_entry_id = player:add_damping_source(
+            nil, -- up
+            nil, -- right
+            value, -- down
+            nil -- left
+        )
+    else
+        player:update_damping_source(self._damping_entry_id, nil, nil, value, nil)
+    end
 end
 
 --- @brief
@@ -131,7 +148,7 @@ function ow.AirDashNodeManager:update(delta)
 
     if self._tethered_node ~= nil then
         -- move player
-        player:set_directional_damping(rt.Direction.DOWN, 1) -- to prevent downwards dash being dampened
+        self:_update_damping(1) -- to prevent downwards dash being dampened
 
         local target_velocity = ternary(not player:get_is_bubble(),
             rt.settings.overworld.air_dash_node_manager.dash_velocity,
@@ -229,7 +246,7 @@ function ow.AirDashNodeManager:update(delta)
 
     if best_entry == nil then
         if self._next_node ~= nil then
-            player:set_directional_damping(rt.Direction.DOWN, 1)
+            self:_update_damping(1)
         end
 
         -- no candidate, highlight closest
@@ -248,11 +265,11 @@ function ow.AirDashNodeManager:update(delta)
         self._recommended_node = self._next_node
 
         if not player:get_is_grounded() then
-            player:set_directional_damping(rt.Direction.DOWN,
+            self:_update_damping(
                 math.mix(0.94, 0.98, (math.distance(px, py, self._next_node:get_position()) / self._next_node:get_radius()))
             )
         else
-            player:set_directional_damping(rt.Direction.DOWN, 1)
+            self:_update_damping(1)
         end
     end
 
