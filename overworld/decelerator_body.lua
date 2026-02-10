@@ -15,7 +15,7 @@ rt.settings.overworld.decelerator_body = {
     slot_max_scale = 2,
 
     particle_texture_r = 20,
-    texture_scale = 1.5,
+    texture_scale = 2,
 
     n_sub_steps = 2,
     n_constraint_iterations = 2,
@@ -117,7 +117,7 @@ function ow.DeceleratorBody:instantiate(scene, contour, mesh)
 
     self._canvas = rt.RenderTexture(
         self._aabb.width, self._aabb.height,
-        rt.TextureFormat.R8
+        rt.TextureFormat.RG16F
     )
     self._canvas_needs_update = true
 
@@ -898,7 +898,8 @@ function ow.DeceleratorBody:draw()
 
         local data = self._data
 
-        love.graphics.setColor(1, 1, 1, 1)
+        -- draw to .r: density
+        love.graphics.setColor(1, 0, 0, 1)
 
         self._mesh:draw()
 
@@ -906,6 +907,15 @@ function ow.DeceleratorBody:draw()
         _instance_draw_shader:send("texture_scale", rt.settings.overworld.decelerator_body.texture_scale)
         self._instance_mesh:draw_instanced(self._n_instances)
         _instance_draw_shader:unbind()
+
+        -- draw to .g: mask
+        love.graphics.setColor(0, 1, 1, 1)
+
+        self._mesh:draw()
+
+        love.graphics.setLineWidth(5)
+        love.graphics.setLineStyle("smooth")
+        love.graphics.line(self._contour)
 
         self._canvas:unbind()
         love.graphics.pop()

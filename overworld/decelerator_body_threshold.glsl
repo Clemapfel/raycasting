@@ -168,13 +168,15 @@ uniform vec4 body_color = vec4(0.3, 0.3, 0.3, 1);
 vec4 effect(vec4 color, sampler2D tex, vec2 texture_coordinates, vec2 screen_coords)
 {
     // threshold
-    float body = finalize(texture(tex, texture_coordinates).r);
+    vec4 data = texture(tex, texture_coordinates);
+    float body = finalize(data.r);
+    float mask = data.g;
     float outline = smoothstep(0, 0.5, min(1, length(derivative(tex, texture_coordinates))));
 
     // texture
     const float noise_scale = 1.f / 12;
     vec2 world_position = to_world_position(screen_coords);
-    float noise = net_texture(world_position * noise_scale, elapsed / 2);
+    float noise = mask * net_texture(world_position * noise_scale, elapsed / 2);
 
     vec3 texture = mix(body_color.rgb, outline_color.rgb, noise);
 
