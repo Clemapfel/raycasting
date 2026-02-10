@@ -91,16 +91,67 @@ float dirac(float x) {
 }
 
 
-float net_texture(vec2 uv, float elapsed) {
+// Extra hash helpers derived from same cell
+vec3 cellHash3(vec3 c) {
+    return fract(sin(vec3(
+    dot(c, vec3(41.37, 27.17, 73.21)),
+    dot(c, vec3(17.13, 37.41, 19.91)),
+    dot(c, vec3(29.31, 11.97, 59.33))
+    )) * 43758.5453);
+}
 
-    uv = uv / 4;
-    float noise = 0;
-    for (int i = 1; i < 3; ++i)
-    {
-        noise = dirac(noise + gradient_noise(vec3(uv, elapsed)));
-        uv *= 1.5;
+// Fast hash based on integer cell coordinate
+float cellHash(vec3 c) {
+    // very cheap deterministic hash
+    return fract(sin(dot(c, vec3(41.37, 27.17, 73.21))) * 43758.5453);
+}
+
+float sparse_worley_noise(vec3 p, float density) {
+    vec3 n = floor(p);
+    vec3 f = fract(p);
+
+    float dist = 1.0;
+    bool found = false;
+
+    // Same 3x3x3 neighborhood as classic Worley
+    for (int k = -1; k <= 1; k++) {
+        for (int j = -1; j <= 1; j++) {
+            for (int i = -1; i <= 1; i++) {
+
+                vec3 g = vec3(i, j, k);
+                vec3 cell = n + g;
+
+                // ---- SPARSITY TEST ----
+                // If this cell is not "active", skip all heavy math
+                if (cellHash(cell) > density)
+                continue;
+
+                found = true;
+
+                // ----- original feature point code -----
+                vec3 p2 = cell;
+                p2 = fract(p2 * vec3(0.1031, 0.1030, 0.0973));
+                p2 += dot(p2, p2.yxz + 19.19);
+                vec3 o = fract((p2.xxy + p2.yzz) * p2.zyx);
+
+                vec3 delta = g + o - f;
+                float d = length(delta);
+                dist = min(dist, d);
+            }
+        }
     }
-    return noise;
+
+    // If no nearby active cells, return empty space
+    if (!found)
+    return 0.0;
+
+    return 1.0 - dist;
+}
+
+
+
+float net_texture(vec2 uv, float elapsed) {
+    return dirac(smoothstep(0, 1 - 0.3, sparse_worley_noise(vec3(uv, elapsed), 0.1)));
 }
 
 uniform mat4x4 screen_to_world_transform;
@@ -121,9 +172,9 @@ vec4 effect(vec4 color, sampler2D tex, vec2 texture_coordinates, vec2 screen_coo
     float outline = smoothstep(0, 0.5, min(1, length(derivative(tex, texture_coordinates))));
 
     // texture
-    const float noise_scale = 1.f / 10;
+    const float noise_scale = 1.f / 12;
     vec2 world_position = to_world_position(screen_coords);
-    float noise = net_texture(world_position * noise_scale, elapsed);
+    float noise = net_texture(world_position * noise_scale, elapsed / 2);
 
     vec3 texture = mix(body_color.rgb, outline_color.rgb, noise);
 

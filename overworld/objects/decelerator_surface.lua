@@ -122,6 +122,7 @@ function ow.DeceleratorSurface:update(delta)
         else
             player:update_damping_source(self._damping_source_id, up, right, down, left)
         end
+        player:set_jump_allowed(true)
     elseif self._damping_source_id then
         player:update_damping_source(self._damping_source_id, 1, 1, 1, 1)
     end
@@ -129,7 +130,6 @@ function ow.DeceleratorSurface:update(delta)
     self._scene:push_camera_mode(ow.CameraMode.CUTSCENE)
     local camera = self._scene:get_camera()
     camera:set_position(self._body:get_position())
-
 end
 
 --- @brief

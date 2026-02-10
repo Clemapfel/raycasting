@@ -1,5 +1,5 @@
 rt.settings.overworld.decelerator_body = {
-    n_arms = 16,
+    n_arms = 32,
     arm_radius = rt.settings.player.radius,
     arm_length = 64,
     arm_n_segments = 32,
@@ -10,6 +10,9 @@ rt.settings.overworld.decelerator_body = {
     max_radius = 3,
     min_mass = 1,
     max_mass = 1,
+
+    slot_min_scale = 1 / 3,
+    slot_max_scale = 2,
 
     particle_texture_r = 20,
     texture_scale = 1.5,
@@ -29,8 +32,7 @@ rt.settings.overworld.decelerator_body = {
     outline_thickness = 1 / 4
 }
 
-rt.settings.overworld.decelerator_body.retract_threshold = rt.settings.overworld.decelerator_body.max_radius
-rt.settings.overworld.decelerator_body.slot_radius = 2 * rt.settings.overworld.decelerator_body.max_radius
+rt.settings.overworld.decelerator_body.retract_threshold = rt.settings.overworld.decelerator_body.slot_max_scale * rt.settings.overworld.decelerator_body.max_radius
 
 --- @class ow.DeceleratorBody
 ow.DeceleratorBody = meta.class("DeceleratorSurface")
@@ -120,7 +122,7 @@ function ow.DeceleratorBody:instantiate(scene, contour, mesh)
     self._canvas_needs_update = true
 
     self._path = rt.Path()
-    self._path:create_from_and_resample(rt.contour.close(self._contour))
+    self._path:create_from_and_reparameterize(rt.contour.close(self._contour))
 
     self._data = {} -- Table<Number>, properties inline
     self._n_particles = 0
@@ -196,7 +198,7 @@ function ow.DeceleratorBody:instantiate(scene, contour, mesh)
         local t = (i - 1) / n_slots
         local anchor_x, anchor_y = self._path:at(t)
 
-        local normal_x, normal_y = math.turn_right(self._path:tangent_at(t))
+        local normal_x, normal_y = self._path:get_normal_at(t)
         local arm_slot = {
             arm_i = nil,
             origin_x = anchor_x,
@@ -302,8 +304,8 @@ function ow.DeceleratorBody:set_target(x, y, radius)
             slot.target_x = self._target_x + math.cos(attachment_angle) * self._target_radius
             slot.target_y = self._target_y + math.sin(attachment_angle) * self._target_radius
 
-            slot.anchor_x = slot.origin_x - slot.normal_x * inlay
-            slot.anchor_y = slot.origin_y - slot.normal_y * inlay
+            slot.anchor_x = slot.origin_x + slot.normal_x * inlay
+            slot.anchor_y = slot.origin_y + slot.normal_y * inlay
 
             -- add first free arm
             if slot.arm_i == nil then
@@ -385,29 +387,14 @@ function ow.DeceleratorBody:_update_instance_mesh()
     assert(particle_w == particle_h)
 
     -- slot particles
-    local slot_radius = rt.settings.overworld.decelerator_body.slot_radius
-    for i = 1, #self._slots, 1 do
-        local slot_a, slot_b = self._slots[i], self._slots[math.wrap(i + 1, #self._slots)]
+    local settings = rt.settings.overworld.decelerator_body
+    local min_slot_scale, max_slot_scale = settings.slot_min_scale, settings.slot_max_scale
+    local slot_n_steps = math.ceil(self._path:get_length() / (settings.max_radius * max_slot_scale))
 
-        do
-            local data = get_data()
-            data[1] = slot_a.origin_x
-            data[2] = slot_a.origin_y
-            data[3] = slot_radius
-        end
-
-        do
-            local mid_x, mid_y = math.mix2(
-                slot_a.origin_x, slot_a.origin_y,
-                slot_b.origin_x, slot_b.origin_y,
-                0.5
-            )
-
-            local data = get_data()
-            data[1] = mid_x
-            data[2] = mid_y
-            data[3] = slot_radius
-        end
+    for i = 1, slot_n_steps, 1 do
+        local data = get_data()
+        data[1], data[2] = self._path:at((i - 1) / slot_n_steps)
+        data[3] = settings.max_radius * math.mix(min_slot_scale, max_slot_scale, rt.random.noise(meta.hash(self) + i + rt.SceneManager:get_elapsed()))
     end
 
     -- arm particles
@@ -443,6 +430,7 @@ function ow.DeceleratorBody:_update_instance_mesh()
             )
         end
     else
+        local first_i = #self._data_mesh_data - self._n_particles
         self._data_mesh:replace_data(self._data_mesh_data)
     end
 end

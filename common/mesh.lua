@@ -574,8 +574,8 @@ function rt.Mesh:get_n_vertices()
 end
 
 --- @brief
-function rt.Mesh:replace_data(data)
-    self._native:setVertices(data)
+function rt.Mesh:replace_data(...)
+    self._native:setVertices(...)
 end
 
 --- @brief

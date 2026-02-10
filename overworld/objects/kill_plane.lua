@@ -8,6 +8,7 @@ rt.settings.overworld.kill_plane = {
 --- @class ow.KillPlane
 --- @types Polygon, Rectangle, Ellipse
 --- @field is_visible Boolean?
+--- @field should_explode Boolean?
 ow.KillPlane = meta.class("KillPlane", ow.MovableObject)
 
 local _inner_shader = rt.Shader("overworld/objects/kill_plane.glsl", { MODE = 0 })
@@ -312,12 +313,13 @@ function ow.KillPlane:draw()
     self._inner_mesh:draw()
     _inner_shader:unbind()
 
-    _outer_shader:bind()
-    _outer_shader:send("elapsed", rt.SceneManager:get_elapsed() + meta.hash(self))
-    _outer_shader:send("screen_to_world_transform", transform)
-    _outer_shader:send("red", red)
-    self._outer_mesh:draw()
-    _outer_shader:unbind()
+    rt.Palette.BLACK:bind()
+    love.graphics.setLineWidth(5)
+    love.graphics.line(self._contour)
+
+    rt.Palette.MINT:bind()
+    love.graphics.setLineWidth(2)
+    love.graphics.line(self._contour)
 
     love.graphics.pop()
 end

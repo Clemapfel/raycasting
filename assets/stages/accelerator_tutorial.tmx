@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="501">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="504">
  <editorsettings>
   <export target="accelerator_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -304,14 +304,9 @@
   <object id="490" x="-9136" y="-1456">
    <polygon points="0,0 0,448 640,448 640,-80 0,-80 0,16 -32,16 -32,-112 672,-112 672,480 -32,480 -32,0"/>
   </object>
-  <object id="497" type="DeceleratorSurface" x="-8985.69" y="-1591.87">
-   <polygon points="13.9241,-1.63479 -4.60744,3.22511 -18.4379,9.70293 -29.0925,18.0598 -38.7049,28.6542 -46.4691,41.4998 -51.8989,57.7118 -55.3,89.1109 -50.9536,116.465 -45.0023,131.421 -38.3991,144.259 -28.3454,155.297 -18.5234,163.912 -5.53389,170.342 9.81719,176.645 29.1163,181.977 44.5388,182.999 63.7288,180.869 79.8648,178.415 98.2083,172.53 117.921,161.596 129.799,145.758 145.191,129.219 167.419,125.2 193.275,136.129 219.87,144.126 253.192,144.579 283.536,136.087 304.251,106.775 314.04,67.4345 312.958,36.4375 307.944,2.82101 295.531,-16.014 267.912,-36.1889 230.019,-42.2187 201.719,-38.3728 174.698,-26.2047 152.861,-10.1907 134.268,0.0716638 111.729,6.88883 88.0292,5.80222 62.9903,1.45582 47.4987,-1.13574 30.8681,-2.10973"/>
-  </object>
-  <object id="498" type="AirDashNode" x="-8852.29" y="-1841.91" width="120" height="120">
-   <ellipse/>
-  </object>
-  <object id="500" type="DeceleratorSurface" x="-8960" y="-1008">
-   <polygon points="0,0 0,-32 320,-32 320,0"/>
+  <object id="502" type="KillPlane" x="-8592" y="-1520" width="80" height="496"/>
+  <object id="503" type="DeceleratorSurface" x="-9024" y="-1312">
+   <polygon points="0,0 304,0 304,112 0,112"/>
   </object>
  </objectgroup>
  <objectgroup id="2" name="front"/>
