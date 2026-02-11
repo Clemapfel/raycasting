@@ -305,7 +305,7 @@
    <polygon points="0,0 0,448 640,448 640,-80 0,-80 0,16 -32,16 -32,-112 672,-112 672,480 -32,480 -32,0"/>
   </object>
   <object id="502" type="KillPlane" x="-8592" y="-1520" width="80" height="496"/>
-  <object id="503" type="DeceleratorSurface" x="-9024" y="-1312">
+  <object id="503" type="DeceleratorSurface" x="-9014.6" y="-1285.14">
    <polygon points="0,0 304,0 304,112 0,112"/>
   </object>
  </objectgroup>
