@@ -117,7 +117,7 @@ do
 
         gravity = 1500, -- px / s
         air_resistance = 0.03, -- [0, 1]
-        downwards_force = 3000,
+        downwards_force = 0, --3000,
 
         friction_coefficient = 100,
         down_button_friction_release_duration = 10 / 60, -- s
@@ -247,7 +247,8 @@ function rt.Player:instantiate()
         _wall_jump_freeze_elapsed = math.huge,
         _wall_jump_freeze_sign = 0,
 
-        _jump_allowed_override = nil, -- Boolean
+        _jump_allowed_sources = {},
+        _jump_allowed_id = 1,
         _jump_disabled = nil, -- Boolean
         _jump_up_x = 0,
         _jump_up_y = -1,
@@ -284,6 +285,8 @@ function rt.Player:instantiate()
         _up_button_is_down = false,
         _jump_button_is_down = false,
         _sprint_button_is_down = false,
+
+        _use_analog_input = rt.InputManager:get_input_method() == rt.InputMethod.CONTROLLER,
 
         _left_button_is_down_elapsed = 0,
         _right_button_is_down_elapsed = 0,
@@ -326,9 +329,11 @@ function rt.Player:instantiate()
         _current_color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, 0, 1)),
 
         _mass = 1,
-        _gravity_direction_x = 0,
-        _gravity_direction_y = 1,
-        _gravity_multiplier = 1,
+        _gravity_multiplier_sources = {},
+        _gravity_multiplier_id = 1,
+
+        _gravity_direction_sources = {},
+        _gravity_id = 1,
 
         _damping_sources = {}, -- cf. add_damping_source
         _damping_id = 1,
@@ -671,7 +676,11 @@ function rt.Player:update(delta)
         and not self._down_button_is_down
         and not self._up_button_is_down
 
-    local gravity = time_dilation * _settings.gravity * delta * self._gravity_multiplier
+    self._use_analog_input = use_analog_input
+
+    local gravity_multiplier = self:get_gravity_multiplier()
+    local gravity_direction_x, gravity_direction_y = self:get_gravity_direction()
+    local gravity = time_dilation * gravity_multiplier * _settings.gravity * delta
 
     -- if diables, simply continue velocity path
     if self._state == rt.PlayerState.DISABLED then
@@ -1109,6 +1118,7 @@ function rt.Player:update(delta)
         ))
     end
 
+
     if not self._is_bubble then
         if rt.GameState:get_player_sprint_mode() == rt.PlayerSprintMode.MANUAL then
             -- update sprint once landed
@@ -1410,7 +1420,7 @@ function rt.Player:update(delta)
                 slope_factor = (slope_factor - 0.5) * 2
 
                 -- get tangent
-                local gravity_x, gravity_y = self._gravity_direction_x, self._gravity_direction_y
+                local gravity_x, gravity_y = gravity_direction_x, gravity_direction_y
 
                 local tangent_x, tangent_y
                 if math.dot(gravity_x, gravity_y, math.turn_left(normal_x, normal_y)) < 0 then
@@ -1679,7 +1689,7 @@ function rt.Player:update(delta)
                 force = force * math.max(0, self._joystick_position_y) -- linear easing, only detect down
             end
 
-            local dx, dy = self._gravity_direction_x, self._gravity_direction_y
+            local dx, dy = gravity_direction_x, gravity_direction_y
 
             if is_grounded then
                 local ground_normal_x = bottom_nx or bottom_left_nx or bottom_right_nx
@@ -1699,7 +1709,7 @@ function rt.Player:update(delta)
                 ground_tangent_y = ground_tangent_y * sign
 
                 if ground_tangent_y <= 0 then
-                    dx, dy = self._gravity_direction_x, self._gravity_direction_y
+                    dx, dy = gravity_direction_x, gravity_direction_y
                 else
                     dx, dy = ground_tangent_x, ground_tangent_y
                 end
@@ -1796,8 +1806,8 @@ function rt.Player:update(delta)
         self._is_touching_platform = is_touching_platform
 
         -- gravity
-        next_velocity_x = next_velocity_x + self._gravity_direction_x * gravity
-        next_velocity_y = next_velocity_y + self._gravity_direction_y * gravity
+        next_velocity_x = next_velocity_x + gravity_direction_x * gravity
+        next_velocity_y = next_velocity_y + gravity_direction_y * gravity
 
         if not is_sliding then
             -- clamp max velocity, sliding removes limit
@@ -1907,25 +1917,7 @@ function rt.Player:update(delta)
         local current_x, current_y = self._bubble_body:get_velocity()
 
         if not self._movement_disabled then
-            if not use_analog_input then
-                if self._left_button_is_down then
-                    target_x = -1
-                end
-
-                if self._right_button_is_down then
-                    target_x = 1
-                end
-
-                if self._up_button_is_down then
-                    target_y = -1
-                end
-
-                if self._down_button_is_down then
-                    target_y = 1
-                end
-            else
-                target_x, target_y = self._joystick_position_x, self._joystick_position_y
-            end
+            target_x, target_y = self:get_input_direction()
         end
 
         local next_force_x, next_force_y
@@ -1967,8 +1959,8 @@ function rt.Player:update(delta)
         end
 
         self._bubble_body:apply_force(
-            self._gravity_direction_x * bubble_gravity,
-            self._gravity_direction_y * bubble_gravity
+            gravity_direction_x * bubble_gravity,
+            gravity_direction_y * bubble_gravity
         )
 
         self._bubble_body:set_velocity(self:_apply_damping(self._bubble_body:get_velocity()))
@@ -2337,7 +2329,11 @@ function rt.Player:move_to_world(world)
     self._trail:clear()
     self:reset_flow()
     self._last_flow_fraction = 0
-    self._gravity_multiplier = 1
+
+    self._force_sources = {}
+    self._gravity_multiplier_sources = {}
+    self._gravity_direction_sources = {}
+    self._damping_sources = {}
 
     if world == self._world then return end
 
@@ -2689,14 +2685,8 @@ function rt.Player:get_core_radius()
 end
 
 --- @brief
-function rt.Player:set_jump_allowed(b)
-    self._jump_allowed_override = b
-
-    if b == true then
-        self._jump_blocked = false
-        self._left_wall_jump_blocked = false
-        self._right_wall_jump_blocked = false
-    end
+function rt.Player:set_is_grounded(b)
+    self._is_grounded_override = b
 end
 
 --- @brief
@@ -2886,11 +2876,6 @@ end
 --- @brief
 function rt.Player:get_color()
     return self._current_color
-end
-
---- @brief
-function rt.Player:set_gravity(x)
-    self._gravity_multiplier = x
 end
 
 --- @brief
@@ -3185,9 +3170,22 @@ function rt.Player:jump()
         -- else try regular jump
         local regular_jump_allowed = self:_get_jump_allowed()
 
-        if self._jump_allowed_override ~= nil then
-            regular_jump_allowed = self._jump_allowed_override
-            self._jump_allowed_override = nil
+        local jump_allowed_override = nil
+        for source in values(self._jump_allowed_sources) do
+            if source.allowed == true then
+                jump_allowed_override = true
+                break
+            end
+        end
+
+        if jump_allowed_override then
+            self._jump_blocked = false
+            self._left_wall_jump_blocked = false
+            self._right_wall_jump_blocked = false
+        end
+
+        if jump_allowed_override ~= nil then
+            regular_jump_allowed = jump_allowed_override
         elseif not self._is_grounded
             and regular_jump_allowed == false
             and not table.is_empty(self._double_jump_sources)
@@ -3350,7 +3348,6 @@ end
 
 --- @brief
 function rt.Player:reset()
-    self:set_jump_allowed(true)
     self:set_is_ghost(false)
     self:set_is_bubble(false)
     self:set_is_visible(true)
@@ -3359,7 +3356,6 @@ function rt.Player:reset()
     self:set_movement_disabled(false)
     self:set_trail_is_visible(true)
     self:reset_flow()
-    self:set_gravity(1)
     self:set_velocity(0, 0)
     self:set_time_dilation(1)
 
@@ -3398,9 +3394,12 @@ function rt.Player:reset()
         self._next_sprint_multiplier_update_when_grounded = false
     end
 
-    table.clear(self._double_jump_sources)
-    table.clear(self._damping_sources)
-    table.clear(self._force_sources)
+    self._double_jump_sources = {}
+    self._flow_sources = {}
+    self._force_sources = {}
+    self._gravity_direction_sources = {}
+    self._gravity_multiplier_sources = {}
+    self._jump_allowed_sources = {}
 
     self:clear_forces()
     self._graphics_body:set_use_contour(self._is_bubble)
@@ -3515,18 +3514,22 @@ end
 --- @brief
 --- @return Number id
 function rt.Player:update_damping_source(id, up_damping, right_damping, down_damping, left_damping)
-    local entry = self._damping_sources[id]
+    if id == nil then
+        return self:add_damping_source(id, up_damping, right_damping, down_damping, left_damping)
+    end
 
+    local entry = self._damping_sources[id]
     if entry == nil then
         entry = {}
         self._damping_sources[id] = entry
-        return
     end
 
     entry[rt.Direction.UP] = up_damping
     entry[rt.Direction.RIGHT] = right_damping
     entry[rt.Direction.DOWN] = down_damping
     entry[rt.Direction.LEFT] = left_damping
+
+    return id
 end
 
 --- @brief
@@ -3570,17 +3573,18 @@ end
 --- @brief
 --- @return Number id
 function rt.Player:update_force_source(id, dx, dy)
-    meta.assert(id, "Number")
+    if id == nil then return self:add_force_source(id, dx, dy) end
 
     local entry = self._force_sources[id]
     if entry == nil then
         entry = {}
         self._force_sources[id] = entry
-        return
     end
 
     entry.dx = dx or 0
     entry.dy = dy or 0
+
+    return id
 end
 
 --- @brief
@@ -3633,4 +3637,182 @@ end
 --- @brief
 function rt.Player:get_opacity()
     return self._graphics_body:get_opacity()
+end
+
+--- @brief
+function rt.Player:get_input_direction()
+    local dx, dy = 0, 0
+    if not self._use_analog_input then
+        if self._left_button_is_down then
+            dx = -1
+        end
+
+        if self._right_button_is_down then
+            dx = 1
+        end
+
+        if self._up_button_is_down then
+            dy = -1
+        end
+
+        if self._down_button_is_down then
+            dy = 1
+        end
+    else
+        dx, dy = self._joystick_position_x, self._joystick_position_y
+    end
+
+    return dx, dy
+end
+
+--- @brief
+function rt.Player:get_use_analog_input()
+    return self._use_analog_input
+end
+
+--- @brief
+--- @return Number id
+function rt.Player:add_gravity_multiplier_source(factor)
+    meta.assert(factor, "Number")
+
+    local id = self._gravity_multiplier_id
+    self._gravity_multiplier_id = self._gravity_multiplier_id + 1
+
+    local entry = {
+        factor = factor
+    }
+
+    self._gravity_multiplier_sources[id] = entry
+    return id
+end
+
+--- @brief
+--- @return Number id
+function rt.Player:update_gravity_multiplier_source(...)
+    local id, factor = ...
+    if id == nil then
+        return self:add_gravity_multiplier_source(factor)
+    end
+
+    local entry = self._gravity_multiplier_sources[id]
+    if entry == nil then
+        entry = {}
+        self._gravity_multiplier_sources[id] = entry
+    end
+
+    entry.factor = factor
+
+    return id
+end
+
+--- @brief
+--- @param id Number
+function rt.Player:remove_gravity_multiplier_source(id)
+    self._gravity_multiplier_sources[id] = nil
+end
+
+--- @brief
+function rt.Player:get_gravity_multiplier()
+    local factor = 1
+    for source in values(self._gravity_multiplier_sources) do
+        factor = factor * source.factor
+    end
+    return factor
+end
+
+--- @brief
+--- @return Number id
+function rt.Player:add_gravity_direction(dx, dy)
+    local id = self._gravity_id
+    self._gravity_id = self._gravity_id + 1
+
+    local entry = {
+        dx = dx,
+        dy = dy
+    }
+
+    self._gravity_direction_sources[id] = entry
+    return id
+end
+
+--- @brief
+--- @return Number id
+function rt.Player:update_gravity_direction(...)
+    local id, dx, dy = ...
+    if id == nil then return self:add_gravity_direction(id, dx, dy) end
+
+    local entry = self._gravity_direction_sources[id]
+    if entry == nil then
+        entry = {}
+        self._gravity_direction_sources[id] = entry
+    end
+
+    entry.dx = dx
+    entry.dy = dy
+
+    return id
+end
+
+--- @brief
+--- @param id Number
+function rt.Player:remove_gravity_direction(id)
+    self._gravity_direction_sources[id] = nil
+end
+
+--- @brief
+function rt.Player:get_gravity_direction()
+    local dx, dy = 0, 1
+    local n = 1 -- sic
+    for source in values(self._gravity_direction_sources) do
+        dx = dx + source.dx
+        dy = dy + source.dy
+        n = n + 1
+    end
+    return dx / n, dy / n
+end
+
+--- @brief
+--- @return Number id
+function rt.Player:add_jump_allowed_source(b)
+    local id = self._jump_allowed_id
+    self._jump_allowed_id = self._jump_allowed_id + 1
+
+    local entry = {
+        allowed = b
+    }
+
+    self._jump_allowed_sources[id] = entry
+    return id
+end
+
+--- @brief
+--- @return Number id
+function rt.Player:update_jump_allowed_source(...)
+    local id, b = ...
+    if id == nil then return self:add_jump_allowed_source(b) end
+
+    local entry = self._jump_allowed_sources[id]
+    if entry == nil then
+        entry = {}
+        self._jump_allowed_sources[id] = entry
+    end
+
+    entry.allowed = b
+
+    return id
+end
+
+--- @brief
+--- @param id Number
+function rt.Player:remove_jump_allowed_source(id)
+    self._jump_allowed_sources[id] = nil
+end
+
+--- @brief
+function rt.Player:get_jump_allowed()
+    local factor = 1
+    for source in values(self._sources) do
+        factor = factor * source.factor
+    end
+    return factor
 end

@@ -6,8 +6,8 @@ rt.settings.overworld.decelerator_surface = {
     bubble_force = 1000,
     non_bubble_force = 0,
 
-    bubble_damping = 0.6,
-    non_bubble_damping = 0.9
+    bubble_damping = 0.4,
+    non_bubble_damping = 0.5
 }
 
 --- @class ow.DeceleratorSurface
@@ -26,6 +26,7 @@ function ow.DeceleratorSurface:instantiate(object, stage, scene)
     local world = stage:get_physics_world()
     self._body = object:create_physics_body(world)
     self._body:add_tag("stencil")
+    self._body:set_is_sensor(true)
 
     local contour = rt.contour.close(object:create_contour())
     local mesh = object:create_mesh()
@@ -70,26 +71,6 @@ function ow.DeceleratorSurface:update(delta)
     local max_damping = ternary(player:get_is_bubble(), settings.bubble_damping, settings.non_bubble_damping)
 
     local penetration, normal_x, normal_y = self._graphics_body:get_penetration()
-
-    if penetration ~= nil and penetration > 0 then
-        local force = math.mix(
-            0,
-            max_force,
-            penetration
-        )
-
-        local dx = -normal_x * force
-        local dy = -normal_y * force
-
-        if self._force_source_id == nil then
-            self._force_source_id = player:add_force_source(dx, dy)
-        else
-            player:update_force_source(self._force_source_id, dx, dy)
-        end
-    elseif self._force_source_id ~= nil then
-        player:update_force_source(self._force_source_id, 0, 0)
-    end
-
     if penetration ~= nil and penetration > 0 then
         local damping = math.mix(
             max_damping,
@@ -97,7 +78,7 @@ function ow.DeceleratorSurface:update(delta)
             1 - penetration
         )
 
-        damping = math.min(1, damping + self._retract_motion:get_value())
+        damping = math.min(1, damping) -- + self._retract_motion:get_value())
 
         local left, right
         if normal_x > 0 then
@@ -117,14 +98,26 @@ function ow.DeceleratorSurface:update(delta)
             up = 0
         end
 
-        if self._damping_source_id == nil then
-            self._damping_source_id = player:add_damping_source(up, right, down, left)
-        else
-            player:update_damping_source(self._damping_source_id, up, right, down, left)
-        end
-        player:set_jump_allowed(true)
+        up, down, left, right = damping, damping, damping, damping
+
+        local eps = 0.05
+        local force = 2000 * penetration
+        local input_direction_x, input_direction_y = player:get_input_direction()
+        local force_x, force_y = input_direction_x * force, input_direction_y * force
+
+        self._damping_source_id = player:update_damping_source(self._damping_source_id, up, right, down, left)
+        self._force_source_id = player:update_force_source(self._force_source_id, force_x, force_y)
     elseif self._damping_source_id then
-        player:update_damping_source(self._damping_source_id, 1, 1, 1, 1)
+        self._damping_source_id = player:update_damping_source(self._damping_source_id, 1, 1, 1, 1)
+        self._force_source_id = player:update_force_source(self._force_source_id, 0, 0)
+    end
+
+    if penetration > 0 then
+        self._jump_allowed_source_id = player:update_jump_allowed_source(self._jump_allowed_source_id, true)
+        self._gravity_multiplier_id = player:update_gravity_multiplier_source(self._gravity_multiplier_id, 0)
+    else
+        self._jump_allowed_source_id = player:update_jump_allowed_source(self._jump_allowed_source_id, false)
+        self._gravity_multiplier_id = player:update_gravity_multiplier_source(self._gravity_multiplier_id, 1)
     end
 
     self._scene:push_camera_mode(ow.CameraMode.CUTSCENE)

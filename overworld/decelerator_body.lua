@@ -956,8 +956,14 @@ function ow.DeceleratorBody:get_penetration()
     local to_target_y = self._target_y - self._closest_y
 
     local signed_dist = -1 * math.dot(to_target_x, to_target_y, normal_x, normal_y)
-    local penetration = math.min(1, 1 - math.min(1, (signed_dist - self._target_radius) / (rt.settings.overworld.decelerator_body.arm_length)))
 
-    penetration = penetration * math.min(1, self._n_connected / rt.settings.overworld.decelerator_body.n_arms_for_full_force)
-    return penetration, -self._closest_normal_x, -self._closest_normal_y
+    if signed_dist < 0 then
+        -- fully inside body
+        return 1, -self._closest_normal_x, -self._closest_normal_y
+    else
+        -- grabbed by arms
+        local penetration = math.min(1, 1 - math.min(1, (signed_dist - self._target_radius) / (rt.settings.overworld.decelerator_body.arm_length)))
+        penetration = penetration * math.min(1, self._n_connected / rt.settings.overworld.decelerator_body.n_arms_for_full_force)
+        return penetration, -self._closest_normal_x, -self._closest_normal_y
+    end
 end
