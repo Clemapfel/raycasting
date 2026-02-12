@@ -115,6 +115,7 @@ do
         bubble_air_resistance = 0.5, -- px / s
         bubble_gravity_factor = 0.015,
 
+
         gravity = 1500, -- px / s
         air_resistance = 0.03, -- [0, 1]
         downwards_force = 0, --3000,
