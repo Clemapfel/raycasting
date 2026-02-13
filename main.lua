@@ -5,32 +5,6 @@ require "common.music_manager"
 require "common.sound_manager"
 require "common.input_manager"
 
-local inner = function()
-    io.write("called\n")
-    io.flush()
-end
-
-local no_vararg = function(first, second)
-    if second == nil then
-        inner(second)
-    else
-        -- noop
-    end
-end
-
-local vararg = function(...)
-    local first, second = ...
-    if second == nil then
-        inner(second)
-    else
-        -- noop
-    end
-end
-
-no_vararg(1, 2)
-vararg(1, 2)
-
-
 love.load = function(args)
     local w, h = love.graphics.getDimensions()
 
