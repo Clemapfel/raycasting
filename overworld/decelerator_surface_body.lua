@@ -34,8 +34,8 @@ rt.settings.overworld.decelerator_body = {
 
 rt.settings.overworld.decelerator_body.retract_threshold = rt.settings.overworld.decelerator_body.slot_max_scale * rt.settings.overworld.decelerator_body.max_radius
 
---- @class ow.DeceleratorBody
-ow.DeceleratorBody = meta.class("DeceleratorSurface")
+--- @class ow.DeceleratorSurfaceBody
+ow.DeceleratorSurfaceBody = meta.class("DeceleratorSurfaceBody")
 
 local _x_offset = 0
 local _y_offset = 1
@@ -56,9 +56,9 @@ local _particle_i_to_data_offset = function(particle_i)
     return (particle_i - 1) * _stride + 1 -- 1-based
 end
 
-local _particle_texture_shader = rt.Shader("overworld/decelerator_body_particle_texture.glsl") -- sic
-local _threshold_shader = rt.Shader("overworld/decelerator_body_threshold.glsl")
-local _instance_draw_shader = rt.Shader("overworld/decelerator_body_instanced_draw.glsl")
+local _particle_texture_shader = rt.Shader("overworld/decelerator_surface_body_particle_texture.glsl") -- sic
+local _threshold_shader = rt.Shader("overworld/decelerator_surface_body_threshold.glsl")
+local _instance_draw_shader = rt.Shader("overworld/decelerator_surface_body_instanced_draw.glsl")
 
 DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
     if which == "k" then
@@ -69,7 +69,7 @@ DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
 end)
 
 --- @brief
-function ow.DeceleratorBody:instantiate(scene, contour, mesh)
+function ow.DeceleratorSurfaceBody:instantiate(scene, contour, mesh)
     self._scene = scene
 
     self._target_x, self._target_y = math.huge, math.huge
@@ -222,7 +222,7 @@ function ow.DeceleratorBody:instantiate(scene, contour, mesh)
 end
 
 --- @brief
-function ow.DeceleratorBody:_add_to_slot(slot_i, arm_i)
+function ow.DeceleratorSurfaceBody:_add_to_slot(slot_i, arm_i)
     local slot = self._slots[slot_i]
     assert(slot.arm_i == nil)
     slot.arm_i = arm_i
@@ -242,7 +242,7 @@ function ow.DeceleratorBody:_add_to_slot(slot_i, arm_i)
 end
 
 --- @brief
-function ow.DeceleratorBody:_remove_from_slot(slot_i)
+function ow.DeceleratorSurfaceBody:_remove_from_slot(slot_i)
     local slot = self._slots[slot_i]
     local arm_i = slot.arm_i
     assert(arm_i ~= nil)
@@ -256,7 +256,7 @@ function ow.DeceleratorBody:_remove_from_slot(slot_i)
 end
 
 --- @brief
-function ow.DeceleratorBody:set_target(x, y, radius)
+function ow.DeceleratorSurfaceBody:set_target(x, y, radius)
     self._is_active = true
     self._target_x, self._target_y, self._target_radius = x, y, radius
     local final_x, final_y, closest_t = self._path:get_closest_point(x, y)
@@ -344,7 +344,7 @@ function ow.DeceleratorBody:set_target(x, y, radius)
 end
 
 --- @brief
-function ow.DeceleratorBody:_update_instance_mesh()
+function ow.DeceleratorSurfaceBody:_update_instance_mesh()
     if self._instance_mesh == nil then
         local x, y, r = 0, 0, 1
         local mesh = rt.Mesh({
@@ -436,7 +436,7 @@ function ow.DeceleratorBody:_update_instance_mesh()
 end
 
 --- @brief
-function ow.DeceleratorBody:update(delta)
+function ow.DeceleratorSurfaceBody:update(delta)
     self._arm_length_extension = ternary(
         self._scene:get_player():get_is_bubble(),
         rt.settings.player.radius * (rt.settings.player.bubble_radius_factor - 1),
@@ -641,7 +641,7 @@ do -- step helpers
     end
 
     --- @brief
-    function ow.DeceleratorBody:_step(delta)
+    function ow.DeceleratorSurfaceBody:_step(delta)
         local settings = rt.settings.overworld.decelerator_body
         local sub_delta = delta / settings.n_sub_steps
 
@@ -879,7 +879,7 @@ do -- step helpers
 end
 
 --- @brief
-function ow.DeceleratorBody:draw()
+function ow.DeceleratorSurfaceBody:draw()
     local mean_x = math.mix(self._aabb.x, self._aabb.x + self._aabb.width, 0.5)
     local mean_y = math.mix(self._aabb.y, self._aabb.y + self._aabb.height, 0.5)
     local w, h = self._canvas:get_size()
@@ -948,7 +948,7 @@ function ow.DeceleratorBody:draw()
 end
 
 --- @brief
-function ow.DeceleratorBody:get_penetration()
+function ow.DeceleratorSurfaceBody:get_penetration()
     if self._target_t == nil then return nil end
     local normal_x, normal_y = self._closest_normal_x, self._closest_normal_y
 
