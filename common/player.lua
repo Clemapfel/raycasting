@@ -90,6 +90,7 @@ do
         bubble_target_velocity = 400,
         bubble_acceleration = 2.5,
         bubble_gravity_factor = 0.015,
+        bubble_air_resistance = 0.5, -- px / s
 
         gravity = 1500, -- px / s
         air_resistance = 0.03, -- [0, 1]
@@ -101,7 +102,6 @@ do
         max_velocity = 10000,
 
         hue_cycle_duration = 30, -- seconds
-        hue_motion_velocity = 4, -- fraction per second
 
         pulse_duration = 0.6, -- seconds
         pulse_radius_factor = 2, -- factor
@@ -114,7 +114,7 @@ do
     }
 end
 
-local _settings = setmetatable({}, {
+local settings = setmetatable({}, {
     __index = function(self, key)
         local res = require("common.debugger").get(key)
         if res == nil then
@@ -133,20 +133,22 @@ meta.add_signals(rt.Player,
     "died" -- when respawning after a death
 )
 
+
+local _clear = function(t) for key in keys(t) do t[key] = nil end end
+
 --- @brief
 function rt.Player:instantiate()
-    local player_radius = _settings.radius
+    local player_radius = settings.radius
     meta.install(self, {
         _stage = nil,
-        _state = rt.PlayerState.ACTIVE,
 
         _radius = player_radius,
-        _inner_body_radius = _settings.inner_body_radius,
-        _outer_body_radius = (player_radius * 2 * math.pi) / _settings.n_outer_bodies / 1.5,
+        _inner_body_radius = settings.inner_body_radius,
+        _outer_body_radius = (player_radius * 2 * math.pi) / settings.n_outer_bodies / 1.5,
 
-        _bubble_radius = player_radius * _settings.bubble_radius_factor,
-        _bubble_inner_body_radius = _settings.inner_body_radius * _settings.bubble_inner_radius_scale,
-        _bubble_outer_body_radius = (player_radius * _settings.bubble_radius_factor * 2 * math.pi) / _settings.n_outer_bodies / 2,
+        _bubble_radius = player_radius * settings.bubble_radius_factor,
+        _bubble_inner_body_radius = settings.inner_body_radius * settings.bubble_inner_radius_scale,
+        _bubble_outer_body_radius = (player_radius * settings.bubble_radius_factor * 2 * math.pi) / settings.n_outer_bodies / 2,
 
         _core_radius = player_radius, -- set on world enter
 
@@ -206,6 +208,8 @@ function rt.Player:instantiate()
         _wall_jump_freeze_sign = 0,
 
         _double_jump_sources = {}, -- cf. add_double_jump_source
+        _bounce_sources = {}, -- cf. bounce
+        _flow_sources = {}, -- cf. add_flow_source
 
         _last_velocity_x = 0,
         _last_velocity_y = 0,
@@ -262,6 +266,7 @@ function rt.Player:instantiate()
         _mass = 1,
         _world = nil,
         _body_to_collision_normal = {},
+        _use_bubble_mesh_delay_n_steps = 0,
 
         -- animation
         _trail = nil, -- rt.PlayerTrail
@@ -270,19 +275,21 @@ function rt.Player:instantiate()
         _pulse_mesh = nil, -- rt.Mesh,
 
         _hue = 0,
+        _hue_elapsed = 0,
+
         _current_color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, 0, 1)),
 
         _current_flow = 0,
 
-        _input = rt.InputSubscriber(_settings.input_subscriber_priority),
+        _input = rt.InputSubscriber(settings.input_subscriber_priority),
         _joystick_gesture = rt.JoystickGestureDetector(),
 
         _idle_elapsed = 0,
-        _idle_timer_frozen = false,
     })
 
-    do -- request pattern
-        local to_clear = {}
+    do -- request pattern tables
+        self._request_ids = {}
+
         for request in range(
             "is_visible",
             "is_frozen",
@@ -290,38 +297,38 @@ function rt.Player:instantiate()
             "is_ghost",
             "is_bubble",
             "is_movement_disabled",
+            "is_jump_disabled",
+            "is_jump_allowed_override",
             "is_trail_visible",
             "is_flow_frozen",
+            "is_idle_timer_frozen",
 
+            "opacity",
             "time_dilation",
             "gravity_multiplier",
 
             "gravity_direction",
             "force",
 
-            "damping",
-            "flow"
+            "damping"
         ) do
             local table_id = "_" .. request .. "_requests"
-            self[table_id] = {}
-            table.insert(to_clear, "_" .. request .. "_requests")
-        end
+            self[table_id] = meta.make_weak({})
 
-        self._clear_requests = function(self)
-            for table_id in values(to_clear) do
-                table.clear(self[table_id])
-            end
+            table.insert(self._request_ids, "_" .. request .. "_requests")
         end
     end
 
     -- initialize history
-    for i = 1, 2 * _settings.position_history_n, 2 do
+    self._position_history = {}
+    for i = 1, 2 * settings.position_history_n, 2 do
         self._position_history[i+0] = 0
         self._position_history[i+1] = 0
     end
     self._position_history_path = rt.Path(self._position_history)
 
-    for i = 1, 2 * _settings.velocity_history_n, 2 do
+    self._velocity_history = {}
+    for i = 1, 2 * settings.velocity_history_n, 2 do
         self._velocity_history[i+0] = 0
         self._velocity_history[i+1] = 0
     end
@@ -342,10 +349,11 @@ end
 --- @brief
 function rt.Player:_connect_input()
     self._input:signal_connect("pressed", function(_, which, count)
-        if self._state == rt.PlayerState.DISABLED then return end
+        local is_disabled = self:get_is_disabled()
+        if is_disabled then return end
 
         local queue_sprint = function()
-            self._next_sprint_multiplier = _settings.sprint_multiplier
+            self._next_sprint_multiplier = settings.sprint_multiplier
             self._next_sprint_multiplier_update_when_grounded = true
         end
 
@@ -359,7 +367,7 @@ function rt.Player:_connect_input()
             self._jump_button_is_down = true
             self._jump_button_is_down_elapsed = 0
 
-            if self._state == rt.PlayerState.DISABLED then return end
+            if is_disabled then return end
 
             if not self:jump() then
                 self._jump_buffer_elapsed = 0
@@ -371,8 +379,6 @@ function rt.Player:_connect_input()
             self._sprint_button_is_down_elapsed = 0
 
             queue_sprint()
-        elseif which == rt.InputAction.Y then
-            -- noop
         elseif which == rt.InputAction.LEFT then
             self._left_button_is_down = true
             self._left_button_is_down_elapsed = 0
@@ -406,7 +412,7 @@ function rt.Player:_connect_input()
     end)
 
     self._input:signal_connect("released", function(_, which, count)
-        if self._state == rt.PlayerState.DISABLED then return end
+        if self:get_is_disabled() then return end
 
         if which == rt.InputAction.JUMP then
             self._jump_button_is_down = false
@@ -433,6 +439,8 @@ function rt.Player:_connect_input()
     end)
 
     self._joystick_gesture:signal_connect("pressed", function(_, which, count)
+        if self:get_is_disabled() then return end
+
         -- detect double tap gesture on joystick
         if count == 2 then
             self._queue_turn_around = true
@@ -484,8 +492,13 @@ function rt.Player:_connect_input()
     end)
 
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
-        if which == "g" then -- TODO
-            self:set_is_bubble(not self:get_is_bubble())
+        if which == "g" then
+            local current = self:get_is_bubble()
+            if current == false then
+                self:request_is_bubble(self, true)
+            else
+                self:request_is_bubble(self, nil)
+            end
         end
     end)
 end
@@ -495,13 +508,13 @@ function rt.Player:update(delta)
     if self._body == nil then return end
     if self._should_update == false then return end
 
-    local time_dilation = self._time_dilation
-    local should_decay_platform_velocity = true
+    local is_bubble = self:get_is_bubble()
+    local time_dilation = self:get_time_dilation()
 
     local function update_graphics()
         do -- notify body of new anchor positions
             local positions, center_x, center_y
-            if self._is_bubble then
+            if is_bubble then
                 center_x, center_y = self._bubble_body:get_predicted_position()
                 positions = {}
 
@@ -527,6 +540,7 @@ function rt.Player:update(delta)
                 self._graphics_body:set_shape(positions)
                 self._graphics_body:set_position(center_x, center_y)
                 self._graphics_body:set_color(self._current_color)
+                self._graphics_body:set_opacity(self:get_opacity())
 
                 if self:get_is_bubble() then
                     self._graphics_body:set_use_contour(true)
@@ -538,17 +552,17 @@ function rt.Player:update(delta)
             end
         end
 
-        self._flow_motion:update(delta)
         self._trail:set_position(self:get_position())
         self._trail:set_velocity(self:get_velocity())
         self._trail:set_hue(self:get_hue())
+        self._trail:set_opacity(self:get_opacity())
         self._trail:update(delta)
 
         do
             local to_remove = {}
             for i, pulse in ipairs(self._pulses) do
                 local elapsed = love.timer.getTime() - pulse.timestamp
-                if elapsed > _settings.pulse_duration then
+                if elapsed > settings.pulse_duration then
                     table.insert(to_remove, i)
                 end
             end
@@ -558,21 +572,9 @@ function rt.Player:update(delta)
             end
         end
 
-        self._hue = math.fract(self._hue + 1 / _settings.hue_cycle_duration * delta)
+        self._hue_elapsed = self._hue_elapsed + delta / settings.hue_cycle_duration
+        self._hue = math.fract(self._hue_elapsed)
         self:_update_color()
-
-        self._hue_motion_target = self._hue
-
-        do -- move gradually towards hue target, periodic in [0, 1]
-            local to, from = self._hue_motion_target, self._hue_motion_current
-            local dist = to - from
-            dist = dist + (dist > 0.5 and -1 or (dist < -0.5 and 1 or 0))
-
-            local step = math.min(math.abs(dist), _settings.hue_motion_velocity * delta)
-            if dist < 0 then step = -step end
-
-            self._hue_motion_current = math.fract(from + step)
-        end
     end
 
     local use_analog_input = math.magnitude(self._joystick_position_x, self._joystick_position_y) > math.eps
@@ -583,17 +585,22 @@ function rt.Player:update(delta)
 
     self._use_analog_input = use_analog_input
 
-    local gravity_multiplier = self:get_gravity_multiplier()
     local gravity_direction_x, gravity_direction_y = self:get_gravity_direction()
-    local gravity = time_dilation * gravity_multiplier * _settings.gravity * delta
+    local gravity = time_dilation * self:get_gravity_multiplier() * settings.gravity * delta
+
+    local is_disabled = self:get_is_disabled()
+    local is_ghost = self:get_is_ghost()
+    local is_frozen = self:get_is_frozen()
+    local is_movement_disabled = self:get_is_movement_disabled()
+    local should_decay_platform_velocity = true
 
     -- if diables, simply continue velocity path
-    if self._state == rt.PlayerState.DISABLED then
+    if is_disabled then
         local vx, vy = self._last_velocity_x, self._last_velocity_y
         vy = vy + gravity
 
-        if self._is_bubble then
-            if self._is_frozen then
+        if is_bubble then
+            if is_frozen then
                 self._bubble_body:set_velocity(0, 0)
                 self._last_velocity_x, self._last_velocity_y = 0, 0
             else
@@ -601,7 +608,7 @@ function rt.Player:update(delta)
                 self._last_velocity_x, self._last_velocity_y = vx, vy
             end
         else
-            if self._is_frozen then
+            if is_frozen then
                 self._body:set_velocity(0, 0)
                 self._last_velocity_x, self._last_velocity_y = 0, 0
             else
@@ -614,38 +621,36 @@ function rt.Player:update(delta)
         return
     end
 
-    local midair_before = not self._bottom_wall
-
     -- raycast to check for walls
     local x, y
-    if self._is_bubble then
+    if is_bubble then
         x, y = self._bubble_body:get_position()
     else
         x, y = self._body:get_position()
     end
 
     local mask
-    if self._is_ghost == false then
+    if is_ghost == false then
         mask = bit.bnot(0x0) -- everything
-        mask = bit.band(mask, bit.bnot(_settings.player_outer_body_collision_group))
-        mask = bit.band(mask, bit.bnot(_settings.exempt_collision_group))
+        mask = bit.band(mask, bit.bnot(settings.player_outer_body_collision_group))
+        mask = bit.band(mask, bit.bnot(settings.exempt_collision_group))
     else
         mask = 0x0 -- nothing
-        mask = bit.bor(mask, _settings.ghost_collision_group)
+        mask = bit.bor(mask, settings.ghost_collision_group)
     end
 
     local bubble_factor = 1
-    if self._is_bubble then
-        bubble_factor = _settings.bubble_radius_factor
+    if is_bubble then
+        bubble_factor = settings.bubble_radius_factor
     end
 
-    local top_ray_length = self._radius * _settings.top_wall_ray_length_factor * bubble_factor
-    local right_ray_length = self._radius * _settings.side_wall_ray_length_factor * bubble_factor
+    local top_ray_length = self._radius * settings.top_wall_ray_length_factor * bubble_factor
+    local right_ray_length = self._radius * settings.side_wall_ray_length_factor * bubble_factor
     local left_ray_length = right_ray_length * bubble_factor
-    local bottom_ray_length = self._radius * _settings.bottom_wall_ray_length_factor * bubble_factor
-    local bottom_left_ray_length = self._radius * _settings.corner_wall_ray_length_factor * bubble_factor
+    local bottom_ray_length = self._radius * settings.bottom_wall_ray_length_factor * bubble_factor
+    local bottom_left_ray_length = self._radius * settings.corner_wall_ray_length_factor * bubble_factor
     local bottom_right_ray_length = bottom_left_ray_length * bubble_factor
-    local top_left_ray_length = self._radius * _settings.corner_wall_ray_length_factor * bubble_factor
+    local top_left_ray_length = self._radius * settings.corner_wall_ray_length_factor * bubble_factor
     local top_right_ray_length = top_left_ray_length * bubble_factor
 
     local top_dx, top_dy = 0, -top_ray_length
@@ -723,15 +728,9 @@ function rt.Player:update(delta)
             or (bottom_right and bottom_right_wall_body ~= right_wall_body)
     end
 
-    -- when going from air to ground, signal emission and re-lock double jump
-    if was_grounded == false and is_grounded == true then
-        self:signal_emit("grounded")
-    end
-
     self._is_grounded = is_grounded
 
-    -- update graphics body
-    do
+    do -- update graphics body
         local lines = {}
         local add_collision = function(body, cx, cy, nx, ny)
             if body == nil then return end
@@ -752,7 +751,7 @@ function rt.Player:update(delta)
             end
         end
 
-        if self._is_bubble then
+        if is_bubble then
             add_collision(top_wall_body, top_x, top_y, top_nx, top_ny)
             add_collision(top_right_wall_body, top_right_x, top_right_y, top_right_nx, top_right_ny)
             add_collision(right_wall_body, right_x, right_y, right_nx, right_ny)
@@ -760,7 +759,7 @@ function rt.Player:update(delta)
             add_collision(top_left_wall_body, top_left_x, top_left_y, top_left_nx, top_left_ny)
         end
 
-        if self._is_bubble or is_grounded then
+        if is_bubble or is_grounded then
             add_collision(bottom_right_wall_body, bottom_right_x, bottom_right_y, bottom_right_nx, bottom_right_ny)
             add_collision(bottom_wall_body, bottom_x, bottom_y, bottom_nx, bottom_ny)
             add_collision(bottom_left_wall_body, bottom_left_x, bottom_left_y, bottom_left_nx, bottom_left_ny)
@@ -768,13 +767,13 @@ function rt.Player:update(delta)
 
         self._graphics_body:set_colliding_lines(lines) -- empty if non-bubble and mid air
 
-        do
+        do -- query stencils
             local w = 2 * self._bubble_radius
             local h = w
             local mask = bit.bnot(0x0)
-            mask = bit.band(mask, bit.bnot(_settings.player_outer_body_collision_group))
-            mask = bit.band(mask, bit.bnot(_settings.player_collision_group))
-            mask = bit.band(mask, bit.bnot(_settings.bounce_collision_group))
+            mask = bit.band(mask, bit.bnot(settings.player_outer_body_collision_group))
+            mask = bit.band(mask, bit.bnot(settings.player_collision_group))
+            mask = bit.band(mask, bit.bnot(settings.bounce_collision_group))
 
             local x, y = self:get_position()
             local bodies = self._world:query_aabb(
@@ -803,16 +802,16 @@ function rt.Player:update(delta)
 
     -- input method agnostic button state
     local left_is_down = self._left_button_is_down or use_analog_input and
-        self._joystick_gesture:get_magnitude(rt.InputAction.LEFT) > _settings.joystick_magnitude_left_threshold
+        self._joystick_gesture:get_magnitude(rt.InputAction.LEFT) > settings.joystick_magnitude_left_threshold
 
     local right_is_down = self._right_button_is_down or use_analog_input and
-        self._joystick_gesture:get_magnitude(rt.InputAction.RIGHT) > _settings.joystick_magnitude_right_threshold
+        self._joystick_gesture:get_magnitude(rt.InputAction.RIGHT) > settings.joystick_magnitude_right_threshold
 
     local up_is_down = self._up_button_is_down or use_analog_input and
-        self._joystick_gesture:get_magnitude(rt.InputAction.UP) > _settings.joystick_magnitude_up_threshold
+        self._joystick_gesture:get_magnitude(rt.InputAction.UP) > settings.joystick_magnitude_up_threshold
 
     local down_is_down = self._down_button_is_down or use_analog_input and
-        self._joystick_gesture:get_magnitude(rt.InputAction.DOWN) > _settings.joystick_magnitude_down_threshold
+        self._joystick_gesture:get_magnitude(rt.InputAction.DOWN) > settings.joystick_magnitude_down_threshold
 
     -- buffered jump
     if rt.GameState:get_is_input_buffering_enabled() then
@@ -820,7 +819,7 @@ function rt.Player:update(delta)
         local up_allowed = self:_get_jump_allowed()
 
         -- buffered up jump
-        if self._jump_buffer_elapsed <= _settings.jump_buffer_duration
+        if self._jump_buffer_elapsed <= settings.jump_buffer_duration
             and not left_allowed -- prioritize wall jump
             and not right_allowed
             and up_allowed
@@ -836,14 +835,14 @@ function rt.Player:update(delta)
         self._jump_buffer_elapsed = self._jump_buffer_elapsed + delta
 
         -- buffer left wall jump, left has priority
-        if self._left_wall_jump_buffer_elapsed < _settings.wall_jump_buffer_duration
+        if self._left_wall_jump_buffer_elapsed < settings.wall_jump_buffer_duration
             and left_allowed
         then
             if self:jump() then
                 self._left_wall_jump_buffer_elapsed = math.huge
             end
         -- else try buffer right wall jump
-        elseif self._right_wall_jump_buffer_elapsed < _settings.wall_jump_buffer_duration
+        elseif self._right_wall_jump_buffer_elapsed < settings.wall_jump_buffer_duration
             and right_allowed
         then
             if self:jump() then
@@ -856,13 +855,13 @@ function rt.Player:update(delta)
     end
 
     -- check if tethers should be cleared
-    if not self._is_bubble then
+    if not is_bubble then
         local should_clear = false
 
         local check_body = function(body)
             if is_grounded then
-                -- any grond clears
-                return body ~= nil and body:has_tag("hitbox") and not body:has_tag("slippery")
+                -- any ground clears
+                return body ~= nil and body:has_tag("hitbox")
             else
                 -- only sticky walls clear
                 return body ~= nil and body:has_tag("hitbox") and not body:has_tag("slippery")
@@ -890,20 +889,16 @@ function rt.Player:update(delta)
                 if instance.signal_try_emit ~= nil then instance:signal_try_emit("removed") end
             end
 
-            self._double_jump_sources = {}
+            _clear(self._double_jump_sources)
         end
     end
 
-    local flow_target_value = self._flow_override or 0
-    local flow_decay_t = 1
-    local flow_attack_t = 1
-
     do -- compute current normal for all colliding walls
-        local mask = bit.bnot(bit.bor(_settings.player_outer_body_collision_group, _settings.player_collision_group))
-        local body = self._is_bubble and self._bubble_body or self._body
-        local outer_bodies = self._is_bubble and self._bubble_spring_bodies or self._spring_bodies
-        local offset_x = self._is_bubble and self._bubble_spring_body_offsets_x or self._spring_body_offsets_x
-        local offset_y = self._is_bubble and self._bubble_spring_body_offsets_y or self._spring_body_offsets_y
+        local wall_mask = bit.bnot(bit.bor(settings.player_outer_body_collision_group, settings.player_collision_group))
+        local body = is_bubble and self._bubble_body or self._body
+        local outer_bodies = is_bubble and self._bubble_spring_bodies or self._spring_bodies
+        local offset_x = is_bubble and self._bubble_spring_body_offsets_x or self._spring_body_offsets_x
+        local offset_y = is_bubble and self._bubble_spring_body_offsets_y or self._spring_body_offsets_y
 
         local self_x, self_y = body:get_position()
         local ray_length = self:get_radius() + 2 * self._outer_body_radius
@@ -913,7 +908,11 @@ function rt.Player:update(delta)
             local cx, cy = outer:get_position()
             local dx, dy = math.normalize(offset_x[i], offset_y[i])
 
-            local ray_x, ray_y, ray_nx, ray_ny, ray_wall_body = self._world:query_ray(self_x, self_y, dx * ray_length, dy * ray_length, mask)
+            local ray_x, ray_y, ray_nx, ray_ny, ray_wall_body = self._world:query_ray(
+                self_x, self_y,
+                dx * ray_length, dy * ray_length,
+                wall_mask
+            )
 
             if ray_wall_body ~= nil then
                 local hash = ray_wall_body
@@ -934,7 +933,7 @@ function rt.Player:update(delta)
         end
 
         -- compute true contact normal for bodies
-        self._body_to_collision_normal = {}
+        _clear(self._body_to_collision_normal)
         for wall_body, hits in pairs(body_to_ray_data) do
             local nx_sum, ny_sum, n = 0, 0, 0
             local x_sum, y_sum = 0, 0
@@ -954,16 +953,15 @@ function rt.Player:update(delta)
             }
         end
 
-        -- update down squish
-        do
+        do -- update down squish
             local is_ducking = false
 
-            -- on analog, prioritize disregarding side inputs
+            -- on analog, prioritize, disregarding side inputs
             local should_duck
             if use_analog_input then
-                should_duck = self._joystick_gesture:get_magnitude(rt.InputAction.DOWN) > _settings.joystick_magnitude_down_threshold
-                    and self._joystick_gesture:get_magnitude(rt.InputAction.LEFT) < _settings.joystick_magnitude_left_threshold
-                    and self._joystick_gesture:get_magnitude(rt.InputAction.RIGHT) < _settings.joystick_magnitude_right_threshold
+                should_duck = self._joystick_gesture:get_magnitude(rt.InputAction.DOWN) > settings.joystick_magnitude_down_threshold
+                    and self._joystick_gesture:get_magnitude(rt.InputAction.LEFT) < settings.joystick_magnitude_left_threshold
+                    and self._joystick_gesture:get_magnitude(rt.InputAction.RIGHT) < settings.joystick_magnitude_right_threshold
             else
                 should_duck = down_is_down and not left_is_down and not right_is_down
             end
@@ -982,13 +980,10 @@ function rt.Player:update(delta)
             end
 
             if not is_ducking then self._graphics_body:set_down_squish(false) end
-
-            if self._is_ducking == false and is_ducking == true then
-                self:signal_emit("duck")
-            end
             self._is_ducking = is_ducking
         end
 
+        -- update side squish
         local should_squish = function(button, ...)
             if button then
                 for i = 1, select("#", ...) do
@@ -1023,8 +1018,9 @@ function rt.Player:update(delta)
         ))
     end
 
+    -- non-bubble movement
+    if not is_bubble then
 
-    if not self._is_bubble then
         if rt.GameState:get_player_sprint_mode() == rt.PlayerSprintMode.MANUAL then
             -- update sprint once landed
             if self._next_sprint_multiplier_update_when_grounded and is_grounded then
@@ -1035,11 +1031,11 @@ function rt.Player:update(delta)
             self._current_sprint_multiplier = math.mix(
                 self._current_sprint_multiplier,
                 self._target_sprint_multiplier,
-                1 - math.exp(-1 / _settings.sprint_multiplier_transition_duration * delta)
+                1 - math.exp(-1 / settings.sprint_multiplier_transition_duration * delta)
             )
         else
             -- always sprint
-            self._current_sprint_multiplier = _settings.sprint_multiplier
+            self._current_sprint_multiplier = settings.sprint_multiplier
         end
 
         local current_velocity_x, current_velocity_y = self._body:get_velocity()
@@ -1064,14 +1060,9 @@ function rt.Player:update(delta)
             end
         end
 
-        if self._wall_jump_freeze_elapsed < _settings.wall_jump_freeze_duration then
+        if self._wall_jump_freeze_elapsed < settings.wall_jump_freeze_duration then
             input_magnitude = 0
         end
-
-        local target_velocity_x = input_magnitude * self._current_sprint_multiplier * ternary(is_grounded,
-            _settings.ground_target_velocity_x,
-            _settings.air_target_velocity_x
-        )
 
         -- if on unwalkable, player will have no way to influence horizontal movement
         local is_unwalkable = (self._bottom_wall and self._bottom_wall_body:has_tag("unwalkable"))
@@ -1084,14 +1075,19 @@ function rt.Player:update(delta)
             right_is_down = false
         end
 
+        local target_velocity_x = input_magnitude * self._current_sprint_multiplier * ternary(is_grounded,
+            settings.ground_target_velocity_x,
+            settings.air_target_velocity_x
+        )
+
         -- make player harder to steer if they are above the desired top speed
         local velocity_easing
         do
             local target
             if is_grounded then
-                target = _settings.ground_target_velocity_x * _settings.sprint_multiplier
+                target = settings.ground_target_velocity_x * settings.sprint_multiplier
             else
-                target = _settings.air_target_velocity_x * _settings.sprint_multiplier
+                target = settings.air_target_velocity_x * settings.sprint_multiplier
             end
 
             -- clamp to factor 1 for any regular velocity, only ease above target speed
@@ -1120,15 +1116,15 @@ function rt.Player:update(delta)
             local acceleration_duration
             if is_grounded then
                 if is_accelerating then
-                    acceleration_duration = _settings.ground_acceleration_duration
+                    acceleration_duration = settings.ground_acceleration_duration
                 else
-                    acceleration_duration = _settings.ground_deceleration_duration
+                    acceleration_duration = settings.ground_deceleration_duration
                 end
             else
                 if is_accelerating then
-                    acceleration_duration = _settings.air_acceleration_duration
+                    acceleration_duration = settings.air_acceleration_duration
                 else
-                    acceleration_duration = _settings.air_deceleration_duration
+                    acceleration_duration = settings.air_deceleration_duration
                 end
             end
 
@@ -1147,9 +1143,9 @@ function rt.Player:update(delta)
         else -- on no directional input, decay towards 0
             local decay_duration
             if is_grounded then
-                decay_duration = _settings.ground_decay_duration
+                decay_duration = settings.ground_decay_duration
             else
-                decay_duration = _settings.air_decay_duration
+                decay_duration = settings.air_decay_duration
             end
 
             decay_duration = decay_duration * velocity_easing
@@ -1178,8 +1174,8 @@ function rt.Player:update(delta)
             local new_velocity_x, new_velocity_y = 0, 0
             local should_override = false
 
-            local max_velocity = self._current_sprint_multiplier * _settings.accelerator_max_velocity_factor * _settings.ground_target_velocity_x * _settings.sprint_multiplier
-            local acceleration = max_velocity / _settings.accelerator_acceleration_duration
+            local max_velocity = self._current_sprint_multiplier * settings.accelerator_max_velocity_factor * settings.ground_target_velocity_x * settings.sprint_multiplier
+            local acceleration = max_velocity / settings.accelerator_acceleration_duration
 
             local already_handled = {}
             for surface in range( -- order matters
@@ -1268,7 +1264,7 @@ function rt.Player:update(delta)
 
                         -- magnet easing
                         local magnet = math.min(1, math.abs(input_alignment))
-                        magnet = magnet * _settings.accelerator_magnet_force
+                        magnet = magnet * settings.accelerator_magnet_force
 
                         -- magnetize to wall
                         new_velocity_x = new_velocity_x + magnet * -normal_x * delta
@@ -1280,25 +1276,15 @@ function rt.Player:update(delta)
                 end
             end
 
-            local flow_target
             if math.magnitude(new_velocity_x, new_velocity_y) > 1 then
                 -- overrides velocity logic so far
                 next_velocity_x = math.clamp(start_velocity_x + new_velocity_x, -max_velocity, max_velocity)
                 next_velocity_y = math.clamp(start_velocity_y + new_velocity_y, -max_velocity, max_velocity)
-                flow_target = 1
-            else
-                flow_target = 0
-            end
-
-            if flow_target_value == nil then
-                flow_target_value = flow_target
-            else
-                flow_target_value = math.max(flow_target_value, flow_target)
             end
         end
 
         -- override on disable
-        if self._movement_disabled then next_velocity_x = 0 end
+        if is_movement_disabled then next_velocity_x = 0 end
 
         -- wall friction
         local net_friction_x, net_friction_y = 0, 0
@@ -1345,11 +1331,11 @@ function rt.Player:update(delta)
                         )))
                     elseif down_is_down then
                         -- easing determined by how long down was held
-                        input_modifier = 1 - math.min(1, self._down_button_is_down_elapsed / _settings.down_button_friction_release_duration)
+                        input_modifier = 1 - math.min(1, self._down_button_is_down_elapsed / settings.down_button_friction_release_duration)
                     end
                 end
 
-                local friction_force = input_modifier * slope_factor * _settings.friction_coefficient
+                local friction_force = input_modifier * slope_factor * settings.friction_coefficient
                 net_friction_x = net_friction_x + tangent_x * friction_force
                 net_friction_y = net_friction_y + tangent_y * friction_force
             end
@@ -1482,24 +1468,24 @@ function rt.Player:update(delta)
         end
 
         -- prevent horizontal movement after walljump
-        if self._wall_jump_freeze_elapsed / time_dilation < _settings.wall_jump_freeze_duration
+        if self._wall_jump_freeze_elapsed / time_dilation < settings.wall_jump_freeze_duration
             and math.sign(target_velocity_x) == self._wall_jump_freeze_sign
         then
             next_velocity_x = current_velocity_x
         end
 
         local is_jumping = false
-        if not self._movement_disabled then
-            if self._jump_elapsed <= _settings.jump_duration then
+        if not is_movement_disabled and not self:get_is_jump_disabled() then
+            if self._jump_elapsed <= settings.jump_duration then
                 -- regular jump
                 if self._jump_button_is_down then
-                    next_velocity_y = -1 * time_dilation * _settings.jump_impulse * math.sqrt(self._jump_elapsed / _settings.jump_duration)
+                    next_velocity_y = -1 * time_dilation * settings.jump_impulse * math.sqrt(self._jump_elapsed / settings.jump_duration)
                     is_jumping = true
                 end
-            elseif self._wall_jump_elapsed <= _settings.wall_jump_duration then
+            elseif self._wall_jump_elapsed <= settings.wall_jump_duration then
                 -- wall jump: initial burst, then small sustain
                 if self._wall_jump_elapsed == 0 then
-                    local dx, dy = math.cos(_settings.wall_jump_initial_angle), math.sin(_settings.wall_jump_initial_angle)
+                    local dx, dy = math.cos(settings.wall_jump_initial_angle), math.sin(settings.wall_jump_initial_angle)
 
                     local should_skip = false
 
@@ -1518,7 +1504,7 @@ function rt.Player:update(delta)
                     if not should_skip then
                         dx = dx * -1 * self._wall_jump_freeze_sign
 
-                        local burst = _settings.wall_jump_initial_impulse + gravity
+                        local burst = settings.wall_jump_initial_impulse + gravity
                         next_velocity_x, next_velocity_y = dx * burst, dy * burst
 
                         self._wall_jump_freeze_elapsed = 0
@@ -1528,10 +1514,10 @@ function rt.Player:update(delta)
                     end
                 elseif self._jump_button_is_down then
                     -- sustained jump, if not sprinting, add additional air time to make up for reduced x speed
-                    local dx, dy = math.cos(_settings.wall_jump_sustained_angle), math.sin(_settings.wall_jump_sustained_angle)
+                    local dx, dy = math.cos(settings.wall_jump_sustained_angle), math.sin(settings.wall_jump_sustained_angle)
 
                     if self._wall_jump_freeze_sign == 1 then dx = dx * -1 end
-                    local force = _settings.wall_jump_sustained_impulse * delta + gravity
+                    local force = settings.wall_jump_sustained_impulse * delta + gravity
                     next_velocity_x = next_velocity_x + dx * force * time_dilation
                     next_velocity_y = next_velocity_y + dy * force * time_dilation
 
@@ -1564,32 +1550,22 @@ function rt.Player:update(delta)
             end
         end
 
-        -- bounce
-        local fraction = time_dilation * self._bounce_elapsed / _settings.bounce_duration
-        if fraction <= 1 then
-            if _settings.bounce_duration == 0 then
-                next_velocity_x = next_velocity_x + self._bounce_direction_x * self._bounce_force * time_dilation
-                next_velocity_y = next_velocity_y + self._bounce_direction_y * self._bounce_force * time_dilation
-            else
-                local bounce_force = (1 - fraction) * self._bounce_force
-                next_velocity_x = next_velocity_x + self._bounce_direction_x * bounce_force * time_dilation
-                next_velocity_y = next_velocity_y + self._bounce_direction_y * bounce_force * time_dilation
-            end
-        else
-            self._bounce_force = 0
+        do -- bounce
+            local bounce_dx, bounce_dy = self:_update_bounce(delta)
+            next_velocity_x = next_velocity_x + bounce_dx
+            next_velocity_y = next_velocity_y + bounce_dy
         end
-        self._bounce_elapsed = self._bounce_elapsed + delta
 
         local is_sliding = false
 
         -- downwards force
-        if not self._movement_disabled
-            and not self._is_frozen
+        if not is_movement_disabled
+            and not is_frozen
             and down_is_down
             and not ((left_is_down and self._left_wall) or (right_is_down and self._right_wall))
             -- exclude wall clinging, handled by explicit friction release in apply_friction
         then
-            local force = 1 / velocity_easing * _settings.downwards_force * delta
+            local force = 1 / velocity_easing * settings.downwards_force * delta
             if use_analog_input then
                 force = force * math.max(0, self._joystick_position_y) -- linear easing, only detect down
             end
@@ -1714,11 +1690,9 @@ function rt.Player:update(delta)
 
         if not is_sliding then
             -- clamp max velocity, sliding removes limit
-            next_velocity_x = math.clamp(next_velocity_x, -_settings.max_velocity, _settings.max_velocity)
-            next_velocity_y = math.clamp(next_velocity_y, -_settings.max_velocity, _settings.max_velocity)
+            next_velocity_x = math.clamp(next_velocity_x, -settings.max_velocity, settings.max_velocity)
+            next_velocity_y = math.clamp(next_velocity_y, -settings.max_velocity, settings.max_velocity)
         end
-
-        flow_decay_t = math.magnitude(next_velocity_x, next_velocity_y) / _settings.flow_target_velocity
 
         -- componensate when going up slopes, which would slow down player in stock box2d
         if not is_jumping and self._bottom_wall and (self._bottom_left_wall or self._bottom_right_wall) then
@@ -1775,51 +1749,46 @@ function rt.Player:update(delta)
         end
 
         -- instant turn around
-        if _settings.allow_instant_turn_around and self._queue_turn_around == true then
+        if settings.allow_instant_turn_around and self._queue_turn_around == true then
             local vx, vy = current_velocity_x, current_velocity_y
             if self._queue_turn_around_direction == rt.Direction.RIGHT and is_grounded then
-                next_velocity_x = math.max(math.abs(vx), _settings.instant_turnaround_velocity)
+                next_velocity_x = math.max(math.abs(vx), settings.instant_turnaround_velocity)
             elseif self._queue_turn_around_direction == rt.Direction.LEFT and is_grounded then
-                next_velocity_x = -1 * math.max(math.abs(vx), _settings.instant_turnaround_velocity)
+                next_velocity_x = -1 * math.max(math.abs(vx), settings.instant_turnaround_velocity)
             elseif self._queue_turn_around_direction == rt.Direction.DOWN then -- even in air
-                next_velocity_y = math.max(math.abs(vy), _settings.instant_turnaround_velocity)
+                next_velocity_y = math.max(math.abs(vy), settings.instant_turnaround_velocity)
+            elseif self._queue_turn_around_direction == rt.Direction.UP then
+                -- noop
             end
 
-            -- noop on rt.Direction.UP
             self._queue_turn_around = false
         end
 
-        next_velocity_x, next_velocity_y = self:_apply_damping(next_velocity_x, next_velocity_y)
+        next_velocity_x, next_velocity_y = self:apply_damping(next_velocity_x, next_velocity_y)
         next_velocity_x = self._platform_velocity_x + next_velocity_x
         next_velocity_y = self._platform_velocity_y + next_velocity_y
 
-        local net_force_x, net_force_y = 0, 0
-        for entry in values(self._force_requests) do
-            net_force_x = net_force_x + (entry.dx or 0)
-            net_force_y = net_force_y + (entry.dy or 0)
-        end
-
+        local net_force_x, net_force_y = self:get_requested_forces()
         self._body:set_velocity(
             next_velocity_x + net_force_x * delta,
             next_velocity_y + net_force_y * delta
         )
+
         self._last_velocity_x, self._last_velocity_y = next_velocity_x, next_velocity_y
 
-        ::skip_velocity_update::
-
-        if self._is_frozen then
+        if is_frozen then
             self._body:set_velocity(next_velocity_x, next_velocity_y)
             self._last_velocity_x, self._last_velocity_y = next_velocity_x, next_velocity_y
         end
-    else -- self._is_bubble == true
+    else -- is_bubble == true
         -- bubble movement
         local mass_multiplier = self:get_bubble_mass_factor()
-        local bubble_gravity = time_dilation * gravity * (mass_multiplier / delta) * _settings.bubble_gravity_factor
-        local max_velocity = time_dilation * _settings.bubble_target_velocity
+        local bubble_gravity = time_dilation * gravity * (mass_multiplier / delta) * settings.bubble_gravity_factor
+        local max_velocity = time_dilation * settings.bubble_target_velocity
         local target_x, target_y = 0, 0
         local current_x, current_y = self._bubble_body:get_velocity()
 
-        if not self._movement_disabled then
+        if not is_movement_disabled then
             target_x, target_y = self:get_input_direction()
         end
 
@@ -1827,38 +1796,36 @@ function rt.Player:update(delta)
         if not (target_x == 0 and target_y == 0) then
             target_x = target_x * max_velocity * mass_multiplier
             target_y = target_y * max_velocity * mass_multiplier
-            local acceleration = time_dilation * _settings.bubble_acceleration
+            local acceleration = time_dilation * settings.bubble_acceleration
 
             next_force_x = (target_x - current_x) * acceleration
             next_force_y = (target_y - current_y) * acceleration
         else
             if gravity > 0 then
-                next_force_x = -current_x * _settings.bubble_air_resistance * delta
-                next_force_y = -current_y * _settings.bubble_air_resistance * delta
+                next_force_x = -current_x * settings.bubble_air_resistance * delta
+                next_force_y = -current_y * settings.bubble_air_resistance * delta
             else
                 next_force_x = 0
                 next_force_y = 0
             end
         end
 
-        -- apply external forces
-        for entry in values(self._force_sources) do
-            next_force_x = next_force_x + entry.dx
-            next_force_y = next_force_y + entry.dy
+        do -- apply external forces
+            local net_force_x, net_force_y = self:get_requested_forces()
+            next_force_x = next_force_x + net_force_x
+            next_force_y = next_force_y + net_force_y
         end
 
         self._bubble_body:apply_force(next_force_x, next_force_y)
         self._last_bubble_force_x, self._last_bubble_force_y = next_force_x, next_force_y
 
-        if self._bounce_elapsed <= _settings.bounce_duration then
-            -- single impulse in bubble mode
-            self._bubble_body:apply_linear_impulse(
-                time_dilation * self._bounce_direction_x * self._bounce_force * mass_multiplier,
-                time_dilation * self._bounce_direction_y * self._bounce_force * mass_multiplier
-            )
+        local bounce_dx, bounce_dy = self:_update_bounce(delta)
 
-            self._bounce_elapsed = math.huge
-            self._bounce_force = 0
+        if math.magnitude(bounce_dx, bounce_dy) > math.eps then
+            self._bubble_body:apply_linear_impulse(
+                bounce_dx * mass_multiplier,
+                bounce_dy * mass_multiplier
+            )
         end
 
         self._bubble_body:apply_force(
@@ -1866,7 +1833,7 @@ function rt.Player:update(delta)
             gravity_direction_y * bubble_gravity
         )
 
-        self._bubble_body:set_velocity(self:_apply_damping(self._bubble_body:get_velocity()))
+        self._bubble_body:set_velocity(self:apply_damping(self._bubble_body:get_velocity()))
 
         self._graphics_body:set_up_squish(false)
         self._graphics_body:set_down_squish(false)
@@ -1879,49 +1846,49 @@ function rt.Player:update(delta)
            self._platform_velocity_x = 0
            self._platform_velocity_y = 0
         else
-           local decay = math.pow(_settings.platform_velocity_decay, delta)
+           local decay = math.pow(settings.platform_velocity_decay, delta)
            self._platform_velocity_x = self._platform_velocity_x * decay
            self._platform_velocity_y = self._platform_velocity_y * decay
         end
     end
 
     -- detect idle
-    if self._state == rt.PlayerState.ACTIVE and
+    if not is_disabled and
         use_analog_input
         or self._up_button_is_down
         or self._right_button_is_down
         or self._down_button_is_down
         or self._left_button_is_down
         or self._jump_button_is_down
-        or (not self._is_bubble and not self._is_grounded)
+        or (not is_bubble and not is_grounded)
     then
         self._idle_elapsed = 0
-    elseif self._idle_timer_frozen == false
-        and not self._state == rt.PlayerState.DISABLED
-        and not self._movement_disabled
-        and not self._is_frozen
+    elseif self:get_is_idle_timer_frozen() == false
+        and not is_disabled
+        and not is_movement_disabled
+        and not is_frozen
     then
         self._idle_elapsed = self._idle_elapsed + delta
     end
 
     -- detect being squished by moving objects
-    if not self._is_ghost then
-        local center_body, to_check, xs, ys
-        if not self._is_bubble then
+    if not is_ghost then
+        local center_body, to_check, x_positions, y_positions
+        if not is_bubble then
             center_body = self._body
-            xs = self._spring_body_offsets_x
-            ys = self._spring_body_offsets_y
+            x_positions = self._spring_body_offsets_x
+            y_positions = self._spring_body_offsets_y
         else
             center_body = self._bubble_body
-            xs = self._bubble_spring_body_offsets_x
-            ys = self._bubble_spring_body_offsets_y
+            x_positions = self._bubble_spring_body_offsets_x
+            y_positions = self._bubble_spring_body_offsets_y
         end
 
         local r = self:get_radius()
         local center_x, center_y = center_body:get_position()
 
         -- get all nearby bodies, raycast too unreliable
-        local not_player_mask = bit.bnot(bit.bor(_settings.player_collision_group, _settings.player_outer_body_collision_group))
+        local not_player_mask = bit.bnot(bit.bor(settings.player_collision_group, settings.player_outer_body_collision_group))
         local hitbox_mask = rt.settings.overworld.hitbox.collision_group
         local bodies = self._world:query_aabb(
             center_x - r, center_y - r, 2 * r, 2 * r,
@@ -1943,9 +1910,9 @@ function rt.Player:update(delta)
 
         if is_squished(center_x, center_y) then -- least likely to be squished, early exit
             local should_kill = true
-            for i = 1, #xs do
-                local test_x = center_x + xs[i]
-                local test_y = center_y + ys[i]
+            for i = 1, #x_positions do
+                local test_x = center_x + x_positions[i]
+                local test_y = center_y + y_positions[i]
 
                 if not is_squished(test_x, test_y) then
                     should_kill = false
@@ -1960,70 +1927,14 @@ function rt.Player:update(delta)
     end
 
     -- update flow
-    if self._stage ~= nil
-        and not (self._skip_next_flow_update == true)
-        and self._state ~= rt.PlayerState.DISABLED
-    then
-        self._flow_fraction_history_elapsed = self._flow_fraction_history_elapsed + delta
-
-        -- compute whether the player was making progress over the last n samples
-        local next_flow_fraction = self._stage:get_flow_fraction()
-        local n = _settings.flow_fraction_history_n
-        local step = 1 / _settings.flow_fraction_sample_frequency
-        while self._flow_fraction_history_elapsed > step do
-            local first_fraction = self._flow_fraction_history[1]
-            local new_fraction = (next_flow_fraction - self._last_flow_fraction) > 0 and 1 or -1
-            table.remove(self._flow_fraction_history, 1)
-            table.insert(self._flow_fraction_history, new_fraction)
-            self._flow_fraction_history_sum = self._flow_fraction_history_sum - first_fraction + new_fraction
-            self._flow_fraction_history_elapsed = self._flow_fraction_history_elapsed - step
-        end
-
-        self._last_flow_fraction = next_flow_fraction
-
-        local fraction_average = self._flow_fraction_history_sum / n
-        local flow_history_value =  ternary(fraction_average > 0, 1, 0)
-
-        if flow_target_value == nil then
-            flow_target_value = flow_history_value
-        else
-            flow_target_value = math.max(flow_target_value, flow_history_value)
-        end
-
-        -- update flow sources
-        local to_remove = {}
-        for source_i, source in ipairs(self._flow_sources) do
-            flow_target_value = flow_target_value + (1 - math.min(1, source.elapsed / source.duration)) * source.magnitude
-            source.elapsed = source.elapsed + delta
-            if source.elapsed > source.magnitude then
-                table.insert(to_remove, source_i, 1)
-            end
-        end
-        for i in values(to_remove) do table.remove(self._flow_sources, i) end
-
-        self._flow_motion:set_decay_duration(math.mix(
-            _settings.flow_motion_min_decay_duration,
-            _settings.flow_motion_max_decay_duration,
-            flow_decay_t
-        ))
-
-        self._flow_motion:set_attack_duration(math.mix(
-            _settings.flow_motion_min_attack_duration,
-            _settings.flow_motion_max_attack_duration,
-            flow_attack_t
-        ))
-
-        self._flow_motion:set_target_value(flow_target_value)
-    end
-
-    if self._skip_next_flow_update == true then
-        self._skip_next_flow_update = false
+    if self._stage ~= nil and not is_disabled then
+        self:_update_flow(delta)
     end
 
     do -- update trail
         local value = rt.InterpolationFunctions.LINEAR(math.clamp(self:get_flow(), 0, 1))
         self._trail:set_glow_intensity(value)
-        self._trail:set_boom_intensity(value * ternary(self._is_bubble, 0, 1))
+        self._trail:set_boom_intensity(value * ternary(is_bubble, 0, 1))
         self._trail:set_trail_intensity(value)
     end
 
@@ -2037,11 +1948,11 @@ function rt.Player:update(delta)
 
     -- add blood splatter
     local color_r, color_g, color_b, _ = self._current_color:unpack()
-    if self._stage ~= nil and not self._is_ghost then
+    if self._stage ~= nil and not is_ghost then
         local cx, cy = self:get_position()
         local radius = self:get_radius()
-        if self._is_bubble then
-            radius = _settings.radius * _settings.bubble_radius_factor * 0.5
+        if is_bubble then
+            radius = settings.radius * settings.bubble_radius_factor * 0.5
         end
 
         local function _add_blood_splatter(contact_x, contact_y, last_contact_x, last_contact_y)
@@ -2129,8 +2040,7 @@ function rt.Player:update(delta)
         end
     end
 
-    -- update position history
-    do
+    do -- update position history
         local last_x, last_y = self._position_history[#self._position_history - 1], self._position_history[#self._position_history]
         local current_x, current_y = self:get_position()
 
@@ -2146,7 +2056,7 @@ function rt.Player:update(delta)
 
         local distance = math.distance(current_x, current_y, last_x, last_y)
         local dx, dy = math.normalize(current_x - last_x, current_y - last_y)
-        local step = _settings.position_history_sample_frequency
+        local step = settings.position_history_sample_frequency
 
         table.remove(self._position_history, #self._position_history)
         table.remove(self._position_history, #self._position_history)
@@ -2156,9 +2066,8 @@ function rt.Player:update(delta)
         self._position_history_path_needs_update = true
     end
 
-    -- update velocity history
-    do
-        local body = ternary(self._is_bubble, self._bubble_body, self._body)
+    do -- update velocity history
+        local body = ternary(is_bubble, self._bubble_body, self._body)
         local current_vx, current_vy = body:get_velocity() -- use sim velocity
         local n = #self._velocity_history
         table.remove(self._velocity_history, #self._velocity_history)
@@ -2167,7 +2076,7 @@ function rt.Player:update(delta)
         table.insert(self._velocity_history, 1, current_vx)
     end
 
-    if not self._is_bubble then
+    if not is_bubble then
         self._last_position_x, self._last_position_y = self._body:get_position()
     else
         self._last_position_x, self._last_position_y = self._bubble_body:get_position()
@@ -2223,10 +2132,7 @@ function rt.Player:move_to_world(world)
     local x, y = 0, 0
 
     self._trail:clear()
-    self:reset_flow()
     self._last_flow_fraction = 0
-
-    self:_clear_requests()
 
     if world == self._world then return end
 
@@ -2234,7 +2140,6 @@ function rt.Player:move_to_world(world)
     self._world:set_gravity(0, 0)
 
     self._last_position_x, self._last_position_y = x, y
-    self._skip_next_flow_update = true
 
     -- hard body
     local inner_body_shape = b2.Circle(0, 0, self._inner_body_radius)
@@ -2243,14 +2148,14 @@ function rt.Player:move_to_world(world)
         inner_body_shape
     )
 
-    local inner_mask = bit.bnot(_settings.exempt_collision_group)
+    local inner_mask = bit.bnot(settings.exempt_collision_group)
     function initialize_inner_body(body, is_bubble)
         body:set_is_enabled(false)
         body:set_user_data(self)
         body:set_use_continuous_collision(true)
         body:add_tag("player")
         body:set_is_rotation_fixed(true)
-        body:set_collision_group(_settings.player_collision_group)
+        body:set_collision_group(settings.player_collision_group)
         body:set_collides_with(inner_mask)
         body:set_mass(1)
         body:set_friction(0)
@@ -2264,7 +2169,7 @@ function rt.Player:move_to_world(world)
 
     -- add wrapping shape to body, for cleaner collision with bounce pads
     local bounce_shape = love.physics.newCircleShape(self._body:get_native(), x, y, self._radius * 1.05)
-    local bounce_group = _settings.bounce_collision_group
+    local bounce_group = settings.bounce_collision_group
     bounce_shape:setFilterData(bounce_group, bounce_group, 0)
     self._bounce_shape = b2.Circle(0, 0, self._radius * 0.8)
     self._bounce_physics_shape = bounce_shape
@@ -2279,16 +2184,16 @@ function rt.Player:move_to_world(world)
     self._core_radius = core_radius
 
     local outer_body_shape = b2.Circle(0, 0, self._outer_body_radius)
-    local step = (2 * math.pi) / _settings.n_outer_bodies
+    local step = (2 * math.pi) / settings.n_outer_bodies
 
     local outer_mask = bit.bnot(bit.bor(
-        _settings.player_outer_body_collision_group,
-        _settings.exempt_collision_group
+        settings.player_outer_body_collision_group,
+        settings.exempt_collision_group
     ))
 
     function initialize_outer_body(body, is_bubble)
         body:set_is_enabled(false)
-        body:set_collision_group(_settings.player_outer_body_collision_group)
+        body:set_collision_group(settings.player_outer_body_collision_group)
         body:set_collides_with(outer_mask)
         body:set_friction(0)
         body:set_is_rotation_fixed(false)
@@ -2308,7 +2213,7 @@ function rt.Player:move_to_world(world)
 
         local body = b2.Body(self._world, b2.BodyType.DYNAMIC, cx, cy, outer_body_shape)
         initialize_outer_body(body, false)
-        body:set_mass(10e-4 * _settings.outer_body_spring_strength)
+        body:set_mass(10e-4 * settings.outer_body_spring_strength)
 
         local joint = b2.Spring(self._body, body, x, y, cx, cy)
         joint:set_tolerance(0, 1) -- for animation only
@@ -2329,7 +2234,7 @@ function rt.Player:move_to_world(world)
 
     -- bubble
 
-    local bubble_inner_body_shape = b2.Circle(0, 0, self._inner_body_radius * _settings.bubble_inner_radius_scale)
+    local bubble_inner_body_shape = b2.Circle(0, 0, self._inner_body_radius * settings.bubble_inner_radius_scale)
     self._bubble_body = b2.Body(
         self._world, b2.BodyType.DYNAMIC, x, y, bubble_inner_body_shape
     )
@@ -2337,9 +2242,9 @@ function rt.Player:move_to_world(world)
     initialize_inner_body(self._bubble_body, true)
     self._bubble_body:add_tag("player_bubble")
 
-    local bubble_bounce_shape = love.physics.newCircleShape(self._bubble_body:get_native(), x, y, self._radius * _settings.bubble_radius_factor * 0.8)
+    local bubble_bounce_shape = love.physics.newCircleShape(self._bubble_body:get_native(), x, y, self._radius * settings.bubble_radius_factor * 0.8)
     bubble_bounce_shape:setFilterData(bounce_group, bounce_group, 0)
-    self._bubble_bounce_shape = b2.Circle(0, 0, self._radius * _settings.bubble_radius_factor)
+    self._bubble_bounce_shape = b2.Circle(0, 0, self._radius * settings.bubble_radius_factor)
     self._bubble_bounce_physics_shape = bubble_bounce_shape
 
     self._bubble_spring_bodies = {}
@@ -2375,22 +2280,19 @@ function rt.Player:move_to_world(world)
         self._bubble_mass = self._bubble_mass + body:get_mass()
     end
 
-    if self._state == rt.PlayerState.DISABLED then
-        self:disable()
-    end
-
-    local is_bubble = self._is_bubble
-    self._is_bubble = nil
-    self:set_is_bubble(is_bubble)
-    self:set_is_ghost(self._is_ghost)
-    self:set_collision_disabled(self._collision_disabled)
+    self:_update_bubble(self:get_is_bubble())
 
     -- reset history
     self._world:signal_connect("step", function()
         local x, y = self:get_position()
-        for i = 1, 2 * _settings.position_history_n, 2 do
+        for i = 1, 2 * settings.position_history_n, 2 do
             self._position_history[i+0] = x
             self._position_history[i+1] = y
+        end
+
+        for i = 1, 2 * settings.velocity_history_n, 2 do
+            self._velocity_history[i+0] = 0
+            self._velocity_history[i+1] = 0
         end
 
         return meta.DISCONNECT_SIGNAL
@@ -2399,7 +2301,7 @@ end
 
 --- @brief
 function rt.Player:draw_bloom()
-    if self._is_visible == false then return end
+    if self:get_is_visible() == false then return end
 
     if self:get_flow() == 0 then
         self._graphics_body:draw_bloom()
@@ -2408,16 +2310,23 @@ end
 
 --- @brief
 function rt.Player:draw_body()
-    if self._is_visible == false then return end
+    if self:get_is_visible() == false then return end
 
-    self._trail:draw_below()
+    local trail_visible = self:get_is_trail_visible()
+    if trail_visible then
+        self._trail:draw_below()
+    end
+
     self._graphics_body:draw_body()
-    self._trail:draw_above()
+
+    if trail_visible then
+        self._trail:draw_above()
+    end
 end
 
 --- @brief
 function rt.Player:draw_core()
-    if self._is_visible == false then return end
+    if self:get_is_visible() == false then return end
 
     local radius = self._core_radius
     local x, y = self:get_position()
@@ -2426,11 +2335,11 @@ function rt.Player:draw_core()
         local time = love.timer.getTime()
                local mesh = self._pulse_mesh:get_native()
         for pulse in values(self._pulses) do
-            local t = 1 - rt.InterpolationFunctions.SINUSOID_EASE_OUT((time - pulse.timestamp) / _settings.pulse_duration)
+            local t = 1 - rt.InterpolationFunctions.SINUSOID_EASE_OUT((time - pulse.timestamp) / settings.pulse_duration)
 
             love.graphics.push()
             love.graphics.translate(x, y)
-            love.graphics.scale(2 * radius * _settings.pulse_radius_factor * (1 - t))
+            love.graphics.scale(2 * radius * settings.pulse_radius_factor * (1 - t))
             love.graphics.translate(-x, -y)
             local r, g, b, a = pulse.color:unpack()
             love.graphics.setColor(r, g, b, a * t)
@@ -2444,6 +2353,8 @@ end
 
 --- @brief
 function rt.Player:draw()
+    if self:get_is_visible() == false then return end
+
     self:draw_body()
     self:draw_core()
 end
@@ -2491,8 +2402,11 @@ function rt.Player:teleport_to(x, y, relax_body)
     if relax_body == nil then relax_body = true end
 
     meta.assert(x, "Number", y, "Number")
+
+    local is_bubble = self:get_is_bubble()
+
     if self._body ~= nil and self._bubble_body ~= nil then
-        if not self._is_bubble then
+        if not is_bubble then
             self._body:set_is_enabled(false)
             for body in values(self._spring_bodies) do body:set_is_enabled(false) end
 
@@ -2530,10 +2444,8 @@ function rt.Player:teleport_to(x, y, relax_body)
             end)
         end
 
-        self._skip_next_flow_update = true
-
         if relax_body then
-            self._graphics_body:set_position(ternary(self._is_bubble, self._bubble_body, self._body):get_position())
+            self._graphics_body:set_position(ternary(is_bubble, self._bubble_body, self._body):get_position())
             self._graphics_body:relax()
         end
     end
@@ -2578,7 +2490,7 @@ end
 function rt.Player:set_velocity(x, y)
     meta.assert(x, "Number", y, "Number")
 
-    if self._is_bubble and self._bubble_body ~= nil then
+    if self:get_is_bubble() and self._bubble_body ~= nil then
         self._bubble_body:set_velocity(x, y)
     elseif self._body ~= nil then
         self._body:set_velocity(x, y)
@@ -2614,99 +2526,8 @@ function rt.Player:get_color()
 end
 
 --- @brief
-function rt.Player:set_is_bubble(b)
-    if b == self._is_bubble then
-        return
-    else
-        self._last_bubble_force_x = 0
-        self._last_bubble_force_y = 0
-        self._body_to_collision_normal = {}
-    end
-
-    local before = self._is_bubble
-    self._is_bubble = b
-    -- do not update self._use_bubble_mesh until solver properly updated positions
-
-    if self._body == nil then return end
-
-    -- disable both to avoid interaction
-    self._body:set_is_enabled(false)
-    for body in values(self._spring_bodies) do
-        body:set_is_enabled(false)
-    end
-
-    self._bubble_body:set_is_enabled(false)
-    for body in values(self._bubble_spring_bodies) do
-        body:set_is_enabled(false)
-    end
-
-    if self._is_bubble == true then
-        local x, y = self._body:get_position()
-        self._bubble_body:set_position(x, y)
-        self._bubble_body:set_velocity(self._body:get_velocity())
-        for i, body in ipairs(self._bubble_spring_bodies) do
-            body:set_position(
-                x + self._bubble_spring_body_offsets_x[i],
-                y + self._bubble_spring_body_offsets_y[i]
-            )
-            body:set_velocity(self._spring_bodies[i]:get_velocity())
-        end
-    else
-        local x, y = self._bubble_body:get_position()
-        self._body:set_position(x, y)
-        self._body:set_velocity(self._bubble_body:get_velocity())
-        for i, body in ipairs(self._spring_bodies) do
-            body:set_position(
-                x + self._spring_body_offsets_x[i],
-                y + self._spring_body_offsets_y[i]
-            )
-            body:set_velocity(self._bubble_spring_bodies[i]:get_velocity())
-        end
-    end
-
-    -- then update
-    if not b then
-        self._body:set_is_enabled(true)
-        self._body:set_is_sensor(false)
-        for body in values(self._spring_bodies) do
-            body:set_is_enabled(true)
-            body:set_is_sensor(false)
-        end
-    else
-        self._bubble_body:set_is_enabled(true)
-        self._bubble_body:set_is_sensor(false)
-        for body in values(self._bubble_spring_bodies) do
-            body:set_is_enabled(true)
-            body:set_is_sensor(false)
-        end
-    end
-
-    if before ~= b then
-        self._jump_elapsed = math.huge
-        self._wall_jump_elapsed = math.huge
-        self._bounce_elapsed = math.huge
-        self._wall_jump_freeze_elapsed = math.huge
-    end
-
-    -- delay to after next physics update, because solver needs time to resolve spring after synch teleport
-    self._use_bubble_mesh_delay_n_steps = 4
-    self._world:signal_connect("step", function()
-        if self._use_bubble_mesh_delay_n_steps <= 0 then
-            self._use_bubble_mesh = self._is_bubble
-            self:signal_emit("bubble", self._is_bubble)
-
-            return meta.DISCONNECT_SIGNAL
-        else
-            self._use_bubble_mesh_delay_n_steps = self._use_bubble_mesh_delay_n_steps - 1
-        end
-    end)
-
-    self:set_is_ghost(self._is_ghost)
-end
-
---- @brief
 function rt.Player:get_is_idle()
-    return self._idle_elapsed > _settings.idle_threshold_duration
+    return self._idle_elapsed > settings.idle_threshold_duration
 end
 
 --- @brief
@@ -2748,50 +2569,12 @@ function rt.Player:get_contact_point(body)
 end
 
 --- @brief
-function rt.Player:_set_is_ghost(b)
-    if self._body == nil or self._bubble_body == nil then return end
-
-    local inner_group, outer_group
-    local inner_mask, outer_mask
-
-    if b == true then
-        inner_group, outer_group = _settings.ghost_collision_group, _settings.ghost_outer_body_collision_group
-        inner_mask, outer_mask = _settings.ghost_collision_group, _settings.ghost_collision_group
-    else
-        local default = bit.bnot(0x0)
-        inner_group, outer_group = self._inner_collision_group or default, self._outer_collision_group or default
-        inner_mask, outer_mask = self._inner_collision_mask or default, self._outer_collision_mask or default
-    end
-
-    self._body:set_collision_group(inner_group)
-    self._body:set_collides_with(inner_mask)
-
-    self._bubble_body:set_collision_group(inner_group)
-    self._bubble_body:set_collides_with(inner_mask)
-
-    -- bounce shapes need to be reset, because body:set_collision_group also affects them
-    local bounce_group = _settings.bounce_collision_group
-    self._bounce_physics_shape:setFilterData(bounce_group, bounce_group, 0)
-    self._bubble_bounce_physics_shape:setFilterData(bounce_group, bounce_group, 0)
-
-    for body in values(self._spring_bodies) do
-        body:set_collision_group(outer_group)
-        body:set_collides_with(outer_mask)
-    end
-
-    for body in values(self._bubble_spring_bodies) do
-        body:set_collision_group(outer_group)
-        body:set_collides_with(outer_mask)
-    end
-end
-
---- @brief
 function rt.Player:_get_walljump_allowed()
     local left_is_down = self._left_button_is_down
-        or self._joystick_gesture:get_magnitude(rt.InputAction.LEFT) > _settings.joystick_magnitude_left_threshold
+        or self._joystick_gesture:get_magnitude(rt.InputAction.LEFT) > settings.joystick_magnitude_left_threshold
 
     local right_is_down = self._right_button_is_down
-        or self._joystick_gesture:get_magnitude(rt.InputAction.RIGHT) > _settings.joystick_magnitude_right_threshold
+        or self._joystick_gesture:get_magnitude(rt.InputAction.RIGHT) > settings.joystick_magnitude_right_threshold
 
     local left_wall_invalid = (self._left_wall and (self._left_wall_body:has_tag("slippery") or self._left_wall_body:has_tag("unjumpable")))
         or (self._top_left_wall and (self._top_left_wall_body:has_tag("slippery") or self._top_left_wall_body:has_tag("unjumpable")))
@@ -2808,11 +2591,11 @@ function rt.Player:_get_walljump_allowed()
     -- both conditions can be overriden by coyote time
     if not self._is_grounded then
         if not left_wall_jump_allowed then
-            left_wall_jump_allowed = self._left_wall_coyote_elapsed < _settings.wall_jump_coyote_time and not left_wall_invalid
+            left_wall_jump_allowed = self._left_wall_coyote_elapsed < settings.wall_jump_coyote_time and not left_wall_invalid
         end
 
         if not right_wall_jump_allowed then
-            right_wall_jump_allowed = self._right_wall_coyote_elapsed < _settings.wall_jump_coyote_time and not right_wall_invalid
+            right_wall_jump_allowed = self._right_wall_coyote_elapsed < settings.wall_jump_coyote_time and not right_wall_invalid
         end
     end
 
@@ -2822,7 +2605,7 @@ end
 --- @brief
 function rt.Player:_get_jump_allowed()
     local bottom = (self._bottom_wall and not self._bottom_wall_body:has_tag("unjumpable"))
-        or (not self._left_wall and not self._right_wall and self._coyote_elapsed <= _settings.coyote_time)
+        or (not self._left_wall and not self._right_wall and self._coyote_elapsed <= settings.coyote_time)
 
     local regular_jump_allowed = not self._jump_blocked and bottom
 
@@ -2857,7 +2640,7 @@ function rt.Player:jump()
         local regular_jump_allowed = self:_get_jump_allowed()
 
         local jump_allowed_override = self:get_jump_allowed_override()
-        if jump_allowed_override then
+        if jump_allowed_override == true then
             self._jump_blocked = false
             self._left_wall_jump_blocked = false
             self._right_wall_jump_blocked = false
@@ -2865,7 +2648,9 @@ function rt.Player:jump()
 
         if jump_allowed_override ~= nil then
             regular_jump_allowed = jump_allowed_override
-        elseif not self._is_grounded
+        end
+
+        if not self._is_grounded
             and regular_jump_allowed == false
             and not table.is_empty(self._double_jump_sources)
         then
@@ -2969,7 +2754,7 @@ function rt.Player:get_past_position_path(distance)
 end
 
 --- @brief
-function rt.Player:get_idle_duration()
+function rt.Player:get_idle_elapsed()
     return self._idle_elapsed
 end
 
@@ -2980,23 +2765,13 @@ end
 
 --- @brief
 function rt.Player:reset()
-    self:set_is_ghost(false)
-    self:set_is_bubble(false)
-    self:set_is_visible(true)
-    self:set_is_frozen(false)
-    self:set_collision_disabled(false)
-    self:set_movement_disabled(false)
-    self:set_trail_is_visible(true)
-    self:reset_flow()
     self:set_velocity(0, 0)
-    self:set_time_dilation(1)
 
     self._platform_velocity_x = 0
     self._platform_velocity_y = 0
     self._position_override_active = false
     self._position_override_x = nil
     self._position_override_y = nil
-    if self._world ~= nil then self._world:set_time_dilation(1) end
 
     self._top_wall = false
     self._top_right_wall = false
@@ -3015,9 +2790,9 @@ function rt.Player:reset()
     self._left_button_is_down = self._input:get_is_down(rt.InputAction.LEFT)
 
     if self._sprint_button_is_down then
-        self._current_sprint_multiplier = _settings.sprint_multiplier
-        self._target_sprint_multiplier = _settings.sprint_multiplier
-        self._next_sprint_multiplier = _settings.sprint_multiplier
+        self._current_sprint_multiplier = settings.sprint_multiplier
+        self._target_sprint_multiplier = settings.sprint_multiplier
+        self._next_sprint_multiplier = settings.sprint_multiplier
         self._next_sprint_multiplier_update_when_grounded = false
     else
         self._current_sprint_multiplier = 1
@@ -3026,12 +2801,40 @@ function rt.Player:reset()
         self._next_sprint_multiplier_update_when_grounded = false
     end
 
-    self:_clear_requests()
+    _clear(self._double_jump_sources)
+    _clear(self._bounce_sources)
+    _clear(self._flow_sources)
 
-    self:clear_forces()
-    self._graphics_body:set_use_contour(self._is_bubble)
-    self._graphics_body:set_position(ternary(self._is_bubble, self._bubble_body, self._body):get_position())
+    for which in range(
+        self._is_visible_requests,
+        self._is_frozen_requests,
+        self._is_disabled_requests,
+        self._is_ghost_requests,
+        self._is_bubble_requests,
+        self._is_movement_disabled_requests,
+        self._is_jump_disabled_requests,
+        self._is_jump_allowed_override_requests,
+        self._is_trail_visible_requests,
+        self._is_flow_froze_requests,
+        self._is_idle_timer_frozen_requests,
+        self._opacity_requests,
+        self._time_dilation_requests,
+        self._gravity_multiplier_requests,
+        self._gravity_direction_requests,
+        self._force_requests,
+        self._damping_requests
+    ) do
+        _clear(which)
+    end
+
+    local is_bubble = self:get_is_bubble()
+    self._graphics_body:set_use_contour(is_bubble)
     self._graphics_body:relax()
+
+    local body = ternary(is_bubble, self._bubble_body, self._body)
+    if body ~= nil then
+        self._graphics_body:set_position(body:get_position())
+    end
 
     self._graphics_body:set_down_squish(false)
     self._graphics_body:set_left_squish(false)
@@ -3040,7 +2843,7 @@ function rt.Player:reset()
 end
 
 --- @brief
-function rt.Player:clear_forces()
+function rt.Player:relax()
     if self._world == nil then return end
 
     self._body:set_velocity(0, 0)
@@ -3060,12 +2863,14 @@ function rt.Player:clear_forces()
     end
 
     self._world:signal_connect("step", function(_)
+        local is_bubble = self:get_is_bubble()
+
         for body in values(self._spring_bodies) do
-            body:set_is_enabled(not self._is_bubble)
+            body:set_is_enabled(not is_bubble)
         end
 
         for body in values(self._bubble_spring_bodies) do
-            body:set_is_enabled(self._is_bubble)
+            body:set_is_enabled(is_bubble)
         end
 
         return meta.DISCONNECT_SIGNAL
@@ -3157,10 +2962,14 @@ end
 
 --- @brief
 function rt.Player:get_jump_allowed_override()
-    for source in values(self._is_jump_allowed_requests) do
+    local override = nil
+
+    for key, source in pairs(self._is_jump_allowed_override_requests) do
+        if source.is_allowed == false then override = false end
         if source.is_allowed == true then return true end
     end
-    return false
+
+    return override
 end
 
 --- @brief
@@ -3174,47 +2983,57 @@ end
 
 
 for tuple in range(
-    --- @alias request_is_visible fun(id: Object, is_visible: Boolean)
-    { "is_visible", { is_visible = "Boolean" }},
+--- @alias request_is_visible fun(id: Object, is_visible: Boolean)
+    { "is_visible", { [1] = { "is_visible", "Boolean" }}},
 
-    --- @alias request_is_frozen fun(id: Object, is_frozen: Boolean)
-    { "is_frozen", { is_frozen = "Boolean" }},
+--- @alias request_is_frozen fun(id: Object, is_frozen: Boolean)
+    { "is_frozen", { [1] = { "is_frozen", "Boolean" }}},
 
-    --- @alias request_is_disabled fun(id: Object, is_disabled: Boolean)
-    { "is_disabled", { is_disabled = "Boolean" }},
+--- @alias request_is_disabled fun(id: Object, is_disabled: Boolean)
+    { "is_disabled", { [1] = { "is_disabled", "Boolean" }}},
 
-    --- @alias request_is_ghost fun(id: Object, is_ghost: Boolean)
-    { "is_ghost", { is_ghost = "Boolean" }},
+--- @alias request_is_movement_disabled fun(id: Object, is_disabled: Boolean)
+    { "is_movement_disabled", { [1] = { "is_disabled", "Boolean" }}},
 
-    --- @alias request_is_bubble fun(id: Object, is_bubble: Boolean)
-    { "is_bubble", { is_bubble = "Boolean" }},
+--- @alias request_is_jump_disabled fun(id: Object, is_disabled: Boolean)
+    { "is_jump_disabled", { [1] = { "is_disabled", "Boolean" }}},
 
-    --- @alias request_is_movement_disabled fun(id: Object, is_disabled: Boolean)
-    { "is_movement_disabled", { is_disabled = "Boolean" }},
+--- @alias request_is_jump_allowed_override fun(id: Object, is_allowed: Boolean)
+    { "is_jump_allowed_override", { [1] = { "is_allowed", "Boolean" }}},
 
-    --- @alias request_is_trail_visible fun(id: Object, is_visible: Boolean)
-    { "is_trail_visible", { is_visible = "Boolean" }},
+--- @alias request_is_trail_visible fun(id: Object, is_visible: Boolean)
+    { "is_trail_visible", { [1] = { "is_visible", "Boolean" }}},
 
-    --- @alias request_is_flow_frozen fun(id: Object, is_frozen: Boolean)
-    { "is_flow_frozen", { is_frozen = "Boolean" }},
+--- @alias request_is_flow_frozen fun(id: Object, is_frozen: Boolean)
+    { "is_flow_frozen", { [1] = { "is_frozen", "Boolean" }}},
 
-    --- @alias request_time_dilation fun(id: Object, factor: Number)
-    { "time_dilation", { dilation = "Number" }},
+--- @alias request_is_idle_timer_frozen fun(id: Object, is_frozen: Boolean)
+    { "is_idle_timer_frozen", { [1] = { "is_frozen", "Boolean" }}},
 
-    --- @alias request_gravity_multiplier fun(id: Object, factor: Number)
-    { "gravity_multiplier", { multiplier = "Number" }},
+--- @alias request_opacity fun(id: Object, opacity: Number)
+    { "opacity", { [1] = { "opacity", "Number" }}},
 
-    --- @alias request_gravity_direction fun(id: Object, dx: Number, dy: Number)
-    { "gravity_direction", { dx = "Number", dy = "Number" }},
+--- @alias request_time_dilation fun(id: Object, factor: Number)
+    { "time_dilation", { [1] = { "dilation", "Number" }}},
 
-    --- @alias request_force fun(id: Object, dx: Number, dy: Number)
-    { "force", { dx = "Number", dy = "Number" }}
+--- @alias request_gravity_multiplier fun(id: Object, factor: Number)
+    { "gravity_multiplier", { [1] = { "multiplier", "Number" }}},
+
+--- @alias request_gravity_direction fun(id: Object, dx: Number, dy: Number)
+    { "gravity_direction", { [1] = { "dx", "Number" }, [2] = { "dy", "Number" }}},
+
+--- @alias request_force fun(id: Object, dx: Number, dy: Number)
+    { "force", { [1] = { "dx", "Number" }, [2] = { "dy", "Number" }}}
 ) do
     local which, args_table = table.unpack(tuple)
     rt.Player["request_" .. which] = function(self, id, ...)
-        local requests = self["_" .. id .. "_requests"]
+        if id == nil then
+            rt.error("In ", "request_" .. which, ": argument #1 is nil")
+        end
 
-        local should_remove = false
+        local requests = self["_" .. which .. "_requests"]
+
+        local should_remove = true
         for i = 1, select("#", ...) do
             if select(i, ...) ~= nil then
                 should_remove = false
@@ -3235,7 +3054,7 @@ for tuple in range(
 
             for arg_i = 1, #args_table do
                 local arg = select(arg_i, ...)
-                local arg_name, arg_type = args_table[arg_i]
+                local arg_name, arg_type = table.unpack(args_table[arg_i])
                 meta.assert_typeof(arg, arg_type, arg_i + 1)
                 entry[arg_name] = arg
             end
@@ -3273,6 +3092,70 @@ function rt.Player:get_is_disabled()
 end
 
 --- @brief
+function rt.Player:request_is_ghost(id, is_ghost)
+    local before = self:get_is_ghost()
+
+    local requests = self._is_ghost_requests
+    local should_remove = is_ghost == nil
+
+    if should_remove then
+        requests[id] = nil
+    else
+        local entry = requests[id]
+        if entry == nil then
+            entry = {}
+            requests[id] = entry
+        end
+
+        entry.is_ghost = is_ghost
+    end
+
+    local after self:get_is_ghost()
+
+    if before ~= after then
+        self:_set_is_ghost(after)
+    end
+end
+
+--- @brief
+function rt.Player:_set_is_ghost(b)
+    if self._body == nil or self._bubble_body == nil then return end
+
+    local inner_group, outer_group
+    local inner_mask, outer_mask
+
+    if b == true then
+        inner_group, outer_group = settings.ghost_collision_group, settings.ghost_outer_body_collision_group
+        inner_mask, outer_mask = settings.ghost_collision_group, settings.ghost_collision_group
+    else
+        local default = bit.bnot(0x0)
+        inner_group, outer_group = self._inner_collision_group or default, self._outer_collision_group or default
+        inner_mask, outer_mask = self._inner_collision_mask or default, self._outer_collision_mask or default
+    end
+
+    self._body:set_collision_group(inner_group)
+    self._body:set_collides_with(inner_mask)
+
+    self._bubble_body:set_collision_group(inner_group)
+    self._bubble_body:set_collides_with(inner_mask)
+
+    -- bounce shapes need to be reset, because body:set_collision_group also affects them
+    local bounce_group = settings.bounce_collision_group
+    self._bounce_physics_shape:setFilterData(bounce_group, bounce_group, 0)
+    self._bubble_bounce_physics_shape:setFilterData(bounce_group, bounce_group, 0)
+
+    for body in values(self._spring_bodies) do
+        body:set_collision_group(outer_group)
+        body:set_collides_with(outer_mask)
+    end
+
+    for body in values(self._bubble_spring_bodies) do
+        body:set_collision_group(outer_group)
+        body:set_collides_with(outer_mask)
+    end
+end
+
+--- @brief
 function rt.Player:get_is_ghost()
     for source in values(self._is_ghost_requests) do
         if source.is_ghost == true then return true end
@@ -3283,7 +3166,7 @@ end
 
 --- @brief
 function rt.Player:get_is_bubble()
-    for source in values(self._is_bubble_requests) do
+    for key, source in pairs(self._is_bubble_requests) do
         if source.is_bubble == true then
             return true
         end
@@ -3293,8 +3176,125 @@ function rt.Player:get_is_bubble()
 end
 
 --- @brief
+function rt.Player:request_is_bubble(id, is_bubble)
+    local before = self:get_is_bubble()
+
+    local requests = self._is_bubble_requests
+    local should_remove = is_bubble == nil
+
+    if should_remove then
+        requests[id] = nil
+    else
+        local entry = requests[id]
+        if entry == nil then
+            entry = {}
+            requests[id] = entry
+        end
+
+        entry.is_bubble = is_bubble
+    end
+
+    local after = self:get_is_bubble()
+
+    if before ~= after then
+        self:_update_bubble(after)
+    end
+
+    return id
+end
+
+--- @brief
+function rt.Player:_update_bubble(is_bubble)
+    self._last_bubble_force_x = 0
+    self._last_bubble_force_y = 0
+    _clear(self._body_to_collision_normal)
+
+    self._jump_elapsed = math.huge
+    self._wall_jump_elapsed = math.huge
+    self._bounce_elapsed = math.huge
+    self._wall_jump_freeze_elapsed = math.huge
+
+    if self._world == nil then return end
+
+    -- disable both to avoid interaction
+    self._body:set_is_enabled(false)
+    for body in values(self._spring_bodies) do
+        body:set_is_enabled(false)
+    end
+
+    self._bubble_body:set_is_enabled(false)
+    for body in values(self._bubble_spring_bodies) do
+        body:set_is_enabled(false)
+    end
+
+    if is_bubble == true then
+        local x, y = self._body:get_position()
+        self._bubble_body:set_position(x, y)
+        self._bubble_body:set_velocity(self._body:get_velocity())
+        for i, body in ipairs(self._bubble_spring_bodies) do
+            body:set_position(
+                x + self._bubble_spring_body_offsets_x[i],
+                y + self._bubble_spring_body_offsets_y[i]
+            )
+            body:set_velocity(self._spring_bodies[i]:get_velocity())
+        end
+    else
+        local x, y = self._bubble_body:get_position()
+        self._body:set_position(x, y)
+        self._body:set_velocity(self._bubble_body:get_velocity())
+        for i, body in ipairs(self._spring_bodies) do
+            body:set_position(
+                x + self._spring_body_offsets_x[i],
+                y + self._spring_body_offsets_y[i]
+            )
+            body:set_velocity(self._bubble_spring_bodies[i]:get_velocity())
+        end
+    end
+
+    -- then update
+    if not is_bubble then
+        self._body:set_is_enabled(true)
+        self._body:set_is_sensor(false)
+        for body in values(self._spring_bodies) do
+            body:set_is_enabled(true)
+            body:set_is_sensor(false)
+        end
+    else
+        self._bubble_body:set_is_enabled(true)
+        self._bubble_body:set_is_sensor(false)
+        for body in values(self._bubble_spring_bodies) do
+            body:set_is_enabled(true)
+            body:set_is_sensor(false)
+        end
+    end
+
+    -- delay to after next physics update, because solver needs time to resolve spring after synch teleport
+    self._use_bubble_mesh_delay_n_steps = 4
+    self._world:signal_connect("step", function()
+        if self._use_bubble_mesh_delay_n_steps <= 0 then
+            local is_bubble = self:get_is_bubble()
+            self._use_bubble_mesh = is_bubble
+            self:signal_emit("bubble", is_bubble)
+
+            return meta.DISCONNECT_SIGNAL
+        else
+            self._use_bubble_mesh_delay_n_steps = self._use_bubble_mesh_delay_n_steps - 1
+        end
+    end)
+end
+
+--- @brief
 function rt.Player:get_is_movement_disabled()
     for source in values(self._is_movement_disabled_requests) do
+        if source.is_disabled == true then return true end
+    end
+
+    return false
+end
+
+--- @brief
+function rt.Player:get_is_jump_disabled()
+    for source in values(self._is_jump_disabled_requests) do
         if source.is_disabled == true then return true end
     end
 
@@ -3313,6 +3313,15 @@ end
 --- @brief
 function rt.Player:get_is_flow_frozen()
     for source in values(self._is_flow_froze_requests) do
+        if source.is_frozen == true then return true end
+    end
+
+    return true
+end
+
+--- @brief
+function rt.Player:get_is_idle_timer_frozen()
+    for source in values(self._is_idle_timer_frozen_requests) do
         if source.is_frozen == true then return true end
     end
 
@@ -3403,6 +3412,59 @@ function rt.Player:apply_damping(vx, vy)
 end
 
 --- @brief
+function rt.Player:bounce(direction_x, direction_y, magnitude)
+    if magnitude == nil then
+        local nvx, nvy = self._last_velocity_x, self._last_velocity_y
+        magnitude = math.mix(
+            settings.bounce_min_force,
+            settings.bounce_max_force,
+            math.min(1, math.magnitude(nvx, nvy) / settings.bounce_relative_velocity)
+        )
+    end
+
+    meta.assert(direction_x, "Number", direction_y, "Number", magnitude, "Number")
+
+    -- keep direction non-normalized
+
+    local entry = {
+        direction_x = direction_x,
+        direction_y = direction_y,
+        magnitude = magnitude,
+        elapsed = 0
+    }
+
+    table.insert(self._bounce_sources, entry)
+
+    return magnitude / settings.bounce_max_force
+end
+
+--- @brief
+function rt.Player:_update_bounce(delta)
+    delta = delta * self:get_time_dilation()
+
+    local impulse_x, impulse_y = 0, 0
+    local to_remove = {}
+    for i, source in ipairs(self._bounce_sources) do
+        local fraction = math.min(1, source.elapsed / settings.bounce_duration)
+
+        local magnitude = (1 - fraction) * source.magnitude
+        impulse_x = impulse_x + source.direction_x * magnitude
+        impulse_y = impulse_y + source.direction_y * magnitude
+        source.elapsed = source.elapsed + delta
+
+        if fraction >= 1 then
+            table.insert(to_remove, 1, i)
+        end
+    end
+
+    for i in values(to_remove) do
+        table.remove(self._bounce_sources, i)
+    end
+
+    return impulse_x, impulse_y
+end
+
+--- @brief
 function rt.Player:add_flow_source(id, duration, flow_per_second)
     local requests = self._flow_sources
     local should_remove = duration == nil and flow_per_second == nil
@@ -3411,8 +3473,8 @@ function rt.Player:add_flow_source(id, duration, flow_per_second)
         requests[id] = nil
         return id
     else
-        if duration == nil then duration = _settings.flow_source_default_duration end
-        if flow_per_second == nil then flow_per_second = _settings.flow_source_default_magnitude end
+        if duration == nil then duration = settings.flow_source_default_duration end
+        if flow_per_second == nil then flow_per_second = settings.flow_source_default_magnitude end
 
         local entry = requests[id]
         if entry == nil then
@@ -3434,12 +3496,20 @@ function rt.Player:remove_flow_source(id)
 end
 
 --- @brief
+function rt.Player:reset_flow(value)
+    _clear(self._flow_sources)
+    self._current_flow = value or 0
+end
+
+--- @brief
 function rt.Player:get_flow()
     return self._current_flow
 end
 
 --- @brief
 function rt.Player:_update_flow(delta)
+    if self:get_is_flow_frozen() then return end
+
     local to_add = 0
 
     local to_remove = {}
@@ -3456,7 +3526,7 @@ function rt.Player:_update_flow(delta)
         self._flow_sources[id] = nil
     end
 
-    to_add = to_add - _settings.flow_decay_per_second * delta
+    to_add = to_add - settings.flow_decay_per_second * delta
 
     self._current_flow = math.clamp(self._current_flow + to_add, 0, 1)
 end

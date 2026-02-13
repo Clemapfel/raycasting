@@ -301,9 +301,9 @@ function ow.OverworldScene:set_stage(stage_id, show_title_card)
         self._fade_active = false
         self._fade:start(false, true)
 
-        self._player:set_movement_disabled(true)
+        self._player:request_is_movement_disabled(self, true)
         self._fade:signal_connect("hidden", function(_)
-            self._player:set_movement_disabled(false)
+            self._player:request_is_movement_disabled(self, nil)
             self:start_timer()
             return meta.DISCONNECT_SIGNAL
         end)
@@ -449,8 +449,7 @@ function ow.OverworldScene:draw()
 
     love.graphics.origin()
     if self._blur_t == 0 and not (self._show_title_card == true and (self._fade:get_is_active() or self._fade:get_is_visible())) then
-        love.graphics.clear(0, 0, 0, 0)
-        --self._background:draw()
+        self._background:draw()
 
         if self._fade_to_black > 0 then
             local r, g, b, _ = rt.Palette.BLACK:unpack()
@@ -803,7 +802,7 @@ function ow.OverworldScene:update(delta)
         -- only override if other indicator is not currently active
         local current_type = self._control_indicator_type
         if self._control_indicator_allow_override then
-            if self._player:get_idle_duration() > rt.settings.overworld_scene.idle_threshold_duration then
+            if self._player:get_idle_elapsed() > rt.settings.overworld_scene.idle_threshold_duration then
                 self:set_control_indicator_type(ternary(
                     self._player:get_is_bubble(),
                     ow.ControlIndicatorType.MOTION_BUBBLE,
@@ -935,10 +934,9 @@ end
 
 --- @brief
 function ow.OverworldScene:pause()
-    self._player_was_disabled = self:get_player():get_state() == rt.PlayerState.DISABLED
-    self._player:disable()
-    self._pause_menu:present()
     self._pause_menu_active = true
+    self._pause_menu:present()
+    self._player:request_is_disabled(self, true)
 end
 
 --- @brief
@@ -946,12 +944,8 @@ function ow.OverworldScene:unpause()
     self._pause_menu_active = false
     self._pause_menu:close()
 
-    if self._player_was_disabled == true then
-        -- noop, keep disabled
-    else
-        rt.InputManager:flush()
-        self._player:enable()
-    end
+    rt.InputManager:flush()
+    self._player:request_is_disabled(self, nil)
 end
 
 --- @brief

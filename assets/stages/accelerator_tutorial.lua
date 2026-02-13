@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 504,
+  nextobjectid = 505,
   properties = {},
   tilesets = {
     {
@@ -1866,10 +1866,29 @@ return {
         {
           id = 503,
           name = "",
-          type = "DeceleratorSurface",
+          type = "BouncePad",
           shape = "polygon",
-          x = -9014.6,
-          y = -1285.14,
+          x = -9018.32,
+          y = -1089.79,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 304, y = 0 },
+            { x = 304, y = 112 },
+            { x = 0, y = 112 }
+          },
+          properties = {}
+        },
+        {
+          id = 504,
+          name = "",
+          type = "BouncePad",
+          shape = "polygon",
+          x = -9024,
+          y = -1264,
           width = 0,
           height = 0,
           rotation = 0,

@@ -560,8 +560,8 @@ function ow.ResultScreenScene:enter(player_x, player_y, screenshot, config)
 
     self._player:reset()
     self._player:move_to_world(self._world)
-    self._player:set_gravity(0)
-    self._player:set_is_bubble(true)
+    self._player:request_gravity_multiplier(self, 0)
+    self._player:request_is_bubble(self, true)
 
     local required_keys = {}
     for key in range(
@@ -905,7 +905,7 @@ end
 
 --- @brief
 function ow.ResultScreenScene:_teleport_player(px, py)
-    self._player:disable()
+    self._player:request_is_disabled(self, true)
 
     local x, y, w, h = self._bounds:unpack()
     x, y = 0, 0
@@ -1320,10 +1320,10 @@ function ow.ResultScreenScene:_transition_to(...)
     self._transition_next = { ... }
     self._transition_elapsed = 0
     self._transition_final_y = nil
-    self._player:set_gravity(0.5)
-    self._player:set_is_bubble(false)
-    self._player:set_flow(1)
-    self._player:set_trail_is_visible(true)
+    self._player:request_gravity_multiplier(self, 0.5)
+    self._player:request_is_bubble(self, false)
+    self._player:reset_flow(1)
+    self._player:request_trail_is_visible(self, true)
 
     for body in values(self._bodies) do
         body:set_is_enabled(false)

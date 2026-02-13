@@ -41,6 +41,12 @@ end
 local _ray_shader = rt.Shader("overworld/objects/checkpoint_ray.glsl")
 local _explosion_shader = rt.Shader("overworld/objects/checkpoint_explosion.glsl")
 
+DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
+    if which == "k" then
+        _ray_shader:recompile()
+    end
+end)
+
 local _STATE_DEFAULT = "DEFAULT"
 local _STATE_RAY = "RAY"
 local _STATE_EXPLODING = "EXPLODING"
@@ -72,14 +78,14 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
         _camera_scale = 1,
 
         _ray_fraction = math.huge,
-        _ray_fade_out_fraction = math.huge,
         _ray_area = rt.AABB(),
-        _ray_fade_out_elapsed = math.huge,
+        _ray_fade_out_start_timestamp = math.huge,
 
         _explosion_visible = true,
         _explosion_elapsed = math.huge,
         _explosion_fraction = math.huge,
-        _explosion_player_position = { 0, 0 },
+        _explosion_x = 0,
+        _explosion_y = 0,
         _explosion_size = { 0, 0 },
 
         _elapsed = 0,
@@ -143,40 +149,33 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
             end
         end
 
+        local max_rope_length = rt.settings.overworld.checkpoint.max_rope_length
+        local top_x, top_y, _ = self._world:query_ray(
+            self._x, self._y,
+            0, -0.5 * max_rope_length
+        )
+
+        if top_x == nil or top_y == nil then
+            top_x = self._x
+            top_y = self._y - 0.5 * max_rope_length
+        end
+
+        self._top_x, self._top_y = top_x, top_y
+
+        -- cast down to find true ground
+        local bottom_x, bottom_y, body = self._world:query_ray(
+            self._top_x, self._top_y,
+            0, max_rope_length
+        )
+
+        self._bottom_x, self._bottom_y = bottom_x, bottom_y
+
         if self._type == ow.CheckpointType.PLAYER_SPAWN then
             create_platform(self._x, self._y)
             self._spawn_barrier:set_is_enabled(self._use_spawn_barrier)
             self._body = self._spawn_barrier
-
-            self._top_x, self._top_y = self._x, self._y
-            self._bottom_x, self._bottom_y = self._x, self._y
         else
             -- cast up and down to find attachment points
-
-            local max_rope_length = rt.settings.overworld.checkpoint.max_rope_length
-            local top_x, top_y, _ = self._world:query_ray(
-                self._x, self._y,
-                0, -0.5 * max_rope_length
-            )
-
-            if top_x == nil or top_y == nil then
-                top_x = self._x
-                top_y = self._y - 0.5 * max_rope_length
-            end
-
-            local bottom_x, bottom_y, _ = self._world:query_ray(
-                self._x, self._y,
-                0, 0.5 * max_rope_length
-            )
-
-            if bottom_x == nil or bottom_y == nil then
-                bottom_x = self._x
-                bottom_y = self._y + 0.5 * max_rope_length
-            end
-
-            self._top_x, self._top_y = top_x, top_y
-            self._bottom_x, self._bottom_y = bottom_x, bottom_y
-
             create_platform(self._bottom_x, self._bottom_y)
             self._spawn_barrier:set_is_enabled(false)
 
@@ -251,10 +250,14 @@ function ow.Checkpoint:spawn(also_kill, play_animation)
     if play_animation == nil then play_animation = true end
 
     local is_first_spawn = self._stage:get_is_first_spawn()
-
     local player = self._scene:get_player()
+
+    if also_kill then
+        self._explosion_x, self._explosion_y = player:get_position()
+    end
+
     player:reset()
-    player:disable()
+    player:request_is_disabled(self, true)
 
     self._world:set_time_dilation(1)
     self._should_emit_respawn = true
@@ -314,28 +317,26 @@ function ow.Checkpoint:_set_state(state)
         )
 
         player:reset()
-        player:set_is_ghost(true)
+        player:request_is_ghost(self, true)
         player:teleport_to(self._top_x, spawn_y)
-        player:clear_forces()
-        player:disable()
+        player:relax()
+        player:request_is_disabled(self, true)
 
     elseif self._state == _STATE_EXPLODING then
-        local explosion_x, explosion_y = player:get_position()
-        self._explosion_player_position = { explosion_x, explosion_y }
         local player_radius = player:get_radius()
         local factor = rt.settings.overworld.checkpoint.explosion_radius_factor
         self._explosion_size = { 2 * factor * player_radius, 2 * factor * player_radius }
 
         camera:set_apply_bounds(true)
-        camera:move_to(explosion_x, explosion_y)
+        camera:set_position(self._explosion_x, self._explosion_y)
 
         self._explosion_elapsed = 0
         self._explosion_fraction = 0
 
         player:reset()
-        player:set_is_frozen(true)
-        player:set_is_visible(false)
-        player:disable()
+        player:request_is_frozen(self, true)
+        player:request_is_visible(self, false)
+        player:request_is_disabled(self, true)
 
     elseif self._state == _STATE_RAY then
         self._spawn_elapsed = 0
@@ -350,6 +351,7 @@ function ow.Checkpoint:_set_state(state)
         self._ray_fraction = 0
         self._ray_fade_out_elapsed = 0
         self._ray_fade_out_fraction = 0
+
         local ray_w = player:get_radius() * rt.settings.overworld.checkpoint.ray_width_radius_factor
         local screen_h = camera:get_world_bounds().height
 
@@ -364,16 +366,16 @@ function ow.Checkpoint:_set_state(state)
         )
 
         player:reset()
-        player:set_is_ghost(true)
+        player:request_is_ghost(self, true)
         player:teleport_to(self._top_x, self._top_y)
-        player:set_opacity(self._ray_fraction)
-        player:clear_forces()
-        player:disable()
+        player:request_opacity(self, 0)
+        player:request_is_disabled(self, true)
+        player:relax()
 
     elseif self._state == _STATE_DEFAULT then
         player:reset()
-        player:clear_forces()
-        player:enable()
+        player:relax()
+        player:request_is_disabled(self, nil) -- remove request
         self._stage:signal_emit("respawn")
     end
 end
@@ -410,7 +412,7 @@ function ow.Checkpoint:update(delta)
         local player_x, player_y = player:get_position()
         if player_y >= self._bottom_y - 2 * player:get_radius() or self._spawn_elapsed > rt.settings.overworld.checkpoint.max_spawn_duration then
             self:_set_state(_STATE_DEFAULT)
-            player:clear_forces()
+            player:relax()
         end
 
         self._spawn_elapsed = self._spawn_elapsed + delta
@@ -432,27 +434,24 @@ function ow.Checkpoint:update(delta)
 
         local threshold = self._bottom_y - 2 * player:get_radius()
         local player_x, player_y = player:get_position()
-        if self._ray_fade_out_elapsed <= 0 and self._ray_fraction < 1 then
+        if self._ray_fraction < 1 then
             self._ray_fraction = 1 - (player_y - threshold) / (self._top_y - threshold)
         end
 
-        player:set_opacity(rt.InterpolationFunctions.GAUSSIAN_HIGHPASS(self._ray_fraction))
+        player:request_opacity(self, rt.InterpolationFunctions.GAUSSIAN_HIGHPASS(self._ray_fraction))
         self._scene:set_blur(rt.InterpolationFunctions.GAUSSIAN_HIGHPASS(1 - math.min(1, self._ray_fraction)))
 
         if player_y >= threshold or self._spawn_elapsed > rt.settings.overworld.checkpoint.max_spawn_duration then
-            self._ray_fade_out_elapsed = 0
-            player:bounce(0, -0.25)
+            self._ray_fade_out_start_timestamp = love.timer.getTime()
             self:_set_state(_STATE_DEFAULT)
         end
-
         self._spawn_elapsed = self._spawn_elapsed + delta
     elseif self._state == _STATE_DEFAULT then
         -- ray fades out after player has spawned
         self._scene:set_blur(0)
 
-        local fade_out_duration = rt.settings.overworld.checkpoint.ray_fade_out_duration
-        self._ray_fade_out_fraction = self._ray_fade_out_elapsed / fade_out_duration
-        self._ray_fade_out_elapsed = self._ray_fade_out_elapsed + delta
+
+        player:request_opacity(self, nil)
     end
 end
 
@@ -469,17 +468,25 @@ function ow.Checkpoint:draw(priority)
         self._platform:draw()
     end
 
-    if self._state == _STATE_DEFAULT and not self._stage:get_is_body_visible(self._body) then return end
     local hue = self._scene:get_player():get_hue()
 
     if priority == _base_priority then
-        love.graphics.setColor(self._color)
+        local ray_fade_out_duration = rt.settings.overworld.checkpoint.ray_fade_out_duration
+
+        local ray_fade_out_fraction = 1
+        if self._state == _STATE_DEFAULT then
+            local fade_out_duration = rt.settings.overworld.checkpoint.ray_fade_out_duration
+            ray_fade_out_fraction = 1 - math.min(1, (love.timer.getTime() - self._ray_fade_out_start_timestamp) / fade_out_duration)
+        end
 
         -- ray drawn behind player
-        if self._state == _STATE_RAY or self._state == _STATE_DEFAULT then
+        if self._state == _STATE_RAY
+            or self._state == _STATE_DEFAULT
+        then
+            love.graphics.setColor(1, 1, 1, 1)
             _ray_shader:bind()
             _ray_shader:send("fraction", self._ray_fraction)
-            _ray_shader:send("fade_out_fraction", self._ray_fade_out_fraction)
+            _ray_shader:send("fade_out_fraction", ray_fade_out_fraction)
             _ray_shader:send("size", { self._ray_area.width, self._ray_area.height })
             _ray_shader:send("elapsed", self._elapsed)
             _ray_shader:send("hue", hue)
@@ -490,17 +497,19 @@ function ow.Checkpoint:draw(priority)
         end
 
         if self._type == ow.CheckpointType.MIDWAY then
+            love.graphics.setColor(self._color)
             self._rope:draw()
         end
     elseif priority == _effect_priority then
         -- explosion draw above everything
         if self._state == _STATE_EXPLODING then
+            love.graphics.setColor(1, 1, 1, 1)
             _explosion_shader:bind()
             _explosion_shader:send("fraction", self._explosion_fraction)
             _explosion_shader:send("size", self._explosion_size)
             _explosion_shader:send("hue", hue)
 
-            local x, y = table.unpack(self._explosion_player_position)
+            local x, y = self._explosion_x, self._explosion_y
             local w, h = table.unpack(self._explosion_size)
             love.graphics.rectangle("fill", x - 0.5 * w, y - 0.5 * h, w, h)
             _explosion_shader:unbind()

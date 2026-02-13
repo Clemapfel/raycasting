@@ -59,7 +59,7 @@ function ow.StageTitleCardScene:instantiate(state)
     self._input = rt.InputSubscriber()
     self._input:signal_connect("pressed", function(_, which)
         if which == rt.InputAction.JUMP then
-            self._player:set_is_bubble(false)
+            self._player:request_is_bubble(self, false)
         end
     end)
 end
@@ -172,8 +172,8 @@ function ow.StageTitleCardScene:_initialize()
     end
 
     self._player:move_to_world(self._world)
-    self._player:set_is_bubble(true)
-    self._player:enable()
+    self._player:request_is_bubble(self, true)
+    self._player:request_is_disabled(self, false)
 
     self._player:teleport_to(
         self._camera_anchor_x,

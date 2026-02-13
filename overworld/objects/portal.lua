@@ -498,7 +498,7 @@ end
 function ow.Portal:_set_player_disabled(b)
     local player = self._scene:get_player()
     if b == true then
-        player:set_is_ghost(true)
+        player:request_is_ghost(self, true)
     end
 
     -- ghost disable happens in _teleport
@@ -593,14 +593,14 @@ function ow.Portal:update(delta)
         if self._queue_trail_invisible == true then
             -- test if point farther away on player core passed portal
             if self._transition_stencil:test_point(player:get_position()) == true then -- stencil clamped to line
-                player:set_trail_is_visible(false)
+                player:request_trail_is_visible(self, false)
                 self._queue_trail_invisible = false
             end
         end
 
         -- once camera arrives, properly teleport
         if t >= 1 then
-            player:set_trail_is_visible(true)
+            player:request_trail_is_visible(self, true)
             self:_set_player_disabled(false)
             self:_teleport()
 
@@ -712,7 +712,7 @@ function ow.Portal:_teleport()
 
     -- teleport to be outside collision geometry
     player:teleport_to(new_x, new_y)
-    player:clear_forces()
+    player:relax()
     player:set_velocity(player_vx, player_vy)
 
     local elapsed = 0
@@ -724,7 +724,7 @@ function ow.Portal:_teleport()
         elapsed = elapsed + delta
 
         if elapsed > 5 / 60 then
-            player:set_is_ghost(false)
+            player:request_is_ghost(self, nil)
             return meta.DISCONNECT_SIGNAL
         end
     end)

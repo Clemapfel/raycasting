@@ -32,9 +32,6 @@ function ow.DeceleratorSurface:instantiate(object, stage, scene)
     local mesh = object:create_mesh()
     self._graphics_body = ow.DeceleratorSurfaceBody(scene, contour, mesh)
 
-    self._force_source_id = nil
-    self._damping_source_id = nil
-
     self._retract_motion = rt.SmoothedMotion1D(0)
     self._input = rt.InputSubscriber()
     self._input:signal_connect("pressed", function(_, which)
@@ -50,9 +47,7 @@ function ow.DeceleratorSurface:update(delta)
     local player = self._scene:get_player()
 
     if not self._stage:get_is_body_visible(self._body) then
-        if self._force_source_id ~= nil then
-            player:update_force_source(self._force_source_id, 0, 0)
-        end
+        player:request_force(self, 0, 0)
         return
     end
 
@@ -105,19 +100,19 @@ function ow.DeceleratorSurface:update(delta)
         local input_direction_x, input_direction_y = player:get_input_direction()
         local force_x, force_y = input_direction_x * force, input_direction_y * force
 
-        self._damping_source_id = player:update_damping_source(self._damping_source_id, up, right, down, left)
-        self._force_source_id = player:update_force_source(self._force_source_id, force_x, force_y)
-    elseif self._damping_source_id then
-        self._damping_source_id = player:update_damping_source(self._damping_source_id, 1, 1, 1, 1)
-        self._force_source_id = player:update_force_source(self._force_source_id, 0, 0)
+        player:request_damping(self, up, right, down, left)
+        player:request_force(self, force_x, force_y)
+    else
+        player:request_damping(self, nil, nil, nil, nil)
+        player:request_force(self, nil, nil)
     end
 
     if penetration > 0 then
-        self._jump_allowed_source_id = player:update_jump_allowed_source(self._jump_allowed_source_id, true)
-        self._gravity_multiplier_id = player:request_gravity_multiplier(self._gravity_multiplier_id, 0)
+        player:request_is_jump_allowed_override(self, true)
+        player:request_gravity_multiplier(self, 0)
     else
-        self._jump_allowed_source_id = player:update_jump_allowed_source(self._jump_allowed_source_id, false)
-        self._gravity_multiplier_id = player:request_gravity_multiplier(self._gravity_multiplier_id, 1)
+        player:request_is_jump_allowed_override(self, nil)
+        player:request_gravity_multiplier(self, 1)
     end
 
     self._scene:push_camera_mode(ow.CameraMode.CUTSCENE)

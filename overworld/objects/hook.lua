@@ -155,7 +155,7 @@ function ow.Hook:_hook()
         local bubble, non_bubble = player:get_physics_body(true), player:get_physics_body(false)
         bubble:set_position(x, y)
         non_bubble:set_position(x, y)
-        player:set_jump_allowed(true)
+        player:request_is_jump_allowed_override(self, true)
         player:jump()
         self._is_blocked = true
     else
@@ -180,7 +180,7 @@ function ow.Hook:_hook()
             )
 
             if player:get_is_bubble() == false then
-                player:set_jump_allowed(true)
+                player:request_is_jump_allowed_override(self, true)
                 self._jump_callback_id = player:signal_connect("jump", function()
                     self:_unhook()
                     self._jump_callback_id = nil
@@ -191,7 +191,7 @@ function ow.Hook:_hook()
                 local bubble_jump_callback_id = nil
                 self._bubble_callback_id = player:signal_connect("bubble", function(_, is_bubble)
                     if is_bubble == false then
-                        player:set_jump_allowed(true)
+                        player:request_is_jump_allowed_override(self, true)
                         if bubble_jump_callback_id == nil then
                             player:signal_connect("jump", function()
                                 self:_unhook()
@@ -200,7 +200,7 @@ function ow.Hook:_hook()
                             end)
                         end
                     else
-                        player:set_jump_allowed(false)
+                        player:request_is_jump_allowed_override(self, nil)
                         if bubble_jump_callback_id ~= nil then
                             player:signal_try_disconnect("jump", bubble_jump_callback_id)
                         end

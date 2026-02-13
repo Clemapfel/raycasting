@@ -25,8 +25,6 @@ function ow.AirDashNodeManager:instantiate(scene, stage)
     self._tether_dx, self._tether_dy = 0, 0 -- direction
     self._tether_exit_line = {} -- Array<Number, 4>
     self._tether_exit_sign = 0
-    
-    self._damping_entry_id = nil
 
     self._input = rt.InputSubscriber(rt.settings.player.input_subscriber_priority + 1)
     self._input = rt.InputSubscriber()
@@ -54,16 +52,12 @@ end
 --- @brief
 function ow.AirDashNodeManager:_update_damping(value)
     local player = self._scene:get_player()
-    if self._damping_entry_id == nil then
-        self._damping_entry_id = player:add_damping_source(
-            nil, -- up
-            nil, -- right
-            value, -- down
-            nil -- left
-        )
-    else
-        player:update_damping_source(self._damping_entry_id, nil, nil, value, nil)
-    end
+    self._damping_entry_id = player:request_damping(self,
+        nil, -- up
+        nil, -- right
+        value, -- down
+        nil -- left
+    )
 end
 
 --- @brief
@@ -278,7 +272,7 @@ function ow.AirDashNodeManager:update(delta)
     end
 
     -- disable double jump while in range
-    player:set_jump_disabled(disable_double_jump)
+    player:request_is_jump_disabled(self, disable_double_jump)
 
     ::skip::
 end

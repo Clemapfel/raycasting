@@ -29,10 +29,10 @@ function ow.TextBoxEmitter:instantiate(object, stage, scene)
             self._interact_delay_elapsed = 0
 
             local player = scene:get_player()
-            player:set_is_disabled(true)
+            player:request_is_disabled(self, true)
 
             self._dialog_box:signal_connect("done", function()
-                player:set_is_disabled(false)
+                player:request_is_disabled(self, false)
                 self._dialog_box:reset()
                 self._is_active = false
                 self._post_done_delay_elapsed = 0

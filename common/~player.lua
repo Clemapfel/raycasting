@@ -3317,7 +3317,7 @@ function rt.Player:get_past_position_path(distance)
 end
 
 --- @brief
-function rt.Player:get_idle_duration()
+function rt.Player:get_idle_elapsed()
     return self._idle_elapsed
 end
 

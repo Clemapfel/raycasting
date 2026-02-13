@@ -500,7 +500,7 @@ end
 
 --- @brief
 function mn.MenuScene:exit()
-    self._player:enable()
+    self._player:request_is_disabled(self, nil)
     self._camera:set_is_shaking(false)
     self._title_screen.input:deactivate()
     self._stage_select.input:deactivate()
@@ -566,7 +566,7 @@ function mn.MenuScene:_set_state(next)
 
     if next == mn.MenuSceneState.TITLE_SCREEN then
         self._title_screen.input:activate()
-        self._player:set_flow(0)
+        self._player:reset_flow(0)
 
         local w, h = self._bounds.width, self._bounds.height
         local r = self._player:get_radius()
@@ -576,7 +576,7 @@ function mn.MenuScene:_set_state(next)
             new_x,
             0
         )
-        self._player:disable()
+        self._player:request_is_disabled(self, true)
 
         self._player_velocity_x, self._player_velocity_y = new_x > 0 and -1 or 1, -1
 
@@ -587,7 +587,7 @@ function mn.MenuScene:_set_state(next)
         end
 
         self._player:reset()
-        self._player:set_is_bubble(true)
+        self._player:request_is_bubble(self, true)
         self._title_screen.opacity_fade_animation:reset()
         self._stage_select.item_reveal_animation:reset()
         return
@@ -598,9 +598,9 @@ function mn.MenuScene:_set_state(next)
         self._stage_select.page_indicator:set_selected_page(1)
         self._stage_select.page_indicator:skip()
 
-        self._player:set_gravity(1)
-        self._player:set_is_bubble(false)
-        self._player:enable()
+        self._player:request_gravity_multiplier(self, 1)
+        self._player:request_is_bubble(self, false)
+        self._player:request_is_disabled(self, false)
 
         for boundary in values(self._title_screen.boundaries) do
             boundary:set_is_sensor(true)
@@ -696,7 +696,7 @@ function mn.MenuScene:update(delta)
         -- falling or level select
         local px, py = self._player:get_position()
         self._shader_fraction = math.clamp(py / rt.settings.menu_scene.title_screen.falling_fraction_threshold, 0, 1)
-        self._player:set_flow(self._shader_fraction)
+        self._player:reset_flow(self._shader_fraction)
 
         local max_speedup = rt.settings.menu_scene.stage_select.max_debris_speedup
         local speedup = math.max(0.1, self._stage_select.item_frame:get_hue() * max_speedup)

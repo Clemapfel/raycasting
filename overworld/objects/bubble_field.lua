@@ -69,11 +69,11 @@ function ow.BubbleField:instantiate(object, stage, scene)
             self:_block_signals()
 
             -- check if player is actually outside body, in case of exiting one shape of self but entering another
-            if self._body:test_point(player:get_physics_body():get_position()) then
+            if self._body:test_point(player:get_position()) then
                 return
             end
 
-            player:set_is_bubble(end_b)
+            player:request_is_bubble(self, end_b)
             local x, y = player:get_position()
             self:_excite_wave(x, y, 1) -- outwards
             self._is_active = true

@@ -135,22 +135,17 @@ vec4 effect(vec4 color, Image image, vec2 texture_coords, vec2 vertex_position) 
     vec2 norm = size / max(size.x, size.y);
     const float ball_eps = 0.5;
     float ball = gaussian(distance(texture_coords * norm, vec2(0.5, fraction - 26 / size.y) * norm), 3);
-    //ball = smoothstep(0.5 - ball_eps, 0.5 + ball_eps, ball);
+
     float ball_attenuation = texture_coords.y > fraction ? gaussian(texture_coords.y - fraction, 10.0) : 1.0;
-    ball *= ball_attenuation;
+    ball *= ball_attenuation * (texture_coords.y > 0 ? 1 : 0);
 
     vec2 distortion = vec2(
         gradient_noise(vec3(uv * distortion_scale, elapsed)),
         gradient_noise(vec3(uv * distortion_scale, elapsed))
     ) * distortion_strength;
 
-    float overlap_factor = fade_out_fraction > 0 ? 1.05 : 1;
-    float fade = 1 - gaussian(texture_coords.y - fraction * overlap_factor, 15); // multiply so fade out is below ground
+    float fade = 1 - gaussian(texture_coords.y - fraction, 15); // multiply so fade out is below ground
     if (texture_coords.y > fraction) fade = 0;
-
-    float fade2 = gaussian(texture_coords.y * norm.y - fade_out_fraction * 2, 0.5);
-    if (texture_coords.y > fade_out_fraction * 2) fade2 = 1;
-    fade *= fade2;
 
     texture_coords.x += distortion.x * ground_weight;
 
@@ -158,11 +153,11 @@ vec4 effect(vec4 color, Image image, vec2 texture_coords, vec2 vertex_position) 
     float ray_outer = gaussian(abs(texture_coords.x - 0.5), ray_width);
     float ray_inner = gaussian(abs(texture_coords.x - 0.5), ray_width * 10);
 
-    float ray = (ray_outer * (1 + ball) + ray_inner) / (1 + ball) * fade;
-    ray *= 1 + ball * (fade_out_fraction > 0 ? 0.4 : 0);
-    float hue = fract(mix(hue - 0.25, hue, texture_coords.y * norm.y));
-    return vec4(ray) * vec4(lch_to_rgb(vec3(0.8, 1, hue)), 1);
+    float ray = (ray_outer + ray_inner) * clamp(fade, 0, 1);
+    ray *= 1 + ball;
 
+    float hue = fract(mix(hue - 0.25, hue, texture_coords.y * norm.y));
+    return vec4(ray) * vec4(lch_to_rgb(vec3(0.8, 1, clamp(hue, 0, 1))), fade_out_fraction);
 }
 
 #endif

@@ -1,8 +1,9 @@
 // src: https://github.com/KhronosGroup/ToneMapping/blob/main/PBR_Neutral/README.md#pbr-neutral-specification
+// Modified to support compression_start > 1
 
-uniform float fresnel_90 = 0.04;         // F_90: fresnel reflection at normal incidence (index of refraction = 1.5)
-uniform float compression_start = 2;  // K_s: highlight compression starts (0.8 - F_90)
-uniform float desaturation_speed = 0.15; // K_d: speed of desaturation
+uniform float fresnel_90 = 0.04;
+uniform float compression_start = 2.0;
+uniform float desaturation_speed = 0.15;
 
 vec3 tonemap(vec3 rgb) {
     float minimum = min(rgb.r, min(rgb.g, rgb.b));
@@ -21,14 +22,21 @@ vec3 tonemap(vec3 rgb) {
         return color_offset;
     }
 
-    float peak_new = 1.0 - ((1.0 - compression_start) * (1.0 - compression_start)) /
-        (peak + 1.0 - 2.0 * compression_start);
+    // Modified compression formula that works for compression_start > 1
+    // Maps [compression_start, infinity) to [compression_start, compression_start + 1)
+    // Using a hyperbolic curve: f(x) = K_s + (x - K_s) / (x - K_s + 1)
+    float excess = peak - compression_start;
+    float peak_new = compression_start + excess / (excess + 1.0);
 
-    float desaturation_factor = 1.0 / (desaturation_speed * (peak - peak_new) + 1.0);
+    // Adjusted desaturation that works across all ranges
+    // Desaturate based on how much compression was applied
+    float compression_amount = peak - peak_new;
+    float desaturation_factor = 1.0 / (desaturation_speed * compression_amount + 1.0);
+
     return mix(
-        vec3(peak_new),
-        color_offset * (peak_new / peak),
-        desaturation_factor
+    vec3(peak_new),
+    color_offset * (peak_new / peak),
+    desaturation_factor
     );
 }
 

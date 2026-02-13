@@ -351,7 +351,7 @@ function ow.Checkpoint:update(delta)
         local player_x, player_y = player:get_position()
         if player_y >= self._bottom_y - 2 * player:get_radius() then
             self:_set_state(_STATE_DEFAULT)
-            player:clear_forces()
+            player:relax()
         end
     elseif self._state == _STATE_EXPLODING then
         local duration = rt.settings.overworld.checkpoint.explosion_duration
