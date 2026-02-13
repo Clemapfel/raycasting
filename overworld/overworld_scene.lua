@@ -610,10 +610,8 @@ function ow.OverworldScene:_draw_debug_information()
 
     local player = self._player
     local flow_percentage = player:get_flow()
-    local flow_velocity = player:get_flow_velocity()
 
     flow_percentage = tostring(math.round(flow_percentage * 100) / 100)
-    flow_velocity = ternary(flow_velocity >= 0, "+", "-")
 
     local pressed, unpressed = "1", "0"
     local up = ternary(self._player._up_button_is_down, pressed, unpressed)
@@ -640,7 +638,7 @@ function ow.OverworldScene:_draw_debug_information()
     local to_concat = {
         up .. right .. down .. left .. " " .. a .. b,
         "sprint: " .. sprint,
-        "flow : " .. flow_percentage .. "% (" .. flow_velocity .. ")",
+        "flow : " .. flow_percentage .. "%",
         time
     }
 
