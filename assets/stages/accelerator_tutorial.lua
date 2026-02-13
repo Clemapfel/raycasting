@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 505,
+  nextobjectid = 506,
   properties = {},
   tilesets = {
     {
@@ -455,8 +455,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = -9086.27,
-          y = -992,
+          x = -8832,
+          y = -1040,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1851,53 +1851,40 @@ return {
           properties = {}
         },
         {
-          id = 502,
+          id = 504,
           name = "",
-          type = "KillPlane",
-          shape = "rectangle",
-          x = -8612.15,
-          y = -1515.97,
-          width = 80,
-          height = 496,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 503,
-          name = "",
-          type = "BouncePad",
+          type = "DeceleratorSurface",
           shape = "polygon",
-          x = -9018.32,
-          y = -1089.79,
+          x = -9216,
+          y = -1328.5,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
           polygon = {
-            { x = 0, y = 0 },
-            { x = 304, y = 0 },
-            { x = 304, y = 112 },
-            { x = 0, y = 112 }
+            { x = 157.395, y = -41.9225 },
+            { x = 332.279, y = -41.9225 },
+            { x = 332.279, y = 146.729 },
+            { x = 157.395, y = 146.729 }
           },
           properties = {}
         },
         {
-          id = 504,
+          id = 505,
           name = "",
-          type = "BouncePad",
+          type = "KillPlane",
           shape = "polygon",
-          x = -9024,
-          y = -1264,
+          x = -8928,
+          y = -1328,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
           polygon = {
-            { x = 0, y = 0 },
-            { x = 304, y = 0 },
-            { x = 304, y = 112 },
-            { x = 0, y = 112 }
+            { x = 157.395, y = -41.9225 },
+            { x = 332.279, y = -41.9225 },
+            { x = 332.279, y = 146.729 },
+            { x = 157.395, y = 146.729 }
           },
           properties = {}
         }

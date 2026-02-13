@@ -7,7 +7,7 @@ rt.settings.overworld.decelerator_surface = {
     non_bubble_force = 0,
 
     bubble_damping = 0.4,
-    non_bubble_damping = 0.5
+    non_bubble_damping = 0.7
 }
 
 --- @class ow.DeceleratorSurface
@@ -114,10 +114,6 @@ function ow.DeceleratorSurface:update(delta)
         player:request_is_jump_allowed_override(self, nil)
         player:request_gravity_multiplier(self, 1)
     end
-
-    self._scene:push_camera_mode(ow.CameraMode.CUTSCENE)
-    local camera = self._scene:get_camera()
-    camera:set_position(self._body:get_position())
 end
 
 --- @brief
