@@ -901,7 +901,7 @@ function ow.DeceleratorSurfaceBody:draw()
         -- draw to .r: density
         love.graphics.setColor(1, 0, 0, 1)
 
-        --self._mesh:draw()
+        self._mesh:draw()
 
         _instance_draw_shader:bind()
         _instance_draw_shader:send("texture_scale", rt.settings.overworld.decelerator_body.texture_scale)
@@ -911,7 +911,7 @@ function ow.DeceleratorSurfaceBody:draw()
         -- draw to .g: mask
         love.graphics.setColor(0, 1, 1, 1)
 
-        --self._mesh:draw()
+        self._mesh:draw()
 
         love.graphics.setLineWidth(5)
         love.graphics.setLineStyle("smooth")
