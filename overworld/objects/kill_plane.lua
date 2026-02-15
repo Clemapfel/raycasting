@@ -30,6 +30,14 @@ local _data_mesh_format = {
 }
 
 local _instance_draw_shader = rt.Shader("overworld/objects/kill_plane_instanced_draw.glsl")
+local _background_shader = rt.Shader("overworld/objects/kill_plane_background.glsl")
+
+DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
+    if which == "k" then
+        _background_shader:recompile()
+    end
+end)
+
 
 function ow.KillPlane:instantiate(object, stage, scene)
     self._scene = scene
@@ -39,9 +47,13 @@ function ow.KillPlane:instantiate(object, stage, scene)
     self._body = object:create_physics_body(stage:get_physics_world())
     self._body:set_is_sensor(true)
 
-    local bounce_group = rt.settings.player.bounce_collision_group
-    self._body:set_collides_with(bounce_group)
-    self._body:set_collision_group(bounce_group)
+    local group = bit.bor(
+        rt.settings.player.player_collision_group,
+        rt.settings.player.player_outer_body_collision_group
+    )
+
+    self._body:set_collides_with(group)
+    self._body:set_collision_group(group)
 
     self._should_explode = object:get_boolean("should_explode", false)
     if self._should_explode == nil then self._should_explode = true end
@@ -69,8 +81,8 @@ function ow.KillPlane:instantiate(object, stage, scene)
 
     self._mask = object:create_mesh()
     self._outline_width = rt.settings.overworld.kill_plane.outline_width
-    self._color = rt.Palette.MINT_5
-    self._outline_color = rt.Palette.MINT_1
+    self._color = rt.Palette.KILL_PLANE
+    self._outline_color = rt.Palette.KILL_PLANE_OUTLINE
 
     do -- instanced mesh
         local up_x, up_y = math.cos(-1/2 * math.pi), math.sin(-1/2 * math.pi)
@@ -79,23 +91,40 @@ function ow.KillPlane:instantiate(object, stage, scene)
 
         local center_x, center_y = 0, 0
         local radius = 1
+        local aa_radius = 1.05
 
         local data = {}
-        local function add(x, y, is_outline)
+        local function add(x, y, alpha, value)
             local u = 0
             local v = 0
+            value = value or 1
             table.insert(data, {
                 x, y,
                 u, v,
-                1, 1, 1, 1
+                value, value, value, alpha
             })
         end
 
-        add(center_x + up_x * radius, center_y + up_y * radius, false)
-        add(center_x + right_x * radius, center_y + right_y * radius, false)
-        add(center_x + left_x * radius, center_y + left_y * radius, false)
+        add(center_x + up_x * radius, center_y + up_y * radius, 1, 2)
+        add(center_x + right_x * radius, center_y + right_y * radius, 1, 0.75)
+        add(center_x + left_x * radius, center_y + left_y * radius, 1, 0.75)
+
+        add(center_x + up_x * aa_radius, center_y + up_y * aa_radius, 0)
+        add(center_x + right_x * aa_radius, center_y + right_y * aa_radius, 0)
+        add(center_x + left_x * aa_radius, center_y + left_y * aa_radius, 0)
+
 
         self._instance_mesh = rt.Mesh(data, rt.MeshDrawMode.TRIANGLES, rt.VertexFormat2D, rt.GraphicsBufferUsage.STATIC)
+        self._instance_mesh:set_vertex_map(
+            1, 2, 3,
+
+            1, 2, 4,
+            2, 5, 4,
+            2, 3, 5,
+            3, 6, 5,
+            3, 1, 6,
+            1, 4, 6
+        )
     end
 
     do -- data mesh
@@ -105,8 +134,16 @@ function ow.KillPlane:instantiate(object, stage, scene)
         local noise_cutoff = 1 - rt.settings.overworld.kill_plane.noise_density
         local not_outline, outline = 0, 1
 
+        local aabb = rt.contour.get_aabb(self._contour)
+        local cell_size = rt.settings.overworld.kill_plane.noise_cell_size
+
         local add = function(x, y)
             local radius = rt.random.number(min_radius, max_radius)
+
+            -- prevent overlap with outer border
+            x = math.clamp(x, aabb.x + radius + self._outline_width, aabb.x + aabb.width - radius - self._outline_width)
+            y = math.clamp(y, aabb.y + radius + self._outline_width, aabb.y + aabb.height - radius - self._outline_width)
+
             local qx, qy, qz, qw = math.quaternion.random()
 
             table.insert(data_mesh_data, {
@@ -138,17 +175,15 @@ function ow.KillPlane:instantiate(object, stage, scene)
             })
         end
 
-        local aabb = rt.contour.get_aabb(self._contour)
-        local cell_size = rt.settings.overworld.kill_plane.noise_cell_size
-
         local n_columns = math.ceil(aabb.width / cell_size)
         local x_overhang = aabb.width - n_columns * cell_size
 
         local n_rows = math.ceil(aabb.height / cell_size)
-        local y_overhang = aabb.height - n_columns * cell_size
+        local y_overhang = aabb.height - n_rows * cell_size
 
         local noise_offset = meta.hash(self) * math.pi
 
+        local n_instances = 0
         for column_i = 1, n_columns do
             for row_i = 1, n_rows do
                 local world_x = aabb.x + (column_i - 1) * cell_size + 0.5 * x_overhang + 0.5 * cell_size
@@ -161,8 +196,21 @@ function ow.KillPlane:instantiate(object, stage, scene)
                         world_x + offset * math.cos(angle),
                         world_y + offset * math.sin(angle)
                     )
+
+                    n_instances = n_instances + 1
+                    if n_instances > 10000 then
+                        rt.critical("In ow.KillPlane: instance count of kill plane `", object:get_id(), "` exceeded limit. Consider resizing the object")
+                        goto no_more_particles
+                    end
                 end
             end
+        end
+
+        ::no_more_particles::
+
+        if #data_mesh_data == 0 then
+            self._is_visible = false
+            return
         end
 
         self._data_mesh_data = data_mesh_data
@@ -213,7 +261,6 @@ function ow.KillPlane:update(delta)
         local y_world = y_local + (oy - cy)
 
         if bounds:contains(x_world, y_world) then
-
             local dx = px - x_world
             local dy = py - y_world
             local player_angle = math.angle(dx, dy) + 0.5 * math.pi
@@ -256,13 +303,16 @@ function ow.KillPlane:draw()
     love.graphics.push()
     love.graphics.translate(offset_x - self._centroid_x, offset_y - self._centroid_y)
 
-    local stencil = rt.graphics.get_stencil_value()
-    rt.graphics.set_stencil_mode(stencil, rt.StencilMode.DRAW)
-    self._mask:draw()
-    rt.graphics.set_stencil_mode(stencil, rt.StencilMode.TEST, rt.StencilCompareMode.EQUAL)
+    local transform = self._scene:get_camera():get_transform()
+    transform = transform:inverse()
 
-    rt.Palette.BLACK:bind()
+    self._color:bind()
+    _background_shader:bind()
+    _background_shader:send("screen_to_world_transform", transform)
+    _background_shader:send("elapsed", rt.SceneManager:get_elapsed())
+    _instance_draw_shader:send("black", { rt.Palette.BLACK:unpack()})
     self._mask:draw()
+    _background_shader:unbind()
 
     self._color:bind()
     _instance_draw_shader:bind()
@@ -271,8 +321,6 @@ function ow.KillPlane:draw()
     _instance_draw_shader:send("black", { rt.Palette.BLACK:unpack()})
     self._instance_mesh:draw_instanced(self._n_instances)
     _instance_draw_shader:unbind()
-
-    rt.graphics.set_stencil_mode(nil)
 
     love.graphics.setLineJoin("bevel")
 

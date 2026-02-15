@@ -15,7 +15,7 @@ function love.conf(settings)
     settings.window.height = height
     settings.window.msaa = 4
     settings.window.resizable = true
-    settings.window.vsync = 0 --VSYNC_ADAPTIVE
+    settings.window.vsync = VSYNC_ADAPTIVE
     settings.window.usedpiscale = true
     settings.window.borderless = false
     settings.window.fullscreen = false

@@ -168,6 +168,11 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
             0, max_rope_length
         )
 
+        if bottom_x == nil or bottom_y == nil then
+            bottom_x = self._x
+            bottom_y = self._y + 0.5 * max_rope_length
+        end
+
         self._bottom_x, self._bottom_y = bottom_x, math.min(bottom_y, self._y)
 
         if self._type == ow.CheckpointType.PLAYER_SPAWN then

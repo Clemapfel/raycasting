@@ -148,8 +148,6 @@ float sparse_worley_noise(vec3 p, float density) {
     return 1.0 - dist;
 }
 
-
-
 float net_texture(vec2 uv, float elapsed) {
     return dirac(smoothstep(0, 1 - 0.3, sparse_worley_noise(vec3(uv, elapsed), 0.1)));
 }
@@ -180,7 +178,9 @@ vec4 effect(vec4 color, sampler2D tex, vec2 texture_coordinates, vec2 screen_coo
 
     vec3 texture = mix(body_color.rgb, outline_color.rgb, noise);
 
-    return min(vec4(1), vec4(vec4(texture, 1) * body + outline_color * outline));
+    float background_noise = gradient_noise(vec3(world_position / 30, elapsed / 4));
+
+    return 0.25 * mask * mix(body_color, outline_color, background_noise) + min(vec4(1), vec4(vec4(texture, 1) * body + outline_color * outline));
 }
 
 #endif
