@@ -324,6 +324,7 @@ function ow.Checkpoint:_set_state(state)
         player:reset()
         player:request_is_ghost(self, true)
         player:teleport_to(self._top_x, spawn_y)
+        self._stage:apply_camera_bounds(self._top_x, spawn_y)
         player:relax()
         player:request_is_disabled(self, true)
 
@@ -346,12 +347,12 @@ function ow.Checkpoint:_set_state(state)
     elseif self._state == _STATE_RAY then
         self._spawn_elapsed = 0
 
+        camera:set_apply_bounds(true)
+        camera:set_position(self._bottom_x, self._bottom_y)
         self._stage:apply_camera_bounds(
             self._bottom_x, self._bottom_y,
             true -- snap instantly
         )
-        camera:set_apply_bounds(true)
-        camera:set_position(self._bottom_x, self._bottom_y)
 
         self._ray_fraction = 0
         self._ray_fade_out_elapsed = 0
@@ -373,6 +374,7 @@ function ow.Checkpoint:_set_state(state)
         player:reset()
         player:request_is_ghost(self, true)
         player:teleport_to(self._top_x, self._top_y)
+        self._stage:apply_camera_bounds(self._top_x, self._top_y)
         player:request_opacity(self, 0)
         player:request_is_disabled(self, true)
         player:relax()

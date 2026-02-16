@@ -600,7 +600,7 @@ function ow.Portal:update(delta)
 
         -- once camera arrives, properly teleport
         if t >= 1 then
-            player:request_trail_is_visible(self, true)
+            player:request_is_trail_visible(self, nil)
             self:_set_player_disabled(false)
             self:_teleport()
 

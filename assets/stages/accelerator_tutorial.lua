@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 508,
+  nextobjectid = 511,
   properties = {},
   tilesets = {
     {
@@ -455,8 +455,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = -8819.22,
-          y = -1049.52,
+          x = -8589.76,
+          y = -1059.5,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1855,8 +1855,8 @@ return {
           name = "",
           type = "DeceleratorSurface",
           shape = "polygon",
-          x = -9216,
-          y = -1328.5,
+          x = -9057.94,
+          y = -1344.3,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1874,8 +1874,8 @@ return {
           name = "",
           type = "KillPlane",
           shape = "polygon",
-          x = -8928,
-          y = -1328,
+          x = -9233.58,
+          y = -189.96,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1886,6 +1886,50 @@ return {
             { x = 332.279, y = 146.729 },
             { x = 157.395, y = 146.729 }
           },
+          properties = {}
+        },
+        {
+          id = 508,
+          name = "",
+          type = "Path",
+          shape = "point",
+          x = -9056,
+          y = -1424,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["next"] = { id = 509 },
+            ["target"] = { id = 504 }
+          }
+        },
+        {
+          id = 509,
+          name = "",
+          type = "PathNode",
+          shape = "point",
+          x = -9040,
+          y = -1088,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["next"] = { id = 510 }
+          }
+        },
+        {
+          id = 510,
+          name = "",
+          type = "PathNode",
+          shape = "point",
+          x = -8576,
+          y = -1312,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
           properties = {}
         }
       }

@@ -94,7 +94,7 @@ do
 
         gravity = 1500, -- px / s
         air_resistance = 0.03, -- [0, 1]
-        downwards_force = 0, --3000,
+        downwards_force = 3000,
 
         friction_coefficient = 100,
         down_button_friction_release_duration = 10 / 60, -- s
@@ -2445,7 +2445,7 @@ function rt.Player:teleport_to(x, y, relax_body)
         end
 
         if relax_body then
-            self._graphics_body:set_position(ternary(is_bubble, self._bubble_body, self._body):get_position())
+            self._graphics_body:set_position(self:get_position())
             self._graphics_body:relax()
         end
     end
@@ -2830,11 +2830,7 @@ function rt.Player:reset()
     local is_bubble = self:get_is_bubble()
     self._graphics_body:set_use_contour(is_bubble)
     self._graphics_body:relax()
-
-    local body = ternary(is_bubble, self._bubble_body, self._body)
-    if body ~= nil then
-        self._graphics_body:set_position(body:get_position())
-    end
+    self._graphics_body:set_position(self:get_position())
 
     self._graphics_body:set_down_squish(false)
     self._graphics_body:set_left_squish(false)

@@ -4,7 +4,7 @@ rt.settings.overworld.decelerator_body = {
     arm_length = 64,
     arm_n_segments = 32,
 
-    n_arms_for_full_force = 3,
+    n_arms_for_full_force = 1,
 
     min_radius = 1,
     max_radius = 3,
@@ -24,7 +24,7 @@ rt.settings.overworld.decelerator_body = {
     distance_compliance = 0.0,
     bending_compliance = 0.001,
     retract_compliance = 0.02,
-    extend_compliance = 0.002,
+    extend_compliance = 0.00075,
     collision_compliance = 0.0001,
 
     threshold = 0.5,
@@ -73,6 +73,7 @@ function ow.DeceleratorSurfaceBody:instantiate(scene, contour, mesh)
     self._scene = scene
 
     self._target_x, self._target_y = math.huge, math.huge
+    self._offset_x, self._offset_y = 0, 0
     self._target_radius = 0
     self._is_active = false
 
@@ -966,4 +967,9 @@ function ow.DeceleratorSurfaceBody:get_penetration()
         penetration = penetration * math.min(1, self._n_connected / rt.settings.overworld.decelerator_body.n_arms_for_full_force)
         return penetration, -self._closest_normal_x, -self._closest_normal_y
     end
+end
+
+--- @brief
+function ow.DeceleratorSurfaceBody:set_offset(x, y)
+    self._offset_x, self._offset_y = x, y
 end

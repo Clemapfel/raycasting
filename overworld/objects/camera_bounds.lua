@@ -27,10 +27,6 @@ function ow.CameraBounds:instantiate(object, stage, scene)
 
     self._body:signal_connect("collision_start", function()
         self:_bind()
-        self._stage:signal_connect("respawn", function()
-            self:_unbind()
-            return meta.DISCONNECT_SIGNAL
-        end)
     end)
 
     self._body:signal_connect("collision_end", function()
@@ -51,6 +47,8 @@ function ow.CameraBounds:_bind()
         self._scale_before = camera:get_scale()
         camera:scale_to(self._scale)
     end
+
+    dbg(meta.hash(self), "bidn")
 end
 
 --- @brief
@@ -64,6 +62,9 @@ function ow.CameraBounds:_unbind()
     if self._should_apply_scale then
         camera:scale_to(self._scale_before)
     end
+
+    dbg(debug.traceback())
+    dbg(meta.hash(self), "unbidn")
 end
 
 --- @brief
@@ -74,4 +75,10 @@ function ow.CameraBounds:try_bind(px, py)
     end
 
     return false
+end
+
+--- @brief
+function ow.CameraBounds:reset()
+    self:_unbind()
+    self:try_bind(self._scene:get_camera():get_position())
 end
