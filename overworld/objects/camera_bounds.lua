@@ -62,9 +62,6 @@ function ow.CameraBounds:_unbind()
     if self._should_apply_scale then
         camera:scale_to(self._scale_before)
     end
-
-    dbg(debug.traceback())
-    dbg(meta.hash(self), "unbidn")
 end
 
 --- @brief

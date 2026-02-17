@@ -65,13 +65,14 @@ function ow.Portal:instantiate(object, stage, scene)
         _particle_texture = rt.RenderTexture(2 * (radius + padding), 2 * (radius + padding))
 
         local n_outer_vertices = 32
-        local mesh = rt.MeshRing(0, 0, radius - 2, radius, n_outer_vertices)
-
-        local n = mesh:get_n_vertices()
-        for i = n, n - n_outer_vertices, -1 do -- outer aliasing
-            mesh:set_vertex_color(i, 1, 1, 1, 0)
-        end
-        mesh:set_vertex_color(1, 1, 1, 1)
+        local mesh = rt.MeshRing(
+            0, 0,
+            5, radius,
+            true, -- fill center
+            n_outer_vertices,
+            rt.RGBA(1, 1, 1, 1),
+            rt.RGBA(1, 1, 1, 0)
+        )
 
         love.graphics.push()
         love.graphics.origin()
@@ -270,7 +271,7 @@ function ow.Portal:instantiate(object, stage, scene)
             end
         end
 
-        local stencil_r = 2 * rt.settings.player.radius * rt.settings.player.bubble_radius_factor
+        local stencil_r = 4 * rt.settings.player.radius * rt.settings.player.bubble_radius_factor
         self._transition_stencil = b2.Body(
             self._world,
             self._object:get_physics_body_type(),
@@ -283,7 +284,7 @@ function ow.Portal:instantiate(object, stage, scene)
         self._transition_stencil_radius = stencil_r
         self._transition_stencil:set_collides_with(0x0)
         self._transition_stencil:set_collision_group(rt.settings.player.ghost_collision_group)
-        self._transition_stencil:add_tag("hitbox", "stencil", "core_stencil")
+        self._transition_stencil:add_tag("hitbox", "stencil", "core_stencil", "body_stencil")
         self:_set_stencil_enabled(false)
 
         if not self._is_dead_end then
@@ -378,7 +379,6 @@ function ow.Portal:instantiate(object, stage, scene)
                             self._target._one_way_light_animation:reset()
                         end
 
-                        player:set_position_override_active(true)
                         self:_set_stencil_enabled(true)
                         self._target:_set_stencil_enabled(true)
 
@@ -499,9 +499,12 @@ function ow.Portal:_set_player_disabled(b)
     local player = self._scene:get_player()
     if b == true then
         player:request_is_ghost(self, true)
+        player:request_is_disabled(self, true)
+    else
+        -- ghost disable happens in _teleport
+        player:request_is_disabled(self, false)
     end
 
-    -- ghost disable happens in _teleport
     if b == true then
         self._scene:push_camera_mode(ow.CameraMode.CUTSCENE)
         self._scene:get_camera():set_apply_bounds(true)
@@ -561,7 +564,13 @@ function ow.Portal:update(delta)
             transition_x, transition_y = path:at(1 - t)
         end
         self._scene:get_camera():move_to(transition_x, transition_y)
-        player:set_position_override(transition_x, transition_y)
+
+        -- move player towards portal
+        local magnitude = math.magnitude(self._transition_velocity_x, self._transition_velocity_y)
+        magnitude = math.max(rt.settings.overworld.portal.min_velocity_magnitude, magnitude)
+        local dx, dy = -self._normal_x, -self._normal_y
+        local portal_vx, portal_vy = math.flip(self._area_sensor:get_velocity())
+        player:set_velocity(dx * magnitude + portal_vx, dy * magnitude + portal_vy)
 
         -- reposition stencil body
         do
@@ -582,18 +591,11 @@ function ow.Portal:update(delta)
             self._transition_stencil:set_rotation(math.angle(bx - ax, by - ay))
         end
 
-        -- move player towards portal
-        local magnitude = math.magnitude(self._transition_velocity_x, self._transition_velocity_y)
-        magnitude = math.max(rt.settings.overworld.portal.min_velocity_magnitude, magnitude)
-        local dx, dy = -self._normal_x, -self._normal_y
-        local portal_vx, portal_vy = math.flip(self._area_sensor:get_velocity())
-        player:set_velocity(dx * magnitude + portal_vx, dy * magnitude + portal_vy)
-
         -- wait for player to pass line, then set trail invisible
         if self._queue_trail_invisible == true then
             -- test if point farther away on player core passed portal
             if self._transition_stencil:test_point(player:get_position()) == true then -- stencil clamped to line
-                player:request_trail_is_visible(self, false)
+                player:request_is_trail_visible(self, false)
                 self._queue_trail_invisible = false
             end
         end
@@ -653,7 +655,8 @@ function ow.Portal:update(delta)
         local i = _particle_i_to_data_offset(particle_i)
         local t = data[i + _t_offset]
         local scale = data[i + _scale_offset]
-        local eps = (scale * particle_r) / length / 2
+        local eps = 2 -- width of particle outline, in px --(scale * particle_r) / length / 2
+        eps = eps / length
 
         if data[i + _direction_offset] == _FORWARD then
             t = t + data[i + _speed_offset] / length * delta
@@ -731,8 +734,6 @@ function ow.Portal:_teleport()
     self._player_teleported = true
 
     self._transition_active = false
-    player:set_position_override_active(false)
-
     self:_set_stencil_enabled(false)
 
     -- set target stencil right behind portal
@@ -849,6 +850,11 @@ function ow.Portal:draw()
     end
     _pulse_shader:unbind()
 
+    love.graphics.pop()
+
+    love.graphics.push()
+    love.graphics.origin()
+    _particle_texture:draw()
     love.graphics.pop()
 end
 

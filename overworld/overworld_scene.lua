@@ -931,7 +931,6 @@ function ow.OverworldScene:get_current_stage()
     return self._stage
 end
 
-
 --- @brief
 function ow.OverworldScene:pause()
     self._pause_menu_active = true

@@ -891,11 +891,14 @@ end
 --- @brief
 function ow.Stage:apply_camera_bounds(x, y, should_snap)
     meta.assert(x, "Number", y, "Number")
+    local camera = self._scene:get_camera()
+    camera:clear_bounds()
+
     for bounds in values(self._camera_bounds) do
         bounds:try_bind(x, y)
     end
 
     if should_snap == true then
-        self._scene:get_camera():snap_to_bounds()
+        camera:snap_to_bounds()
     end
 end

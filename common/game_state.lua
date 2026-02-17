@@ -99,7 +99,7 @@ function rt.GameState:set_msaa_quality(msaa)
     meta.assert_enum_value(msaa, rt.MSAAQuality, 1)
     self._state.msaa = msaa
     local w, h, mode = love.window.getMode()
-    mode.msaa = self._state.msaa
+    mode.msaa = ternary(self._state.is_hdr_enabled, 0, self._state.msaa)
     love.window.setMode(w, h, mode)
 end
 

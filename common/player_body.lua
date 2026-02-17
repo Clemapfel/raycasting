@@ -1194,6 +1194,7 @@ end
 
 --- @brief
 function rt.PlayerBody:set_position(x, y)
+    meta.assert(x, "Number", y, "Number")
     self._position_x = x
     self._position_y = y
 end

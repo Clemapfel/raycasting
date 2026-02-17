@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="7" nextobjectid="525">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="7" nextobjectid="537">
  <editorsettings>
   <export target="exhibition.lua" format="lua"/>
  </editorsettings>
@@ -8,7 +8,7 @@
  <imagelayer id="3" name="background" repeatx="1" repeaty="1">
   <image source="../tilesets/debug_tileset_16x16/tile.png" width="16" height="16"/>
  </imagelayer>
- <objectgroup id="5" name="aux">
+ <objectgroup id="5" name="aux" visible="0">
   <object id="473" type="Hitbox" x="-288" y="5616">
    <polygon points="-352,0 -352,48 -800,48 -800,80 96,80 1504,80 1504,-640 -848,-656 -848,-624 1472,-608 1472,48 976,48 976,0 832,0 832,48 96,48 96,0"/>
   </object>
@@ -40,6 +40,7 @@
   <object id="481" name="Portal" type="PortalNode" x="-1088" y="5056">
    <point/>
   </object>
+  <object id="507" type="CameraBounds" x="-4246.04" y="1536" width="2441.34" height="944"/>
  </objectgroup>
  <objectgroup id="6" name="hitbox">
   <object id="474" type="AcceleratorSurface" x="-144" y="5616">
@@ -73,7 +74,6 @@
   <object id="496" name="Portal" type="PortalNode" x="-384" y="5616">
    <point/>
   </object>
-  <object id="507" type="CameraBounds" x="-4242.15" y="1536" width="2441.34" height="944"/>
   <object id="510" x="-3516.72" y="1291.71"/>
   <object id="511" type="Hitbox" x="-3392" y="2384">
    <polygon points="-320,0 256,0 256,-464 304,-528 352,-464 352,0 1024,0 1024,96 -320,96"/>
@@ -108,7 +108,7 @@
   <object id="519" type="SlipperyHitbox" x="-2752" y="2288">
    <polygon points="16,32 -32,32 -32,-16 16,-16"/>
   </object>
-  <object id="520" name="Spawn" type="PlayerSpawn" x="-3627.07" y="2301.73">
+  <object id="520" name="Spawn" type="PlayerSpawn" x="-3618.54" y="3248.22">
    <point/>
   </object>
   <object id="521" name="Portal" type="Portal" x="-3200" y="2224">
@@ -132,6 +132,43 @@
   </object>
   <object id="524" name="Portal" type="PortalNode" x="-2976" y="2224">
    <point/>
+  </object>
+  <object id="525" type="Hitbox" x="-3392" y="3312">
+   <polygon points="-320,0 256,0 272,-16 272,-112 256,-112 256,-464 304,-528 352,-464 352,-112 336,-112 336,-16 352,0 1024,0 1024,96 -320,96"/>
+  </object>
+  <object id="526" type="SlipperyHitbox" x="-3152" y="3280">
+   <properties>
+    <property name="unjumpable" type="bool" value="true"/>
+   </properties>
+   <polygon points="16,-432 64,-496 112,-432 112,-80 128,-96 128,-432 64.7319,-522.145 0,-432 0,-96 16,-80"/>
+  </object>
+  <object id="531" name="Portal" type="Portal" x="-3120" y="3200">
+   <properties>
+    <property name="left_or_right" type="bool" value="false"/>
+    <property name="other" type="object" value="532"/>
+    <property name="target" type="object" value="533"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="532" name="Portal" type="PortalNode" x="-3120" y="3296">
+   <point/>
+  </object>
+  <object id="533" name="Portal" type="Portal" x="-3056" y="3296">
+   <properties>
+    <property name="left_or_right" type="bool" value="false"/>
+    <property name="other" type="object" value="534"/>
+    <property name="target" type="object" value="531"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="534" name="Portal" type="PortalNode" x="-3056" y="3200">
+   <point/>
+  </object>
+  <object id="535" type="SlipperyHitbox" x="-3152" y="3296">
+   <polygon points="-16,0 -32,16 16,16 32,0"/>
+  </object>
+  <object id="536" type="SlipperyHitbox" x="-3024" y="3296">
+   <polygon points="16,0 32,16 -16,16 -32,0"/>
   </object>
  </objectgroup>
  <objectgroup id="2" name="front"/>
