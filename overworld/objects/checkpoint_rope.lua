@@ -84,6 +84,7 @@ function ow.CheckpointRope:_init_bodies()
             body:set_mass(height / n_segments * 0.015)
         end
 
+        --[[
         -- dummy instance for light source
         body:add_tag("segment_light_source")
         local instance = {
@@ -103,8 +104,9 @@ function ow.CheckpointRope:_init_bodies()
                 return { { left_x, left_y, right_x, right_y } }, { self._color }
             end
         }
-
         body:set_user_data(instance)
+        ]]--
+
         body:set_collides_with(mask)
         body:set_collision_group(rt.settings.player.exempt_collision_group)
 

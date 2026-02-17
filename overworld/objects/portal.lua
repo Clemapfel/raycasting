@@ -537,7 +537,6 @@ local function _clamp_point_to_line(ax, ay, bx, by, normal_x, normal_y, x, y)
     return x, y
 end
 
-
 --- @brief
 function ow.Portal:update(delta)
     local target = self._target
@@ -762,7 +761,7 @@ function ow.Portal:draw()
 
     local r, g, b, a = self._color:unpack()
 
-    if self._tether ~= nil and rt.GameState:get_is_color_blind_mode_enabled() then
+    if self._tether ~= nil then --self._tether ~= nil and rt.GameState:get_is_color_blind_mode_enabled() then
         love.graphics.setLineWidth(2)
         love.graphics.setColor(r, g, b, a)
         self._tether:draw()

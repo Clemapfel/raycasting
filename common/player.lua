@@ -861,7 +861,7 @@ function rt.Player:update(delta)
             end
         end
 
-        if should_clear then
+        if false then -- TODO should_clear then
             for instance in values(self._double_jump_sources) do
                 if instance.signal_try_emit ~= nil then instance:signal_try_emit("removed") end
             end
@@ -3333,6 +3333,11 @@ end
 function rt.Player:request_damping(id, up, right, down, left)
     local requests = self._damping_requests
     local should_remove = up == nil and right == nil and down == nil and left == nil
+
+    up = up or 1
+    right = right or 1
+    down = down or 1
+    left = left or 1
 
     if should_remove then
         requests[id] = nil

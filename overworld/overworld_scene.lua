@@ -1291,6 +1291,7 @@ function ow.OverworldScene:_update_camera(delta)
         -- only scale controlled externally
         camera:set_apply_bounds(false)
         camera:move_to(px, py)
+        camera:scale_to(1)
     else
         -- nothing controlled externally, follow player
         camera:set_apply_bounds(false)

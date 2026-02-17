@@ -366,7 +366,6 @@ function rt.Camera:set_scale(s, override_bounds)
     self._target_scale = s
 
     if override_bounds ~= true then
-        -- Fix: assign both target X and Y after constraining.
         self._target_x, self._target_y = self:constrain(self._target_x, self._target_y)
     end
 

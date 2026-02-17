@@ -210,6 +210,18 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
                 self._bottom_x, self._bottom_y
             )
 
+            if self._rope ~= nil then
+                self._body:add_tag("segment_light_source")
+                local instance = {
+                    get_segment_light_sources = function()
+                        if self._rope:get_is_cut() == false then
+                            return { { self._top_x, self._top_y, self._bottom_x, self._bottom_y } }, { self._scene:get_player():get_color() }
+                        end
+                    end
+                }
+                self._body:set_user_data(instance)
+            end
+
             self._particles = ow.CheckpointParticles()
 
             self._body:signal_connect("collision_start", function(_, other)

@@ -21,6 +21,7 @@ function ow.CameraBounds:instantiate(object, stage, scene)
     self._body = object:create_physics_body(stage:get_physics_world())
     self._body:set_is_sensor(true)
     self._body:set_collides_with(rt.settings.player.player_collision_group)
+    self._body:set_collision_group(rt.settings.player.ghost_collision_group)
 
     self._scale_before = nil
     self._bounds_before = nil
@@ -47,8 +48,6 @@ function ow.CameraBounds:_bind()
         self._scale_before = camera:get_scale()
         camera:scale_to(self._scale)
     end
-
-    dbg(meta.hash(self), "bidn")
 end
 
 --- @brief

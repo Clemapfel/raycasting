@@ -7,16 +7,22 @@ ow.CameraFitFocus = meta.class("CameraFitFocus") -- dummy
 
 --- @brief
 function ow.CameraFit:instantiate(object, stage, scene)
-    rt.assert(object:get_type() == ow.ObjectType.RECTANGLE, "In ow.CamerBounds: object `", object:get_id(), "` is not a rectangle")
+    if object:get_type() == ow.ObjectType.POLYGON then
+        self._bounds = rt.contour.get_aabb(object:create_contour())
+    elseif object:get_type() == ow.ObjectType.RECTANGLE then
+        self._bounds = rt.AABB(object.x, object.y, object.width, object.height)
+    else
+        rt.assert(false, "In ow.CamerBounds: object `", object:get_id(), "` is not a rectangle")
+    end
 
     self._scene = scene
     self._stage = stage
 
-    self._bounds = rt.AABB(object.x, object.y, object.width, object.height)
 
     self._body = object:create_physics_body(stage:get_physics_world())
     self._body:set_is_sensor(true)
     self._body:set_collides_with(rt.settings.player.player_collision_group)
+    self._body:set_collision_group(rt.settings.player.ghost_collision_group)
 
     local to_fraction = function(x)
         if x < 0 then return 1 / math.abs(x) else return x end

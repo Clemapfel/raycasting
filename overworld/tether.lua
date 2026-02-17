@@ -315,7 +315,7 @@ function ow.Tether:draw()
     local first_i, last_i = _particle_i_to_data_offset(1), _particle_i_to_data_offset(self._n_particles)
 
     love.graphics.setLineJoin("bevel")
-    love.graphics.setLineStyle("rough")
+    love.graphics.setLineStyle("smooth")
 
     local line_width = rt.settings.overworld.tether.line_width
     love.graphics.setLineWidth(line_width + 1.5)

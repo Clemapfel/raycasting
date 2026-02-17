@@ -40,7 +40,10 @@ end
 
 --- @brief
 function ow.Mirror:draw()
-    if self._mirror_images == nil or #self._mirror_images == 0 then return end
+    if self._mirror_images == nil
+        or #self._mirror_images == 0
+        or self._scene:get_player():get_is_ghost()
+    then return end
 
     local should_stencil = self._draw_mirror_mask_callback ~= nil
 
@@ -451,6 +454,9 @@ function ow.Mirror:update(delta)
     local x = px - self._offset_x
     local y = py - self._offset_y
     local r = rt.settings.overworld.mirror.segment_detection_radius_factor * rt.settings.player.radius
+    if self._scene:get_player():get_is_bubble() == true then
+        r = r * rt.settings.player.bubble_radius_factor
+    end
 
     self._px, self._py = px, py
 

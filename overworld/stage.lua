@@ -519,7 +519,10 @@ function ow.Stage:get_point_light_sources()
         end)
 
         local player = self._scene:get_player()
-        if player:get_is_visible() and player:get_trail_is_visible() then
+        if player:get_is_visible()
+            and player:get_trail_is_visible()
+            and not player:get_is_ghost()
+        then
             local x, y = camera:world_xy_to_screen_xy(player:get_position())
             table.insert(positions, {
                 x, y, rt.settings.player.radius
@@ -635,7 +638,7 @@ function ow.Stage:get_segment_light_sources()
 
             local object_positions, object_colors = instance:get_segment_light_sources()
 
-            if #object_positions > 0 then
+            if object_positions ~= nil and #object_positions > 0 then
                 if DEBUG then
                     rt.assert(#object_positions == #object_colors, "In ow.Stage.get_segment_light_sources: ", meta.typeof(instance), ".get_segment_light_sources does not return two tables of equal size")
 
