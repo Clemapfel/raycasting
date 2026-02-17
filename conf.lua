@@ -13,7 +13,7 @@ function love.conf(settings)
 
     settings.window.width = height * aspect_ratio
     settings.window.height = height
-    settings.window.msaa = 4
+    settings.window.msaa = 2
     settings.window.resizable = true
     settings.window.vsync = VSYNC_ADAPTIVE
     settings.window.usedpiscale = true
