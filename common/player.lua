@@ -483,17 +483,23 @@ function rt.Player:_connect_input()
         end
     end)
 
+    local swap_bubble = function()
+        local current = self:get_is_bubble()
+        if current == false then
+            self:request_is_bubble(self, true)
+        else
+            self:request_is_bubble(self, nil)
+        end
+    end
+
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
-        if which == "g" then
-            local current = self:get_is_bubble()
-            if current == false then
-                self:request_is_bubble(self, true)
-            else
-                self:request_is_bubble(self, nil)
-            end
-        elseif which == "p" then
-            self:request_is_ghost(self, not self:get_is_ghost())
-            dbg(self:get_is_ghost())
+        if which == rt.KeyboardKey.G then swap_bubble() end
+    end)
+
+    self._input:signal_connect("controller_button_pressed", function(_, which)
+        if which == rt.ControllerButton.LEFT_SHOULDER
+            or which == rt.ControllerButton.RIGHT_SHOULDER then
+            swap_bubble()
         end
     end)
 end

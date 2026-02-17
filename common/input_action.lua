@@ -29,7 +29,7 @@ do
 end
 
 --- @class rt.ControllerButton
-rt.ControllerButton = meta.enum("ControllerButton", {
+rt.ControllerButton = {
     TOP = "y",
     RIGHT = "b",
     BOTTOM = "a",
@@ -47,11 +47,13 @@ rt.ControllerButton = meta.enum("ControllerButton", {
     RIGHT_SHOULDER = "rightshoulder",
     LEFT_TRIGGER = "triggerleft",
     RIGHT_TRIGGER = "triggerright"
-})
+}
+
+rt.ControllerButton = meta.enum("ControllerButton", rt.ControllerButton)
 
 --- @class rt.KeyboardKey
 --- @see https://love2d.org/wiki/KeyConstant
-rt.KeyboardKey = meta.enum("KeyboardKey", {
+rt.KeyboardKey = {
     UNKNOWN = "unknown",
     A = "a",
     B = "b",
@@ -93,7 +95,9 @@ rt.KeyboardKey = meta.enum("KeyboardKey", {
     EXCLAMATION_MARK = "!",
     DOUBLE_QUOTE = "\"",
     HASHTAG = "#",
-    DOLLAR_SIGN= "$",
+    DOLLAR_SIGN = "$",
+    PERCENT = "%",
+    AMPERSAND = "&",
     SINGLE_QUOTE = "'",
     LEFT_BRACKET = "(",
     RIGHT_BRACKET = ")",
@@ -111,6 +115,7 @@ rt.KeyboardKey = meta.enum("KeyboardKey", {
     QUESTION_MARK = "?",
     AT = "@",
     LEFT_SQUARE_BRACKET = "[",
+    BACKSLASH = "\\",
     RIGHT_SQUARE_BRACKET = "]",
     CIRCUMFLEX = "^",
     UNDERSCORE = "_",
@@ -145,8 +150,8 @@ rt.KeyboardKey = meta.enum("KeyboardKey", {
     CAPS_LOCK = "capslock",
     RIGHT_SHIFT = "rshift",
     LEFT_SHIFT = "lshift",
-    LEFT_CONTROL = "rcrtl",
-    RIGHT_CONTROL = "lcrtl",
+    LEFT_CONTROL = "lctrl",
+    RIGHT_CONTROL = "rctrl",
     RIGHT_ALT = "ralt",
     LEFT_ALT = "lalt",
     PAUSE = "pause",
@@ -159,12 +164,12 @@ rt.KeyboardKey = meta.enum("KeyboardKey", {
     POWER = "power",
     EURO = "currencyunit",
     UNDO = "undo",
-    SEARCH = "appsearch",
-    HOME = "apphome",
-    BACK = "appback",
-    FORWARD = "appforward",
-    REFRESH = "apprefresh",
-    BOOKMARKS = "appbookmarks",
+    APP_SEARCH = "appsearch",
+    APP_HOME = "apphome",
+    APP_BACK = "appback",
+    APP_FORWARD = "appforward",
+    APP_REFRESH = "apprefresh",
+    APP_BOOKMARKS = "appbookmarks",
     KEYPAD_0 = "kp0",
     KEYPAD_1 = "kp1",
     KEYPAD_2 = "kp2",
@@ -174,6 +179,7 @@ rt.KeyboardKey = meta.enum("KeyboardKey", {
     KEYPAD_6 = "kp6",
     KEYPAD_7 = "kp7",
     KEYPAD_8 = "kp8",
+    KEYPAD_9 = "kp9",
     KEYPAD_DOT = "kp.",
     KEYPAD_COMMA = "kp,",
     KEYPAD_SLASH = "kp/",
@@ -182,4 +188,6 @@ rt.KeyboardKey = meta.enum("KeyboardKey", {
     KEYPAD_PLUS = "kp+",
     KEYPAD_ENTER = "kpenter",
     KEYPAD_EQUALS = "kp=",
-})
+}
+
+rt.KeyboardKey = meta.enum("KeyboardKey", rt.KeyboardKey)

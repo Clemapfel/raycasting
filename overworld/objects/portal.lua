@@ -851,11 +851,6 @@ function ow.Portal:draw()
     _pulse_shader:unbind()
 
     love.graphics.pop()
-
-    love.graphics.push()
-    love.graphics.origin()
-    _particle_texture:draw()
-    love.graphics.pop()
 end
 
 --- @brief

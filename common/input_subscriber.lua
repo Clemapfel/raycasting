@@ -53,19 +53,19 @@ meta.add_signals(rt.InputSubscriber,
     "controller_button_released",
     
     -- left joystick (not dpad) changes position
-    -- (rt.InputSubscriber, x, y, ControllerID) -> nil
+    -- (rt.InputSubscriber, x, y, dx, dy, ControllerID) -> nil
     "left_joystick_moved",
     
     -- right joystick changes position
-    -- (rt.InputSubscriber, x, y, ControllerID) -> nil
+    -- (rt.InputSubscriber, x, y, dx, dy, ControllerID) -> nil
     "right_joystick_moved",
     
     -- left trigger changes value
-    -- (rt.InputSubscriber, left, ControllerID) -> nil
+    -- (rt.InputSubscriber, v, dv, ControllerID) -> nil
     "left_trigger_moved",
     
     -- left trigger changes value
-    -- (rt.InputSubscriber, right, ControllerID) -> nil
+    -- (rt.InputSubscriber, v, dv, ControllerID) -> nil
     "right_trigger_moved",
     
     -- (rt.InputSubscriber, method, ControllerID?) -> nil
@@ -93,11 +93,11 @@ function rt.InputSubscriber:get_is_down(input_action)
     local keyboard_keys, controller_buttons = rt.GameState:get_input_mapping(input_action)
 
     for key in values(keyboard_keys) do
-        if rt.InputManager:is_keyboard_key_down(key) then return true end
+        if rt.InputManager:get_is_keyboard_key_down(key) then return true end
     end
 
     for button in values(controller_buttons) do
-        if rt.InputManager:is_controller_button_down(button) then return true end
+        if rt.InputManager:get_is_controller_button_down(button) then return true end
     end
 
     return false

@@ -263,13 +263,13 @@ function rt.SceneManager:draw(...)
     local width = love.graphics.getWidth()
     local height = love.graphics.getHeight()
 
-    if self._cursor_visible then
-        self._cursor:draw()
-    end
-
     if use_hdr then
         self._hdr:unbind()
         self._hdr:draw()
+    end
+
+    if self._cursor_visible then
+        self._cursor:draw()
     end
 end
 

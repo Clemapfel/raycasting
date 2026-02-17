@@ -30,7 +30,19 @@ do
         screenshot_texture_format = rt.RGBA8,
 
         max_blur_strength = 10, -- gaussian sigma
-        max_blur_darkening = 0.82, -- fraction
+        max_blur_darkening = 0.82, -- fraction,
+
+        position_override_keys = {
+            [rt.KeyboardKey.LEFT_CONTROL] = true,
+            [rt.KeyboardKey.RIGHT_CONTROL] = true
+        },
+
+        border_scroll_width = 1 / 3, -- fraction
+        border_scroll_velocity = 400, -- px / s
+        border_scroll_opacity = 0.25,
+        scale_override_velocity = 0.25, -- % per mousewheel dy
+        scale_override_min = 1 / 8,
+        scale_override_max = 8
     }
 end
 
@@ -104,7 +116,27 @@ function ow.OverworldScene:instantiate(state)
         _blur = nil, -- rt.Blur
         _screenshot = nil,
 
-        _camera_modes = {}
+        _camera_modes = {},
+
+        -- manual camera
+        _camera_scale_override_active = false,
+        _camera_scale_override = 1,
+
+        _camera_override_active = false,
+        _camera_position_override_x = 0,
+        _camera_position_override_y = 0,
+        _camera_velocity_x = 0,
+        _camera_velocity_y = 0,
+
+        _camera_top_border_t = 0,
+        _camera_right_border_t = 0,
+        _camera_bottom_border_t = 0,
+        _camera_left_border_t = 0,
+
+        _camera_top_border = nil, -- rt.Mesh
+        _camera_right_border = nil,
+        _camera_bottom_border = nil,
+        _camera_left_border = nil
     })
 
     for mode in values(meta.instances(ow.CameraMode)) do
@@ -228,6 +260,14 @@ function ow.OverworldScene:instantiate(state)
         end
     end)
 
+    self._input:signal_connect("mouse_wheel_moved", function(_, x, y)
+        if self._camera_override_active then
+            local settings = rt.settings.overworld_scene
+            self._camera_scale_override = self._camera_scale_override + y * settings.scale_override_velocity
+            -- clamped in _update_camera
+        end
+    end)
+
     for widget in range(
         self._background,
         self._pause_menu,
@@ -340,6 +380,7 @@ end
 --- @brief
 function ow.OverworldScene:exit()
     self._input:deactivate()
+    rt.SceneManager:set_is_cursor_visible(false)
 end
 
 --- @brief
@@ -387,6 +428,38 @@ function ow.OverworldScene:size_allocate(x, y, width, height)
         self._title_card
     ) do
         widget:reformat(0, 0, width, height)
+    end
+
+    local border_factor = rt.settings.overworld_scene.border_scroll_width
+    local thickness = math.min(width * border_factor, height * border_factor)
+
+    do
+        local make_transparent = function(mesh, ...)
+            local transparent = {}
+            for i = 1, select("#", ...) do
+                transparent[select(i, ...)] = true
+            end
+
+            for i = 1, 4 do
+                if transparent[i] == true then
+                    mesh:set_vertex_color(i, 0, 0, 0, 0)
+                else
+                    mesh:set_vertex_color(i, 1, 1, 1, 1)
+                end
+            end
+        end
+
+        self._camera_top_border = rt.MeshRectangle(0, 0, width, thickness)
+        make_transparent(self._camera_top_border, 3, 4)
+
+        self._camera_bottom_border = rt.MeshRectangle(0, height - thickness, width, thickness)
+        make_transparent(self._camera_bottom_border, 1, 2)
+
+        self._camera_right_border = rt.MeshRectangle(width - thickness, 0, thickness, height)
+        make_transparent(self._camera_right_border, 1, 4)
+
+        self._camera_left_border = rt.MeshRectangle(0, 0, thickness, height)
+        make_transparent(self._camera_left_border, 2, 3)
     end
 end
 
@@ -552,6 +625,24 @@ function ow.OverworldScene:draw()
             indicator:draw()
             love.graphics.pop()
         end
+    end
+
+    if self._camera_override_active then
+        love.graphics.push("all")
+        love.graphics.setBlendMode("add", "premultiplied")
+
+        local draw = function(v, border)
+            v = v * rt.settings.overworld_scene.border_scroll_opacity
+            love.graphics.setColor(v, v, v, v)
+            border:draw()
+        end
+
+        draw(self._camera_top_border_t, self._camera_top_border)
+        draw(self._camera_right_border_t, self._camera_right_border)
+        draw(self._camera_bottom_border_t, self._camera_bottom_border)
+        draw(self._camera_left_border_t, self._camera_left_border)
+
+        love.graphics.pop()
     end
 
     if rt.GameState:get_draw_debug_information() then
@@ -860,7 +951,7 @@ function ow.OverworldScene:update(delta)
         love.graphics.pop()
     end
 
-    self:_update_camera()
+    self:_update_camera(delta)
 end
 
 --- @brief
@@ -1065,8 +1156,116 @@ end
 
 --- @brief
 function ow.OverworldScene:_update_camera(delta)
-    local top = self._camera_modes[1]
     local camera = self._camera
+    local settings = rt.settings.overworld_scene
+
+    -- override state
+    local before = self._camera_override_active
+    if rt.InputManager:get_input_method() == rt.InputMethod.KEYBOARD then
+        local mouse_down = rt.InputManager:get_mouse_is_down(rt.MouseButton.RIGHT)
+        local key_down = false
+        for key in keys(settings.position_override_keys) do
+            if rt.InputManager:get_is_keyboard_key_down(key) == true then
+                key_down = true
+                break
+            end
+        end
+
+        self._camera_override_active = mouse_down or key_down
+
+        if self._camera_scale_override then
+            local x, y = rt.InputManager:get_mouse_position()
+            local bounds = self:get_bounds()
+            local easing = rt.InterpolationFunctions.GAUSSIAN_HIGHPASS
+
+            local border_factor = rt.settings.overworld_scene.border_scroll_width
+            local border_width = math.min(bounds.width * border_factor, bounds.height * border_factor)
+
+            local left_t = 1 - (x - bounds.x) / border_width
+            local right_t = 1 - (bounds.x + bounds.width - x) / border_width
+            local top_t = 1 - (y - bounds.y) / border_width
+            local bottom_t = 1 - (bounds.y + bounds.height - y) / border_width
+
+            left_t = easing(math.clamp(left_t, 0, 1))
+            right_t = easing(math.clamp(right_t, 0, 1))
+            top_t = easing(math.clamp(top_t, 0, 1))
+            bottom_t = easing(math.clamp(bottom_t, 0, 1))
+
+            self._camera_top_border_t = top_t
+            self._camera_right_border_t = right_t
+            self._camera_bottom_border_t = bottom_t
+            self._camera_left_border_t = left_t
+        else
+            self._camera_top_border_t = 0
+            self._camera_right_border_t = 0
+            self._camera_bottom_border_t = 0
+            self._camera_left_border_t = 0
+        end
+    else
+        local triggers_pressed = rt.InputManager:get_left_trigger() > math.eps
+            or rt.InputManager:get_right_trigger() > math.eps
+        local right_joystick_pressed = math.magnitude(rt.InputManager:get_right_joystick()) > math.eps
+
+        self._camera_override_active = right_joystick_pressed or triggers_pressed
+
+        -- gamepad state to camera override
+        if triggers_pressed == false then
+            local x, y = rt.InputManager:get_right_joystick()
+            self._camera_left_border_t = math.abs(math.min(0, x))
+            self._camera_right_border_t = math.max(0, x)
+            self._camera_top_border_t = math.abs(math.min(0, y))
+            self._camera_bottom_border_t = math.max(0, y)
+        else
+            local _, y = rt.InputManager:get_right_joystick()
+            self._camera_scale_override = self._camera_scale_override + y * settings.scale_override_velocity
+        end
+    end
+
+    if self._camera_override_active ~= before then
+        self._camera_position_override_x, self._camera_position_override_y = self._camera:get_position()
+
+        if rt.InputManager:get_input_method() == rt.InputMethod.KEYBOARD then
+            rt.SceneManager:set_is_cursor_visible(self._camera_override_active)
+
+            if self._camera_override_active then
+                love.mouse.setX(0.5 * love.graphics.getWidth())
+                love.mouse.setY(0.5 * love.graphics.getHeight())
+            end
+        else
+            rt.SceneManager:set_is_cursor_visible(false)
+        end
+
+        if self._camera_override_active == false then
+            self._camera_scale_override = 1
+            self._camera_velocity_x = 0
+            self._camera_velocity_y = 0
+        end
+    end
+
+    if self._camera_override_active == true then
+        self._camera_scale_override = math.clamp(
+            self._camera_scale_override,
+            settings.scale_override_min,
+            settings.scale_override_max
+        )
+
+        camera:scale_to(self._camera_scale_override * self._camera:get_scale_delta())
+
+        local max_velocity = rt.settings.overworld_scene.border_scroll_velocity
+        self._camera_velocity_x = math.mix(0, -max_velocity, self._camera_left_border_t)
+            + math.mix(0, max_velocity, self._camera_right_border_t)
+
+        self._camera_velocity_y = math.mix(0, -max_velocity, self._camera_top_border_t)
+            + math.mix(0, max_velocity, self._camera_bottom_border_t)
+
+        self._camera_position_override_x = self._camera_position_override_x + self._camera_velocity_x * delta
+        self._camera_position_override_y = self._camera_position_override_y + self._camera_velocity_y * delta
+        camera:move_to(self._camera_position_override_x, self._camera_position_override_y)
+        return
+    end
+
+    -- regular camera behavior
+    local top = self._camera_modes[1]
     local px, py = self._player:get_position()
 
     local is_frozen = self._camera_modes[ow.CameraMode.FREEZE] > 0

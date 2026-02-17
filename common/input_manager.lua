@@ -3,10 +3,18 @@ require "common.input_action"
 --- @class rt.InputManager
 rt.InputManager = meta.class("InputManager")
 
-rt.InputMethod = meta.enum("InputMethod", {
+rt.InputMethod = {
     KEYBOARD = true,
     CONTROLLER = false
-})
+}
+rt.InputMethod = meta.enum("InputMethod", rt.InputMethod)
+
+rt.MouseButton = {
+    LEFT = 1,
+    RIGHT = 2,
+    MIDDEL = 3
+}
+rt.MouseButton = meta.enum("MouseButton", rt.MouseButton)
 
 --- @brief [internal]
 function rt.InputManager:instantiate()
@@ -17,6 +25,14 @@ function rt.InputManager:instantiate()
         _input_method = rt.InputMethod.KEYBOARD,
         _keyboard_key_to_last_pressed = {},
         _controller_button_to_last_pressed = {},
+
+        _last_trigger_left = 0,
+        _last_trigger_right = 0,
+
+        _last_left_joystick_x = 0,
+        _last_left_joystick_y = 0,
+        _last_right_joystick_x = 0,
+        _last_right_joystick_y = 0,
 
         _is_flushed = false
     })
@@ -145,12 +161,12 @@ function rt.InputManager:get_input_method()
 end
 
 --- @brief
-function rt.InputManager:is_keyboard_key_down(key)
+function rt.InputManager:get_is_keyboard_key_down(key)
     return love.keyboard.isDown(key)
 end
 
 --- @brief
-function rt.InputManager:is_controller_button_down(button)
+function rt.InputManager:get_is_controller_button_down(button)
     local joystick = self._last_active_joystick
     if joystick == nil then joystick = love.joystick.getJoysticks()[1] end
     if joystick == nil then
@@ -178,6 +194,45 @@ function rt.InputManager:get_is_down(action)
 end
 
 --- @brief
+function rt.InputManager:get_mouse_is_down(button)
+    meta.assert_enum_value(button, rt.MouseButton, 1)
+    return love.mouse.isDown(button)
+end
+
+--- @brief
+function rt.InputManager:get_mouse_position()
+    return love.mouse.getPosition()
+end
+
+--- @brief
+function rt.InputManager:get_controller_button_is_down(button)
+    local joystick = self._last_active_joystick
+    if joystick == nil then joystick = love.joystick.getJoysticks()[1] end
+    if joystick == nil then return false end
+    return joystick:isDown(button)
+end
+
+local _apply_joystick_deadzone = function(x)
+    local joystick_deadzone = rt.GameState:get_joystick_deadzone()
+    if x > joystick_deadzone then
+        return (x - joystick_deadzone) / (1 - joystick_deadzone)
+    elseif x < -joystick_deadzone then
+        return (x + joystick_deadzone) / (1 - joystick_deadzone)
+    else
+        return 0
+    end
+end
+
+local _apply_trigger_deadzone = function(x)
+    local trigger_deadzone = rt.GameState:get_trigger_deadzone()
+    if x < trigger_deadzone then
+        return 0
+    else
+        return (x - trigger_deadzone) / (1 - trigger_deadzone)
+    end
+end
+
+--- @brief
 function rt.InputManager:get_left_joystick()
     local joystick = self._last_active_joystick
     if joystick == nil then joystick = love.joystick.getJoysticks()[1] end
@@ -187,17 +242,7 @@ function rt.InputManager:get_left_joystick()
     local dy = joystick:getGamepadAxis("lefty")
 
     local deadzone = rt.GameState:get_joystick_deadzone()
-    local apply = function(x)
-        if x > deadzone then
-            return (x - deadzone) / (1 - deadzone)
-        elseif x < -deadzone then
-            return (x + deadzone) / (1 - deadzone)
-        else
-            return 0
-        end
-    end
-
-    return apply(dx), apply(dy)
+    return _apply_joystick_deadzone(dx), _apply_joystick_deadzone(dy)
 end
 
 --- @brief
@@ -220,9 +265,26 @@ function rt.InputManager:get_right_joystick()
         end
     end
 
-    return apply(dx), apply(dy)
+    return _apply_joystick_deadzone(dx), _apply_joystick_deadzone(dy)
 end
 
+--- @brief
+function rt.InputManager:get_left_trigger()
+    local joystick = self._last_active_joystick
+    if joystick == nil then joystick = love.joystick.getJoysticks()[1] end
+    if joystick == nil then return 0 end
+
+    return _apply_trigger_deadzone(joystick:getGamepadAxis("triggerleft"))
+end
+
+--- @brief
+function rt.InputManager:get_right_trigger()
+    local joystick = self._last_active_joystick
+    if joystick == nil then joystick = love.joystick.getJoysticks()[1] end
+    if joystick == nil then return 0 end
+
+    return _apply_trigger_deadzone(joystick:getGamepadAxis("triggerright"))
+end
 
 rt.InputManager = rt.InputManager() -- static singleton instance
 
@@ -394,64 +456,64 @@ love.gamepadaxis = function(joystick, axis, value)
     rt.InputManager._last_active_joystick = joystick
     rt.InputManager:_set_input_method(rt.InputMethod.CONTROLLER)
 
-    local joystick_deadzone = rt.GameState:get_joystick_deadzone()
-    local apply_joystick_deadzone = function(x)
-        if x > joystick_deadzone then
-            return (x - joystick_deadzone) / (1 - joystick_deadzone)
-        elseif x < -joystick_deadzone then
-            return (x + joystick_deadzone) / (1 - joystick_deadzone)
-        else
-            return 0
-        end
-    end
-
-    local trigger_deadzone = rt.GameState:get_trigger_deadzone()
-    local apply_trigger_deadzone = function(x)
-        if x < trigger_deadzone then
-            return 0
-        else
-            return (x - trigger_deadzone) / (1 - trigger_deadzone)
-        end
-    end
-
     if axis == "leftx" or axis == "lefty" then
+        local x = _apply_joystick_deadzone(joystick:getGamepadAxis("leftx"))
+        local y = _apply_joystick_deadzone(joystick:getGamepadAxis("lefty"))
+        local dx = x - rt.InputManager._last_left_joystick_x
+        local dy = y - rt.InputManager._last_left_joystick_y
+
         for sub in values(rt.InputManager._subscribers) do
             if sub:get_is_active() then
                 rt.InputManager:_emit(sub, "left_joystick_moved",
-                    apply_joystick_deadzone(joystick:getGamepadAxis("leftx")),
-                    apply_joystick_deadzone(joystick:getGamepadAxis("lefty")),
+                    x, y, dx, dy,
                     joystick:getID()
                 )
             end
         end
+
+        rt.InputManager._last_left_joystick_x = x
+        rt.InputManager._last_left_joystick_y = y
     elseif axis == "rightx" or axis == "righty" then
+        local x = _apply_joystick_deadzone(joystick:getGamepadAxis("rightx"))
+        local y = _apply_joystick_deadzone(joystick:getGamepadAxis("righty"))
+        local dx = x - rt.InputManager._last_right_joystick_x
+        local dy = y - rt.InputManager._last_right_joystick_y
+
         for sub in values(rt.InputManager._subscribers) do
             if sub:get_is_active() then
                 rt.InputManager:_emit(sub, "right_joystick_moved",
-                    apply_joystick_deadzone(joystick:getGamepadAxis("rightx")),
-                    apply_joystick_deadzone(joystick:getGamepadAxis("righty")),
+                    x, y, dx, dy,
                     joystick:getID()
                 )
             end
         end
+
+        rt.InputManager._last_right_joystick_x = x
+        rt.InputManager._last_right_joystick_y = y
     elseif axis == "triggerleft" then
+        local v = _apply_trigger_deadzone(joystick:getGamepadAxis("triggerleft"))
+        local dv = v - rt.InputManager._last_trigger_left
         for sub in values(rt.InputManager._subscribers) do
             if sub:get_is_active() then
                 rt.InputManager:_emit(sub, "left_trigger_moved",
-                    apply_trigger_deadzone(joystick:getGamepadAxis("triggerleft")),
+                    v, dv,
                     joystick:getID()
                 )
             end
         end
+        rt.InputManager._last_trigger_left = v
     elseif axis == "triggerright" then
+        local v = _apply_trigger_deadzone(joystick:getGamepadAxis("triggerright"))
+        local dv = v - rt.InputManager._last_trigger_right
         for sub in values(rt.InputManager._subscribers) do
             if sub:get_is_active() then
                 rt.InputManager:_emit(sub, "right_trigger_moved",
-                    apply_trigger_deadzone(joystick:getGamepadAxis("triggerright")),
+                    v, dv,
                     joystick:getID()
                 )
             end
         end
+        rt.InputManager._last_trigger_right = v
     else
         if _axis_warning_printed[axis] == nil then
             rt.warning("In rt.InputManager.gamepadaxis: unhandled axis `", axis, "`")

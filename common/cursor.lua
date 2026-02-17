@@ -166,6 +166,5 @@ function rt.Cursor:draw()
         self:_draw_cannot_click(x, y, scale)
     end
 
-
     love.graphics.pop()
 end

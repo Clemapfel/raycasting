@@ -18,7 +18,7 @@ meta.add_signal(rt.JoystickGestureDetector,
 --- @brief
 function rt.JoystickGestureDetector:instantiate()
     self._input = rt.InputSubscriber()
-    self._input:signal_connect("left_joystick_moved", function(_, x, y, controller_id)
+    self._input:signal_connect("left_joystick_moved", function(_, x, y)
         self:_handle_joystick_moved(x, y)
     end)
 
