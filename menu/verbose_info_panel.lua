@@ -10,7 +10,7 @@ rt.settings.menu.verbose_info_panel = {
 
 mn.VerboseInfoObject = meta.enum("VerboseInfoObject", {
     VSYNC = "vsync",
-    VSYNC_WIDGET = "vsync_widget",
+    SHOW_FPS_WIDGET = "vsync_widget",
     FULLSCREEN = "fullscreen",
     MSAA = "msaa",
     MSAA_WIDGET = "msaa_visualization_widget",

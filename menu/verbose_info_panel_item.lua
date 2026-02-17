@@ -159,7 +159,7 @@ function mn.VerboseInfoPanel.Item:create_from_enum(which)
     elseif which == mn.VerboseInfoObject.TEXT_SPEED_WIDGET then
         self:create_as_text_speed_widget()
         return
-    elseif which == mn.VerboseInfoObject.VSYNC_WIDGET then
+    elseif which == mn.VerboseInfoObject.SHOW_FPS_WIDGET then
         self:create_as_vsync_widget()
         return
     elseif which == mn.VerboseInfoObject.MUSIC_LEVEL_WIDGET then

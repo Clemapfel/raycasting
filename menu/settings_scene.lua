@@ -166,7 +166,7 @@ function mn.SettingsScene:instantiate()
         local item = add_item(
             translation.vsync_prefix, vsync_button,
             mn.VerboseInfoObject.VSYNC,
-            mn.VerboseInfoObject.VSYNC_WIDGET
+            mn.VerboseInfoObject.SHOW_FPS_WIDGET
         )
 
         item:signal_connect("reset", function(_)
@@ -225,6 +225,7 @@ function mn.SettingsScene:instantiate()
         local item = add_item(
             translation.msaa_prefix, msaa_button,
             mn.VerboseInfoObject.MSAA,
+            mn.VerboseInfoObject.SHOW_FPS_WIDGET,
             mn.VerboseInfoObject.MSAA_WIDGET
         )
         item:signal_connect("reset", function(_)
@@ -278,7 +279,8 @@ function mn.SettingsScene:instantiate()
 
         local item = add_item(
             translation.hdr_prefix, hdr_button,
-            mn.VerboseInfoObject.HDR
+            mn.VerboseInfoObject.HDR,
+            mn.VerboseInfoObject.SHOW_FPS_WIDGET
         )
 
         item:signal_connect("reset", function(_)
