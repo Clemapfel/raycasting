@@ -71,8 +71,6 @@ function rt.Camera:instantiate()
         _world_bounds_needs_update = true,
 
         _is_enabled = true,
-
-        _push_stack = {},
         _transform = rt.Transform()
     })
 
@@ -378,7 +376,6 @@ end
 --- @brief
 function rt.Camera:scale_to(s)
     if self._is_enabled ~= true then return end
-
     self._target_scale = s
 end
 
