@@ -1,4 +1,7 @@
-debugger = {}
+debugger = {
+    is_connected = false
+}
+
 local _debugger_active, _emmy_debugger = false
 
 --- @brief
@@ -31,7 +34,13 @@ function debugger.connect()
         end
 
         _debugger_active = true
+        debugger.is_connected = true
     end)
+end
+
+--- @brief
+function debugger.get_is_connected()
+    return debugger.is_connected
 end
 
 --- ###

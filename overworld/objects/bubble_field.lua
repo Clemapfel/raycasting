@@ -34,6 +34,17 @@ local _courant = _dt / _dx
 local _base_shader = rt.Shader("overworld/objects/bubble_field.glsl", { MODE = 0 })
 local _outline_shader = rt.Shader("overworld/objects/bubble_field.glsl", { MODE = 1 })
 
+local _noise_texture = rt.NoiseTexture(64, 64, 8,
+    rt.NoiseType.GRADIENT, 16
+)
+
+DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
+    if which == "k" then
+        _base_shader:recompile()
+        _outline_shader:recompile()
+    end
+end)
+
 --- @brief
 function ow.BubbleField:instantiate(object, stage, scene)
     -- collision
@@ -42,9 +53,10 @@ function ow.BubbleField:instantiate(object, stage, scene)
     self._world = stage:get_physics_world()
     self._body = object:create_physics_body(self._world)
     self._body:set_is_sensor(true)
-    self._body:set_collides_with(rt.settings.player.player_collision_group)
+    self._body:set_collides_with(rt.settings.player.bounce_collision_group)
+    self._body:set_collision_group(rt.settings.player.bounce_collision_group)
 
-    self._x, self._y = object:get_centroid()
+    self._x, self._y = self._body:get_position()
 
     self._inverted = object:get_boolean("inverted")
     if self._inverted == nil then self._inverted = false end
@@ -52,10 +64,10 @@ function ow.BubbleField:instantiate(object, stage, scene)
     local start_b = not self._inverted
     local end_b = self._inverted
     self._body:signal_connect("collision_start", function(_, other_body)
-        local other = other_body:get_user_data()
+        local other = self._scene:get_player()
         if other:get_is_bubble() == (not start_b) then
             self:_block_signals()
-            other:set_is_bubble(start_b)
+            other:request_is_bubble(self, start_b)
             self._is_active = true
 
             local x, y = other:get_position()
@@ -180,45 +192,6 @@ function ow.BubbleField:instantiate(object, stage, scene)
 end
 
 --- @brief
-function ow.BubbleField:draw()
-    if not self._stage:get_is_body_visible(self._body) then return end
-
-       local offset_x, offset_y = self._body:get_position()
-    love.graphics.push()
-    love.graphics.translate(-self._x + offset_x, -self._y + offset_y)
-
-    love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.setLineWidth(3)
-    love.graphics.setLineJoin("none")
-
-    local camera_offset = { self._scene:get_camera():get_offset() }
-    local camera_scale = self._scene:get_camera():get_scale()
-    local hue = self._scene:get_player():get_hue()
-
-    love.graphics.setColor(1, 1, 1, rt.settings.overworld.bubble_field.opacity)
-    _base_shader:bind()
-    _base_shader:send("elapsed", self._elapsed)
-    _base_shader:send("camera_offset", camera_offset)
-    _base_shader:send("camera_scale", camera_scale)
-    _base_shader:send("hue", hue)
-    love.graphics.draw(self._shape_mesh:get_native())
-    _base_shader:unbind()
-
-    love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.setLineWidth(3)
-    love.graphics.setLineJoin("none")
-    _outline_shader:bind()
-    _outline_shader:send("elapsed", self._elapsed)
-    _outline_shader:send("camera_offset", camera_offset)
-    _outline_shader:send("camera_scale", camera_scale)
-    _outline_shader:send("hue", hue)
-    love.graphics.line(self._contour)
-    _outline_shader:unbind()
-
-    love.graphics.pop()
-end
-
---- @brief
 function ow.BubbleField:_block_signals()
     -- block signals until next step to avoid infinite loops
     -- because set_is_bubble can teleport and trigger multiple starts
@@ -300,9 +273,12 @@ function ow.BubbleField:update(delta)
     end
 end
 
+
 --- @brief
-function ow.BubbleField:draw_bloom()
+function ow.BubbleField:draw()
     if not self._stage:get_is_body_visible(self._body) then return end
+
+    local transform = self._scene:get_camera():get_transform():inverse()
 
     local offset_x, offset_y = self._body:get_position()
     love.graphics.push()
@@ -312,10 +288,41 @@ function ow.BubbleField:draw_bloom()
     love.graphics.setLineWidth(3)
     love.graphics.setLineJoin("none")
 
-    love.graphics.setColor(1, 1, 1, rt.settings.overworld.bubble_field.opacity * 0.5)
+    local elapsed = rt.SceneManager:get_elapsed() + meta.hash(self)
+    local hue = self._scene:get_player():get_hue()
+
+    love.graphics.setColor(1, 1, 1, rt.settings.overworld.bubble_field.opacity)
     _base_shader:bind()
+    _base_shader:send("noise_texture", _noise_texture)
+    _base_shader:send("screen_to_world_transform", transform)
+    _base_shader:send("elapsed", elapsed)
+    _base_shader:send("hue", hue)
     love.graphics.draw(self._shape_mesh:get_native())
     _base_shader:unbind()
+
+    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.setLineWidth(3)
+    love.graphics.setLineJoin("none")
+    _outline_shader:bind()
+    _outline_shader:send("noise_texture", _noise_texture)
+    _outline_shader:send("screen_to_world_transform", transform)
+    _outline_shader:send("elapsed", elapsed)
+    _outline_shader:send("hue", hue)
+    love.graphics.line(self._contour)
+    _outline_shader:unbind()
+
+    love.graphics.pop()
+end
+
+--- @brief
+function ow.BubbleField:draw_bloom()
+    if not self._stage:get_is_body_visible(self._body) then return end
+
+    local transform = self._scene:get_camera():get_transform():inverse()
+
+    local offset_x, offset_y = self._body:get_position()
+    love.graphics.push()
+    love.graphics.translate(-self._x + offset_x, -self._y + offset_y)
 
     love.graphics.setColor(1, 1, 1, 0.5)
     love.graphics.setLineWidth(3)

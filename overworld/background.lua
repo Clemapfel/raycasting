@@ -50,8 +50,6 @@ ow.Background = meta.class("OverworldBackground", rt.Widget)
 
 local _particle_shader_no_bloom = rt.Shader("overworld/background_particles.glsl", { IS_BLOOM = 0 })
 local _particle_shader_bloom = rt.Shader("overworld/background_particles.glsl", { IS_BLOOM = 1 })
-local _room_shader = rt.Shader("overworld/background_room.glsl")
-local _front_wall_shader = rt.Shader("overworld/background_front_room.glsl")
 local _glow_particle_texture_shader = rt.Shader("overworld/background_glow.glsl")
 
 local _instance_mesh_format = {
@@ -71,20 +69,6 @@ local _data_mesh_format = {
 function ow.Background:instantiate(scene)
     meta.assert(scene, ow.OverworldScene)
     self._scene = scene
-
-    self._input = rt.InputSubscriber()
-    self._input:signal_connect("keyboard_key_pressed", function(_, which)
-        if which == "k" then
-            for shader in range(
-                _particle_shader_no_bloom,
-                _particle_shader_bloom,
-                _room_shader,
-                _front_wall_shader
-            ) do
-                shader:recompile()
-            end
-        end
-    end)
 end
 
 --- @brief
@@ -370,20 +354,6 @@ function ow.Background:draw()
 
         local scale = self:_get_scale_factor()
 
-        -- room drawn unaffected by stage camera
-        --[[
-        local room_transform = self._view_transform:clone()
-        room_transform:scale(scale, scale, 1)
-        room_transform:apply(self._scale_transform)
-        room_transform:translate(0, 0, rt.settings.overworld.background.z_zoom)
-
-        self._canvas:set_view_transform(room_transform)
-        _room_shader:bind()
-        _room_shader:send("elapsed", rt.SceneManager:get_elapsed())
-        self._room_mesh:draw()
-        _room_shader:unbind()
-        ]]--
-
         local particle_transform = self._view_transform:clone()
         particle_transform:scale(scale, scale, 1)
         particle_transform:apply(self._scale_transform)
@@ -558,6 +528,8 @@ end
 
 --- @brief
 function ow.Background:update(delta)
+    if rt.GameState:get_is_performance_mode_enabled() then return end
+
     self._canvas_needs_update = true
 
     local min_x, max_x, min_y, max_y, min_z, max_z = table.unpack(self._room_bounds)
@@ -602,7 +574,6 @@ function ow.Background:update(delta)
                 z_wrapped = true
             end
 
-            -- if wrapped, teleport to new deterministic position
             if x_wrapped then
                 y = math.mix(min_y, max_y, rt.random.noise(x, y))
             end

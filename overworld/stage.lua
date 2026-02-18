@@ -1,4 +1,6 @@
 require "common.player"
+require "common.shader"
+require "common.noise_texture"
 require "overworld.stage_config"
 require "overworld.object_wrapper"
 require "overworld.pathfinding_graph"
@@ -399,6 +401,7 @@ function ow.Stage:instantiate(scene, id)
 
     -- precompile shader
     rt.Shader:precompile_all()
+    rt.NoiseTexture:initialize_all()
 end
 
 --- @brief

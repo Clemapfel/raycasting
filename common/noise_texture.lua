@@ -59,7 +59,11 @@ function rt.NoiseTexture:instantiate(size_x, size_y, size_z, ...)
         0, -- msaa
         texture_format
     )
-    self._texture:set_wrap_mode(rt.TextureWrapMode.REPEAT)
+    self._texture:set_wrap_mode(
+        rt.TextureWrapMode.MIRROR,
+        rt.TextureWrapMode.MIRROR,
+        rt.TextureWrapMode.REPEAT
+    )
 
     local shader = _texture_format_to_shader[self._texture_format]
     local work_group_size = 8
@@ -137,8 +141,6 @@ function rt.NoiseTexture:draw()
     end
 
     love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.clear(0, 0, 0, 1)
-
     love.graphics.setShader(_draw_shader)
     _draw_shader:send("elapsed", rt.SceneManager:get_elapsed())
     _draw_shader:send("tex", self._texture:get_native())

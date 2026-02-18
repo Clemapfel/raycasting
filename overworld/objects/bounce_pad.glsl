@@ -14,34 +14,10 @@ vec4 position(mat4 transform_projection, vec4 vertex_position) {
 
 #ifdef PIXEL
 
-vec4 worley_noise_with_offset(vec3 p) {
-    vec3 n = floor(p);
-    vec3 f = fract(p);
-
-    float minDist = 1.0;
-    vec3 minOffset = vec3(0.0);
-
-    for (int k = -1; k <= 1; k++) {
-        for (int j = -1; j <= 1; j++) {
-            for (int i = -1; i <= 1; i++) {
-                vec3 g = vec3(i, j, k);
-
-                vec3 cell = n + g;
-                cell = fract(cell * vec3(0.1031, 0.1030, 0.0973));
-                cell += dot(cell, cell.yxz + 19.19);
-                vec3 o = fract((cell.xxy + cell.yzz) * cell.zyx);
-
-                vec3 delta = g + o - f;
-                float d = length(delta);
-                if (d < minDist) {
-                    minDist = d;
-                    minOffset = o;
-                }
-            }
-        }
-    }
-
-    return vec4(minOffset, minDist);
+uniform sampler3D noise_texture;
+float worley_noise(vec3 p) {
+    p.xy /= 4;
+    return texture(noise_texture, p).r;
 }
 
 float worley_octaves(vec3 p, int octaves, float lacunarity, float gain) {
@@ -51,7 +27,7 @@ float worley_octaves(vec3 p, int octaves, float lacunarity, float gain) {
     float norm = 0.0;
 
     for (int i = 0; i < octaves; i++) {
-        float d = worley_noise_with_offset(p * frequency).w;
+        float d = worley_noise(p * frequency);
         sum += (1.0 - d) * amplitude;
         norm += amplitude;
         amplitude *= gain;
@@ -84,7 +60,7 @@ vec4 effect(vec4 color, Image img, vec2 texture_coords, vec2 vertex_position) {
     const float noise_scale = 6;
     vec3 noise_p = vec3(uv * noise_scale - axis * vec2(elapsed * 0.8 * 0.05), signal * 0.5);
 
-    float bubble = worley_octaves(noise_p, 4, 1.5, 1);
+    float bubble = worley_octaves(noise_p, 3, 1.5, 1);
 
     int steps = 10; // n toon shading steps
     float step_size = 1.0 / float(steps);

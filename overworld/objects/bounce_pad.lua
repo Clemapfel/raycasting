@@ -52,6 +52,9 @@ local _axis_y_index = 2
 local _offset_index = 3
 
 local _shape_shader = rt.Shader("overworld/objects/bounce_pad.glsl")
+local _noise_texture = rt.NoiseTexture(64, 64, 16,
+    rt.NoiseType.WORLEY, 10
+)
 
 --- @brief
 function ow.BouncePad:instantiate(object, stage, scene)
@@ -335,6 +338,7 @@ function ow.BouncePad:draw()
     local r, g, b = table.unpack(self._draw_inner_color)
     love.graphics.setColor(r, g, b, opacity)
     _shape_shader:bind()
+    _shape_shader:send("noise_texture", _noise_texture)
     _shape_shader:send("elapsed", self._signal_elapsed)
     _shape_shader:send("axis", { math.flip(self._bounce_normal_x, self._bounce_normal_y) })
     _shape_shader:send("signal", self._signal)

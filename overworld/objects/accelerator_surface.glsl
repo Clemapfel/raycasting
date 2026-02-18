@@ -50,28 +50,10 @@ float gaussian(float x, float ramp)
     return exp(((-4 * PI) / 3) * (ramp * x) * (ramp * x));
 }
 
-vec3 random_3d(in vec3 p) {
-    return fract(sin(vec3(
-    dot(p, vec3(127.1, 311.7, 74.7)),
-    dot(p, vec3(269.5, 183.3, 246.1)),
-    dot(p, vec3(113.5, 271.9, 124.6)))
-    ) * 43758.5453123);
-}
-
+uniform sampler3D noise_texture;
 float gradient_noise(vec3 p) {
-    vec3 i = floor(p);
-    vec3 v = fract(p);
-
-    vec3 u = v * v * v * (v *(v * 6.0 - 15.0) + 10.0);
-
-    return mix( mix( mix( dot( -1 + 2 * random_3d(i + vec3(0.0,0.0,0.0)), v - vec3(0.0,0.0,0.0)),
-    dot( -1 + 2 * random_3d(i + vec3(1.0,0.0,0.0)), v - vec3(1.0,0.0,0.0)), u.x),
-    mix( dot( -1 + 2 * random_3d(i + vec3(0.0,1.0,0.0)), v - vec3(0.0,1.0,0.0)),
-    dot( -1 + 2 * random_3d(i + vec3(1.0,1.0,0.0)), v - vec3(1.0,1.0,0.0)), u.x), u.y),
-    mix( mix( dot( -1 + 2 * random_3d(i + vec3(0.0,0.0,1.0)), v - vec3(0.0,0.0,1.0)),
-    dot( -1 + 2 * random_3d(i + vec3(1.0,0.0,1.0)), v - vec3(1.0,0.0,1.0)), u.x),
-    mix( dot( -1 + 2 * random_3d(i + vec3(0.0,1.0,1.0)), v - vec3(0.0,1.0,1.0)),
-    dot( -1 + 2 * random_3d(i + vec3(1.0,1.0,1.0)), v - vec3(1.0,1.0,1.0)), u.x), u.y), u.z );
+    p /= 2;
+    return texture(noise_texture, p).r;
 }
 
 vec3 random3(vec3 st)
@@ -220,8 +202,8 @@ float mix_periodic(float a, float b, float t) {
     return fract(a + diff * t);
 }
 
-const float noise_scale = 1. / 75;
-const float time_scale = 1. / 2;
+const float noise_scale = 1. / 120;
+const float time_scale = 1. / 6;
 
 float hue = fract(elapsed / 20);
 float min_hue = hue - 0.5;
@@ -291,7 +273,7 @@ vec4 effect(vec4 color, sampler2D tex, vec2 texture_coords, vec2 screen_coords) 
 
     float noise = gradient_noise(vec3(world_pos * noise_scale, elapsed * time_scale));
     return 0.9 * texture(tex, texture_coords) * vec4(
-        lch_to_rgb(vec3(0.8, 1, noise)) - shadow_attenuation, // darken around player to stand out from outline better
+        lch_to_rgb(vec3(0.8, 1, noise * 2)) - shadow_attenuation, // darken around player to stand out from outline better
         1
     );
 }
@@ -302,7 +284,7 @@ vec4 effect(vec4 color, sampler2D tex, vec2 texture_coords, vec2 screen_coords) 
     vec2 world_pos = to_world_position(screen_coords);
     float noise = gradient_noise(vec3(world_pos * noise_scale, elapsed * time_scale));
     return texture(tex, texture_coords) * vec4(
-        lch_to_rgb(vec3(0.8, 1, mix(min_hue, max_hue, noise)))
+        lch_to_rgb(vec3(0.8, 1, mix(min_hue, max_hue, noise * 2)))
     , color.a);
 }
 

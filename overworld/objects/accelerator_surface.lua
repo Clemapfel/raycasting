@@ -40,6 +40,10 @@ local _body_shader = rt.Shader("overworld/objects/accelerator_surface.glsl", { M
 local _outline_shader = rt.Shader("overworld/objects/accelerator_surface.glsl", { MODE = 1 })
 local _particle_shader = rt.Shader("overworld/objects/accelerator_surface.glsl", { MODE = 2 })
 
+local _noise_texture = rt.NoiseTexture(64, 64, 16,
+    rt.NoiseType.GRADIENT, 6
+)
+
 --- @brief
 function ow.AcceleratorSurface:instantiate(object, stage, scene)
     self._scene = scene
@@ -378,6 +382,7 @@ function ow.AcceleratorSurface:draw(priority)
         _body_shader:unbind()
 
         _outline_shader:bind()
+        _outline_shader:send("noise_texture", _noise_texture)
         _outline_shader:send("screen_to_world_transform", transform)
         _outline_shader:send("elapsed", rt.SceneManager:get_elapsed())
         _outline_shader:send("player_position", { camera:world_xy_to_screen_xy(self._scene:get_player():get_position()) })
@@ -389,6 +394,7 @@ function ow.AcceleratorSurface:draw(priority)
         love.graphics.pop()
     elseif priority == particle_priority then
         _particle_shader:bind()
+        _particle_shader:send("noise_texture", _noise_texture)
         _particle_shader:send("screen_to_world_transform", transform)
         love.graphics.setColor(1, 1, 1, 1)
         love.graphics.draw(_particle_spritebatch)

@@ -40,7 +40,7 @@ love.load = function(args)
     end
 
     require "overworld.overworld_scene"
-    --rt.SceneManager:push(ow.OverworldScene, "exhibition", false)
+    rt.SceneManager:push(ow.OverworldScene, "exhibition", false)
 
     require "menu.keybinding_scene"
     --rt.SceneManager:push(mn.KeybindingScene)
@@ -65,20 +65,6 @@ love.draw = function()
     if rt.SceneManager ~= nil then
         rt.SceneManager:draw()
     end
-
-    if _noise_texture == nil then
-        require("common.noise_texture")
-        _noise_texture = rt.NoiseTexture(love.graphics.getHeight(),
-            rt.NoiseType.SIMPLEX, 20,
-        rt.NoiseType.SIMPLEX, 10,
-        rt.NoiseType.SIMPLEX, 3,
-        rt.NoiseType.SIMPLEX, 1
-
-        --rt.NoiseType.SIMPLEX, 10
-        )
-    end
-
-    _noise_texture:draw()
 end
 
 love.resize = function(width, height)

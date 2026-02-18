@@ -152,7 +152,7 @@ float worley_noise_periodic(vec3 uvw, uvec3 period) {
 
 float noise_periodic(uint type, vec3 uvw, uvec3 period) {
     if (type == NOISE_TYPE_GRADIENT) {
-        return gradient_noise_periodic(uvw, period);
+        return clamp(gradient_noise_periodic(uvw, period), 0, 1);
     } else if (type == NOISE_TYPE_WORLEY) {
         return worley_noise_periodic(uvw, period);
     } else {
@@ -183,19 +183,19 @@ void computemain()
     uint pz = max(1u, uint(round(scales.z)));
     uint pw = max(1u, uint(round(scales.w)));
 
-    vec4 result = vec4(1);
+    vec4 result = vec4(0);
 
     if (n_components > 0u)
-    result.x = noise_periodic(types.x, uvw, uvec3(px));
+        result.x = noise_periodic(types.x, uvw, uvec3(px));
 
     if (n_components > 1u)
-    result.y = noise_periodic(types.y, uvw, uvec3(py));
+        result.y = noise_periodic(types.y, uvw, uvec3(py));
 
     if (n_components > 2u)
-    result.z = noise_periodic(types.z, uvw,  uvec3(pz));
+        result.z = noise_periodic(types.z, uvw, uvec3(pz));
 
     if (n_components > 3u)
-    result.w = noise_periodic(types.w, uvw, uvec3(pw));
+        result.w = noise_periodic(types.w, uvw, uvec3(pw));
 
     imageStore(noise_texture, ivec3(gid), result);
 }

@@ -154,3 +154,7 @@ setmetatable(rt.Palette, {
         rt.error("In rt.Palette. trying to modify palette, but is immutable")
     end
 })
+
+for which in range("r", "g", "b", "a") do
+    dbg(rt.Palette.BLACK[which] * 255)
+end

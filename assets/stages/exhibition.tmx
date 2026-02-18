@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="7" nextobjectid="608">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="7" nextobjectid="611">
  <editorsettings>
   <export target="exhibition.lua" format="lua"/>
  </editorsettings>
@@ -9,16 +9,173 @@
   <image source="../tilesets/debug_tileset_16x16/tile.png" width="16" height="16"/>
  </imagelayer>
  <objectgroup id="5" name="aux">
-  <object id="578" type="CameraFit" x="-3600" y="5600">
-   <polygon points="0,-56.8123 1408,-56.8123 1408,-710.154 0,-710.154"/>
+  <object id="473" type="Hitbox" x="-288" y="5616">
+   <polygon points="-352,0 -352,48 -800,48 -800,80 96,80 1504,80 1504,-640 -848,-656 -848,-624 1472,-608 1472,48 976,48 976,0 832,0 832,48 96,48 96,0"/>
   </object>
-  <object id="594" type="Wall" x="-3504" y="5472">
-   <polygon points="0,0 0,-544 1232,-560 1216,96 0,112"/>
+  <object id="475" type="AcceleratorSurface" x="688" y="5616">
+   <polygon points="0,0 368,0 391.832,-1.90818 409.697,-8.10042 424.627,-17.1573 436.548,-34.2316 443.265,-52.9569 446.883,-72.263 449.696,-94.4811 450.208,-121.389 448,-496 442.898,-516.509 434.308,-533.413 419.709,-544.967 399.312,-553.858 379.509,-558.936 352,-560 -1744,-560 -1744,-624 496,-608 496,48 0,48"/>
+  </object>
+  <object id="476" x="128" y="5056">
+   <polygon points="-1184,0 -1216,0 -1216,608 -1216,832 -1264,832 -1264,-64 -1184,-64"/>
+  </object>
+  <object id="478" name="Portal" type="Portal" x="-1088" y="5616">
+   <properties>
+    <property name="left_or_right" type="bool" value="false"/>
+    <property name="other" type="object" value="479"/>
+    <property name="target" type="object" value="480"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="479" name="Portal" type="PortalNode" x="-1088" y="5536">
+   <point/>
+  </object>
+  <object id="480" name="Portal" type="Portal" x="-1088" y="5264">
+   <properties>
+    <property name="left_or_right" type="bool" value="false"/>
+    <property name="other" type="object" value="481"/>
+    <property name="target" type="object" value="478"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="481" name="Portal" type="PortalNode" x="-1088" y="5056">
+   <point/>
+  </object>
+  <object id="507" type="CameraBounds" x="-4246.04" y="1536" width="2441.34" height="944"/>
+  <object id="537" type="CameraBounds" x="-4240" y="2464" width="2441.34" height="944"/>
+  <object id="578" type="CameraFit" x="-3670.46" y="5606.79">
+   <polygon points="166.464,-57.45 1382.46,-54.7917 1382.46,-710.792 166.464,-710.792"/>
+  </object>
+  <object id="610" type="Wall" x="-3680" y="5616">
+   <polygon points="166.464,-57.45 1382.46,-54.7917 1382.46,-710.792 166.464,-710.792"/>
   </object>
  </objectgroup>
  <objectgroup id="6" name="hitbox">
-  <object id="520" name="Spawn" type="PlayerSpawn" x="-2896" y="5392">
+  <object id="474" type="AcceleratorSurface" x="-144" y="5616">
+   <polygon points="-48,0 -48,48 688,48 688,0"/>
+  </object>
+  <object id="485" type="AcceleratorSurface" x="-976" y="5616">
+   <polygon points="-112,0 -112,48 336,48 336,0 336,-80 38.7006,-10.5408 5.73247,-5.12295 -24.4623,-0.804894"/>
+  </object>
+  <object id="488" type="AcceleratorSurface" x="-592" y="5152">
+   <polygon points="0,0 640,0 640,32 0,32"/>
+  </object>
+  <object id="493" name="Portal" type="Portal" x="-496" y="5616">
+   <properties>
+    <property name="left_or_right" type="bool" value="false"/>
+    <property name="other" type="object" value="494"/>
+    <property name="target" type="object" value="495"/>
+   </properties>
    <point/>
+  </object>
+  <object id="494" name="Portal" type="PortalNode" x="-608" y="5616">
+   <point/>
+  </object>
+  <object id="495" name="Portal" type="Portal" x="-224" y="5616">
+   <properties>
+    <property name="left_or_right" type="bool" value="false"/>
+    <property name="other" type="object" value="496"/>
+    <property name="target" type="object" value="493"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="496" name="Portal" type="PortalNode" x="-384" y="5616">
+   <point/>
+  </object>
+  <object id="510" x="-3516.72" y="1291.71"/>
+  <object id="511" type="Hitbox" x="-3392" y="2384">
+   <polygon points="-320,0 256,0 256,-464 304,-528 352,-464 352,0 1024,0 1024,96 -320,96"/>
+  </object>
+  <object id="512" type="SlipperyHitbox" x="-3152" y="2352">
+   <properties>
+    <property name="unjumpable" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,0 -32,32 16,32 16,-432 64,-496 112,-432 112,32 160,32 128,0 128,-432 64.7319,-522.145 0,-432"/>
+  </object>
+  <object id="513" type="SlipperyHitbox" x="-3408" y="2288">
+   <polygon points="16,32 -32,32 -32,-16 16,-16"/>
+  </object>
+  <object id="514" type="SlipperyHitbox" x="-3264" y="2224">
+   <polygon points="-48,0 64,0 64,48 -48,48"/>
+  </object>
+  <object id="515" type="SlipperyHitbox" x="-2928" y="2224">
+   <polygon points="-48,0 64,0 64,48 -48,48"/>
+  </object>
+  <object id="516" type="SlipperyHitbox" x="-3088" y="1792">
+   <polygon points="0.73185,-6.58665 54.4859,-80 672,-80 672,-96 48,-96 0,-32 -48,-96 -64,-96 -672,-96 -672,-80 -58.1452,-80"/>
+  </object>
+  <object id="517" name="Vertical Itnroduction" type="Hitbox" x="-3088" y="1760">
+   <polygon points="0,0 -48,-64 -672,-64 -672,-128 672,-128 672,-64 48,-64"/>
+  </object>
+  <object id="518" name="Coin" type="Coin" x="-3095.92" y="1806.81">
+   <properties>
+    <property name="should_move_in_place" type="bool" value="false"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="519" type="SlipperyHitbox" x="-2752" y="2288">
+   <polygon points="16,32 -32,32 -32,-16 16,-16"/>
+  </object>
+  <object id="520" name="Spawn" type="PlayerSpawn" x="-45.3963" y="5546.18">
+   <point/>
+  </object>
+  <object id="521" name="Portal" type="Portal" x="-3200" y="2224">
+   <properties>
+    <property name="left_or_right" type="bool" value="false"/>
+    <property name="other" type="object" value="522"/>
+    <property name="target" type="object" value="523"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="522" name="Portal" type="PortalNode" x="-3312" y="2224">
+   <point/>
+  </object>
+  <object id="523" name="Portal" type="Portal" x="-2864" y="2224">
+   <properties>
+    <property name="left_or_right" type="bool" value="false"/>
+    <property name="other" type="object" value="524"/>
+    <property name="target" type="object" value="521"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="524" name="Portal" type="PortalNode" x="-2976" y="2224">
+   <point/>
+  </object>
+  <object id="525" type="Hitbox" x="-3392" y="3312">
+   <polygon points="-320,0 256,0 272,-16 272,-112 256,-112 256,-464 416,-464 416,-112 400,-112 400,-16 416,0 1088,0 1088,288 -320,288"/>
+  </object>
+  <object id="526" name="Horizontal Introduction" type="SlipperyHitbox" x="-3152" y="3280">
+   <properties>
+    <property name="unjumpable" type="bool" value="true"/>
+   </properties>
+   <polygon points="16,-432 176,-432 176,-80 192,-96 192,-448 0,-448 0,-96 16,-80"/>
+  </object>
+  <object id="531" name="Portal" type="Portal" x="-3120" y="3200">
+   <properties>
+    <property name="left_or_right" type="bool" value="false"/>
+    <property name="other" type="object" value="532"/>
+    <property name="target" type="object" value="533"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="532" name="Portal" type="PortalNode" x="-3120" y="3296">
+   <point/>
+  </object>
+  <object id="533" name="Portal" type="Portal" x="-2992" y="3296">
+   <properties>
+    <property name="left_or_right" type="bool" value="false"/>
+    <property name="other" type="object" value="534"/>
+    <property name="target" type="object" value="531"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="534" name="Portal" type="PortalNode" x="-2992" y="3200">
+   <point/>
+  </object>
+  <object id="535" type="SlipperyHitbox" x="-3152" y="3296">
+   <polygon points="-16,0 -32,16 16,16 32,0"/>
+  </object>
+  <object id="536" type="SlipperyHitbox" x="-3024" y="3296">
+   <polygon points="80,0 96,16 48,16 32,0"/>
   </object>
   <object id="545" type="AirDashNode" x="-2800" y="4544" width="160" height="160">
    <ellipse/>
@@ -80,44 +237,8 @@
   <object id="582" type="DoubleJumpTether" x="-2208" y="4688">
    <point/>
   </object>
-  <object id="595" type="AirDashNode" x="-3418.74" y="5279.81" width="160" height="160">
-   <ellipse/>
-  </object>
-  <object id="596" type="AirDashNode" x="-3353.91" y="4981.59" width="160" height="160">
-   <ellipse/>
-  </object>
-  <object id="597" type="AirDashNode" x="-3118.9" y="5195.53" width="160" height="160">
-   <ellipse/>
-  </object>
-  <object id="598" type="AirDashNode" x="-3214.52" y="5270.08" width="160" height="160">
-   <ellipse/>
-  </object>
-  <object id="599" type="AirDashNode" x="-3177.24" y="5059.38" width="160" height="160">
-   <ellipse/>
-  </object>
-  <object id="600" type="AirDashNode" x="-2908.2" y="4958.9" width="160" height="160">
-   <ellipse/>
-  </object>
-  <object id="601" type="AirDashNode" x="-2656.99" y="5048.04" width="160" height="160">
-   <ellipse/>
-  </object>
-  <object id="602" type="AirDashNode" x="-2535.43" y="5240.91" width="160" height="160">
-   <ellipse/>
-  </object>
-  <object id="603" type="AirDashNode" x="-2785.02" y="5028.59" width="160" height="160">
-   <ellipse/>
-  </object>
-  <object id="604" type="AirDashNode" x="-2689.4" y="5120.97" width="160" height="160">
-   <ellipse/>
-  </object>
-  <object id="605" type="AirDashNode" x="-2823.92" y="5198.77" width="160" height="160">
-   <ellipse/>
-  </object>
-  <object id="606" type="AirDashNode" x="-2851.47" y="4994.55" width="160" height="160">
-   <ellipse/>
-  </object>
-  <object id="607" type="AirDashNode" x="-2550.02" y="4952.41" width="160" height="160">
-   <ellipse/>
+  <object id="609" type="AcceleratorSurface" x="-2992" y="5376">
+   <polygon points="3.39587,-78.1051 -64,96 -512,96 -512,-448 704,-464 704,96 272,96 179.396,-78.1051"/>
   </object>
  </objectgroup>
  <objectgroup id="2" name="front"/>

@@ -26,8 +26,9 @@ end
 
 local _core_shader = rt.Shader("overworld/objects/air_dash_node_glow.glsl")
 
-local _hue = 0
-local _n_hue_steps = 12
+local _noise_texture = rt.NoiseTexture(64, 64, 64,
+    rt.NoiseType.GRADIENT, 3.5
+)
 
 --- @brief
 function ow.AirDashNode:instantiate(object, stage, scene)
@@ -69,8 +70,7 @@ function ow.AirDashNode:instantiate(object, stage, scene)
 
     self._is_tethered_motion = rt.SmoothedMotion1D(0)
 
-    self._hue = math.fract(_hue / _n_hue_steps)
-    _hue = _hue + 1
+    self._hue = (meta.hash(self) % 16) / 16
 
     self._color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, self._hue, 1))
     self._particle = ow.AirDashNodeParticle(rt.settings.player.radius * rt.settings.overworld.double_jump_tether.radius_factor)
@@ -406,6 +406,7 @@ function ow.AirDashNode:draw(priority)
             _core_shader:bind()
             _core_shader:send("elapsed", rt.SceneManager:get_elapsed() + meta.hash(self))
             _core_shader:send("color", { r, g, b, opacity })
+            _core_shader:send("noise_texture", _noise_texture)
             self._glow_mesh:draw()
             _core_shader:unbind()
         end
