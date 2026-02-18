@@ -1,236 +1,264 @@
-#ifdef PIXEL
+// 3D Periodic Noise Compute Shader
+// - Implements seamless 3D gradient (Perlin-style) and Worley (cellular) noise
+// - Mirrors technique used in the provided 2D fragment shader but extended to 3D
+// - Each channel (RGBA) can select an independent noise type and integer period
+// - Output is in [0,1], suitable for UNORM or float textures
+//
+// Dispatch recommendation:
+//   - Desktop: WORK_GROUP_SIZE_X = WORK_GROUP_SIZE_Y = WORK_GROUP_SIZE_Z = 8
+//   - Mobile/low-end: 4 x 4 x 4
+//
+// Notes on periodicity:
+//   We construct noise on a lattice with unit cell spacing and apply explicit toroidal
+//   wrapping using a supplied integer period. Coordinates are scaled so that the full texture
+//   domain spans exactly 'period' units in noise space, ensuring exact tiling on all edges.
 
 #define NOISE_TYPE_GRADIENT 0u
 #define NOISE_TYPE_WORLEY   1u
-#define NOISE_TYPE_SIMPLEX  2u
-#define PI 3.141592653589793
 
-// -------------------- Hash Utilities --------------------
-float hash12(vec2 p) {
-    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
-}
+#ifndef TEXTURE_FORMAT
+#error "TEXTURE_FORMAT undefined"
+#endif
 
-vec2 hash22(vec2 p) {
-    vec2 s = sin(vec2(
-    dot(p, vec2(127.1, 311.7)),
-    dot(p, vec2(269.5, 183.3))
-    )) * 43758.5453123;
-    return fract(s);
-}
+#ifndef WORK_GROUP_SIZE_X
+#error "WORK_GROUP_SIZE_X undefined"
+#endif
 
-vec3 hash32(vec2 p) {
-    vec3 s = sin(vec3(
-    dot(p, vec2(127.1, 311.7)),
-    dot(p, vec2(269.5, 183.3)),
-    dot(p, vec2(419.2, 371.9))
-    )) * 43758.5453123;
-    return fract(s);
-}
+#ifndef WORK_GROUP_SIZE_Y
+#error "WORK_GROUP_SIZE_Y undefined"
+#endif
 
-// 4D hash -> 4 random components in [0,1)
-vec4 hash44(vec4 p) {
-    vec4 q = vec4(
-    dot(p, vec4(127.1, 311.7,  74.7, 419.2)),
-    dot(p, vec4(269.5, 183.3, 246.1, 113.5)),
-    dot(p, vec4(113.5, 271.9, 124.6, 279.1)),
-    dot(p, vec4(419.2,  37.9, 122.3, 311.7))
+#ifndef WORK_GROUP_SIZE_Z
+#error "WORK_GROUP_SIZE_Z undefined"
+#endif
+
+// =====================================================================================
+// Helpers
+// =====================================================================================
+
+float saturate(float x) { return clamp(x, 0.0, 1.0); }
+
+ivec3 imodp(ivec3 a, ivec3 m) {
+    // Positive modulo per component, handles negative a
+    return ivec3(
+    ((a.x % m.x) + m.x) % m.x,
+    ((a.y % m.y) + m.y) % m.y,
+    ((a.z % m.z) + m.z) % m.z
     );
-    return fract(sin(q) * 43758.5453123);
 }
 
-// Safe positive modulo for lattice wrapping
-vec2 wrapLattice(vec2 lattice, float period) {
-    vec2 lp = mod(lattice, period);
-    lp += step(lp, vec2(0.0)) * period;
-    return mod(lp, period);
+uint hash_u32(uint x) {
+    x ^= x >> 16;
+    x *= 0x7feb352du;
+    x ^= x >> 15;
+    x *= 0x846ca68bu;
+    x ^= x >> 16;
+    return x;
 }
 
-// -------------------- Periodic Gradient (Perlin-style) Noise --------------------
-float gradient_noise(vec2 p, float period) {
-    vec2 pi = floor(p);
-    vec2 pf = p - pi;
-
-    vec2 wrap_pi   = wrapLattice(pi, period);
-    vec2 wrap_pi10 = wrapLattice(pi + vec2(1.0, 0.0), period);
-    vec2 wrap_pi01 = wrapLattice(pi + vec2(0.0, 1.0), period);
-    vec2 wrap_pi11 = wrapLattice(pi + vec2(1.0, 1.0), period);
-
-    float a00 = 2.0 * PI * hash12(wrap_pi);
-    float a10 = 2.0 * PI * hash12(wrap_pi10);
-    float a01 = 2.0 * PI * hash12(wrap_pi01);
-    float a11 = 2.0 * PI * hash12(wrap_pi11);
-
-    float n00 = dot(vec2(cos(a00), sin(a00)), pf);
-    float n10 = dot(vec2(cos(a10), sin(a10)), pf - vec2(1.0, 0.0));
-    float n01 = dot(vec2(cos(a01), sin(a01)), pf - vec2(0.0, 1.0));
-    float n11 = dot(vec2(cos(a11), sin(a11)), pf - vec2(1.0, 1.0));
-
-    vec2 u = pf * pf * pf * (pf * (pf * 6.0 - 15.0) + 10.0);
-    float n = mix(mix(n00, n10, u.x), mix(n01, n11, u.x), u.y);
-    return clamp(0.5 + 0.5 * n, 0.0, 1.0);
+// Mix 3 ints into a single 32-bit hash, deterministic across vendors
+uint hash_ivec3(ivec3 p) {
+    uvec3 u = uvec3(p) ^ uvec3(0x9E3779B9u, 0x7F4A7C15u, 0xF39CC060u);
+    uint h = u.x;
+    h = hash_u32(h ^ u.y);
+    h = hash_u32(h ^ u.z);
+    return h;
 }
 
-// -------------------- Periodic Worley (Cellular) Noise --------------------
-float worley_noise(vec2 p, float period) {
-    vec2 pi = floor(p);
-    float minD2 = 1e9;
+// Hash for a lattice point with wrapping by period
+uint hash_lattice(ivec3 lattice, ivec3 period) {
+    ivec3 w = imodp(lattice, period);
+    return hash_ivec3(w);
+}
 
-    // Search neighborhood; 3x3 is enough for F1
-    for (int oy = -1; oy <= 1; ++oy) {
-        for (int ox = -1; ox <= 1; ++ox) {
-            vec2 cell = pi + vec2(float(ox), float(oy));
-            vec2 cp = wrapLattice(cell, period);
-            vec2 fp = hash22(cp);
-            vec2 q = cell + fp;
+// Derive a float in [0,1) from a uint
+float u01(uint h) {
+    // 1/2^32
+    const float k = 1.0 / 4294967296.0;
+    return float(h) * k;
+}
 
-            // Toroidal delta for perfect tiling
-            vec2 d = q - p - period * round((q - p) / period);
-            minD2 = min(minD2, dot(d, d));
+// Advance a hash state (simple step)
+uint hash_step(uint h) {
+    return hash_u32(h ^ 0x85EBCA6Bu);
+}
+
+// Smooth fade curve (Perlin)
+vec3 fade3(vec3 t) {
+    return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
+}
+
+// Dot product of distance vector with gradient selected by hashed lattice
+float dot_grad(ivec3 lattice, vec3 d, ivec3 period) {
+    uint h = hash_lattice(lattice, period) & 15u; // 0..15
+
+    // Improved Perlin's 12 gradients via bit tricks
+    float u = (h < 8u) ? d.x : d.y;
+    float v = (h < 4u) ? d.y : ((h == 12u || h == 14u) ? d.x : d.z);
+
+    float gu = ((h & 1u) != 0u) ? -u : u;
+    float gv = ((h & 2u) != 0u) ? -v : v;
+    return gu + gv;
+}
+
+// =====================================================================================
+// Periodic 3D Gradient Noise (Perlin-style)
+// =====================================================================================
+
+float gradient_noise3(vec3 P, ivec3 period) {
+    // Period must be >= 1 in each component
+    period = max(period, ivec3(1));
+
+    ivec3 I = ivec3(floor(P));
+    vec3  F = fract(P);
+    vec3  f = fade3(F);
+
+    // 8 corners
+    float n000 = dot_grad(I + ivec3(0,0,0), F - vec3(0,0,0), period);
+    float n100 = dot_grad(I + ivec3(1,0,0), F - vec3(1,0,0), period);
+    float n010 = dot_grad(I + ivec3(0,1,0), F - vec3(0,1,0), period);
+    float n110 = dot_grad(I + ivec3(1,1,0), F - vec3(1,1,0), period);
+    float n001 = dot_grad(I + ivec3(0,0,1), F - vec3(0,0,1), period);
+    float n101 = dot_grad(I + ivec3(1,0,1), F - vec3(1,0,1), period);
+    float n011 = dot_grad(I + ivec3(0,1,1), F - vec3(0,1,1), period);
+    float n111 = dot_grad(I + ivec3(1,1,1), F - vec3(1,1,1), period);
+
+    // Trilinear mix
+    float nx00 = mix(n000, n100, f.x);
+    float nx10 = mix(n010, n110, f.x);
+    float nx01 = mix(n001, n101, f.x);
+    float nx11 = mix(n011, n111, f.x);
+
+    float nxy0 = mix(nx00, nx10, f.y);
+    float nxy1 = mix(nx01, nx11, f.y);
+
+    float nxyz = mix(nxy0, nxy1, f.z);
+
+    // Map from approx [-1,1] to [0,1]
+    return saturate(nxyz * 0.5 + 0.5);
+}
+
+// =====================================================================================
+// Periodic 3D Worley (Cellular) Noise (F1: nearest feature point)
+// =====================================================================================
+
+vec3 random3_in_cell(ivec3 cellWrapped, out uint h0) {
+    // Generate 3 independent uniform floats in [0,1) using stepped hashes
+    uint h = hash_ivec3(cellWrapped);
+    h0 = h;
+    uint h1 = hash_step(h);
+    uint h2 = hash_step(h1);
+    uint h3 = hash_step(h2);
+    return vec3(u01(h1), u01(h2), u01(h3));
+}
+
+float worley_noise3(vec3 P, ivec3 period) {
+    period = max(period, ivec3(1));
+
+    ivec3 I = ivec3(floor(P));
+    vec3  F = fract(P);
+
+    // Search 27 neighboring cells
+    float minDist2 = 1e9;
+    for (int dz = -1; dz <= 1; ++dz) {
+        for (int dy = -1; dy <= 1; ++dy) {
+            for (int dx = -1; dx <= 1; ++dx) {
+                ivec3 cell = I + ivec3(dx, dy, dz);
+                ivec3 cellWrapped = imodp(cell, period);
+
+                uint hseed;
+                vec3 jitter = random3_in_cell(cellWrapped, hseed); // in [0,1)
+
+                // Absolute position of feature point in noise space (unwrapped cell integer + jitter)
+                vec3 feature = vec3(cell) + jitter;
+
+                vec3 d = feature - P;
+                float dist2 = dot(d, d);
+                minDist2 = min(minDist2, dist2);
+            }
         }
     }
 
-    float d = sqrt(minD2);
-    float f = clamp(d / 1.41421356237, 0.0, 1.0); // normalize by sqrt(2)
-    return 1.0 - f; // bright at cell centers
+    float minDist = sqrt(minDist2);       // 0..~sqrt(3)
+    // Normalize to [0,1] by dividing by maximum possible distance within our search window.
+    // For unit cells, the farthest nearest point cannot exceed sqrt(3).
+    float value = minDist / 1.7320508075688772; // sqrt(3)
+    return saturate(value);
 }
 
-// -------------------- Periodic Simplex Noise (via 4D torus mapping) --------------------
-// We implement 4D simplex noise (non-periodic in 4D), and drive it with a 2D->4D torus
-// mapping using sin/cos so the resulting 2D field is perfectly periodic on both axes.
+// =====================================================================================
+// Legacy placeholders (kept for compatibility with original skeleton)
+// =====================================================================================
 
-vec4 grad4_from_hash(vec4 ip) {
-    // Random 4D vector in [-1,1], normalized to unit length
-    vec4 r = hash44(ip) * 2.0 - 1.0;
-    // Avoid zero-length; add tiny bias
-    r += 1e-4;
-    return normalize(r);
+float gradient_noise(vec3 xyz) {
+    // Default to period=1 in all directions for compatibility
+    return gradient_noise3(xyz, ivec3(1));
 }
 
-// 4D simplex noise adapted for GLSL, gradients via hash above.
-// Returns value in approximately [-1,1].
-float simplex4(vec4 v) {
-    // Skewing/Unskewing factors for 4D
-    const float F4 = 0.30901699437494745; // (sqrt(5)-1)/4
-    const float G4 = 0.1381966011250105;  // (5 - sqrt(5))/20
+float worley_noise(vec3 xyz) {
+    // Default to period=1 in all directions for compatibility
+    return worley_noise3(xyz, ivec3(1));
+}
 
-    // Skew the input space to determine which simplex cell we're in
-    float s = (v.x + v.y + v.z + v.w) * F4;
-    vec4 i = floor(v + s);
-    float t = (i.x + i.y + i.z + i.w) * G4;
-    vec4 x0 = v - i + t; // The unskewed distance from cell origin
+// =====================================================================================
+// Texture I/O and uniforms
+// =====================================================================================
 
-    // Rank order the components to find offsets for other corners
-    // Based on Stefan Gustavson's algorithm
-    vec4 rank = vec4(0.0);
-    rank += step(x0.yzwx, x0.xyyy);
-    rank += step(x0.zwxx, x0.yxxy);
-    rank += step(x0.wxyz, x0.zzxx);
-    // rank now contains how many components are greater than each
+layout(TEXTURE_FORMAT) uniform writeonly image3D noise_texture;
 
-    vec4 i1 = step(vec4(2.5), rank);                       // rank >= 3 -> 1
-    vec4 i2 = step(vec4(1.5), rank) * (1.0 - i1);          // rank == 2 -> 1
-    vec4 i3 = step(vec4(0.5), rank) * (1.0 - i1 - i2);     // rank == 1 -> 1
-    // Offsets for remaining corners
-    vec4 x1 = x0 - i1 + vec4(G4);
-    vec4 x2 = x0 - i2 + vec4(2.0 * G4);
-    vec4 x3 = x0 - i3 + vec4(3.0 * G4);
-    vec4 x4 = x0 - 1.0 + vec4(4.0 * G4);
+uniform vec4  scales   = vec4(1);
+uniform uvec4 types    = uvec4(NOISE_TYPE_GRADIENT);
 
-    // Compute hashed gradients for the five corners
-    vec4 ip0 = i;
-    vec4 ip1 = i + i1;
-    vec4 ip2 = i + i2;
-    vec4 ip3 = i + i3;
-    vec4 ip4 = i + 1.0;
+// Noise multiplexer
+float noise3(uint type, vec3 coords, ivec3 period) {
+    if (type == NOISE_TYPE_GRADIENT) {
+        return gradient_noise3(coords, period);
+    } else if (type == NOISE_TYPE_WORLEY) {
+        return worley_noise3(coords, period);
+    } else {
+        return 0.0;
+    }
+}
 
-    // Contribution from each corner
-    float n0 = 0.0, n1 = 0.0, n2 = 0.0, n3 = 0.0, n4 = 0.0;
+layout (local_size_x = WORK_GROUP_SIZE_X, local_size_y = WORK_GROUP_SIZE_Y, local_size_z = WORK_GROUP_SIZE_Z) in;
 
-    float t0 = 0.5 - dot(x0, x0);
-    if (t0 > 0.0) {
-        vec4 g0 = grad4_from_hash(ip0);
-        t0 *= t0;
-        n0 = t0 * t0 * dot(g0, x0);
+// Entry point (as provided in skeleton)
+void computemain() {
+    ivec3 size = imageSize(noise_texture);
+    ivec3 gid  = ivec3(gl_GlobalInvocationID.xyz);
+
+    // Guard in case dispatch exceeds texture bounds
+    if (any(greaterThanEqual(gid, size))) {
+        return;
     }
 
-    float t1 = 0.5 - dot(x1, x1);
-    if (t1 > 0.0) {
-        vec4 g1 = grad4_from_hash(ip1);
-        t1 *= t1;
-        n1 = t1 * t1 * dot(g1, x1);
-    }
+    // Map voxel coordinate to noise space: the full texture spans exactly 'period' integer units.
+    // To strictly preserve periodicity, we quantize per-channel 'scales' to integer periods >= 1.
+    // This ensures the value at the texture boundary wraps without discontinuities for REPEAT sampling.
+    float sR = max(1.0, floor(scales.x + 0.5));
+    float sG = max(1.0, floor(scales.y + 0.5));
+    float sB = max(1.0, floor(scales.z + 0.5));
+    float sA = max(1.0, floor(scales.w + 0.5));
 
-    float t2 = 0.5 - dot(x2, x2);
-    if (t2 > 0.0) {
-        vec4 g2 = grad4_from_hash(ip2);
-        t2 *= t2;
-        n2 = t2 * t2 * dot(g2, x2);
-    }
+    ivec3 periodR = ivec3(int(sR));
+    ivec3 periodG = ivec3(int(sG));
+    ivec3 periodB = ivec3(int(sB));
+    ivec3 periodA = ivec3(int(sA));
 
-    float t3 = 0.5 - dot(x3, x3);
-    if (t3 > 0.0) {
-        vec4 g3 = grad4_from_hash(ip3);
-        t3 *= t3;
-        n3 = t3 * t3 * dot(g3, x3);
-    }
+    // Normalized local coordinates in [0,1) per voxel center
+    vec3 local = (vec3(gid) + vec3(0.5)) / vec3(size);
 
-    float t4 = 0.5 - dot(x4, x4);
-    if (t4 > 0.0) {
-        vec4 g4 = grad4_from_hash(ip4);
-        t4 *= t4;
-        n4 = t4 * t4 * dot(g4, x4);
-    }
+    // Scale to integer lattice periods
+    vec3 PR = local * vec3(periodR);
+    vec3 PG = local * vec3(periodG);
+    vec3 PB = local * vec3(periodB);
+    vec3 PA = local * vec3(periodA);
 
-    // Scale factor to bring approximate range to [-1,1]
-    float value = 27.0 * (n0 + n1 + n2 + n3 + n4);
-    return clamp(value, -1.0, 1.0);
+    // Compute per-channel noise
+    float r = noise3(types.x, PR, periodR);
+    float g = noise3(types.y, PG, periodG);
+    float b = noise3(types.z, PB, periodB);
+    float a = noise3(types.w, PA, periodA);
+
+    imageStore(noise_texture, gid, vec4(r, g, b, a));
 }
-
-// 2D periodic simplex via 4D torus embedding.
-// 'p' is in "tiles" space; 'period' is the integer tile count along each axis.
-float simplex_noise(vec2 p, float period) {
-    // Map to a 4D torus using sin/cos so adding 'period' to p.x or p.y leaves the input invariant.
-    vec2 ang = (2.0 * PI / period) * p;
-    vec4 q = vec4(cos(ang.x), sin(ang.x), cos(ang.y), sin(ang.y));
-    float n = simplex4(q);
-    return clamp(0.5 + 0.5 * n, 0.0, 1.0);
-}
-
-// -------------------- Noise Router --------------------
-float noise(uint type, vec2 texture_coords, float period) {
-    if (type == NOISE_TYPE_GRADIENT)
-    return gradient_noise(texture_coords, period);
-    else if (type == NOISE_TYPE_WORLEY)
-    return worley_noise(texture_coords, period);
-    else if (type == NOISE_TYPE_SIMPLEX)
-    return simplex_noise(texture_coords, period);
-    else
-    return 0.0;
-}
-
-// -------------------- Uniforms --------------------
-// up to four types / scales stored as vec4s
-uniform uint n_scales = 4u;
-uniform vec4 scales;
-uniform uvec4 types;
-
-vec4 effect(vec4 _01, sampler2D _02, vec2 texture_coords, vec2 _03) {
-    vec4 period4 = max(vec4(1.0), floor(max(scales, vec4(0.0)) + 0.5));
-    vec4 result = vec4(1);
-
-    if (n_scales > 0u)
-        result.r = noise(types.x, texture_coords * period4.r, period4.r);
-
-    if (n_scales > 1u)
-        result.g = noise(types.y, texture_coords * period4.g, period4.g);
-
-    if (n_scales > 2u)
-        result.b = noise(types.z, texture_coords * period4.b, period4.b);
-
-    if (n_scales > 3u)
-        result.a = noise(types.w, texture_coords * period4.a, period4.a);
-
-    return result;
-}
-
-#endif
