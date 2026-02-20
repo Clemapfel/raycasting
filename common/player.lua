@@ -641,6 +641,10 @@ function rt.Player:update(delta)
     local top_left_x, top_left_y, top_left_nx, top_left_ny, top_left_wall_body = self._world:query_ray(x, y, top_left_dx, top_left_dy, mask)
     local top_right_x, top_right_y, top_right_nx, top_right_ny, top_right_wall_body = self._world:query_ray(x, y, top_right_dx, top_right_dy, mask)
 
+    local left_wall_before = self._left_wall_body ~= nil and self._left_wall_body:has_tag("hitbox")
+    local right_wall_before = self._right_wall_body ~= nil and self._right_wall_body:has_tag("hitbox")
+    local bottom_wall_before = self._bottom_wall_body ~= nil and self._bottom_wall_body:has_tag("hitbox")
+
     local left_before = self._left_wall
     local right_before = self._right_wall
     local bottom_before = self._bottom_wall
@@ -686,11 +690,23 @@ function rt.Player:update(delta)
 
     do -- check ground state
         local radius = self._radius
-        local left = left_wall_body ~= nil and math.distance(x, y, left_x, left_y) <= radius
-        local bottom_left = bottom_left_wall_body ~= nil and math.distance(x, y, bottom_left_x, bottom_left_y) <= radius
-        local bottom = bottom_wall_body ~= nil and math.distance(x, y, bottom_x, bottom_y) <= radius
-        local bottom_right = bottom_right_wall_body ~= nil and math.distance(x, y, bottom_right_x, bottom_right_y) <= radius
-        local right = right_wall_body ~= nil and math.distance(x, y, right_x, right_y) <= radius
+        local left = left_wall_body ~= nil
+            and math.distance(x, y, left_x, left_y) <= radius
+
+        local bottom_left = bottom_left_wall_body ~= nil
+            and bottom_left_wall_body:has_tag("hitbox")
+            and math.distance(x, y, bottom_left_x, bottom_left_y) <= radius
+
+        local bottom = bottom_wall_body ~= nil
+            and bottom_wall_body:has_tag("hitbox")
+            and math.distance(x, y, bottom_x, bottom_y) <= radius
+
+        local bottom_right = bottom_right_wall_body ~= nil
+            and bottom_right_wall_body:has_tag("hitbox")
+            and math.distance(x, y, bottom_right_x, bottom_right_y) <= radius
+
+        local right = right_wall_body ~= nil
+            and math.distance(x, y, right_x, right_y) <= radius
 
         -- do not count walls detected by diagonal down rays
         is_grounded = bottom
@@ -861,12 +877,12 @@ function rt.Player:update(delta)
             end
         end
 
-        if false then -- TODO should_clear then
+        if should_clear then
             for instance in values(self._double_jump_sources) do
                 if instance.signal_try_emit ~= nil then instance:signal_try_emit("removed") end
             end
 
-            _clear(self._double_jump_sources)
+            self._double_jump_sources = {}
         end
     end
 
@@ -1136,9 +1152,9 @@ function rt.Player:update(delta)
                 and not right_is_down
 
             if should_slide and
-                (self._bottom_wall and self._bottom_wall_body:has_tag("slippery"))
-                or (self._bottom_left_wall and self._bottom_left_wall_body:has_tag("slippery"))
-                or (self._bottom_right_wall and self._bottom_right_wall_body:has_tag("slippery"))
+                (self._bottom_wall and self._bottom_wall_body:has_tag("no_friction"))
+                or (self._bottom_left_wall and self._bottom_left_wall_body:has_tag("no_friction"))
+                or (self._bottom_right_wall and self._bottom_right_wall_body:has_tag("no_friction"))
             then
                 -- do not decay
             else
@@ -1514,17 +1530,17 @@ function rt.Player:update(delta)
             self._wall_jump_elapsed = self._wall_jump_elapsed + delta
 
             self._left_wall_coyote_elapsed = self._left_wall_coyote_elapsed + delta
-            if left_before == true and self._left_wall == false then
+            if left_wall_before == true and self._left_wall == false then
                 self._left_wall_coyote_elapsed = 0
             end
 
             self._right_wall_coyote_elapsed = self._right_wall_coyote_elapsed + delta
-            if right_before == true and self._right_wall == false then
+            if right_wall_before == true and self._right_wall == false then
                 self._right_wall_coyote_elapsed = 0
             end
 
             self._coyote_elapsed = self._coyote_elapsed + delta
-            if is_grounded then
+            if bottom_wall_before == false and is_grounded then
                 self._coyote_elapsed = 0
                 self._left_wall_coyote_elapsed = math.huge
                 self._right_wall_coyote_elapsed = math.huge
@@ -2645,7 +2661,7 @@ function rt.Player:jump()
             and not table.is_empty(self._double_jump_sources)
         then
             -- consume double jump source if necessary
-            local instance = self._double_jump_sources[#self._double_jump_sources]
+            local instance = self._double_jump_sources[1]
             self:remove_double_jump_source(instance)
 
             local color
