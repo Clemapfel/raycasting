@@ -45,91 +45,90 @@ function rt.AABB:intersects(x1, y1, x2, y2)
     local right = x + w
     local bottom = y + h
 
-    -- Fast case 1: Check if either endpoint is inside AABB
-    if (x1 >= x and x1 <= right and y1 >= y and y1 <= bottom) or
-        (x2 >= x and x2 <= right and y2 >= y and y2 <= bottom) then
+    -- early out: check if either endpoint is inside AABB
+    if (x1 >= x and x1 <= right and y1 >= y and y1 <= bottom)
+        or (x2 >= x and x2 <= right and y2 >= y and y2 <= bottom)
+    then
         return true
     end
 
-    -- Fast case 2: Check if segment is entirely outside AABB bounds
-    if (x1 < x and x2 < x) or
-        (x1 > right and x2 > right) or
-        (y1 < y and y2 < y) or
-        (y1 > bottom and y2 > bottom) then
+    -- early out: check if segment is entirely outside AABB
+    if (x1 < x and x2 < x)
+        or (x1 > right and x2 > right)
+        or (y1 < y and y2 < y)
+        or (y1 > bottom and y2 > bottom)
+    then
         return false
     end
 
-    -- Parameterized line segment: P(t) = (x1, y1) + t * (dx, dy) where t ∈ [0,1]
     local dx = x2 - x1
     local dy = y2 - y1
 
-    local tmin = 0.0
-    local tmax = 1.0
+    local min_t = 0.0
+    local max_t = 1.0
 
-    -- Check X slabs
+    -- x slab
     if dx ~= 0 then
         local tx1 = (x - x1) / dx
         local tx2 = (right - x1) / dx
 
-        -- Handle infinity: if result is -inf or +inf, it means the slab extends infinitely
-        -- -inf means entry is at negative infinity (always entered)
-        -- +inf means exit is at positive infinity (never exited in that direction)
+        -- infinities
         if dx > 0 then
-            -- Moving right: tx1 is entry, tx2 is exit
+            -- moving right: tx1 is entry, tx2 is exit
             if tx1 ~= -math.huge then
-                tmin = math.max(tmin, tx1)
+                min_t = math.max(min_t, tx1)
             end
             if tx2 ~= math.huge then
-                tmax = math.min(tmax, tx2)
+                max_t = math.min(max_t, tx2)
             end
         else
-            -- Moving left: tx2 is entry, tx1 is exit
+            -- moving left: tx2 is entry, tx1 is exit
             if tx2 ~= -math.huge then
-                tmin = math.max(tmin, tx2)
+                min_t = math.max(min_t, tx2)
             end
             if tx1 ~= math.huge then
-                tmax = math.min(tmax, tx1)
+                max_t = math.min(max_t, tx1)
             end
         end
 
-        if tmin > tmax then
+        if min_t > max_t then
             return false
         end
     else
-        -- dx == 0: segment is vertical, check if X is within bounds
+        -- dx == 0: segment is vertical, check if x is within bounds
         if x1 < x or x1 > right then
             return false
         end
     end
 
-    -- Check Y slabs
+    -- y slab
     if dy ~= 0 then
         local ty1 = (y - y1) / dy
         local ty2 = (bottom - y1) / dy
 
         if dy > 0 then
-            -- Moving down: ty1 is entry, ty2 is exit
             if ty1 ~= -math.huge then
-                tmin = math.max(tmin, ty1)
+                min_t = math.max(min_t, ty1)
             end
+
             if ty2 ~= math.huge then
-                tmax = math.min(tmax, ty2)
+                max_t = math.min(max_t, ty2)
             end
         else
-            -- Moving up: ty2 is entry, ty1 is exit
             if ty2 ~= -math.huge then
-                tmin = math.max(tmin, ty2)
+                min_t = math.max(min_t, ty2)
             end
+
             if ty1 ~= math.huge then
-                tmax = math.min(tmax, ty1)
+                max_t = math.min(max_t, ty1)
             end
         end
 
-        if tmin > tmax then
+        if min_t > max_t then
             return false
         end
     else
-        -- dy == 0: segment is horizontal, check if Y is within bounds
+        -- dy == 0: segment is horizontal, check if y is within bounds
         if y1 < y or y1 > bottom then
             return false
         end
