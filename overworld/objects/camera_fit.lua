@@ -2,8 +2,8 @@
 --- @types Rectangle
 ow.CameraFit = meta.class("CameraFit")
 
---- @class ow.CameraFitFocus
-ow.CameraFitFocus = meta.class("CameraFitFocus") -- dummy
+--- @class ow.CameraFitBody
+ow.CameraFitBody = meta.class("CameraFitBody") -- dummy
 
 --- @brief
 function ow.CameraFit:instantiate(object, stage, scene)
@@ -18,8 +18,12 @@ function ow.CameraFit:instantiate(object, stage, scene)
     self._scene = scene
     self._stage = stage
 
+    if object:get_object("body") == nil then
+        self._body = object:create_physics_body(stage:get_physics_world())
+    else
+        self._body = object:get_object("body"):create_physics_body(stage:get_physics_world())
+    end
 
-    self._body = object:create_physics_body(stage:get_physics_world())
     self._body:set_is_sensor(true)
     self._body:set_collides_with(rt.settings.player.player_collision_group)
     self._body:set_collision_group(rt.settings.player.ghost_collision_group)
@@ -38,30 +42,6 @@ function ow.CameraFit:instantiate(object, stage, scene)
 
     self._scale_speed = to_fraction(object:get_number("scale_speed", false) or 1)
     self._speed = to_fraction(object:get_number("speed", false) or 1)
-
-    -- focus as point
-    self._use_focus = object:get_has_property("focus")
-    if self._use_focus then
-        local focus = object:get_object("focus")
-        rt.assert(focus:get_type() == ow.ObjectType.POINT, "In ow.CameraFit: property `focus` does not point to a `POINT` object")
-        self._focus_x = focus.x
-        self._focus_y = focus.y
-
-        -- shift body so focus is new center
-        local center_x, center_y = object.x + 0.5 * object.width, object.y + 0.5 * object.height
-        local current_x, current_y = self._body:get_position()
-        local focus_offset_x, focus_offset_y = (self._focus_x - center_x),  (self._focus_y - center_y)
-        self._body:set_position(
-            current_x + focus_offset_x,
-            current_y + focus_offset_y
-        )
-
-        self._bounds.x = self._bounds.x + focus_offset_x
-        self._bounds.y = self._bounds.y + focus_offset_y
-    else
-        self._focus_x = nil
-        self._focus_y = nil
-    end
 
     self._is_active = false
     self._stage:signal_connect("respawn", function()
@@ -82,7 +62,7 @@ function ow.CameraFit:_bind()
     camera:set_scale_speed(self._scale_speed)
     camera:set_speed(self._speed)
     camera:move_to(self._bounds.x + 0.5 * self._bounds.width, self._bounds.y + 0.5 * self._bounds.height)
-    camera:fit_to(self._bounds, self._focus_x, self._focus_y)
+    camera:fit_to(self._bounds)
 
     self._stage:signal_connect("respawn", function()
         self:_unbind()
@@ -101,7 +81,7 @@ function ow.CameraFit:update(delta)
     if not self._stage:get_is_body_visible(self._body) then return end
 
     local was_active = self._is_active
-    local is_active = self._bounds:contains(self._scene:get_player():get_position())
+    local is_active = self._body:test_point(self._scene:get_player():get_position())
 
     if was_active == false and is_active == true then
         self:_bind()

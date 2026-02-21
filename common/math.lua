@@ -641,6 +641,46 @@ function math.cross3(x1, y1, z1, x2, y2, z2)
     x1 * y2 - y1 * x2
 end
 
+--- @brief
+function math.distance_to_line(pt_x, pt_y, line_ax, line_ay, line_bx, line_by)
+    local ab_x = line_bx - line_ax
+    local ab_y = line_by - line_ay
+    local ab_len = math.magnitude(ab_x, ab_y)
+
+    if ab_len < math.eps then
+        return math.distance(pt_x, pt_y, line_ax, line_ay)
+    end
+
+    local ap_x = pt_x - line_ax
+    local ap_y = pt_y - line_ay
+
+    local cross = math.abs(math.cross(ab_x, ab_y, ap_x, ap_y))
+    return cross / ab_len
+end
+
+--- @brief
+function math.distance_to_line_segment(pt_x, pt_y, line_ax, line_ay, line_bx, line_by)
+    local ab_x = line_bx - line_ax
+    local ab_y = line_by - line_ay
+    local ab_len_sq = math.dot(ab_x, ab_y, ab_x, ab_y)
+
+    if ab_len_sq < math.eps then
+        return math.distance(pt_x, pt_y, line_ax, line_ay)
+    end
+
+    local ap_x = pt_x - line_ax
+    local ap_y = pt_y - line_ay
+
+    local t = math.dot(ap_x, ap_y, ab_x, ab_y) / ab_len_sq
+
+    t = math.max(0, math.min(1, t))
+
+    local closest_x = line_ax + t * ab_x
+    local closest_y = line_ay + t * ab_y
+
+    return math.distance(pt_x, pt_y, closest_x, closest_y)
+end
+
 --- @brief Normalize a 2D or 3D vector.
 function math.normalize(...)
     if select("#", ...) == 2 then

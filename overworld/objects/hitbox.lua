@@ -45,7 +45,8 @@ function ow.Hitbox:instantiate(object, stage, scene)
         "slippery",
         "sticky",
         "unjumpable",
-        "unwalkable"
+        "unwalkable",
+        "no_friction"
     ) do
         if object:get_boolean(property) then
             self._body:add_tag(property)

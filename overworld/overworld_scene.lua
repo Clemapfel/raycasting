@@ -78,7 +78,6 @@ function ow.OverworldScene:instantiate(state)
     ow.StageConfig._tileset_atlas = {}
     rt.Sprite._path_to_spritesheet = {}
 
-
     meta.install(self, {
         _state = state,
         _camera = rt.Camera(),
@@ -974,9 +973,22 @@ function ow.OverworldScene:get_player()
     return self._player
 end
 
+local _camera_mode_priority = {
+    [1] = ow.CameraMode.FREEZE,
+    [2] = ow.CameraMode.CUTSCENE,
+    [3] = ow.CameraMode.BOUNDED,
+    [4] = ow.CameraMode.UNBOUNDED
+}
+
 --- @brief
 function ow.OverworldScene:get_camera_mode()
-    return self._camera_mode
+    for _, mode in ipairs(_camera_mode_priority) do
+        if self._camera_modes[mode] > 0 then
+            return mode
+        end
+    end
+
+    return _camera_mode_priority[#_camera_mode_priority]
 end
 
 --- @brief

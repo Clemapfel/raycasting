@@ -529,7 +529,7 @@ function ow.NPC:draw(priority)
 end
 
 function ow.NPC:get_position()
-    return self._sensor:get_position()
+    return self._x, self._y
 end
 
 function ow.NPC:draw_bloom()

@@ -634,41 +634,77 @@ do -- update helpers (XPBD with lambdas)
         return correction_ax, correction_ay, correction_bx, correction_by, lambda_new
     end
 
-    -- XPBD bending as end-to-end AC distance equals target (sum of adjacent segment lengths)
-    -- C = |c - a| - target_ac = 0
+    -- XPBD bending: keep B on the line through A–C using a point-to-line constraint.
+    -- Constraint:
+    --   Let t = normalize(c - a), n = perp(t) = (-t_y, t_x)
+    --   C = dot(((a + c) / 2) - b, n) = 0
+    -- This drives the midpoint of A and C to lie on B along the normal of AC (or equivalently B to lie on line AC).
+    -- Using constant-n approximation (treat n as constant w.r.t positions), the gradients are:
+    --   g_a =  0.5 * n
+    --   g_b = -1.0 * n
+    --   g_c =  0.5 * n
+    -- which satisfy translation invariance: g_a + g_b + g_c = 0.
+    -- XPBD update:
+    --   dλ = -(C + α λ) / (Σ w_i |g_i|^2 + α)
+    --   x_i += w_i * dλ * g_i
     local function _enforce_bending_xpbd(
-        ax, ay, bx, by, cx, cy, 
+        ax, ay, bx, by, cx, cy,
         inverse_mass_a, inverse_mass_b, inverse_mass_c,
-        target_ac_distance,
+        _target_ac_distance, -- kept for signature compatibility; not used in this formulation
         alpha,
         lambda_before
     )
-        local delta_x = cx - ax
-        local delta_y = cy - ay
-        local length = math.magnitude(delta_x, delta_y)
-        if length < math.eps then
-            return 0, 0, 0, 0, 0, 0, lambda_before
+        -- direction from A to C
+        local t_x = cx - ax
+        local t_y = cy - ay
+        local t_len = math.magnitude(t_x, t_y)
+        if t_len < math.eps then
+            -- degenerate: A and C coincide -> no stable normal available
+            return 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, lambda_before
         end
-        local normal_x, normal_y = math.normalize(delta_x, delta_y)
+        t_x, t_y = math.normalize(t_x, t_y)
 
-        local constraint = length - target_ac_distance
-        local weight_sum = inverse_mass_a + inverse_mass_c
+        -- perpendicular normal
+        local n_x = -t_y
+        local n_y =  t_x
+
+        -- midpoint of A and C
+        local m_x = 0.5 * (ax + cx)
+        local m_y = 0.5 * (ay + cy)
+
+        -- scalar constraint: signed distance of B from line AC along n
+        local e_x = m_x - bx
+        local e_y = m_y - by
+        local constraint = math.dot(e_x, e_y, n_x, n_y)
+
+        -- gradients (constant-n approximation)
+        local gax, gay =  0.5 * n_x,  0.5 * n_y
+        local gbx, gby = -1.0 * n_x, -1.0 * n_y
+        local gcx, gcy =  0.5 * n_x,  0.5 * n_y
+
+        -- Σ w_i |g_i|^2, with |n| = 1
+        local weight_sum =
+        inverse_mass_a * (0.5 * 0.5) +
+            inverse_mass_b * (1.0 * 1.0) +
+            inverse_mass_c * (0.5 * 0.5)
+
         local denominator = weight_sum + alpha
         if denominator < math.eps then
-            return 0, 0, 0, 0, 0, 0, lambda_before
+            return 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, lambda_before
         end
 
         local delta_lambda = -(constraint + alpha * lambda_before) / denominator
         local lambda_new = lambda_before + delta_lambda
 
-        -- a += w_a * dλ * (-n); c += w_c * dλ * (n)
-        local correction_ax = inverse_mass_a * delta_lambda * (-normal_x)
-        local correction_ay = inverse_mass_a * delta_lambda * (-normal_y)
-        local correction_cx = inverse_mass_c * delta_lambda * ( normal_x)
-        local correction_cy = inverse_mass_c * delta_lambda * ( normal_y)
+        -- corrections
+        local correction_ax = inverse_mass_a * delta_lambda * gax
+        local correction_ay = inverse_mass_a * delta_lambda * gay
+        local correction_bx = inverse_mass_b * delta_lambda * gbx
+        local correction_by = inverse_mass_b * delta_lambda * gby
+        local correction_cx = inverse_mass_c * delta_lambda * gcx
+        local correction_cy = inverse_mass_c * delta_lambda * gcy
 
-        -- B gets no direct correction in this simplified bending constraint
-        return correction_ax, correction_ay, 0.0, 0.0, correction_cx, correction_cy, lambda_new
+        return correction_ax, correction_ay, correction_bx, correction_by, correction_cx, correction_cy, lambda_new
     end
 
     -- XPBD axis-alignment (1D scalar constraint: perpendicular projection to rotate segment towards axis)
@@ -903,7 +939,7 @@ do -- update helpers (XPBD with lambdas)
                         local segment_length_bc = data[b_i + _segment_length_offset]
                         local target_length = segment_length_ab + segment_length_bc
 
-                        local correction_ax, correction_ay, _, _, correction_cxx, correction_cxy, lambda_new = _enforce_bending_xpbd(
+                        local correction_ax, correction_ay, correction_bx, correction_by, correction_cx, correction_cy, lambda_new = _enforce_bending_xpbd(
                             ax, ay, bx, by, particle_c_x, particle_c_y,
                             inverse_mass_a, inverse_mass_b, inverse_mass_c,
                             target_length,
@@ -913,8 +949,10 @@ do -- update helpers (XPBD with lambdas)
                         
                         data[a_i + _x_offset] = ax + correction_ax
                         data[a_i + _y_offset] = ay + correction_ay
-                        data[c_i + _x_offset] = particle_c_x + correction_cxx
-                        data[c_i + _y_offset] = particle_c_y + correction_cxy
+                        data[b_i + _x_offset] = bx + correction_bx
+                        data[b_i + _y_offset] = by + correction_by
+                        data[c_i + _x_offset] = particle_c_x + correction_cx
+                        data[c_i + _y_offset] = particle_c_y + correction_cy
                         data[a_i + _bending_lambda_offset] = lambda_new
 
                     end

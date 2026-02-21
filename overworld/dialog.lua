@@ -1,6 +1,6 @@
 local PLAYER = rt.Translation.player_name
 local PLAYER_SIDE = "right"
-local NPC = rt.Translation.npc_name
+local NPC = "Unnamed Eyes" --rt.Translation.npc_name
 local NPC_SIDE = "left"
 
 local EYES_NAME = "(# EYES_NAME)"
@@ -14,6 +14,18 @@ return setmetatable({
             speaker = EYES_NAME,
             "<b>Glass</b> like this is <wave>slippery</wave>, if you walk on it you slide around instead of stopping.",
             "There is no way to climb walls made out of glass, and none of your \"paint\" will stick to it. Be careful and always try to keep in mind the type of surface you are touching"
+        }
+    },
+
+    temp = {
+        {
+            speaker = EYES_NAME,
+            next = 2,
+            "r8 my <rainbow><wave><b>NPC</b></wave></rainbow>!",
+        },
+        {
+            speaker = EYES_NAME,
+            "I like that he warps the map so it feels like he is not part of the game, I will use him to convey <i><b>non-diagetic information</b></i>, like tips about the game, everything else except the button prompts I guess should be diagetic."
         }
     },
 

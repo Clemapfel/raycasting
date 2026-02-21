@@ -9,7 +9,12 @@ function ow.CameraFreeze:instantiate(object, stage, scene)
     self._scene = scene
     self._stage = stage
 
-    self._body = object:create_physics_body(stage:get_physics_world())
+    if object:get_object("body") then
+        self._body = object:get_object("body"):create_physics_body(stage:get_physics_world())
+    else
+        self._body = object:create_physics_body(stage:get_physics_world())
+    end
+
     self._body:set_is_sensor(true)
     self._body:set_collides_with(rt.settings.player.player_collision_group)
 

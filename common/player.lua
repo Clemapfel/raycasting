@@ -849,35 +849,7 @@ function rt.Player:update(delta)
 
     -- check if tethers should be cleared
     if not is_bubble then
-        local should_clear = false
-
-        local check_body = function(body)
-            if is_grounded then
-                -- any ground clears
-                return body ~= nil and body:has_tag("hitbox")
-            else
-                -- only sticky walls clear
-                return body ~= nil and body:has_tag("hitbox") and not body:has_tag("slippery")
-            end
-        end
-
-        for tuple in range(
-            { bottom_wall_body, bottom_x, bottom_y },
-            { bottom_left_wall_body, bottom_left_x, bottom_left_y },
-            { bottom_right_wall_body, bottom_right_x, bottom_right_y },
-            { left_wall_body, left_x, left_y },
-            { right_wall_body, right_x, right_y }
-        ) do
-            local body, ray_x, ray_y = table.unpack(tuple)
-            if check_body(body) then
-                if math.distance(x, y, ray_x, ray_y) < self._radius then
-                    should_clear = true
-                    break
-                end
-            end
-        end
-
-        if should_clear then
+        if is_grounded then
             for instance in values(self._double_jump_sources) do
                 if instance.signal_try_emit ~= nil then instance:signal_try_emit("removed") end
             end

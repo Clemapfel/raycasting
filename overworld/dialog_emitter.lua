@@ -106,7 +106,7 @@ function ow.DialogEmitter:present()
     self._dialog_box_motion:set_target_value(_REVEALED)
 
     if self._should_lock then
-        self._scene:get_player():set_movement_disabled(true)
+        self._scene:get_player():request_is_movement_disabled(self, true)
     end
 
     if self._should_focus then
@@ -139,7 +139,7 @@ function ow.DialogEmitter:close()
         self._scene:signal_connect("update", function()
             n_delay = n_delay - 1
             if n_delay <= 0 then
-                self._scene:get_player():set_movement_disabled(false)
+                self._scene:get_player():request_is_movement_disabled(self, nilg)
                 return meta.DISCONNECT_SIGNAL
             end
         end)

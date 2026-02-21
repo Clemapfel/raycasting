@@ -18,7 +18,12 @@ function ow.CameraBounds:instantiate(object, stage, scene)
     self._should_apply_bounds = object:get_boolean("should_apply_bounds", false)
     if self._should_apply_bounds == nil then self._should_apply_bounds = true end
 
-    self._body = object:create_physics_body(stage:get_physics_world())
+    if object:get_object("body") ~= nil then
+        self._body = object:get_object("body"):create_physics_body(stage:get_physics_world())
+    else
+        self._body = object:create_physics_body(stage:get_physics_world())
+    end
+
     self._body:set_is_sensor(true)
     self._body:set_collides_with(rt.settings.player.player_collision_group)
     self._body:set_collision_group(rt.settings.player.ghost_collision_group)

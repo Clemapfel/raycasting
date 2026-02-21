@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 801,
+  nextobjectid = 807,
   properties = {},
   tilesets = {
     {
@@ -198,8 +198,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = 2362.39,
-          y = 3004.92,
+          x = 32,
+          y = 1520,
           width = 0,
           height = 0,
           rotation = 0,
@@ -3176,6 +3176,64 @@ return {
             { x = 16, y = 320 }
           },
           properties = {}
+        },
+        {
+          id = 801,
+          name = "",
+          type = "AirDashNode",
+          shape = "ellipse",
+          x = 1440,
+          y = 1504,
+          width = 96,
+          height = 96,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 804,
+          name = "",
+          type = "DoubleJumpTether",
+          shape = "point",
+          x = 1392,
+          y = 1680,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 805,
+          name = "",
+          type = "AcceleratorSurface",
+          shape = "polygon",
+          x = -336,
+          y = 1136,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = -16 },
+            { x = 0, y = 320 },
+            { x = 736, y = 320 },
+            { x = 736, y = -16 }
+          },
+          properties = {}
+        },
+        {
+          id = 806,
+          name = "",
+          type = "CameraFit",
+          shape = "rectangle",
+          x = -448,
+          y = 1008,
+          width = 960,
+          height = 592,
+          rotation = 0,
+          visible = true,
+          properties = {}
         }
       }
     },
@@ -3205,7 +3263,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["dialog_id"] = "slippery_floor_tutorial",
+            ["dialog_id"] = "temp",
             ["should_focus"] = false,
             ["type"] = "eyes"
           }

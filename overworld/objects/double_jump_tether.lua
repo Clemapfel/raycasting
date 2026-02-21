@@ -6,6 +6,7 @@ require "overworld.movable_object"
 
 rt.settings.overworld.double_jump_tether = {
     radius_factor = 1.5,
+    cooldown = 45 / 60
 }
 
 --- @class DoubleJumpTether
@@ -52,16 +53,26 @@ function ow.DoubleJumpTether:instantiate(object, stage, scene)
     self._body:set_user_data(self)
 
     self._was_consumed = false
+    self._is_blocked = false
     self._body:signal_connect("collision_start", function(_)
         local player = self._scene:get_player()
         if not player:get_is_double_jump_source(self)
             and self._particle_opacity_motion:get_value() > 0.8 -- cooldown tied to animation
+            and self._cooldown_elapsed > rt.settings.overworld.double_jump_tether.cooldown
+            and not self._is_blocked
         then
             player:add_double_jump_source(self)
             player:pulse(self._color)
             self:update(0)
+            self._is_blocked = true
         end
     end)
+
+    self._body:signal_connect("collision_end", function(_)
+        self._is_blocked = false
+    end)
+
+    self._cooldown_elapsed = math.huge
 
     -- graphics
     self._hue = _hue_steps[stage.double_jump_tether_current_hue_step]
@@ -90,6 +101,16 @@ function ow.DoubleJumpTether:update(delta)
     local is_consumed = self._scene:get_player():get_is_double_jump_source(self)
     local is_visible = self._stage:get_is_body_visible(self._body)
 
+    if self._on_cooldown then
+        self._cooldown_elapsed = self._cooldown_elapsed + delta
+        if self._cooldown_elapsed > rt.settings.overworld.double_jump_tether.cooldown then
+            self._particle:set_is_exploded(false)
+            self._particle_opacity_motion:set_target_value(1)
+            self._on_cooldown = false
+            self._cooldown_elapsed = math.huge
+        end
+    end
+
     self._particles:update(delta)
     self._line_opacity_motion:update(delta)
     local already_tethered = false
@@ -102,9 +123,9 @@ function ow.DoubleJumpTether:update(delta)
         local x, y = self._body:get_position()
         self._tether:tether(x, y, self._scene:get_player():get_position())
     elseif self._was_consumed == true and is_consumed == false then
+        self._cooldown_elapsed = 0
         self._line_opacity_motion:set_target_value(0)
-        self._particle_opacity_motion:set_target_value(1)
-        self._particle:set_is_exploded(false)
+        self._on_cooldown = true
     end
     self._was_consumed = is_consumed
 

@@ -57,8 +57,38 @@ local _particle_i_to_data_offset = function(particle_i)
     return (particle_i - 1) * _stride + 1
 end
 
+-- check if directed vector points towards or away from line
+local function velocity_towards_line(ax, ay, bx, by, vx, vy, is_grounded)
+    local dx, dy = math.normalize(ax - bx, ay - by)
+    local left_x, left_y = math.turn_left(dx, dy)
+    local proj = math.dot(vx, vy, left_x, left_y)
+
+    -- normalize velocity to get accurate angle calculation
+    local vx_norm, vy_norm = math.normalize(vx, vy)
+    local dot_parallel = math.abs(math.dot(vx_norm, vy_norm, dx, dy))
+
+    -- check if angle is shallower than 15 degrees
+    local threshold = math.cos(rt.settings.overworld.portal.velocity_angle_min_threshold)
+    if not is_grounded
+        and dot_parallel > threshold
+    then
+        return nil
+    end
+
+    local eps = 1e-5
+    if proj < -eps then
+        return _LEFT
+    elseif proj > eps then
+        return _RIGHT
+    else
+        return nil  -- parallel case
+    end
+end
+
 --- @brief
 function ow.Portal:instantiate(object, stage, scene)
+    if stage.portal_hue == nil then stage.portal_hue = 0 end
+
     if _particle_texture == nil then
         local radius = rt.settings.overworld.portal.particle.radius
         local padding = 3
@@ -91,6 +121,7 @@ function ow.Portal:instantiate(object, stage, scene)
     self._pulse_elapsed = math.huge
     self._pulse_value = 0
     self._impulse = rt.ImpulseSubscriber()
+    self._move_camera = true
 
     self._hue = 0
     self._hue_set = false
@@ -164,7 +195,8 @@ function ow.Portal:instantiate(object, stage, scene)
             elseif self._hue_set == true and target_instance._hue_set == false then
                 target_instance._hue = self._hue
             elseif self._hue_set == false and target_instance._hue_set == false then
-                self._hue = (object:get_id() % 16) / 16
+                self._hue = (stage.portal_hue % 13) / 13
+                stage.portal_hue = stage.portal_hue + 1
                 target_instance._hue = self._hue
             end
 
@@ -290,34 +322,6 @@ function ow.Portal:instantiate(object, stage, scene)
         if not self._is_dead_end then
             -- start teleportation sequence
             self._segment_sensor:signal_connect("collision_start", function(self_body, other_body, nx, ny, contact_x, contact_y)
-                -- check if directed vector points towards or away from line
-                local function velocity_towards_line(ax, ay, bx, by, vx, vy)
-                    local dx, dy = math.normalize(ax - bx, ay - by)
-                    local left_x, left_y = math.turn_left(dx, dy)
-                    local proj = math.dot(vx, vy, left_x, left_y)
-
-                    -- normalize velocity to get accurate angle calculation
-                    local vx_norm, vy_norm = math.normalize(vx, vy)
-                    local dot_parallel = math.abs(math.dot(vx_norm, vy_norm, dx, dy))
-
-                    -- check if angle is shallower than 15 degrees
-                    local threshold = math.cos(rt.settings.overworld.portal.velocity_angle_min_threshold)
-                    if not self._scene:get_player():get_is_grounded()
-                        and dot_parallel > threshold
-                    then
-                        return nil
-                    end
-
-                    local eps = 1e-5
-                    if proj < -eps then
-                        return _LEFT
-                    elseif proj > eps then
-                        return _RIGHT
-                    else
-                        return nil  -- parallel case
-                    end
-                end
-
                 -- get t in 0, 1 of closest point on line to px, py
                 local function t_on_line(x1, y1, x2, y2, px, py)
                     local segment_vec_x = x2 - x1
@@ -506,6 +510,8 @@ function ow.Portal:_set_player_disabled(b)
     end
 
     if b == true then
+        self._move_camera = self._scene:get_camera_mode() ~= ow.CameraMode.CUTSCENE
+
         self._scene:push_camera_mode(ow.CameraMode.CUTSCENE)
         self._scene:get_camera():set_apply_bounds(true)
     else
@@ -540,7 +546,6 @@ end
 --- @brief
 function ow.Portal:update(delta)
     local target = self._target
-
     if not self._is_dead_end and self._object:get_physics_body_type() ~= b2.BodyType.STATIC then
         self._offset_x, self._offset_y = self._area_sensor:get_position()
     end
@@ -562,7 +567,10 @@ function ow.Portal:update(delta)
             path = self._target._tether:as_path()
             transition_x, transition_y = path:at(1 - t)
         end
-        self._scene:get_camera():move_to(transition_x, transition_y)
+
+        if self._move_camera then
+            self._scene:get_camera():move_to(transition_x, transition_y)
+        end
 
         -- move player towards portal
         local magnitude = math.magnitude(self._transition_velocity_x, self._transition_velocity_y)
@@ -599,8 +607,15 @@ function ow.Portal:update(delta)
             end
         end
 
+        local is_done
+        if self._move_camera then
+            is_done = t >= 1
+        else
+            is_done = t >= math.min(1, 4 * player:get_radius() / path:get_length())
+        end
+
         -- once camera arrives, properly teleport
-        if t >= 1 then
+        if is_done then
             player:request_is_trail_visible(self, nil)
             self:_set_player_disabled(false)
             self:_teleport()
@@ -761,7 +776,7 @@ function ow.Portal:draw()
 
     local r, g, b, a = self._color:unpack()
 
-    if self._tether ~= nil then --self._tether ~= nil and rt.GameState:get_is_color_blind_mode_enabled() then
+    if self._tether ~= nil and rt.GameState:get_is_color_blind_mode_enabled() then
         love.graphics.setLineWidth(2)
         love.graphics.setColor(r, g, b, a)
         self._tether:draw()
@@ -834,7 +849,6 @@ function ow.Portal:draw()
     love.graphics.translate(pulse_origin_y, pulse_origin_y)
     love.graphics.scale(1 - self._pulse_value)
     love.graphics.translate(-pulse_origin_y, -pulse_origin_y)
-
 
     local brightness = lightness
     love.graphics.setColor(brightness * r, brightness * g, brightness * b, 1)

@@ -13,7 +13,7 @@ function love.conf(settings)
 
     settings.window.width = height * aspect_ratio
     settings.window.height = height
-    settings.window.msaa = 0
+    settings.window.msaa = 2
     settings.window.resizable = true
     settings.window.vsync = VSYNC_ADAPTIVE
     settings.window.usedpiscale = true
@@ -41,6 +41,7 @@ function love.conf(settings)
     if not DEBUG then
         _G._setfenv = setfenv or debug.setfenv
         debug = nil
+        setfenv = nil
     end
 end
 
