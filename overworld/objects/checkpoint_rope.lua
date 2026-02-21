@@ -9,6 +9,9 @@ rt.settings.overworld.checkpoint_rope = {
 ow.CheckpointRope = meta.class("CheckpointRope")
 
 local _shader = rt.Shader("overworld/objects/checkpoint_rope.glsl")
+local _noise_texture = rt.NoiseTexture(32, 32, 8,
+    rt.NoiseType.GRADIENT, 8
+)
 
 function rotate_segment_around_point(x1, y1, x2, y2, px, py, angle)
     local x1_translated = x1 - px
@@ -555,6 +558,13 @@ function ow.CheckpointRope:_draw(bloom_active)
     if self._is_despawned then return end
 
     _shader:bind()
+
+    if bloom_active then
+        _shader:send("black", { 0, 0, 0, 0 })
+    else
+        _shader:send("black", { rt.Palette.BLACK:unpack() })
+    end
+    _shader:send("noise_texture", _noise_texture)
     _shader:send("elapsed", rt.SceneManager:get_elapsed())
     _shader:send("color", { self._color:unpack() })
     _shader:send("bloom_active", bloom_active)

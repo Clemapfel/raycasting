@@ -2,6 +2,9 @@
 ow.CheckpointPlatform = meta.class("CheckpointPlatform")
 
 local _shader = rt.Shader("overworld/objects/checkpoint_platform.glsl")
+local _noise_texture = rt.NoiseTexture(32, 32, 8,
+    rt.NoiseType.GRADIENT, 8
+)
 
 --- @brief
 function ow.CheckpointPlatform:instantiate(x1, y1, x2, y2, radius)
@@ -86,6 +89,8 @@ end
 --- @brief
 function ow.CheckpointPlatform:draw()
     _shader:bind()
+    _shader:send("black", { rt.Palette.BLACK:unpack() })
+    _shader:send("noise_texture", _noise_texture)
     _shader:send("elapsed", rt.SceneManager:get_elapsed())
     _shader:send("color", self._color)
     _shader:send("bloom_active", false)
@@ -98,6 +103,8 @@ end
 --- @brief
 function ow.CheckpointPlatform:draw_bloom()
     _shader:bind()
+    _shader:send("black", { 0, 0, 0, 0 })
+    _shader:send("noise_texture", _noise_texture)
     _shader:send("elapsed", rt.SceneManager:get_elapsed())
     _shader:send("color", self._color)
     _shader:send("bloom_active", true)

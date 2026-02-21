@@ -24,7 +24,6 @@ rt.settings.overworld.accelerator_surface = {
 ow.AcceleratorSurface = meta.class("AcceleratorSurface", ow.MovableObject)
 
 local _particle_texture, _particle_quads = nil, {}
-local _particle_spritebatch = nil
 
 -- init particle meshes
 local _vertex_counts = {}
@@ -124,13 +123,14 @@ function ow.AcceleratorSurface:instantiate(object, stage, scene)
         end
 
         love.graphics.pop()
-
-        _particle_spritebatch = love.graphics.newSpriteBatch(
-            _particle_texture:get_native(),
-            rt.settings.overworld.accelerator_surface.particle.max_n_particles,
-            "stream"
-        )
     end
+
+    -- Create a per-instance spritebatch (texture is shared)
+    self._particle_spritebatch = love.graphics.newSpriteBatch(
+        _particle_texture:get_native(),
+        rt.settings.overworld.accelerator_surface.particle.max_n_particles,
+        "stream"
+    )
 
     self._scene = scene
     self._stage = stage
@@ -225,12 +225,7 @@ local _is_stale = 0
 local _is_not_stale = 1
 
 function ow.AcceleratorSurface:update(delta)
-    if not self._is_visible or not self._stage:get_is_body_visible(self._body) then
-        table.clear(self._particle_data)
-        table.clear(self._stale_particle_indices)
-        self._n_particles = 0
-        return
-    end
+    if not self._is_visible or (not self._stage:get_is_body_visible(self._body) and self._n_particles == 0) then return end
 
     local settings = rt.settings.overworld.accelerator_surface.particle
 
@@ -277,7 +272,8 @@ function ow.AcceleratorSurface:update(delta)
         end
     end
 
-    _particle_spritebatch:clear()
+    -- per-instance spritebatch
+    self._particle_spritebatch:clear()
     local frame_h = _particle_texture:get_height()
 
     local aabb = self._scene:get_camera():get_world_bounds()
@@ -312,17 +308,19 @@ function ow.AcceleratorSurface:update(delta)
                 rt.settings.overworld.accelerator_surface.particle.decay
             )
 
-            _particle_spritebatch:setColor(1, 1, 1, alpha)
-            _particle_spritebatch:add(
-                _particle_quads[data[i + _quad_i_offset]],
-                data[i + _x_offset],
-                data[i + _y_offset],
-                data[i + _angle_offset],
-                data[i + _scale_offset],
-                data[i + _scale_offset],
-                0.5 * frame_h,
-                0.5 * frame_h
-            )
+            if alpha > math.eps then
+                self._particle_spritebatch:setColor(1, 1, 1, alpha)
+                self._particle_spritebatch:add(
+                    _particle_quads[data[i + _quad_i_offset]],
+                    data[i + _x_offset],
+                    data[i + _y_offset],
+                    data[i + _angle_offset],
+                    data[i + _scale_offset],
+                    data[i + _scale_offset],
+                    0.5 * frame_h,
+                    0.5 * frame_h
+                )
+            end
         end
     end
 
@@ -355,8 +353,6 @@ local particle_priority = math.huge
 
 --- @brief
 function ow.AcceleratorSurface:draw(priority)
-    if not self._is_visible or not self._stage:get_is_body_visible(self._body) then return end
-
     local offset_x, offset_y = self._body:get_position()
     love.graphics.setColor(1, 1, 1, 1)
     local camera = self._scene:get_camera()
@@ -365,6 +361,8 @@ function ow.AcceleratorSurface:draw(priority)
     transform = transform:inverse()
 
     if priority == base_priority then
+        if not self._is_visible or not self._stage:get_is_body_visible(self._body) then return end
+
         love.graphics.push()
         love.graphics.translate(offset_x, offset_y)
 
@@ -397,7 +395,7 @@ function ow.AcceleratorSurface:draw(priority)
         _particle_shader:send("noise_texture", _noise_texture)
         _particle_shader:send("screen_to_world_transform", transform)
         love.graphics.setColor(1, 1, 1, 1)
-        love.graphics.draw(_particle_spritebatch)
+        love.graphics.draw(self._particle_spritebatch)
         _particle_shader:unbind()
     end
 end

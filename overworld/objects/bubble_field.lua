@@ -38,13 +38,6 @@ local _noise_texture = rt.NoiseTexture(64, 64, 8,
     rt.NoiseType.GRADIENT, 16
 )
 
-DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
-    if which == "k" then
-        _base_shader:recompile()
-        _outline_shader:recompile()
-    end
-end)
-
 --- @brief
 function ow.BubbleField:instantiate(object, stage, scene)
     -- collision
