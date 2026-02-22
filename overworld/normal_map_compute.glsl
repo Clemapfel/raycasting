@@ -142,7 +142,6 @@ void computemain() {
     float v20 = imageLoad(jfa_texture_array, ivec3(position + ivec2(-1,  1), final_layer)).z;
     float v22 = imageLoad(jfa_texture_array, ivec3(position + ivec2( 1,  1), final_layer)).z;
 
-    // Only load center column for y-gradient
     float v01 = imageLoad(jfa_texture_array, ivec3(position + ivec2( 0, -1), final_layer)).z;
     float v21 = imageLoad(jfa_texture_array, ivec3(position + ivec2( 0,  1), final_layer)).z;
 
@@ -163,7 +162,6 @@ void computemain() {
     vec4 mask = imageLoad(mask_texture, position);
     vec4 current = imageLoad(jfa_texture_array, ivec3(position, final_layer));
 
-    // crop to save on memory, we need chunk * 1.5 size for SDF continuity
     position.x -= int(export_texture_quad.x);
     position.y -= int(export_texture_quad.y);
 

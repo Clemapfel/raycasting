@@ -358,17 +358,18 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
         )
 
         local dispatch_size_x, dispatch_size_y = (chunk_size + 2 * padding) / size_x, (chunk_size + 2 * padding) / size_y
+        local lg = love.graphics
 
         for chunk in values(self._non_empty_chunks) do
             -- fill mask
-            love.graphics.setCanvas({ mask, stencil = true })
-            love.graphics.clear(0, 0, 0, 0)
+            lg.setCanvas({ mask, stencil = true })
+            lg.clear(0, 0, 0, 0)
 
-            love.graphics.push()
-            love.graphics.translate(-chunk.x + padding, -chunk.y + padding)
+            lg.push()
+            lg.translate(-chunk.x + padding, -chunk.y + padding)
             self._draw_mask_callback()
-            love.graphics.pop()
-            love.graphics.setCanvas(nil)
+            lg.pop()
+            lg.setCanvas(nil)
 
             -- init (writes to layer 0, boundaries to both layers)
             _init_shader:send("mask_texture", mask)
@@ -381,7 +382,7 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
             local jump = 0.5 * chunk_size
             local current_layer = 0
 
-            while jump > 1 do -- texture is power of 2 size
+            while jump > 0.5 do -- jfa+1, necessary
                 local input_layer = current_layer
                 local output_layer = 1 - current_layer
 

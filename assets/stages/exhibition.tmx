@@ -98,7 +98,7 @@
   <object id="519" type="SlipperyHitbox" x="-2752" y="2288">
    <polygon points="16,32 -32,32 -32,-16 16,-16"/>
   </object>
-  <object id="520" name="Spawn" type="PlayerSpawn" x="-4194.91" y="438.149">
+  <object id="520" name="Spawn" type="PlayerSpawn" x="-1119.44" y="2013.62">
    <point/>
   </object>
   <object id="521" name="Portal" type="Portal" x="-3200" y="2224">
