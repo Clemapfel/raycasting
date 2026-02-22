@@ -13,7 +13,9 @@ rt.RenderTexture = meta.class("RenderTexture", rt.Texture)
 
 --- @brief
 function rt.RenderTexture:instantiate(width, height, msaa, format, is_compute, use_mipmaps)
-    if width == nil and height == nil then
+    if width == nil or math.is_nan(width) or math.abs(width) == math.huge
+        or height == nil or math.is_nan(height) or math.abs(height) == math.huge
+    then
         meta.install(self, {
             _native = rt._render_texture_dummy,
             _width = 1,

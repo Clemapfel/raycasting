@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 7,
-  nextobjectid = 697,
+  nextobjectid = 698,
   properties = {},
   tilesets = {
     {
@@ -1543,6 +1543,31 @@ return {
             { x = 0, y = 496 },
             { x = 208, y = 496 },
             { x = 208, y = 0 }
+          },
+          properties = {}
+        },
+        {
+          id = 697,
+          name = "",
+          type = "",
+          shape = "polygon",
+          x = -772.632,
+          y = 461.86,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 4.63235, y = 2.14028 },
+            { x = 4.63235, y = 290.14 },
+            { x = -1355.37, y = 290.14 },
+            { x = -1355.37, y = -1533.86 },
+            { x = 964.632, y = -1533.86 },
+            { x = 964.632, y = -845.86 },
+            { x = 1220.63, y = -845.86 },
+            { x = 1220.63, y = -509.86 },
+            { x = 644.632, y = -509.86 },
+            { x = 644.632, y = 2.14028 }
           },
           properties = {}
         }

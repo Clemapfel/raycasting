@@ -11,9 +11,17 @@
 #error "In normal_map_compute.glsl: MODE is undefined, must be 0, 1, 2, or 3"
 #endif
 
+#ifndef MASK_TEXTURE_FORMAT
 #define MASK_TEXTURE_FORMAT rgba8
+#endif
+
+#ifndef JFA_TEXTURE_FORMAT
 #define JFA_TEXTURE_FORMAT rgba32f
+#endif
+
+#ifndef NORMAL_MAP_TEXTURE_FORMAT
 #define NORMAL_MAP_TEXTURE_FORMAT rgb10_a2
+#endif
 
 #if MODE == MODE_INITIALIZE
 
@@ -75,7 +83,7 @@ void computemain() {
 
     vec4 pixel = imageLoad(mask_texture, position);
 
-    if (pixel.a > threshold) {
+    if (pixel.r > threshold) {
         uint n_others = 0;
         for (uint i = 0; i < 8; ++i) {
             ivec2 neighbor_position = position + directions[i];
@@ -83,7 +91,7 @@ void computemain() {
                 continue;
 
             vec4 other = imageLoad(mask_texture, neighbor_position);
-            if (other.a > threshold)
+            if (other.r > threshold)
                 n_others += 1;
         }
 
@@ -106,7 +114,7 @@ void computemain() {
     vec4 self = imageLoad(jfa_texture_array, ivec3(position, input_layer));
 
     if (self.z == 0) // is outer wall
-    return;
+        return;
 
     vec4 best = self;
     for (int i = 0; i < 8; ++i) {
@@ -114,15 +122,15 @@ void computemain() {
 
         // if outside, skip
         if (!all(greaterThanEqual(neighbor_position, ivec2(0))) || any(greaterThanEqual(neighbor_position, image_size)))
-        continue;
+            continue;
 
         vec4 neighbor = imageLoad(jfa_texture_array, ivec3(neighbor_position, input_layer));
         if (any(lessThan(neighbor.xy, vec2(0)))) // is uninitialized
-        continue;
+            continue;
 
         float dist = distance(vec2(position), vec2(neighbor.xy));
         if (dist <= best.z)
-        best = vec4(neighbor.xy, dist, self.w);
+            best = vec4(neighbor.xy, dist, self.w);
     }
 
     imageStore(jfa_texture_array_out, ivec3(position, output_layer), best);
@@ -163,7 +171,7 @@ void computemain() {
     imageStore(output_texture, position, vec4(
     current.z / max_distance,  // normalized distance
     gradient.x, gradient.y,    // gradient in [0, 1]
-    mask.a                     // mask (2 bits of precision)
+    mask.r                     // mask (2 bits of precision)
     ));
 
     #elif MODE == MODE_CLEAR

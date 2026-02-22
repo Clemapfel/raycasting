@@ -47,3 +47,48 @@ rt.TextureFormat = {
     DEPTH24_STENCIL8 = "depth24stencil8",  -- | 2  | 32   | [0, 1], [0, 255]
     DEPTH32F_STENCIL8 = "depth32fstencil8" -- | 2  | 40   | [0, 1], [0, 255]
 }
+rt.TextureFormat = meta.enum("TextureFormat", rt.TextureFormat)
+
+local _texture_format_to_glsl_identifier = {
+    [rt.TextureFormat.NORMAL] = "rgba8",
+    [rt.TextureFormat.R8] = "r8",
+    [rt.TextureFormat.RG8] = "rg8",
+    [rt.TextureFormat.RGBA8] = "rgba8",
+    [rt.TextureFormat.SRGBA8] = "rgba8",
+    [rt.TextureFormat.R16] = "r16",
+    [rt.TextureFormat.RG16] = "rg16",
+    [rt.TextureFormat.RGBA16] = "rgba16",
+    [rt.TextureFormat.R16F] = "r16f",
+    [rt.TextureFormat.RG16F] = "rg16f",
+    [rt.TextureFormat.RGBA16F] = "rgba16f",
+    [rt.TextureFormat.R32F] = "r32f",
+    [rt.TextureFormat.RG32F] = "rg32f",
+    [rt.TextureFormat.RGBA32F] = "rgba32f",
+    [rt.TextureFormat.RGBA4] = "rgba8",
+    [rt.TextureFormat.RGB5A1] = "rgba8",
+    [rt.TextureFormat.RGB565] = "rgba8",
+    [rt.TextureFormat.RGB10A2] = "rgb10_a2",
+    [rt.TextureFormat.RG11B10F] = "r11f_g11f_b10f",
+    [rt.TextureFormat.R8I] = "r8i",
+    [rt.TextureFormat.RG8I] = "rg8i",
+    [rt.TextureFormat.RGBA8I] = "rgba8i",
+    [rt.TextureFormat.R8UI] = "r8ui",
+    [rt.TextureFormat.RG8UI] = "rg8ui",
+    [rt.TextureFormat.RGBA8UI] = "rgba8ui",
+    [rt.TextureFormat.R16I] = "r16i",
+    [rt.TextureFormat.RG16I] = "rg16i",
+    [rt.TextureFormat.RGBA16I] = "rgba16i",
+    [rt.TextureFormat.R16UI] = "r16ui",
+    [rt.TextureFormat.RG16UI] = "rg16ui",
+    [rt.TextureFormat.RGBA16UI] = "rgba16ui",
+    [rt.TextureFormat.R32I] = "r32i",
+    [rt.TextureFormat.RG32I] = "rg32i",
+    [rt.TextureFormat.RGBA32I] = "rgba32i",
+    [rt.TextureFormat.R32UI] = "r32ui",
+    [rt.TextureFormat.RG32UI] = "rg32ui",
+    [rt.TextureFormat.RGBA32UI] = "rgba32ui"
+}
+
+rt.graphics.texture_format_to_glsl_identifier = function(x)
+    return _texture_format_to_glsl_identifier[x] or x
+end
