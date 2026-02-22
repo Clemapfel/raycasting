@@ -24,10 +24,6 @@ local _pattern_to_shader = {
     })
 }
 
-DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
-    if which == "k" then _pattern_to_shader[ow.WallPatternType.FLAT]:recompile() end
-end)
-
 function ow.Wall:instantiate(object, stage, scene)
     self._scene = scene
     self._stage = stage

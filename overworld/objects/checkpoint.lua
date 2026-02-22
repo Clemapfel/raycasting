@@ -135,7 +135,13 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
                 )
             )
 
-            self._spawn_barrier:set_collision_group(rt.settings.player.ghost_collision_group)
+            self._spawn_barrier:set_collision_group(
+                bit.bor(
+                    rt.settings.player.ghost_collision_group,
+                    rt.settings.overworld.hitbox.collision_group
+                )
+            )
+
             self._spawn_barrier:add_tag("stencil", "hitbox")
             self._spawn_barrier:set_is_enabled(false)
 

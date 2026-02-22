@@ -26,7 +26,7 @@ rt.settings.overworld.normal_map = {
 ow.NormalMap = meta.class("NormalMap")
 meta.add_signal(ow.NormalMap, "done")
 
-local _is_disabled = false -- TODO
+local _is_disabled = true -- TODO
 
 local _mask_texture_format = rt.TextureFormat.R8  -- used to store alpha of walls
 local _jfa_texture_format = rt.TextureFormat.RGBA32F -- used during JFA
@@ -436,7 +436,14 @@ function ow.NormalMap:update(delta)
     if not self._is_done and coroutine.status(self._callback) ~= "dead" then
         local success, error_maybe = coroutine.resume(self._callback)
         if error_maybe ~= nil then
-            rt.error("In ow.NormalMap: ", error_maybe)
+            if _is_disabled then
+                rt.critical("In ow.NormalMap: ", error_maybe)
+            else
+                rt.error("In ow.NormalMap: ", error_maybe)
+            end
+
+            self._is_done = true
+            self:signal_emit("done")
         end
     end
 end

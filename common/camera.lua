@@ -13,7 +13,6 @@ rt.settings.camera = {
     max_scale = 30,
     shake_max_frequency = 30,
     shake_max_offset = 6, -- px
-    shake_speed = 100,
 
     shake_impulse = {
         envelope_attack = 0,
@@ -21,7 +20,7 @@ rt.settings.camera = {
         default_duration = 0.05,
         default_intensity = 1,
         max_offset = 5,
-        frequency = 35, -- nodes per second
+        frequency = 15, -- nodes per second
     }
 }
 

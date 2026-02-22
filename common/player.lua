@@ -15,7 +15,7 @@ do
         inner_body_radius = 10 / 2 - 0.5,
         n_outer_bodies = 27,
         max_spring_length = radius * 3,
-        outer_body_spring_strength = 2,
+        outer_body_spring_strength = 1.5,
 
         bottom_wall_ray_length_factor = 1.25,
         side_wall_ray_length_factor = 1.15,
@@ -602,7 +602,11 @@ function rt.Player:update(delta)
 
     local mask
     if is_ghost == false then
-        mask = bit.bnot(0x0) -- everything
+        require "overworld.objects.hitbox"
+        mask = bit.bor(
+            rt.settings.overworld.hitbox.collision_group,
+            settings.bounce_collision_group
+        )
         mask = bit.band(mask, bit.bnot(settings.player_outer_body_collision_group))
         mask = bit.band(mask, bit.bnot(settings.exempt_collision_group))
     else
