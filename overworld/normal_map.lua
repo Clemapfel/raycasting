@@ -32,7 +32,7 @@ local _mask_texture_format = rt.TextureFormat.R8  -- used to store alpha of wall
 local _jfa_texture_format = rt.TextureFormat.RGBA32F -- used during JFA
 local _normal_map_texture_format = rt.TextureFormat.RGB10A2 -- final normal map texture
 
-local _clear_shader, _init_shader, _jump_shader, _export_shader
+local _init_shader, _jump_shader, _export_shader
 
 local _draw_light_shader = rt.Shader("overworld/normal_map_draw_light.glsl", {
     MAX_N_POINT_LIGHTS = rt.settings.overworld.normal_map.max_n_point_lights,
@@ -40,8 +40,6 @@ local _draw_light_shader = rt.Shader("overworld/normal_map_draw_light.glsl", {
 })
 
 local _draw_shadow_shader = rt.Shader("overworld/normal_map_draw_shadow.glsl")
-
-local _frame_percentage = 0.6
 local _atlas = {}
 
 --- @brief
@@ -67,7 +65,7 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
         self._chunks = entry.chunks
         self._chunk_size = entry.chunk_size
         self._chunk_padding = entry.chunk_padding
-        self._bounds =  entry.bounds
+        self._bounds = entry.bounds
         self._computation_started = true
         self._is_done = true
         self._is_visible = true
@@ -82,14 +80,7 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
 
     local last = love.timer.getTime()
     local savepoint = function()
-        -- compute shader dispatch is not blocked, tracking frame time this way is not accurate
-        local t = (love.timer.getTime() - last) / rt.SceneManager:get_timestep()
-        if t > rt.settings.overworld.normal_map.yield_savepoint_fraction then
-            love.graphics.push("all")
-            coroutine.yield()
-            love.graphics.pop()
-            last = love.timer.getTime()
-        end
+        coroutine.yield()
     end
 
     self._callback = coroutine.create(function()
@@ -319,8 +310,6 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
             end
         end
 
-        savepoint()
-
         self._computation_started = true
 
         local size_x, size_y = rt.settings.overworld.normal_map.work_group_size_x, rt.settings.overworld.normal_map.work_group_size_y
@@ -348,10 +337,6 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
             defines(2)
         ) end
 
-        if _clear_shader == nil then _clear_shader = rt.ComputeShader("overworld/normal_map_compute.glsl",
-            defines(3)
-        ) end
-
         local padding = chunk_size / 2
         self._chunk_padding = padding
         self._chunk_size = chunk_size
@@ -360,8 +345,6 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
             chunk_size + 2 * padding, chunk_size + 2 * padding,
             8, _mask_texture_format, true
         ):get_native()
-
-        savepoint()
 
         local jfa_texture = love.graphics.newTexture(
             chunk_size + 2 * padding, chunk_size + 2 * padding,
@@ -374,36 +357,18 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
             }
         )
 
-        savepoint()
-
-        local export_texture = rt.RenderTexture(
-            chunk_size + 2 * padding, chunk_size + 2 * padding,
-            0, _normal_map_texture_format, true
-        )
-
-        savepoint()
-
         local dispatch_size_x, dispatch_size_y = (chunk_size + 2 * padding) / size_x, (chunk_size + 2 * padding) / size_y
-        local lg = love.graphics
 
         for chunk in values(self._non_empty_chunks) do
             -- fill mask
-            lg.setCanvas({ mask, stencil = true })
-            lg.clear(0, 0, 0, 0)
+            love.graphics.setCanvas({ mask, stencil = true })
+            love.graphics.clear(0, 0, 0, 0)
 
-            lg.push()
-            lg.translate(-chunk.x + padding, -chunk.y + padding)
+            love.graphics.push()
+            love.graphics.translate(-chunk.x + padding, -chunk.y + padding)
             self._draw_mask_callback()
-            lg.pop()
-            lg.setCanvas(nil)
-
-            savepoint()
-
-            -- clear array texture
-            _clear_shader:send("jfa_texture_array", jfa_texture)
-            _clear_shader:dispatch(dispatch_size_x, dispatch_size_y)
-
-            savepoint()
+            love.graphics.pop()
+            love.graphics.setCanvas(nil)
 
             -- init (writes to layer 0, boundaries to both layers)
             _init_shader:send("mask_texture", mask)
@@ -416,14 +381,13 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
             local jump = 0.5 * chunk_size
             local current_layer = 0
 
-            while jump > 0.5 do
+            while jump > 1 do -- texture is power of 2 size
                 local input_layer = current_layer
                 local output_layer = 1 - current_layer
 
                 _jump_shader:send("input_layer", input_layer)
                 _jump_shader:send("output_layer", output_layer)
                 _jump_shader:send("jfa_texture_array", jfa_texture)
-                _jump_shader:send("jfa_texture_array_out", jfa_texture) -- Same texture, different binding
                 _jump_shader:send("jump_distance", math.ceil(jump))
                 _jump_shader:dispatch(dispatch_size_x, dispatch_size_y)
 
@@ -437,28 +401,18 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
             _export_shader:send("final_layer", current_layer)
             _export_shader:send("mask_texture", mask)
             _export_shader:send("jfa_texture_array", jfa_texture)
-            _export_shader:send("output_texture", export_texture)
+            _export_shader:send("export_texture", chunk.texture)
+            _export_shader:send("export_texture_quad", { self._quad:getViewport() })
             _export_shader:send("max_distance", rt.settings.overworld.normal_map.max_distance)
             _export_shader:dispatch(dispatch_size_x, dispatch_size_y)
 
-            savepoint()
-
-            -- crop to save memory
-            local offset_x, offset_y = self._quad:getViewport()
-            lg.push("all")
-            lg.reset()
-            lg.setCanvas(chunk.texture:get_native())
-            lg.clear(0, 0, 0, 0)
-            lg.setColor(1, 1, 1, 1)
-            lg.draw(export_texture:get_native(), self._quad)
-            lg.pop()
-
             chunk.is_initialized = true
+
+            savepoint()
         end
 
         jfa_texture:release()
         mask:release()
-        export_texture:release()
 
         self._is_done = true
         self._is_visible = true
@@ -482,9 +436,6 @@ function ow.NormalMap:update(delta)
         local success, error_maybe = coroutine.resume(self._callback)
         if error_maybe ~= nil then
             rt.error("In ow.NormalMap: ", error_maybe)
-            self._is_done = true
-            self:signal_emit("done")
-            dbg((love.timer.getTime() - self._start_time) / (1 / 60))
         end
     end
 end

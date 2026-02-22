@@ -5,7 +5,6 @@
 #define MODE_INITIALIZE 0        // initialize jump flood fill
 #define MODE_JUMP 1              // step jump flood fill
 #define MODE_EXPORT 2            // compute gradient, convert rgba32f to rg8
-#define MODE_CLEAR 3             // clear array texture
 
 #ifndef MODE
 #error "In normal_map_compute.glsl: MODE is undefined, must be 0, 1, 2, or 3"
@@ -34,20 +33,16 @@ uniform int jump_distance; // k / 2, k / 2 / 2, ..., 1, where k = max(size(input
 uniform int input_layer;   // which layer to read from (0 or 1)
 uniform int output_layer;  // which layer to write to (0 or 1)
 
-layout(JFA_TEXTURE_FORMAT) uniform readonly image2DArray jfa_texture_array;
-layout(JFA_TEXTURE_FORMAT) uniform writeonly image2DArray jfa_texture_array_out;
+layout(JFA_TEXTURE_FORMAT) uniform image2DArray jfa_texture_array;
 
 #elif MODE == MODE_EXPORT
 
 layout(MASK_TEXTURE_FORMAT) uniform readonly image2D mask_texture;
 layout(JFA_TEXTURE_FORMAT) uniform readonly image2DArray jfa_texture_array;
-layout(NORMAL_MAP_TEXTURE_FORMAT) uniform writeonly image2D output_texture;
+layout(NORMAL_MAP_TEXTURE_FORMAT) uniform writeonly image2D export_texture;
+uniform vec4 export_texture_quad; // x, y, w, h
 
 uniform int final_layer;  // which layer contains the final JFA result
-
-#elif MODE == MODE_CLEAR
-
-layout(JFA_TEXTURE_FORMAT) uniform writeonly image2DArray jfa_texture_array;
 
 #endif
 
@@ -133,7 +128,7 @@ void computemain() {
             best = vec4(neighbor.xy, dist, self.w);
     }
 
-    imageStore(jfa_texture_array_out, ivec3(position, output_layer), best);
+    imageStore(jfa_texture_array, ivec3(position, output_layer), best);
 
     #elif MODE == MODE_EXPORT
 
@@ -168,17 +163,15 @@ void computemain() {
     vec4 mask = imageLoad(mask_texture, position);
     vec4 current = imageLoad(jfa_texture_array, ivec3(position, final_layer));
 
-    imageStore(output_texture, position, vec4(
-    current.z / max_distance,  // normalized distance
-    gradient.x, gradient.y,    // gradient in [0, 1]
-    mask.r                     // mask (2 bits of precision)
+    // crop to save on memory, we need chunk * 1.5 size for SDF continuity
+    position.x -= int(export_texture_quad.x);
+    position.y -= int(export_texture_quad.y);
+
+    imageStore(export_texture, position, vec4(
+        current.z / max_distance,  // normalized distance
+        gradient.x, gradient.y,    // gradient in [0, 1]
+        mask.r                     // mask (2 bits of precision)
     ));
-
-    #elif MODE == MODE_CLEAR
-
-    // Clear both layers
-    imageStore(jfa_texture_array, ivec3(position, 0), vec4(0, 0, 0, 0));
-    imageStore(jfa_texture_array, ivec3(position, 1), vec4(0, 0, 0, 0));
 
     #endif
 }
