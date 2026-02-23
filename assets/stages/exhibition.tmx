@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="7" nextobjectid="731">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="7" nextobjectid="761">
  <editorsettings>
   <export target="exhibition.lua" format="lua"/>
  </editorsettings>
@@ -60,6 +60,25 @@
   <object id="730" name="Bounce Hold Down" type="Wall" x="-1376" y="2496">
    <polygon points="0,0 0,624 736,624 736,0"/>
   </object>
+  <object id="757" type="CameraFit" x="-496" y="2384" width="512" height="784">
+   <properties>
+    <property name="body" type="object" value="760"/>
+   </properties>
+  </object>
+  <object id="760" type="CameraFitBody" x="-496" y="2384" width="512" height="818.118"/>
+  <object id="753" type="Wall" x="-448" y="2416">
+   <properties>
+    <property name="type" value="flat"/>
+   </properties>
+   <polygon points="0,0 640,0 640,112 400,112 400,704 0,704"/>
+  </object>
+  <object id="745" type="BoostField" x="-272" y="3104">
+   <properties>
+    <property name="axis_y" type="float" value="-1"/>
+    <property name="render_priority" type="float" value="-1000"/>
+   </properties>
+   <polygon points="0,0 0,64 -16,80 64,80 48,64 48,0 22.6342,-16"/>
+  </object>
  </objectgroup>
  <objectgroup id="6" name="hitbox">
   <object id="474" type="AcceleratorSurface" x="-144" y="5616">
@@ -104,7 +123,7 @@
   <object id="519" type="SlipperyHitbox" x="-2752" y="2288">
    <polygon points="16,32 -32,32 -32,-16 16,-16"/>
   </object>
-  <object id="520" name="Spawn" type="PlayerSpawn" x="-1538.76" y="3038.12">
+  <object id="520" name="Spawn" type="PlayerSpawn" x="-246.942" y="3299.33">
    <point/>
   </object>
   <object id="521" name="Portal" type="Portal" x="-3200" y="2224">
@@ -333,6 +352,39 @@
   </object>
   <object id="727" type="Fireflies" x="-832" y="2656">
    <point/>
+  </object>
+  <object id="734" type="BouncePad" x="-368" y="3056">
+   <polygon points="0,0 64,0 64,-32 0,-32"/>
+  </object>
+  <object id="739" type="BouncePad" x="-144" y="2928">
+   <polygon points="0,0 64,0 64,-32 0,-32"/>
+  </object>
+  <object id="740" type="BouncePad" x="-336" y="2800">
+   <polygon points="0,0 64,0 64,-32 0,-32"/>
+  </object>
+  <object id="741" type="SlipperyHitbox" x="-32" y="2736">
+   <polygon points="-16,384 -16,-208 224,-208 224,-224 -16,-224 -32,-224 -32,336.881 -64,368 -192,368 -208,368 -208,384 -192,432 -176,448 -160,448 -160,384"/>
+  </object>
+  <object id="742" type="SlipperyHitbox" x="-480" y="2736">
+   <polygon points="32,448 192,448 208,432 224,384 224,368 208,368 80,367.716 48,336 48,-256 96,-304 672,-304 672,-320 32,-320"/>
+  </object>
+  <object id="746" type="BouncePad" x="-96" y="2640">
+   <polygon points="0,0 -80,64 0,64"/>
+  </object>
+  <object id="748" type="BouncePad" x="-352" y="2528">
+   <polygon points="0,0 64,64 0,64"/>
+  </object>
+  <object id="754" x="-498.473" y="2976.7">
+   <polygon points="0,0 0,64 -208,64 -208,-768 496,-768 496,-704 -144,-704 -144,0"/>
+  </object>
+  <object id="755" x="-48" y="2528">
+   <polygon points="0,0 0,592 -144,592 -144,656 240,656 240,0"/>
+  </object>
+  <object id="758" type="BouncePad" x="-48" y="2736">
+   <polygon points="-16,-224 -160,-224 -176,-208 -32,-208 -16,-192"/>
+  </object>
+  <object id="759" type="BouncePad" x="-32" y="2656">
+   <polygon points="-16,-224 -192,-224 -176,-208 -16,-208"/>
   </object>
  </objectgroup>
  <objectgroup id="2" name="front">

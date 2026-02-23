@@ -219,9 +219,53 @@ end
 --- ###
 
 function rt.contour.round(points, radius, samples_per_corner)
+    -- Adaptive corner rounding:
+    -- Replaces each sharp corner by a quadratic Bezier (p1 -> current as control -> p2)
+    -- and adaptively samples it based on a flatness (curvature) tolerance to minimize vertices
+    -- while preserving detail.
+
+    -- Backward compatibility:
+    -- - If 'samples_per_corner' is a number, it will be interpreted as a "quality" hint and
+    --   converted to a flatness tolerance (smaller error for larger numbers).
+    -- - If it's a table, you may pass:
+    --     { max_error = <pixels>, min_segments = <int>, max_segments = <int>, max_depth = <int> }
+    --   Defaults:
+    --     max_error     = max(0.75, radius * 0.02)  -- pixels
+    --     min_segments  = 1
+    --     max_segments  = 64
+    --     max_depth     = ceil(log2(max_segments))
+    --
+    -- Notes:
+    -- - This implementation avoids constructing love.math.BezierCurve for performance.
+    -- - The flatness test uses squared distance of the control point to chord AB.
+
     local n = math.floor(#points / 2)
+    if n < 2 then return { } end
+
     radius = radius or 10
-    samples_per_corner = samples_per_corner or 5
+
+    -- Interpret options
+    local opts = {}
+    if type(samples_per_corner) == "table" then
+        opts = samples_per_corner
+    elseif type(samples_per_corner) == "number" then
+        -- Map "samples_per_corner" (legacy) to a reasonable pixel error tolerance.
+        -- Larger samples_per_corner -> smaller error. Clamp to avoid pathological values.
+        local q = math.max(1, samples_per_corner)
+        -- Heuristic: error ~= radius / (4*q^2), but clamp to a sensible range
+        opts.max_error = math.max(0.25, math.min(radius / (4 * q * q), radius * 0.25))
+    end
+
+    local max_error = opts.max_error
+        or math.max(0.75, radius * 0.02)           -- default error in pixels (strikes a good balance)
+    local min_segments = math.max(1, opts.min_segments or 1)
+    local max_segments = math.max(min_segments, opts.max_segments or 64)
+    local max_depth = opts.max_depth
+    if not max_depth then
+        -- 2^depth ~= max_segments
+        max_depth = math.ceil(math.log(max_segments) / math.log(2))
+    end
+    local flatness2 = max_error * max_error
 
     local new_points = {}
 
@@ -231,42 +275,95 @@ function rt.contour.round(points, radius, samples_per_corner)
         local next_idx = (i % n) + 1
 
         local previous_x, previous_y = points[2 * previous_idx - 1], points[2 * previous_idx]
-        local current_x, current_y = points[2 * current_idx - 1], points[2 * current_idx]
-        local next_x, next_y = points[2 * next_idx - 1], points[2 * next_idx]
+        local current_x, current_y   = points[2 * current_idx - 1], points[2 * current_idx]
+        local next_x, next_y         = points[2 * next_idx - 1], points[2 * next_idx]
 
-        local v1x = current_x - previous_x
-        local v1y = current_y - previous_y
-        local v2x = next_x - current_x
-        local v2y = next_y - current_y
+        local v1x, v1y = current_x - previous_x, current_y - previous_y
+        local v2x, v2y = next_x - current_x, next_y - current_y
 
-        -- shorten current segment by corner radius
+        -- Shorten current segments by corner radius
         local v1nx, v1ny = math.normalize(v1x, v1y)
         local v2nx, v2ny = math.normalize(v2x, v2y)
         local len1 = math.min(radius, math.magnitude(v1x, v1y) / 2)
         local len2 = math.min(radius, math.magnitude(v2x, v2y) / 2)
 
-        local p1x = current_x + v1nx * -len1
-        local p1y = current_y + v1ny * -len1
+        local p1x = current_x - v1nx * len1
+        local p1y = current_y - v1ny * len1
         local p2x = current_x + v2nx * len2
         local p2y = current_y + v2ny * len2
 
-        -- resample bezier curve to replace missing vertices
-        local curve = love.math.newBezierCurve({
-            p1x, p1y,
-            current_x, current_y,
-            p2x, p2y
-        })
+        -- Adaptive sampling of the quadratic Bezier curve (p1 -> current as control -> p2)
+        local before_len = #new_points
 
-        for s = 1, samples_per_corner do
-            local t = s / samples_per_corner
-            local x, y = curve:evaluate(t)
-            table.insert(new_points, x)
-            table.insert(new_points, y)
+        -- Stack-based iterative traversal to avoid recursion
+        local stack = { { p1x, p1y, current_x, current_y, p2x, p2y, 0 } }
+
+        while #stack > 0 do
+            local entry = table.remove(stack)
+            local ax, ay, cx, cy, bx, by, depth = entry[1], entry[2], entry[3], entry[4], entry[5], entry[6], entry[7]
+
+            -- Prevent runaway recursion
+            if depth >= max_depth then
+                new_points[#new_points + 1] = bx
+                new_points[#new_points + 1] = by
+            else
+                -- Squared distance from point C (control) to infinite line AB
+                local abx, aby = bx - ax, by - ay
+                local acx, acy = cx - ax, cy - ay
+                local ab2 = math.dot(abx, aby, abx, aby)
+
+                local is_flat = false
+                if ab2 < math.eps then
+                    -- Degenerate chord; treat as flat
+                    is_flat = true
+                else
+                    -- 2D cross product magnitude squared divided by |AB|^2
+                    local cross = math.cross(acx, acy, abx, aby)
+                    is_flat = (cross * cross) / ab2 <= flatness2
+                end
+
+                -- If curve is sufficiently flat, approximate with a single segment (A->B).
+                if is_flat then
+                    new_points[#new_points + 1] = bx
+                    new_points[#new_points + 1] = by
+                else
+                    -- De Casteljau split at t=0.5
+                    local q0x, q0y = 0.5 * (ax + cx), 0.5 * (ay + cy)
+                    local q1x, q1y = 0.5 * (cx + bx), 0.5 * (cy + by)
+                    local rx, ry   = 0.5 * (q0x + q1x), 0.5 * (q0y + q1y)
+
+                    -- Push right curve first (processed last)
+                    stack[#stack + 1] = { rx, ry, q1x, q1y, bx, by, depth + 1 }
+                    -- Push left curve (processed first)
+                    stack[#stack + 1] = { ax, ay, q0x, q0y, rx, ry, depth + 1 }
+                end
+            end
+        end
+
+        local added_points = math.floor((#new_points - before_len) / 2)
+
+        -- Guarantee a minimum number of segments if requested
+        if min_segments > 1 and added_points < min_segments then
+            -- Generate additional points uniformly in parameter space
+            -- to reach at least min_segments end points.
+            local to_add = min_segments - added_points
+            for k = 1, to_add do
+                local t = k / min_segments
+                local it = 1 - t
+                -- Quadratic Bezier formula
+                local x = it * it * p1x + 2 * it * t * current_x + t * t * p2x
+                local y = it * it * p1y + 2 * it * t * current_y + t * t * p2y
+                new_points[#new_points + 1] = x
+                new_points[#new_points + 1] = y
+            end
         end
     end
 
-    table.insert(new_points, new_points[1])
-    table.insert(new_points, new_points[2])
+    -- Close the contour
+    if #new_points >= 2 then
+        new_points[#new_points + 1] = new_points[1]
+        new_points[#new_points + 1] = new_points[2]
+    end
 
     return new_points
 end

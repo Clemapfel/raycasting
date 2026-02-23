@@ -151,6 +151,8 @@ function ow.BouncePad:instantiate(object, stage, scene)
         16
     )
 
+    dbg(#self._contour, #object:create_contour())
+
     local center_x, center_y = object:get_centroid()
     for i = 1, #self._contour, 2 do
         self._contour[i+0] = self._contour[i+0] - center_x

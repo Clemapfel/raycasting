@@ -64,7 +64,6 @@ function ow.Stage:instantiate(scene, id)
         -- stage objects
         _coins = {}, -- cf. add_coin
         _camera_bounds = meta.make_weak({}), -- Table<ow.CameraBounds>
-        _camera_walls = meta.make_weak({}), -- Table<ow.CameraWalls>
         _checkpoints = meta.make_weak({}), -- Table<ow.Checkpoint, Number>
         _blood_splatter = ow.BloodSplatter(scene),
         _mirror = nil, -- ow.Mirror
@@ -180,7 +179,6 @@ function ow.Stage:instantiate(scene, id)
     local n_goals = 0 -- number ow.Goal, for warning
 
     self._camera_bounds = meta.make_weak({})
-    self._camera_walls = meta.make_weak({})
 
     local coins = {}
 
@@ -215,10 +213,8 @@ function ow.Stage:instantiate(scene, id)
                     table.insert(coins, instance)
                 elseif meta.isa(instance, ow.Goal) then
                     n_goals = n_goals + 1
-                elseif meta.isa(instance, ow.CameraBounds) then
+                elseif meta.isa(instance, ow.CameraBounds) or meta.isa(instance, ow.CameraFit) then
                     table.insert(self._camera_bounds, instance)
-                elseif meta.isa(instance, ow.CameraWall) then
-                    table.insert(self._camera_walls, instance)
                 end
 
                 -- inject id

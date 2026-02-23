@@ -63,6 +63,7 @@ function ow.CameraFit:_bind()
     camera:set_speed(self._speed)
     camera:move_to(self._bounds.x + 0.5 * self._bounds.width, self._bounds.y + 0.5 * self._bounds.height)
     camera:fit_to(self._bounds)
+    self._is_bound = true
 
     self._stage:signal_connect("respawn", function()
         self:_unbind()
@@ -74,6 +75,18 @@ end
 function ow.CameraFit:_unbind()
     local camera = self._scene:get_camera()
     self._scene:pop_camera_mode(ow.CameraMode.CUTSCENE)
+    self._is_bound = false
+end
+
+--- @brief
+function ow.CameraFit:try_bind(x, y)
+    self:reset()
+    if self._body:test_point(x, y) then
+        self:_bind()
+        return true
+    end
+
+    return false
 end
 
 --- @brief
@@ -90,4 +103,9 @@ function ow.CameraFit:update(delta)
     end
 
     self._is_active = is_active
+end
+
+--- @brief
+function ow.CameraFit:reset()
+    if self._is_bound == true then self:_unbind() end
 end

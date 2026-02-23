@@ -1273,7 +1273,12 @@ function ow.OverworldScene:_update_camera(delta)
         self._camera_position_override_x = self._camera_position_override_x + self._camera_velocity_x * delta
         self._camera_position_override_y = self._camera_position_override_y + self._camera_velocity_y * delta
         camera:move_to(self._camera_position_override_x, self._camera_position_override_y)
+
         return
+    else
+        if before == true then
+            self._stage:apply_camera_bounds(self._player:get_position())
+        end
     end
 
     -- regular camera behavior
