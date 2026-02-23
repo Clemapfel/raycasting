@@ -342,9 +342,9 @@ function ow.Checkpoint:_set_state(state)
         player:reset()
         player:request_is_ghost(self, true)
         player:teleport_to(self._top_x, spawn_y)
-        self._stage:apply_camera_bounds(self._top_x, spawn_y)
         player:relax()
         player:request_is_disabled(self, true)
+        self._stage:apply_camera_bounds(self._bottom_x, self._bottom_y)
 
     elseif self._state == _STATE_EXPLODING then
         local player_radius = player:get_radius()
@@ -392,16 +392,17 @@ function ow.Checkpoint:_set_state(state)
         player:reset()
         player:request_is_ghost(self, true)
         player:teleport_to(self._top_x, self._top_y)
-        self._stage:apply_camera_bounds(self._top_x, self._top_y)
         player:request_opacity(self, 0)
         player:request_is_disabled(self, true)
         player:relax()
+        self._stage:apply_camera_bounds(self._bottom_x, self._bottom_y)
 
     elseif self._state == _STATE_DEFAULT then
         player:reset()
         player:relax()
         player:request_is_disabled(self, nil) -- remove request
         self._stage:signal_emit("respawn")
+        self._stage:apply_camera_bounds(self._bottom_x, self._bottom_y)
     end
 end
 

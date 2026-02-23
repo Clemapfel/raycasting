@@ -1,5 +1,5 @@
 --- @class rt.InterpolationFunction
-rt.InterpolationFunctions = meta.enum("InterpolationFunction", {
+rt.InterpolationFunctions = {
     CONSTANT = function(x, constant)
         -- c
         if constant == nil then constant = 1 end
@@ -296,15 +296,21 @@ rt.InterpolationFunctions = meta.enum("InterpolationFunction", {
         local total = attack_fraction + decay_fraction
         if total == 0 then return 1 end
 
-        local function gaussian(x, center)
-            return math.exp(-4.4 * math.pi / 3 * ((x - center)^2))
+        local function sine_ease_in(t)
+            -- Smooth ease from 0 to 1 using sinusoid
+            return 1 - math.cos(t * math.pi / 2)
+        end
+
+        local function sine_ease_out(t)
+            -- Smooth ease from 1 to 0 using sinusoid
+            return math.cos(t * math.pi / 2)
         end
 
         local decay_start = 1 - decay_fraction
 
         -- attack
         if attack_fraction > 0 and x < attack_fraction then
-            return gaussian(x / attack_fraction, 1)
+            return sine_ease_in(x / attack_fraction)
         end
 
         -- sustain
@@ -313,11 +319,13 @@ rt.InterpolationFunctions = meta.enum("InterpolationFunction", {
         end
 
         -- decay
-        if decay_fraction > 0 then
-            return gaussian((x - decay_start) / decay_fraction, 0)
+        if decay_fraction > 0 and x < 1 then
+            return sine_ease_out((x - decay_start) / decay_fraction)
         end
 
-        -- instant decay
+        -- exactly 0 at t = 1
         return 0
     end
-})
+}
+
+rt.InterpolationFunctions = meta.enum("InterpolationFunction", rt.InterpolationFunctions)

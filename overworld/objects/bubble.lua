@@ -1,19 +1,42 @@
 require "overworld.movable_object"
 
 rt.settings.overworld.bubble = {
-    respawn_duration = 4,
+    respawn_duration = 2,
+
+    pop_light_boost_duration = 5 / 60,
+    pop_light_boost_magnitude = 3.5, -- factor
+
     line_width = 2,
     outline_width = 1, -- black outline
     max_motion_offset = 5,
     motion_velocity = 3.5, -- px / s
-    motion_n_path_nodes = 10
+    motion_n_path_nodes = 10,
+    outline_min_opacity = 0.5,
+
+    bounce_impulse = 280, -- constant
+
+    particles = {
+        min_radius = 0.5, -- px
+        max_radius = 3,
+        min_velocity = 120, -- px / s
+        max_velocity = 170,
+        min_lifetime = 0.15, -- s
+        max_lifetime = 2,
+        angle_spread = 0.25 * math.pi,
+        hue_spread = 0.075,
+        opacity_envelope_attack = 0.025,
+        inlay = 0.4,
+        deceleration = 0.95,
+        min_player_velocity_influence = 0.25,
+        max_player_velocity_influence = 1
+    }
 }
 
 --- @class ow.Bubble
 ow.Bubble = meta.class("Bubble", ow.MovableObject)
 
 local _shader = rt.Shader("overworld/objects/bubble.glsl")
-local _n_hue_steps = 12
+local _n_hue_steps = 13
 
 function ow.Bubble:instantiate(object, stage, scene)
     assert(object:get_type() == ow.ObjectType.ELLIPSE, "In ow.Bubble: object is not an ellipse")
@@ -27,27 +50,31 @@ function ow.Bubble:instantiate(object, stage, scene)
     self._is_destroyed = false
     self._respawn_elapsed = math.huge
     self._pop_fraction = 1
+    self._pop_light_boost = 0
+
+    self._should_move_in_place = object:get_boolean("should_move_in_place")
+    if self._should_move_in_place == nil then self._should_move_in_place = true end
 
     -- physics
 
     self._body = object:create_physics_body(stage:get_physics_world())
     self._body:add_tag("slippery", "no_blood", "unjumpable")
     self._body:signal_connect("collision_start", function(_, other_body, nx, ny, cx, cy)
-        if self._is_destroyed or cx == nil then return end -- popped, or player is sensor
+        if self._is_destroyed
+            or cx == nil or cy == nil -- player is sensor
+            or not other_body:has_tag("player")
+        then
+            return
+        end
 
         -- use exact normal, since body is always an ellipse
         local player = self._scene:get_player()
         local px, py = player:get_position()
-        local dx, dy = px - self._x, py - self._y
-        local restitution = player:bounce(math.normalize(dx, dy))
+        local dx, dy = math.normalize(px - self._x, py - self._y)
+        local restitution = player:bounce(dx, dy, rt.settings.overworld.bubble.bounce_impulse)
+        -- constant impulse unrelated to player velocity, unlike ow.BouncePad
 
-        self:_pop()
-
-        if cx ~= nil and cy ~= nil then
-            local angle = math.angle(cx - self._x, cy - self._y)
-            self._pop_origin_x = math.cos(angle)
-            self._pop_origin_y = math.sin(angle)
-        end
+        self:_pop(self._x + dx * self._x_radius, self._y + dy * self._y_radius)
     end)
 
     local bounce_group = rt.settings.player.bounce_collision_group
@@ -58,7 +85,7 @@ function ow.Bubble:instantiate(object, stage, scene)
     self._body:set_user_data(self)
 
     self._stage:signal_connect("respawn", function()
-        self:_unpop()
+        self:reset()
     end)
 
     -- graphics
@@ -68,6 +95,7 @@ function ow.Bubble:instantiate(object, stage, scene)
 
     local hue = math.fract( stage.bubble_current_hue_step / _n_hue_steps)
     stage.bubble_current_hue_step =  stage.bubble_current_hue_step + 1
+
     self._hue = hue
     self._color = { rt.lcha_to_rgba(0.8, 1, hue, 1) }
 
@@ -111,33 +139,114 @@ function ow.Bubble:instantiate(object, stage, scene)
 
     self._mesh = rt.Mesh(data)
 
+    -- particles
+    self._particle_data = {}
+    self._n_active_particles = 0
+    self._n_particles = 0
+
     -- random motion
-    local max_offset = rt.settings.overworld.bubble.max_motion_offset
+    if self._should_move_in_place then
+        local max_offset = rt.settings.overworld.bubble.max_motion_offset
 
-    local points = {}
-    for i = 1, rt.settings.overworld.bubble.motion_n_path_nodes do
-        table.insert(points, rt.random.number(-0.5 * max_offset, 0.5 * max_offset))
-        table.insert(points, rt.random.number(-max_offset, max_offset))
+        local points = {}
+        for i = 1, rt.settings.overworld.bubble.motion_n_path_nodes do
+            table.insert(points, rt.random.number(-0.5 * max_offset, 0.5 * max_offset))
+            table.insert(points, rt.random.number(-max_offset, max_offset))
+        end
+        table.insert(points, points[1])
+        table.insert(points, points[2])
+
+        self._path = rt.Spline(points)
+        self._path_elapsed = 0
+        self._path_duration = self._path:get_length() / rt.settings.overworld.bubble.motion_velocity
     end
-    table.insert(points, points[1])
-    table.insert(points, points[2])
+end
 
-    self._path = rt.Spline(points)
-    self._path_elapsed = 0
-    self._path_duration = self._path:get_length() / rt.settings.overworld.bubble.motion_velocity
+local _x_offset = 0
+local _y_offset = 1
+local _velocity_x_offset = 2
+local _velocity_y_offset = 3
+local _velocity_magnitude_offset = 4
+local _elapsed_offset = 5
+local _lifetime_offset = 6
+local _r_offset = 7
+local _g_offset = 8
+local _b_offset = 9
+local _opacity_offset = 10
+local _radius_offset = 11
+local _is_active_offset = 12
+
+local IS_ACTIVE = 1
+local IS_INACTIVE = 0
+
+local _stride = _is_active_offset + 1
+local _particle_i_to_data_offset = function(particle_i)
+    return (particle_i - 1) * _stride + 1 -- 1-based
 end
 
 --- @brief
-function ow.Bubble:_pop()
+function ow.Bubble:_pop(pop_x, pop_y)
+    if self._is_destroyed == true then return end
+
     self._is_destroyed = true
     self._respawn_elapsed = 0
+    self._pop_light_boost = 0
     self._body:set_is_sensor(true)
+
+    local perimeter
+    do
+        -- ramanujan approximation for ellipse perimeter
+        local a = math.max(self._x_radius, self._y_radius)
+        local b = math.min(self._x_radius, self._y_radius)
+        local h = ((a - b) ^ 2) / ((a + b) ^ 2)
+        perimeter = math.pi * (a + b) * (1 + (3 * h) / (10 + math.sqrt(4 - 3 * h)))
+    end
+
+    local settings = rt.settings.overworld.bubble.particles
+    local max_lifetime = math.min(settings.max_lifetime, rt.settings.overworld.bubble.respawn_duration)
+
+    local data = self._particle_data
+    local long_axis = 2 * math.max(self._x_radius, self._y_radius)
+    local function add_particle(x, y, dx, dy)
+        local hue = self._hue + rt.random.number(-settings.hue_spread, settings.hue_spread)
+        local r, g, b, _ = rt.lcha_to_rgba(rt.random.number(0.8, 0.9), 1, hue, 1)
+
+        local player_dx, player_dy = math.normalize(math.subtract(x, y, pop_x, pop_y))
+        local player_influence = 1 - math.min(1, math.distance(pop_x, pop_y, x, y) / long_axis)
+
+        local i = #data + 1
+        data[i + _x_offset] = x
+        data[i + _y_offset] = y
+        data[i + _velocity_x_offset] = math.mix(dx, player_dx, player_influence)
+        data[i + _velocity_y_offset] = math.mix(dy, player_dy, player_influence)
+        data[i + _velocity_magnitude_offset] = math.mix(settings.min_velocity, settings.max_velocity, 1 - player_influence)
+        data[i + _elapsed_offset] = 0
+        data[i + _lifetime_offset] = rt.random.number(settings.min_lifetime, settings.max_lifetime)
+        data[i + _r_offset] = r
+        data[i + _g_offset] = g
+        data[i + _b_offset] = b
+        data[i + _opacity_offset] = 0
+        data[i + _radius_offset] = rt.random.number(settings.min_radius, settings.max_radius)
+        data[i + _is_active_offset] = IS_ACTIVE
+
+        self._n_particles = self._n_particles + 1
+        self._n_active_particles = self._n_active_particles + 1
+    end
+
+    local n_particles = math.ceil(perimeter / settings.max_radius)
+    for i = 1, n_particles do
+        local angle = (i - 1) / n_particles * 2 * math.pi
+        local dx, dy = math.cos(angle), math.sin(angle)
+        local x = self._x + dx * (self._x_radius * (1 - rt.random.number(0, settings.inlay)))
+        local y = self._y + dy * (self._y_radius * (1 - rt.random.number(0, settings.inlay)))
+
+        add_particle(x, y, dx, dy)
+    end
 end
 
 --- @brief
 function ow.Bubble:_unpop()
-    self._is_destroyed = false
-    self._body:set_is_sensor(false)
+    self:reset()
 end
 
 --- @brief
@@ -146,9 +255,49 @@ function ow.Bubble:update(delta)
 
     if self._is_destroyed then
         self._respawn_elapsed = self._respawn_elapsed + delta
+
+        self._pop_light_boost = rt.InterpolationFunctions.ENVELOPE(
+            math.min(1, self._respawn_elapsed / rt.settings.overworld.bubble.pop_light_boost_duration),
+            0.05,
+            0.25
+        )
+
         if self._respawn_elapsed >= respawn_duration and not self._body:test_point(self._scene:get_player():get_position()) then
             self:_unpop()
             return
+        end
+    end
+
+    if self._n_active_particles > 0 then
+        local data = self._particle_data
+        local settings = rt.settings.overworld.bubble.particles
+
+        local opacity_easing = function(t)
+            local attack = settings.opacity_envelope_attack
+            return rt.InterpolationFunctions.ENVELOPE(
+                t,
+                attack,
+                1 - attack
+            )
+        end
+
+        local deceleration = settings.deceleration
+        for particle_i = 1, self._n_particles do
+            local i = _particle_i_to_data_offset(particle_i)
+
+            local elapsed = data[i + _elapsed_offset]
+            data[i + _elapsed_offset] = elapsed + delta
+
+            local magnitude = data[i + _velocity_magnitude_offset]
+            local x, y = data[i + _x_offset], data[i + _y_offset]
+
+            data[i + _x_offset] = x + data[i + _velocity_x_offset] * magnitude * delta
+            data[i + _y_offset] = y + data[i + _velocity_y_offset] * magnitude * delta
+
+            data[i + _velocity_magnitude_offset] = data[i + _velocity_magnitude_offset] * deceleration
+
+            local t = math.min(1, elapsed / data[i + _lifetime_offset])
+            data[i + _opacity_offset] = opacity_easing(t)
         end
     end
 
@@ -157,7 +306,7 @@ function ow.Bubble:update(delta)
     local x = math.clamp(self._respawn_elapsed / respawn_duration, 0, 1)
     self._pop_fraction = math.pow(x, 40) -- manually chosen easing
 
-    if not self._is_destroyed then
+    if not self._is_destroyed and self._should_move_in_place then
         -- freeze while respawning
         self._path_elapsed = self._path_elapsed + delta
     end
@@ -168,12 +317,18 @@ function ow.Bubble:draw()
     if not self._stage:get_is_body_visible(self._body) then return end
 
     love.graphics.push()
-    local path_x, path_y = self._path:at(math.fract(self._path_elapsed / self._path_duration))
+    local path_x, path_y
+    if self._should_move_in_place then
+        path_x, path_y = self._path:at(math.fract(self._path_elapsed / self._path_duration))
+    else
+        path_x, path_y = 0, 0
+    end
+
     local body_x, body_y = self._body:get_position()
     love.graphics.translate(body_x + path_x, body_y + path_y)
 
     -- outline always visible so player knows where bubble will respawn
-    local opacity = 1 * math.max(0.5, self._pop_fraction)
+    local opacity = math.max(rt.settings.overworld.bubble.outline_min_opacity, self._pop_fraction)
     love.graphics.setLineStyle("smooth")
     love.graphics.setLineJoin("bevel")
 
@@ -199,45 +354,63 @@ function ow.Bubble:draw()
     _shader:unbind()
 
     love.graphics.pop()
-end
 
---- @brief
-function ow.Bubble:draw_bloom()
-    if self._is_destroyed or not self._stage:get_is_body_visible(self._body) then return end
-
-    love.graphics.push()
-    love.graphics.translate(self._path:at(math.fract(self._path_elapsed / self._path_duration)))
-
-    local line_width = rt.settings.overworld.bubble.line_width
-    love.graphics.setLineWidth(line_width)
-    love.graphics.setLineStyle("smooth")
-    love.graphics.setLineJoin("bevel")
-
-    local r, g, b = table.unpack(self._color)
-    local opacity = 0.5 * self._pop_fraction
-    love.graphics.setColor(r, g, b, opacity)
-    love.graphics.setLineWidth(line_width - 2)
-    love.graphics.line(self._contour)
-
-    love.graphics.pop()
-end
-
---- @brief
-function ow.Bubble:get_color()
-    if self._is_destroyed then
-        return rt.RGBA(1, 1, 1, 0)
-    else
-        return rt.RGBA(table.unpack(self._color))
+    local data = self._particle_data
+    for particle_i = 1, self._n_particles do
+        local i = _particle_i_to_data_offset(particle_i)
+        if data[i + _is_active_offset] == IS_ACTIVE then
+            local r, g, b = data[i + _r_offset], data[i + _g_offset], data[i + _b_offset]
+            love.graphics.setColor(r, g, b, data[i + _opacity_offset])
+            love.graphics.circle("fill",
+                data[i + _x_offset],
+                data[i + _y_offset],
+                data[i + _radius_offset]
+            )
+        end
     end
 end
 
 --- @brief
+function ow.Bubble:get_color()
+    local r, g, b = table.unpack(self._color)
+    local a = math.clamp(self._respawn_elapsed / rt.settings.overworld.bubble.respawn_duration, 0, 1)
+    return rt.RGBA(r, g, b, a)
+end
+
+--- @brief
 function ow.Bubble:reset()
-    self:_unpop()
+    self._is_destroyed = false
+    self._respawn_elapsed = math.huge
+    self._pop_fraction = 1
+    self._pop_light_boost = 0
+
+    self._body:set_is_sensor(false)
+
+    table.clear(self._particle_data)
+    self._n_particles = 0
+    self._n_active_particles = 0
+
+    if self._should_move_in_place then
+        self._path_elapsed = 0
+    end
 end
 
 --- @brief
 function ow.Bubble:get_point_light_sources()
     local x, y = self._body:get_position()
-    return { { x, y, math.min(self._x_radius, self._y_radius)} }, { self:get_color() }
+
+    local points = {}
+    local colors = {}
+
+    table.insert(points, { x, y, math.min(self._x_radius, self._y_radius) })
+
+    local color = self:get_color()
+    color.a = math.max(color.a, math.mix(
+        1,
+        rt.settings.overworld.bubble.pop_light_boost_magnitude,
+        self._pop_light_boost
+    ))
+    table.insert(colors, color)
+
+    return points, colors
 end

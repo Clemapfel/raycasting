@@ -72,6 +72,9 @@ function ow.Path:instantiate(object, stage, scene)
     if self._starts_paused == nil then self._is_paused = false end
     self._is_paused = self._starts_paused
 
+    self._is_absolute = object:get_boolean("is_absolute", false)
+    if self._is_absolute == nil then self._is_absolute = false end
+
     self:signal_connect("pause", function()
         self._is_paused = true
     end)
@@ -111,6 +114,7 @@ function ow.Path:instantiate(object, stage, scene)
             end
 
             local start_x, start_y = instance:get_position()
+            if self._is_absolute then start_x, start_y = 0, 0 end
             local entry = {
                 target = instance,
                 offset_x = start_x,  -- will be transformed to offset below

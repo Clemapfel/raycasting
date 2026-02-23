@@ -51,9 +51,7 @@ function ow.KillPlane:instantiate(object, stage, scene)
         rt.settings.player.player_collision_group,
         rt.settings.player.player_outer_body_collision_group
     )
-
     self._body:set_collides_with(group)
-    self._body:set_collision_group(group)
 
     self._should_explode = object:get_boolean("should_explode", false)
     if self._should_explode == nil then self._should_explode = true end
@@ -62,7 +60,7 @@ function ow.KillPlane:instantiate(object, stage, scene)
     self._body:signal_connect("collision_start", function(_, other_body)
         if other_body:has_tag("player") then
             if self._is_blocked == true then return end
-            --self._scene:get_player():kill(self._should_explode)
+            self._scene:get_player():kill(self._should_explode)
             self._is_blocked = true
             self._stage:get_physics_world():signal_connect("step", function()
                 self._is_blocked = false

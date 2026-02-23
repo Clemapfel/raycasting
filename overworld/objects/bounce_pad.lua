@@ -151,8 +151,6 @@ function ow.BouncePad:instantiate(object, stage, scene)
         16
     )
 
-    dbg(#self._contour, #object:create_contour())
-
     local center_x, center_y = object:get_centroid()
     for i = 1, #self._contour, 2 do
         self._contour[i+0] = self._contour[i+0] - center_x
@@ -160,11 +158,11 @@ function ow.BouncePad:instantiate(object, stage, scene)
     end
 
     local shape_mesh_format = {
-        {location = rt.VertexAttributeLocation.POSITION, name = rt.VertexAttribute.POSITION, format = "floatvec2"},
+        { location = rt.VertexAttributeLocation.POSITION, name = rt.VertexAttribute.POSITION, format = "floatvec2" },
     }
 
     local offset_mesh_format = {
-        {location = 3, name = "axis_offset", format = "floatvec3"}, -- xy axis, z offset (absolute)
+        { location = 3, name = "axis_offset", format = "floatvec3" }, -- xy axis, z offset (absolute)
     }
 
     local shape_mesh_data = {}
@@ -217,6 +215,7 @@ function ow.BouncePad:instantiate(object, stage, scene)
         self._draw_offset_x = centroid_x - mass_x
         self._draw_offset_y = centroid_y - mass_y
     end
+
     ::skip_graphics::
 end
 

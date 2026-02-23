@@ -1,6 +1,6 @@
 rt.settings.overworld.wall = {
-    point_light_intensity = 1,
-    segment_light_intensity = 1,
+    point_light_intensity = 0.5,
+    segment_light_intensity = 0.5,
     light_range = 30, -- px
 }
 

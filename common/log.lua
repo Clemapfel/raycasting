@@ -33,7 +33,7 @@ local _error_prefix = "[ERROR]"
 local _error_format = nil -- because _G.error does not support formatting
 
 --- @brief [internal]
-local function _printstyled(message, config)
+log._printstyled = function(message, config)
     if config == nil then
         return message
     end
@@ -115,8 +115,8 @@ end
 function log.message(...)
     local to_print = {}
 
-    table.insert(to_print, _printstyled(_prefix_label, _prefix_format))
-    table.insert(to_print, _printstyled(_message_prefix, _message_format))
+    table.insert(to_print, log._printstyled(_prefix_label, _prefix_format))
+    table.insert(to_print, log._printstyled(_message_prefix, _message_format))
     _append_current_line(to_print)
 
     for i = 1, select("#", ...) do
@@ -141,8 +141,8 @@ end
 function log.warning(...)
     local to_print = {}
 
-    table.insert(to_print, _printstyled(_prefix_label, _prefix_format))
-    table.insert(to_print, _printstyled(_warning_prefix, _warning_format))
+    table.insert(to_print, log._printstyled(_prefix_label, _prefix_format))
+    table.insert(to_print, log._printstyled(_warning_prefix, _warning_format))
     _append_current_line(to_print)
 
     for i = 1, select("#", ...) do
@@ -166,8 +166,8 @@ end
 function log.critical(...)
     local to_print = {}
 
-    table.insert(to_print, _printstyled(_prefix_label, _prefix_format))
-    table.insert(to_print, _printstyled(_critical_prefix, _critical_format))
+    table.insert(to_print, log._printstyled(_prefix_label, _prefix_format))
+    table.insert(to_print, log._printstyled(_critical_prefix, _critical_format))
     _append_current_line(to_print)
 
     for i = 1, select("#", ...) do
@@ -191,8 +191,8 @@ end
 function log.error(...)
     local to_print = {}
 
-    table.insert(to_print, _printstyled(_prefix_label, _prefix_format))
-    table.insert(to_print, _printstyled(_error_prefix, nil)) -- sic, error does not support tty pretty printing
+    table.insert(to_print, log._printstyled(_prefix_label, _prefix_format))
+    table.insert(to_print, log._printstyled(_error_prefix, nil)) -- sic, error does not support tty pretty printing
     table.insert(to_print, " ")
 
     for i = 1, select("#", ...) do
@@ -216,8 +216,8 @@ function log.assert(condition, ...)
     if condition ~= true then
         local to_print = {}
 
-        table.insert(to_print, _printstyled(_prefix_label, _prefix_format))
-        table.insert(to_print, _printstyled(_error_prefix, nil)) -- sic, error does not support tty pretty printing
+        table.insert(to_print, log._printstyled(_prefix_label, _prefix_format))
+        table.insert(to_print, log._printstyled(_error_prefix, nil)) -- sic, error does not support tty pretty printing
         table.insert(to_print, " ")
 
         for i = 1, select("#", ...) do
@@ -246,6 +246,7 @@ function log.setMessageHook(hook)
 end
 
 if rt ~= nil then
+    rt.format_styled = log._printstyled
     rt.log = log.message
     rt.warning = log.warning
     rt.critical = log.critical
