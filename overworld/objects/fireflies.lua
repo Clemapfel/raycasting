@@ -1,4 +1,5 @@
 require "common.path1d"
+require "overworld.firefly_particle"
 
 local n_nodes = 128
 rt.settings.overworld.fireflies = {
@@ -14,7 +15,6 @@ rt.settings.overworld.fireflies = {
     hover_cycle_duration = n_nodes / 2, -- seconds,
 
     noise_speed = 2, -- unitless, in phase space
-    light_color_alpha = 0.25,
 
     flow_source_duration = 2, -- seconds
     flow_source_magnitude = 0.25, -- fraction
@@ -24,70 +24,30 @@ rt.settings.overworld.fireflies = {
 
     max_follow_offset = 2000, -- px
     glow_composite = 0.25, -- fraction
+
+    n_hues = 9,
+    n_radii = 8
 }
 
 --- @class ow.Fireflies
 ow.Fireflies = meta.class("Fireflies")
 
-local _texture -- rt.RenderTexture
-local _circle_radius
 local _glow_noise_path -- Path1D
 local _hover_offset_path -- Path2D
 
 local _MODE_STATIONARY = 1
 local _MODE_FOLLOW_PLAYER = 2
 
-local _fly_hue_t = 0
-local _fly_hue_t_step = 1 / 9
+local _possible_hues = nil -- Table<Number>
+local _possible_radii = nil -- Table<Number>
 
 --- @brief
 function ow.Fireflies:instantiate(object, stage, scene)
     rt.assert(object:get_type() == ow.ObjectType.POINT, "In ow.Fireflies: object `", object:get_id(), "` is not a point")
     local settings = rt.settings.overworld.fireflies
 
+
     do -- init shared globals
-        if _texture == nil then
-            local r = settings.texture_radius
-            local padding = 2
-            local texture_w = 2 * (r + padding)
-            _texture = rt.RenderTexture(texture_w, texture_w)
-
-            local x, y = 0.5 * texture_w, 0.5 * texture_w
-
-            local inner_inner_r, inner_outer_r = 0.05, 0.25
-            local outer_inner_r, outer_outer_r = 0.15, 1
-            _circle_radius = inner_inner_r * texture_w
-            local inner_color = rt.RGBA(1, 1, 1, 1)
-            local outer_color = rt.RGBA(0, 0, 0, 0.0)
-
-            local inner_glow = rt.MeshRing(
-                x, y,
-                math.max(settings.core_radius, inner_inner_r * r),
-                inner_outer_r * r,
-                true, -- fill center
-                nil,  -- n_outer_vertices
-                inner_color, outer_color
-            )
-
-            local outer_glow = rt.MeshRing(
-                x, y,
-                math.max(settings.core_radius, outer_inner_r * r),
-                outer_outer_r * r,
-                true,
-                nil,
-                inner_color, outer_color
-            )
-
-            love.graphics.push("all")
-            love.graphics.reset()
-            love.graphics.setColor(1, 1, 1, 1)
-            _texture:bind()
-            inner_glow:draw()
-            outer_glow:draw()
-            _texture:unbind()
-            love.graphics.pop()
-        end
-
         local function randomize_parameterization(interval_start, interval_end, n, min_size)
             local interval_length = interval_end - interval_start
             local min_total = n * min_size
@@ -144,6 +104,39 @@ function ow.Fireflies:instantiate(object, stage, scene)
                 0, 1, n_path_nodes, 1 / n_path_nodes
             ))
         end
+
+        if _possible_hues == nil then
+            _possible_hues = {}
+            local n = rt.settings.overworld.fireflies.n_hues
+            for i = 1, n do
+                table.insert(_possible_hues, (i - 1) / n)
+            end
+        end
+
+        if _possible_radii == nil then
+            _possible_radii = {}
+            local n = rt.settings.overworld.fireflies.n_radii
+
+            for i = 1, n do
+                table.insert(_possible_radii, math.mix(
+                    rt.settings.overworld.fireflies.min_scale,
+                    rt.settings.overworld.fireflies.max_scale,
+                    (i - 1) / (n - 1)
+                )* rt.settings.overworld.fireflies.radius)
+            end
+        end
+
+        if stage.firefly_texture_atlas == nil then
+            require "overworld.firefly_particle_texture_atlas"
+            stage.firefly_texture_atlas = ow.FireflyParticleTextureAtlas(
+                _possible_hues,
+                _possible_radii
+            )
+
+            stage:signal_connect("reset", function(_)
+                stage.firefly_texture_atlas = nil
+            end)
+        end
     end
 
     self._stage = stage
@@ -196,15 +189,13 @@ function ow.Fireflies:instantiate(object, stage, scene)
     local glow_cycle_duration = settings.glow_cycle_duration
     local hover_cycle_duration = settings.hover_cycle_duration
     local noise_speed = settings.noise_speed
-    local radius = settings.radius
     local min_factor, max_factor = settings.min_scale, settings.max_scale
-    if n_flies == 1 then min_factor = max_factor end
 
     self._fly_entries = {}
 
     for i = 1, n_flies do
-        local hue = _fly_hue_t
-        _fly_hue_t = _fly_hue_t + _fly_hue_t_step
+        local hue = rt.random.choose(_possible_hues)
+        local radius = rt.random.choose(_possible_radii)
         local color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, hue, rt.settings.overworld.fireflies.glow_componsite))
 
         -- light source proxy
@@ -237,8 +228,8 @@ function ow.Fireflies:instantiate(object, stage, scene)
             scale = rt.random.number(min_factor, max_factor),
 
             hue = hue,
+            radius = radius,
             color = color,
-            light_color = color:clone(),
 
             follow_motion = rt.SmoothedMotion2D(
                 object.x, object.y,--,
@@ -255,17 +246,7 @@ function ow.Fireflies:instantiate(object, stage, scene)
             body = body
         }
 
-        entry.light_color.a = rt.settings.overworld.fireflies.light_color_alpha
-        body:set_collides_with(0x0)
-        body:set_collision_group(0x0)
-        body:set_is_sensor(true)
-        body:add_tag("point_light_source")
-        body:set_user_data({
-            get_point_light_sources = function()
-                return {{ entry.follow_x + 0.5 * _texture:get_width(), entry.follow_y + 0.5 * _texture:get_height(), 1 }}, { entry.light_color }
-            end
-        })
-
+        entry.particle = ow.FireflyParticle(entry.hue, entry.radius)
         table.insert(self._fly_entries, entry)
     end
 end
@@ -435,65 +416,11 @@ function ow.Fireflies:draw()
         end
     end
 
-    local texture_w, texture_h = _texture:get_size()
     for entry in values(self._fly_entries) do
-        if self._stage:get_is_body_visible(entry.body) then
-            local blend = math.mix(0.5, 1, entry.glow_value)
-
-            love.graphics.push()
-            local pos_x, pos_y = get_position(entry)
-            love.graphics.translate(pos_x, pos_y)
-            love.graphics.scale(entry.scale)
-            love.graphics.translate(-0.5 * texture_w, -0.5 * texture_h)
-
-            local r, g, b, a = entry.color:unpack()
-            love.graphics.setColor(
-                blend * r * a,
-                blend * g * a,
-                blend * b * a,
-                a * blend
-            )
-            _texture:draw()
-            love.graphics.pop()
-        end
-    end
-
-    love.graphics.setBlendMode("alpha")
-    love.graphics.setLineStyle("rough")
-    love.graphics.setLineWidth(2)
-
-    local radius = rt.settings.overworld.fireflies.core_radius
-    local black_r, black_g, black_b = rt.Palette.BLACK:unpack()
-    for entry in values(self._fly_entries) do
-        local circle_x, circle_y = get_position(entry)
-
-        local r, g, b, a = entry.color:unpack()
-        a = math.mix(0.5, 1, entry.glow_value)
-
-        local under = 0.4
-        love.graphics.setColor(
-            under * r,
-            under * g,
-            under * b,
-            a
-        )
-
-        love.graphics.circle("line",
-            circle_x, circle_y,
-            radius * entry.scale
-        )
-
-        local over = math.mix(1.25, 1.75, entry.glow_value)
-        love.graphics.setColor(
-            over * r,
-            over * g,
-            over * b,
-            a
-        )
-
-        love.graphics.circle("fill",
-            circle_x, circle_y, radius * entry.scale
-        )
+        local entry_x, entry_y = get_position(entry)
+        local a = math.mix(0.5, 1, entry.glow_value)
+        love.graphics.setColor(1, 1, 1, a)
+        self._stage.firefly_texture_atlas:draw(entry.hue, entry.radius, entry_x, entry_y)
     end
 
     love.graphics.pop()

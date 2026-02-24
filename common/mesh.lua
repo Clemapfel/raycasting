@@ -437,7 +437,6 @@ rt.MeshPlane = function(center_x, center_y, center_z, width, height, curvature, 
     return mesh
 end
 
-
 --- @class rt.MeshSphere
 function rt.MeshSphere(center_x, center_y, center_z, radius, n_rings, n_segments_per_ring)
     local data = {}

@@ -54,7 +54,7 @@ function ow.FireflyParticle:instantiate(hue, radius)
 end
 
 --- @brief
-function ow.FireflyParticle:draw(x, y, scale)
+function ow.FireflyParticle:draw(x, y)
     local texture_w, texture_h = self._texture:get_size()
 
     local r, g, b = self._color:unpack()
@@ -64,7 +64,6 @@ function ow.FireflyParticle:draw(x, y, scale)
 
     love.graphics.push()
     love.graphics.translate(x, y)
-    love.graphics.scale(scale)
     love.graphics.translate(-0.5 * texture_w, -0.5 * texture_h)
 
     love.graphics.setBlendMode("alpha", "premultiplied")
@@ -104,4 +103,12 @@ function ow.FireflyParticle:draw(x, y, scale)
     )
 
     love.graphics.pop()
+end
+
+--- @brief
+function ow.FireflyParticle:draw_bloom(x, y)
+    self._color:bind()
+    love.graphics.circle("fill",
+        x, y, self._core_radius
+    )
 end

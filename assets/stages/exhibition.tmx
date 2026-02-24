@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="865">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="900">
  <editorsettings>
   <export target="exhibition.lua" format="lua"/>
  </editorsettings>
@@ -591,46 +591,10 @@
    </properties>
    <point/>
   </object>
-  <object id="849" type="Coin" x="2116.12" y="972.524">
-   <point/>
-  </object>
-  <object id="852" type="Coin" x="2091.28" y="960.297">
-   <point/>
-  </object>
-  <object id="853" type="Coin" x="2098.26" y="971.468">
-   <point/>
-  </object>
-  <object id="854" type="Coin" x="2112.92" y="979.846">
-   <point/>
-  </object>
-  <object id="855" type="Coin" x="2105.24" y="988.923">
-   <point/>
-  </object>
-  <object id="856" type="Coin" x="2084.3" y="992.414">
-   <point/>
-  </object>
-  <object id="857" type="Coin" x="2084.3" y="979.148">
-   <point/>
-  </object>
-  <object id="858" type="Coin" x="2111.53" y="1002.19">
-   <point/>
-  </object>
-  <object id="859" type="Coin" x="2066.84" y="965.185">
-   <point/>
-  </object>
-  <object id="860" type="Coin" x="2076.62" y="967.279">
-   <point/>
-  </object>
-  <object id="861" type="Coin" x="2074.52" y="979.148">
-   <point/>
-  </object>
-  <object id="862" type="Coin" x="2077.32" y="992.414">
-   <point/>
-  </object>
-  <object id="863" type="Coin" x="2066.84" y="994.508">
-   <point/>
-  </object>
-  <object id="864" type="Coin" x="2095.47" y="996.603">
+  <object id="871" type="Fireflies" x="2162.35" y="948.235">
+   <properties>
+    <property name="count" type="int" value="32"/>
+   </properties>
    <point/>
   </object>
  </objectgroup>

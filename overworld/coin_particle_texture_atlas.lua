@@ -86,6 +86,11 @@ function ow.CoinParticleTextureAtlas:draw(hue, x, y, scale)
 
     local native = self._texture_atlas:get_native()
     local quad = self._hue_to_quad[hue]
+
+    if quad == nil then
+        rt.error("In ow.CoinParticleTextureAtlas.draw: no entry with hue `", hue, "`")
+    end
+
     local _, _, width, height = quad:getViewport()
 
     local _, _, _, alpha = love.graphics.getColor()
@@ -107,6 +112,11 @@ function ow.CoinParticleTextureAtlas:draw_bloom(hue, x, y, scale)
 
     local native = self._texture_atlas:get_native()
     local quad = self._hue_to_bloom_quad[hue]
+
+    if quad == nil then
+        rt.error("In ow.CoinParticleTextureAtlas.draw_bloom: no entry with hue `", hue, "`")
+    end
+
     local _, _, width, height = quad:getViewport()
 
     local _, _, _, alpha = love.graphics.getColor()
