@@ -32,8 +32,6 @@ function mn.CoinParticleSwarm:instantiate()
     self._spatial_hash = rt.Matrix()
     self._spatial_hash_cell_size = rt.settings.overworld.coin.radius * 2
 
-    self._canvas_scale = 1
-
     self._mode = mn.CoinParticleSwarmMode.CIRCLE
 
     -- collect all possible hue
@@ -48,67 +46,13 @@ function mn.CoinParticleSwarm:instantiate()
 
     local hues = {}
     for hue in keys(self._hue_to_quad) do table.insert(hues, hue) end
-    table.sort(hues)
 
-    -- TODO
-    hues[0] = true
-    -- TODO
-
-    -- build texture atlas
-    local radius = self._canvas_scale * 9 -- TODOrt.settings.overworld.coin.radius
-    self._particle_radius = radius
-    local particle = ow.CoinParticle(radius)
-    local n_rows = math.ceil(math.sqrt(#hues))
-    local n_columns = math.ceil(#hues / n_rows)
+    require "overworld.coin_particle_texture_atlas"
+    self._coin_atlas = ow.CoinParticleTextureAtlas(hues)
+    self._particle_radius = rt.settings.overworld.coin.radius
 
     self._above_player = {}
     self._below_player = {}
-
-    self._padding = math.ceil(0.25 * radius)
-    local quad_w = 2 * radius + 2 * self._padding
-    local quad_h = quad_w
-
-    self._texture_atlas = rt.RenderTexture(
-        quad_w * n_columns,
-        quad_h * n_rows,
-        rt.GameState:get_msaa_quality()
-    )
-
-    love.graphics.push("all")
-    love.graphics.reset()
-    self._texture_atlas:bind()
-
-    local hue_i = 1
-    for row_i = 1, n_rows do
-        for col_i = 1, n_columns do
-            if hue_i > #hues then goto exit end
-
-            local hue = hues[hue_i]
-            particle:set_hue(hue)
-            particle:set_elapsed(rt.random.number(0, 60 * 60))
-
-            local quad_x = (col_i - 1) * quad_w
-            local quad_y = (row_i - 1) * quad_h
-
-            local particle_x = quad_x + 0.5 * quad_w
-            local particle_y = quad_y + 0.5 * quad_h
-
-            particle:draw(particle_x, particle_y)
-            particle:draw_bloom(particle_x, particle_y)
-
-            self._hue_to_quad[hue] = love.graphics.newQuad(
-                quad_x, quad_y, quad_w, quad_h,
-                self._texture_atlas:get_native()
-            )
-
-            hue_i = hue_i + 1
-        end
-    end
-
-    ::exit::
-
-    self._texture_atlas:unbind()
-    love.graphics.pop()
 
     self._particles = {}
     self:create_from_state()
@@ -136,7 +80,6 @@ function mn.CoinParticleSwarm:create_from_state()
             home_offset_initial = home_offset,
             collided = {},
             hue = hue,
-            quad = quad,
             radius = self._particle_radius,
             mass = 1 + math.mix(0, 1, mass)
         }
@@ -401,33 +344,24 @@ function mn.CoinParticleSwarm:update(delta)
 end
 
 --- @brief
-function mn.CoinParticleSwarm:_draw_particle(particle, native, scale)
-    local _, _, w, h = particle.quad:getViewport()
-    love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.draw(
-        native, particle.quad,
-        particle.x + self._offset_x, particle.y + self._offset_y,
-        0,
-        scale, scale,
-        0.5 * w, 0.5 * h
-    )
-end
-
---- @brief
 function mn.CoinParticleSwarm:draw_above_player()
-    local scale = 1 / self._canvas_scale
-    local native = self._texture_atlas:get_native()
     for particle in values(self._above_player) do
-        self:_draw_particle(particle, native, scale)
+        self._coin_atlas:draw(
+            particle.hue,
+            particle.x + self._offset_x,
+            particle.y + self._offset_y
+        )
     end
 end
 
 --- @brief
 function mn.CoinParticleSwarm:draw_below_player()
-    local scale = 1 / self._canvas_scale
-    local native = self._texture_atlas:get_native()
     for particle in values(self._below_player) do
-        self:_draw_particle(particle, native, scale)
+        self._coin_atlas:draw(
+            particle.hue,
+            particle.x + self._offset_x,
+            particle.y + self._offset_y
+        )
     end
 end
 

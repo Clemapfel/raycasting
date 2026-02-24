@@ -78,6 +78,7 @@ function ow.CoinParticle:_draw_core()
 
     local r, g, b, a = table.unpack(self._outline_color)
     love.graphics.setColor(r, g, b, a * self._opacity)
+    love.graphics.setLineWidth(1)
     love.graphics.line(self._core_outline)
 end
 
