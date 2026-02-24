@@ -179,9 +179,11 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
             bottom_y = self._y + 0.5 * max_rope_length
         end
 
-        self._bottom_x, self._bottom_y = bottom_x, math.min(bottom_y, self._y)
+        self._bottom_x, self._bottom_y = bottom_x, bottom_y
 
         if self._type == ow.CheckpointType.PLAYER_SPAWN then
+            self._bottom_y = math.min(self._bottom_y, self._y)
+
             create_platform(self._x, self._y)
             self._spawn_barrier:set_is_enabled(self._use_spawn_barrier)
             self._body = self._spawn_barrier

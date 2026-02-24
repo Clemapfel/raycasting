@@ -154,16 +154,21 @@ function ow.CheckpointRope:cut()
     local impulse = 0.05
 
     local joint_broken = false
+    local break_on_next = false
     for i, joint in ipairs(self._joints) do
         if i > self._n_segments - 1 then break end
 
         local a_x, a_y = self._bodies[i+0]:get_position()
         local b_x, b_y = self._bodies[i+1]:get_position()
-        if player_y >= a_y and player_y <= b_y then
-            joint_broken = true
-            self._cut_index = i
-            joint:destroy()
-            break
+        if break_on_next == true or (player_y >= a_y and player_y <= b_y) then
+            if i < 3 then -- prevent one part of the rope being too short
+                break_on_next = true
+            else
+                joint_broken = true
+                self._cut_index = i
+                joint:destroy()
+                break
+            end
         end
     end
 
@@ -548,8 +553,9 @@ function ow.CheckpointRope:_update_mesh()
     if not self._is_cut then
         self._pre_cut_mesh = generate_mesh(1, #self._bodies, self._pre_cut_mesh)
     else
-        self._post_cut_mesh_top = generate_mesh(1, self._cut_index - 1, self._post_cut_mesh_top)
-        self._post_cut_mesh_bottom = generate_mesh(self._cut_index + 1, #self._bodies, self._post_cut_mesh_bottom)
+        local cut_index = math.max(self._cut_index, 2)
+        self._post_cut_mesh_top = generate_mesh(1, cut_index - 1, self._post_cut_mesh_top)
+        self._post_cut_mesh_bottom = generate_mesh(cut_index + 1, #self._bodies, self._post_cut_mesh_bottom)
     end
 end
 

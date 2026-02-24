@@ -190,6 +190,7 @@ function ow.Bubble:_pop(pop_x, pop_y)
 
     self._is_destroyed = true
     self._respawn_elapsed = 0
+    self._path_elapsed = 0 -- reset to 0 offset
     self._pop_light_boost = 0
     self._body:set_is_sensor(true)
 

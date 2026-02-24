@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="832">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="865">
  <editorsettings>
   <export target="exhibition.lua" format="lua"/>
  </editorsettings>
@@ -140,7 +140,7 @@
   <object id="519" type="SlipperyHitbox" x="-2752" y="2288">
    <polygon points="16,32 -32,32 -32,-16 16,-16"/>
   </object>
-  <object id="520" name="Spawn" type="PlayerSpawn" x="-578.643" y="4391.6">
+  <object id="520" name="Spawn" type="PlayerSpawn" x="2239.25" y="979.099">
    <point/>
   </object>
   <object id="521" name="Portal" type="Portal" x="-3200" y="2224">
@@ -503,6 +503,135 @@
   </object>
   <object id="831" type="SlipperyMovableHitbox" x="-48" y="4608">
    <polygon points="0,0 0,-224 16,-224 16,0"/>
+  </object>
+  <object id="832" type="Fireflies" x="-1264" y="3824">
+   <properties>
+    <property name="count" type="int" value="5"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="833" type="Checkpoint" x="-2976" y="5600">
+   <point/>
+  </object>
+  <object id="834" type="Coin" x="-3458.18" y="4499.88">
+   <properties>
+    <property name="count" type="int" value="512"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="837" type="Coin" x="-3523.59" y="4490.49">
+   <properties>
+    <property name="count" type="int" value="512"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="838" type="Coin" x="-3494.92" y="4516.55">
+   <properties>
+    <property name="count" type="int" value="512"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="839" type="Coin" x="-3427.16" y="4508.73">
+   <properties>
+    <property name="count" type="int" value="512"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="840" type="Coin" x="-3492.31" y="4485.27">
+   <properties>
+    <property name="count" type="int" value="512"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="841" type="Coin" x="-3484.49" y="4487.88">
+   <properties>
+    <property name="count" type="int" value="512"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="842" type="Coin" x="-3541.83" y="4495.7">
+   <properties>
+    <property name="count" type="int" value="512"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="843" type="Coin" x="-3502.74" y="4487.88">
+   <properties>
+    <property name="count" type="int" value="512"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="844" type="Coin" x="-3458.43" y="4485.27">
+   <properties>
+    <property name="count" type="int" value="512"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="845" type="Coin" x="-3442.79" y="4490.49">
+   <properties>
+    <property name="count" type="int" value="512"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="846" type="Coin" x="-3515.77" y="4500.91">
+   <properties>
+    <property name="count" type="int" value="512"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="847" type="Coin" x="-3520.98" y="4500.91">
+   <properties>
+    <property name="count" type="int" value="512"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="848" type="Coin" x="-3458.43" y="4503.52">
+   <properties>
+    <property name="count" type="int" value="512"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="849" type="Coin" x="2116.12" y="972.524">
+   <point/>
+  </object>
+  <object id="852" type="Coin" x="2091.28" y="960.297">
+   <point/>
+  </object>
+  <object id="853" type="Coin" x="2098.26" y="971.468">
+   <point/>
+  </object>
+  <object id="854" type="Coin" x="2112.92" y="979.846">
+   <point/>
+  </object>
+  <object id="855" type="Coin" x="2105.24" y="988.923">
+   <point/>
+  </object>
+  <object id="856" type="Coin" x="2084.3" y="992.414">
+   <point/>
+  </object>
+  <object id="857" type="Coin" x="2084.3" y="979.148">
+   <point/>
+  </object>
+  <object id="858" type="Coin" x="2111.53" y="1002.19">
+   <point/>
+  </object>
+  <object id="859" type="Coin" x="2066.84" y="965.185">
+   <point/>
+  </object>
+  <object id="860" type="Coin" x="2076.62" y="967.279">
+   <point/>
+  </object>
+  <object id="861" type="Coin" x="2074.52" y="979.148">
+   <point/>
+  </object>
+  <object id="862" type="Coin" x="2077.32" y="992.414">
+   <point/>
+  </object>
+  <object id="863" type="Coin" x="2066.84" y="994.508">
+   <point/>
+  </object>
+  <object id="864" type="Coin" x="2095.47" y="996.603">
+   <point/>
   </object>
  </objectgroup>
  <objectgroup id="2" name="front">

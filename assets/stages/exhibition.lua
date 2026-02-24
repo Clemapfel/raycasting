@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 832,
+  nextobjectid = 865,
   properties = {},
   tilesets = {
     {
@@ -800,8 +800,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = -578.643,
-          y = 4391.6,
+          x = 2239.25,
+          y = 979.099,
           width = 0,
           height = 0,
           rotation = 0,
@@ -2817,6 +2817,411 @@ return {
             { x = 16, y = -224 },
             { x = 16, y = 0 }
           },
+          properties = {}
+        },
+        {
+          id = 832,
+          name = "",
+          type = "Fireflies",
+          shape = "point",
+          x = -1264,
+          y = 3824,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["count"] = 5
+          }
+        },
+        {
+          id = 833,
+          name = "",
+          type = "Checkpoint",
+          shape = "point",
+          x = -2976,
+          y = 5600,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 834,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = -3458.18,
+          y = 4499.88,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["count"] = 512
+          }
+        },
+        {
+          id = 837,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = -3523.59,
+          y = 4490.49,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["count"] = 512
+          }
+        },
+        {
+          id = 838,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = -3494.92,
+          y = 4516.55,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["count"] = 512
+          }
+        },
+        {
+          id = 839,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = -3427.16,
+          y = 4508.73,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["count"] = 512
+          }
+        },
+        {
+          id = 840,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = -3492.31,
+          y = 4485.27,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["count"] = 512
+          }
+        },
+        {
+          id = 841,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = -3484.49,
+          y = 4487.88,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["count"] = 512
+          }
+        },
+        {
+          id = 842,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = -3541.83,
+          y = 4495.7,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["count"] = 512
+          }
+        },
+        {
+          id = 843,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = -3502.74,
+          y = 4487.88,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["count"] = 512
+          }
+        },
+        {
+          id = 844,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = -3458.43,
+          y = 4485.27,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["count"] = 512
+          }
+        },
+        {
+          id = 845,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = -3442.79,
+          y = 4490.49,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["count"] = 512
+          }
+        },
+        {
+          id = 846,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = -3515.77,
+          y = 4500.91,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["count"] = 512
+          }
+        },
+        {
+          id = 847,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = -3520.98,
+          y = 4500.91,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["count"] = 512
+          }
+        },
+        {
+          id = 848,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = -3458.43,
+          y = 4503.52,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["count"] = 512
+          }
+        },
+        {
+          id = 849,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = 2116.12,
+          y = 972.524,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 852,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = 2091.28,
+          y = 960.297,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 853,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = 2098.26,
+          y = 971.468,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 854,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = 2112.92,
+          y = 979.846,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 855,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = 2105.24,
+          y = 988.923,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 856,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = 2084.3,
+          y = 992.414,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 857,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = 2084.3,
+          y = 979.148,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 858,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = 2111.53,
+          y = 1002.19,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 859,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = 2066.84,
+          y = 965.185,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 860,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = 2076.62,
+          y = 967.279,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 861,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = 2074.52,
+          y = 979.148,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 862,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = 2077.32,
+          y = 992.414,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 863,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = 2066.84,
+          y = 994.508,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 864,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = 2095.47,
+          y = 996.603,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
           properties = {}
         }
       }

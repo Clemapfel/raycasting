@@ -185,7 +185,6 @@ function ow.Stage:instantiate(scene, id)
     -- parse layers
     for layer_i = 1, self._config:get_n_layers() do
         --local spritebatches = self._config:get_layer_sprite_batches(layer_i)
-        -- TODO: handle sprite batches
         -- init object instances
         local object_wrappers = self._config:get_layer_object_wrappers(layer_i)
         if table.sizeof(object_wrappers) > 0 then
@@ -310,14 +309,22 @@ function ow.Stage:instantiate(scene, id)
         rt.warning("In ow.Stage.initialize: no `PlayerSpawn` for stage `",  self._id,  "`")
     end
 
-    -- sort by render priority
-    table.sort(self._below_player, function(a, b)
-        return a.priority < b.priority
-    end)
+    local sort = function(t)
+        -- sort entries by priority
+        table.sort(t, function(a, b)
+            return a.priority < b.priority
+        end)
 
-    table.sort(self._above_player, function(a, b)
-        return a.priority < b.priority
-    end)
+        -- group similar objects next to each other for better batching
+        for entry in values(t) do
+            table.sort(entry.objects, function(a, b)
+                return meta.typeof(a) < meta.typeof(b)
+            end)
+        end
+    end
+
+    sort(self._below_player)
+    sort(self._above_player)
 
     self._blood_splatter:create_contour(
         ow.Hitbox:get_collision_tris(true, false), -- sticky

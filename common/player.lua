@@ -59,8 +59,7 @@ do
         accelerator_max_velocity_factor = 3.5 / 2,
         accelerator_magnet_force = 2000, -- per second
 
-        instant_turnaround_velocity = 600,
-        allow_instant_turn_around = false,
+        allow_instant_turn_around = true,
 
         coyote_time = 8 / 60, -- seconds after leaving ground
         wall_jump_coyote_time = 5 / 120, -- seconds after letting go of direction against wall
@@ -1723,17 +1722,19 @@ function rt.Player:update(delta)
 
         -- instant turn around
         if settings.allow_instant_turn_around and self._queue_turn_around == true then
-            local vx, vy = current_velocity_x, current_velocity_y
-            if self._queue_turn_around_direction == rt.Direction.RIGHT and is_grounded then
-                next_velocity_x = math.max(math.abs(vx), settings.instant_turnaround_velocity)
-            elseif self._queue_turn_around_direction == rt.Direction.LEFT and is_grounded then
-                next_velocity_x = -1 * math.max(math.abs(vx), settings.instant_turnaround_velocity)
-            elseif self._queue_turn_around_direction == rt.Direction.DOWN then -- even in air
-                next_velocity_y = math.max(math.abs(vy), settings.instant_turnaround_velocity)
-            elseif self._queue_turn_around_direction == rt.Direction.UP then
-                -- noop
+            local vx, vy = next_velocity_x, next_velocity_y
+            local magnitude = math.magnitude(vx, vy)
+            local direction = self._queue_turn_around_direction
+
+            if (vx < 0 and direction == rt.Direction.RIGHT)
+                or (vx > 0 and direction == rt.Direction.LEFT)
+            then
+                vx = -vx
+            elseif (vy > 0 and direction == rt.Direction.DOWN) then
+                vy = -vy
             end
 
+            next_velocity_x, next_velocity_y = vx, vy
             self._queue_turn_around = false
         end
 
