@@ -122,10 +122,17 @@ function ow.CoinParticle:draw(x, y)
     love.graphics.pop()
 end
 
+function ow.CoinParticle:draw_index(x, y)
+    love.graphics.push()
+    love.graphics.translate(x, y)
+    self._index_label:draw()
+    love.graphics.pop()
+end
+
 function ow.CoinParticle:draw_bloom(x, y)
     if self._is_outline then return end
 
-    love.graphics.setLineWidth(0.5)
+    love.graphics.setLineWidth(1)
 
     love.graphics.push()
     love.graphics.translate(x, y)
@@ -134,7 +141,8 @@ function ow.CoinParticle:draw_bloom(x, y)
     love.graphics.setColor(r, g, b, a * self._opacity)
     love.graphics.line(self._body_outline)
 
-    self:_draw_core()
+    love.graphics.setColor(self._color)
+    love.graphics.circle("fill", 0, 0, self._radius)
 
     love.graphics.pop()
 end

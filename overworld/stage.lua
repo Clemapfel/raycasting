@@ -29,7 +29,7 @@ rt.settings.overworld.stage = {
 --- @signal respawn (self, is_first_spawn) -> nil
 --- @signal loading_done (self) -> nil
 ow.Stage = meta.class("Stage", rt.Drawable)
-meta.add_signals(ow.Stage, "initialized", "respawn", "loading_done")
+meta.add_signals(ow.Stage, "initialized", "respawn", "loading_done", "reset")
 
 --- @brief
 function ow.Stage:instantiate(scene, id)
@@ -895,6 +895,8 @@ function ow.Stage:reset()
     for body in values(self._world:get_bodies()) do
         body:set_is_enabled(body_to_is_enabled[body])
     end
+
+    self:signal_emit("reset")
 end
 
 --- @brief

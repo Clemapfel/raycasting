@@ -23,9 +23,6 @@ rt.settings.overworld.coin = {
 ow.Coin = meta.class("Coin", ow.MovableObject)
 
 local _pulse_mesh = nil
-local _particle_texture
-
-local _particle_shader = rt.Shader("overworld/objects/coin.glsl")
 
 function ow.Coin.index_to_hue(i, n_coins)
     if n_coins - 1 == 0 then return 0 end
@@ -38,14 +35,20 @@ function ow.Coin:instantiate(object, stage, scene)
 
     local radius = rt.settings.overworld.coin.radius
 
-    if _particle_texture == nil then
-        local padding = rt.settings.overworld.coin.particle_padding
-        _particle_texture = rt.RenderTexture(2 * (radius + padding), 2 * (radius + padding))
-        _particle_texture:bind()
-        _particle_shader:bind()
-        love.graphics.rectangle("fill", padding, padding, 2 * radius, 2 * radius)
-        _particle_shader:unbind()
-        _particle_texture:unbind()
+    if stage.coin_texture_atlas == nil then
+        -- per stage atlas
+        local n_coins = rt.GameState:get_stage_n_coins(stage:get_id())
+        local hues = {}
+        for i = 1, n_coins do
+            table.insert(hues, ow.Coin.index_to_hue(i, n_coins))
+        end
+
+        require "overworld.coin_particle_texture_atlas"
+        stage.coin_texture_atlas = ow.CoinParticleTextureAtlas(hues)
+
+        stage:signal_connect("reset", function(_)
+            stage.coin_texture_atlas = nil
+        end)
     end
 
     self._id = object.id
@@ -59,7 +62,7 @@ function ow.Coin:instantiate(object, stage, scene)
     self._follow_offset = 0
 
     self._pulse_x, self._pulse_y = 0, 0
-    self._particle = ow.CoinParticle(radius)
+    self._index_particle = ow.CoinParticle(radius) -- for color blind mode only
 
     self._already_collected = false
 
@@ -71,19 +74,17 @@ function ow.Coin:instantiate(object, stage, scene)
 
         self._already_collected = rt.GameState:get_stage_is_coin_collected(self._stage:get_id(), self._index)
         if self._already_collected then
-            self._particle:set_opacity(rt.settings.overworld.coin.already_collected_opacity)
+            self._opacity = rt.settings.overworld.coin.already_collected_opacity
         else
-            self._particle:set_opacity(1)
+            self._opacity = 1
         end
 
         self._hue = ow.Coin.index_to_hue(self._index, self._stage:get_n_coins())
         self._color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, self._hue, 1))
-        self._particle:set_hue(self._hue)
-        self._particle:set_index(self._index)
 
         -- recheck each respawn, since checkpoint uncollect coins
         self._stage:signal_connect("respawn", function(stage)
-            --self:set_is_collected(stage:get_coin_is_collected(self._index))
+            self:set_is_collected(stage:get_coin_is_collected(self._index))
         end)
 
         return meta.DISCONNECT_SIGNAL
@@ -252,6 +253,15 @@ end
 function ow.Coin:draw()
     if not self._is_collected and not self._is_returning and not self._stage:get_is_body_visible(self._body) then return end
 
+    local atlas = self._stage.coin_texture_atlas
+    local draw = function(x, y)
+        love.graphics.setColor(1, 1, 1, self._opacity)
+        atlas:draw(self._hue, x, y)
+        if rt.GameState:get_is_color_blind_mode_enabled() then
+            self._index_particle:draw_index(x, y)
+        end
+    end
+
     if self._is_collected then
         if self._pulse_active then
             local r, g, b = self._color:unpack()
@@ -267,16 +277,16 @@ function ow.Coin:draw()
             love.graphics.pop()
         end
 
-        self._particle:draw(self._follow_x, self._follow_y)
+        draw(self._follow_x, self._follow_y)
     else
         if self._is_returning then
-            self._particle:draw(self._respawn_return_motion:get_position())
+            draw(self._respawn_return_motion:get_position())
         else
             local offset_x, offset_y = self._body:get_position()
             if self._use_noise then
-                self._particle:draw(offset_x + self._noise_x, offset_y + self._noise_y)
+                draw(offset_x + self._noise_x, offset_y + self._noise_y)
             else
-                self._particle:draw(offset_x, offset_y)
+                draw(offset_x, offset_y)
             end
         end
     end
@@ -295,12 +305,15 @@ end
 
 --- @brief
 function ow.Coin:draw_bloom()
+    local atlas = self._stage.coin_texture_atlas
     if self._stage:get_is_body_visible(self._body) and self._is_collected ~= true then
+        love.graphics.setColor(1, 1, 1, self._opacity)
+
         if self._is_returning then
-            self._particle:draw_bloom(self._respawn_return_motion:get_position())
+            atlas:draw_bloom(self._hue, self._respawn_return_motion:get_position())
         else
             local offset_x, offset_y = self._body:get_position()
-            self._particle:draw_bloom(offset_x + self._noise_x, offset_y + self._noise_y)
+            atlas:draw_bloom(self._hue, offset_x + self._noise_x, offset_y + self._noise_y)
         end
     end
 end

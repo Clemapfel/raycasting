@@ -15,7 +15,6 @@ rt.settings.menu.coin_particle_swarm = {
 --- @class mn.CoinParticleSwarm
 mn.CoinParticleSwarm = meta.class("CoinParticleSwarm")
 
-
 --- @class mn.CoinParticleSwarmMode
 mn.CoinParticleSwarmMode = meta.enum("CoinParticleSwarmMode", {
     FOLLOW = "FOLLOW",
@@ -35,17 +34,17 @@ function mn.CoinParticleSwarm:instantiate()
     self._mode = mn.CoinParticleSwarmMode.CIRCLE
 
     -- collect all possible hue
-    self._hue_to_quad = {}
+    self._hues = {}
     local stage_ids = rt.GameState:list_stage_ids()
     for id in values(stage_ids) do
         local n_coins = rt.GameState:get_stage_n_coins(id)
         for i = 1, n_coins do
-            self._hue_to_quad[ow.Coin.index_to_hue(i, n_coins)] = true
+            self._hues[ow.Coin.index_to_hue(i, n_coins)] = true
         end
     end
 
     local hues = {}
-    for hue in keys(self._hue_to_quad) do table.insert(hues, hue) end
+    for hue in keys(self._hues) do table.insert(hues, hue) end
 
     require "overworld.coin_particle_texture_atlas"
     self._coin_atlas = ow.CoinParticleTextureAtlas(hues)
@@ -63,7 +62,7 @@ function mn.CoinParticleSwarm:create_from_state()
     self._particles = {}
 
     local home_angle_width = math.pi
-    local add = function(hue, quad)
+    local add = function(hue)
         local home_offset = rt.random.number(0, 2 * math.pi)
         local mass = rt.random.number(0, 1)
         local particle = {
@@ -100,19 +99,10 @@ function mn.CoinParticleSwarm:create_from_state()
         for coin_i = 1, n_coins do
             if rt.GameState:get_stage_is_coin_collected(id, coin_i) then
                 local hue = ow.Coin.index_to_hue(coin_i, n_coins)
-                add(hue, self._hue_to_quad[hue])
+                add(hue, self._hues[hue])
             end
         end
     end
-
-    -- TODO
-    local hues = { 0 }
-    for hue in keys(self._hue_to_quad) do table.insert(hues, hue) end
-    for i = 1, 3 do
-        local hue = rt.random.choose(hues)
-        add(hue, self._hue_to_quad[hue])
-    end
-    -- TODO
 
     -- distribute particles equally along both axes
     local home_x_width, home_y_width = self:_get_home_dimensions()
