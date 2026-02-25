@@ -1242,6 +1242,7 @@ function ow.OverworldScene:_update_camera(delta)
             if self._camera_override_active then
                 love.mouse.setX(0.5 * love.graphics.getWidth())
                 love.mouse.setY(0.5 * love.graphics.getHeight())
+                camera:move_to(self._player:get_position())
             end
         else
             rt.SceneManager:set_is_cursor_visible(false)

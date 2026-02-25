@@ -1,0 +1,436 @@
+require "common.path1d"
+require "overworld.firefly_particle"
+
+local n_nodes = 128
+rt.settings.overworld.fireflies = {
+    radius = 10, -- px
+    texture_radius = 15, -- px
+    core_radius = 1.5,
+    path_n_nodes = n_nodes,
+
+    max_glow_offset = 0.75,
+    glow_cycle_duration = n_nodes / 10,
+
+    max_hover_offset = 18, -- px
+    hover_cycle_duration = n_nodes / 2, -- seconds,
+
+    noise_speed = 2, -- unitless, in phase space
+
+    flow_source_duration = 2, -- seconds
+    flow_source_magnitude = 0.25, -- fraction
+
+    min_scale = 0.75,
+    max_scale = 1.25,
+
+    max_follow_offset = 2000, -- px
+    glow_composite = 0.25, -- fraction
+
+    n_hues = 9,
+    n_radii = 8
+}
+
+--- @class ow.Fireflies
+ow.Fireflies = meta.class("Fireflies")
+
+local _glow_noise_path -- Path1D
+local _hover_offset_path -- Path2D
+
+local _MODE_STATIONARY = 1
+local _MODE_FOLLOW_PLAYER = 2
+
+local _possible_hues = nil -- Table<Number>
+local _possible_radii = nil -- Table<Number>
+
+--- @brief
+function ow.Fireflies:instantiate(object, stage, scene)
+    rt.assert(object:get_type() == ow.ObjectType.POINT, "In ow.Fireflies: object `", object:get_id(), "` is not a point")
+    local settings = rt.settings.overworld.fireflies
+
+    do -- init shared globals
+        local function randomize_parameterization(interval_start, interval_end, n, min_size)
+            local interval_length = interval_end - interval_start
+            local min_total = n * min_size
+
+            local remaining_length = interval_length - min_total
+
+            local split_points = {}
+            for i = 1, n - 1 do
+                split_points[i] = rt.random.number(0, remaining_length)
+            end
+
+            table.sort(split_points)
+
+            local segments = {}
+            local previous_point = 0
+            for i = 1, n - 1 do
+                segments[i] = (split_points[i] - previous_point) + min_size
+                previous_point = split_points[i]
+            end
+
+            segments[n] = (remaining_length - previous_point) + min_size
+            return table.unpack(segments)
+        end
+
+        local n_path_nodes = settings.path_n_nodes
+        if _glow_noise_path == nil then
+            local values = {}
+            for i = 1, n_path_nodes do
+                table.insert(values, rt.random.number(
+                    1 - settings.max_glow_offset,
+                    1
+                ))
+            end
+
+            table.insert(values, values[1])
+            _glow_noise_path = rt.Path1D(values)
+            _glow_noise_path:override_parameterization(randomize_parameterization(
+                0, 1, n_path_nodes, 0
+            ))
+        end
+
+        if _hover_offset_path == nil then
+            local points = {}
+            local max_offset = settings.max_hover_offset
+            for i = 1, n_path_nodes do
+                table.insert(points, rt.random.number(-max_offset, max_offset))
+                table.insert(points, rt.random.number(-max_offset, max_offset))
+            end
+
+            table.insert(points, points[1])
+            table.insert(points, points[2])
+            _hover_offset_path = rt.Path2D(points)
+            _hover_offset_path:override_parameterization(randomize_parameterization(
+                0, 1, n_path_nodes, 1 / n_path_nodes
+            ))
+        end
+
+        if _possible_hues == nil then
+            _possible_hues = {}
+            local n = rt.settings.overworld.fireflies.n_hues
+            for i = 1, n do
+                table.insert(_possible_hues, (i - 1) / n)
+            end
+        end
+
+        if _possible_radii == nil then
+            _possible_radii = {}
+            local n = rt.settings.overworld.fireflies.n_radii
+
+            for i = 1, n do
+                table.insert(_possible_radii, math.mix(
+                    rt.settings.overworld.fireflies.min_scale,
+                    rt.settings.overworld.fireflies.max_scale,
+                    (i - 1) / (n - 1)
+                )* rt.settings.overworld.fireflies.radius)
+            end
+        end
+
+        if stage.firefly_texture_atlas == nil then
+            require "overworld.firefly_particle_texture_atlas"
+            stage.firefly_texture_atlas = ow.FireflyParticleTextureAtlas(
+                _possible_hues,
+                _possible_radii
+            )
+
+            stage:signal_connect("reset", function(_)
+                stage.firefly_texture_atlas = nil
+                return meta.DISCONNECT_SIGNAL
+            end)
+        end
+
+        if stage.firefly_manager == nil then
+            require "overworld.firefly_manager"
+            stage.firefly_manager = ow.FireflyManager()
+
+            stage:signal_connect("reset", function(_)
+                stage.firefly_manager = nil
+                return meta.DISCONNECT_SIGNAL
+            end)
+        end
+    end
+
+    self._stage = stage
+    self._scene = scene
+    self._world = stage:get_physics_world()
+
+    self._body = b2.Body(
+        self._world,
+        b2.BodyType.DYNAMIC,
+        object.x, object.y,
+        b2.Circle(0, 0, settings.radius + settings.max_hover_offset)
+    )
+    self._body:set_is_sensor(true)
+    self._body:set_collides_with(rt.settings.player.bounce_collision_group)
+    self._body:set_collision_group(rt.settings.player.bounce_collision_group)
+
+    self._body:signal_connect("collision_start", function(_, other_body)
+        if other_body:has_tag("player") then
+            local player = self._scene:get_player()
+            local x, y = self._body:get_position()
+            for entry in values(self._fly_entries) do
+                if entry.mode ~= _MODE_FOLLOW_PLAYER then
+                    player:pulse(entry.color)
+                    player:add_flow_source(
+                        rt.settings.overworld.fireflies.flow_source_magnitude,
+                        rt.settings.overworld.fireflies.flow_source_duration
+                    )
+                    entry.follow_x, entry.follow_y =
+                    x + entry.hover_value_x + entry.x_offset,
+                    y + entry.hover_value_y + entry.y_offset
+
+                    entry.mode = _MODE_FOLLOW_PLAYER
+                end
+            end
+        end
+    end)
+
+    self._stage:signal_connect("respawn", function(_)
+        local x, y = self._body:get_position()
+        for entry in values(self._fly_entries) do
+            self:_reset_entry(entry)
+        end
+    end)
+
+    self._should_move_in_place = object:get_boolean("should_move_in_place", false)
+    if self._should_move_in_place == nil then self._should_move_in_place = true end
+
+    -- individual flies
+    local n_flies = object:get_number("count") or rt.random.number(3, 5)
+    local glow_cycle_duration = settings.glow_cycle_duration
+    local hover_cycle_duration = settings.hover_cycle_duration
+    local noise_speed = settings.noise_speed
+    local min_factor, max_factor = settings.min_scale, settings.max_scale
+
+    self._fly_entries = {}
+
+    for i = 1, n_flies do
+        local hue = rt.random.choose(_possible_hues)
+        local radius = rt.random.choose(_possible_radii)
+        local color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, hue, rt.settings.overworld.fireflies.glow_componsite))
+
+        -- light source proxy
+        local body = b2.Body(
+            self._world,
+            b2.BodyType.DYNAMIC,
+            object.x, object.y,
+            b2.Circle(0, 0,1)
+        )
+
+        local follow_speed = object:get_number("velocity") or rt.random.number(0, 1)
+
+        local entry = {
+            glow_offset_t = rt.random.number(0, 1),
+            glow_cycle_duration = rt.random.number(min_factor * glow_cycle_duration, max_factor * glow_cycle_duration),
+            glow_elapsed = 0,
+            glow_value = _glow_noise_path:at(0),
+
+            hover_offset_t = rt.random.number(0, 1),
+            hover_cycle_duration = rt.random.number(min_factor * hover_cycle_duration, max_factor * hover_cycle_duration),
+            hover_elapsed = 0,
+            hover_value_x = 0,
+            hover_value_y = 0,
+
+            noise_position = rt.random.number(-10e6, 10e6),
+            noise_speed = rt.random.number(min_factor * noise_speed, max_factor * noise_speed),
+
+            x_offset = rt.random.number(-2 * radius, 2 * radius),
+            y_offset = rt.random.number(-2 * radius, 2 * radius),
+            scale = rt.random.number(min_factor, max_factor),
+
+            hue = hue,
+            radius = radius,
+            color = color,
+
+            follow_motion = rt.SmoothedMotion2D(
+                object.x, object.y,--,
+                1, --math.mix(1 / 8, 1 + 1 / 8, follow_speed), -- speed factor
+                true -- linear instead of exponential
+            ),
+
+            follow_offset = 0,
+            follow_speed = follow_speed,
+
+            follow_x = object.x,
+            follow_y = object.y,
+
+            body = body
+        }
+
+        entry.particle = ow.FireflyParticle(entry.hue, entry.radius)
+        table.insert(self._fly_entries, entry)
+    end
+end
+
+local _path = nil
+local _last_frame = -1
+
+function ow.Fireflies:update(delta)
+    local player = self._scene:get_player()
+    local px, py = player:get_position()
+
+    local bounds
+
+    -- helper: compute final visual position
+    local function get_final_position(entry)
+        if entry.mode == _MODE_FOLLOW_PLAYER then
+            return entry.follow_x + entry.hover_value_x,
+            entry.follow_y + entry.hover_value_y
+        else
+            local bx, by = self._body:get_position()
+            return bx + entry.hover_value_x + entry.x_offset,
+            by + entry.hover_value_y + entry.y_offset
+        end
+    end
+
+    local function get_min_distance(entry)
+        return rt.settings.player.radius + entry.scale * rt.settings.overworld.fireflies.core_radius * 2
+    end
+
+    -- helper: push base position outward if overlapping (stable, no flipping)
+    local function resolve_overlap(entry)
+        local fx, fy = get_final_position(entry)
+        local dx = fx - px
+        local dy = fy - py
+        local distance = math.magnitude(dx, dy)
+        local min_distance = get_min_distance(entry)
+
+        if distance < min_distance and distance > math.eps then
+            local nx, ny = dx / distance, dy / distance
+            local push = min_distance - distance
+
+            if entry.mode == _MODE_FOLLOW_PLAYER then
+                entry.follow_x = entry.follow_x + nx * push
+                entry.follow_y = entry.follow_y + ny * push
+            else
+                local bx, by = self._body:get_position()
+                self._body:set_position(
+                    bx + nx * push,
+                    by + ny * push
+                )
+            end
+        end
+    end
+
+    -- shared path instance
+    if _path == nil or _last_frame ~= rt.SceneManager:get_frame_index() then
+        -- get only the newest few points, so fireflies aim towards player but not beelining directly
+        local path = player:get_past_position_path()
+        local original_points = path:get_points()
+        local points = {}
+
+        local end_i = math.ceil(math.min(1, rt.settings.overworld.fireflies.max_follow_offset / path:get_length()) * #original_points)
+        if end_i % 2 == 0 then end_i = end_i + 1 end
+        for i = 1, end_i, 2 do
+            table.insert(points, original_points[i+0])
+            table.insert(points, original_points[i+1])
+        end
+        _path = rt.Path():create_from_and_reparameterize(points)
+        _last_frame = rt.SceneManager:get_frame_index()
+    end
+
+
+    for entry in values(self._fly_entries) do
+        if self._stage:get_is_body_visible(entry.body) then
+            -- glow update
+            entry.glow_elapsed = entry.glow_elapsed + delta
+            entry.glow_value = _glow_noise_path:at(
+                math.fract(entry.glow_elapsed / entry.glow_cycle_duration + entry.glow_offset_t)
+            )
+
+            -- hover / noise update
+            if self._should_move_in_place then
+                entry.noise_position = entry.noise_position + entry.noise_speed * delta
+                local noise = rt.random.noise(entry.noise_position, -entry.noise_position)
+
+                entry.hover_elapsed = entry.hover_elapsed + noise * delta
+                entry.hover_value_x, entry.hover_value_y = _hover_offset_path:at(
+                    math.fract(entry.hover_elapsed / entry.hover_cycle_duration + entry.hover_offset_t)
+                )
+            end
+        end
+
+        if entry.mode == _MODE_FOLLOW_PLAYER then
+            if self._stage:get_is_body_visible(entry.body) then
+                if bounds == nil then
+                    bounds = self._scene:get_camera():get_world_bounds()
+                    local padding = 0.25
+                    bounds.x = bounds.x - padding * bounds.width
+                    bounds.y = bounds.y - padding * bounds.height
+                    bounds.width = bounds.width + 2 * padding * bounds.width
+                    bounds.height = bounds.height + 2 * padding * bounds.height
+                end
+
+                -- clamp follow target so it never enters player radius
+                local cx, cy = entry.follow_motion:get_position()
+                local dx = cx - px
+                local dy = cy - py
+                local distance = math.magnitude(dx, dy)
+
+                local tx, ty = _path:at(math.mix(0, 0.15, entry.follow_speed))
+                local min_distance = get_min_distance(entry)
+                if distance < min_distance and distance > 1e-4 then
+                    local nx, ny = dx / distance, dy / distance
+                    tx = px + nx * min_distance
+                    ty = py + ny * min_distance
+                end
+
+                local before_x, before_y = cx, cy
+                entry.follow_motion:set_target_position(tx, ty)
+                entry.follow_motion:update(delta * entry.scale)
+                entry.follow_x, entry.follow_y = entry.follow_motion:get_position()
+
+                entry.body:set_position(
+                    cx, cy
+                --(entry.follow_x - before_x) / delta,
+                --(entry.follow_y - before_y) / delta
+                )
+            end
+        end
+
+        -- final safety constraint (stable, outward-only)
+        resolve_overlap(entry)
+    end
+end
+
+--- @brief
+function ow.Fireflies:_reset_entry(entry)
+    entry.mode = _MODE_STATIONARY
+    entry.follow_x, entry.follow_y = self._body:get_position()
+    entry.body:set_position(entry.follow_x, entry.follow_y)
+    entry.body:set_velocity(0, 0)
+end
+
+--- @brief
+function ow.Fireflies:get_render_priority()
+    return 1 -- in front of player
+end
+
+--- @brief
+function ow.Fireflies:draw()
+    love.graphics.push("all")
+    love.graphics.setBlendMode("add", "premultiplied")
+    local x, y = self._body:get_position()
+
+    local get_position = function(entry)
+        if self._mode == _MODE_STATIONARY then
+            if self._should_move_in_place then
+                return x + entry.hover_value_x + entry.x_offset,
+                y + entry.hover_value_y + entry.y_offset
+            else
+                return x, y
+            end
+        else
+            return entry.follow_x + entry.hover_value_x,
+            entry.follow_y + entry.hover_value_y
+        end
+    end
+
+    for entry in values(self._fly_entries) do
+        local entry_x, entry_y = get_position(entry)
+        local a = math.mix(0.5, 1, entry.glow_value)
+        love.graphics.setColor(1, 1, 1, a)
+        self._stage.firefly_texture_atlas:draw(entry.hue, entry.radius, entry_x, entry_y)
+    end
+
+    love.graphics.pop()
+end

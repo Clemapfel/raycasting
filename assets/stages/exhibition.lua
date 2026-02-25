@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 900,
+  nextobjectid = 930,
   properties = {},
   tilesets = {
     {
@@ -362,6 +362,25 @@ return {
             { x = 640, y = -128 }
           },
           properties = {}
+        },
+        {
+          id = 904,
+          name = "",
+          type = "CameraFit",
+          shape = "polygon",
+          x = 2000,
+          y = 720,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 544, y = -320 },
+            { x = 544, y = 432 },
+            { x = -512, y = 432 },
+            { x = -512, y = -320 }
+          },
+          properties = {}
         }
       }
     },
@@ -523,6 +542,25 @@ return {
             { x = 0, y = -400 },
             { x = 656, y = -400 },
             { x = 656, y = 0 }
+          },
+          properties = {}
+        },
+        {
+          id = 900,
+          name = "",
+          type = "Wall",
+          shape = "polygon",
+          x = 2000,
+          y = 720,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 544, y = -320 },
+            { x = 544, y = 432 },
+            { x = -512, y = 432 },
+            { x = -512, y = -320 }
           },
           properties = {}
         }
@@ -800,13 +838,15 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = 2239.25,
-          y = 979.099,
+          x = 2128,
+          y = 1024,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
-          properties = {}
+          properties = {
+            ["count"] = 16
+          }
         },
         {
           id = 521,
@@ -2153,7 +2193,9 @@ return {
           height = 0,
           rotation = 0,
           visible = true,
-          properties = {}
+          properties = {
+            ["count"] = 256
+          }
         },
         {
           id = 734,
@@ -2831,7 +2873,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["count"] = 5
+            ["count"] = 256
           }
         },
         {
@@ -2848,213 +2890,304 @@ return {
           properties = {}
         },
         {
-          id = 834,
-          name = "",
-          type = "Coin",
-          shape = "point",
-          x = -3458.18,
-          y = 4499.88,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["count"] = 512
-          }
-        },
-        {
-          id = 837,
-          name = "",
-          type = "Coin",
-          shape = "point",
-          x = -3523.59,
-          y = 4490.49,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["count"] = 512
-          }
-        },
-        {
-          id = 838,
-          name = "",
-          type = "Coin",
-          shape = "point",
-          x = -3494.92,
-          y = 4516.55,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["count"] = 512
-          }
-        },
-        {
-          id = 839,
-          name = "",
-          type = "Coin",
-          shape = "point",
-          x = -3427.16,
-          y = 4508.73,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["count"] = 512
-          }
-        },
-        {
-          id = 840,
-          name = "",
-          type = "Coin",
-          shape = "point",
-          x = -3492.31,
-          y = 4485.27,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["count"] = 512
-          }
-        },
-        {
-          id = 841,
-          name = "",
-          type = "Coin",
-          shape = "point",
-          x = -3484.49,
-          y = 4487.88,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["count"] = 512
-          }
-        },
-        {
-          id = 842,
-          name = "",
-          type = "Coin",
-          shape = "point",
-          x = -3541.83,
-          y = 4495.7,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["count"] = 512
-          }
-        },
-        {
-          id = 843,
-          name = "",
-          type = "Coin",
-          shape = "point",
-          x = -3502.74,
-          y = 4487.88,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["count"] = 512
-          }
-        },
-        {
-          id = 844,
-          name = "",
-          type = "Coin",
-          shape = "point",
-          x = -3458.43,
-          y = 4485.27,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["count"] = 512
-          }
-        },
-        {
-          id = 845,
-          name = "",
-          type = "Coin",
-          shape = "point",
-          x = -3442.79,
-          y = 4490.49,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["count"] = 512
-          }
-        },
-        {
-          id = 846,
-          name = "",
-          type = "Coin",
-          shape = "point",
-          x = -3515.77,
-          y = 4500.91,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["count"] = 512
-          }
-        },
-        {
-          id = 847,
-          name = "",
-          type = "Coin",
-          shape = "point",
-          x = -3520.98,
-          y = 4500.91,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["count"] = 512
-          }
-        },
-        {
-          id = 848,
-          name = "",
-          type = "Coin",
-          shape = "point",
-          x = -3458.43,
-          y = 4503.52,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["count"] = 512
-          }
-        },
-        {
           id = 871,
           name = "",
           type = "Fireflies",
           shape = "point",
-          x = 2162.35,
-          y = 948.235,
+          x = 1936,
+          y = 1056,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
           properties = {
-            ["count"] = 32
+            ["count"] = 16
+          }
+        },
+        {
+          id = 901,
+          name = "",
+          type = "Hitbox",
+          shape = "polygon",
+          x = 1984,
+          y = 1104,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = -496, y = 0 },
+            { x = -496, y = 48 },
+            { x = 560, y = 48 },
+            { x = 560, y = 0 }
+          },
+          properties = {}
+        },
+        {
+          id = 913,
+          name = "",
+          type = "",
+          shape = "polygon",
+          x = 1696,
+          y = 816,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 0, y = 176 },
+            { x = 32, y = 176 },
+            { x = 32, y = 0 }
+          },
+          properties = {}
+        },
+        {
+          id = 914,
+          name = "",
+          type = "",
+          shape = "polygon",
+          x = 1904,
+          y = 848,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 144, y = 0 },
+            { x = 144, y = -32 },
+            { x = 0, y = -32 }
+          },
+          properties = {}
+        },
+        {
+          id = 915,
+          name = "",
+          type = "SlipperyHitbox",
+          shape = "polygon",
+          x = 2544,
+          y = 704,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = -368, y = 400 },
+            { x = 0, y = 400 }
+          },
+          properties = {}
+        },
+        {
+          id = 916,
+          name = "",
+          type = "",
+          shape = "polygon",
+          x = 2282.51,
+          y = 737.179,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 144, y = 0 },
+            { x = 144, y = -32 },
+            { x = 0, y = -32 }
+          },
+          properties = {}
+        },
+        {
+          id = 917,
+          name = "",
+          type = "",
+          shape = "polygon",
+          x = 1602.56,
+          y = 586.081,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 144, y = 0 },
+            { x = 144, y = -32 },
+            { x = 0, y = -32 }
+          },
+          properties = {}
+        },
+        {
+          id = 918,
+          name = "",
+          type = "",
+          shape = "polygon",
+          x = 2080,
+          y = 656,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 64, y = 0 },
+            { x = 64, y = -32 },
+            { x = 0, y = -32 }
+          },
+          properties = {}
+        },
+        {
+          id = 919,
+          name = "",
+          type = "Fireflies",
+          shape = "point",
+          x = 1664.38,
+          y = 911.172,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["count"] = 16
+          }
+        },
+        {
+          id = 920,
+          name = "",
+          type = "Fireflies",
+          shape = "point",
+          x = 1968,
+          y = 800,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["count"] = 16
+          }
+        },
+        {
+          id = 921,
+          name = "",
+          type = "Fireflies",
+          shape = "point",
+          x = 1680,
+          y = 544,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["count"] = 16
+          }
+        },
+        {
+          id = 922,
+          name = "",
+          type = "Fireflies",
+          shape = "point",
+          x = 2112,
+          y = 608,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["count"] = 16
+          }
+        },
+        {
+          id = 923,
+          name = "",
+          type = "Fireflies",
+          shape = "point",
+          x = 2362.64,
+          y = 691.392,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["count"] = 16
+          }
+        },
+        {
+          id = 924,
+          name = "",
+          type = "Fireflies",
+          shape = "point",
+          x = 2342.03,
+          y = 883.7,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["count"] = 16
+          }
+        },
+        {
+          id = 926,
+          name = "",
+          type = "",
+          shape = "polygon",
+          x = 1856,
+          y = 560,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 0, y = 96 },
+            { x = 32, y = 96 },
+            { x = 32, y = 0 }
+          },
+          properties = {}
+        },
+        {
+          id = 927,
+          name = "",
+          type = "Fireflies",
+          shape = "point",
+          x = 1920,
+          y = 624,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["count"] = 16
+          }
+        },
+        {
+          id = 928,
+          name = "",
+          type = "Fireflies",
+          shape = "point",
+          x = 1824,
+          y = 624,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["count"] = 16
+          }
+        },
+        {
+          id = 929,
+          name = "",
+          type = "Fireflies",
+          shape = "point",
+          x = 1760,
+          y = 912,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["count"] = 16
           }
         }
       }

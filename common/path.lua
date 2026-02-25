@@ -28,6 +28,18 @@ function rt.Path:instantiate(points, ...)
     out:create_from(points, ...)
     return out
 end
+local _from_x = 1
+local _from_y = 2
+local _to_x = 3
+local _to_y = 4
+local _dx = 5
+local _dy = 6
+local _nx = 7
+local _ny = 8
+local _distance = 9
+local _cumulative_distance = 10
+local _fraction = 11
+local _fraction_length = 12
 
 --- @brief
 function rt.Path:_update()
@@ -78,18 +90,18 @@ function rt.Path:_update()
         end
 
         local entry = {
-            from_x = x1,
-            from_y = y1,
-            to_x = x2,
-            to_y = y2,
-            dx = dx,  -- normalized direction vector
-            dy = dy,
-            nx = nx,  -- precomputed normal vector
-            ny = ny,
-            distance = distance,
-            cumulative_distance = total_length,
-            fraction = 0, -- set below
-            fraction_length = 0
+            [_from_x] = x1,
+            [_from_y] = y1,
+            [_to_x] = x2,
+            [_to_y] = y2,
+            [_dx] = dx,  -- normalized direction vector
+            [_dy] = dy,
+            [_nx] = nx,  -- precomputed normal vector
+            [_ny] = ny,
+            [_distance] = distance,
+            [_cumulative_distance] = total_length,
+            [_fraction] = 0, -- set below
+            [_fraction_length] = 0
         }
 
         table.insert(entries, entry)
@@ -98,8 +110,8 @@ function rt.Path:_update()
     end
 
     if n_entries == 1 then
-        entries[1].fraction = 0
-        entries[1].fraction_length = 1
+        entries[1][_fraction] = 0
+        entries[1][_fraction_length] = 1
     else
         -- calculate fractions based on whether arc-length parameterization is enabled
         if self._use_arclength then
@@ -107,17 +119,17 @@ function rt.Path:_update()
             for i = 1, n_entries do
                 local entry = entries[i]
                 if total_length > 0 then
-                    entry.fraction = entry.cumulative_distance / total_length
+                    entry[_fraction] = entry[_cumulative_distance] / total_length
                     if i < n_entries then
                         local next_entry = entries[i + 1]
-                        entry.fraction_length = (next_entry.cumulative_distance - entry.cumulative_distance) / total_length
+                        entry[_fraction_length] = (next_entry[_cumulative_distance] - entry[_cumulative_distance]) / total_length
                     else
-                        entry.fraction_length = (total_length - entry.cumulative_distance) / total_length
+                        entry[_fraction_length] = (total_length - entry[_cumulative_distance]) / total_length
                     end
                 else
                     -- handle degenerate case where all segments have zero length
-                    entry.fraction = i == 1 and 0 or 1
-                    entry.fraction_length = 0
+                    entry[_fraction] = i == 1 and 0 or 1
+                    entry[_fraction_length] = 0
                 end
             end
         else
@@ -125,8 +137,8 @@ function rt.Path:_update()
             local fraction_per_segment = 1 / n_entries
             for i = 1, n_entries do
                 local entry = entries[i]
-                entry.fraction = (i - 1) * fraction_per_segment
-                entry.fraction_length = fraction_per_segment
+                entry[_fraction] = (i - 1) * fraction_per_segment
+                entry[_fraction_length] = fraction_per_segment
             end
         end
     end
@@ -134,8 +146,8 @@ function rt.Path:_update()
     self._entries = entries
     self._n_entries = n_entries
     self._length = total_length
-    self._first_distance = n_entries > 0 and entries[1].fraction or 0
-    self._last_distance = n_entries > 0 and entries[n_entries].fraction or 0
+    self._first_distance = n_entries > 0 and entries[1][_fraction] or 0
+    self._last_distance = n_entries > 0 and entries[n_entries][_fraction] or 0
 end
 
 --- @brief
@@ -164,11 +176,11 @@ function rt.Path:_find_segment(t)
     while low <= high do
         local mid = math.floor((low + high) / 2)
         local entry = entries[mid]
-        local entry_end = entry.fraction + entry.fraction_length
+        local entry_end = entry[_fraction] + entry[_fraction_length]
 
-        if t >= entry.fraction and t <= entry_end then
+        if t >= entry[_fraction] and t <= entry_end then
             return entry
-        elseif t < entry.fraction then
+        elseif t < entry[_fraction] then
             high = mid - 1
         else
             low = mid + 1
@@ -185,37 +197,37 @@ function rt.Path:at(t)
     local segment = self:_find_segment(t)
 
     -- handle degenerate segment (zero length) - return start point
-    if segment.fraction_length < 1e-10 then
-        return segment.from_x, segment.from_y
+    if segment[_fraction_length] < math.eps then
+        return segment[_from_x], segment[_from_y]
     end
 
-    local local_t = (t - segment.fraction) / segment.fraction_length
+    local local_t = (t - segment[_fraction]) / segment[_fraction_length]
 
-    local distance_along_segment = local_t * segment.distance
+    local distance_along_segment = local_t * segment[_distance]
     return math.add(
-        segment.from_x,
-        segment.from_y,
-        segment.dx * distance_along_segment,
-        segment.dy * distance_along_segment
+        segment[_from_x],
+        segment[_from_y],
+        segment[_dx] * distance_along_segment,
+        segment[_dy] * distance_along_segment
     )
 end
 
 --- @brief
 function rt.Path:get_segment(t)
     local segment = self:_find_segment(math.clamp(t, 0, 1))
-    return segment.from_x, segment.from_y, segment.to_x, segment.to_y
+    return segment[_from_x], segment[_from_y], segment[_to_x], segment[_to_y]
 end
 
 --- @brief
 function rt.Path:tangent_at(t)
     local segment = self:_find_segment(math.clamp(t, 0, 1))
-    return segment.dx, segment.dy
+    return segment[_dx], segment[_dy]
 end
 
 --- @brief return normal at parameter t [0, 1]; normal is precomputed per segment and depends on path winding
 function rt.Path:get_normal_at(t)
     local segment = self:_find_segment(math.clamp(t, 0, 1))
-    return segment.nx, segment.ny
+    return segment[_nx], segment[_ny]
 end
 
 --- @brief
@@ -369,8 +381,8 @@ function rt.Path:override_parameterization(...)
     local fraction = 0
     for i = 1, self._n_entries do
         local entry = self._entries[i]
-        entry.fraction = fraction
-        entry.fraction_length = args[i]
+        entry[_fraction] = fraction
+        entry[_fraction_length] = args[i]
         fraction = fraction + args[i]
     end
 end
@@ -386,8 +398,8 @@ end
 --- @param entry Table segment entry from self._entries
 --- @return Number, Number, Number closest point x, y and global parameter t
 function rt.Path:_closest_point_on_segment(x, y, entry)
-    local x1, y1 = entry.from_x, entry.from_y
-    local x2, y2 = entry.to_x, entry.to_y
+    local x1, y1 = entry[_from_x], entry[_from_y]
+    local x2, y2 = entry[_to_x], entry[_to_y]
 
     -- vector from start to end of segment
     local segment_dx = x2 - x1
@@ -396,7 +408,7 @@ function rt.Path:_closest_point_on_segment(x, y, entry)
 
     if segment_length_sq < 1e-10 then
         -- degenerate segment
-        local global_t = entry.fraction + entry.fraction_length * 0.5
+        local global_t = entry[_fraction] + entry[_fraction_length] * 0.5
         return x1, y1, global_t
     end
 
@@ -405,7 +417,7 @@ function rt.Path:_closest_point_on_segment(x, y, entry)
 
     local closest_x = x1 + local_t * segment_dx
     local closest_y = y1 + local_t * segment_dy
-    local global_t = entry.fraction + entry.fraction_length * local_t
+    local global_t = entry[_fraction] + entry[_fraction_length] * local_t
 
     return closest_x, closest_y, global_t
 end
@@ -546,7 +558,7 @@ function rt.Path:decimate(epsilon)
                 -- add all fractions from last kept segment to current
                 for j = last_kept_segment + 1, segment_idx do
                     if j <= n_entries then
-                        current_fraction_sum = current_fraction_sum + self._entries[j].fraction_length
+                        current_fraction_sum = current_fraction_sum + self._entries[j][_fraction_length]
                     end
                 end
 
@@ -559,7 +571,7 @@ function rt.Path:decimate(epsilon)
 
     -- add remaining fractions for the last segment
     for j = last_kept_segment + 1, n_entries do
-        current_fraction_sum = current_fraction_sum + self._entries[j].fraction_length
+        current_fraction_sum = current_fraction_sum + self._entries[j][_fraction_length]
     end
     if current_fraction_sum > 0 then
         table.insert(new_fractions, current_fraction_sum)

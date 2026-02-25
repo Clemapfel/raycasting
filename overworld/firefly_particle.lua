@@ -1,5 +1,5 @@
 rt.settings.overworld.firefly_particle = {
-    core_radius_factor = 1.5 / 10
+    core_radius_factor = 2 / 10
 }
 
 --- @class ow.FireflyParticle
@@ -21,9 +21,9 @@ function ow.FireflyParticle:instantiate(hue, radius)
     local inner_inner_r, inner_outer_r = 0.15, 0.25
     local outer_inner_r, outer_outer_r = 0.15, 1
     local inner_inner_color = rt.RGBA(1, 1, 1, 1)
-    local inner_outer_color = rt.RGBA(1, 1, 1, 0.0)
+    local inner_outer_color = rt.RGBA(0, 0, 0, 0.0)
     local outer_inner_color = rt.RGBA(1, 1, 1, 0.5)
-    local outer_outer_color = rt.RGBA(1, 1, 1, 0.0)
+    local outer_outer_color = rt.RGBA(0, 0, 0, 0.0)
 
     local inner_glow = rt.MeshRing(
         x, y,
@@ -51,9 +51,16 @@ function ow.FireflyParticle:instantiate(hue, radius)
     outer_glow:draw()
     self._texture:unbind()
     love.graphics.pop()
+
+    self._core_outline = {}
+    local n_vertices = 32
+    for i = 1, n_vertices do
+        local angle = (i - 1) / n_vertices * 2 * math.pi
+        table.insert(self._core_outline, 0.5 * self._texture:get_width() + math.cos(angle) * self._core_radius)
+        table.insert(self._core_outline, 0.5 * self._texture:get_height() + math.sin(angle) * self._core_radius)
+    end
 end
 
---- @brief
 function ow.FireflyParticle:draw(x, y)
     local texture_w, texture_h = self._texture:get_size()
 
@@ -62,45 +69,36 @@ function ow.FireflyParticle:draw(x, y)
 
     love.graphics.push("all")
 
-    love.graphics.push()
     love.graphics.translate(x, y)
+
+    -- center texture in local space
+    love.graphics.push()
     love.graphics.translate(-0.5 * texture_w, -0.5 * texture_h)
 
     love.graphics.setBlendMode("alpha", "premultiplied")
 
+    local under = 0.75
     love.graphics.setColor(
-        r * a,
-        g * a,
-        b * a,
+        under * r * a,
+        under * g * a,
+        under * b * a,
         a
     )
+
     self._texture:draw()
     love.graphics.pop()
 
+    -- draw core in local space
     love.graphics.setBlendMode("alpha", "alphamultiply")
-
-    love.graphics.setLineStyle("rough")
-    love.graphics.setLineWidth(2)
-
-    local black_r, black_g, black_b = rt.Palette.BLACK:unpack()
-
-    local under = 0.4
-    love.graphics.setColor(
-        under * r,
-        under * g,
-        under * b,
-        a
-    )
-
-    love.graphics.circle("line",
-        x, y,
-        self._core_radius
-    )
-
     love.graphics.setColor(r, g, b, a)
-    love.graphics.circle("fill",
-        x, y, self._core_radius
-    )
+    love.graphics.circle("fill", 0, 0, self._core_radius)
+
+    -- outline in local space
+    love.graphics.setBlendMode("subtract", "alphamultiply")
+    love.graphics.setLineStyle("smooth")
+    love.graphics.setLineWidth(3)
+    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.line(self._core_outline)
 
     love.graphics.pop()
 end

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="900">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="930">
  <editorsettings>
   <export target="exhibition.lua" format="lua"/>
  </editorsettings>
@@ -66,6 +66,9 @@
   <object id="804" type="CameraFit" x="-1488" y="4192">
    <polygon points="0,-128 0,448 640,448 640,-128"/>
   </object>
+  <object id="904" type="CameraFit" x="2000" y="720">
+   <polygon points="544,-320 544,432 -512,432 -512,-320"/>
+  </object>
  </objectgroup>
  <objectgroup id="7" name="back">
   <object id="795" name="Bubble Intro" type="Wall" x="-1456" y="3520">
@@ -95,6 +98,9 @@
   </object>
   <object id="807" type="Wall" x="-509.762" y="3803.8">
    <polygon points="0,0 0,-400 656,-400 656,0"/>
+  </object>
+  <object id="900" type="Wall" x="2000" y="720">
+   <polygon points="544,-320 544,432 -512,432 -512,-320"/>
   </object>
  </objectgroup>
  <objectgroup id="6" name="hitbox">
@@ -140,7 +146,10 @@
   <object id="519" type="SlipperyHitbox" x="-2752" y="2288">
    <polygon points="16,32 -32,32 -32,-16 16,-16"/>
   </object>
-  <object id="520" name="Spawn" type="PlayerSpawn" x="2239.25" y="979.099">
+  <object id="520" name="Spawn" type="PlayerSpawn" x="2128" y="1024">
+   <properties>
+    <property name="count" type="int" value="16"/>
+   </properties>
    <point/>
   </object>
   <object id="521" name="Portal" type="Portal" x="-3200" y="2224">
@@ -368,6 +377,9 @@
    <polygon points="-48,16 -48,48 32,48 32,16"/>
   </object>
   <object id="727" type="Fireflies" x="-832" y="2656">
+   <properties>
+    <property name="count" type="int" value="256"/>
+   </properties>
    <point/>
   </object>
   <object id="734" type="BouncePad" x="-368" y="3056">
@@ -506,94 +518,94 @@
   </object>
   <object id="832" type="Fireflies" x="-1264" y="3824">
    <properties>
-    <property name="count" type="int" value="5"/>
+    <property name="count" type="int" value="256"/>
    </properties>
    <point/>
   </object>
   <object id="833" type="Checkpoint" x="-2976" y="5600">
    <point/>
   </object>
-  <object id="834" type="Coin" x="-3458.18" y="4499.88">
+  <object id="871" type="Fireflies" x="1936" y="1056">
    <properties>
-    <property name="count" type="int" value="512"/>
+    <property name="count" type="int" value="16"/>
    </properties>
    <point/>
   </object>
-  <object id="837" type="Coin" x="-3523.59" y="4490.49">
+  <object id="901" type="Hitbox" x="1984" y="1104">
+   <polygon points="-496,0 -496,48 560,48 560,0"/>
+  </object>
+  <object id="913" x="1696" y="816">
+   <polygon points="0,0 0,176 32,176 32,0"/>
+  </object>
+  <object id="914" x="1904" y="848">
+   <polygon points="0,0 144,0 144,-32 0,-32"/>
+  </object>
+  <object id="915" type="SlipperyHitbox" x="2544" y="704">
+   <polygon points="0,0 -368,400 0,400"/>
+  </object>
+  <object id="916" x="2282.51" y="737.179">
+   <polygon points="0,0 144,0 144,-32 0,-32"/>
+  </object>
+  <object id="917" x="1602.56" y="586.081">
+   <polygon points="0,0 144,0 144,-32 0,-32"/>
+  </object>
+  <object id="918" x="2080" y="656">
+   <polygon points="0,0 64,0 64,-32 0,-32"/>
+  </object>
+  <object id="919" type="Fireflies" x="1664.38" y="911.172">
    <properties>
-    <property name="count" type="int" value="512"/>
+    <property name="count" type="int" value="16"/>
    </properties>
    <point/>
   </object>
-  <object id="838" type="Coin" x="-3494.92" y="4516.55">
+  <object id="920" type="Fireflies" x="1968" y="800">
    <properties>
-    <property name="count" type="int" value="512"/>
+    <property name="count" type="int" value="16"/>
    </properties>
    <point/>
   </object>
-  <object id="839" type="Coin" x="-3427.16" y="4508.73">
+  <object id="921" type="Fireflies" x="1680" y="544">
    <properties>
-    <property name="count" type="int" value="512"/>
+    <property name="count" type="int" value="16"/>
    </properties>
    <point/>
   </object>
-  <object id="840" type="Coin" x="-3492.31" y="4485.27">
+  <object id="922" type="Fireflies" x="2112" y="608">
    <properties>
-    <property name="count" type="int" value="512"/>
+    <property name="count" type="int" value="16"/>
    </properties>
    <point/>
   </object>
-  <object id="841" type="Coin" x="-3484.49" y="4487.88">
+  <object id="923" type="Fireflies" x="2362.64" y="691.392">
    <properties>
-    <property name="count" type="int" value="512"/>
+    <property name="count" type="int" value="16"/>
    </properties>
    <point/>
   </object>
-  <object id="842" type="Coin" x="-3541.83" y="4495.7">
+  <object id="924" type="Fireflies" x="2342.03" y="883.7">
    <properties>
-    <property name="count" type="int" value="512"/>
+    <property name="count" type="int" value="16"/>
    </properties>
    <point/>
   </object>
-  <object id="843" type="Coin" x="-3502.74" y="4487.88">
+  <object id="926" x="1856" y="560">
+   <polygon points="0,0 0,96 32,96 32,0"/>
+  </object>
+  <object id="927" type="Fireflies" x="1920" y="624">
    <properties>
-    <property name="count" type="int" value="512"/>
+    <property name="count" type="int" value="16"/>
    </properties>
    <point/>
   </object>
-  <object id="844" type="Coin" x="-3458.43" y="4485.27">
+  <object id="928" type="Fireflies" x="1824" y="624">
    <properties>
-    <property name="count" type="int" value="512"/>
+    <property name="count" type="int" value="16"/>
    </properties>
    <point/>
   </object>
-  <object id="845" type="Coin" x="-3442.79" y="4490.49">
+  <object id="929" type="Fireflies" x="1760" y="912">
    <properties>
-    <property name="count" type="int" value="512"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="846" type="Coin" x="-3515.77" y="4500.91">
-   <properties>
-    <property name="count" type="int" value="512"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="847" type="Coin" x="-3520.98" y="4500.91">
-   <properties>
-    <property name="count" type="int" value="512"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="848" type="Coin" x="-3458.43" y="4503.52">
-   <properties>
-    <property name="count" type="int" value="512"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="871" type="Fireflies" x="2162.35" y="948.235">
-   <properties>
-    <property name="count" type="int" value="32"/>
+    <property name="count" type="int" value="16"/>
    </properties>
    <point/>
   </object>

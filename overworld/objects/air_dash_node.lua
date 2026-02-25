@@ -18,14 +18,7 @@ rt.settings.overworld.air_dash_node = {
 --- @types Circle
 ow.AirDashNode = meta.class("AirDashNode", ow.MovableObject)
 
-local _handler, _is_first = true
-function ow.AirDashNode:reinitialize()
-    _handler = nil
-    _is_first = true
-end
-
 local _core_shader = rt.Shader("overworld/objects/air_dash_node_glow.glsl")
-
 local _noise_texture = rt.NoiseTexture(64, 64, 64,
     rt.NoiseType.GRADIENT, 3.5
 )
@@ -33,6 +26,17 @@ local _noise_texture = rt.NoiseTexture(64, 64, 64,
 --- @brief
 function ow.AirDashNode:instantiate(object, stage, scene)
     assert(object:get_type() == ow.ObjectType.ELLIPSE and math.equals(object.x_radius, object.y_radius), "In ow.AirDashNode: object `" .. object:get_id() .. "` is not a circle")
+
+    if stage.air_dash_node_manager == nil then
+        require "overworld.air_dash_node_manager"
+        stage.air_dash_node_manager = ow.AirDashNodeManager(self._scene, self._stage)
+
+        self._is_handler_proxy = true
+        stage:signal_connect("reset", function(_)
+            stage.air_dash_node_manager = nil
+            return meta.DISCONNECT_SIGNAL
+        end)
+    end
 
     self._x, self._y = object:get_centroid()
     self._tether_start_x, self._tether_start_y = self._x, self._y
@@ -182,16 +186,7 @@ function ow.AirDashNode:instantiate(object, stage, scene)
 
     -- global handler
 
-    if _is_first then -- first node is proxy instance
-        require "overworld.air_dash_node_manager"
-        _handler = ow.AirDashNodeManager(self._scene, self._stage)
-        self._is_handler_proxy = true
-        _is_first = false
-    else
-        self._is_handler_proxy = false
-    end
-
-    _handler:notify_node_added(self)
+    stage.air_dash_node_manager:notify_node_added(self)
 end
 
 --- @brief
@@ -275,7 +270,7 @@ end
 
 --- @brief
 function ow.AirDashNode:update(delta)
-    if self._is_handler_proxy then _handler:update(delta) end
+    if self._is_handler_proxy == true then self._stage.air_dash_node_manager:update(delta) end
 
     if not self._is_tethered then
         self._cooldown_elapsed = self._cooldown_elapsed + delta
