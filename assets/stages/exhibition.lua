@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 930,
+  nextobjectid = 964,
   properties = {},
   tilesets = {
     {
@@ -562,6 +562,253 @@ return {
             { x = -512, y = 432 },
             { x = -512, y = -320 }
           },
+          properties = {}
+        },
+        {
+          id = 944,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = 1551.48,
+          y = 1069.11,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 945,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = 1535.66,
+          y = 1070.69,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 946,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = 1515.1,
+          y = 1070.69,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 947,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = 1521.43,
+          y = 1065.95,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 948,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = 1554.64,
+          y = 1062.79,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 949,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = 1546.73,
+          y = 1078.6,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 950,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = 1523.01,
+          y = 1080.18,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 951,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = 1521.43,
+          y = 1070.69,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 952,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = 1548.32,
+          y = 1059.62,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 953,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = 1557.8,
+          y = 1061.21,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 954,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = 1541.99,
+          y = 1070.69,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 955,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = 1523.01,
+          y = 1067.53,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 956,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = 1530.92,
+          y = 1046.97,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 957,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = 1557.8,
+          y = 1058.04,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 958,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = 1557.8,
+          y = 1065.95,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 959,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = 1551.48,
+          y = 1061.21,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 960,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = 1554.64,
+          y = 1050.13,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 961,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = 1565.71,
+          y = 1070.69,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 962,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = 1562.55,
+          y = 1080.18,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
           properties = {}
         }
       }
@@ -2890,21 +3137,6 @@ return {
           properties = {}
         },
         {
-          id = 871,
-          name = "",
-          type = "Fireflies",
-          shape = "point",
-          x = 1936,
-          y = 1056,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["count"] = 16
-          }
-        },
-        {
           id = 901,
           name = "",
           type = "Hitbox",
@@ -3037,96 +3269,6 @@ return {
           properties = {}
         },
         {
-          id = 919,
-          name = "",
-          type = "Fireflies",
-          shape = "point",
-          x = 1664.38,
-          y = 911.172,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["count"] = 16
-          }
-        },
-        {
-          id = 920,
-          name = "",
-          type = "Fireflies",
-          shape = "point",
-          x = 1968,
-          y = 800,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["count"] = 16
-          }
-        },
-        {
-          id = 921,
-          name = "",
-          type = "Fireflies",
-          shape = "point",
-          x = 1680,
-          y = 544,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["count"] = 16
-          }
-        },
-        {
-          id = 922,
-          name = "",
-          type = "Fireflies",
-          shape = "point",
-          x = 2112,
-          y = 608,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["count"] = 16
-          }
-        },
-        {
-          id = 923,
-          name = "",
-          type = "Fireflies",
-          shape = "point",
-          x = 2362.64,
-          y = 691.392,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["count"] = 16
-          }
-        },
-        {
-          id = 924,
-          name = "",
-          type = "Fireflies",
-          shape = "point",
-          x = 2342.03,
-          y = 883.7,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["count"] = 16
-          }
-        },
-        {
           id = 926,
           name = "",
           type = "",
@@ -3146,48 +3288,44 @@ return {
           properties = {}
         },
         {
-          id = 927,
+          id = 930,
           name = "",
-          type = "Fireflies",
+          type = "Coin",
           shape = "point",
-          x = 1920,
-          y = 624,
+          x = 1520,
+          y = 1056,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
-          properties = {
-            ["count"] = 16
-          }
+          properties = {}
         },
         {
-          id = 928,
+          id = 943,
           name = "",
-          type = "Fireflies",
+          type = "Coin",
           shape = "point",
-          x = 1824,
-          y = 624,
+          x = 1526.17,
+          y = 1045.39,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
-          properties = {
-            ["count"] = 16
-          }
+          properties = {}
         },
         {
-          id = 929,
+          id = 963,
           name = "",
           type = "Fireflies",
           shape = "point",
-          x = 1760,
-          y = 912,
+          x = 1591.02,
+          y = 1064.37,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
           properties = {
-            ["count"] = 16
+            ["count"] = 512
           }
         }
       }

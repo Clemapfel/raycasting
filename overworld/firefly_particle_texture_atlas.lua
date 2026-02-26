@@ -103,7 +103,6 @@ function ow.FireflyParticleTextureAtlas:draw(hue, radius, x, y, scale)
     end
 
     local _, _, width, height = quad:getViewport()
-
     local r, g, b, alpha = love.graphics.getColor()
     local v = math.max(r, g, b)
     love.graphics.setColor(v, v, v, alpha)
