@@ -11,20 +11,20 @@ rt.settings.overworld.fireflies = {
 --- @class ow.Fireflies
 ow.Fireflies = meta.class("Fireflies")
 
+function ow.Fireflies.reinitialize(scene, stage)
+    require "overworld.firefly_manager"
+    if stage.firefly_manager ~= nil then
+        stage.firefly_manager:clear()
+    end
+    stage.firefly_manager = ow.FireflyManager(scene, stage)
+    stage.firefly_manager_is_first = true
+end
+
 --- @brief
 function ow.Fireflies:instantiate(object, stage, scene)
     rt.assert(object:get_type() == ow.ObjectType.POINT, "In ow.Fireflies: object `", object:get_id(), "` is not a point")
 
-    if stage.firefly_manager == nil then
-        require "overworld.firefly_manager"
-        stage.firefly_manager = ow.FireflyManager(scene, stage)
-
-        stage:signal_connect("reset", function(_)
-            stage.firefly_manager:reset()
-            stage.firefly_manager = nil
-            return meta.DISCONNECT_SIGNAL
-        end)
-
+    if stage.firefly_manager_is_first == true then
         -- first per stage is proxy instance
         self.update = function(self, delta)
             stage.firefly_manager:update(delta)
@@ -37,6 +37,8 @@ function ow.Fireflies:instantiate(object, stage, scene)
         self.get_render_priority = function(self)
             return math.huge
         end
+
+        stage.firefly_manager_is_first = false
     else
         self.update = nil
         self.draw = nil

@@ -23,19 +23,24 @@ local _noise_texture = rt.NoiseTexture(64, 64, 64,
     rt.NoiseType.GRADIENT, 3.5
 )
 
+ow.AirDashNode.reinitialize = function(scene, stage)
+    require "overworld.air_dash_node_manager"
+    if stage.air_dash_node_manager ~= nil then
+        stage.air_dash_node_manager:clear()
+    end
+
+    stage.air_dash_node_manager = ow.AirDashNodeManager(scene, stage)
+    stage.air_dash_node_manager_is_first = true
+end
+
 --- @brief
 function ow.AirDashNode:instantiate(object, stage, scene)
     assert(object:get_type() == ow.ObjectType.ELLIPSE and math.equals(object.x_radius, object.y_radius), "In ow.AirDashNode: object `" .. object:get_id() .. "` is not a circle")
 
-    if stage.air_dash_node_manager == nil then
-        require "overworld.air_dash_node_manager"
-        stage.air_dash_node_manager = ow.AirDashNodeManager(self._scene, self._stage)
-
+    if stage.air_dash_node_manager_is_first == true then
         self._is_handler_proxy = true
-        stage:signal_connect("reset", function(_)
-            stage.air_dash_node_manager = nil
-            return meta.DISCONNECT_SIGNAL
-        end)
+    else
+        self._is_handler_proxy = false
     end
 
     self._x, self._y = object:get_centroid()

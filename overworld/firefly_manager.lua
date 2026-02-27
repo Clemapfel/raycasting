@@ -132,18 +132,11 @@ function ow.FireflyManager:instantiate(scene, stage)
         ))
     end
 
-    if stage.firefly_particle_texture_atlas == nil then
-        require "overworld.firefly_particle_texture_atlas"
-        stage.firefly_particle_texture_atlas = ow.FireflyParticleTextureAtlas(
-            _possible_hues,
-            _possible_radii
-        )
-
-        stage:signal_connect("reset", function(_)
-            stage.firefly_particle_texture_atlas = nil
-            return meta.DISCONNECT_SIGNAL
-        end)
-    end
+    require "overworld.firefly_particle_texture_atlas"
+    stage.firefly_particle_texture_atlas = ow.FireflyParticleTextureAtlas(
+        _possible_hues,
+        _possible_radii
+    )
 
     self._current_batch_id = 0
     self._n_particles = 0
