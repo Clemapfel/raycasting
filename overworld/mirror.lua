@@ -221,197 +221,405 @@ function ow.Mirror:create_contour(mirror_tris, occluding_tris)
     end
 end
 
---- Calculates the intersection of two lines defined by a point and a direction vector.
---- It returns the parametric multipliers 't' and 'u' such that:
---- intersection_point = (x1, y1) + t * (dx1, dy1) = (x2, y2) + u * (dx2, dy2)
---- @param x1 Number Starting x of the first line.
---- @param y1 Number Starting y of the first line.
---- @param dx1 Number X-direction of the first line.
---- @param dy1 Number Y-direction of the first line.
---- @param x2 Number Starting x of the second line.
---- @param y2 Number Starting y of the second line.
---- @param dx2 Number X-direction of the second line.
---- @param dy2 Number Y-direction of the second line.
---- @return Number or nil The parameter 't' for the first line.
---- @return Number or nil The parameter 'u' for the second line.
-local function _get_line_intersection_params(x1, y1, dx1, dy1, x2, y2, dx2, dy2)
-    -- The denominator is the 2D cross-product of the direction vectors.
-    -- If it's zero, the lines are parallel or collinear.
-    local denominator = dx1 * dy2 - dy1 * dx2
-    if math.abs(denominator) < 1e-9 then
-        return nil, nil
+local function _get_visible_subsegments(segments, px, py, occluding_segments)
+    local epsilon = math.eps
+    local two_pi = 2 * math.pi
+
+    if segments == nil or #segments == 0 then return {} end
+    occluding_segments = occluding_segments or {}
+
+    local all_segments = {}
+    local is_mirror = {}
+
+    for i = 1, #segments do
+        local segment = segments[i]
+        local dx = segment[3] - segment[1]
+        local dy = segment[4] - segment[2]
+        if dx * dx + dy * dy > epsilon * epsilon then
+            table.insert(all_segments, segment)
+            is_mirror[segment] = true
+        end
     end
 
-    -- Using Cramer's rule to solve the system of linear equations for t and u
-    local t = ((x2 - x1) * dy2 - (y2 - y1) * dx2) / denominator
-    local u = ((x2 - x1) * dy1 - (y2 - y1) * dx1) / denominator
-    return t, u
-end
+    for i = 1, #occluding_segments do
+        local segment = occluding_segments[i]
+        local dx = segment[3] - segment[1]
+        local dy = segment[4] - segment[2]
+        if dx * dx + dy * dy > epsilon * epsilon then
+            table.insert(all_segments, segment)
+            if is_mirror[segment] == nil then is_mirror[segment] = false end
+        end
+    end
 
--- get all visible subsegments of `segments`, any segment in `segments` or `occluding_segments` can occlude
-local function _get_visible_subsegments(segments, px, py, occluding_segments)
-    local eps = 10e-4
-    local _ray_segment_intersection = function(px, py, dx, dy, x1, y1, x2, y2)
-        local sx = x2 - x1
-        local sy = y2 - y1
+    if #all_segments == 0 then return {} end
 
-        local denom = dx * sy - dy * sx
-        if math.abs(denom) < eps then return nil end
+    local visible_segments = {}
+    local handled_colinear = {}
 
-        local t = ((x1 - px) * sy - (y1 - py) * sx) / denom
-        local u = ((x1 - px) * dy - (y1 - py) * dx) / denom
+    for i = 1, #segments do
+        local segment = segments[i]
+        local segment_x1, segment_y1, segment_x2, segment_y2 = segment[1], segment[2], segment[3], segment[4]
+        local dx = segment_x2 - segment_x1
+        local dy = segment_y2 - segment_y1
 
-        if t >= 0 and u >= 0 and u <= 1 then
-            return px + t * dx, py + t * dy
+        if dx * dx + dy * dy > epsilon * epsilon then
+            local angle_1 = math.atan2(segment_y1 - py, segment_x1 - px)
+            local angle_2 = math.atan2(segment_y2 - py, segment_x2 - px)
+
+            local angle_diff = angle_1 - angle_2
+            angle_diff = (angle_diff + math.pi) % two_pi
+            if angle_diff <= 0 then angle_diff = angle_diff + two_pi end
+            angle_diff = angle_diff - math.pi
+
+            if math.abs(angle_diff) <= 1e-7 then
+                handled_colinear[segment] = true
+
+                local direction_x = math.cos(angle_1)
+                local direction_y = math.sin(angle_1)
+                local ray_squared = direction_x * direction_x + direction_y * direction_y
+
+                local t1 = ((segment_x1 - px) * direction_x + (segment_y1 - py) * direction_y) / ray_squared
+                local t2 = ((segment_x2 - px) * direction_x + (segment_y2 - py) * direction_y) / ray_squared
+                local interval_min = math.max(0, math.min(t1, t2))
+                local interval_max = math.max(t1, t2)
+
+                if interval_max >= 0 then
+                    local blockers = {}
+
+                    for j = 1, #all_segments do
+                        local other_segment = all_segments[j]
+                        if other_segment ~= segment then
+                            local other_x1, other_y1, other_x2, other_y2 = other_segment[1], other_segment[2], other_segment[3], other_segment[4]
+                            local other_dx = other_x2 - other_x1
+                            local other_dy = other_y2 - other_y1
+
+                            if other_dx * other_dx + other_dy * other_dy > epsilon * epsilon then
+                                local vector_1_x, vector_1_y = other_x1 - px, other_y1 - py
+                                local vector_2_x, vector_2_y = other_x2 - px, other_y2 - py
+
+                                local cross_1 = vector_1_x * direction_y - vector_1_y * direction_x
+                                local cross_2 = vector_2_x * direction_y - vector_2_y * direction_x
+                                local cross_dir = other_dx * direction_y - other_dy * direction_x
+
+                                if (math.abs(cross_1) < 1e-7 and math.abs(cross_2) < 1e-7) or math.abs(cross_dir) < 1e-7 then
+                                    local blocker_t1 = ((other_x1 - px) * direction_x + (other_y1 - py) * direction_y) / ray_squared
+                                    local blocker_t2 = ((other_x2 - px) * direction_x + (other_y2 - py) * direction_y) / ray_squared
+                                    local blocker_min = math.min(blocker_t1, blocker_t2)
+                                    local blocker_max = math.max(blocker_t1, blocker_t2)
+
+                                    if blocker_max >= interval_min - epsilon then
+                                        table.insert(blockers, {blocker_min, blocker_max})
+                                    end
+                                end
+                            end
+                        end
+                    end
+
+                    table.sort(blockers, function(a, b) return a[1] < b[1] end)
+
+                    local residuals = {{interval_min, interval_max}}
+                    for _, blocker in ipairs(blockers) do
+                        local blocker_min, blocker_max = blocker[1], blocker[2]
+                        local new_residuals = {}
+
+                        for _, residual in ipairs(residuals) do
+                            local residual_min, residual_max = residual[1], residual[2]
+
+                            if blocker_max <= residual_min or blocker_min >= residual_max then
+                                table.insert(new_residuals, {residual_min, residual_max})
+                            else
+                                if blocker_min > residual_min then
+                                    table.insert(new_residuals, {residual_min, math.min(blocker_min, residual_max)})
+                                end
+                                if blocker_max < residual_max then
+                                    table.insert(new_residuals, {math.max(blocker_max, residual_min), residual_max})
+                                end
+                            end
+                        end
+                        residuals = new_residuals
+                        if #residuals == 0 then break end
+                    end
+
+                    local segment_vector_x, segment_vector_y = dx, dy
+                    local segment_squared = segment_vector_x * segment_vector_x + segment_vector_y * segment_vector_y
+
+                    for _, residual in ipairs(residuals) do
+                        local t0, t1 = residual[1], residual[2]
+                        if t1 - t0 > epsilon then
+                            local point_a_x = px + t0 * direction_x
+                            local point_a_y = py + t0 * direction_y
+                            local point_b_x = px + t1 * direction_x
+                            local point_b_y = py + t1 * direction_y
+
+                            local u_a = ((point_a_x - segment_x1) * segment_vector_x + (point_a_y - segment_y1) * segment_vector_y) / segment_squared
+                            u_a = math.max(0, math.min(1, u_a))
+                            local clamped_a_x = segment_x1 + u_a * segment_vector_x
+                            local clamped_a_y = segment_y1 + u_a * segment_vector_y
+
+                            local u_b = ((point_b_x - segment_x1) * segment_vector_x + (point_b_y - segment_y1) * segment_vector_y) / segment_squared
+                            u_b = math.max(0, math.min(1, u_b))
+                            local clamped_b_x = segment_x1 + u_b * segment_vector_x
+                            local clamped_b_y = segment_y1 + u_b * segment_vector_y
+
+                            local clamp_dx = clamped_b_x - clamped_a_x
+                            local clamp_dy = clamped_b_y - clamped_a_y
+                            if clamp_dx * clamp_dx + clamp_dy * clamp_dy > epsilon * epsilon then
+                                table.insert(visible_segments, {clamped_a_x, clamped_a_y, clamped_b_x, clamped_b_y})
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    local sweep_mirrors = {}
+    for i = 1, #segments do
+        local segment = segments[i]
+        if not handled_colinear[segment] then
+            table.insert(sweep_mirrors, segment)
+        end
+    end
+
+    if #sweep_mirrors == 0 then return visible_segments end
+
+    local angle_list = {}
+    local angle_set = {}
+
+    for i = 1, #sweep_mirrors do
+        local segment = sweep_mirrors[i]
+        local angle_1 = math.atan2(segment[2] - py, segment[1] - px)
+        local angle_2 = math.atan2(segment[4] - py, segment[3] - px)
+
+        angle_1 = (angle_1 + math.pi) % two_pi
+        if angle_1 <= 0 then angle_1 = angle_1 + two_pi end
+        angle_1 = angle_1 - math.pi
+
+        angle_2 = (angle_2 + math.pi) % two_pi
+        if angle_2 <= 0 then angle_2 = angle_2 + two_pi end
+        angle_2 = angle_2 - math.pi
+
+        if not angle_set[angle_1] then
+            angle_set[angle_1] = true
+            table.insert(angle_list, angle_1)
+        end
+        if not angle_set[angle_2] then
+            angle_set[angle_2] = true
+            table.insert(angle_list, angle_2)
+        end
+    end
+
+    for i = 1, #occluding_segments do
+        local segment = occluding_segments[i]
+        local dx = segment[3] - segment[1]
+        local dy = segment[4] - segment[2]
+        if dx * dx + dy * dy > epsilon * epsilon then
+            local angle_1 = math.atan2(segment[2] - py, segment[1] - px)
+            local angle_2 = math.atan2(segment[4] - py, segment[3] - px)
+
+            angle_1 = (angle_1 + math.pi) % two_pi
+            if angle_1 <= 0 then angle_1 = angle_1 + two_pi end
+            angle_1 = angle_1 - math.pi
+
+            angle_2 = (angle_2 + math.pi) % two_pi
+            if angle_2 <= 0 then angle_2 = angle_2 + two_pi end
+            angle_2 = angle_2 - math.pi
+
+            if not angle_set[angle_1] then
+                angle_set[angle_1] = true
+                table.insert(angle_list, angle_1)
+            end
+            if not angle_set[angle_2] then
+                angle_set[angle_2] = true
+                table.insert(angle_list, angle_2)
+            end
+        end
+    end
+
+    table.sort(angle_list)
+
+    if #angle_list < 2 then
+        if #angle_list == 0 then
+            angle_list = {-math.pi, 0}
+        else
+            local new_angle = angle_list[1] + 0.5
+            new_angle = (new_angle + math.pi) % two_pi
+            if new_angle <= 0 then new_angle = new_angle + two_pi end
+            new_angle = new_angle - math.pi
+            table.insert(angle_list, new_angle)
+            table.sort(angle_list)
+        end
+    end
+
+    local angle_count = #angle_list
+    local cell_winners = {}
+
+    for i = 1, angle_count do
+        local angle_left = angle_list[i]
+        local angle_right = (i < angle_count) and angle_list[i + 1] or (angle_list[1] + two_pi)
+        local angle_mid_raw = angle_left + 0.5 * (angle_right - angle_left)
+        local angle_mid = (angle_mid_raw + math.pi) % two_pi
+        if angle_mid <= 0 then angle_mid = angle_mid + two_pi end
+        angle_mid = angle_mid - math.pi
+
+        local direction_x = math.cos(angle_mid)
+        local direction_y = math.sin(angle_mid)
+        local best_t = math.huge
+        local best_segment = nil
+        local best_is_mirror = false
+
+        for j = 1, #all_segments do
+            local segment = all_segments[j]
+            local segment_ax, segment_ay, segment_bx, segment_by = segment[1], segment[2], segment[3], segment[4]
+            local segment_x = segment_bx - segment_ax
+            local segment_y = segment_by - segment_ay
+            local origin_to_a_x = segment_ax - px
+            local origin_to_a_y = segment_ay - py
+
+            local denominator = direction_x * segment_y - direction_y * segment_x
+
+            if math.abs(denominator) >= epsilon then
+                local t = (origin_to_a_x * segment_y - origin_to_a_y * segment_x) / denominator
+                local u = (origin_to_a_x * direction_y - origin_to_a_y * direction_x) / denominator
+
+                if t >= -epsilon and u >= -epsilon and u <= 1 + epsilon and t < best_t - 1e-10 then
+                    best_t = t
+                    best_segment = segment
+                    best_is_mirror = is_mirror[segment] == true
+                end
+            end
         end
 
-        return nil
+        if best_segment ~= nil and best_is_mirror and not handled_colinear[best_segment] then
+            cell_winners[i] = best_segment
+        end
     end
 
-    local angle_quantization = 1 / 0.0001
+    for i = 1, #sweep_mirrors do
+        local segment = sweep_mirrors[i]
+        local runs = {}
+        local run_start = nil
 
-    -- collect critical angles
-    local critical_points = {}
-    local add_point = function(segment, is_mirror)
-        local x1, y1, x2, y2 = table.unpack(segment)
+        for j = 1, angle_count do
+            if cell_winners[j] == segment then
+                if run_start == nil then run_start = j end
+            else
+                if run_start ~= nil then
+                    table.insert(runs, {run_start, j - 1})
+                    run_start = nil
+                end
+            end
+        end
 
-        local true_angle_a = math.angle(x1 - px, y1 - py)
-        local true_angle_b = math.angle(x2 - px, y2 - py)
+        if run_start ~= nil then
+            table.insert(runs, {run_start, angle_count})
+        end
 
-        local angle_a = math.floor(true_angle_a * angle_quantization) / angle_quantization
-        local angle_b = math.floor(true_angle_b * angle_quantization) / angle_quantization
+        if #runs >= 2 and cell_winners[1] == segment and cell_winners[angle_count] == segment then
+            runs[1][1] = runs[#runs][1]
+            table.remove(runs, #runs)
+        end
 
-        table.insert(critical_points, {
-            angle = math.normalize_angle(angle_a),
-            segment = segment,
-            is_mirror = is_mirror
-        })
+        if #runs > 0 then
+            local segment_x1, segment_y1, segment_x2, segment_y2 = segment[1], segment[2], segment[3], segment[4]
 
-        table.insert(critical_points, {
-            angle = math.normalize_angle(angle_b),
-            segment = segment,
-            is_mirror = is_mirror
-        })
+            for _, run in ipairs(runs) do
+                local cell_start, cell_end = run[1], run[2]
+                local angle_left = angle_list[cell_start]
+                local angle_right = (cell_end < angle_count) and angle_list[cell_end + 1] or (angle_list[1] + two_pi)
+
+                local angle_left_normalized = (angle_left + math.pi) % two_pi
+                if angle_left_normalized <= 0 then angle_left_normalized = angle_left_normalized + two_pi end
+                angle_left_normalized = angle_left_normalized - math.pi
+
+                local angle_right_normalized = (angle_right + math.pi) % two_pi
+                if angle_right_normalized <= 0 then angle_right_normalized = angle_right_normalized + two_pi end
+                angle_right_normalized = angle_right_normalized - math.pi
+
+                local direction_x_left = math.cos(angle_left_normalized)
+                local direction_y_left = math.sin(angle_left_normalized)
+                local segment_x = segment_x2 - segment_x1
+                local segment_y = segment_y2 - segment_y1
+                local origin_to_a_x = segment_x1 - px
+                local origin_to_a_y = segment_y1 - py
+                local denominator = direction_x_left * segment_y - direction_y_left * segment_x
+
+                local subsegment_x0, subsegment_y0
+
+                if math.abs(denominator) >= epsilon then
+                    local t = (origin_to_a_x * segment_y - origin_to_a_y * segment_x) / denominator
+                    local u = (origin_to_a_x * direction_y_left - origin_to_a_y * direction_x_left) / denominator
+
+                    if t >= -epsilon and u >= -epsilon and u <= 1 + epsilon then
+                        subsegment_x0 = px + t * direction_x_left
+                        subsegment_y0 = py + t * direction_y_left
+                    end
+                end
+
+                if not subsegment_x0 then
+                    local angle_to_1 = math.atan2(segment_y1 - py, segment_x1 - px)
+                    local diff_1 = angle_to_1 - angle_left_normalized
+                    diff_1 = (diff_1 + math.pi) % two_pi
+                    if diff_1 <= 0 then diff_1 = diff_1 + two_pi end
+                    diff_1 = diff_1 - math.pi
+
+                    if math.abs(diff_1) <= 1e-7 then
+                        subsegment_x0, subsegment_y0 = segment_x1, segment_y1
+                    else
+                        subsegment_x0, subsegment_y0 = segment_x2, segment_y2
+                    end
+                end
+
+                local direction_x_right = math.cos(angle_right_normalized)
+                local direction_y_right = math.sin(angle_right_normalized)
+                local denominator_right = direction_x_right * segment_y - direction_y_right * segment_x
+
+                local subsegment_x1, subsegment_y1
+
+                if math.abs(denominator_right) >= epsilon then
+                    local t = (origin_to_a_x * segment_y - origin_to_a_y * segment_x) / denominator_right
+                    local u = (origin_to_a_x * direction_y_right - origin_to_a_y * direction_x_right) / denominator_right
+
+                    if t >= -epsilon and u >= -epsilon and u <= 1 + epsilon then
+                        subsegment_x1 = px + t * direction_x_right
+                        subsegment_y1 = py + t * direction_y_right
+                    end
+                end
+
+                if not subsegment_x1 then
+                    local angle_to_2 = math.atan2(segment_y2 - py, segment_x2 - px)
+                    local diff_2 = angle_to_2 - angle_right_normalized
+                    diff_2 = (diff_2 + math.pi) % two_pi
+                    if diff_2 <= 0 then diff_2 = diff_2 + two_pi end
+                    diff_2 = diff_2 - math.pi
+
+                    if math.abs(diff_2) <= 1e-6 then
+                        subsegment_x1, subsegment_y1 = segment_x2, segment_y2
+                    else
+                        subsegment_x1, subsegment_y1 = segment_x1, segment_y1
+                    end
+                end
+
+                local dx_sub = subsegment_x1 - subsegment_x0
+                local dy_sub = subsegment_y1 - subsegment_y0
+                if dx_sub * dx_sub + dy_sub * dy_sub > epsilon * epsilon then
+                    table.insert(visible_segments, {subsegment_x0, subsegment_y0, subsegment_x1, subsegment_y1})
+                end
+            end
+        end
     end
 
-    -- candidate for subsegments, also occlude
-    for segment in values(segments) do add_point(segment, true) end
-
-    -- only occlude
-    for segment in values(occluding_segments) do add_point(segment, false) end
-
-    table.sort(critical_points, function(a, b)
-        return a.angle < b.angle
+    table.sort(visible_segments, function(a, b)
+        local a_center_x = 0.5 * (a[1] + a[3])
+        local a_center_y = 0.5 * (a[2] + a[4])
+        local b_center_x = 0.5 * (b[1] + b[3])
+        local b_center_y = 0.5 * (b[2] + b[4])
+        local distance_a = (a_center_x - px) * (a_center_x - px) + (a_center_y - py) * (a_center_y - py)
+        local distance_b = (b_center_x - px) * (b_center_x - px) + (b_center_y - py) * (b_center_y - py)
+        return distance_a < distance_b
     end)
 
-    local subsegments_to_intervals = {}
-    local n_critical_points = #critical_points
-    if n_critical_points == 0 then return {} end
-
-    for i = 1, n_critical_points do
-        local entry_a = critical_points[math.wrap(i+0, n_critical_points)]
-        local entry_b = critical_points[math.wrap(i+1, n_critical_points)]
-
-        local angle_a, angle_b = entry_a.angle, entry_b.angle
-
-        local bisector_angle
-        if i == n_critical_points then
-            bisector_angle = math.mix(angle_a, angle_b + 2 * math.pi, 0.5)
-        else
-            bisector_angle = math.mix(angle_a, angle_b, 0.5)
-        end
-
-        local dx, dy = math.cos(bisector_angle), math.sin(bisector_angle)
-
-        -- get closest segment
-        local min_distance, min_entry = math.huge
-        for entry in values(critical_points) do
-            local cx, cy = _ray_segment_intersection(px, py, dx, dy, table.unpack(entry.segment))
-            if cx ~= nil and cy ~= nil then
-                local distance = math.distance(px, py, cx, cy)
-                if distance <= min_distance then
-                    min_distance = distance
-                    min_entry = entry
-                end
-            end
-        end
-
-        -- for this segment, cast ray to find intersection points, these are start and end of subsegment
-        if min_entry ~= nil and min_entry.is_mirror then
-            local segment = min_entry.segment
-
-            local ray_angle_a = angle_a
-            local ray_angle_b = angle_b
-
-            local cx1, cy1 = _ray_segment_intersection(
-                px, py, math.cos(ray_angle_a), math.sin(ray_angle_a), table.unpack(segment)
-            )
-
-            if cx1 == nil or cy1 == nil then
-                goto continue
-            end
-
-            local cx2, cy2 = _ray_segment_intersection(
-                px, py, math.cos(ray_angle_b), math.sin(ray_angle_b), table.unpack(segment)
-            )
-
-            if cx2 == nil or cy2 == nil then
-                goto continue
-            end
-
-            local intervals = subsegments_to_intervals[segment]
-            if intervals == nil then
-                intervals = {}
-                subsegments_to_intervals[segment] = intervals
-            end
-
-            -- convert to normalized parameter for later merging
-            local segment_length = math.distance(table.unpack(segment))
-            if segment_length > 0 and cx1 ~= cx2 or cy1 ~= cy2 then
-                local t1 = math.distance(segment[1], segment[2], cx1, cy1) / segment_length
-                local t2 = math.distance(segment[1], segment[2], cx2, cy2) / segment_length
-                table.insert(intervals, {
-                    math.min(t1, t2), math.max(t1, t2)
-                })
-            end
-        end
-
-        ::continue::
-    end
-
-    local result = {}
-    for segment, intervals in pairs(subsegments_to_intervals) do
-        -- merge overlaps
-        if #intervals > 1 then
-            table.sort(intervals, function(a, b)
-                return a[1] < b[1]
-            end)
-
-            ::retry::
-            for i = 1, #intervals - 1 do
-                local a1, a2 = table.unpack(intervals[i+0])
-                local b1, b2 = table.unpack(intervals[i+1])
-
-                if a2 >= b1 then
-                    local merged = { a1, math.max(a2, b2) }
-                    intervals[i] = merged
-                    table.remove(intervals, i + 1)
-                    goto retry
-                end
-            end
-        end
-
-        -- convert to line segments
-        local start_x, start_y = segment[1], segment[2]
-        local dx, dy = segment[3] - segment[1], segment[4] - segment[2]
-        for ts in values(intervals) do
-            local x1, y1 = start_x + dx * ts[1], start_y + dy * ts[1]
-            local x2, y2 = start_x + dx * ts[2], start_y + dy * ts[2]
-            table.insert(result, { x1, y1, x2, y2 })
-        end
-    end
-
-    return result
+    return visible_segments
 end
 
 -- flip across line defined by line segment
@@ -429,7 +637,7 @@ local function _reflect(px, py, x1, y1, x2, y2)
     local reflected_y = py - 2 * projection * normal_y
 
     local flip_x = math.abs(math.dot(ux, uy, 1, 0)) < math.abs(math.dot(ux, uy, 0, 1))
-    local flip_y = not flip_x
+    local flip_y = false --not flip_x
 
     local distance = math.abs(projection)
 

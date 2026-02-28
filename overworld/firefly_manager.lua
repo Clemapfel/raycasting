@@ -48,6 +48,9 @@ local _possible_radii = nil -- Table<Number>
 local _glow_noise_path -- Path1D
 local _hover_offset_path -- Path2D
 
+local _batch_home_texture = nil
+local _batch_home_texture_shader = rt.Shader("overworld/firefly_manager_batch_home_texture.glsl")
+
 --- @brief
 function ow.FireflyManager:instantiate(scene, stage)
     self._scene = scene
@@ -138,12 +141,31 @@ function ow.FireflyManager:instantiate(scene, stage)
         _possible_radii
     )
 
+    if _batch_home_texture == nil then
+        local r = settings.max_hover_offset + 3 -- padding
+        _batch_home_texture = rt.RenderTexture(
+            2 * r,
+            2 * r
+        )
+
+        love.graphics.push("all")
+        love.graphics.reset()
+        _batch_home_texture:bind()
+        _batch_home_texture_shader:bind()
+        love.graphics.rectangle("fill", 0, 0, _batch_home_texture:get_size())
+        _batch_home_texture_shader:unbind()
+        _batch_home_texture:unbind()
+        love.graphics.pop()
+    end
+
     self._current_batch_id = 0
     self._n_particles = 0
     self._current_follow_offset = 0
     self._data = {}
-    self._batch_id_to_indices = {}
+    self._batch_id_to_entry = {}
     self._index_order = {}
+    self._visible_data_is = {} -- data offset, not particle i
+    self._data_i_to_rgba = {}
 end
 
 local STATE_IDLE, STATE_FOLLOWING, STATE_REPELLING = 0, 1, 2
@@ -187,8 +209,10 @@ function ow.FireflyManager:register(x, y, count, should_move_in_place)
 
     local settings = rt.settings.overworld.firefly_manager
     local data = self._data
+
     local add = function(batch_id, home_x, home_y, should_move_in_place)
         local hue = rt.random.choose(_possible_hues)
+        local r, g, b, _ = rt.lcha_to_rgba(0.8, 1, hue, 1)
 
         home_x = home_x + rt.random.number(-settings.max_hover_offset, settings.max_hover_offset)
         home_y = home_y + rt.random.number(-settings.max_hover_offset, settings.max_hover_offset)
@@ -244,19 +268,27 @@ function ow.FireflyManager:register(x, y, count, should_move_in_place)
 
         assert(#data - i == _stride - 1)
 
+        self._data_i_to_rgba[i] = rt.RGBA(r, g, b, 1)
         self._n_particles = self._n_particles + 1
-        return self._n_particles
+        return self._n_particles, hue
     end
 
     for _ = 1, count do
-        local particle_index = add(batch_id, x, y, should_move_in_place)
-        local entry = self._batch_id_to_indices[batch_id]
+        local particle_index, hue = add(batch_id, x, y, should_move_in_place)
+        local entry = self._batch_id_to_entry[batch_id]
         if entry == nil then
-            entry = {}
-            self._batch_id_to_indices[batch_id] = entry
+            entry = {
+                indices = {},
+                x = x,
+                y = y,
+                is_collected = false
+            }
+            entry.indices = {}
+            entry.hues = {}
+            self._batch_id_to_entry[batch_id] = entry
         end
 
-        table.insert(entry, particle_index)
+        table.insert(entry.indices, particle_index)
     end
 
     return batch_id
@@ -264,16 +296,21 @@ end
 
 --- @brief
 function ow.FireflyManager:notify_collected_by_player(id)
-    local indices = self._batch_id_to_indices[id]
-    if indices == nil then
+    local entry = self._batch_id_to_entry[id]
+    if entry == nil then
         rt.error("In ow.FireflyManager.notify_collected_by_player: no batch with id `", id, "`")
     end
 
-    for particle_i in values(indices) do
+    for particle_i in values(entry.indices) do
         local i = _particle_i_to_data_offset(particle_i)
-        self._data[i + _state_offset] = STATE_FOLLOWING
-        table.insert(self._index_order, particle_i)
+        if self._data[i + _state_offset] ~= STATE_FOLLOWING then
+            self._data[i + _state_offset] = STATE_FOLLOWING
+            table.insert(self._index_order, particle_i)
+            self._scene:get_player():pulse(rt.RGBA(rt.lcha_to_rgba(0.8, 1, self._data[i + _hue_offset], 1)))
+        end
     end
+
+    entry.is_collected = true
 
     for particle_i in values(self._index_order) do
         local i = _particle_i_to_data_offset(particle_i)
@@ -283,15 +320,15 @@ end
 
 --- @brief
 function ow.FireflyManager:notify_reset(id)
-    local indices = self._batch_id_to_indices[id]
-    if indices == nil then
-        rt.error("In ow.FireflyManager.notify_reset: no batch with id `", id, "`")
+    local entry = self._batch_id_to_entry[id]
+    if entry == nil then
+        rt.error("In ow.FireflyManager.notify_collected_by_player: no batch with id `", id, "`")
     end
 
     local data = self._data
     local indices_set = {}
 
-    for particle_i in values(indices) do
+    for particle_i in values(entry.indices) do
         local i = _particle_i_to_data_offset(particle_i)
         data[i + _state_offset] = STATE_IDLE
         data[i + _x_offset] = data[i + _home_x_offset]
@@ -299,6 +336,8 @@ function ow.FireflyManager:notify_reset(id)
 
         indices_set[particle_i] = true
     end
+
+    entry.is_collected = false
 
     local new_index_order = {}
     for particle_i in values(self._index_order) do
@@ -326,9 +365,24 @@ function ow.FireflyManager:update(delta)
         return math.sqrt(x)
     end
 
+    local padding = rt.settings.overworld.firefly_manager.max_radius_factor * rt.settings.overworld.fireflies.radius
+    local bounds_x, bounds_y, bounds_w, bounds_h = self._scene:get_camera():get_world_bounds():unpack()
+    bounds_x = bounds_x - padding
+    bounds_y = bounds_y - padding
+    bounds_w = bounds_w + 2 * padding
+    bounds_h = bounds_h + 2 * padding
+
     local repel_decay = settings.repel_decay
     local speed_multiplier = settings.speed_multiplier
     local max_velocity = settings.max_velocity
+
+    table.clear(self._visible_data_is)
+    local is_in_bounds = function(x, y)
+        return x >= bounds_x
+            and y >= bounds_y
+            and x <= bounds_x + bounds_w
+            and y <= bounds_y + bounds_h
+    end
 
     for particle_i = 1, self._n_particles do
         local i = _particle_i_to_data_offset(particle_i)
@@ -338,6 +392,8 @@ function ow.FireflyManager:update(delta)
 
         local noise_position = data[i + _noise_position_offset]
         data[i + _noise_position_offset] = noise_position + data[i + _noise_speed_offset] * delta
+
+        if is_in_bounds(x, y) then table.insert(self._visible_data_is, i) end
 
         -- find target
         local target_x, target_y
@@ -356,6 +412,15 @@ function ow.FireflyManager:update(delta)
         elseif state == STATE_IDLE then
             target_x = data[i + _home_x_offset]
             target_y = data[i + _home_y_offset]
+
+            if not (
+                x >= bounds_x
+                and y >= bounds_y
+                and x <= bounds_x + bounds_w
+                and y <= bounds_y + bounds_h
+            ) then
+                goto next_particle
+            end
         end
 
         -- hover
@@ -420,50 +485,53 @@ function ow.FireflyManager:update(delta)
                 )
             )
         end
+
+        ::next_particle::
     end
 end
 
 --- @brief
 function ow.FireflyManager:draw()
     love.graphics.push("all")
-    rt.graphics.set_blend_mode(rt.BlendMode.ADD, rt.BlendMode.NORMAL)
 
     local data = self._data
-    local atlas = self._stage.firefly_particle_texture_atlas
-    local bounds = self._scene:get_camera():get_world_bounds()
-    local padding = rt.settings.overworld.firefly_manager.max_radius_factor * rt.settings.overworld.fireflies.radius
-    local bounds_x, bounds_y, bounds_w, bounds_h = bounds:unpack()
-    bounds_x = bounds_x - padding
-    bounds_y = bounds_y - padding
-    bounds_w = bounds_w + 2 * padding
-    bounds_h = bounds_h + 2 * padding
-
+    rt.graphics.set_blend_mode(rt.BlendMode.NORMAL, rt.BlendMode.NORMAL)
+    love.graphics.setLineWidth(2)
+    love.graphics.setLineStyle("smooth")
+    local black_r, black_b, black_g = rt.Palette.BLACK:unpack()
+    local core_radius = rt.settings.overworld.firefly_particle.core_radius_factor
     local composition_opacity = rt.settings.overworld.firefly_manager.composition_opacity
 
-    for particle_i = 1, self._n_particles do
-        local i = _particle_i_to_data_offset(particle_i)
-        local x, y = data[i + _x_offset], data[i + _y_offset]
+    for _, i in ipairs(self._visible_data_is) do
+        local alpha = data[i + _glow_value_offset] * composition_opacity
+        love.graphics.setColor(alpha, alpha, alpha, alpha)
+        love.graphics.circle("fill",
+            data[i + _x_offset],
+            data[i + _y_offset],
+            data[i + _radius_offset] * core_radius
+        )
 
-        if x >= bounds_x
-            and y >= bounds_y
-            and x <= bounds_x + bounds_w
-            and y <= bounds_y + bounds_h
-        then
-            local alpha = data[i + _glow_value_offset] * composition_opacity
-            love.graphics.setColor(
-                alpha,
-                alpha,
-                alpha,
-                1
-            )
+        love.graphics.setColor(black_r, black_b, black_g, 1)
+        love.graphics.circle("line",
+            data[i + _x_offset],
+            data[i + _y_offset],
+            data[i + _radius_offset] * core_radius
+        )
+    end
 
-            atlas:draw(
-                data[i + _hue_offset],
-                data[i + _radius_offset],
-                x,
-                y
-            )
-        end
+    rt.graphics.set_blend_mode(rt.BlendMode.ADD, rt.BlendMode.NORMAL)
+    rt.Palette.TRUE_WHITE:bind()
+
+    local atlas = self._stage.firefly_particle_texture_atlas
+    for _, i in ipairs(self._visible_data_is) do
+        local alpha = data[i + _glow_value_offset] * composition_opacity
+        love.graphics.setColor(1, 1, 1, 1)
+        atlas:draw(
+            data[i + _hue_offset],
+            data[i + _radius_offset],
+            data[i + _x_offset],
+            data[i + _y_offset]
+        )
     end
 
     love.graphics.pop()
@@ -474,8 +542,28 @@ function ow.FireflyManager:reset()
     self._current_batch_id = 0
     self._n_particles = 0
     self._current_follow_offset = 0
-    table.clear(self._data)
-
-    self._batch_id_to_indices = {}
+    self._data = {}
+    self._batch_id_to_entry = {}
     self._index_order = {}
+    self._visible_data_is = {}
+    self._data_i_to_rgba = {}
 end
+
+--- @brief
+function ow.FireflyManager:get_point_light_sources()
+    local data = self._data
+    local core_radius_factor = rt.settings.overworld.firefly_particle.core_radius_factor
+
+    local circles, colors = {}, {}
+    for _, i in ipairs(self._visible_data_is) do
+        table.insert(circles, {
+            data[i + _x_offset],
+            data[i + _y_offset],
+            data[i + _radius_offset] * core_radius_factor
+        })
+        
+        table.insert(colors, self._data_i_to_rgba[i])
+    end
+
+    return circles, colors
+end 

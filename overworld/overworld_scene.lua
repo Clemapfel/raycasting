@@ -710,12 +710,7 @@ function ow.OverworldScene:_draw_debug_information()
     local a = ternary(self._player._sprint_button_is_down, pressed, unpressed)
     local b = ternary(self._player._jump_button_is_down, pressed, unpressed)
 
-    local sprint
-    if rt.GameState:get_player_sprint_mode() == rt.PlayerSprintMode.MANUAL then
-        sprint = self._player._sprint_button_is_down == true
-    else
-        sprint = self._player._sprint_toggled
-    end
+    local sprint = self._player._sprint_button_is_down == true
     sprint = ternary(sprint, pressed, unpressed)
 
     local time = "# cycles : " .. self:get_frame_count()

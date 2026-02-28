@@ -29,8 +29,8 @@ rt.MSAAQuality = meta.enum("MSAAQuality", {
 
 --- @class rt.PlayerSprintMode
 rt.PlayerSprintMode = meta.enum("PlayerSprintomde", {
-    MANUAL = "manual",
-    AUTO = "auto"
+    HOLD_TO_SPRINT = "hold_to_sprint",
+    HOLD_TO_WALK = "hold_to_walk"
 })
 
 --- @class rt.GameState
@@ -58,7 +58,7 @@ function rt.GameState:instantiate()
         draw_debug_information = true,
         draw_speedrun_splits = false,
         input_buffering_enabled = true,
-        player_sprint_mode = rt.PlayerSprintMode.MANUAL,
+        player_sprint_mode = rt.PlayerSprintMode.HOLD_TO_SPRINT,
         color_blind_mode = false,
         input_mapping = {}, -- Table<rt.InputAction, { keyboard = rt.KeyboardKey, controller = rt.ControllerButton }>
 
@@ -74,7 +74,6 @@ function rt.GameState:instantiate()
     self._keyboard_key_to_input_action = {}
     self._controller_button_to_input_action = {}
     self:load_default_input_mapping()
-    self._player = rt.Player()
 end
 
 --- @brief
@@ -673,3 +672,4 @@ require "common.game_state_save"
 require "common.game_state_log"
 
 rt.GameState = rt.GameState()
+rt.GameState._player = rt.Player()

@@ -20,6 +20,14 @@ function ow.Fireflies.reinitialize(scene, stage)
     stage.firefly_manager_is_first = true
 end
 
+function ow.Fireflies.get_point_light_sources(stage)
+    if stage.firefly_manager ~= nil then
+        return stage.firefly_manager:get_point_light_sources()
+    else
+        return {}, {}
+    end
+end
+
 --- @brief
 function ow.Fireflies:instantiate(object, stage, scene)
     rt.assert(object:get_type() == ow.ObjectType.POINT, "In ow.Fireflies: object `", object:get_id(), "` is not a point")

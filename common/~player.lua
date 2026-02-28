@@ -1120,22 +1120,17 @@ function rt.Player:update(delta)
 
 
     if not self._is_bubble then
-        if rt.GameState:get_player_sprint_mode() == rt.PlayerSprintMode.MANUAL then
-            -- update sprint once landed
-            if self._next_sprint_multiplier_update_when_grounded and is_grounded then
-                self._target_sprint_multiplier = self._next_sprint_multiplier
-            end
-
-            -- lerp instead of transitioning instantly
-            self._current_sprint_multiplier = math.mix(
-                self._current_sprint_multiplier,
-                self._target_sprint_multiplier,
-                1 - math.exp(-1 / _settings.sprint_multiplier_transition_duration * delta)
-            )
-        else
-            -- always sprint
-            self._current_sprint_multiplier = _settings.sprint_multiplier
+        -- update sprint once landed
+        if self._next_sprint_multiplier_update_when_grounded and is_grounded then
+            self._target_sprint_multiplier = self._next_sprint_multiplier
         end
+
+        -- lerp instead of transitioning instantly
+        self._current_sprint_multiplier = math.mix(
+            self._current_sprint_multiplier,
+            self._target_sprint_multiplier,
+            1 - math.exp(-1 / _settings.sprint_multiplier_transition_duration * delta)
+        )
 
         local current_velocity_x, current_velocity_y = self._body:get_velocity()
         current_velocity_x = current_velocity_x - self._platform_velocity_x

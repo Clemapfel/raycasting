@@ -1,6 +1,7 @@
 require "physics.physics"
 require "common.input_subscriber"
 require "common.joystick_gesture_detector"
+require "common.player_input_smoothing"
 require "common.player_body"
 require "common.player_trail"
 require "common.random"
@@ -10,12 +11,13 @@ require "common.direction"
 
 do
     local radius = 13.5
+    local gravity_multiplier = 0.8
     rt.settings.player = {
         radius = radius,
         inner_body_radius = 10 / 2 - 0.5,
         n_outer_bodies = 27,
         max_spring_length = radius * 3,
-        outer_body_spring_strength = 1.5,
+        outer_body_spring_strength = 1,
 
         bottom_wall_ray_length_factor = 1.25,
         side_wall_ray_length_factor = 1.15,
@@ -35,6 +37,8 @@ do
         ghost_outer_body_collision_group = b2.CollisionGroup.GROUP_13,
 
         exempt_collision_group = b2.CollisionGroup.GROUP_11,
+
+        input_smoothing_magnitude_eps = 0.02,
 
         sprint_multiplier = 2,
         sprint_multiplier_transition_duration = 5 / 60,
@@ -67,7 +71,7 @@ do
         platform_velocity_decay = 0.7,
 
         jump_duration = 11 / 60,
-        jump_impulse = 550, -- 10 * 16 tiles neutral jump
+        jump_impulse = 530, -- 10 * 16 tiles neutral jump
 
         wall_jump_initial_impulse = 400,
         wall_jump_sustained_impulse = 1000,
@@ -91,8 +95,7 @@ do
         bubble_gravity_factor = 0.015,
         bubble_air_resistance = 0.5, -- px / s
 
-        gravity = 1500, -- px / s
-        air_resistance = 0.03, -- [0, 1]
+        gravity = 1300, -- px / s
         downwards_force = 3000,
 
         friction_coefficient = 100,
@@ -242,12 +245,7 @@ function rt.Player:instantiate()
         _sprint_button_is_down_elapsed = 0,
 
         _use_analog_input = rt.InputManager:get_input_method() == rt.InputMethod.CONTROLLER,
-
-        -- sprint
-        _current_sprint_multiplier = 1,
-        _target_sprint_multiplier = 1,
-        _next_sprint_multiplier = 1,
-        _next_sprint_multiplier_update_when_grounded = false,
+        _input_smoothing = rt.PlayerInputSmoothing(),
 
         -- physics
         _spring_bodies = {},
@@ -270,7 +268,7 @@ function rt.Player:instantiate()
         _trail = nil, -- rt.PlayerTrail
         _graphics_body = nil, -- rt.PlayerBody
         _pulses = {}, -- Table<love.Timestamp>
-        _pulse_mesh = nil, -- rt.Mesh,
+        _pulse_mesh = nil, -- rt.RenderTexture,
 
         _hue = 0,
         _hue_elapsed = 0,
@@ -284,6 +282,16 @@ function rt.Player:instantiate()
 
         _idle_elapsed = 0,
     })
+
+    -- sprint
+    do
+        local default, held = self:_get_sprint_multipliers()
+
+        self._current_sprint_multiplier = default
+        self._target_sprint_multiplier = default
+        self._next_sprint_multiplier = default
+        self._next_sprint_multiplier_update_when_grounded = false
+    end
 
     do -- request pattern tables
         self._request_ids = {}
@@ -347,15 +355,9 @@ end
 --- @brief
 function rt.Player:_connect_input()
     self._input:signal_connect("pressed", function(_, which, count)
-        local queue_sprint = function()
-            self._next_sprint_multiplier = settings.sprint_multiplier
-            self._next_sprint_multiplier_update_when_grounded = true
-        end
-
         local queue_turnaround = function(direction)
             self._queue_turn_around = true
             self._queue_turn_around_direction = direction
-            queue_sprint()
         end
 
         if which == rt.InputAction.JUMP then
@@ -371,7 +373,9 @@ function rt.Player:_connect_input()
             self._sprint_button_is_down = true
             self._sprint_button_is_down_elapsed = 0
 
-            queue_sprint()
+            local default, held = self:_get_sprint_multipliers()
+            self._next_sprint_multiplier = held
+            self._next_sprint_multiplier_update_when_grounded = true
         elseif which == rt.InputAction.LEFT then
             self._left_button_is_down = true
             self._left_button_is_down_elapsed = 0
@@ -412,7 +416,8 @@ function rt.Player:_connect_input()
             self._sprint_button_is_down = false
             self._sprint_button_is_down_elapsed = math.huge
 
-            self._next_sprint_multiplier = 1
+            local default, held = self:_get_sprint_multipliers()
+            self._next_sprint_multiplier = default
             self._next_sprint_multiplier_update_when_grounded = true
         elseif which == rt.InputAction.LEFT then
             self._left_button_is_down = false
@@ -492,7 +497,11 @@ function rt.Player:_connect_input()
     end
 
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
-        if which == rt.KeyboardKey.G then swap_bubble() end
+        if which == rt.KeyboardKey.G then
+            swap_bubble()
+        elseif which == rt.KeyboardKey.F then
+            local vx, y = self:get_physics_body():get_velocity()
+        end
     end)
 
     self._input:signal_connect("controller_button_pressed", function(_, which)
@@ -510,6 +519,8 @@ function rt.Player:update(delta)
 
     local is_bubble = self:get_is_bubble()
     local time_dilation = self:get_time_dilation()
+
+    self._input_smoothing:update(delta)
 
     local function update_graphics()
         local center_x, center_y
@@ -564,9 +575,14 @@ function rt.Player:update(delta)
         do
             local to_remove = {}
             for i, pulse in ipairs(self._pulses) do
-                local elapsed = love.timer.getTime() - pulse.timestamp
-                if elapsed > settings.pulse_duration then
+                local fraction = pulse.elapsed / settings.pulse_duration
+                pulse.elapsed = pulse.elapsed + delta
+                pulse.should_draw = true
+
+                if fraction >= 1 then
                     table.insert(to_remove, i)
+                elseif fraction < 0.5 then
+                    break
                 end
             end
 
@@ -790,23 +806,17 @@ function rt.Player:update(delta)
     end
 
     -- input method agnostic button state
-    local left_is_down = self._left_button_is_down or use_analog_input and
-        self._joystick_gesture:get_magnitude(rt.InputAction.LEFT) > settings.joystick_magnitude_left_threshold
+    local left_is_down, right_is_down, up_is_down, down_is_down
+    local magnitude_x, magnitude_y = self._input_smoothing:get_magnitude()
 
-    local right_is_down = self._right_button_is_down or use_analog_input and
-        self._joystick_gesture:get_magnitude(rt.InputAction.RIGHT) > settings.joystick_magnitude_right_threshold
+    if self:get_is_disabled() == true then magnitude_x, magnitude_y = 0, 0 end
 
-    local up_is_down = self._up_button_is_down or use_analog_input and
-        self._joystick_gesture:get_magnitude(rt.InputAction.UP) > settings.joystick_magnitude_up_threshold
-
-    local down_is_down = self._down_button_is_down or use_analog_input and
-        self._joystick_gesture:get_magnitude(rt.InputAction.DOWN) > settings.joystick_magnitude_down_threshold
-
-    local joystick_x, joystick_y = self._joystick_position_x, self._joystick_position_y
-
-    if self:get_is_disabled() then
-        left_is_down, right_is_down, down_is_down, up_is_down = false, false, false, false
-        joystick_x, joystick_y = 0, 0
+    do
+        local eps = settings.input_smoothing_magnitude_eps
+        if magnitude_x > eps then right_is_down = true end
+        if magnitude_x < -eps then left_is_down = true end
+        if magnitude_y > eps then down_is_down = true end
+        if magnitude_y < -eps then up_is_down = true end
     end
 
     -- buffered jump
@@ -993,22 +1003,17 @@ function rt.Player:update(delta)
 
     -- non-bubble movement
     if not is_bubble then
-        if rt.GameState:get_player_sprint_mode() == rt.PlayerSprintMode.MANUAL then
-            -- update sprint once landed
-            if self._next_sprint_multiplier_update_when_grounded and is_grounded then
-                self._target_sprint_multiplier = self._next_sprint_multiplier
-            end
-
-            -- lerp instead of transitioning instantly
-            self._current_sprint_multiplier = math.mix(
-                self._current_sprint_multiplier,
-                self._target_sprint_multiplier,
-                1 - math.exp(-1 / settings.sprint_multiplier_transition_duration * delta)
-            )
-        else
-            -- always sprint
-            self._current_sprint_multiplier = settings.sprint_multiplier
+        -- update sprint once landed
+        if self._next_sprint_multiplier_update_when_grounded and is_grounded then
+            self._target_sprint_multiplier = self._next_sprint_multiplier
         end
+
+        -- lerp instead of transitioning instantly
+        self._current_sprint_multiplier = math.mix(
+            self._current_sprint_multiplier,
+            self._target_sprint_multiplier,
+            1 - math.exp(-1 / settings.sprint_multiplier_transition_duration * delta)
+        )
 
         local current_velocity_x, current_velocity_y = self._body:get_velocity()
         current_velocity_x = current_velocity_x - self._platform_velocity_x
@@ -1019,19 +1024,7 @@ function rt.Player:update(delta)
 
         -- x velocity update
 
-        local input_magnitude
-        if use_analog_input then
-            input_magnitude = joystick_x
-        else
-            if self._left_button_is_down and not self._right_button_is_down then
-                input_magnitude = -1
-            elseif self._right_button_is_down and not self._left_button_is_down then
-                input_magnitude = 1
-            else
-                input_magnitude = 0
-            end
-        end
-
+        local input_magnitude = select(1, self._input_smoothing:get_magnitude(use_analog_input))
         if self:get_is_disabled() or self._wall_jump_freeze_elapsed < settings.wall_jump_freeze_duration then
             input_magnitude = 0
         end
@@ -1178,7 +1171,7 @@ function rt.Player:update(delta)
                     -- check if input aligns with tangent
                     local input_alignment
                     if use_analog_input then
-                        local input_x, input_y = joystick_x, joystick_y
+                        local input_x, input_y = math.normalize(self._joystick_position_x, self._joystick_position_y)
                         input_alignment = math.max(0, math.dot(input_x, input_y, tangent_x, tangent_y))
                     else
                         local candidates = { 0, 0 }
@@ -1299,7 +1292,7 @@ function rt.Player:update(delta)
                         local easing = function(x) return 1 - x^(1 / 4)  end
                         input_modifier = easing(math.max(0, math.dot(
                             0, 1,
-                            math.normalize(joystick_x, joystick_y)
+                            math.normalize(self._joystick_position_x, self._joystick_position_y)
                         )))
                     elseif down_is_down then
                         -- easing determined by how long down was held
@@ -1720,24 +1713,6 @@ function rt.Player:update(delta)
             end
         end
 
-        -- instant turn around
-        if settings.allow_instant_turn_around and self._queue_turn_around == true then
-            local vx, vy = next_velocity_x, next_velocity_y
-            local magnitude = math.magnitude(vx, vy)
-            local direction = self._queue_turn_around_direction
-
-            if (vx < 0 and direction == rt.Direction.RIGHT)
-                or (vx > 0 and direction == rt.Direction.LEFT)
-            then
-                vx = -vx
-            elseif (vy > 0 and direction == rt.Direction.DOWN) then
-                vy = -vy
-            end
-
-            next_velocity_x, next_velocity_y = vx, vy
-            self._queue_turn_around = false
-        end
-
         next_velocity_x, next_velocity_y = self:apply_damping(next_velocity_x, next_velocity_y)
         next_velocity_x = self._platform_velocity_x + next_velocity_x
         next_velocity_y = self._platform_velocity_y + next_velocity_y
@@ -1800,6 +1775,26 @@ function rt.Player:update(delta)
                 bounce_dx * mass_multiplier,
                 bounce_dy * mass_multiplier
             )
+        end
+
+        if settings.allow_instant_turn_around and self._queue_turn_around == true then
+            local direction = self._queue_turn_around_direction
+
+            local impulse_x, impulse_y = 0, 0
+            local vx, vy = self._bubble_body:get_velocity()
+
+            if vx < 0 and direction == rt.Direction.RIGHT then
+                vx = -vx
+            elseif vx > 0 and direction == rt.Direction.LEFT then
+                vx = -vx
+            elseif vy < 0 and direction == rt.Direction.DOWN then
+                vy = -vy
+            elseif vy > 0 and direction == rt.Direction.UP then
+                vy = -vy
+            end
+
+            self:get_physics_body():set_velocity(vx, vy)
+            self._queue_turn_around = false
         end
 
         self._bubble_body:apply_force(
@@ -2304,22 +2299,34 @@ function rt.Player:draw_core()
 
     if #self._pulses > 0 then
         local time = love.timer.getTime()
-               local mesh = self._pulse_mesh:get_native()
-        for pulse in values(self._pulses) do
-            local t = 1 - rt.InterpolationFunctions.SINUSOID_EASE_OUT((time - pulse.timestamp) / settings.pulse_duration)
+        local mesh = self._pulse_mesh:get_native()
 
-            love.graphics.push()
-            love.graphics.translate(x, y)
-            love.graphics.scale(2 * radius * settings.pulse_radius_factor * (1 - t))
-            love.graphics.translate(-x, -y)
+        for pulse in values(self._pulses) do
+            if pulse.should_draw ~= true then break end
+            local t = 1 - rt.InterpolationFunctions.SINUSOID_EASE_OUT(math.min(1, pulse.elapsed / settings.pulse_duration))
+
+            local scale = 2 * radius * settings.pulse_radius_factor * (1 - t)
             local r, g, b, a = pulse.color:unpack()
             love.graphics.setColor(r, g, b, a * t)
-            love.graphics.draw(self._pulse_mesh:get_native(), x, y)
-            love.graphics.pop()
+            love.graphics.draw(
+                self._pulse_mesh:get_native(),
+                x, y,
+                0,
+                scale, scale
+            )
         end
     end
 
     self._graphics_body:draw_core()
+
+    do
+        love.graphics.push()
+        love.graphics.origin()
+        local m = 2 * rt.settings.margin_unit
+        local r = 4 * rt.settings.margin_unit
+        self._input_smoothing:draw(r + m, love.graphics.getHeight() - (r + m), r)
+        love.graphics.pop()
+    end
 end
 
 --- @brief
@@ -2553,11 +2560,10 @@ end
 
 --- @brief
 function rt.Player:_get_walljump_allowed()
-    local left_is_down = self._left_button_is_down
-        or self._joystick_gesture:get_magnitude(rt.InputAction.LEFT) > settings.joystick_magnitude_left_threshold
-
-    local right_is_down = self._right_button_is_down
-        or self._joystick_gesture:get_magnitude(rt.InputAction.RIGHT) > settings.joystick_magnitude_right_threshold
+    local magnitude = select(1, self._input_smoothing:get_magnitude())
+    local eps = settings.input_smoothing_magnitude_eps
+    local left_is_down = magnitude < -eps
+    local right_is_down = magnitude > eps
 
     local left_wall_invalid = (self._left_wall and (self._left_wall_body:has_tag("slippery") or self._left_wall_body:has_tag("unjumpable")))
         or (self._top_left_wall and (self._top_left_wall_body:has_tag("slippery") or self._top_left_wall_body:has_tag("unjumpable")))
@@ -2747,6 +2753,16 @@ function rt.Player:get_is_ducking()
 end
 
 --- @brief
+--- @return Number, Number default, held
+function rt.Player:_get_sprint_multipliers()
+    if rt.GameState:get_player_sprint_mode() == rt.PlayerSprintMode.HOLD_TO_SPRINT then
+        return 1, settings.sprint_multiplier
+    else
+        return settings.sprint_multiplier, 1
+    end
+end
+
+--- @brief
 function rt.Player:reset()
     self:set_velocity(0, 0)
 
@@ -2771,15 +2787,16 @@ function rt.Player:reset()
     self._right_button_is_down = self._input:get_is_down(rt.InputAction.RIGHT)
     self._left_button_is_down = self._input:get_is_down(rt.InputAction.LEFT)
 
+    local default, held = self:_get_sprint_multipliers()
     if self._sprint_button_is_down then
-        self._current_sprint_multiplier = settings.sprint_multiplier
-        self._target_sprint_multiplier = settings.sprint_multiplier
-        self._next_sprint_multiplier = settings.sprint_multiplier
+        self._current_sprint_multiplier = held
+        self._target_sprint_multiplier = held
+        self._next_sprint_multiplier = held
         self._next_sprint_multiplier_update_when_grounded = false
     else
-        self._current_sprint_multiplier = 1
-        self._target_sprint_multiplier = 1
-        self._next_sprint_multiplier = 1
+        self._current_sprint_multiplier = default
+        self._target_sprint_multiplier = default
+        self._next_sprint_multiplier = default
         self._next_sprint_multiplier_update_when_grounded = false
     end
 
@@ -2820,6 +2837,8 @@ function rt.Player:reset()
     self._graphics_body:set_left_squish(false)
     self._graphics_body:set_right_squish(false)
     self._graphics_body:set_up_squish(false)
+
+    self._pulses = {}
 end
 
 --- @brief
@@ -2870,8 +2889,9 @@ function rt.Player:pulse(color_maybe)
     end
 
     table.insert(self._pulses, {
-        timestamp = love.timer.getTime(),
-        color = color_maybe or self._current_color
+        elapsed = 0,
+        color = color_maybe or self._current_color,
+        should_draw = false
     })
 end
 
@@ -2897,28 +2917,7 @@ end
 
 --- @brief
 function rt.Player:get_input_direction()
-    local dx, dy = 0, 0
-    if not self._use_analog_input then
-        if self._left_button_is_down then
-            dx = -1
-        end
-
-        if self._right_button_is_down then
-            dx = 1
-        end
-
-        if self._up_button_is_down then
-            dy = -1
-        end
-
-        if self._down_button_is_down then
-            dy = 1
-        end
-    else
-        dx, dy = self._joystick_position_x, self._joystick_position_y
-    end
-
-    return dx, dy
+    return self._input_smoothing:get_magnitude(self._use_analog_input)
 end
 
 --- @brief

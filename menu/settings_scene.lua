@@ -25,7 +25,7 @@ rt.settings.settings_scene = {
     draw_debug_info_default = false,
     draw_speedrun_splits_default = false,
     input_buffering_enabled_default = true,
-    sprint_mode_default = rt.PlayerSprintMode.MANUAL,
+    sprint_mode_default = rt.PlayerSprintMode.HOLD_TO_SPRINT,
 
     scale_movement_ticks_per_second = 100,
     scale_movement_delay = 20 / 60,
@@ -455,14 +455,14 @@ function mn.SettingsScene:instantiate()
 
     do -- sprint mode
         local sprint_mode_to_label = {
-            [rt.PlayerSprintMode.MANUAL] = translation.sprint_mode_manual,
-            [rt.PlayerSprintMode.AUTO] = translation.sprint_mode_auto
+            [rt.PlayerSprintMode.HOLD_TO_SPRINT] = translation.sprint_mode_hold_to_sprint,
+            [rt.PlayerSprintMode.HOLD_TO_WALK] = translation.sprint_mode_hold_to_walk
         }
         local label_to_sprint_mode = reverse(sprint_mode_to_label)
 
         local sprint_mode_button = mn.OptionButton({
-            sprint_mode_to_label[rt.PlayerSprintMode.MANUAL],
-            sprint_mode_to_label[rt.PlayerSprintMode.AUTO]
+            sprint_mode_to_label[rt.PlayerSprintMode.HOLD_TO_SPRINT],
+            sprint_mode_to_label[rt.PlayerSprintMode.HOLD_TO_WALK]
         })
 
         sprint_mode_button:set_option(sprint_mode_to_label[rt.GameState:get_player_sprint_mode()])

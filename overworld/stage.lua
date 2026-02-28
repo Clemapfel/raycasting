@@ -519,26 +519,31 @@ function ow.Stage:get_point_light_sources()
         local positions = {} -- Table<Table<Number, Number, Number>>
         local colors = {} -- Table<rt.RGBA>
 
-        -- sort to have consistent order if number of body exceeds
-        -- normal map point light limit
-        table.sort(self._point_light_source_bodies, function(a, b)
-            return meta.hash(a) < meta.hash(b)
-        end)
+        local add = function(data, color)
+            local x, y = camera:world_xy_to_screen_xy(data[1], data[2])
+            table.insert(positions, {
+                x, y, data[3] * camera:get_final_scale()
+            })
+
+            table.insert(colors, {
+                color:unpack()
+            })
+        end
 
         local player = self._scene:get_player()
         if player:get_is_visible()
             and player:get_trail_is_visible()
             and not player:get_is_ghost()
         then
-            local x, y = camera:world_xy_to_screen_xy(player:get_position())
-            table.insert(positions, {
-                x, y, rt.settings.player.radius
-            })
-
-            table.insert(colors, {
-                player:get_color():unpack()
-            })
+            local x, y = player:get_position()
+            add({ x, y, rt.settings.player.radius }, player:get_color())
         end
+
+        -- sort to have consistent order if number of body exceeds
+        -- normal map point light limit
+        table.sort(self._point_light_source_bodies, function(a, b)
+            return meta.hash(a) < meta.hash(b)
+        end)
 
         for body in values(self._point_light_source_bodies) do
             local instance = body:get_user_data()
@@ -569,15 +574,7 @@ function ow.Stage:get_point_light_sources()
                 end
 
                 for i = 1, #object_positions do
-                    local data = object_positions[i]
-                    local x, y = camera:world_xy_to_screen_xy(data[1], data[2])
-                    table.insert(positions, {
-                        x, y, data[3] * camera:get_final_scale()
-                    })
-
-                    table.insert(colors, {
-                        object_colors[i]:unpack()
-                    })
+                    add(object_positions[i], object_colors[i])
 
                     n = n + 1
                     if n > max_n then goto finish end
@@ -586,6 +583,13 @@ function ow.Stage:get_point_light_sources()
         end
 
         ::finish::
+
+        local firefly_positions, firefly_colors = ow.Fireflies.get_point_light_sources(self)
+
+        for i = 1, #firefly_positions do
+            add(firefly_positions[i], firefly_colors[i])
+        end
+
         self._point_light_sources, self._point_light_colors = positions, colors
         self._point_light_sources_need_update = false
     end

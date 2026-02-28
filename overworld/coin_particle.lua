@@ -177,8 +177,7 @@ end
 
 --- @brief
 function ow.CoinParticle:set_opacity(opacity)
-    --dbg(debug.traceback())
-    --self._opacity = opacity
+    self._opacity = opacity
 end
 
 --- @brief

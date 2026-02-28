@@ -426,7 +426,6 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
         }
 
         self:signal_emit("done")
-        dbg((love.timer.getTime() - self._start_time) / (1 / 60))
     end)
 end
 
