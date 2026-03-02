@@ -23,7 +23,6 @@ meta.add_signals(rt.ImpulseSubscriber,
     "beat",
     "pulse"
 )
-
 --- @brief
 function rt.ImpulseManager:instantiate()
     self._subscribers = meta.make_weak({})
