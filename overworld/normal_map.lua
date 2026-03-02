@@ -12,12 +12,7 @@ rt.settings.overworld.normal_map = {
     mask_slippery = true,
     max_distance = 16, -- < 256
 
-    point_light_intensity = 0.75,
-    segment_light_intensity = 0.5,
-
-    max_n_point_lights = 32,
-    max_n_segment_lights = 64,
-    light_range = 20, -- px
+    shadow_strength = 0.15,
 
     yield_savepoint_fraction = 0.004
 }
@@ -522,8 +517,8 @@ function ow.NormalMap:draw_shadow(camera)
 
     local draw_chunk = function(chunk, chunk_x, chunk_y)
         if shader_bound == false then
-            love.graphics.setBlendMode("subtract", "premultiplied")
-            local value = 0.1
+            rt.graphics.set_blend_mode(rt.BlendMode.SUBTRACT, rt.BlendMode.NORMAL)
+            local value = rt.settings.overworld.normal_map.shadow_strength
             love.graphics.setColor(value, value, value, value)
             _draw_shadow_shader:bind()
             shader_bound = true

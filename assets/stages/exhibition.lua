@@ -381,25 +381,6 @@ return {
             { x = -512, y = -320 }
           },
           properties = {}
-        },
-        {
-          id = 977,
-          name = "",
-          type = "CameraFit",
-          shape = "polygon",
-          x = 1136,
-          y = -112,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = 0 },
-            { x = 0, y = -576 },
-            { x = 704, y = -576 },
-            { x = 704, y = 0 }
-          },
-          properties = {}
         }
       }
     },

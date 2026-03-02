@@ -30,6 +30,9 @@
 #error "LIGHT_RANGE undefined"
 #endif
 
+// Precompute inverse light range to avoid repeated divisions or inversesqrt on a constant
+const float INV_LIGHT_RANGE = 1.0 / float(LIGHT_RANGE);
+
 struct PointLight {
     vec2 position; // in screen space
     float radius;
@@ -56,34 +59,43 @@ layout(LIGHT_INTENSITY_TEXTURE_FORMAT) uniform writeonly image2D light_intensity
 layout(LIGHT_DIRECTION_TEXTURE_FORMAT) uniform writeonly image2D light_direction_texture;
 
 float gaussian(float x) {
-    float x2 = x * x * x; // gaussian approximation
-    return 1.0 / (1.0 + 0.5 * x2);
+    // Approximate gaussian falloff; compute x^3 via two multiplies
+    float x2 = x * x;
+    float x3 = x2 * x;
+    return 1.0 / (1.0 + 0.5 * x3);
 }
 
 vec2 closest_point_on_segment(vec2 xy, vec4 segment) {
     vec2 ab = segment.zw - segment.xy;
+    float ab_len2 = dot(ab, ab);
+
+    if (ab_len2 == 0.0)
+        return segment.xy;
+
     vec2 ap = xy - segment.xy;
-    float t = clamp(dot(ap, ab) * inversesqrt(dot(ab, ab) * dot(ab, ab)), 0.0, 1.0);
+
+    float inv_ab_len2 = inversesqrt(ab_len2 * ab_len2);
+    float t = clamp(dot(ap, ab) * inv_ab_len2, 0.0, 1.0);
     return segment.xy + t * ab;
 }
 
+const float eps = 1e-7;
+
 vec2 closest_point_on_circle(vec2 xy, vec2 circle_xy, float radius) {
     vec2 diff = xy - circle_xy;
-    return circle_xy + diff * (radius * inversesqrt(dot(diff, diff)));
+    float len2 = dot(diff, diff);
+    float inv_len = inversesqrt(max(len2, eps));
+    return circle_xy + diff * (radius * inv_len);
 }
 
-vec4 compute_light(vec2 screen_uv, vec2 light_position, vec4 light_color, float dist_sq) {
+vec4 compute_light(vec4 light_color, float dist_sq) {
+    // Use precomputed 1 / LIGHT_RANGE; keep behavior identical
     float dist = sqrt(dist_sq);
-    float attenuation = clamp(gaussian(dist * inversesqrt(LIGHT_RANGE * LIGHT_RANGE)), 0.0, 1.0);
+    float attenuation = clamp(gaussian(dist * INV_LIGHT_RANGE), 0.0, 1.0);
     const float third = 1.0 / 3.0;
     return light_color * (attenuation * third);
 }
 
-uniform mat4x4 screen_to_world_transform;
-vec2 to_world_position(vec2 xy) {
-    vec4 result = screen_to_world_transform * vec4(xy, 0.0, 1.0);
-    return result.xy * inversesqrt(result.w * result.w);
-}
 
 const vec3 luma_coefficients = vec3(0.299, 0.587, 0.114);
 
@@ -113,11 +125,12 @@ layout(std430) readonly buffer tile_data_buffer {
 
 const int TILE_DATA_STRIDE = 2 + MAX_N_POINT_LIGHTS + MAX_N_SEGMENT_LIGHTS;
 
-int xy_to_tile_data_offset(vec2 xy, ivec2 screen_size) {
-    int tile_x = int(floor(xy.x / TILE_SIZE));
-    int tile_y = int(floor(xy.y / TILE_SIZE));
+int xy_to_tile_data_offset(ivec2 xy, ivec2 screen_size) {
+    int tile_x = xy.x / TILE_SIZE;
+    int tile_y = xy.y / TILE_SIZE;
 
-    int n_tiles_per_row = int(ceil(float(screen_size.x) / TILE_SIZE));
+    // equivalent to ceil(screen_size.x / TILE_SIZE)
+    int n_tiles_per_row = (screen_size.x + TILE_SIZE - 1) / TILE_SIZE;
     int tile_index = tile_y * n_tiles_per_row + tile_x;
 
     return tile_index * TILE_DATA_STRIDE;
@@ -146,8 +159,6 @@ void computemain() {
 
     if (any(greaterThanEqual(position, image_size))) return;
 
-    vec2 world_position = to_world_position(position);
-
     int tile_offset = xy_to_tile_data_offset(position, image_size);
     int n_point_lights = get_n_point_lights(tile_offset);
     int n_segment_lights = get_n_segment_lights(tile_offset);
@@ -155,24 +166,26 @@ void computemain() {
     vec4 point_color = vec4(0.0);
     vec2 point_directional = vec2(0.0);
 
-    float light_range_sq = LIGHT_RANGE * LIGHT_RANGE;
-    float light_range_cutoff = 6.25 * light_range_sq; // 2.5^2
-
     for (int i = 0; i < n_point_lights; ++i) {
         int point_light_index = get_point_light_index(tile_offset, i);
         PointLight light = point_light_sources[point_light_index];
 
-        vec2 to_light = light.position - world_position;
-        float dist = dot(to_light, to_light);
+        vec2 to_light = light.position - vec2(position);
+        float dist_sq = dot(to_light, to_light);
 
-        vec2 light_position = light.position - to_light * (light.radius * inversesqrt(dist));
+        vec2 closest = closest_point_on_circle(
+            vec2(position),
+            light.position,
+            light.radius
+        );
 
-        vec4 light_contrib = compute_light(world_position, light.position, light.color, dist);
+        vec4 light_contrib = compute_light(light.color, dist_sq);
         point_color += light_contrib;
 
-        vec2 light_dir_2d = (light_position - world_position) * inversesqrt(dot(light_position - world_position, light_position - world_position));
-        float luminance = dot(light_contrib.rgb, luma_coefficients);
+        vec2 to_edge = closest - vec2(position);
+        vec2 light_dir_2d = to_edge * inversesqrt(max(dot(to_edge, to_edge), eps));
 
+        float luminance = dot(light_contrib.rgb, luma_coefficients);
         point_directional += luminance * max(vec2(0.0), light_dir_2d);
     }
 
@@ -183,17 +196,16 @@ void computemain() {
         int segment_light_index = get_segment_light_index(tile_offset, i);
         SegmentLight light = segment_light_sources[segment_light_index];
 
-        vec2 light_position = closest_point_on_segment(world_position, light.segment);
+        vec2 closest_point = closest_point_on_segment(vec2(position), light.segment);
+        vec2 to_light = closest_point - vec2(position);
+        float dist_sq = dot(to_light, to_light);
 
-        vec2 to_light = light_position - world_position;
-        float dist = dot(to_light, to_light);
-
-        vec4 light_contrib = compute_light(world_position, light_position, light.color, dist);
+        vec4 light_contrib = compute_light(light.color, dist_sq);
         segment_color += light_contrib;
 
-        vec2 light_dir_2d = to_light * inversesqrt(dist);
-        float luminance = dot(light_contrib.rgb, luma_coefficients);
+        vec2 light_dir_2d = to_light * inversesqrt(max(dist_sq, eps));
 
+        float luminance = dot(light_contrib.rgb, luma_coefficients);
         segment_directional += luminance * max(vec2(0.0), light_dir_2d);
     }
 

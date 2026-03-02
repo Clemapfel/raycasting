@@ -139,58 +139,59 @@ function ow.LightMap:update(stage)
         tile_data[tile_offset + 1 + settings.max_n_point_lights] = count
     end
 
+    local total_n_checks = 0
+
     local function add_point_light_to_tile(tile_index, light_source_index)
         local tile_offset = tile_index_to_data_offset(tile_index)
         local count = tile_data[tile_offset]
-        if count >= max_n_point_lights then return end
 
         tile_data[tile_offset + 1 + count] = light_source_index - 1 -- glsl is 0-based
         tile_data[tile_offset] = count + 1
+
+        total_n_checks = total_n_checks + 1
     end
 
     local function add_segment_light_to_tile(tile_index, light_source_index)
         local tile_offset = tile_index_to_data_offset(tile_index)
         local count = tile_data[tile_offset + 1 + max_n_point_lights]
-        if count >= max_n_segment_lights then return end
 
         tile_data[tile_offset + 1 + max_n_point_lights + 1 + count] = light_source_index - 1 -- 0 based
         tile_data[tile_offset + 1 + max_n_point_lights] = count + 1
+
+        total_n_checks = total_n_checks + 1
     end
 
-    local function square_point_distance(tile_x, tile_y, tile_size, x, y)
-        local half_size = tile_size / 2
-        local closest_x = tile_x + math.clamp(x - tile_x, -half_size, half_size)
-        local closest_y = tile_y + math.clamp(y - tile_y, -half_size, half_size)
+    local function closest_point_on_segment(x, y, x1, y1, x2, y2)
+        local abx = x2 - x1
+        local aby = y2 - y1
 
-        return math.distance(closest_x, closest_y, x, y)
+        local apx = x - x1
+        local apy = y - y1
+
+        local ab_dot_ab = math.dot(abx, aby, abx, aby)
+
+        if ab_dot_ab == 0 then
+            return x1, y1
+        end
+
+        local t = math.clamp(
+            math.dot(apx, apy, abx, aby) / ab_dot_ab,
+            0.0,
+            1.0
+        )
+
+        return x1 + t * abx, y1 + t * aby
     end
 
-    local function square_segment_distance(tile_x, tile_y, tile_size, x1, y1, x2, y2)
-        local half_size = tile_size / 2
-
-        local ab_x = x2 - x1
-        local ab_y = y2 - y1
-
-        local a_to_square_x = tile_x - x1
-        local a_to_square_y = tile_y - y1
-
-        local ab_dot_ab = ab_x * ab_x + ab_y * ab_y
-        local t = math.clamp((a_to_square_x * ab_x + a_to_square_y * ab_y) / ab_dot_ab, 0.0, 1.0)
-
-        local closest_on_segment_x = x1 + t * ab_x
-        local closest_on_segment_y = y1 + t * ab_y
-
-        local closest_x = tile_x + math.clamp(closest_on_segment_x - tile_x, -half_size, half_size)
-        local closest_y = tile_y + math.clamp(closest_on_segment_y - tile_y, -half_size, half_size)
-
-        return math.distance(closest_x, closest_y, closest_on_segment_x, closest_on_segment_y)
-    end
+    local world_to_screen_transform = stage:get_scene():get_camera():get_transform()
 
     local point_light_i = 1
     local add_point_light = function(x, y, radius, color_r, color_g, color_b, color_a)
         if point_light_i > max_n_point_lights then return end
 
         radius = math.max(radius, 1)
+        x, y = world_to_screen_transform:transform_point(x, y)
+
         local data = point_light_data[point_light_i]
         data[1], data[2], data[3] = x, y, radius
         data[4], data[5], data[6], data[7] = color_r, color_g, color_b, color_a
@@ -201,6 +202,10 @@ function ow.LightMap:update(stage)
     local segment_light_i = 1
     local add_segment_light = function(x1, y1, x2, y2, color_r, color_g, color_b, color_a)
         if segment_light_i > max_n_segment_lights then return end
+
+        x1, y1 = world_to_screen_transform:transform_point(x1, y1)
+        x2, y2 = world_to_screen_transform:transform_point(x2, y2)
+
         local data = segment_light_data[segment_light_i]
         data[1], data[2], data[3], data[4] = x1, y1, x2, y2
         data[5], data[6], data[7], data[8] = color_r, color_g, color_b, color_a
@@ -236,10 +241,8 @@ function ow.LightMap:update(stage)
 
     local n_rows = math.ceil(width / tile_size)
     local n_columns = math.ceil(height / tile_size)
-    local max_range = 2 * settings.light_range
-    max_range = max_range^2
-
-    local world_to_screen_transform = stage:get_scene():get_camera():get_transform()
+    local max_range = 1.5 * self._tile_size
+    max_range = max_range^2 -- using squared distance for performance
 
     for row_i = 1, n_rows do
         for column_i = 1, n_columns do
@@ -251,10 +254,9 @@ function ow.LightMap:update(stage)
             for point_i = 1, n_point_lights do
                 local data = point_light_data[point_i]
                 local x, y, radius = data[1], data[2], data[3]
-                x, y = world_to_screen_transform:transform_point(x, y)
 
-                if square_point_distance(
-                    tile_x, tile_y, tile_size,
+                if math.squared_distance( -- approximate distance
+                    tile_x + 0.5 * tile_size, tile_y + 0.5 * tile_size,
                     x, y
                 ) < max_range + radius then
                     add_point_light_to_tile(tile_i, point_i)
@@ -267,12 +269,11 @@ function ow.LightMap:update(stage)
             for segment_i = 1, n_segment_lights do
                 local data = segment_light_data[segment_i]
                 local x1, y1, x2, y2 = data[1], data[2], data[3], data[4]
-                x1, y1 = world_to_screen_transform:transform_point(x1, y1)
-                x2, y2 = world_to_screen_transform:transform_point(x2, y1)
 
-                if square_segment_distance(
-                    tile_x, tile_y, tile_size,
-                    x1, y1, x2, y2
+                local x, y = tile_x + 0.5 * tile_size, tile_y + 0.5 * tile_size
+                if math.squared_distance( -- approximate
+                    x, y,
+                    closest_point_on_segment(x, y, x1, y1, x2, y2)
                 ) < max_range then
                     add_segment_light_to_tile(tile_i, segment_i)
                 end
@@ -284,14 +285,6 @@ function ow.LightMap:update(stage)
 
     self._tile_data_buffer:replace_data(tile_data)
 
-    self._light_intensity_texture:bind()
-    love.graphics.clear(0, 0, 0, 0)
-    self._light_intensity_texture:unbind()
-
-    self._light_direction_texture:bind()
-    love.graphics.clear(0, 0, 0, 0)
-    self._light_direction_texture:unbind()
-
     local shader = self._shader
     shader:send("point_light_source_buffer", self._point_light_buffer)
     shader:send("segment_light_sources_buffer", self._segment_light_buffer)
@@ -299,7 +292,6 @@ function ow.LightMap:update(stage)
     shader:send("light_intensity_texture", self._light_intensity_texture)
     shader:send("light_direction_texture", self._light_direction_texture)
     shader:send("intensity", settings.intensity)
-    shader:send("screen_to_world_transform", stage:get_scene():get_camera():get_transform():inverse())
     shader:dispatch(self._dispatch_x, self._dispatch_y)
 end
 
