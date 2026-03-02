@@ -281,7 +281,11 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
 
     self._hue = object:get_number("hue", false)
     if self._hue == nil then
-        self._hue = math.fract(meta.hash(self) % _n_hue_steps / _n_hue_steps)
+        if stage.one_way_platform_current_hue_step == nil then
+            stage.one_way_platform_current_hue_step = 0
+        end
+        self._hue = math.fract(stage.one_way_platform_current_hue_step % _n_hue_steps / _n_hue_steps)
+        stage.one_way_platform_current_hue_step = stage.one_way_platform_current_hue_step + 1
     end
 
     self._color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, self._hue, 1))

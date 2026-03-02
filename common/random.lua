@@ -1,71 +1,57 @@
 rt.random = {}
 
-rt.random.DEFAULT_SEED = os.time()
-if not love == nil then
-    love.math.setRandomSeed(rt.random.DEFAULT_SEED)
-else
-    math.randomseed(rt.random.DEFAULT_SEED)
-end
+local _generator_stack = {}
+local _default_generator = love.math.newRandomGenerator(os.time())
 
---- @brief generate number in [0, 1]
---- @param seed_maybe Number (or nil)
---- @return Number
-function rt.rand(seed_maybe)
-    if not (seed_maybe == nil) then
-        love.math.setRandomSeed(seed_maybe)
+local _random = function(...)
+    if #_generator_stack == 0 then
+        return _default_generator:random(...)
+    else
+        return _generator_stack[1]:random(...)
     end
-    return love.math.random()
 end
 
---- @brief re-seed randomness
---- @param seed Number
-function rt.random.seed(seed)
-    love.math.setRandomSeed(seed)
+local _random_normal = function(...)
+    if #_generator_stack == 0 then
+        return _default_generator:randomNormal(...)
+    else
+        return _generator_stack[1]:randomNormal(...)
+    end
 end
 
---- @brief get random number in given range
---- @param min Number
---- @param max Number
---- @return Number
-function rt.random.integer(min, max)
-    return love.math.random(min, max)
-end
 --- @brief
-function rt.random.integers(n, min, max)
-    local out = {}
-    for i = 1, n do
-        table.insert(out, rt.random.integer(min, max))
-    end
-    table.insert(out)
-    return table.unpack(out)
+function rt.random.push(seed)
+    table.insert(_generator_stack, love.math.newRandomGenerator(seed or os.time()))
 end
 
---- @brief get random float in given range
+--- @brief
+function rt.random.pop()
+    if #_generator_stack == 0 then
+        rt.error("In rt.random.pop: stack is empty, more pops than pushes?")
+    end
+
+    table.remove(_generator_stack, 1)
+end
+
+--- @brief generate random float in given range
 --- @param min Number
 --- @param max Number
 --- @return Number
 function rt.random.number(min, max)
-    if min == nil then min = 0 end
-    if max == nil then max = 1 end
-    local lower, upper = math.min(min, max), math.max(min, max)
-    return lower + rt.rand() * (upper - lower)
+    return math.mix(min or 0, max or 1, _random()) -- float with no rags
 end
 
---- @brief
-function rt.random.numbers(n, min, max)
-    local out = {}
-    for i = 1, n do
-        table.insert(out, rt.random.number(min, max))
-    end
-    table.insert(out)
-    return table.unpack(out)
+--- @brief generate random integer in given range
+--- @param min Number
+--- @param max Number
+--- @return Number
+function rt.random.integer(min, max)
+    return _random(min, max) -- already an int
 end
-
-local _sizeof = table.sizeof
 
 --- @brief
 function rt.random.gaussian(min_value, max_value)
-    local r = love.math.randomNormal(0.25, 0.5) -- 95% fall into [0, 1]
+    local r = _random_normal(0.25, 0.5) -- 95% fall into [0, 1]
     return math.clamp(math.mix(min_value, max_value, r), min_value, max_value)
 end
 
@@ -81,48 +67,51 @@ function rt.random.choose(...)
     end
 end
 
---- @brief pick random subset, no repeats
-function rt.random.choose_multiple(set)
-    local out = {}
-    local n_indices = rt.random.integer(1, _sizeof(set))
-    local indices = {}
-    for i = 1, n_indices do
-        ::retry::
-        local index = rt.random.integer(1, _sizeof(set))
-        if indices[index] == true then
-            goto retry
-        end
-
-        indices[index] = true
-        table.insert(out, set[index])
-    end
-
-    return out
-end
-
---- @brief reorder table
+--- @brief reorder table (works with any table)
 function rt.random.shuffle_in_place(t)
-    for i = 1, #t do
-        local j = rt.random.integer(1, #t)
-        local temp = t[i]
-        t[i] = t[j]
-        t[j] = temp
+    local keys = {}
+    for k in pairs(t) do
+        table.insert(keys, k)
     end
+
+    for i = 1, #keys do
+        local j = rt.random.integer(1, #keys)
+        local temp = keys[i]
+        keys[i] = keys[j]
+        keys[j] = temp
+    end
+
+    local values = {}
+    for i, key in ipairs(keys) do
+        values[i] = t[key]
+    end
+
+    for i, key in ipairs(keys) do
+        t[key] = values[i]
+    end
+
     return t
 end
 
---- @brief reorder table
+--- @brief reorder table (works with any table)
 function rt.random.shuffle(t)
-    local indices = {}
-    for i = 1, _sizeof(t) do
-        table.insert(indices, i)
+    local keys = {}
+    for k in pairs(t) do
+        table.insert(keys, k)
     end
-    rt.random.shuffle_in_place(indices)
+
+    rt.random.shuffle_in_place(keys)
+
+    local values = {}
+    for i, key in ipairs(keys) do
+        values[i] = t[key]
+    end
 
     local out = {}
-    for i, j in pairs(indices) do
-        out[i] = t[j]
+    for i, key in ipairs(keys) do
+        out[key] = values[i]
     end
+
     return out
 end
 
@@ -130,7 +119,7 @@ end
 function rt.random.toss_coin(success_chance)
     success_chance = success_chance or 0.5
     if success_chance >= 1 then return true elseif success_chance <= 0 then return false end
-    return rt.rand() <= success_chance
+    return rt.random.number(0, 1) <= success_chance
 end
 
 rt.random.CHAR_LIST = {

@@ -106,7 +106,7 @@ function ow.Background:size_allocate(x, y, width, height)
     self._canvas:set_fov(rt.settings.overworld.background.fov)
 
     self._particles = {}
-    rt.random.seed(1234)
+    rt.random.push(1234)
 
     local id_tetrahedron, id_octahedron, id_cube, id_icosahedron, id_dodecahedron = 1, 2, 3, 4, 5
     local instances = {
@@ -335,11 +335,13 @@ function ow.Background:size_allocate(x, y, width, height)
         max_y - min_y + 2 * padding,
         max_z - min_z,
         rt.settings.overworld.background.fov,
-        0, 0, 0, rt.SceneManager:get_elapsed() * 100 -- noise offset
+        0, 0, 0, rt.random.number(0, 10e7) -- noise offset
     )
 
     self._clouds_offset_x = 0
     self._clouds_offset_y = 0
+
+    rt.random.pop()
 end
 
 --- @brief
@@ -439,14 +441,14 @@ function ow.Background:draw_bloom()
     love.graphics.pop()
 end
 
---- @brief
 function ow.Background:notify_camera_changed(camera)
     self._scale_transform:reset()
-    local scale = camera:get_scale()
-    self._scale_transform:scale(scale, scale, 1)
+    local cam_scale = camera:get_scale()
+    self._scale_transform:scale(cam_scale, cam_scale, 1)
 
     local offset_x, offset_y = camera:get_offset() -- in screen coords (pixels)
 
+    -- Screen -> world conversion at the stage plane (near plane)
     local aspect = self._bounds.width / self._bounds.height
     local fov = math.pi * self._canvas:get_fov()
     local tan_half = math.tan(0.5 * fov)
@@ -455,16 +457,14 @@ function ow.Background:notify_camera_changed(camera)
     local half_h_near = tan_half * near_z
     local half_w_near = half_h_near * aspect
 
+    -- Convert screen offset to world offset (no division by scale needed)
     local world_offset_x = (offset_x / self._bounds.width) * (2 * half_w_near)
     local world_offset_y = (offset_y / self._bounds.height) * (2 * half_h_near) * -1 -- y points down
 
     self._offset_transform:reset()
-    self._offset_transform:translate(
-        world_offset_x,
-        world_offset_y,
-        0
-    )
+    self._offset_transform:translate(world_offset_x, world_offset_y, 0)
 
+    -- Parallax offsets for clouds
     self._clouds_offset_x = world_offset_x * rt.settings.overworld.background.cloud_x_offset_weight
     self._clouds_offset_y = world_offset_y * rt.settings.overworld.background.cloud_y_offset_weight
 
@@ -702,7 +702,6 @@ function ow.Background:_init_tetrahedron_particle()
     mesh:set_vertex_map(indices)
     return mesh
 end
-
 
 function ow.Background:_init_octahedron_particle()
     local mesh_data = {}
