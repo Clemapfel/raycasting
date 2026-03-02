@@ -22,7 +22,17 @@
 #error "MASK_TEXTURE_FORMAT undefined"
 #endif
 
-// point lights
+#ifndef MAX_N_POINT_LIGHTS
+#error "MAX_N_POINT_LIGHTS undefined"
+#endif
+
+#ifndef MAX_N_SEGMENT_LIGHTS
+#error "MAX_N_SEGMENT_LIGHTS undefined"
+#endif
+
+#ifndef LIGHT_RANGE
+#error "LIGHT_RANGE undefined"
+#endif
 
 struct PointLight {
     vec2 position; // in screen space
@@ -30,10 +40,9 @@ struct PointLight {
     vec4 color;
 };
 
-uniform int n_point_light_sources = 0;
 layout(std430) readonly buffer point_light_source_buffer {
     PointLight point_light_sources[];
-};
+}; // size: MAX_N_POINT_LIGHTS
 
 // segment lights
 
@@ -42,16 +51,11 @@ struct SegmentLight {
     vec4 color;
 };
 
-uniform int n_segment_light_sources = 0;
 layout(std430) readonly buffer segment_light_sources_buffer {
     SegmentLight segment_light_sources[];
-};
+}; // size: MAX_N_SEGMENT_LIGHTS
 
-// camera transform
 
-const float light_range = 30;
-
-// output textures
 layout(LIGHT_INTENSITY_TEXTURE_FORMAT) uniform writeonly image2D light_intensity_texture;
 layout(LIGHT_DIRECTION_TEXTURE_FORMAT) uniform writeonly image2D light_direction_texture;
 layout(MASK_TEXTURE_FORMAT) uniform readonly image2D mask_texture;
@@ -75,7 +79,7 @@ vec2 closest_point_on_circle(vec2 xy, vec2 circle_xy, float radius) {
 
 vec4 compute_light(vec2 screen_uv, vec2 light_position, vec4 light_color, float dist_sq) {
     float dist = sqrt(dist_sq);
-    float attenuation = clamp(gaussian(dist * inversesqrt(light_range * light_range)), 0.0, 1.0);
+    float attenuation = clamp(gaussian(dist * inversesqrt(LIGHT_RANGE * LIGHT_RANGE)), 0.0, 1.0);
     const float third = 1.0 / 3.0;
     return light_color * (attenuation * third);
 }
@@ -91,6 +95,52 @@ vec4 tonemap(vec4 rgba) {
     return clamp(rgba, 0.0, 1.0);
 }
 
+
+layout(std430) readonly buffer tile_data_buffer {
+    int tile_data_inline[];
+// n_point_lights, MAX_N_POINT_LIGHTS integers, n_segment_lights, MAX_N_SEGMENT_LIGHTS integers
+};
+
+#ifndef TILE_SIZE
+#error "TILE_SIZE undefined"
+#endif
+
+#ifndef MAX_N_POINT_LIGHTS
+#error "MAX_N_POINT_LIGHTS undefined"
+#endif
+
+#ifndef MAX_N_SEGMENT_LIGHTS
+#error "MAX_N_SEGMENT_LIGHTS undefined"
+#endif
+
+const int TILE_DATA_STRIDE = 2 + MAX_N_POINT_LIGHTS + MAX_N_SEGMENT_LIGHTS;
+
+int xy_to_tile_data_offset(vec2 xy, ivec2 screen_size) {
+    int tile_x = int(floor(xy.x / TILE_SIZE));
+    int tile_y = int(floor(xy.y / TILE_SIZE));
+
+    int n_tiles_per_row = int(ceil(float(screen_size.x) / TILE_SIZE));
+    int tile_index = tile_y * n_tiles_per_row + tile_x;
+
+    return tile_index * TILE_DATA_STRIDE;
+}
+
+int get_n_point_lights(int tile_offset) {
+    return tile_data_inline[tile_offset];
+}
+
+int get_point_light_index(int tile_offset, int i) {
+    return tile_data_inline[tile_offset + 1 + i];
+}
+
+int get_n_segment_lights(int tile_offset) {
+    return tile_data_inline[tile_offset + 1 + MAX_N_POINT_LIGHTS];
+}
+
+int get_segment_light_index(int tile_offset, int i) {
+    return tile_data_inline[tile_offset + 2 + MAX_N_POINT_LIGHTS + i];
+}
+
 layout (local_size_x = WORK_GROUP_SIZE_X, local_size_y = WORK_GROUP_SIZE_Y, local_size_z = WORK_GROUP_SIZE_Z) in;
 void computemain() {
     ivec2 image_size = imageSize(light_intensity_texture);
@@ -101,14 +151,19 @@ void computemain() {
 
     vec2 world_position = to_world_position(position);
 
+    int tile_offset = xy_to_tile_data_offset(position, image_size);
+    int n_point_lights = get_n_point_lights(tile_offset);
+    int n_segment_lights = get_n_segment_lights(tile_offset);
+
     vec4 point_color = vec4(0.0);
     vec2 point_directional = vec2(0.0);
 
-    float light_range_sq = light_range * light_range;
+    float light_range_sq = LIGHT_RANGE * LIGHT_RANGE;
     float light_range_cutoff = 6.25 * light_range_sq; // 2.5^2
 
-    for (int i = 0; i < n_point_light_sources; ++i) {
-        PointLight light = point_light_sources[i];
+    for (int i = 0; i < n_point_lights; ++i) {
+        int point_light_index = get_point_light_index(tile_offset, i);
+        PointLight light = point_light_sources[point_light_index];
 
         vec2 to_light = light.position - world_position;
         float dist = dot(to_light, to_light);
@@ -127,8 +182,9 @@ void computemain() {
     vec4 segment_color = vec4(0.0);
     vec2 segment_directional = vec2(0.0);
 
-    for (int i = 0; i < n_segment_light_sources; ++i) {
-        SegmentLight light = segment_light_sources[i];
+    for (int i = 0; i < n_segment_lights; ++i) {
+        int segment_light_index = get_segment_light_index(tile_offset, i);
+        SegmentLight light = segment_light_sources[segment_light_index];
 
         vec2 light_position = closest_point_on_segment(world_position, light.segment);
 
@@ -146,7 +202,7 @@ void computemain() {
 
     imageStore(light_intensity_texture,
         position,
-        tonemap(point_color + segment_color)
+        10 * tonemap(point_color + segment_color)
     );
 
     imageStore(light_direction_texture,

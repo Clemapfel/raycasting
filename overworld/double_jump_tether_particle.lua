@@ -36,6 +36,7 @@ function ow.DoubleJumpTetherParticle:instantiate(radius)
         true,
         n_outer_vertices
     )
+    self._core_radius = core_radius
 
     local n = self._core:get_n_vertices()
     for i = n, n - n_outer_vertices, -1 do -- outer aliasing
@@ -198,6 +199,6 @@ end
 
 --- @brief
 function ow.DoubleJumpTetherParticle:get_current_radius()
-    return self._scale_offset * rt.settings.overworld.double_jump_tether_particle.scale_offset_distance
-        + self._explosion_motion:get_value() * rt.settings.overworld.double_jump_tether_particle.explosion_distance
+    return math.max(self._core_radius, self._scale_offset * rt.settings.overworld.double_jump_tether_particle.scale_offset_distance
+        + self._explosion_motion:get_value() * rt.settings.overworld.double_jump_tether_particle.explosion_distance)
 end

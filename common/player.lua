@@ -3491,7 +3491,7 @@ end
 function rt.Player:collect_point_lights(callback)
     if self:get_is_visible() then
         local px, py = self:get_position()
-        local radius = self:get_radius()
+        local radius = self._core_radius
         local r, g, b, a = self:get_color():unpack()
         callback(
             px, py, radius,

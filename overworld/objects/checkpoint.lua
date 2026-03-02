@@ -150,7 +150,7 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
                 self._spawn_barrier:set_user_data({
                     collect_segment_lights = function(_, callback)
                         callback(
-                            left_x, left_y, right_x, right_y,
+                            left_x, left_y + 0.5 * platform_h, right_x, right_y + 0.5 * platform_h,
                             self._scene:get_player():get_color():unpack()
                         )
                     end
