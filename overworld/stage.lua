@@ -72,8 +72,6 @@ function ow.Stage:instantiate(scene, id)
         _flow_graph = nil, -- ow.FlowGraph
         _flow_fraction = 0,
 
-        _light_mask_objects = {},
-
         _active_checkpoint = nil,
         _player_spawn_ref = nil,
 
@@ -170,7 +168,6 @@ function ow.Stage:instantiate(scene, id)
     local n_goals = 0 -- number ow.Goal, for warning
 
     self._camera_bounds = meta.make_weak({})
-    self._light_mask_objects = meta.make_weak({})
 
     local coins = {}
 
@@ -251,10 +248,6 @@ function ow.Stage:instantiate(scene, id)
 
                 if meta.is_function(instance.reset) then
                     table.insert(self._to_reset, instance)
-                end
-
-                if meta.is_function(instance.draw_light_mask) then
-                    table.insert(self._light_mask_objects, instance)
                 end
             end
         end
@@ -428,8 +421,6 @@ function ow.Stage:draw_above_player()
 
         ow.Sprite.draw_all(entry.priority)
     end
-
-    rt.SceneManager:get_light_map():draw()
 end
 
 --- @brief
@@ -468,24 +459,7 @@ function ow.Stage:update(delta)
             self._visible_bodies[body] = true
         end
 
-        do -- update light map
-            local map = rt.SceneManager:get_light_map()
-
-            love.graphics.push("all")
-            love.graphics.reset()
-            map:bind_mask()
-            love.graphics.clear(0, 0, 0, 0)
-            self._scene:get_camera():bind()
-            for object in values(self._light_mask_objects) do
-                object:draw_light_mask()
-            end
-            self._scene:get_camera():unbind()
-            map:unbind_mask()
-            love.graphics.pop()
-
-            rt.SceneManager:get_light_map():update(self)
-            self._light_map_needs_update = false
-        end
+        rt.SceneManager:get_light_map():update(self)
     end
 
     for object in values(self._to_update) do

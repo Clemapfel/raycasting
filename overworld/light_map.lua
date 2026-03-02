@@ -1,14 +1,13 @@
 require "common.matrix"
 
 rt.settings.overworld.light_map = {
-    max_n_point_lights = 256,
+    max_n_point_lights = 64,
     max_n_segment_lights = 64,
     work_group_size = 32,
-    tile_size = 64,
     light_range = 30, -- px
+    intensity = 0.5,
     intensity_texture_format = rt.TextureFormat.RGB10A2,
-    direction_texture_format = rt.TextureFormat.RG16F,
-    mask_texture_format = rt.TextureFormat.R8
+    direction_texture_format = rt.TextureFormat.RG16F
 }
 
 --- @class ow.LightMap
@@ -17,6 +16,8 @@ ow.LightMap = meta.class("LightMap")
 --- @brief
 function ow.LightMap:instantiate(width, height)
     local settings = rt.settings.overworld.light_map
+
+    self._tile_size = 64 + 32
 
     self._light_intensity_texture = rt.RenderTexture(
         width, height,
@@ -32,13 +33,6 @@ function ow.LightMap:instantiate(width, height)
         true
     )
 
-    self._mask_texture = rt.RenderTexture(
-        width, height,
-        0,
-        settings.mask_texture_format,
-        true
-    )
-
     self._work_group_size = settings.work_group_size
     self._dispatch_x = math.ceil(width / self._work_group_size)
     self._dispatch_y = math.ceil(height / self._work_group_size)
@@ -46,8 +40,7 @@ function ow.LightMap:instantiate(width, height)
     self._shader = rt.ComputeShader("overworld/light_map_compute.glsl", {
         LIGHT_INTENSITY_TEXTURE_FORMAT = rt.graphics.texture_format_to_glsl_identifier(settings.intensity_texture_format),
         LIGHT_DIRECTION_TEXTURE_FORMAT = rt.graphics.texture_format_to_glsl_identifier(settings.direction_texture_format),
-        MASK_TEXTURE_FORMAT = rt.graphics.texture_format_to_glsl_identifier(settings.mask_texture_format),
-        TILE_SIZE = settings.tile_size,
+        TILE_SIZE = self._tile_size,
         LIGHT_RANGE = settings.light_range,
         MAX_N_POINT_LIGHTS = settings.max_n_point_lights,
         MAX_N_SEGMENT_LIGHTS = settings.max_n_segment_lights,
@@ -87,7 +80,6 @@ function ow.LightMap:instantiate(width, height)
         })
     end
 
-    self._tile_size = settings.tile_size
     self._n_tiles = math.ceil(width / self._tile_size) * math.ceil(height / self._tile_size)
 
     self._tile_data_buffer_data = {}
@@ -113,19 +105,9 @@ function ow.LightMap:instantiate(width, height)
 end
 
 --- @brief
-function ow.LightMap:bind_mask()
-    self._mask_texture:bind()
-end
-
---- @brief
-function ow.LightMap:unbind_mask()
-    self._mask_texture:unbind()
-end
-
---- @brief
 function ow.LightMap:update(stage)
     local settings = rt.settings.overworld.light_map
-    local tile_size = settings.tile_size
+    local tile_size = self._tile_size
     local max_n_point_lights, max_n_segment_lights = settings.max_n_point_lights, settings.max_n_segment_lights
     local width, height = self._light_intensity_texture:get_size()
     local tile_data_stride = 2 + settings.max_n_point_lights + settings.max_n_segment_lights
@@ -236,14 +218,12 @@ function ow.LightMap:update(stage)
 
     self._current_n_point_lights = n_point_lights
     self._point_light_buffer:replace_data(
-        self._point_light_buffer_data,
-        1, 1, math.max(1, n_segment_lights)
+        self._point_light_buffer_data
     )
 
     self._current_n_segment_lights = n_segment_lights
     self._segment_light_buffer:replace_data(
-        self._segment_light_buffer_data,
-        1, 1, math.max(1, n_point_lights)
+        self._segment_light_buffer_data
     )
 
     -- setup tile data
@@ -316,14 +296,14 @@ function ow.LightMap:update(stage)
     shader:send("point_light_source_buffer", self._point_light_buffer)
     shader:send("segment_light_sources_buffer", self._segment_light_buffer)
     shader:send("tile_data_buffer", self._tile_data_buffer)
-    shader:send("mask_texture", self._mask_texture)
     shader:send("light_intensity_texture", self._light_intensity_texture)
     shader:send("light_direction_texture", self._light_direction_texture)
-
+    shader:send("intensity", settings.intensity)
     shader:send("screen_to_world_transform", stage:get_scene():get_camera():get_transform():inverse())
     shader:dispatch(self._dispatch_x, self._dispatch_y)
 end
 
+--[[
 --- @brief
 function ow.LightMap:draw()
     for i = 1, self._current_n_point_lights do
@@ -341,7 +321,23 @@ function ow.LightMap:draw()
             data[1], data[2], data[3], data[4]
         )
     end
+
+    love.graphics.push()
+    love.graphics.origin()
+    local width, height = self._light_intensity_texture:get_size()
+    local tile_size = self._tile_size
+    local n_rows = math.ceil(width / tile_size)
+    local n_columns = math.ceil(height / tile_size)
+    for row_i = 1, n_rows do
+        for column_i = 1, n_columns do
+            local tile_x = (row_i - 1) * tile_size
+            local tile_y = (column_i - 1) * tile_size
+            love.graphics.rectangle("line", tile_x, tile_y, tile_size, tile_size)
+        end
+    end
+    love.graphics.pop()
 end
+]]--
 
 --- @brief
 function ow.LightMap:get_light_intensity()

@@ -18,10 +18,6 @@
 #error "LIGHT_DIRECTION_TEXTURE_FORMAT undefined"
 #endif
 
-#ifndef MASK_TEXTURE_FORMAT
-#error "MASK_TEXTURE_FORMAT undefined"
-#endif
-
 #ifndef MAX_N_POINT_LIGHTS
 #error "MAX_N_POINT_LIGHTS undefined"
 #endif
@@ -58,7 +54,6 @@ layout(std430) readonly buffer segment_light_sources_buffer {
 
 layout(LIGHT_INTENSITY_TEXTURE_FORMAT) uniform writeonly image2D light_intensity_texture;
 layout(LIGHT_DIRECTION_TEXTURE_FORMAT) uniform writeonly image2D light_direction_texture;
-layout(MASK_TEXTURE_FORMAT) uniform readonly image2D mask_texture;
 
 float gaussian(float x) {
     float x2 = x * x * x; // gaussian approximation
@@ -90,15 +85,18 @@ vec2 to_world_position(vec2 xy) {
     return result.xy * inversesqrt(result.w * result.w);
 }
 
-const vec3 luma_coefficients = vec3(1, 1, 1); //0.299, 0.587, 0.114);
-vec4 tonemap(vec4 rgba) {
-    return clamp(rgba, 0.0, 1.0);
-}
+const vec3 luma_coefficients = vec3(0.299, 0.587, 0.114);
 
+uniform float intensity = 1;
+vec4 tonemap(vec4 color) {
+    vec3 hdr = color.rgb * intensity;
+    vec3 mapped = hdr / (hdr + vec3(1.0));
+    return vec4(clamp(mapped, 0.0, 1.0), color.a);
+}
 
 layout(std430) readonly buffer tile_data_buffer {
     int tile_data_inline[];
-// n_point_lights, MAX_N_POINT_LIGHTS integers, n_segment_lights, MAX_N_SEGMENT_LIGHTS integers
+    // n_point_lights, MAX_N_POINT_LIGHTS integers, n_segment_lights, MAX_N_SEGMENT_LIGHTS integers
 };
 
 #ifndef TILE_SIZE
@@ -147,7 +145,6 @@ void computemain() {
     ivec2 position = ivec2(gl_GlobalInvocationID.xy);
 
     if (any(greaterThanEqual(position, image_size))) return;
-    if (imageLoad(mask_texture, position).r == 0.0) return;
 
     vec2 world_position = to_world_position(position);
 
@@ -202,7 +199,7 @@ void computemain() {
 
     imageStore(light_intensity_texture,
         position,
-        10 * tonemap(point_color + segment_color)
+        tonemap(point_color + segment_color)
     );
 
     imageStore(light_direction_texture,
