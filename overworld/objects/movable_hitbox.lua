@@ -107,8 +107,7 @@ function ow.MovableHitbox:instantiate(object, stage, scene)
     if self._blood_splatter ~= nil then
         self._body:add_tag("segment_light_source")
         self._body:set_user_data(self)
-        self.get_segment_light_sources = function(self)
-            -- blood splatter already notified of offset
+        self.collect_segment_lights = function(self, callback)
             local camera = self._scene:get_camera()
             local bounds = camera:get_world_bounds()
             local padding = rt.settings.overworld.stage.visible_area_padding * camera:get_final_scale()
@@ -117,7 +116,7 @@ function ow.MovableHitbox:instantiate(object, stage, scene)
             bounds.width = bounds.width + 2 * padding
             bounds.height = bounds.height + 2 * padding
 
-            return self._blood_splatter:get_segment_light_sources(bounds)
+            self._blood_splatter:collect_segment_lights(bounds, callback)
         end
     end
 end
@@ -182,16 +181,7 @@ function ow.MovableHitbox:draw(priority)
         -- tris to origin in instantiate
         self._normal_map:set_offset(camera_offset_x, camera_offset_y)
         self._normal_map:draw_shadow(camera)
-
-        local point_lights, point_colors = self._stage:get_point_light_sources()
-        local segment_lights, segment_colors = self._stage:get_segment_light_sources()
-        self._normal_map:draw_light(
-            camera,
-            point_lights,
-            point_colors,
-            segment_lights,
-            segment_colors
-        )
+        self._normal_map:draw_light(camera)
     end
 
     local stencil_value = rt.graphics.get_stencil_value()

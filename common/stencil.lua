@@ -32,7 +32,7 @@ rt.StencilCompareMode = meta.enum("StencilCompareMode", {
 --- @class rt.StencilMode
 rt.StencilMode = meta.enum("StencilMode", {
     DRAW = "draw",
-    TEST = "Test"
+    TEST = "test"
 })
 
 local _draw_to_backbuffer = true

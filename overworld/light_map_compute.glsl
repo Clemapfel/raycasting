@@ -56,34 +56,37 @@ layout(LIGHT_INTENSITY_TEXTURE_FORMAT) uniform writeonly image2D light_intensity
 layout(LIGHT_DIRECTION_TEXTURE_FORMAT) uniform writeonly image2D light_direction_texture;
 layout(MASK_TEXTURE_FORMAT) uniform readonly image2D mask_texture;
 
-const float sigma = 1.0;
 float gaussian(float x) {
-    return exp(-(x * x) / (2.0 * sigma * sigma));
+    float x2 = x * x * x; // gaussian approximation
+    return 1.0 / (1.0 + 0.5 * x2);
 }
 
 vec2 closest_point_on_segment(vec2 xy, vec4 segment) {
     vec2 ab = segment.zw - segment.xy;
-    float t = clamp(dot(xy - segment.xy, ab) / dot(ab, ab), 0.0, 1.0);
+    vec2 ap = xy - segment.xy;
+    float t = clamp(dot(ap, ab) * inversesqrt(dot(ab, ab) * dot(ab, ab)), 0.0, 1.0);
     return segment.xy + t * ab;
 }
 
 vec2 closest_point_on_circle(vec2 xy, vec2 circle_xy, float radius) {
-    return circle_xy + normalize(xy - circle_xy) * radius;
+    vec2 diff = xy - circle_xy;
+    return circle_xy + diff * (radius * inversesqrt(dot(diff, diff)));
 }
 
-vec4 compute_light(vec2 screen_uv, vec2 light_position, vec4 light_color) {
-    float dist = distance(light_position, screen_uv);
-    float attenuation = clamp(gaussian(dist / light_range), 0.0, 1.0);
-    return light_color * (attenuation / 3.0);
+vec4 compute_light(vec2 screen_uv, vec2 light_position, vec4 light_color, float dist_sq) {
+    float dist = sqrt(dist_sq);
+    float attenuation = clamp(gaussian(dist * inversesqrt(light_range * light_range)), 0.0, 1.0);
+    const float third = 1.0 / 3.0;
+    return light_color * (attenuation * third);
 }
 
 uniform mat4x4 screen_to_world_transform;
 vec2 to_world_position(vec2 xy) {
     vec4 result = screen_to_world_transform * vec4(xy, 0.0, 1.0);
-    return result.xy / result.w;
+    return result.xy * inversesqrt(result.w * result.w);
 }
 
-const vec3 luma_coefficients = vec3(0.299, 0.587, 0.114);
+const vec3 luma_coefficients = vec3(1, 1, 1); //0.299, 0.587, 0.114);
 vec4 tonemap(vec4 rgba) {
     return clamp(rgba, 0.0, 1.0);
 }
@@ -94,33 +97,31 @@ void computemain() {
     ivec2 position = ivec2(gl_GlobalInvocationID.xy);
 
     if (any(greaterThanEqual(position, image_size))) return;
-    if (imageLoad(mask_texture, position).r == 0) return;
+    if (imageLoad(mask_texture, position).r == 0.0) return;
 
     vec2 world_position = to_world_position(position);
 
     vec4 point_color = vec4(0.0);
     vec2 point_directional = vec2(0.0);
 
-    float light_range_cutoff = 2.5 * light_range;
+    float light_range_sq = light_range * light_range;
+    float light_range_cutoff = 6.25 * light_range_sq; // 2.5^2
 
     for (int i = 0; i < n_point_light_sources; ++i) {
         PointLight light = point_light_sources[i];
-        if (distance(world_position, light.position) > light_range_cutoff) continue;
 
-        vec2 light_position = closest_point_on_circle(
-            world_position,
-            light.position,
-            light.radius
-        );
+        vec2 to_light = light.position - world_position;
+        float dist = dot(to_light, to_light);
 
-        vec4 light_contrib = compute_light(world_position, light.position, light.color);
+        vec2 light_position = light.position - to_light * (light.radius * inversesqrt(dist));
+
+        vec4 light_contrib = compute_light(world_position, light.position, light.color, dist);
         point_color += light_contrib;
 
-        vec2 light_dir_2d = normalize(light_position - world_position);
+        vec2 light_dir_2d = (light_position - world_position) * inversesqrt(dot(light_position - world_position, light_position - world_position));
         float luminance = dot(light_contrib.rgb, luma_coefficients);
 
-        point_directional.x += luminance * max(0.0, light_dir_2d.x);
-        point_directional.y += luminance * max(0.0, light_dir_2d.y);
+        point_directional += luminance * max(vec2(0.0), light_dir_2d);
     }
 
     vec4 segment_color = vec4(0.0);
@@ -129,31 +130,27 @@ void computemain() {
     for (int i = 0; i < n_segment_light_sources; ++i) {
         SegmentLight light = segment_light_sources[i];
 
-        vec2 light_position = closest_point_on_segment(
-            world_position,
-            light.segment
-        );
+        vec2 light_position = closest_point_on_segment(world_position, light.segment);
 
-        vec4 light_contrib = compute_light(world_position, light_position, light.color);
+        vec2 to_light = light_position - world_position;
+        float dist = dot(to_light, to_light);
+
+        vec4 light_contrib = compute_light(world_position, light_position, light.color, dist);
         segment_color += light_contrib;
 
-        vec2 light_dir_2d = normalize(light_position - world_position);
+        vec2 light_dir_2d = to_light * inversesqrt(dist);
         float luminance = dot(light_contrib.rgb, luma_coefficients);
 
-        segment_directional.x += luminance * max(0.0, light_dir_2d.x);
-        segment_directional.y += luminance * max(0.0, light_dir_2d.y);
+        segment_directional += luminance * max(vec2(0.0), light_dir_2d);
     }
 
     imageStore(light_intensity_texture,
         position,
-        mix(tonemap(point_color), tonemap(segment_color), 0.5)
+        tonemap(point_color + segment_color)
     );
 
-    /*
     imageStore(light_direction_texture,
         position,
-        vec4(mix(point_directional, segment_directional, 0.5).rg, 1, 1)
+        vec4(mix(point_directional, segment_directional, 0.5), 1.0, 1.0)
     );
-    */
 }
-

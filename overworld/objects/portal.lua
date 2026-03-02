@@ -248,6 +248,14 @@ function ow.Portal:instantiate(object, stage, scene)
             self._segment_sensor:add_tag("unjumpable", "slippery")
             self._segment_sensor:add_tag("segment_light_source")
             self._segment_sensor:set_user_data(self)
+            self.get_positions = function(self)
+                return self._ax, self._ay, self._bx, self._by
+            end
+
+            self.get_color = function(self)
+                return self._color
+            end
+
             self._segment_sensor:set_is_sensor(true)
         end
 
@@ -905,12 +913,13 @@ function ow.Portal:get_render_priority()
 end
 
 --- @brief
-function ow.Portal:get_segment_light_sources()
+function ow.Portal:collect_segment_lights(callback)
     local offset_x, offset_y = self._offset_x, self._offset_y
-    return {{
+    callback(
         self._ax + offset_x, self._ay + offset_y,
-        self._bx + offset_x, self._by + offset_y
-    }}, { self._color }
+        self._bx + offset_x, self._by + offset_y,
+        self._color:unpack()
+    )
 end
 
 --- @brief

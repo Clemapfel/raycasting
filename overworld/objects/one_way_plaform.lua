@@ -89,6 +89,7 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
     self._body:add_tag("stencil", "hitbox")
     self._body:add_tag("segment_light_source")
     self._body:set_user_data(self)
+
     self._body:set_use_continuous_collision(true)
 
     self._body:set_collides_with(rt.settings.player.player_outer_body_collision_group)
@@ -466,14 +467,17 @@ function ow.OneWayPlatform:draw_bloom()
 end
 
 --- @brief
-function ow.OneWayPlatform:get_segment_light_sources()
-    local vertices = table.deepcopy(self._line_draw_vertices)
+function ow.OneWayPlatform:collect_segment_lights(callback)
+    local vertices = self._line_draw_vertices
     local offset_x, offset_y = self._body:get_position()
-    for i = 1, #vertices, 2 do
-        vertices[i+0] = vertices[i+0] + offset_x
-        vertices[i+1] = vertices[i+1] + offset_y
-    end
-    return { vertices }, { self._color }
+
+    callback(
+        vertices[1] + offset_x,
+        vertices[2] + offset_y,
+        vertices[3] + offset_x,
+        vertices[4] + offset_y,
+        self._color:unpack()
+    )
 end
 
 --- @brief

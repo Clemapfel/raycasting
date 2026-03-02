@@ -30,6 +30,10 @@ function ow.Wall:instantiate(object, stage, scene)
     self._mesh = object:create_mesh()
     self._contour = rt.contour.close(object:create_contour())
 
+    self._body = object:create_physics_body(stage:get_physics_world())
+    self._body:set_collision_group(0x0)
+    self._body:set_collides_with(0x0)
+
     local pattern = object:get_string("type") or ow.WallPatternType.FLAT
     self._pattern = string.upper(pattern)
     meta.assert_enum_value(self._pattern, ow.WallPatternType)
@@ -43,33 +47,17 @@ end
 
 --- @brief
 function ow.Wall:draw()
+    if not self._stage:get_is_body_visible(self._body) then return end
+
     love.graphics.push("all")
-
-    local camera = self._scene:get_camera()
-    local point_light_sources, point_light_colors = self._stage:get_point_light_sources()
-    local segment_light_sources, segment_light_colors = self._stage:get_segment_light_sources()
-
     local shader = self._shader
     shader:bind()
-    shader:send("camera_scale", camera:get_final_scale())
 
-    shader:send("n_point_light_sources", #point_light_sources)
-    if #point_light_sources > 0 then
-        shader:send("point_light_sources", table.unpack(point_light_sources))
-        shader:send("point_light_colors", table.unpack(point_light_colors))
-    end
+    local light_map = rt.SceneManager:get_light_map()
+    shader:try_send("light_intensity", light_map:get_light_intensity())
+    shader:try_send("light_direction", light_map:get_light_direction())
+    shader:try_send("screen_to_world_transform", self._scene:get_camera():get_transform():inverse())
 
-    shader:send("n_segment_light_sources", #segment_light_sources)
-    if #segment_light_sources > 0 then
-        shader:send("segment_light_sources", table.unpack(segment_light_sources))
-        shader:send("segment_light_colors", table.unpack(segment_light_colors))
-    end
-
-    local brightness_factor = math.mix(1, rt.settings.impulse_manager.max_brightness_factor, ow.Wall._impulse:get_pulse())
-    shader:send("point_light_intensity", rt.settings.overworld.wall.point_light_intensity * brightness_factor)
-    shader:send("segment_light_intensity", rt.settings.overworld.wall.segment_light_intensity * brightness_factor)
-    shader:send("screen_to_world_transform", camera:get_transform():inverse())
-    shader:send("light_range", rt.settings.overworld.wall.light_range * brightness_factor)
     rt.Palette.WALL:bind()
     self._mesh:draw()
     shader:unbind()
@@ -79,8 +67,16 @@ function ow.Wall:draw()
     love.graphics.line(self._contour)
 
     love.graphics.pop()
+
 end
 
 function ow.Wall:get_render_priority()
     return -math.huge
+end
+
+function ow.Wall:draw_light_mask()
+    if not self._stage:get_is_body_visible(self._body) then return end
+
+    love.graphics.setColor(1, 1, 1, 1)
+    self._mesh:draw()
 end

@@ -105,6 +105,7 @@ function ow.FakeHitbox:draw(priority)
         rt.graphics.set_stencil_mode(nil)
     else
         -- lighting
+        rt.error("TODO")
         local point_light_sources, point_light_colors = self._stage:get_point_light_sources()
         local segment_light_sources, segment_light_colors = self._stage:get_segment_light_sources()
 

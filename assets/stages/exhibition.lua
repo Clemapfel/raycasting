@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 1001,
+  nextobjectid = 1008,
   properties = {},
   tilesets = {
     {
@@ -600,6 +600,34 @@ return {
             { x = 704, y = -576 },
             { x = 704, y = 0 }
           },
+          properties = {
+            ["type"] = "spheres"
+          }
+        },
+        {
+          id = 1001,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = 1227.02,
+          y = -445.95,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 1002,
+          name = "",
+          type = "DoubleJumpTether",
+          shape = "point",
+          x = 1477.7,
+          y = -306.096,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
           properties = {}
         }
       }
@@ -3180,7 +3208,7 @@ return {
         {
           id = 974,
           name = "",
-          type = "Hitbox",
+          type = "SlipperyHitbox",
           shape = "polygon",
           x = 1136,
           y = -224,
@@ -3273,6 +3301,34 @@ return {
           visible = true,
           properties = {
             ["count"] = 3
+          }
+        },
+        {
+          id = 1006,
+          name = "",
+          type = "OneWayPlatformNode",
+          shape = "point",
+          x = 1376,
+          y = -256,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 1007,
+          name = "",
+          type = "OneWayPlatform",
+          shape = "point",
+          x = 1536,
+          y = -208,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["other"] = { id = 1006 }
           }
         }
       }

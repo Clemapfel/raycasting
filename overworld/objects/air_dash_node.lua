@@ -470,7 +470,7 @@ function ow.AirDashNode:get_render_priority()
 end
 
 --- @brief
-function ow.AirDashNode:get_point_light_sources()
+function ow.AirDashNode:collect_point_lights(callback)
     local x, y = self._body:get_position()
-    return { { x, y, self._radius } }, { self._color }
+    callback(x, y, self._radius, self._color:unpack())
 end

@@ -397,21 +397,16 @@ function ow.Bubble:reset()
 end
 
 --- @brief
-function ow.Bubble:get_point_light_sources()
+function ow.Bubble:collect_point_lights(callback)
     local x, y = self._body:get_position()
-
-    local points = {}
-    local colors = {}
-
-    table.insert(points, { x, y, math.min(self._x_radius, self._y_radius) })
-
     local color = self:get_color()
     color.a = math.max(color.a, math.mix(
         1,
         rt.settings.overworld.bubble.pop_light_boost_magnitude,
         self._pop_light_boost
     ))
-    table.insert(colors, color)
 
-    return points, colors
+    local radius = math.min(self._x_radius, self._y_radius)
+
+    callback(x, y, radius, color:unpack())
 end

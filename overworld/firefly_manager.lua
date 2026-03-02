@@ -191,11 +191,14 @@ local _repel_intensity_offset = 16
 local _should_move_in_place_offset = 17
 local _radius_offset = 18
 local _hue_offset = 19
-local _home_x_offset = 20
-local _home_y_offset = 21
-local _follow_target_offset_x = 22
-local _follow_target_offset_y = 23
-local _batch_id_offset = 24
+local _r_offset = 20
+local _g_offset = 21
+local _b_offset = 22
+local _home_x_offset = 23
+local _home_y_offset = 24
+local _follow_target_offset_x = 25
+local _follow_target_offset_y = 26
+local _batch_id_offset = 27
 
 local _stride = _batch_id_offset + 1
 local _particle_i_to_data_offset = function(particle_i)
@@ -211,7 +214,27 @@ function ow.FireflyManager:register(x, y, count, should_move_in_place)
     local data = self._data
 
     local add = function(batch_id, home_x, home_y, should_move_in_place)
-        local hue = rt.random.choose(_possible_hues)
+        -- determinstic but not repeated pairings
+        if self._stage.firefly_manager_step == nil then
+            self._stage.firefly_manager_step = 0
+        end
+
+        local hue_index = math.wrap(
+            self._stage.firefly_manager_step,
+            #_possible_hues
+        )
+
+        local radius_index = math.wrap(
+            self._stage.firefly_manager_step * (#_possible_radii - 1),
+            #_possible_radii
+        )
+
+        local hue = _possible_hues[hue_index]
+        local radius = _possible_radii[radius_index]
+
+        self._stage.firefly_manager_step =
+        self._stage.firefly_manager_step + 1
+
         local r, g, b, _ = rt.lcha_to_rgba(0.8, 1, hue, 1)
 
         home_x = home_x + rt.random.number(-settings.max_hover_offset, settings.max_hover_offset)
@@ -254,9 +277,12 @@ function ow.FireflyManager:register(x, y, count, should_move_in_place)
 
         data[i + _should_move_in_place_offset] = ternary(should_move_in_place, TRUE, FALSE)
 
-        data[i + _radius_offset] = rt.random.choose(_possible_radii)
+        data[i + _radius_offset] = radius
 
         data[i + _hue_offset] = hue
+        data[i + _r_offset] = r
+        data[i + _g_offset] = g
+        data[i + _b_offset] = b
         data[i + _home_x_offset] = home_x
         data[i + _home_y_offset] = home_y
 
@@ -488,6 +514,8 @@ function ow.FireflyManager:update(delta)
 
         ::next_particle::
     end
+    
+    table.sort(self._visible_data_is)
 end
 
 --- @brief
@@ -549,21 +577,102 @@ function ow.FireflyManager:reset()
     self._data_i_to_rgba = {}
 end
 
+local _cluster_x = 1
+local _cluster_y = 2
+local _cluster_hue = 3
+local _cluster_r = 4
+local _cluster_g = 5
+local _cluster_b = 6
+local _cluster_radius = 7
+local _cluster_glow = 8
+local _cluster_count = 9
+local _cluster_brightness = 10
+
 --- @brief
-function ow.FireflyManager:get_point_light_sources()
+function ow.FireflyManager:collect_point_lights(callback)
     local data = self._data
     local core_radius_factor = rt.settings.overworld.firefly_particle.core_radius_factor
 
-    local circles, colors = {}, {}
+    local cluster_distance_sq = rt.settings.overworld.firefly_manager.max_radius_factor * rt.settings.overworld.fireflies.radius
+    cluster_distance_sq = (2 * cluster_distance_sq)^2
+
+    local clusters = {}
+    local processed = {}
+
     for _, i in ipairs(self._visible_data_is) do
-        table.insert(circles, {
-            data[i + _x_offset],
-            data[i + _y_offset],
-            data[i + _radius_offset] * core_radius_factor
-        })
-        
-        table.insert(colors, self._data_i_to_rgba[i])
+        if not processed[i] then
+            local x = data[i + _x_offset]
+            local y = data[i + _y_offset]
+            local hue = data[i + _hue_offset]
+            local r = data[i + _r_offset]
+            local g = data[i + _g_offset]
+            local b = data[i + _b_offset]
+            local radius = data[i + _radius_offset]
+            local glow = data[i + _glow_value_offset]
+
+            local cluster = {
+                [_cluster_x] = x,
+                [_cluster_y] = y,
+                [_cluster_hue] = hue,
+                [_cluster_r] = r * glow,  -- Accumulate weighted RGB
+                [_cluster_g] = g * glow,
+                [_cluster_b] = b * glow,
+                [_cluster_radius] = radius,
+                [_cluster_glow] = glow,
+                [_cluster_count] = 1,
+                [_cluster_brightness] = glow
+            }
+
+            processed[i] = true
+
+            for _, j in ipairs(self._visible_data_is) do
+                if not processed[j] then
+                    local distance_squared = math.squared_distance(
+                        x, y, data[j + _x_offset], data[j + _y_offset]
+                    )
+
+                    if distance_squared < cluster_distance_sq then
+                        if hue == data[j + _hue_offset] then
+                            local other_glow = data[j + _glow_value_offset]
+                            local total = cluster[_cluster_brightness] + other_glow
+
+                            cluster[_cluster_x] = (cluster[_cluster_x] * cluster[_cluster_brightness] + data[j + _x_offset] * other_glow) / total
+                            cluster[_cluster_y] = (cluster[_cluster_y] * cluster[_cluster_brightness] + data[j + _y_offset] * other_glow) / total
+
+                            -- Accumulate weighted RGB values
+                            cluster[_cluster_r] = cluster[_cluster_r] + data[j + _r_offset] * other_glow
+                            cluster[_cluster_g] = cluster[_cluster_g] + data[j + _g_offset] * other_glow
+                            cluster[_cluster_b] = cluster[_cluster_b] + data[j + _b_offset] * other_glow
+
+                            cluster[_cluster_radius] = math.max(cluster[_cluster_radius], data[j + _radius_offset])
+                            cluster[_cluster_glow] = cluster[_cluster_glow] + other_glow
+                            cluster[_cluster_brightness] = total
+                            cluster[_cluster_count] = cluster[_cluster_count] + 1
+
+                            processed[j] = true
+                        end
+                    end
+                end
+            end
+
+            -- Normalize RGB by total brightness to get weighted average color
+            cluster[_cluster_r] = cluster[_cluster_r] / cluster[_cluster_brightness]
+            cluster[_cluster_g] = cluster[_cluster_g] / cluster[_cluster_brightness]
+            cluster[_cluster_b] = cluster[_cluster_b] / cluster[_cluster_brightness]
+
+            table.insert(clusters, cluster)
+        end
     end
 
-    return circles, colors
-end 
+    for _, cluster in ipairs(clusters) do
+        callback(
+            cluster[_cluster_x],
+            cluster[_cluster_y],
+            cluster[_cluster_radius] * core_radius_factor,
+            cluster[_cluster_r],
+            cluster[_cluster_g],
+            cluster[_cluster_b],
+            cluster[_cluster_glow]
+        )
+    end
+end

@@ -3486,3 +3486,24 @@ function rt.Player:_update_flow(delta)
 
     self._current_flow = math.clamp(self._current_flow + to_add, 0, 1)
 end
+
+--- @brief
+function rt.Player:collect_point_lights(callback)
+    if self:get_is_visible() then
+        local px, py = self:get_position()
+        local radius = self:get_radius()
+        local r, g, b, a = self:get_color():unpack()
+        callback(
+            px, py, radius,
+            r, g, b, a
+        )
+
+        for pulse in values(self._pulses) do
+            if pulse.should_draw ~= true then break end
+            local t = 1 - rt.InterpolationFunctions.SINUSOID_EASE_OUT(math.min(1, pulse.elapsed / settings.pulse_duration))
+            local scale = 2 * radius * settings.pulse_radius_factor * (1 - t)
+            local r, g, b, a = pulse.color:unpack()
+            callback(px, py, scale, r, g, b, a)
+        end
+    end
+end

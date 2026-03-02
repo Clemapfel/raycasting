@@ -97,6 +97,13 @@ function rt.Shader:send(name, value, ...)
 end
 
 --- @brief
+function rt.Shader:try_send(name, value, ...)
+    if value == nil or self._native:hasUniform(name) == false then return false end
+    self:send(name, value, ...)
+    return true
+end
+
+--- @brief
 function rt.Shader:get_buffer_format(name)
     if self._is_disabled then return {} elseif self._native == nil then self:compile() end
     return self._native:getBufferFormat(name)

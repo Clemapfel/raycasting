@@ -350,7 +350,7 @@ function ow.Coin:set_velocity(vx, vy)
 end
 
 --- @brief
-function ow.Coin:get_point_light_sources()
+function ow.Coin:collect_point_lights(callback)
     local x, y
     if self._is_collected then
         x, y = self._follow_x, self._follow_y
@@ -367,5 +367,5 @@ function ow.Coin:get_point_light_sources()
         end
     end
 
-    return { { x, y, self._radius } }, { self:get_color() }
+    callback(x, y, self._radius, self:get_color():unpack())
 end

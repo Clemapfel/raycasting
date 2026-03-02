@@ -325,6 +325,20 @@ function rt.SceneManager:resize(width, height)
     if reallocate_bloom then
         self:_reallocate_bloom()
     end
+
+    local reallocate_light_map = false
+    if self._light_map == nil then
+        reallocate_light_map = true
+    else
+        local w, h = self._light_map:get_size()
+        if w ~= self._width or h ~= self._height then
+            reallocate_light_map = true
+        end
+    end
+
+    if reallocate_light_map then
+        self:_reallocate_light_map()
+    end
 end
 
 --- @brief
@@ -463,7 +477,7 @@ end
 
 --- @brief
 function rt.SceneManager:_reallocate_bloom()
-    require "overworld.stage"
+    require "common.bloom"
     self._bloom = rt.Bloom(
         self._width,
         self._height,
@@ -481,6 +495,23 @@ function rt.SceneManager:get_bloom()
     else
         return nil
     end
+end
+
+--- @brief
+function rt.SceneManager:_reallocate_light_map()
+    require "overworld.light_map"
+    self._light_map = ow.LightMap(
+        self._width,
+        self._height
+    )
+end
+
+--- @brief
+function rt.SceneManager:get_light_map()
+    if self._light_map == nil then
+        self:_reallocate_light_map()
+    end
+    return self._light_map
 end
 
 --- @brief

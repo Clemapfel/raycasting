@@ -148,8 +148,11 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
             if self._platform ~= nil then
                 self._spawn_barrier:add_tag("segment_light_source")
                 self._spawn_barrier:set_user_data({
-                    get_segment_light_sources = function()
-                        return {{ left_x, left_y, right_x, right_y }}, { self._scene:get_player():get_color() }
+                    collect_segment_lights = function(_, callback)
+                        callback(
+                            left_x, left_y, right_x, right_y,
+                            self._scene:get_player():get_color():unpack()
+                        )
                     end
                 })
             end
@@ -221,9 +224,12 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
             if self._rope ~= nil then
                 self._body:add_tag("segment_light_source")
                 local instance = {
-                    get_segment_light_sources = function()
+                    collect_segment_lights = function(self, callback)
                         if self._rope:get_is_cut() == false then
-                            return { { self._top_x, self._top_y, self._bottom_x, self._bottom_y } }, { self._scene:get_player():get_color() }
+                            callback(
+                                self._top_x, self._top_y, self._bottom_x, self._bottom_y,
+                                self._scene:get_player():get_color():unpack()
+                            )
                         end
                     end
                 }

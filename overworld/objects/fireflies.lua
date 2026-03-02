@@ -15,17 +15,14 @@ function ow.Fireflies.reinitialize(scene, stage)
     require "overworld.firefly_manager"
     if stage.firefly_manager ~= nil then
         stage.firefly_manager:clear()
+        stage.firefly_manager_step = 0
     end
     stage.firefly_manager = ow.FireflyManager(scene, stage)
     stage.firefly_manager_is_first = true
 end
 
-function ow.Fireflies.get_point_light_sources(stage)
-    if stage.firefly_manager ~= nil then
-        return stage.firefly_manager:get_point_light_sources()
-    else
-        return {}, {}
-    end
+function ow.Fireflies.get_manager(stage)
+    return stage.firefly_manager
 end
 
 --- @brief

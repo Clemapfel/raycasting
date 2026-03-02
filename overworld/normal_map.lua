@@ -452,20 +452,12 @@ local _chunk_eps = function(chunk)
 end
 
 function ow.NormalMap:draw_light(
-    camera,
-    point_light_sources, -- in screen coords
-    point_light_colors,
-    segment_light_sources, -- in screen coords
-    segment_light_colors
+    camera
 )
     if _is_disabled then return end
 
     meta.assert(
-        camera, rt.Camera,
-        point_light_sources, "Table",
-        point_light_colors, "Table",
-        segment_light_colors, "Table",
-        segment_light_colors, "Table"
+        camera, rt.Camera
     )
 
     if self._is_visible == false or not self._computation_started then return end
@@ -488,25 +480,12 @@ function ow.NormalMap:draw_light(
 
     love.graphics.push("all")
 
-    _draw_light_shader:send("n_point_light_sources", #point_light_sources)
-    if #point_light_sources > 0 then
-        _draw_light_shader:send("point_light_sources", table.unpack(point_light_sources))
-        _draw_light_shader:send("point_light_colors", table.unpack(point_light_colors))
-    end
-
-    _draw_light_shader:send("n_segment_light_sources", #segment_light_sources)
-    if #segment_light_sources > 0 then
-        _draw_light_shader:send("segment_light_sources", table.unpack(segment_light_sources))
-        _draw_light_shader:send("segment_light_colors", table.unpack(segment_light_colors))
-    end
-
+    local light_map = rt.SceneManager:get_light_map()
+    _draw_light_shader:send("light_intensity", light_map:get_light_intensity())
+    _draw_light_shader:send("light_direction", light_map:get_light_direction())
     _draw_light_shader:send("camera_scale", camera:get_scale())
-
-    local scale = math.mix(1, rt.settings.impulse_manager.max_brightness_factor, self._impulse:get_pulse())
-    _draw_light_shader:send("point_light_intensity", rt.settings.overworld.normal_map.point_light_intensity * scale)
-    _draw_light_shader:send("segment_light_intensity", rt.settings.overworld.normal_map.segment_light_intensity * scale)
-    _draw_light_shader:send("light_range", rt.settings.overworld.normal_map.light_range * scale)
     _draw_light_shader:bind()
+
     love.graphics.setBlendMode("add", "premultiplied")
     local r, g, b, a = love.graphics.getColor() -- premultiply alpha
     local value = math.max(r, g, b)

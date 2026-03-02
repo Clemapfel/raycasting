@@ -195,3 +195,9 @@ function ow.DoubleJumpTetherParticle:draw(x, y, draw_shape, draw_core)
         love.graphics.pop()
     end
 end
+
+--- @brief
+function ow.DoubleJumpTetherParticle:get_current_radius()
+    return self._scale_offset * rt.settings.overworld.double_jump_tether_particle.scale_offset_distance
+        + self._explosion_motion:get_value() * rt.settings.overworld.double_jump_tether_particle.explosion_distance
+end

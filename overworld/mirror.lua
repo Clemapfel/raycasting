@@ -84,6 +84,7 @@ function ow.Mirror:draw()
     _shader:send("elapsed", rt.SceneManager:get_elapsed())
     _shader:send("camera_offset", { camera:get_offset() })
     _shader:send("camera_scale", camera:get_final_scale())
+    _shader:send("light_intensity", rt.SceneManager:get_light_map():get_light_intensity())
 
     local n_drawn = 0
     for image in values(self._mirror_images) do
@@ -663,7 +664,7 @@ function ow.Mirror:update(delta)
     local y = py - self._offset_y
     local r = rt.settings.overworld.mirror.segment_detection_radius_factor * rt.settings.player.radius
     if self._scene:get_player():get_is_bubble() == true then
-        r = r * rt.settings.player.bubble_radius_factor
+        --r = r * rt.settings.player.bubble_radius_factor
     end
 
     self._px, self._py = px, py
@@ -671,7 +672,7 @@ function ow.Mirror:update(delta)
     local mirror_segments = {}
     local occluding_segments = {}
 
-    local shapes = self._world:getShapesInArea(x - r, y - r, x + r, y + r)
+    local shapes = self._world:getShapesInArea(camera_x, camera_y, camera_x + camera_w, camera_y + camera_h)---x - r, y - r, x + r, y + r)
     for shape in values(shapes) do
         local data = shape:getUserData()
         if data.is_mirror == true then

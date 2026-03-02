@@ -645,7 +645,7 @@ end
 
 --- @return number
 function meta.hash(instance)
-    return rawget(instance, _object_hash_index)
+    return rawget(instance, _object_hash_index) or -1
 end
 
 --- @return table

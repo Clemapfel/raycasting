@@ -226,6 +226,11 @@ function ow.DoubleJumpTether:get_position()
 end
 
 --- @brief
+function ow.DoubleJumpTether:get_radius()
+    return self._radius
+end
+
+--- @brief
 function ow.DoubleJumpTether:reset()
     local player = self._scene:get_player()
     if player:get_is_double_jump_source(self) then
@@ -235,8 +240,34 @@ function ow.DoubleJumpTether:reset()
 end
 
 --- @brief
-function ow.DoubleJumpTether:get_point_light_sources()
+function ow.DoubleJumpTether:collect_point_lights(callback)
     local x, y = self._body:get_position()
-    local radius = rt.settings.overworld.double_jump_tether_particle.core_radius_factor * self._radius
-    return { { x, y, radius } }, { self:get_color() }
+    local radius = self._particle:get_current_radius()
+    local r, g, b, a = self._color:unpack()
+    callback(x, y, radius, r, g, b, a)
+
+    if self._was_consumed or self._particles then
+        local path = self._tether:as_path()
+        local segment_length = 10
+
+        local n_segments = math.min(10, path:get_length() / segment_length)
+        local points = {}
+        for i = 1, n_segments do
+            local px, py = path:at((i - 1) / n_segments)
+            table.insert(points, px)
+            table.insert(points, py)
+        end
+
+        a = 1 / n_segments
+
+        for i = 1, #points, 2 do
+            callback(
+                points[i+0],
+                points[i+1],
+                1,
+                r * a, g * a, b * a, a * a
+            )
+        end
+    end
 end
+

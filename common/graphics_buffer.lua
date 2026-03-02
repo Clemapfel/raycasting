@@ -53,6 +53,11 @@ function rt.GraphicsBuffer:get_n_elements()
     return self._native:getElementCount()
 end
 
+--- @brief
+function rt.GraphicsBuffer:get_native()
+    return self._native
+end
+
 local _format_to_n_components = {
     float = 1,
     floatvec2 = 2,

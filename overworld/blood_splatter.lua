@@ -330,11 +330,7 @@ function ow.BloodSplatter:destroy()
 end
 
 --- @brief
-function ow.BloodSplatter:get_segment_light_sources(bounds)
-    meta.assert(bounds, rt.AABB)
-    local segments, colors = {}, {}
-    local n = 0
-
+function ow.BloodSplatter:collect_segment_lights(bounds, callback)
     local hue_threshold = 0.05
     local x, y, w, h = bounds:unpack()
     x = x - self._offset_x
@@ -359,8 +355,10 @@ function ow.BloodSplatter:get_segment_light_sources(bounds)
 
         local push_segment = function()
             -- finish new line segment
-            table.insert(segments, { x1, y1, x2, y2 })
-            table.insert(colors, current_color)
+            callback(
+                x1, y1, x2, y2,
+                current_color:unpack()
+            )
 
             x1, y1, x2, y2 = nil, nil, nil, nil
             current_hue = nil
@@ -388,8 +386,6 @@ function ow.BloodSplatter:get_segment_light_sources(bounds)
             push_segment()
         end
     end
-
-    return segments, colors
 end
 
 --- @brief

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="1001">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="1008">
  <editorsettings>
   <export target="exhibition.lua" format="lua"/>
  </editorsettings>
@@ -106,7 +106,16 @@
    <polygon points="544,-320 544,432 -512,432 -512,-320"/>
   </object>
   <object id="980" type="Wall" x="1136" y="-112">
+   <properties>
+    <property name="type" value="spheres"/>
+   </properties>
    <polygon points="0,0 0,-576 704,-576 704,0"/>
+  </object>
+  <object id="1001" type="Coin" x="1227.02" y="-445.95">
+   <point/>
+  </object>
+  <object id="1002" type="DoubleJumpTether" x="1477.7" y="-306.096">
+   <point/>
   </object>
  </objectgroup>
  <objectgroup id="6" name="hitbox">
@@ -570,7 +579,7 @@
   <object id="973" x="2032" y="928">
    <polygon points="106.743,-1.179 138.743,-1.179 138.743,-33.179 106.743,-33.179"/>
   </object>
-  <object id="974" type="Hitbox" x="1136" y="-224">
+  <object id="974" type="SlipperyHitbox" x="1136" y="-224">
    <polygon points="0,0 704,0 704,112 0,112"/>
   </object>
   <object id="975" x="1648" y="-464">
@@ -585,6 +594,15 @@
   <object id="979" type="Fireflies" x="1440" y="-480">
    <properties>
     <property name="count" type="int" value="3"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="1006" type="OneWayPlatformNode" x="1376" y="-256">
+   <point/>
+  </object>
+  <object id="1007" type="OneWayPlatform" x="1536" y="-208">
+   <properties>
+    <property name="other" type="object" value="1006"/>
    </properties>
    <point/>
   </object>

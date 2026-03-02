@@ -318,9 +318,9 @@ function ow.ShatterSurface:shatter(origin_x, origin_y, velocity_x, velocity_y)
             -- proxy for point light query
             part.body:add_tag("point_light_source")
             part.body:set_user_data(part)
-            part.get_point_light_sources = function(self)
+            part.collect_point_lights = function(self, callback)
                 local x, y = part.body:get_position()
-                return { { x, y, 1 } }, { part.color }
+                callback(x, y, 1, part.color:unpack())
             end
 
             local ball_mass = 1

@@ -2,10 +2,11 @@ require "common.matrix"
 
 rt.settings.overworld.light_map = {
     max_n_point_lights = 256,
-    max_n_segment_lights = 256,
-    tile_size = 256,
-    intensity_texture_format = rt.TextureFormat.RGBA8,
-    direction_texture_format = rt.TextureFormat.RG32F
+    max_n_segment_lights = 64,
+    work_group_size = 32,
+    intensity_texture_format = rt.TextureFormat.RGB10A2,
+    direction_texture_format = rt.TextureFormat.RG16F,
+    mask_texture_format = rt.TextureFormat.R8
 }
 
 --- @class ow.LightMap
@@ -19,7 +20,7 @@ function ow.LightMap:instantiate(width, height)
         width, height,
         0, -- msaa
         settings.intensity_texture_format,
-        true -- compute
+        true -- compute write
     )
 
     self._light_direction_texture = rt.RenderTexture(
@@ -29,13 +30,21 @@ function ow.LightMap:instantiate(width, height)
         true
     )
 
-    self._work_group_size = 32
-    self._dispatch_x = width / self._work_group_size
-    self._dispatch_y = height / self._work_group_size
+    self._mask_texture = rt.RenderTexture(
+        width, height,
+        0,
+        settings.mask_texture_format,
+        true
+    )
+
+    self._work_group_size = settings.work_group_size
+    self._dispatch_x = math.ceil(width / self._work_group_size)
+    self._dispatch_y = math.ceil(height / self._work_group_size)
 
     self._shader = rt.ComputeShader("overworld/light_map_compute.glsl", {
         LIGHT_INTENSITY_TEXTURE_FORMAT = rt.graphics.texture_format_to_glsl_identifier(settings.intensity_texture_format),
         LIGHT_DIRECTION_TEXTURE_FORMAT = rt.graphics.texture_format_to_glsl_identifier(settings.direction_texture_format),
+        MASK_TEXTURE_FORMAT = rt.graphics.texture_format_to_glsl_identifier(settings.mask_texture_format),
         WORK_GROUP_SIZE_X = self._work_group_size,
         WORK_GROUP_SIZE_Y = self._work_group_size,
         WORK_GROUP_SIZE_Z = 1
@@ -73,6 +82,16 @@ function ow.LightMap:instantiate(width, height)
     end
 
     self._spatial_hash = rt.Matrix()
+end
+
+--- @brief
+function ow.LightMap:bind_mask()
+    self._mask_texture:bind()
+end
+
+--- @brief
+function ow.LightMap:unbind_mask()
+    self._mask_texture:unbind()
 end
 
 --- @brief
@@ -121,8 +140,9 @@ function ow.LightMap:update(stage)
     shader:send("segment_light_sources_buffer", self._segment_light_buffer)
     shader:send("n_segment_light_sources", self._current_n_segment_lights)
 
+    shader:send("mask_texture", self._mask_texture)
     shader:send("light_intensity_texture", self._light_intensity_texture)
-    --shader:send("light_direction_texture", self._light_direction_texture)
+    shader:send("light_direction_texture", self._light_direction_texture)
 
     shader:send("screen_to_world_transform", stage:get_scene():get_camera():get_transform():inverse())
     shader:dispatch(self._dispatch_x, self._dispatch_y)
@@ -134,8 +154,13 @@ function ow.LightMap:draw()
 end
 
 --- @brief
-function ow.LightMap:get_native()
-    return self._light_intensity_texture:get_native()
+function ow.LightMap:get_light_intensity()
+    return self._light_intensity_texture
+end
+
+--- @brief
+function ow.LightMap:get_light_direction()
+    return self._light_direction_texture
 end
 
 --- @brief

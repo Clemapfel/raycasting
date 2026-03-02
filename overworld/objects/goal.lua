@@ -266,10 +266,14 @@ function ow.Goal:instantiate(object, stage, scene)
                 })
             end
 
-            self.get_segment_light_sources = function(self)
-                local colors = {}
-                for i = 1, #segment_lights do table.insert(colors, self._color) end
-                return segment_lights, colors
+            self.collect_segment_lights = function(self, callback)
+                local r, g, b, a = self._color:unpack()
+                for _, light in ipairs(segment_lights) do
+                    callback(
+                        light[1], light[2], light[3], light[4],
+                        r, g, b, a
+                    )
+                end
             end
         end
 
