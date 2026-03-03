@@ -13,6 +13,8 @@ rt.PlayerInputSmoothing = meta.class("PlayerInputSmoothing")
 function rt.PlayerInputSmoothing:instantiate()
     self._input = rt.InputSubscriber()
 
+    self._sprint_down, self._jump_down = false
+
     self._joystick_x, self._joystick_y = 0, 0
     self._input:signal_connect("left_joystick_moved", function(_, x, y)
         self._joystick_x, self._joystick_y = x, y
@@ -53,6 +55,10 @@ function rt.PlayerInputSmoothing:instantiate()
             self._digital_y = self._digital_y - 1
         elseif which == rt.InputAction.DOWN then
             self._digital_y = self._digital_y + 1
+        elseif which == rt.InputAction.SPRINT then
+            self._sprint_down = true
+        elseif which == rt.InputAction.JUMP then
+            self._jump_down = true
         end
     end)
 
@@ -65,6 +71,10 @@ function rt.PlayerInputSmoothing:instantiate()
             self._digital_y = self._digital_y + 1
         elseif which == rt.InputAction.DOWN then
             self._digital_y = self._digital_y - 1
+        elseif which == rt.InputAction.SPRINT then
+            self._sprint_down = false
+        elseif which == rt.InputAction.JUMP then
+            self._jump_down = false
         end
     end)
 
@@ -205,6 +215,34 @@ function rt.PlayerInputSmoothing:draw(center_x, center_y, radius)
     end
 
     love.graphics.setLineWidth(math.max(2, 1 / 10 * radius))
-    love.graphics.setColor(1, 1, 1, 0.5)
-    love.graphics.circle("fill", body_screen_x, body_screen_y, inner_radius)
+
+    if math.magnitude(target_x, target_y) > math.eps then
+        love.graphics.setColor(1, 1, 1, 0.5)
+        love.graphics.circle("fill", body_screen_x, body_screen_y, inner_radius)
+    end
+
+    local small_radius = 10
+    local spacing = rt.settings.margin_unit
+    local offset_x = radius + small_radius
+    local offset_y = radius - small_radius
+
+    if self._sprint_down then
+        love.graphics.setColor(1, 1, 1, 0.25)
+        love.graphics.circle("fill", center_x + offset_x, center_y + offset_y, small_radius)
+        love.graphics.setColor(1, 1, 1, 0.25)
+        love.graphics.circle("line", center_x + offset_x, center_y + offset_y, small_radius)
+    else
+        love.graphics.setColor(1, 1, 1, 0.25)
+        love.graphics.circle("line", center_x + offset_x, center_y + offset_y, small_radius)
+    end
+
+    if self._jump_down then
+        love.graphics.setColor(1, 1, 1, 0.25)
+        love.graphics.circle("fill", center_x + offset_x + small_radius * 2 + 0.5 * spacing, center_y + offset_y, small_radius)
+        love.graphics.setColor(1, 1, 1, 0.25)
+        love.graphics.circle("fill", center_x + offset_x + small_radius * 2 + 0.5 * spacing, center_y + offset_y, small_radius)
+    else
+        love.graphics.setColor(1, 1, 1, 0.25)
+        love.graphics.circle("line", center_x + offset_x + small_radius * 2 + 0.5 * spacing, center_y + offset_y, small_radius)
+    end
 end
