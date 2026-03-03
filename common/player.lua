@@ -97,6 +97,7 @@ do
 
         gravity = 1300, -- px / s
         downwards_force = 3000,
+        active_gravity_damping = 1 / 2,
 
         friction_coefficient = 100,
         down_button_friction_release_duration = 10 / 60, -- s
@@ -606,6 +607,8 @@ function rt.Player:update(delta)
 
     local gravity_direction_x, gravity_direction_y = self:get_gravity_direction()
     local gravity = time_dilation * self:get_gravity_multiplier() * settings.gravity * delta
+
+    if self._up_button_is_down then gravity = gravity * settings.active_gravity_damping end
 
     local is_ghost = self:get_is_ghost()
     local is_frozen = self:get_is_frozen()
@@ -2574,8 +2577,8 @@ function rt.Player:_get_walljump_allowed()
         or (self._bottom_right_wall and (self._bottom_right_wall_body:has_tag("slippery") or self._bottom_right_wall_body:has_tag("unjumpable")))
 
     -- by default, player needs to be pressing towards wall
-    local left_wall_jump_allowed = left_is_down and self._left_wall and not left_wall_invalid
-    local right_wall_jump_allowed = right_is_down and self._right_wall and not right_wall_invalid
+    local left_wall_jump_allowed = left_is_down and (self._left_wall or self._top_left_wall) and not left_wall_invalid
+    local right_wall_jump_allowed = right_is_down and (self._right_wall or self._top_right_wall) and not right_wall_invalid
 
     -- both conditions can be overriden by coyote time
     if not self._is_grounded then
@@ -3193,11 +3196,8 @@ function rt.Player:_update_bubble(is_bubble)
         self._bubble_body:set_position(x, y)
         self._bubble_body:set_velocity(self._body:get_velocity())
         for i, body in ipairs(self._bubble_spring_bodies) do
-            body:set_position(
-                x + self._bubble_spring_body_offsets_x[i],
-                y + self._bubble_spring_body_offsets_y[i]
-            )
-            body:set_velocity(self._spring_bodies[i]:get_velocity())
+            body:set_position(x, y) -- reset to center so inflating doesn't clip into geometry
+            body:set_velocity(0, 0)
         end
     else
         local x, y = self._bubble_body:get_position()
@@ -3205,7 +3205,7 @@ function rt.Player:_update_bubble(is_bubble)
         self._body:set_velocity(self._bubble_body:get_velocity())
         for i, body in ipairs(self._spring_bodies) do
             body:set_position(
-                x + self._spring_body_offsets_x[i],
+                x + self._spring_body_offsets_x[i], -- keep offset here
                 y + self._spring_body_offsets_y[i]
             )
             body:set_velocity(self._bubble_spring_bodies[i]:get_velocity())
