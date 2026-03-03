@@ -241,8 +241,34 @@ function ow.LightMap:update(stage)
 
     local n_rows = math.ceil(width / tile_size)
     local n_columns = math.ceil(height / tile_size)
-    local max_range = 1.5 * self._tile_size
+    local max_range = 2 * self._tile_size
     max_range = max_range^2 -- using squared distance for performance
+
+    local function square_point_distance(square_x, square_y, square_size, px, py)
+        local closest_x = math.clamp(px, square_x, square_x + square_size)
+        local closest_y = math.clamp(py, square_y, square_y + square_size)
+        return math.squared_distance(closest_x, closest_y, px, py)
+    end
+
+    local sample_length = math.sqrt(tile_size)
+    local function square_segment_distance(square_x, square_y, square_size, x1, y1, x2, y2)
+        local segment_length = math.distance(x1, y1, x2, y2)
+        local n_samples = math.min(2, math.floor(segment_length / sample_length))
+
+        local min_distance = math.huge
+        for i = 0, n_samples do
+            local t = i / n_samples
+            local dist = square_point_distance(
+                square_x, square_y, square_size,
+                math.mix2(x1, y1, x2, y2, t)
+            )
+
+            min_distance = math.min(min_distance, dist)
+        end
+
+        return min_distance
+    end
+
 
     for row_i = 1, n_rows do
         for column_i = 1, n_columns do
@@ -255,10 +281,7 @@ function ow.LightMap:update(stage)
                 local data = point_light_data[point_i]
                 local x, y, radius = data[1], data[2], data[3]
 
-                if math.squared_distance( -- approximate distance
-                    tile_x + 0.5 * tile_size, tile_y + 0.5 * tile_size,
-                    x, y
-                ) < max_range + radius then
+                if square_point_distance(tile_x, tile_y, tile_size, x, y) < max_range + radius then
                     add_point_light_to_tile(tile_i, point_i)
                 end
 
@@ -271,10 +294,7 @@ function ow.LightMap:update(stage)
                 local x1, y1, x2, y2 = data[1], data[2], data[3], data[4]
 
                 local x, y = tile_x + 0.5 * tile_size, tile_y + 0.5 * tile_size
-                if math.squared_distance( -- approximate
-                    x, y,
-                    closest_point_on_segment(x, y, x1, y1, x2, y2)
-                ) < max_range then
+                if square_segment_distance(tile_x, tile_y, tile_size, x1, y1, x2, y2) < max_range then
                     add_segment_light_to_tile(tile_i, segment_i)
                 end
 

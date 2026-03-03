@@ -224,7 +224,7 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
             if self._rope ~= nil then
                 self._body:add_tag("segment_light_source")
                 local instance = {
-                    collect_segment_lights = function(self, callback)
+                    collect_segment_lights = function(_, callback)
                         if self._rope:get_is_cut() == false then
                             callback(
                                 self._top_x, self._top_y, self._bottom_x, self._bottom_y,

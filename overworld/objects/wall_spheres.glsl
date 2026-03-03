@@ -89,6 +89,8 @@ vec2 to_world_position(vec2 xy) {
     return result.xy / result.w;
 }
 
+uniform float elapsed;
+
 vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 screen_coords) {
     vec2 world_position = to_world_position(screen_coords);
 
@@ -100,7 +102,7 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 screen_coords) 
     const vec4 ambient_light_color = vec4(1);
     const float ambient_light_intensity = 0.3;
     vec3 ambient_light_direction = normalize(vec3(
-        -1, -1, mix(-0.25, 0.75, 0.5)
+        -1, -1, mix(-0.25, 0.75, 0.5 * gradient_noise(vec3(to_world_position(screen_coords) / 10, elapsed)))
     ));
     float ambient_alignment = max(dot(normal, ambient_light_direction), 0.0);
     vec4 ambient_color = ambient_light_intensity * ambient_alignment * ambient_light_color;

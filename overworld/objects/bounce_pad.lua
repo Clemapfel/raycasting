@@ -93,7 +93,8 @@ function ow.BouncePad:instantiate(object, stage, scene)
     self._rotation_origin_y = object.rotation_origin_y
 
     -- collision
-    self._body:add_tag("slippery", "no_blood", "unjumpable", "stencil")
+    self._body:add_tag("slippery", "no_blood", "unjumpable", "stencil", "point_light_source", "segment_light_source")
+    self._body:set_user_data(self)
 
     local bounce_group = rt.settings.player.bounce_collision_group
     self._body:set_collides_with(bounce_group)
@@ -144,9 +145,11 @@ function ow.BouncePad:instantiate(object, stage, scene)
 
     if not self._is_visible then goto skip_graphics end
 
+    local contour = object:create_contour()
+
     -- contour
     self._contour = rt.contour.round(
-        object:create_contour(),
+        contour,
         rt.settings.overworld.bounce_pad.corner_radius,
         16
     )
@@ -155,6 +158,18 @@ function ow.BouncePad:instantiate(object, stage, scene)
     for i = 1, #self._contour, 2 do
         self._contour[i+0] = self._contour[i+0] - center_x
         self._contour[i+1] = self._contour[i+1] - center_y
+    end
+
+    self._segment_lights = {}
+    for i = 1, #contour, 2 do
+        local x1, y1 = contour[i+0], contour[i+1]
+        local x2, y2 = contour[math.wrap(i+2, #contour)], contour[math.wrap(i+3, #contour)]
+        table.insert(self._segment_lights, {
+            x1 - center_x,
+            y1 - center_y,
+            x2 - center_x,
+            y2 - center_y
+        })
     end
 
     local shape_mesh_format = {
@@ -426,14 +441,10 @@ function ow.BouncePad:_spawn_particles(x, y, normal_x, normal_y, n_particles, hu
         data[i + _velocity_decay_offset] = rt.random.number(settings.min_decay, settings.max_decay)
         data[i + _radius_offset] = rt.random.number(settings.min_radius, settings.max_radius)
 
-        local current_hue =  rt.random.number(hue - settings.hue_range, hue + settings.hue_range)
-        data[i + _hue_offset] = current_hue
+        data[i + _hue_offset] = hue
 
-        local r, g, b = rt.hsva_to_rgba(
-            current_hue,
-            settings.saturation,
-            1,
-            1
+        local r, g, b = rt.lcha_to_rgba(
+           0.8, 1, hue, 1
         )
 
         data[i + _color_r_offset] = r
@@ -501,7 +512,7 @@ function ow.BouncePad:_update_particles(delta)
 
             data[i + _color_r_offset], data[i + _color_g_offset], data[i + _color_b_offset] = rt.hsva_to_rgba(
                 data[i + _hue_offset],
-                data[i + _t_offset] * saturation,
+                math.max(0.5, data[i + _t_offset]),
                 1,
                 1
             )
@@ -529,7 +540,6 @@ end
 --- @brief
 function ow.BouncePad:_draw_particles()
     local black_r, black_g, black_b = rt.Palette.BLACK:unpack()
-    local saturation = rt.settings.overworld.bounce_pad.saturation
     love.graphics.setLineWidth(1)
     for batch in values(self._batches) do
         local data = batch.particle_data
@@ -544,17 +554,6 @@ function ow.BouncePad:_draw_particles()
             )
         end
 
-        love.graphics.setLineWidth(1.5)
-        for particle_i = 1, batch.n_particles do
-            local i = _particle_i_to_data_offset(particle_i)
-            love.graphics.setColor(black_r, black_g, black_b, data[i + _color_a_offset])
-            love.graphics.circle("line",
-                data[i + _position_x_offset],
-                data[i + _position_y_offset],
-                data[i + _radius_offset]
-            )
-        end
-
         love.graphics.setLineWidth(1)
         for particle_i = 1, batch.n_particles do
             local i = _particle_i_to_data_offset(particle_i)
@@ -563,6 +562,46 @@ function ow.BouncePad:_draw_particles()
                 data[i + _position_x_offset],
                 data[i + _position_y_offset],
                 data[i + _radius_offset]
+            )
+        end
+    end
+end
+
+--- @brief
+function ow.BouncePad:collect_point_lights(callback)
+    if true then return end
+    for batch in values(self._batches) do
+        local data = batch.particle_data
+        for particle_i = 1, batch.n_particles do
+            local i = _particle_i_to_data_offset(particle_i)
+            callback(
+                data[i + _position_x_offset],
+                data[i + _position_y_offset],
+                data[i + _radius_offset],
+                data[i + _color_r_offset],
+                data[i + _color_g_offset],
+                data[i + _color_b_offset],
+                data[i + _t_offset]
+            )
+        end
+    end
+end
+
+--- @brief
+function ow.BouncePad:collect_segment_lights(callback)
+    if self._signal > 0.01 then
+        local bx, by = self._body:get_position()
+        local offset_x, offset_y = bx + self._draw_offset_x, by + self._draw_offset_y
+
+        local r, g, b, a = table.unpack(self._draw_inner_color)
+        for segment in values(self._segment_lights) do
+            local x1, y1, x2, y2 = table.unpack(segment)
+            callback(
+                x1 + offset_x,
+                y1 + offset_y,
+                x2 + offset_x,
+                y2 + offset_y,
+                r, g, b, self._signal
             )
         end
     end

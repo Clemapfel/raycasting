@@ -639,7 +639,6 @@ function ow.FireflyManager:collect_point_lights(callback)
                             cluster[_cluster_x] = (cluster[_cluster_x] * cluster[_cluster_brightness] + data[j + _x_offset] * other_glow) / total
                             cluster[_cluster_y] = (cluster[_cluster_y] * cluster[_cluster_brightness] + data[j + _y_offset] * other_glow) / total
 
-                            -- Accumulate weighted RGB values
                             cluster[_cluster_r] = cluster[_cluster_r] + data[j + _r_offset] * other_glow
                             cluster[_cluster_g] = cluster[_cluster_g] + data[j + _g_offset] * other_glow
                             cluster[_cluster_b] = cluster[_cluster_b] + data[j + _b_offset] * other_glow
@@ -655,7 +654,6 @@ function ow.FireflyManager:collect_point_lights(callback)
                 end
             end
 
-            -- Normalize RGB by total brightness to get weighted average color
             cluster[_cluster_r] = cluster[_cluster_r] / cluster[_cluster_brightness]
             cluster[_cluster_g] = cluster[_cluster_g] / cluster[_cluster_brightness]
             cluster[_cluster_b] = cluster[_cluster_b] / cluster[_cluster_brightness]

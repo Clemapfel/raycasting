@@ -69,6 +69,8 @@ function ow.CameraFit:_bind()
         self:_unbind()
         return meta.DISCONNECT_SIGNAL
     end)
+
+    self._is_active = true
 end
 
 --- @brief
@@ -76,6 +78,7 @@ function ow.CameraFit:_unbind()
     local camera = self._scene:get_camera()
     self._scene:pop_camera_mode(ow.CameraMode.CUTSCENE)
     self._is_bound = false
+    self._is_active = false
 end
 
 --- @brief

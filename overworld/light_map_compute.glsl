@@ -93,9 +93,9 @@ vec4 compute_light(vec4 light_color, float dist_sq) {
     float dist = sqrt(dist_sq);
     float attenuation = clamp(gaussian(dist * INV_LIGHT_RANGE), 0.0, 1.0);
     const float third = 1.0 / 3.0;
+    light_color.rgb *= light_color.a;
     return light_color * (attenuation * third);
 }
-
 
 const vec3 luma_coefficients = vec3(0.299, 0.587, 0.114);
 
@@ -211,7 +211,7 @@ void computemain() {
 
     imageStore(light_intensity_texture,
         position,
-        tonemap(point_color + segment_color)
+        10 * tonemap(point_color + segment_color)
     );
 
     imageStore(light_direction_texture,

@@ -57,6 +57,7 @@ function ow.Wall:draw()
     shader:try_send("light_intensity", light_map:get_light_intensity())
     shader:try_send("light_direction", light_map:get_light_direction())
     shader:try_send("screen_to_world_transform", self._scene:get_camera():get_transform():inverse())
+    shader:try_send("elapsed", rt.SceneManager:get_elapsed())
 
     rt.Palette.WALL:bind()
     self._mesh:draw()

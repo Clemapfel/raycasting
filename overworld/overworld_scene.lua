@@ -694,37 +694,28 @@ function ow.OverworldScene:get_screenshot(draw_player)
     return self._screenshot
 end
 
+--- @brief
 function ow.OverworldScene:_draw_debug_information()
     if self._hide_debug_information == true then return end
 
-    local player = self._player
-    local flow_percentage = player:get_flow()
-
-    flow_percentage = tostring(math.round(flow_percentage * 100) / 100)
-
-    local pressed, unpressed = "1", "0"
-    local up = ternary(self._player._up_button_is_down, pressed, unpressed)
-    local right = ternary(self._player._right_button_is_down, pressed, unpressed)
-    local down = ternary(self._player._down_button_is_down, pressed, unpressed)
-    local left = ternary(self._player._left_button_is_down, pressed, unpressed)
-    local a = ternary(self._player._sprint_button_is_down, pressed, unpressed)
-    local b = ternary(self._player._jump_button_is_down, pressed, unpressed)
-
-    local sprint = self._player._sprint_button_is_down == true
-    sprint = ternary(sprint, pressed, unpressed)
-
-    local time = "# cycles : " .. self:get_frame_count()
-
-    if self._timer_paused == true or self._timer_started == false or self._timer_stopped then
-        time = time .. " (paused)"
+    local collected = {}
+    for i = 1, self._stage:get_n_coins() do
+        if self._stage:get_coin_is_collected(i) then
+            table.insert(collected, "1")
+        else
+            table.insert(collected, "0")
+        end
     end
 
-    local to_concat = {
-        up .. right .. down .. left .. " " .. a .. b,
-        "sprint: " .. sprint,
-        "flow : " .. flow_percentage .. "%",
-        time
-    }
+    local translation = rt.Translation.result_screen_scene
+
+    local collectibles = translation.coins .. " : " .. table.concat(collected)
+    local time = translation.time .. " : " .. string.format_time(self:get_timer()) .. " ( " .. tostring(self:get_frame_count()) .. " " .. rt.Translation.overworld_scene.debug_information_frames .. " )"
+    local flow = translation.flow .. " : " .. string.format_percentage(self._player:get_flow())
+
+    if self._timer_paused == true or self._timer_started == false or self._timer_stopped then
+        time = time .. " (" .. rt.Translation.overworld_scene.debug_information_time_paused .. ")"
+    end
 
     local font = rt.settings.font.love_default
 
@@ -734,7 +725,11 @@ function ow.OverworldScene:_draw_debug_information()
 
     love.graphics.push()
     love.graphics.translate(5, 5) -- top margins
-    love.graphics.printf(table.concat(to_concat, " | "), 0, 0, math.huge)
+    love.graphics.printf(table.concat({
+        collectibles,
+        flow,
+        time
+    }, " | "), 0, 0, math.huge)
 
     if self._stage ~= nil and rt.GameState:get_draw_speedrun_splits() then
         -- draw speedrun splits as two columns
@@ -850,7 +845,6 @@ function ow.OverworldScene:_draw_debug_information()
 
     love.graphics.pop()
 end
-
 
 --- @brief
 function ow.OverworldScene:update(delta)

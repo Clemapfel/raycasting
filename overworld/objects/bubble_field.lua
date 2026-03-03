@@ -25,7 +25,6 @@ local _magnitude_index = 5
 local _scale_index = 1
 
 -- wave equation solver parameters
-
 local _dx = 0.2
 local _dt = 0.05
 local _damping = 0.99
@@ -95,8 +94,8 @@ function ow.BubbleField:instantiate(object, stage, scene)
     local n_smoothing_iterations = rt.settings.overworld.bubble_field.n_smoothing_iterations
     local points = rt.contour.smooth(subdivided, n_smoothing_iterations)
 
-    table.insert(points, points[1])
-    table.insert(points, points[2])
+    -- IMPORTANT: keep only unique vertices for mesh/solver; don't append first at the end here
+    -- The wave solver uses periodic indexing; duplicating the first vertex as last creates a seam.
 
     -- compute center and mesh data
     self._contour = points
@@ -132,8 +131,7 @@ function ow.BubbleField:instantiate(object, stage, scene)
     for i = 1, #self._contour, 2 do
         local x, y = self._contour[i+0], self._contour[i+1]
         local origin_x, origin_y = center_x, center_y
-        local dx = x - origin_x
-        local dy = y - origin_y
+        local dx, dy = x - origin_x, y - origin_y
 
         -- rescale origin such that each point has same magnitude, while
         -- mainting end point x, y
@@ -154,7 +152,7 @@ function ow.BubbleField:instantiate(object, stage, scene)
             [_scale_index] = 1
         })
     end
-    
+
     self._contour_center_x, self._contour_center_y = center_x, center_y
 
     self._shape_mesh = rt.Mesh(
@@ -164,7 +162,7 @@ function ow.BubbleField:instantiate(object, stage, scene)
         rt.GraphicsBufferUsage.STATIC
     )
     self._shape_mesh:set_vertex_map(triangulation)
-    
+
     self._data_mesh = rt.Mesh(
         self._data_mesh_data,
         rt.MeshDrawMode.POINTS,
@@ -176,7 +174,7 @@ function ow.BubbleField:instantiate(object, stage, scene)
 
     -- wave equation solver
     self._elapsed = 0
-    self._n_points = math.floor(#self._contour / 2)
+    self._n_points = #self._shape_mesh_data
     self._wave = {
         previous = table.rep(0, self._n_points),
         current = table.rep(0, self._n_points),
@@ -254,9 +252,6 @@ function ow.BubbleField:update(delta)
             self._data_mesh_data[i][_scale_index] = scale
         end
 
-        -- close loop
-        self._contour[1], self._contour[2] = self._contour[#self._contour-1], self._contour[#self._contour]
-
         self._wave.previous, self._wave.current, self._wave.next = wave_current, wave_next, wave_previous
         self._data_mesh:replace_data(self._data_mesh_data)
 
@@ -265,7 +260,6 @@ function ow.BubbleField:update(delta)
         end
     end
 end
-
 
 --- @brief
 function ow.BubbleField:draw()
@@ -301,7 +295,15 @@ function ow.BubbleField:draw()
     _outline_shader:send("screen_to_world_transform", transform)
     _outline_shader:send("elapsed", elapsed)
     _outline_shader:send("hue", hue)
-    love.graphics.line(self._contour)
+
+    -- Draw a closed outline without duplicating vertices in the solver/mesh data
+    local closed_contour = {}
+    for i = 1, #self._contour do
+        closed_contour[i] = self._contour[i]
+    end
+    rt.contour.close(closed_contour)
+    love.graphics.line(closed_contour)
+
     _outline_shader:unbind()
 
     love.graphics.pop()
@@ -320,8 +322,23 @@ function ow.BubbleField:draw_bloom()
     love.graphics.setColor(1, 1, 1, 0.5)
     love.graphics.setLineWidth(3)
     love.graphics.setLineJoin("none")
+
     _outline_shader:bind()
-    love.graphics.line(self._contour)
+    -- Keep shader inputs consistent with main draw to avoid undefined behavior in the bloom pass
+    local elapsed = rt.SceneManager:get_elapsed() + meta.hash(self)
+    local hue = self._scene:get_player():get_hue()
+    _outline_shader:send("noise_texture", _noise_texture)
+    _outline_shader:send("screen_to_world_transform", transform)
+    _outline_shader:send("elapsed", elapsed)
+    _outline_shader:send("hue", hue)
+
+    local closed_contour = {}
+    for i = 1, #self._contour do
+        closed_contour[i] = self._contour[i]
+    end
+    rt.contour.close(closed_contour)
+    love.graphics.line(closed_contour)
+
     _outline_shader:unbind()
 
     love.graphics.pop()

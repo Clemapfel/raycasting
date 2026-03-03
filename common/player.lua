@@ -608,8 +608,6 @@ function rt.Player:update(delta)
     local gravity_direction_x, gravity_direction_y = self:get_gravity_direction()
     local gravity = time_dilation * self:get_gravity_multiplier() * settings.gravity * delta
 
-    if self._up_button_is_down then gravity = gravity * settings.active_gravity_damping end
-
     local is_ghost = self:get_is_ghost()
     local is_frozen = self:get_is_frozen()
     local is_movement_disabled = self:get_is_movement_disabled()
@@ -1653,6 +1651,7 @@ function rt.Player:update(delta)
         end
 
         -- gravity
+
         next_velocity_x = next_velocity_x + gravity_direction_x * gravity
         next_velocity_y = next_velocity_y + gravity_direction_y * gravity
 
@@ -2322,7 +2321,7 @@ function rt.Player:draw_core()
 
     self._graphics_body:draw_core()
 
-    do
+    if rt.GameState:get_draw_debug_information() then
         love.graphics.push()
         love.graphics.origin()
         local m = 2 * rt.settings.margin_unit

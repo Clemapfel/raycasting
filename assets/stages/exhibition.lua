@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 1008,
+  nextobjectid = 1016,
   properties = {},
   tilesets = {
     {
@@ -400,6 +400,25 @@ return {
             { x = 704, y = 0 }
           },
           properties = {}
+        },
+        {
+          id = 1010,
+          name = "",
+          type = "CameraFit",
+          shape = "polygon",
+          x = 768,
+          y = 512,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 0, y = -576 },
+            { x = 704, y = -576 },
+            { x = 704, y = 0 }
+          },
+          properties = {}
         }
       }
     },
@@ -588,8 +607,8 @@ return {
           name = "",
           type = "Wall",
           shape = "polygon",
-          x = 1136,
-          y = -112,
+          x = 768,
+          y = 512,
           width = 0,
           height = 0,
           rotation = 0,
@@ -601,7 +620,7 @@ return {
             { x = 704, y = 0 }
           },
           properties = {
-            ["type"] = "spheres"
+            ["type"] = "flat"
           }
         },
         {
@@ -904,8 +923,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = 1280,
-          y = -288,
+          x = 816,
+          y = 320,
           width = 0,
           height = 0,
           rotation = 0,
@@ -3330,6 +3349,29 @@ return {
           properties = {
             ["other"] = { id = 1006 }
           }
+        },
+        {
+          id = 1008,
+          name = "",
+          type = "SlipperyHitbox",
+          shape = "polygon",
+          x = 768,
+          y = 400,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = -80, y = -464 },
+            { x = 0, y = -464 },
+            { x = 0, y = 0 },
+            { x = 704, y = 0 },
+            { x = 704, y = -464 },
+            { x = 800, y = -464 },
+            { x = 800, y = 112 },
+            { x = -80, y = 112 }
+          },
+          properties = {}
         }
       }
     },
@@ -3581,6 +3623,61 @@ return {
           shape = "point",
           x = -2576,
           y = 4112,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 1012,
+          name = "",
+          type = "Path",
+          shape = "point",
+          x = 1120,
+          y = 496,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["next"] = { id = 1013 },
+            ["target"] = { id = 1014 }
+          }
+        },
+        {
+          id = 1013,
+          name = "",
+          type = "PathNode",
+          shape = "point",
+          x = 1104,
+          y = 240,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 1014,
+          name = "",
+          type = "BubbleField",
+          shape = "ellipse",
+          x = 1311.39,
+          y = 229.423,
+          width = 296.837,
+          height = 144.815,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 1015,
+          name = "",
+          type = "Checkpoint",
+          shape = "point",
+          x = 1008,
+          y = 352,
           width = 0,
           height = 0,
           rotation = 0,

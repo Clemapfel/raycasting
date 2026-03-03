@@ -188,7 +188,6 @@ function ow.CheckpointParticles:_update_batch(batch, delta)
     local n_updated = 0
     local min_x, min_y, max_x, max_y = table.unpack(self._bounds)
 
-    local velocity_alignment = settings.velocity_alignment
     local position_alignment = settings.position_alignment
 
     local arc_offset = math.pi / 2
@@ -231,23 +230,8 @@ function ow.CheckpointParticles:_update_batch(batch, delta)
             vy = vy + dy * attraction_force
         end
 
-        local gravity_factor = 1
-        if self._target_velocity_x ~= nil and self._target_velocity_y then
-            local target_vx = self._target_velocity_x
-            local target_vy = self._target_velocity_y
-            local alignment_factor = velocity_alignment * delta
-
-            vx = vx + (target_vx - vx) * alignment_factor
-            vy = vy + (target_vy - vy) * alignment_factor
-
-            local nvx, nvy = math.normalize(vx, vy)
-            gravity_factor = 2 - math.abs(math.dot(
-                nvx, nvy, target_nvx, target_nvy
-            ))
-        end
-
-        vx = vx + mass * gravity_x * gravity_factor * self._gravity_factor
-        vy = vy + mass * gravity_y * gravity_factor * self._gravity_factor
+        vx = vx + mass * gravity_x * self._gravity_factor
+        vy = vy + mass * gravity_y * self._gravity_factor
 
         table.insert(path, px)
         table.insert(path, py)

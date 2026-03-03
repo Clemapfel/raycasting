@@ -156,9 +156,17 @@ function ow.BoostField:instantiate(object, stage, scene)
 
     self._draw_offset_x, self._draw_offset_y = self._body:get_position()
     self._mesh = object:create_mesh()
-    self._outline = object:create_contour()
-    table.insert(self._outline, self._outline[1])
-    table.insert(self._outline, self._outline[2])
+    self._outline = rt.contour.close(object:create_contour())
+
+    self._segment_lights = {}
+    for i = 1, #self._outline - 2, 2 do
+        local x1, y1 = self._outline[i+0], self._outline[i+1]
+        local x2, y2 = self._outline[math.wrap(i+2, #self._outline)], self._outline[math.wrap(i+3, #self._outline)]
+        table.insert(self._segment_lights, { x1, y1, x2, y2 })
+    end
+
+    self._body:add_tag("segment_light_source")
+    self._body:set_user_data(self)
 
     self._impulse = rt.ImpulseSubscriber()
 end
@@ -276,4 +284,22 @@ end
 --- @brief
 function ow.BoostField:reset()
     self._is_active = false
+end
+
+--- @brief
+function ow.BoostField:collect_segment_lights(callback)
+    local offset_x, offset_y = self._body:get_position()
+    offset_x = -self._draw_offset_x + offset_x
+    offset_y = -self._draw_offset_y + offset_y
+
+    for segment in values(self._segment_lights) do
+        local x1, y1, x2, y2 = table.unpack(segment)
+        callback(
+            x1 + offset_x,
+            y1 + offset_y,
+            x2 + offset_x,
+            y2 + offset_y,
+            table.unpack(self._color)
+        )
+    end
 end

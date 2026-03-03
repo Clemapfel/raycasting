@@ -6,8 +6,8 @@ rt.settings.overworld.bubble = {
     pop_light_boost_duration = 5 / 60,
     pop_light_boost_magnitude = 3.5, -- factor
 
-    line_width = 2,
-    outline_width = 1, -- black outline
+    line_width = 1,
+    outline_width = 1.25, -- black outline
     max_motion_offset = 5,
     motion_velocity = 3.5, -- px / s
     motion_n_path_nodes = 10,
@@ -39,13 +39,15 @@ local _shader = rt.Shader("overworld/objects/bubble.glsl")
 local _n_hue_steps = 13
 
 function ow.Bubble:instantiate(object, stage, scene)
-    assert(object:get_type() == ow.ObjectType.ELLIPSE, "In ow.Bubble: object is not an ellipse")
+    rt.assert(object:get_type() == ow.ObjectType.ELLIPSE, "In ow.Bubble: object is not an ellipse")
 
     self._scene = scene
     self._stage = stage
 
     self._x, self._y = object:get_centroid()
-    self._x_radius, self._y_radius = object.x_radius, object.y_radius
+
+    local radius = math.min(object.x_radius, object.y_radius)
+    self._x_radius, self._y_radius = radius, radius
 
     self._is_destroyed = false
     self._respawn_elapsed = math.huge
@@ -67,10 +69,13 @@ function ow.Bubble:instantiate(object, stage, scene)
             return
         end
 
+        local body_x, body_y = self._body:get_position()
+        local x, y = body_x, body_y
+
         -- use exact normal, since body is always an ellipse
         local player = self._scene:get_player()
         local px, py = player:get_position()
-        local dx, dy = math.normalize(px - self._x, py - self._y)
+        local dx, dy = math.normalize(px - body_x, py - body_y)
         local restitution = player:bounce(dx, dy, rt.settings.overworld.bubble.bounce_impulse)
         -- constant impulse unrelated to player velocity, unlike ow.BouncePad
 
@@ -206,6 +211,17 @@ function ow.Bubble:_pop(pop_x, pop_y)
     local settings = rt.settings.overworld.bubble.particles
     local max_lifetime = math.min(settings.max_lifetime, rt.settings.overworld.bubble.respawn_duration)
 
+    love.graphics.push()
+    local path_x, path_y
+    if self._should_move_in_place then
+        path_x, path_y = self._path:at(math.fract(self._path_elapsed / self._path_duration))
+    else
+        path_x, path_y = 0, 0
+    end
+
+    local body_x, body_y = self._body:get_position()
+    local offset_x, offset_y = self._x - body_x + path_x, self._y - body_y + path_y
+
     local data = self._particle_data
     local long_axis = 2 * math.max(self._x_radius, self._y_radius)
     local function add_particle(x, y, dx, dy)
@@ -216,8 +232,8 @@ function ow.Bubble:_pop(pop_x, pop_y)
         local player_influence = 1 - math.min(1, math.distance(pop_x, pop_y, x, y) / long_axis)
 
         local i = #data + 1
-        data[i + _x_offset] = x
-        data[i + _y_offset] = y
+        data[i + _x_offset] = x - offset_x
+        data[i + _y_offset] = y - offset_y
         data[i + _velocity_x_offset] = math.mix(dx, player_dx, player_influence)
         data[i + _velocity_y_offset] = math.mix(dy, player_dy, player_influence)
         data[i + _velocity_magnitude_offset] = math.mix(settings.min_velocity, settings.max_velocity, 1 - player_influence)
@@ -398,15 +414,18 @@ end
 
 --- @brief
 function ow.Bubble:collect_point_lights(callback)
-    local x, y = self._body:get_position()
-    local color = self:get_color()
-    color.a = math.max(color.a, math.mix(
-        1,
-        rt.settings.overworld.bubble.pop_light_boost_magnitude,
-        self._pop_light_boost
-    ))
+    local path_x, path_y
+    if self._should_move_in_place then
+        path_x, path_y = self._path:at(math.fract(self._path_elapsed / self._path_duration))
+    else
+        path_x, path_y = 0, 0
+    end
+
+    local body_x, body_y = self._body:get_position()
+    local x, y = body_x + path_x, body_y + path_y
+
+    local r, g, b, a = self:get_color():unpack()
 
     local radius = math.min(self._x_radius, self._y_radius)
-
-    callback(x, y, radius, color:unpack())
+    callback(x, y, radius, r, g, b, self._pop_fraction)
 end
