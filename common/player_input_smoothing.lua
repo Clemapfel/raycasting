@@ -162,6 +162,8 @@ function rt.PlayerInputSmoothing:get_magnitude()
 end
 
 function rt.PlayerInputSmoothing:draw(center_x, center_y, radius)
+    love.graphics.setLineWidth(math.max(2, 1 / 10 * radius))
+
     local body_screen_x = center_x + self._body_x * radius
     local body_screen_y = center_y + self._body_y * radius
 
@@ -213,8 +215,6 @@ function rt.PlayerInputSmoothing:draw(center_x, center_y, radius)
     else
         love.graphics.circle("line", center_x, center_y, inner_radius)
     end
-
-    love.graphics.setLineWidth(math.max(2, 1 / 10 * radius))
 
     if math.magnitude(target_x, target_y) > math.eps then
         love.graphics.setColor(1, 1, 1, 0.5)
