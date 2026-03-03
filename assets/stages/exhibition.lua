@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 1016,
+  nextobjectid = 1022,
   properties = {},
   tilesets = {
     {
@@ -3642,7 +3642,8 @@ return {
           visible = true,
           properties = {
             ["next"] = { id = 1013 },
-            ["target"] = { id = 1014 }
+            ["target"] = { id = 1020 },
+            ["target_02"] = { id = 1021 }
           }
         },
         {
@@ -3659,27 +3660,27 @@ return {
           properties = {}
         },
         {
-          id = 1014,
+          id = 1020,
           name = "",
-          type = "BubbleField",
+          type = "AirDashNode",
           shape = "ellipse",
-          x = 1311.39,
-          y = 229.423,
-          width = 296.837,
-          height = 144.815,
+          x = 944,
+          y = 224,
+          width = 64,
+          height = 64,
           rotation = 0,
           visible = true,
           properties = {}
         },
         {
-          id = 1015,
+          id = 1021,
           name = "",
-          type = "Checkpoint",
-          shape = "point",
-          x = 1008,
-          y = 352,
-          width = 0,
-          height = 0,
+          type = "AirDashNode",
+          shape = "ellipse",
+          x = 1183.95,
+          y = 244.749,
+          width = 64,
+          height = 64,
           rotation = 0,
           visible = true,
           properties = {}

@@ -227,8 +227,7 @@ function ow.BoostField:draw()
     px, py = camera:world_xy_to_screen_xy(px, py)
 
     local transform = self._scene:get_camera():get_transform()
-    transform:translate(offset_x, offset_y)
-    transform = transform:inverse()
+    transform = transform:inverse():translate(-offset_x, -offset_y)
 
     local player_opacity = ternary(player:get_is_visible(), 1, 0)
 

@@ -53,6 +53,9 @@ function ow.KillPlane:instantiate(object, stage, scene)
     )
     self._body:set_collides_with(group)
 
+    self._body:add_tag("segment_light_source")
+    self._body:set_user_data(self)
+
     self._should_explode = object:get_boolean("should_explode", false)
     if self._should_explode == nil then self._should_explode = true end
 
@@ -75,6 +78,14 @@ function ow.KillPlane:instantiate(object, stage, scene)
     if self._is_visible == false then return end
 
     self._contour = rt.contour.close(object:create_contour())
+
+    self._segment_lights = {}
+    for i = 1, #self._contour - 2, 2 do
+        local x1, y1 = self._contour[i+0], self._contour[i+1]
+        local x2, y2 = self._contour[math.wrap(i+2, #self._contour)], self._contour[math.wrap(i+3, #self._contour)]
+        table.insert(self._segment_lights, { x1, y1, x2, y2 })
+    end
+
     self._centroid_x, self._centroid_y = object:get_centroid()
 
     self._mask = object:create_mesh()
@@ -187,7 +198,9 @@ function ow.KillPlane:instantiate(object, stage, scene)
                 local world_x = aabb.x + (column_i - 1) * cell_size + 0.5 * x_overhang + 0.5 * cell_size
                 local world_y = aabb.y + (row_i - 1) * cell_size + 0.5 * y_overhang + 0.5 * cell_size
 
-                if rt.random.noise(noise_offset + world_x, noise_offset + world_y) > noise_cutoff then
+                if self._body:test_point(world_x, world_y)
+                    and rt.random.noise(noise_offset + world_x, noise_offset + world_y) > noise_cutoff
+                then
                     local angle = rt.random.number(0, 2 * math.pi)
                     local offset = rt.random.number(-0.25 * cell_size, 0.25 * cell_size)
                     add(
@@ -331,4 +344,21 @@ function ow.KillPlane:draw()
     love.graphics.line(self._contour)
 
     love.graphics.pop()
+end
+
+--- @brief
+function ow.KillPlane:collect_segment_lights(callback)
+    local offset_x, offset_y = self._body:get_position()
+    offset_x, offset_y = offset_x - self._centroid_x, offset_y - self._centroid_y
+
+    for segment in values(self._segment_lights) do
+        local x1, y1, x2, y2 = table.unpack(segment)
+        callback(
+            x1 + offset_x,
+            y1 + offset_y,
+            x2 + offset_x,
+            y2 + offset_y,
+            rt.Palette.KILL_PLANE:unpack()
+        )
+    end
 end

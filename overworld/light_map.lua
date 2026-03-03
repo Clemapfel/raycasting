@@ -1,8 +1,9 @@
 require "common.matrix"
 
 rt.settings.overworld.light_map = {
-    max_n_point_lights = 64,
+    max_n_point_lights = 128,
     max_n_segment_lights = 64,
+    max_n_element_per_tile = 32 + 16,
     work_group_size = 32,
     light_range = 30, -- px
     intensity = 0.5,
@@ -139,26 +140,30 @@ function ow.LightMap:update(stage)
         tile_data[tile_offset + 1 + settings.max_n_point_lights] = count
     end
 
-    local total_n_checks = 0
+    local max_n_per_tile = settings.max_n_element_per_tile
+
+    local function get_total_tile_count(tile_index)
+        local tile_offset = tile_index_to_data_offset(tile_index)
+        local out = tile_data[tile_offset] + tile_data[tile_offset + 1 + max_n_point_lights]
+        return out
+    end
 
     local function add_point_light_to_tile(tile_index, light_source_index)
         local tile_offset = tile_index_to_data_offset(tile_index)
         local count = tile_data[tile_offset]
+        if get_total_tile_count(tile_index) >= max_n_per_tile then return end
 
         tile_data[tile_offset + 1 + count] = light_source_index - 1 -- glsl is 0-based
         tile_data[tile_offset] = count + 1
-
-        total_n_checks = total_n_checks + 1
     end
 
     local function add_segment_light_to_tile(tile_index, light_source_index)
         local tile_offset = tile_index_to_data_offset(tile_index)
         local count = tile_data[tile_offset + 1 + max_n_point_lights]
+        if get_total_tile_count(tile_index) >= max_n_per_tile then return end
 
         tile_data[tile_offset + 1 + max_n_point_lights + 1 + count] = light_source_index - 1 -- 0 based
         tile_data[tile_offset + 1 + max_n_point_lights] = count + 1
-
-        total_n_checks = total_n_checks + 1
     end
 
     local function closest_point_on_segment(x, y, x1, y1, x2, y2)
@@ -255,18 +260,18 @@ function ow.LightMap:update(stage)
         local segment_length = math.distance(x1, y1, x2, y2)
         local n_samples = math.min(2, math.floor(segment_length / sample_length))
 
-        local min_distance = math.huge
-        for i = 0, n_samples do
-            local t = i / n_samples
+        local max_distance = -math.huge
+        for i = 1, n_samples do
+            local t = (i - 1) / n_samples
             local dist = square_point_distance(
                 square_x, square_y, square_size,
                 math.mix2(x1, y1, x2, y2, t)
             )
 
-            min_distance = math.min(min_distance, dist)
+            max_distance = math.max(max_distance, dist)
         end
 
-        return min_distance
+        return max_distance
     end
 
 

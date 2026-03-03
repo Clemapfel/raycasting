@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="1016">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="1022">
  <editorsettings>
   <export target="exhibition.lua" format="lua"/>
  </editorsettings>
@@ -705,18 +705,19 @@
   <object id="1012" type="Path" x="1120" y="496">
    <properties>
     <property name="next" type="object" value="1013"/>
-    <property name="target" type="object" value="1014"/>
+    <property name="target" type="object" value="1020"/>
+    <property name="target_02" type="object" value="1021"/>
    </properties>
    <point/>
   </object>
   <object id="1013" type="PathNode" x="1104" y="240">
    <point/>
   </object>
-  <object id="1014" type="BubbleField" x="1311.39" y="229.423" width="296.837" height="144.815">
+  <object id="1020" type="AirDashNode" x="944" y="224" width="64" height="64">
    <ellipse/>
   </object>
-  <object id="1015" type="Checkpoint" x="1008" y="352">
-   <point/>
+  <object id="1021" type="AirDashNode" x="1183.95" y="244.749" width="64" height="64">
+   <ellipse/>
   </object>
  </objectgroup>
  <layer id="4" name="noop" width="32" height="32">

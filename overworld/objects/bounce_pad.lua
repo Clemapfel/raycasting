@@ -159,6 +159,7 @@ function ow.BouncePad:instantiate(object, stage, scene)
         self._contour[i+0] = self._contour[i+0] - center_x
         self._contour[i+1] = self._contour[i+1] - center_y
     end
+    rt.contour.close(self._contour)
 
     self._segment_lights = {}
     for i = 1, #contour, 2 do
@@ -223,6 +224,7 @@ function ow.BouncePad:instantiate(object, stage, scene)
         table.insert(self._draw_contour, x)
         table.insert(self._draw_contour, y)
     end
+
 
     do
         local centroid_x, centroid_y = object:get_centroid()
@@ -358,7 +360,11 @@ function ow.BouncePad:draw()
     _shape_shader:send("elapsed", self._signal_elapsed)
     _shape_shader:send("axis", { math.flip(self._bounce_normal_x, self._bounce_normal_y) })
     _shape_shader:send("signal", self._signal)
-    _shape_shader:send("camera_offset", { self._scene:get_camera():get_offset() })
+
+    local offset_x, offset_y = self._scene:get_camera():get_offset()
+    offset_x = offset_x + bx
+    offset_y = offset_y + by
+    _shape_shader:send("camera_offset", { offset_x, offset_y })
     _shape_shader:send("camera_scale", self._scene:get_camera():get_final_scale())
     love.graphics.draw(self._shape_mesh:get_native())
     _shape_shader:unbind()

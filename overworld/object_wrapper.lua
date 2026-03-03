@@ -413,8 +413,8 @@ function ow.ObjectWrapper:_initialize_mesh_prototype()
         local x_radius, y_radius = self.x_radius, self.y_radius
         local points = { x, y }
         local n_outer_vertices = _calculate_n_outer_vertices(x_radius, y_radius)
-        local step = (2 * math.pi) / n_outer_vertices
-        for angle = 0, 2 * math.pi + step, step do
+        for i = 1, n_outer_vertices + 1 do
+            local angle = (i - 1) / n_outer_vertices * 2 * math.pi
             table.insert(points, x + math.cos(angle) * x_radius)
             table.insert(points, y + math.sin(angle) * y_radius)
         end
@@ -462,8 +462,8 @@ function ow.ObjectWrapper:_initialize_contour_prototype()
         local x, y = self.center_x, self.center_y
         local x_radius, y_radius = self.x_radius, self.y_radius
         local n_outer_vertices = _calculate_n_outer_vertices(x_radius, y_radius)
-        local step = (2 * math.pi) / n_outer_vertices
-        for angle = 0, 2 * math.pi + step, step do
+        for i = 1, n_outer_vertices do
+            local angle = (i - 1) / n_outer_vertices * 2 * math.pi
             table.insert(contour, x + math.cos(angle) * x_radius)
             table.insert(contour, y + math.sin(angle) * y_radius)
         end
@@ -834,7 +834,6 @@ local function _parse_single_object_group(object_group, group_offset_x, group_of
                     y + 0.5 * height,
                     0.5 * width, -- radii
                     0.5 * height,
-                -- IMPORTANT: use group-adjusted origin for correct pivot
                     x, y
                 )
 

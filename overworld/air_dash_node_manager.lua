@@ -157,7 +157,6 @@ function ow.AirDashNodeManager:update(delta)
             math.mix(0.5, 1, (1 - math.distance(px, py, bx, by) / math.distance(ax, ay, bx, by)))
         )
 
-
         player:set_velocity(
             t * target_velocity * self._tether_dx,
             t * target_velocity * self._tether_dy

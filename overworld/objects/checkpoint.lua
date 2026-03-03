@@ -80,6 +80,9 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
         _ray_fraction = math.huge,
         _ray_area = rt.AABB(),
         _ray_fade_out_start_timestamp = math.huge,
+        _ray_fraction = 0,
+        _ray_fade_out_elapsed = math.huge,
+        _ray_fade_out_fraction = 0,
 
         _explosion_visible = true,
         _explosion_elapsed = math.huge,
@@ -145,17 +148,9 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
             self._spawn_barrier:add_tag("stencil", "hitbox")
             self._spawn_barrier:set_is_enabled(false)
 
-            if self._platform ~= nil then
-                self._spawn_barrier:add_tag("segment_light_source")
-                self._spawn_barrier:set_user_data({
-                    collect_segment_lights = function(_, callback)
-                        callback(
-                            left_x, left_y + 0.5 * platform_h, right_x, right_y + 0.5 * platform_h,
-                            self._scene:get_player():get_color():unpack()
-                        )
-                    end
-                })
-            end
+            self._spawn_barrier_segment = {
+                left_x, left_y + 0.5 * platform_h, right_x, right_y + 0.5 * platform_h,
+            }
         end
 
         local max_rope_length = rt.settings.overworld.checkpoint.max_rope_length
@@ -221,33 +216,18 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
                 self._bottom_x, self._bottom_y
             )
 
-            if self._rope ~= nil then
-                self._body:add_tag("segment_light_source")
-                local instance = {
-                    collect_segment_lights = function(_, callback)
-                        if self._rope:get_is_cut() == false then
-                            callback(
-                                self._top_x, self._top_y, self._bottom_x, self._bottom_y,
-                                self._scene:get_player():get_color():unpack()
-                            )
-                        end
-                    end
-                }
-                self._body:set_user_data(instance)
-            end
-
             self._particles = ow.CheckpointParticles()
 
             self._body:signal_connect("collision_start", function(_, other)
                 if self._rope:get_is_cut() == false then
-                    self._rope:cut() -- checks player position automatically
-
-                    local n_particles = rt.settings.overworld.checkpoint.n_particles
-                    local player = self._scene:get_player()
-                    local px, py = player:get_position()
-                    local vx, vy = player:get_velocity()
-                    local hue = player:get_hue()
-                    self._particles:spawn(n_particles, px, py, hue, vx, vy)
+                    if self._rope:cut() then -- checks player position automatically
+                        local n_particles = rt.settings.overworld.checkpoint.n_particles
+                        local player = self._scene:get_player()
+                        local px, py = player:get_position()
+                        local vx, vy = player:get_velocity()
+                        local hue = player:get_hue()
+                        self._particles:spawn(n_particles, px, py, hue, vx, vy)
+                    end
                 end
 
                 if self._passed == false then
@@ -263,6 +243,9 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
                 end
             end)
         end
+
+        self._body:add_tag("point_light_source", "segment_light_source")
+        self._body:set_user_data(self)
 
         return meta.DISCONNECT_SIGNAL
     end)
@@ -597,4 +580,35 @@ end
 --- @brief
 function ow.Checkpoint:get_is_respawning()
     return self._state ~= _STATE_DEFAULT
+end
+
+--- @brief
+function ow.Checkpoint:collect_point_lights(callback)
+    if self._particles ~= nil then
+        self._particles:collect_point_lights(callback)
+    end
+
+    if self._state == _STATE_EXPLODING then
+        callback(
+            self._explosion_x,
+            self._explosion_y,
+            math.max(self._explosion_size[1], self._explosion_size[2]),
+            table.unpack(self._color)
+        )
+    end
+end
+
+--- @brief
+function ow.Checkpoint:collect_segment_lights(callback)
+    if self._rope ~= nil then
+        self._rope:collect_segment_lights(callback)
+    end
+
+    if self._spawn_barrier ~= nil then
+        local x1, y1, x2, y2 = table.unpack(self._spawn_barrier_segment)
+        callback(
+            x1, y1, x2, y2,
+            table.unpack(self._color)
+        )
+    end
 end

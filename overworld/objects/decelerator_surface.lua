@@ -11,7 +11,7 @@ rt.settings.overworld.decelerator_surface = {
 }
 
 --- @class ow.DeceleratorSurface
-ow.DeceleratorSurface = meta.class("DeceleratorSurface", ow.MovableObject)
+ow.DeceleratorSurface = meta.class("DeceleratorSurface") -- not movable: , ow.MovableObject)
 
 local padding = 20
 local _shader = rt.Shader("overworld/objects/decelerator_surface.glsl")
@@ -25,13 +25,21 @@ function ow.DeceleratorSurface:instantiate(object, stage, scene)
 
     local world = stage:get_physics_world()
     self._body = object:create_physics_body(world)
-    self._body:add_tag("stencil", "unjumpable", "unwalkable")
+    self._body:add_tag("stencil", "unjumpable", "unwalkable", "segment_light_source")
+    self._body:set_user_data(self)
     self._body:set_is_sensor(false)
 
     local contour = rt.contour.close(object:create_contour())
     local mesh = object:create_mesh()
     self._graphics_body = ow.DeceleratorSurfaceBody(scene, contour, mesh)
     self._centroid_x, self._centroid_y = object:get_centroid()
+
+    self._segment_lights = {}
+    for i = 1, #contour - 2, 2 do
+        local x1, y1 = contour[i+0], contour[i+1]
+        local x2, y2 = contour[math.wrap(i+2, #contour)], contour[math.wrap(i+3, #contour)]
+        table.insert(self._segment_lights, { x1, y1, x2, y2 })
+    end
 end
 
 --- @brief
@@ -86,11 +94,33 @@ end
 function ow.DeceleratorSurface:draw()
     if not self._stage:get_is_body_visible(self._body) then return end
 
-    self._graphics_body:set_offset(self._body:get_position())
+    local body_x, body_y = self._body:get_position()
+    self._graphics_body:set_offset(self._centroid_x - body_x, self._centroid_y - body_y)
     self._graphics_body:draw()
+
+    for i, segment in ipairs(self._segment_lights) do
+        local value = (i - 1) / #self._segment_lights
+        love.graphics.setColor(value, value, value, 1)
+        love.graphics.line(segment)
+    end
 end
 
 --- @brief
 function ow.DeceleratorSurface:get_render_priority()
     return math.huge
+end
+
+--- @brief
+function ow.DeceleratorSurface:collect_segment_lights(callback)
+    local body_x, body_y = self._body:get_position()
+    for segment in values(self._segment_lights) do
+        local x1, y1, x2, y2 = table.unpack(segment)
+        callback(
+            x1,
+            y1,
+            x2,
+            y2,
+            rt.Palette.DECELERATOR_SURFACE_BODY:unpack()
+        )
+    end
 end

@@ -49,7 +49,7 @@ function ow.DoubleJumpTether:instantiate(object, stage, scene)
     self._body:set_collides_with(rt.settings.player.bounce_collision_group)
     self._body:set_collision_group(rt.settings.player.bounce_collision_group)
 
-    self._body:add_tag("point_light_source")
+    self._body:add_tag("point_light_source", "segment_light_source")
     self._body:set_user_data(self)
 
     self._was_consumed = false
@@ -83,6 +83,7 @@ function ow.DoubleJumpTether:instantiate(object, stage, scene)
     self._tether= ow.Tether(self._scene)
     self._particle_opacity_motion = rt.SmoothedMotion1D(1, 2)
     self._particles = ow.TetherParticleEffect()
+    self._particle_emission_timestamp = math.huge
 
     self:signal_connect("removed", function()
         local ax, ay = self:get_position()
@@ -91,6 +92,7 @@ function ow.DoubleJumpTether:instantiate(object, stage, scene)
             self._tether:as_path(),
             self:get_color():unpack()
         )
+        self._particle_emission_timestamp = love.timer.getTime()
     end)
 
     self._impulse = rt.ImpulseSubscriber()
@@ -240,10 +242,32 @@ function ow.DoubleJumpTether:reset()
 end
 
 --- @brief
-function ow.DoubleJumpTether:collect_point_lights(callback)
-    local x, y = self._body:get_position()
-    local radius = self._particle:get_current_radius()
-    local r, g, b, a = self._color:unpack()
-    callback(x, y, radius, r, g, b, a)
+function ow.DoubleJumpTether:collect_segment_lights(callback)
+    local is_tethered = self._scene:get_player():get_is_double_jump_source(self)
+    local particles_active = self._particles:get_is_active()
+    if is_tethered or particles_active then
+        local path = self._tether:as_path()
+        local n_segments = math.max(1, path:get_length() / 30)
+
+        local r, g, b, a = self._color:unpack()
+
+        if particles_active then
+            local elapsed = love.timer.getTime() - self._particle_emission_timestamp
+            a = 1 - math.min(1, elapsed / rt.settings.overworld.tether_particle_effect.max_lifetime)
+        end
+
+        for i = 1, n_segments - 1 do
+            local t_now = (i - 1) / n_segments
+            local t_next = (i - 1 + 1) / n_segments
+            local x1, y1 = path:at(t_now)
+            local x2, y2 = path:at(t_next)
+            callback(x1, y1, x2, y2, r, g, b, a)
+        end
+    end
 end
 
+--- @brief
+function ow.DoubleJumpTether:collect_point_lights(callback)
+    local x, y = self._body:get_position()
+    callback(x, y, self._radius, self._color:unpack())
+end

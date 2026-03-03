@@ -193,6 +193,8 @@ function ow.CheckpointRope:cut()
             self:_update_mesh()
         end
     end
+
+    return joint_broken
 end
 
 --- @brief
@@ -542,6 +544,11 @@ function ow.CheckpointRope:_update_mesh()
                 rt.VertexFormat,
                 rt.GraphicsBufferUsage.STREAM
             )
+
+            for i = 1, #vertex_map do -- why is this necessary?
+                if vertex_map[i] <= 0 then vertex_map[i] = 1 end
+            end
+
             mesh:set_vertex_map(vertex_map)
         else
             mesh:replace_data(data)
@@ -551,11 +558,12 @@ function ow.CheckpointRope:_update_mesh()
     end
 
     if not self._is_cut then
-        self._pre_cut_mesh = generate_mesh(1, #self._bodies, self._pre_cut_mesh)
+        if self._pre_cut_mesh == nil then
+            self._pre_cut_mesh = generate_mesh(1, #self._bodies, self._pre_cut_mesh)
+        end
     else
-        local cut_index = math.max(self._cut_index, 2)
-        self._post_cut_mesh_top = generate_mesh(1, cut_index - 1, self._post_cut_mesh_top)
-        self._post_cut_mesh_bottom = generate_mesh(cut_index + 1, #self._bodies, self._post_cut_mesh_bottom)
+        self._post_cut_mesh_top = generate_mesh(1, self._cut_index - 1, self._post_cut_mesh_top)
+        self._post_cut_mesh_bottom = generate_mesh(self._cut_index + 1, #self._bodies, self._post_cut_mesh_bottom)
     end
 end
 
@@ -607,5 +615,26 @@ function ow.CheckpointRope:reset()
     self._post_cut_mesh_top = nil
     self._post_cut_mesh_bottom = nil
     self:_update_mesh()
+end
+
+--- @brief
+function ow.CheckpointRope:collect_segment_lights(callback)
+    local draw = function(first_i, last_i)
+        if self._bodies[first_i] == nil or self._bodies[last_i] == nil then return end
+        local first_x, first_y = self._bodies[first_i]:get_position()
+        local last_x, last_y = self._bodies[last_i]:get_position()
+        callback(
+            first_x, first_y,
+            last_x, last_y,
+            self._color:unpack()
+        )
+    end
+    if not self._is_cut then
+        draw(1, #self._bodies)
+    else
+        local cut_index = math.max(self._cut_index, 2)
+        draw(1, self._cut_index)
+        draw(self._cut_index, #self._bodies)
+    end
 end
 

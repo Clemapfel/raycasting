@@ -211,7 +211,7 @@ void computemain() {
 
     imageStore(light_intensity_texture,
         position,
-        10 * tonemap(point_color + segment_color)
+        tonemap(point_color + segment_color)
     );
 
     imageStore(light_direction_texture,

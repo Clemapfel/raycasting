@@ -52,7 +52,7 @@ function ow.AirDashNode:instantiate(object, stage, scene)
     self._stage = stage
 
     self._indicator_always_visible = object:get_boolean("indicator_always_visible", false)
-    if self._indicator_always_visible == nil then self._indicator_always_visible = true end
+    if self._indicator_always_visible == nil then self._indicator_always_visible = false end
 
     -- dummy collision, for camera queries
     self._body = b2.Body(
@@ -472,5 +472,7 @@ end
 --- @brief
 function ow.AirDashNode:collect_point_lights(callback)
     local x, y = self._body:get_position()
-    callback(x, y, self._radius, self._color:unpack())
+    local r, g, b, a = self._color:unpack()
+    local radius = self._radius
+    callback(x, y, radius, r, g, b, a)
 end

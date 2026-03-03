@@ -19,7 +19,7 @@ rt.settings.overworld.goal.time_dilation_duration = rt.settings.overworld.shatte
 
 --- @class ow.Goal
 --- @types Point
-ow.Goal = meta.class("Goal", ow.MovableObject)
+ow.Goal = meta.class("Goal")
 
 local _indicator_shader = rt.Shader("overworld/objects/goal_indicator.glsl")
 local _outline_shader = rt.Shader("overworld/objects/checkpoint_platform.glsl")
@@ -470,7 +470,7 @@ end
 --- @brief
 function ow.Goal:get_position()
     if self._body == nil then
-        return self._x, self._y
+        return self._bounds.x + self._bounds.width / 2, self._bounds.y + self._bounds.height / 2
     else
         return self._body:get_position()
     end

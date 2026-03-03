@@ -86,6 +86,11 @@ function ow.TetherParticleEffect:clear()
     self._batches = {}
 end
 
+--- @brief
+function ow.TetherParticleEffect:get_is_active()
+    return #self._batches > 0
+end
+
 local _position_x_offset = 0
 local _position_y_offset = 1
 local _velocity_x_offset = 2

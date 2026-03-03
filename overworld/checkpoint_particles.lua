@@ -7,13 +7,12 @@ rt.settings.overworld.checkpoint_particles = {
     min_velocity = 400,
     max_velocity = 550,
     gravity_x = 0,
-    gravity_y = 50,
+    gravity_y = 200,
     velocity_influence = 0.7,
     min_mass = 1,
     max_mass = 1, -- fraction
     hue_offset = 0.2,
     n_path_points = 20,
-    velocity_alignment = 0.8,
     position_alignment = 0.1
 }
 
@@ -39,10 +38,10 @@ function ow.CheckpointParticles:instantiate()
 end
 
 --- @brief
-function ow.CheckpointParticles:spawn(n_particles, origin_x, origin_y, hue, player_velocity_x, player_velocity_y)
+function ow.CheckpointParticles:spawn(n_particles, origin_x, origin_y, hue)
     local batch = {}
     table.insert(self._batches, batch)
-    self:_init_batch(batch, origin_x, origin_y, hue, player_velocity_x or 0, player_velocity_y or 0)
+    self:_init_batch(batch, origin_x, origin_y, hue, 0, 0)
 end
 
 --- @brief update screen bounds, use to determine when a batch should despawn
@@ -154,8 +153,8 @@ function ow.CheckpointParticles:_init_batch(batch, origin_x, origin_y, hue, play
         local particle = {
             [_position_x] = position_x,
             [_position_y] = position_y,
-            [_velocity_x] = magnitude * dx + player_vx * velocity_influence * (1 - mass),
-            [_velocity_y] = magnitude * dy + player_vy * velocity_influence * (1 - mass),
+            [_velocity_x] = magnitude * dx, --- player_vx * velocity_influence,
+            [_velocity_y] = magnitude * dy, --- player_vy * velocity_influence,
             [_color_r] = r,
             [_color_g] = g,
             [_color_b] = b,
@@ -220,15 +219,6 @@ function ow.CheckpointParticles:_update_batch(batch, delta)
         local angle = math.angle(vx, vy)
         particle[_arc_min] = angle - arc_offset
         particle[_arc_max] = angle + arc_offset
-
-        if self._target_position_x ~= nil and self._target_position_y ~= nil then
-            local dx = self._target_position_x - px
-            local dy = self._target_position_y - py
-            local attraction_force = position_alignment * delta
-
-            vx = vx + dx * attraction_force
-            vy = vy + dy * attraction_force
-        end
 
         vx = vx + mass * gravity_x * self._gravity_factor
         vy = vy + mass * gravity_y * self._gravity_factor
@@ -330,6 +320,15 @@ function ow.CheckpointParticles:_draw_batch(batch, is_bloom)
         if radius > 1 then
             love.graphics.setColor(particle[_color_r], particle[_color_g], particle[_color_b], alpha)
             love.graphics.line(particle[_polygon])
+        end
+    end
+end
+
+--- @brief
+function ow.CheckpointParticles:collect_point_lights(callback)
+    for batch in values(self._batches) do
+        for particle in values(batch.particles) do
+            callback(particle[_position_x], particle[_position_y], particle[_radius], particle[_color_r], particle[_color_g], particle[_color_b], 1)
         end
     end
 end

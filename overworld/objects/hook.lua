@@ -49,6 +49,9 @@ function ow.Hook:instantiate(object, stage, scene)
         b2.Circle(0, 0, self._radius)
     )
 
+    self._body:add_tag("point_light_source")
+    self._body:set_user_data(self)
+
     self._hue = stage.hook_current_hue_step
     self._original_hue = self._hue
     stage.hook_current_hue_step = (stage.hook_current_hue_step % _n_hue_steps) + 1
@@ -320,4 +323,14 @@ end
 --- @brief
 function ow.Hook:reset()
     self:_unhook()
+end
+
+--- @brief
+function ow.Hook:collect_point_lights(callback)
+    local x, y = self._body:get_position()
+    callback(
+        x, y,
+        self._radius,
+        self._color:unpack()
+    )
 end

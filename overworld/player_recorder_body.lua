@@ -125,16 +125,6 @@ function ow.PlayerRecorderBody:initialize(x, y, body_type, is_collidable)
 
         body:set_user_data(self)
         body:add_tag("point_light_source")
-        self.collect_point_light_sources = function(self, callback)
-            local body = ternary(self._is_bubble, self._bubble_body, self._body)
-            local x, y = body:get_position()
-            callback(
-                x, y, self._radius,
-                self:get_color():unpack()
-            )
-        end
-
-
         body:add_tag("slippery", "unjumpable", "unwalkable", "stencil", "core_stencil")
     end
 
@@ -399,4 +389,14 @@ end
 --- @brief
 function ow.PlayerRecorderBody:get_is_simulated()
     return self._is_simulated
+end
+
+--- @brief
+function ow.PlayerRecorderBody:collect_point_lights(callback)
+    local body = ternary(self._is_bubble, self._bubble_body, self._body)
+    local x, y = body:get_position()
+    callback(
+        x, y, self._radius,
+        self:get_color():unpack()
+    )
 end
