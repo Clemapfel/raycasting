@@ -110,6 +110,9 @@ function ow.BoostField:instantiate(object, stage, scene)
     self._is_visible = object:get_boolean("is_visible", false)
     if self._is_visible == nil then self._is_visible = true end
 
+    self._has_outline = object:get_boolean("has_outline", false)
+    if self._has_outline == nil then self._has_outline = true end
+
     self._player = self._scene:get_player()
 
     local factor = object:get_number("velocity", false) or 1
@@ -150,8 +153,18 @@ function ow.BoostField:instantiate(object, stage, scene)
 
     if not self._is_visible then return end
 
-    self._hue = object:get_number("hue", false)
-    if self._hue == nil then self._hue = math.angle(self._axis_x, self._axis_y) / (2 * math.pi) end
+    local hue = object:get_property("hue")
+    if hue == nil then
+        self._hue = math.angle(self._axis_x, self._axis_y) / (2 * math.pi)
+        self._use_player_hue = false
+    elseif meta.is_string(hue) and hue == "player" then
+        self._hue = 0
+        self._use_player_hue = true
+    else
+        self._hue = object:get_number("hue", true)
+        self._use_player_hue = false
+    end
+
     self._color = { rt.lcha_to_rgba(0.8, 1, self._hue, 0.8) }
 
     self._draw_offset_x, self._draw_offset_y = self._body:get_position()
@@ -231,7 +244,14 @@ function ow.BoostField:draw()
 
     local player_opacity = ternary(player:get_is_visible(), 1, 0)
 
-    love.graphics.setColor(self._color)
+    local r, g, b, a
+    if self._use_player_hue then
+        r, g, b, a = player:get_color():unpack()
+    else
+        r, g, b, a = table.unpack(self._color)
+    end
+
+    love.graphics.setColor(r, g, b, a)
     _shader:bind()
     _shader:send("player_position", { px, py })
     _shader:send("player_color", { player:get_color():unpack() })
@@ -243,26 +263,32 @@ function ow.BoostField:draw()
     love.graphics.draw(self._mesh:get_native())
     _shader:unbind()
 
-    love.graphics.setLineJoin("bevel")
-    local line_width = rt.settings.overworld.boost_field.line_width
+    if self._has_outline then
+        love.graphics.setLineJoin("bevel")
+        local line_width = rt.settings.overworld.boost_field.line_width
 
-    local offset = math.mix(1, 1.4, self._impulse:get_pulse())
+        local offset = math.mix(1, 1.4, self._impulse:get_pulse())
 
-    rt.Palette.BLACK:bind()
-    love.graphics.setLineWidth(line_width * offset + 2)
-    love.graphics.line(self._outline)
+        rt.Palette.BLACK:bind()
+        love.graphics.setLineWidth(line_width * offset + 2)
+        love.graphics.line(self._outline)
 
-    local r, g, b, a = table.unpack(self._color)
-    love.graphics.setColor(r * offset, g * offset, b * offset, a)
-    love.graphics.setLineWidth(line_width * offset)
-    love.graphics.line(self._outline)
+        love.graphics.setColor(r * offset, g * offset, b * offset, a)
+        love.graphics.setLineWidth(line_width * offset)
+        love.graphics.line(self._outline)
+    end
 
     love.graphics.pop()
 end
 
 --- @brief
 function ow.BoostField:draw_bloom()
-    if not self._is_visible or not self._stage:get_is_body_visible(self._body) then return end
+    if not self._is_visible
+        or not self._stage:get_is_body_visible(self._body)
+        or not self._has_outline
+    then
+        return
+    end
 
     love.graphics.push()
     local offset_x, offset_y = self._body:get_position()
@@ -272,7 +298,13 @@ function ow.BoostField:draw_bloom()
     local line_width = rt.settings.overworld.boost_field.line_width
     local offset = math.mix(1, 1.4, self._impulse:get_pulse())
 
-    local r, g, b, a = table.unpack(self._color)
+    local r, g, b, a
+    if self._use_player_hue then
+        r, g, b, a = self._scene:get_player():get_color():unpack()
+    else
+        r, g, b, a = table.unpack(self._color)
+    end
+
     love.graphics.setColor(r * offset, g * offset, b * offset, a)
     love.graphics.setLineWidth(line_width * offset)
     love.graphics.line(self._outline)
@@ -287,9 +319,18 @@ end
 
 --- @brief
 function ow.BoostField:collect_segment_lights(callback)
+    if self._is_visible == false or self._has_outline == false then return end
+
     local offset_x, offset_y = self._body:get_position()
     offset_x = -self._draw_offset_x + offset_x
     offset_y = -self._draw_offset_y + offset_y
+
+    local r, g, b, a
+    if self._use_player_hue then
+        r, g, b, a = self._scene:get_player():get_color():unpack()
+    else
+        r, g, b, a = table.unpack(self._color)
+    end
 
     for segment in values(self._segment_lights) do
         local x1, y1, x2, y2 = table.unpack(segment)
@@ -298,7 +339,7 @@ function ow.BoostField:collect_segment_lights(callback)
             y1 + offset_y,
             x2 + offset_x,
             y2 + offset_y,
-            table.unpack(self._color)
+            r, g, b, a
         )
     end
 end

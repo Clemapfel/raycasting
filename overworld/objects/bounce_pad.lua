@@ -516,10 +516,10 @@ function ow.BouncePad:_update_particles(delta)
                 data[i + _color_a_offset] = t / fade_out_fraction
             end
 
-            data[i + _color_r_offset], data[i + _color_g_offset], data[i + _color_b_offset] = rt.hsva_to_rgba(
-                data[i + _hue_offset],
+            data[i + _color_r_offset], data[i + _color_g_offset], data[i + _color_b_offset] = rt.lcha_to_rgba(
+                0.8,
                 math.max(0.5, data[i + _t_offset]),
-                1,
+                data[i + _hue_offset],
                 1
             )
         end

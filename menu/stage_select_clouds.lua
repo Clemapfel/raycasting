@@ -15,10 +15,6 @@ function mn.StageSelectClouds:instantiate()
     self._speedup = 1
     self._elapsed = 0
     self._opacity = 0
-
-    DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
-        if which == "k" then _shader:recompile() end
-    end)
 end
 
 --- @brief

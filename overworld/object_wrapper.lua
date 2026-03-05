@@ -583,8 +583,13 @@ function ow.ObjectWrapper:get_string(id, assert_exists)
     return out
 end
 
+--- @brief
 function ow.ObjectWrapper:get_has_property(id)
     return self.properties[id] ~= nil
+end
+
+function ow.ObjectWrapper:get_property(id)
+    return self.properties[id]
 end
 
 --- @brief

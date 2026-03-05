@@ -1180,8 +1180,6 @@ function rt.PlayerBody:draw_body()
     _outline_shader:unbind()
     love.graphics.pop()
 
-    rt.graphics.set_stencil_mode(nil)
-
     --[[
     for line in values(self._colliding_lines) do
         local cx, cy = line.contact_x, line.contact_y
@@ -1285,25 +1283,29 @@ function rt.PlayerBody:draw_bloom()
     local w, h = self._body_texture:get_size()
     local texture_scale = rt.settings.player_body.texture_scale
     self:_apply_squish()
+
     love.graphics.translate(self._position_x - 0.5 * w, self._position_y - 0.5 * w)
     love.graphics.translate(0.5 * w, 0.5 * h)
     love.graphics.scale(1 / texture_scale, 1 / texture_scale)
     love.graphics.translate(-0.5 * w, -0.5 * h)
-    _outline_shader:send("body_color", { 0, 0, 0, 0 })
 
-    local core_r, core_g, core_b, core_a = self._core_color:unpack()
-    core_a = core_a * self._opacity
-    _outline_shader:send("outline_color", { core_r, core_g, core_b, core_a })
+    love.graphics.setColor(1, 1, 1, 1)
+    local body_r, body_g, body_b, body_a = self._body_color:unpack()
+    local outline_r, outline_g, outline_b, outline_a = self._core_color:unpack()
+    _outline_shader:send("body_color", { 0, 0, 0, 0 })
+    _outline_shader:send("outline_color", { outline_r, outline_g, outline_b, 1 })
     _outline_shader:bind()
     self._body_outline_texture:draw()
     _outline_shader:unbind()
     love.graphics.pop()
 
-
     love.graphics.push()
+    love.graphics.setLineWidth(1)
+    local core_r, core_g, core_b, core_a = self._core_color:unpack()
+    love.graphics.translate(self._position_x, self._position_y)
     love.graphics.scale(self._core_outline_scale, self._core_outline_scale)
-    love.graphics.setColor(core_r, core_g, core_b, core_a)
-    love.graphics.polygon("line", self._core_vertices)
+    love.graphics.setColor(core_r, core_g, core_b, core_a * self._opacity)
+    love.graphics.line(self._core_vertices)
     love.graphics.pop()
 end
 

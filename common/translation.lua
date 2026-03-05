@@ -148,6 +148,7 @@ rt.Translation = {
         control_indicator_dialog_leave = "Leave",
         control_indicator_air_dash = "<i>(mid-air)</i> Dash",
         control_indicator_slide = "<i>(grounded)</i> slide freely",
+        control_indicator_hold_down = "<i>(mid-air)</i> Hold to Accelerate",
 
         debug_information_time_paused = "paused",
         debug_information_frames = "cycles"
@@ -402,11 +403,13 @@ rt.Translation = {
             target_time = math.huge,
         },
 
---[[
-
         {
             id = "bounce_tutorial",
             title = "TODO",
+            target_time = math.huge
+        }
+
+        --[[
 
         },
 

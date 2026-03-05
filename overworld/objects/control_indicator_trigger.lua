@@ -5,28 +5,31 @@
 ow.ControlIndicatorTrigger = meta.class("ControlIndicatorTrigger")
 
 local _types
-do
-    _types = {}
-    for type in values(meta.instances(ow.ControlIndicatorType)) do
-        table.insert("`", tostring(type), "`")
-        table.insert(", ")
-    end
-    _types[#_types] = nil -- last comma
-    _types = table.concat(_types, "")
-end
 
---- qbrief
+--- @brief
 function ow.ControlIndicatorTrigger:instantiate(object, stage, scene)
-    assert(object:get_type() ~= ow.ObjectType.POINT, "In ow.ControlIndicatorTrigger: object `", object:get_id(), "` is a point")
+    rt.assert(object:get_type() ~= ow.ObjectType.POINT, "In ow.ControlIndicatorTrigger: object `", object:get_id(), "` is a point")
 
     self._scene = scene
     self._stage = stage
+
+    if _types == nil then
+        require "overworld.overworld_scene"
+        _types = {}
+        for type in values(meta.instances(ow.ControlIndicatorType)) do
+            table.insert(_types, "`" .. tostring(type) .. "`")
+            table.insert(_types, ", ")
+        end
+        _types[#_types] = nil -- last comma
+        _types = table.concat(_types, "")
+    end
+
     self._type = string.upper(object:get_string("type", true))
+    rt.assert(meta.is_enum_value(self._type, ow.ControlIndicatorType), "In ow.ControlIndicatorTrigger: property `type` of object `", object:get_id(), "` unrecognized. Should be one of ", _types)
+
     self._should_emit_particles = object:get_boolean("should_emit_particles", false)
     if self._should_emit_particles == nil then self._should_emit_particles = false end
 
-    assert(meta.is_enum_value(self._type, ow.ControlIndicatorType), "In ow.ControlIndicatorTrigger: property `type` of object `" .. object:get_id() .. "` unrecognized. Should be one of " .. _types)
-    
     local body = object:create_physics_body(stage:get_physics_world(), b2.BodyType.STATIC)
     self._body = body
 

@@ -1,265 +1,153 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="7" nextobjectid="260">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="327">
  <editorsettings>
-  <export target="one_way_platform_tutorial.lua" format="lua"/>
+  <export target="bounce_tutorial.lua" format="lua"/>
  </editorsettings>
  <tileset firstgid="1" source="../tilesets/debug_tileset_objects.tsx"/>
  <tileset firstgid="7" source="../tilesets/debug_tileset.tsx"/>
  <imagelayer id="3" name="background" repeatx="1" repeaty="1">
   <image source="../tilesets/debug_tileset_16x16/tile.png" width="16" height="16"/>
  </imagelayer>
- <objectgroup id="5" name="aux"/>
- <objectgroup id="6" name="hitbox">
-  <object id="234" x="-1616" y="864">
-   <polygon points="32,0 848,0 848,-240 1040,-240 1040,240 32,240"/>
+ <objectgroup id="5" name="aux">
+  <object id="288" type="ControlIndicatorTrigger" x="-240" y="-1040">
+   <properties>
+    <property name="type" value="HOLD_DOWN_TO_ACCELERATE"/>
+   </properties>
+   <polygon points="0,0 0,496 720,496 720,0"/>
   </object>
-  <object id="235" name="FIrst Jump" type="SlipperyHitbox" x="-800" y="832">
-   <polygon points="16,0 -16,32 32,32 32,-208 224,-208 224,-224 16,-224"/>
+  <object id="290" type="CameraFit" x="-368" y="-1152">
+   <polygon points="0,32 960,32 960,720 0,720"/>
+  </object>
+ </objectgroup>
+ <objectgroup id="7" name="back">
+  <object id="287" type="Wall" x="-368" y="-1088">
+   <properties>
+    <property name="opacity" type="float" value="0.85"/>
+    <property name="type" value="flat"/>
+   </properties>
+   <polygon points="0,0 0,576 960,576 960,-16 0,-16"/>
+  </object>
+ </objectgroup>
+ <objectgroup id="6" name="hitbox">
+  <object id="260" name="Spawn" type="PlayerSpawn" x="-266.524" y="-41.8781">
+   <point/>
+  </object>
+  <object id="261" type="Hitbox" x="336" y="-576">
+   <polygon points="-592,0 -592,-208 -704,-208 -704,144 256,144 256,-336 128,-336 144,-320 144,0 32,0 32,32 -160,32 -160,0 -288,0 -288,32 -480,32 -480,0"/>
+  </object>
+  <object id="262" type="BouncePad" x="176" y="-560">
+   <polygon points="-304,-16 -144,-16 -144,16 -304,16"/>
+  </object>
+  <object id="263" type="BouncePad" x="352" y="-576">
+   <polygon points="-160,0 -160,32 0,32 0,0"/>
+  </object>
+  <object id="264" type="SlipperyHitbox" x="464" y="-576">
+   <polygon points="-112,-16 -48,-32 0,-32 0,-336 16,-320 16,0 -96,0 -96,32 -112,32"/>
+  </object>
+  <object id="265" type="SlipperyHitbox" x="96" y="-592">
+   <polygon points="-64,0 16,-16 96,0 96,48 80,48 80,16 -48,16 -48,48 -64,48"/>
+  </object>
+  <object id="275" type="SlipperyHitbox" x="544" y="-1040">
+   <polygon points="48,0 -784,0 -784,112 -800,112 -912,112 -912,96 -800,96 -800,-16 48,-16"/>
+  </object>
+  <object id="276" type="Hitbox" x="-368" y="-1056">
+   <polygon points="0,112 112,112 112,0 960,0 960,-192 0,-192"/>
+  </object>
+  <object id="286" type="SlipperyHitbox" x="-240" y="-576">
+   <polygon points="112,-16 48,-32 0,-32 5.68434e-14,-208 -16,-208 -16,0 96,0 96,32 112,32"/>
+  </object>
+  <object id="305" type="SlipperyHitbox" x="1536" y="-640">
+   <polygon points="0,-32 0,32 -16,48 -256,48 -256,-496 -272,-496 -272,64 0,64 0,112 -336,112 -336,-272 -304,-272 -304,-496 -320,-496 -320,-304 -352,-272 -352,112 -336,128 0,128 16,112 16,-32"/>
+  </object>
+  <object id="306" type="SlipperyHitbox" x="1584" y="-640">
+   <polygon points="-16,128 -32,144 -400,144 -416,128 -416,-272 -448,-304 -464,-304 -464,-272 -432,-272 -432,160 0,160 0,64 272,64 272,-480 256,-480 256,48 16,48 0,32 0,-32 -16,-32"/>
+  </object>
+  <object id="307" type="BoostField" x="1152" y="-912">
+   <properties>
+    <property name="axis_y" type="float" value="1"/>
+    <property name="has_outline" type="bool" value="false"/>
+    <property name="hue" value="player"/>
+    <property name="velocity" type="float" value="1"/>
+   </properties>
+   <polygon points="16,0 16,384 32,384 32,0 64,-32 -16,-32"/>
+  </object>
+  <object id="308" type="BoostField" x="1152" y="-512">
+   <properties>
+    <property name="axis_x" type="float" value="1"/>
+    <property name="has_outline" type="bool" value="false"/>
+    <property name="hue" value="player"/>
+    <property name="velocity" type="float" value="1"/>
+   </properties>
+   <polygon points="16,0 16,-16 32,-16 48,0 384,0 384,16 32,16"/>
+  </object>
+  <object id="309" type="BoostField" x="1552" y="-640">
+   <properties>
+    <property name="axis_y" type="float" value="-1"/>
+    <property name="has_outline" type="bool" value="false"/>
+    <property name="hue" value="player"/>
+    <property name="velocity" type="float" value="1"/>
+   </properties>
+   <polygon points="0,-32 0,112 -16,128 -16,144 0,144 16,128 16,-32"/>
+  </object>
+  <object id="311" type="Hitbox" x="1536" y="-576">
+   <polygon points="0,0 -272,0 -272,-560 -304,-560 -304,-336 -336,-336 -336,48 0,48"/>
+  </object>
+  <object id="312" type="Hitbox" x="1152" y="-912">
+   <polygon points="0,0 -64,0 -64,480 880,480 880,-208 704,-208 704,336 432,336 432,432 0,432"/>
+  </object>
+  <object id="316" type="BouncePad" x="1584" y="-672">
+   <polygon points="0,0 0,64 16,80 80,80"/>
+  </object>
+  <object id="317" type="BouncePad" x="1536" y="-672">
+   <polygon points="0,0 0,64 -16,80 -80,80"/>
+  </object>
+  <object id="318" x="-320" y="32">
+   <polygon points="0,0 0,32 128,32 128,0"/>
+  </object>
+  <object id="319" type="SlipperyHitbox" x="-352" y="144">
+   <polygon points="0,0 1168,0 1168,32 0,32"/>
+  </object>
+  <object id="320" x="64" y="32">
+   <polygon points="0,0 0,32 128,32 128,0"/>
+  </object>
+  <object id="321" type="OneWayPlatform" x="816" y="96">
+   <properties>
+    <property name="hue" value="player"/>
+    <property name="other" type="object" value="323"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="323" type="OneWayPlatformNode" x="-368" y="96">
+   <properties>
+    <property name="hue" value="player"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="324" type="BoostField" x="-352" y="112">
+   <properties>
+    <property name="axis_x" type="float" value="-1"/>
+    <property name="hue" value="player"/>
+   </properties>
+   <polygon points="0,0 0,32 1168,32 1168,0"/>
+  </object>
+  <object id="326" type="Wall" x="-368" y="-144">
+   <polygon points="0,0 16,320 1184,320 1184,-32 0,-32"/>
   </object>
  </objectgroup>
  <objectgroup id="2" name="front">
-  <object id="3" name="Goal" type="Goal" x="631.506" y="-239.407">
-   <point/>
-  </object>
-  <object id="5" name="Checkpoint" type="Checkpoint" x="112" y="-656">
-   <point/>
-  </object>
-  <object id="159" type="Hitbox" x="-1056" y="-384">
-   <polygon points="0,0 880,0 880,64 0,64"/>
-  </object>
-  <object id="160" name="From" type="OneWayPlatform" x="-928" y="-544">
+  <object id="271" type="OneWayPlatform" x="-240" y="-928">
    <properties>
-    <property name="hue" type="float" value="0.1"/>
-    <property name="other" type="object" value="162"/>
+    <property name="other" type="object" value="272"/>
    </properties>
    <point/>
   </object>
-  <object id="162" name="To" type="OneWayPlatformNode" x="-816" y="-544">
+  <object id="272" type="OneWayPlatformNode" x="-240" y="-784">
    <point/>
   </object>
-  <object id="163" name="Spawn" type="PlayerSpawn" x="-2128" y="128">
-   <point/>
-  </object>
-  <object id="169" name="From" type="OneWayPlatform" x="-816" y="-560">
+  <object id="279" name="Flies" type="Fireflies" x="112" y="-704">
    <properties>
-    <property name="hue" type="float" value="0.1"/>
-    <property name="other" type="object" value="170"/>
+    <property name="count" value="3"/>
    </properties>
-   <point/>
-  </object>
-  <object id="170" name="To" type="OneWayPlatformNode" x="-928" y="-560">
-   <point/>
-  </object>
-  <object id="172" type="BoostField" x="-928" y="-560">
-   <properties>
-    <property name="axis_x" type="float" value="1"/>
-    <property name="axis_y" type="float" value="0"/>
-    <property name="hue" type="float" value="0.1"/>
-    <property name="render_priority" type="float" value="-1"/>
-   </properties>
-   <polygon points="0,0 0,16 112,16 112,0"/>
-  </object>
-  <object id="173" name="From" type="OneWayPlatform" x="-928" y="-736">
-   <properties>
-    <property name="other" type="object" value="174"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="174" name="To" type="OneWayPlatformNode" x="-816" y="-736">
-   <point/>
-  </object>
-  <object id="175" name="From" type="OneWayPlatform" x="-816" y="-752">
-   <properties>
-    <property name="other" type="object" value="176"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="176" name="To" type="OneWayPlatformNode" x="-928" y="-752">
-   <point/>
-  </object>
-  <object id="177" type="BoostField" x="-928" y="-752">
-   <properties>
-    <property name="axis_x" type="float" value="1"/>
-    <property name="axis_y" type="float" value="0"/>
-    <property name="render_priority" type="float" value="-1"/>
-   </properties>
-   <polygon points="0,0 0,16 112,16 112,0"/>
-  </object>
-  <object id="184" name="From" type="OneWayPlatform" x="-928" y="-640">
-   <properties>
-    <property name="other" type="object" value="185"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="185" name="To" type="OneWayPlatformNode" x="-816" y="-640">
-   <point/>
-  </object>
-  <object id="186" name="From" type="OneWayPlatform" x="-816" y="-656">
-   <properties>
-    <property name="other" type="object" value="187"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="187" name="To" type="OneWayPlatformNode" x="-928" y="-656">
-   <point/>
-  </object>
-  <object id="188" type="BoostField" x="-928" y="-656">
-   <properties>
-    <property name="axis_x" type="float" value="-1"/>
-    <property name="axis_y" type="float" value="0"/>
-    <property name="render_priority" type="float" value="-1"/>
-   </properties>
-   <polygon points="0,0 0,16 112,16 112,0"/>
-  </object>
-  <object id="196" name="From" type="OneWayPlatform" x="-768" y="-848">
-   <properties>
-    <property name="other" type="object" value="197"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="197" name="To" type="OneWayPlatformNode" x="-368" y="-848">
-   <point/>
-  </object>
-  <object id="198" name="From" type="OneWayPlatform" x="-400" y="-864">
-   <properties>
-    <property name="other" type="object" value="199"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="199" name="To" type="OneWayPlatformNode" x="-768" y="-864">
-   <point/>
-  </object>
-  <object id="200" type="BoostField" x="-768" y="-864">
-   <properties>
-    <property name="axis_x" type="float" value="1"/>
-    <property name="axis_y" type="float" value="0"/>
-    <property name="render_priority" type="float" value="-1"/>
-   </properties>
-   <polygon points="0,0 0,16 366.067,16 366.067,0"/>
-  </object>
-  <object id="201" name="From" type="OneWayPlatform" x="-928" y="-464">
-   <properties>
-    <property name="hue" type="float" value="0.1"/>
-    <property name="other" type="object" value="202"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="202" name="To" type="OneWayPlatformNode" x="-816" y="-464">
-   <point/>
-  </object>
-  <object id="206" name="From" type="OneWayPlatform" x="-320" y="-720">
-   <properties>
-    <property name="other" type="object" value="207"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="207" name="To" type="OneWayPlatformNode" x="241.895" y="-957.143">
-   <point/>
-  </object>
-  <object id="208" name="From" type="OneWayPlatform" x="208" y="-960">
-   <properties>
-    <property name="other" type="object" value="209"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="209" name="To" type="OneWayPlatformNode" x="-320" y="-736">
-   <point/>
-  </object>
-  <object id="211" type="BoostField" x="-320" y="-736">
-   <polygon points="0,0 0,16 528,-208 528,-224"/>
-  </object>
-  <object id="212" name="From" type="OneWayPlatform" x="-96" y="-1040">
-   <properties>
-    <property name="other" type="object" value="213"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="213" name="To" type="OneWayPlatformNode" x="368" y="-1040">
-   <point/>
-  </object>
-  <object id="214" name="From" type="OneWayPlatform" x="368" y="-1056">
-   <properties>
-    <property name="other" type="object" value="215"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="215" name="To" type="OneWayPlatformNode" x="-64" y="-1056">
-   <point/>
-  </object>
-  <object id="216" type="BoostField" x="-112" y="-1056">
-   <properties>
-    <property name="axis_x" type="float" value="-1"/>
-    <property name="axis_y" type="float" value="0"/>
-    <property name="render_priority" type="float" value="-1"/>
-   </properties>
-   <polygon points="48,0 48,16 478.268,16 478.268,0"/>
-  </object>
-  <object id="217" name="From" type="OneWayPlatform" x="-192" y="-1264">
-   <properties>
-    <property name="other" type="object" value="218"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="218" name="To" type="OneWayPlatformNode" x="-192" y="-1072">
-   <point/>
-  </object>
-  <object id="219" name="From" type="OneWayPlatform" x="-176" y="-1072">
-   <properties>
-    <property name="other" type="object" value="220"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="220" name="To" type="OneWayPlatformNode" x="-176" y="-1264">
-   <point/>
-  </object>
-  <object id="223" type="BoostField" x="-112" y="-1168">
-   <properties>
-    <property name="axis_x" type="float" value="0"/>
-    <property name="axis_y" type="float" value="-1"/>
-   </properties>
-   <polygon points="-80,96 -64,96 -64,-96 -80,-96"/>
-  </object>
-  <object id="224" type="Goal" x="-192" y="-1408">
-   <point/>
-  </object>
-  <object id="226" name="From" type="OneWayPlatform" x="-464" y="-432">
-   <properties>
-    <property name="hue" type="float" value="0.1"/>
-    <property name="other" type="object" value="227"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="227" name="To" type="OneWayPlatformNode" x="-128" y="-480">
-   <point/>
-  </object>
-  <object id="228" name="From" type="OneWayPlatform" x="-128" y="-480">
-   <properties>
-    <property name="hue" type="float" value="0.1"/>
-    <property name="other" type="object" value="229"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="229" name="To" type="OneWayPlatformNode" x="-464" y="-496">
-   <point/>
-  </object>
-  <object id="243" name="path_to" type="PathNode" x="-1783.95" y="33.912">
-   <point/>
-  </object>
-  <object id="244" name="path_from" type="Path" x="-1953.08" y="184.995">
-   <properties>
-    <property name="next" type="object" value="243"/>
-    <property name="target" type="object" value="0"/>
-    <property name="velocity" type="float" value="2"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="254" name="From" type="OneWayPlatform" x="-1776" y="624">
-   <properties>
-    <property name="other" type="object" value="255"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="255" name="To" type="OneWayPlatformNode" x="-1440" y="752">
    <point/>
   </object>
  </objectgroup>

@@ -34,6 +34,8 @@ function ow.Wall:instantiate(object, stage, scene)
     self._body:set_collision_group(0x0)
     self._body:set_collides_with(0x0)
 
+    self._opacity = object:get_number("opacity") or rt.Palette.WALL.a
+
     local pattern = object:get_string("type") or ow.WallPatternType.FLAT
     self._pattern = string.upper(pattern)
     meta.assert_enum_value(self._pattern, ow.WallPatternType)
@@ -59,7 +61,8 @@ function ow.Wall:draw()
     shader:try_send("screen_to_world_transform", self._scene:get_camera():get_transform():inverse())
     shader:try_send("elapsed", rt.SceneManager:get_elapsed())
 
-    rt.Palette.WALL:bind()
+    local r, g, b =  rt.Palette.WALL:unpack()
+    love.graphics.setColor(r, g, b, self._opacity)
     self._mesh:draw()
     shader:unbind()
 
@@ -73,11 +76,4 @@ end
 
 function ow.Wall:get_render_priority()
     return -math.huge
-end
-
-function ow.Wall:draw_light_mask()
-    if not self._stage:get_is_body_visible(self._body) then return end
-
-    love.graphics.setColor(1, 1, 1, 1)
-    self._mesh:draw()
 end

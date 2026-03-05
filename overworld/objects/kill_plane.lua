@@ -32,13 +32,6 @@ local _data_mesh_format = {
 local _instance_draw_shader = rt.Shader("overworld/objects/kill_plane_instanced_draw.glsl")
 local _background_shader = rt.Shader("overworld/objects/kill_plane_background.glsl")
 
-DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
-    if which == "k" then
-        _background_shader:recompile()
-    end
-end)
-
-
 function ow.KillPlane:instantiate(object, stage, scene)
     self._scene = scene
     self._stage = stage

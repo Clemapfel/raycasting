@@ -63,10 +63,6 @@ function ow.ShatterSurface:instantiate(scene, world, x, y, width, height)
     self._flash = 0 -- white, fraction
 
     self._impulse = rt.ImpulseSubscriber()
-
-    DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
-        if which == "k" then _shader:recompile() end
-    end)
 end
 
 --- @brief
@@ -378,10 +374,6 @@ function ow.ShatterSurface:update(delta)
     
     self._time_since_shatter = self._time_since_shatter + delta
 end
-
-DEBUG_INPUT:signal_connect("pressed", function(_, which)
-    if which == "k" then _shader:recompile() end
-end)
 
 --- @brief
 function ow.ShatterSurface:draw()

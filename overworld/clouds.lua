@@ -100,26 +100,6 @@ function ow.Clouds:instantiate(
 
     self:_update_volume_texture()
     self:_update_slice_textures()
-
-    DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
-        if which == "k" then
-            for shader in range(
-                _fill_volume_texture_shader,
-                _raymarch_shader,
-                _draw_shader
-            ) do
-                shader:recompile()
-            end
-
-            self:set_offset(
-                self._noise_offset_x,
-                self._noise_offset_y,
-                self._noise_offset_z,
-                self._noise_offset_time,
-                true
-            )
-        end
-    end)
 end
 
 --- @brief

@@ -27,7 +27,7 @@ function ow.DeceleratorSurface:instantiate(object, stage, scene)
     self._body = object:create_physics_body(world)
     self._body:add_tag("stencil", "unjumpable", "unwalkable", "segment_light_source")
     self._body:set_user_data(self)
-    self._body:set_is_sensor(false)
+    self._body:set_is_sensor(true)
 
     local contour = rt.contour.close(object:create_contour())
     local mesh = object:create_mesh()

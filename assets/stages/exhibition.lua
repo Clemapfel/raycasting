@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 1022,
+  nextobjectid = 1030,
   properties = {},
   tilesets = {
     {
@@ -614,10 +614,10 @@ return {
           rotation = 0,
           visible = true,
           polygon = {
-            { x = 0, y = 0 },
-            { x = 0, y = -576 },
-            { x = 704, y = -576 },
-            { x = 704, y = 0 }
+            { x = -80, y = 0 },
+            { x = -80, y = -576 },
+            { x = 800, y = -576 },
+            { x = 800, y = 0 }
           },
           properties = {
             ["type"] = "flat"
@@ -923,8 +923,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = 816,
-          y = 320,
+          x = -179.126,
+          y = 999.239,
           width = 0,
           height = 0,
           rotation = 0,
@@ -3353,7 +3353,7 @@ return {
         {
           id = 1008,
           name = "",
-          type = "SlipperyHitbox",
+          type = "Hitbox",
           shape = "polygon",
           x = 768,
           y = 400,
@@ -3630,59 +3630,42 @@ return {
           properties = {}
         },
         {
-          id = 1012,
+          id = 1028,
           name = "",
-          type = "Path",
-          shape = "point",
-          x = 1120,
-          y = 496,
+          type = "BouncePad",
+          shape = "polygon",
+          x = 1200,
+          y = 400,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
-          properties = {
-            ["next"] = { id = 1013 },
-            ["target"] = { id = 1020 },
-            ["target_02"] = { id = 1021 }
-          }
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 240, y = 0 },
+            { x = 240, y = -16 },
+            { x = 0, y = -16 }
+          },
+          properties = {}
         },
         {
-          id = 1013,
+          id = 1029,
           name = "",
-          type = "PathNode",
-          shape = "point",
-          x = 1104,
-          y = 240,
+          type = "AcceleratorSurface",
+          shape = "polygon",
+          x = 384,
+          y = 1008,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
-          properties = {}
-        },
-        {
-          id = 1020,
-          name = "",
-          type = "AirDashNode",
-          shape = "ellipse",
-          x = 944,
-          y = 224,
-          width = 64,
-          height = 64,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 1021,
-          name = "",
-          type = "AirDashNode",
-          shape = "ellipse",
-          x = 1183.95,
-          y = 244.749,
-          width = 64,
-          height = 64,
-          rotation = 0,
-          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 368, y = -32 },
+            { x = 368, y = 64 },
+            { x = -480, y = 64 },
+            { x = -480, y = 0 }
+          },
           properties = {}
         }
       }

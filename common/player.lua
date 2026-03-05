@@ -17,7 +17,7 @@ do
         inner_body_radius = 10 / 2 - 0.5,
         n_outer_bodies = 27,
         max_spring_length = radius * 3,
-        outer_body_spring_strength = 1,
+        outer_body_spring_strength = 2,
 
         bottom_wall_ray_length_factor = 1.25,
         side_wall_ray_length_factor = 1.15,
@@ -63,7 +63,13 @@ do
         accelerator_max_velocity_factor = 3.5 / 2,
         accelerator_magnet_force = 2000, -- per second
 
-        allow_instant_turn_around = true,
+        allow_instant_turn_around_in_air = false,
+        air_instant_turn_around_decay = 0.9,
+        air_instant_turn_around_magnitude = 140,
+
+        allow_instant_turn_around_on_ground = false,
+        ground_instant_turn_around_decay = 0.86,
+        ground_instant_turn_around_magnitude = 300,
 
         coyote_time = 8 / 60, -- seconds after leaving ground
         wall_jump_coyote_time = 5 / 120, -- seconds after letting go of direction against wall
@@ -191,9 +197,6 @@ function rt.Player:instantiate()
         _is_grounded = false,
         _is_ducking = false,
 
-        _queue_turn_around = false,
-        _queue_turn_around_direction = rt.Direction.NONE,
-
         _jump_buffer_elapsed = math.huge,
         _left_wall_jump_buffer_elapsed = math.huge,
         _right_wall_jump_buffer_elapsed = math.huge,
@@ -213,6 +216,7 @@ function rt.Player:instantiate()
         _double_jump_sources = {}, -- cf. add_double_jump_source
         _bounce_sources = {}, -- cf. bounce
         _flow_sources = {}, -- cf. add_flow_source
+        _instant_turn_around_sources = {},
 
         _last_velocity_x = 0,
         _last_velocity_y = 0,
@@ -220,6 +224,7 @@ function rt.Player:instantiate()
         _last_bubble_force_y = 0,
         _last_position_x = 0,
         _last_position_y = 0,
+        _velocity_easing = 1,
 
         _position_override_x = nil, -- Number
         _position_override_y = nil, -- Number
@@ -356,11 +361,6 @@ end
 --- @brief
 function rt.Player:_connect_input()
     self._input:signal_connect("pressed", function(_, which, count)
-        local queue_turnaround = function(direction)
-            self._queue_turn_around = true
-            self._queue_turn_around_direction = direction
-        end
-
         if which == rt.InputAction.JUMP then
             self._jump_button_is_down = true
             self._jump_button_is_down_elapsed = 0
@@ -383,28 +383,28 @@ function rt.Player:_connect_input()
 
             -- on double press, instant turnaround
             if count == 2 then
-                queue_turnaround(rt.Direction.LEFT)
+                self:_queue_instant_turn_around(rt.Direction.LEFT)
             end
         elseif which == rt.InputAction.RIGHT then
             self._right_button_is_down = true
             self._right_button_is_down_elapsed = 0
 
             if count == 2 then
-                queue_turnaround(rt.Direction.RIGHT)
+                self:_queue_instant_turn_around(rt.Direction.RIGHT)
             end
         elseif which == rt.InputAction.DOWN then
             self._down_button_is_down = true
             self._down_button_is_down_elapsed = 0
 
             if count == 2 then
-                queue_turnaround(rt.Direction.DOWN)
+                self:_queue_instant_turn_around(rt.Direction.DOWN)
             end
         elseif which == rt.InputAction.UP then
             self._up_button_is_down = true
             self._up_button_is_down_elapsed = 0
 
             if count == 2 then
-                queue_turnaround(rt.Direction.UP)
+                self:_queue_instant_turn_around(rt.Direction.UP)
             end
         end
     end)
@@ -440,15 +440,19 @@ function rt.Player:_connect_input()
 
         -- detect double tap gesture on joystick
         if count == 2 then
-            self._queue_turn_around = true
+            local direction
             if which == rt.InputAction.LEFT then
-                self._queue_turn_around_direction = rt.Direction.LEFT
+                direction = rt.Direction.LEFT
             elseif which == rt.InputAction.RIGHT then
-                self._queue_turn_around_direction = rt.Direction.RIGHT
+                direction = rt.Direction.RIGHT
             elseif which == rt.InputAction.DOWN then
-                self._queue_turn_around_direction = rt.Direction.DOWN
+                direction = rt.Direction.DOWN
             elseif which == rt.InputAction.UP then
-                self._queue_turn_around_direction = rt.Direction.UP
+                direction = rt.Direction.UP
+            end
+
+            if direction ~= nil then
+                self:_queue_instant_turn_around(direction)
             end
         end
     end)
@@ -1072,6 +1076,8 @@ function rt.Player:update(delta)
 
             velocity_easing = 1 + easing(alpha)
         end
+
+        self._velocity_easing = velocity_easing
 
         -- on input, accelerates towards new target velocity / direction
         if input_magnitude ~= 0 then
@@ -1715,9 +1721,11 @@ function rt.Player:update(delta)
             end
         end
 
+        local turn_around_impulse_x, turn_around_impulse_y = self:_update_instant_turn_around(delta)
+
         next_velocity_x, next_velocity_y = self:apply_damping(next_velocity_x, next_velocity_y)
-        next_velocity_x = self._platform_velocity_x + next_velocity_x
-        next_velocity_y = self._platform_velocity_y + next_velocity_y
+        next_velocity_x = self._platform_velocity_x + next_velocity_x + turn_around_impulse_x
+        next_velocity_y = self._platform_velocity_y + next_velocity_y + turn_around_impulse_y
 
         local net_force_x, net_force_y = self:get_requested_forces()
         self._body:set_velocity(
@@ -1777,26 +1785,6 @@ function rt.Player:update(delta)
                 bounce_dx * mass_multiplier,
                 bounce_dy * mass_multiplier
             )
-        end
-
-        if settings.allow_instant_turn_around and self._queue_turn_around == true then
-            local direction = self._queue_turn_around_direction
-
-            local impulse_x, impulse_y = 0, 0
-            local vx, vy = self._bubble_body:get_velocity()
-
-            if vx < 0 and direction == rt.Direction.RIGHT then
-                vx = -vx
-            elseif vx > 0 and direction == rt.Direction.LEFT then
-                vx = -vx
-            elseif vy < 0 and direction == rt.Direction.DOWN then
-                vy = -vy
-            elseif vy > 0 and direction == rt.Direction.UP then
-                vy = -vy
-            end
-
-            self:get_physics_body():set_velocity(vx, vy)
-            self._queue_turn_around = false
         end
 
         self._bubble_body:apply_force(
@@ -2805,6 +2793,7 @@ function rt.Player:reset()
     _clear(self._double_jump_sources)
     _clear(self._bounce_sources)
     _clear(self._flow_sources)
+    _clear(self._instant_turn_around_sources)
 
     for which in range(
         self._is_visible_requests,
@@ -3505,4 +3494,78 @@ function rt.Player:collect_point_lights(callback)
             callback(px, py, scale, r, g, b, a)
         end
     end
+end
+
+--- @brief
+function rt.Player:_queue_instant_turn_around(direction)
+    if self:get_is_bubble() or self._body == nil then return end
+
+    local is_grounded = self:get_is_grounded()
+    if (is_grounded and not settings.allow_instant_turn_around_on_ground)
+        or (not is_grounded and not settings.allow_instant_turn_around_in_air)
+    then
+        return
+    end
+
+    local should_add = false
+    local dx, dy = 0, 0
+
+    local magnitude
+    if self:get_is_grounded() then
+        magnitude = settings.ground_instant_turn_around_magnitude
+    else
+        magnitude = settings.air_instant_turn_around_magnitude
+    end
+
+    local vx, vy = self._body:get_velocity()
+    if direction == rt.Direction.LEFT then
+        if math.sign(vx) == 1 then
+            should_add = true
+            dx = -1 * math.min(magnitude, math.abs(vx))
+        end
+    elseif direction == rt.Direction.RIGHT then
+        if math.sign(vx) == -1 then
+            should_add = true
+            dx = 1 * math.min(magnitude, math.abs(vx))
+        end
+    end
+
+    if should_add then
+        table.insert(self._instant_turn_around_sources, {
+            direction_x = dx,
+            direction_y = dy
+        })
+    end
+end
+
+--- @brief
+function rt.Player:_update_instant_turn_around(delta)
+    delta = delta * self:get_time_dilation()
+
+    local decay
+    if self:get_is_grounded() then
+        decay = settings.ground_instant_turn_around_decay
+    else
+        decay = settings.air_instant_turn_around_decay
+    end
+
+    local impulse_x, impulse_y = 0, 0
+    local to_remove = {}
+    for i, source in ipairs(self._instant_turn_around_sources) do
+        impulse_x = impulse_x + source.direction_x
+        impulse_y = impulse_y + source.direction_y
+
+        source.direction_x = source.direction_x * decay
+        source.direction_y = source.direction_y * decay
+
+        if math.magnitude(source.direction_x * delta, source.direction_x * delta) < 1 then
+            table.insert(to_remove, i)
+        end
+    end
+
+    for i in values(to_remove) do
+        table.remove(self._instant_turn_around_sources, i)
+    end
+
+    return impulse_x, impulse_y
 end

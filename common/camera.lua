@@ -114,38 +114,28 @@ end
 function rt.Camera:constrain(x, y)
     if self._apply_bounds ~= true then return x, y end
 
-    local screen_w, screen_h = love.graphics.getDimensions()
-
-    local half_w = screen_w / self._current_scale / 2
-    local half_h = screen_h / self._current_scale / 2
-
-    local best_x, best_y = x, y
-    local best_distance = math.huge
+    local half_width = love.graphics.getWidth() / self._current_scale / 2
+    local half_height = love.graphics.getHeight() / self._current_scale / 2
 
     for bounds in keys(self._bounds) do
-        local min_x = bounds.x + half_w
-        local max_x = bounds.x + bounds.width - half_w
-        local min_y = bounds.y + half_h
-        local max_y = bounds.y + bounds.height - half_h
-
-        min_x, max_x = math.ceil(min_x), math.floor(max_x)
-        min_y, max_y = math.ceil(min_y), math.floor(max_y)
-
-        local constrained_x = math.max(min_x, math.min(max_x, x))
-        local constrained_y = math.max(min_y, math.min(max_y, y))
-
-        local dx = constrained_x - x
-        local dy = constrained_y - y
-        local distance = dx * dx + dy * dy
-
-        if distance < best_distance then
-            best_distance = distance
-            best_x = constrained_x
-            best_y = constrained_y
-        end
+        x = math.max(x, bounds.x + half_width)
     end
 
-    return best_x, best_y
+    -- right bounds higher priority than left
+    for bounds in keys(self._bounds) do
+        x = math.min(x, bounds.x + bounds.width - half_width)
+    end
+
+    for bounds in keys(self._bounds) do
+        y = math.max(y, bounds.y + half_height)
+    end
+
+    -- lower bounds higher priority than top
+    for bounds in keys(self._bounds) do
+        y = math.min(y, bounds.y + bounds.height - half_height)
+    end
+
+    return x, y
 end
 
 local _distance_easing = function(x, delta, speed)

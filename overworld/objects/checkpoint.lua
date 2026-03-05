@@ -41,12 +41,6 @@ end
 local _ray_shader = rt.Shader("overworld/objects/checkpoint_ray.glsl")
 local _explosion_shader = rt.Shader("overworld/objects/checkpoint_explosion.glsl")
 
-DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
-    if which == "k" then
-        _ray_shader:recompile()
-    end
-end)
-
 local _STATE_DEFAULT = "DEFAULT"
 local _STATE_RAY = "RAY"
 local _STATE_EXPLODING = "EXPLODING"

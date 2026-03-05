@@ -63,6 +63,7 @@ ow.ControlIndicatorType = meta.enum("ControlIndicatorType", {
     MOTION_BUBBLE = "MOTION_BUBBLE",
     INTERACT = "INTERACT",
     SLIDE = "SLIDE",
+    HOLD_DOWN_TO_ACCELERATE = "HOLD_DOWN_TO_ACCELERATE",
     DIALOG_CAN_ADVANCE_CAN_EXIT = "DIALOG_CAN_ADVANCE_CAN_EXIT",
     DIALOG_CAN_ADVANCE_CANNOT_EXIT = "DIALOG_CAN_ADVANCE_CANNOT_EXIT",
     DIALOG_CANNOT_ADVANCE_CAN_EXIT = "DIALOG_CANNOT_ADVANCE_CAN_EXIT",
@@ -213,6 +214,11 @@ function ow.OverworldScene:instantiate(state)
 
         [ow.ControlIndicatorType.SLIDE] = create_indicator(
             rt.ControlIndicatorButton.DOWN, translation.control_indicator_slide
+        ),
+
+        [ow.ControlIndicatorType.HOLD_DOWN_TO_ACCELERATE] = create_indicator(
+            rt.ControlIndicatorButton.LEFT_RIGHT, translation.control_indicator_move,
+            rt.ControlIndicatorButton.DOWN, translation.control_indicator_hold_down
         ),
 
         [ow.ControlIndicatorType.NONE] = nil,
@@ -1231,7 +1237,8 @@ function ow.OverworldScene:_update_camera(delta)
             if self._camera_override_active then
                 love.mouse.setX(0.5 * love.graphics.getWidth())
                 love.mouse.setY(0.5 * love.graphics.getHeight())
-                camera:move_to(self._player:get_position())
+                local bounds = camera:get_world_bounds()
+                camera:move_to(bounds.x + 0.5 * bounds.width, bounds.y + 0.5 * bounds.height)
             end
         else
             rt.SceneManager:set_is_cursor_visible(false)

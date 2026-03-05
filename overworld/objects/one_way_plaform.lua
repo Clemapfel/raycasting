@@ -279,13 +279,20 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
         self._direction_mesh:set_vertex_map(indices)
     end
 
-    self._hue = object:get_number("hue", false)
-    if self._hue == nil then
+    local hue = object:get_property("hue")
+    if hue == nil then
         if stage.one_way_platform_current_hue_step == nil then
             stage.one_way_platform_current_hue_step = 0
         end
         self._hue = math.fract(stage.one_way_platform_current_hue_step % _n_hue_steps / _n_hue_steps)
         stage.one_way_platform_current_hue_step = stage.one_way_platform_current_hue_step + 1
+        self._use_player_hue = false
+    elseif meta.is_string(hue) and hue == "player" then
+        self._hue = 0
+        self._use_player_hue = true
+    else
+        self._hue = object:get_number("hue", true)
+        self._use_player_hue = false
     end
 
     self._color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, self._hue, 1))
@@ -427,7 +434,12 @@ function ow.OneWayPlatform:draw()
 
     line_width = base_line_width
     love.graphics.setLineWidth(line_width)
-    self._color:bind()
+
+    if self._use_player_hue then
+        self._scene:get_player():get_color():bind()
+    else
+        self._color:bind()
+    end
 
     _shader:bind()
     self._direction_mesh:draw()
@@ -462,7 +474,12 @@ function ow.OneWayPlatform:draw_bloom()
     love.graphics.push()
     love.graphics.translate(offset_x, offset_y)
 
-    self._color:bind()
+    if self._use_player_hue then
+        self._scene:get_player():get_color():bind()
+    else
+        self._color:bind()
+    end
+
     _shader:bind()
     self._direction_mesh:draw()
     _shader:unbind()
@@ -475,12 +492,19 @@ function ow.OneWayPlatform:collect_segment_lights(callback)
     local vertices = self._line_draw_vertices
     local offset_x, offset_y = self._body:get_position()
 
+    local r, g, b, a
+    if self._use_player_hue then
+        r, g, b, a = self._scene:get_player():get_color():unpack()
+    else
+        r, g, b, a = self._color:unpack()
+    end
+
     callback(
         vertices[1] + offset_x,
         vertices[2] + offset_y,
         vertices[3] + offset_x,
         vertices[4] + offset_y,
-        self._color:unpack()
+        r, g, b, a
     )
 end
 

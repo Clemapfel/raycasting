@@ -60,14 +60,6 @@ local _particle_texture_shader = rt.Shader("overworld/decelerator_surface_body_p
 local _threshold_shader = rt.Shader("overworld/decelerator_surface_body_threshold.glsl")
 local _instance_draw_shader = rt.Shader("overworld/decelerator_surface_body_instanced_draw.glsl")
 
-DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
-    if which == "k" then
-        for s in range(_particle_texture_shader, _threshold_shader, _instance_draw_shader) do
-            s:recompile()
-        end
-    end
-end)
-
 --- @brief
 function ow.DeceleratorSurfaceBody:instantiate(scene, contour, mesh)
     self._scene = scene

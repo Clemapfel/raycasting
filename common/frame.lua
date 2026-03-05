@@ -28,13 +28,6 @@ rt.Frame = meta.class("Frame", rt.Widget)
 local _fill_shader = rt.Shader("common/frame.glsl", { MODE = 0 })
 local _outline_shader = rt.Shader("common/frame.glsl", { MODE = 1 })
 
-DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
-    if which == "k" then
-        _fill_shader:recompile()
-        _outline_shader:recompile()
-    end
-end)
-
 --- @brief
 function rt.Frame:instantiate()
     meta.install(self, {
