@@ -7,6 +7,7 @@ rt.settings.overworld.light_map = {
     tile_size = 64 + 32,
     work_group_size = 32,
     light_range = 30, -- px
+    light_z_height = 64, -- px, smaller values = more dramatic normal falloff
     intensity = 0.5,
     intensity_texture_format = rt.TextureFormat.RGBA8,
     direction_texture_format = rt.TextureFormat.RG16F
@@ -323,6 +324,7 @@ function ow.LightMap:update(stage)
     shader:send("light_intensity_texture", self._light_intensity_texture)
     shader:send("light_direction_texture", self._light_direction_texture)
     shader:send("intensity", settings.intensity)
+    shader:send("light_z_height", settings.light_z_height)
     shader:dispatch(self._dispatch_x, self._dispatch_y)
 end
 
