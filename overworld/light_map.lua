@@ -3,11 +3,12 @@ require "common.matrix"
 rt.settings.overworld.light_map = {
     max_n_point_lights = 128,
     max_n_segment_lights = 64,
-    max_n_element_per_tile = 32 + 16,
+    max_n_element_per_tile = 64,
+    tile_size = 64 + 32,
     work_group_size = 32,
     light_range = 30, -- px
     intensity = 0.5,
-    intensity_texture_format = rt.TextureFormat.RGB10A2,
+    intensity_texture_format = rt.TextureFormat.RGBA8,
     direction_texture_format = rt.TextureFormat.RG16F
 }
 
@@ -18,7 +19,7 @@ ow.LightMap = meta.class("LightMap")
 function ow.LightMap:instantiate(width, height)
     local settings = rt.settings.overworld.light_map
 
-    self._tile_size = 64 + 32
+    self._tile_size = math.max(width, height) --settings.tile_size
 
     self._light_intensity_texture = rt.RenderTexture(
         width, height,
@@ -310,6 +311,11 @@ function ow.LightMap:update(stage)
 
     self._tile_data_buffer:replace_data(tile_data)
 
+
+    self._light_direction_texture:bind()
+    love.graphics.clear(0, 0, 0, 0)
+    self._light_direction_texture:unbind()
+
     local shader = self._shader
     shader:send("point_light_source_buffer", self._point_light_buffer)
     shader:send("segment_light_sources_buffer", self._segment_light_buffer)
@@ -320,7 +326,6 @@ function ow.LightMap:update(stage)
     shader:dispatch(self._dispatch_x, self._dispatch_y)
 end
 
---[[
 --- @brief
 function ow.LightMap:draw()
     for i = 1, self._current_n_point_lights do
@@ -339,8 +344,12 @@ function ow.LightMap:draw()
         )
     end
 
+    --love.graphics.clear(0, 0, 0, 0)
+
     love.graphics.push()
     love.graphics.origin()
+    --self._light_intensity_texture:draw()
+    --self._light_direction_texture:draw()
     local width, height = self._light_intensity_texture:get_size()
     local tile_size = self._tile_size
     local n_rows = math.ceil(width / tile_size)
@@ -354,7 +363,6 @@ function ow.LightMap:draw()
     end
     love.graphics.pop()
 end
-]]--
 
 --- @brief
 function ow.LightMap:get_light_intensity()

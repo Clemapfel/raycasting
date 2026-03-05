@@ -18,6 +18,14 @@
 #error "LIGHT_DIRECTION_TEXTURE_FORMAT undefined"
 #endif
 
+#ifndef LIGHT_RANGE
+#error "LIGHT_RANGE undefined"
+#endif
+
+#ifndef TILE_SIZE
+#error "TILE_SIZE undefined"
+#endif
+
 #ifndef MAX_N_POINT_LIGHTS
 #error "MAX_N_POINT_LIGHTS undefined"
 #endif
@@ -26,17 +34,13 @@
 #error "MAX_N_SEGMENT_LIGHTS undefined"
 #endif
 
-#ifndef LIGHT_RANGE
-#error "LIGHT_RANGE undefined"
-#endif
-
 // Precompute inverse light range to avoid repeated divisions or inversesqrt on a constant
 const float INV_LIGHT_RANGE = 1.0 / float(LIGHT_RANGE);
 
 struct PointLight {
     vec2 position; // in screen space
-    float radius;
-    vec4 color;
+    float radius;  // disk-light radius in pixels
+    vec4 color;    // rgba, rgb in linear, a as intensity multiplier
 };
 
 layout(std430) readonly buffer point_light_source_buffer {
@@ -46,8 +50,8 @@ layout(std430) readonly buffer point_light_source_buffer {
 // segment lights
 
 struct SegmentLight {
-    vec4 segment; // in screen space
-    vec4 color;
+    vec4 segment; // (x1, y1, x2, y2) in screen space
+    vec4 color;   // rgba, rgb in linear, a as intensity multiplier
 };
 
 layout(std430) readonly buffer segment_light_sources_buffer {
@@ -66,24 +70,35 @@ float gaussian(float x) {
 }
 
 vec2 closest_point_on_segment(vec2 xy, vec4 segment) {
-    vec2 ab = segment.zw - segment.xy;
+    vec2 a = segment.xy;
+    vec2 b = segment.zw;
+    vec2 ab = b - a;
     float ab_len2 = dot(ab, ab);
 
-    if (ab_len2 == 0.0)
-        return segment.xy;
+    if (ab_len2 <= 0.0)
+    return a;
 
-    vec2 ap = xy - segment.xy;
+    vec2 ap = xy - a;
 
-    float inv_ab_len2 = inversesqrt(ab_len2 * ab_len2);
-    float t = clamp(dot(ap, ab) * inv_ab_len2, 0.0, 1.0);
-    return segment.xy + t * ab;
+    // Correct projection parameter t = dot(ap,ab) / dot(ab,ab)
+    float t = clamp(dot(ap, ab) / ab_len2, 0.0, 1.0);
+    return a + t * ab;
 }
 
 const float eps = 1e-7;
 
-vec2 closest_point_on_circle(vec2 xy, vec2 circle_xy, float radius) {
+// Return the closest point on a disk (area light). If inside the disk, returns xy itself.
+vec2 closest_point_on_disk(vec2 xy, vec2 circle_xy, float radius) {
     vec2 diff = xy - circle_xy;
     float len2 = dot(diff, diff);
+    float r2 = radius * radius;
+
+    if (len2 <= r2) {
+        // Inside disk: closest point is the point itself (zero lateral direction => vertical light)
+        return xy;
+    }
+
+    // Outside disk: closest point is on the circle boundary toward xy
     float inv_len = inversesqrt(max(len2, eps));
     return circle_xy + diff * (radius * inv_len);
 }
@@ -99,6 +114,12 @@ vec4 compute_light(vec4 light_color, float dist_sq) {
 
 const vec3 luma_coefficients = vec3(0.299, 0.587, 0.114);
 
+// Scales the lateral (XY) "slope" of light direction. Interpreted as the effective Z height (in pixels)
+// of the light plane above the surface for the purpose of normal mapping direction.
+// Larger -> directions are more vertical; smaller -> tilt more with distance.
+// Tune this from the CPU side if needed.
+uniform float light_direction_height_pixels = 256.0;
+
 uniform float intensity = 1;
 vec4 tonemap(vec4 color) {
     vec3 hdr = color.rgb * intensity;
@@ -108,20 +129,8 @@ vec4 tonemap(vec4 color) {
 
 layout(std430) readonly buffer tile_data_buffer {
     int tile_data_inline[];
-    // n_point_lights, MAX_N_POINT_LIGHTS integers, n_segment_lights, MAX_N_SEGMENT_LIGHTS integers
+// n_point_lights, MAX_N_POINT_LIGHTS integers, n_segment_lights, MAX_N_SEGMENT_LIGHTS integers
 };
-
-#ifndef TILE_SIZE
-#error "TILE_SIZE undefined"
-#endif
-
-#ifndef MAX_N_POINT_LIGHTS
-#error "MAX_N_POINT_LIGHTS undefined"
-#endif
-
-#ifndef MAX_N_SEGMENT_LIGHTS
-#error "MAX_N_SEGMENT_LIGHTS undefined"
-#endif
 
 const int TILE_DATA_STRIDE = 2 + MAX_N_POINT_LIGHTS + MAX_N_SEGMENT_LIGHTS;
 
@@ -163,59 +172,72 @@ void computemain() {
     int n_point_lights = get_n_point_lights(tile_offset);
     int n_segment_lights = get_n_segment_lights(tile_offset);
 
+    // Accumulate intensities (as before)
     vec4 point_color = vec4(0.0);
-    vec2 point_directional = vec2(0.0);
+    vec4 segment_color = vec4(0.0);
 
+    // Accumulate luminance-weighted XY slope vectors across ALL lights
+    vec2 sum_xy_slope = vec2(0.0);
+    float sum_weight = 0.0;
+
+    // Helper to convert a lateral vector to slope space
+    float inv_height = (light_direction_height_pixels > 0.0) ? (1.0 / light_direction_height_pixels) : 0.0;
+
+    // Point lights
     for (int i = 0; i < n_point_lights; ++i) {
         int point_light_index = get_point_light_index(tile_offset, i);
         PointLight light = point_light_sources[point_light_index];
 
-        vec2 to_light = light.position - vec2(position);
-        float dist_sq = dot(to_light, to_light);
-
-        vec2 closest = closest_point_on_circle(
-            vec2(position),
-            light.position,
-            light.radius
-        );
+        vec2 to_center = light.position - vec2(position);
+        float dist_sq = dot(to_center, to_center);
 
         vec4 light_contrib = compute_light(light.color, dist_sq);
         point_color += light_contrib;
 
-        vec2 to_edge = closest - vec2(position);
-        vec2 light_dir_2d = to_edge * inversesqrt(max(dot(to_edge, to_edge), eps));
+        // Direction: closest point on disk (area light)
+        vec2 closest = closest_point_on_disk(vec2(position), light.position, light.radius);
+        vec2 to_emitter = closest - vec2(position); // zero if inside disk
 
         float luminance = dot(light_contrib.rgb, luma_coefficients);
-        point_directional += luminance * max(vec2(0.0), light_dir_2d);
+
+        // Accumulate luminance-weighted slope; do NOT clamp components
+        sum_xy_slope += luminance * (to_emitter * inv_height);
+        sum_weight += luminance;
     }
 
-    vec4 segment_color = vec4(0.0);
-    vec2 segment_directional = vec2(0.0);
-
+    // Segment lights
     for (int i = 0; i < n_segment_lights; ++i) {
         int segment_light_index = get_segment_light_index(tile_offset, i);
         SegmentLight light = segment_light_sources[segment_light_index];
 
         vec2 closest_point = closest_point_on_segment(vec2(position), light.segment);
-        vec2 to_light = closest_point - vec2(position);
-        float dist_sq = dot(to_light, to_light);
+        vec2 to_emitter = closest_point - vec2(position);
+        float dist_sq = dot(to_emitter, to_emitter);
 
         vec4 light_contrib = compute_light(light.color, dist_sq);
         segment_color += light_contrib;
 
-        vec2 light_dir_2d = to_light * inversesqrt(max(dist_sq, eps));
-
         float luminance = dot(light_contrib.rgb, luma_coefficients);
-        segment_directional += luminance * max(vec2(0.0), light_dir_2d);
+
+        // Luminance-weighted slope from segment
+        sum_xy_slope += luminance * (to_emitter * inv_height);
+        sum_weight += luminance;
     }
 
+    // Store tonemapped intensity sum as before
     imageStore(light_intensity_texture,
-        position,
-        tonemap(point_color + segment_color)
+    position,
+    tonemap(point_color + segment_color)
     );
 
+    // Final direction: luminance-weighted average slope across all contributing lights
+    vec2 avg_xy_slope = (sum_weight > 0.0) ? (sum_xy_slope / sum_weight) : vec2(0.0);
+
+    // Optionally clamp extreme slopes to avoid overly horizontal directions (numerical safety)
+    avg_xy_slope = clamp(avg_xy_slope, vec2(-8.0), vec2(8.0));
+
     imageStore(light_direction_texture,
-        position,
-        vec4(mix(point_directional, segment_directional, 0.5), 1.0, 1.0)
+    position,
+    vec4(avg_xy_slope, 1.0, 1.0)
     );
 }

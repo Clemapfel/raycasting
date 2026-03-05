@@ -482,9 +482,7 @@ function ow.NormalMap:draw_light(
     _draw_light_shader:bind()
 
     love.graphics.setBlendMode("add", "premultiplied")
-    local r, g, b, a = love.graphics.getColor() -- premultiply alpha
-    local value = math.max(r, g, b)
-    love.graphics.setColor(value * a, value * a, value * a, a)
+    love.graphics.setColor(1, 1, 1, 1)
 
     for chunk_x = min_chunk_x, max_chunk_x do
         local column = self._chunks[chunk_x]
