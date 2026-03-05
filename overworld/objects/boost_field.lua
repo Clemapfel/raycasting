@@ -256,7 +256,11 @@ function ow.BoostField:draw()
     _shader:send("player_position", { px, py })
     _shader:send("player_color", { player:get_color():unpack() })
     _shader:send("screen_to_world_transform", transform)
-    _shader:send("player_influence", self._player_influence_motion:get_value() * math.mix(1, 1.4, self._impulse:get_beat()))
+
+    local player_influence = self._player_influence_motion:get_value() * math.mix(1, 1.4, self._impulse:get_beat())
+    if not self._is_active then player_influence = 0 end
+
+    _shader:send("player_influence", player_influence)
     _shader:send("axis", { self._axis_x, self._axis_y })
     _shader:send("brightness_offset", math.mix(1, rt.settings.impulse_manager.max_brightness_factor, self._impulse:get_pulse()))
     _shader:send("elapsed", rt.SceneManager:get_elapsed() * math.mix(0, rt.settings.overworld.boost_field.max_velocity_influence, self._velocity_factor))
