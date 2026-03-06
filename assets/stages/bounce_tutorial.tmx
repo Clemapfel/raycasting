@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="327">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="336">
  <editorsettings>
   <export target="bounce_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -19,7 +19,7 @@
    <polygon points="0,32 960,32 960,720 0,720"/>
   </object>
  </objectgroup>
- <objectgroup id="7" name="back">
+ <objectgroup id="7" name="back" visible="0">
   <object id="287" type="Wall" x="-368" y="-1088">
    <properties>
     <property name="opacity" type="float" value="0.85"/>
@@ -27,9 +27,12 @@
    </properties>
    <polygon points="0,0 0,576 960,576 960,-16 0,-16"/>
   </object>
+  <object id="326" type="Wall" x="-368" y="-144">
+   <polygon points="-112,320 1184,320 1184,-48 -112,-48"/>
+  </object>
  </objectgroup>
  <objectgroup id="6" name="hitbox">
-  <object id="260" name="Spawn" type="PlayerSpawn" x="-266.524" y="-41.8781">
+  <object id="260" name="Spawn" type="PlayerSpawn" x="-527.025" y="140.76">
    <point/>
   </object>
   <object id="261" type="Hitbox" x="336" y="-576">
@@ -101,11 +104,15 @@
   <object id="317" type="BouncePad" x="1536" y="-672">
    <polygon points="0,0 0,64 -16,80 -80,80"/>
   </object>
-  <object id="318" x="-320" y="32">
-   <polygon points="0,0 0,32 128,32 128,0"/>
+  <object id="318" x="-96" y="32">
+   <polygon points="-208,32 128,32 128,0 -208,0"/>
   </object>
   <object id="319" type="SlipperyHitbox" x="-352" y="144">
-   <polygon points="0,0 1168,0 1168,32 0,32"/>
+   <properties>
+    <property name="unjumpable" type="bool" value="true"/>
+    <property name="unwalkable" type="bool" value="true"/>
+   </properties>
+   <polygon points="-48,-320 64,-320 64,-448 -144,-448 -144,-96 -160,-112 -160,-448 -144,-464 64,-464 80,-448 80,-304 64,-304 -32,-304 -32,-16 -16,0 1168,0 1168,16 -48,16"/>
   </object>
   <object id="320" x="64" y="32">
    <polygon points="0,0 0,32 128,32 128,0"/>
@@ -117,7 +124,7 @@
    </properties>
    <point/>
   </object>
-  <object id="323" type="OneWayPlatformNode" x="-368" y="96">
+  <object id="323" type="OneWayPlatformNode" x="-336" y="96">
    <properties>
     <property name="hue" value="player"/>
    </properties>
@@ -127,11 +134,63 @@
    <properties>
     <property name="axis_x" type="float" value="-1"/>
     <property name="hue" value="player"/>
+    <property name="velocity" type="float" value="1.5"/>
    </properties>
-   <polygon points="0,0 0,32 1168,32 1168,0"/>
+   <polygon points="16,-16 16,32 1168,32 1168,-16"/>
   </object>
-  <object id="326" type="Wall" x="-368" y="-144">
-   <polygon points="0,0 16,320 1184,320 1184,-32 0,-32"/>
+  <object id="327" type="BoostField" x="-352" y="112">
+   <properties>
+    <property name="axis_y" type="float" value="-1"/>
+    <property name="hue" value="player"/>
+    <property name="velocity" type="float" value="0.75"/>
+   </properties>
+   <polygon points="16,-48 -32,-48 -32,32 16,32"/>
+  </object>
+  <object id="328" type="OneWayPlatform" x="-336" y="-160">
+   <properties>
+    <property name="hue" value="player"/>
+    <property name="other" type="object" value="329"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="329" type="OneWayPlatformNode" x="-336" y="96">
+   <properties>
+    <property name="hue" value="player"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="330" type="BoostField" x="-352" y="-80">
+   <properties>
+    <property name="axis_x" type="float" value="1"/>
+    <property name="axis_y" type="float" value="0"/>
+    <property name="hue" value="player"/>
+    <property name="velocity" type="float" value="0.5"/>
+   </properties>
+   <polygon points="16,-80 -32,-80 -32,144 16,144"/>
+  </object>
+  <object id="331" x="-288" y="-176">
+   <polygon points="0,0 0,-48 -176,-48 -176,384 1104,384 1104,336 -112,336 -112,0"/>
+  </object>
+  <object id="332" type="SlipperyHitbox" x="-256" y="-160">
+   <polygon points="0,0 0,-160 -16,-176 -257.187,-176 -272,-160 -272,192 -288,208 -288,-192 16,-192 16,-16 224,-16 224,0"/>
+  </object>
+  <object id="333" type="BoostField" x="-288" y="-304">
+   <properties>
+    <property name="axis_y" type="float" value="1"/>
+   </properties>
+   <polygon points="16,-32 16,-16 0,-16 16,0 16,144 32,144 32,-32"/>
+  </object>
+  <object id="334" type="BoostField" x="-272" y="-320">
+   <properties>
+    <property name="axis_x" type="float" value="1"/>
+   </properties>
+   <polygon points="0,0 -256,0 -256,-16 0,-16"/>
+  </object>
+  <object id="335" type="BoostField" x="-512" y="-320">
+   <properties>
+    <property name="axis_y" type="float" value="-1"/>
+   </properties>
+   <polygon points="16,0 0,16 0,384 -16,384 -16,0"/>
   </object>
  </objectgroup>
  <objectgroup id="2" name="front">

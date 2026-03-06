@@ -7,7 +7,8 @@ rt.settings.overworld.boost_field = {
     max_velocity = 1500,
     bloom = 0.4,
     line_width = 3,
-    max_velocity_influence = 6
+    max_velocity_influence = 6,
+    animation_velocity = 1 / 4 -- factor of seconds
 }
 
 --- @class ow.BoostField
@@ -256,6 +257,7 @@ function ow.BoostField:draw()
     _shader:send("player_position", { px, py })
     _shader:send("player_color", { player:get_color():unpack() })
     _shader:send("screen_to_world_transform", transform)
+    _shader:send("animation_velocity", rt.settings.overworld.boost_field.animation_velocity)
 
     local player_influence = self._player_influence_motion:get_value() * math.mix(1, 1.4, self._impulse:get_beat())
     if not self._is_active then player_influence = 0 end

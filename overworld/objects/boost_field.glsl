@@ -22,7 +22,8 @@ uniform vec4 player_color;
 uniform float player_influence;
 uniform float elapsed;
 uniform float brightness_offset; // already scaled
-uniform float contrast = 0.4; // 0, 1
+uniform float contrast = 0.25; // 0, 1
+uniform float animation_velocity = 1;
 
 vec4 effect(vec4 vertex_color, sampler2D _, vec2 texture_coordinates, vec2 frag_position) {
     vec2 uv = to_world_position(frag_position) / 500.0;
@@ -53,11 +54,10 @@ vec4 effect(vec4 vertex_color, sampler2D _, vec2 texture_coordinates, vec2 frag_
     uv *= 12.0;
 
     const float width = 0.5; // line width
-    const float eps = 0.06;
+    const float eps = 0.09;
     const float flatness = 1.1;
 
-    // Scroll along the axis direction (dir). Subtract to move visually along +dir.
-    uv.y = fract(uv.y - elapsed / 2.5);
+    uv.y = fract(uv.y - elapsed * animation_velocity);
     uv.y /= width;
     uv.y -= width;
     uv.x = fract(uv.x);
