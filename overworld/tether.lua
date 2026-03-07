@@ -160,6 +160,7 @@ function ow.Tether:update(delta)
 
     local body_settings = rt.settings.player_body.non_contour
     local tether_settings = rt.settings.overworld.tether
+
     local damping = tether_settings.damping or body_settings.damping
     local n_sub_steps = tether_settings.n_sub_steps or body_settings.n_sub_steps
     local n_constraint_iterations = tether_settings.n_constraint_iterations or body_settings.n_constraint_iterations

@@ -54,7 +54,6 @@ in vec4 varying_frag_position;
 uniform sampler2DArray export_texture;
 uniform float n_layers;
 uniform float hue;
-uniform float whiteness;
 uniform float opacity;
 uniform float hue_offset;
 

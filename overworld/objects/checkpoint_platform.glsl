@@ -39,8 +39,10 @@ vec4 effect(vec4 vertex_color, sampler2D img, vec2 uv, vec2 vertex_position) {
 
     float inner = smoothstep(0.0, 0.15, value * gaussian(1.0 - uv.y, 1.0));
 
-    vec4 result = brightness_scale * color * vec4(mix(vec3(inner), vec3(0.0), outline), max(inner, outline));
-    return result;
+    if (bloom_active == false)
+        return brightness_scale * color * vec4(mix(vec3(inner), vec3(0.0), outline), max(inner, outline));
+    else
+        return color * mix(vec4(inner), vec4(0.0), outline);
 }
 
 #endif

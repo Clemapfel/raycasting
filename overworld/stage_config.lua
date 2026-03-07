@@ -83,7 +83,7 @@ function ow.StageConfig:instantiate(stage_id)
     local path_class_id = rt.settings.overworld.path.class_id
     local path_target_property_pattern = rt.settings.overworld.path.target_property_pattern
 
-    local success, error_or_return = pcall(ow._parse_object_groups, "Stage `" .. stage_id .. "`", _get(self._config, "layers"))
+    local success, error_or_return = pcall(ow.ObjectWrapper.parse_object_groups, "ow.Stage `" .. stage_id .. "`", _get(self._config, "layers"))
     if not success then
         rt.error("In ow.StageConfig.instantiate: for stage `", stage_id, "`: ", error_or_return)
     end

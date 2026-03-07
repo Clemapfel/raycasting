@@ -5,6 +5,7 @@
 #define MODE_INITIALIZE 0        // initialize jump flood fill
 #define MODE_JUMP 1              // step jump flood fill
 #define MODE_EXPORT 2            // compute gradient, convert rgba32f to rg8
+#define MODE_POST_PROCESS 3      // blur gradient
 
 #ifndef MODE
 #error "In normal_map_compute.glsl: MODE is undefined, must be 0, 1, 2, or 3"
@@ -44,6 +45,13 @@ uniform vec4 export_texture_quad; // x, y, w, h
 
 uniform int final_layer;  // which layer contains the final JFA result
 
+#elif MODE == MODE_POST_PROCESS
+
+layout(NORMAL_MAP_TEXTURE_FORMAT) uniform image2D export_texture;
+layout(JFA_TEXTURE_FORMAT) uniform readonly image2DArray jfa_texture_array;
+
+uniform int horizontal_or_vertical;
+
 #endif
 
 const float infinity = 1 / 0.f;
@@ -64,11 +72,18 @@ const ivec2 directions[8] = ivec2[](
 
 layout (local_size_x = WORK_GROUP_SIZE_X, local_size_y = WORK_GROUP_SIZE_Y, local_size_z = 1) in;
 void computemain() {
-    ivec3 array_size = imageSize(jfa_texture_array);
-    ivec2 image_size = array_size.xy;
-    ivec2 position = ivec2(gl_GlobalInvocationID.xy);
+    #if MODE == MODE_POST_PROCESS
+        ivec2 image_size = imageSize(export_texture).xy;
+        ivec2 position = ivec2(gl_GlobalInvocationID.xy);
 
-    if (any(greaterThanEqual(position, image_size))) return;
+        if (any(greaterThanEqual(position, image_size))) return;
+    #else
+        ivec3 array_size = imageSize(jfa_texture_array);
+        ivec2 image_size = array_size.xy;
+        ivec2 position = ivec2(gl_GlobalInvocationID.xy);
+
+        if (any(greaterThanEqual(position, image_size))) return;
+    #endif
 
     #if MODE == MODE_INITIALIZE
 
@@ -141,7 +156,6 @@ void computemain() {
     float v12 = imageLoad(jfa_texture_array, ivec3(position + ivec2( 1,  0), final_layer)).z;
     float v20 = imageLoad(jfa_texture_array, ivec3(position + ivec2(-1,  1), final_layer)).z;
     float v22 = imageLoad(jfa_texture_array, ivec3(position + ivec2( 1,  1), final_layer)).z;
-
     float v01 = imageLoad(jfa_texture_array, ivec3(position + ivec2( 0, -1), final_layer)).z;
     float v21 = imageLoad(jfa_texture_array, ivec3(position + ivec2( 0,  1), final_layer)).z;
 
@@ -170,6 +184,9 @@ void computemain() {
         gradient.x, gradient.y,    // gradient in [0, 1]
         mask.r                     // mask (2 bits of precision)
     ));
+
+    #elif MODE == MODE_POST_PROCESS
+
 
     #endif
 }

@@ -43,7 +43,7 @@ function rt.GameState:instantiate()
         is_fullscreen = mode.is_fullscreen,
         vsync = mode.vsync,
         msaa = mode.msaa,
-        is_hdr_enabled = false,
+        is_hdr_enabled = true,
         is_bloom_enabled = true,
         is_screen_shake_enabled = true,
         resolution_x = width,
@@ -304,7 +304,7 @@ function rt.GameState:load_default_input_mapping()
 
         [rt.InputAction.A] = { -- jump / confirm
             keyboard = {"space"},
-            controller = { rt.ControllerButton.BOTTOM, rt.ControllerButton.RIGHT }
+            controller = rt.ControllerButton.BOTTOM
         },
 
         [rt.InputAction.X] = { -- interact / reset
@@ -312,12 +312,10 @@ function rt.GameState:load_default_input_mapping()
             controller = rt.ControllerButton.TOP
         },
 
-        --[[
         [rt.InputAction.Y] = { -- unused
             keyboard = {"y"},
             controller = rt.ControllerButton.RIGHT
         },
-        ]]
 
         [rt.InputAction.L] = {
             keyboard = {"l"},

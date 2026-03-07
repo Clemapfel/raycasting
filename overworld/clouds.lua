@@ -18,7 +18,6 @@ rt.settings.overworld.clouds = {
     shadow_step_size = 0.01,
     n_slices = 8,
 
-    whiteness = 10, -- rgb multiplier
     opacity = 0.5, -- a multiplier
     hue_offset = 0.25 -- min/max hue of cloud, +/- player hue
 }
@@ -373,8 +372,8 @@ function ow.Clouds:_update_slice_textures()
     _raymarch_shader:send("ray_direction", { 0, 0, 1 }) -- ray offset is 3d texture coords
     _raymarch_shader:send("n_density_steps", settings.n_density_steps)
     _raymarch_shader:send("density_step_size", settings.density_step_size)
-    _raymarch_shader:send("n_shadow_steps", settings.n_shadow_steps)
-    _raymarch_shader:send("shadow_step_size", settings.shadow_step_size)
+    _raymarch_shader:try_send("n_shadow_steps", settings.n_shadow_steps)
+    _raymarch_shader:try_send("shadow_step_size", settings.shadow_step_size)
 
     local settings = rt.settings.overworld.clouds
     local size_x, size_y, size_z = self._volume_texture:get_size()
@@ -395,7 +394,6 @@ function ow.Clouds:draw()
     _draw_shader:send("export_texture", self._export_texture)
     _draw_shader:send("hue", self._hue)
     _draw_shader:send("n_layers", self._n_slices)
-    _draw_shader:send("whiteness", rt.settings.overworld.clouds.whiteness)
     _draw_shader:send("opacity", rt.settings.overworld.clouds.opacity)
     _draw_shader:send("hue_offset", rt.settings.overworld.clouds.hue_offset)
     self._draw_mesh:draw()

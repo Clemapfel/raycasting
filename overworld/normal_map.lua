@@ -14,7 +14,8 @@ rt.settings.overworld.normal_map = {
 
     shadow_strength = 0.15,
 
-    yield_savepoint_fraction = 0.004
+    yield_savepoint_fraction = 0.004,
+    n_post_process_passes = 2
 }
 
 --- @class ow.NormalMap
@@ -26,8 +27,7 @@ local _is_disabled = false -- TODO
 local _mask_texture_format = rt.TextureFormat.R8  -- used to store alpha of walls
 local _jfa_texture_format = rt.TextureFormat.RGBA32F -- used during JFA
 local _normal_map_texture_format = rt.TextureFormat.RGB10A2 -- final normal map texture
-
-local _init_shader, _jump_shader, _export_shader
+local _init_shader, _jump_shader, _export_shader, _post_process_shader
 
 local _draw_light_shader = rt.Shader("overworld/normal_map_draw_light.glsl", {
     MAX_N_POINT_LIGHTS = rt.settings.overworld.normal_map.max_n_point_lights,
@@ -295,6 +295,7 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
                                 tris = {}
                             }
 
+                            chunk.texture:set_wrap_mode(rt.TextureWrapMode.CLAMP)
                             self._chunks[xi][yi] = chunk
                             table.insert(self._non_empty_chunks, chunk)
                         end
@@ -330,6 +331,10 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
 
         if _export_shader == nil then _export_shader = rt.ComputeShader("overworld/normal_map_compute.glsl",
             defines(2)
+        ) end
+
+        if _post_process_shader == nil then _post_process_shader = rt.ComputeShader("overworld/normal_map_compute.glsl",
+            defines(3)
         ) end
 
         local padding = chunk_size / 2
@@ -401,6 +406,14 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
             _export_shader:send("export_texture_quad", { self._quad:getViewport() })
             _export_shader:send("max_distance", rt.settings.overworld.normal_map.max_distance)
             _export_shader:dispatch(dispatch_size_x, dispatch_size_y)
+
+            _post_process_shader:send("export_texture", chunk.texture)
+            local post_process_dispatch_x = math.ceil(chunk.texture:get_width() / size_x)
+            local post_process_dispatch_y = math.ceil(chunk.texture:get_height() / size_y)
+
+            for _ = 1, rt.settings.overworld.normal_map.n_post_process_passes do
+                _post_process_shader:dispatch(post_process_dispatch_x, post_process_dispatch_y)
+            end
 
             chunk.is_initialized = true
 
@@ -478,7 +491,6 @@ function ow.NormalMap:draw_light(
     local light_map = rt.SceneManager:get_light_map()
     _draw_light_shader:send("light_intensity", light_map:get_light_intensity())
     _draw_light_shader:send("light_direction", light_map:get_light_direction())
-    _draw_light_shader:send("camera_scale", camera:get_scale())
     _draw_light_shader:bind()
 
     love.graphics.setBlendMode("add", "premultiplied")

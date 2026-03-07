@@ -4,7 +4,13 @@ ow.CameraBounds = meta.class("CameraBounds")
 
 --- @brief
 function ow.CameraBounds:instantiate(object, stage, scene)
-    rt.assert(object:get_type() == ow.ObjectType.RECTANGLE, "In ow.CamerBounds: object `", object:get_id(), "` is not a rectangle")
+
+    local bounds
+    if object:get_type() == ow.ObjectType.RECTANGLE then
+        bounds = rt.AABB(object.x, object.y, object.width, object.height)
+    else
+        bounds = rt.contour.get_aabb(object:create_contour())
+    end
 
     self._scene = scene
     self._stage = stage
@@ -14,7 +20,7 @@ function ow.CameraBounds:instantiate(object, stage, scene)
     self._should_apply_scale = object:get_boolean("should_apply_scale", false)
     if self._should_apply_scale == nil then self._should_apply_scale = self._scale ~= nil end
 
-    self._bounds = rt.AABB(object.x, object.y, object.width, object.height)
+    self._bounds = bounds
     self._should_apply_bounds = object:get_boolean("should_apply_bounds", false)
     if self._should_apply_bounds == nil then self._should_apply_bounds = true end
 

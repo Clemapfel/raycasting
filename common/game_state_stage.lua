@@ -30,109 +30,13 @@ rt.settings.game_state.stage = {
 local _debug_output = true
 
 local warn = function(i, name)
-    rt.warning("In rt.Translation: stage entry `",  i,  "` does not have `",  name,  "` property")
+    rt.warning("In rt.Translation: stage entry `", i, "` does not have `", name, "` property")
 end
 
-
---- @brief
-function rt.GameState:_initialize_stage()
-    if self._stage_initialized == true then return end
-
-    -- non state stage data, cf. common/game_state for persistent data
-    self._stages = {}
-    self._stage_id_to_i = {}
-
-    local path_prefix = rt.settings.overworld.stage_config.config_path
-
-    for i, entry in pairs(rt.Translation.stages) do
-        local id = entry.id
-        if id == nil then
-            rt.error("In rt.Translation: stage entry `",  i,  "` does not have an id")
-        end
-
-        local title = entry.title
-        if title == nil then
-            warn(i, "title")
-            title = id
-        end
-
-        local description = entry.description
-        if description == nil then
-            warn(i, "description")
-            description = "(no description)"
-        end
-
-        local target_time = entry.target_time
-        if target_time == nil then
-            warn(i, "target_time")
-            target_time = math.huge
-        end
-
-        -- extract number of coins from config file
-        local config = ow.StageConfig(id)
-        local n_coins, n_checkpoints = 0, 0
-        for layer_i = 1, config:get_n_layers() do
-            for object in values(config:get_layer_object_wrappers(layer_i)) do
-                if object.class == "Coin" then
-                    n_coins = n_coins + 1
-                elseif object.class == "Checkpoint" or object.class == "PlayerGoal" then
-                    -- player spawn not counted
-                    n_checkpoints = n_checkpoints + 1
-                end
-            end
-        end
-
-        local stage = {
-            id = id,
-            config = config,
-            path = path_prefix .. "/" .. id .. ".lua",
-            title = title,
-            description = description,
-            target_time = target_time,
-            n_coins = n_coins,
-            index = i,
-            splits = {
-                n_segments = n_checkpoints,
-                best_segments = table.rep(0, n_checkpoints), -- best time for individual segments
-                best_run = table.rep(0, n_checkpoints) -- overall splits of best run
-            }
-        }
-
-        if _debug_output then
-            local t = 0
-            for segment_i = 1, n_checkpoints do
-                t = t + rt.random.number(0, 10)
-                stage.splits.best_segments[segment_i] = t
-                stage.splits.best_run[segment_i] = t
-            end
-        end
-
-        self._stages[i] = stage
-        self._stage_id_to_i[id] = i
-    end
-
-    self._stage_initialized = true
-end
-
---- @brief
-function rt.GameState:_get_stage(id, scope)
-    self:_initialize_stage()
-    local stage = self._stages[self._stage_id_to_i[id]]
-    if stage == nil then
-        rt.error("In rt.GameState.", scope, "`: no stage with id `", id, "`")
-    end
-    return stage
-end
-
---- @brief
-function rt.GameState:reinitialize_stage(stage_id)
-    local i = self._stage_id_to_i[stage_id]
-    local stage_entry = self._stages[i]
-    local entry = rt.Translation.stages[i]
-
+local function _parse_stage_entry(entry, i, path_prefix, existing_path)
     local id = entry.id
     if id == nil then
-        rt.error("In rt.Translation: stage entry `",  i,  "` does not have an id")
+        rt.error("In rt.Translation: stage entry `", i, "` does not have an id")
     end
 
     local title = entry.title
@@ -141,15 +45,15 @@ function rt.GameState:reinitialize_stage(stage_id)
         title = id
     end
 
-    local description = entry.description
+    local description = rawget(entry, "description")
     if description == nil then
-        warn(i, "description")
+        --warn(i, "description")
         description = "(no description)"
     end
 
-    local target_time = entry.target_time
+    local target_time = rawget(entry, "target_time")
     if target_time == nil then
-        warn(i, "target_time")
+        --warn(i, "target_time")
         target_time = math.huge
     end
 
@@ -168,7 +72,7 @@ function rt.GameState:reinitialize_stage(stage_id)
     local stage = {
         id = id,
         config = config,
-        path = stage_entry.path,
+        path = existing_path or (path_prefix .. "/" .. id .. ".lua"),
         title = title,
         description = description,
         target_time = target_time,
@@ -176,12 +80,10 @@ function rt.GameState:reinitialize_stage(stage_id)
         index = i,
         splits = {
             n_segments = n_checkpoints,
-            best_segments = table.rep(0, n_checkpoints), -- best time for individual segments
-            best_run = table.rep(0, n_checkpoints) -- overall splits of best run
+            best_segments = table.rep(0, n_checkpoints),
+            best_run = table.rep(0, n_checkpoints)
         }
     }
-
-    self._stages[i] = stage
 
     if _debug_output then
         local t = 0
@@ -191,6 +93,42 @@ function rt.GameState:reinitialize_stage(stage_id)
             stage.splits.best_run[segment_i] = t
         end
     end
+
+    return stage
+end
+
+--- @brief
+function rt.GameState:_initialize_stage()
+    if self._stage_initialized == true then return end
+
+    self._stages = {}
+    self._stage_id_to_i = {}
+
+    local path_prefix = rt.settings.overworld.stage_config.config_path
+
+    for i, entry in pairs(rt.Translation.stages) do
+        self._stages[i] = _parse_stage_entry(entry, i, path_prefix)
+        self._stage_id_to_i[entry.id] = i
+    end
+
+    self._stage_initialized = true
+end
+
+--- @brief
+function rt.GameState:reinitialize_stage(stage_id)
+    local i = self._stage_id_to_i[stage_id]
+    local existing_path = self._stages[i].path
+    self._stages[i] = _parse_stage_entry(rt.Translation.stages[i], i, nil, existing_path)
+end
+
+--- @brief
+function rt.GameState:_get_stage(id, scope)
+    self:_initialize_stage()
+    local stage = self._stages[self._stage_id_to_i[id]]
+    if stage == nil then
+        rt.error("In rt.GameState.", scope, "`: no stage with id `", id, "`")
+    end
+    return stage
 end
 
 --- @brief

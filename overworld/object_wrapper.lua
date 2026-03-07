@@ -797,7 +797,7 @@ local function _parse_single_object_group(object_group, group_offset_x, group_of
         wrapper.rotation = math.rad(_get(object, "rotation"))
 
         if object.gid ~= nil then
-            assert(object.shape == "rectangle", "In ow._parse_object_group (",  scope,  "): object has gid, but is not a rectangle")
+            rt.assert(object.shape == "rectangle", "In ow._parse_object_group (",  scope,  "): object has gid, but is not a rectangle")
 
             local true_gid, flip_horizontally, flip_vertically = _decode_gid(object.gid)
             local x, y = _get(object, "x"), _get(object, "y")
@@ -868,7 +868,9 @@ local function _parse_single_object_group(object_group, group_offset_x, group_of
                     y + group_offset_y
                 )
 
-                if object.rotation ~= nil then assert(object.rotation == 0) end
+                if object.rotation ~= nil then
+                    rt.warning(object.rotation == 0, "In ", scope, ": object `", wrapper.id, "` is a point, but its `rotation` property is set")
+                end
             end
 
             if wrapper.class == nil or wrapper.class == "" then
@@ -891,7 +893,8 @@ local function _parse_single_object_group(object_group, group_offset_x, group_of
     return objects, object_id_to_wrapper
 end
 
-function ow._parse_object_groups(scope, layers)
+--- @brief parse and entire layer
+function ow.ObjectWrapper.parse_object_groups(scope, layers)
     local layer_i_to_objects = {}
     local object_id_to_wrapper = {}
 
@@ -941,7 +944,8 @@ function ow._parse_object_groups(scope, layers)
     return layer_i_to_objects
 end
 
-function ow._parse_object_group(scope, object_group)
+--- @brief parse single object group
+function ow.ObjectWrapper.parse_object_group(scope, object_group)
     local group_offset_x, group_offset_y = _get(object_group, "offsetx"), _get(object_group, "offsety")
     local group_visible = _get(object_group, "visible")
 

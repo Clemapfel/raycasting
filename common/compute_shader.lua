@@ -42,6 +42,18 @@ function rt.ComputeShader:send(name, value, ...)
     end
 end
 
+--- @brief set uniform
+--- @param name String
+--- @param value
+function rt.ComputeShader:try_send(name, value, ...)
+    if self._native:hasUniform(name) then
+        self:send(name, value, ...)
+        return true
+    else
+        return false
+    end
+end
+
 --- @brief
 function rt.ComputeShader:has_uniform(name)
     return self._native:hasUniform(name)

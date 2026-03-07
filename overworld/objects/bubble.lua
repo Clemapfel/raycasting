@@ -211,7 +211,6 @@ function ow.Bubble:_pop(pop_x, pop_y)
     local settings = rt.settings.overworld.bubble.particles
     local max_lifetime = math.min(settings.max_lifetime, rt.settings.overworld.bubble.respawn_duration)
 
-    love.graphics.push()
     local path_x, path_y
     if self._should_move_in_place then
         path_x, path_y = self._path:at(math.fract(self._path_elapsed / self._path_duration))
@@ -385,6 +384,31 @@ function ow.Bubble:draw()
             )
         end
     end
+end
+
+--- @brief
+function ow.Bubble:draw_bloom()
+    love.graphics.push()
+    local path_x, path_y
+    if self._should_move_in_place then
+        path_x, path_y = self._path:at(math.fract(self._path_elapsed / self._path_duration))
+    else
+        path_x, path_y = 0, 0
+    end
+
+    local body_x, body_y = self._body:get_position()
+    love.graphics.translate(body_x + path_x, body_y + path_y)
+
+    local opacity = math.max(rt.settings.overworld.bubble.outline_min_opacity, self._pop_fraction)
+    love.graphics.setLineStyle("smooth")
+    love.graphics.setLineJoin("bevel")
+
+    local r, g, b = table.unpack(self._color)
+    love.graphics.setColor(r, g, b, opacity)
+    love.graphics.setLineWidth(rt.settings.overworld.bubble.line_width)
+    love.graphics.line(self._contour)
+
+    love.graphics.pop()
 end
 
 --- @brief

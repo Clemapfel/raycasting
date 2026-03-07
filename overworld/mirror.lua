@@ -81,10 +81,6 @@ function ow.Mirror:draw()
     _shader:bind()
     _shader:send("player_color", { player:get_color():unpack() })
     _shader:send("player_position", { camera:world_xy_to_screen_xy(player:get_position()) })
-    _shader:send("elapsed", rt.SceneManager:get_elapsed())
-    _shader:send("camera_offset", { camera:get_offset() })
-    _shader:send("camera_scale", camera:get_final_scale())
-    _shader:send("light_intensity", rt.SceneManager:get_light_map():get_light_intensity())
 
     local n_drawn = 0
     for image in values(self._mirror_images) do

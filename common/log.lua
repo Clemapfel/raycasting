@@ -104,9 +104,9 @@ end
 
 local _append_current_line = function(to_add_to)
     if _should_print_current_line then
-        local info = debug.getinfo(3, "Sl")
-        if info ~= nil and info.short_src ~= nil and info.lastlinedefined ~= nil then
-            table.insert(to_add_to, " " .. info.short_src .. ":" .. info.lastlinedefined .. ": ")
+        local info = debug.getinfo(4, "Sl")
+        if info ~= nil and info.short_src ~= nil and info.currentline ~= nil then
+            table.insert(to_add_to, " " .. info.short_src .. ":" .. info.currentline .. ": ")
         end
     end
 end

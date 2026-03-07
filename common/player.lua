@@ -72,7 +72,7 @@ do
         ground_instant_turn_around_magnitude = 300,
 
         coyote_time = 8 / 60, -- seconds after leaving ground
-        wall_jump_coyote_time = 5 / 120, -- seconds after letting go of direction against wall
+        wall_jump_coyote_time = 5 / 60, -- seconds after letting go of direction against wall
 
         platform_velocity_decay = 0.7,
 
@@ -81,8 +81,8 @@ do
 
         wall_jump_initial_impulse = 400,
         wall_jump_sustained_impulse = 1000,
-        wall_jump_initial_angle = math.rad(18) - math.pi * 0.5,
-        wall_jump_sustained_angle = math.rad(5) - math.pi * 0.5,
+        wall_jump_initial_angle = math.degrees_to_radians(35) - math.pi * 0.5,
+        wall_jump_sustained_angle = math.degrees_to_radians(5) - math.pi * 0.5,
         wall_jump_duration = 10 / 60,
         wall_jump_freeze_duration = 8 / 60,
 
@@ -2313,7 +2313,7 @@ function rt.Player:draw_core()
         love.graphics.push()
         love.graphics.origin()
         local m = 2 * rt.settings.margin_unit
-        local r = 4 * rt.settings.margin_unit
+        local r = rt.settings.player_input_smoothing.radius
         self._input_smoothing:draw(r + m, love.graphics.getHeight() - (r + m), r)
         love.graphics.pop()
     end
