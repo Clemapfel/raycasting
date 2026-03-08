@@ -100,6 +100,9 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
         _rope = nil -- ow.CheckpointRope, only if midpoint
     })
 
+    self._is_invisible = object:get_boolean("is_invisible", false)
+    if self._is_invisible == nil then self._is_invisible = false end
+
     stage:signal_connect("initialized", function()
         local create_platform = function(x, y)
             local platform_w = rt.settings.overworld.checkpoint.platform_width
@@ -204,16 +207,18 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
             self._body:set_use_continuous_collision(true)
             self._body:set_is_sensor(true)
 
-            self._rope = ow.CheckpointRope(
-                self._scene, self._stage, self._world,
-                self._top_x, self._top_y,
-                self._bottom_x, self._bottom_y
-            )
+            if not self._is_invisible then
+                self._rope = ow.CheckpointRope(
+                    self._scene, self._stage, self._world,
+                    self._top_x, self._top_y,
+                    self._bottom_x, self._bottom_y
+                )
 
-            self._particles = ow.CheckpointParticles()
+                self._particles = ow.CheckpointParticles()
+            end
 
             self._body:signal_connect("collision_start", function(_, other)
-                if self._rope:get_is_cut() == false then
+                if not self._is_invisible and self._rope:get_is_cut() == false then
                     if self._rope:cut() then -- checks player position automatically
                         local n_particles = rt.settings.overworld.checkpoint.n_particles
                         local player = self._scene:get_player()
@@ -238,8 +243,10 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
             end)
         end
 
-        self._body:add_tag("point_light_source", "segment_light_source")
-        self._body:set_user_data(self)
+        if not self._is_invisible then
+            self._body:add_tag("point_light_source", "segment_light_source")
+            self._body:set_user_data(self)
+        end
 
         return meta.DISCONNECT_SIGNAL
     end)
@@ -414,7 +421,7 @@ function ow.Checkpoint:update(delta)
         self._platform:set_hue(self._scene:get_player():get_hue())
     end
 
-    if self._type == ow.CheckpointType.MIDWAY then
+    if self._type == ow.CheckpointType.MIDWAY and self._rope ~= nil then
         self._rope:update(delta)
     end
 
@@ -507,7 +514,7 @@ function ow.Checkpoint:draw(priority)
             _ray_shader:unbind()
         end
 
-        if self._type == ow.CheckpointType.MIDWAY then
+        if self._type == ow.CheckpointType.MIDWAY and self._rope ~= nil then
             love.graphics.setColor(self._color)
             self._rope:draw()
         end
@@ -530,7 +537,7 @@ end
 
 --- @brief
 function ow.Checkpoint:draw_bloom()
-    if not self._stage:get_is_body_visible(self._body) then return end
+    if not self._stage:get_is_body_visible(self._body) or self._is_invisible then return end
     if self._type == ow.CheckpointType.MIDWAY then
         self._rope:draw_bloom()
         self._particles:draw_bloom()
@@ -563,7 +570,7 @@ function ow.Checkpoint:reset()
     self._coin_savestate = {}
     self._split_send = false
 
-    if self._type == ow.CheckpointType.MIDWAY then
+    if self._type == ow.CheckpointType.MIDWAY and not self._is_invisible then
         self._particles:clear()
         self._rope:reset()
     end
@@ -578,6 +585,8 @@ end
 
 --- @brief
 function ow.Checkpoint:collect_point_lights(callback)
+    if self._is_invisible then return end
+
     if self._particles ~= nil then
         self._particles:collect_point_lights(callback)
     end
