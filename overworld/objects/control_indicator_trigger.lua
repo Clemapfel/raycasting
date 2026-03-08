@@ -35,7 +35,10 @@ function ow.ControlIndicatorTrigger:instantiate(object, stage, scene)
 
     body:set_is_sensor(true)
     body:set_collides_with(rt.settings.player.bounce_collision_group)
-    body:set_collision_group(rt.settings.player.bounce_collision_group)
+    body:set_collision_group(bit.bor(
+        rt.settings.player.bounce_collision_group,
+        rt.settings.player.exempt_collision_group
+    ))
     
     body:signal_connect("collision_start", function(_, other_body)
         if other_body:has_tag("player") then

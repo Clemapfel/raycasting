@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="424">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="449">
  <editorsettings>
   <export target="bounce_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -30,8 +30,17 @@
   <object id="423" type="CameraBounds" x="-1696" y="96">
    <polygon points="992,0 992,2288 -64,2288 -64,0"/>
   </object>
+  <object id="443" type="CameraFit" x="-224" y="1136">
+   <polygon points="0,0 464,0 464,1104 0,1104"/>
+  </object>
+  <object id="444" name="Hold Down Reminder" type="ControlIndicatorTrigger" x="-224" y="1136">
+   <properties>
+    <property name="type" value="HOLD_DOWN_TO_ACCELERATE"/>
+   </properties>
+   <polygon points="0,0 464,0 464,1104 0,1104"/>
+  </object>
  </objectgroup>
- <objectgroup id="7" name="back">
+ <objectgroup id="7" name="back" visible="0">
   <object id="287" type="Wall" x="-368" y="-1088">
    <properties>
     <property name="opacity" type="float" value="0.85"/>
@@ -69,9 +78,12 @@
    </properties>
    <polygon points="144,-32 576,-32 576,1984 144,1984"/>
   </object>
+  <object id="446" type="Wall" x="-224" y="1136">
+   <polygon points="144,80 320,80 320,928 144,928"/>
+  </object>
  </objectgroup>
  <objectgroup id="6" name="hitbox">
-  <object id="260" name="Spawn" type="PlayerSpawn" x="-391.195" y="-806.985">
+  <object id="260" name="Spawn" type="PlayerSpawn" x="-316.427" y="1711.88">
    <point/>
   </object>
   <object id="261" type="Hitbox" x="336" y="-576">
@@ -363,6 +375,24 @@
   <object id="419" type="Bubble" x="-1152" y="496" width="48" height="48">
    <ellipse/>
   </object>
+  <object id="424" x="-224" y="1584">
+   <polygon points="0,80 144,80 144,480 320,480 320,-192 464,-192 464,704 0,704"/>
+  </object>
+  <object id="425" type="BouncePad" x="-64" y="2144">
+   <polygon points="0,-128 144,-128 144,-96 0,-96"/>
+  </object>
+  <object id="431" type="SlipperyHitbox" x="-80" y="1584">
+   <polygon points="-144,64 16,64 16,464 160,464 160,-208 320,-208 320,-192 176,-192 176,480 0,480 0,80 -144,80"/>
+  </object>
+  <object id="442" x="576" y="1712" rotation="-180">
+   <polygon points="0,0 144,0 144,16 0,16"/>
+  </object>
+  <object id="430" x="-64" y="1488">
+   <polygon points="-16,0 -160,0 -160,-416 304,-416 304,-272 -16,-272"/>
+  </object>
+  <object id="432" type="SlipperyHitbox" x="-80" y="1488">
+   <polygon points="-144,16 16,16 16,-256 320,-256 320,-272 0,-272 0,0 -144,0"/>
+  </object>
  </objectgroup>
  <objectgroup id="2" name="front">
   <object id="271" type="OneWayPlatform" x="-240" y="-928">
@@ -378,6 +408,30 @@
    <properties>
     <property name="count" value="3"/>
    </properties>
+   <point/>
+  </object>
+  <object id="428" type="OneWayPlatform" x="-64" y="1504">
+   <properties>
+    <property name="other" type="object" value="429"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="429" type="OneWayPlatformNode" x="-64" y="1648">
+   <point/>
+  </object>
+  <object id="445" type="Checkpoint" x="-154.909" y="1597.24">
+   <properties>
+    <property name="is_invisible" type="bool" value="true"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="447" type="OneWayPlatform" x="96" y="1232">
+   <properties>
+    <property name="other" type="object" value="448"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="448" type="OneWayPlatformNode" x="96" y="1376">
    <point/>
   </object>
  </objectgroup>

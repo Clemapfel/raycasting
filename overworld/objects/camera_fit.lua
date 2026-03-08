@@ -25,8 +25,20 @@ function ow.CameraFit:instantiate(object, stage, scene)
     end
 
     self._body:set_is_sensor(true)
+    local native = self._body:get_native()
+
+    for shape in values(native:getShapes()) do
+        shape:setFilterData(
+            bit.bor(rt.settings.player.player_collision_group, rt.settings.player.exempt_collision_group),
+            rt.settings.player.exempt_collision_group,
+            0
+        )
+    end
+
+    --[[
     self._body:set_collides_with(rt.settings.player.player_collision_group)
     self._body:set_collision_group(rt.settings.player.ghost_collision_group)
+    ]]--
 
     local to_fraction = function(x)
         if x < 0 then return 1 / math.abs(x) else return x end

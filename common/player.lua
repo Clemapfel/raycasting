@@ -628,10 +628,11 @@ function rt.Player:update(delta)
             settings.bounce_collision_group
         )
         mask = bit.band(mask, bit.bnot(settings.player_outer_body_collision_group))
-        mask = bit.band(mask, bit.bnot(settings.exempt_collision_group))
     else
         mask = settings.ghost_collision_group
     end
+
+    mask = bit.band(mask, bit.bnot(settings.exempt_collision_group))
 
     local bubble_factor = 1
     if is_bubble then
@@ -1531,12 +1532,18 @@ function rt.Player:update(delta)
             and not is_frozen
             and down_is_down
             and not ((left_is_down and self._left_wall) or (right_is_down and self._right_wall))
-            and next_velocity_y > 0
         -- exclude wall clinging, handled by explicit friction release in apply_friction
         then
             local force = 1 / velocity_easing * settings.downwards_force * delta
             if use_analog_input then
                 force = force * math.max(0, self._joystick_position_y) -- linear easing, only detect down
+            end
+
+            if not is_grounded then
+                -- weigh to prevent deceleration when velocity is pointing upwards and down is held
+                force = force * math.max(0,
+                    select(2, math.normalize(next_velocity_x, next_velocity_y))
+                )
             end
 
             local dx, dy = gravity_direction_x, gravity_direction_y
