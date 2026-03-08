@@ -195,9 +195,6 @@ function ow.BubbleField:instantiate(object, stage, scene)
         current = table.rep(0, self._n_points),
         next = {}
     }
-
-    -- particles
-    self._batches = {}
 end
 
 local _x_offset = 0
@@ -219,7 +216,7 @@ local _particle_i_to_data_offset = function(particle_i)
 end
 
 --- @brief
-function ow.BubbleField:_excite_wave(x, y, velocity_x, velocity_y, sign, spawn_particles)
+function ow.BubbleField:_excite_wave(x, y, velocity_x, velocity_y, sign)
     local min_distance, min_i = math.huge, nil
     for i = 1, self._n_points do
         local data = self._shape_mesh_data[i]
@@ -233,6 +230,8 @@ function ow.BubbleField:_excite_wave(x, y, velocity_x, velocity_y, sign, spawn_p
         end
     end
 
+    if min_i == nil then return end
+
     local center_index, amplitude, width = min_i, sign * math.magnitude(velocity_x, velocity_y) * rt.settings.overworld.bubble_field.excitation_amplitude, 5
     for i = 1, self._n_points do
         local distance = math.abs(i - center_index)
@@ -241,62 +240,6 @@ function ow.BubbleField:_excite_wave(x, y, velocity_x, velocity_y, sign, spawn_p
     end
 
     self._is_active = true
-
-    if not spawn_particles then return end
-
-    local settings = rt.settings.overworld.bubble_field.particles
-    do
-        local base_hue = self._scene:get_player():get_hue()
-        local batch = {}
-        local magnitude = math.magnitude(velocity_x, velocity_y)
-        local dx, dy = math.normalize(velocity_x, velocity_y)
-
-        local n_particles = rt.random.integer(
-            settings.min_count,
-            settings.max_count,
-            math.min(1, magnitude / rt.settings.player.bubble_target_velocity)
-        )
-
-        batch.n_particles = n_particles
-        batch.data = {}
-
-        local data = batch.data
-        -- perpendicular axis for angular spread (rotate direction 90 degrees)
-        local perp_x, perp_y = -dy, dx
-
-        for particle_i = 1, n_particles do
-            local i = _particle_i_to_data_offset(particle_i)  -- use the same stride fn as the update loop
-            data[i + _x_offset] = x
-            data[i + _y_offset] = y
-
-            local speed = rt.random.number(settings.min_velocity, settings.max_velocity)
-            local spread = rt.random.number(-settings.spread_angle, settings.spread_angle)
-            local cos_s, sin_s = math.cos(spread), math.sin(spread)
-            local vx = (dx * cos_s - dy * sin_s) * speed
-            local vy = (dx * sin_s + dy * cos_s) * speed
-
-            -- bias upward slightly so particles arc against gravity instead of drooping immediately
-            local gravity = rt.settings.overworld.bubble_field.particles.gravity
-            local mass = rt.random.number(settings.min_mass, settings.max_mass)
-            vy = vy - gravity * mass * settings.upwards_bias  -- upward_bias ~0.1–0.3 s, tune freely
-
-            data[i + _velocity_x_offset] = vx
-            data[i + _velocity_y_offset] = vy
-
-            data[i + _radius_offset] = rt.random.number(settings.min_radius, settings.max_radius)
-            data[i + _mass_offset] = mass
-
-            local hue = base_hue + rt.random.number(-settings.hue_offset, settings.hue_offset)
-            local r, g, b = rt.lcha_to_rgba(0.8, 1, hue, 1)
-            data[i + _r_offset] = r
-            data[i + _g_offset] = g
-            data[i + _b_offset] = b
-
-            data[i + _is_disabled_offset] = FALSE
-        end
-
-        table.insert(self._batches, batch)
-    end
 end
 
 --- @brief
@@ -443,27 +386,6 @@ function ow.BubbleField:draw()
     love.graphics.line(closed_contour)
 
     _outline_shader:unbind()
-
-
-    for batch in values(self._batches) do
-        local data = batch.data
-        for particle_i = 1, batch.n_particles do
-            local i = _particle_i_to_data_offset(particle_i)
-            if data[i + _is_disabled_offset] == FALSE then
-                love.graphics.setColor(
-                    data[i + _r_offset],
-                    data[i + _g_offset],
-                    data[i + _b_offset],
-                    1
-                )
-                love.graphics.circle("fill",
-                    data[i + _x_offset],
-                    data[i + _y_offset],
-                    data[i + _radius_offset]
-                )
-            end
-        end
-    end
 
     love.graphics.pop()
 end

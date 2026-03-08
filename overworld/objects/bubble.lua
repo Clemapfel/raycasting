@@ -278,7 +278,15 @@ function ow.Bubble:update(delta)
             0.25
         )
 
-        if self._respawn_elapsed >= respawn_duration and not self._body:test_point(self._scene:get_player():get_position()) then
+        local player = self._scene:get_player()
+        local player_x, player_y = player:get_position()
+        local player_r = player:get_radius()
+
+        local x, y = self._body:get_position()
+        local radius = math.max(self._x_radius, self._y_radius)
+        local overlap = math.distance(player_x, player_y, x, y) < player_r + radius
+
+        if self._respawn_elapsed >= respawn_duration and not overlap then
             self:_unpop()
             return
         end

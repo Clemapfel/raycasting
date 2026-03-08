@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="408">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="424">
  <editorsettings>
   <export target="bounce_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -8,7 +8,7 @@
  <imagelayer id="3" name="background" repeatx="1" repeaty="1">
   <image source="../tilesets/debug_tileset_16x16/tile.png" width="16" height="16"/>
  </imagelayer>
- <objectgroup id="5" name="aux" visible="0">
+ <objectgroup id="5" name="aux">
   <object id="288" type="ControlIndicatorTrigger" x="-240" y="-1040">
    <properties>
     <property name="type" value="HOLD_DOWN_TO_ACCELERATE"/>
@@ -18,9 +18,6 @@
   <object id="290" type="CameraFit" x="-368" y="-1152">
    <polygon points="0,32 960,32 960,720 0,720"/>
   </object>
-  <object id="373" type="CameraBounds" x="-1552" y="272">
-   <polygon points="32,0 1008,0 1008,1088 32,1088"/>
-  </object>
   <object id="377" type="CameraBounds" x="-496" y="-1472">
    <polygon points="0,0 -864,0 -864,1088 0,1088"/>
   </object>
@@ -29,6 +26,9 @@
   </object>
   <object id="404" type="CameraBounds" x="1136" y="-1200">
    <polygon points="0,0 0,688 1824,688 1824,0"/>
+  </object>
+  <object id="423" type="CameraBounds" x="-1696" y="96">
+   <polygon points="992,0 992,2288 -64,2288 -64,0"/>
   </object>
  </objectgroup>
  <objectgroup id="7" name="back">
@@ -48,20 +48,11 @@
    </properties>
    <polygon points="0,0 416,0 416,144 224,144 224,928 0,928"/>
   </object>
-  <object id="358" type="Hitbox" x="-720" y="320">
-   <polygon points="176,0 176,1040 -800,1040 -800,960 -128,960 -128,0"/>
+  <object id="358" name="Final" type="Hitbox" x="-886.161" y="1344">
+   <polygon points="182.161,-1248 176,1040 -873.839,1040 -873.839,960 -121.839,960 -121.839,-1056 -873.839,-1056 -873.839,-1248"/>
   </object>
-  <object id="368" type="SlipperyHitbox" x="-800" y="320">
-   <polygon points="-48,0 -48,960 -80,960 -64,944 -64,0"/>
-  </object>
-  <object id="374" x="-1280" y="320">
-   <polygon points="0,0 -240,0 -240,816 0,816"/>
-  </object>
-  <object id="375" type="Wall" x="-1280" y="144">
-   <properties>
-    <property name="opacity" type="float" value="0.5"/>
-   </properties>
-   <polygon points="0,0 0,1136 432,1136 432,0"/>
+  <object id="368" type="SlipperyHitbox" x="-966.161" y="1344">
+   <polygon points="-41.839,-1056 -41.839,960 -73.839,960 -57.839,944 -57.839,-1040 -793.839,-1040 -793.839,-1056"/>
   </object>
   <object id="405" type="Wall" x="1248" y="-1152">
    <polygon points="0,0 0,544 1344,544 1344,0"/>
@@ -69,9 +60,18 @@
   <object id="407" type="BubbleField" x="1008" y="512">
    <polygon points="0,0 -48,112 32,240 416,256 672,208 720,144 704,0 576,-128 368,-176 240,-176 64,-64"/>
   </object>
+  <object id="421" x="-1440" y="496">
+   <polygon points="0,0 0,151.86 0,1664 -320,1664 -320,0"/>
+  </object>
+  <object id="422" type="Wall" x="-1584" y="320">
+   <properties>
+    <property name="opacity" type="float" value="0.7"/>
+   </properties>
+   <polygon points="144,-32 576,-32 576,1984 144,1984"/>
+  </object>
  </objectgroup>
  <objectgroup id="6" name="hitbox">
-  <object id="260" name="Spawn" type="PlayerSpawn" x="846.116" y="791.23">
+  <object id="260" name="Spawn" type="PlayerSpawn" x="-391.195" y="-806.985">
    <point/>
   </object>
   <object id="261" type="Hitbox" x="336" y="-576">
@@ -270,26 +270,23 @@
   <object id="355" x="-1040" y="-544">
    <polygon points="0,-16 -192,-16 -192,-64 -64,-64 -64,-928 416,-928 416,-864 0,-864"/>
   </object>
-  <object id="359" type="BouncePad" x="-976" y="1072">
+  <object id="359" type="BouncePad" x="-1136" y="2096">
    <polygon points="0,-16 -32,-32 -32,-80 0,-96"/>
   </object>
-  <object id="360" type="Hitbox" x="-976" y="832">
+  <object id="360" type="Hitbox" x="-1136" y="1856">
    <polygon points="0,320 16,320 16,48 0,48"/>
   </object>
-  <object id="361" type="SlipperyHitbox" x="-960" y="816">
+  <object id="361" type="SlipperyHitbox" x="-1120" y="1840">
    <polygon points="0,64 0,336 16,336 16,64 64,64 64,48 -16,48 -16,64"/>
   </object>
-  <object id="364" type="Hitbox" x="-1168" y="656">
+  <object id="364" type="Hitbox" x="-1328" y="1680">
    <polygon points="0,0 -16,0 -16,-112 0,-112"/>
   </object>
-  <object id="366" type="Bubble" x="-1152" y="752" width="48" height="48">
+  <object id="366" type="Bubble" x="-1312" y="1776" width="48" height="48">
    <ellipse/>
   </object>
-  <object id="367" type="SlipperyHitbox" x="-1168" y="560">
+  <object id="367" type="SlipperyHitbox" x="-1328" y="1584">
    <polygon points="0,-16 0,-48 16,-48 16,-64 -64,-64 -64,-48 -32,-48 -32,240 0,240 0,96 -16,96 -16,-16"/>
-  </object>
-  <object id="372" type="SlipperyHitbox" x="-1264" y="496">
-   <polygon points="0,656 -256,656 -256,640 -16,640 -16,-192 0,-192"/>
   </object>
   <object id="382" type="Hitbox" x="1840" y="-592">
    <polygon points="-592,-16 -592,-208 -704,-208 -704,288 752,288 752,-336 624,-336 640,-320 640,-16 -96,-16 -128,-32 -256,-32 -288,-16"/>
@@ -335,6 +332,36 @@
   </object>
   <object id="406" x="768" y="816">
    <polygon points="0,0 0,96 1120,96 1120,0"/>
+  </object>
+  <object id="408" type="BouncePad" x="-1232" y="1475">
+   <polygon points="0,0 0,32 112,32 112,0"/>
+  </object>
+  <object id="409" type="SlipperyHitbox" x="-1136" y="1555">
+   <polygon points="0,-16 0,-48 16,-48 16,-80 0,-80 0,-400 16,-400 16,-512 0,-512 0,-544 -32,-544 -32,-560 80,-560 80,-544 32,-544 32,-16"/>
+  </object>
+  <object id="410" type="Hitbox" x="-1136" y="1075">
+   <polygon points="0,-32 0,80 16,80 16,-32"/>
+  </object>
+  <object id="411" type="SlipperyHitbox" x="-1312" y="1008">
+   <polygon points="-16,-208 0,-208 0,-512 32,-512 32,-528 -448,-528 -448,-512 -128,-512 -128,1152 -368,1152 -368,1168 -112,1168 -110.68,-512 -32,-512 -32,-496 -16,-496"/>
+  </object>
+  <object id="412" type="Bubble" x="-1152" y="768" width="64" height="64">
+   <ellipse/>
+  </object>
+  <object id="414" type="Bubble" x="-1264" y="624" width="48" height="48">
+   <ellipse/>
+  </object>
+  <object id="416" type="Hitbox" x="-1328" y="896">
+   <polygon points="-16,-384 -16,48 16,48 16,-96 0,-96 0,-384"/>
+  </object>
+  <object id="417" x="-1312" y="944">
+   <polygon points="0,0 -32,0 -32,16 0,16"/>
+  </object>
+  <object id="418" name="Coin" type="Coin" x="-1384.05" y="536.563">
+   <point/>
+  </object>
+  <object id="419" type="Bubble" x="-1152" y="496" width="48" height="48">
+   <ellipse/>
   </object>
  </objectgroup>
  <objectgroup id="2" name="front">

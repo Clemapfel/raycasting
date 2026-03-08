@@ -19,8 +19,8 @@ do
         max_spring_length = radius * 3,
         outer_body_spring_strength = 2,
 
-        bottom_wall_ray_length_factor = 1.25,
-        side_wall_ray_length_factor = 1.15,
+        bottom_wall_ray_length_factor = 1.3,
+        side_wall_ray_length_factor = 1.2,
         corner_wall_ray_length_factor = 0.8,
         top_wall_ray_length_factor = 1,
 
@@ -71,7 +71,7 @@ do
         ground_instant_turn_around_decay = 0.86,
         ground_instant_turn_around_magnitude = 300,
 
-        coyote_time = 8 / 60, -- seconds after leaving ground
+        coyote_time = 12 / 60, -- seconds after leaving ground
         wall_jump_coyote_time = 5 / 60, -- seconds after letting go of direction against wall
 
         platform_velocity_decay = 0.7,
@@ -1376,7 +1376,7 @@ function rt.Player:update(delta)
                 apply_friction(
                     bottom_left_nx, bottom_left_ny,
                     self._bottom_left_wall_body,
-                   do_not_use_input_modifier
+                    do_not_use_input_modifier
                 )
             end
 
@@ -1505,28 +1505,24 @@ function rt.Player:update(delta)
             self._wall_jump_elapsed = self._wall_jump_elapsed + delta
 
             self._left_wall_coyote_elapsed = self._left_wall_coyote_elapsed + delta
-            if left_wall_before == true and self._left_wall == false then
+            if self._left_wall then
                 self._left_wall_coyote_elapsed = 0
             end
 
             self._right_wall_coyote_elapsed = self._right_wall_coyote_elapsed + delta
-            if right_wall_before == true and self._right_wall == false then
+            if self._right_wall then
                 self._right_wall_coyote_elapsed = 0
             end
 
             self._coyote_elapsed = self._coyote_elapsed + delta
-            if bottom_wall_before == false and is_grounded then
+            if is_grounded then
                 self._coyote_elapsed = 0
-                self._left_wall_coyote_elapsed = math.huge
-                self._right_wall_coyote_elapsed = math.huge
             end
         end
 
-        do -- bounce
-            local bounce_dx, bounce_dy = self:_update_bounce(delta)
-            next_velocity_x = next_velocity_x + bounce_dx
-            next_velocity_y = next_velocity_y + bounce_dy
-        end
+        local bounce_dx, bounce_dy = self:_update_bounce(delta)
+        next_velocity_x = next_velocity_x + bounce_dx
+        next_velocity_y = next_velocity_y + bounce_dy
 
         local is_sliding = false
 
@@ -1535,7 +1531,8 @@ function rt.Player:update(delta)
             and not is_frozen
             and down_is_down
             and not ((left_is_down and self._left_wall) or (right_is_down and self._right_wall))
-            -- exclude wall clinging, handled by explicit friction release in apply_friction
+            and next_velocity_y > 0
+        -- exclude wall clinging, handled by explicit friction release in apply_friction
         then
             local force = 1 / velocity_easing * settings.downwards_force * delta
             if use_analog_input then
@@ -1734,6 +1731,17 @@ function rt.Player:update(delta)
         )
 
         self._last_velocity_x, self._last_velocity_y = next_velocity_x, next_velocity_y
+
+        -- guard against bodies catching on corners
+        do
+            local center_x, center_y = self._body:get_position()
+            for i, body in ipairs(self._spring_bodies) do
+                local dx, dy = self._spring_body_offsets_x[i], self._spring_body_offsets_y[i]
+                if math.distance(center_x, center_y, body:get_position()) > math.magnitude(dx, dy) + 2 * self._outer_body_radius then
+                    body:set_position(center_x + dx, center_y + dy)
+                end
+            end
+        end
 
         if is_frozen then
             self._body:set_velocity(next_velocity_x, next_velocity_y)
@@ -2550,6 +2558,8 @@ end
 
 --- @brief
 function rt.Player:_get_walljump_allowed()
+    if self:_get_jump_allowed() then return false, false end
+
     local magnitude = select(1, self._input_smoothing:get_magnitude())
     local eps = settings.input_smoothing_magnitude_eps
     local left_is_down = magnitude < -eps
@@ -2564,8 +2574,8 @@ function rt.Player:_get_walljump_allowed()
         or (self._bottom_right_wall and (self._bottom_right_wall_body:has_tag("slippery") or self._bottom_right_wall_body:has_tag("unjumpable")))
 
     -- by default, player needs to be pressing towards wall
-    local left_wall_jump_allowed = left_is_down and (self._left_wall or self._top_left_wall) and not left_wall_invalid
-    local right_wall_jump_allowed = right_is_down and (self._right_wall or self._top_right_wall) and not right_wall_invalid
+    local left_wall_jump_allowed = not self._is_grounded and (self._left_wall or self._top_left_wall) and not left_wall_invalid
+    local right_wall_jump_allowed = not self._is_grounded and (self._right_wall or self._top_right_wall) and not right_wall_invalid
 
     -- both conditions can be overriden by coyote time
     if not self._is_grounded then
@@ -2584,7 +2594,7 @@ end
 --- @brief
 function rt.Player:_get_jump_allowed()
     local bottom = (self._bottom_wall and not self._bottom_wall_body:has_tag("unjumpable"))
-        or (not self._left_wall and not self._right_wall and self._coyote_elapsed <= settings.coyote_time)
+        or self._coyote_elapsed <= settings.coyote_time
 
     local regular_jump_allowed = not self._jump_blocked and bottom
 
@@ -2660,6 +2670,12 @@ function rt.Player:jump()
     if jumped then
         self:signal_emit("jump")
         self._jump_buffer_elapsed = math.huge
+    end
+
+    if jumped then
+        self._coyote_elapsed = math.huge
+        self._left_wall_coyote_elapsed = math.huge
+        self._right_wall_coyote_elapsed = math.huge
     end
 
     return jumped

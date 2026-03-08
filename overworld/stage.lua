@@ -693,6 +693,8 @@ function ow.Stage:reset()
         body:set_is_enabled(body_to_is_enabled[body])
     end
 
+    rt.SceneManager:get_light_map():clear()
+
     self:signal_emit("reset")
 end
 

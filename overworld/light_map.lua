@@ -380,3 +380,14 @@ end
 function ow.LightMap:get_size()
     return self._light_intensity_texture:get_size()
 end
+
+--- @brief
+function ow.LightMap:clear()
+    self._light_intensity_texture:bind()
+    love.graphics.clear(0, 0, 0, 0)
+    self._light_intensity_texture:unbind()
+
+    self._light_direction_texture:bind()
+    love.graphics.clear(0, 0, 0,  0)
+    self._light_direction_texture:unbind()
+end
