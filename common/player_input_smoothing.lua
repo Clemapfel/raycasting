@@ -720,7 +720,7 @@ function rt.PlayerInputSmoothing:draw(center_x, center_y)
 
     do
         love.graphics.push()
-        love.graphics.translate(center_x + offset_x + 2 * small_radius + line_width + rt.settings.margin_unit / 2,
+        love.graphics.translate(center_x + offset_x + 2 * small_radius + 2 * line_width,
             center_y + offset_y)
         if self._jump_down then
             love.graphics.circle("fill", 0, 0, small_radius)

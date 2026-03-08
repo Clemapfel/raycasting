@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 406,
+  nextobjectid = 408,
   properties = {},
   tilesets = {
     {
@@ -336,28 +336,6 @@ return {
           }
         },
         {
-          id = 381,
-          name = "",
-          type = "Wall",
-          shape = "polygon",
-          x = 1068.24,
-          y = -148.786,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = 576 },
-            { x = 1312, y = 576 },
-            { x = 1312, y = -48 },
-            { x = 0, y = -48 }
-          },
-          properties = {
-            ["opacity"] = 0.85,
-            ["type"] = "flat"
-          }
-        },
-        {
           id = 405,
           name = "",
           type = "Wall",
@@ -373,6 +351,32 @@ return {
             { x = 0, y = 544 },
             { x = 1344, y = 544 },
             { x = 1344, y = 0 }
+          },
+          properties = {}
+        },
+        {
+          id = 407,
+          name = "",
+          type = "BubbleField",
+          shape = "polygon",
+          x = 1008,
+          y = 512,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = -48, y = 112 },
+            { x = 32, y = 240 },
+            { x = 416, y = 256 },
+            { x = 672, y = 208 },
+            { x = 720, y = 144 },
+            { x = 704, y = 0 },
+            { x = 576, y = -128 },
+            { x = 368, y = -176 },
+            { x = 240, y = -176 },
+            { x = 64, y = -64 }
           },
           properties = {}
         }
@@ -397,8 +401,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = 1056,
-          y = -848,
+          x = 846.116,
+          y = 791.23,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1638,7 +1642,7 @@ return {
         },
         {
           id = 388,
-          name = "Trampoline Down Introduction",
+          name = "Bubble Intro",
           type = "Hitbox",
           shape = "polygon",
           x = 1136,
@@ -1787,6 +1791,25 @@ return {
           height = 0,
           rotation = 0,
           visible = true,
+          properties = {}
+        },
+        {
+          id = 406,
+          name = "",
+          type = "",
+          shape = "polygon",
+          x = 768,
+          y = 816,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 0, y = 96 },
+            { x = 1120, y = 96 },
+            { x = 1120, y = 0 }
+          },
           properties = {}
         }
       }

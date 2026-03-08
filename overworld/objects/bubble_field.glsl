@@ -99,17 +99,19 @@ vec2 rotate(vec2 v, float angle) {
 
 uniform float elapsed;
 uniform float hue;
+uniform float hue_offset;
 
 vec4 effect(vec4 color, Image image, vec2 texture_coords, vec2 vertex_position) {
     vec2 uv = to_world_position(vertex_position) / 60;
     float noise = gradient_noise(vec3(uv, elapsed / 4));
 
+    float hue_eps = hue_offset;
     #if MODE == MODE_BASE
-    const float hue_offset = 0.1;
-    float alpha = noise;
+        float alpha = noise;
+        hue_eps = hue_offset;
     #elif MODE == MODE_OUTLINE
-    const float hue_offset = 0.4;
-    float alpha = 1;
+        float alpha = 1;
+        hue_eps = hue_offset * 4;
     #endif
 
     float final_hue = mix(hue - hue_offset, hue + hue_offset, noise);

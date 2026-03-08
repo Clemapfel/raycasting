@@ -5,8 +5,29 @@ rt.settings.overworld.bubble_field = {
     segment_length = 10,
     n_smoothing_iterations = 2,
     wave_deactivation_threshold = 1 / 1000,
-    excitation_amplitude = 0.03,
-    opacity = 0.4
+    excitation_amplitude = 0.0001,
+    opacity = 0.4,
+
+    particles = {
+        min_radius = 2,
+        max_radius = 5,
+
+        hue_offset = 0.1,
+
+        min_count = 4,
+        max_count = 75,
+
+        min_velocity = 300, -- factor
+        max_velocity = 500,
+
+        spread_angle = 0.25 * math.pi,
+        upwards_bias = 0.25,
+
+        min_mass = 4,
+        max_mass = 10,
+
+        gravity = 40 -- px / s
+    }
 }
 
 --- @class ow.BubbleField
@@ -55,34 +76,31 @@ function ow.BubbleField:instantiate(object, stage, scene)
 
     local start_b = not self._inverted
     local end_b = self._inverted
-    self._body:signal_connect("collision_start", function(_, other_body)
-        local other = self._scene:get_player()
-        if other:get_is_bubble() == (not start_b) then
-            self:_block_signals()
-            other:request_is_bubble(self, start_b)
+
+    self._collision_start = function(self)
+        local player = self._scene:get_player()
+        if player:get_is_bubble() == (not start_b) then
+            player:request_is_bubble(self, start_b)
             self._is_active = true
 
-            local x, y = other:get_position()
-            self:_excite_wave(x, y, -1) -- inward
+            local x, y = player:get_position()
+            local vx, vy = player:get_velocity()
+            self:_excite_wave(x, y, vx, vy, -1, false) -- inward
         end
-    end)
+    end
 
-    self._body:signal_connect("collision_end", function()
+    self._collision_end = function(self)
         local player = scene:get_player()
         if player:get_is_bubble() == (not end_b) then
-            self:_block_signals()
-
-            -- check if player is actually outside body, in case of exiting one shape of self but entering another
-            if self._body:test_point(player:get_position()) then
-                return
-            end
-
             player:request_is_bubble(self, end_b)
             local x, y = player:get_position()
-            self:_excite_wave(x, y, 1) -- outwards
+            local vx, vy = player:get_velocity()
+            self:_excite_wave(x, y, vx, vy, 1, true) -- outwards
             self._is_active = true
         end
-    end)
+    end
+
+    self._is_colliding = false
 
     -- contour
     local contour = object:create_contour() -- flat array: {x1, y1, x2, y2, ..., xn, yn}
@@ -93,9 +111,6 @@ function ow.BubbleField:instantiate(object, stage, scene)
     -- laplacian smoothing
     local n_smoothing_iterations = rt.settings.overworld.bubble_field.n_smoothing_iterations
     local points = rt.contour.smooth(subdivided, n_smoothing_iterations)
-
-    -- IMPORTANT: keep only unique vertices for mesh/solver; don't append first at the end here
-    -- The wave solver uses periodic indexing; duplicating the first vertex as last creates a seam.
 
     -- compute center and mesh data
     self._contour = points
@@ -180,24 +195,31 @@ function ow.BubbleField:instantiate(object, stage, scene)
         current = table.rep(0, self._n_points),
         next = {}
     }
+
+    -- particles
+    self._batches = {}
+end
+
+local _x_offset = 0
+local _y_offset = 1
+local _velocity_x_offset = 2
+local _velocity_y_offset = 3
+local _radius_offset = 4
+local _mass_offset = 5
+local _r_offset = 6
+local _g_offset = 7
+local _b_offset = 8
+local _is_disabled_offset = 9
+
+local FALSE, TRUE = 0, 1
+
+local _stride = _is_disabled_offset + 1
+local _particle_i_to_data_offset = function(particle_i)
+    return (particle_i - 1) * _stride + 1
 end
 
 --- @brief
-function ow.BubbleField:_block_signals()
-    -- block signals until next step to avoid infinite loops
-    -- because set_is_bubble can teleport and trigger multiple starts
-    self._body:signal_set_is_blocked("collision_start", true)
-    self._body:signal_set_is_blocked("collision_end", true)
-
-    self._world:signal_connect("step", function()
-        self._body:signal_set_is_blocked("collision_start", false)
-        self._body:signal_set_is_blocked("collision_end", false)
-        return meta.DISCONNECT_SIGNAL
-    end)
-end
-
---- @brief
-function ow.BubbleField:_excite_wave(x, y, sign)
+function ow.BubbleField:_excite_wave(x, y, velocity_x, velocity_y, sign, spawn_particles)
     local min_distance, min_i = math.huge, nil
     for i = 1, self._n_points do
         local data = self._shape_mesh_data[i]
@@ -211,7 +233,7 @@ function ow.BubbleField:_excite_wave(x, y, sign)
         end
     end
 
-    local center_index, amplitude, width = min_i, sign * rt.settings.overworld.bubble_field.excitation_amplitude, 5
+    local center_index, amplitude, width = min_i, sign * math.magnitude(velocity_x, velocity_y) * rt.settings.overworld.bubble_field.excitation_amplitude, 5
     for i = 1, self._n_points do
         local distance = math.abs(i - center_index)
         distance = math.min(distance, self._n_points - distance)
@@ -219,11 +241,79 @@ function ow.BubbleField:_excite_wave(x, y, sign)
     end
 
     self._is_active = true
+
+    if not spawn_particles then return end
+
+    local settings = rt.settings.overworld.bubble_field.particles
+    do
+        local base_hue = self._scene:get_player():get_hue()
+        local batch = {}
+        local magnitude = math.magnitude(velocity_x, velocity_y)
+        local dx, dy = math.normalize(velocity_x, velocity_y)
+
+        local n_particles = rt.random.integer(
+            settings.min_count,
+            settings.max_count,
+            math.min(1, magnitude / rt.settings.player.bubble_target_velocity)
+        )
+
+        batch.n_particles = n_particles
+        batch.data = {}
+
+        local data = batch.data
+        -- perpendicular axis for angular spread (rotate direction 90 degrees)
+        local perp_x, perp_y = -dy, dx
+
+        for particle_i = 1, n_particles do
+            local i = _particle_i_to_data_offset(particle_i)  -- use the same stride fn as the update loop
+            data[i + _x_offset] = x
+            data[i + _y_offset] = y
+
+            local speed = rt.random.number(settings.min_velocity, settings.max_velocity)
+            local spread = rt.random.number(-settings.spread_angle, settings.spread_angle)
+            local cos_s, sin_s = math.cos(spread), math.sin(spread)
+            local vx = (dx * cos_s - dy * sin_s) * speed
+            local vy = (dx * sin_s + dy * cos_s) * speed
+
+            -- bias upward slightly so particles arc against gravity instead of drooping immediately
+            local gravity = rt.settings.overworld.bubble_field.particles.gravity
+            local mass = rt.random.number(settings.min_mass, settings.max_mass)
+            vy = vy - gravity * mass * settings.upwards_bias  -- upward_bias ~0.1–0.3 s, tune freely
+
+            data[i + _velocity_x_offset] = vx
+            data[i + _velocity_y_offset] = vy
+
+            data[i + _radius_offset] = rt.random.number(settings.min_radius, settings.max_radius)
+            data[i + _mass_offset] = mass
+
+            local hue = base_hue + rt.random.number(-settings.hue_offset, settings.hue_offset)
+            local r, g, b = rt.lcha_to_rgba(0.8, 1, hue, 1)
+            data[i + _r_offset] = r
+            data[i + _g_offset] = g
+            data[i + _b_offset] = b
+
+            data[i + _is_disabled_offset] = FALSE
+        end
+
+        table.insert(self._batches, batch)
+    end
 end
 
 --- @brief
 function ow.BubbleField:update(delta)
     if not self._stage:get_is_body_visible(self._body) then return end
+
+
+    local current = self._is_colliding
+    local next = self._body:test_point(self._scene:get_player():get_position())
+    if current == false and next == true then
+        self:_collision_start()
+    elseif current == true and next == false then
+        self:_collision_end()
+    end
+
+    self._is_colliding = next
+
     self._elapsed = self._elapsed + delta
 
     if self._is_active and not rt.GameState:get_is_performance_mode_enabled() then
@@ -259,6 +349,52 @@ function ow.BubbleField:update(delta)
             self._is_active = false
         end
     end
+
+    local to_remove = {}
+    local bounds = self._scene:get_camera():get_world_bounds()
+    local gravity_dx, gravity_dy = 0, 1
+
+    for batch_i, batch in ipairs(self._batches) do
+        local data = batch.data
+        local gravity = rt.settings.overworld.bubble_field.particles.gravity
+        local should_remove = true
+
+
+        for particle_i = 1, batch.n_particles do
+            local i = _particle_i_to_data_offset(particle_i)
+
+            if data[i + _is_disabled_offset] == FALSE then
+                local vx = data[i + _velocity_x_offset]
+                local vy = data[i + _velocity_y_offset]
+                local x  = data[i + _x_offset]
+                local y  = data[i + _y_offset]
+                local mass = data[i + _mass_offset]
+
+                vx = vx + gravity * gravity_dx * mass * delta
+                vy = vy + gravity * gravity_dy * mass * delta
+
+                x = x + vx * delta
+                y = y + vy * delta
+
+                data[i + _x_offset]                = x
+                data[i + _y_offset]                = y
+                data[i + _velocity_x_offset]       = vx
+                data[i + _velocity_y_offset]       = vy
+
+                data[i + _is_disabled_offset] = ternary(bounds:contains(x, y), FALSE, TRUE)
+
+                should_remove = false
+            end
+        end
+
+        if should_remove then
+            table.insert(to_remove, 1, batch_i)  -- insert in reverse so removals don't shift indices
+        end
+    end
+
+    for i in values(to_remove) do
+        table.remove(self._batches, i)
+    end
 end
 
 --- @brief
@@ -284,7 +420,9 @@ function ow.BubbleField:draw()
     _base_shader:send("screen_to_world_transform", transform)
     _base_shader:send("elapsed", elapsed)
     _base_shader:send("hue", hue)
+    _base_shader:send("hue_offset", rt.settings.overworld.bubble_field.particles.hue_offset)
     love.graphics.draw(self._shape_mesh:get_native())
+
     _base_shader:unbind()
 
     love.graphics.setColor(1, 1, 1, 1)
@@ -305,6 +443,27 @@ function ow.BubbleField:draw()
     love.graphics.line(closed_contour)
 
     _outline_shader:unbind()
+
+
+    for batch in values(self._batches) do
+        local data = batch.data
+        for particle_i = 1, batch.n_particles do
+            local i = _particle_i_to_data_offset(particle_i)
+            if data[i + _is_disabled_offset] == FALSE then
+                love.graphics.setColor(
+                    data[i + _r_offset],
+                    data[i + _g_offset],
+                    data[i + _b_offset],
+                    1
+                )
+                love.graphics.circle("fill",
+                    data[i + _x_offset],
+                    data[i + _y_offset],
+                    data[i + _radius_offset]
+                )
+            end
+        end
+    end
 
     love.graphics.pop()
 end
