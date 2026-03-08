@@ -72,7 +72,7 @@ do
         ground_instant_turn_around_magnitude = 300,
 
         coyote_time = 12 / 60, -- seconds after leaving ground
-        wall_jump_coyote_time = 5 / 60, -- seconds after letting go of direction against wall
+        wall_jump_coyote_time = 8 / 60, -- seconds after letting go of direction against wall
 
         platform_velocity_decay = 0.7,
 
