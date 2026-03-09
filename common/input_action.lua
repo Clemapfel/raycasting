@@ -46,7 +46,11 @@ rt.ControllerButton = {
     LEFT_SHOULDER = "leftshoulder",
     RIGHT_SHOULDER = "rightshoulder",
     LEFT_TRIGGER = "triggerleft",
-    RIGHT_TRIGGER = "triggerright"
+    RIGHT_TRIGGER = "triggerright",
+    PADDLE_01 = "paddle1",
+    PADDLE_02 = "paddle2",
+    PADDLE_03 = "paddle3",
+    PADDLE_04 = "paddle4"
 }
 
 rt.ControllerButton = meta.enum("ControllerButton", rt.ControllerButton)

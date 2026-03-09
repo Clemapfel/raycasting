@@ -36,6 +36,47 @@ function rt.KeybindingIndicator:instantiate()
     })
 end
 
+
+--- @brief
+function rt.KeybindingIndicator:create_from_keyboard_key(keyboard_key)
+    return self:create_as_key(rt.Translation.keyboard_key_to_string(keyboard_key), keyboard_key == "space")
+end
+
+--- @brief
+function rt.KeybindingIndicator:create_from_gamepad_button(button)
+    if button == rt.ControllerButton.TOP then
+        return self:create_as_button(true, false, false, false)
+    elseif button == rt.ControllerButton.RIGHT then
+        return self:create_as_button(false, true, false, false)
+    elseif button == rt.ControllerButton.BOTTOM then
+        return self:create_as_button(false, false, true, false)
+    elseif button == rt.ControllerButton.LEFT then
+        return self:create_as_button(false, false, false, true)
+    elseif button == rt.ControllerButton.DPAD_UP then
+        return self:create_as_dpad(true, false, false, false)
+    elseif button == rt.ControllerButton.DPAD_RIGHT then
+        return self:create_as_dpad(false, true, false, false)
+    elseif button == rt.ControllerButton.DPAD_DOWN then
+        return self:create_as_dpad(false, false, true, false)
+    elseif button == rt.ControllerButton.DPAD_LEFT then
+        return self:create_as_dpad(false, false, false, true)
+    elseif button == rt.ControllerButton.LEFT_SHOULDER then
+        return self:create_as_l_or_r(true)
+    elseif button == rt.ControllerButton.RIGHT_SHOULDER then
+        return self:create_as_l_or_r(false)
+    elseif button == rt.ControllerButton.START then
+        return self:create_as_start_or_select(true)
+    elseif button == rt.ControllerButton.SELECT then
+        return self:create_as_start_or_select(false)
+    elseif button == rt.ControllerButton.LEFT_STICK then
+        return self:create_as_joystick(true)
+    elseif button == rt.ControllerButton.RIGHT_STICK then
+        return self:create_as_joystick(false)
+    else
+        return self:create_as_button(false, false, false, false)
+    end
+end
+
 --- @overload
 function rt.KeybindingIndicator:reformat(x, y, width, height)
     if x ~= nil then self._bounds.x = math.floor(x) end
@@ -1312,41 +1353,6 @@ function rt.KeybindingIndicator:create_as_four_keys(up_text, right_text, bottom_
 end
 
 --- @brief
-function rt.KeybindingIndicator:create_from_keyboard_key(keyboard_key)
-    return self:create_as_key(rt.Translation.keyboard_key_to_string(keyboard_key), keyboard_key == "space")
-end
-
---- @brief
-function rt.KeybindingIndicator:create_from_gamepad_button(button)
-    if button == rt.ControllerButton.TOP then
-        return self:create_as_button(true, false, false, false)
-    elseif button == rt.ControllerButton.RIGHT then
-        return self:create_as_button(false, true, false, false)
-    elseif button == rt.ControllerButton.BOTTOM then
-        return self:create_as_button(false, false, true, false)
-    elseif button == rt.ControllerButton.LEFT then
-        return self:create_as_button(false, false, false, true)
-    elseif button == rt.ControllerButton.DPAD_UP then
-        return self:create_as_dpad(true, false, false, false)
-    elseif button == rt.ControllerButton.DPAD_RIGHT then
-        return self:create_as_dpad(false, true, false, false)
-    elseif button == rt.ControllerButton.DPAD_DOWN then
-        return self:create_as_dpad(false, false, true, false)
-    elseif button == rt.ControllerButton.DPAD_LEFT then
-        return self:create_as_dpad(false, false, false, true)
-    elseif button == rt.ControllerButton.LEFT_SHOULDER then
-        return self:create_as_l_or_r(true)
-    elseif button == rt.ControllerButton.RIGHT_SHOULDER then
-        return self:create_as_l_or_r(false)
-    elseif button == rt.ControllerButton.START then
-        return self:create_as_start_or_select(true)
-    elseif button == rt.ControllerButton.SELECT then
-        return self:create_as_start_or_select(false)
-    elseif button == rt.ControllerButton.LEFT_STICK then
-        return self:create_as_joystick(true)
-    elseif button == rt.ControllerButton.RIGHT_STICK then
-        return self:create_as_joystick(false)
-    else
-        return self:create_as_button(false, false, false, false)
-    end
+function rt.KeybindingIndicator:create_from_paddle(index)
+    -- TODO
 end
