@@ -18,6 +18,7 @@ rt.VSyncMode = meta.enum("VSyncMode", {
     ON = 1
 })
 
+
 --- @class rt.MSAAQuality
 rt.MSAAQuality = meta.enum("MSAAQuality", {
     OFF = 0,
@@ -46,8 +47,9 @@ function rt.GameState:instantiate()
         is_hdr_enabled = true,
         is_bloom_enabled = true,
         is_screen_shake_enabled = true,
-        resolution_x = width,
-        resolution_y = height,
+        controller_vibration = 1,
+        window_width = width,
+        window_height = height,
         sound_effect_level = 1.0,
         music_level = 1.0,
         text_speed = 1.0,
@@ -59,8 +61,9 @@ function rt.GameState:instantiate()
         draw_speedrun_splits = false,
         input_buffering_enabled = true,
         player_sprint_mode = rt.PlayerSprintMode.HOLD_TO_SPRINT,
-        color_blind_mode = false,
+        color_blind_mode_enabled = false,
         input_mapping = {}, -- Table<rt.InputAction, { keyboard = rt.KeyboardKey, controller = rt.ControllerButton }>
+        axis_mapping = {},
 
         -- stage results
         stage_results = {}, --[[ Table<StageID, {
@@ -96,7 +99,7 @@ end
 --- @brief
 function rt.GameState:set_msaa_quality(msaa)
     meta.assert_enum_value(msaa, rt.MSAAQuality, 1)
-    self._state.msaa = msaa
+    self._state.msaa = math.min(msaa, love.graphics.getSystemLimits().texturemsaa)
     local w, h, mode = love.window.getMode()
     mode.msaa = ternary(self._state.is_hdr_enabled, 0, self._state.msaa)
     love.window.setMode(w, h, mode)
@@ -222,12 +225,12 @@ end
 --- @brief
 function rt.GameState:set_is_color_blind_mode_enabled(enabled)
     meta.assert(enabled, "Boolean")
-    self._state.color_blind_mode = enabled
+    self._state.color_blind_mode_enabled = enabled
 end
 
 --- @brief
 function rt.GameState:get_is_color_blind_mode_enabled()
-    return self._state.color_blind_mode
+    return self._state.color_blind_mode_enabled
 end
 
 --- @brief
@@ -238,6 +241,16 @@ end
 --- @brief
 function rt.GameState:get_is_screen_shake_enabled()
     return self._state.is_screen_shake_enabled
+end
+
+--- @brief
+function rt.GameState:set_is_controller_vibration(t)
+    self._state.controller_vibration = t
+end
+
+--- @brief
+function rt.GameState:get_is_controller_vibration_enabled()
+    return self._state.controller_vibration
 end
 
 --- @brief

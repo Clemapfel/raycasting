@@ -221,7 +221,7 @@ function mn.KeybindingScene:instantiate()
                         rt.GameState:load_default_input_mapping()
                         self:_update_all_indicators()
                     end
-                    rt.SoundManager:player(rt.SoundIDs.keybinding_scene.reset)
+                    rt.SoundManager:play(rt.SoundIDs.keybinding_scene.reset)
                     dialog:close()
                     return meta.DISCONNECT_SIGNAL
                 end)

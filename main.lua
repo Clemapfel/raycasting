@@ -5,6 +5,9 @@ require "common.music_manager"
 require "common.sound_manager"
 require "common.input_manager"
 
+require "build.config"
+
+
 love.load = function(args)
     local w, h = love.graphics.getDimensions()
 
@@ -57,6 +60,12 @@ end
 love.update = function(delta)
     if rt.SceneManager ~= nil then
         rt.SceneManager:update(delta)
+    end
+
+    for stick in values(love.joystick.getJoysticks()) do
+        for i = 1, stick:getButtonCount() do
+            if stick:isDown(i) then dbg(i) end
+        end
     end
 end
 

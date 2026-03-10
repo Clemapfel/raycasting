@@ -15,6 +15,7 @@ rt.settings.settings_scene = {
     bloom_default = true,
     hdr_default = false,
     shake_default = true,
+    controller_vibration_default = 1,
     music_level_default = 1,
     sound_effect_level_default = 1,
     deadzone_default = 0.15,
@@ -400,6 +401,25 @@ function mn.SettingsScene:instantiate()
 
         item:signal_connect("reset", function(_)
             shake_button:set_option(shake_to_label[rt.settings.settings_scene.shake_default])
+        end)
+    end
+
+    do -- music
+        local controller_vibration_scale = new_scale(rt.GameState:get_controller_vibration())
+        controller_vibration_scale:signal_connect("value_changed", function(_, value)
+            rt.GameState:set_controller_vibration(value)
+        end)
+
+        local item = add_item(
+            translation.controller_vibration_prefix, controller_vibration_scale,
+            mn.VerboseInfoObject.CONTROLLER_VIBRATION
+        )
+
+        item:signal_connect("reset", function(_)
+            controller_vibration_scale:set_value(rt.settings.settings_scene.controller_vibration_default)
+            if self._input:get_input_method() == rt.InputMethod.CONTROLLER then
+                self._input:vibrate(1, 1)
+            end
         end)
     end
 

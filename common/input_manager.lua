@@ -49,6 +49,12 @@ function rt.InputManager:flush()
 end
 
 --- @brief
+function rt.InputManager:vibrate(joystick_id, left, right)
+    meta.assert(joystick_id, left, right)
+    rt.critical("rt.InputManager:vibrate: todo")
+end
+
+--- @brief
 function rt.InputManager:_emit(subscriber, ...)
     if rt.InputManager._is_flushed then return end
     subscriber:signal_emit(...)

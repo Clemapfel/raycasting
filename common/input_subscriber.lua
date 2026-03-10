@@ -109,6 +109,11 @@ function rt.InputSubscriber:get_input_method()
 end
 
 --- @brief
+function rt.InputSubscriber:vibrate(duration)
+    rt.InputManager:vibrate("todo")
+end
+
+--- @brief
 function rt.InputSubscriber:get_count()
     return rt.InputManager:get_count()
 end
