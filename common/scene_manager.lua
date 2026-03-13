@@ -198,6 +198,7 @@ function rt.SceneManager:update(delta)
     end
 
     rt.GameState:update(delta)
+    rt.InputManager:update(delta)
 
     self._fade:update(delta)
     if self._current_scene ~= nil then

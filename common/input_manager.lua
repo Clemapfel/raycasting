@@ -26,6 +26,9 @@ function rt.InputManager:instantiate()
         _keyboard_key_to_last_pressed = {},
         _controller_button_to_last_pressed = {},
 
+        _vibration_sources = {},
+        _vibration_source_id = 0,
+
         _last_trigger_left = 0,
         _last_trigger_right = 0,
 
@@ -49,9 +52,50 @@ function rt.InputManager:flush()
 end
 
 --- @brief
-function rt.InputManager:vibrate(joystick_id, left, right)
-    meta.assert(joystick_id, left, right)
-    rt.critical("rt.InputManager:vibrate: todo")
+function rt.InputManager:vibrate(left, right, duration, attack, decay)
+    local default_attack = 10 / 60 -- seconds
+    if attack == nil then attack = default_attack / duration end
+    if decay == nil then decay = default_attack / duration end
+
+    meta.assert(left, right, duration, attack, decay)
+
+    if duration < 0 then
+        rt.critical("In rt.InputManager.vibrate: duration `", duration, "` is negative")
+        return
+    end
+
+    local id = self._vibration_source_id
+    self._vibration_source_id = self._vibration_source_id + 1
+
+    table.insert(self._vibration_sources, {
+        id = id,
+        left = left,
+        right = right,
+        duration = duration,
+        elapsed = 0,
+        attack = attack,
+        decay = decay
+    })
+end
+
+--- @brief
+function rt.InputManager:update(delta)
+    for joystick in values(love.joystick.getJoysticks()) do
+        joystick:setVibration(0, 0)
+    end
+
+    if self._input_method == rt.InputMethod.CONTROLLER then
+        local factor = rt.GameState:get_controller_vibration_strength()
+        for source in values(self._vibration_sources) do
+            local t = source.elapsed / source.duration
+            local value = rt.InterpolationFunctions.ENVELOPE(t, source.attack, source.decay)
+            self._last_active_joystick:setVibration(
+                factor * value * source.left,
+                factor * value * source.right
+            )
+            source.elapsed = source.elapsed + delta
+        end
+    end
 end
 
 --- @brief

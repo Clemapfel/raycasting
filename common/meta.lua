@@ -1,5 +1,5 @@
 require "common.common"
-local meta = {}
+if meta == nil then meta = {} end
 
 --- @class meta.Type
 --- @class meta.Enum

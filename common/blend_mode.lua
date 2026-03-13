@@ -1,3 +1,5 @@
+if rt.graphics == nil then rt.graphics = {} end
+
 --- @class rt.BlendMode
 rt.BlendMode = meta.enum("BlendMode", {
     NONE = -1,

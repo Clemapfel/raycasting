@@ -1,29 +1,72 @@
 DEBUG = true -- overriden by build script
+GAME_NAME = "Chroma Drift"
 
-local VSYNC_ADAPTIVE = -1
-local VSYNC_OFF = 0
-local VSYNC_ON = 1
+require "include"
+require "common.msaa_quality"
+require "common.vsync_mode"
 
 function love.conf(settings)
+    require "build.config"
+    local config = bd.get_config()
 
-    --settings.graphics.renderers = {"opengl"}
+    local to_exclude = {}
+    if config.allow_opengl == false then
+        table.insert(to_exclude, "opengl")
+    end
 
-    local height = 600
-    local aspect_ratio = 16 / 9
+    if config.allow_vulkan == false then
+        table.insert(to_exclude, "vulkan")
+    end
 
-    settings.window.width = height * aspect_ratio
-    settings.window.height = height
-    settings.window.msaa = 2
-    settings.window.resizable = true
-    settings.window.vsync = VSYNC_ADAPTIVE
-    settings.window.usedpiscale = true
-    settings.window.borderless = false
-    settings.window.fullscreen = false
+    if config.allow_metal == false then
+        table.insert(to_exclude, "Metal")
+    end
 
-    -- non-overridable settings
+    settings.graphics.renderers = nil -- keep default
+    settings.graphics.excluderenderers = to_exclude
 
+    settings.window.width = config.window_width
+    settings.window.height = config.window_height
+    settings.window.fullscreen = config.is_fullscreen
+    settings.window.fullscreentype = "desktop"
+    settings.window.resizable = config.is_reizable
     settings.window.stencil = true
     settings.window.depth = true
+    settings.window.gammacorrect = config.use_gamma_correction
+
+    if config.is_fullscreen then
+        settings.window.borderless = true
+    else
+        settings.window.borderless = config.is_borderless
+    end
+
+    do
+        local mapping = {
+            [rt.VSyncMode.OFF] = 0,
+            [rt.VSyncMode.ON] = 1,
+            [rt.VSyncMode.ADAPTIVE] = -1
+        }
+
+        settings.window.vsync = mapping[config.vsync]
+    end
+
+    do
+        local mapping = {
+            [rt.MSAAQuality.OFF] = 0,
+            [rt.MSAAQuality.GOOD] = 2,
+            [rt.MSAAQuality.BETTER] = 4,
+            [rt.MSAAQuality.BEST] = 8
+        }
+
+        settings.window.msaa = math.min(mapping[config.msaa], 8)
+    end
+
+    settings.window.usedpiscale = config.use_dpi_scale
+    settings.console = config.show_console
+
+    settings.window.title = GAME_NAME
+    settings.identity = GAME_NAME
+    settings.appendidentity = true
 
     for _, exclude in pairs({
         "touch",
@@ -31,17 +74,6 @@ function love.conf(settings)
         "video"
     }) do
         settings.modules[exclude] = false
-    end
-
-    local game_name = "Chroma Drift"
-    settings.window.title = game_name
-    love.filesystem.setIdentity(game_name)
-
-    -- disable debug on release
-    if not DEBUG then
-        _G._setfenv = setfenv or debug.setfenv
-        debug = nil
-        setfenv = nil
     end
 end
 

@@ -35,21 +35,23 @@ if DEBUG then
 end
 
 -- globals
-rt = {} -- common
-mn = {} -- menu
-ow = {} -- overworld
-b2 = {} -- physics (box2d)
-bd = {} -- build
-rt.graphics = {}
+if rt == nil then rt = {} end -- common
+if mn == nil then mn = {} end -- menu
+if ow == nil then ow = {} end -- overworld
+if b2 == nil then b2 = {} end -- physics (box2d)
+if bd == nil then bd = {} end -- build
+
+if rt.graphics == nil then rt.graphics = {} end
 
 for id, t in pairs({
-    {"_G", _G},
-    {"rt", rt},
-    {"mn", mn},
-    {"bd", bd},
-    {"ow", ow},
-    {"b2", b2},
-    {"meta", meta}
+    { "_G", _G},
+    { "rt", rt },
+    { "rt.graphics", rt.graphics },
+    { "mn", mn },
+    { "bd", bd },
+    { "ow", ow },
+    { "b2", b2 },
+    { "meta", meta }
 }) do
     setmetatable(t, {
         __index = function(self, key)

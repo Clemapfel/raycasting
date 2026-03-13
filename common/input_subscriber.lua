@@ -109,8 +109,8 @@ function rt.InputSubscriber:get_input_method()
 end
 
 --- @brief
-function rt.InputSubscriber:vibrate(duration)
-    rt.InputManager:vibrate("todo")
+function rt.InputSubscriber:vibrate(left, right, duration, attack, decay)
+    rt.InputManager:vibrate(left, right, duration, attack, decay)
 end
 
 --- @brief

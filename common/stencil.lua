@@ -1,3 +1,5 @@
+if rt.graphics == nil then rt.graphics = {} end
+
 function rt.graphics.get_stencil_value()
     local out = rt.graphics._stencil_value
     if out == nil then

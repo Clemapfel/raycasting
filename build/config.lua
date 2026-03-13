@@ -1,13 +1,14 @@
-
--- TODO: axis mapping
--- TODO: key mapping
-
 require "common.log"
+require "common.player_sprint_mode"
+require "common.msaa_quality"
+require "common.vsync_mode"
+
 require "love.filesystem"
 
 bd.config = {}
-
+bd.config.default_path = "build/default_settings.ini"
 bd.config.values = {} -- entry values after config was loaded
+bd.config.default_values = {}
 
 --- @brief get the parsed value
 function bd.config.get_value(key)
@@ -29,6 +30,16 @@ function bd.config.get_default_value(key)
     else
         return entry
     end
+end
+
+--- @brief
+function bd.get_config()
+    return bd.config.values
+end
+
+--- @brief
+function bd.get_default_config()
+    return bd.config.default_values
 end
 
 local BOOLEAN_TYPE = "Boolean"
@@ -69,9 +80,6 @@ local INTEGER_RANGE = function(default, lower, upper)
 end
 
 do
-    local supported = love.graphics.getSupported()
-    local limits = love.graphics.getSystemLimits()
-
     local window_min_w, window_min_h = 400, 300
     local window_max_w, window_max_h = window_min_w, window_min_h
     do
@@ -87,6 +95,8 @@ do
         local os = love.system.getOS()
         if os == "OS X" then
             renderers["metal"] = true
+        else
+            renderers["metal"] = false
         end
 
         renderers["vulkan"] = true
@@ -131,24 +141,32 @@ do
         use_dpi_scale = BOOLEAN(false),
 
         -- if the console should be visible when the game starts
-        show_console = BOOLEAN(true),
+        is_console_visible = BOOLEAN(true),
 
         -- which renderers are allowed
         allow_opengl = BOOLEAN(renderers["opengl"]),
         allow_vulkan = BOOLEAN(renderers["vulkan"]),
         allow_metal = BOOLEAN(renderers["metal"]),
 
+        -- whether to use sRGB for the backbuffer
+        use_gamma_correction = BOOLEAN(false),
+
         -- vsync mode
-        vsync = ENUM("adaptive",
-            "on", "off", "adaptive"
+        vsync = ENUM(rt.VSyncMode.ADAPTIVE,
+            rt.VSyncMode.OFF,
+            rt.VSyncMode.ON,
+            rt.VSyncMode.ADAPTIVE
         ),
 
         -- performance mode
         performance_mode_enabled = BOOLEAN(use_performance_mode),
 
         -- graphics
-        msaa = INTEGER_RANGE(performance_ternary(0, 2),
-            0, limits.texturemsaa
+        msaa = ENUM(performance_ternary(rt.MSAAQuality.OFF, rt.MSAAQuality.GOOD),
+            rt.MSAAQuality.OFF,
+            rt.MSAAQuality.GOOD,
+            rt.MSAAQuality.BETTER,
+            rt.MSAAQuality.BEST
         ),
 
         is_hdr_enabled = BOOLEAN(performance_ternary(false, true)),
@@ -159,25 +177,25 @@ do
 
         -- non-diagetic overlay
         draw_debug_information = BOOLEAN(true),
-        draw_speedrun_splits = BOOLEAN(true),
+
+        -- should system console be shown
+        show_console = BOOLEAN(true),
 
         -- audio
         sound_effect_level = FLOAT_RANGE(1, 0, 1),
         music_level = FLOAT_RANGE(1, 0, 1),
 
         -- accessibility
-        color_blind_mode = BOOLEAN(false),
+        is_color_blind_mode_enabled = BOOLEAN(false),
         text_speed = FLOAT_RANGE(1, 0, 1),
 
         -- controls
-        player_sprint_mode = ENUM(
-            rt.PlayerSprintMode.HOLD_TO_SPRINT,
-
+        player_sprint_mode = ENUM(rt.PlayerSprintMode.HOLD_TO_SPRINT,
             rt.PlayerSprintMode.HOLD_TO_SPRINT,
             rt.PlayerSprintMode.HOLD_TO_WALK
         ),
 
-        input_buffering_enabled = BOOLEAN(true),
+        is_input_buffering_enabled = BOOLEAN(true),
 
         double_press_threshold = FLOAT_RANGE(0.5,
             0, 1
@@ -191,17 +209,17 @@ do
             0, 0.5
         ),
 
-        controller_vibration = FLOAT_RANGE(1, 0, 1),
+        controller_vibration_strength = FLOAT_RANGE(1, 0, 1),
     }
 end
 
 --- @brief check if a config entry has the correct format
 bd.config._validate_entry = function(key, value)
     local throw = function(...)
-        rt.error("In bd.config._validate_entry: ", ...)
+        rt.critical("In bd.config._validate_entry: ", ...)
     end
 
-    value = string.match(value, '^"(.-)"$') or value -- strip `"`
+    value = string.match(tostring(value), '^"(.-)"$') or value -- strip `"`
 
     local to_number = function(value)
         local success, number_or_error = pcall(tonumber, value)
@@ -228,7 +246,7 @@ bd.config._validate_entry = function(key, value)
         end
     end
 
-    local entry = bd.config.types[key]
+    local entry = bd.config.entries[key]
     if entry == nil then
         throw("unrecognized settings key `", key, "`")
         return false, nil
@@ -244,10 +262,10 @@ bd.config._validate_entry = function(key, value)
         local as_number = to_number(value)
         local as_string = tostring(value)
 
-        local is_valid = true
+        local is_valid = false
         for _, enum_value in ipairs(entry.values) do
-            if not (value == enum_value or as_number == enum_value or as_string == enum_value) then
-                is_valid = false
+            if value == enum_value or as_number == enum_value or as_string == enum_value then
+                is_valid = true
                 break
             end
         end
@@ -266,11 +284,26 @@ bd.config._validate_entry = function(key, value)
                 end
             end
 
+            table.insert(to_throw, "; got `")
+            table.insert(to_throw, tostring(value))
+            table.insert(to_throw, "`")
+
             throw(table.concat(to_throw))
             return false, nil
         end
     elseif entry.type == INTEGER_RANGE_TYPE then
         value = to_number(value)
+
+        -- findent nearest valid integer if float
+        if math.fmod(value, 1) ~= 0 then
+            for round in range(math.round, math.floor, math.ceil) do
+                if round(value) >= entry.lower and round(value) <= entry.upper then
+                    value = round(value)
+                    break
+                end
+            end
+        end
+
         if math.fmod(value, 1) ~= 0 or value < entry.lower or value > entry.upper then
             throw("for key `", key, "` expected integer in range [", entry.lower, ", ", entry.upper, "], got `", value, "`")
             return false, nil
@@ -293,16 +326,8 @@ local _line_separator = "\n"
 local _key_value_separator = "="
 local _comment = "#"
 
-bd.config.parse_from_string = function(file)
-    --[[
-    local success, file_or_error = pcall(love.filesystem.read, path)
-    if not success then
-        rt.error("In bd.parse_config: unable to open config file at `", path, "`")
-        return
-    end
-
-    local file = file_or_error
-    ]]
+bd.config.parse_from_string = function(str)
+    local out = {}
 
     local line_pattern = "([^" .. _line_separator .. "]*)" .. _line_separator
     local comment_strip_pattern = _comment .. "[^" .. _line_separator .. "]*"
@@ -311,8 +336,8 @@ bd.config.parse_from_string = function(file)
     -- white space, key, white space, equal, white space, value, whitespace, newline
     -- ignore anything after # until next \n
 
-    if string.at(file, #file) ~= "\n" then file = file .. "\n" end
-    for line in string.gmatch(file, line_pattern) do
+    if string.at(str, #str) ~= "\n" then str = str .. "\n" end
+    for line in string.gmatch(str, line_pattern) do
         local key, value = string.match(string.gsub(line, comment_strip_pattern, ""), key_value_pattern)
         if key == nil or key == "" or value == nil or value == "" then goto next end
 
@@ -321,51 +346,27 @@ bd.config.parse_from_string = function(file)
 
         if not success then goto next end
 
-        bd.config.values[key] = value
+        out[key] = value
         ::next::
     end
 
-    return bd.config.values
+    return out
 end
 
-for key, entry in pairs(bd.config.entries) do
-    if not bd.config._validate_entry(key, entry.default) then
-        rt.error("In config.lua: default value for entry `", key, "` is invalid")
+do -- load default config
+    for key, entry in pairs(bd.config.entries) do
+        if not bd.config._validate_entry(key, entry.default) then
+            rt.error("In config.lua: default value for entry `", key, "` is invalid")
+        end
+    end
+
+    local path = bd.config.default_path
+    local success, file_or_error = pcall(love.filesystem.read, path)
+
+    if not success then
+        rt.error("In bd.parse_config: unable to open config file at `", path, "`")
+    else
+        bd.config.default_values = bd.config.parse_from_string(file_or_error)
+        bd.config.values = table.deepcopy(bd.config.default_values)
     end
 end
-
---return bd.config.values
-
-
-bd.config.parse_from_string([[
-# Database settings
-host = localhost
-port = 5432
- username = admin
-password = secret123
-
-# invalid lines below
-= no_key_here
-key_without_value
-=
-   = also_no_key
-
-# whitespace edge cases
-  spaced_key = spaced_value
-tabs_key    =    tabs_value
-key_with_spaces_in_value = hello world foo
-
-# inline comments
-active = true # this is ignored
-level = 3# no space before comment
-
-# empty and degenerate
-key_empty_value =
-=
-#
-   #indented comment
-
-another_key=no_spaces_around_equals
-]])
-
-os.exit(0)

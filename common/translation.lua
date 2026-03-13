@@ -313,7 +313,6 @@ rt.Translation = {
         msaa_good = "2x",
         msaa_better = "4x",
         msaa_best = "8x",
-        msaa_max = "16x",
 
         bloom_prefix = "Bloom",
         bloom_on = "On",

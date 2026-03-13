@@ -9,25 +9,6 @@ require "menu.option_button"
 require "menu.scrollable_list"
 
 rt.settings.settings_scene = {
-    fullscreen_default = true,
-    vsync_default = rt.VSyncMode.ADAPTIVE,
-    msaa_default = rt.MSAAQuality.BEST,
-    bloom_default = true,
-    hdr_default = false,
-    shake_default = true,
-    controller_vibration_default = 1,
-    music_level_default = 1,
-    sound_effect_level_default = 1,
-    deadzone_default = 0.15,
-    textspeed_default = 1,
-    double_press_threshold_default = 0.5,
-    performance_mode_default = false,
-    color_blind_mode_default = false,
-    draw_debug_info_default = false,
-    draw_speedrun_splits_default = false,
-    input_buffering_enabled_default = true,
-    sprint_mode_default = rt.PlayerSprintMode.HOLD_TO_SPRINT,
-
     scale_movement_ticks_per_second = 100,
     scale_movement_delay = 20 / 60,
 
@@ -44,15 +25,6 @@ mn.SettingsScene = meta.class("MenuSettingsScene", rt.Scene)
 --- @class mn.SettingsScene.Item
 mn.SettingsScene.Item = meta.class("SettingsSceneItem", rt.Widget)
 meta.add_signal(mn.SettingsScene.Item, "reset")
-
---[[
-How to add a new settings items:
-    add <name> to mn.VerboseInfoObject enum
-    add <name>_description to rt.Translation.verbose_info
-    add <name>_title to rt.Translation.verbose_info
-    add <name>_prefix to rt.Translation.settings_scene
-    add widget in mn.SettingsScene:instantiate
-]]
 
 --- @brief [internal]
 function mn.SettingsScene.Item:instantiate(t)
@@ -146,6 +118,9 @@ function mn.SettingsScene:instantiate()
         return mn.Scale(0, 1, 100, default_value)
     end
 
+    require "build.config"
+    local defaults = bd.get_default_config()
+
     do -- vsync
         local vsync_to_label = {
             [rt.VSyncMode.ADAPTIVE] = translation.vsync_adaptive,
@@ -171,7 +146,7 @@ function mn.SettingsScene:instantiate()
         )
 
         item:signal_connect("reset", function(_)
-            vsync_button:set_option(vsync_to_label[rt.settings.settings_scene.vsync_default])
+            vsync_button:set_option(vsync_to_label[defaults.vsync])
         end)
     end
 
@@ -197,7 +172,7 @@ function mn.SettingsScene:instantiate()
         )
 
         item:signal_connect("reset", function(_)
-            fullscreen_button:set_option(fullscreen_to_label[rt.settings.settings_scene.fullscreen_default])
+            fullscreen_button:set_option(fullscreen_to_label[defaults.is_fullscreen])
         end)
     end
 
@@ -207,7 +182,6 @@ function mn.SettingsScene:instantiate()
             [rt.MSAAQuality.GOOD] = translation.msaa_good,
             [rt.MSAAQuality.BETTER] = translation.msaa_better,
             [rt.MSAAQuality.BEST] = translation.msaa_best,
-            [rt.MSAAQuality.MAX] = translation.msaa_max,
         }
         local label_to_msaa = reverse(msaa_to_label)
 
@@ -215,9 +189,9 @@ function mn.SettingsScene:instantiate()
             msaa_to_label[rt.MSAAQuality.OFF],
             msaa_to_label[rt.MSAAQuality.GOOD],
             msaa_to_label[rt.MSAAQuality.BETTER],
-            msaa_to_label[rt.MSAAQuality.BEST],
-            msaa_to_label[rt.MSAAQuality.MAX]
+            msaa_to_label[rt.MSAAQuality.BEST]
         })
+
         msaa_button:set_option(msaa_to_label[rt.GameState:get_msaa_quality()])
         msaa_button:signal_connect("selection", function(_, label)
             rt.GameState:set_msaa_quality(label_to_msaa[label])
@@ -230,7 +204,7 @@ function mn.SettingsScene:instantiate()
             mn.VerboseInfoObject.MSAA_WIDGET
         )
         item:signal_connect("reset", function(_)
-            msaa_button:set_option(msaa_to_label[rt.settings.settings_scene.msaa_default])
+            msaa_button:set_option(msaa_to_label[defaults.msaa])
         end)
     end
 
@@ -257,7 +231,7 @@ function mn.SettingsScene:instantiate()
         )
 
         item:signal_connect("reset", function(_)
-            bloom_button:set_option(bloom_to_label[rt.settings.settings_scene.bloom_default])
+            bloom_button:set_option(bloom_to_label[defaults.is_bloom_enabled])
         end)
     end
 
@@ -285,7 +259,7 @@ function mn.SettingsScene:instantiate()
         )
 
         item:signal_connect("reset", function(_)
-            hdr_button:set_option(hdr_to_label[rt.settings.settings_scene.hdr_default])
+            hdr_button:set_option(hdr_to_label[defaults.is_hdr_enabled])
         end)
     end
 
@@ -303,7 +277,7 @@ function mn.SettingsScene:instantiate()
         )
 
         item:signal_connect("reset", function(_)
-            music_level_scale:set_value(rt.settings.settings_scene.music_level_default)
+            music_level_scale:set_value(defaults.music_level)
         end)
     end
 
@@ -320,7 +294,7 @@ function mn.SettingsScene:instantiate()
         )
 
         item:signal_connect("reset", function(_)
-            sound_effect_level_scale:set_value(rt.settings.settings_scene.sound_effect_level_default)
+            sound_effect_level_scale:set_value(defaults.sound_effect_level)
         end)
     end
 
@@ -337,7 +311,7 @@ function mn.SettingsScene:instantiate()
         )
 
         item:signal_connect("reset", function(_)
-            deadzone_scale:set_value(rt.settings.settings_scene.deadzone_default)
+            deadzone_scale:set_value(defaults.joystick_deadzone)
         end)
     end
 
@@ -354,7 +328,7 @@ function mn.SettingsScene:instantiate()
         )
 
         item:signal_connect("reset", function(_)
-            text_speed_scale:set_value(rt.settings.settings_scene.text_speed_default)
+            text_speed_scale:set_value(defaults.text_speed)
         end)
     end
 
@@ -400,14 +374,15 @@ function mn.SettingsScene:instantiate()
         )
 
         item:signal_connect("reset", function(_)
-            shake_button:set_option(shake_to_label[rt.settings.settings_scene.shake_default])
+            shake_button:set_option(shake_to_label[defaults.is_screen_shake_enabled])
         end)
     end
 
-    do -- music
+    do -- controller vibration
         local controller_vibration_scale = new_scale(rt.GameState:get_controller_vibration())
         controller_vibration_scale:signal_connect("value_changed", function(_, value)
             rt.GameState:set_controller_vibration(value)
+            self._input:vibrate(1, 1)
         end)
 
         local item = add_item(
@@ -416,7 +391,7 @@ function mn.SettingsScene:instantiate()
         )
 
         item:signal_connect("reset", function(_)
-            controller_vibration_scale:set_value(rt.settings.settings_scene.controller_vibration_default)
+            controller_vibration_scale:set_value(defaults.controller_vibration)
             if self._input:get_input_method() == rt.InputMethod.CONTROLLER then
                 self._input:vibrate(1, 1)
             end
@@ -444,6 +419,10 @@ function mn.SettingsScene:instantiate()
             translation.color_blind_mode_prefix, color_blind_mode_button,
             mn.VerboseInfoObject.COLOR_BLIND_MODE_ENABLED
         )
+
+        item:signal_connect("reset", function(_)
+            color_blind_mode_button:set_option(color_blind_mode_to_label[defaults.is_color_blind_mode_enabled])
+        end)
     end
 
     do -- performance mode
@@ -469,7 +448,7 @@ function mn.SettingsScene:instantiate()
         )
 
         item:signal_connect("reset", function(_)
-            performance_mode_button:set_option(performance_mode_to_label[rt.settings.settings_scene.performance_mode_default])
+            performance_mode_button:set_option(performance_mode_to_label[defaults.is_performance_mode_enabled])
         end)
     end
 
@@ -496,7 +475,7 @@ function mn.SettingsScene:instantiate()
         )
 
         item:signal_connect("reset", function(_)
-            sprint_mode_button:set_option(sprint_mode_to_label[rt.settings.settings_scene.sprint_mode_default])
+            sprint_mode_button:set_option(sprint_mode_to_label[defaults.player_sprint_mode])
         end)
     end
 
@@ -523,7 +502,7 @@ function mn.SettingsScene:instantiate()
         )
 
         item:signal_connect("reset", function(_)
-            input_buffering_enabled_button:set_option(input_buffering_enabled_to_label[rt.settings.settings_scene.draw_speedrun_splits_default])
+            input_buffering_enabled_button:set_option(input_buffering_enabled_to_label[defaults.is_input_buffering_enabled])
         end)
     end
 
@@ -550,7 +529,7 @@ function mn.SettingsScene:instantiate()
         )
 
         item:signal_connect("reset", function(_)
-            draw_speedrun_splits_button:set_option(draw_speedrun_splits_to_label[rt.settings.settings_scene.draw_speedrun_splits_default])
+            draw_speedrun_splits_button:set_option(draw_speedrun_splits_to_label[defaults.draw_speedrun_splits])
         end)
     end
 
@@ -577,7 +556,7 @@ function mn.SettingsScene:instantiate()
         )
 
         item:signal_connect("reset", function(_)
-            draw_debug_info_button:set_option(draw_debug_info_to_label[rt.settings.settings_scene.draw_debug_info_default])
+            draw_debug_info_button:set_option(draw_debug_info_to_label[defaults.draw_debug_information])
         end)
     end
 

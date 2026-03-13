@@ -1,7 +1,10 @@
 require "overworld.stage_config"
+require "common.msaa_quality"
+require "common.vsync_mode"
 require "common.input_action"
 require "common.random"
 require "common.scene_manager"
+require "common.player_sprint_mode"
 require "common.player"
 
 rt.settings.game_state = {
@@ -11,57 +14,12 @@ rt.settings.game_state = {
     log_directory = "logs"
 }
 
---- @class rt.VSyncMode
-rt.VSyncMode = meta.enum("VSyncMode", {
-    ADAPTIVE = -1,
-    OFF = 0,
-    ON = 1
-})
-
-
---- @class rt.MSAAQuality
-rt.MSAAQuality = meta.enum("MSAAQuality", {
-    OFF = 0,
-    GOOD = 2,
-    BETTER = 4,
-    BEST = 8,
-    MAX = 16
-})
-
---- @class rt.PlayerSprintMode
-rt.PlayerSprintMode = meta.enum("PlayerSprintomde", {
-    HOLD_TO_SPRINT = "hold_to_sprint",
-    HOLD_TO_WALK = "hold_to_walk"
-})
-
 --- @class rt.GameState
 rt.GameState = meta.class("GameState")
 
 function rt.GameState:instantiate()
     local width, height, mode = love.window.getMode()
     self._state = {
-        -- settings
-        is_fullscreen = mode.is_fullscreen,
-        vsync = mode.vsync,
-        msaa = mode.msaa,
-        is_hdr_enabled = true,
-        is_bloom_enabled = true,
-        is_screen_shake_enabled = true,
-        controller_vibration = 1,
-        window_width = width,
-        window_height = height,
-        sound_effect_level = 1.0,
-        music_level = 1.0,
-        text_speed = 1.0,
-        joystick_deadzone = 0.05,
-        trigger_deadzone = 0.05,
-        double_press_threshold = 0.5, -- fraction, in [0, 1]
-        performance_mode_enabled = false,
-        draw_debug_information = true,
-        draw_speedrun_splits = false,
-        input_buffering_enabled = true,
-        player_sprint_mode = rt.PlayerSprintMode.HOLD_TO_SPRINT,
-        color_blind_mode_enabled = false,
         input_mapping = {}, -- Table<rt.InputAction, { keyboard = rt.KeyboardKey, controller = rt.ControllerButton }>
         axis_mapping = {},
 
@@ -84,10 +42,11 @@ function rt.GameState:update(delta)
     self:_update_save_worker()
 end
 
+
 --- @brief
 function rt.GameState:set_vsync_mode(mode)
     meta.assert_enum_value(mode, rt.VSyncMode, 1)
-    self._state.vsync = mode
+    bd.get_config().vsync = mode
     love.window.setVSync(mode)
 end
 
@@ -99,44 +58,44 @@ end
 --- @brief
 function rt.GameState:set_msaa_quality(msaa)
     meta.assert_enum_value(msaa, rt.MSAAQuality, 1)
-    self._state.msaa = math.min(msaa, love.graphics.getSystemLimits().texturemsaa)
+    local config = bd.get_config()
+    config.msaa = math.min(msaa, love.graphics.getSystemLimits().texturemsaa)
     local w, h, mode = love.window.getMode()
-    mode.msaa = ternary(self._state.is_hdr_enabled, 0, self._state.msaa)
+    mode.msaa = ternary(config.is_hdr_enabled, 0, config.msaa)
     love.window.setMode(w, h, mode)
 end
 
 --- @brief
 function rt.GameState:get_msaa_quality()
-    local _, _, mode = love.window.getMode()
-    return mode.msaa
+    return bd.get_config().msaa
 end
 
 --- @brief
 function rt.GameState:get_is_bloom_enabled()
-    return self._state.is_bloom_enabled
+    return bd.get_config().is_bloom_enabled
 end
 
 --- @brief
 function rt.GameState:set_is_bloom_enabled(b)
     meta.assert(b, "Boolean")
-    self._state.is_bloom_enabled = b
+    bd.get_config().is_bloom_enabled = b
 end
 
 --- @brief
 function rt.GameState:get_is_hdr_enabled()
-    return self._state.is_hdr_enabled
+    return bd.get_config().is_hdr_enabled
 end
 
 --- @brief
 function rt.GameState:set_is_hdr_enabled(b)
     meta.assert(b, "Boolean")
-    self._state.is_hdr_enabled = b
+    bd.get_config().is_hdr_enabled = b
 end
 
 --- @brief
 function rt.GameState:set_is_fullscreen(b)
     meta.assert(b, "Boolean")
-    self._state.is_fullscreen = b
+    bd.get_config().is_fullscreen = b
     love.window.setFullscreen(b)
 end
 
@@ -148,142 +107,133 @@ end
 --- @brief
 function rt.GameState:set_sound_effect_level(level)
     meta.assert(level, "Number")
-    self._state.sound_effect_level = math.clamp(level, 0, 1)
+    bd.get_config().sound_effect_level = math.clamp(level, 0, 1)
 end
 
 --- @brief
 function rt.GameState:get_sound_effect_level()
-    return self._state.sound_effect_level
+    return bd.get_config().sound_effect_level
 end
 
 --- @brief
 function rt.GameState:set_music_level(level)
     meta.assert(level, "Number")
-    self._state.music_level = math.clamp(level, 0, 1)
+    bd.get_config().music_level = math.clamp(level, 0, 1)
 end
 
 --- @brief
 function rt.GameState:get_music_level()
-    return self._state.music_level
+    return bd.get_config().music_level
 end
 
 --- @brief
 function rt.GameState:set_text_speed(fraction)
     meta.assert(fraction, "Number")
-    self._state.text_speed = fraction -- no clamp
+    bd.get_config().text_speed = fraction -- no clamp
 end
 
 --- @brief
 function rt.GameState:get_text_speed()
-    return self._state.text_speed
+    return bd.get_config().text_speed
 end
 
 --- @brief
 function rt.GameState:set_joystick_deadzone(fraction)
     meta.assert(fraction, "Number")
-    self._state.joystick_deadzone = math.clamp(fraction, 0, 0.9) -- not 1, or controller would deadlock
+    bd.get_config().joystick_deadzone = math.clamp(fraction, 0, 0.5) -- not 1, or controller would deadlock
 end
 
 --- @brief
 function rt.GameState:get_joystick_deadzone()
-    return self._state.joystick_deadzone
+    return bd.get_config().joystick_deadzone
 end
 
 --- @brief
 function rt.GameState:set_trigger_deadzone(fraction)
     meta.assert(fraction, "Number")
-    self._state.trigger_deadzone = math.clamp(fraction, 0, 0.9)
+    bd.get_config().trigger_deadzone = math.clamp(fraction, 0, 0.5)
 end
 
 --- @brief
 function rt.GameState:get_trigger_deadzone()
-    return self._state.trigger_deadzone
+    return bd.get_config().trigger_deadzone
 end
 
 --- @brief
 function rt.GameState:set_player_sprint_mode(mode)
     meta.assert_enum_value(mode, rt.PlayerSprintMode, 1)
-    self._state.player_sprint_mode = mode
+    bd.get_config().player_sprint_mode = mode
 end
 
 --- @brief
 function rt.GameState:get_player_sprint_mode()
-    return self._state.player_sprint_mode
+    return bd.get_config().player_sprint_mode
 end
 
 --- @brief
 function rt.GameState:get_is_input_buffering_enabled()
-    return self._state.input_buffering_enabled
+    return bd.get_config().input_buffering_enabled
 end
 
 --- @brief
 function rt.GameState:set_is_input_buffering_enabled(is_enabled)
     meta.assert(is_enabled, "Boolean")
-    self._state.input_buffering_enabled = is_enabled
+    bd.get_config().input_buffering_enabled = is_enabled
 end
 
 --- @brief
 function rt.GameState:set_is_color_blind_mode_enabled(enabled)
     meta.assert(enabled, "Boolean")
-    self._state.color_blind_mode_enabled = enabled
+    bd.get_config().color_blind_mode_enabled = enabled
 end
 
 --- @brief
 function rt.GameState:get_is_color_blind_mode_enabled()
-    return self._state.color_blind_mode_enabled
+    return bd.get_config().color_blind_mode_enabled
 end
 
 --- @brief
 function rt.GameState:set_is_screen_shake_enabled(b)
-    self._state.is_screen_shake_enabled = b
+    bd.get_config().is_screen_shake_enabled = b
 end
 
 --- @brief
 function rt.GameState:get_is_screen_shake_enabled()
-    return self._state.is_screen_shake_enabled
+    return bd.get_config().is_screen_shake_enabled
 end
 
 --- @brief
-function rt.GameState:set_is_controller_vibration(t)
-    self._state.controller_vibration = t
+function rt.GameState:set_controller_vibration_strength(t)
+    meta.assert(t, "Number")
+    t = math.clamp(t, 0, 1)
+    bd.get_config().controller_vibration_strength = t
 end
 
 --- @brief
-function rt.GameState:get_is_controller_vibration_enabled()
-    return self._state.controller_vibration
+function rt.GameState:get_controller_vibration_strength()
+    return bd.get_config().controller_vibration_strength
 end
 
 --- @brief
 function rt.GameState:get_is_performance_mode_enabled()
-    return self._state.performance_mode_enabled
+    return bd.get_config().performance_mode_enabled
 end
 
 --- @brief
 function rt.GameState:set_is_performance_mode_enabled(b)
     meta.assert(b, "Boolean")
-    self._state.performance_mode_enabled = b
+    bd.get_config().performance_mode_enabled = b
 end
 
 --- @brief
 function rt.GameState:set_draw_debug_information(b)
     meta.assert(b, "Boolean")
-    self._state.draw_debug_information = b
+    bd.get_config().draw_debug_information = b
 end
 
 --- @brief
 function rt.GameState:get_draw_debug_information()
-    return self._state.draw_debug_information
-end
-
---- @brief
-function rt.GameState:set_draw_speedrun_splits(b)
-    meta.assert(b, "Boolean")
-    self._state.draw_speedrun_splits = b
-end
-
---- @brief
-function rt.GameState:get_draw_speedrun_splits()
-    return self._state.draw_speedrun_splits
+    return bd.get_config().draw_debug_information
 end
 
 --- @brief
