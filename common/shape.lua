@@ -134,6 +134,49 @@ function rt.Ellipse:draw()
     _lg.ellipse(self._mode or "fill", _unpack(self._data))
 end
 
+--- ### ARC ###
+
+--- @class rt.Arc
+rt.Arc = meta.class("Arc", rt.Shape)
+
+function rt.Arc:instantiate(x, y, radius, min_angle, max_angle)
+    if min_angle == nil then min_angle = 0 end
+    if max_angle == nil then max_angle = 2 * math.pi end
+
+    self._data = { x, y, radius, min_angle, max_angle }
+end
+
+--- @brief
+function rt.Arc:reformat(x, y, radius, angle1, angle2)
+    self._data = { x, y, radius, angle1, angle2 }
+end
+
+--- @brief
+function rt.Arc:set_is_outline(b)
+    self._mode = b and "line" or "fill"
+end
+
+--- @brief
+function rt.Arc:set_arc_type(arc_type)
+    self._arc_type = arc_type
+end
+
+--- @brief
+function rt.Arc:get_is_outline()
+    return self._mode == "line"
+end
+
+--- @brief
+function rt.Arc:draw()
+    _set_color(self)
+
+    if self._line_width ~= nil and self._mode == "line" then
+        _lg.setLineWidth(self._line_width)
+    end
+
+    _lg.arc(self._mode or "fill", "pie", _unpack(self._data))
+end
+
 --- ### POLYGON ###
 
 --- @class rt.Polygon

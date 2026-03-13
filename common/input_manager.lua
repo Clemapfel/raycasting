@@ -53,11 +53,12 @@ end
 
 --- @brief
 function rt.InputManager:vibrate(left, right, duration, attack, decay)
-    local default_attack = 10 / 60 -- seconds
+    local default_attack = 0 / 60 -- seconds
+    local default_decay = 10 / 60
     if attack == nil then attack = default_attack / duration end
     if decay == nil then decay = default_attack / duration end
 
-    meta.assert(left, right, duration, attack, decay)
+    meta.assert(left, "Number", right, "Number", duration, "Number", attack, "Number", decay, "Number")
 
     if duration < 0 then
         rt.critical("In rt.InputManager.vibrate: duration `", duration, "` is negative")
@@ -84,17 +85,25 @@ function rt.InputManager:update(delta)
         joystick:setVibration(0, 0)
     end
 
-    if self._input_method == rt.InputMethod.CONTROLLER then
-        local factor = rt.GameState:get_controller_vibration_strength()
-        for source in values(self._vibration_sources) do
+    local factor = rt.GameState:get_controller_vibration_strength()
+    local to_remove = {}
+    for i, source in ipairs(self._vibration_sources) do
+        if source.elapsed > source.duration then
+            table.insert(to_remove, 1, i)
+        elseif self._input_method == rt.InputMethod.CONTROLLER then
             local t = source.elapsed / source.duration
             local value = rt.InterpolationFunctions.ENVELOPE(t, source.attack, source.decay)
             self._last_active_joystick:setVibration(
                 factor * value * source.left,
                 factor * value * source.right
             )
-            source.elapsed = source.elapsed + delta
         end
+
+        source.elapsed = source.elapsed + delta
+    end
+
+    for i in values(to_remove) do
+        table.remove(self._vibration_sources, i)
     end
 end
 
@@ -448,6 +457,8 @@ love.gamepadpressed = function(joystick, button)
     rt.InputManager._last_active_joystick = joystick
     rt.InputManager:_set_input_method(rt.InputMethod.CONTROLLER)
     rt.InputManager:_notify_pressed(button, rt.InputMethod.CONTROLLER)
+
+    dbg(button)
 
     for sub in values(rt.InputManager._subscribers) do
         if sub:get_is_active() then

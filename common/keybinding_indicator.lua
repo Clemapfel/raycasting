@@ -36,7 +36,6 @@ function rt.KeybindingIndicator:instantiate()
     })
 end
 
-
 --- @brief
 function rt.KeybindingIndicator:create_from_keyboard_key(keyboard_key)
     return self:create_as_key(rt.Translation.keyboard_key_to_string(keyboard_key), keyboard_key == "space")
@@ -72,6 +71,14 @@ function rt.KeybindingIndicator:create_from_gamepad_button(button)
         return self:create_as_joystick(true)
     elseif button == rt.ControllerButton.RIGHT_STICK then
         return self:create_as_joystick(false)
+    elseif button == rt.ControllerButton.PADDLE_01 then
+        return self:create_as_paddle(1)
+    elseif button == rt.ControllerButton.PADDLE_02 then
+        return self:create_as_paddle(2)
+    elseif button == rt.ControllerButton.PADDLE_03 then
+        return self:create_as_paddle(3)
+    elseif button == rt.ControllerButton.PADDLE_04 then
+        return self:create_as_paddle(4)
     else
         return self:create_as_button(false, false, false, false)
     end
@@ -1352,7 +1359,54 @@ function rt.KeybindingIndicator:create_as_four_keys(up_text, right_text, bottom_
     end
 end
 
---- @brief
-function rt.KeybindingIndicator:create_from_paddle(index)
-    -- TODO
+function rt.KeybindingIndicator:create_as_paddle(index)
+    self._initializer = function(self, width)
+        local x, y, height = 0, 0, width
+        local center_x, center_y = x + 0.5 * width, y + 0.5 * height
+
+        local rect_w = 0.5 * width
+        local rect_h = 0.575 * width
+        local rect_x, rect_y = center_x - 0.5 * rect_w, center_y - 0.5 * rect_h
+
+        local base = _Rectangle(rect_x, rect_y, rect_w, rect_h)
+        local base_outline = _Rectangle(rect_x, rect_y, rect_w, rect_h)
+        local base_outline_outline = _Rectangle(rect_x, rect_y, rect_w, rect_h)
+
+        base.color = _GRAY_3
+
+        base_outline.is_outline = true
+        base_outline.color = _GRAY_7
+        base_outline.line_width = 2
+
+        base_outline_outline.is_outline = true
+        base_outline_outline.color = _TRUE_WHITE
+        base_outline_outline.line_width = 5
+
+        local corner_radius = rect_h / 4
+        for r in range(base, base_outline, base_outline_outline) do
+            r.corner_radius = corner_radius
+        end
+
+        local label = _Label("<o>P" .. tostring(index or 1) .. "</o>")
+        label:realize()
+        label:set_justify_mode(rt.JustifyMode.CENTER)
+        local label_w, label_h = label:measure()
+        label:reformat(rect_x, rect_y + 0.5 * rect_h - 0.5 * label_h, rect_w, rect_h)
+
+        self._content = {
+            base_outline_outline,
+            base,
+            base_outline,
+            label
+        }
+
+        self._draw = function()
+            for drawable in values(self._content) do
+                drawable:draw(self._opacity)
+            end
+        end
+    end
+
+    if self._is_realized then self:reformat() end
+    return self
 end

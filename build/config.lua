@@ -177,6 +177,7 @@ do
 
         -- non-diagetic overlay
         draw_debug_information = BOOLEAN(true),
+        draw_speedrun_splits = BOOLEAN(true),
 
         -- should system console be shown
         show_console = BOOLEAN(true),
@@ -349,6 +350,16 @@ bd.config.parse_from_string = function(str)
         out[key] = value
         ::next::
     end
+
+    setmetatable(out, {
+        __index = function(_, key)
+            rt.error("In bd.config: trying to access key `", key, "`, but it does not exist")
+        end,
+
+        __newindex = function(_, key)
+            rt.error("In bd.config: trying to create key `", key, "`, but it does not exist")
+        end
+    })
 
     return out
 end
