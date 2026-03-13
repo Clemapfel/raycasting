@@ -379,19 +379,20 @@ function mn.SettingsScene:instantiate()
     end
 
     do -- controller vibration
-        local controller_vibration_scale = new_scale(rt.GameState:get_controller_vibration())
-        controller_vibration_scale:signal_connect("value_changed", function(_, value)
-            rt.GameState:set_controller_vibration(value)
-            self._input:vibrate(1, 1)
+        local controller_vibration_scale = new_scale(rt.GameState:get_controller_vibration_strength())
+        controller_vibration_scale:signal_connect("value_changed", function(_, value, is_during_realize)
+            if is_during_realize then return end
+            rt.GameState:set_controller_vibration_strength(value)
+            self._input:vibrate(1, 1, 10 / 60)
         end)
 
         local item = add_item(
-            translation.controller_vibration_prefix, controller_vibration_scale,
-            mn.VerboseInfoObject.CONTROLLER_VIBRATION
+            translation.controller_vibration_strength_prefix, controller_vibration_scale,
+            mn.VerboseInfoObject.CONTROLLER_VIBRATION_STRENGTH
         )
 
         item:signal_connect("reset", function(_)
-            controller_vibration_scale:set_value(defaults.controller_vibration)
+            controller_vibration_scale:set_value(defaults.controller_vibration_strength)
             if self._input:get_input_method() == rt.InputMethod.CONTROLLER then
                 self._input:vibrate(1, 1)
             end
@@ -748,7 +749,7 @@ function mn.SettingsScene:enter()
     self._input:activate()
     rt.SceneManager:set_use_fixed_timestep(false)
     self._list:set_selected_item(1)
-    rt.SceneManager:set_is_cursor_visible(true)
+    rt.SceneManager:set_is_cursor_visible(false)
     rt.MusicManager:play(rt.MusicIDs.settings_scene)
 end
 

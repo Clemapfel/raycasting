@@ -52,7 +52,7 @@ end
 
 --- @brief
 function rt.GameState:get_vsync_mode(mode)
-    return love.window.getVSync()
+    return bd.get_config().vsync
 end
 
 --- @brief
@@ -170,26 +170,43 @@ function rt.GameState:get_player_sprint_mode()
     return bd.get_config().player_sprint_mode
 end
 
+
+--- @brief
+function rt.GameState:get_double_press_threshold()
+    return math.mix(
+        rt.settings.game_state.min_double_click_threshold,
+        rt.settings.game_state.max_double_click_threshold,
+        bd.get_config().double_press_threshold
+    )
+end
+
+--- @brief
+--- @param t Number fraction, in 0, 1
+function rt.GameState:set_double_press_threshold(t)
+    meta.assert(t, "Number")
+    bd.get_config().double_press_threshold = t
+end
+
 --- @brief
 function rt.GameState:get_is_input_buffering_enabled()
-    return bd.get_config().input_buffering_enabled
+    return bd.get_config().is_input_buffering_enabled
 end
 
 --- @brief
 function rt.GameState:set_is_input_buffering_enabled(is_enabled)
     meta.assert(is_enabled, "Boolean")
-    bd.get_config().input_buffering_enabled = is_enabled
+    bd.get_config().is_input_buffering_enabled = is_enabled
 end
 
 --- @brief
 function rt.GameState:set_is_color_blind_mode_enabled(enabled)
     meta.assert(enabled, "Boolean")
-    bd.get_config().color_blind_mode_enabled = enabled
+    bd.get_config().is_color_blind_mode_enabled = enabled
 end
 
 --- @brief
 function rt.GameState:get_is_color_blind_mode_enabled()
-    return bd.get_config().color_blind_mode_enabled
+    return bd.get_config().is_color_blind_mode_enabled
 end
 
 --- @brief
@@ -234,6 +251,17 @@ end
 --- @brief
 function rt.GameState:get_draw_debug_information()
     return bd.get_config().draw_debug_information
+end
+
+--- @brief
+function rt.GameState:set_draw_speedrun_splits(b)
+    meta.assert(b, "Boolean")
+    bd.get_config().draw_speedrun_splits = b
+end
+
+--- @brief
+function rt.GameState:get_draw_speedrun_splits()
+    return bd.get_config().draw_speedrun_splits
 end
 
 --- @brief
@@ -574,22 +602,6 @@ function rt.GameState:get_reverse_input_mapping(native, method)
     else
         return self._keyboard_key_to_input_action[native], self._controller_button_to_input_action[native]
     end
-end
-
---- @brief
-function rt.GameState:get_double_press_threshold()
-    return math.mix(
-        rt.settings.game_state.min_double_click_threshold,
-        rt.settings.game_state.max_double_click_threshold,
-        self._state.double_press_threshold
-    )
-end
-
---- @brief
---- @param t Number fraction, in 0, 1
-function rt.GameState:set_double_press_threshold(t)
-    meta.assert(t, "Number")
-    self._state.double_press_threshold = t
 end
 
 --- @brief

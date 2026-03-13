@@ -14,10 +14,10 @@ function mn.Scale:instantiate(min, max, n_steps, initial_value)
         _rail_center = rt.Rectangle(0, 0, 1, 1),
         _rail_center_outline_top = rt.Line(0, 0, 1, 1),
         _rail_center_outline_bottom = rt.Line(0, 0, 1,1),
-        _rail_left = rt.Circle(0, 0, 1),
-        _rail_left_outline = rt.Circle(0, 0, 1),
-        _rail_right = rt.Circle(0, 0, 1),
-        _rail_right_outline = rt.Circle(0, 0, 1),
+        _rail_left = rt.Arc(0, 0, 1),
+        _rail_left_outline = rt.Arc(0, 0, 1),
+        _rail_right = rt.Arc(0, 0, 1),
+        _rail_right_outline = rt.Arc(0, 0, 1),
         _slider_body = rt.Circle(0, 0, 1),
         _slider_outline = rt.Circle(0, 0, 1),
 
@@ -54,11 +54,15 @@ function mn.Scale:realize()
         outline:set_is_outline(true)
     end
 
+    for outline in range(self._rail_left_outline, self._rail_right_outline) do
+        outline:set_arc_type("open")
+    end
+
     self._slider_outline:set_color(rt.Palette.BASE_OUTLINE)
     self._slider_outline:set_is_outline(true)
 
     self._slider_body:set_color(rt.Palette.FOREGROUND)
-    self:_emit_value_changed()
+    self:_emit_value_changed(true)
 end
 
 --- @override
@@ -71,20 +75,22 @@ function mn.Scale:size_allocate(x, y, width, height)
     width = width - 2 * slider_r * 0.5
 
     for left in range(self._rail_left, self._rail_left_outline) do
-        left:reformat(x + rail_r, y + 0.5 * height, rail_r)
+        left:reformat(x + rail_r, y + 0.5 * height, rail_r, math.pi * 0.5, math.pi * 1.5)
     end
 
     for right in range(self._rail_right, self._rail_right_outline) do
-        right:reformat(x + width - rail_r, y + 0.5 * height, rail_r)
+        right:reformat(x + width - rail_r, y + 0.5 * height, rail_r, -math.pi * 0.5, math.pi * 0.5)
     end
 
     local rail_x = x + rail_r
     local rail_h = 2 * rail_r
     local rail_w = width - 2 * rail_r
 
+    local line_width = 1
+
     self._rail_center:reformat(rail_x, y + 0.5 * height - rail_r, rail_w, rail_h)
-    self._rail_center_outline_top:reformat(rail_x, y + 0.5 * height - rail_r, rail_x + rail_w, y + 0.5 * height - rail_r)
-    self._rail_center_outline_bottom:reformat(rail_x, y + 0.5 * height + rail_r, rail_x + rail_w, y + 0.5 * height + rail_r)
+    self._rail_center_outline_top:reformat(rail_x, y + 0.5 * height - rail_r - line_width, rail_x + rail_w, y + 0.5 * height - rail_r)
+    self._rail_center_outline_bottom:reformat(rail_x, y + 0.5 * height + rail_r + line_width, rail_x + rail_w, y + 0.5 * height + rail_r)
 
     local fraction = (self._value - self._min) / (self._max - self._min)
     local slider_x = x + rail_r + fraction * (width - 2 * rail_r)
@@ -96,14 +102,15 @@ end
 --- @override
 function mn.Scale:draw()
     love.graphics.setLineWidth(1)
-
-    self._rail_left:draw()
     self._rail_left_outline:draw()
-    self._rail_right:draw()
     self._rail_right_outline:draw()
+
     self._rail_center:draw()
     self._rail_center_outline_top:draw()
     self._rail_center_outline_bottom:draw()
+
+    self._rail_left:draw()
+    self._rail_right:draw()
 
     self._slider_body:draw()
     self._slider_outline:draw()
@@ -115,8 +122,8 @@ function mn.Scale:_quantize_value()
 end
 
 --- @brief
-function mn.Scale:_emit_value_changed()
-    self:signal_emit("value_changed", self._value)
+function mn.Scale:_emit_value_changed(is_during_realize)
+    self:signal_emit("value_changed", self._value, is_during_realize)
 end
 
 --- @brief

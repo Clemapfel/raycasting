@@ -226,8 +226,8 @@ rt.Translation = {
         shake_enabled_title = "Screen Shake",
         shake_enabled_description = "If disabled, ",
 
-        controller_vibration_title = "Controller Vibration",
-        controller_vibration_description = "How strongly the controller should vibrate, or <mono>0</mono> for no vibration",
+        controller_vibration_strength_title = "Controller Vibration",
+        controller_vibration_strength_description = "How strongly the controller should vibrate, or <mono>0</mono> for no vibration",
 
         joystick_deadzone_title = "Deadzone",
         joystick_deadzone_description = "How far the controllers joystick has to be moved away from the center before an input is registered",
@@ -330,9 +330,9 @@ rt.Translation = {
         shake_on = "On",
         shake_off = "Off",
 
-        controller_vibration_prefix = "Controller Vibration",
-        controller_vibration_on = "On",
-        controller_vibration_off = "Off",
+        controller_vibration_strength_prefix = "Controller Vibration",
+        controller_vibration_strength_on = "On",
+        controller_vibration_strength_off = "Off",
 
         performance_mode_prefix = "Performance Mode",
         performance_mode_on = "On",

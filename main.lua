@@ -40,10 +40,10 @@ love.load = function(args)
     end
 
     require "overworld.overworld_scene"
-    rt.SceneManager:push(ow.OverworldScene, "bounce_tutorial", false)
+    --rt.SceneManager:push(ow.OverworldScene, "bounce_tutorial", false)
 
     require "menu.keybinding_scene"
-    --rt.SceneManager:push(mn.KeybindingScene)
+    rt.SceneManager:push(mn.KeybindingScene)
 
     require "menu.settings_scene"
     --rt.SceneManager:push(mn.SettingsScene)
@@ -57,12 +57,6 @@ end
 love.update = function(delta)
     if rt.SceneManager ~= nil then
         rt.SceneManager:update(delta)
-    end
-
-    for stick in values(love.joystick.getJoysticks()) do
-        for i = 1, stick:getButtonCount() do
-            if stick:isDown(i) then dbg(i) end
-        end
     end
 end
 
