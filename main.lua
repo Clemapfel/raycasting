@@ -40,10 +40,11 @@ love.load = function(args)
     end
 
     require "overworld.overworld_scene"
-    --rt.SceneManager:push(ow.OverworldScene, "bounce_tutorial", false)
+
+    rt.SceneManager:push(ow.OverworldScene, "bounce_tutorial", true)
 
     require "menu.keybinding_scene"
-    rt.SceneManager:push(mn.KeybindingScene)
+    --rt.SceneManager:push(mn.KeybindingScene)
 
     require "menu.settings_scene"
     --rt.SceneManager:push(mn.SettingsScene)

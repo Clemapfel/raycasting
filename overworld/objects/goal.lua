@@ -75,8 +75,6 @@ function ow.Goal:instantiate(object, stage, scene)
     })
 
     rt.assert(object:get_type() == ow.ObjectType.RECTANGLE and object:get_rotation() == 0, "In ow.Goal: object `", object:get_id(), "` in stage `", self._stage:get_id(), "` is not an axis-aligned rectangle")
-
-
     self._bounds = rt.AABB(object.x, object.y, object.width, object.height)
 
     -- animations
@@ -307,7 +305,7 @@ function ow.Goal:instantiate(object, stage, scene)
 
         self._time_label = rt.Glyph(_format_time(self._scene:get_timer()))
         self._time_label:realize()
-        self._time_label:reformat(-math.huge, -math.huge, math.huge, math.huge)
+        self._time_label:reformat(0, 0)
         self._time_label_offset_x, self._time_label_offset_y = 0, 0
 
         self._shatter_surface:set_offset(self._body:get_position())
@@ -354,9 +352,10 @@ function ow.Goal:update(delta)
     end
 
     self._indicator_motion:update(delta)
-    self._time_label:set_text(_format_time(self._scene:get_timer()))
+
+    self._time_label:set_text(string.format_time(self._scene:get_timer()))
     self._time_label:set_color(self._color:unpack())
-    local w, h = self._time_label:measure()
+    local label_width, label_height = self._time_label:measure()
 
     if not self._is_shattered then
         self._indicator_x, self._indicator_y = self._path:at(self._indicator_motion:get_value())
@@ -364,8 +363,8 @@ function ow.Goal:update(delta)
         self._indicator_x, self._indicator_y = self._final_player_position_x, self._final_player_position_y
     end
 
-    self._time_label_offset_x = self._indicator_x - w - 20 -- 20px hmargin
-    self._time_label_offset_y = self._indicator_y - 0.5 * h
+    self._time_label_offset_x = self._indicator_x - 0.5 * label_width
+    self._time_label_offset_y = self._indicator_y - label_height - 20
 
     self._color = player:get_color()
 
@@ -419,13 +418,11 @@ function ow.Goal:draw(priority)
         self._particles:draw()
         love.graphics.pop()
     elseif priority == _label_priority then
-        if not self._is_shattered then
+        if rt.GameState:get_draw_speedrun_splits() then
             local offset_x, offset_y = self._body:get_position()
             love.graphics.push()
             love.graphics.translate(offset_x, offset_y)
-
-            self._time_label:draw()
-
+            self._time_label:draw(self._time_label_offset_x, self._time_label_offset_y)
             love.graphics.pop()
         end
     end

@@ -91,6 +91,15 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
 
         _spawn_elapsed = math.huge,
 
+        _time_label = rt.Glyph("0", {
+            is_outlined = true,
+            style = rt.FontStyle.BOLD,
+            is_mono = true
+        }),
+
+        _time_label_visible = true,
+        _time_label_motion = rt.SmoothedMotion1D(0, 2),
+
         -- only for player spawn
         _spawn_barrier = nil, -- b2.Body
         _use_spawn_barrier = false,
@@ -238,6 +247,10 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
                             self._coin_savestate[coin_i] = true
                         end
                     end
+
+                    self._pass_time = self._scene:get_timer()
+                    self._time_label:set_text(string.format_time(self._pass_time))
+                    self._time_label_motion:set_value(math.mix(self._bottom_y, self._top_y, 0.5))
                     self._passed = true
                 end
             end)
@@ -421,8 +434,41 @@ function ow.Checkpoint:update(delta)
         self._platform:set_hue(self._scene:get_player():get_hue())
     end
 
-    if self._type == ow.CheckpointType.MIDWAY and self._rope ~= nil then
-        self._rope:update(delta)
+    if self._type == ow.CheckpointType.MIDWAY then
+        if self._rope ~= nil then
+            self._rope:update(delta)
+        end
+
+        if rt.GameState:get_draw_speedrun_splits() and self._time_label_visible == true then
+            self._time_label:set_color(self._color)
+
+            if self._passed == false then
+                self._time_label:set_text(string.format_time(self._scene:get_timer()))
+                self._time_label_motion:set_target_value(math.clamp(
+                    select(2, player:get_position()),
+                    self._top_y,
+                    self._bottom_y
+                ))
+                self._time_label_motion:update(delta)
+            else
+                local camera_bounds = self._scene:get_camera():get_world_bounds()
+                local label_bounds = rt.AABB(
+                    self._bottom_x,
+                    self._time_label_motion:get_value(),
+                    self._time_label:measure()
+                )
+
+                local padding = 10 * rt.get_pixel_scale()
+                label_bounds.x = label_bounds.x - padding
+                label_bounds.y = label_bounds.y - padding
+                label_bounds.width = label_bounds.width + 2 * padding
+                label_bounds.height = label_bounds.height + 2 * padding
+
+                if not camera_bounds:overlaps(label_bounds) then
+                    self._time_label_visible = false
+                end
+            end
+        end
     end
 
     if self._state == _STATE_STAGE_ENTRY then
@@ -532,6 +578,15 @@ function ow.Checkpoint:draw(priority)
             love.graphics.rectangle("fill", x - 0.5 * w, y - 0.5 * h, w, h)
             _explosion_shader:unbind()
         end
+
+        if self._type == ow.CheckpointType.MIDWAY and self._time_label_visible then
+            local w, h = self._time_label:measure()
+            local y = math.clamp(self._time_label_motion:get_value(), self._top_y + 0.5 * h, self._bottom_y - 0.5 * h)
+            self._time_label:draw(
+                 self._bottom_x + 0.5 * rt.settings.overworld.checkpoint_rope.radius,
+                 y - 0.5 * h
+             )
+        end
     end
 end
 
@@ -569,6 +624,7 @@ end
 function ow.Checkpoint:reset()
     self._coin_savestate = {}
     self._split_send = false
+    self._time_label_visible = true
 
     if self._type == ow.CheckpointType.MIDWAY and not self._is_invisible then
         self._particles:clear()

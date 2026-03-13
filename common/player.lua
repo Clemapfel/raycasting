@@ -2323,15 +2323,6 @@ function rt.Player:draw_core()
     end
 
     self._graphics_body:draw_core()
-
-    if rt.GameState:get_draw_debug_information() then
-        love.graphics.push()
-        love.graphics.origin()
-        local m = 2 * rt.settings.margin_unit
-        local r = rt.settings.player_input_smoothing.radius
-        self._input_smoothing:draw(r + m, love.graphics.getHeight() - (r + m), r)
-        love.graphics.pop()
-    end
 end
 
 --- @brief
@@ -3591,4 +3582,9 @@ function rt.Player:_update_instant_turn_around(delta)
     end
 
     return impulse_x, impulse_y
+end
+
+--- @brief
+function rt.Player:get_input_smoothing()
+    return self._input_smoothing
 end

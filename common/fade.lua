@@ -168,3 +168,8 @@ function rt.Fade:set_shader(shader)
     self._shader = shader
     self._shader:compile()
 end
+
+--- @brief
+function rt.Fade:get_value()
+    return self._value
+end

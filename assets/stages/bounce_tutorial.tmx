@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="449">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="450">
  <editorsettings>
   <export target="bounce_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -83,7 +83,7 @@
   </object>
  </objectgroup>
  <objectgroup id="6" name="hitbox">
-  <object id="260" name="Spawn" type="PlayerSpawn" x="-316.427" y="1711.88">
+  <object id="260" name="Spawn" type="PlayerSpawn" x="-313.445" y="1661.19">
    <point/>
   </object>
   <object id="261" type="Hitbox" x="336" y="-576">
@@ -421,7 +421,7 @@
   </object>
   <object id="445" type="Checkpoint" x="-154.909" y="1597.24">
    <properties>
-    <property name="is_invisible" type="bool" value="true"/>
+    <property name="is_invisible" type="bool" value="false"/>
    </properties>
    <point/>
   </object>
@@ -434,6 +434,7 @@
   <object id="448" type="OneWayPlatformNode" x="96" y="1376">
    <point/>
   </object>
+  <object id="449" type="Goal" x="-599.432" y="1449.43" width="233.818" height="325.59"/>
  </objectgroup>
  <layer id="4" name="noop" width="32" height="32">
   <data encoding="base64" compression="zlib"/>

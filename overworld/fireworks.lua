@@ -144,78 +144,19 @@ function ow.Fireworks:spawn(n_particles, start_x, start_y, end_x, end_y, hue_min
     local n_outer_vertices = 8
     local center_x, center_y = 0, 0
 
-    local ring_fraction = 0.15
+    local ring_fraction = 0.2
     local outer_radius = _settings.radius
     local inner_radius = outer_radius - outer_radius * ring_fraction
 
-    local inner_color = function() return 1, 1, 1, 1  end
-    local outer_color = function() return 1, 1, 1, 1  end
-
-    local particle_mesh_data = {
-        { center_x, center_y, 0, 0, outer_color() }
-    }
-
-    -- inner disk
-    for i = 1, n_outer_vertices do
-        local angle = (i - 1) / n_outer_vertices * (2 * math.pi)
-        local cx, cy = math.cos(angle), math.sin(angle)
-        table.insert(particle_mesh_data, {
-            center_x + cx * inner_radius,
-            center_y + cy * inner_radius,
-            cx,
-            cy,
-            inner_color()
-        })
-    end
-
-    -- outer rim
-    for i = 1, n_outer_vertices do
-        local angle = (i - 1) / n_outer_vertices * (2 * math.pi)
-        local cx, cy = math.cos(angle), math.sin(angle)
-        table.insert(particle_mesh_data, {
-            center_x + cx * outer_radius,
-            center_y + cy * outer_radius,
-            cx,
-            cy,
-            outer_color()
-        })
-    end
-
-    local vertex_map = {}
-
-    local center_index = 1
-    local inner_start = 2
-    local outer_start = 2 + n_outer_vertices
-
-    for i = 0, n_outer_vertices - 1 do
-        local inner_i = inner_start + i
-        local inner_next = inner_start + ((i + 1) % n_outer_vertices)
-
-        table.insert(vertex_map, center_index)
-        table.insert(vertex_map, inner_i)
-        table.insert(vertex_map, inner_next)
-    end
-
-    for i = 0, n_outer_vertices - 1 do
-        local inner_i = inner_start + i
-        local inner_next = inner_start + ((i + 1) % n_outer_vertices)
-        local outer_i = outer_start + i
-        local outer_next = outer_start + ((i + 1) % n_outer_vertices)
-
-        table.insert(vertex_map, inner_i)
-        table.insert(vertex_map, outer_i)
-        table.insert(vertex_map, outer_next)
-
-        table.insert(vertex_map, inner_i)
-        table.insert(vertex_map, outer_next)
-        table.insert(vertex_map, inner_next)
-    end
-
-    local particle_mesh = rt.Mesh(
-        particle_mesh_data,
-        rt.MeshDrawMode.TRIANGLES
+    local particle_mesh = rt.MeshRing(
+        0, 0,
+        inner_radius,
+        outer_radius,
+        true,
+        32,
+        rt.RGBA(1, 1, 1, 1),
+        rt.RGBA(0, 0, 0, 1)
     )
-    particle_mesh:set_vertex_map(vertex_map)
 
     local data_mesh = rt.Mesh(
         data_mesh_data,

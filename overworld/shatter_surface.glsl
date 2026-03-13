@@ -122,11 +122,11 @@ uniform vec4 bounds; // aabb mesh
 
 vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 vertex_position) {
 
-    vec2 uv = (screen_to_world_transform * vec4(vertex_position, 0.0, 1.0)).xy / love_ScreenSize.xy;
-    uv.x *= bounds.z / bounds.w;
-    uv *= 5;
-    uv += elapsed / 20;
-    float noise = gradient_noise(vec3(uv + vec2(0, -elapsed), 0));
+    vec2 uv = (screen_to_world_transform * vec4(vertex_position, 0.0, 1.0)).xy;
+    uv /= 150;
+    uv += elapsed / 20.0;
+
+    float noise = gradient_noise(vec3(uv + vec2(0.0, -elapsed), 0.0));
 
     // uv encodes global position
     const float min_eps = 0.015;

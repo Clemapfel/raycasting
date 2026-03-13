@@ -458,8 +458,6 @@ love.gamepadpressed = function(joystick, button)
     rt.InputManager:_set_input_method(rt.InputMethod.CONTROLLER)
     rt.InputManager:_notify_pressed(button, rt.InputMethod.CONTROLLER)
 
-    dbg(button)
-
     for sub in values(rt.InputManager._subscribers) do
         if sub:get_is_active() then
             rt.InputManager:_emit(sub, "controller_button_pressed",

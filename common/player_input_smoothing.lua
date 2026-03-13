@@ -640,14 +640,14 @@ function rt.PlayerInputSmoothing:draw(center_x, center_y)
     local small_radius = rt.settings.player_input_smoothing.small_radius
     local line_width = rt.settings.player_input_smoothing.line_width
 
-    love.graphics.push("all")
 
+    love.graphics.push("all")
     local margin = math.max((small_radius + line_width) / 2, 2 * rt.settings.margin_unit)
 
     love.graphics.setLineWidth(line_width)
     love.graphics.setLineStyle("rough")
     love.graphics.setLineJoin("bevel")
-    love.graphics.setColor(1, 1, 1, 0.25)
+    love.graphics.setColor(1, 1, 1, 0.25 * select(4, love.graphics.getColor()))
 
     if self._small_outline == nil or self._small_outline_radius ~= small_radius then
         local vertices = {}

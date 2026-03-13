@@ -292,52 +292,6 @@ function ow.BubbleField:update(delta)
             self._is_active = false
         end
     end
-
-    local to_remove = {}
-    local bounds = self._scene:get_camera():get_world_bounds()
-    local gravity_dx, gravity_dy = 0, 1
-
-    for batch_i, batch in ipairs(self._batches) do
-        local data = batch.data
-        local gravity = rt.settings.overworld.bubble_field.particles.gravity
-        local should_remove = true
-
-
-        for particle_i = 1, batch.n_particles do
-            local i = _particle_i_to_data_offset(particle_i)
-
-            if data[i + _is_disabled_offset] == FALSE then
-                local vx = data[i + _velocity_x_offset]
-                local vy = data[i + _velocity_y_offset]
-                local x  = data[i + _x_offset]
-                local y  = data[i + _y_offset]
-                local mass = data[i + _mass_offset]
-
-                vx = vx + gravity * gravity_dx * mass * delta
-                vy = vy + gravity * gravity_dy * mass * delta
-
-                x = x + vx * delta
-                y = y + vy * delta
-
-                data[i + _x_offset]                = x
-                data[i + _y_offset]                = y
-                data[i + _velocity_x_offset]       = vx
-                data[i + _velocity_y_offset]       = vy
-
-                data[i + _is_disabled_offset] = ternary(bounds:contains(x, y), FALSE, TRUE)
-
-                should_remove = false
-            end
-        end
-
-        if should_remove then
-            table.insert(to_remove, 1, batch_i)  -- insert in reverse so removals don't shift indices
-        end
-    end
-
-    for i in values(to_remove) do
-        table.remove(self._batches, i)
-    end
 end
 
 --- @brief

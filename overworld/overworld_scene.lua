@@ -727,10 +727,10 @@ function ow.OverworldScene:_draw_debug_information()
 
     love.graphics.setFont(font)
     local line_height = font:getHeight()
-    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.setColor(1, 1, 1, 1 - self._fade:get_value())
 
     love.graphics.push()
-    love.graphics.translate(5, 5) -- top margins
+    love.graphics.translate(rt.settings.margin_unit, rt.settings.margin_unit)
     love.graphics.printf(table.concat({
         collectibles,
         flow,
@@ -738,6 +738,10 @@ function ow.OverworldScene:_draw_debug_information()
     }, " | "), 0, 0, math.huge)
 
     love.graphics.pop()
+
+    local m = 2 * rt.settings.margin_unit
+    local r = rt.settings.player_input_smoothing.radius
+    self._player:get_input_smoothing():draw(r + m, love.graphics.getHeight() - (r + m), r)
 end
 
 --- @brief

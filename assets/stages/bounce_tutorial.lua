@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 449,
+  nextobjectid = 450,
   properties = {},
   tilesets = {
     {
@@ -465,8 +465,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = -316.427,
-          y = 1711.88,
+          x = -313.445,
+          y = 1661.19,
           width = 0,
           height = 0,
           rotation = 0,
@@ -2278,7 +2278,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["is_invisible"] = true
+            ["is_invisible"] = false
           }
         },
         {
@@ -2305,6 +2305,19 @@ return {
           y = 1376,
           width = 0,
           height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 449,
+          name = "",
+          type = "Goal",
+          shape = "rectangle",
+          x = -599.432,
+          y = 1449.43,
+          width = 233.818,
+          height = 325.59,
           rotation = 0,
           visible = true,
           properties = {}

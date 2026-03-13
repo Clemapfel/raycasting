@@ -334,8 +334,8 @@ function ow.ResultScreenScene:_spawn_fireworks(instance, x, y, hue)
         local hue_range = rt.settings.overworld.result_screen_scene.fireworks_hue_range
         local batch_id = self._fireworks:spawn(settings.fireworks_n_particles,
             x, y, x, y,
-            math.fract(hue - hue_range),
-            math.fract(hue + hue_range)
+            hue - hue_range,
+            hue + hue_range
         )
 
         -- store fireworks state so there is only one fireworks per instance

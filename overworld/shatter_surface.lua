@@ -365,13 +365,13 @@ function ow.ShatterSurface:update(delta)
         self._callback:resume()
         return
     end
-    
+
     local gravity = rt.settings.overworld.shatter_surface.gravity
     for part in values(self._parts) do
         part.x, part.y = part.body:get_position()
         part.angle = part.body:get_rotation()
     end
-    
+
     self._time_since_shatter = self._time_since_shatter + delta
 end
 
