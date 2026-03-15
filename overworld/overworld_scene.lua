@@ -85,7 +85,7 @@ function ow.OverworldScene:instantiate(state)
         _current_stage_id = nil,
         _stage = nil,
         _player = state:get_player(),
-        _input = rt.InputSubscriber(false),
+        _input = rt.InputSubscriber(-math.huge),
         _background = nil, -- ow.Background
 
         _cursor_active = false,
@@ -252,7 +252,7 @@ function ow.OverworldScene:instantiate(state)
 
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
         -- debug reload
-        if which == "^" then
+        if which == rt.KeyboardKey.CIRCUMFLEX then
             for reload in range(
                 "common.player"
             ) do
@@ -264,6 +264,8 @@ function ow.OverworldScene:instantiate(state)
             self:unpause()
             self:reset()
             self._input:activate()
+        elseif which == rt.KeyboardKey.ONE then
+            rt.GameState:save()
         end
     end)
 

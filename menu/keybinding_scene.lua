@@ -507,16 +507,20 @@ function mn.KeybindingScene:_exit(save)
     if self:_was_modified() then
         local can_exit = false
         if save then
-            local new_mapping = {}
+            local new_input_action_to_keyboard_key = {}
+            local new_input_action_to_controller_button = {}
+
             for i = 1, self._list:get_n_items() do
                 local item = self._list:get_item(i)
-                new_mapping[item.input_action] = {
-                    keyboard = item.keyboard_key,
-                    controller = item.controller_button
-                }
+                new_input_action_to_keyboard_key[item.input_action] = item.keyboard_key
+                new_input_action_to_controller_button[item.input_action] = item.controller_button
             end
 
-            local valid, error_maybe = rt.GameState:set_input_mapping(new_mapping)
+            local valid, error_maybe = rt.GameState:set_input_mapping(
+                new_input_action_to_keyboard_key,
+                new_input_action_to_controller_button
+            )
+
             if not valid then
                 rt.SoundManager:play(rt.SoundIDs.keybinding_scene.keybinding_invalid)
                 self._keybinding_invalid_dialog:set_submessage(error_maybe, rt.JustifyMode.LEFT)

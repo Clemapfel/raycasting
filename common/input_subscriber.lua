@@ -76,7 +76,7 @@ meta.add_signals(rt.InputSubscriber,
 )
 
 --- @brief
-function rt.InputSubscriber:instantiate()
+function rt.InputSubscriber:instantiate(priority)
     self._n_inactive_frames = 0
     self._activate_frame = -1
     self._priority = priority or 0

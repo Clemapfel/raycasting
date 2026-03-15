@@ -62,16 +62,26 @@ end
 --- @brief
 function rt.GameState:save()
     self:_init_save_worker()
-    _verify_state(self._state)
 
     local worker = self._save_worker
 
+    local to_safe = table.deepcopy(self._state)
+    for key, value in pairs(bd.get_config()) do
+        to_safe[key] = value
+    end
+
+    to_safe.keyboard_binding = self._input_action_to_keyboard_key
+    to_safe.controller_binding = self._input_action_to_controller_button
+    _verify_state(to_safe)
+
+    --[[
     if worker.thread:get_is_running() then
         self._save_worker.main_to_worker:push({
             type = MessageType.CREATE_SAVE,
             state = self._state
         })
     end
+    ]]
 end
 
 function rt.GameState:load()
