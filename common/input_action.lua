@@ -1,3 +1,28 @@
+--[[
+rt.InputAction = {
+    -- common
+    UP = "up",
+    RIGHT = "right",
+    DOWN = "down",
+    LEFT = "left",
+
+    -- overworld
+    JUMP = "jump",
+    SPRINT = "sprint",
+    INTERACT = "interact",
+    PAUSE = "pause",
+    ENABLE_CAMERA = "enabled_camera",
+
+    -- menu
+    CONFIRM = "confirm",
+    BACK = "back",
+    RESET = "reset"
+}
+
+--- @class rt.InputAction
+rt.InputAction = meta.enum("InputAction", rt.InputAction)
+]]
+
 do
     local _input_actions = {
         UP = "UP",

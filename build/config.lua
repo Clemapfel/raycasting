@@ -5,10 +5,24 @@ require "common.vsync_mode"
 
 require "love.filesystem"
 
-bd.config = {}
-bd.config.default_path = "build/default_settings.ini"
+rt.settings.config = {
+    default_settings_path = "build/default_settings.ini",
+    default_keybind_path = "build/default_keybind.ini"
+}
+
+if bd.config == nil then
+    --- @module config
+    bd.config = {} 
+end
+
 bd.config.values = {} -- entry values after config was loaded
 bd.config.default_values = {}
+
+bd.config.keymap_keyboard = {}
+bd.config.default_keymap_keyboard = {}
+
+bd.config.keymap_controller = {}
+bd.config.default_keymap_controller = {}
 
 --- @brief get the parsed value
 function bd.config.get_value(key)
@@ -215,9 +229,9 @@ do
 end
 
 --- @brief check if a config entry has the correct format
-bd.config._validate_entry = function(key, value)
+bd.config._validate_settings_entry = function(key, value)
     local throw = function(...)
-        rt.critical("In bd.config._validate_entry: ", ...)
+        rt.critical("In bd.config._validate_settings_entry: ", ...)
     end
 
     value = string.match(tostring(value), '^"(.-)"$') or value -- strip `"`
@@ -316,19 +330,17 @@ bd.config._validate_entry = function(key, value)
             return false, nil
         end
     else
-        rt.assert(false, "In ow.config._validate_entry: unknown entry type `", to_string(entry.type), "`")
+        rt.assert(false, "In ow.config._validate_settings_entry: unknown entry type `", to_string(entry.type), "`")
         return false, nil
     end
 
     return true, value
 end
 
-local _line_separator = "\n"
-local _key_value_separator = "="
-local _comment = "#"
-
-bd.config.parse_from_string = function(str)
-    local out = {}
+bd.config._string_to_table = function(str)
+    local _line_separator = "\n"
+    local _key_value_separator = "="
+    local _comment = "#"
 
     local line_pattern = "([^" .. _line_separator .. "]*)" .. _line_separator
     local comment_strip_pattern = _comment .. "[^" .. _line_separator .. "]*"
@@ -338,20 +350,19 @@ bd.config.parse_from_string = function(str)
     -- ignore anything after # until next \n
 
     if string.at(str, #str) ~= "\n" then str = str .. "\n" end
+    local result = {}
     for line in string.gmatch(str, line_pattern) do
         local key, value = string.match(string.gsub(line, comment_strip_pattern, ""), key_value_pattern)
-        if key == nil or key == "" or value == nil or value == "" then goto next end
-
-        local success = false
-        success, value = bd.config._validate_entry(key, value)
-
-        if not success then goto next end
-
-        out[key] = value
-        ::next::
+        if key ~= nil and key ~= "" and value ~= nil and value ~= "" then
+            result[key] = value
+        end
     end
 
-    setmetatable(out, {
+    return result
+end
+
+bd.config._make_immutable = function(t)
+    return setmetatable(t, {
         __index = function(_, key)
             rt.error("In bd.config: trying to access key `", key, "`, but it does not exist")
         end,
@@ -360,24 +371,43 @@ bd.config.parse_from_string = function(str)
             rt.error("In bd.config: trying to create key `", key, "`, but it does not exist")
         end
     })
+end
 
-    return out
+bd.config.parse_settings_from_string = function(str)
+    local out = {}
+    local table = bd.config._string_to_table(str)
+
+    for key, value in pairs(table) do
+        local success = false
+        success, value = bd.config._validate_settings_entry(key, value)
+
+        if not success then goto next end
+        out[key] = value
+        ::next::
+    end
+
+    return bd.config._make_immutable(out)
 end
 
 do -- load default config
     for key, entry in pairs(bd.config.entries) do
-        if not bd.config._validate_entry(key, entry.default) then
+        if not bd.config._validate_settings_entry(key, entry.default) then
             rt.error("In config.lua: default value for entry `", key, "` is invalid")
         end
     end
 
-    local path = bd.config.default_path
+    local path = rt.settings.config.default_settings_path
     local success, file_or_error = pcall(love.filesystem.read, path)
 
     if not success then
         rt.error("In bd.parse_config: unable to open config file at `", path, "`")
     else
-        bd.config.default_values = bd.config.parse_from_string(file_or_error)
+        bd.config.default_values = bd.config.parse_settings_from_string(file_or_error)
         bd.config.values = table.deepcopy(bd.config.default_values)
     end
+end
+
+do -- load default keymap
+
+
 end
