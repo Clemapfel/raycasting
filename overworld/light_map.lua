@@ -19,7 +19,6 @@ ow.LightMap = meta.class("LightMap")
 --- @brief
 function ow.LightMap:instantiate(width, height)
     local settings = rt.settings.overworld.light_map
-
     self._tile_size = math.max(width, height) --settings.tile_size
 
     self._light_intensity_texture = rt.RenderTexture(

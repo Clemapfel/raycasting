@@ -26,10 +26,14 @@ function rt.RenderTexture:instantiate(width, height, msaa, format, is_compute, u
     end
 
     msaa = msaa or 0
+    if format ~= nil then
+        format = rt.graphics.texture_format_get_fallback(format, true) -- canvas
+    end
+
     meta.install(self, {
         _native = love.graphics.newCanvas(width or 1, height or 1, {
             msaa = msaa or 0,
-            format = format, -- if nil, love default
+            format = format,
             computewrite = is_compute or false,
             mipmaps = use_mipmaps and "auto" or "none",
             readable = true

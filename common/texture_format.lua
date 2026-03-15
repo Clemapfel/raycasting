@@ -1,94 +1,134 @@
 
 --- @class rt.TextureFormat
 rt.TextureFormat = {
-    --                         | #  | Size | Range
-    --                         |----|------|-----------------
-    NORMAL = "normal",      -- | 4  | 32   | [0, 1]
-    R8 = "r8",              -- | 1  | 8    | [0, 1]
-    RG8 = "rg8",            -- | 2  | 16   | [0, 1]
-    RGBA8 = "rgba8",        -- | 4  | 32   | [0, 1]
-    SRGBA8 = "srgba8",      -- | 4  | 32   | [0, 1]
-    R16 = "r16",            -- | 1  | 16   | [0, 1]
-    RG16 = "rg16",          -- | 2  | 32   | [0, 1]
-    RGBA16 = "rgba16",      -- | 4  | 64   | [0, 1]
-    R16F = "r16f",          -- | 1  | 16   | [-65504, +65504]
-    RG16F = "rg16f",        -- | 2  | 32   | [-65504, +65504]
-    RGBA16F = "rgba16f",    -- | 4  | 64   | [-65504, +65504]
-    R32F = "r32f",          -- | 1  | 32   | [-3.4028235e38, 3.4028235e38]
-    RG32F = "rg32f",        -- | 2  | 64   | [-3.4028235e38, 3.4028235e38]
-    RGBA32F = "rgba32f",    -- | 4  | 128  | [-3.4028235e38, 3.4028235e38]
-    RGBA4 = "rgba4",        -- | 4  | 16   | [0, 1]
-    RGB5A1 = "rgb5a1",      -- | 4  | 16   | [0, 1]
-    RGB565 = "rgb565",      -- | 3  | 16   | [0, 1]
-    RGB10A2 = "rgb10a2",    -- | 4  | 32   | [0, 1]
-    RG11B10F = "rg11b10f",  -- | 3  | 32   | [0, 65024]
-    R8I = "r8i",            -- | 1  | 8    | [-128, 127]
-    RG8I = "rg8i",          -- | 2  | 16   | [-128, 127]
-    RGBA8I = "rgba8i",      -- | 4  | 32   | [-128, 127]
-    R8UI = "r8ui",          -- | 1  | 8    | [0, 255]
-    RG8UI = "rg8ui",        -- | 2  | 16   | [0, 255]
-    RGBA8UI = "rgba8ui",    -- | 4  | 32   | [0, 255]
-    R16I = "r16i",          -- | 1  | 16   | [-32768, 32767]
-    RG16I = "rg16i",        -- | 2  | 32   | [-32768, 32767]
-    RGBA16I = "rgba16i",    -- | 4  | 64   | [-32768, 32767]
-    R16UI = "r16ui",        -- | 1  | 16   | [0, 65535]
-    RG16UI = "rg16ui",      -- | 2  | 32   | [0, 65535]
-    RGBA16UI = "rgba16ui",  -- | 4  | 64   | [0, 65535]
-    R32I = "r32i",          -- | 1  | 32   | [-2147483648, 2147483647]
-    RG32I = "rg32i",        -- | 2  | 64   | [-2147483648, 2147483647]
-    RGBA32I = "rgba32i",    -- | 4  | 128  | [-2147483648, 2147483647]
-    R32UI = "r32ui",        -- | 1  | 32   | [0, 4294967295]
-    RG32UI = "rg32ui",      -- | 2  | 64   | [0, 4294967295]
-    RGBA32UI = "rgba32ui",  -- | 4  | 128  | [0, 4294967295]
-    STENCIL8 = "stencil8",  -- | 1  | 8    | [0, 255]
-    DEPTH16 = "depth16",    -- | 1  | 16   | [0, 1]
-    DEPTH24 = "depth24",    -- | 1  | 24   | [0, 1]
-    DEPTH32F = "depth32f",  -- | 1  | 32   | [0, 1]
-    DEPTH24_STENCIL8 = "depth24stencil8",  -- | 2  | 32   | [0, 1], [0, 255]
-    DEPTH32F_STENCIL8 = "depth32fstencil8" -- | 2  | 40   | [0, 1], [0, 255]
+    --                                    | #components | bits/pixel | range
+    NORMAL            = "normal",      -- | 4           | 32         | [0, 1]
+    R8                = "r8",          -- | 1           | 8          | [0, 1]
+    RG8               = "rg8",         -- | 2           | 16         | [0, 1]
+    RGBA8             = "rgba8",       -- | 4           | 32         | [0, 1]
+    SRGBA8            = "srgba8",      -- | 4           | 32         | [0, 1]
+    R16               = "r16",         -- | 1           | 16         | [0, 1]
+    RG16              = "rg16",        -- | 2           | 32         | [0, 1]
+    RGBA16            = "rgba16",      -- | 4           | 64         | [0, 1]
+    R16F              = "r16f",        -- | 1           | 16         | [-65504, +65504]
+    RG16F             = "rg16f",       -- | 2           | 32         | [-65504, +65504]
+    RGBA16F           = "rgba16f",     -- | 4           | 64         | [-65504, +65504]
+    R32F              = "r32f",        -- | 1           | 32         | [-3.4028235e38, 3.4028235e38]
+    RG32F             = "rg32f",       -- | 2           | 64         | [-3.4028235e38, 3.4028235e38]
+    RGBA32F           = "rgba32f",     -- | 4           | 128        | [-3.4028235e38, 3.4028235e38]
+    RGBA4             = "rgba4",       -- | 4           | 16         | [0, 1]
+    RGB5A1            = "rgb5a1",      -- | 4           | 16         | [0, 1]
+    RGB565            = "rgb565",      -- | 3           | 16         | [0, 1]
+    RGB10A2           = "rgb10a2",     -- | 4           | 32         | [0, 1]
+    RG11B10F          = "rg11b10f",    -- | 3           | 32         | [0, 65024]
+    R8I               = "r8i",         -- | 1           | 8          | [-128, 127]
+    RG8I              = "rg8i",        -- | 2           | 16         | [-128, 127]
+    RGBA8I            = "rgba8i",      -- | 4           | 32         | [-128, 127]
+    R8UI              = "r8ui",        -- | 1           | 8          | [0, 255]
+    RG8UI             = "rg8ui",       -- | 2           | 16         | [0, 255]
+    RGBA8UI           = "rgba8ui",     -- | 4           | 32         | [0, 255]
+    R16I              = "r16i",        -- | 1           | 16         | [-32768, 32767]
+    RG16I             = "rg16i",       -- | 2           | 32         | [-32768, 32767]
+    RGBA16I           = "rgba16i",     -- | 4           | 64         | [-32768, 32767]
+    R16UI             = "r16ui",       -- | 1           | 16         | [0, 65535]
+    RG16UI            = "rg16ui",      -- | 2           | 32         | [0, 65535]
+    RGBA16UI          = "rgba16ui",    -- | 4           | 64         | [0, 65535]
+    R32I              = "r32i",        -- | 1           | 32         | [-2147483648, 2147483647]
+    RG32I             = "rg32i",       -- | 2           | 64         | [-2147483648, 2147483647]
+    RGBA32I           = "rgba32i",     -- | 4           | 128        | [-2147483648, 2147483647]
+    R32UI             = "r32ui",       -- | 1           | 32         | [0, 4294967295]
+    RG32UI            = "rg32ui",      -- | 2           | 64         | [0, 4294967295]
+    RGBA32UI          = "rgba32ui",    -- | 4           | 128        | [0, 4294967295]
+    STENCIL8          = "stencil8",    -- | 1           | 8          | [0, 255]
+    DEPTH16           = "depth16",     -- | 1           | 16         | [0, 1]
+    DEPTH24           = "depth24",     -- | 1           | 24         | [0, 1]
+    DEPTH32F          = "depth32f",    -- | 1           | 32         | [0, 1]
+    DEPTH24_STENCIL8  = "depth24stencil8",   -- | 2    | 32         | [0, 1], [0, 255]
+    DEPTH32F_STENCIL8 = "depth32fstencil8"   -- | 2    | 40         | [0, 1], [0, 255]
 }
 rt.TextureFormat = meta.enum("TextureFormat", rt.TextureFormat)
 
-local _texture_format_to_glsl_identifier = {
-    [rt.TextureFormat.NORMAL] = "rgba8",
-    [rt.TextureFormat.R8] = "r8",
-    [rt.TextureFormat.RG8] = "rg8",
-    [rt.TextureFormat.RGBA8] = "rgba8",
-    [rt.TextureFormat.SRGBA8] = "rgba8",
-    [rt.TextureFormat.R16] = "r16",
-    [rt.TextureFormat.RG16] = "rg16",
-    [rt.TextureFormat.RGBA16] = "rgba16",
-    [rt.TextureFormat.R16F] = "r16f",
-    [rt.TextureFormat.RG16F] = "rg16f",
-    [rt.TextureFormat.RGBA16F] = "rgba16f",
-    [rt.TextureFormat.R32F] = "r32f",
-    [rt.TextureFormat.RG32F] = "rg32f",
-    [rt.TextureFormat.RGBA32F] = "rgba32f",
-    [rt.TextureFormat.RGBA4] = "rgba8",
-    [rt.TextureFormat.RGB5A1] = "rgba8",
-    [rt.TextureFormat.RGB565] = "rgba8",
-    [rt.TextureFormat.RGB10A2] = "rgb10_a2",
-    [rt.TextureFormat.RG11B10F] = "r11f_g11f_b10f",
-    [rt.TextureFormat.R8I] = "r8i",
-    [rt.TextureFormat.RG8I] = "rg8i",
-    [rt.TextureFormat.RGBA8I] = "rgba8i",
-    [rt.TextureFormat.R8UI] = "r8ui",
-    [rt.TextureFormat.RG8UI] = "rg8ui",
-    [rt.TextureFormat.RGBA8UI] = "rgba8ui",
-    [rt.TextureFormat.R16I] = "r16i",
-    [rt.TextureFormat.RG16I] = "rg16i",
-    [rt.TextureFormat.RGBA16I] = "rgba16i",
-    [rt.TextureFormat.R16UI] = "r16ui",
-    [rt.TextureFormat.RG16UI] = "rg16ui",
-    [rt.TextureFormat.RGBA16UI] = "rgba16ui",
-    [rt.TextureFormat.R32I] = "r32i",
-    [rt.TextureFormat.RG32I] = "rg32i",
-    [rt.TextureFormat.RGBA32I] = "rgba32i",
-    [rt.TextureFormat.R32UI] = "r32ui",
-    [rt.TextureFormat.RG32UI] = "rg32ui",
-    [rt.TextureFormat.RGBA32UI] = "rgba32ui"
-}
-
+--- @brief
 rt.graphics.texture_format_to_glsl_identifier = function(x)
+    local _texture_format_to_glsl_identifier = {
+        ["srgba8"]       = "rgba8",
+        ["rgba4"]        = "rgba8",
+        ["rgb5a1"]       = "rgba8",
+        ["rgb565"]       = "rgba8",
+        ["rgb10a2"]      = "rgb10_a2",
+        ["rg11b10f"]     = "r11f_g11f_b10f",
+        ["normal"]       = "rgba8",
+    }
+
     return _texture_format_to_glsl_identifier[x] or x
+end
+
+--- @brief
+rt.graphics.texture_format_get_fallback = function(format, is_canvas)
+    local fallback_chains = {
+        NORMAL            = { },
+        R8                = { "r8", "rg8", "rgba8" },
+        RG8               = { "rg8", "rgba8" },
+        RGBA8             = { "rgba8" },
+        SRGBA8            = { "srgba8", "rgba8" },
+        R8I               = { "r8i", "rg8i", "rgba8i" },
+        RG8I              = { "rg8i", "rgba8i" },
+        RGBA8I            = { "rgba8i" },
+        R8UI              = { "r8ui", "rg8ui", "rgba8ui" },
+        RG8UI             = { "rg8ui", "rgba8ui" },
+        RGBA8UI           = { "rgba8ui" },
+        STENCIL8          = { "stencil8" },
+        RGBA4             = { "rgba4", "rgb5a1", "rgb565", "rgba8" },
+        RGB5A1            = { "rgb5a1", "rgba4", "rgb565", "rgba8" },
+        RGB565            = { "rgb565", "rgba4", "rgb5a1", "rgba8" },
+        R16               = { "r16", "r16f", "rg16", "rg16f", "rgba16", "rgba16f" },
+        R16F              = { "r16f", "r16", "rg16f", "rg16", "rgba16f", "rgba16" },
+        R16I              = { "r16i", "rg16i", "rgba16i" },
+        R16UI             = { "r16ui", "rg16ui", "rgba16ui" },
+        DEPTH16           = { "depth16", "depth24", "depth32f" },
+        RG16              = { "rg16", "rg16f", "rgba16", "rgba16f" },
+        RG16F             = { "rg16f", "rg16", "rgba16f", "rgba16" },
+        RG16I             = { "rg16i", "rgba16i" },
+        RG16UI            = { "rg16ui", "rgba16ui" },
+        R32F              = { "r32f", "rg32f", "rgba32f" },
+        R32I              = { "r32i", "rg32i", "rgba32i" },
+        R32UI             = { "r32ui", "rg32ui", "rgba32ui" },
+        RGB10A2           = { "rgb10a2", "rgba16", "rgba16f" },
+        RG11B10F          = { "rg11b10f", "rgba16f", "rgba32f" },
+        DEPTH24           = { "depth24", "depth32f", "depth16" },
+        DEPTH32F          = { "depth32f", "depth24", "depth16" },
+        DEPTH24_STENCIL8  = { "depth24stencil8", "depth32fstencil8" },
+        RGBA16            = { "rgba16", "rgba16f" },
+        RGBA16F           = { "rgba16f", "rgba16" },
+        RGBA16I           = { "rgba16i" },
+        RGBA16UI          = { "rgba16ui" },
+        RG32F             = { "rg32f", "rgba32f" },
+        RG32I             = { "rg32i", "rgba32i" },
+        RG32UI            = { "rg32ui", "rgba32ui" },
+        DEPTH32F_STENCIL8 = { "depth32fstencil8", "depth24stencil8" },
+        RGBA32F           = { "rgba32f" },
+        RGBA32I           = { "rgba32i" },
+        RGBA32UI          = { "rgba32ui" }
+    }
+
+    local supported = love.graphics.getTextureFormats({ canvas = is_canvas })
+    for identifier, chain in pairs(fallback_chains) do
+        local resolved
+        for format_string in values(chain) do
+            if supported[format_string] == true then
+                resolved = format_string
+                break
+            end
+        end
+
+        if resolved == nil
+            and not string.contains(identifier, "stencil")
+            and not string.contains(identifier, "depth")
+        then
+            resolved = "normal"
+        end
+
+        -- if no fallback found, may error on newCanvas
+        return resolved or identifier
+    end
 end
