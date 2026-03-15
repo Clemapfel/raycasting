@@ -47,9 +47,9 @@ function mn.KeybindingScene:instantiate()
     self._control_indicator = rt.ControlIndicator(
         rt.ControlIndicatorButton.UP_DOWN, translation.control_indicator_move,
         rt.ControlIndicatorButton.CONFIRM, translation.control_indicator_select,
-        rt.ControlIndicatorButton.B, translation.control_indicator_back,
-        rt.ControlIndicatorButton.Y, translation.control_indicator_reset_to_default,
-        rt.ControlIndicatorButton.START, translation.control_indicator_abort
+        rt.ControlIndicatorButton.BACK, translation.control_indicator_back,
+        rt.ControlIndicatorButton.RESET, translation.control_indicator_reset_to_default,
+        rt.ControlIndicatorButton.PAUSE, translation.control_indicator_abort
     )
 
     self._heading_label = rt.Label("<b>" .. translation.heading .. "</b>")
@@ -79,33 +79,37 @@ function mn.KeybindingScene:instantiate()
     -- items
 
     local input_action_order = {
-        rt.InputAction.A,
-        rt.InputAction.B,
-        rt.InputAction.X,
-        rt.InputAction.Y,
         rt.InputAction.UP,
         rt.InputAction.RIGHT,
         rt.InputAction.DOWN,
         rt.InputAction.LEFT,
-        rt.InputAction.L,
-        rt.InputAction.R,
-        rt.InputAction.START,
-        rt.InputAction.SELECT
+
+        rt.InputAction.JUMP,
+        rt.InputAction.SPRINT,
+        rt.InputAction.INTERACT,
+
+        rt.InputAction.CONFIRM,
+        rt.InputAction.BACK,
+        rt.InputAction.RESET,
+        rt.InputAction.PAUSE,
+        rt.InputAction.SPECIAL
     }
 
     local input_action_to_verbose_info = {
-        [rt.InputAction.A] = mn.VerboseInfoObject.INPUT_ACTION_A,
-        [rt.InputAction.B] = mn.VerboseInfoObject.INPUT_ACTION_B,
-        [rt.InputAction.X] = mn.VerboseInfoObject.INPUT_ACTION_X,
-        [rt.InputAction.Y] = mn.VerboseInfoObject.INPUT_ACTION_Y,
-        [rt.InputAction.L] = mn.VerboseInfoObject.INPUT_ACTION_L,
-        [rt.InputAction.R] = mn.VerboseInfoObject.INPUT_ACTION_R,
-        [rt.InputAction.START] = mn.VerboseInfoObject.INPUT_ACTION_START,
-        [rt.InputAction.SELECT] = mn.VerboseInfoObject.INPUT_ACTION_SELECT,
         [rt.InputAction.UP] = mn.VerboseInfoObject.INPUT_ACTION_UP,
         [rt.InputAction.RIGHT] = mn.VerboseInfoObject.INPUT_ACTION_RIGHT,
         [rt.InputAction.DOWN] = mn.VerboseInfoObject.INPUT_ACTION_DOWN,
         [rt.InputAction.LEFT] = mn.VerboseInfoObject.INPUT_ACTION_LEFT,
+
+        [rt.InputAction.JUMP] = mn.VerboseInfoObject.INPUT_ACTION_JUMP,
+        [rt.InputAction.SPRINT] = mn.VerboseInfoObject.INPUT_ACTION_SPRINT,
+        [rt.InputAction.INTERACT] = mn.VerboseInfoObject.INPUT_ACTION_INTERACT,
+
+        [rt.InputAction.CONFIRM] = mn.VerboseInfoObject.INPUT_ACTION_CONFIRM,
+        [rt.InputAction.BACK] = mn.VerboseInfoObject.INPUT_ACTION_BACK,
+        [rt.InputAction.RESET] = mn.VerboseInfoObject.INPUT_ACTION_RESET,
+        [rt.InputAction.PAUSE] = mn.VerboseInfoObject.INPUT_ACTION_PAUSE,
+        [rt.InputAction.SPECIAL] = mn.VerboseInfoObject.INPUT_ACTION_SPECIAL
     }
 
     local prefix_prefix, prefix_postfix = "<b>", "</b>"
@@ -171,7 +175,6 @@ function mn.KeybindingScene:instantiate()
     -- input
     self._listening_active = false
     self._listening_item = nil
-    self._skip_n_input_frames = 0
 
     self._scroll_elapsed = 0
     self._scroll_active = false
@@ -187,9 +190,8 @@ function mn.KeybindingScene:instantiate()
         end)
     end
 
-    self._input = rt.InputSubscriber()
-    self._input:signal_connect("pressed", function(_, which)
-        if self._listening_active or self._skip_n_input_frames > 0 then return end
+    local handle_input_action_pressed = function(which)
+        if self._listening_active then return end
 
         if self._confirm_exit_dialog:get_is_active() then
             self._confirm_exit_dialog:handle_button(which)
@@ -201,7 +203,7 @@ function mn.KeybindingScene:instantiate()
             self:_start_scroll(rt.Direction.UP)
         elseif which == rt.InputAction.DOWN then
             self:_start_scroll(rt.Direction.DOWN)
-        elseif which == rt.InputAction.A then
+        elseif which == rt.InputAction.CONFIRM then
             if not self._listening_active then
                 self._listening_active = true
                 self._listening_item = self._list:get_selected_item()
@@ -214,7 +216,7 @@ function mn.KeybindingScene:instantiate()
                     self._listening_item:set_controller_indicator(nil)
                 end
             end
-        elseif which == rt.InputAction.Y then
+        elseif which == rt.InputAction.RESET then
             if self:_was_modified() then
                 self._confirm_reset_to_default_dialog:signal_connect("selection", function(dialog, option)
                     if option == mn.MessageDialogOption.ACCEPT then
@@ -230,31 +232,39 @@ function mn.KeybindingScene:instantiate()
             else
                 -- noop
             end
-        elseif which == rt.InputAction.B then
+        elseif which == rt.InputAction.BACK then
             self:_exit(true) -- save bindings
         elseif which == rt.InputAction.PAUSE then
             self:_exit(false) -- reset bindings
-        elseif which == rt.InputAction.L or which == rt.InputAction.R then
+        elseif which == rt.InputAction.SPECIAL then
             self._background_only = true
         end
+    end
+
+    local handle_input_action_released = function(which)
+        if which == rt.InputAction.UP or which == rt.InputAction.DOWN then
+            self:_stop_scroll()
+        elseif which == rt.InputAction.SPECIAL then
+            self._background_only = false
+        end
+    end
+
+    self._input = rt.InputSubscriber()
+    self._input:signal_connect("pressed", function(_, which)
+        handle_input_action_pressed(which)
     end)
 
     self._input:signal_connect("released", function(_, which)
-        if which == rt.InputAction.UP or which == rt.InputAction.DOWN then
-            self:_stop_scroll()
-        elseif which == rt.InputAction.L or which == rt.InputAction.R then
-            self._background_only = false
-        end
+        handle_input_action_released(which)
     end)
 
-    self._input:signal_connect("left_joystick_moved", function(_, x, y)
-        if y < 0 then
-            self:_start_scroll(rt.Direction.UP)
-        elseif y > 0 then
-            self:_start_scroll(rt.Direction.DOWN)
-        else
-            self:_stop_scroll()
-        end
+    self._joystick_gesture = rt.JoystickGestureDetector()
+    self._joystick_gesture:signal_connect("pressed", function(_, which)
+        handle_input_action_pressed(which)
+    end)
+
+    self._joystick_gesture:signal_connect("released", function(_, which)
+        handle_input_action_released(which)
     end)
 
     self._input:signal_connect("input_method_changed", function(_, new)
@@ -266,7 +276,7 @@ function mn.KeybindingScene:instantiate()
         self._listening_item:set_keyboard_indicator(which)
         self._listening_active = false
         rt.SoundManager:play(rt.SoundIDs.keybinding_scene.assign_successfull)
-        self._skip_n_input_frames = 3
+        rt.InputManager:flush()
     end)
 
     self._input:signal_connect("controller_button_pressed", function(_, which)
@@ -274,7 +284,7 @@ function mn.KeybindingScene:instantiate()
         self._listening_item:set_controller_indicator(which)
         self._listening_active = false
         rt.SoundManager:play(rt.SoundIDs.keybinding_scene.assign_successfull)
-        self._skip_n_input_frames = 3
+        rt.InputManager:flush()
     end)
 end
 
@@ -403,10 +413,6 @@ end
 
 --- @brief
 function mn.KeybindingScene:update(delta)
-    if self._skip_n_input_frames > 0 then
-        self._skip_n_input_frames = self._skip_n_input_frames - 1
-    end
-
     for widget in range(
         self._confirm_reset_to_default_dialog,
         self._confirm_exit_dialog,

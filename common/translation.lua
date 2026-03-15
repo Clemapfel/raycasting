@@ -16,58 +16,19 @@ rt.Translation = {
 
     input_action_to_string = function(action)
         return ({
-            [rt.InputAction.A] = "Jump / Confirm",
-            [rt.InputAction.B] = "Sprint / Go Back",
-            [rt.InputAction.X] = "Interact / Reset",
-            [rt.InputAction.Y] = "(#INPUT_ACTION_Y)", -- unused
-            [rt.InputAction.L] = "Zoom In",
-            [rt.InputAction.R] = "Zoom Out",
-            [rt.InputAction.START] = "Pause / Unpause",
-            [rt.InputAction.SELECT] = "(#INPUT_ACTION_SELECT)", -- unused
-            [rt.InputAction.UP] = "Move Up",
-            [rt.InputAction.RIGHT] = "Move Right",
-            [rt.InputAction.DOWN] = "Move Down",
-            [rt.InputAction.LEFT] = "Move Left"
+            [rt.InputAction.UP]       = "Move Up",
+            [rt.InputAction.RIGHT]    = "Move Right",
+            [rt.InputAction.DOWN]     = "Move Down",
+            [rt.InputAction.LEFT]     = "Move Left",
+            [rt.InputAction.JUMP]     = "Jump",
+            [rt.InputAction.SPRINT]   = "Sprint",
+            [rt.InputAction.INTERACT] = "Interact",
+            [rt.InputAction.PAUSE]    = "Pause / Unpause",
+            [rt.InputAction.CONFIRM]  = "Confirm",
+            [rt.InputAction.BACK]     = "Back",
+            [rt.InputAction.RESET]    = "Restored Default",
+            [rt.InputAction.SPECIAL]  = "???"
         })[action]
-    end,
-
-    controller_button_to_string = function(button)
-        return ({
-            [rt.ControllerButton.TOP] = "top",
-            [rt.ControllerButton.RIGHT] = "right",
-            [rt.ControllerButton.BOTTOM] = "bottom",
-            [rt.ControllerButton.LEFT] = "left",
-            [rt.ControllerButton.DPAD_UP] = "dpad up",
-            [rt.ControllerButton.DPAD_RIGHT] = "dpad right",
-            [rt.ControllerButton.DPAD_DOWN] = "dpad down",
-            [rt.ControllerButton.DPAD_LEFT] = "dpad left",
-            [rt.ControllerButton.LEFT_SHOULDER] = "left bumper",
-            [rt.ControllerButton.RIGHT_SHOULDER] = "right bumper",
-            [rt.ControllerButton.START] = "start",
-            [rt.ControllerButton.SELECT] = "select",
-        })[button]
-    end,
-
-    keyboard_key_to_string = function(key)
-        local _keyboard_key_to_string = {
-            ["ä"] = "Ä",
-            ["ö"] = "Ö",
-            ["ü"] = "Ü",
-            ["escape"] = "ESC",
-            ["up"] = "\u{2191}",       -- up arrow
-            ["right"] = "\u{2192}",    -- right arrow
-            ["down"] = "\u{2193}",     -- down arrow
-            ["left"] = "\u{2190}",     -- left arrow
-            ["space"] = "\u{2500}",    -- space bar
-            ["return"] = "\u{21B5}",   -- enter
-            ["backspace"] = "\u{232B}" -- backspace
-        }
-
-        local result = _keyboard_key_to_string[key]
-        if result then
-            return result
-        end
-        return string.upper(key)
     end,
 
     stage_grade_to_string = function(grade)
@@ -77,7 +38,7 @@ rt.Translation = {
             [rt.StageGrade.B] = "B",
             [rt.StageGrade.C] = "C",
             [rt.StageGrade.F] = "F",
-            [rt.StageGrade.NONE] = "?" --\u{2014}" -- long dash
+            [rt.StageGrade.NONE] = "?"
         })[grade]
     end,
 

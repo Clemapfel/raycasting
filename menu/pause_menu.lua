@@ -4,6 +4,7 @@ require "common.selection_graph"
 require "common.translation"
 require "common.font"
 require "common.input_subscriber"
+require "common.joystick_gesture_detector"
 require "common.control_indicator"
 require "menu.message_dialog"
 
@@ -26,7 +27,9 @@ function mn.PauseMenu:instantiate(scene)
         _elements = {},
         _background = rt.Background("menu/pause_menu.glsl", true),
         _underlying_scene = scene, -- scene below menu
-        _input = rt.InputSubscriber(false),
+        _input = rt.InputSubscriber(0), -- highest priority
+        _joystick_gesture = rt.JoystickGestureDetector(),
+
         _schedule_activate = true,
         _is_active = false,
 
@@ -48,9 +51,9 @@ function mn.PauseMenu:instantiate(scene)
 
     local translation = rt.Translation.pause_menu
     self._control_indicator = rt.ControlIndicator(
+        rt.ControlIndicatorButton.PAUSE, translation.control_indicator_unpause,
         rt.ControlIndicatorButton.CONFIRM, translation.control_indicator_select,
-        rt.ControlIndicatorButton.BACK, translation.control_indicator_unpause,
-    rt.ControlIndicatorButton.UP_DOWN, translation.control_indicator_move
+        rt.ControlIndicatorButton.UP_DOWN, translation.control_indicator_move
     )
     self._control_indicator:set_has_frame(false)
 
@@ -62,9 +65,9 @@ function mn.PauseMenu:instantiate(scene)
                 self._confirm_restart_dialog:close()
             elseif self._confirm_exit_dialog:get_is_active() then
                 self._confirm_exit_dialog:close()
-            else
-                self._underlying_scene:unpause()
             end
+
+            -- unpause handled in OverworldScene._input
         elseif self._confirm_restart_dialog:get_is_active() then
             self._confirm_restart_dialog:handle_button(which)
         elseif self._confirm_exit_dialog:get_is_active() then
@@ -72,6 +75,10 @@ function mn.PauseMenu:instantiate(scene)
         else
             self._selection_graph:handle_button(which)
         end
+    end)
+
+    self._joystick_gesture:signal_connect("pressed", function(_, which)
+        self._selection_graph:handle_button(which)
     end)
 
     self._background:realize()

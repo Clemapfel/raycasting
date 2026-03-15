@@ -3,12 +3,14 @@ require "common.input_action"
 --- @class rt.InputManager
 rt.InputManager = meta.class("InputManager")
 
+--- @class rt.InputMethod
 rt.InputMethod = {
     KEYBOARD = true,
     CONTROLLER = false
 }
 rt.InputMethod = meta.enum("InputMethod", rt.InputMethod)
 
+--- @class rt.MouseButton
 rt.MouseButton = {
     LEFT = 1,
     RIGHT = 2,
@@ -221,7 +223,7 @@ end
 
 --- @brief
 function rt.InputManager:get_is_keyboard_key_down(key)
-    return love.keyboard.isDown(key)
+    return love.keyboard.isDown(rt.keyboard_key_to_native(key))
 end
 
 --- @brief
@@ -231,7 +233,7 @@ function rt.InputManager:get_is_controller_button_down(button)
     if joystick == nil then
         return false
     else
-        return joystick:isGamepadDown(button)
+        return joystick:isGamepadDown(rt.controller_button_to_native(button))
     end
 end
 
@@ -350,6 +352,7 @@ rt.InputManager = rt.InputManager() -- static singleton instance
 --- ### love callbacks ###
 
 love.keypressed = function(key, scancode)
+    key = rt.native_to_keyboard_key(key)
     rt.InputManager:_set_input_method(rt.InputMethod.KEYBOARD)
     rt.InputManager:_notify_pressed(key, rt.InputMethod.KEYBOARD)
 
@@ -375,6 +378,7 @@ love.keypressed = function(key, scancode)
 end
 
 love.keyreleased = function(key, scancode)
+    key = rt.native_to_keyboard_key(key)
     rt.InputManager:_set_input_method(rt.InputMethod.KEYBOARD)
     rt.InputManager:_notify_released(key, rt.InputMethod.KEYBOARD)
 
@@ -454,6 +458,7 @@ love.wheelmoved = function(x, y)
 end
 
 love.gamepadpressed = function(joystick, button)
+    button = rt.native_to_controller_button(button)
     rt.InputManager._last_active_joystick = joystick
     rt.InputManager:_set_input_method(rt.InputMethod.CONTROLLER)
     rt.InputManager:_notify_pressed(button, rt.InputMethod.CONTROLLER)
@@ -482,6 +487,7 @@ love.gamepadpressed = function(joystick, button)
 end
 
 love.gamepadreleased = function(joystick, button)
+    button = rt.native_to_controller_button(button)
     rt.InputManager._last_active_joystick = joystick
     rt.InputManager:_set_input_method(rt.InputMethod.CONTROLLER)
     rt.InputManager:_notify_released(button, rt.InputMethod.CONTROLLER)

@@ -16,8 +16,13 @@ function rt.graphics.msaa_quality_to_native(quality)
         [rt.MSAAQuality.BEST] = 8
     }
 
+    local mapped = mapping[quality]
+    if mapped == nil then
+        rt.error("In rt.graphics.msaa_quality_to_native: unknown quality `", quality, "`")
+    end
+
     return math.min(
-        mapping[quality],
+        mapped,
         love.graphics.getSystemLimits().texturemsaa or 8
     )
 end

@@ -58,15 +58,15 @@ function mn.SettingsScene:instantiate()
     self._option_button_control_indicator = rt.ControlIndicator(
         rt.ControlIndicatorButton.LEFT_RIGHT, translation.control_indicator_select,
         rt.ControlIndicatorButton.UP_DOWN, translation.control_indicator_move,
-        rt.ControlIndicatorButton.Y, translation.control_indicator_restore_default,
-        rt.ControlIndicatorButton.B, translation.control_indicator_back
+        rt.ControlIndicatorButton.RESET, translation.control_indicator_restore_default,
+        rt.ControlIndicatorButton.BACK, translation.control_indicator_back
     )
 
     self._scale_control_indicator = rt.ControlIndicator(
         rt.ControlIndicatorButton.LEFT_RIGHT, translation.control_indicator_select,
         rt.ControlIndicatorButton.UP_DOWN, translation.control_indicator_move,
-        rt.ControlIndicatorButton.Y, translation.control_indicator_restore_default,
-        rt.ControlIndicatorButton.B, translation.control_indicator_back
+        rt.ControlIndicatorButton.RESET, translation.control_indicator_restore_default,
+        rt.ControlIndicatorButton.BACK, translation.control_indicator_back
     )
 
     self._verbose_info = mn.VerboseInfoPanel()
@@ -575,70 +575,105 @@ function mn.SettingsScene:instantiate()
     self._mouse_input_active = false
     self._mouse_x, self._mouse_y = -math.huge, -math.huge
 
+    local handle_left_pressed = function()
+        local item = self._list:get_selected_item()
+        if item.is_scale then
+            self._scale_elapsed = 0
+            self._scale_delay_elapsed = 0
+            self._scale_active = true
+            self._scale_direction = rt.Direction.LEFT
+            item.widget:move_left()
+        else
+            item.widget:move_left()
+        end
+    end
+
+    local handle_right_pressed = function()
+        local item = self._list:get_selected_item()
+        if item.is_scale then
+            self._scale_elapsed = 0
+            self._scale_delay_elapsed = 0
+            self._scale_active = true
+            self._scale_direction = rt.Direction.RIGHT
+            item.widget:move_right()
+        else
+            item.widget:move_right()
+        end
+    end
+
+    local handle_up_pressed = function()
+        self:_start_scroll(rt.Direction.UP)
+    end
+
+    local handle_down_pressed = function()
+        self:_start_scroll(rt.Direction.DOWN)
+    end
+
     self._input = rt.InputSubscriber()
     self._input:signal_connect("pressed", function(_, which)
         self._mouse_input_active = false
 
         self._scale_active = false
         if which == rt.InputAction.UP then
-            self:_start_scroll(rt.Direction.UP)
+            handle_up_pressed()
         elseif which == rt.InputAction.DOWN then
-            self:_start_scroll(rt.Direction.DOWN)
+            handle_down_pressed()
         elseif which == rt.InputAction.LEFT then
-            local item = self._list:get_selected_item()
-            if item.is_scale then
-                self._scale_elapsed = 0
-                self._scale_delay_elapsed = 0
-                self._scale_active = true
-                self._scale_direction = rt.Direction.LEFT
-                item.widget:move_left()
-            else
-                item.widget:move_left()
-            end
+            handle_left_pressed()
         elseif which == rt.InputAction.RIGHT then
-            local item = self._list:get_selected_item()
-            if item.is_scale then
-                self._scale_elapsed = 0
-                self._scale_delay_elapsed = 0
-                self._scale_active = true
-                self._scale_direction = rt.Direction.RIGHT
-                item.widget:move_right()
-            else
-                item.widget:move_right()
-            end
-        elseif which == rt.InputAction.Y then
+            handle_right_pressed()
+        elseif which == rt.InputAction.RESET then
             local item = self._list:get_selected_item()
             rt.SoundManager:play(rt.SoundIDs.settings_scene.reset)
             item:signal_emit("reset")
-        elseif which == rt.InputAction.B then
+        elseif which == rt.InputAction.BACK then
             rt.SoundManager:play(rt.SoundIDs.settings_scene.save)
             rt.SceneManager:pop()
-        elseif which == rt.InputAction.L or which == rt.InputAction.R then
+        elseif which == rt.InputAction.SPECIAL then
             self._background_only = true
         end
     end)
+
+    local handle_left_right_released = function()
+        self._scale_active = false
+    end
+
+    local handle_up_down_released = function()
+        self:_stop_scroll()
+    end
 
     self._input:signal_connect("released", function(_, which)
         self._mouse_input_active = false
 
         if which == rt.InputAction.LEFT or which == rt.InputAction.RIGHT then
-            self._scale_active = false
+            handle_left_right_released()
         elseif which == rt.InputAction.UP or which == rt.InputAction.DOWN then
-            self:_stop_scroll()
-        elseif which == rt.InputAction.L or which == rt.InputAction.R then
+            handle_up_down_released()
+        elseif which == rt.InputAction.SPECIAL then
             self._background_only = false
         end
     end)
 
-    self._input:signal_connect("left_joystick_moved", function(_, x, y)
-        self._mouse_input_active = false
+    self._joystick_gesture = rt.JoystickGestureDetector()
 
-        if y < 0 then
-            self:_start_scroll(rt.Direction.UP)
-        elseif y > 0 then
-            self:_start_scroll(rt.Direction.DOWN)
-        else
-            self:_stop_scroll()
+    self._joystick_gesture:signal_connect("pressed", function(_, which)
+        self._mouse_input_active = false
+        if which == rt.InputAction.UP then
+            handle_up_pressed()
+        elseif which == rt.InputAction.DOWN then
+            handle_down_pressed()
+        elseif which == rt.InputAction.LEFT then
+            handle_left_pressed()
+        elseif which == rt.InputAction.RIGHT then
+            handle_right_pressed()
+        end
+    end)
+
+    self._joystick_gesture:signal_connect("released", function(_, which)
+        if which == rt.InputAction.LEFT or which == rt.InputAction.RIGHT then
+            handle_left_right_released()
+        elseif which == rt.InputAction.UP or which == rt.InputAction.DOWN then
+            handle_up_down_released()
         end
     end)
 end

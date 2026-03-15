@@ -64,7 +64,7 @@ end
 
 --- @brief
 function rt.ControlIndicator:_initialize_indicator_from_control_indicator_button(indicator, button, is_keyboard)
-    local to_string = rt.Translation.keyboard_key_to_string
+    local to_string = rt.keyboard_key_to_string
     if is_keyboard then
         if button == rt.ControlIndicatorButton.UP_DOWN then
             local up = rt.GameState:get_input_mapping(rt.InputAction.UP, rt.InputMethod.KEYBOARD)[1]

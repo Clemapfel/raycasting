@@ -241,10 +241,12 @@ function ow.OverworldScene:instantiate(state)
     self._control_indicator_particle_effect = ow.RevealParticleEffect()
 
     self._input:signal_connect("pressed", function(_, which)
-        if not self._pause_menu_active and which == rt.InputAction.PAUSE then
-            self:pause()
-        elseif self._pause_menu_active and which == rt.InputAction.BACK then
-            self:unpause()
+        if which == rt.InputAction.PAUSE then
+            if not self._pause_menu_active then
+                self:pause()
+            elseif self._pause_menu_active then
+                self:unpause()
+            end
         end
     end)
 
@@ -930,9 +932,9 @@ end
 
 --- @brief
 function ow.OverworldScene:unpause()
+    if not self._pause_menu_active == true then return end
     self._pause_menu_active = false
     self._pause_menu:close()
-
     rt.InputManager:flush()
     self._player:request_is_disabled(self, nil)
 end

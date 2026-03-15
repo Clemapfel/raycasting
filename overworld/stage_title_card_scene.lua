@@ -58,7 +58,7 @@ function ow.StageTitleCardScene:instantiate(state)
     -- input
     self._input = rt.InputSubscriber()
     self._input:signal_connect("pressed", function(_, which)
-        if which == rt.InputAction.JUMP then
+        if which == rt.InputAction.SPECIAL then
             self._player:request_is_bubble(self, false)
         end
     end)

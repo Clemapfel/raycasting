@@ -867,10 +867,6 @@ local function _parse_single_object_group(object_group, group_offset_x, group_of
                     x + group_offset_x,
                     y + group_offset_y
                 )
-
-                if object.rotation ~= nil then
-                    rt.warning(object.rotation == 0, "In ", scope, ": object `", wrapper.id, "` is a point, but its `rotation` property is set")
-                end
             end
 
             if wrapper.class == nil or wrapper.class == "" then

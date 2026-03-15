@@ -13,5 +13,10 @@ function rt.graphics.vsync_mode_to_native(mode)
         [rt.VSyncMode.ADAPTIVE] = -1
     }
 
-    return mapping[mode]
+    local mapped = mapping[mode]
+    if mapped == nil then
+        rt.error("In rt.graphics.vsync_mode_to_native: unknown mode `", mode, "`")
+    end
+
+    return mapped
 end
