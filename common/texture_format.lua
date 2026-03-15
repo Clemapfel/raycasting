@@ -46,24 +46,8 @@ rt.TextureFormat = {
     DEPTH24_STENCIL8  = "depth24stencil8",   -- | 2    | 32         | [0, 1], [0, 255]
     DEPTH32F_STENCIL8 = "depth32fstencil8"   -- | 2    | 40         | [0, 1], [0, 255]
 }
-rt.TextureFormat = meta.enum("TextureFormat", rt.TextureFormat)
 
---- @brief
-rt.graphics.texture_format_to_glsl_identifier = function(x)
-    local _texture_format_to_glsl_identifier = {
-        ["srgba8"]       = "rgba8",
-        ["rgba4"]        = "rgba8",
-        ["rgb5a1"]       = "rgba8",
-        ["rgb565"]       = "rgba8",
-        ["rgb10a2"]      = "rgb10_a2",
-        ["rg11b10f"]     = "r11f_g11f_b10f",
-        ["normal"]       = "rgba8",
-    }
-
-    return _texture_format_to_glsl_identifier[x] or x
-end
-
---- @brief
+--- @brief get fallback for texture format if platform does not support it
 rt.graphics.texture_format_get_fallback = function(format, is_canvas)
     local fallback_chains = {
         NORMAL            = { },
@@ -112,23 +96,49 @@ rt.graphics.texture_format_get_fallback = function(format, is_canvas)
     }
 
     local supported = love.graphics.getTextureFormats({ canvas = is_canvas })
-    for identifier, chain in pairs(fallback_chains) do
-        local resolved
-        for format_string in values(chain) do
-            if supported[format_string] == true then
-                resolved = format_string
-                break
-            end
-        end
+    if supported[format] == true then return format end
 
-        if resolved == nil
-            and not string.contains(identifier, "stencil")
-            and not string.contains(identifier, "depth")
-        then
-            resolved = "normal"
+    local resolved = nil
+    for format_string in values(fallback_chains[format]) do
+        if supported[format_string] == true then
+            resolved = format_string
+            break
         end
-
-        -- if no fallback found, may error on newCanvas
-        return resolved or identifier
     end
+
+    if resolved == nil
+        and not string.contains(format, "stencil")
+        and not string.contains(format, "depth")
+    then
+        resolved = "normal"
+    end
+
+    -- if no fallback found, may error on newCanvas
+    if resolved == nil then
+        rt.critical("In rt.TextureFormat: not fallback for texture `", format, "` available")
+        return format
+    else
+        return resolved
+    end
+end
+
+-- automatically reassign texture formats
+for name, format in pairs(rt.TextureFormat) do
+    rt.TextureFormat[name] = rt.graphics.texture_format_get_fallback(format, true)
+end
+rt.TextureFormat = meta.enum("TextureFormat", rt.TextureFormat)
+
+--- @brief
+rt.graphics.texture_format_to_glsl_identifier = function(x)
+    local _texture_format_to_glsl_identifier = {
+        ["srgba8"] = "rgba8",
+        ["rgba4"] = "rgba8",
+        ["rgb5a1"] = "rgba8",
+        ["rgb565"] = "rgba8",
+        ["rgb10a2"] = "rgb10_a2",
+        ["rg11b10f"] = "r11f_g11f_b10f",
+        ["normal"] = "rgba8",
+    }
+
+    return _texture_format_to_glsl_identifier[x] or x
 end
