@@ -7,8 +7,8 @@ require "common.vsync_mode"
 require "love.filesystem"
 
 rt.settings.config = {
-    default_settings_path = "build/default_settings.ini",
-    default_keybind_path = "build/default_keybind.ini"
+    default_settings_path = "build/settings_default.ini",
+    default_keybind_path = "build/keybind_default.ini"
 }
 
 if bd.config == nil then
@@ -41,7 +41,7 @@ function bd.get_keybind()
 end
 
 --- @brief
-function bd.get_default_keybind()
+function bd.get_default_keybinding()
     return bd.config.default_keybind_keyboard, bd.config.default_keybind_controller
 end
 
@@ -152,11 +152,10 @@ bd.config._make_immutable = function(t)
     })
 end
 
-
 -- load default settings
-package.loaded["build.config_load_settings"] = nil
-require("build.config_load_settings")
+package.loaded["build.config_settings"] = nil
+require("build.config_settings")
 
 -- load default keybind
-package.loaded["build.config_load_keybind"] = nil
-require("build.config_load_keybind")
+package.loaded["build.config_keybinding"] = nil
+require("build.config_keybinding")

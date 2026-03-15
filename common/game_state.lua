@@ -59,6 +59,7 @@ end
 function rt.GameState:set_msaa_quality(msaa)
     meta.assert_enum_value(msaa, rt.MSAAQuality, 1)
     msaa = rt.graphics.msaa_quality_to_native(msaa)
+    
     local config = bd.get_config()
     config.msaa = math.min(msaa, love.graphics.getSystemLimits().texturemsaa)
     local w, h, mode = love.window.getMode()
@@ -267,7 +268,7 @@ end
 
 --- @brief
 function rt.GameState:load_default_input_mapping()
-    local keyboard, controller = bd.get_default_keybind()
+    local keyboard, controller = bd.get_default_keybinding()
 
     local mapping = {}
     for input_action in values(meta.instances(rt.InputAction)) do
@@ -278,7 +279,7 @@ function rt.GameState:load_default_input_mapping()
         }
     end
 
-    self._state.input_mapping = mapping
+    self._input_mapping = mapping
     local valid, error = self:_validate_input_mapping()
 
     if valid then
@@ -298,7 +299,7 @@ function rt.GameState:_update_reverse_mapping()
     for action in values(meta.instances(rt.InputAction)) do input_actions[action] = true end
 
     for action in keys(input_actions) do
-        local mapping = self._state.input_mapping[action]
+        local mapping = self._input_mapping[action]
         if mapping ~= nil then
             for key in values(mapping.keyboard) do
                 local actions = self._keyboard_key_to_input_action[key]
@@ -346,7 +347,7 @@ function rt.GameState:_validate_input_mapping()
 
     -- verify that all actions have an assignment
     for action in keys(input_actions) do
-        local keyboard_entry = self._state.input_mapping[action]
+        local keyboard_entry = self._input_mapping[action]
         local keyboard_unused = false
         local keyboard
 
@@ -370,7 +371,7 @@ function rt.GameState:_validate_input_mapping()
             end
         end
 
-        local controller_entry = self._state.input_mapping[action]
+        local controller_entry = self._input_mapping[action]
         local controller_unused = false
         local controller
 
@@ -437,8 +438,8 @@ end
 --- @brief
 function rt.GameState:get_input_mapping(input_action, method)
     meta.assert_enum_value(input_action, rt.InputAction, 1)
-    local keyboard_entry = self._state.input_mapping[input_action]
-    local controller_entry = self._state.input_mapping[input_action]
+    local keyboard_entry = self._input_mapping[input_action]
+    local controller_entry = self._input_mapping[input_action]
     if method == rt.InputMethod.KEYBOARD then
         if keyboard_entry == nil then
             return {}
@@ -469,8 +470,8 @@ end
 
 --- @brief
 function rt.GameState:get_has_input_mapping(input_action, method)
-    local keyboard_entry = self._state.input_mapping[input_action]
-    local controller_entry = self._state.input_mapping[input_action]
+    local keyboard_entry = self._input_mapping[input_action]
+    local controller_entry = self._input_mapping[input_action]
 
     if method == rt.InputMethod.KEYBOARD then
         return keyboard_entry ~= nil
@@ -500,7 +501,7 @@ end
 function rt.GameState:set_input_mapping(input_action_to_keyboard_controller)
     meta.assert(input_action_to_keyboard_controller, "Table")
 
-    local before = table.deepcopy(self._state.input_mapping)
+    local before = table.deepcopy(self._input_mapping)
 
     for action, entry in pairs(input_action_to_keyboard_controller) do
         meta.assert_enum_value(action, rt.InputAction)
@@ -508,17 +509,17 @@ function rt.GameState:set_input_mapping(input_action_to_keyboard_controller)
 
         if entry.keyboard ~= nil then
             meta.assert_typeof(entry.keyboard, "String")
-            self._state.input_mapping[action].keyboard[1] = entry.keyboard
+            self._input_mapping[action].keyboard[1] = entry.keyboard
         end
         if entry.controller ~= nil then
             meta.assert_typeof(entry.controller, "String")
-            self._state.input_mapping[action].controller[1] = entry.controller
+            self._input_mapping[action].controller[1] = entry.controller
         end
     end
 
     local valid, error = self:_validate_input_mapping()
     if not valid then
-        self._state.input_mapping = before -- restore backup
+        self._input_mapping = before -- restore backup
         return false, error
     else
         self:_update_reverse_mapping()
