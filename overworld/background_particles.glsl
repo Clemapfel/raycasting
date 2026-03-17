@@ -1,3 +1,7 @@
+#ifndef IS_BLOOM
+#error "IS_BLOOM undefined, should be 0 or 1"
+#endif
+
 #ifdef VERTEX
 
 // sic, locations start at 3
@@ -8,6 +12,8 @@ layout (location = 6) in vec4 color;
 
 vec3 rotate(vec3 vector, vec4 quaternion)
 {
+    if (length(quaternion.xyzw) == 0) return vector;
+
     vec3 u = quaternion.xyz;
     float s = quaternion.w;
 
@@ -24,7 +30,11 @@ vec4 position(mat4 transform_projection, vec4 vertex_position)
     vec3 dxyz = vertex_position.xyz;
 
     dxyz *= scale;
+    
+    #if BLOOM != 1
     dxyz = rotate(dxyz, rotation);
+    #endif
+
     dxyz += offset;
 
     world_position = dxyz;
@@ -49,23 +59,19 @@ uniform vec3 light_direction = vec3(0.2, -1.0, 0.0);
 uniform float ambient_strength = 0.35;
 uniform float shadow_falloff = 1;
 
-#ifndef IS_BLOOM
-#error "IS_BLOOM undefined, should be 0 or 1"
-#endif
-
 uniform float intensity;
 
 vec4 effect(vec4 color, sampler2D tex, vec2 texture_coords, vec2 screen_coords) {
-
-    float edge = gaussian(length(texture_coords), 2.5);
-    float edge_threshold = 0.5;
-    float edge_eps = 0.2;
-    edge = smoothstep(edge_threshold - edge_eps, edge_threshold + edge_eps, edge);
 
     #if IS_BLOOM == 1
         vec4 result = intensity * color * vertex_color * texture(tex, texture_coords);
         return result;
     #else
+        float edge = gaussian(length(texture_coords), 2.5);
+        float edge_threshold = 0.5;
+        float edge_eps = 0.2;
+        edge = smoothstep(edge_threshold - edge_eps, edge_threshold + edge_eps, edge);
+
         vec3 normal = normalize(cross(dFdx(world_position), dFdy(world_position)));
         vec3 light_dir = normalize(-light_direction);
 

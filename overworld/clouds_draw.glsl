@@ -1,4 +1,3 @@
-#pragma glsl4
 #ifdef VERTEX
 
 layout (location = 0) in vec3 position;

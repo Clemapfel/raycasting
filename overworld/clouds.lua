@@ -187,14 +187,6 @@ end
 
 --- @brief
 function ow.Clouds:_init_draw_mesh(size_x, size_y, fov)
-    -- Build a layered mesh where each slice is scaled to fill the camera frustum
-    -- using the provided vertical FOV. If self._view_from_world (4x4) is present,
-    -- we transform slice centers into view space and use the view-space depth for scaling.
-    --
-    -- Assumptions:
-    -- - The camera looks along -Z in view space.
-    -- - size_x,size_y correspond to the near-plane rectangle that fills the screen.
-    -- - Slices are centered around the same on-screen center and expand with depth.
     local data = {}
     local vertex_map = {}
 
@@ -235,17 +227,13 @@ function ow.Clouds:_init_draw_mesh(size_x, size_y, fov)
     local min_uv_v, max_uv_v = 0, 2
 
     for i = self._n_slices, 1, -1 do
-        -- Slice depth in world space
         local z_normalized = (i - 0.5) / self._n_slices
         local z_world = bounds.z + z_normalized * bounds.size_z
         local layer_index = i - 1
 
-        -- Determine view-space depth for scaling. We only need |z| to compute scale,
-        -- assuming camera looks down -Z; abs handles both conventions robustly.
         local _, _, z_view = transform_to_view_space(plane_cx, plane_cy, z_world)
         local depth = math.max(math.abs(z_view), 1e-6)
 
-        -- Scale factor so that at near depth we have size_x/size_y, and it grows linearly with depth.
         local s = depth / near_d
         local scaled_width = size_x * s
         local scaled_height = size_y * s
@@ -256,14 +244,12 @@ function ow.Clouds:_init_draw_mesh(size_x, size_y, fov)
         local top_y = 0
         local bottom_y = -scaled_height
 
-        -- Position the quad so its center stays fixed on the near-plane center.
         local x0 = plane_cx - scaled_width * 0.5
         local y0 = plane_cy - scaled_height * 0.5
 
         local r, g, b, a = rt.lcha_to_rgba(0.8, 1, i / self._n_slices, 1)
         local base_index = #data
 
-        -- Note: texture coords range from (1,1) top-left to (0,0) bottom-right as before
         table.insert(data, { x0 + left_x,                  y0 + bottom_y,                  z_world, max_uv_u, max_uv_v, layer_index, r, g, b, a })
         table.insert(data, { x0 + scaled_width + right_x,  y0 + bottom_y,                   z_world, min_uv_u, max_uv_v, layer_index, r, g, b, a })
         table.insert(data, { x0 + scaled_width + right_x,  y0 + scaled_height + top_y,  z_world, min_uv_u, min_uv_v, layer_index, r, g, b, a })
