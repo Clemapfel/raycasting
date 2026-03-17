@@ -25,7 +25,7 @@ rt.ControllerButton = meta.enum("ControllerButton", rt.ControllerButton)
 
 --- @brief
 rt.controller_button_to_native = function(button)
-    local mapping = {
+    local binding = {
         [rt.ControllerButton.TOP] = "y",
         [rt.ControllerButton.RIGHT] = "b",
         [rt.ControllerButton.BOTTOM] = "a",
@@ -47,7 +47,7 @@ rt.controller_button_to_native = function(button)
         [rt.ControllerButton.PADDLE_04] = "paddle4",
     }
 
-    local result = mapping[button]
+    local result = binding[button]
     if result == nil then
         rt.error("In rt.controller_button_to_native: unknown controller button `", button, "`")
     end
@@ -57,7 +57,7 @@ end
 
 --- @brief
 rt.native_to_controller_button = function(native)
-    local mapping = {
+    local binding = {
         ["y"] = rt.ControllerButton.TOP,
         ["b"] = rt.ControllerButton.RIGHT,
         ["a"] = rt.ControllerButton.BOTTOM,
@@ -79,7 +79,7 @@ rt.native_to_controller_button = function(native)
         ["paddle4"] = rt.ControllerButton.PADDLE_04,
     }
 
-    local result = mapping[native]
+    local result = binding[native]
     if result == nil then
         rt.error("In rt.native_to_controller_button: unknown native button `", native, "`")
     end

@@ -67,8 +67,8 @@ function rt.ControlIndicator:_initialize_indicator_from_control_indicator_button
     local to_string = rt.keyboard_key_to_string
     if is_keyboard then
         if button == rt.ControlIndicatorButton.UP_DOWN then
-            local up = rt.GameState:get_input_mapping(rt.InputAction.UP, rt.InputMethod.KEYBOARD)[1]
-            local down = rt.GameState:get_input_mapping(rt.InputAction.DOWN, rt.InputMethod.KEYBOARD)[1]
+            local up = rt.GameState:get_input_binding(rt.InputAction.UP, rt.InputMethod.KEYBOARD)[1]
+            local down = rt.GameState:get_input_binding(rt.InputAction.DOWN, rt.InputMethod.KEYBOARD)[1]
             if up ~= nil and down ~= nil then
                 indicator:create_as_two_vertical_keys(
                     to_string(up),
@@ -76,8 +76,8 @@ function rt.ControlIndicator:_initialize_indicator_from_control_indicator_button
                 )
             end
         elseif button == rt.ControlIndicatorButton.LEFT_RIGHT then
-            local left = rt.GameState:get_input_mapping(rt.InputAction.LEFT, rt.InputMethod.KEYBOARD)[1]
-            local right = rt.GameState:get_input_mapping(rt.InputAction.RIGHT, rt.InputMethod.KEYBOARD)[1]
+            local left = rt.GameState:get_input_binding(rt.InputAction.LEFT, rt.InputMethod.KEYBOARD)[1]
+            local right = rt.GameState:get_input_binding(rt.InputAction.RIGHT, rt.InputMethod.KEYBOARD)[1]
             if left ~= nil and right ~= nil then
                 indicator:create_as_two_horizontal_keys(
                     to_string(left),
@@ -85,10 +85,10 @@ function rt.ControlIndicator:_initialize_indicator_from_control_indicator_button
                 )
             end
         elseif button == rt.ControlIndicatorButton.ALL_DIRECTIONS then
-            local up = rt.GameState:get_input_mapping(rt.InputAction.UP, rt.InputMethod.KEYBOARD)[1]
-            local down = rt.GameState:get_input_mapping(rt.InputAction.DOWN, rt.InputMethod.KEYBOARD)[1]
-            local left = rt.GameState:get_input_mapping(rt.InputAction.LEFT, rt.InputMethod.KEYBOARD)[1]
-            local right = rt.GameState:get_input_mapping(rt.InputAction.RIGHT, rt.InputMethod.KEYBOARD)[1]
+            local up = rt.GameState:get_input_binding(rt.InputAction.UP, rt.InputMethod.KEYBOARD)[1]
+            local down = rt.GameState:get_input_binding(rt.InputAction.DOWN, rt.InputMethod.KEYBOARD)[1]
+            local left = rt.GameState:get_input_binding(rt.InputAction.LEFT, rt.InputMethod.KEYBOARD)[1]
+            local right = rt.GameState:get_input_binding(rt.InputAction.RIGHT, rt.InputMethod.KEYBOARD)[1]
             if up ~= nil and down ~= nil and left ~= nil and right ~= nil then
                 indicator:create_as_four_keys(
                     to_string(up),
@@ -98,7 +98,7 @@ function rt.ControlIndicator:_initialize_indicator_from_control_indicator_button
                 )
             end
         else
-            local binding = rt.GameState:get_input_mapping(button, rt.InputMethod.KEYBOARD)[1]
+            local binding = rt.GameState:get_input_binding(button, rt.InputMethod.KEYBOARD)[1]
             if binding ~= nil then
                 indicator:create_from_keyboard_key(binding)
             end
@@ -111,7 +111,7 @@ function rt.ControlIndicator:_initialize_indicator_from_control_indicator_button
         elseif button == rt.ControlIndicatorButton.ALL_DIRECTIONS then
             indicator:create_as_dpad(false, false, false, false)
         else
-            local binding = rt.GameState:get_input_mapping(button, rt.InputMethod.CONTROLLER)[1]
+            local binding = rt.GameState:get_input_binding(button, rt.InputMethod.CONTROLLER)[1]
             if binding ~= nil then
                 indicator:create_from_gamepad_button(binding)
             end
@@ -126,7 +126,7 @@ function rt.ControlIndicator:realize()
     self._frame:realize()
     self:create_from(self._layout)
 
-    self._input:signal_connect("input_mapping_changed", function(_)
+    self._input:signal_connect("input_binding_changed", function(_)
         self:create_from(self._layout)
     end)
 

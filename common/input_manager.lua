@@ -172,10 +172,10 @@ function rt.InputManager:get_count(which, input_method)
 end
 
 --- @brief
-function rt.InputManager:_notify_input_mapping_changed()
+function rt.InputManager:_notify_input_binding_changed()
     for sub in values(rt.InputManager._subscribers) do
         if sub:get_is_active() then
-            sub:signal_emit("input_mapping_changed")
+            sub:signal_emit("input_binding_changed")
         end
     end
 end
@@ -240,14 +240,14 @@ end
 --- @brief
 function rt.InputManager:get_is_down(action)
     if self._input_method == rt.InputMethod.KEYBOARD then
-        local mapping = rt.GameState:get_input_mapping(action, rt.InputMethod.KEYBOARD)
-        for key in values(mapping) do
+        local binding = rt.GameState:get_input_binding(action, rt.InputMethod.KEYBOARD)
+        for key in values(binding) do
             if self:is_keyboard_key_down(key) == true then return true end
         end
         return false
     else
-        local mapping = rt.GameState:get_input_mapping(action, rt.InputMethod.CONTROLLER)
-        for button in values(mapping) do
+        local binding = rt.GameState:get_input_binding(action, rt.InputMethod.CONTROLLER)
+        for button in values(binding) do
             if self:is_controller_button_down(button) == true then return true end
         end
         return false
@@ -365,7 +365,7 @@ love.keypressed = function(key, scancode)
         end
     end
 
-    for mapped in values(rt.GameState:get_reverse_input_mapping(key, rt.InputMethod.KEYBOARD)) do
+    for mapped in values(rt.GameState:get_reverse_input_binding(key, rt.InputMethod.KEYBOARD)) do
         for sub in values(rt.InputManager._subscribers) do
             if sub:get_is_active() then
                 rt.InputManager:_emit(sub, "pressed",
@@ -391,7 +391,7 @@ love.keyreleased = function(key, scancode)
         end
     end
 
-    for mapped in values(rt.GameState:get_reverse_input_mapping(key, rt.InputMethod.KEYBOARD)) do
+    for mapped in values(rt.GameState:get_reverse_input_binding(key, rt.InputMethod.KEYBOARD)) do
         for sub in values(rt.InputManager._subscribers) do
             if sub:get_is_active() then
                 rt.InputManager:_emit(sub, "released",
@@ -473,7 +473,7 @@ love.gamepadpressed = function(joystick, button)
         end
     end
 
-    for mapped in values(rt.GameState:get_reverse_input_mapping(button, rt.InputMethod.CONTROLLER)) do
+    for mapped in values(rt.GameState:get_reverse_input_binding(button, rt.InputMethod.CONTROLLER)) do
         for sub in values(rt.InputManager._subscribers) do
             if sub:get_is_active() then
                 rt.InputManager:_emit(sub, "pressed",
@@ -502,7 +502,7 @@ love.gamepadreleased = function(joystick, button)
         end
     end
 
-    for mapped in values(rt.GameState:get_reverse_input_mapping(button, rt.InputMethod.CONTROLLER)) do
+    for mapped in values(rt.GameState:get_reverse_input_binding(button, rt.InputMethod.CONTROLLER)) do
         for sub in values(rt.InputManager._subscribers) do
             if sub:get_is_active() then
                 rt.InputManager:_emit(sub, "released",

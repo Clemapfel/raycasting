@@ -34,7 +34,7 @@ function rt.GameState:instantiate()
 
     self._input_action_to_controller_button = {}
     self._controller_button_to_input_action = {}
-    self:load_default_input_mapping()
+    self:load_default_input_binding()
 end
 
 --- @brief
@@ -265,19 +265,19 @@ function rt.GameState:get_draw_speedrun_splits()
 end
 
 --- @brief
-function rt.GameState:load_default_input_mapping()
+function rt.GameState:load_default_input_binding()
     self._input_action_to_keyboard_key, self._input_action_to_controller_button = bd.get_default_keybinding()
-    local valid, error = self:_validate_input_mapping()
+    local valid, error = self:_validate_input_binding()
 
     if valid then
-        self:_update_reverse_mapping()
+        self:_update_reverse_binding()
     else
-        rt.error("In rt.GameState.validate_input_mapping: ", error)
+        rt.error("In rt.GameState.validate_input_binding: ", error)
     end
 end
 
 --- @brief
-function rt.GameState:_validate_input_mapping()
+function rt.GameState:_validate_input_binding()
     local unassigned_keyboard = {}
     local unassigned_keyboard_active = false
 
@@ -388,7 +388,7 @@ function rt.GameState:_validate_input_mapping()
 end
 
 --- @brief
-function rt.GameState:_update_reverse_mapping()
+function rt.GameState:_update_reverse_binding()
     self._keyboard_key_to_input_action = {}
     self._controller_button_to_input_action = {}
 
@@ -396,11 +396,11 @@ function rt.GameState:_update_reverse_mapping()
     for action in values(meta.instances(rt.InputAction)) do input_actions[action] = true end
 
     for action in keys(input_actions) do
-        local keyboard_mapping = self._input_action_to_keyboard_key[action]
-        local controller_mapping = self._input_action_to_controller_button[action]
-        assert(keyboard_mapping ~= nil and controller_mapping ~= nil)
+        local keyboard_binding = self._input_action_to_keyboard_key[action]
+        local controller_binding = self._input_action_to_controller_button[action]
+        assert(keyboard_binding ~= nil and controller_binding ~= nil)
 
-        for key in values(keyboard_mapping) do
+        for key in values(keyboard_binding) do
             local actions = self._keyboard_key_to_input_action[key]
             if actions == nil then
                 actions = {}
@@ -409,7 +409,7 @@ function rt.GameState:_update_reverse_mapping()
             table.insert(actions, action)
         end
 
-        for button in values(controller_mapping) do
+        for button in values(controller_binding) do
             local actions = self._controller_button_to_input_action[button]
             if actions == nil then
                 actions = {}
@@ -421,7 +421,7 @@ function rt.GameState:_update_reverse_mapping()
 end
 
 --- @brief
-function rt.GameState:get_input_mapping(input_action, method)
+function rt.GameState:get_input_binding(input_action, method)
     meta.assert_enum_value(input_action, rt.InputAction, 1)
     local keyboard_entry = self._input_action_to_keyboard_key[input_action]
     local controller_entry = self._input_action_to_controller_button[input_action]
@@ -455,7 +455,7 @@ function rt.GameState:get_input_mapping(input_action, method)
 end
 
 --- @brief
-function rt.GameState:get_has_input_mapping(input_action, method)
+function rt.GameState:get_has_input_binding(input_action, method)
     local keyboard_entry = self._input_action_to_keyboard_key[input_action]
     local controller_entry = self._input_action_to_controller_button[input_action]
 
@@ -471,7 +471,7 @@ function rt.GameState:get_has_input_mapping(input_action, method)
 end
 
 --- @brief
-function rt.GameState:get_reverse_input_mapping(native, method)
+function rt.GameState:get_reverse_input_binding(native, method)
     meta.assert_enum_value(method, rt.InputMethod)
     if method == rt.InputMethod.KEYBOARD then
         return self._keyboard_key_to_input_action[native]
@@ -484,7 +484,7 @@ end
 
 --- @brief
 --- @param ... Union<rt.KeyboardKey, rt.ControllerButton>
-function rt.GameState:set_input_mapping(input_action_to_keyboard_key, input_action_to_controller_button)
+function rt.GameState:set_input_binding(input_action_to_keyboard_key, input_action_to_controller_button)
     meta.assert(
         input_action_to_keyboard_key, "Table",
         input_action_to_controller_button, "Table"
@@ -510,14 +510,14 @@ function rt.GameState:set_input_mapping(input_action_to_keyboard_key, input_acti
     self._input_action_to_keyboard_key = input_action_to_keyboard_key
     self._input_action_to_controller_button = input_action_to_controller_button
 
-    local valid, error = self:_validate_input_mapping()
+    local valid, error = self:_validate_input_binding()
     if not valid then
         -- restore backup
         self._input_action_to_keyboard_key = keyboard_before
         self._input_action_to_controller_button = controller_before
         return false, error
     else
-        self:_update_reverse_mapping()
+        self:_update_reverse_binding()
         return true
     end
 end

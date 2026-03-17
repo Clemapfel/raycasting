@@ -72,7 +72,7 @@ meta.add_signals(rt.InputSubscriber,
     "input_method_changed",
 
     -- (rt.InputSubscriber) -> nil
-    "input_mapping_changed"
+    "input_binding_changed"
 )
 
 --- @brief
@@ -90,7 +90,7 @@ end
 
 --- @brief
 function rt.InputSubscriber:get_is_down(input_action)
-    local keyboard_keys, controller_buttons = rt.GameState:get_input_mapping(input_action)
+    local keyboard_keys, controller_buttons = rt.GameState:get_input_binding(input_action)
 
     for key in values(keyboard_keys) do
         if rt.InputManager:get_is_keyboard_key_down(key) then return true end

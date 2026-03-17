@@ -68,40 +68,40 @@ function bd.config.get_default_value(key)
 end
 
 --- @brief
-function bd.config.get_keyboard_mapping(input_action)
+function bd.config.get_keyboard_binding(input_action)
     local entry = bd.config.keybind_keyboard[input_action .. "_keyboard"]
     if entry == nil then
-        rt.error("In bd.config.get_keyboard_mapping: unmapped input action `", input_action, "`")
+        rt.error("In bd.config.get_keyboard_binding: unmapped input action `", input_action, "`")
     end
 
     return entry
 end
 
 --- @brief
-function bd.config.get_default_keyboard_mapping(input_action)
+function bd.config.get_default_keyboard_binding(input_action)
     local entry = bd.config.default_keybind_keyboard[input_action .. "_keyboard"]
     if entry == nil then
-        rt.error("In bd.config.get_default_keyboard_mapping: unmapped input action `", input_action, "`")
+        rt.error("In bd.config.get_default_keyboard_binding: unmapped input action `", input_action, "`")
     end
 
     return entry
 end
 
 --- @brief
-function bd.config.get_controller_mapping(input_action)
+function bd.config.get_controller_binding(input_action)
     local entry = bd.config.keybind_controller[input_action .. "_controller"]
     if entry == nil then
-        rt.error("In bd.config.get_controller_mapping: unmapped input action `", input_action, "`")
+        rt.error("In bd.config.get_controller_binding: unmapped input action `", input_action, "`")
     end
 
     return entry
 end
 
 --- @brief
-function bd.config.get_default_controller_mapping(input_action)
+function bd.config.get_default_controller_binding(input_action)
     local entry = bd.config.default_keybind_controller[input_action .. "_controller"]
     if entry == nil then
-        rt.error("In bd.config.get_default_controller_mapping: unmapped input action `", input_action, "`")
+        rt.error("In bd.config.get_default_controller_binding: unmapped input action `", input_action, "`")
     end
 
     return entry
