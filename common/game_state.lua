@@ -7,11 +7,18 @@ require "common.scene_manager"
 require "common.player_sprint_mode"
 require "common.player"
 
+require "common.filesystem"
+require "common.file_io"
+
 rt.settings.game_state = {
     min_double_click_threshold = 0.2, -- seconds
     max_double_click_threshold = 0.5,
 
-    log_directory = "logs"
+    log_directory = "logs",
+    save_directory = "saves",
+    save_file_prefix = "save_",
+    save_keyboard_binding_prefix = "keyboard_binding",
+    save_controller_binding_prefix = "controller_binding"
 }
 
 --- @class rt.GameState
@@ -35,11 +42,44 @@ function rt.GameState:instantiate()
     self._input_action_to_controller_button = {}
     self._controller_button_to_input_action = {}
     self:load_default_input_binding()
+
+    self._file_io = rt.FileIO()
+    self._save_futures = {}
+    self._log_futures = {}
 end
 
 --- @brief
 function rt.GameState:update(delta)
-    -- noop
+    self._file_io:update(nil)
+
+    do
+        local to_remove = {}
+        for i, future in ipairs(self._save_futures) do
+            if future:get_is_done() == true then
+                if future:get_error() ~= nil then
+                    rt.fatal("rt.GameState.save: unable to save")
+                end
+                table.insert(to_remove, i, 1)
+            end
+        end
+
+        for i in values(to_remove) do
+            table.remove(self._save_futures, i)
+        end
+    end
+
+    do
+        local to_remove = {}
+        for i, future in ipairs(self._log_futures) do
+            if future:get_is_done() == true then
+                table.insert(to_remove, i, 1)
+            end
+        end
+
+        for i in values(to_remove) do
+            table.remove(self._log_futures, i)
+        end
+    end
 end
 
 --- @brief
@@ -519,6 +559,141 @@ function rt.GameState:set_input_binding(input_action_to_keyboard_key, input_acti
     else
         self:_update_reverse_binding()
         return true
+    end
+end
+
+--- @brief
+function rt.GameState:_init_save_directory()
+    local save_prefix = rt.settings.game_state.save_directory
+    if not bd.exists(save_prefix) then
+        bd.create_directory(save_prefix)
+        rt.log("In rt.GameState._init_save_directory: created ", save_prefix, " directory")
+    end
+end
+
+local _save_pattern = "(%d+).*"
+
+--- @brief
+function rt.GameState:save()
+    self:_init_save_directory()
+
+    local state = {}
+    for key, value in pairs(bd.get_config()) do
+        state[key] = value
+    end
+
+    local settings = rt.settings.game_state
+
+    state[settings.save_keyboard_binding_prefix] = self._input_action_to_keyboard_key
+    state[settings.save_controller_binding_prefix] = self._input_action_to_controller_button
+
+    rt.assert(table.is_serializable(state), "In rt.GameState.save: state is not fully serializable")
+
+    local serialized = "return " .. table.serialize(state)
+    local success, result = pcall(bd.load_string, serialized)
+    rt.assert(success == true and meta.is_table(result), "In rt.GameState.save: serialization is not valid lua code")
+
+    -- find latest save id
+    local max_save_id = 0
+    bd.apply_recursively(settings.save_directory, function(path, filename)
+        local number = math.to_number(string.match(filename, settings.save_file_prefix .. _save_pattern))
+        if number ~= nil then
+            max_save_id = math.max(max_save_id, number)
+        end
+    end)
+
+    local save_name = bd.join_path(settings.save_directory, settings.save_file_prefix .. tostring(max_save_id + 1))
+    local success, error_maybe = pcall(bd.create_file, save_name, serialized)
+    if success ~= true then
+        rt.fatal("In rt.GameState.save: unable to write save to `", bd.join_path(bd.get_source_directory(), save_name), "`: ", error_maybe)
+    else
+        rt.log("in rt.GameState.save: saved `", bd.join_path(bd.get_source_directory(), save_name), "`")
+    end
+end
+
+--- @brief
+function rt.GameState:load_save()
+    local settings = rt.settings.game_state
+
+    local max_save_id = -math.huge
+    local max_save_name
+    bd.apply_recursively(settings.save_directory, function(path, filename)
+        local number = math.to_number(string.match(filename, settings.save_file_prefix .. _save_pattern))
+        if number ~= nil then
+            if max_save_id < number then
+                max_save_id = number
+                max_save_name = path
+            end
+        end
+    end)
+
+    if max_save_name == nil then return end
+
+    local compile_success, result = pcall(bd.load_string, bd.read_file(max_save_name))
+    if not compile_success or not meta.is_table(result) then
+        rt.error("In rt.GameState.load_save: save at `", max_save_name, "` is corrupted")
+    end
+
+    -- sanitize and load from state
+    local config = bd.get_config()
+
+    for key in keys(config) do
+        if key == settings.save_keyboard_binding_prefix or key == settings.save_controller_binding_prefix then
+            -- load keybinds
+            local enum = ternary(key == settings.save_keyboard_binding_prefix, rt.KeyboardKey, rt.ControllerButton)
+            local binding = result[key]
+
+            local is_valid = true
+            for input_action, assigned in pairs(binding) do
+                if not meta.is_enum_value(input_action, rt.InputAction) then
+                    is_valid = false
+                    break
+                end
+
+                for v in values(assigned) do
+                    if not meta.assert_typeof(v, enum) then
+                        is_valid = false
+                        break
+                    end
+                end
+            end
+
+            if key == settings.save_keyboard_binding_prefix then
+                self._input_action_to_keyboard_key = binding
+            elseif key == settings.save_controller_binding_prefix then
+                self._keyboard_key_to_input_action = binding
+            end
+        elseif config[key] ~= nil then
+            -- load config
+            local value = result[key]
+            if value ~= nil then
+                local validation_success
+                validation_success, value = bd.config.validate_settings_entry(key, value)
+                if validation_success == true then
+                    config[key] = value
+                end
+
+                result[key] = nil
+            end
+        else
+           -- load gamestate
+        end
+    end
+
+    self:_validate_input_binding()
+    self:_update_reverse_binding()
+    rt.log("In rt.GameState.load_save: successfully loaded save at `", bd.join_path(
+        bd.get_save_directory(),
+        settings.save_directory,
+        bd.get_file_name(max_save_name)
+    ), "`")
+end
+
+--- @brief
+function rt.GameState:_init_log_directory()
+    local log_prefix = bd.join_path(bd.get_save_directory(), rt.settings.game_state.log_directory)
+    if not bd.exists(log_prefix) then
+        bd.create_directory(log_prefix)
     end
 end
 

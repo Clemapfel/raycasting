@@ -174,9 +174,9 @@ do
 end
 
 --- @brief check if a config entry has the correct format
-bd.config._validate_settings_entry = function(key, value)
+bd.config.validate_settings_entry = function(key, value)
     local throw = function(...)
-        rt.critical("In bd.config._validate_settings_entry: ", ...)
+        rt.critical("In bd.config.validate_settings_entry: ", ...)
     end
 
     value = string.match(tostring(value), '^"(.-)"$') or value -- strip `"`
@@ -275,7 +275,7 @@ bd.config._validate_settings_entry = function(key, value)
             return false, nil
         end
     else
-        rt.assert(false, "In ow.config._validate_settings_entry: unknown entry type `", to_string(entry.type), "`")
+        rt.assert(false, "In ow.config.validate_settings_entry: unknown entry type `", to_string(entry.type), "`")
         return false, nil
     end
 
@@ -288,7 +288,7 @@ bd.config.parse_settings_from_string = function(str)
 
     for key, value in pairs(parsed) do
         local success = false
-        success, value = bd.config._validate_settings_entry(key, value)
+        success, value = bd.config.validate_settings_entry(key, value)
 
         if not success then goto next end
         out[key] = value
@@ -300,7 +300,7 @@ end
 
 do -- load default config
     for key, entry in pairs(bd.config.entries) do
-        if not bd.config._validate_settings_entry(key, entry.default) then
+        if not bd.config.validate_settings_entry(key, entry.default) then
             rt.error("In config.lua: default value for entry `", key, "` is invalid")
         end
     end

@@ -507,6 +507,62 @@ local function _serialize(object, comment_out_unserializable)
 end
 
 --- @brief
+local function _is_serializable(value, seen)
+    seen = seen or {}
+
+    local value_type = type(value)
+
+    if value_type == "function" or value_type == "userdata" then
+        return false
+    end
+
+    if value_type ~= "table" then
+        return true
+    end
+
+    if seen[value] then
+        return false
+    end
+
+    seen[value] = true
+
+    for key, entry in pairs(value) do
+        if seen[key] then
+            return false
+        end
+
+        if type(key) == "table" then
+            seen[key] = true
+        end
+
+        if not _is_serializable(key, seen) then
+            return false
+        end
+
+        if not _is_serializable(entry, seen) then
+            return false
+        end
+
+        if type(key) == "table" then
+            seen[key] = nil
+        end
+    end
+
+    seen[value] = nil
+    return true
+end
+
+--- @brief
+function table.is_serializable(t)
+    return _is_serializable(t, {})
+end
+
+--- @brief
+function table.serialize(t)
+    return _serialize(t, true)
+end
+
+--- @brief
 function dbg(...)
     for _, x in pairs({...}) do
         io.write(_serialize(x))

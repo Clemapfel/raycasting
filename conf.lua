@@ -1,9 +1,6 @@
 DEBUG = true -- overriden by build script
-GAME_NAME = "Chroma Drift"
 
 require "include"
-
-
 function love.conf(settings)
     require "common.msaa_quality"
     require "common.vsync_mode"
@@ -67,9 +64,9 @@ function love.conf(settings)
     settings.window.usedpiscale = config.use_dpi_scale
     settings.console = config.show_console
 
-    settings.window.title = GAME_NAME
-    settings.identity = GAME_NAME
-    settings.appendidentity = true
+    settings.window.title = "Chroma Drift"
+    settings.identity = "chroma_drift"
+    settings.appendidentity = false -- prioritze source dir over save dir for file i/o
 
     for _, exclude in pairs({
         "touch",

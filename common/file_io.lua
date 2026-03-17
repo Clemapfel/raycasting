@@ -4,6 +4,33 @@ require "common.channel"
 --- @class rt.FileIO
 rt.FileIO = meta.class("FileIO")
 
+--- @class rt.FileIOFuture
+rt.FileIOFuture = meta.class("Future")
+
+--- @brief
+function rt.FileIOFuture:instantiate(id)
+    self._id = id
+    self.is_done = false
+    self.content = nil
+    self.error = nil
+end
+
+--- @brief
+function rt.FileIOFuture:get_is_done()
+    return self.is_done == true
+end
+
+--- @brief
+function rt.FileIOFuture:get_content()
+    return self.content
+end
+
+--- @brief
+function rt.FileIOFuture:get_error()
+    return self.error
+end
+
+
 local MessageType = {
     WRITE = 0,
     WRITE_RESPONSE = 1,
@@ -15,9 +42,9 @@ local MessageType = {
 }
 
 --- @brief
-function rt.FileIO:instantiate()
+function rt.FileIO:instantiate(n_workers)
     self._workers = {}
-    self._n_workers = 1
+    self._n_workers = n_workers or 1
     self._n_shutdown = 0
     
     self._current_future_id = 0
@@ -26,7 +53,7 @@ function rt.FileIO:instantiate()
     self._main_to_worker = rt.Channel()
     for i = 1, self._n_workers do
         local worker = {
-            thread = rt.Thread("common/file_writer_worker.lua"),
+            thread = rt.Thread("common/file_io_worker.lua"),
             worker_to_main = rt.Channel(),
             main_to_worker = self._main_to_worker
         }
@@ -54,24 +81,18 @@ function rt.FileIO:_new_future()
     local id = self._current_future_id
     self._current_future_id = self._current_future_id + 1
 
-    local future = {
-        id = id,
-        is_done = false,
-        content = nil,
-        get_is_done = function(self) return self.is_done end,
-        get_content = function(self) return self.content end
-    }
-
+    local future = rt.FileIOFuture(id)
     self._future_id_to_future[id] = future
     return future, id
 end
 
 --- @brief
-function rt.FileIO:_finalize_future(id, content)
+function rt.FileIO:_finalize_future(id, success, content, error_maybe)
     local future = self._future_id_to_future[id]
     if future ~= nil then
         future.is_done = true
         future.content = content
+        future.error = error_maybe
     end
 end
 
@@ -140,15 +161,26 @@ function rt.FileIO:update(delta)
             if message.type == MessageType.WRITE_RESPONSE then
                 if message.success ~= true then
                     rt.critical("In rt.FileIO: unable to write to `", message.path, "`: ", message.error)
-                else
-                    self:_finalize_future(message.id, nil)
                 end
+
+                self:_finalize_future(
+                    message.id,
+                    message.success,
+                    nil, -- content
+                    message.error
+                )
+
             elseif message.type == MessageType.READ_RESPONSE then
                 if message.success ~= true then
                     rt.critical("In rt.FileIO: unable to read file at `", message.path, "`: ", message.error)
-                else
-                    self:_finalize_future(message.id, message.content)
                 end
+                self:_finalize_future(
+                    message.id,
+                    message.success,
+                    message.content,
+                    message.error
+                )
+
             elseif message.type == MessageType.SHUTDOWN_RESPONSE then
                 self._n_shutdown = self._n_shutdown + 1
             elseif message.type == MessageType.ERROR then

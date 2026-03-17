@@ -7,6 +7,23 @@ bd.FileType = meta.enum("FileType", {
 })
 
 --- @brief
+function bd.get_source_directory()
+    return bd.normalize_path(love.filesystem.getSource())
+end
+
+--- @brief
+function bd.get_save_directory()
+    local path
+    if love.filesystem.isFused() then
+        path = bd.join_path(love.filesystem.getAppdataDirectory(), love.filesystem.getIdentity())
+    else
+        path = bd.join_path(love.filesystem.getAppdataDirectory(), "LOVE", love.filesystem.getIdentity())
+    end
+
+    return bd.normalize_path(path)
+end
+
+--- @brief
 function bd.exists(path)
     meta.assert(path, "String")
     return love.filesystem.getInfo(path) ~= nil
@@ -139,6 +156,15 @@ function bd.mount_path(path, mount_point)
     end
 end
 
+--- @brief
+function bd.unmount_path(path)
+    meta.assert(path, "String")
+    path = bd.normalize_path(path)
+    if not love.filesystem.unmountFullPath(path) then
+        rt.error("In bd.unmount_path: unable to mount path at `",  path,  "`")
+    end
+end
+
 --- @brief create a file from string
 function bd.create_file(path, content, should_overwrite)
     if should_overwrite == nil then should_overwrite = true end
@@ -161,9 +187,21 @@ function bd.create_file(path, content, should_overwrite)
         bd.create_directory(directory)
     end
 
-    local write_success, write_error_maybe = love.filesystem.write(path, content)
-    if not write_success then
-        rt.error("In bd.create_file: unable to write file to `", path, "`: ", write_error_maybe)
+    local file, error_maybe = love.filesystem.openFile(path, "w")
+
+    if error_maybe ~= nil then
+        rt.error("In bd.create_file: unable to create file at `", path, "`: ", error_maybe)
+        return
+    end
+
+    local write_success, write_error_maybe = pcall(file.write, file, content)
+    if write_success == false then
+        rt.error("In bd.create_file: unable to write to newly created file at `", path, "`: ", write_error_maybe)
+    end
+
+    local close_success, close_error_maybe = pcall(file.close, file)
+    if close_success == false then
+        rt.error("In bd.create_file: unable to close newly created file at `", path, "`: ", close_error_maybe)
     end
 end
 
@@ -468,6 +506,17 @@ function bd.load(path, should_sandbox, fenv)
     return config_or_error
 end
 
+--- @brief
+function bd.load_string(code, ...)
+    local chunk, error_maybe = load(code, "=(bd.load_string)", "t", nil)
+    if chunk == nil then
+        rt.error("In bd.load_string: unable to compile string: ", error_maybe)
+        return nil
+    else
+        return chunk(...)
+    end
+end
+
 do
     local function _apply(path, f, visited)
         local normalized_path = bd.normalize_path(path)
@@ -499,6 +548,8 @@ do
     end
 
     --- @brief apply function to full paths of all items recursively
+    --- @param path String
+    --- @param f Function (directory, filename) -> nil
     function bd.apply_recursively(path, f)
         meta.assert(path, "String", f, "Function")
 

@@ -32,6 +32,12 @@ local _critical_format = {
 local _error_prefix = "[ERROR]"
 local _error_format = nil -- because _G.error does not support formatting
 
+local _fatal_prefix = "[FATAL]"
+local _fatal_format = {
+    color = "red",
+    bold = true
+}
+
 --- @brief [internal]
 log._printstyled = function(message, config)
     if config == nil then
@@ -192,7 +198,31 @@ function log.error(...)
     local to_print = {}
 
     table.insert(to_print, log._printstyled(_prefix_label, _prefix_format))
-    table.insert(to_print, log._printstyled(_error_prefix, nil)) -- sic, error does not support tty pretty printing
+    table.insert(to_print, log._printstyled(_fatal_prefix, _fatal_format)) -- sic, error does not support tty pretty printing
+    table.insert(to_print, " ")
+
+    for i = 1, select("#", ...) do
+        table.insert(to_print, _to_string(select(i, ...)))
+    end
+    table.insert(to_print, "\n")
+
+    local message = table.concat(to_print)
+    local should_print = true
+    if log._message_hook ~= nil then
+        should_print = log._message_hook(message)
+    end
+
+    if should_print == true then
+        _G.error(message)
+    end
+end
+
+--- @brief
+function log.fatal(...)
+    local to_print = {}
+
+    table.insert(to_print, log._printstyled(_prefix_label, _prefix_format))
+    table.insert(to_print, log._printstyled(_error_prefix, _fatal_format))
     table.insert(to_print, " ")
 
     for i = 1, select("#", ...) do
@@ -251,6 +281,7 @@ if rt ~= nil then
     rt.warning = log.warning
     rt.critical = log.critical
     rt.error = log.error
+    rt.fatal = log.fatal
     rt.assert = log.assert
 end
 

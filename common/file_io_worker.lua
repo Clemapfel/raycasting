@@ -1,6 +1,6 @@
 local main_to_worker, worker_to_main, MessageType = ...
 
-require "common.include"
+require "include"
 require "common.common"
 require "common.filesystem"
 
@@ -27,17 +27,8 @@ local function write_file(path, content, allow_overwrite, allow_create_directory
         end
     end
 
-    if bd.exists(path) then
-        if allow_overwrite then
-            bd.overwrite_file(path, content)
-        else
-            error(string.paste("file at `", path, "` already exists and overwriting was disallowed"))
-        end
-    else
-        bd.create_file(path, content, false)
-    end
+    bd.create_file(path, content, allow_overwrite)
 end
-
 
 --[[
 message formats:
