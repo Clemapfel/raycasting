@@ -89,7 +89,7 @@ function bd.compile(source_file_path, destination_file_path)
     source_file_path = bd.normalize_path(source_file_path)
     destination_file_path = bd.normalize_path(destination_file_path)
 
-    if not bd.file_exists(source_file_path) then
+    if not bd.exists(source_file_path) then
         rt.error("In bd.compile: object at `", source_file_path, "` does not exist")
     end
 
@@ -124,7 +124,7 @@ function bd.compile(source_file_path, destination_file_path)
 
     -- create directory if necessary
     local destination_directory = bd.get_directory_prefix(destination_file_path)
-    if not bd.file_exists(destination_directory) then
+    if not bd.exists(destination_directory) then
         bd.create_directory(destination_directory)
     end
 
@@ -139,7 +139,7 @@ end
 --- @param ... bd.SystemArchitecture
 function bd._download_love_executables(github_actions_run_id, ...)
     local executable_prefix = bd.settings.executable_directory
-    if bd.file_exists(executable_prefix) then
+    if bd.exists(executable_prefix) then
         local success = love.filesystem.remove(executable_prefix)
         if not success then
             rt.warning("In bd._download_love_executables: unable to remove folder at `",  executable_prefix, "`")
@@ -193,13 +193,13 @@ do
 
         -- create workspace directory
         local workspace_prefix = bd.settings.workspace_directory
-        if not bd.file_exists(workspace_prefix) then
+        if not bd.exists(workspace_prefix) then
             bd.create_directory(workspace_prefix)
         end
 
         -- create output directory
         local output_prefix = bd.settings.output_directory
-        if not bd.file_exists(output_prefix) then
+        if not bd.exists(output_prefix) then
             bd.create_directory(output_prefix)
         end
 
@@ -310,7 +310,7 @@ do
                 rt.log("building executable `", out_name, "`")
 
                 -- create output dir in workspace/<architecture>
-                if bd.file_exists(out_path) then
+                if bd.exists(out_path) then
                     bd.remove_directory(out_path)
                 end
                 bd.create_directory(out_path)
@@ -352,7 +352,7 @@ do
                     "love.ico"
                 ) do
                     local path = bd.join_path(out_path, file)
-                    if bd.file_exists(path) then
+                    if bd.exists(path) then
                         bd.remove_file(path)
                     end
                 end
@@ -383,7 +383,7 @@ do
                     ) do
                         local from_name, to_name = table.unpack(from_name_to_name)
                         local from_path = bd.join_path(out_path, from_name)
-                        if not bd.file_exists(from_path) then
+                        if not bd.exists(from_path) then
                             rt.error("In bd.build: expected executable `", from_name, "`, but it was not found")
                         end
 
@@ -429,14 +429,14 @@ do
                 local to_unzip_from = bd.join_path(executable_directory, in_name)
                 local to_unzip_to = bd.join_path(workspace_prefix, string.gsub(in_name, _zip_pattern, ""))
 
-                if bd.file_exists(to_unzip_to) then
+                if bd.exists(to_unzip_to) then
                     bd.remove_directory(to_unzip_to)
                 end
 
                 zip.decompress(to_unzip_from, to_unzip_to)
 
                 local output_folder =  bd.join_path(output_prefix, out_name)
-                if bd.file_exists(output_folder) then
+                if bd.exists(output_folder) then
                     bd.remove_directory(output_folder)
                 end
 
@@ -454,7 +454,7 @@ do
 
                         -- extracts to _<love-name.appImage>.extracted
                         local extract_name = "_" .. inner_filename .. ".extracted"
-                        if not bd.file_exists(bd.join_path(to_unzip_to, extract_name)) then
+                        if not bd.exists(bd.join_path(to_unzip_to, extract_name)) then
                             rt.error("In bd.build: failed to iterate results of binwalk, file `", extract_name, "` does not exist")
                         end
 
@@ -614,7 +614,7 @@ do -- mount build directory
     local build_directory_path = bd.join_path(source_prefix, bd.settings.build_directory)
     bd.mount_path(build_directory_path, build_prefix)
 
-    if not bd.file_exists(bd.settings.build_directory) then
+    if not bd.exists(bd.settings.build_directory) then
         rt.error("In bd.build: `/build` does not exists")
     end
 end

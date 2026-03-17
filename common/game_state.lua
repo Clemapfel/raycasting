@@ -39,7 +39,7 @@ end
 
 --- @brief
 function rt.GameState:update(delta)
-    self:_update_save_worker()
+    -- noop
 end
 
 --- @brief
@@ -170,7 +170,6 @@ end
 function rt.GameState:get_player_sprint_mode()
     return bd.get_config().player_sprint_mode
 end
-
 
 --- @brief
 function rt.GameState:get_double_press_threshold()
@@ -529,8 +528,6 @@ function rt.GameState:get_player()
 end
 
 require "common.game_state_stage"
-require "common.game_state_save"
-require "common.game_state_log"
 
 rt.GameState = rt.GameState()
 rt.GameState._player = rt.Player()

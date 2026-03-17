@@ -7,7 +7,7 @@ bd.FileType = meta.enum("FileType", {
 })
 
 --- @brief
-function bd.file_exists(path)
+function bd.exists(path)
     meta.assert(path, "String")
     return love.filesystem.getInfo(path) ~= nil
 end
@@ -116,12 +116,13 @@ end
 --- @param file_path String
 --- @param include_extension Boolean
 function bd.get_file_name(file_path, include_extension)
-    if include_extension == nil then include_extension = false end
-    if include_extension then
-        return string.match(file_path, "([^/\\]+)$") -- after last / or \
-    else
-        return string.match(file_path, "([^/\\%.]+)") -- after last / or \ but before last . (if present)
+    if include_extension == nil then include_extension = true end
+    local filename = string.match(file_path, "([^/\\]+)$")
+    if include_extension or filename == nil then
+        return filename
     end
+
+    return string.match(filename, "^(.+)%.[^%.]+$") or filename
 end
 
 --- @brief
@@ -145,7 +146,7 @@ function bd.create_file(path, content, should_overwrite)
 
     path = bd.normalize_path(path)
 
-    if bd.file_exists(path) then
+    if bd.exists(path) then
         if not should_overwrite then
             return -- noop
         end
@@ -156,7 +157,7 @@ function bd.create_file(path, content, should_overwrite)
     end
 
     local directory = bd.get_directory_prefix(path)
-    if directory ~= nil and directory ~= "" and not bd.file_exists(directory) then
+    if directory ~= nil and directory ~= "" and not bd.exists(directory) then
         bd.create_directory(directory)
     end
 
@@ -171,7 +172,7 @@ function bd.read_file(path)
 
     path = bd.normalize_path(path)
 
-    if not bd.file_exists(path) then
+    if not bd.exists(path) then
         return nil
     end
 
@@ -193,7 +194,7 @@ function bd.overwrite_file(path, content)
 
     path = bd.normalize_path(path)
 
-    if not bd.file_exists(path) then
+    if not bd.exists(path) then
         rt.error("In bd.overwrite_file: file at `", path, "` does not exist")
     end
 
@@ -213,7 +214,7 @@ function bd.append_to_file(path, content)
 
     path = bd.normalize_path(path)
 
-    if not bd.file_exists(path) then
+    if not bd.exists(path) then
         rt.error("In bd.append_to_file: file at `", path, "` does not exist")
     end
 
@@ -226,43 +227,45 @@ function bd.append_to_file(path, content)
         rt.error("In bd.append_to_file: unable to open file at `", path, "` for appending")
     end
 
-    local success, write_error_maybe = file:write(content)
+    local write_success, write_error_maybe = pcall(file.write, file, content)
     file:close()
 
-    if not success then
+    if not write_success or write_error_maybe == false then
         rt.error("In bd.append_to_file: unable to append to file at `", path, "`: ", write_error_maybe)
     end
 end
 
-
---- @brief copy a single file
 function bd.copy_file(source_file_path, destination_file_path)
     meta.assert(source_file_path, "String", destination_file_path, "String")
 
     source_file_path = bd.normalize_path(source_file_path)
     destination_file_path = bd.normalize_path(destination_file_path)
 
-    if not bd.file_exists(source_file_path) then
-        rt.error("In bd.copy_file: file at `",  source_file_path,  "` does not exist")
+    if not bd.exists(source_file_path) then
+        rt.error("In bd.copy_file: file at `", source_file_path, "` does not exist")
     end
 
     if not bd.is_file(source_file_path) then
-        rt.error("In bd.copy_file: object at `",  source_file_path,  "` is not a file")
+        rt.error("In bd.copy_file: object at `", source_file_path, "` is not a file")
+    end
+
+    if bd.exists(destination_file_path) and not bd.is_file(destination_file_path) then
+        rt.error("In bd.copy_file: destination `", destination_file_path, "` exists and is not a file")
     end
 
     local destination_directory = bd.get_directory_prefix(destination_file_path)
-    if not bd.file_exists(destination_directory) then
+    if destination_directory ~= nil and destination_directory ~= "" and not bd.exists(destination_directory) then
         bd.create_directory(destination_directory)
     end
 
-    local file_data, read_error_maybe = love.filesystem.read(source_file_path)
+    local file_data, read_error = love.filesystem.read(source_file_path)
     if not file_data then
-        rt.error("In bd.copy_file: unable to read file at `",  source_file_path,  "`:",  read_error_maybe)
+        rt.error("In bd.copy_file: unable to read file at `", source_file_path, "`: ", read_error)
     end
 
-    local write_success, write_error_maybe = love.filesystem.write(destination_file_path, file_data)
+    local write_success, write_error = love.filesystem.write(destination_file_path, file_data)
     if not write_success then
-        rt.error("In bd.copy_file: unable to write file to `",  destination_file_path,  "`: ",  write_error_maybe)
+        rt.error("In bd.copy_file: unable to write file to `", destination_file_path, "`: ", write_error)
     end
 end
 
@@ -272,7 +275,7 @@ function bd.remove_file(file_path)
 
     file_path = bd.normalize_path(file_path)
 
-    if not bd.file_exists(file_path) then
+    if not bd.exists(file_path) then
         rt.error("In bd.remove_file: file at `",  file_path,  "` does not exist")
     end
 
@@ -293,7 +296,7 @@ function bd.copy_directory(source_directory_path, destination_directory_path)
     source_directory_path = bd.normalize_path(source_directory_path)
     destination_directory_path = bd.normalize_path(destination_directory_path)
 
-    if not bd.file_exists(source_directory_path) then
+    if not bd.exists(source_directory_path) then
         rt.error("In bd.copy_directory: directory at `",  source_directory_path,  "` does not exist")
     end
 
@@ -301,8 +304,12 @@ function bd.copy_directory(source_directory_path, destination_directory_path)
         rt.error("In bd.copy_directory: object at `",  source_directory_path,  "` is not a directory")
     end
 
-    if not bd.file_exists(destination_directory_path) then
+    if not bd.exists(destination_directory_path) then
         bd.create_directory(destination_directory_path)
+    end
+
+    if bd.exists(destination_directory_path) and not bd.is_directory(destination_directory_path) then
+        rt.error("In bd.copy_directory: destination `", destination_directory_path, "` exists and is not a directory")
     end
 
     local items = love.filesystem.getDirectoryItems(source_directory_path)
@@ -324,7 +331,7 @@ function bd.remove_directory(directory_path)
 
     directory_path = bd.normalize_path(directory_path)
 
-    if not bd.file_exists(directory_path) then
+    if not bd.exists(directory_path) then
         rt.error("In bd.remove_directory: directory at `",  directory_path,  "` does not exist")
     end
 
@@ -375,14 +382,30 @@ end
 
 --- @brief
 function bd.move_directory(source_path, destination_path)
-    bd.copy_directory(source_path, destination_path)
-    bd.remove_directory(source_path)
+    meta.assert(source_path, "String", destination_path, "String")
+    source_path = bd.normalize_path(source_path)
+    destination_path = bd.normalize_path(destination_path)
+
+    local success, error_maybe = pcall(bd.copy_directory, source_path, destination_path)
+    if success then
+        bd.remove_directory(source_path)
+    else
+        rt.error(error_maybe)
+    end
 end
 
 --- @brief
 function bd.move_file(source_path, destination_path)
-    bd.copy_file(source_path, destination_path)
-    bd.remove_file(source_path)
+    meta.assert(source_path, "String", destination_path, "String")
+    source_path = bd.normalize_path(source_path)
+    destination_path = bd.normalize_path(destination_path)
+
+    local success, error_maybe = pcall(bd.copy_file, source_path, destination_path)
+    if success then
+        bd.remove_file(source_path)
+    else
+        rt.error(error_maybe)
+    end
 end
 
 --- @brief
@@ -392,7 +415,7 @@ function bd.move(source_path, destination_path)
     source_path = bd.normalize_path(source_path)
     destination_path = bd.normalize_path(destination_path)
 
-    if not bd.file_exists(source_path) then
+    if not bd.exists(source_path) then
         rt.error("In bd.move: object at `",  source_path,  "` does not exist")
     end
 
@@ -453,7 +476,7 @@ do
         if visited[normalized_path] then return false end
         visited[normalized_path] = true
 
-        if not bd.file_exists(path) or not bd.is_directory(path) then
+        if not bd.exists(path) or not bd.is_directory(path) then
             return false
         end
 
@@ -484,7 +507,7 @@ do
             local visited = {}
             _apply(path, f, visited)
         else
-            f(path)
+            f(path, bd.get_file_name(path, true))
         end
     end
 end
@@ -493,12 +516,12 @@ end
 function bd.apply(path, f)
     meta.assert(path, "String", f, "Function")
 
+    if not bd.exists(path) then
+        return
+    end
+
     local type = bd.get_file_type(path)
     if type == bd.FileType.DIRECTORY then
-        if not bd.file_exists(path) then
-            return
-        end
-
         local items = love.filesystem.getDirectoryItems(path)
         for item in values(items) do
             local full_path = bd.join_path(path, item)

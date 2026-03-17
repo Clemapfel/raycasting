@@ -269,12 +269,23 @@ function ow.OverworldScene:instantiate(state)
         end
     end)
 
+    local settings = rt.settings.overworld_scene
+
     self._input:signal_connect("mouse_wheel_moved", function(_, x, y)
         if self._camera_override_active then
-            local settings = rt.settings.overworld_scene
             self._camera_scale_override = self._camera_scale_override + y * settings.scale_override_velocity
             -- clamped in _update_camera
         end
+    end)
+
+    self._input:signal_connect("left_trigger_moved", function(_, v, dv)
+        if math.abs(dv) == 1 then return end -- controller does not have analog triggers
+        self._camera_scale_override = self._camera_scale_override + dv
+    end)
+
+    self._input:signal_connect("right_trigger_moved", function(_, v, dv)
+        if math.abs(dv) == 1 then return end
+        self._camera_scale_override = self._camera_scale_override - dv
     end)
 
     for widget in range(
@@ -734,12 +745,11 @@ function ow.OverworldScene:_draw_debug_information()
     love.graphics.setColor(1, 1, 1, 1 - self._fade:get_value())
 
     love.graphics.push()
-    love.graphics.translate(rt.settings.margin_unit, rt.settings.margin_unit)
     love.graphics.printf(table.concat({
         collectibles,
         flow,
         time
-    }, " | "), 0, 0, math.huge)
+    }, " | "), 10, 5, math.huge)
 
     love.graphics.pop()
 
@@ -1107,23 +1117,24 @@ function ow.OverworldScene:_update_camera(delta)
     else
         local triggers_pressed = rt.InputManager:get_left_trigger() > math.eps
             or rt.InputManager:get_right_trigger() > math.eps
-        local right_joystick_pressed = math.magnitude(rt.InputManager:get_right_joystick()) > math.eps
 
-        self._camera_override_active = right_joystick_pressed or triggers_pressed
+
+
+        local right_joystick = math.magnitude(rt.InputManager:get_right_joystick()) > math.eps
+
+        self._camera_override_active = right_joystick or triggers_pressed
 
         -- gamepad state to camera override
-        if triggers_pressed == false then
-            local x, y = rt.InputManager:get_right_joystick()
-            self._camera_left_border_t = math.abs(math.min(0, x))
-            self._camera_right_border_t = math.max(0, x)
-            self._camera_top_border_t = math.abs(math.min(0, y))
-            self._camera_bottom_border_t = math.max(0, y)
-        else
-            local _, y = rt.InputManager:get_right_joystick()
-            self._camera_scale_override = self._camera_scale_override + y * settings.scale_override_velocity
-        end
+        local x, y = rt.InputManager:get_right_joystick()
+        self._camera_left_border_t = math.abs(math.min(0, x))
+        self._camera_right_border_t = math.max(0, x)
+        self._camera_top_border_t = math.abs(math.min(0, y))
+        self._camera_bottom_border_t = math.max(0, y)
     end
 
+    self._camera:set_apply_bounds(not self._camera_override_active)
+
+    -- on state change
     if self._camera_override_active ~= before then
         self._camera_position_override_x, self._camera_position_override_y = self._camera:get_position()
 
@@ -1153,7 +1164,6 @@ function ow.OverworldScene:_update_camera(delta)
             settings.scale_override_min,
             settings.scale_override_max
         )
-
         camera:scale_to(self._camera_scale_override * self._camera:get_scale_delta())
 
         local max_velocity = rt.settings.overworld_scene.border_scroll_velocity
@@ -1165,6 +1175,7 @@ function ow.OverworldScene:_update_camera(delta)
 
         self._camera_position_override_x = self._camera_position_override_x + self._camera_velocity_x * delta
         self._camera_position_override_y = self._camera_position_override_y + self._camera_velocity_y * delta
+
         camera:move_to(self._camera_position_override_x, self._camera_position_override_y)
         return
     else

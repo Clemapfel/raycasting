@@ -5,27 +5,9 @@ ow.PathfindingGraph = meta.class("PathfindingGraph")
 ow.PathfindingNode = meta.class("PathfindingNode")
 
 --- @brief
-function ow.PathfindingNode:instantiate(object, stage, scene)
-    assert(object.type == ow.ObjectType.POINT, "In ow.PathfindingNode: object is not a point")
-    meta.install(self, {
-        x = object.x,
-        y = object.y
-    })
-
-    stage:signal_connect("initialized", function(_)
-        local graph = stage:get_pathfinding_graph()
-        for key, value in pairs(object.properties) do
-            local as_number = tonumber(key)
-            if as_number ~= nil then
-                local other = stage:object_wrapper_to_instance(value)
-                if meta.typeof(other) == "PathfindingNode" then
-                    graph:add(self, other) -- add edge
-                else
-                    rt.warning("In ow.PathfindingNode: property `" .. key .. "` has numerical key, but does not point to other PathfindingNode")
-                end
-            end
-        end
-    end)
+function ow.PathfindingNode:instantiate(x, y)
+    self.x = x
+    self.y = y
 end
 
 --- @brief
@@ -36,8 +18,9 @@ function ow.PathfindingGraph:instantiate()
     })
 end
 
---- @brief
---- @param
+--- @brief add a new edge
+--- @param a ow.PathfindingNode
+--- @param b ow.PathfindingNode
 function ow.PathfindingGraph:add(a, b)
     meta.assert(a, ow.PathfindingNode, b, ow.PathfindingNode)
     local distance = math.distance(a.x, a.y, b.x, b.y)
@@ -61,7 +44,7 @@ function ow.PathfindingGraph:add(a, b)
     })
 end
 
---- @brief
+--- @brief finde a path from one node to another, uses A*
 function ow.PathfindingGraph:get_path(from, to)
     local function heuristic(node_a, node_b)
         -- euclidean distance as heuristic
@@ -115,46 +98,6 @@ function ow.PathfindingGraph:get_path(from, to)
     end
 
     return nil -- no path found
-end
-
---- @brief
-function ow.PathfindingGraph:get_closest_node(x, y)
-    local min_distance = math.huge
-    local min_node = nil
-    for node in keys(self._nodes) do
-        local distance = math.distance(node.x, node.y, x, y)
-        if distance < min_distance then
-            min_distance = distance
-            min_node = node
-        end
-    end
-
-    return min_node
-end
-
---- @brief
-function ow.PathfindingGraph:get_closest_reachable_node(x, y, world, radius)
-    meta.assert(x, "Number", y, "Number", world, b2.World, radius, "Number")
-
-    local nodes = {}
-    for node in keys(self._nodes) do
-        table.insert(nodes, {
-            node = node,
-            distance = math.distance(node.x, node.y, x, y)
-        })
-    end
-
-    table.sort(nodes, function(a, b) -- sort to minimize circle casting
-        return a.distance < b.distance
-    end)
-
-    for entry in values(nodes) do
-        local node = entry.node
-        local occluded = world:circle_cast(radius, x, y, node.x, node.y)
-        if not occluded then
-            return node
-        end
-    end
 end
 
 --- @brief

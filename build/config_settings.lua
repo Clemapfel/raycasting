@@ -75,6 +75,9 @@ do
         -- should window initialize in fullscreen mode
         is_fullscreen = BOOLEAN(false),
 
+        -- full screen type
+        fullscreen_type = ENUM("desktop", "desktop", "exclusive"),
+
         -- should window have title bar
         is_borderless = BOOLEAN(true),
 
@@ -91,7 +94,7 @@ do
         ),
 
         -- if window can be resized
-        window_resizable = BOOLEAN(true),
+        is_resizable = BOOLEAN(true),
 
         -- if dpi scale should be applied, also sets `highdpi`
         use_dpi_scale = BOOLEAN(false),

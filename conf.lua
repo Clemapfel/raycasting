@@ -2,10 +2,13 @@ DEBUG = true -- overriden by build script
 GAME_NAME = "Chroma Drift"
 
 require "include"
-require "common.msaa_quality"
-require "common.vsync_mode"
+
 
 function love.conf(settings)
+    require "common.msaa_quality"
+    require "common.vsync_mode"
+    require "common.player_sprint_mode"
+
     require "build.config"
     local config = bd.get_config()
 
@@ -28,8 +31,8 @@ function love.conf(settings)
     settings.window.width = config.window_width
     settings.window.height = config.window_height
     settings.window.fullscreen = config.is_fullscreen
-    settings.window.fullscreentype = "desktop"
-    settings.window.resizable = config.is_reizable
+    settings.window.fullscreentype = config.fullscreen_type
+    settings.window.resizable = config.is_resizable
     settings.window.stencil = true
     settings.window.depth = true
     settings.window.gammacorrect = config.use_gamma_correction
