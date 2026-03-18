@@ -85,9 +85,9 @@ function rt.ComputeShader:dispatch(x, y, z)
 
     local limits = love.graphics.getSystemLimits()
     love.graphics.dispatchThreadgroups(self._native,
-        math.min(x or 1, limits.threadgroupsx),
-        math.min(y or 1, limits.threadgroupsy),
-        math.min(z or 1, limits.threadgroupsz)
+        math.clamp(math.ceil(x or 1), 1, limits.threadgroupsx),
+        math.clamp(math.ceil(y or 1), 1, limits.threadgroupsy),
+        math.clamp(math.ceil(z or 1), 1, limits.threadgroupsz)
     )
 end
 

@@ -1,3 +1,7 @@
+rt.settings.noise_texture = {
+    work_group_size = 8
+}
+
 --- @class rt.NoiseTexture
 rt.NoiseTexture = meta.class("NoiseTexture")
 
@@ -8,16 +12,13 @@ local _n_scales_to_texture_format = {
     [4] = rt.TextureFormat.RGBA8
 }
 
-local _texture_format_to_shader = {} -- Table<rt.TextureFormat, rt.ComputeShader>
-local _noise_texture_queue = {}
-local _noise_texture_queue_cleared = false
+local _texture_format_to_shader = {}
 
 --- @class rt.NoiseType
-rt.NoiseType = {
+rt.NoiseType = meta.enum("NoiseType", {
     GRADIENT = 0x0,
     WORLEY = 0x1
-}
-rt.NoiseType = meta.enum("NoiseType", rt.NoiseType)
+})
 
 --- @brief
 function rt.NoiseTexture:instantiate(size_x, size_y, size_z, ...)
@@ -30,23 +31,16 @@ function rt.NoiseTexture:instantiate(size_x, size_y, size_z, ...)
         rt.NoiseType.GRADIENT
     }
 
-    self._scales = {
-        1,
-        1,
-        1,
-        1
-    }
+    self._scales = { 1, 1, 1, 1 }
 
     local component_i = 1
     for i = 1, select("#", ...), 2 do
         local type = select(i, ...)
-        local scale = select(i+1, ...)
-
+        local scale = select(i + 1, ...)
         meta.assert_enum_value(type, rt.NoiseType, 3 + i)
         meta.assert_typeof(scale, "Number", 3 + i + 1)
         self._types[component_i] = type
         self._scales[component_i] = scale
-
         component_i = component_i + 1
     end
     self._n_components = component_i - 1
@@ -54,66 +48,33 @@ function rt.NoiseTexture:instantiate(size_x, size_y, size_z, ...)
     local texture_format = _n_scales_to_texture_format[self._n_components]
     assert(texture_format ~= nil)
 
-    self._texture = rt.RenderTextureVolume(
-        size_x, size_y, size_z,
-        0, -- msaa
-        texture_format
-    )
+    self._texture = rt.RenderTextureVolume(size_x, size_y, size_z, 0, texture_format)
     self._texture:set_wrap_mode(
         rt.TextureWrapMode.MIRROR,
         rt.TextureWrapMode.MIRROR,
         rt.TextureWrapMode.REPEAT
     )
 
-    local shader = _texture_format_to_shader[self._texture_format]
-    local work_group_size = 8
-    if shader == nil then
-        shader = rt.ComputeShader("common/noise_texture.glsl", {
+    local work_group_size = rt.settings.noise_texture.work_group_size
+    if _texture_format_to_shader[texture_format] == nil then
+        _texture_format_to_shader[texture_format] = rt.ComputeShader("common/noise_texture.glsl", {
             TEXTURE_FORMAT = texture_format,
             WORK_GROUP_SIZE_X = work_group_size,
             WORK_GROUP_SIZE_Y = work_group_size,
             WORK_GROUP_SIZE_Z = work_group_size
         })
-
-        _texture_format_to_shader[texture_format] = shader
     end
 
-    self._shader = shader
-    self._is_initialized = false
-
-    self.initialize = function(self)
-        if self._is_initialized then return end
-
-        self._shader:send("scales", self._scales)
-        self._shader:send("types", self._types)
-        self._shader:send("n_components", self._n_components)
-        self._shader:send("noise_texture", self._texture)
-        self._shader:dispatch(
-            math.ceil(size_x / work_group_size),
-            math.ceil(size_y / work_group_size),
-            math.ceil(size_z / work_group_size)
-        )
-
-        self._is_initialized = true
-    end
-
-    if _noise_texture_queue_cleared == true then
-        self:initialize()
-    else
-        table.insert(_noise_texture_queue, self) -- delay to loading screen
-    end
-end
-
---- @brief
-function rt.NoiseTexture:initialize_all()
-    for instance in values(_noise_texture_queue) do
-        if instance._is_initialized == false then
-            instance:initialize()
-        end
-    end
-
-    _noise_texture_queue = {}
-    _noise_texture_queue_cleared = true
+    self._shader = _texture_format_to_shader[texture_format]
+    self._shader:send("scales", self._scales)
+    self._shader:send("types", self._types)
+    self._shader:send("n_components", self._n_components)
+    self._shader:send("noise_texture", self._texture)
+    self._shader:dispatch(
+        math.ceil(size_x / work_group_size),
+        math.ceil(size_y / work_group_size),
+        math.ceil(size_z / work_group_size)
+    )
 end
 
 --- @brief

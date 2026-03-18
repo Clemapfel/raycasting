@@ -392,7 +392,6 @@ function ow.Stage:instantiate(scene, id)
 
     -- precompile shader
     rt.Shader:precompile_all()
-    rt.NoiseTexture:initialize_all()
 end
 
 --- @brief

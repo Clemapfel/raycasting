@@ -1,5 +1,7 @@
 require "common.texture"
 require "common.image"
+require "common.compute_shader"
+require "common.render_texture_volume"
 
 rt.settings.lch_texture = {
     texture_format = rt.TextureFormat.RGB10A2,
@@ -12,6 +14,7 @@ rt.settings.lch_texture = {
 rt.LCHTexture = meta.class("LCHTexture")
 
 local _atlas = {}
+local _shader = nil
 
 --[[
 // shader usage
@@ -23,6 +26,18 @@ vec3 lch_to_rgb(vec3 lch) {
 
 --- @brief
 function rt.LCHTexture:instantiate(n_lightness_steps, n_chroma_steps, n_hue_steps)
+    if _shader == nil then
+        require "common.noise_texture"
+        local work_group_size = rt.settings.noise_texture.work_group_size
+
+        _shader = rt.ComputeShader("common/lch_texture.glsl", {
+            WORK_GROUP_SIZE_X = work_group_size,
+            WORK_GROUP_SIZE_Y = work_group_size,
+            WORK_GROUP_SIZE_Z = work_group_size,
+            TEXTURE_FORMAT = rt.graphics.texture_format_to_glsl_identifier(rt.settings.lch_texture.texture_format)
+        })
+    end
+
     meta.assert(
         n_lightness_steps, "Number",
         n_chroma_steps, "Number",
@@ -54,65 +69,37 @@ end
 
 --- @brief
 function rt.LCHTexture:_initialize()
-    local lightness_default = rt.settings.lch_texture.lightness_default
-    local chroma_default = rt.settings.lch_texture.chroma_default
-    local hue_default = rt.settings.lch_texture.hue_default
+    local size_x, size_y, size_z = self._n_lightness_steps,
+        self._n_chroma_steps,
+        self._n_hue_steps
 
-    local layers = {}
-    for hue_step = 1, self._n_hue_steps do
-        local layer = rt.Image(self._n_lightness_steps, self._n_chroma_steps, rt.settings.lch_texture.texture_format)
-
-        for chroma_step = 1, self._n_chroma_steps do
-            for lightness_step = 1, self._n_lightness_steps do
-                local lightness, chroma, hue
-
-                if self._n_lightness_steps > 1 then
-                    lightness = (lightness_step - 1) / (self._n_lightness_steps - 1)
-                else
-                    lightness = lightness_default
-                end
-
-                if self._n_chroma_steps > 1 then
-                    chroma = (chroma_step - 1) / (self._n_chroma_steps - 1)
-                else
-                    chroma = chroma_default
-                end
-
-                if self._n_hue_steps > 1 then
-                    hue = (hue_step - 1) / (self._n_hue_steps - 1)
-                else
-                    hue = hue_default
-                end
-
-                local r, g, b, a = rt.lcha_to_rgba(lightness, chroma, hue, 1)
-                layer:set(lightness_step, chroma_step, r, g, b, a) -- sic, 1-based index
-            end
-        end
-
-        table.insert(layers, layer:get_native())
-    end
-
-    self._texture = love.graphics.newVolumeImage(layers, {
-        msaa = 0,
-        format = rt.settings.lch_texture.texture_format,
-        readable = true
-    })
-
-    self._texture:setFilter(rt.TextureScaleMode.LINEAR)
-    self._texture:setWrap(
+    self._texture = rt.RenderTextureVolume(size_x, size_y, size_z, 0, rt.settings.lch_texture.texture_format)
+    self._texture:set_scale_mode(rt.TextureScaleMode.LINEAR)
+    self._texture:set_wrap_mode(
         rt.TextureWrapMode.CLAMP,  -- lightness
         rt.TextureWrapMode.CLAMP,  -- chroma
         rt.TextureWrapMode.REPEAT  -- hue
+    )
+
+    local work_group_size = rt.settings.noise_texture.work_group_size
+    _shader:send("lightness_default", rt.settings.lch_texture.lightness_default)
+    _shader:send("chroma_default", rt.settings.lch_texture.chroma_default)
+    _shader:send("hue_default", rt.settings.lch_texture.hue_default)
+    _shader:send("output_texture", self._texture)
+    _shader:dispatch(
+        size_x / work_group_size,
+        size_y / work_group_size,
+        size_z / work_group_size
     )
 end
 
 --- @brief
 function rt.LCHTexture:get_native()
-    return self._texture
+    return self._texture:get_native()
 end
 
 --- @brief
 function rt.LCHTexture:get_size()
-    return self._texture
+    return self._texture:get_size()
 end
 
