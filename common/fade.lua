@@ -1,6 +1,7 @@
 require "common.color"
 require "common.palette"
 require "common.shader"
+require "common.lch_texture"
 
 rt.settings.fade = {
     default_duration = 120 / 60
@@ -10,6 +11,7 @@ rt.settings.fade = {
 rt.Fade = meta.class("Fade")
 
 local _default_shader = rt.Shader("common/fade_default.glsl")
+local _lch_texture = rt.LCHTexture(1, 1, 256)
 
 --- @brief
 function rt.Fade:instantiate(duration, shader_path)
@@ -132,6 +134,10 @@ function rt.Fade:draw()
 
         if self._shader:has_uniform("elapsed") then
             self._shader:send("elapsed", rt.SceneManager:get_elapsed())
+        end
+
+        if self._shader:has_uniform("lch_texture") then
+            self._shader:send("lch_texture", _lch_texture)
         end
 
         love.graphics.setColor(self._r, self._g, self._b, self._a)

@@ -5,6 +5,7 @@ require "common.translation"
 require "common.control_indicator"
 require "common.timed_animation"
 require "common.fade"
+require "common.lch_texture"
 require "menu.stage_select_page_indicator"
 require "menu.stage_select_item_frame"
 require "menu.stage_select_debris_emitter"
@@ -52,6 +53,7 @@ mn.MenuSceneState = meta.enum("MenuSceneState", {
 
 local _title_shader_no_sdf = rt.Shader("menu/menu_scene_label.glsl", { MODE = 0 })
 local _title_shader_sdf = rt.Shader("menu/menu_scene_label.glsl", { MODE = 1 })
+local _lch_texture = rt.LCHTexture(1, 1, 256)
 
 -- @brief
 function mn.MenuScene:instantiate(state)
@@ -883,6 +885,7 @@ function mn.MenuScene:draw()
         _title_shader_no_sdf:send("black", _black)
         _title_shader_no_sdf:send("camera_offset", self._shader_camera_offset)
         _title_shader_no_sdf:send("camera_scale", self._shader_camera_scale)
+        _title_shader_no_sdf:send("lch_texture", _lch_texture)
         love.graphics.setColor(1, 1, 1, 1)
         love.graphics.draw(title_screen.title_label_no_sdf, title_screen.title_x, title_screen.title_y)
         _title_shader_no_sdf:unbind()

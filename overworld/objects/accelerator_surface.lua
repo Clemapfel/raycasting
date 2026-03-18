@@ -43,6 +43,8 @@ local _noise_texture = rt.NoiseTexture(64, 64, 16,
     rt.NoiseType.GRADIENT, 6
 )
 
+local _lch_texture = rt.LCHTexture(64, 1, 256)
+
 --- @brief
 function ow.AcceleratorSurface:instantiate(object, stage, scene)
     self._scene = scene
@@ -372,6 +374,7 @@ function ow.AcceleratorSurface:draw(priority)
         _body_shader:send("camera_position", { camera_bounds.x + camera_bounds.width * 0.5, camera_bounds.y + camera_bounds.height * 0.5})
         _body_shader:send("player_position", { camera:world_xy_to_screen_xy(self._scene:get_player():get_position()) })
         _body_shader:send("player_hue", self._scene:get_player():get_hue())
+        _body_shader:send("lch_texture", _lch_texture)
         love.graphics.push()
         self._mesh:draw()
         love.graphics.pop()
@@ -383,6 +386,7 @@ function ow.AcceleratorSurface:draw(priority)
         _outline_shader:send("elapsed", rt.SceneManager:get_elapsed())
         _outline_shader:send("player_position", { camera:world_xy_to_screen_xy(self._scene:get_player():get_position()) })
         _outline_shader:send("player_hue", self._scene:get_player():get_hue())
+        _outline_shader:send("lch_texture", _lch_texture)
         love.graphics.setLineWidth(rt.settings.overworld.accelerator_surface.outline_width)
         love.graphics.line(self._outline)
         _outline_shader:unbind()
@@ -392,6 +396,7 @@ function ow.AcceleratorSurface:draw(priority)
         _particle_shader:bind()
         _particle_shader:send("noise_texture", _noise_texture)
         _particle_shader:send("screen_to_world_transform", transform)
+        _particle_shader:send("lch_texture", _lch_texture)
         love.graphics.setColor(1, 1, 1, 1)
         love.graphics.draw(self._particle_spritebatch)
         _particle_shader:unbind()

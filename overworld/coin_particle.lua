@@ -6,6 +6,8 @@ require "common.label"
 ow.CoinParticle = meta.class("CoinParticle")
 
 local _shader = rt.Shader("common/player_body_core.glsl")
+local _lch_texture = rt.LCHTexture(256, 2, 256)
+
 local _font = rt.Font("assets/fonts/Baloo2/Baloo2-Bold.ttf")
 
 --- @brief
@@ -72,6 +74,7 @@ function ow.CoinParticle:_draw_core()
     _shader:bind()
     _shader:send("hue", self._hue)
     _shader:send("elapsed", rt.SceneManager:get_elapsed() + self._elapsed_offset)
+    _shader:send("lch_texture", _lch_texture)
     love.graphics.setColor(1, 1, 1, self._opacity)
     love.graphics.circle("fill", 0, 0, self._radius)
     _shader:unbind()

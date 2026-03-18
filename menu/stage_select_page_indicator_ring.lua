@@ -40,6 +40,7 @@ local _data_mesh_format = {
 
 local _particle_shader = rt.Shader("menu/stage_select_page_indicator_ring_particle.glsl")
 local _outline_shader = rt.Shader("menu/stage_select_page_indicator_ring.glsl")
+local _lch_texture = rt.LCHTexture(1, 1, 256)
 
 --- @brief
 function mn.StageSelectPageIndicatorRing:instantiate(radius, thickness)
@@ -203,6 +204,7 @@ function mn.StageSelectPageIndicatorRing:draw()
     _outline_shader:send("black", { rt.Palette.BLACK:unpack() })
     _outline_shader:send("hue", self._hue)
     _outline_shader:send("elapsed", rt.SceneManager:get_elapsed())
+    _outline_shader:send("lch_texture", _lch_texture)
     love.graphics.translate(self._x - 0.5 * w, self._y - 0.5 * h)
     local r, g, b, a = love.graphics.getColor()
     love.graphics.setBlendMode("alpha", "premultiplied")

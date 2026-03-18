@@ -39,7 +39,10 @@ ow.PlayerSpawn = function(object, stage, scene) -- alias for first checkpoint
 end
 
 local _ray_shader = rt.Shader("overworld/objects/checkpoint_ray.glsl")
+local _ray_lch_texture = rt.LCHTexture(1, 1, 256)
+
 local _explosion_shader = rt.Shader("overworld/objects/checkpoint_explosion.glsl")
+local _explosion_lch_texture = rt.LCHTexture(64, 1, 256)
 
 local _STATE_DEFAULT = "DEFAULT"
 local _STATE_RAY = "RAY"
@@ -556,6 +559,7 @@ function ow.Checkpoint:draw(priority)
             _ray_shader:send("hue", hue)
             _ray_shader:send("camera_offset", self._camera_offset)
             _ray_shader:send("camera_scale", self._camera_scale)
+            _ray_shader:send("lch_texture", _ray_lch_texture)
             love.graphics.rectangle("fill", self._ray_area:unpack())
             _ray_shader:unbind()
         end
@@ -572,6 +576,7 @@ function ow.Checkpoint:draw(priority)
             _explosion_shader:send("fraction", self._explosion_fraction)
             _explosion_shader:send("size", self._explosion_size)
             _explosion_shader:send("hue", hue)
+            _explosion_shader:send("lch_texture", _explosion_lch_texture)
 
             local x, y = self._explosion_x, self._explosion_y
             local w, h = table.unpack(self._explosion_size)

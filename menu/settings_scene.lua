@@ -3,6 +3,7 @@ require "common.input_subscriber"
 require "common.frame"
 require "common.game_state"
 require "common.control_indicator"
+require "common.lch_texture"
 require "menu.verbose_info_panel"
 require "menu.scale"
 require "menu.option_button"
@@ -49,6 +50,7 @@ function mn.SettingsScene.Item:measure()
 end
 
 local _shader = rt.Shader("menu/settings_scene_background.glsl", { MODE = 0 })
+local _lch_texture = rt.LCHTexture(1, 1, 512)
 
 --- @brief
 function mn.SettingsScene:instantiate()
@@ -848,6 +850,7 @@ function mn.SettingsScene:draw()
     _shader:bind()
     _shader:send("elapsed", rt.SceneManager:get_elapsed())
     _shader:send("black", { rt.Palette.BLACK:unpack() })
+    _shader:send("lch_texture", _lch_texture)
     love.graphics.rectangle("fill", self._bounds:unpack())
     _shader:unbind()
 

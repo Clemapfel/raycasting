@@ -138,13 +138,6 @@ do -- load from image
     rt.Palette[rt.StageGrade.C] = rt.Palette.ORANGE_6
     rt.Palette[rt.StageGrade.F] = rt.Palette.GRAY_5
     rt.Palette[rt.StageGrade.NONE] = rt.Palette.GRAY_5
-
-
-    local colors = {}
-    for name in keys(rt.Palette) do
-        table.insert(colors, name)
-    end
-    dbg(colors)
 end
 
 local _backup = rt.Palette

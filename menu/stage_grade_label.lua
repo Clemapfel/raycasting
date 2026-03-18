@@ -22,6 +22,7 @@ local _atlas = {}
 
 local _shader_no_sdf = rt.Shader("menu/stage_grade_label.glsl", { MODE = 0 })
 local _shader_sdf = rt.Shader("menu/stage_grade_label.glsl", { MODE = 1 })
+local _lch_texture = rt.LCHTexture(1, 1, 256)
 
 --- @brief
 function mn.StageGradeLabel:instantiate(grade, size)
@@ -107,6 +108,7 @@ function mn.StageGradeLabel:draw()
     _shader_no_sdf:send("use_rainbow",
         self._grade == rt.StageGrade.S
     )
+    _shader_no_sdf:send("lch_texture", _lch_texture)
 
     if self._animation_active then
         _shader_no_sdf:send("fraction", self._shine_animation:get_value())

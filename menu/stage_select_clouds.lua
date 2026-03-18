@@ -1,3 +1,6 @@
+require "common.shader"
+require "common.lch_texture"
+
 rt.settings.menu.stage_select_clouds = {
     top_fraction = 0.15,
     bottom_fraction = 1
@@ -7,6 +10,7 @@ rt.settings.menu.stage_select_clouds = {
 mn.StageSelectClouds = meta.class("StageSelectClouds", rt.Widget)
 
 local _shader = rt.Shader("menu/stage_select_clouds.glsl")
+local _lch_texture = rt.LCHTexture(1, 1, 256)
 
 --- @brief
 function mn.StageSelectClouds:instantiate()
@@ -92,6 +96,7 @@ function mn.StageSelectClouds:draw()
     _shader:send("elapsed", self._elapsed)
     _shader:send("hue", self._hue)
     _shader:send("opacity", self._opacity)
+    _shader:send("lch_texture", _lch_texture)
     love.graphics.setColor(1, 1, 1, 1)
     self._mesh:draw()
     _shader:unbind()

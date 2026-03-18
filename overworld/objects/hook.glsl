@@ -148,8 +148,8 @@ vec4 effect(vec4 color, Image img, vec2 uv, vec2 _) {
 
 
     float shine = (sin(distance(uv, vec2(0.5)) * 20 + elapsed + current_hue * 2 * n) + 1) / 2;
-    float l = 0.8;
-    float c = 1.0;
+    const float l = 0.8;
+    const float c = 1.0;
 
     vec3 current_rgb = lch_to_rgb(vec3(l, c, hue));
     vec3 next_rgb    = lch_to_rgb(vec3(l - 0.2, c - 0.07, fract(hue)));

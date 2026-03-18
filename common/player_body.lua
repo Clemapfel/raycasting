@@ -1,4 +1,5 @@
 require "common.smoothed_motion_1d"
+require "common.lch_texture"
 
 rt.settings.player_body = {
     canvas_scale = 3,
@@ -11,6 +12,7 @@ rt.settings.player_body = {
     threshold = 0.4,
 
     texture_scale = 4,
+    msaa = 2,
 
     particle_texture_radius_factor = 1,
     contour_radius_factor = 1,
@@ -67,6 +69,8 @@ local _instance_draw_shader = rt.Shader("common/player_body_instanced_draw.glsl"
 local _threshold_shader = rt.Shader("common/player_body_threshold.glsl")
 local _outline_shader = rt.Shader("common/player_body_outline.glsl")
 local _core_shader = rt.Shader("common/player_body_core.glsl")
+
+local _lch_texture = rt.LCHTexture(256, 2, 256)
 
 local _squished = 1
 local _not_squished = 0
@@ -376,16 +380,17 @@ function rt.PlayerBody:_initialize()
 
         self._body_texture = rt.RenderTexture(
             texture_w, texture_h,
-            0,
+            settings.msaa,
             rt.TextureFormat.R32F
         )
 
         self._body_outline_texture = rt.RenderTexture(
-            texture_w, texture_h
+            texture_w, texture_h,
+            settings.msaa
         )
 
         for texture in range(self._body_texture, self._body_outline_texture) do
-            texture:set_scale_mode(rt.TextureScaleMode.LINEAR)
+            texture:set_scale_mode(rt.TextureScaleMode.LINEAR, rt.TextureScaleMode.LINEAR)
         end
 
         self._render_texture_needs_update = true
@@ -1219,6 +1224,7 @@ function rt.PlayerBody:draw_core()
     _core_shader:send("hue", self._hue)
     _core_shader:send("elapsed", rt.SceneManager:get_elapsed())
     _core_shader:send("saturation", self._saturation)
+    _core_shader:send("lch_texture", _lch_texture)
     love.graphics.setColor(1, 1, 1, self._opacity)
     love.graphics.polygon("fill", self._core_vertices)
     _core_shader:unbind()

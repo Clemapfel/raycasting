@@ -20,6 +20,7 @@ ow.OneWayPlatform = meta.class("OneWayPlatform", ow.MovableObject)
 ow.OneWayPlatformNode = meta.class("OneWayPlatformNode")
 
 local _shader = rt.Shader("overworld/objects/one_way_platform.glsl")
+local _lch_texture = rt.LCHTexture(1, 1, 256)
 local _n_hue_steps = 13
 
 -- which side of infinite line a point is one
@@ -442,6 +443,7 @@ function ow.OneWayPlatform:draw()
     end
 
     _shader:bind()
+    _shader:send("lch_texture", _lch_texture)
     self._direction_mesh:draw()
     _shader:unbind()
 
@@ -481,6 +483,7 @@ function ow.OneWayPlatform:draw_bloom()
     end
 
     _shader:bind()
+    _shader:send("lch_texture", _lch_texture)
     self._direction_mesh:draw()
     _shader:unbind()
 

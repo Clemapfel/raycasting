@@ -35,6 +35,7 @@ local _particle_texture -- rt.RenderTexture
 
 local _pulse_shader = rt.Shader("overworld/objects/portal.glsl")
 local _particle_shader = rt.Shader("overworld/objects/portal_particles.glsl")
+local _lch_texture = rt.LCHTexture(64, 1, 256)
 
 -- orientation of portal (line vertex winding order)
 local _LEFT = true

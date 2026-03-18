@@ -8,6 +8,7 @@ require "common.game_state"
 mn.StageSelectPageIndicator = meta.class("StageSelectPageIndicator", rt.Widget)
 
 local _shader = rt.Shader("menu/stage_select_page_indicator.glsl")
+local _lch_texture = rt.LCHTexture(1, 1, 256)
 
 --- @brief
 function mn.StageSelectPageIndicator:instantiate()
@@ -221,6 +222,7 @@ function mn.StageSelectPageIndicator:draw()
         end
 
         _shader:bind()
+        _shader:send("lch_texture", _lch_texture)
         love.graphics.setColor(1, 1, 1, 1)
         for circle in values(circles) do
             love.graphics.circle("fill", table.unpack(circle))

@@ -19,12 +19,16 @@ void vertexmain() {
 
 #ifdef PIXEL
 
+uniform sampler3D lch_texture;
+vec3 lch_to_rgb(vec3 lch) {
+    return texture3D(lch_texture, lch).rgb;
+}
+
 in vec3 varying_texture_coords;
 in vec4 varying_color;
 in vec4 varying_frag_position;
 
 uniform sampler2DArray export_texture;
-uniform sampler2D hue_map;
 uniform float n_layers;
 uniform float hue;
 uniform float opacity;
@@ -36,8 +40,7 @@ void pixelmain() {
     float value = texture(export_texture, varying_texture_coords).r;
     if (value < 10e-3) discard;
 
-    float hue = fract(mix(hue - hue_offset, hue + hue_offset, varying_texture_coords.z / n_layers));
-    vec3 layer_color = texture(hue_map, vec2(hue, 0)).rgb;
+    vec3 layer_color = lch_to_rgb(vec3(0.8, 1, fract(mix(hue - hue_offset, hue + hue_offset, varying_texture_coords.z / n_layers))));
     frag_color = vec4(layer_color, 1) * vec4(vec3(min(6 * value, 1)), opacity * value);
 }
 

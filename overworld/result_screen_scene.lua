@@ -42,6 +42,7 @@ local _format_title = function(text)
 end
 
 local _screenshot_shader = rt.Shader("overworld/result_screen_scene_screenshot.glsl")
+local _lch_texture = rt.LCHTexture(1, 8, 256)
 
 --- @brief
 function ow.ResultScreenScene:instantiate()
@@ -1170,6 +1171,7 @@ function ow.ResultScreenScene:draw()
     _screenshot_shader:send("transition_fraction", self._transition_fraction)
     _screenshot_shader:send("screen_to_world_transform", self._camera:get_transform():inverse())
     _screenshot_shader:send("player_color", { self._player:get_color():unpack() })
+    _screenshot_shader:send("lch_texture", _lch_texture)
     self._screenshot_mesh:draw()
     _screenshot_shader:unbind()
 

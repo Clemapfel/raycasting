@@ -58,6 +58,8 @@ local _noise_texture = rt.NoiseTexture(64, 64, 8,
     rt.NoiseType.GRADIENT, 16
 )
 
+local _lch_texture = rt.LCHTexture(1, 1, 256)
+
 --- @brief
 function ow.BubbleField:instantiate(object, stage, scene)
     -- collision
@@ -318,6 +320,7 @@ function ow.BubbleField:draw()
     _base_shader:send("elapsed", elapsed)
     _base_shader:send("hue", hue)
     _base_shader:send("hue_offset", rt.settings.overworld.bubble_field.particles.hue_offset)
+    _base_shader:send("lch_texture", _lch_texture)
     love.graphics.draw(self._shape_mesh:get_native())
 
     _base_shader:unbind()
@@ -330,6 +333,7 @@ function ow.BubbleField:draw()
     _outline_shader:send("screen_to_world_transform", transform)
     _outline_shader:send("elapsed", elapsed)
     _outline_shader:send("hue", hue)
+    _outline_shader:send("lch_texture", _lch_texture)
 
     -- Draw a closed outline without duplicating vertices in the solver/mesh data
     local closed_contour = {}

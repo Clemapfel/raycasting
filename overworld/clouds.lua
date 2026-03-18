@@ -3,7 +3,7 @@ require "common.render_texture_volume"
 require "common.render_texture_array"
 require "common.shader"
 require "common.compute_shader"
-require "common.hue_map_texture"
+require "common.lch_texture"
 
 rt.settings.overworld.clouds = {
     volume_texture_format = rt.TextureFormat.R32F,
@@ -101,10 +101,10 @@ function ow.Clouds:instantiate(
     self:_update_volume_texture()
     self:_update_slice_textures()
 
-    self._hue_map_texture = rt.HueMapTexture(
-        0.8, -- lightness
-        1,   -- chroma
-        256  -- n hues
+    self._lch_texture = rt.LCHTexture(
+        1, -- lightness steps
+        1, -- chroma steps
+        256  -- hue steps
     )
 end
 
@@ -389,7 +389,7 @@ function ow.Clouds:draw()
     _draw_shader:send("n_layers", self._n_slices)
     _draw_shader:send("opacity", rt.settings.overworld.clouds.opacity)
     _draw_shader:send("hue_offset", rt.settings.overworld.clouds.hue_offset)
-    _draw_shader:send("hue_map", self._hue_map_texture)
+    _draw_shader:send("lch_texture", self._lch_texture)
     self._draw_mesh:draw()
     _draw_shader:unbind()
 end

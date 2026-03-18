@@ -28,6 +28,8 @@ local _outline_shader = rt.Shader("menu/stage_select_item_frame_outline.glsl", {
 local _base_shader = rt.Shader("menu/stage_select_item_frame_outline.glsl", { MODE = 1 })
 local _stencil_shader = rt.Shader("menu/stage_select_item_frame_stencil.glsl")
 
+local _lch_texture = rt.LCHTexture(1, 1, 256)
+
 --- @brief
 function mn.StageSelectItemframe:instantiate()
     self._canvas = nil -- rt.RenderTexture
@@ -548,6 +550,7 @@ function mn.StageSelectItemframe:draw()
     _outline_shader:bind()
     _outline_shader:send("elapsed", rt.SceneManager:get_elapsed())
     _outline_shader:send("hue", self._hue)
+    _outline_shader:send("lch_texture", _lch_texture)
     love.graphics.draw(canvas)
     _outline_shader:unbind()
 

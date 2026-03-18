@@ -3,6 +3,7 @@ require "common.texture"
 require "common.palette"
 require "common.font"
 require "common.render_texture"
+require "common.lch_texture"
 
 rt.settings.label = {
     outline_offset_padding = 8,
@@ -84,10 +85,11 @@ function rt.Label:instantiate(text, font_size, font, use_caching)
     })
 end
 
-local _draw_outline_shader = love.graphics.newShader("common/label.glsl", { defines = { MODE = 0 }})
-local _draw_text_shader = love.graphics.newShader("common/label.glsl", { defines = { MODE = 1 }})
+local _draw_outline_shader = rt.Shader("common/label.glsl", { MODE = 0 })
+local _draw_text_shader = rt.Shader("common/label.glsl", { MODE = 1 })
 local _texture_format = rt.TextureFormat.RGBA16
 local _padding = rt.settings.label.outline_offset_padding
+local _lch_texture = rt.LCHTexture(256, 1, 256)
 
 --- @brief
 function rt.Label._glyph_new(
@@ -990,9 +992,11 @@ function rt.Label:update_n_visible_characters_from_elapsed(elapsed, n_characters
 end
 
 function rt.Label:_draw()
+    love.graphics.push("all")
+
     local true_font_size = self._font:get_actual_size(self._font_size)
 
-    love.graphics.setShader(_draw_outline_shader)
+    love.graphics.setShader(_draw_outline_shader:get_native())
     _draw_outline_shader:send("elapsed", self._elapsed)
     _draw_outline_shader:send("font_size", true_font_size)
 
@@ -1031,8 +1035,9 @@ function rt.Label:_draw()
         love.graphics.pop()
     end
 
-    love.graphics.setShader(_draw_text_shader)
+    love.graphics.setShader(_draw_text_shader:get_native())
     _draw_text_shader:send("elapsed", self._elapsed)
+    _draw_text_shader:send("lch_texture", _lch_texture)
     _draw_text_shader:send("font_size", true_font_size)
     _draw_text_shader:send("opacity", 1)
 
@@ -1064,7 +1069,7 @@ function rt.Label:_draw()
         love.graphics.pop()
     end
 
-    love.graphics.setShader(_draw_outline_shader)
+    love.graphics.setShader(_draw_outline_shader:get_native())
     _draw_outline_shader:send("elapsed", self._elapsed)
     _draw_outline_shader:send("font_size", true_font_size)
 
@@ -1094,8 +1099,9 @@ function rt.Label:_draw()
         love.graphics.pop()
     end
 
-    love.graphics.setShader(_draw_text_shader)
+    love.graphics.setShader(_draw_text_shader:get_native())
     _draw_text_shader:send("elapsed", self._elapsed)
+    _draw_text_shader:send("lch_texture", _lch_texture)
     _draw_text_shader:send("font_size", true_font_size)
     _draw_text_shader:send("opacity", 1)
 
@@ -1126,6 +1132,7 @@ function rt.Label:_draw()
     end
 
     love.graphics.setShader(nil)
+    love.graphics.pop()
 end
 
 function rt.Label:draw(x, y)
@@ -1368,7 +1375,7 @@ function rt.Glyph:draw(x, y)
     local true_font_size = self._font:get_actual_size(glyph.font_size)
 
     if glyph.is_outlined then
-        love.graphics.setShader(_draw_outline_shader)
+        love.graphics.setShader(_draw_outline_shader:get_native())
         _draw_outline_shader:send("elapsed", self._elapsed)
         _draw_outline_shader:send("font_size", true_font_size)
         _draw_outline_shader:send("n_visible_characters", glyph.n_visible_characters)
@@ -1417,7 +1424,7 @@ function rt.Glyph:draw(x, y)
     end
 
     if self._is_animated then
-        love.graphics.setShader(_draw_text_shader)
+        love.graphics.setShader(_draw_text_shader:get_native())
         _draw_text_shader:send("elapsed", self._elapsed)
         _draw_text_shader:send("font_size", true_font_size)
         _draw_text_shader:send("opacity", 1)
