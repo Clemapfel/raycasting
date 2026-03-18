@@ -102,7 +102,7 @@ end
 function ow.Background:size_allocate(x, y, width, height)
     self._bounds = rt.AABB(x, y, width, height)
 
-    self._canvas = rt.RenderTexture3D(width, height, 8)
+    self._canvas = rt.RenderTexture3D(width, height, rt.graphics.msaa_quality_to_native(rt.GameState:get_msaa_quality()))
     self._canvas:set_fov(rt.settings.overworld.background.fov)
 
     self._particles = {}

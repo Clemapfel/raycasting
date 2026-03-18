@@ -5,9 +5,6 @@ require "common.music_manager"
 require "common.sound_manager"
 require "common.input_manager"
 
-rt.GameState:save()
-rt.GameState:load_save()
-
 love.load = function(args)
     local w, h = love.graphics.getDimensions()
 

@@ -4,13 +4,8 @@ require "common.texture_format"
 rt.Image = meta.class("Image")
 
 --- @brief
-function rt.Image:instantiate(data_or_w, h, format)
-    if type(data_or_w) == "userdata" and data_or_w:typeOf("ImageData") then
-        self._native = data_or_w
-    else
-        meta.assert(data_or_w, "Number", h, "Number")
-        self._native = love.image.newImageData(data_or_w, h, format)
-    end
+function rt.Image:instantiate(...)
+    self._native = love.image.newImageData(...)
 end
 
 --- @brief
