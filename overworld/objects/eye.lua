@@ -282,7 +282,7 @@ function ow.Eye:draw()
 
     local r, g, b = self._color:unpack()
     _lighting_shader:send("shading_color", { r, g, b, 0.25  })
-    --self._sclera_highlight_mesh:draw()
+    self._sclera_highlight_mesh:draw()
     _lighting_shader:unbind()
 
     local line_width = 2
