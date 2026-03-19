@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="531">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="539">
  <editorsettings>
   <export target="bounce_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -83,7 +83,7 @@
   </object>
  </objectgroup>
  <objectgroup id="6" name="hitbox">
-  <object id="260" name="Spawn" type="PlayerSpawn" x="919.014" y="1783.22">
+  <object id="260" name="Spawn" type="PlayerSpawn" x="1097.79" y="1829.06">
    <point/>
   </object>
   <object id="261" type="Hitbox" x="336" y="-576">
@@ -390,9 +390,10 @@
   <object id="432" type="SlipperyHitbox" x="-80" y="1488">
    <polygon points="-144,16 16,16 16,-256 320,-256 320,-272 0,-272 0,0 -144,0"/>
   </object>
-  <object id="530" type="Coin" x="812.047" y="1711.78">
-   <point/>
+  <object id="532" name="Eye" type="Eye" x="1261" y="1549.58" width="128" height="128">
+   <ellipse/>
   </object>
+  <object id="533" type="CameraFit" x="987.852" y="1301.86" width="673.724" height="662.939"/>
  </objectgroup>
  <objectgroup id="2" name="front">
   <object id="271" type="OneWayPlatform" x="-240" y="-928">

@@ -180,6 +180,8 @@ local function _radius_to_n_vertices(rx, ry)
     return math.max(8, math.floor(math.sqrt(((rx + ry) / 2) * 20.0)))
 end
 
+rt.Mesh.radius_to_n_vertices = _radius_to_n_vertices
+
 --- @class rt.MeshCircle
 rt.MeshCircle = function(center_x, center_y, x_radius, y_radius, n_outer_vertices)
     y_radius = y_radius or x_radius
