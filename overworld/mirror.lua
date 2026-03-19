@@ -40,6 +40,8 @@ end
 
 --- @brief
 function ow.Mirror:draw()
+    if rt.GameState:get_are_reflections_enabled() == false then return end
+
     if self._mirror_images == nil
         or #self._mirror_images == 0
         or self._scene:get_player():get_is_ghost()
@@ -643,6 +645,8 @@ end
 
 --- @brief
 function ow.Mirror:update(delta)
+    if rt.GameState:get_are_reflections_enabled() == false then return end
+
     local camera = self._scene:get_camera()
     local bounds = camera:get_world_bounds()
     local padding = rt.settings.overworld.stage.visible_area_padding * camera:get_final_scale()

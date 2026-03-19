@@ -282,7 +282,7 @@ do
         )}
 
         -- bounce
-        if self._is_bouncing and not rt.GameState:get_is_performance_mode_enabled() then
+        if self._is_bouncing then
             local before = self._bounce_position
             self._bounce_velocity = self._bounce_velocity + -1 * (self._bounce_position - origin) * stiffness
             self._bounce_velocity = self._bounce_velocity * damping

@@ -462,7 +462,7 @@ end
 function ow.NormalMap:draw_light(
     camera
 )
-    if _is_disabled then return end
+    if rt.GameState:get_is_dynamic_lighting_enabled() == false or _is_disabled then return end
 
     meta.assert(
         camera, rt.Camera

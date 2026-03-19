@@ -108,6 +108,8 @@ end
 
 --- @brief
 function ow.LightMap:update(stage)
+    if rt.GameState:get_is_dynamic_lighting_enabled() == false then return end
+
     local settings = rt.settings.overworld.light_map
     local tile_size = self._tile_size
     local max_n_point_lights, max_n_segment_lights = settings.max_n_point_lights, settings.max_n_segment_lights
@@ -275,7 +277,6 @@ function ow.LightMap:update(stage)
         return max_distance
     end
 
-
     for row_i = 1, n_rows do
         for column_i = 1, n_columns do
             local tile_x = (row_i - 1) * tile_size
@@ -311,7 +312,6 @@ function ow.LightMap:update(stage)
 
     self._tile_data_buffer:replace_data(tile_data)
 
-
     self._light_direction_texture:bind()
     love.graphics.clear(0, 0, 0, 0)
     self._light_direction_texture:unbind()
@@ -329,6 +329,8 @@ end
 
 --- @brief
 function ow.LightMap:draw()
+    if rt.GameState:get_is_dynamic_lighting_enabled() == false then return end
+
     for i = 1, self._current_n_point_lights do
         local data = self._point_light_buffer_data[i]
         love.graphics.setColor(data[4], data[5], data[6], data[7])

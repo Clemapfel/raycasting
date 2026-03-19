@@ -429,10 +429,7 @@ function ow.Stage:draw_bloom()
     end
 
     self._blood_splatter:draw()
-
-    if rt.GameState:get_is_performance_mode_enabled() ~= true then
-        self._mirror:draw()
-    end
+    self._mirror:draw()
 end
 
 --- @brief
@@ -442,7 +439,7 @@ function ow.Stage:update(delta)
         self._signal_done_emitted = true
     end
 
-    if self._normal_map_done and rt.GameState:get_is_performance_mode_enabled() == false then
+    if self._normal_map_done then
         -- collect light sources and visibel bodies
         local camera = self._scene:get_camera()
         local bounds = camera:get_world_bounds()

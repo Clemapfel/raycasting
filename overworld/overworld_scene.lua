@@ -381,7 +381,7 @@ function ow.OverworldScene:set_stage(stage_id, show_title_card)
         self:start_timer()
     end
 
-    if rt.SceneManager:get_is_bloom_enabled() then
+    if rt.GameState:get_is_bloom_enabled() then
         local bloom = rt.SceneManager:get_bloom()
         bloom:set_bloom_strength(rt.settings.overworld_scene.bloom_blur_strength)
 

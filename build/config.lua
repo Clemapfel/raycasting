@@ -7,8 +7,8 @@ require "common.vsync_mode"
 require "love.filesystem"
 
 rt.settings.config = {
-    default_settings_path = "build/settings_default.ini",
-    default_keybind_path = "build/keybind_default.ini"
+    default_settings_path = "build/default_settings.ini",
+    default_keybind_path = "build/default_keybinding.ini"
 }
 
 if bd.config == nil then

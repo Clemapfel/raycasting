@@ -178,6 +178,15 @@ rt.Translation = {
         hdr_title = "HDR (High Dynamic Range)",
         hdr_description = "Use a larger range of colors for rendering, which can result in better video output on certain monitors, at worse performance",
 
+        dynamic_lighting_title = "Dynamic Lighting",
+        dynamic_lighting_description = "Render lighting computed in real-time on level geometry",
+
+        reflections_title = "Reflections",
+        reflections_description = "Render lights and player on reflective surface",
+
+        background_animation_title = "Animate Background",
+        background_animation_description = "Whether the stage and other backgrounds should animate",
+
         sound_effect_level_title = "Sound Effects",
         sound_effect_level_description = "Volume of non-music audio playback",
 
@@ -192,9 +201,6 @@ rt.Translation = {
 
         joystick_deadzone_title = "Deadzone",
         joystick_deadzone_description = "How far the controllers joystick has to be moved away from the center before an input is registered",
-
-        performance_mode_enabled_title = "Performance Mode",
-        performance_mode_enabled_description = "Disables various visual-only effects, increases performance on low-end machines",
 
         input_buffering_enabled_title = "Input Buffering",
         input_buffering_enabled_description = "If enabled, pressing jump slightly before touching the ground or a wall will instantly jump",
@@ -283,6 +289,18 @@ rt.Translation = {
         hdr_on = "On",
         hdr_off = "Off",
 
+        dynamic_lighting_prefix = "Dynamic Lighting",
+        dynamic_lighting_on = "On",
+        dynamic_lighting_off = "Off",
+
+        reflections_prefix = "Dynamic Reflections",
+        reflections_on = "On",
+        reflections_off = "Off",
+
+        background_animation_prefix = "Animate Background",
+        background_animation_on = "On",
+        background_animation_off = "Off",
+
         sprint_mode_prefix = "Sprint Mode",
         sprint_mode_hold_to_sprint = "Sprint",
         sprint_mode_hold_to_walk = "Walk",
@@ -294,10 +312,6 @@ rt.Translation = {
         controller_vibration_strength_prefix = "Controller Vibration",
         controller_vibration_strength_on = "On",
         controller_vibration_strength_off = "Off",
-
-        performance_mode_prefix = "Performance Mode",
-        performance_mode_on = "On",
-        performance_mode_off = "Off",
 
         input_buffering_enabled_prefix = "Input Buffering",
         input_buffering_enabled_on = "Enabled",

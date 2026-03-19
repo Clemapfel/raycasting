@@ -133,6 +133,40 @@ function rt.GameState:set_is_hdr_enabled(b)
     bd.get_config().is_hdr_enabled = b
 end
 
+
+--- @brief
+function rt.GameState:get_is_dynamic_lighting_enabled()
+    return bd.get_config().is_dynamic_lighting_enabled
+end
+
+--- @brief
+function rt.GameState:set_is_dynamic_lighting_enabled(b)
+    meta.assert(b, "Boolean")
+    bd.get_config().is_dynamic_lighting_enabled = b
+end
+
+--- @brief
+function rt.GameState:get_are_reflections_enabled()
+    return bd.get_config().are_reflections_enabled
+end
+
+--- @brief
+function rt.GameState:set_are_reflections_enabled(b)
+    meta.assert(b, "Boolean")
+    bd.get_config().are_reflections_enabled = b
+end
+
+--- @brief
+function rt.GameState:get_is_background_animated()
+    return bd.get_config().is_background_animated
+end
+
+--- @brief
+function rt.GameState:set_is_background_animated(b)
+    meta.assert(b, "Boolean")
+    bd.get_config().is_background_animated = b
+end
+
 --- @brief
 function rt.GameState:set_is_fullscreen(b)
     meta.assert(b, "Boolean")
@@ -269,17 +303,6 @@ end
 --- @brief
 function rt.GameState:get_controller_vibration_strength()
     return bd.get_config().controller_vibration_strength
-end
-
---- @brief
-function rt.GameState:get_is_performance_mode_enabled()
-    return bd.get_config().performance_mode_enabled
-end
-
---- @brief
-function rt.GameState:set_is_performance_mode_enabled(b)
-    meta.assert(b, "Boolean")
-    bd.get_config().performance_mode_enabled = b
 end
 
 --- @brief

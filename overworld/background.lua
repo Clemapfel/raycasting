@@ -342,6 +342,8 @@ function ow.Background:size_allocate(x, y, width, height)
     self._clouds_offset_y = 0
 
     rt.random.pop()
+
+    self:update(0, true) -- override GameState:get_is_background_animated
 end
 
 --- @brief
@@ -527,8 +529,16 @@ function ow.Background:_get_scale_factor()
 end
 
 --- @brief
-function ow.Background:update(delta)
-    if rt.GameState:get_is_performance_mode_enabled() then return end
+function ow.Background:update(delta, override)
+    if override ~= nil then
+        if override == false then
+            return
+        else
+            -- continue
+        end
+    elseif rt.GameState:get_is_background_animated() == false then
+        return
+    end
 
     self._canvas_needs_update = true
 

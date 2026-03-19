@@ -261,7 +261,7 @@ function ow.BubbleField:update(delta)
 
     self._elapsed = self._elapsed + delta
 
-    if self._is_active and not rt.GameState:get_is_performance_mode_enabled() then
+    if self._is_active then
         local n_points = self._n_points
         local offset_max = 0
         local wave_previous, wave_current, wave_next = self._wave.previous, self._wave.current, self._wave.next

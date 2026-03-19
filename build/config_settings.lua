@@ -62,15 +62,6 @@ do
     local height = 600
     local aspect_ratio = 16 / 9
 
-    local use_performance_mode = false
-    local performance_ternary = function(on_true, on_false)
-        if use_performance_mode == true then
-            return on_true
-        else
-            return on_false
-        end
-    end
-
     bd.config.entries = {
         -- should window initialize in fullscreen mode
         is_fullscreen = BOOLEAN(false),
@@ -99,9 +90,6 @@ do
         -- if dpi scale should be applied, also sets `highdpi`
         use_dpi_scale = BOOLEAN(false),
 
-        -- if the console should be visible when the game starts
-        is_console_visible = BOOLEAN(true),
-
         -- which renderers are allowed
         allow_opengl = BOOLEAN(renderers["opengl"]),
         allow_vulkan = BOOLEAN(renderers["vulkan"]),
@@ -117,19 +105,28 @@ do
             rt.VSyncMode.ADAPTIVE
         ),
 
-        -- performance mode
-        performance_mode_enabled = BOOLEAN(use_performance_mode),
-
         -- graphics
-        msaa = ENUM(performance_ternary(rt.MSAAQuality.OFF, rt.MSAAQuality.GOOD),
+        msaa = ENUM(rt.MSAAQuality.GOOD,
             rt.MSAAQuality.OFF,
             rt.MSAAQuality.GOOD,
             rt.MSAAQuality.BETTER,
             rt.MSAAQuality.BEST
         ),
 
-        is_hdr_enabled = BOOLEAN(performance_ternary(false, true)),
-        is_bloom_enabled = BOOLEAN(performance_ternary(false, true)),
+        -- apply hdr tonemapping as post processing
+        is_hdr_enabled = BOOLEAN(true),
+
+        -- draw bloom
+        is_bloom_enabled = BOOLEAN(true),
+
+        -- apply lighting to normal map
+        is_dynamic_lighting_enabled = BOOLEAN(true),
+
+        -- enable mirror
+        are_reflections_enabled = BOOLEAN(true),
+
+        -- enable background animation
+        is_background_animated = BOOLEAN(true),
 
         -- screen shake
         is_screen_shake_enabled = BOOLEAN(true),

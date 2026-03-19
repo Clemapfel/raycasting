@@ -9,6 +9,33 @@ require "menu.scale"
 require "menu.option_button"
 require "menu.scrollable_list"
 
+local SettingsItem = {
+    MUSIC_LEVEL = "music_level",
+    SOUND_EFFECT_LEVEL = "sound_effect_level",
+
+    CONTROLLER_VIBRATION = "controller_vibration",
+    SCREEN_SHAKE = "screen_shake",
+    COLOR_BLIND_MODE = "color_blind_mode",
+    TEXT_SPEED = "text_speed",
+
+    FULLSCREEN = "fullscreen",
+    VSYNC = "vsync",
+    MSAA = "msaa",
+    BLOOM = "bloom",
+    HDR = "hdr",
+    DYNAMIC_LIGHTING = "dynamic_lighting",
+    REFLECTIONS = "reflections",
+    BACKGROUND_ANIMATION = "background_animation",
+
+    JOYSTICK_DEADZONE = "joystick_deadzone",
+    SPRINT_MODE = "sprint_mode",
+    DOUBLE_PRESS_THRESHOLD = "double_press_threshold",
+    INPUT_BUFFERING = "input_buffering",
+
+    SPEEDRUN_SPLITS = "speedrun_splits",
+    DEBUG_PRINT = "debug_print",
+}
+
 rt.settings.settings_scene = {
     scale_movement_ticks_per_second = 100,
     scale_movement_delay = 20 / 60,
@@ -18,6 +45,33 @@ rt.settings.settings_scene = {
 
     verbose_info_width_fraction = 1 / 3,
     scrollbar_width_factor = 1.5, -- times margin
+
+    item_order = {
+        SettingsItem.MUSIC_LEVEL,
+        SettingsItem.SOUND_EFFECT_LEVEL,
+        SettingsItem.VSYNC,
+        SettingsItem.FULLSCREEN,
+
+        SettingsItem.CONTROLLER_VIBRATION,
+        SettingsItem.SCREEN_SHAKE,
+        SettingsItem.COLOR_BLIND_MODE,
+        SettingsItem.TEXT_SPEED,
+
+        SettingsItem.JOYSTICK_DEADZONE,
+        SettingsItem.SPRINT_MODE,
+        --SettingsItem.DOUBLE_PRESS_THRESHOLD,
+        SettingsItem.INPUT_BUFFERING,
+
+        SettingsItem.MSAA,
+        SettingsItem.DYNAMIC_LIGHTING,
+        SettingsItem.BLOOM,
+        SettingsItem.HDR,
+        SettingsItem.REFLECTIONS,
+        SettingsItem.BACKGROUND_ANIMATION,
+
+        SettingsItem.SPEEDRUN_SPLITS,
+        SettingsItem.DEBUG_PRINT
+    }
 }
 
 --- @class mn.SettingsScene
@@ -123,7 +177,9 @@ function mn.SettingsScene:instantiate()
     require "build.config"
     local defaults = bd.get_default_config()
 
-    do -- vsync
+    local init_functions = {}
+
+    init_functions[SettingsItem.VSYNC] = function()
         local vsync_to_label = {
             [rt.VSyncMode.ADAPTIVE] = translation.vsync_adaptive,
             [rt.VSyncMode.OFF] = translation.vsync_off,
@@ -152,7 +208,7 @@ function mn.SettingsScene:instantiate()
         end)
     end
 
-    do -- fullscreen
+    init_functions[SettingsItem.FULLSCREEN] = function() -- fullscreen
         local fullscreen_to_label = {
             [true] = translation.fullscreen_on,
             [false] = translation.fullscreen_off
@@ -178,7 +234,42 @@ function mn.SettingsScene:instantiate()
         end)
     end
 
-    do -- msaa
+    init_functions[SettingsItem.MUSIC_LEVEL] = function() -- music
+        local music_level_scale = new_scale(rt.GameState:get_music_level())
+        music_level_scale:signal_connect("value_changed", function(_, value)
+            rt.GameState:set_music_level(value)
+        end)
+
+        local item = add_item(
+            translation.music_level_prefix, music_level_scale,
+            mn.VerboseInfoObject.MUSIC_LEVEL,
+            mn.VerboseInfoObject.MUSIC_LEVEL_WIDGET
+
+        )
+
+        item:signal_connect("reset", function(_)
+            music_level_scale:set_value(defaults.music_level)
+        end)
+    end
+
+    init_functions[SettingsItem.SOUND_EFFECT_LEVEL] = function() -- sound effect
+        local sound_effect_level_scale = new_scale(rt.GameState:get_sound_effect_level())
+        sound_effect_level_scale:signal_connect("value_changed", function(_, value)
+            rt.GameState:set_sound_effect_level(value)
+        end)
+
+        local item = add_item(
+            translation.sound_effect_level_prefix, sound_effect_level_scale,
+            mn.VerboseInfoObject.SOUND_EFFECT_LEVEL,
+            mn.VerboseInfoObject.SOUND_EFFECT_LEVEL_WIDGET
+        )
+
+        item:signal_connect("reset", function(_)
+            sound_effect_level_scale:set_value(defaults.sound_effect_level)
+        end)
+    end
+
+    init_functions[SettingsItem.MSAA] = function() -- msaa
         local msaa_to_label = {
             [rt.MSAAQuality.OFF] = translation.msaa_off,
             [rt.MSAAQuality.GOOD] = translation.msaa_good,
@@ -210,7 +301,7 @@ function mn.SettingsScene:instantiate()
         end)
     end
 
-    do -- bloom
+    init_functions[SettingsItem.BLOOM] = function() -- bloom
         local bloom_to_label = {
             [true] = translation.bloom_on,
             [false] = translation.bloom_off
@@ -237,7 +328,7 @@ function mn.SettingsScene:instantiate()
         end)
     end
 
-    do -- hdr
+    init_functions[SettingsItem.HDR] = function() -- hdr
         local hdr_to_label = {
             [false] = translation.hdr_off,
             [true] = translation.hdr_on
@@ -265,42 +356,88 @@ function mn.SettingsScene:instantiate()
         end)
     end
 
-    do -- music
-        local music_level_scale = new_scale(rt.GameState:get_music_level())
-        music_level_scale:signal_connect("value_changed", function(_, value)
-            rt.GameState:set_music_level(value)
+    init_functions[SettingsItem.DYNAMIC_LIGHTING] = function() -- dynamic lighting
+        local dynamic_lighting_to_label = {
+            [false] = translation.dynamic_lighting_off,
+            [true] = translation.dynamic_lighting_on
+        }
+        local label_to_dynamic_lighting = reverse(dynamic_lighting_to_label)
+
+        local dynamic_lighting_button = mn.OptionButton({
+            dynamic_lighting_to_label[false],
+            dynamic_lighting_to_label[true],
+        })
+
+        dynamic_lighting_button:set_option(dynamic_lighting_to_label[rt.GameState:get_is_dynamic_lighting_enabled()])
+        dynamic_lighting_button:signal_connect("selection", function(_, label)
+            rt.GameState:set_is_dynamic_lighting_enabled(label_to_dynamic_lighting[label])
         end)
 
         local item = add_item(
-            translation.music_level_prefix, music_level_scale,
-            mn.VerboseInfoObject.MUSIC_LEVEL,
-            mn.VerboseInfoObject.MUSIC_LEVEL_WIDGET
-
+            translation.dynamic_lighting_prefix, dynamic_lighting_button,
+            mn.VerboseInfoObject.DYNAMIC_LIGHTING
         )
 
         item:signal_connect("reset", function(_)
-            music_level_scale:set_value(defaults.music_level)
+            dynamic_lighting_button:set_option(dynamic_lighting_to_label[defaults.is_dynamic_lighting_enabled])
         end)
     end
 
-    do -- sound effect
-        local sound_effect_level_scale = new_scale(rt.GameState:get_sound_effect_level())
-        sound_effect_level_scale:signal_connect("value_changed", function(_, value)
-            rt.GameState:set_sound_effect_level(value)
+    init_functions[SettingsItem.REFLECTIONS] = function() -- reflections
+        local reflections_to_label = {
+            [false] = translation.reflections_off,
+            [true] = translation.reflections_on
+        }
+        local label_to_reflections = reverse(reflections_to_label)
+
+        local reflections_button = mn.OptionButton({
+            reflections_to_label[false],
+            reflections_to_label[true],
+        })
+
+        reflections_button:set_option(reflections_to_label[rt.GameState:get_are_reflections_enabled()])
+        reflections_button:signal_connect("selection", function(_, label)
+            rt.GameState:set_are_reflections_enabled(label_to_reflections[label])
         end)
 
         local item = add_item(
-            translation.sound_effect_level_prefix, sound_effect_level_scale,
-            mn.VerboseInfoObject.SOUND_EFFECT_LEVEL,
-            mn.VerboseInfoObject.SOUND_EFFECT_LEVEL_WIDGET
+            translation.reflections_prefix, reflections_button,
+            mn.VerboseInfoObject.REFLECTIONS
         )
 
         item:signal_connect("reset", function(_)
-            sound_effect_level_scale:set_value(defaults.sound_effect_level)
+            reflections_button:set_option(reflections_to_label[defaults.are_reflections_enabled])
         end)
     end
 
-    do -- dead zone
+    init_functions[SettingsItem.BACKGROUND_ANIMATION] = function() -- background animation
+        local background_animated_to_label = {
+            [false] = translation.background_animation_off,
+            [true] = translation.background_animation_on
+        }
+        local label_to_background_animated = reverse(background_animated_to_label)
+
+        local background_animated_button = mn.OptionButton({
+            background_animated_to_label[false],
+            background_animated_to_label[true],
+        })
+
+        background_animated_button:set_option(background_animated_to_label[rt.GameState:get_is_background_animated()])
+        background_animated_button:signal_connect("selection", function(_, label)
+            rt.GameState:set_is_background_animated(label_to_background_animated[label])
+        end)
+
+        local item = add_item(
+            translation.background_animation_prefix, background_animated_button,
+            mn.VerboseInfoObject.BACKGROUND_ANIMATION
+        )
+
+        item:signal_connect("reset", function(_)
+            background_animated_button:set_option(background_animated_to_label[defaults.is_background_animated])
+        end)
+    end
+
+    init_functions[SettingsItem.JOYSTICK_DEADZONE] = function() -- dead zone
         local deadzone_scale = new_scale(rt.GameState:get_joystick_deadzone())
         deadzone_scale:signal_connect("value_changed", function(_, value)
             rt.GameState:set_joystick_deadzone(value)
@@ -317,7 +454,7 @@ function mn.SettingsScene:instantiate()
         end)
     end
 
-    do -- text speed
+    init_functions[SettingsItem.TEXT_SPEED] = function() -- text speed
         local text_speed_scale = new_scale(rt.GameState:get_text_speed())
         text_speed_scale:signal_connect("value_changed", function(_, value)
             rt.GameState:set_text_speed(value)
@@ -334,8 +471,7 @@ function mn.SettingsScene:instantiate()
         end)
     end
 
-    --[[
-    do -- double press threshold
+    init_functions[SettingsItem.DOUBLE_PRESS_THRESHOLD] = function() -- double press threshold
         local double_press_threshold_scale = new_scale(rt.GameState:get_double_press_threshold())
         double_press_threshold_scale:signal_connect("value_changed", function(_, value)
             rt.GameState:set_double_press_threshold(value)
@@ -350,9 +486,8 @@ function mn.SettingsScene:instantiate()
             double_press_threshold_scale:set_value(rt.settings.settings_scene.double_press_threshold_default)
         end)
     end
-    ]]--
 
-    do -- shake
+    init_functions[SettingsItem.SCREEN_SHAKE] = function() -- shake
         local shake_to_label = {
             [false] = translation.shake_off,
             [true] = translation.shake_on
@@ -380,7 +515,7 @@ function mn.SettingsScene:instantiate()
         end)
     end
 
-    do -- controller vibration
+    init_functions[SettingsItem.CONTROLLER_VIBRATION] = function() -- controller vibration
         local controller_vibration_scale = new_scale(rt.GameState:get_controller_vibration_strength())
         controller_vibration_scale:signal_connect("value_changed", function(_, value, is_during_realize)
             if is_during_realize then return end
@@ -401,7 +536,7 @@ function mn.SettingsScene:instantiate()
         end)
     end
 
-    do -- color blind mode
+    init_functions[SettingsItem.COLOR_BLIND_MODE] = function() -- color blind mode
         local color_blind_mode_to_label ={
             [true] = translation.color_blind_mode_on,
             [false] = translation.color_blind_mode_off
@@ -428,34 +563,7 @@ function mn.SettingsScene:instantiate()
         end)
     end
 
-    do -- performance mode
-        local performance_mode_to_label = {
-            [false] = translation.performance_mode_off,
-            [true] = translation.performance_mode_on
-        }
-        local label_to_performance_mode = reverse(performance_mode_to_label)
-
-        local performance_mode_button = mn.OptionButton({
-            performance_mode_to_label[false],
-            performance_mode_to_label[true]
-        })
-
-        performance_mode_button:set_option(performance_mode_to_label[rt.GameState:get_is_performance_mode_enabled()])
-        performance_mode_button:signal_connect("selection", function(_, label)
-            rt.GameState:set_is_performance_mode_enabled(label_to_performance_mode[label])
-        end)
-
-        local item = add_item(
-            translation.performance_mode_prefix, performance_mode_button,
-            mn.VerboseInfoObject.PERFORMANCE_MODE_ENABLED
-        )
-
-        item:signal_connect("reset", function(_)
-            performance_mode_button:set_option(performance_mode_to_label[defaults.is_performance_mode_enabled])
-        end)
-    end
-
-    do -- sprint mode
+    init_functions[SettingsItem.SPRINT_MODE] = function() -- sprint mode
         local sprint_mode_to_label = {
             [rt.PlayerSprintMode.HOLD_TO_SPRINT] = translation.sprint_mode_hold_to_sprint,
             [rt.PlayerSprintMode.HOLD_TO_WALK] = translation.sprint_mode_hold_to_walk
@@ -482,7 +590,7 @@ function mn.SettingsScene:instantiate()
         end)
     end
 
-    do -- input buffering
+    init_functions[SettingsItem.INPUT_BUFFERING] = function() -- input buffering
         local input_buffering_enabled_to_label = {
             [true] = translation.input_buffering_enabled_on,
             [false] = translation.input_buffering_enabled_off,
@@ -509,7 +617,7 @@ function mn.SettingsScene:instantiate()
         end)
     end
 
-    do -- speedrun splits
+    init_functions[SettingsItem.SPEEDRUN_SPLITS] = function() -- speedrun splits
         local draw_speedrun_splits_to_label = {
             [false] = translation.draw_speedrun_splits_off,
             [true] = translation.draw_speedrun_splits_on
@@ -536,7 +644,7 @@ function mn.SettingsScene:instantiate()
         end)
     end
 
-    do -- debug print
+    init_functions[SettingsItem.DEBUG_PRINT] = function() -- debug print
         local draw_debug_info_to_label = {
             [false] = translation.draw_debug_info_off,
             [true] = translation.draw_debug_info_on
@@ -561,6 +669,10 @@ function mn.SettingsScene:instantiate()
         item:signal_connect("reset", function(_)
             draw_debug_info_button:set_option(draw_debug_info_to_label[defaults.draw_debug_information])
         end)
+    end
+
+    for item in values(rt.settings.settings_scene.item_order) do
+        init_functions[item]()
     end
 
     -- input

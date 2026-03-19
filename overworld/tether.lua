@@ -74,63 +74,62 @@ function ow.Tether:tether(attachment_x, attachment_y, target_x, target_y)
 
     local old_n_particles = self._n_particles
     if self._n_particles < new_n_particles then -- grow
-        if true then --rt.GameState:get_is_performance_mode_enabled() then
-            -- allocate points in a straight line starting from current end
-            local path = self:as_path()
-            local old_last_x, old_last_y = path:at(1)
-            local new_last_x, new_last_y = self._to_x, self._to_y
+        -- allocate points in a straight line starting from current end
+        local path = self:as_path()
+        local old_last_x, old_last_y = path:at(1)
+        local new_last_x, new_last_y = self._to_x, self._to_y
 
-            -- allocate new nodes, leave old alone
-            for particle_i = old_n_particles, new_n_particles do
-                local i = _particle_i_to_data_offset(particle_i)
-                local x, y = math.mix2(
-                    old_last_x, old_last_y,
-                    new_last_x, new_last_y,
-                    (particle_i - old_n_particles - 1) / (new_n_particles - old_n_particles)
-                )
+        -- allocate new nodes, leave old alone
+        for particle_i = old_n_particles, new_n_particles do
+            local i = _particle_i_to_data_offset(particle_i)
+            local x, y = math.mix2(
+                old_last_x, old_last_y,
+                new_last_x, new_last_y,
+                (particle_i - old_n_particles - 1) / (new_n_particles - old_n_particles)
+            )
 
-                local t = (particle_i - 1) / new_n_particles
-                data[i + _x_offset] = x
-                data[i + _y_offset] = y
-                data[i + _previous_x_offset] = x
-                data[i + _previous_y_offset] = y
-                data[i + _velocity_x_offset] = 0
-                data[i + _velocity_y_offset] = 0
+            local t = (particle_i - 1) / new_n_particles
+            data[i + _x_offset] = x
+            data[i + _y_offset] = y
+            data[i + _previous_x_offset] = x
+            data[i + _previous_y_offset] = y
+            data[i + _velocity_x_offset] = 0
+            data[i + _velocity_y_offset] = 0
 
-                local mass = mass_easing(i, new_n_particles)
-                data[i + _mass_offset] = mass
-                data[i + _inverse_mass_offset] = 1 / mass
-                data[i + _segment_length_offset] = step
+            local mass = mass_easing(i, new_n_particles)
+            data[i + _mass_offset] = mass
+            data[i + _inverse_mass_offset] = 1 / mass
+            data[i + _segment_length_offset] = step
 
-                data[i + _distance_lambda_offset] = 0
-                data[i + _bending_lambda_offset] = 0
-            end
-        else
+            data[i + _distance_lambda_offset] = 0
+            data[i + _bending_lambda_offset] = 0
+        end
+
+        --[[
             -- fit spline through all current points, use it for continuation
             local points = self:as_path():get_points()
             local spline = rt.Spline(points)
 
             for particle_i = old_n_particles, new_n_particles do
-                local i = _particle_i_to_data_offset(particle_i)
-                local t = (particle_i - 1) / new_n_particles
+            local i = _particle_i_to_data_offset(particle_i)
+            local t = (particle_i - 1) / new_n_particles
 
-                local x, y = spline:at(t)
-                data[i + _x_offset] = x
-                data[i + _y_offset] = y
-                data[i + _previous_x_offset] = x
-                data[i + _previous_y_offset] = y
-                data[i + _velocity_x_offset] = 0
-                data[i + _velocity_y_offset] = 0
+            local x, y = spline:at(t)
+            data[i + _x_offset] = x
+            data[i + _y_offset] = y
+            data[i + _previous_x_offset] = x
+            data[i + _previous_y_offset] = y
+            data[i + _velocity_x_offset] = 0
+            data[i + _velocity_y_offset] = 0
 
-                local mass = mass_easing(i, new_n_particles)
-                data[i + _mass_offset] = mass
-                data[i + _inverse_mass_offset] = 1 / mass
-                data[i + _segment_length_offset] = step
+            local mass = mass_easing(i, new_n_particles)
+            data[i + _mass_offset] = mass
+            data[i + _inverse_mass_offset] = 1 / mass
+            data[i + _segment_length_offset] = step
 
-                data[i + _distance_lambda_offset] = 0
-                data[i + _bending_lambda_offset] = 0
-            end
-        end
+            data[i + _distance_lambda_offset] = 0
+            data[i + _bending_lambda_offset] = 0
+            ]]
 
         self._n_particles = new_n_particles
     end

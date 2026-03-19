@@ -485,7 +485,7 @@ function mn.MenuScene:enter(skip_title)
 
     rt.SceneManager:set_use_fixed_timestep(true)
 
-    if rt.SceneManager:get_is_bloom_enabled() then
+    if rt.GameState:get_is_bloom_enabled() then
         rt.SceneManager:get_bloom():set_bloom_strength(rt.settings.menu_scene.bloom_strength)
     end
 

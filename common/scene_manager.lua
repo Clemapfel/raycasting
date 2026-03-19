@@ -472,11 +472,6 @@ function rt.SceneManager:_draw_performance_metrics()
 end
 
 --- @brief
-function rt.SceneManager:get_is_bloom_enabled()
-    return rt.GameState:get_is_bloom_enabled()
-end
-
---- @brief
 function rt.SceneManager:_reallocate_bloom()
     require "common.bloom"
     self._bloom = rt.Bloom(
