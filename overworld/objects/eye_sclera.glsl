@@ -15,20 +15,52 @@ float specular_shape(float x) {
     return gaussian(1 - x, 5);
 }
 
-uniform vec4 highlight_color;
-uniform vec4 shading_color;
+#define MODE_HIGHLIGHT 0
+#define MODE_SHADING 1
+
+#ifndef MODE
+#error "MODE undefined, should be 0 or 1"
+#endif
+
+uniform vec4 color;
+
+#if MODE == MODE_HIGHLIGHT
+uniform vec3 direction = vec3(-1.0, -1.0, 2.0);
+#elif MODE == MODE_SHADING
+uniform vec3 direction = vec3(-1.0, -1.0, 2.0);
+
+uniform mat4x4 screen_to_world_transform;
+vec2 to_world_position(vec2 xy) {
+    vec4 result = screen_to_world_transform * vec4(xy, 0.0, 1.0);
+    return result.xy / result.w;
+}
+
+#endif
+
+uniform float elapsed = 0;
 
 vec4 effect(vec4 vertex_color, Image image, vec2 texture_coords, vec2 vertex_position) {
     vec2 uv = texture_coords;
-    vec3 normal = normalize(vec3(uv.x, uv.y, sqrt(max(0.0, 1.0 - dot(uv, uv)))));
 
-    const vec3 specular_direction = normalize(vec3(-1.0, -1.0, 2.0));
-    const vec3 diffuse_direction = specular_direction; //normalize(vec3(1.0, 1.0, 2.0));
+    float noise = 0;
+    #if MODE == MODE_SHADING
+        noise = gradient_noise(vec3(4 * to_world_position(vertex_position) / love_ScreenSize.xy, elapsed / 8));
+    #endif
 
-    float specular = specular_shape(max(0.0, dot(normal, specular_direction)));
-    float diffuse = max(0.0, dot(normal, diffuse_direction));
+    vec3 normal = normalize(vec3(uv.x, uv.y, sqrt(max(0.0, 1.0 - dot(uv - noise, uv + noise)))));
+    float value = 0;
 
-    return highlight_color * specular + shading_color * diffuse;
+    #if MODE == MODE_HIGHLIGHT
+
+        value = specular_shape(max(0.0, dot(normal, normalize(direction))));
+
+    #elif MODE == MODE_SHADING
+
+        value = max(0.0, dot(normal, normalize(direction)));
+
+    #endif
+
+    return color * value;
 }
 
 #endif

@@ -29,6 +29,23 @@ function rt.RGBA:clone()
 end
 
 --- @brief
+function rt.RGBA:reformat(r_or_rgba, g, b, a)
+    if meta.is_number(r_or_rgba) then
+        local r = r_or_rgba
+        self.r = r or self.r
+        self.g = g or self.g
+        self.b = b or self.b
+        self.a = a or self.a
+    else
+        local other = r_or_rgba
+        self.r = other.r or self.r
+        self.g = other.g or self.g
+        self.b = other.b or self.b
+        self.a = other.a or self.a
+    end
+end
+
+--- @brief
 function rt.RGBA:darken(offset)
     return rt.RGBA(
         math.clamp(self.r - offset, 0, 1),

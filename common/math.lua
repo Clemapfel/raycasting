@@ -805,7 +805,6 @@ function math.divide(...)
     end
 end
 
-
 --- @brief
 function math.turn(x, y, left_or_right)
     if left_or_right == nil then left_or_right = true end

@@ -55,13 +55,11 @@ function rt.LCHTexture:instantiate(n_lightness_steps, n_chroma_steps, n_hue_step
     self._n_hue_steps = n_hue_steps
 
     -- caching
-    if _atlas[n_lightness_steps] == nil then _atlas[n_lightness_steps] = {} end
-    if _atlas[n_lightness_steps][n_chroma_steps] == nil then _atlas[n_lightness_steps][n_chroma_steps] = {} end
-
-    local cached = _atlas[n_lightness_steps][n_chroma_steps][n_hue_steps]
+    local hash = string.paste(n_lightness_steps, "|", n_chroma_steps, "|", n_hue_steps)
+    local cached = _atlas[hash]
     if cached == nil then
         self:_initialize()
-        _atlas[n_lightness_steps][n_chroma_steps][n_hue_steps] = self._texture
+        _atlas[hash] = self._texture
     else
         self._texture = cached
     end

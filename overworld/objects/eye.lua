@@ -20,7 +20,8 @@ local _new_transform = function()
 end
 
 local _iris_shader = rt.Shader("overworld/objects/eye_iris.glsl")
-local _lighting_shader = rt.Shader("overworld/objects/eye_sclera.glsl")
+local _highlight_shader = rt.Shader("overworld/objects/eye_sclera.glsl", { MODE = 0 })
+local _shading_shader = rt.Shader("overworld/objects/eye_sclera.glsl", { MODE = 1 })
 
 local _noise_texture = rt.NoiseTexture(32, 32, 8,
     rt.NoiseType.GRADIENT, 8
@@ -31,9 +32,12 @@ local _lch_texture = rt.LCHTexture(1, 1, 256)
 DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
     if which == "k" then
         _iris_shader:recompile()
-        _lighting_shader:recompile()
+        _highlight_shader:recompile()
+        _shading_shader:recompile()
     end
 end)
+
+local n_hue_steps = 64
 
 function ow.Eye:instantiate(object, stage, scene)
     rt.assert(object:get_type() == ow.ObjectType.ELLIPSE, "In ow.Eye.instantiate: object is not a circle")
@@ -64,6 +68,10 @@ function ow.Eye:instantiate(object, stage, scene)
 
     local settings = rt.settings.overworld.eye
 
+    if stage.eye_current_hue_step == nil then stage.eye_current_hue_step = 0 end
+    local hue = math.fract(stage.eye_current_hue_step / n_hue_steps)
+    stage.eye_current_hue_step = stage.eye_current_hue_step + 1
+
     self._pupil_x, self._pupil_y = 0, 0
     self._pupil_radius = settings.pupil_radius_factor * radius
     self._pupil_lining = new_lining(self._pupil_radius)
@@ -78,8 +86,8 @@ function ow.Eye:instantiate(object, stage, scene)
     self._sclera_radius = radius
     self._sclera_lining = new_lining(self._sclera_radius)
 
-    self._motion = rt.SmoothedMotion2D(0, 0, 400 * rt.random.number(0.8, 1))
-    self._color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, rt.random.number(0, 1), 1))
+    self._motion = rt.SmoothedMotion2D(0, 0, 1.25)
+    self._color = self._scene:get_player():get_color():clone()
 
     self._sclera_color = rt.Palette.BLACK
     self._sclera_lining_color = self._color
@@ -193,8 +201,11 @@ end
 
 function ow.Eye:update(delta)
     if not self._stage:get_is_body_visible(self._camera_body) then return end
-
     local settings = rt.settings.overworld.eye
+    local player = self._scene:get_player()
+
+    self._color:reformat(player:get_color())
+
     local player_x, player_y = self._scene:get_player():get_position()
     local dx, dy = player_x - self._x, player_y - self._y
     local distance_to_player = math.magnitude(dx, dy)
@@ -209,7 +220,7 @@ function ow.Eye:update(delta)
 
     local offset_x, offset_y = self._motion:get_position()
 
-    -- clamp to avoid deformed iris moving the sclera
+    -- clamp to avoid deformed iris moving past sclera
     local offset_magnitude = math.magnitude(offset_x, offset_y)
     local nx, ny = 1, 0
     if offset_magnitude > 0 then
@@ -277,13 +288,15 @@ function ow.Eye:draw()
 
     local white_r, white_g, white_b = rt.Palette.WHITE:unpack()
 
-    _lighting_shader:bind()
-    _lighting_shader:send("highlight_color", { 0, 0, 0, 0 })
-
+    _shading_shader:bind()
     local r, g, b = self._color:unpack()
-    _lighting_shader:send("shading_color", { r, g, b, 0.25  })
+    _shading_shader:send("color", { r, g, b, 0.5 })
+    _shading_shader:send("elapsed", rt.SceneManager:get_elapsed() + meta.hash(self))
+    _shading_shader:send("direction", { self._iris_x / self._radius, self._iris_y / self._radius, 2})
+    _shading_shader:send("noise_texture", _noise_texture)
+    _shading_shader:send("screen_to_world_transform", self._scene:get_camera():get_transform():inverse())
     self._sclera_highlight_mesh:draw()
-    _lighting_shader:unbind()
+    _shading_shader:unbind()
 
     local line_width = 2
 
@@ -318,11 +331,10 @@ function ow.Eye:draw()
     self._pupil_lining_color:bind()
     love.graphics.line(self._pupil_lining)
 
-    _lighting_shader:bind()
-    _lighting_shader:send("highlight_color", { 1, 1, 1, 0.5 })
-    _lighting_shader:send("shading_color", { 0, 0, 0, 0 })
+    _highlight_shader:bind()
+    _highlight_shader:send("color", { 1, 1, 1, 0.5 })
     self._iris_highlight_mesh:draw()
-    _lighting_shader:unbind()
+    _highlight_shader:unbind()
 
     unbind_transform()
 

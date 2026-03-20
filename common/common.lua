@@ -217,13 +217,13 @@ end
 
 --- @brief concatenate vararg into string
 function string.paste(...)
-    local values = {...}
     local out = {}
-    for _, v in pairs(values) do
-        if v == nil then
+    for i = 1, select("#", ...) do
+        local arg = select(i, ...)
+        if arg == nil then
             table.insert(out, "nil")
         else
-            table.insert(out, tostring(v))
+            table.insert(out, tostring(arg))
         end
     end
     return table.concat(out, "")

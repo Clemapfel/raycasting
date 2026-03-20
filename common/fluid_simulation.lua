@@ -15,8 +15,6 @@ function rt.FluidSimulation:instantiate()
     local texture_scale = 12
     local base_mass = 1
 
-    -- see README.md for a description of the parameters below
-
     self._default_config = {
         -- dynamic
         damping = base_damping,
