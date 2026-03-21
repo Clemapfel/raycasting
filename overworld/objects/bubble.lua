@@ -351,6 +351,7 @@ function ow.Bubble:draw()
     local body_x, body_y = self._body:get_position()
     love.graphics.translate(body_x + path_x, body_y + path_y)
 
+
     -- outline always visible so player knows where bubble will respawn
     local opacity = math.max(rt.settings.overworld.bubble.outline_min_opacity, self._pop_fraction)
     love.graphics.setLineStyle("smooth")
@@ -366,16 +367,18 @@ function ow.Bubble:draw()
     love.graphics.setLineWidth(rt.settings.overworld.bubble.line_width)
     love.graphics.line(self._contour)
 
-    -- player position in normalized uv space relative to center
-    local px, py = self._scene:get_player():get_position()
-    local dx, dy = (self._x - px) / self._x_radius, (self._y - py) / self._y_radius
+    if not self._is_destroyed then
+        -- player position in normalized uv space relative to center
+        local px, py = self._scene:get_player():get_position()
+        local dx, dy = (self._x - px) / self._x_radius, (self._y - py) / self._y_radius
 
-    _shader:bind()
-    _shader:send("player_position", { dx, dy })
-    _shader:send("player_color", self._color)
-    _shader:send("pop_fraction", self._pop_fraction)
-    self._mesh:draw()
-    _shader:unbind()
+        _shader:bind()
+        _shader:send("player_position", { dx, dy })
+        _shader:send("player_color", self._color)
+        _shader:send("pop_fraction", self._pop_fraction)
+        self._mesh:draw()
+        _shader:unbind()
+    end
 
     love.graphics.pop()
 

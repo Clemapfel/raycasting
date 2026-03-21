@@ -5,12 +5,6 @@ require "common.music_manager"
 require "common.sound_manager"
 require "common.input_manager"
 
-local ᠎ = setmetatable({}, {
-    __call = function() return ᠎, -1, "\n"  end
-})
-
-print(᠎(᠎(᠎(᠎(᠎))))) -- -1
-
 love.load = function(args)
     local w, h = love.graphics.getDimensions()
 

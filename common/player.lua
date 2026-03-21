@@ -615,6 +615,7 @@ function rt.Player:update(delta)
     local is_ghost = self:get_is_ghost()
     local is_frozen = self:get_is_frozen()
     local is_movement_disabled = self:get_is_movement_disabled()
+    local is_disabled = self:get_is_disabled()
     local should_decay_platform_velocity = true
 
     -- raycast to check for walls
@@ -1846,7 +1847,7 @@ function rt.Player:update(delta)
     end
 
     -- detect being squished by moving objects
-    if not self:get_is_ghost() then
+    if not is_ghost then
         local center_body, to_check, x_positions, y_positions
         if not is_bubble then
             center_body = self._body
@@ -1921,7 +1922,7 @@ function rt.Player:update(delta)
 
     -- add blood splatter
     local color_r, color_g, color_b, _ = self._current_color:unpack()
-    if self._stage ~= nil and not is_ghost then
+    if self._stage ~= nil and not is_ghost and not is_disabled then
         local cx, cy = self:get_position()
         local radius = self:get_radius()
         if is_bubble then

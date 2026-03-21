@@ -154,6 +154,7 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
 
     self._velocity_protection_body = b2.Body(world, body_type, centroid_x, centroid_y, protection_shape)
     self._velocity_protection_body:set_is_sensor(true)
+    self._velocity_protection_body:set_is_enabled(false)
 
     -- graphic
 
@@ -533,4 +534,9 @@ function ow.OneWayPlatform:set_velocity(vx, vy)
     ) do
         body:set_velocity(vx, vy)
     end
+end
+
+--- @brief
+function ow.OneWayPlatform:reset()
+    self._velocity_protection_body:set_is_sensor(true)
 end

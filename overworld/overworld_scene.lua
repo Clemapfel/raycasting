@@ -112,7 +112,7 @@ function ow.OverworldScene:instantiate(state)
         _timer = 0,
 
         _fade_to_black = 0,
-        _blur_t = 0,
+        _blur_motion = rt.SmoothedMotion1D(0),
         _blur = nil, -- rt.Blur
         _screenshot = nil,
 
@@ -540,8 +540,11 @@ function ow.OverworldScene:draw()
 
     love.graphics.push("all")
 
+    local blur_eps = 0.02
+    local blur_value = self._blur_motion:get_value()
+
     love.graphics.origin()
-    if self._blur_t == 0 and not (self._show_title_card == true and (self._fade:get_is_active() or self._fade:get_is_visible())) then
+    if blur_value <= blur_eps and not (self._show_title_card == true and (self._fade:get_is_active() or self._fade:get_is_visible())) then
         self._background:draw()
 
         if self._fade_to_black > 0 then
@@ -562,9 +565,9 @@ function ow.OverworldScene:draw()
 
         draw_bloom()
 
-    elseif self._blur_t > 0 then -- respawning
+    elseif blur_value > blur_eps then -- respawning
         if self._blur ~= nil then
-            self._blur:set_blur_strength(self._blur_t * rt.settings.overworld_scene.max_blur_strength)
+            self._blur:set_blur_strength(blur_value * rt.settings.overworld_scene.max_blur_strength)
             self._blur:bind()
             love.graphics.clear(0, 0, 0, 0)
 
@@ -578,8 +581,8 @@ function ow.OverworldScene:draw()
 
             self._blur:unbind()
 
-            local t = 1 - math.mix(0, rt.settings.overworld_scene.max_blur_darkening, self._blur_t)
-            love.graphics.setColor(t, t, t, 1)
+            local t = 1 - math.mix(0, rt.settings.overworld_scene.max_blur_darkening, self._blur_motion:get_value())
+            love.graphics.setColor(t, t, t, t)
             self._blur:draw()
 
             if self._player_is_visible then
@@ -765,6 +768,8 @@ function ow.OverworldScene:update(delta)
         self._stage:update(delta)
         return
     end
+
+    self._blur_motion:update(delta)
 
     if self._timer_started == true and self._timer_paused ~= true and self._timer_stopped ~= true then
         self._timer = self._timer + delta
@@ -1045,7 +1050,7 @@ end
 
 --- @brief
 function ow.OverworldScene:set_blur(t)
-    self._blur_t = t
+    self._blur_motion:set_value(t)
 end
 
 --- @brief

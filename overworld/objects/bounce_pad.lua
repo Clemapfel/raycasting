@@ -93,7 +93,7 @@ function ow.BouncePad:instantiate(object, stage, scene)
     self._rotation_origin_y = object.rotation_origin_y
 
     -- collision
-    self._body:add_tag("slippery", "no_blood", "unjumpable", "stencil", "point_light_source", "segment_light_source")
+    self._body:add_tag("slippery", "no_blood", "unjumpable", "stencil")
     self._body:set_user_data(self)
 
     local bounce_group = rt.settings.player.bounce_collision_group
@@ -161,15 +161,22 @@ function ow.BouncePad:instantiate(object, stage, scene)
     end
     rt.contour.close(self._contour)
 
+    -- lights
+    self._body:add_tag("point_light_source", "segment_light_source")
+    self._body:set_user_data(self)
+
     self._segment_lights = {}
-    for i = 1, #contour, 2 do
-        local x1, y1 = contour[i+0], contour[i+1]
-        local x2, y2 = contour[math.wrap(i+2, #contour)], contour[math.wrap(i+3, #contour)]
-        table.insert(self._segment_lights, {
-            x1 - center_x,
-            y1 - center_y,
-            x2 - center_x,
-            y2 - center_y
+    self._point_lights = {}
+    if object:get_type() == ow.ObjectType.POLYGON then
+        for i = 1, #self._contour - 2, 2 do
+            local x1, y1 = self._contour[i+0], self._contour[i+1]
+            local x2, y2 = self._contour[math.wrap(i+2, #self._contour)], self._contour[math.wrap(i+3, #self._contour)]
+            table.insert(self._segment_lights, { x1, y1, x2, y2 })
+        end
+    elseif object:get_type() == ow.ObjectType.ELLIPSE then
+        table.insert(self._point_lights, {
+            object.center_x, object.center_y,
+            math.max(object.x_radius, object.y_radius)
         })
     end
 
@@ -573,9 +580,12 @@ function ow.BouncePad:_draw_particles()
     end
 end
 
+local _signal_eps = 0.02
+
 --- @brief
 function ow.BouncePad:collect_point_lights(callback)
-    if true then return end
+    if self._signal < _signal_eps then return end
+
     for batch in values(self._batches) do
         local data = batch.particle_data
         for particle_i = 1, batch.n_particles do
@@ -595,20 +605,20 @@ end
 
 --- @brief
 function ow.BouncePad:collect_segment_lights(callback)
-    if self._signal > 0.01 then
-        local bx, by = self._body:get_position()
-        local offset_x, offset_y = bx + self._draw_offset_x, by + self._draw_offset_y
+    if self._signal < _signal_eps then return end
 
-        local r, g, b, a = table.unpack(self._draw_inner_color)
-        for segment in values(self._segment_lights) do
-            local x1, y1, x2, y2 = table.unpack(segment)
-            callback(
-                x1 + offset_x,
-                y1 + offset_y,
-                x2 + offset_x,
-                y2 + offset_y,
-                r, g, b, self._signal
-            )
-        end
+    local bx, by = self._body:get_position()
+    local offset_x, offset_y = bx + self._draw_offset_x, by + self._draw_offset_y
+
+    local r, g, b, a = table.unpack(self._draw_inner_color)
+    for segment in values(self._segment_lights) do
+        local x1, y1, x2, y2 = table.unpack(segment)
+        callback(
+            x1 + offset_x,
+            y1 + offset_y,
+            x2 + offset_x,
+            y2 + offset_y,
+            r, g, b, self._signal
+        )
     end
 end

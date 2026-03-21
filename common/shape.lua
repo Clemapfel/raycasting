@@ -1,4 +1,5 @@
 require "common.color"
+require "common.color"
 
 local _unpack = table.unpack
 local _lg = love.graphics

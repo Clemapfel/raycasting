@@ -6,7 +6,7 @@ require "common.blur"
 require "common.interpolation_functions"
 require "common.smoothed_motion_1d"
 require "common.render_texture"
-require "common.render_texture_3d"
+require "common.projection_3d"
 
 rt.settings.overworld.player_recorder_eyes = {
     canvas_scale = 1.5,

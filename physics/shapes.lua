@@ -21,11 +21,14 @@ end)
 --- @brief
 function b2.Rectangle:draw(mask_only)
     local x, y, w, h = self._x, self._y, self._width, self._height
-    local r, g, b, a = love.graphics.getColor()
-    love.graphics.setColor(r, g, b, _fill_a * a)
-    love.graphics.rectangle("fill", x, y, w, h)
 
-    if mask_only ~= true then
+    if mask_only == true then
+        love.graphics.rectangle("fill", x, y, w, h)
+    else
+        local r, g, b, a = love.graphics.getColor()
+        love.graphics.setColor(r, g, b, _fill_a * a)
+        love.graphics.rectangle("fill", x, y, w, h)
+
         love.graphics.setColor(r, g, b, _line_a * a)
         love.graphics.rectangle("line", x, y, w, h)
     end
@@ -70,11 +73,14 @@ end
 --- @brief
 function b2.Circle:draw(mask_only)
     local x, y, radius = self._x, self._y, self._radius
-    local r, g, b, a = love.graphics.getColor()
-    love.graphics.setColor(r, g, b, _fill_a * a)
-    love.graphics.circle("fill", x, y, radius)
 
-    if mask_only ~= true then
+    if mask_only == true then
+        love.graphics.circle("fill", x, y, radius)
+    else
+        local r, g, b, a = love.graphics.getColor()
+        love.graphics.setColor(r, g, b, _fill_a * a)
+        love.graphics.circle("fill", x, y, radius)
+
         love.graphics.setColor(r, g, b, _line_a * a)
         love.graphics.circle("line", x, y, radius)
     end
@@ -106,11 +112,13 @@ end)
 --- @brief
 function b2.Polygon:draw(mask_only)
     local vertices = self._vertices
-    local r, g, b, a = love.graphics.getColor()
-    love.graphics.setColor(r, g, b, _fill_a * a)
-    love.graphics.polygon("fill", vertices)
+    if mask_only == true then
+        love.graphics.polygon("fill", vertices)
+    else
+        local r, g, b, a = love.graphics.getColor()
+        love.graphics.setColor(r, g, b, _fill_a * a)
+        love.graphics.polygon("fill", vertices)
 
-    if mask_only ~= true then
         love.graphics.setColor(r, g, b, _line_a * a)
         love.graphics.polygon("line", vertices)
     end

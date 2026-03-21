@@ -55,7 +55,7 @@ function rt.Blur:bind()
     end
     love.graphics.push("all")
     self._is_bound = true
-    love.graphics.setCanvas({ self._texture_a, stencil = true })
+    love.graphics.setCanvas({ self._texture_a, stencil = true, depth = true })
     self._blur_applied = false
 end
 

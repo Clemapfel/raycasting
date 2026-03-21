@@ -656,7 +656,7 @@ function ow.Checkpoint:collect_point_lights(callback)
         callback(
             self._explosion_x,
             self._explosion_y,
-            math.max(self._explosion_size[1], self._explosion_size[2]),
+            rt.settings.player.radius * rt.settings.player.bubble_radius_factor,
             table.unpack(self._color)
         )
     end

@@ -106,7 +106,7 @@ function debugger.push(id)
     _active_timings[id] = love.timer.getTime()
 end
 
-function debugger.pop(id)
+function debugger.pop(id, show_instant_time)
     meta.assert(id, "String")
 
     local start_time = _active_timings[id]
@@ -141,6 +141,8 @@ function debugger.pop(id)
         end
         entry.max = new_max
     end
+
+    println("| ", id, " | ", elapsed, " |")
 end
 
 --- @brief

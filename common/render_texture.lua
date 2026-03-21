@@ -56,13 +56,13 @@ function rt.RenderTexture:bind()
     love.graphics.push("all")
     self._before = love.graphics.getCanvas()
     if self._before == self._native then self._before = nil end
-    love.graphics.setCanvas({ self._native, stencil = true })
+    love.graphics.setCanvas({ self._native, stencil = true, depth = true })
 end
 
 --- @brief unbind texture
 function rt.RenderTexture:unbind()
     if self._before ~= nil then
-        love.graphics.setCanvas({ self._before, stencil = true })
+        love.graphics.setCanvas({ self._before, stencil = true, depth = true })
     else
         love.graphics.setCanvas(nil)
     end

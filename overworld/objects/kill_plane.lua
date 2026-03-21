@@ -46,17 +46,16 @@ function ow.KillPlane:instantiate(object, stage, scene)
     )
     self._body:set_collides_with(group)
 
-    self._body:add_tag("segment_light_source")
-    self._body:set_user_data(self)
-
     self._should_explode = object:get_boolean("should_explode", false)
     if self._should_explode == nil then self._should_explode = true end
 
     self._is_blocked = false
     self._body:signal_connect("collision_start", function(_, other_body)
         if other_body:has_tag("player") then
-            if self._is_blocked == true then return end
-            self._scene:get_player():kill(self._should_explode)
+            local player = self._scene:get_player()
+            if self._is_blocked == true or player:get_is_disabled() then return end
+
+            player:kill(self._should_explode)
             self._is_blocked = true
             self._stage:get_physics_world():signal_connect("step", function()
                 self._is_blocked = false
@@ -72,11 +71,23 @@ function ow.KillPlane:instantiate(object, stage, scene)
 
     self._contour = rt.contour.close(object:create_contour())
 
+    -- lights
+    self._body:add_tag("point_light_source", "segment_light_source")
+    self._body:set_user_data(self)
+
     self._segment_lights = {}
-    for i = 1, #self._contour - 2, 2 do
-        local x1, y1 = self._contour[i+0], self._contour[i+1]
-        local x2, y2 = self._contour[math.wrap(i+2, #self._contour)], self._contour[math.wrap(i+3, #self._contour)]
-        table.insert(self._segment_lights, { x1, y1, x2, y2 })
+    self._point_lights = {}
+    if object:get_type() == ow.ObjectType.POLYGON then
+        for i = 1, #self._contour - 2, 2 do
+            local x1, y1 = self._contour[i+0], self._contour[i+1]
+            local x2, y2 = self._contour[math.wrap(i+2, #self._contour)], self._contour[math.wrap(i+3, #self._contour)]
+            table.insert(self._segment_lights, { x1, y1, x2, y2 })
+        end
+    elseif object:get_type() == ow.ObjectType.ELLIPSE then
+        table.insert(self._point_lights, {
+            object.center_x, object.center_y,
+            math.max(object.x_radius, object.y_radius)
+        })
     end
 
     self._centroid_x, self._centroid_y = object:get_centroid()
@@ -270,7 +281,6 @@ function ow.KillPlane:update(delta)
             local player_angle = math.angle(dx, dy) + 0.5 * math.pi
             local t = math.min(1, math.distance(x_world, y_world, px, py) / range)
 
-            -- Calculate player-facing orientation
             local player_qx, player_qy, player_qz, player_qw = math.quaternion.from_axis_angle(
                 0, 0, 1,
                 player_angle
@@ -344,6 +354,7 @@ function ow.KillPlane:collect_segment_lights(callback)
     local offset_x, offset_y = self._body:get_position()
     offset_x, offset_y = offset_x - self._centroid_x, offset_y - self._centroid_y
 
+    local r, g, b, a = rt.Palette.KILL_PLANE:unpack()
     for segment in values(self._segment_lights) do
         local x1, y1, x2, y2 = table.unpack(segment)
         callback(
@@ -351,7 +362,24 @@ function ow.KillPlane:collect_segment_lights(callback)
             y1 + offset_y,
             x2 + offset_x,
             y2 + offset_y,
-            rt.Palette.KILL_PLANE:unpack()
+            r, g, b, a
+        )
+    end
+end
+
+--- @brief
+function ow.KillPlane:collect_point_lights(callback)
+    local offset_x, offset_y = self._body:get_position()
+    offset_x, offset_y = offset_x - self._centroid_x, offset_y - self._centroid_y
+
+    local r, g, b, a = rt.Palette.KILL_PLANE:unpack()
+    for point in values(self._point_lights) do
+        local x, y, radius = table.unpack(point)
+        callback(
+            x + offset_x,
+            y + offset_y,
+            radius,
+            r, g, b, a
         )
     end
 end

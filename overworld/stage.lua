@@ -420,6 +420,8 @@ function ow.Stage:draw_above_player()
 
         ow.Sprite.draw_all(entry.priority)
     end
+
+    --rt.SceneManager:get_light_map():draw()
 end
 
 --- @brief
@@ -447,15 +449,33 @@ function ow.Stage:update(delta)
         local padding = rt.settings.overworld.stage.visible_area_padding
 
         self._visible_bodies = {}
+        local light_mask_bodies = {}
 
         for body in values(self._world:query_aabb(
             bounds.x - padding, bounds.y - padding,
             bounds.width + 2 * padding, bounds.height + 2 * padding
         )) do
             self._visible_bodies[body] = true
+            if body:has_tag("use_lighting") then
+                table.insert(light_mask_bodies, body)
+            end
         end
 
-        rt.SceneManager:get_light_map():update(self)
+        local light_map = rt.SceneManager:get_light_map()
+
+        love.graphics.push("all")
+        love.graphics.reset()
+        light_map:bind_mask()
+        love.graphics.setColor(1, 1, 1, 1)
+        self._scene:get_camera():bind()
+        for body in values(light_mask_bodies) do
+            body:draw(true) -- mask only
+        end
+        self._scene:get_camera():unbind()
+        light_map:unbind_mask()
+        love.graphics.pop()
+
+        light_map:update(self)
     end
 
     for object in values(self._to_update) do

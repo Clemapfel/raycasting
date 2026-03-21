@@ -1,5 +1,5 @@
 require "common.mesh"
-require "common.render_texture_3d"
+require "common.projection_3d"
 require "common.transform"
 require "common.path_3d"
 

@@ -33,6 +33,7 @@ function ow.Wall:instantiate(object, stage, scene)
     self._body = object:create_physics_body(stage:get_physics_world())
     self._body:set_collision_group(0x0)
     self._body:set_collides_with(0x0)
+    self._body:add_tag("use_lighting")
 
     self._opacity = object:get_number("opacity") or rt.Palette.WALL.a
 

@@ -30,7 +30,7 @@ vec4 position(mat4 transform_projection, vec4 vertex_position)
     vec3 dxyz = vertex_position.xyz;
 
     dxyz *= scale;
-    
+
     #if BLOOM != 1
     dxyz = rotate(dxyz, rotation);
     #endif
@@ -55,11 +55,11 @@ float gaussian(float x, float ramp)
 varying vec3 world_position;
 varying vec4 vertex_color;
 
-uniform vec3 light_direction = vec3(0.2, -1.0, 0.0);
-uniform float ambient_strength = 0.35;
-uniform float shadow_falloff = 1;
+const vec3 light_direction = vec3(0.2, -1.0, 0.0);
+const float ambient_strength = 0.35;
+const float shadow_falloff = 1;
 
-uniform float intensity;
+uniform float intensity = 1;
 
 vec4 effect(vec4 color, sampler2D tex, vec2 texture_coords, vec2 screen_coords) {
 
@@ -68,8 +68,8 @@ vec4 effect(vec4 color, sampler2D tex, vec2 texture_coords, vec2 screen_coords) 
         return result;
     #else
         float edge = gaussian(length(texture_coords), 2.5);
-        float edge_threshold = 0.5;
-        float edge_eps = 0.2;
+        const float edge_threshold = 0.5;
+        const float edge_eps = 0.2;
         edge = smoothstep(edge_threshold - edge_eps, edge_threshold + edge_eps, edge);
 
         vec3 normal = normalize(cross(dFdx(world_position), dFdy(world_position)));

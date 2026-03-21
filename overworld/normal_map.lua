@@ -10,7 +10,7 @@ rt.settings.overworld.normal_map = {
 
     mask_sticky = true,
     mask_slippery = true,
-    max_distance = 16, -- < 256
+    max_distance = 32, -- < 256
 
     shadow_strength = 0.15,
 
@@ -22,7 +22,7 @@ rt.settings.overworld.normal_map = {
 ow.NormalMap = meta.class("NormalMap")
 meta.add_signal(ow.NormalMap, "done")
 
-local _is_disabled = true -- TODO
+local _is_disabled = false -- TODO
 
 local _mask_texture_format = rt.TextureFormat.R8  -- used to store alpha of walls
 local _jfa_texture_format = rt.TextureFormat.RGBA32F -- used during JFA

@@ -254,11 +254,6 @@ function b2.Body:draw(mask_only)
     love.graphics.translate(self:get_position())
     love.graphics.rotate(self._native:getAngle())
 
-    local r, g, b, a = love.graphics.getColor()
-    if mask_only then
-        love.graphics.setColor(1, 1, 1, 1)
-    end
-
     for shape in values(self._native:getShapes()) do
         local userdata = shape:getUserData()
         if userdata ~= nil then
@@ -266,7 +261,6 @@ function b2.Body:draw(mask_only)
         end
     end
 
-    love.graphics.setColor(r, g, b, a)
     love.graphics.pop()
 end
 

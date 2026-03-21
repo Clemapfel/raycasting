@@ -38,8 +38,7 @@ vec2 closest_point_on_disk(vec2 xy, vec2 circle_xy, float radius) {
     if (length_squared <= radius_squared) // inside disk
         return xy;
 
-    const float eps = 1e-7;
-    return circle_xy + difference * (radius * inversesqrt(max(length_squared, eps)));
+    return circle_xy + difference * (radius * inversesqrt(length_squared));
 }
 
 // ### SEGMENT LIGHTS ###
@@ -81,6 +80,8 @@ layout(std430) readonly buffer tile_data_buffer {
 };
 
 const int TILE_DATA_STRIDE = 1 + MAX_N_POINT_LIGHTS + 1 + MAX_N_SEGMENT_LIGHTS;
+const int SEGMENT_LIGHT_COUNT_OFFSET = 1 + MAX_N_POINT_LIGHTS;
+const int SEGMENT_LIGHT_BASE_OFFSET  = 2 + MAX_N_POINT_LIGHTS;
 
 int xy_to_tile_data_offset(ivec2 xy, ivec2 screen_size) {
     int tile_x = xy.x / TILE_SIZE;
@@ -102,11 +103,11 @@ int get_point_light_index(int tile_offset, int i) {
 }
 
 int get_n_segment_lights(int tile_offset) {
-    return tile_data_inline[tile_offset + 1 + MAX_N_POINT_LIGHTS];
+    return tile_data_inline[tile_offset + SEGMENT_LIGHT_COUNT_OFFSET];
 }
 
 int get_segment_light_index(int tile_offset, int i) {
-    return tile_data_inline[tile_offset + 2 + MAX_N_POINT_LIGHTS + i];
+    return tile_data_inline[tile_offset + SEGMENT_LIGHT_BASE_OFFSET + i];
 }
 
 /// ### LIGHT COMPUTATION ###
@@ -119,27 +120,38 @@ int get_segment_light_index(int tile_offset, int i) {
 #error "LIGHT_DIRECTION_TEXTURE_FORMAT undefined"
 #endif
 
+#ifndef MASK_TEXTURE_FORMAT
+#error "MASK_TEXTURE_FORMAT undefined"
+#endif
+
 layout(LIGHT_INTENSITY_TEXTURE_FORMAT) uniform writeonly image2D light_intensity_texture;
 // rgb: light color, a: intensity
 
 layout(LIGHT_DIRECTION_TEXTURE_FORMAT) uniform writeonly image2D light_direction_texture;
 // rg: light normal
 
+layout(MASK_TEXTURE_FORMAT) uniform readonly image2D mask_texture;
+// r: masked
+
 #ifndef LIGHT_RANGE
 #error "LIGHT_RANGE undefined"
 #endif
 
 // tonemap multiplie
-uniform float intensity = 1;
+#ifndef INTENSITY
+#error "INTENSITY undefined"
+#endif
 
 // slope of 3d light plane for normal computation, in px
-uniform float light_z_height = 256;
+#ifndef LIGHT_Z_HEIGHT
+#error "LIGHT_Z_HEIGHT undefined"
+#endif
 
 // rgb weights for luminance computation
 const vec3 luma_coefficients = vec3(0.2126, 0.7152, 0.0722); // BT.709
 
 float gaussian(float x) {
-    return 1.0 / (1.0 + 0.5 * x * x * x); // gaussian approximation
+    return exp(-(x * x));
 }
 
 vec4 compute_light(vec4 light_color, float distance_squared) {
@@ -153,7 +165,7 @@ vec4 compute_light(vec4 light_color, float distance_squared) {
 }
 
 vec4 tonemap(vec4 color) {
-    vec3 hdr = color.rgb * intensity;
+    vec3 hdr = color.rgb * INTENSITY;
     vec3 mapped = hdr / (hdr + vec3(1.0));
     return vec4(clamp(mapped, 0.0, 1.0), color.a);
 }
@@ -179,6 +191,11 @@ void computemain() {
 
     if (any(greaterThanEqual(position, image_size))) return;
 
+    if (imageLoad(mask_texture, position).r == 0) {
+        imageStore(light_intensity_texture, position, vec4(0));
+        return;
+    }
+
     int tile_offset = xy_to_tile_data_offset(position, image_size);
     int n_point_lights = get_n_point_lights(tile_offset);
     int n_segment_lights = get_n_segment_lights(tile_offset);
@@ -193,25 +210,20 @@ void computemain() {
     vec2 light_direction = vec2(0.0);
     float light_direction_weight = 0.0;
 
-    float inv_height = 1.0 / light_z_height;
+    const float inv_height = 1.0 / LIGHT_Z_HEIGHT;
 
     // accumulate point lights
     for (int i = 0; i < n_point_lights; ++i) {
-        int point_light_index = get_point_light_index(tile_offset, i);
-        PointLight light = point_light_sources[point_light_index];
+        PointLight light = point_light_sources[get_point_light_index(tile_offset, i)];
 
-        vec2 to_center = light.position - vec2(position);
-        float dist_squared = dot(to_center, to_center);
+        vec2 closest = closest_point_on_disk(vec2(position), light.position, light.radius);
+        vec2 direction = closest - vec2(position);
+        float dist_squared = dot(direction, direction);
 
-        // accumulate color
-        vec4 light_contrib = compute_light(light.color, dist_squared);
-        point_color += light_contrib;
+        vec4 light_contribution = compute_light(light.color, dist_squared);
+        point_color += light_contribution;
 
-        // accumulate direction
-        vec2 closest_xy = closest_point_on_disk(vec2(position), light.position, light.radius);
-        vec2 direction = closest_xy - vec2(position);
-
-        float luminance = dot(light_contrib.rgb, luma_coefficients);
+        float luminance = dot(light_contribution.rgb, luma_coefficients);
         light_direction += luminance * (direction * inv_height);
         light_direction_weight += luminance;
     }

@@ -445,7 +445,9 @@ function rt.SceneManager:_draw_performance_metrics()
     local fps_max = 1 / self._frame_max
 
     local stats = love.graphics.getStats()
-    local n_draws = stats.drawcalls
+    local n_draws = tostring(stats.drawcalls)
+    while #n_draws < 3 do n_draws = "0" .. n_draws end
+
     local gpu_side_memory = math.ceil(stats.texturememory / 1024 / 1024) -- in mb
 
     local format = function(value)
@@ -500,6 +502,7 @@ function rt.SceneManager:_reallocate_light_map()
         self._width,
         self._height
     )
+    dbg(self._width, self._height)
 end
 
 --- @brief

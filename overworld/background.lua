@@ -1,6 +1,6 @@
 require "common.quaternion"
 require "common.widget"
-require "common.render_texture_3d"
+require "common.projection_3d"
 require "overworld.clouds"
 
 rt.settings.overworld.background = {
@@ -80,9 +80,8 @@ function ow.Background:realize()
     self._room_mesh = nil -- rt.Mesh
     self._front_wall_mesh = nil -- rt.Mesh
     self._clouds = nil -- rt.Clouds
-
-    self._canvas = nil -- rt.RenderTexture3D
-    self._canvas_needs_update = true
+    
+    self._projection = rt.Projection3D()
 
     self._view_transform = rt.Transform()
     self._view_transform:look_at(
@@ -102,8 +101,8 @@ end
 function ow.Background:size_allocate(x, y, width, height)
     self._bounds = rt.AABB(x, y, width, height)
 
-    self._canvas = rt.RenderTexture3D(width, height, rt.graphics.msaa_quality_to_native(rt.GameState:get_msaa_quality()))
-    self._canvas:set_fov(rt.settings.overworld.background.fov)
+    self._projection = rt.Projection3D()
+    self._projection:set_fov(rt.settings.overworld.background.fov)
 
     self._particles = {}
     rt.random.push(1234)
@@ -347,77 +346,70 @@ function ow.Background:size_allocate(x, y, width, height)
 end
 
 --- @brief
-function ow.Background:draw()
-    if self._canvas_needs_update == true then
-        love.graphics.push("all")
+function ow.Background:_draw()
+    love.graphics.clear(rt.Palette.BLACK:unpack())
+    local intensity = rt.settings.overworld.background.intensity
+    love.graphics.setColor(intensity, intensity, intensity, 1)
 
-        self._canvas:bind()
-        love.graphics.clear(rt.Palette.BLACK:unpack())
-        local intensity = rt.settings.overworld.background.intensity
-        love.graphics.setColor(intensity, intensity, intensity, 1)
+    local scale = self:_get_scale_factor()
 
-        local scale = self:_get_scale_factor()
+    local particle_transform = self._view_transform:clone()
+    particle_transform:scale(scale, scale, 1)
+    particle_transform:apply(self._scale_transform)
+    particle_transform:translate(0, 0, rt.settings.overworld.background.z_zoom)
+    particle_transform:apply(self._offset_transform)
+    self._projection:set_view_transform(particle_transform)
 
-        local particle_transform = self._view_transform:clone()
-        particle_transform:scale(scale, scale, 1)
-        particle_transform:apply(self._scale_transform)
-        particle_transform:translate(0, 0, rt.settings.overworld.background.z_zoom)
-        particle_transform:apply(self._offset_transform)
-        self._canvas:set_view_transform(particle_transform)
+    love.graphics.setDepthMode("less", true) -- write
 
-        love.graphics.setDepthMode("less", true) -- write
-
-        _particle_shader_no_bloom:bind()
-        _particle_shader_no_bloom:send("intensity", rt.settings.overworld.background.no_bloom_particle_intensity)
-        for entry in values(self._particles) do
-            if entry.is_bloom == false then
-                entry.instance_mesh:draw_instanced(entry.n_particles)
-            end
+    _particle_shader_no_bloom:bind()
+    _particle_shader_no_bloom:send("intensity", rt.settings.overworld.background.no_bloom_particle_intensity)
+    for entry in values(self._particles) do
+        if entry.is_bloom == false then
+            entry.instance_mesh:draw_instanced(entry.n_particles)
         end
-        _particle_shader_no_bloom:unbind()
-
-        love.graphics.setDepthMode("less", false) -- do not write
-        local clouds_transform = self._view_transform:clone()
-        clouds_transform:scale(scale, scale, 1)
-        clouds_transform:apply(self._scale_transform)
-        clouds_transform:translate(
-            self._clouds_offset_x,
-            self._clouds_offset_y,
-            rt.settings.overworld.background.z_zoom
-        )
-
-        self._canvas:set_view_transform(clouds_transform)
-        self._clouds:set_hue(rt.SceneManager:get_elapsed() / 100)
-        self._clouds:draw()
-
-        love.graphics.setDepthMode("less", false)
-        love.graphics.setBlendMode("add", "premultiplied")
-
-        self._canvas:set_view_transform(particle_transform)
-
-        _particle_shader_bloom:bind()
-        _particle_shader_bloom:send("intensity", rt.settings.overworld.background.bloom_particle_intensity)
-        for entry in values(self._particles) do
-            if entry.is_bloom == true then
-                entry.instance_mesh:draw_instanced(entry.n_particles)
-            end
-        end
-        _particle_shader_bloom:unbind()
-
-        self._canvas:unbind()
-        self._canvas_needs_update = false
-
-        love.graphics.pop()
     end
+    _particle_shader_no_bloom:unbind()
 
-    love.graphics.push()
-    love.graphics.origin()
-    self._canvas:draw()
-    love.graphics.pop()
+    love.graphics.setDepthMode("less", false) -- do not write
+    local clouds_transform = self._view_transform:clone()
+    clouds_transform:scale(scale, scale, 1)
+    clouds_transform:apply(self._scale_transform)
+    clouds_transform:translate(
+        self._clouds_offset_x,
+        self._clouds_offset_y,
+        rt.settings.overworld.background.z_zoom
+    )
+
+    self._projection:set_view_transform(clouds_transform)
+    self._clouds:set_hue(rt.SceneManager:get_elapsed() / 100)
+    self._clouds:draw()
+
+    love.graphics.setDepthMode("less", false)
+    love.graphics.setBlendMode("add", "premultiplied")
+
+    self._projection:set_view_transform(particle_transform)
+
+    _particle_shader_bloom:bind()
+    _particle_shader_bloom:send("intensity", rt.settings.overworld.background.bloom_particle_intensity)
+    for entry in values(self._particles) do
+        if entry.is_bloom == true then
+            entry.instance_mesh:draw_instanced(entry.n_particles)
+        end
+    end
+    _particle_shader_bloom:unbind()
 end
 
+--- @brief
+function ow.Background:draw()
+    self._projection:bind()
+    self:_draw()
+    self._projection:unbind()
+end
+
+--- @brief
 function ow.Background:draw_bloom()
-    self._canvas:bind()
+    self._projection:bind()
     love.graphics.clear(0, 0, 0, 0)
     love.graphics.setColor(1, 1, 1, 1)
 
@@ -427,7 +419,7 @@ function ow.Background:draw_bloom()
     particle_transform:apply(self._scale_transform)
     particle_transform:translate(0, 0, rt.settings.overworld.background.z_zoom)
     particle_transform:apply(self._offset_transform)
-    self._canvas:set_view_transform(particle_transform)
+    self._projection:set_view_transform(particle_transform)
     _particle_shader_bloom:bind()
     for entry in values(self._particles) do
         if entry.is_bloom == true then
@@ -435,12 +427,7 @@ function ow.Background:draw_bloom()
         end
     end
     _particle_shader_bloom:unbind()
-    self._canvas:unbind()
-
-    love.graphics.push()
-    love.graphics.origin()
-    self._canvas:draw()
-    love.graphics.pop()
+    self._projection:unbind()
 end
 
 function ow.Background:notify_camera_changed(camera)
@@ -452,7 +439,7 @@ function ow.Background:notify_camera_changed(camera)
 
     -- Screen -> world conversion at the stage plane (near plane)
     local aspect = self._bounds.width / self._bounds.height
-    local fov = math.pi * self._canvas:get_fov()
+    local fov = math.pi * self._projection:get_fov()
     local tan_half = math.tan(0.5 * fov)
     local near_z = rt.settings.overworld.background.stage_z_position
 
@@ -478,7 +465,7 @@ end
 --- @return Number, Number, Number, Number, Number, Number min_x, max_x, min_y, max_y, min_z, max_z
 function ow.Background:_get_3d_bounds()
     local aspect = self._bounds.width / self._bounds.height
-    local fov = math.pi * self._canvas:get_fov()
+    local fov = math.pi * self._projection:get_fov()
     local tan_half = math.tan(0.5 * fov)
 
     local settings = rt.settings.overworld.background
@@ -501,7 +488,7 @@ end
 function ow.Background:_get_scale_factor()
     local aspect = self._bounds.width / self._bounds.height
 
-    local fov = math.pi * self._canvas:get_fov()
+    local fov = math.pi * self._projection:get_fov()
     local tan_half = math.tan(0.5 * fov)
 
     local settings = rt.settings.overworld.background
@@ -540,7 +527,7 @@ function ow.Background:update(delta, override)
         return
     end
 
-    self._canvas_needs_update = true
+    self._projection_needs_update = true
 
     local min_x, max_x, min_y, max_y, min_z, max_z = table.unpack(self._room_bounds)
 
