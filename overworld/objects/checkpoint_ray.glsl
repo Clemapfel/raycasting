@@ -112,7 +112,7 @@ vec4 effect(vec4 color, Image image, vec2 texture_coords, vec2 vertex_position) 
 
     vec2 norm = size / max(size.x, size.y);
     const float ball_eps = 0.5;
-    float ball = gaussian(distance(texture_coords * norm, vec2(0.5, fraction - 26 / size.y) * norm), 3);
+    float ball = gaussian(distance(texture_coords * norm, vec2(0.5, fraction - 26 / size.y) * norm), 2);
 
     float ball_attenuation = texture_coords.y > fraction ? gaussian(texture_coords.y - fraction, 10.0) : 1.0;
     ball *= ball_attenuation * (texture_coords.y > 0 ? 1 : 0);

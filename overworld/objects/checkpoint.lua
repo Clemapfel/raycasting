@@ -20,6 +20,20 @@ rt.settings.overworld.checkpoint = {
     n_particles = 40,
 
     max_spawn_duration = 3, -- safety timer
+
+    ray_particles = {
+        min_n_particles = 3,
+        max_n_particles = 12,
+        min_velocity = 8,
+        max_velocity = 10,
+        min_radius = 200,
+        max_radius = 200,
+        min_lifetime = 1,
+        max_lifetime = 1.25,
+
+        min_damping = 0.86,
+        max_damping = 0.9
+    }
 }
 
 --- @class ow.Checkpoint
@@ -40,6 +54,9 @@ end
 
 local _ray_shader = rt.Shader("overworld/objects/checkpoint_ray.glsl")
 local _ray_lch_texture = rt.LCHTexture(1, 1, 256)
+
+local _ray_particle_texture = nil
+local _ray_particle_texture_shader = rt.Shader("overworld/objects/checkpoint_ray_particle.glsl")
 
 local _explosion_shader = rt.Shader("overworld/objects/checkpoint_explosion.glsl")
 local _explosion_lch_texture = rt.LCHTexture(64, 1, 256)
@@ -77,9 +94,9 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
         _ray_fraction = math.huge,
         _ray_area = rt.AABB(),
         _ray_fade_out_start_timestamp = math.huge,
-        _ray_fraction = 0,
         _ray_fade_out_elapsed = math.huge,
         _ray_fade_out_fraction = 0,
+        _ray_particles = {},
 
         _explosion_visible = true,
         _explosion_elapsed = math.huge,
@@ -266,12 +283,159 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
 
         return meta.DISCONNECT_SIGNAL
     end)
+
+    local _update_particle_texture = function()
+        local radius = 50
+        local k = 1 -- droplet fatness
+
+        local data = {}
+
+        -- center vertex (triangle fan)
+        table.insert(data, {0, 0, 0.5, 0.5, 1, 1, 1, 1})
+
+        local n_vertices = 64
+
+        -- track bounds to size texture properly
+        local min_x, max_x = 0, 0
+        local min_y, max_y = 0, 0
+
+        local points = {}
+
+        for i = 1, n_vertices do
+            local t = (i - 1) / (n_vertices - 1) * 2 * math.pi
+
+            local x = radius * math.sin(t)
+            local y = radius * (math.cos(t) - 1) * (1 + k * (1 - math.cos(t)))
+
+            table.insert(points, {x = x, y = y})
+
+            min_x = math.min(min_x, x)
+            max_x = math.max(max_x, x)
+            min_y = math.min(min_y, y)
+            max_y = math.max(max_y, y)
+        end
+
+        -- compute proper texture size with padding
+        local padding = 10
+        local texture_width = (max_x - min_x) + padding * 2
+        local texture_height = (max_y - min_y) + padding * 2
+
+        -- build mesh data with normalized UVs
+        for _, p in ipairs(points) do
+            local x = p.x
+            local y = p.y
+
+            local u = (x - min_x) / (max_x - min_x)
+            local v = (y - min_y) / (max_y - min_y)
+
+            table.insert(data, {x, y, u, v, 1, 1, 1, 1})
+        end
+
+        -- close fan
+        table.insert(data, data[2])
+
+        _ray_particle_texture = rt.RenderTexture(texture_width, texture_height, 8)
+
+        love.graphics.push("all")
+        love.graphics.reset()
+
+        _ray_particle_texture:bind()
+        _ray_particle_texture_shader:bind()
+        love.graphics.rectangle("fill", 0, 0, _ray_particle_texture:get_size())
+        _ray_particle_texture_shader:unbind()
+        _ray_particle_texture:unbind()
+        love.graphics.pop()
+    end
+
+    if _ray_particle_texture == nil then
+        _update_particle_texture()
+    end
+
+
+    DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
+        if which == "k" then
+            self:_spawn_ray_particles(self._bottom_x, self._bottom_y)
+        end
+    end)
 end
 
 --- @brief
 function ow.Checkpoint:_restore_coins()
     for coin_i = 1, self._stage:get_n_coins() do
         self._stage:set_coin_is_collected(coin_i, self._coin_savestate[coin_i] == true)
+    end
+end
+
+--- @brief
+function ow.Checkpoint:_spawn_ray_particles(x, y)
+    local settings = rt.settings.overworld.checkpoint.ray_particles
+
+    settings = debugger.get("settings")
+    local min_angle, max_angle = -math.pi, 0
+    local n_particles = rt.random.integer(settings.min_n_particles, settings.max_n_particles)
+    for i = 1, n_particles do
+        local hue = rt.random.number(0, 1)
+
+        local angle = math.mix(min_angle, max_angle, (i - 1) / (n_particles - 1))
+        angle = angle + rt.random.number(-1, 1) * ((0.5 * math.pi) / n_particles)
+
+        local dx, dy = math.cos(angle), math.sin(angle)
+
+        table.insert(self._ray_particles, {
+            x = x,
+            y = y,
+            radius = rt.random.number(settings.min_radius, settings.max_radius),
+            velocity_x = dx,
+            velocity_y = dy,
+            velocity_magnitude = rt.random.number(settings.min_velocity, settings.max_velocity),
+            angle = math.angle(dx, dy),
+            lifetime_elapsed = 0,
+            lifetime = rt.random.number(settings.min_lifetime, settings.max_lifetime),
+            damping = rt.random.number(settings.min_damping, settings.max_damping),
+            color = { rt.lcha_to_rgba(0.8, 1, hue, 1) }
+        })
+    end
+end
+
+--- @brief
+function ow.Checkpoint:_update_ray_particles(delta)
+    local opacity_easing = rt.InterpolationFunctions.SINUSOID_EASE_OUT
+    local to_remove = {}
+    for i, p in ipairs(self._ray_particles) do
+        p.x = p.x + p.velocity_x * p.velocity_magnitude
+        p.y = p.y + p.velocity_y * p.velocity_magnitude
+
+        p.velocity_magnitude = p.velocity_magnitude * p.damping
+
+        p.lifetime_elapsed = p.lifetime_elapsed + delta
+        p.color[4] = opacity_easing(1 - p.lifetime_elapsed / p.lifetime)
+
+        if p.lifetime_elapsed > p.lifetime then
+            table.insert(to_remove, 1, i)
+        end
+    end
+
+    for i in values(to_remove) do
+        table.remove(self._ray_particles, i)
+    end
+end
+
+--- @brief
+function ow.Checkpoint:_draw_ray_particles()
+    local texture_w, texture_h = _ray_particle_texture:get_size()
+    local texture = _ray_particle_texture:get_native()
+
+    for particle in values(self._ray_particles) do
+        love.graphics.setColor(particle.color)
+        love.graphics.draw(
+            texture,
+            particle.x, particle.y,
+            particle.angle,
+            1, --particle.radius / texture_w,
+            1, --particle.radius / texture_h,
+            0.5 * texture_w,
+            0.5 * texture_h
+        )
     end
 end
 
@@ -389,8 +553,7 @@ function ow.Checkpoint:_set_state(state)
 
         self._top_y = self._y - (screen_h / 2 + 4 * rt.settings.player.radius)
 
-        local ray_top_y =
-        self._ray_area:reformat(
+        local ray_top_y = self._ray_area:reformat(
             self._top_x - 0.5 * ray_w,
             self._top_y,
             ray_w,
@@ -427,6 +590,9 @@ function ow.Checkpoint:update(delta)
         self._particles:set_gravity_factor(1 - player:get_flow()) -- zero gravity at max flow
         self._particles:update(delta)
     end
+
+    self:_update_ray_particles(delta)
+
     if self._state == _STATE_DEFAULT and not self._stage:get_is_body_visible(self._body) then return end
 
     self._color = { player:get_color():unpack() }
@@ -510,6 +676,7 @@ function ow.Checkpoint:update(delta)
 
         if player_y >= threshold or self._spawn_elapsed > rt.settings.overworld.checkpoint.max_spawn_duration then
             self._ray_fade_out_start_timestamp = love.timer.getTime()
+            self:_spawn_ray_particles(self._bottom_x, self._bottom_y)
             self:_set_state(_STATE_DEFAULT)
         end
         self._spawn_elapsed = self._spawn_elapsed + delta
@@ -569,6 +736,8 @@ function ow.Checkpoint:draw(priority)
             self._rope:draw()
         end
     elseif priority == _effect_priority then
+        self:_draw_ray_particles()
+
         -- explosion draw above everything
         if self._state == _STATE_EXPLODING then
             love.graphics.setColor(1, 1, 1, 1)

@@ -38,6 +38,7 @@ end
 --- @param max Number
 --- @return Number
 function rt.random.number(min, max)
+    if min == max then return min end
     return math.mix(min or 0, max or 1, _random()) -- float with no rags
 end
 
@@ -46,13 +47,15 @@ end
 --- @param max Number
 --- @return Number
 function rt.random.integer(min, max)
+    if min == max then return min end
     return _random(min, max) -- already an int
 end
 
 --- @brief
-function rt.random.gaussian(min_value, max_value)
+function rt.random.gaussian(min, max)
+    if min == max then return min end
     local r = _random_normal(0.25, 0.5) -- 95% fall into [0, 1]
-    return math.clamp(math.mix(min_value, max_value, r), min_value, max_value)
+    return math.clamp(math.mix(min, max, r), min, max)
 end
 
 --- @brief pick random element from table

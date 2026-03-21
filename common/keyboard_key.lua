@@ -469,12 +469,7 @@ rt.native_to_keyboard_key = function(native)
         ["kp="] = rt.KeyboardKey.KEYPAD_EQUALS,
     }
 
-    local result = mapping[native]
-    if result == nil then
-        rt.error("In rt.native_to_keyboard_key: unknown native key `", native, "`")
-    end
-
-    return result
+    return mapping[native] or rt.KeyboardKey.UNKNOWN
 end
 
 function rt.keyboard_key_to_string(key)

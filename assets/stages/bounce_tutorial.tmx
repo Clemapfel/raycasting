@@ -551,7 +551,7 @@
   <object id="448" type="OneWayPlatformNode" x="96" y="1376">
    <point/>
   </object>
-  <object id="595" name="Coin" type="Coin" x="4163.68" y="562.456">
+  <object id="595" name="Coin" type="Coin" x="4976" y="-416">
    <point/>
   </object>
  </objectgroup>
