@@ -502,7 +502,6 @@ function rt.SceneManager:_reallocate_light_map()
         self._width,
         self._height
     )
-    dbg(self._width, self._height)
 end
 
 --- @brief

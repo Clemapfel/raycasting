@@ -613,7 +613,7 @@ function ow.Stage:get_coin_is_collected(coin_i)
         return false
     end
 
-    return entry.is_collected or rt.GameState:get_stage_is_coin_collected(self._id, coin_i)
+    return entry.is_collected
 end
 
 --- @brief

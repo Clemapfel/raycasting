@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 590,
+  nextobjectid = 596,
   properties = {},
   tilesets = {
     {
@@ -221,7 +221,7 @@ return {
       id = 7,
       name = "back",
       class = "",
-      visible = false,
+      visible = true,
       opacity = 1,
       offsetx = 0,
       offsety = 0,
@@ -419,21 +419,25 @@ return {
           properties = {}
         },
         {
-          id = 575,
+          id = 593,
           name = "",
           type = "Wall",
           shape = "polygon",
-          x = 3248,
-          y = 656,
+          x = 3648,
+          y = 400,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
           polygon = {
-            { x = -1264, y = 32 },
-            { x = -1264, y = -544 },
-            { x = 288, y = -544 },
-            { x = 288, y = 16 }
+            { x = -448, y = -16 },
+            { x = -448, y = 288 },
+            { x = 1552, y = 288 },
+            { x = 1552, y = -688 },
+            { x = 1792, y = -688 },
+            { x = 1792, y = -848 },
+            { x = 1296, y = -848 },
+            { x = 1296, y = -16 }
           },
           properties = {}
         }
@@ -2368,8 +2372,8 @@ return {
             { x = 352, y = 0 },
             { x = 352, y = -80 },
             { x = 1664, y = -80 },
-            { x = 1664, y = -240 },
-            { x = 1648, y = -240 },
+            { x = 1664, y = -208 },
+            { x = 1648, y = -208 },
             { x = 1648, y = -96 },
             { x = 336, y = -96 },
             { x = 334.607, y = -16 },
@@ -2407,8 +2411,8 @@ return {
             { x = 1984, y = -448 },
             { x = 2000, y = -448 },
             { x = 2000, y = -624 },
-            { x = 2000, y = -896 },
-            { x = 2240, y = -896 },
+            { x = 2000, y = -960 },
+            { x = 2240, y = -960 },
             { x = 2240, y = 0 },
             { x = 2240, y = 208 },
             { x = 0, y = 208 }
@@ -2611,14 +2615,16 @@ return {
             { x = -32, y = -80 },
             { x = -32, y = -192 },
             { x = -16, y = -208 },
-            { x = -16, y = -624 },
-            { x = 240, y = -624 },
-            { x = 240, y = -608 },
-            { x = 0, y = -608 }
+            { x = -16, y = -332.346 },
+            { x = -32, y = -352 },
+            { x = -32, y = -464 },
+            { x = -16, y = -480 },
+            { x = -16, y = -576 },
+            { x = 240, y = -576 },
+            { x = 240, y = -560 },
+            { x = 0, y = -560 }
           },
-          properties = {
-            ["unwalkable"] = false
-          }
+          properties = {}
         },
         {
           id = 579,
@@ -2632,10 +2638,10 @@ return {
           rotation = 0,
           visible = true,
           polygon = {
-            { x = 32, y = -96 },
-            { x = 16, y = -96 },
-            { x = 16, y = -304 },
-            { x = 32, y = -304 }
+            { x = 32, y = -64 },
+            { x = 16, y = -64 },
+            { x = 16, y = -208 },
+            { x = 32, y = -208 }
           },
           properties = {}
         },
@@ -2655,58 +2661,41 @@ return {
           }
         },
         {
-          id = 582,
-          name = "",
-          type = "SlipperyHitbox",
-          shape = "polygon",
-          x = 4736,
-          y = 112,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 32, y = -96 },
-            { x = 16, y = -48 },
-            { x = 64, y = -368 },
-            { x = 80, y = -352 }
-          },
-          properties = {}
-        },
-        {
           id = 585,
           name = "",
           type = "SlipperyHitbox",
           shape = "polygon",
           x = 4944,
-          y = 80,
+          y = 144,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
           polygon = {
-            { x = 0, y = -48 },
-            { x = 16, y = -48 },
-            { x = 16, y = -64 },
-            { x = 32, y = -80 },
-            { x = 32, y = -208 },
-            { x = 16, y = -224 },
-            { x = 16, y = -496 },
-            { x = 0, y = -496 }
+            { x = 0, y = -16 },
+            { x = 16, y = -16 },
+            { x = 16, y = -96 },
+            { x = 32, y = -112 },
+            { x = 32, y = -224 },
+            { x = 16, y = -240 },
+            { x = 16, y = -576 },
+            { x = 496, y = -576 },
+            { x = 496, y = -592 },
+            { x = 0, y = -592 }
           },
           properties = {
             ["unwalkable"] = false
           }
         },
         {
-          id = 587,
+          id = 590,
           name = "",
           type = "BouncePad",
           shape = "ellipse",
-          x = 4912,
-          y = -128,
-          width = 128,
-          height = 128,
+          x = 4928,
+          y = -80,
+          width = 112,
+          height = 112,
           rotation = 0,
           visible = true,
           properties = {
@@ -2714,17 +2703,49 @@ return {
           }
         },
         {
-          id = 588,
+          id = 591,
           name = "",
-          type = "Bubble",
+          type = "BouncePad",
           shape = "ellipse",
-          x = 5088,
-          y = -272,
-          width = 48,
-          height = 48,
+          x = 5104,
+          y = -192,
+          width = 112,
+          height = 112,
           rotation = 0,
           visible = true,
-          properties = {}
+          properties = {
+            ["render_priority"] = -1
+          }
+        },
+        {
+          id = 592,
+          name = "",
+          type = "Fireflies",
+          shape = "point",
+          x = 4976,
+          y = 208,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["count"] = 3
+          }
+        },
+        {
+          id = 594,
+          name = "",
+          type = "Fireflies",
+          shape = "point",
+          x = 5168,
+          y = 336,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["count"] = 4
+          }
         }
       }
     },
@@ -2850,6 +2871,19 @@ return {
           shape = "point",
           x = 96,
           y = 1376,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 595,
+          name = "Coin",
+          type = "Coin",
+          shape = "point",
+          x = 4163.68,
+          y = 562.456,
           width = 0,
           height = 0,
           rotation = 0,

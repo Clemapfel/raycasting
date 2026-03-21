@@ -14,7 +14,7 @@ rt.settings.overworld.coin = {
     amplitude_noise_frequency = 1,
     amplitude_max_offset = 0.3, -- 1 +/- fraction
     follow_offset = 40, -- px
-    already_collected_opacity = 0.2
+    already_collected_opacity = 0.5
 }
 
 --- @class ow.Coin
