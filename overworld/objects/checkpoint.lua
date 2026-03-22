@@ -22,17 +22,25 @@ rt.settings.overworld.checkpoint = {
     max_spawn_duration = 3, -- safety timer
 
     ray_particles = {
-        min_n_particles = 3,
-        max_n_particles = 12,
-        min_velocity = 8,
-        max_velocity = 10,
-        min_radius = 200,
-        max_radius = 200,
-        min_lifetime = 1,
-        max_lifetime = 1.25,
+        min_velocity = 100,
+        max_velocity = 300,
 
-        min_damping = 0.86,
-        max_damping = 0.9
+        min_radius = 2,
+        max_radius = 4,
+
+        min_lifetime = 0.5,
+        max_lifetime = 0.75,
+
+        min_damping = 0.5,
+        max_damping = 0.7,
+
+        min_n_particles = 4,
+        max_n_particles = 13,
+
+        min_angle = -math.pi,
+        max_angle = 0,
+
+        gravity = 0
     }
 }
 
@@ -125,7 +133,7 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
         _use_spawn_barrier = false,
 
         -- only for midway
-        _particles = nil, -- ow.CheckpointParticles
+        _particles = ow.CheckpointParticles(),
         _rope = nil -- ow.CheckpointRope, only if midpoint
     })
 
@@ -242,19 +250,22 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
                     self._top_x, self._top_y,
                     self._bottom_x, self._bottom_y
                 )
-
-                self._particles = ow.CheckpointParticles()
             end
 
             self._body:signal_connect("collision_start", function(_, other)
                 if not self._is_invisible and self._rope:get_is_cut() == false then
                     if self._rope:cut() then -- checks player position automatically
-                        local n_particles = rt.settings.overworld.checkpoint.n_particles
                         local player = self._scene:get_player()
                         local px, py = player:get_position()
-                        local vx, vy = player:get_velocity()
                         local hue = player:get_hue()
-                        self._particles:spawn(n_particles, px, py, hue, vx, vy)
+
+                        local settings = {
+                            n_particles = rt.settings.overworld.checkpoint.n_particles,
+                            min_hue = hue - 0.2,
+                            max_hue = hue + 0.2
+                        }
+
+                        self._particles:spawn(px, py, settings)
                     end
                 end
 
@@ -284,74 +295,6 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
         return meta.DISCONNECT_SIGNAL
     end)
 
-    local _update_particle_texture = function()
-        local radius = 50
-        local k = 1 -- droplet fatness
-
-        local data = {}
-
-        -- center vertex (triangle fan)
-        table.insert(data, {0, 0, 0.5, 0.5, 1, 1, 1, 1})
-
-        local n_vertices = 64
-
-        -- track bounds to size texture properly
-        local min_x, max_x = 0, 0
-        local min_y, max_y = 0, 0
-
-        local points = {}
-
-        for i = 1, n_vertices do
-            local t = (i - 1) / (n_vertices - 1) * 2 * math.pi
-
-            local x = radius * math.sin(t)
-            local y = radius * (math.cos(t) - 1) * (1 + k * (1 - math.cos(t)))
-
-            table.insert(points, {x = x, y = y})
-
-            min_x = math.min(min_x, x)
-            max_x = math.max(max_x, x)
-            min_y = math.min(min_y, y)
-            max_y = math.max(max_y, y)
-        end
-
-        -- compute proper texture size with padding
-        local padding = 10
-        local texture_width = (max_x - min_x) + padding * 2
-        local texture_height = (max_y - min_y) + padding * 2
-
-        -- build mesh data with normalized UVs
-        for _, p in ipairs(points) do
-            local x = p.x
-            local y = p.y
-
-            local u = (x - min_x) / (max_x - min_x)
-            local v = (y - min_y) / (max_y - min_y)
-
-            table.insert(data, {x, y, u, v, 1, 1, 1, 1})
-        end
-
-        -- close fan
-        table.insert(data, data[2])
-
-        _ray_particle_texture = rt.RenderTexture(texture_width, texture_height, 8)
-
-        love.graphics.push("all")
-        love.graphics.reset()
-
-        _ray_particle_texture:bind()
-        _ray_particle_texture_shader:bind()
-        love.graphics.rectangle("fill", 0, 0, _ray_particle_texture:get_size())
-        _ray_particle_texture_shader:unbind()
-        _ray_particle_texture:unbind()
-        love.graphics.pop()
-    end
-
-    if _ray_particle_texture == nil then
-        _update_particle_texture()
-    end
-
-
     DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
         if which == "k" then
             self:_spawn_ray_particles(self._bottom_x, self._bottom_y)
@@ -368,75 +311,10 @@ end
 
 --- @brief
 function ow.Checkpoint:_spawn_ray_particles(x, y)
-    local settings = rt.settings.overworld.checkpoint.ray_particles
+    local settings = table.deepcopy(rt.settings.overworld.checkpoint.ray_particles)
 
-    settings = debugger.get("settings")
-    local min_angle, max_angle = -math.pi, 0
-    local n_particles = rt.random.integer(settings.min_n_particles, settings.max_n_particles)
-    for i = 1, n_particles do
-        local hue = rt.random.number(0, 1)
-
-        local angle = math.mix(min_angle, max_angle, (i - 1) / (n_particles - 1))
-        angle = angle + rt.random.number(-1, 1) * ((0.5 * math.pi) / n_particles)
-
-        local dx, dy = math.cos(angle), math.sin(angle)
-
-        table.insert(self._ray_particles, {
-            x = x,
-            y = y,
-            radius = rt.random.number(settings.min_radius, settings.max_radius),
-            velocity_x = dx,
-            velocity_y = dy,
-            velocity_magnitude = rt.random.number(settings.min_velocity, settings.max_velocity),
-            angle = math.angle(dx, dy),
-            lifetime_elapsed = 0,
-            lifetime = rt.random.number(settings.min_lifetime, settings.max_lifetime),
-            damping = rt.random.number(settings.min_damping, settings.max_damping),
-            color = { rt.lcha_to_rgba(0.8, 1, hue, 1) }
-        })
-    end
-end
-
---- @brief
-function ow.Checkpoint:_update_ray_particles(delta)
-    local opacity_easing = rt.InterpolationFunctions.SINUSOID_EASE_OUT
-    local to_remove = {}
-    for i, p in ipairs(self._ray_particles) do
-        p.x = p.x + p.velocity_x * p.velocity_magnitude
-        p.y = p.y + p.velocity_y * p.velocity_magnitude
-
-        p.velocity_magnitude = p.velocity_magnitude * p.damping
-
-        p.lifetime_elapsed = p.lifetime_elapsed + delta
-        p.color[4] = opacity_easing(1 - p.lifetime_elapsed / p.lifetime)
-
-        if p.lifetime_elapsed > p.lifetime then
-            table.insert(to_remove, 1, i)
-        end
-    end
-
-    for i in values(to_remove) do
-        table.remove(self._ray_particles, i)
-    end
-end
-
---- @brief
-function ow.Checkpoint:_draw_ray_particles()
-    local texture_w, texture_h = _ray_particle_texture:get_size()
-    local texture = _ray_particle_texture:get_native()
-
-    for particle in values(self._ray_particles) do
-        love.graphics.setColor(particle.color)
-        love.graphics.draw(
-            texture,
-            particle.x, particle.y,
-            particle.angle,
-            1, --particle.radius / texture_w,
-            1, --particle.radius / texture_h,
-            0.5 * texture_w,
-            0.5 * texture_h
-        )
-    end
+    settings.n_particles = rt.random.integer(settings.min_n_particles, settings.max_n_particles)
+    self._particles:spawn(self._bottom_x, self._bottom_y)
 end
 
 --- @brief
@@ -584,14 +462,9 @@ function ow.Checkpoint:update(delta)
 
     -- update particles indepedent from body location
     if self._particles ~= nil then
-        self._particles:set_screen_bounds(self._scene:get_camera():get_world_bounds())
-        self._particles:set_target_velocity(player:get_velocity())
-        self._particles:set_target_position(player:get_position())
-        self._particles:set_gravity_factor(1 - player:get_flow()) -- zero gravity at max flow
+        self._particles:set_bounds(self._scene:get_camera():get_world_bounds())
         self._particles:update(delta)
     end
-
-    self:_update_ray_particles(delta)
 
     if self._state == _STATE_DEFAULT and not self._stage:get_is_body_visible(self._body) then return end
 
@@ -736,8 +609,6 @@ function ow.Checkpoint:draw(priority)
             self._rope:draw()
         end
     elseif priority == _effect_priority then
-        self:_draw_ray_particles()
-
         -- explosion draw above everything
         if self._state == _STATE_EXPLODING then
             love.graphics.setColor(1, 1, 1, 1)

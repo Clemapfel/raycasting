@@ -150,7 +150,7 @@ end
 --- @param n Number
 --- @return table
 function table.rep(to_repeat, n)
-    local out = { }
+    local out = table.new(n, 0)
     for i = 1, n do
         table.insert(out, to_repeat)
     end

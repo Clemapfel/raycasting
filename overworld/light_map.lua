@@ -220,7 +220,11 @@ function ow.LightMap:update(stage)
 
     local point_light_i = 1
     local add_point_light = function(x, y, radius, color_r, color_g, color_b, color_a)
-        if point_light_i > max_n_point_lights then return end
+        meta.assert(x, "Number", y, "Number", radius, "Number", color_r, "Number", color_g, "Number", color_b, "Number", color_a, "Number")
+        if point_light_i > max_n_point_lights
+            or point_light_i > #point_light_data then
+            return
+        end
 
         radius = math.max(radius, 1) * final_scale
         x, y = world_to_screen_transform:transform_point(x, y)
@@ -234,7 +238,12 @@ function ow.LightMap:update(stage)
 
     local segment_light_i = 1
     local add_segment_light = function(x1, y1, x2, y2, color_r, color_g, color_b, color_a)
-        if segment_light_i > max_n_segment_lights then return end
+        meta.assert(x1, "Number", y1, "Number", x2, "Number", y2, "Number", color_r, "Number", color_g, "Number", color_b, "Number", color_a, "Number")
+
+        if segment_light_i > max_n_segment_lights
+            or segment_light_i > #segment_light_data then
+            return
+        end
 
         x1, y1 = world_to_screen_transform:transform_point(x1, y1)
         x2, y2 = world_to_screen_transform:transform_point(x2, y2)
