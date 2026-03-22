@@ -4,10 +4,10 @@ rt.settings.overworld.checkpoint_particles = {
     min_radius = 5,
     max_radius = 7,
 
-    min_velocity = 400,
-    max_velocity = 550,
+    min_velocity = 300,
+    max_velocity = 600,
 
-    gravity = 200,
+    gravity = 50,
 
     min_mass = 1,
     max_mass = 1, -- fraction
@@ -15,21 +15,20 @@ rt.settings.overworld.checkpoint_particles = {
     min_angle = 0,
     max_angle = 2 * math.pi,
 
-    min_damping = 1,
-    max_damping = 1,
+    min_damping = 0.98,
+    max_damping = 0.99,
 
     n_particles = 200,
 
     min_hue = 0,
     max_hue = 1,
 
-    min_lifetime = math.huge,
-    max_lifetime = math.huge,
+    min_lifetime = 5,
+    max_lifetime = 5,
 
     n_path_points = 20,
 
-    min_tail_length = 10,
-    despawn_when_leaving_screen = true,
+    min_tail_length_factor = 4, -- radius factor
     use_fill_color = true
 }
 
@@ -113,24 +112,23 @@ local _position_x = 1
 local _position_y = 2
 local _velocity_dx = 3
 local _velocity_dy = 4
-local _velocity_magnitude = 5
-local _mass = 6
-local _radius = 7
-local _damping = 8
-local _lifetime_elapsed = 9
-local _lifetime = 10
-local _color_r = 11
-local _color_g = 12
-local _color_b = 13
-local _color_a = 14
-local _is_disabled = 15
-local _arc_min = 16
-local _arc_max = 17
-local _path = 18
-local _path_length = 19
-local _path_left_normals = 20
-local _path_right_normals = 21
-local _polygon = 22
+local _mass = 5
+local _radius = 6
+local _damping = 7
+local _lifetime_elapsed = 8
+local _lifetime = 9
+local _color_r = 10
+local _color_g = 11
+local _color_b = 12
+local _color_a = 13
+local _is_disabled = 14
+local _arc_min = 15
+local _arc_max = 16
+local _path = 17
+local _path_length = 18
+local _path_left_normals = 19
+local _path_right_normals = 20
+local _polygon = 21
 
 --- @brief
 function ow.CheckpointParticles:_init_batch(batch, origin_x, origin_y, settings)
@@ -150,13 +148,13 @@ function ow.CheckpointParticles:_init_batch(batch, origin_x, origin_y, settings)
         if lifetime == math.huge then lifetime = 10e9 end -- prevent NaN
 
         local px, py = origin_x + dx * radius, origin_y + dy * radius
+        local velocity_magnitude = rt.random.number(settings.min_velocity, settings.max_velocity)
 
         local particle = {
             [_position_x] = px,
             [_position_y] = py,
-            [_velocity_dx] = dx,
-            [_velocity_dy] = dy,
-            [_velocity_magnitude] = rt.random.number(settings.min_velocity, settings.max_velocity),
+            [_velocity_dx] = dx * velocity_magnitude,
+            [_velocity_dy] = dy * velocity_magnitude,
             [_mass] = rt.random.number(settings.min_mass, settings.max_mass),
             [_radius] = radius,
             [_damping] = rt.random.number(settings.min_damping, settings.max_damping),
@@ -206,7 +204,7 @@ function ow.CheckpointParticles:_update_batch(batch, delta)
     local despawn_when_leaving_screen = batch.settings.despawn_when_leaving_screen
 
     local arc_offset = math.pi / 2
-    local min_tail_length = batch.settings.min_tail_length
+    local min_tail_length_factor = batch.settings.min_tail_length_factor
     local n_disabled = 0
 
     for particle_i, p in ipairs(batch.particles) do
@@ -216,17 +214,12 @@ function ow.CheckpointParticles:_update_batch(batch, delta)
         end
 
         -- integrate position
-        local velocity_x = p[_velocity_dx] * p[_velocity_magnitude]
-        local velocity_y = p[_velocity_dy] * p[_velocity_magnitude]
+        p[_velocity_dx] = p[_damping] * (p[_velocity_dx] + (gravity_dx * gravity * delta))
+        p[_velocity_dy] = p[_damping] * (p[_velocity_dy] + (gravity_dy * gravity * delta))
 
-        p[_velocity_dx] = p[_velocity_dx] + (gravity_dx * gravity * delta) / p[_velocity_magnitude]
-        p[_velocity_dy] = p[_velocity_dy] + (gravity_dy * gravity * delta) / p[_velocity_magnitude]
-
-        p[_position_x] = p[_position_x] + velocity_x * delta
-        p[_position_y] = p[_position_y] + velocity_y * delta
-
-        p[_velocity_magnitude] = p[_velocity_magnitude] * p[_damping]
-
+        p[_position_x] = p[_position_x] + p[_velocity_dx] * delta
+        p[_position_y] = p[_position_y] + p[_velocity_dy] * delta
+        
         p[_lifetime_elapsed] = p[_lifetime_elapsed] + delta
         local lifetime_t = p[_lifetime_elapsed] / p[_lifetime]
 
@@ -258,15 +251,6 @@ function ow.CheckpointParticles:_update_batch(batch, delta)
         table.insert(path, p[_position_x])
         table.insert(path, p[_position_y])
 
-        if despawn_when_leaving_screen
-            and not bounds:contains(path[1], path[2])
-            and not bounds:contains(path[#path-1], path[#path])
-        then
-            p[_is_disabled] = true
-            n_disabled = n_disabled + 1
-            goto continue
-        end
-
         local added_length = math.distance(path[#path-3], path[#path-2], path[#path-1], path[#path-0])
         p[_path_length] = p[_path_length] - removed_length + added_length
 
@@ -274,12 +258,6 @@ function ow.CheckpointParticles:_update_batch(batch, delta)
         local path_dx = path[#path-3] - path[#path-1]
         local path_dy = path[#path-2] - path[#path-0]
         path_dx, path_dy = math.normalize(path_dx, path_dy)
-
-        if not bounds:contains(path[1], path[2]) and not bounds:contains(path[#path-1], path[#path]) then
-            p[_is_disabled] = true
-            n_disabled = n_disabled + 1
-            goto continue
-        end
 
         table.remove(left, 1)
         table.remove(left, 1)
@@ -295,7 +273,7 @@ function ow.CheckpointParticles:_update_batch(batch, delta)
 
         -- rebuild polygon tail
         local polygon = p[_polygon]
-        if p[_path_length] < p[_radius] then
+        if p[_path_length] < min_tail_length_factor * p[_radius] then
             -- if too short, use default tri
             table.clear(polygon)
 
@@ -304,44 +282,46 @@ function ow.CheckpointParticles:_update_batch(batch, delta)
 
             local left_vx, left_vy = math.turn_left(vdx, vdy)
             local right_vx, right_vy = math.turn_right(vdx, vdy)
-            table.insert(polygon, px + left_vx * p[_radius])
-            table.insert(polygon, py + left_vy * p[_radius])
 
-            table.insert(polygon, px - vdx * min_tail_length)
-            table.insert(polygon, py - vdy * min_tail_length)
+            local radius = p[_radius]
 
-            table.insert(polygon, px + right_vx * p[_radius])
-            table.insert(polygon, py + right_vy * p[_radius])
+            table.insert(polygon, px + left_vx * radius)
+            table.insert(polygon, py + left_vy * radius)
+
+            table.insert(polygon, px - vdx * min_tail_length_factor * radius)
+            table.insert(polygon, py - vdy * min_tail_length_factor * radius)
+
+            table.insert(polygon, px + right_vx * radius)
+            table.insert(polygon, py + right_vy * radius)
         else
             -- else, use entire path
-            local n_nodes = #path / 2
             local radius = p[_radius]
-            do
-                local node_i = 1
-                for i = 1, #path - 2, 2 do
-                    local x, y = path[i+0], path[i+1]
-                    local left_x, left_y = left[i+0], left[i+1]
-                    local width = tail_easing(1 - math.min(1, (node_i - 1) / n_nodes)) * radius
+            local n_nodes = #path / 2
 
-                    polygon[i+0] = x + left_x * width
-                    polygon[i+1] = y + left_y * width
+            local node_i = 1
+            local easing_i = 0
+            for i = #left - 1, 1, -2 do
+                local x, y = path[i+0], path[i+1]
 
-                    node_i = node_i + 1
-                end
+                local width = tail_easing(1 - math.min(1, easing_i / n_nodes)) * radius
+                easing_i = easing_i + 1
+
+                polygon[node_i+0] = x + left[i+0] * width
+                polygon[node_i+1] = y + left[i+1] * width
+                node_i = node_i + 2
             end
 
-            do
-                local node_i = 1
-                for i = 1, #path - 2, 2 do
-                    local x, y = path[i+0], path[i+1]
-                    local right_x, right_y = right[i+0], right[i+1]
-                    local width = tail_easing(1 - math.min(1, (node_i - 1) / n_nodes)) * radius
+            easing_i = easing_i - 1
 
-                    polygon[i+0] = x + right_x * width
-                    polygon[i+1] = y + right_y * width
+            for i = 1, #right, 2 do
+                local x, y = path[i+0], path[i+1]
 
-                    node_i = node_i + 1
-                end
+                local width = tail_easing(1 - math.min(1, easing_i / n_nodes)) * radius
+                easing_i = easing_i - 1
+
+                polygon[node_i+0] = x + right[i+0] * width
+                polygon[node_i+1] = y + right[i+1] * width
+                node_i = node_i + 2
             end
         end
 
