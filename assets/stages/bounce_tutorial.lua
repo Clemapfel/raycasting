@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 598,
+  nextobjectid = 601,
   properties = {},
   tilesets = {
     {
@@ -211,6 +211,19 @@ return {
             { x = 496, y = 656 },
             { x = 496, y = 0 }
           },
+          properties = {}
+        },
+        {
+          id = 600,
+          name = "",
+          type = "CameraBounds",
+          shape = "rectangle",
+          x = 2983.83,
+          y = 304,
+          width = 2216.17,
+          height = 432,
+          rotation = 0,
+          visible = true,
           properties = {}
         }
       }
@@ -462,8 +475,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = 4016.82,
-          y = 543.176,
+          x = 3065.62,
+          y = 670.52,
           width = 0,
           height = 0,
           rotation = 0,
@@ -2395,8 +2408,8 @@ return {
           visible = true,
           polygon = {
             { x = 0, y = 16 },
-            { x = 416, y = 16 },
-            { x = 416, y = 0 },
+            { x = 448, y = 16 },
+            { x = 448, y = 0 },
             { x = 720.136, y = 0 },
             { x = 720, y = 16 },
             { x = 912, y = 16 },
@@ -2435,8 +2448,8 @@ return {
             { x = 0, y = -16 },
             { x = 128, y = -16 },
             { x = 144, y = 0 },
-            { x = 336, y = 0 },
-            { x = 336, y = 16 },
+            { x = 352, y = 0 },
+            { x = 352, y = 16 },
             { x = -96, y = 16 },
             { x = -96, y = 0 }
           },
@@ -2746,6 +2759,19 @@ return {
           properties = {
             ["count"] = 4
           }
+        },
+        {
+          id = 599,
+          name = "Checkpoint",
+          type = "Checkpoint",
+          shape = "point",
+          x = 3360,
+          y = 576,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
         }
       }
     },

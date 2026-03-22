@@ -160,7 +160,7 @@ function ow.CheckpointParticles:_init_batch(batch, origin_x, origin_y, settings)
 
         local origin_offset = rt.random.number(0, settings.origin_offset)
         local px, py = origin_x + dx * (radius + origin_offset) , origin_y + dy * (radius + origin_offset)
-        local velocity_magnitude = rt.random.number(settings.min_velocity, settings.max_velocity)
+        local velocity_magnitude = rt.random.gaussian(settings.min_velocity, settings.max_velocity)
 
         local particle = {
             [_position_x] = px,
@@ -415,12 +415,14 @@ end
 --- @brief
 function ow.CheckpointParticles:collect_point_lights(callback)
     for batch in values(self._batches) do
-        for particle in values(batch.particles) do
-            callback(
-                particle[_position_x], particle[_position_y],
-                particle[_radius],
-                particle[_color_r], particle[_color_g], particle[_color_b], particle[_color_a]
-            )
+        if batch.settings.is_point_light == true then
+            for particle in values(batch.particles) do
+                callback(
+                    particle[_position_x], particle[_position_y],
+                    particle[_radius],
+                    particle[_color_r], particle[_color_g], particle[_color_b], particle[_color_a]
+                )
+            end
         end
     end
 end

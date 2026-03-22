@@ -20,21 +20,7 @@ rt.settings.overworld.checkpoint = {
     n_particles = 40,
 
     max_spawn_duration = 3, -- safety timer
-
-    ray_particles = {
-        min_radius = 2,
-        max_radius = 4,
-        gravity = 0,
-        min_damping = 0.92,
-        max_damping = 0.95,
-        min_angle = -math.pi,
-        max_angle = 0,
-        min_lifetime = 0.5,
-        max_lifetime = 0.7,
-        n_particles = rt.random.integer(3, 7),
-        origin_offset = rt.settings.player.radius,
-        hue_offset = 0.075
-    }
+    hue_offset = 0.075
 }
 
 --- @class ow.Checkpoint
@@ -255,7 +241,7 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
                             max_hue = hue + 0.2
                         }
 
-                        self._particles:spawn(px, py, settings)
+                        self:_spawn_rope_particles(px, py)
                     end
                 end
 
@@ -387,6 +373,10 @@ function ow.Checkpoint:_set_state(state)
         camera:set_apply_bounds(true)
         camera:set_position(self._explosion_x, self._explosion_y)
 
+        if self._explosion_visible then
+            self:_spawn_explosion_particles(self._explosion_x, self._explosion_y)
+        end
+
         self._explosion_elapsed = 0
         self._explosion_fraction = 0
 
@@ -439,14 +429,81 @@ function ow.Checkpoint:_set_state(state)
 end
 
 --- @brief
-function ow.Checkpoint:_spawn_ray_particles()
-    local hue = self._scene:get_player():get_hue()
-    local settings = table.deepcopy(rt.settings.overworld.checkpoint.ray_particles)
-    settings.min_hue = hue - settings.hue_offset
-    settings.max_hue = hue + settings.hue_offset
+function ow.Checkpoint:_spawn_ray_particles(x, y)
+    local settings = {
+        min_radius = 2,
+        max_radius = 4,
+        gravity = 0,
+        min_damping = 0.92,
+        max_damping = 0.95,
+        min_angle = -math.pi,
+        max_angle = 0,
+        min_lifetime = 0.5,
+        max_lifetime = 0.7,
+        n_particles = rt.random.integer(3, 7),
+        origin_offset = rt.settings.player.radius,
+        is_point_light = true
+    }
 
-    self._particles:spawn(self._bottom_x, self._bottom_y, settings)
-    self._scene:get_player():kill(false)
+    local hue = self._scene:get_player():get_hue()
+    local hue_offset = rt.settings.overworld.checkpoint.hue_offset
+    settings.min_hue = hue - hue_offset
+    settings.max_hue = hue + hue_offset
+
+    self._particles:spawn(x, y, settings)
+end
+
+--- @brief
+function ow.Checkpoint:_spawn_explosion_particles(x, y)
+    local settings = {
+        min_radius = 2,
+        max_radius = 5,
+        gravity = 0,
+        min_damping = 0.95,
+        max_damping = 0.98,
+        min_angle = 0,
+        max_angle = 2 * math.pi,
+        min_lifetime = 0.5,
+        max_lifetime = 0.7,
+        n_particles = rt.random.integer(9, 14),
+        origin_offset = rt.settings.player.radius,
+        is_point_light = true
+    }
+
+    local hue = self._scene:get_player():get_hue()
+    local hue_offset = rt.settings.overworld.checkpoint.hue_offset
+    settings.min_hue = hue - 2 * hue_offset
+    settings.max_hue = hue + 2 * hue_offset
+
+    self._particles:spawn(x, y, settings)
+end
+
+--- @brief
+function ow.Checkpoint:_spawn_rope_particles(x, y)
+    local settings = {
+        min_radius = 5,
+        max_radius = 6,
+        min_velocity = 50,
+        max_velocity = 500,
+        gravity = 200,
+        min_damping = 1,
+        max_damping = 1,
+        min_angle = 0,
+        max_angle = 2 * math.pi,
+        min_lifetime = 3,
+        max_lifetime = 3,
+        n_particles = rt.random.integer(128, 128),
+        origin_offset = rt.settings.player.radius,
+        draw_as_outline = true,
+        is_point_light = false
+    }
+
+    local hue = self._scene:get_player():get_hue()
+    local hue_offset = rt.settings.overworld.checkpoint.hue_offset
+    settings.min_hue = hue - 2 * hue_offset
+    settings.max_hue = hue + 2 * hue_offset
+
+    self._particles:spawn(x, y, settings)
 end
 
 --- @brief
@@ -543,7 +600,7 @@ function ow.Checkpoint:update(delta)
 
         if player_y >= threshold or self._spawn_elapsed > rt.settings.overworld.checkpoint.max_spawn_duration then
             self._ray_fade_out_start_timestamp = love.timer.getTime()
-            self:_spawn_ray_particles()
+            self:_spawn_ray_particles(self._bottom_x, self._bottom_y)
             self:_set_state(_STATE_DEFAULT)
         end
         self._spawn_elapsed = self._spawn_elapsed + delta
@@ -616,6 +673,10 @@ function ow.Checkpoint:draw(priority)
             _explosion_shader:unbind()
         end
 
+        if priority == _effect_priority then
+            self._particles:draw()
+        end
+
         if self._type == ow.CheckpointType.MIDWAY and self._time_label_visible then
             local w, h = self._time_label:measure()
             local y = math.clamp(self._time_label_motion:get_value(), self._top_y + 0.5 * h, self._bottom_y - 0.5 * h)
@@ -625,10 +686,6 @@ function ow.Checkpoint:draw(priority)
              )
         end
     end
-
-    if priority == _effect_priority then
-        self._particles:draw()
-    end
 end
 
 --- @brief
@@ -636,7 +693,6 @@ function ow.Checkpoint:draw_bloom()
     if not self._stage:get_is_body_visible(self._body) or self._is_invisible then return end
     if self._type == ow.CheckpointType.MIDWAY then
         self._rope:draw_bloom()
-        self._particles:draw_bloom()
     elseif self._type == ow.CheckpointType.PLAYER_SPAWN then
         if self._platform ~= nil and self._spawn_barrier:get_is_enabled() then
             self._platform:draw_bloom()
