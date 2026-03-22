@@ -82,6 +82,31 @@ vec3 rgb_to_lch(vec3 rgb) {
     return vec3(L / 100.0, C / 100.0, H / 360.0);
 }
 
+float envelope(float x, float attack_fraction, float decay_fraction) {
+    if (x < 0.0 || x > 1.0) return 0.0;
+
+    attack_fraction = max(attack_fraction, 0.0);
+    decay_fraction  = max(decay_fraction,  0.0);
+
+    float total = attack_fraction + decay_fraction;
+    if (total == 0.0) return 1.0;
+
+    float decay_start = 1.0 - decay_fraction;
+
+    // attack
+    if (attack_fraction > 0.0 && x < attack_fraction)
+    return 1.0 - cos((x / attack_fraction) * (3.14159265 * 0.5));
+
+    // sustain
+    if (x < decay_start) return 1.0;
+
+    // decay
+    if (decay_fraction > 0.0 && x < 1.0)
+    return cos(((x - decay_start) / decay_fraction) * (3.14159265 * 0.5));
+
+    return 0.0;
+}
+
 uniform float elapsed;
 uniform vec2 size;
 uniform float fraction;
@@ -105,6 +130,9 @@ vec2 to_uv(vec2 frag_position) {
 
 vec4 effect(vec4 color, Image image, vec2 texture_coords, vec2 vertex_position) {
     vec2 uv = to_uv(vertex_position);
+
+    vec2 normalization = vec2(1, (size.y / size.x));
+    float strike = gaussian(distance(texture_coords * normalization, vec2(0.5, 1) * normalization), 1.5);
 
     float distortion_strength = (1 - distance(texture_coords.x, 0.5) * 2) ;
     vec2 distortion_scale = vec2(1.8, 10);
@@ -135,7 +163,12 @@ vec4 effect(vec4 color, Image image, vec2 texture_coords, vec2 vertex_position) 
     ray *= 1 + ball;
 
     float hue = fract(mix(hue - 0.25, hue, texture_coords.y * norm.y));
-    return vec4(ray) * vec4(lch_to_rgb(vec3(0.8, 1, clamp(hue, 0, 1))), fade_out_fraction);
+    ray *= fade_out_fraction;
+    strike *= envelope(1 - fade_out_fraction, 0.05, 0.4);
+
+    float light = smooth_max(strike * 3, ray, 0.5);
+
+    return vec4(vec3(light), strike + ray) * vec4(lch_to_rgb(vec3(0.8, 1, clamp(hue, 0, 1))), 1);
 }
 
 #endif

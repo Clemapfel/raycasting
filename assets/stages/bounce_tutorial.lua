@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 596,
+  nextobjectid = 598,
   properties = {},
   tilesets = {
     {
@@ -2882,8 +2882,8 @@ return {
           name = "Coin",
           type = "Coin",
           shape = "point",
-          x = 4976,
-          y = -416,
+          x = 4738.11,
+          y = -568.178,
           width = 0,
           height = 0,
           rotation = 0,

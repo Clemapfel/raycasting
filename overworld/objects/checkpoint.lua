@@ -22,25 +22,18 @@ rt.settings.overworld.checkpoint = {
     max_spawn_duration = 3, -- safety timer
 
     ray_particles = {
-        min_velocity = 100,
-        max_velocity = 300,
-
         min_radius = 2,
         max_radius = 4,
-
-        min_lifetime = 0.5,
-        max_lifetime = 0.75,
-
-        min_damping = 0.5,
-        max_damping = 0.7,
-
-        min_n_particles = 4,
-        max_n_particles = 13,
-
+        gravity = 0,
+        min_damping = 0.92,
+        max_damping = 0.95,
         min_angle = -math.pi,
         max_angle = 0,
-
-        gravity = 0
+        min_lifetime = 0.5,
+        max_lifetime = 0.7,
+        n_particles = rt.random.integer(3, 7),
+        origin_offset = rt.settings.player.radius,
+        hue_offset = 0.075
     }
 }
 
@@ -62,9 +55,6 @@ end
 
 local _ray_shader = rt.Shader("overworld/objects/checkpoint_ray.glsl")
 local _ray_lch_texture = rt.LCHTexture(1, 1, 256)
-
-local _ray_particle_texture = nil
-local _ray_particle_texture_shader = rt.Shader("overworld/objects/checkpoint_ray_particle.glsl")
 
 local _explosion_shader = rt.Shader("overworld/objects/checkpoint_explosion.glsl")
 local _explosion_lch_texture = rt.LCHTexture(64, 1, 256)
@@ -297,7 +287,7 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
 
     DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
         if which == "k" then
-            self:_spawn_ray_particles(self._bottom_x, self._bottom_y)
+            self:_spawn_ray_particles()
         end
     end)
 end
@@ -309,13 +299,6 @@ function ow.Checkpoint:_restore_coins()
     end
 end
 
---- @brief
-function ow.Checkpoint:_spawn_ray_particles(x, y)
-    local settings = table.deepcopy(rt.settings.overworld.checkpoint.ray_particles)
-
-    settings.n_particles = rt.random.integer(settings.min_n_particles, settings.max_n_particles)
-    self._particles:spawn(self._bottom_x, self._bottom_y)
-end
 
 --- @brief
 function ow.Checkpoint:spawn(also_kill, play_animation)
@@ -456,6 +439,17 @@ function ow.Checkpoint:_set_state(state)
 end
 
 --- @brief
+function ow.Checkpoint:_spawn_ray_particles()
+    local hue = self._scene:get_player():get_hue()
+    local settings = table.deepcopy(rt.settings.overworld.checkpoint.ray_particles)
+    settings.min_hue = hue - settings.hue_offset
+    settings.max_hue = hue + settings.hue_offset
+
+    self._particles:spawn(self._bottom_x, self._bottom_y, settings)
+    self._scene:get_player():kill(false)
+end
+
+--- @brief
 function ow.Checkpoint:update(delta)
     local camera = self._scene:get_camera()
     local player = self._scene:get_player()
@@ -549,7 +543,7 @@ function ow.Checkpoint:update(delta)
 
         if player_y >= threshold or self._spawn_elapsed > rt.settings.overworld.checkpoint.max_spawn_duration then
             self._ray_fade_out_start_timestamp = love.timer.getTime()
-            self:_spawn_ray_particles(self._bottom_x, self._bottom_y)
+            self:_spawn_ray_particles()
             self:_set_state(_STATE_DEFAULT)
         end
         self._spawn_elapsed = self._spawn_elapsed + delta
@@ -567,10 +561,6 @@ local _effect_priority = math.huge
 
 --- @brief
 function ow.Checkpoint:draw(priority)
-    if priority == _base_priority then
-        if self._particles ~= nil then self._particles:draw() end
-    end
-
     if self._platform ~= nil and self._stage:get_is_body_visible(self._spawn_barrier) then
         self._platform:draw()
     end
@@ -600,6 +590,8 @@ function ow.Checkpoint:draw(priority)
             _ray_shader:send("camera_offset", self._camera_offset)
             _ray_shader:send("camera_scale", self._camera_scale)
             _ray_shader:send("lch_texture", _ray_lch_texture)
+            _ray_shader:send("screen_to_world_transform", self._scene:get_camera():get_transform():inverse())
+            _ray_shader:send("bottom", { self._bottom_x, self._bottom_y })
             love.graphics.rectangle("fill", self._ray_area:unpack())
             _ray_shader:unbind()
         end
@@ -632,6 +624,10 @@ function ow.Checkpoint:draw(priority)
                  y - 0.5 * h
              )
         end
+    end
+
+    if priority == _effect_priority then
+        self._particles:draw()
     end
 end
 
@@ -688,9 +684,7 @@ end
 function ow.Checkpoint:collect_point_lights(callback)
     if self._is_invisible then return end
 
-    if self._particles ~= nil then
-        self._particles:collect_point_lights(callback)
-    end
+    self._particles:collect_point_lights(callback)
 
     if self._state == _STATE_EXPLODING then
         callback(
@@ -713,6 +707,15 @@ function ow.Checkpoint:collect_segment_lights(callback)
         callback(
             x1, y1, x2, y2,
             table.unpack(self._color)
+        )
+    end
+
+    if self._state == _STATE_RAY then
+        local r, g, b, _ = table.unpack(self._color)
+        callback(
+            self._top_x, self._top_y,
+            self._bottom_x, self._bottom_y,
+            r, g, b, self._ray_fade_out_fraction
         )
     end
 end

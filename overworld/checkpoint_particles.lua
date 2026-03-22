@@ -1,8 +1,8 @@
 
 rt.settings.overworld.checkpoint_particles = {
     -- default settings
-    min_radius = 5,
-    max_radius = 7,
+    min_radius = 20,
+    max_radius = 40,
 
     min_velocity = 100,
     max_velocity = 600,
@@ -28,8 +28,13 @@ rt.settings.overworld.checkpoint_particles = {
 
     n_path_points = 20,
 
+    origin_offset = 0,
+
     min_tail_length_factor = 4, -- radius factor
-    use_fill_color = true
+    draw_as_outline = false,
+
+    inside_scale = 2, -- if draw_as_outline is false, determines how large the lighter core of each particle is
+    inside_color_boost = 2 -- lightness boost for ^
 }
 
 
@@ -49,7 +54,7 @@ end
 
 --- @brief
 function ow.CheckpointParticles:spawn(origin_x, origin_y, settings)
-    settings = table.deepcopy(settings or rt.settings.overworld.checkpoint_particles)
+    settings = settings or table.deepcopy(rt.settings.overworld.checkpoint_particles)
 
     local batch = {
         particles = {},
@@ -135,8 +140,14 @@ function ow.CheckpointParticles:_init_batch(batch, origin_x, origin_y, settings)
     batch.particles = {}
     batch.settings = settings
 
-    for _ = 1, settings.n_particles do
-        local angle = rt.random.number(settings.min_angle, settings.max_angle)
+    local min_angle = math.min(settings.min_angle, settings.max_angle)
+    local max_angle = math.max(settings.min_angle, settings.max_angle)
+
+    for i = 1, settings.n_particles do
+        local angle = math.mix(min_angle, max_angle, (i - 1) / settings.n_particles)
+        angle = angle + rt.random.number(-0.5, 0.5) * ((2 * math.pi) / settings.n_particles)
+        angle = math.clamp(angle, min_angle, max_angle)
+
         local dx = math.cos(angle)
         local dy = math.sin(angle)
 
@@ -147,7 +158,8 @@ function ow.CheckpointParticles:_init_batch(batch, origin_x, origin_y, settings)
         local lifetime = rt.random.number(settings.min_lifetime, settings.max_lifetime)
         if lifetime == math.huge then lifetime = 10e9 end -- prevent NaN
 
-        local px, py = origin_x + dx * radius, origin_y + dy * radius
+        local origin_offset = rt.random.number(0, settings.origin_offset)
+        local px, py = origin_x + dx * (radius + origin_offset) , origin_y + dy * (radius + origin_offset)
         local velocity_magnitude = rt.random.number(settings.min_velocity, settings.max_velocity)
 
         local particle = {
@@ -195,7 +207,6 @@ function ow.CheckpointParticles:_init_batch(batch, origin_x, origin_y, settings)
     end
 end
 
---- @brief
 function ow.CheckpointParticles:_update_batch(batch, delta)
     local gravity_dx, gravity_dy, gravity = 0, 1, batch.settings.gravity
     local opacity_easing = rt.InterpolationFunctions.SINUSOID_EASE_OUT
@@ -224,7 +235,7 @@ function ow.CheckpointParticles:_update_batch(batch, delta)
 
         p[_position_x] = p[_position_x] + p[_velocity_x] * delta
         p[_position_y] = p[_position_y] + p[_velocity_y] * delta
-        
+
         p[_lifetime_elapsed] = p[_lifetime_elapsed] + delta
         local lifetime_t = p[_lifetime_elapsed] / p[_lifetime]
 
@@ -252,7 +263,6 @@ function ow.CheckpointParticles:_update_batch(batch, delta)
         local removed_length = math.distance(path[1], path[2], path[3], path[4])
         table.remove(path, 1)
         table.remove(path, 1)
-
         table.insert(path, p[_position_x])
         table.insert(path, p[_position_y])
 
@@ -281,15 +291,14 @@ function ow.CheckpointParticles:_update_batch(batch, delta)
 
         do
             local polygon = p[_polygon]
-            local threshold = 1.5 * radius
+            local threshold = radius
             local use_fallback = p[_path_length] <= threshold
 
             local n_nodes = #path / 2
 
-
-
-            local fallback_px, fallback_py, fallback_dx, fallback_dy, fallback_t_base
+            local fallback_px, fallback_py, fallback_dx, fallback_dy
             if use_fallback then
+                fallback_px, fallback_py = p[_position_x], p[_position_y]
                 fallback_dx, fallback_dy = math.flip(math.normalize(p[_velocity_x], p[_velocity_y]))
                 if fallback_dx == 0 and fallback_dy == 0 then
                     fallback_dx, fallback_dy = -gravity_dx, -gravity_dy
@@ -298,14 +307,16 @@ function ow.CheckpointParticles:_update_batch(batch, delta)
 
             local function get_node(i)
                 if use_fallback then
-                    local praticle_i = math.floor(i / 2) + 1  -- 1-based node index from flat index
-                    local t = radius + 1 - (praticle_i - 1) / n_nodes * threshold
-                    return p[_position_x] + fallback_dx * t,
-                        p[_position_y] + fallback_dy * t
+                    local particle_i = math.floor(i / 2) + 1  -- 1-based node index from flat index
+                    local t = radius * (1 - (particle_i - 1) / n_nodes)
+                    return fallback_px + fallback_dx * t,
+                    fallback_py + fallback_dy * t
                 else
                     return path[i], path[i + 1]
                 end
             end
+
+            if use_fallback then path_t = 0 end
 
             local node_i = 1
             local easing_i = 0
@@ -340,16 +351,17 @@ function ow.CheckpointParticles:_update_batch(batch, delta)
     return n_disabled >= #batch.particles
 end
 
-    --- @brief
+--- @brief
 function ow.CheckpointParticles:_draw_batch(batch)
-    if batch.settings.use_fill_color == true then
+    if batch.settings.draw_as_outline == true then
         love.graphics.setLineWidth(1)
         love.graphics.setLineStyle("rough")
 
         local fill_r, fill_g, fill_b, fill_a = rt.Palette.BLACK:unpack()
         for p in values(batch.particles) do
             if p[_is_disabled] ~= true then
-                love.graphics.setColor(fill_r, fill_g, fill_b, fill_a * p[_color_a])
+                local a = p[_color_a]
+                love.graphics.setColor(fill_r, fill_g, fill_b, a)
                 love.graphics.arc("fill", "closed",
                     p[_position_x], p[_position_y],
                     p[_radius],
@@ -358,7 +370,7 @@ function ow.CheckpointParticles:_draw_batch(batch)
 
                 love.graphics.polygon("fill", p[_polygon])
 
-                love.graphics.setColor(p[_color_r], p[_color_g], p[_color_b], p[_color_a])
+                love.graphics.setColor(p[_color_r], p[_color_g], p[_color_b], a)
                 love.graphics.arc("line", "open",
                     p[_position_x], p[_position_y],
                     p[_radius],
@@ -370,24 +382,38 @@ function ow.CheckpointParticles:_draw_batch(batch)
         end
     else
         for p in values(batch.particles) do
+            local inside_scale = 1 / batch.settings.inside_scale
+            local color_boost = batch.settings.inside_color_boost
             if p[_is_disabled] ~= true then
-                love.graphics.setColor(p[_color_r], p[_color_g], p[_color_b], p[_color_a])
-                love.graphics.polygon(p[_polygon])
+                local a = p[_color_a]
+                love.graphics.setColor(p[_color_r], p[_color_g], p[_color_b], a)
+                love.graphics.polygon("fill", p[_polygon])
                 love.graphics.arc("fill", "closed",
                     p[_position_x], p[_position_y],
                     p[_radius],
                     p[_arc_min], p[_arc_max]
                 )
 
+                love.graphics.push()
+                love.graphics.translate(p[_position_x], p[_position_y])
+                love.graphics.scale(inside_scale)
+                love.graphics.translate(-p[_position_x], -p[_position_y])
+                love.graphics.setColor(color_boost * p[_color_r], color_boost * p[_color_g], color_boost * p[_color_b], a)
                 love.graphics.polygon("fill", p[_polygon])
+                love.graphics.arc("fill", "closed",
+                    p[_position_x], p[_position_y],
+                    p[_radius],
+                    p[_arc_min], p[_arc_max]
+                )
+                love.graphics.pop()
             end
         end
     end
+
 end
 
 --- @brief
 function ow.CheckpointParticles:collect_point_lights(callback)
-    if true then return end
     for batch in values(self._batches) do
         for particle in values(batch.particles) do
             callback(
