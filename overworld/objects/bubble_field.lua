@@ -2,32 +2,24 @@ require "common.contour"
 require "overworld.movable_object"
 
 rt.settings.overworld.bubble_field = {
+    -- wave equation solver
+    excitation_amplitude = 0.00025, -- in frequency space
+    excitation_width = 5, -- n vertices
+
+    dx = 0.2,
+    dt = 0.05,
+    damping = 0.99,
+    magnitude = 20, -- px
+    deactivation_threshold = 1, -- px
+
+    -- contour
     segment_length = 10,
-    n_smoothing_iterations = 2,
-    wave_deactivation_threshold = 1 / 1000,
-    excitation_amplitude = 0.0001,
+    n_smoothing_iterations = 3,
+    depth = -5, -- negative to account for smoothing contraction
+
+    -- base draw
     opacity = 0.4,
-
-    particles = {
-        min_radius = 2,
-        max_radius = 5,
-
-        hue_offset = 0.1,
-
-        min_count = 4,
-        max_count = 75,
-
-        min_velocity = 300, -- factor
-        max_velocity = 500,
-
-        spread_angle = 0.25 * math.pi,
-        upwards_bias = 0.25,
-
-        min_mass = 4,
-        max_mass = 10,
-
-        gravity = 40 -- px / s
-    }
+    hue_offset = 0.1
 }
 
 --- @class ow.BubbleField
@@ -35,38 +27,32 @@ rt.settings.overworld.bubble_field = {
 --- @field inverted Boolean? if false, non-bubble -> bubble, otherwise bubble -> non-bubble
 ow.BubbleField = meta.class("BubbleField", ow.MovableObject)
 
--- shape mesh data members
-local _origin_x_index = 1
-local _origin_y_index = 2
-local _dx_index = 3
-local _dy_index = 4
-local _magnitude_index = 5
-
--- data mesh members
-local _scale_index = 1
-
--- wave equation solver parameters
-local _dx = 0.2
-local _dt = 0.05
-local _damping = 0.99
-local _courant = _dt / _dx
-
-local _base_shader = rt.Shader("overworld/objects/bubble_field.glsl", { MODE = 0 })
-local _outline_shader = rt.Shader("overworld/objects/bubble_field.glsl", { MODE = 1 })
+local _base_shader = rt.Shader("overworld/objects/bubble_field_base.glsl")
+local _outline_shader = rt.Shader("overworld/objects/bubble_field_outline.glsl")
 
 local _noise_texture = rt.NoiseTexture(64, 64, 8,
-    rt.NoiseType.GRADIENT, 16
+    rt.NoiseType.GRADIENT,
+    16 -- frequency
 )
 
 local _lch_texture = rt.LCHTexture(1, 1, 256)
 
+-- shape mesh indices
+local _origin_x_index = 1
+local _origin_y_index = 2
+local _direction_x_index = 3
+local _direction_y_index = 4
+local _magnitude_index = 5
+
+-- data mesh indices
+local _offset_index = 1
+
 --- @brief
 function ow.BubbleField:instantiate(object, stage, scene)
-    -- collision
     self._scene = scene
     self._stage = stage
-    self._world = stage:get_physics_world()
-    self._body = object:create_physics_body(self._world)
+
+    self._body = object:create_physics_body(stage:get_physics_world())
     self._body:set_is_sensor(true)
     self._body:set_collides_with(rt.settings.player.bounce_collision_group)
     self._body:set_collision_group(rt.settings.player.bounce_collision_group)
@@ -79,11 +65,12 @@ function ow.BubbleField:instantiate(object, stage, scene)
     local start_b = not self._inverted
     local end_b = self._inverted
 
+    self._is_colliding = false
+
     self._collision_start = function(self)
         local player = self._scene:get_player()
         if player:get_is_bubble() == (not start_b) then
             player:request_is_bubble(self, start_b)
-            self._is_active = true
 
             local x, y = player:get_position()
             local vx, vy = player:get_velocity()
@@ -98,96 +85,110 @@ function ow.BubbleField:instantiate(object, stage, scene)
             local x, y = player:get_position()
             local vx, vy = player:get_velocity()
             self:_excite_wave(x, y, vx, vy, 1, true) -- outwards
-            self._is_active = true
         end
     end
 
-    self._is_colliding = false
-
+    local settings = rt.settings.overworld.bubble_field
+    
     -- contour
-    local contour = object:create_contour() -- flat array: {x1, y1, x2, y2, ..., xn, yn}
+    local contour = object:create_contour()
 
-    -- subdivide contour
-    local subdivided = rt.contour.subdivide(contour, rt.settings.overworld.bubble_field.segment_length * rt.get_pixel_scale())
-
-    -- laplacian smoothing
-    local n_smoothing_iterations = rt.settings.overworld.bubble_field.n_smoothing_iterations
-    local points = rt.contour.smooth(subdivided, n_smoothing_iterations)
-
-    -- compute center and mesh data
-    self._contour = points
-
-    local center_x, center_y, n = 0, 0, 0
-    for i = 1, #points, 2 do
-        local x, y = points[i], points[i+1]
-        center_x = center_x + x
-        center_y = center_y + y
-        n = n + 1
+    local centroid_x, centroid_y = rt.contour.get_centroid(contour)
+    for i = 1, #contour, 2 do
+        contour[i+0] = contour[i+0] - centroid_x
+        contour[i+1] = contour[i+1] - centroid_y
     end
 
-    center_x = center_x / n
-    center_y = center_y / n
+    contour = rt.contour.subdivide(contour, settings.segment_length)
+    contour = rt.contour.smooth(contour, settings.n_smoothing_iterations)
 
-    -- meshes
-    self._shape_mesh_data = {} -- constant
-    self._data_mesh_data = {} -- uploaded each frame
-
-    local triangulation = rt.DelaunayTriangulation(points, points):get_triangle_vertex_map()
+    self._contour = {}
 
     local shape_mesh_format = {
         { location = 0, name = "origin", format = "floatvec2" }, -- absolute xy
-        { location = 1, name = "contour_vector", format = "floatvec3" } -- normalized xy, magnitude
+        { location = 1, name = "direction", format = "floatvec2" }, -- normalized xy
+        { location = 2, name = "magnitude", format = "float" }, -- px
     }
 
     local data_mesh_format = {
-        { location = 2, name = "scale", format = "float" }
+        { location = 3, name = "offset", format = "float" }, -- px
     }
 
-    -- construct contour vectors
-    local target_magnitude = 100
-    for i = 1, #self._contour, 2 do
-        local x, y = self._contour[i+0], self._contour[i+1]
-        local origin_x, origin_y = center_x, center_y
-        local dx, dy = x - origin_x, y - origin_y
+    local shape_mesh_data = {}
+    local data_mesh_data = {}
+    
+    do -- compute origin vectors
+        local path = rt.Path(contour)
+        
+        local origins = {}
+        for i = 1, #contour, 2 do
+            local x1, y1 = contour[i+0], contour[i+1]
+            local x2, y2 = contour[math.wrap(i+2, #contour)], contour[math.wrap(i+3, #contour)]
+            local normal_x, normal_y = math.turn_right(math.normalize(math.subtract(x1, y1, x2, y2)))
+            
+            table.insert(origins, {
+                vertex_offset = i,
+                x = x1,
+                y = y1,
+                normal_x = normal_x,
+                normal_y = normal_y,
+                magnitude = settings.depth
+            })
+        end
+        
+        -- clip origins to polygon
+        for origin in values(origins) do
+            local intersections = path:get_intersections(
+                origin.x,
+                origin.y,
+                origin.x + origin.normal_x * origin.magnitude,
+                origin.y + origin.normal_y * origin.magnitude
+            )
 
-        -- rescale origin such that each point has same magnitude, while
-        -- mainting end point x, y
-        dx, dy = math.normalize(dx, dy)
-        local magnitude = target_magnitude
-        origin_x = x - dx * magnitude
-        origin_y = y - dy * magnitude
-
-        table.insert(self._shape_mesh_data, {
-            [_origin_x_index] = origin_x,
-            [_origin_y_index] = origin_y,
-            [_dx_index] = dx,
-            [_dy_index] = dy,
-            [_magnitude_index] = magnitude
-        })
-
-        table.insert(self._data_mesh_data, {
-            [_scale_index] = 1
-        })
+            for i = 1, #intersections, 2 do
+                local ix, iy = intersections[i+0], intersections[i+1]
+                if math.distance(ix, iy, origin.x, origin.y) > 1 then
+                    local length = math.max(0, math.distance(origin.x, origin.y, ix, iy) - settings.padding)
+                    if length < origin.length then
+                        origin.magnitude = length
+                    end
+                end
+            end
+            
+            table.insert(shape_mesh_data, {
+                [_origin_x_index] = origin.x,
+                [_origin_y_index] = origin.y,
+                [_direction_x_index] = origin.normal_x,
+                [_direction_y_index] = origin.normal_y,
+                [_magnitude_index] = origin.magnitude
+            })
+            
+            table.insert(data_mesh_data, {
+                [_offset_index] = 0
+            })
+        end
     end
 
-    self._contour_center_x, self._contour_center_y = center_x, center_y
-
+    self._shape_mesh_data = shape_mesh_data
     self._shape_mesh = rt.Mesh(
-        self._shape_mesh_data,
+        shape_mesh_data,
         rt.MeshDrawMode.TRIANGLES,
         shape_mesh_format,
         rt.GraphicsBufferUsage.STATIC
     )
-    self._shape_mesh:set_vertex_map(triangulation)
+    self._shape_mesh:set_vertex_map(
+        rt.DelaunayTriangulation(contour, contour):get_triangle_vertex_map()
+    )
 
+    self._data_mesh_data = data_mesh_data
     self._data_mesh = rt.Mesh(
-        self._data_mesh_data,
+        data_mesh_data,
         rt.MeshDrawMode.POINTS,
         data_mesh_format,
         rt.GraphicsBufferUsage.STREAM
     )
 
-    self._shape_mesh:attach_attribute(self._data_mesh, "scale", "pervertex")
+    self._shape_mesh:attach_attribute(self._data_mesh, "offset", "pervertex")
 
     -- wave equation solver
     self._elapsed = 0
@@ -195,46 +196,42 @@ function ow.BubbleField:instantiate(object, stage, scene)
     self._wave = {
         previous = table.rep(0, self._n_points),
         current = table.rep(0, self._n_points),
-        next = {}
+        next = table.rep(0, self._n_points)
     }
-end
 
-local _x_offset = 0
-local _y_offset = 1
-local _velocity_x_offset = 2
-local _velocity_y_offset = 3
-local _radius_offset = 4
-local _mass_offset = 5
-local _r_offset = 6
-local _g_offset = 7
-local _b_offset = 8
-local _is_disabled_offset = 9
-
-local FALSE, TRUE = 0, 1
-
-local _stride = _is_disabled_offset + 1
-local _particle_i_to_data_offset = function(particle_i)
-    return (particle_i - 1) * _stride + 1
+    self._is_active = true
+    self:update(0) -- initialize contour
+    self._is_active = false
 end
 
 --- @brief
 function ow.BubbleField:_excite_wave(x, y, velocity_x, velocity_y, sign)
-    local min_distance, min_i = math.huge, nil
+
+    local body_x, body_y = self._body:get_position()
+    x = x - body_x
+    y = y - body_y
+
+    -- find closest verrtex
+    local min_distance, center_index = math.huge, nil
     for i = 1, self._n_points do
         local data = self._shape_mesh_data[i]
-        local dx, dy, magnitude = data[_dx_index], data[_dy_index], data[_magnitude_index]
-        local vx = self._contour_center_x + dx * magnitude
-        local vy = self._contour_center_y + dy * magnitude
-        local distance = math.distance(x, y, vx, vy)
+        local distance = math.distance(
+            data[_origin_x_index] + data[_direction_x_index] * data[_magnitude_index],
+            data[_origin_y_index] + data[_direction_y_index] * data[_magnitude_index],
+            x, y
+        )
+
         if distance < min_distance then
             min_distance = distance
-            min_i = i
+            center_index = i
         end
     end
 
-    if min_i == nil then return end
+    if center_index == nil then return end
 
-    local center_index, amplitude, width = min_i, sign * math.magnitude(velocity_x, velocity_y) * rt.settings.overworld.bubble_field.excitation_amplitude, 5
+    local amplitude = sign * math.magnitude(velocity_x, velocity_y) * rt.settings.overworld.bubble_field.excitation_amplitude
+    local width = rt.settings.overworld.bubble_field.excitation_width
+
     for i = 1, self._n_points do
         local distance = math.abs(i - center_index)
         distance = math.min(distance, self._n_points - distance)
@@ -246,53 +243,67 @@ end
 
 --- @brief
 function ow.BubbleField:update(delta)
-    if not self._stage:get_is_body_visible(self._body) then return end
+    if self._stage:get_is_body_visible(self._body) then
+        -- update bubble
+        local current = self._is_colliding
+        local next = self._body:test_point(self._scene:get_player():get_position())
+        if current == false and next == true then
+            self:_collision_start()
+        elseif current == true and next == false then
+            self:_collision_end()
+        end
 
-
-    local current = self._is_colliding
-    local next = self._body:test_point(self._scene:get_player():get_position())
-    if current == false and next == true then
-        self:_collision_start()
-    elseif current == true and next == false then
-        self:_collision_end()
+        self._is_colliding = next
     end
 
-    self._is_colliding = next
-
-    self._elapsed = self._elapsed + delta
-
     if self._is_active then
+        local settings = rt.settings.overworld.bubble_field
         local n_points = self._n_points
         local offset_max = 0
+
+        local dt = settings.dt
+        local dx = settings.dx
+        local damping = settings.damping
+        local courant = dt / dx
+        local magnitude = settings.magnitude
+
         local wave_previous, wave_current, wave_next = self._wave.previous, self._wave.current, self._wave.next
+
+        local contour_i = 1
+        local contour = self._contour
+
+        local max_offset = 0
 
         for i = 1, n_points do
             local left = math.wrap(i-1, n_points)
             local right = math.wrap(i+1, n_points)
 
-            local new = 2 * wave_current[i] - wave_previous[i] + _courant^2 * (wave_current[left] - 2 * wave_current[i] + wave_current[right])
-            new = new * _damping
+            local new = 2 * wave_current[i] - wave_previous[i] + courant^2 * (wave_current[left] - 2 * wave_current[i] + wave_current[right])
+            new = new * damping
+
             wave_next[i] = new
 
-            local abs_new = math.abs(new)
-            offset_max = math.max(offset_max, abs_new)
+            local shape_data = self._shape_mesh_data[i]
+            local offset_data = self._data_mesh_data[i]
 
-            local data = self._shape_mesh_data[i]
-            local dx, dy, magnitude = data[_dx_index], data[_dy_index], data[_magnitude_index]
-            local origin_x, origin_y = data[_origin_x_index], data[_origin_y_index]
-            local idx = (i - 1) * 2
-            local scale = 1 + new
-            self._contour[idx + 1] = origin_x + scale * dx * magnitude
-            self._contour[idx + 2] = origin_y + scale * dy * magnitude
-            self._data_mesh_data[i][_scale_index] = scale
+            local offset_magnitude = new * magnitude
+            offset_data[_offset_index] = offset_magnitude
+
+            max_offset = math.max(max_offset, math.abs(offset_magnitude))
+
+            contour[contour_i+0] = shape_data[_origin_x_index] + shape_data[_direction_x_index] * (shape_data[_magnitude_index] + offset_magnitude)
+            contour[contour_i+1] = shape_data[_origin_y_index] + shape_data[_direction_y_index] * (shape_data[_magnitude_index] + offset_magnitude)
+            contour_i = contour_i + 2
+        end
+
+        if math.distance(contour[1], contour[2], contour[#contour-1], contour[#contour]) > 1 then
+            contour[1], contour[2] = contour[#contour-1], contour[#contour]
         end
 
         self._wave.previous, self._wave.current, self._wave.next = wave_current, wave_next, wave_previous
         self._data_mesh:replace_data(self._data_mesh_data)
 
-        if offset_max < rt.settings.overworld.bubble_field.wave_deactivation_threshold then
-            self._is_active = false
-        end
+        self._is_active = max_offset >= settings.deactivation_threshold
     end
 end
 
@@ -302,9 +313,9 @@ function ow.BubbleField:draw()
 
     local transform = self._scene:get_camera():get_transform():inverse()
 
-    local offset_x, offset_y = self._body:get_position()
+    local x, y = self._body:get_position()
     love.graphics.push()
-    love.graphics.translate(-self._x + offset_x, -self._y + offset_y)
+    love.graphics.translate(x, y)
 
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.setLineWidth(3)
@@ -319,8 +330,9 @@ function ow.BubbleField:draw()
     _base_shader:send("screen_to_world_transform", transform)
     _base_shader:send("elapsed", elapsed)
     _base_shader:send("hue", hue)
-    _base_shader:send("hue_offset", rt.settings.overworld.bubble_field.particles.hue_offset)
+    _base_shader:send("hue_offset", rt.settings.overworld.bubble_field.hue_offset)
     _base_shader:send("lch_texture", _lch_texture)
+
     love.graphics.draw(self._shape_mesh:get_native())
 
     _base_shader:unbind()
@@ -335,60 +347,9 @@ function ow.BubbleField:draw()
     _outline_shader:send("hue", hue)
     _outline_shader:send("lch_texture", _lch_texture)
 
-    -- Draw a closed outline without duplicating vertices in the solver/mesh data
-    local closed_contour = {}
-    for i = 1, #self._contour do
-        closed_contour[i] = self._contour[i]
-    end
-    rt.contour.close(closed_contour)
-    love.graphics.line(closed_contour)
+    love.graphics.line(self._contour)
 
     _outline_shader:unbind()
 
     love.graphics.pop()
-end
-
---- @brief
-function ow.BubbleField:draw_bloom()
-    if not self._stage:get_is_body_visible(self._body) then return end
-
-    local transform = self._scene:get_camera():get_transform():inverse()
-
-    local offset_x, offset_y = self._body:get_position()
-    love.graphics.push()
-    love.graphics.translate(-self._x + offset_x, -self._y + offset_y)
-
-    love.graphics.setColor(1, 1, 1, 0.5)
-    love.graphics.setLineWidth(3)
-    love.graphics.setLineJoin("none")
-
-    _outline_shader:bind()
-    -- Keep shader inputs consistent with main draw to avoid undefined behavior in the bloom pass
-    local elapsed = rt.SceneManager:get_elapsed() + meta.hash(self)
-    local hue = self._scene:get_player():get_hue()
-    _outline_shader:send("noise_texture", _noise_texture)
-    _outline_shader:send("screen_to_world_transform", transform)
-    _outline_shader:send("elapsed", elapsed)
-    _outline_shader:send("hue", hue)
-
-    local closed_contour = {}
-    for i = 1, #self._contour do
-        closed_contour[i] = self._contour[i]
-    end
-    rt.contour.close(closed_contour)
-    love.graphics.line(closed_contour)
-
-    _outline_shader:unbind()
-
-    love.graphics.pop()
-end
-
---- @brief
-function ow.BubbleField:reset()
-    self._wave.next = {}
-    for i = 1, self._n_points do
-        self._wave.previous[i] = 0
-        self._wave.current[i] = 0
-    end
-    self:update(0)
 end

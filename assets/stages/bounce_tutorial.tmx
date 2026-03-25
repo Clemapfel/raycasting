@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="601">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="608">
  <editorsettings>
   <export target="bounce_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -39,7 +39,7 @@
   <object id="553" name="Bubble Overlap Unpop Preventions" type="CameraFit" x="3232" y="-1040">
    <polygon points="0,0 0,656 496,656 496,0"/>
   </object>
-  <object id="600" type="CameraBounds" x="2983.83" y="304" width="2216.17" height="432"/>
+  <object id="600" type="CameraBounds" x="3503.7" y="304" width="1696.3" height="432"/>
  </objectgroup>
  <objectgroup id="7" name="back">
   <object id="287" type="Wall" x="-368" y="-1088">
@@ -84,7 +84,7 @@
   </object>
  </objectgroup>
  <objectgroup id="6" name="hitbox">
-  <object id="260" name="Spawn" type="PlayerSpawn" x="3065.62" y="670.52">
+  <object id="260" name="Spawn" type="PlayerSpawn" x="518.849" y="1672.33">
    <point/>
   </object>
   <object id="261" type="Hitbox" x="336" y="-576">
@@ -382,7 +382,7 @@
   <object id="431" type="SlipperyHitbox" x="-80" y="1584">
    <polygon points="-144,64 16,64 16,464 160,464 160,-208 320,-208 320,-192 176,-192 176,480 0,480 0,80 -144,80"/>
   </object>
-  <object id="442" x="576" y="1712" rotation="-180">
+  <object id="442" type="Hitbox" x="576" y="1712" rotation="-180">
    <polygon points="0,0 144,0 144,16 0,16"/>
   </object>
   <object id="430" x="-64" y="1488">
@@ -512,6 +512,19 @@
    <point/>
   </object>
   <object id="599" name="Checkpoint" type="Checkpoint" x="3360" y="576">
+   <point/>
+  </object>
+  <object id="605" type="BubbleField" x="896.65" y="1228.37">
+   <polygon points="3.0656,3.0656 -28.8528,-3.54957 -65.5328,5.27039 -90.7296,29.6064 -97.5328,83.7376 -84.0147,123.313 -48,144 -16,144 32,144 64,144 91.4016,165.27 107.479,192.888 96,224 64,240 16,256 -48,256 -98.906,242.753 -141.795,240 -185.869,247.475 -225.009,273.723 -247.85,304.858 -260.598,355.926 -240,400 -188.451,425.197 -141.048,442.767 -72.3593,460.318 0,464 53.6095,452.843 112,432 168.416,399.804 204.934,364.262 230.492,318.334 245.312,281.45 243.9,237.861 220.746,206.467 187.998,182.854 157.605,153.72 144.294,110.467 143.139,72.336 155.051,34.1271 192,0 238.997,-1.75543 270.659,21.0361 304,48 331.44,64.0567 368,64 392.287,36.8853 400,0 389.617,-27.837 368,-48 316.232,-70.8763 272,-80 208,-96 160.657,-94.1953 128,-80 108.659,-50.5143 96,-16 80,16 61.3122,26.7612 29.7952,24.336"/>
+  </object>
+  <object id="606" type="Path" x="614.35" y="1163.68">
+   <properties>
+    <property name="next" type="object" value="607"/>
+    <property name="target_01" type="object" value="605"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="607" type="PathNode" x="1170.4" y="1937.22">
    <point/>
   </object>
  </objectgroup>

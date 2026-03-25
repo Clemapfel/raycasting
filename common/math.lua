@@ -867,3 +867,27 @@ function math.to_number(any)
         return tonumber(any)
     end
 end
+
+function math.ray_intersection(x1, y1, dx1, dy1, x2, y2, dx2, dy2)
+    local det = math.cross(dx1, dy1, dx2, dy2)
+    local eps = math.eps
+
+    if math.abs(det) < eps then return nil end
+
+    local delta_x = x2 - x1
+    local delta_y = y2 - y1
+
+    local t = math.cross(delta_x, delta_y, dx2, dy2) / det
+    local u = math.cross(delta_x, delta_y, dx1, dy1) / det
+
+    if t >= -eps and t <= 1 + eps and u >= -eps and u <= 1 + eps then
+        t = math.clamp(t, 0, 1)
+
+        local ix = x1 + dx1 * t
+        local iy = y1 + dy1 * t
+
+        return ix, iy
+    end
+
+    return nil
+end

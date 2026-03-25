@@ -451,6 +451,98 @@ function rt.Path:get_closest_point(x, y)
     return closest_x, closest_y, closest_t
 end
 
+function rt.Path:get_intersections(x1, y1, x2, y2)
+    -- Fast computation of all intersections between the path and the query segment (x1,y1)-(x2,y2).
+    -- Returns an array of intersections. Each intersection is a table:
+    -- { x = <x>, y = <y>, t = <global_path_parameter_in_[0,1]>, s = <parameter_along_query_segment_in_[0,1]>, segment = <segment_index> }
+    --
+    -- Notes:
+    -- - Uses precomputed segment endpoints from self._entries.
+    -- - Performs quick AABB rejection before more expensive intersection tests.
+    -- - Handles proper intersections and collinear overlap by returning overlap endpoints that lie on the query segment.
+    local intersections = {}
+
+    if self._n_entries == 0 then
+        return intersections
+    end
+
+    local eps = math.eps or 1e-12
+
+    -- Query segment vector
+    local rx = x2 - x1
+    local ry = y2 - y1
+
+    -- Precompute query AABB for quick rejection
+    local qminx = math.min(x1, x2)
+    local qmaxx = math.max(x1, x2)
+    local qminy = math.min(y1, y2)
+    local qmaxy = math.max(y1, y2)
+
+    local function cross(ax, ay, bx, by)
+        return ax * by - ay * bx
+    end
+
+    local function dot(ax, ay, bx, by)
+        return ax * bx + ay * by
+    end
+
+    for i = 1, self._n_entries do
+        local entry = self._entries[i]
+        local sx1 = entry[_from_x]
+        local sy1 = entry[_from_y]
+        local sx2 = entry[_to_x]
+        local sy2 = entry[_to_y]
+
+        -- Segment AABB test
+        local sminx = math.min(sx1, sx2)
+        local smaxx = math.max(sx1, sx2)
+        if smaxx < qminx - eps or sminx > qmaxx + eps then
+            goto continue_entry
+        end
+        local sminy = math.min(sy1, sy2)
+        local smaxy = math.max(sy1, sy2)
+        if smaxy < qminy - eps or sminy > qmaxy + eps then
+            goto continue_entry
+        end
+
+        -- Path segment vector
+        local sx = sx2 - sx1
+        local sy = sy2 - sy1
+
+        -- Solve for intersection using parameterization:
+        -- p + t*r = q + u*s
+        -- cross(r, s) is denominator
+        local denom = cross(rx, ry, sx, sy)
+
+        local qpx = sx1 - x1
+        local qpy = sy1 - y1
+
+        if math.abs(denom) > eps then
+            -- Proper intersection case for non-parallel segments.
+            -- t = cross((q - p), s) / cross(r, s)
+            -- u = cross((q - p), r) / cross(r, s)
+            local t = cross(qpx, qpy, sx, sy) / denom
+            local u = cross(qpx, qpy, rx, ry) / denom
+
+            if t >= -eps and t <= 1 + eps and u >= -eps and u <= 1 + eps then
+                -- intersection point
+                local it = math.clamp(t, 0, 1)
+                local iu = math.clamp(u, 0, 1)
+                local ix = x1 + it * rx
+                local iy = y1 + it * ry
+                local global_t = entry[_fraction] + entry[_fraction_length] * iu
+                --table.insert(intersections, { x = ix, y = iy, t = global_t, s = it, segment = i })
+                table.insert(intersections, ix)
+                table.insert(intersections, iy)
+            end
+        end
+
+        ::continue_entry::
+    end
+
+    return intersections
+end
+
 --- perpendicular distance from point to line segment
 local function _perpendicular_distance(px, py, x1, y1, x2, y2)
     local dx = x2 - x1
