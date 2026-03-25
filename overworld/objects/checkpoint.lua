@@ -363,7 +363,6 @@ function ow.Checkpoint:_set_state(state)
         player:teleport_to(self._top_x, spawn_y)
         player:relax()
         player:request_is_disabled(self, true)
-        self._stage:apply_camera_bounds(self._bottom_x, self._bottom_y)
 
     elseif self._state == _STATE_EXPLODING then
         local player_radius = player:get_radius()
@@ -371,8 +370,11 @@ function ow.Checkpoint:_set_state(state)
         self._explosion_size = { 2 * factor * player_radius, 2 * factor * player_radius }
 
         camera:set_apply_bounds(true)
-        camera:set_position(self._explosion_x, self._explosion_y)
-
+        camera:move_to(self._explosion_x, self._explosion_y)
+        self._stage:apply_camera_bounds(
+            self._explosion_x, self._explosion_y,
+            false -- snap instantly
+        )
         if self._explosion_visible then
             self:_spawn_explosion_particles(self._explosion_x, self._explosion_y)
         end
@@ -480,18 +482,19 @@ end
 
 --- @brief
 function ow.Checkpoint:_spawn_rope_particles(x, y)
+    local velocity = 3
     local settings = {
         min_radius = 5,
         max_radius = 6,
-        min_velocity = 50,
-        max_velocity = 500,
+        min_velocity = 0,
+        max_velocity = 200 * velocity,
         gravity = 200,
         min_damping = 1,
         max_damping = 1,
         min_angle = 0,
         max_angle = 2 * math.pi,
-        min_lifetime = 3,
-        max_lifetime = 3,
+        min_lifetime = 10,
+        max_lifetime = 10,
         n_particles = rt.random.integer(128, 128),
         origin_offset = rt.settings.player.radius,
         draw_as_outline = true,
@@ -581,6 +584,7 @@ function ow.Checkpoint:update(delta)
         self._scene:set_blur(rt.InterpolationFunctions.GAUSSIAN_HIGHPASS(math.min(1, self._explosion_elapsed / duration)))
 
         if self._explosion_elapsed > duration then
+            if self._rope:get_is_cut() then self._rope:_despawn() end
             self:_set_state(_STATE_RAY)
         end
     elseif self._state == _STATE_RAY then
@@ -677,7 +681,10 @@ function ow.Checkpoint:draw(priority)
             self._particles:draw()
         end
 
-        if self._type == ow.CheckpointType.MIDWAY and self._time_label_visible then
+        if rt.GameState:get_draw_speedrun_splits()
+            and self._type == ow.CheckpointType.MIDWAY
+            and self._time_label_visible
+        then
             local w, h = self._time_label:measure()
             local y = math.clamp(self._time_label_motion:get_value(), self._top_y + 0.5 * h, self._bottom_y - 0.5 * h)
             self._time_label:draw(

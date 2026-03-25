@@ -166,6 +166,8 @@ vec4 effect(vec4 color, Image image, vec2 texture_coords, vec2 vertex_position) 
     ray *= fade_out_fraction;
     strike *= envelope(1 - fade_out_fraction, 0.05, 0.4);
 
+    ray *= gaussian(abs(1 - texture_coords.y), 1 / 5.0);
+
     float light = smooth_max(strike * 3, ray, 0.5);
 
     return vec4(vec3(light), strike + ray) * vec4(lch_to_rgb(vec3(0.8, 1, clamp(hue, 0, 1))), 1);
