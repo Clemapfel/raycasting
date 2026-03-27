@@ -1,7 +1,9 @@
 require "common.contour"
 
 rt.settings.overworld.blood_splatter = {
-    line_width = 3.5
+    line_width = 3.5,
+    subdivision_length = rt.settings.player.radius / 2,
+    hue_difference_threshold = 1 / 12
 }
 
 -- @class ow.BloodSplatter
@@ -265,7 +267,7 @@ function ow.BloodSplatter:create_contour(tris, occluding_tris)
 
     self._edge_body = love.physics.newBody(self._world, 0, 0, b2.BodyType.STATIC)
 
-    local max_length = rt.settings.player.radius / 4
+    local max_length = rt.settings.overworld.blood_splatter.subdivision_length
     for hash, count in pairs(tuples) do
         if count == 1 and hash_to_is_valid[hash] == true then
             local x1, y1, x2, y2 = _unhash(hash)
@@ -331,7 +333,7 @@ end
 
 --- @brief
 function ow.BloodSplatter:collect_segment_lights(bounds, callback)
-    local hue_threshold = 0.05
+    local hue_threshold = rt.settings.overworld.blood_splatter.hue_difference_threshold
     local x, y, w, h = bounds:unpack()
     x = x - self._offset_x
     y = y - self._offset_y
@@ -346,15 +348,13 @@ function ow.BloodSplatter:collect_segment_lights(bounds, callback)
         local segment_active = false
 
         local start_segment = function(division)
-            -- start new line segment
             x1, y1, x2, y2 = table.unpack(division.line)
             current_hue = division.hue
             current_color = division.color
             segment_active = true
         end
 
-        local push_segment = function()
-            -- finish new line segment
+        local end_segment = function()
             callback(
                 x1, y1, x2, y2,
                 current_color:unpack()
@@ -371,19 +371,18 @@ function ow.BloodSplatter:collect_segment_lights(bounds, callback)
                 if current_hue == nil then
                     start_segment(division)
                 elseif math.abs(current_hue - division.hue) <= hue_threshold then
-                    -- extend colinear segment if hue is close enough
                     x2, y2 = division.line[3], division.line[4]
                 else
-                    push_segment()
+                    end_segment()
                     start_segment(division)
                 end
             elseif segment_active then
-                push_segment()
+                end_segment()
             end
         end
 
         if segment_active then
-            push_segment()
+            end_segment()
         end
     end
 end

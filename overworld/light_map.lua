@@ -2,18 +2,19 @@ require "common.matrix"
 
 rt.settings.overworld.light_map = {
     max_n_point_lights = 128,
-    max_n_segment_lights = 64 + 32,
-    n_point_lights_per_tile = 16,
-    n_segment_lights_per_tile = 16,
+    max_n_segment_lights = 128,
+    n_point_lights_per_tile = 8,
+    n_segment_lights_per_tile = 32,
     tile_size = 32,
     work_group_size = 16,
     light_range = 64, -- px
-    light_range_threshold = 512 - 3.5 * 32 - 8,
+    light_range_threshold = 256,
     light_z_height = 512 + 128, -- px, smaller values = more dramatic normal falloff
     intensity = 1,
     intensity_texture_format = rt.TextureFormat.RGBA8,
     direction_texture_format = rt.TextureFormat.RG16F,
-    mask_texture_format = rt.TextureFormat.R8
+    mask_texture_format = rt.TextureFormat.R8,
+    should_sort_by_distance = false
 }
 
 --- @class ow.LightMap
@@ -133,172 +134,12 @@ function ow.LightMap:unbind_mask()
     self._mask_texture:unbind()
 end
 
---- @brief
-function ow.LightMap:update(stage)
-    if rt.GameState:get_is_dynamic_lighting_enabled() == false then return end
-
-    local settings = rt.settings.overworld.light_map
-    local tile_size = self._tile_size
-    local max_n_point_lights, max_n_segment_lights = settings.max_n_point_lights, settings.max_n_segment_lights
-    local n_point_lights_per_tile, n_segment_lights_per_tile = settings.n_point_lights_per_tile, settings.n_segment_lights_per_tile
-    local width, height = self._light_intensity_texture:get_size()
-    local tile_data_stride = 1 + settings.n_point_lights_per_tile + 1 + settings.n_segment_lights_per_tile
-    local tile_data = self._tile_data_buffer_data
-    local point_light_data = self._point_light_buffer_data
-    local segment_light_data = self._segment_light_buffer_data
-
-    local function xy_to_tile_index(x, y)
-        local tile_x = math.floor(x / tile_size)
-        local tile_y = math.floor(y / tile_size)
-
-        local n_tiles_per_row = math.ceil(width / tile_size)
-        local tile_index = tile_y * n_tiles_per_row + tile_x
-
-        return tile_index + 1 -- lua is 1-based
-    end
-
-    local function tile_index_to_data_offset(tile_index)
-        return (tile_index - 1) * tile_data_stride + 1
-    end
-
-    local function closest_point_on_segment(x, y, x1, y1, x2, y2)
-        local abx = x2 - x1
-        local aby = y2 - y1
-
-        local apx = x - x1
-        local apy = y - y1
-
-        local ab_dot_ab = math.dot(abx, aby, abx, aby)
-
-        if ab_dot_ab == 0 then
-            return x1, y1
-        end
-
-        local t = math.clamp(
-            math.dot(apx, apy, abx, aby) / ab_dot_ab,
-            0.0,
-            1.0
-        )
-
-        return x1 + t * abx, y1 + t * aby
-    end
-
-    local camera = stage:get_scene():get_camera()
-    local world_to_screen_transform = camera:get_transform()
-    local final_scale = camera:get_final_scale()
-
-    local point_light_i = 1
-    local add_point_light = function(x, y, radius, color_r, color_g, color_b, color_a)
-        meta.assert(x, "Number", y, "Number", radius, "Number", color_r, "Number", color_g, "Number", color_b, "Number", color_a, "Number")
-
-        if point_light_i > max_n_point_lights then
-            return
-        end
-
-        radius = math.max(radius, 1) * final_scale
-        x, y = world_to_screen_transform:transform_point(x, y)
-
-        local data = point_light_data[point_light_i]
-        data[1], data[2], data[3] = x, y, radius
-        data[4], data[5], data[6], data[7] = color_r, color_g, color_b, color_a
-
-        point_light_i = point_light_i + 1
-    end
-
-    local segment_light_i = 1
-    local add_segment_light = function(x1, y1, x2, y2, color_r, color_g, color_b, color_a)
-        meta.assert(x1, "Number", y1, "Number", x2, "Number", y2, "Number", color_r, "Number", color_g, "Number", color_b, "Number", color_a, "Number")
-
-        if segment_light_i > max_n_segment_lights then
-            return
-        end
-
-        x1, y1 = world_to_screen_transform:transform_point(x1, y1)
-        x2, y2 = world_to_screen_transform:transform_point(x2, y2)
-
-        local data = segment_light_data[segment_light_i]
-        data[1], data[2], data[3], data[4] = x1, y1, x2, y2
-        data[5], data[6], data[7], data[8] = color_r, color_g, color_b, color_a
-
-        segment_light_i = segment_light_i + 1
-    end
-
-    -- collect light sources
-
-    stage:collect_point_lights(add_point_light)
-    stage:collect_segment_lights(add_segment_light)
-
-    local n_segment_lights = segment_light_i - 1
-    local n_point_lights = point_light_i - 1
-
-    self._current_n_point_lights = n_point_lights
-    self._point_light_buffer:replace_data(
-        self._point_light_buffer_data
-    )
-
-    self._current_n_segment_lights = n_segment_lights
-    self._segment_light_buffer:replace_data(
-        self._segment_light_buffer_data
-    )
-
-    -- setup tile data
-
-    local function set_n_point_lights(tile_index, count)
-        local tile_offset = tile_index_to_data_offset(tile_index)
-        tile_data[tile_offset + 0] = count
-    end
-
-    local function get_n_point_lights(tile_index)
-        local tile_offset = tile_index_to_data_offset(tile_index)
-        return tile_data[tile_offset + 0]
-    end
-
-    local function set_n_segment_lights(tile_index, count)
-        local tile_offset = tile_index_to_data_offset(tile_index)
-        tile_data[tile_offset + 1 + settings.n_point_lights_per_tile] = count
-    end
-
-    local function get_n_segment_lights(tile_index)
-        local tile_offset = tile_index_to_data_offset(tile_index)
-        return tile_data[tile_offset + 1 + settings.n_point_lights_per_tile]
-    end
-
-    local function add_point_light_to_tile(tile_index, light_source_index)
-        local tile_offset = tile_index_to_data_offset(tile_index)
-        local count = tile_data[tile_offset]
-        if get_n_point_lights(tile_index) >= n_point_lights_per_tile then
-            return
-        end
-
-        tile_data[tile_offset + 1 + count] = light_source_index - 1 -- glsl is 0-based
-        tile_data[tile_offset] = count + 1
-    end
-
-    local function add_segment_light_to_tile(tile_index, light_source_index)
-        local tile_offset = tile_index_to_data_offset(tile_index)
-        local count = tile_data[tile_offset + 1 + n_point_lights_per_tile]
-        if get_n_segment_lights(tile_index) >= n_segment_lights_per_tile then
-            return
-        end
-
-        tile_data[tile_offset + 1 + n_point_lights_per_tile + 1 + count] = light_source_index - 1 -- 0 based
-        tile_data[tile_offset + 1 + n_point_lights_per_tile] = count + 1
-    end
-
-    for tile_i = 1, self._n_tiles do
-        -- reset tile counts, rest of each buffer does not need to be reset
-        set_n_point_lights(tile_i, 0)
-        set_n_segment_lights(tile_i, 0)
-    end
-
-    local n_rows = math.ceil(width / tile_size)
-    local n_columns = math.ceil(height / tile_size)
-    local max_range = settings.light_range_threshold
-    max_range = max_range^2 -- using squared distance for performance
+do
+    local max, min = math.max, math.min
 
     local function distance_between_square_and_point(x, y, square_size, px, py)
-        local clamped_x = math.max(x, math.min(px, x + square_size))
-        local clamped_y = math.max(y, math.min(py, y + square_size))
+        local clamped_x = max(x, min(px, x + square_size))
+        local clamped_y = max(y, min(py, y + square_size))
         return (px - clamped_x) * (px - clamped_x) + (py - clamped_y) * (py - clamped_y)
     end
 
@@ -308,7 +149,7 @@ function ow.LightMap:update(stage)
         if segment_length_squared == 0 then
             return (px - x1) * (px - x1) + (py - y1) * (py - y1)
         end
-        local t = math.max(0, math.min(1, ((px - x1) * dx + (py - y1) * dy) / segment_length_squared))
+        local t = max(0, min(1, ((px - x1) * dx + (py - y1) * dy) / segment_length_squared))
         local closest_x = x1 + t * dx
         local closest_y = y1 + t * dy
         return (px - closest_x) * (px - closest_x) + (py - closest_y) * (py - closest_y)
@@ -343,113 +184,272 @@ function ow.LightMap:update(stage)
         )
     end
 
-    local tile_to_point_candidates = {}
-    local tile_to_segment_candidates = {}
+    local function xy_to_tile_index(width, tile_size, x, y)
+        local tile_x = math.floor(x / tile_size)
+        local tile_y = math.floor(y / tile_size)
+        local n_tiles_per_row = math.ceil(width / tile_size)
+        local tile_index = tile_y * n_tiles_per_row + tile_x
+        return tile_index + 1
+    end
 
-    for row_i = 1, n_rows do
-        for column_i = 1, n_columns do
-            local tile_x = (row_i - 1) * tile_size
-            local tile_y = (column_i - 1) * tile_size
-            local tile_i = xy_to_tile_index(tile_x + 0.5 * tile_size, tile_y + 0.5 * tile_size)
+    local function tile_index_to_data_offset(tile_data_stride, tile_index)
+        return (tile_index - 1) * tile_data_stride + 1
+    end
 
-            -- iterate all point lights, check if they are in range, if yes add to tile
-            for point_i = 1, n_point_lights do
-                local data = point_light_data[point_i]
-                local x, y, radius = data[1], data[2], data[3]
-                local opacity = data[7]
+    local function set_n_point_lights(tile_data, tile_data_stride, tile_index, count)
+        local tile_offset = tile_index_to_data_offset(tile_data_stride, tile_index)
+        tile_data[tile_offset + 0] = count
+    end
 
-                if opacity > 0 then
-                    local distance = distance_between_square_and_point(tile_x, tile_y, tile_size, x, y)
-                    if distance < max_range + radius^2 then
-                        local entry = tile_to_point_candidates[tile_i]
-                        if entry == nil then
-                            entry = {}
-                            tile_to_point_candidates[tile_i] = entry
+    local function get_n_point_lights(tile_data, tile_data_stride, tile_index)
+        local tile_offset = tile_index_to_data_offset(tile_data_stride, tile_index)
+        return tile_data[tile_offset + 0]
+    end
+
+    local function set_n_segment_lights(tile_data, tile_data_stride, n_point_lights_per_tile, tile_index, count)
+        local tile_offset = tile_index_to_data_offset(tile_data_stride, tile_index)
+        tile_data[tile_offset + 1 + n_point_lights_per_tile] = count
+    end
+
+    local function get_n_segment_lights(tile_data, tile_data_stride, n_point_lights_per_tile, tile_index)
+        local tile_offset = tile_index_to_data_offset(tile_data_stride, tile_index)
+        return tile_data[tile_offset + 1 + n_point_lights_per_tile]
+    end
+
+    local function add_point_light_to_tile(tile_data, tile_data_stride, n_point_lights_per_tile, tile_index, light_source_index)
+        local tile_offset = tile_index_to_data_offset(tile_data_stride, tile_index)
+        local count = tile_data[tile_offset]
+        if get_n_point_lights(tile_data, tile_data_stride, tile_index) >= n_point_lights_per_tile then
+            return
+        end
+        tile_data[tile_offset + 1 + count] = light_source_index - 1
+        tile_data[tile_offset] = count + 1
+    end
+
+    local function add_segment_light_to_tile(tile_data, tile_data_stride, n_point_lights_per_tile, n_segment_lights_per_tile, tile_index, light_source_index)
+        local tile_offset = tile_index_to_data_offset(tile_data_stride, tile_index)
+        local count = tile_data[tile_offset + 1 + n_point_lights_per_tile]
+        if get_n_segment_lights(tile_data, tile_data_stride, n_point_lights_per_tile, tile_index) >= n_segment_lights_per_tile then
+            return
+        end
+        tile_data[tile_offset + 1 + n_point_lights_per_tile + 1 + count] = light_source_index - 1
+        tile_data[tile_offset + 1 + n_point_lights_per_tile] = count + 1
+    end
+
+    local add_point_light = function(point_light_data, max_n_point_lights, point_light_i, world_to_screen_transform, final_scale, x, y, radius, color_r, color_g, color_b, color_a)
+        if point_light_i > max_n_point_lights then
+            return point_light_i
+        end
+
+        radius = math.max(radius, 1) * final_scale
+        x, y = world_to_screen_transform:transform_point(x, y)
+
+        local data = point_light_data[point_light_i]
+        data[1], data[2], data[3] = x, y, radius
+        data[4], data[5], data[6], data[7] = color_r, color_g, color_b, color_a
+
+        return point_light_i + 1
+    end
+
+    local add_segment_light = function(segment_light_data, max_n_segment_lights, segment_light_i, world_to_screen_transform, x1, y1, x2, y2, color_r, color_g, color_b, color_a)
+        if segment_light_i > max_n_segment_lights then
+            return segment_light_i
+        end
+
+        x1, y1 = world_to_screen_transform:transform_point(x1, y1)
+        x2, y2 = world_to_screen_transform:transform_point(x2, y2)
+
+        local data = segment_light_data[segment_light_i]
+        data[1], data[2], data[3], data[4] = x1, y1, x2, y2
+        data[5], data[6], data[7], data[8] = color_r, color_g, color_b, color_a
+
+        return segment_light_i + 1
+    end
+
+    --- @brief
+    function ow.LightMap:update(stage)
+        if rt.GameState:get_is_dynamic_lighting_enabled() == false then return end
+
+        local settings = rt.settings.overworld.light_map
+        local tile_size = self._tile_size
+        local max_n_point_lights, max_n_segment_lights = settings.max_n_point_lights, settings.max_n_segment_lights
+        local n_point_lights_per_tile, n_segment_lights_per_tile = settings.n_point_lights_per_tile, settings.n_segment_lights_per_tile
+        local width, height = self._light_intensity_texture:get_size()
+        local tile_data_stride = 1 + settings.n_point_lights_per_tile + 1 + settings.n_segment_lights_per_tile
+        local tile_data = self._tile_data_buffer_data
+        local point_light_data = self._point_light_buffer_data
+        local segment_light_data = self._segment_light_buffer_data
+
+        local camera = stage:get_scene():get_camera()
+        local world_to_screen_transform = camera:get_transform()
+        local final_scale = camera:get_final_scale()
+
+        local point_light_i = 1
+        local segment_light_i = 1
+
+        stage:collect_point_lights(function(x, y, radius, color_r, color_g, color_b, color_a)
+            meta.assert(x, "Number", y, "Number", radius, "Number", color_r, "Number", color_g, "Number", color_b, "Number", color_a, "Number")
+            point_light_i = add_point_light(point_light_data, max_n_point_lights, point_light_i, world_to_screen_transform, final_scale, x, y, radius, color_r, color_g, color_b, color_a)
+        end)
+        stage:collect_segment_lights(function(x1, y1, x2, y2, color_r, color_g, color_b, color_a)
+            meta.assert(x1, "Number", y1, "Number", x2, "Number", y2, "Number", color_r, "Number", color_g, "Number", color_b, "Number", color_a, "Number")
+            segment_light_i = add_segment_light(segment_light_data, max_n_segment_lights, segment_light_i, world_to_screen_transform, x1, y1, x2, y2, color_r, color_g, color_b, color_a)
+        end)
+
+        local n_segment_lights = segment_light_i - 1
+        local n_point_lights = point_light_i - 1
+
+        self._current_n_point_lights = n_point_lights
+        self._point_light_buffer:replace_data(self._point_light_buffer_data)
+
+        self._current_n_segment_lights = n_segment_lights
+        self._segment_light_buffer:replace_data(self._segment_light_buffer_data)
+
+        for tile_i = 1, self._n_tiles do
+            set_n_point_lights(tile_data, tile_data_stride, tile_i, 0)
+            set_n_segment_lights(tile_data, tile_data_stride, n_point_lights_per_tile, tile_i, 0)
+        end
+
+        local n_rows = math.ceil(width / tile_size)
+        local n_columns = math.ceil(height / tile_size)
+        local max_range = settings.light_range_threshold
+        max_range = (max_range * camera:get_final_scale())^2
+
+        if settings.should_sort_by_distance ~= true then
+            for row_i = 1, n_rows do
+                for column_i = 1, n_columns do
+                    local tile_x = (row_i - 1) * tile_size
+                    local tile_y = (column_i - 1) * tile_size
+                    local tile_i = xy_to_tile_index(width, tile_size, tile_x + 0.5 * tile_size, tile_y + 0.5 * tile_size)
+
+                    for point_i = 1, n_point_lights do
+                        local data = point_light_data[point_i]
+                        local x, y, radius = data[1], data[2], data[3]
+                        local opacity = data[7]
+
+                        if opacity > 0 then
+                            local distance = distance_between_square_and_point(tile_x, tile_y, tile_size, x, y)
+                            if distance < max_range + radius^2 then
+                                add_point_light_to_tile(tile_data, tile_data_stride, n_point_lights_per_tile, tile_i, point_i)
+                            end
                         end
-                        entry[point_i] = distance
+                    end
+
+                    for segment_i = 1, n_segment_lights do
+                        local data = segment_light_data[segment_i]
+                        local x1, y1, x2, y2 = data[1], data[2], data[3], data[5]
+                        local opacity = data[8]
+
+                        if opacity > 0 then
+                            local distance = distance_between_square_and_segment(tile_x, tile_y, tile_size, x1, y1, x2, y2)
+                            if distance < max_range then
+                                add_segment_light_to_tile(tile_data, tile_data_stride, n_point_lights_per_tile, n_segment_lights_per_tile, tile_i, segment_i)
+                            end
+                        end
+                    end
+                end
+            end
+        else
+            local tile_to_point_candidates = {}
+            local tile_to_segment_candidates = {}
+
+            for tile_i = 1, self._n_tiles do
+                tile_to_point_candidates[tile_i] = {}
+                tile_to_segment_candidates[tile_i] = {}
+            end
+
+            for row_i = 1, n_rows do
+                for column_i = 1, n_columns do
+                    local tile_x = (row_i - 1) * tile_size
+                    local tile_y = (column_i - 1) * tile_size
+                    local tile_i = xy_to_tile_index(width, tile_size, tile_x + 0.5 * tile_size, tile_y + 0.5 * tile_size)
+
+                    for point_i = 1, n_point_lights do
+                        local data = point_light_data[point_i]
+                        local x, y, radius = data[1], data[2], data[3]
+                        local opacity = data[7]
+
+                        if opacity > 0 then
+                            local distance = distance_between_square_and_point(tile_x, tile_y, tile_size, x, y)
+                            if distance < max_range + radius^2 then
+                                local entry = tile_to_point_candidates[tile_i]
+                                entry[point_i] = distance * opacity
+                            end
+                        end
+                    end
+
+                    for segment_i = 1, n_segment_lights do
+                        local data = segment_light_data[segment_i]
+                        local x1, y1, x2, y2 = data[1], data[2], data[3], data[5]
+                        local opacity = data[8]
+
+                        if opacity > 0 then
+                            local distance = distance_between_square_and_segment(tile_x, tile_y, tile_size, x1, y1, x2, y2)
+                            if distance < max_range then
+                                local entry = tile_to_segment_candidates[tile_i]
+                                entry[segment_i] = distance * opacity
+                            end
+                        end
                     end
                 end
             end
 
-            -- iterate all segment lights, check if in range
-            for segment_i = 1, n_segment_lights do
-                local data = segment_light_data[segment_i]
-                local x1, y1, x2, y2 = data[1], data[2], data[3], data[5]
-                local opacity = data[8]
+            for tile_i, point_entry in ipairs(tile_to_point_candidates) do
+                if #point_entry > n_point_lights_per_tile then
+                    local candidates = {}
+                    for point_i in keys(point_entry) do
+                        table.insert(candidates, point_i)
+                    end
 
-                if opacity > 0 then
-                    local distance = distance_between_square_and_segment(tile_x, tile_y, tile_size, x1, y1, x2, y2)
-                    if distance < max_range then
-                        local entry = tile_to_segment_candidates[tile_i]
-                        if entry == nil then
-                            entry = {}
-                            tile_to_segment_candidates[tile_i] = entry
-                        end
-                        entry[segment_i] = distance
+                    table.sort(candidates, function(a, b)
+                        return point_entry[a] < point_entry[b]
+                    end)
+
+                    for i = 1, #candidates do
+                        add_point_light_to_tile(tile_data, tile_data_stride, n_point_lights_per_tile, tile_i, candidates[i])
+                    end
+                else
+                    for i in keys(point_entry) do
+                        add_point_light_to_tile(tile_data, tile_data_stride, n_point_lights_per_tile, tile_i, i)
                     end
                 end
             end
-        end
+
+            for tile_i, segment_entry in ipairs(tile_to_segment_candidates) do
+                local n = table.sizeof(segment_entry)
+
+                if n > n_segment_lights_per_tile then
+                    local candidates = {}
+                    for segment_i in keys(segment_entry) do
+                        table.insert(candidates, segment_i)
+                    end
+
+                    table.sort(candidates, function(a, b)
+                        return segment_entry[a] < segment_entry[b]
+                    end)
+
+                    for i = 1, #candidates do
+                        add_segment_light_to_tile(tile_data, tile_data_stride, n_point_lights_per_tile, n_segment_lights_per_tile, tile_i, candidates[i])
+                    end
+                else
+                    for i in keys(segment_entry) do
+                        add_segment_light_to_tile(tile_data, tile_data_stride, n_point_lights_per_tile, n_segment_lights_per_tile, tile_i, i)
+                    end
+                end
+            end
+        end -- should_sort_by_distance
+
+        self._tile_data_buffer:replace_data(tile_data)
+
+        local shader = self._shader
+        shader:send("point_light_source_buffer", self._point_light_buffer)
+        shader:send("segment_light_sources_buffer", self._segment_light_buffer)
+        shader:send("tile_data_buffer", self._tile_data_buffer)
+        shader:send("light_intensity_texture", self._light_intensity_texture)
+        shader:send("light_direction_texture", self._light_direction_texture)
+        shader:send("mask_texture", self._mask_texture)
+        shader:dispatch(self._dispatch_x, self._dispatch_y)
     end
-
-    -- sort by distance in case of too many per tile
-
-    for tile_i, point_entry in pairs(tile_to_point_candidates) do
-        if #point_entry > n_point_lights_per_tile then
-            local candidates = {}
-            for point_i in keys(point_entry) do
-                table.insert(candidates, point_i)
-            end
-
-            table.sort(candidates, function(a, b)
-                return point_entry[a] < point_entry[b]
-            end)
-
-            for i = 1, candidates do
-                add_point_light_to_tile(tile_i, candidates[i])
-            end
-        else
-            for i in keys(point_entry) do
-                add_point_light_to_tile(tile_i, i)
-            end
-        end
-    end
-
-    local temp = -math.huge
-    for tile_i, segment_entry in pairs(tile_to_segment_candidates) do
-        local n = table.sizeof(segment_entry)
-        temp = math.max(temp, n)
-
-        if n > n_segment_lights_per_tile then
-            local candidates = {}
-            for segment_i in keys(segment_entry) do
-                table.insert(candidates, segment_i)
-            end
-
-            table.sort(candidates, function(a, b)
-                return segment_entry[a] < segment_entry[b]
-            end)
-
-            for i = 1, #candidates do
-                add_segment_light_to_tile(tile_i, candidates[i])
-            end
-        else
-            for i in keys(segment_entry) do
-                add_segment_light_to_tile(tile_i, i)
-            end
-        end
-    end
-
-    self._tile_data_buffer:replace_data(tile_data) -- always replace all
-
-    local shader = self._shader
-    shader:send("point_light_source_buffer", self._point_light_buffer)
-    shader:send("segment_light_sources_buffer", self._segment_light_buffer)
-    shader:send("tile_data_buffer", self._tile_data_buffer)
-    shader:send("light_intensity_texture", self._light_intensity_texture)
-    shader:send("light_direction_texture", self._light_direction_texture)
-    shader:send("mask_texture", self._mask_texture)
-    shader:dispatch(self._dispatch_x, self._dispatch_y)
 end
 
 --- @brief
