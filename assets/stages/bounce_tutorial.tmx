@@ -47,7 +47,7 @@
    </properties>
   </object>
   <object id="627" type="CameraBounds" x="508.324" y="2105.53" width="2797.59" height="789.077"/>
-  <object id="644" type="CameraBounds" x="432" y="1232" width="3856" height="592"/>
+  <object id="644" type="CameraBounds" x="1302.8" y="2938.19" width="3856" height="592"/>
  </objectgroup>
  <objectgroup id="7" name="back">
   <object id="287" type="Wall" x="-368" y="-1088">

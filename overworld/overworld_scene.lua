@@ -253,6 +253,8 @@ function ow.OverworldScene:instantiate(state)
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
         -- debug reload
         if which == rt.KeyboardKey.CIRCUMFLEX then
+            self:show_result_screen()
+            --[[
             for reload in range(
                 "common.player"
             ) do
@@ -264,6 +266,7 @@ function ow.OverworldScene:instantiate(state)
             self:unpause()
             self:reset()
             self._input:activate()
+            ]]
         elseif which == rt.KeyboardKey.ONE then
             rt.GameState:save()
         end

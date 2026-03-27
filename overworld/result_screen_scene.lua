@@ -428,11 +428,21 @@ function ow.ResultScreenScene:size_allocate(x, y, width, height)
         for body in values(self._bodies) do body:destroy() end
 
         self._bodies = {}
+
+        local scale = self._camera:get_final_scale()
+
+        local half_w, half_h = 0.5 * width / scale, 0.5 * height / scale
+        local center_x, center_y = half_w, half_h
+        local top_left_x, top_left_y = center_x - half_w, center_y - half_w
+        local top_right_x, top_right_y = center_x + half_w, center_y - half_h
+        local bottom_right_x, bottom_right_y = center_x + half_w, center_y + half_h
+        local bottom_left_x, bottom_left_y = center_x - half_w, center_y + half_h
+
         for shape in range(
-            b2.Segment(bx + 0, by + 0, bx + w, by + 0),
-            b2.Segment(bx + w, by + 0, bx + w, by + h),
-            b2.Segment(bx + w, by + h, bx + 0, by + h),
-            b2.Segment(bx + 0, by + h, bx + 0, by + 0)
+            b2.Segment(top_left_x, top_left_y, top_right_x, top_right_y),
+            b2.Segment(top_right_x, top_right_y, bottom_right_x, bottom_right_y),
+            b2.Segment(bottom_right_x, bottom_right_y, bottom_left_x, bottom_left_y),
+            b2.Segment(bottom_left_x, bottom_left_y, top_left_x, top_left_y)
         ) do
             local body = b2.Body(self._world, b2.BodyType.STATIC, 0, 0, shape)
             body:signal_connect("collision_start", function(self_body, other_body, normal_x, normal_y, collision_x, collision_y)
@@ -463,7 +473,7 @@ function ow.ResultScreenScene:size_allocate(x, y, width, height)
             table.insert(self._bodies, body)
         end
 
-        self._camera:set_position(bounds_x + 0.5 * w, bounds_y + 0.5 * h)
+        self._camera:set_position(half_w, half_h)
         self:_teleport_player(self._entry_x, self._entry_y)
     end
 
@@ -1115,7 +1125,6 @@ function ow.ResultScreenScene:update(delta)
 
         local duration = rt.settings.overworld.result_screen_scene.exit_transition_fall_duration
         self._transition_fraction = self._transition_elapsed / duration
-        self._player:set_flow(self._transition_fraction)
 
         local px, py = self._player:get_position()
         for entry in values(self._coin_indicators) do
@@ -1175,8 +1184,6 @@ function ow.ResultScreenScene:draw()
     self._screenshot_mesh:draw()
     _screenshot_shader:unbind()
 
-    self._camera:bind()
-
     love.graphics.push()
 
     self._frame:draw()
@@ -1225,6 +1232,8 @@ function ow.ResultScreenScene:draw()
     rt.graphics.set_stencil_mode(nil)
     love.graphics.pop()
 
+    self._camera:bind()
+
     self._fireworks:draw()
 
     -- draw floating coins
@@ -1272,7 +1281,6 @@ function ow.ResultScreenScene:draw()
 
         bloom:composite(rt.settings.menu_scene.bloom_composite)
     end
-
 
     if self._is_paused and not self._transition_active then
         self._option_background:draw()

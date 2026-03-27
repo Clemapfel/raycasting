@@ -284,6 +284,8 @@ function ow.ShatterSurface:shatter(origin_x, origin_y, velocity_x, velocity_y)
 
         -- generate meshes
 
+        local start = love.timer.getTime()
+
         self._n_vertices_to_data = {}
         local n_vertices_to_instance_part = {}
 
@@ -346,6 +348,11 @@ function ow.ShatterSurface:shatter(origin_x, origin_y, velocity_x, velocity_y)
                 outer_bounds.x + outer_bounds.width - part.x - origin_x,
                 outer_bounds.y + outer_bounds.height - part.y - origin_y
             )
+
+            if (love.timer.getTime() - start) / (1 / 60) > 0.25 then
+                coroutine.yield()
+                start = love.timer.getTime()
+            end
 
             entry_i = entry_i + 1
         end
@@ -608,8 +615,6 @@ function ow.ShatterSurface._compute_voronoi(sites, bounds_x, bounds_y, bounds_w,
     end
 
     local map = rt.DelaunayTriangulation(sites):get_triangle_vertex_map()
-
-    coroutine.yield()
 
     for i = 1, #map, 3 do
         local i1, i2, i3 = map[i+0], map[i+1], map[i+2]

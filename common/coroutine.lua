@@ -3,8 +3,7 @@ rt.Coroutine = meta.class("Coroutine")
 
 --- @brief
 function rt.Coroutine:instantiate(f)
-    f()
-    --self._native = coroutine.create(f)
+    self._native = coroutine.create(f)
 end
 
 --- @brief

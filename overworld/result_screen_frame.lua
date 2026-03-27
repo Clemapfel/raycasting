@@ -27,6 +27,7 @@ local _particle_texture_shader = rt.Shader("overworld/result_screen_frame_partic
 local _outline_shader = rt.Shader("menu/stage_select_item_frame_outline.glsl", { MODE = 0 })
 local _base_shader = rt.Shader("menu/stage_select_item_frame_outline.glsl", { MODE = 1 })
 local _mask_shader = rt.Shader("overworld/result_screen_frame_mask.glsl")
+local _lch_texture = rt.LCHTexture(1, 8, 256)
 
 --- @brief
 function ow.ResultScreenFrame:instantiate()
@@ -585,6 +586,7 @@ function ow.ResultScreenFrame:draw()
         _outline_shader:send("elapsed", rt.SceneManager:get_elapsed())
         _outline_shader:send("hue", self._hue)
         _outline_shader:send("hue_range", self._hue_range)
+        _outline_shader:send("lch_texture", _lch_texture)
         self._particle_canvas:draw(self._canvas_x, self._canvas_y)
         _outline_shader:unbind()
     end

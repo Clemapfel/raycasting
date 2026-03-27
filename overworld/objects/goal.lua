@@ -225,6 +225,7 @@ function ow.Goal:instantiate(object, stage, scene)
                 local px, py = self._scene:get_player():get_position()
                 px, py = math.subtract(px, py, self._body:get_position())
                 self._final_player_position_x, self._final_player_position_y = px, py
+
                 self._shatter_surface:shatter(px, py, self._shatter_velocity_x, self._shatter_velocity_y)
 
                 self._flash_animation:reset()
@@ -323,7 +324,6 @@ function ow.Goal:update(delta)
 
     if self._is_shattered then
         self._shatter_surface:update(delta)
-
         self._flash_animation:update(delta)
         self._shatter_surface:set_flash(self._flash_animation:get_value())
 
@@ -386,7 +386,6 @@ function ow.Goal:draw(priority)
     if priority == _base_priority then
         self._color:bind()
         self._shatter_surface:draw()
-
 
         local offset_x, offset_y = self._body:get_position()
         love.graphics.push()

@@ -145,6 +145,21 @@ function debugger.pop(id, show_instant_time)
     println("| ", id, " | ", elapsed, " |")
 end
 
+
+local _measure_timestamps = {}
+function debugger.start_measure(name)
+    name = name or -1
+    _measure_timestamps[name] = love.timer.getTime()
+end
+
+function debugger.stop_measure(name)
+    name = name or -1
+    local timestamp = _measure_timestamps[name]
+    if timestamp == nil then return 0 end
+
+    return (love.timer.getTime() - timestamp) / (1 / 60)
+end
+
 --- @brief
 function debugger.report(use_max)
     if #_data == 0 then return end
