@@ -3,11 +3,12 @@ require "common.matrix"
 rt.settings.overworld.light_map = {
     max_n_point_lights = 128,
     max_n_segment_lights = 64 + 32,
-    n_point_lights_per_tile = 8,
-    n_segment_lights_per_tile = 8,
-    tile_size = 64 + 32,
+    n_point_lights_per_tile = 16,
+    n_segment_lights_per_tile = 16,
+    tile_size = 32,
     work_group_size = 16,
     light_range = 64, -- px
+    light_range_threshold = 512 - 3.5 * 32 - 8,
     light_z_height = 512 + 128, -- px, smaller values = more dramatic normal falloff
     intensity = 1,
     intensity_texture_format = rt.TextureFormat.RGBA8,
@@ -292,33 +293,58 @@ function ow.LightMap:update(stage)
 
     local n_rows = math.ceil(width / tile_size)
     local n_columns = math.ceil(height / tile_size)
-    local max_range = 2 * self._tile_size
+    local max_range = settings.light_range_threshold
     max_range = max_range^2 -- using squared distance for performance
 
-    local function square_point_distance(square_x, square_y, square_size, px, py)
-        local closest_x = math.clamp(px, square_x, square_x + square_size)
-        local closest_y = math.clamp(py, square_y, square_y + square_size)
-        return math.squared_distance(closest_x, closest_y, px, py)
+    local function distance_between_square_and_point(x, y, square_size, px, py)
+        local clamped_x = math.max(x, math.min(px, x + square_size))
+        local clamped_y = math.max(y, math.min(py, y + square_size))
+        return (px - clamped_x) * (px - clamped_x) + (py - clamped_y) * (py - clamped_y)
     end
 
-    local sample_length = math.sqrt(tile_size)
-    local function square_segment_distance(square_x, square_y, square_size, x1, y1, x2, y2)
-        local segment_length = math.distance(x1, y1, x2, y2)
-        local n_samples = math.min(2, math.floor(segment_length / sample_length))
+    local function distance_between_point_and_segment(px, py, x1, y1, x2, y2)
+        local dx, dy = x2 - x1, y2 - y1
+        local segment_length_squared = dx * dx + dy * dy
+        if segment_length_squared == 0 then
+            return (px - x1) * (px - x1) + (py - y1) * (py - y1)
+        end
+        local t = math.max(0, math.min(1, ((px - x1) * dx + (py - y1) * dy) / segment_length_squared))
+        local closest_x = x1 + t * dx
+        local closest_y = y1 + t * dy
+        return (px - closest_x) * (px - closest_x) + (py - closest_y) * (py - closest_y)
+    end
 
-        local max_distance = -math.huge
-        for i = 1, n_samples do
-            local t = (i - 1) / n_samples
-            local dist = square_point_distance(
-                square_x, square_y, square_size,
-                math.mix2(x1, y1, x2, y2, t)
-            )
+    local function segments_intersect(ax1, ay1, ax2, ay2, bx1, by1, bx2, by2)
+        local denom = (ax2 - ax1) * (by2 - by1) - (ay2 - ay1) * (bx2 - bx1)
+        if denom == 0 then return false end
+        local t = ((bx1 - ax1) * (by2 - by1) - (by1 - ay1) * (bx2 - bx1)) / denom
+        local u = ((bx1 - ax1) * (ay2 - ay1) - (by1 - ay1) * (ax2 - ax1)) / denom
+        return t >= 0 and t <= 1 and u >= 0 and u <= 1
+    end
 
-            max_distance = math.max(max_distance, dist)
+    local function distance_between_square_and_segment(x, y, square_size, x1, y1, x2, y2)
+        if (x1 >= x and x1 <= x + square_size and y1 >= y and y1 <= y + square_size)
+            or (x2 >= x and x2 <= x + square_size and y2 >= y and y2 <= y + square_size)
+            or segments_intersect(x1, y1, x2, y2, x,              y,              x + square_size, y             )
+            or segments_intersect(x1, y1, x2, y2, x + square_size, y,              x + square_size, y + square_size)
+            or segments_intersect(x1, y1, x2, y2, x + square_size, y + square_size, x,              y + square_size)
+            or segments_intersect(x1, y1, x2, y2, x,              y + square_size, x,              y             )
+        then
+            return 0
         end
 
-        return max_distance
+        return math.min(
+            distance_between_point_and_segment(x,              y,              x1, y1, x2, y2),
+            distance_between_point_and_segment(x + square_size, y,              x1, y1, x2, y2),
+            distance_between_point_and_segment(x + square_size, y + square_size, x1, y1, x2, y2),
+            distance_between_point_and_segment(x,              y + square_size, x1, y1, x2, y2),
+            distance_between_square_and_point(x, y, square_size, x1, y1),
+            distance_between_square_and_point(x, y, square_size, x2, y2)
+        )
     end
+
+    local tile_to_point_candidates = {}
+    local tile_to_segment_candidates = {}
 
     for row_i = 1, n_rows do
         for column_i = 1, n_columns do
@@ -330,21 +356,86 @@ function ow.LightMap:update(stage)
             for point_i = 1, n_point_lights do
                 local data = point_light_data[point_i]
                 local x, y, radius = data[1], data[2], data[3]
+                local opacity = data[7]
 
-                if square_point_distance(tile_x, tile_y, tile_size, x, y) < max_range + radius then
-                    add_point_light_to_tile(tile_i, point_i)
+                if opacity > 0 then
+                    local distance = distance_between_square_and_point(tile_x, tile_y, tile_size, x, y)
+                    if distance < max_range + radius^2 then
+                        local entry = tile_to_point_candidates[tile_i]
+                        if entry == nil then
+                            entry = {}
+                            tile_to_point_candidates[tile_i] = entry
+                        end
+                        entry[point_i] = distance
+                    end
                 end
             end
 
             -- iterate all segment lights, check if in range
             for segment_i = 1, n_segment_lights do
                 local data = segment_light_data[segment_i]
-                local x1, y1, x2, y2 = data[1], data[2], data[3], data[4]
+                local x1, y1, x2, y2 = data[1], data[2], data[3], data[5]
+                local opacity = data[8]
 
-                local x, y = tile_x + 0.5 * tile_size, tile_y + 0.5 * tile_size
-                if square_segment_distance(tile_x, tile_y, tile_size, x1, y1, x2, y2) < max_range then
-                    add_segment_light_to_tile(tile_i, segment_i)
+                if opacity > 0 then
+                    local distance = distance_between_square_and_segment(tile_x, tile_y, tile_size, x1, y1, x2, y2)
+                    if distance < max_range then
+                        local entry = tile_to_segment_candidates[tile_i]
+                        if entry == nil then
+                            entry = {}
+                            tile_to_segment_candidates[tile_i] = entry
+                        end
+                        entry[segment_i] = distance
+                    end
                 end
+            end
+        end
+    end
+
+    -- sort by distance in case of too many per tile
+
+    for tile_i, point_entry in pairs(tile_to_point_candidates) do
+        if #point_entry > n_point_lights_per_tile then
+            local candidates = {}
+            for point_i in keys(point_entry) do
+                table.insert(candidates, point_i)
+            end
+
+            table.sort(candidates, function(a, b)
+                return point_entry[a] < point_entry[b]
+            end)
+
+            for i = 1, candidates do
+                add_point_light_to_tile(tile_i, candidates[i])
+            end
+        else
+            for i in keys(point_entry) do
+                add_point_light_to_tile(tile_i, i)
+            end
+        end
+    end
+
+    local temp = -math.huge
+    for tile_i, segment_entry in pairs(tile_to_segment_candidates) do
+        local n = table.sizeof(segment_entry)
+        temp = math.max(temp, n)
+
+        if n > n_segment_lights_per_tile then
+            local candidates = {}
+            for segment_i in keys(segment_entry) do
+                table.insert(candidates, segment_i)
+            end
+
+            table.sort(candidates, function(a, b)
+                return segment_entry[a] < segment_entry[b]
+            end)
+
+            for i = 1, #candidates do
+                add_segment_light_to_tile(tile_i, candidates[i])
+            end
+        else
+            for i in keys(segment_entry) do
+                add_segment_light_to_tile(tile_i, i)
             end
         end
     end

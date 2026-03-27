@@ -227,6 +227,7 @@ function ow.Goal:instantiate(object, stage, scene)
                 self._final_player_position_x, self._final_player_position_y = px, py
 
                 self._shatter_surface:shatter(px, py, self._shatter_velocity_x, self._shatter_velocity_y)
+                rt.ImpulseManager:pulse()
 
                 self._flash_animation:reset()
                 self._player_time_dilation_animation:reset()
