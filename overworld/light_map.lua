@@ -1,14 +1,15 @@
 require "common.matrix"
 
 rt.settings.overworld.light_map = {
-    max_n_point_lights = 256,
-    max_n_segment_lights = 128,
-    max_n_element_per_tile = 32 + 16,
-    tile_size = 256,
-    work_group_size = 8,
+    max_n_point_lights = 128,
+    max_n_segment_lights = 64 + 32,
+    n_point_lights_per_tile = 8,
+    n_segment_lights_per_tile = 8,
+    tile_size = 64 + 32,
+    work_group_size = 16,
     light_range = 64, -- px
     light_z_height = 512 + 128, -- px, smaller values = more dramatic normal falloff
-    intensity = 0.25,
+    intensity = 1,
     intensity_texture_format = rt.TextureFormat.RGBA8,
     direction_texture_format = rt.TextureFormat.RG16F,
     mask_texture_format = rt.TextureFormat.R8
@@ -56,6 +57,8 @@ function ow.LightMap:instantiate(width, height)
         LIGHT_RANGE = settings.light_range,
         INTENSITY = settings.intensity,
         LIGHT_Z_HEIGHT = settings.light_z_height,
+        N_POINT_LIGHTS_PER_TILE = settings.n_point_lights_per_tile,
+        N_SEGMENT_LIGHTS_PER_TILE = settings.n_segment_lights_per_tile,
         MAX_N_POINT_LIGHTS = settings.max_n_point_lights,
         MAX_N_SEGMENT_LIGHTS = settings.max_n_segment_lights,
         WORK_GROUP_SIZE_X = self._work_group_size,
@@ -71,7 +74,7 @@ function ow.LightMap:instantiate(width, height)
 
     self._current_n_point_lights = 0
     self._point_light_buffer_data = {}
-    for i = 1, settings.max_n_segment_lights do
+    for i = 1, settings.max_n_point_lights do
         table.insert(self._point_light_buffer_data, {
             0, 0,      -- position
             0,         -- radius
@@ -99,12 +102,12 @@ function ow.LightMap:instantiate(width, height)
     self._tile_data_buffer_data = {}
     for i = 1, self._n_tiles do
         table.insert(self._tile_data_buffer_data, 0) -- point light count
-        for _ = 1, settings.max_n_point_lights do
+        for _ = 1, settings.n_point_lights_per_tile do
             table.insert(self._tile_data_buffer_data, -1) -- point light index
         end
 
         table.insert(self._tile_data_buffer_data, 0) -- segment light count
-        for _ = 1, settings.max_n_segment_lights do
+        for _ = 1, settings.n_segment_lights_per_tile do
             table.insert(self._tile_data_buffer_data, -1) -- segment light index
         end
     end
@@ -115,7 +118,7 @@ function ow.LightMap:instantiate(width, height)
         rt.GraphicsBufferUsage.DYNAMIC
     )
 
-    --- layout: inline [n_point_lights, MAX_N_POINT_LIGHTS * int, n_segment_lights, MAX_N_SEGMENT_LIGHTS * int]
+    --- layout: inline [n_point_lights, N_POINT_LIGHTS_PER_TILE * int, n_segment_lights, N_SEGMENT_LIGHTS_PER_TILE * int]
 end
 
 --- @brief
@@ -136,8 +139,9 @@ function ow.LightMap:update(stage)
     local settings = rt.settings.overworld.light_map
     local tile_size = self._tile_size
     local max_n_point_lights, max_n_segment_lights = settings.max_n_point_lights, settings.max_n_segment_lights
+    local n_point_lights_per_tile, n_segment_lights_per_tile = settings.n_point_lights_per_tile, settings.n_segment_lights_per_tile
     local width, height = self._light_intensity_texture:get_size()
-    local tile_data_stride = 2 + settings.max_n_point_lights + settings.max_n_segment_lights
+    local tile_data_stride = 1 + settings.n_point_lights_per_tile + 1 + settings.n_segment_lights_per_tile
     local tile_data = self._tile_data_buffer_data
     local point_light_data = self._point_light_buffer_data
     local segment_light_data = self._segment_light_buffer_data
@@ -154,56 +158,6 @@ function ow.LightMap:update(stage)
 
     local function tile_index_to_data_offset(tile_index)
         return (tile_index - 1) * tile_data_stride + 1
-    end
-
-    local function set_n_point_lights(tile_index, count)
-        local tile_offset = tile_index_to_data_offset(tile_index)
-        tile_data[tile_offset] = count
-    end
-
-    local function get_n_point_lights(tile_index)
-        local tile_offset = tile_index_to_data_offset(tile_index)
-        return tile_data[tile_offset]
-    end
-
-    local function set_n_segment_lights(tile_index, count)
-        local tile_offset = tile_index_to_data_offset(tile_index)
-        tile_data[tile_offset + 1 + settings.max_n_point_lights] = count
-    end
-
-    local function get_n_segment_lights(tile_index)
-        local tile_offset = tile_index_to_data_offset(tile_index)
-        return tile_data[tile_offset + 1 + settings.max_n_point_lights]
-    end
-
-    local max_n_per_tile = settings.max_n_element_per_tile
-
-    local function get_total_tile_count(tile_index)
-        local tile_offset = tile_index_to_data_offset(tile_index)
-        local out = tile_data[tile_offset] + tile_data[tile_offset + 1 + max_n_point_lights]
-        return out
-    end
-
-    local function add_point_light_to_tile(tile_index, light_source_index)
-        local tile_offset = tile_index_to_data_offset(tile_index)
-        local count = tile_data[tile_offset]
-        if get_total_tile_count(tile_index) >= max_n_per_tile or
-           get_n_point_lights(tile_index) >= max_n_point_lights
-        then return end
-
-        tile_data[tile_offset + 1 + count] = light_source_index - 1 -- glsl is 0-based
-        tile_data[tile_offset] = count + 1
-    end
-
-    local function add_segment_light_to_tile(tile_index, light_source_index)
-        local tile_offset = tile_index_to_data_offset(tile_index)
-        local count = tile_data[tile_offset + 1 + max_n_point_lights]
-        if get_total_tile_count(tile_index) >= max_n_per_tile or
-           get_n_segment_lights(tile_index) >= max_n_segment_lights
-        then return end
-
-        tile_data[tile_offset + 1 + max_n_point_lights + 1 + count] = light_source_index - 1 -- 0 based
-        tile_data[tile_offset + 1 + max_n_point_lights] = count + 1
     end
 
     local function closest_point_on_segment(x, y, x1, y1, x2, y2)
@@ -235,8 +189,8 @@ function ow.LightMap:update(stage)
     local point_light_i = 1
     local add_point_light = function(x, y, radius, color_r, color_g, color_b, color_a)
         meta.assert(x, "Number", y, "Number", radius, "Number", color_r, "Number", color_g, "Number", color_b, "Number", color_a, "Number")
-        if point_light_i > max_n_point_lights
-            or point_light_i > #point_light_data then
+
+        if point_light_i > max_n_point_lights then
             return
         end
 
@@ -254,8 +208,7 @@ function ow.LightMap:update(stage)
     local add_segment_light = function(x1, y1, x2, y2, color_r, color_g, color_b, color_a)
         meta.assert(x1, "Number", y1, "Number", x2, "Number", y2, "Number", color_r, "Number", color_g, "Number", color_b, "Number", color_a, "Number")
 
-        if segment_light_i > max_n_segment_lights
-            or segment_light_i > #segment_light_data then
+        if segment_light_i > max_n_segment_lights then
             return
         end
 
@@ -288,6 +241,48 @@ function ow.LightMap:update(stage)
     )
 
     -- setup tile data
+
+    local function set_n_point_lights(tile_index, count)
+        local tile_offset = tile_index_to_data_offset(tile_index)
+        tile_data[tile_offset + 0] = count
+    end
+
+    local function get_n_point_lights(tile_index)
+        local tile_offset = tile_index_to_data_offset(tile_index)
+        return tile_data[tile_offset + 0]
+    end
+
+    local function set_n_segment_lights(tile_index, count)
+        local tile_offset = tile_index_to_data_offset(tile_index)
+        tile_data[tile_offset + 1 + settings.n_point_lights_per_tile] = count
+    end
+
+    local function get_n_segment_lights(tile_index)
+        local tile_offset = tile_index_to_data_offset(tile_index)
+        return tile_data[tile_offset + 1 + settings.n_point_lights_per_tile]
+    end
+
+    local function add_point_light_to_tile(tile_index, light_source_index)
+        local tile_offset = tile_index_to_data_offset(tile_index)
+        local count = tile_data[tile_offset]
+        if get_n_point_lights(tile_index) >= n_point_lights_per_tile then
+            return
+        end
+
+        tile_data[tile_offset + 1 + count] = light_source_index - 1 -- glsl is 0-based
+        tile_data[tile_offset] = count + 1
+    end
+
+    local function add_segment_light_to_tile(tile_index, light_source_index)
+        local tile_offset = tile_index_to_data_offset(tile_index)
+        local count = tile_data[tile_offset + 1 + n_point_lights_per_tile]
+        if get_n_segment_lights(tile_index) >= n_segment_lights_per_tile then
+            return
+        end
+
+        tile_data[tile_offset + 1 + n_point_lights_per_tile + 1 + count] = light_source_index - 1 -- 0 based
+        tile_data[tile_offset + 1 + n_point_lights_per_tile] = count + 1
+    end
 
     for tile_i = 1, self._n_tiles do
         -- reset tile counts, rest of each buffer does not need to be reset
@@ -339,8 +334,6 @@ function ow.LightMap:update(stage)
                 if square_point_distance(tile_x, tile_y, tile_size, x, y) < max_range + radius then
                     add_point_light_to_tile(tile_i, point_i)
                 end
-
-                add_point_light_to_tile(tile_i, point_i)
             end
 
             -- iterate all segment lights, check if in range
@@ -352,13 +345,11 @@ function ow.LightMap:update(stage)
                 if square_segment_distance(tile_x, tile_y, tile_size, x1, y1, x2, y2) < max_range then
                     add_segment_light_to_tile(tile_i, segment_i)
                 end
-
-                add_segment_light_to_tile(tile_i, segment_i)
             end
         end
     end
 
-    self._tile_data_buffer:replace_data(tile_data)
+    self._tile_data_buffer:replace_data(tile_data) -- always replace all
 
     local shader = self._shader
     shader:send("point_light_source_buffer", self._point_light_buffer)
@@ -372,6 +363,7 @@ end
 
 --- @brief
 function ow.LightMap:draw()
+    if true then return end
     if rt.GameState:get_is_dynamic_lighting_enabled() == false then return end
 
     for i = 1, self._current_n_point_lights do
@@ -395,7 +387,7 @@ function ow.LightMap:draw()
     love.graphics.push()
     love.graphics.origin()
     love.graphics.setColor(1, 1, 1, 1)
-    --self._light_intensity_texture:draw()
+    self._light_intensity_texture:draw()
     --self._light_direction_texture:draw()
     --self._mask_texture:draw()
     local width, height = self._light_intensity_texture:get_size()
