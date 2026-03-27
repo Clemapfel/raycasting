@@ -1,10 +1,10 @@
 require "common.matrix"
 
 rt.settings.overworld.light_map = {
-    max_n_point_lights = 256,
-    max_n_segment_lights = 128,
-    max_n_element_per_tile = 256,
-    tile_size = 256,
+    max_n_point_lights = 64,
+    max_n_segment_lights = 32,
+    max_n_element_per_tile = 64,
+    tile_size = 512,
     work_group_size = 16,
     light_range = 64, -- px
     light_z_height = 512 + 128, -- px, smaller values = more dramatic normal falloff
@@ -161,9 +161,19 @@ function ow.LightMap:update(stage)
         tile_data[tile_offset] = count
     end
 
+    local function get_n_point_lights(tile_index)
+        local tile_offset = tile_index_to_data_offset(tile_index)
+        return tile_data[tile_offset]
+    end
+
     local function set_n_segment_lights(tile_index, count)
         local tile_offset = tile_index_to_data_offset(tile_index)
         tile_data[tile_offset + 1 + settings.max_n_point_lights] = count
+    end
+
+    local function get_n_segment_lights(tile_index)
+        local tile_offset = tile_index_to_data_offset(tile_index)
+        return tile_data[tile_offset + 1 + settings.max_n_point_lights]
     end
 
     local max_n_per_tile = settings.max_n_element_per_tile
@@ -177,7 +187,9 @@ function ow.LightMap:update(stage)
     local function add_point_light_to_tile(tile_index, light_source_index)
         local tile_offset = tile_index_to_data_offset(tile_index)
         local count = tile_data[tile_offset]
-        if get_total_tile_count(tile_index) >= max_n_per_tile then return end
+        if get_total_tile_count(tile_index) >= max_n_per_tile or
+           get_n_point_lights(tile_index) >= max_n_point_lights
+        then return end
 
         tile_data[tile_offset + 1 + count] = light_source_index - 1 -- glsl is 0-based
         tile_data[tile_offset] = count + 1
@@ -186,7 +198,9 @@ function ow.LightMap:update(stage)
     local function add_segment_light_to_tile(tile_index, light_source_index)
         local tile_offset = tile_index_to_data_offset(tile_index)
         local count = tile_data[tile_offset + 1 + max_n_point_lights]
-        if get_total_tile_count(tile_index) >= max_n_per_tile then return end
+        if get_total_tile_count(tile_index) >= max_n_per_tile or
+           get_n_segment_lights(tile_index) >= max_n_segment_lights
+        then return end
 
         tile_data[tile_offset + 1 + max_n_point_lights + 1 + count] = light_source_index - 1 -- 0 based
         tile_data[tile_offset + 1 + max_n_point_lights] = count + 1

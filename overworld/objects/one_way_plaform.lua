@@ -17,7 +17,7 @@ rt.settings.overworld.one_way_platform = {
 ow.OneWayPlatform = meta.class("OneWayPlatform", ow.MovableObject)
 
 --- @class ow.OneWayPlatformNode
-ow.OneWayPlatformNode = meta.class("OneWayPlatformNode")
+ow.OneWayPlatformNode = meta.class("OneWayPlatformNode", ow.MovableObject)
 
 local _shader = rt.Shader("overworld/objects/one_way_platform.glsl")
 local _lch_texture = rt.LCHTexture(1, 1, 256)
@@ -153,8 +153,12 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
     end
 
     self._velocity_protection_body = b2.Body(world, body_type, centroid_x, centroid_y, protection_shape)
-    self._velocity_protection_body:set_is_sensor(true)
-    self._velocity_protection_body:set_is_enabled(false)
+
+    if self._velocity_protection_body:get_type() == b2.BodyType.STATIC then
+        self._velocity_protection_body:set_is_enabled(false)
+    else
+        self._velocity_protection_body:set_is_sensor(true)
+    end
 
     -- graphic
 
@@ -299,6 +303,14 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
 
     self._color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, self._hue, 1))
     stage.one_way_platform_current_hue_step = stage.one_way_platform_current_hue_step % _n_hue_steps + 1
+
+    self._stage:signal_connect("initialized", function()
+        local other_instance = stage:object_wrapper_to_instance(other)
+        -- inject properties, needed for ow.MovableObject
+        for key, value in pairs(self) do
+            other_instance[key] = value
+        end
+    end)
 end
 
 --- @param r Number buffer to add to the end of each line, only affects is_on_segment
@@ -467,6 +479,11 @@ function ow.OneWayPlatform:draw()
     end
 
     love.graphics.pop()
+
+    love.graphics.setColor(1, 1, 1, 1)
+    if self._velocity_protection_body:get_is_enabled() then
+        self._velocity_protection_body:draw()
+    end
 end
 
 --- @brief

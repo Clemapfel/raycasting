@@ -104,34 +104,34 @@ end
 
 -- ###
 --- @param contour Table<Number>
---- @param length Number
---- @param contour Table<Number>
 --- @param segment_length Number
+--- @return Table<Number>
 function rt.contour.subdivide(contour, segment_length)
-    local subdivided = {}
+    local out = {}
+    local remainder = 0
 
     for i = 1, #contour, 2 do
-        local x1, y1 = contour[i], contour[i+1]
+        local x1, y1 = contour[i], contour[i + 1]
         local next_i = (i + 2 > #contour) and 1 or i + 2
-        local x2, y2 = contour[next_i], contour[next_i+1]
+        local x2, y2 = contour[next_i], contour[next_i + 1]
 
-        table.insert(subdivided, x1)
-        table.insert(subdivided, y1)
+        table.insert(out, x1)
+        table.insert(out, y1)
 
         local dx, dy = x2 - x1, y2 - y1
-        local length = math.sqrt(dx * dx + dy * dy)
-        local n_segments = math.max(1, math.floor(length / segment_length))
+        local edge_length = math.magnitude(dx, dy)
+        local distance = segment_length - remainder
 
-        for s = 1, n_segments - 1 do
-            local t = s / n_segments
-            local sx = x1 + t * dx
-            local sy = y1 + t * dy
-            table.insert(subdivided, sx)
-            table.insert(subdivided, sy)
+        while distance < edge_length do
+            table.insert(out, x1 + (distance / edge_length) * dx)
+            table.insert(out, y1 + (distance / edge_length) * dy)
+            distance = distance + segment_length
         end
+
+        remainder = edge_length - (distance - segment_length)
     end
 
-    return subdivided
+    return out
 end
 
 --- @param contour Table<Number>
@@ -208,19 +208,17 @@ end
 
 function rt.contour.smooth(contour, n_iterations)
     local points = contour
-    for smoothing_i = 1, n_iterations do
+    for _ = 1, n_iterations do
         local smoothed = {}
-        for j = 1, #points, 2 do
-            local prev_j = (j - 2 < 1) and (#points - 1) or (j - 2)
-            local next_j = (j + 2 > #points) and 1 or (j + 2)
-            local x = (points[prev_j] + points[j] + points[next_j]) / 3
-            local y = (points[prev_j+1] + points[j+1] + points[next_j+1]) / 3
-            table.insert(smoothed, x)
-            table.insert(smoothed, y)
+        local count = #points
+        for j = 1, count, 2 do
+            local previous_j = ((j - 3) % count) + 1
+            local next_j = ((j - 1 + 2) % count) + 1
+            smoothed[#smoothed + 1] = (points[previous_j] + points[j] + points[next_j]) / 3
+            smoothed[#smoothed + 1] = (points[previous_j + 1] + points[j + 1] + points[next_j + 1]) / 3
         end
         points = smoothed
     end
-
     return points
 end
 

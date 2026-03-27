@@ -71,9 +71,9 @@ function love.errorhandler(message)
 
         local buttons
         if love.system.getOS() == "windows" then
-            buttons = { entry.open_log, entry.restart, entry.exit }
+            buttons = { --[[entry.open_log,]] entry.restart, entry.exit }
         else
-            buttons = { entry.exit, entry.restart, entry.open_log }
+            buttons = { entry.exit, entry.restart, --[[entry.open_log]] }
         end
 
         local result = love.window.showMessageBox(

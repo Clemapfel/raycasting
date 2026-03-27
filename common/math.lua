@@ -868,6 +868,7 @@ function math.to_number(any)
     end
 end
 
+--- @brief get intersection betwee two line segment defined as origin and non-normalized direction
 function math.ray_intersection(x1, y1, dx1, dy1, x2, y2, dx2, dy2)
     local det = math.cross(dx1, dy1, dx2, dy2)
     local eps = math.eps

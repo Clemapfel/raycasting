@@ -29,7 +29,13 @@ rt.settings.overworld.stage = {
 --- @signal respawn (self, is_first_spawn) -> nil
 --- @signal loading_done (self) -> nil
 ow.Stage = meta.class("Stage", rt.Drawable)
-meta.add_signals(ow.Stage, "initialized", "respawn", "loading_done", "reset")
+meta.add_signals(ow.Stage,
+    "initialized",
+    "post_initialized",
+    "respawn",
+    "loading_done",
+    "reset"
+)
 
 --- @brief
 function ow.Stage:instantiate(scene, id)
@@ -206,18 +212,19 @@ function ow.Stage:instantiate(scene, id)
                 end
 
                 -- inject id
-                instance.get_id = function(self) return wrapper.id  end
-                    -- handle drawables
-                    if meta.is_function(instance.draw) then
-                        local priorities = { 0 }
-                        if meta.is_function(instance.get_render_priority) then
-                            priorities = { instance:get_render_priority() }
-                        end
+                instance.get_id = function(self) return wrapper.id end
 
-                        -- render priority override
-                        if wrapper:get_number("render_priority", false) ~= nil then
-                            priorities[1] = wrapper:get_number("render_priority")
-                        end
+                -- handle drawables
+                if meta.is_function(instance.draw) then
+                    local priorities = { 0 }
+                    if meta.is_function(instance.get_render_priority) then
+                        priorities = { instance:get_render_priority() }
+                    end
+
+                    -- render priority override
+                    if wrapper:get_number("render_priority", false) ~= nil then
+                        priorities[1] = wrapper:get_number("render_priority")
+                    end
 
                     for priority in values(priorities) do
                         if not meta.is_number(priority) then
@@ -383,6 +390,7 @@ function ow.Stage:instantiate(scene, id)
     self._is_initialized = true
 
     self:signal_emit("initialized")
+    self:signal_emit("post_initialized")
 
     self._is_first_spawn = true
     self:signal_connect("respawn", function()

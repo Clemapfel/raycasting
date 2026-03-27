@@ -44,12 +44,6 @@ function ow.Path:instantiate(object, stage, scene)
     self._stage = stage
     self._color = rt.RGBA(1, 1, 1, 1)
 
-    DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
-        if which == "l" then
-            self:reset()
-        end
-    end)
-
     self._elapsed = 0
     self._n_cycles = 0
 
@@ -106,7 +100,7 @@ function ow.Path:instantiate(object, stage, scene)
     self._entries = {}
     self._last_t = 0
 
-    self._stage:signal_connect("initialized", function(_)
+    self._stage:signal_connect("post_initialized", function(_)
         for target in values(targets) do
             local instance = self._stage:object_wrapper_to_instance(target)
             if not meta.isa(instance, ow.MovableObject) or meta.isa(instance, ow.Hitbox) then

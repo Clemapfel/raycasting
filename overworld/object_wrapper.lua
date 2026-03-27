@@ -872,7 +872,7 @@ local function _parse_single_object_group(object_group, group_offset_x, group_of
                     -- skip points, as they have no volume
                     goto continue
                 else
-                    rt.critical("In ", scope, ": object `",  wrapper.id,  "` has no class, assuming `Hitbox`")
+                    rt.warning("In ", scope, ": object `",  wrapper.id,  "` has no class, assuming `Hitbox`")
                     wrapper.class = "Hitbox"
                 end
             end

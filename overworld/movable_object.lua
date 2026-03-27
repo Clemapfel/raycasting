@@ -7,7 +7,7 @@ local _forward_or_throw = function(self, scope, ...)
         assert(self._body:get_type() ~= b2.BodyType.STATIC, "In ow." .. meta.typeof(self) .. "." .. scope .. ": self._body is `STATIC`, it cannot be moved")
         return self._body[scope](self._body, ...)
     else
-        rt.error("In ",  meta.typeof(self),  "." .. scope .. ": abstract method called")
+        rt.error("In ", meta.typeof(self),  "." .. scope .. ": for object `", self:get_id(), "`: abstract method called")
     end
 end
 

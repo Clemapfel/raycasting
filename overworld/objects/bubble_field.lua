@@ -13,7 +13,7 @@ rt.settings.overworld.bubble_field = {
     deactivation_threshold = 1, -- px
 
     -- contour
-    segment_length = 10,
+    segment_length = 7,
     n_smoothing_iterations = 3,
     depth = -5, -- negative to account for smoothing contraction
 
@@ -99,6 +99,7 @@ function ow.BubbleField:instantiate(object, stage, scene)
         contour[i+1] = contour[i+1] - centroid_y
     end
 
+    contour = rt.contour.close(contour)
     contour = rt.contour.subdivide(contour, settings.segment_length)
     contour = rt.contour.smooth(contour, settings.n_smoothing_iterations)
 
@@ -118,7 +119,7 @@ function ow.BubbleField:instantiate(object, stage, scene)
     local data_mesh_data = {}
     
     do -- compute origin vectors
-        local path = rt.Path(contour)
+        local path = rt.Path():create_from_and_reparameterize(contour)
         
         local origins = {}
         for i = 1, #contour, 2 do
@@ -338,7 +339,7 @@ function ow.BubbleField:draw()
     _base_shader:unbind()
 
     love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.setLineWidth(3)
+    love.graphics.setLineWidth(2)
     love.graphics.setLineJoin("none")
     _outline_shader:bind()
     _outline_shader:send("noise_texture", _noise_texture)
