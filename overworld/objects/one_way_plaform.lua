@@ -479,11 +479,6 @@ function ow.OneWayPlatform:draw()
     end
 
     love.graphics.pop()
-
-    love.graphics.setColor(1, 1, 1, 1)
-    if self._velocity_protection_body:get_is_enabled() then
-        self._velocity_protection_body:draw()
-    end
 end
 
 --- @brief

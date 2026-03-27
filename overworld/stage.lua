@@ -429,7 +429,7 @@ function ow.Stage:draw_above_player()
         ow.Sprite.draw_all(entry.priority)
     end
 
-    --rt.SceneManager:get_light_map():draw()
+    rt.SceneManager:get_light_map():draw()
 end
 
 --- @brief

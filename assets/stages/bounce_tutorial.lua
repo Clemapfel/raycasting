@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 630,
+  nextobjectid = 646,
   properties = {},
   tilesets = {
     {
@@ -231,8 +231,8 @@ return {
           name = "",
           type = "OverlapTrigger",
           shape = "rectangle",
-          x = 849.583,
-          y = 1440,
+          x = 832,
+          y = 1456,
           width = 123.58,
           height = 144,
           rotation = 0,
@@ -247,10 +247,23 @@ return {
           name = "",
           type = "CameraBounds",
           shape = "rectangle",
-          x = 434.412,
-          y = 1034.92,
+          x = 508.324,
+          y = 2105.53,
           width = 2797.59,
           height = 789.077,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 644,
+          name = "",
+          type = "CameraBounds",
+          shape = "rectangle",
+          x = 432,
+          y = 1232,
+          width = 3856,
+          height = 592,
           rotation = 0,
           visible = true,
           properties = {}
@@ -263,7 +276,7 @@ return {
       id = 7,
       name = "back",
       class = "",
-      visible = false,
+      visible = true,
       opacity = 1,
       offsetx = 0,
       offsety = 0,
@@ -484,16 +497,22 @@ return {
           properties = {}
         },
         {
-          id = 625,
+          id = 634,
           name = "",
           type = "Wall",
-          shape = "rectangle",
-          x = 432,
-          y = 1040,
-          width = 2800,
-          height = 640,
+          shape = "polygon",
+          x = 464,
+          y = 1408,
+          width = 0,
+          height = 0,
           rotation = 0,
           visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 3824, y = 0 },
+            { x = 3824, y = 240 },
+            { x = 0, y = 240 }
+          },
           properties = {}
         }
       }
@@ -2813,8 +2832,8 @@ return {
             { x = 96, y = -576 },
             { x = -112, y = -576 },
             { x = -112, y = 0 },
-            { x = 2656, y = 0 },
-            { x = 2656, y = 176 },
+            { x = 3712, y = 0 },
+            { x = 3712, y = 176 },
             { x = -144, y = 176 }
           },
           properties = {}
@@ -2822,7 +2841,7 @@ return {
         {
           id = 612,
           name = "",
-          type = "MovableHitbox",
+          type = "SlipperyMovableHitbox",
           shape = "polygon",
           x = 832,
           y = 1584,
@@ -2832,21 +2851,23 @@ return {
           visible = true,
           polygon = {
             { x = -32, y = 64 },
-            { x = -32, y = -32 },
-            { x = 16, y = -32 },
-            { x = 16, y = 0 },
-            { x = 128, y = 0 },
-            { x = 128, y = 64 }
+            { x = -32, y = -16 },
+            { x = 0, y = -16 },
+            { x = 0, y = 16 },
+            { x = 208, y = 16 },
+            { x = 208, y = -16 },
+            { x = 240, y = -16 },
+            { x = 256, y = 64 }
           },
           properties = {}
         },
         {
           id = 613,
           name = "",
-          type = "MovableHitbox",
+          type = "SlipperyMovableHitbox",
           shape = "polygon",
           x = 832,
-          y = 1440,
+          y = 1456,
           width = 0,
           height = 0,
           rotation = 0,
@@ -2854,10 +2875,12 @@ return {
           polygon = {
             { x = -32, y = -48 },
             { x = -32, y = 32 },
-            { x = 16, y = 32 },
-            { x = 16, y = 0 },
-            { x = 128, y = 0 },
-            { x = 128, y = -48 }
+            { x = 0, y = 32 },
+            { x = 0, y = 0 },
+            { x = 208, y = 0 },
+            { x = 208, y = 32 },
+            { x = 240, y = 32 },
+            { x = 256, y = -48 }
           },
           properties = {}
         },
@@ -2873,13 +2896,10 @@ return {
           rotation = 0,
           visible = true,
           polygon = {
-            { x = 16, y = -48 },
-            { x = 128, y = -48 },
-            { x = 160, y = -16 },
-            { x = 160, y = 48 },
-            { x = 128, y = 48 },
-            { x = 128, y = -16 },
-            { x = 16, y = -16 }
+            { x = 0, y = -32 },
+            { x = 208, y = -32 },
+            { x = 208, y = 0 },
+            { x = 0, y = 0 }
           },
           properties = {}
         },
@@ -2925,38 +2945,172 @@ return {
           type = "BouncePad",
           shape = "polygon",
           x = 832,
+          y = 1504,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = -48 },
+            { x = 208, y = -48 },
+            { x = 208, y = -16 },
+            { x = 0, y = -16 }
+          },
+          properties = {}
+        },
+        {
+          id = 630,
+          name = "",
+          type = "BoostField",
+          shape = "polygon",
+          x = 2688,
+          y = 1472,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 16, y = 0 },
+            { x = 208, y = 0 },
+            { x = 384, y = 32 },
+            { x = 384, y = 80 },
+            { x = 208, y = 112 },
+            { x = 16, y = 112 }
+          },
+          properties = {
+            ["axis_x"] = 1,
+            ["velocity"] = 3
+          }
+        },
+        {
+          id = 631,
+          name = "",
+          type = "BoostField",
+          shape = "polygon",
+          x = 784,
           y = 1488,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
           polygon = {
-            { x = 16, y = -48 },
-            { x = 128, y = -48 },
-            { x = 128, y = -96 },
-            { x = 160, y = -96 },
-            { x = 160, y = -48 },
-            { x = 128, y = -16 },
-            { x = 16, y = -16 }
+            { x = -16, y = 0 },
+            { x = 48, y = 0 },
+            { x = 48, y = 80 },
+            { x = -16, y = 80 }
           },
-          properties = {}
+          properties = {
+            ["axis_x"] = 1,
+            ["velocity"] = 0.5
+          }
         },
         {
-          id = 623,
+          id = 632,
           name = "",
-          type = "",
+          type = "SlipperyHitbox",
           shape = "polygon",
-          x = 704,
-          y = 1040,
+          x = 800,
+          y = 1488,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
           polygon = {
             { x = 0, y = 0 },
-            { x = 0, y = 32 },
-            { x = 2432, y = 32 },
-            { x = 2432, y = 0 }
+            { x = -32, y = 0 },
+            { x = -64, y = -80 },
+            { x = 0, y = -80 }
+          },
+          properties = {}
+        },
+        {
+          id = 633,
+          name = "",
+          type = "SlipperyHitbox",
+          shape = "polygon",
+          x = 800,
+          y = 1568,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = -32, y = 0 },
+            { x = -64, y = 80 },
+            { x = 0, y = 80 }
+          },
+          properties = {}
+        },
+        {
+          id = 638,
+          name = "",
+          type = "Goal",
+          shape = "rectangle",
+          x = 3072,
+          y = 1408,
+          width = 102.008,
+          height = 240,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 641,
+          name = "",
+          type = "SlipperyHitbox",
+          shape = "polygon",
+          x = 2704,
+          y = 1408,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 0, y = 64 },
+            { x = 192, y = 64 },
+            { x = 368, y = 96 },
+            { x = 432, y = 0 }
+          },
+          properties = {}
+        },
+        {
+          id = 642,
+          name = "",
+          type = "SlipperyHitbox",
+          shape = "polygon",
+          x = 2704,
+          y = 1648,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 0, y = -64 },
+            { x = 192, y = -64 },
+            { x = 368, y = -96 },
+            { x = 432, y = 0 }
+          },
+          properties = {}
+        },
+        {
+          id = 643,
+          name = "",
+          type = "Hitbox",
+          shape = "polygon",
+          x = 576,
+          y = 1232,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = -48, y = -96 },
+            { x = 3712, y = -96 },
+            { x = 3712, y = 176 },
+            { x = -47.9671, y = 173.895 }
           },
           properties = {}
         }

@@ -1,11 +1,11 @@
 require "common.matrix"
 
 rt.settings.overworld.light_map = {
-    max_n_point_lights = 64,
-    max_n_segment_lights = 32,
-    max_n_element_per_tile = 64,
-    tile_size = 512,
-    work_group_size = 16,
+    max_n_point_lights = 256,
+    max_n_segment_lights = 128,
+    max_n_element_per_tile = 32 + 16,
+    tile_size = 256,
+    work_group_size = 8,
     light_range = 64, -- px
     light_z_height = 512 + 128, -- px, smaller values = more dramatic normal falloff
     intensity = 0.25,

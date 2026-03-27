@@ -12,7 +12,7 @@ rt.settings.overworld.goal = {
     time_dilation_animation_duration = 2,
     fade_to_black_duration = 2.5,
 
-    n_particles = 40
+    n_particles = 256
 }
 
 rt.settings.overworld.goal.time_dilation_duration = rt.settings.overworld.shatter_surface.fade_duration
@@ -231,12 +231,12 @@ function ow.Goal:instantiate(object, stage, scene)
                 self._player_time_dilation_animation:reset()
                 self._world_time_dilation_animation:reset()
                 self._particles:spawn(
-                    rt.settings.overworld.goal.n_particles,
-                    -0.5 * (max_x - min_x), -0.5 * (max_y - min_y),
-                    player:get_hue(),
-                    self._shatter_velocity_x, self._shatter_velocity_y
+                    px, py, {
+                        n_particles = rt.settings.overworld.goal.n_particles
+                    }
                 )
                 player:pulse()
+                player:request_is_disabled(self, true)
                 self._scene:set_control_indicator_type(ow.ControlIndicatorType.NONE)
             end
         end)
@@ -347,7 +347,6 @@ function ow.Goal:update(delta)
             self._scene:show_result_screen()
         end
 
-        self._particles:set_screen_bounds(self._scene:get_camera():get_world_bounds())
         self._particles:update(delta)
     end
 
@@ -456,6 +455,7 @@ function ow.Goal:reset()
     self._player_time_dilation_animation:reset()
     self:update(0)
     self._particles:clear()
+    self._player:request_is_disabled(self)
     self._is_shattered = false
 end
 

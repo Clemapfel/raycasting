@@ -1,8 +1,8 @@
 
 rt.settings.overworld.checkpoint_particles = {
     -- default settings
-    min_radius = 20,
-    max_radius = 40,
+    min_radius = 2,
+    max_radius = 7,
 
     min_velocity = 100,
     max_velocity = 600,
@@ -31,7 +31,7 @@ rt.settings.overworld.checkpoint_particles = {
     origin_offset = 0,
 
     min_tail_length_factor = 4, -- radius factor
-    draw_as_outline = false,
+    draw_as_outline = true,
 
     inside_scale = 2, -- if draw_as_outline is false, determines how large the lighter core of each particle is
     inside_color_boost = 2 -- lightness boost for ^
