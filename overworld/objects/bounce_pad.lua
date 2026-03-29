@@ -168,9 +168,10 @@ function ow.BouncePad:instantiate(object, stage, scene)
     self._segment_lights = {}
     self._point_lights = {}
     if object:get_type() == ow.ObjectType.POLYGON then
-        for i = 1, #self._contour - 2, 2 do
-            local x1, y1 = self._contour[i+0], self._contour[i+1]
-            local x2, y2 = self._contour[math.wrap(i+2, #self._contour)], self._contour[math.wrap(i+3, #self._contour)]
+        local raw_contour = object:create_contour()
+        for i = 1, #raw_contour - 2, 2 do
+            local x1, y1 = raw_contour[i+0], raw_contour[i+1]
+            local x2, y2 = raw_contour[math.wrap(i+2, #raw_contour)], raw_contour[math.wrap(i+3, #raw_contour)]
             table.insert(self._segment_lights, { x1, y1, x2, y2 })
         end
     elseif object:get_type() == ow.ObjectType.ELLIPSE then

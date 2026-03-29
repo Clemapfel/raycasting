@@ -12,15 +12,15 @@
 #endif
 
 #ifndef MASK_TEXTURE_FORMAT
-#define MASK_TEXTURE_FORMAT rgba8
+#error "MASK_TEXTURE_FORMAT undefined"
 #endif
 
 #ifndef JFA_TEXTURE_FORMAT
-#define JFA_TEXTURE_FORMAT rgba32f
+#error "JFA_TEXTURE_FORMAT undefined"
 #endif
 
 #ifndef NORMAL_MAP_TEXTURE_FORMAT
-#define NORMAL_MAP_TEXTURE_FORMAT rgb10_a2
+#error "NORMAL_MAP_TEXTURE_FORMAT undefined"
 #endif
 
 #if MODE == MODE_INITIALIZE
@@ -187,6 +187,7 @@ void computemain() {
 
     #elif MODE == MODE_POST_PROCESS
 
+    // noop
 
     #endif
 }

@@ -14,6 +14,7 @@ function b2.World:instantiate()
         _timestamp = love.timer.getTime(),
         _interpolating_bodies = meta.make_weak({}), -- Set
         _time_dilation = 1,
+        _is_frozen = false,
         _elapsed = 0,
         _use_fixed_timestep = true,
         _current_timestamp = love.timer.getTime(),
@@ -223,6 +224,8 @@ function b2.World:update(delta)
     else
         self._elapsed = delta * self._time_dilation
     end
+
+    if self._is_frozen then delta = 0 end
 
     local step = self._use_fixed_timestep and _step or delta * self._time_dilation
     local total_step = 0
@@ -501,4 +504,14 @@ function b2.World:destroy()
     if self._native:isDestroyed() ~= true then
         self._native:destroy()
     end
+end
+
+--- @brief
+function b2.World:set_is_frozen(b)
+    self._is_frozen = b
+end
+
+--- @brief
+function b2.World:get_is_frozen()
+    return self._is_frozen
 end

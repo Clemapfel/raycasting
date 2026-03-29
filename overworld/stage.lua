@@ -490,6 +490,7 @@ function ow.Stage:update(delta)
         object:update(delta)
     end
 
+
     if self._flow_graph ~= nil then
         --self._flow_fraction = self._flow_graph:update_player_position(self._scene:get_player():get_position())
     end
@@ -788,15 +789,33 @@ function ow.Stage:collect_segment_lights(callback)
 
     table.sort(instances, _instance_sort_function)
 
+    instance_to_counts = {}
     for instance in values(instances) do
         if not meta.is_function(instance.collect_segment_lights) then
             rt.error("In ow.Stage.collect_segment_lights: instance of type `", meta.typeof(instance), "` is marked as segment light source, but does not implement `collect_segment_lights`")
         end
+
+        local count = function(_)
+            local type = meta.typeof(instance)
+            local value = instance_to_counts[type] or 0
+            instance_to_counts[type] = value + 1
+        end
         instance:collect_segment_lights(callback)
+        instance:collect_segment_lights(count)
     end
 
     self._blood_splatter:collect_segment_lights(
         self._scene:get_camera():get_world_bounds(),
         callback
     )
+end
+
+--- @brief
+function ow.Stage:set_is_frozen(b)
+    self._world:set_is_frozen(b)
+end
+
+--- @brief
+function ow.Stage:get_is_frozen()
+    return self._world:get_is_frozen()
 end

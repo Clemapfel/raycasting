@@ -36,7 +36,7 @@ vec2 closest_point_on_disk(vec2 xy, vec2 circle_xy, float radius) {
     float radius_squared = radius * radius;
 
     if (length_squared <= radius_squared) // inside disk
-        return xy;
+    return xy;
 
     return circle_xy + difference * (radius * inversesqrt(length_squared));
 }
@@ -81,6 +81,26 @@ vec2 closest_point_on_segment(vec2 xy, vec4 segment) {
 
 #ifndef N_SEGMENT_LIGHTS_PER_TILE
 #error "N_SEGMENT_LIGHTS_PER_TILE undefined"
+#endif
+
+#if TILE_SIZE != WORK_GROUP_SIZE_X
+#error "TILE_SIZE must equal WORK_GROUP_SIZE_X (one workgroup per tile)"
+#endif
+
+#if TILE_SIZE != WORK_GROUP_SIZE_Y
+#error "TILE_SIZE must equal WORK_GROUP_SIZE_Y (one workgroup per tile)"
+#endif
+
+#if WORK_GROUP_SIZE_Z != 1
+#error "WORK_GROUP_SIZE_Z must be 1"
+#endif
+
+#if N_POINT_LIGHTS_PER_TILE > (WORK_GROUP_SIZE_X * WORK_GROUP_SIZE_Y * WORK_GROUP_SIZE_Z)
+#error "N_POINT_LIGHTS_PER_TILE larger than work group size"
+#endif
+
+#if N_SEGMENT_LIGHTS_PER_TILE > (WORK_GROUP_SIZE_X * WORK_GROUP_SIZE_Y * WORK_GROUP_SIZE_Z)
+#error "N_SEGMENT_LIGHTS_PER_TILE larger than work group size"
 #endif
 
 layout(std430) readonly buffer tile_data_buffer {
@@ -193,10 +213,36 @@ vec4 tonemap(vec4 color) {
 #error "WORK_GROUP_SIZE_Z undefined"
 #endif
 
+// workgroup shared memory
+shared PointLight shared_point_lights[N_POINT_LIGHTS_PER_TILE];
+shared SegmentLight shared_segment_lights[N_SEGMENT_LIGHTS_PER_TILE];
+
 layout (local_size_x = WORK_GROUP_SIZE_X, local_size_y = WORK_GROUP_SIZE_Y, local_size_z = WORK_GROUP_SIZE_Z) in;
 void computemain() {
     ivec2 image_size = imageSize(light_intensity_texture);
     ivec2 position = ivec2(gl_GlobalInvocationID.xy);
+
+    ivec2 work_group_base_position = ivec2(gl_WorkGroupID.xy) * ivec2(WORK_GROUP_SIZE_X, WORK_GROUP_SIZE_Y);
+    int tile_offset = xy_to_tile_data_offset(work_group_base_position, image_size);
+
+    int n_point_lights = min(get_n_point_lights(tile_offset), N_POINT_LIGHTS_PER_TILE);
+    int n_segment_lights = min(get_n_segment_lights(tile_offset), N_SEGMENT_LIGHTS_PER_TILE);
+
+    uint local_id = gl_LocalInvocationIndex; // id within the same work group
+
+    // first n threads load into shared memory
+    if (local_id < uint(n_point_lights)) {
+        int light_index = get_point_light_index(tile_offset, int(local_id));
+        shared_point_lights[local_id] = point_light_sources[light_index];
+    }
+
+    if (local_id < uint(n_segment_lights)) {
+        int segment_index = get_segment_light_index(tile_offset, int(local_id));
+        shared_segment_lights[local_id] = segment_light_sources[segment_index];
+    }
+
+    // ensure writes to shared memory are visible to all invocations, then synchronize
+    barrier();
 
     if (any(greaterThanEqual(position, image_size))) return;
 
@@ -206,14 +252,8 @@ void computemain() {
         return;
     }
 
-    int tile_offset = xy_to_tile_data_offset(position, image_size);
-    int n_point_lights = get_n_point_lights(tile_offset);
-    int n_segment_lights = get_n_segment_lights(tile_offset);
-
-    // point light rgba
+    // light rgba
     vec4 point_color = vec4(0.0);
-
-    // segment light rgba
     vec4 segment_color = vec4(0.0);
 
     // slope for all lights
@@ -224,15 +264,17 @@ void computemain() {
 
     // accumulate point lights
     for (int i = 0; i < n_point_lights; ++i) {
-        PointLight light = point_light_sources[get_point_light_index(tile_offset, i)];
+        PointLight light = shared_point_lights[i];
 
         vec2 closest = closest_point_on_disk(vec2(position), light.position, light.radius);
         vec2 direction = closest - vec2(position);
         float dist_squared = dot(direction, direction);
 
+        // color
         vec4 light_contribution = compute_light(light.color, dist_squared);
         point_color += light_contribution;
 
+        // direction
         float luminance = dot(light_contribution.rgb, luma_coefficients);
         light_direction += luminance * (direction * inv_height);
         light_direction_weight += luminance;
@@ -240,33 +282,24 @@ void computemain() {
 
     // accumulate segment lights
     for (int i = 0; i < n_segment_lights; ++i) {
-        int segment_light_index = get_segment_light_index(tile_offset, i);
-        SegmentLight light = segment_light_sources[segment_light_index];
+        SegmentLight light = shared_segment_lights[i];
 
         vec2 closest_xy = closest_point_on_segment(vec2(position), light.segment);
         vec2 direction = closest_xy - vec2(position);
         float dist_squared = dot(direction, direction);
 
-        // color
         vec4 light_contrib = compute_light(light.color, dist_squared);
         segment_color += light_contrib;
 
-        // direction
         float luminance = dot(light_contrib.rgb, luma_coefficients);
         light_direction += luminance * (direction * inv_height);
         light_direction_weight += luminance;
     }
 
     // export rgba
-    imageStore(light_intensity_texture,
-        position,
-        tonemap(point_color + segment_color) // texture is [0, 1]
-    );
+    imageStore(light_intensity_texture, position, tonemap(point_color + segment_color));
 
-    // compute mean direction
+    // export mean direction
     light_direction = (light_direction_weight > 0.0) ? (light_direction / light_direction_weight) : vec2(0.0);
-    imageStore(light_direction_texture,
-        position,
-        vec4(light_direction, 1.0, 1.0)
-    );
+    imageStore(light_direction_texture, position, vec4(light_direction, 1.0, 1.0));
 }
