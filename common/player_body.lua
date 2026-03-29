@@ -7,7 +7,7 @@ rt.settings.player_body = {
     particle_texture_scale = 1,
     core_outline_width = 2,
 
-    contour_threshold = 0.05,
+    contour_threshold = 0.25,
     threshold = 0.4,
 
     texture_scale = 4,
@@ -1165,6 +1165,7 @@ function rt.PlayerBody:draw_body()
         love.graphics.clear(0, 0, 0, 0)
         _threshold_shader:bind()
         _threshold_shader:send("threshold", ternary(self._use_contour, rt.settings.player_body.contour_threshold, rt.settings.player_body.threshold))
+
         self._body_texture:draw()
         _threshold_shader:unbind()
         self._body_outline_texture:unbind()

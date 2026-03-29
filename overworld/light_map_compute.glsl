@@ -201,7 +201,8 @@ void computemain() {
     if (any(greaterThanEqual(position, image_size))) return;
 
     if (imageLoad(mask_texture, position).r == 0) {
-        imageStore(light_intensity_texture, position, vec4(0));
+        imageStore(light_intensity_texture, position, vec4(1, 1, 1, 0));
+        imageStore(light_direction_texture, position, vec4(0, 0, 1, 1));
         return;
     }
 

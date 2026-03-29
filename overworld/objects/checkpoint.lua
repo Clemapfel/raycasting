@@ -270,12 +270,6 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
 
         return meta.DISCONNECT_SIGNAL
     end)
-
-    DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
-        if which == "k" then
-            self:_spawn_ray_particles()
-        end
-    end)
 end
 
 --- @brief
