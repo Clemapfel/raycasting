@@ -24,7 +24,7 @@ do
         idle_threshold_duration = 5,
         control_indicator_delay = 0.0,
 
-        player_canvas_scale = rt.settings.player_body.canvas_scale,
+        player_canvas_scale = rt.settings.player_body.texture_scale,
         player_canvas_size_radius_factor = rt.settings.player.bubble_radius_factor * 2.5,
 
         screenshot_texture_format = rt.RGBA8,

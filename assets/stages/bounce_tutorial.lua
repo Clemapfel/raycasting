@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 646,
+  nextobjectid = 647,
   properties = {},
   tilesets = {
     {
@@ -536,8 +536,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = 496,
-          y = 1648,
+          x = 1273.97,
+          y = 577.196,
           width = 0,
           height = 0,
           rotation = 0,
@@ -3113,6 +3113,21 @@ return {
             { x = -47.9671, y = 173.895 }
           },
           properties = {}
+        },
+        {
+          id = 646,
+          name = "",
+          type = "Wall",
+          shape = "rectangle",
+          x = 965.027,
+          y = 223.846,
+          width = 681.721,
+          height = 590.825,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["opacity"] = 1
+          }
         }
       }
     },

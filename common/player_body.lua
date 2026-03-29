@@ -2,7 +2,6 @@ require "common.smoothed_motion_1d"
 require "common.lch_texture"
 
 rt.settings.player_body = {
-    canvas_scale = 3,
     outline_darkening = 0.5,
 
     particle_texture_scale = 1,
@@ -128,26 +127,27 @@ function rt.PlayerBody:instantiate(position_x, position_y)
         rt.settings.player_body.contour_inflation_speed,
         rt.settings.player_body.contour_deflation_speed
     )
-    
+
     self._particle_data = {}
     self._ropes = {}
     self._n_particles = 0
 
     self._colliding_lines = {} -- Table<Tuple<4>>
     self._colliding_lines_to_lambda = {}
-    
+
     self._particle_texture_radius = nil -- Number
     self._particle_texture = nil -- rt.RenderTexture
-    
+
     self._body_texture = nil -- rt.RenderTexture
     self._body_outline_texture = nil -- rt.RenderTexture
+    self._swap_texture = nil -- rt.RenderTexture
     self._render_texture_needs_update = false
-    
+
     self._instance_mesh = nil -- rt.Mesh
     self._data_mesh_format = nil -- cf. _initialize
     self._data_mesh_data = {}
     self._data_mesh = nil -- rt.Mesh
-    
+
     self._particle_i_to_data_mesh_position = {}
     self:_initialize()
 end
@@ -208,7 +208,6 @@ function rt.PlayerBody:_initialize()
 
     local body_radius = rt.settings.player.radius
     local max_rope_length = rt.settings.player_body.max_rope_length
-
 
     local max_particle_distance = -math.huge
     local max_particle_radius = -math.huge
@@ -389,7 +388,12 @@ function rt.PlayerBody:_initialize()
             settings.msaa
         )
 
-        for texture in range(self._body_texture, self._body_outline_texture) do
+        self._swap_texture = rt.RenderTexture(
+            texture_w, texture_h,
+            settings.msaa
+        )
+
+        for texture in range(self._body_texture, self._body_outline_texture, self._swap_texture) do
             texture:set_scale_mode(rt.TextureScaleMode.LINEAR, rt.TextureScaleMode.LINEAR)
         end
 
@@ -617,7 +621,7 @@ do -- update helpers (XPBD with lambdas)
         if length < math.eps then
             return 0, 0, 0, 0, lambda_before
         end
-        
+
         local normal_x, normal_y = math.normalize(delta_x, delta_y)
 
         local constraint = length - target_distance
@@ -822,7 +826,7 @@ do -- update helpers (XPBD with lambdas)
 
         return velocity_x, velocity_y
     end
-    
+
     -- PlayerBody:_step with XPBD lambdas
     function rt.PlayerBody:_step(delta)
         local settings = ternary(self._use_contour, rt.settings.player_body.contour, rt.settings.player_body.non_contour)
@@ -951,7 +955,7 @@ do -- update helpers (XPBD with lambdas)
                             bending_alpha,
                             data[a_i + _bending_lambda_offset]
                         )
-                        
+
                         data[a_i + _x_offset] = ax + correction_ax
                         data[a_i + _y_offset] = ay + correction_ay
                         data[b_i + _x_offset] = bx + correction_bx
@@ -1116,6 +1120,7 @@ function rt.PlayerBody:draw_body()
     if self._render_texture_needs_update then
         self:_update_data_mesh()
 
+        -- update body texture
         love.graphics.push("all")
         love.graphics.reset()
         love.graphics.setBlendMode("add", "premultiplied")
@@ -1152,9 +1157,10 @@ function rt.PlayerBody:draw_body()
         self._body_texture:unbind()
         love.graphics.pop()
 
-        -- threshold for outline
+        -- threshold body texture
         love.graphics.push("all")
         love.graphics.reset()
+
         self._body_outline_texture:bind()
         love.graphics.clear(0, 0, 0, 0)
         _threshold_shader:bind()
@@ -1162,38 +1168,42 @@ function rt.PlayerBody:draw_body()
         self._body_texture:draw()
         _threshold_shader:unbind()
         self._body_outline_texture:unbind()
+
+        love.graphics.pop()
+
+        -- paste body to swap
+        love.graphics.push("all")
+        love.graphics.reset()
+        self._swap_texture:bind()
+        love.graphics.clear(true, false, false)
+
+        love.graphics.setColor(1, 1, 1, 1)
+        local body_r, body_g, body_b, body_a = self._body_color:unpack()
+        local outline_r, outline_g, outline_b, outline_a = self._core_color:unpack()
+        _outline_shader:send("body_color", { body_r, body_g, body_b, body_a * self._opacity })
+        _outline_shader:send("outline_color", { outline_r, outline_g, outline_b, outline_a * self._opacity })
+        _outline_shader:send("texture_scale", rt.settings.player_body.texture_scale)
+        _outline_shader:send("outline_thickness", rt.settings.player_body.core_outline_width)
+        _outline_shader:bind()
+        self._body_outline_texture:draw()
+        _outline_shader:unbind()
+
+        self._swap_texture:unbind()
         love.graphics.pop()
     end
 
     love.graphics.push()
     local w, h = self._body_texture:get_size()
     local texture_scale = rt.settings.player_body.texture_scale
-    self:_apply_squish()
 
+    self:_apply_squish()
     love.graphics.translate(self._position_x - 0.5 * w, self._position_y - 0.5 * w)
     love.graphics.translate(0.5 * w, 0.5 * h)
     love.graphics.scale(1 / texture_scale, 1 / texture_scale)
     love.graphics.translate(-0.5 * w, -0.5 * h)
-
     love.graphics.setColor(1, 1, 1, 1)
-    local body_r, body_g, body_b, body_a = self._body_color:unpack()
-    local outline_r, outline_g, outline_b, outline_a = self._core_color:unpack()
-    _outline_shader:send("body_color", { body_r, body_g, body_b, body_a * self._opacity })
-    _outline_shader:send("outline_color", { outline_r, outline_g, outline_b, outline_a * self._opacity })
-    _outline_shader:bind()
-    self._body_outline_texture:draw()
-    _outline_shader:unbind()
+    self._swap_texture:draw()
     love.graphics.pop()
-
-    --[[
-    for line in values(self._colliding_lines) do
-        local cx, cy = line.contact_x, line.contact_y
-        local lx, ly = math.turn_left(line.normal_x, line.normal_y)
-        local rx, ry = math.turn_right(line.normal_x, line.normal_y)
-        love.graphics.line(cx + 100 * lx, cy + 100 * ly, cx + 100 * rx, cy + 100 * ry)
-    end
-    ]]--
-
 end
 
 --- @brief
@@ -1233,7 +1243,6 @@ function rt.PlayerBody:draw_core()
 
     love.graphics.pop()
 end
-
 --- @brief
 function rt.PlayerBody:set_position(x, y)
     meta.assert(x, "Number", y, "Number")
@@ -1288,31 +1297,19 @@ function rt.PlayerBody:draw_bloom()
     love.graphics.push()
     local w, h = self._body_texture:get_size()
     local texture_scale = rt.settings.player_body.texture_scale
-    self:_apply_squish()
 
+    self:_apply_squish()
     love.graphics.translate(self._position_x - 0.5 * w, self._position_y - 0.5 * w)
     love.graphics.translate(0.5 * w, 0.5 * h)
     love.graphics.scale(1 / texture_scale, 1 / texture_scale)
     love.graphics.translate(-0.5 * w, -0.5 * h)
-
     love.graphics.setColor(1, 1, 1, 1)
-    local body_r, body_g, body_b, body_a = self._body_color:unpack()
-    local outline_r, outline_g, outline_b, outline_a = self._core_color:unpack()
-    _outline_shader:send("body_color", { 0, 0, 0, 0 })
-    _outline_shader:send("outline_color", { outline_r, outline_g, outline_b, 1 })
-    _outline_shader:bind()
-    self._body_outline_texture:draw()
-    _outline_shader:unbind()
+    self._swap_texture:draw()
     love.graphics.pop()
 
-    love.graphics.push()
-    love.graphics.setLineWidth(1)
-    local core_r, core_g, core_b, core_a = self._core_color:unpack()
-    love.graphics.translate(self._position_x, self._position_y)
-    love.graphics.scale(self._core_outline_scale, self._core_outline_scale)
-    love.graphics.setColor(core_r, core_g, core_b, core_a * self._opacity)
+    love.graphics.setLineWidth(rt.settings.player_body.core_outline_width)
+    self._core_color:bind()
     love.graphics.line(self._core_vertices)
-    love.graphics.pop()
 end
 
 --- @brief
