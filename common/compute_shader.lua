@@ -21,13 +21,14 @@ function rt.ComputeShader:instantiate(filename, defines)
 
         if not success then
             rt.error("In rt.ComputeShader: Error when evaluating shader at `", filename, "`:\n", shader)
+            self._is_disabled = true
+        else
+            meta.install(self, {
+                _native = shader,
+                _filename = filename,
+                _defines = defines
+            })
         end
-
-        meta.install(self, {
-            _native = shader,
-            _filename = filename,
-            _defines = defines
-        })
     end
 end
 

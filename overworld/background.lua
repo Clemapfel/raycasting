@@ -228,7 +228,7 @@ function ow.Background:size_allocate(x, y, width, height)
                         settings.max_rotation_speed
                     ),
 
-                    rotation_axis = { math.normalize(
+                    rotation_axis = { math.normalize3(
                         rt.random.number(-1, 1),
                         rt.random.number(-1, 1),
                         rt.random.number(-1, 1)

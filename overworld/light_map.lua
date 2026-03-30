@@ -3,9 +3,9 @@ require "common.matrix"
 rt.settings.overworld.light_map = {
     max_n_point_lights = 1024,
     max_n_segment_lights = 512,
-    n_point_lights_per_tile = 64 + 16,
+    n_point_lights_per_tile = 256,
     n_segment_lights_per_tile = 16,
-    tile_size = 32,
+    tile_size = 64,
     work_group_size_x = 32,
     work_group_size_y = 32,
     light_range = 64, -- px
@@ -206,6 +206,7 @@ do
 
     local function get_n_point_lights(tile_data, tile_data_stride, tile_index)
         local tile_offset = tile_index_to_data_offset(tile_data_stride, tile_index)
+        dbg(tile_offset, #tile_data)
         return tile_data[tile_offset + 0]
     end
 
@@ -485,7 +486,8 @@ do
         local range_threshold = (settings.light_range_threshold * camera:get_final_scale())^2
 
         if settings.should_sort_by_distance then
-            -- prioritize lights closer to the player
+            -- prioritize lights closer to the player by using squared distance as heuristic
+
             local player_x, player_y = world_to_screen_transform:transform_point(stage:get_scene():get_player():get_position())
 
             if self._tile_light_count == nil then
@@ -527,6 +529,7 @@ do
                 local data = point_light_data[point_i]
                 local x, y, radius, opacity = data[1], data[2], data[3], data[7]
 
+                -- only check cells in aabb of disk
                 local effective_radius = math.sqrt(range_threshold + radius * radius)
                 local first_row = math.max(1, math.floor((x - effective_radius) / tile_size) + 1)
                 local last_row = math.min(n_rows, math.floor((x + effective_radius) / tile_size) + 1)
@@ -577,12 +580,13 @@ do
                     end
                 end
             end
-        end
+        end -- should_sort_by_distance
 
         for segment_i = 1, n_segment_lights do
             local data = segment_light_data[segment_i]
             local x1, y1, x2, y2, opacity = data[1], data[2], data[3], data[4], data[8]
 
+            -- only check cells in aabb of segment
             local effective_radius = math.sqrt(range_threshold)
             local first_row = math.max(1, math.floor((math.min(x1, x2) - effective_radius) / tile_size) + 1)
             local last_row = math.min(n_rows, math.floor((math.max(x1, x2) + effective_radius) / tile_size) + 1)
@@ -603,17 +607,7 @@ do
             end
         end
 
-        if segment_max == nil then segment_max = -math.huge end
-        if point_max == nil then point_max = -math.huge end
-        for tile_i = 1, self._n_tiles do
-            point_max = math.max(point_max, get_n_point_lights(tile_data, tile_data_stride, n_point_lights_per_tile, tile_i))
-            segment_max = math.max(segment_max, get_n_segment_lights(tile_data, tile_data_stride, n_point_lights_per_tile, tile_i))
-        end
-
-        dbg(segment_max, point_max)
-
         self._tile_data_buffer:replace_data(tile_data) -- always update whole buffer
-
 
         local shader = self._shader
         shader:send("point_light_source_buffer", self._point_light_buffer)
@@ -623,6 +617,26 @@ do
         shader:send("light_direction_texture", self._light_direction_texture)
         shader:send("mask_texture", self._mask_texture)
         shader:dispatch(self._dispatch_x, self._dispatch_y)
+
+        if DEBUG then
+            if self._measured_max_n_segments == nil then self._measured_max_n_segments = -math.huge end
+            if self._measured_max_n_points == nil then self._measured_max_n_points = -math.huge end
+            local before_n_points, before_n_segments = self._measured_max_n_points, self._measured_max_n_segments
+
+            for tile_i = 1, self._n_tiles do
+                self._measured_max_n_points = math.max(self._measured_max_n_points, get_n_point_lights(tile_data, tile_data_stride, n_point_lights_per_tile, tile_i))
+                self._measured_max_n_segments = math.max(self._measured_max_n_segments, get_n_segment_lights(tile_data, tile_data_stride, n_point_lights_per_tile, tile_i))
+            end
+
+            if self._measured_max_n_points > max_n_point_lights and before_n_points < self._measured_max_n_points then
+                rt.critical("In ow.LightMap.update: number of point lights for at least one tile are `", self._measured_max_n_points, "`, but the maximum allowed number is `", max_n_point_lights, "`")
+            end
+
+            if self._measured_max_n_segments > max_n_segment_lights and before_n_segments < self._measured_max_n_segments then
+                rt.critical("In ow.LightMap.update: number of segments lights for at least one tile are `", self._measured_max_n_segments, "`, but the maximum allowed number is `", max_n_segment_lights, "`")
+            end
+        end
+
     end
 end
 

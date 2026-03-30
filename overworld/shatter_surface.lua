@@ -349,7 +349,7 @@ function ow.ShatterSurface:shatter(origin_x, origin_y, velocity_x, velocity_y)
                 outer_bounds.y + outer_bounds.height - part.y - origin_y
             )
 
-            if (love.timer.getTime() - start) / (1 / 60) > 0.25 then
+            if (love.timer.getTime() - start) / (1 / 60) > 0.1 then
                 coroutine.yield()
                 start = love.timer.getTime()
             end

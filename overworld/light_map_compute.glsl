@@ -83,12 +83,12 @@ vec2 closest_point_on_segment(vec2 xy, vec4 segment) {
 #error "N_SEGMENT_LIGHTS_PER_TILE undefined"
 #endif
 
-#if TILE_SIZE != WORK_GROUP_SIZE_X
-#error "TILE_SIZE must equal WORK_GROUP_SIZE_X (one workgroup per tile)"
+#if ((TILE_SIZE % WORK_GROUP_SIZE_X) != 0)
+#error "TILE_SIZE must be an integer multiple of WORK_GROUP_SIZE_X so workgroups tile-align within a tile"
 #endif
 
-#if TILE_SIZE != WORK_GROUP_SIZE_Y
-#error "TILE_SIZE must equal WORK_GROUP_SIZE_Y (one workgroup per tile)"
+#if ((TILE_SIZE % WORK_GROUP_SIZE_Y) != 0)
+#error "TILE_SIZE must be an integer multiple of WORK_GROUP_SIZE_Y so workgroups tile-align within a tile"
 #endif
 
 #if WORK_GROUP_SIZE_Z != 1
@@ -222,6 +222,7 @@ void computemain() {
     ivec2 image_size = imageSize(light_intensity_texture);
     ivec2 position = ivec2(gl_GlobalInvocationID.xy);
 
+    // base pixel position for this workgroup
     ivec2 work_group_base_position = ivec2(gl_WorkGroupID.xy) * ivec2(WORK_GROUP_SIZE_X, WORK_GROUP_SIZE_Y);
     int tile_offset = xy_to_tile_data_offset(work_group_base_position, image_size);
 
@@ -229,19 +230,21 @@ void computemain() {
     int n_segment_lights = min(get_n_segment_lights(tile_offset), N_SEGMENT_LIGHTS_PER_TILE);
 
     uint local_id = gl_LocalInvocationIndex; // id within the same work group
+    const int stride = int(WORK_GROUP_SIZE_X * WORK_GROUP_SIZE_Y * WORK_GROUP_SIZE_Z);
 
-    // first n threads load into shared memory
-    if (local_id < uint(n_point_lights)) {
-        int light_index = get_point_light_index(tile_offset, int(local_id));
-        shared_point_lights[local_id] = point_light_sources[light_index];
+    // each local invocation may need to load multiple entries; stride by LOCAL_INVOCATIONS.
+    for (int i = int(local_id); i < n_point_lights; i += stride) {
+        int light_index = get_point_light_index(tile_offset, i);
+        shared_point_lights[i] = point_light_sources[light_index];
     }
 
-    if (local_id < uint(n_segment_lights)) {
-        int segment_index = get_segment_light_index(tile_offset, int(local_id));
-        shared_segment_lights[local_id] = segment_light_sources[segment_index];
+    for (int i = int(local_id); i < n_segment_lights; i += stride) {
+        int segment_index = get_segment_light_index(tile_offset, i);
+        shared_segment_lights[i] = segment_light_sources[segment_index];
     }
 
-    // ensure writes to shared memory are visible to all invocations, then synchronize
+    // ensure writes to shared memory are visible to all invocations in this workgroup, then synchronize
+    memoryBarrierShared();
     barrier();
 
     if (any(greaterThanEqual(position, image_size))) return;
