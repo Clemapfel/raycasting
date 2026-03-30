@@ -269,6 +269,131 @@ do
         return segment_light_i + 1
     end
 
+    local function sift_down(weights, ids, root, heap_size)
+        local i = root
+        while true do
+            local left = 2 * i
+            local right = left + 1
+            local largest = i
+            if left <= heap_size and weights[left] > weights[largest] then largest = left  end
+            if right <= heap_size and weights[right] > weights[largest] then largest = right end
+            if largest == i then break end
+            weights[i], weights[largest] = weights[largest], weights[i]
+            ids[i], ids[largest] = ids[largest], ids[i]
+            i = largest
+        end
+    end
+
+    local function heap_add(self, object_id, weight)
+        local count = self.count
+        local weights = self.weights
+        local object_ids = self.object_ids
+
+        if count < self.max_size then
+            count = count + 1
+            weights[count] = weight
+            object_ids[count] = object_id
+            self.count = count
+
+            local i = count
+            while i > 1 do
+                local parent = bit.rshift(i, 1)
+                if weights[parent] < weights[i] then
+                    weights[parent], weights[i] = weights[i], weights[parent]
+                    object_ids[parent], object_ids[i] = object_ids[i], object_ids[parent]
+                    i = parent
+                else
+                    break
+                end
+            end
+        elseif weight < weights[1] then
+            weights[1] = weight
+            object_ids[1] = object_id
+            sift_down(weights, object_ids, 1, count)
+        end
+    end
+
+    local function heap_clear(self)
+        self.count = 0
+    end
+
+    local function heap_list(self)
+        local count = self.count
+        local max_size = self.max_size
+        local weights = self.weights
+        local object_ids = self.object_ids
+
+        local copy_weights = table.move(weights,1, count, 1, table.new(count, 0))
+        local copy_ids = table.move(object_ids, 1, count, 1, table.new(count, 0))
+        local result = table.new(count, 0)
+        local copy_count = count
+
+        for i = count, 1, -1 do
+            result[i] = copy_ids[1]
+            copy_weights[1] = copy_weights[copy_count]
+            copy_ids[1] = copy_ids[copy_count]
+            copy_count = copy_count - 1
+            sift_down(copy_weights, copy_ids, 1, copy_count)
+        end
+
+        return result
+    end
+
+    local function heap_new(max_size)
+        return {
+            max_size = max_size,
+            count = 0,
+            weights = table.new(max_size, 0),
+            object_ids = table.new(max_size, 0)
+        }
+    end
+
+    local function tile_accumulator_new(max_size)
+        return {
+            max_size = max_size,
+            count = 0,
+            weights = table.new(max_size + 1, 0),
+            object_ids = table.new(max_size + 1, 0),
+            overflowed = false,
+        }
+    end
+
+    local function tile_accumulator_add(self, object_id, weight)
+        local count = self.count + 1
+        self.count = count
+        self.weights[count] = weight
+        self.object_ids[count] = object_id
+        if count > self.max_size then
+            self.overflowed = true
+        end
+    end
+
+    local function tile_accumulator_flush(self, tile_data, tile_data_stride, n_point_lights_per_tile, tile_index)
+        local count = self.count
+        if count == 0 then return end
+
+        local object_ids = self.object_ids
+        local weights = self.weights
+
+        if self.overflowed then
+            -- sort only when necessary
+            local indices = table.new(count, 0)
+            for i = 1, count do indices[i] = i end
+            table.sort(indices, function(a, b) return weights[a] < weights[b] end)
+            local limit = math.min(count, self.max_size)
+            for rank = 1, limit do
+                add_point_light_to_tile(tile_data, tile_data_stride, n_point_lights_per_tile, tile_index, object_ids[indices[rank]])
+            end
+        else
+            for i = 1, count do
+                add_point_light_to_tile(tile_data, tile_data_stride, n_point_lights_per_tile, tile_index, object_ids[i])
+            end
+        end
+
+        self.count = 0
+        self.overflowed = false
+    end
+
     local _compare_function = function(a, b) return a[3] < b[3] end
 
     --- @brief
@@ -359,27 +484,72 @@ do
 
         local range_threshold = (settings.light_range_threshold * camera:get_final_scale())^2
 
-        -- compute which tiles overlap aabb of light, then do narrow phase for those tiles
+        if settings.should_sort_by_distance then
+            if self._tile_to_min_heap == nil then
+                self._tile_to_min_heap = {}
+                for tile_i = 1, self._n_tiles do
+                    self._tile_to_min_heap[tile_i] = heap_new(n_point_lights_per_tile)
+                end
+            end
 
-        for point_i = 1, n_point_lights do
-            local data = point_light_data[point_i]
-            local x, y, radius, opacity = data[1], data[2], data[3], data[7]
+            -- compute which tiles overlap aabb of light, then do narrow phase for those tiles
 
-            local effective_radius = math.sqrt(range_threshold + radius^2)
-            local first_row = math.max(1, math.floor((x - effective_radius) / tile_size) + 1)
-            local last_row = math.min(n_rows, math.floor((x + effective_radius) / tile_size) + 1)
-            local first_column = math.max(1, math.floor((y - effective_radius) / tile_size) + 1)
-            local last_column = math.min(n_columns, math.floor((y + effective_radius) / tile_size) + 1)
+            for point_i = 1, n_point_lights do
+                local data = point_light_data[point_i]
+                local x, y, radius, opacity = data[1], data[2], data[3], data[7]
 
-            for row_i = first_row, last_row do
-                for column_i = first_column, last_column do
-                    local tile_x = (row_i - 1) * tile_size
-                    local tile_y = (column_i - 1) * tile_size
+                local effective_radius = math.sqrt(range_threshold + radius^2)
+                local first_row = math.max(1, math.floor((x - effective_radius) / tile_size) + 1)
+                local last_row = math.min(n_rows, math.floor((x + effective_radius) / tile_size) + 1)
+                local first_column = math.max(1, math.floor((y - effective_radius) / tile_size) + 1)
+                local last_column = math.min(n_columns, math.floor((y + effective_radius) / tile_size) + 1)
 
-                    local distance = distance_between_square_and_point(tile_x, tile_y, tile_size, x, y)
-                    if distance < range_threshold + radius^2 then
-                        local tile_i = xy_to_tile_index(width, tile_size, tile_x, tile_y)
-                        add_point_light_to_tile(tile_data, tile_data_stride, n_point_lights_per_tile, tile_i, point_i)
+                for row_i = first_row, last_row do
+                    for column_i = first_column, last_column do
+                        local tile_x = (row_i - 1) * tile_size
+                        local tile_y = (column_i - 1) * tile_size
+
+                        local distance = distance_between_square_and_point(tile_x, tile_y, tile_size, x, y)
+                        if distance < range_threshold + radius^2 then
+                            local tile_index = xy_to_tile_index(width, tile_size, tile_x, tile_y)
+
+                            -- approximated distance heuristic
+                            local weight = math.squared_distance(x, y, tile_x + 0.5 * tile_size, tile_y + 0.5 * tile_size)
+                            heap_add(self._tile_to_min_heap[tile_index], point_i, weight)
+                        end
+                    end
+                end
+            end
+
+            for tile_i = 1, self._n_tiles do
+                local heap = self._tile_to_min_heap[tile_i]
+                for _, point_i in ipairs(heap_list(heap)) do
+                    add_point_light_to_tile(tile_data, tile_data_stride, n_point_lights_per_tile, tile_i, point_i)
+                end
+
+                heap_clear(heap)
+            end
+        else
+            for point_i = 1, n_point_lights do
+                local data = point_light_data[point_i]
+                local x, y, radius, opacity = data[1], data[2], data[3], data[7]
+
+                local effective_radius = math.sqrt(range_threshold + radius^2)
+                local first_row = math.max(1, math.floor((x - effective_radius) / tile_size) + 1)
+                local last_row = math.min(n_rows, math.floor((x + effective_radius) / tile_size) + 1)
+                local first_column = math.max(1, math.floor((y - effective_radius) / tile_size) + 1)
+                local last_column = math.min(n_columns, math.floor((y + effective_radius) / tile_size) + 1)
+
+                for row_i = first_row, last_row do
+                    for column_i = first_column, last_column do
+                        local tile_x = (row_i - 1) * tile_size
+                        local tile_y = (column_i - 1) * tile_size
+
+                        local distance = distance_between_square_and_point(tile_x, tile_y, tile_size, x, y)
+                        if distance < range_threshold + radius^2 then
+                            local tile_i = xy_to_tile_index(width, tile_size, tile_x, tile_y)
+                            add_point_light_to_tile(tile_data, tile_data_stride, n_point_lights_per_tile, tile_i, point_i)
+                        end
                     end
                 end
             end
