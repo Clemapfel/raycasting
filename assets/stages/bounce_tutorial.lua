@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 647,
+  nextobjectid = 649,
   properties = {},
   tilesets = {
     {
@@ -502,7 +502,7 @@ return {
           type = "Wall",
           shape = "polygon",
           x = 464,
-          y = 1408,
+          y = 854.664,
           width = 0,
           height = 0,
           rotation = 0,
@@ -510,8 +510,45 @@ return {
           polygon = {
             { x = 0, y = 0 },
             { x = 3824, y = 0 },
-            { x = 3824, y = 240 },
-            { x = 0, y = 240 }
+            { x = 3824, y = 793.336 },
+            { x = 0, y = 793.336 }
+          },
+          properties = {}
+        },
+        {
+          id = 647,
+          name = "",
+          type = "BouncePad",
+          shape = "polygon",
+          x = 1024,
+          y = 1136,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 224, y = 0 },
+            { x = 224, y = -32 },
+            { x = 0, y = -32 }
+          },
+          properties = {}
+        },
+        {
+          id = 648,
+          name = "",
+          type = "BouncePad",
+          shape = "polygon",
+          x = 672,
+          y = 1072,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 96, y = -80 },
+            { x = 0, y = -80 }
           },
           properties = {}
         }

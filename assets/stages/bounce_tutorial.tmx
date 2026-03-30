@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="647">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="649">
  <editorsettings>
   <export target="bounce_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -90,8 +90,14 @@
   <object id="593" type="Wall" x="3648" y="400">
    <polygon points="-448,-16 -448,288 1552,288 1552,-688 1792,-688 1792,-848 1296,-848 1296,-16"/>
   </object>
-  <object id="634" type="Wall" x="464" y="1408">
-   <polygon points="0,0 3824,0 3824,240 0,240"/>
+  <object id="634" type="Wall" x="464" y="854.664">
+   <polygon points="0,0 3824,0 3824,793.336 0,793.336"/>
+  </object>
+  <object id="647" type="BouncePad" x="1024" y="1136">
+   <polygon points="0,0 224,0 224,-32 0,-32"/>
+  </object>
+  <object id="648" type="BouncePad" x="672" y="1072">
+   <polygon points="0,0 96,-80 0,-80"/>
   </object>
  </objectgroup>
  <objectgroup id="6" name="hitbox">

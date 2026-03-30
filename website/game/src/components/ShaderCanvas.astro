@@ -14,31 +14,33 @@ const {
     fragment_shader = `
     precision mediump float;
     uniform float time;
-    uniform vec2 resolution;
+    uniform vec2 canvas_size;
     void main() {
-      vec2 uv = gl_FragCoord.xy / resolution;
-      gl_FragColor = vec4(uv, 0.5 + 0.5 * sin(time), 1.0);
+      gl_FragColor = vec4(0);
     }
   `,
 } = Astro.props;
 ---
 
-<canvas
-        id="shader_canvas"
-        style="width: 100%; height: 100%; display: block;"
-></canvas>
+<canvas id="shader_background"></canvas>
+
+<style>
+    #shader_background {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: -1;
+        pointer-events: none;
+        display: block;
+        background: black;
+    }
+</style>
 
 <script define:vars={{ vertex_shader, fragment_shader }}>
-    const canvas = document.getElementById("shader_canvas");
+    const canvas = document.getElementById("shader_background");
     const gl = canvas.getContext("webgl");
-
-    function resize() {
-        const rect = canvas.parentElement.getBoundingClientRect();
-        canvas.width = Math.floor(rect.width);
-        canvas.height = Math.floor(rect.height);
-        gl.viewport(0, 0, canvas.width, canvas.height);
-        gl.uniform2f(resolution_uniform, canvas.width, canvas.height);
-    }
 
     function compile_shader(source, type) {
         const shader = gl.createShader(type);
@@ -68,13 +70,21 @@ const {
     gl.vertexAttribPointer(position_attrib, 2, gl.FLOAT, false, 0, 0);
 
     const time_uniform = gl.getUniformLocation(program, "time");
-    const resolution_uniform = gl.getUniformLocation(program, "resolution");
+    const canvas_size_uniform = gl.getUniformLocation(program, "canvas_size");
+
+    function resize() {
+        const dpr = window.devicePixelRatio ?? 1;
+        canvas.width = Math.floor(window.innerWidth * dpr);
+        canvas.height = Math.floor(window.innerHeight * dpr);
+        gl.viewport(0, 0, canvas.width, canvas.height);
+        gl.uniform2f(canvas_size_uniform, canvas.width, canvas.height);
+    }
 
     resize();
-    new ResizeObserver(resize).observe(canvas.parentElement);
+    new ResizeObserver(resize).observe(document.documentElement);
 
     function render(timestamp) {
-        gl.uniform1f(time_uniform, timestamp * 0.001);
+        gl.uniform1f(time_uniform, timestamp);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
         requestAnimationFrame(render);
     }

@@ -206,7 +206,6 @@ do
 
     local function get_n_point_lights(tile_data, tile_data_stride, tile_index)
         local tile_offset = tile_index_to_data_offset(tile_data_stride, tile_index)
-        dbg(tile_offset, #tile_data)
         return tile_data[tile_offset + 0]
     end
 
@@ -624,8 +623,8 @@ do
             local before_n_points, before_n_segments = self._measured_max_n_points, self._measured_max_n_segments
 
             for tile_i = 1, self._n_tiles do
-                self._measured_max_n_points = math.max(self._measured_max_n_points, get_n_point_lights(tile_data, tile_data_stride, n_point_lights_per_tile, tile_i))
-                self._measured_max_n_segments = math.max(self._measured_max_n_segments, get_n_segment_lights(tile_data, tile_data_stride, n_point_lights_per_tile, tile_i))
+                --self._measured_max_n_points = math.max(self._measured_max_n_points, get_n_point_lights(tile_data, tile_data_stride, n_point_lights_per_tile, tile_i))
+                --self._measured_max_n_segments = math.max(self._measured_max_n_segments, get_n_segment_lights(tile_data, tile_data_stride, n_point_lights_per_tile, tile_i))
             end
 
             if self._measured_max_n_points > max_n_point_lights and before_n_points < self._measured_max_n_points then

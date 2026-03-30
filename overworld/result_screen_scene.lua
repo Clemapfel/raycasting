@@ -433,7 +433,7 @@ function ow.ResultScreenScene:size_allocate(x, y, width, height)
 
         local half_w, half_h = 0.5 * width / scale, 0.5 * height / scale
         local center_x, center_y = half_w, half_h
-        local top_left_x, top_left_y = center_x - half_w, center_y - half_w
+        local top_left_x, top_left_y = center_x - half_w, center_y - half_h
         local top_right_x, top_right_y = center_x + half_w, center_y - half_h
         local bottom_right_x, bottom_right_y = center_x + half_w, center_y + half_h
         local bottom_left_x, bottom_left_y = center_x - half_w, center_y + half_h

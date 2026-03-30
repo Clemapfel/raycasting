@@ -1,21 +1,13 @@
 ---
 import ShaderCanvas from "../components/ShaderCanvas.astro";
-
-const fragment_shader = `
-  precision mediump float;
-  uniform float time;
-  uniform vec2 resolution;
-
-  void main() {
-    vec2 uv = gl_FragCoord.xy / resolution;
-    vec2 p = uv * 2.0 - 1.0;
-    float d = length(p) - 0.5 + 0.1 * sin(time * 3.0 + atan(p.y, p.x) * 6.0);
-    float ring = smoothstep(0.02, 0.0, abs(d));
-    vec3 color = mix(vec3(0.05, 0.05, 0.1), vec3(0.2, 0.8, 1.0), ring);
-    gl_FragColor = vec4(color, 1.0);
-  }
-`;
+import fragment_shader from "../assets/index.glsl?raw";
+import MarkdownPost from '../layouts/MarkdownPost.astro';
+import Content from '../content/test.md';
 ---
+
+<MarkdownPost title="My Post">
+	<Content />
+</MarkdownPost>
 
 <html lang="en">
 <head>
@@ -27,17 +19,18 @@ const fragment_shader = `
 			padding: 0;
 			width: 100%;
 			height: 100%;
+			z-index: 0;
+			background: transparent;
 		}
-		.shader_container {
-			width: 100%;
-			height: 100%;
+
+		p {
+			color: white;
 		}
 	</style>
 </head>
 
 <body>
-<div class="shader_container">
-	<ShaderCanvas fragment_shader={fragment_shader} />
-</div>
+<ShaderCanvas fragment_shader={fragment_shader} />
+<p>TEST</p>
 </body>
 </html>
