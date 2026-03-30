@@ -283,14 +283,14 @@ function rt.Transform:look_at(
     target_x, target_y, target_z,
     up_x, up_y, up_z
 )
-    local z1, z2, z3 = math.normalize(eye_x - target_x, eye_y - target_y, eye_z - target_z)
-    local x1, x2, x3 = math.normalize(math.cross(up_x, up_y, up_z, z1, z2, z3))
-    local y1, y2, y3 = math.cross(z1, z2, z3, x1, x2, x3)
+    local z1, z2, z3 = math.normalize3(eye_x - target_x, eye_y - target_y, eye_z - target_z)
+    local x1, x2, x3 = math.normalize3(math.cross3(up_x, up_y, up_z, z1, z2, z3))
+    local y1, y2, y3 = math.cross3(z1, z2, z3, x1, x2, x3)
 
     self._native:setMatrix(
-        x1, x2, x3, -math.dot(x1, x2, x3, eye_x, eye_y, eye_z),
-        y1, y2, y3, -math.dot(y1, y2, y3, eye_x, eye_y, eye_z),
-        z1, z2, z3, -math.dot(z1, z2, z3, eye_x, eye_y, eye_z),
+        x1, x2, x3, -math.dot3(x1, x2, x3, eye_x, eye_y, eye_z),
+        y1, y2, y3, -math.dot3(y1, y2, y3, eye_x, eye_y, eye_z),
+        z1, z2, z3, -math.dot3(z1, z2, z3, eye_x, eye_y, eye_z),
         0, 0, 0, 1
     )
 
@@ -303,9 +303,9 @@ function rt.Transform:set_target_to(
     target_x, target_y, target_z,
     up_x, up_y, up_z
 )
-    local z1, z2, z3 = math.normalize(eye_x - target_x, eye_y - target_y, eye_z - target_z)
-    local x1, x2, x3 = math.normalize(math.cross(up_x, up_y, up_z, z1, z2, z3))
-    local y1, y2, y3 = math.cross(z1, z2, z3, x1, x2, x3)
+    local z1, z2, z3 = math.normalize3(eye_x - target_x, eye_y - target_y, eye_z - target_z)
+    local x1, x2, x3 = math.normalize3(math.cross3(up_x, up_y, up_z, z1, z2, z3))
+    local y1, y2, y3 = math.cross3(z1, z2, z3, x1, x2, x3)
 
     self._native:setMatrix(
         x1, y1, z1, eye_x,
@@ -328,9 +328,9 @@ function rt.Transform:set_orientation(
     _, _, _, x34,
     x41, x42, x43, x44 = self._native:getMatrix()
 
-    forward_x, forward_y, forward_z = math.normalize(forward_x, forward_y, forward_z)
-    right_x, right_y, right_z = math.normalize(right_x, right_y, right_z)
-    up_x, up_y, up_z = math.normalize(up_x, up_y, up_z)
+    forward_x, forward_y, forward_z = math.normalize3(forward_x, forward_y, forward_z)
+    right_x, right_y, right_z = math.normalize3(right_x, right_y, right_z)
+    up_x, up_y, up_z = math.normalize3(up_x, up_y, up_z)
 
     self._native:setMatrix(
         right_x, right_y, right_z, x14,
@@ -377,9 +377,9 @@ function rt.Transform:set_to_orientation()
     x21, x22, x23, _,
     x31, x32, x33 = self._native:getMatrix()
 
-    x11, x12, x13 = math.normalize(x11, x12, x13)
-    x21, x22, x23 = math.normalize(x21, x22, x23)
-    x31, x32, x33 = math.normalize(x31, x32, x33)
+    x11, x12, x13 = math.normalize3(x11, x12, x13)
+    x21, x22, x23 = math.normalize3(x21, x22, x23)
+    x31, x32, x33 = math.normalize3(x31, x32, x33)
 
     self._native:setMatrix(
         x11, x12, x13, 0,

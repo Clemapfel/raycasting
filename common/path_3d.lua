@@ -40,8 +40,8 @@ function rt.Path3D:_update()
         local dx = x2 - x1
         local dy = y2 - y1
         local dz = z2 - z1
-        local distance = math.distance(x1, y1, z1, x2, y2, z2)
-        dx, dy, dz = math.normalize(dx, dy, dz)
+        local distance = math.distance3(x1, y1, z1, x2, y2, z2)
+        dx, dy, dz = math.normalize3(dx, dy, dz)
 
         local entry = {
             from_x = x1,
@@ -143,7 +143,7 @@ function rt.Path3D:at(t)
     local local_t = (t - segment.fraction) / segment.fraction_length
 
     local distance_along_segment = local_t * segment.distance
-    return math.add(
+    return math.add3(
         segment.from_x,
         segment.from_y,
         segment.from_z,
@@ -186,7 +186,7 @@ function rt.Path3D:_create_from(reparameterize_as_uniform, points, ...)
         local distances = { 0 }
         local total_length = 0
         for i = 1, n_points - dim, dim do
-            local dist = math.distance(
+            local dist = math.distance3(
                 points[i], points[i + 1], points[i + 2],
                 points[i + 3], points[i + 4], points[i + 5]
             )

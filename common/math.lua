@@ -154,18 +154,7 @@ function math.mix4(x1, y1, z1, w1, x2, y2, z2, w2, ratio)
 end
 
 --- @brief
-function math.mix(...)
-    local n = select("#", ...)
-    if n == 3 then
-        return math.mix1(...)
-    elseif n == 5 then
-        return math.mix2(...)
-    elseif n == 7 then
-        return math.mix3(...)
-    elseif n == 9 then
-        return math.mix4(...)
-    end
-end
+math.mix = math.mix1
 
 --- @brief project any angle into [0, 2 * math.pi]
 function math.normalize_angle(angle)
@@ -196,7 +185,6 @@ function math.greater_than_or_equal(a, b, eps)
     if eps == nil then eps = 0 end
     return a >= b - eps
 end
-
 
 function math.is_nan(x)
     return x ~= x
@@ -350,11 +338,6 @@ function math.sign(x)
     else
         return 0
     end
-end
-
---- @brief
-function math.is_nan(x)
-    return x ~= x
 end
 
 --- @brief evaluate erf integral
@@ -609,15 +592,19 @@ end
 --- @param x2 number x component of second point
 --- @param y2 number y component of second point
 --- @return number
-function math.squared_distance(x1, y1, x2, y2)
+function math.squared_distance2(x1, y1, x2, y2)
     local dx = x2 - x1
     local dy = y2 - y1
     return math.dot(dx, dy, dx, dy)
 end
 
-function math.signed_distance(x1, y1, x2, y2)
+math.squared_distance = math.squared_distance2
+
+function math.signed_distance2(x1, y1, x2, y2)
     return x1 * y2 - y1 * x2
 end
+
+math.signed_distance2 = math.signed_distance2
 
 --- @brief Get the dot product of two 2D vectors.
 function math.dot2(x1, y1, x2, y2)
@@ -682,22 +669,10 @@ function math.distance_to_line_segment(pt_x, pt_y, line_ax, line_ay, line_bx, li
 end
 
 --- @brief Normalize a 2D or 3D vector.
-function math.normalize(...)
-    if select("#", ...) == 2 then
-        return math.normalize2(...)
-    else
-        return math.normalize3(...)
-    end
-end
+math.normalize = math.normalize2
 
 --- @brief Get the magnitude of a 2D or 3D vector.
-function math.magnitude(...)
-    if select("#", ...) == 2 then
-        return math.magnitude2(...)
-    else
-        return math.magnitude3(...)
-    end
-end
+math.magnitude = math.magnitude2
 
 --- @brief Rotate a 2D vector, or a 3D vector around the Z axis.
 function math.rotate(...)
@@ -709,101 +684,28 @@ function math.rotate(...)
 end
 
 --- @brief Dot product of two 2D or 3D vectors.
-function math.dot(...)
-    if select("#", ...) == 4 then
-        return math.dot2(...)
-    else
-        return math.dot3(...)
-    end
-end
+math.dot = math.dot2
 
 --- @brief
-function math.cross(...)
-    if select("#", ...) == 4 then
-        return math.cross2(...)
-    else
-        return math.cross3(...)
-    end
-end
+math.cross = math.cross2
 
 --- @brief
-function math.distance(...)
-    if select("#", ...) == 4 then
-        return math.distance2(...)
-    else
-        return math.distance3(...)
-    end
-end
+math.distance = math.distance2
 
 --- @brief
-function math.add(...)
-    local n = select("#", ...)
-    if n == 4 then
-        return math.add2(...)
-    elseif n == 6 then
-        return math.add3(...)
-    elseif n == 8 then
-        return math.add4(...)
-    else
-        rt.error("In math.add: wrong number of arguments, expected 4, 6, or 8, got `", select("#", ...), "`")
-    end
-end
+math.add = math.add2
 
 --- @brief
-function math.subtract(...)
-    local n = select("#", ...)
-    if n == 4 then
-        return math.subtract2(...)
-    elseif n == 6 then
-        return math.subtract3(...)
-    elseif n == 8 then
-        return math.subtract4(...)
-    else
-        rt.error("In math.subtract: wrong number of arguments, expected 4, 6, or 8, got `", select("#", ...), "`")
-    end
-end
+math.subtract = math.subtract2
 
 --- @brief
-function math.reverse_subtract(...)
-    local n = select("#", ...)
-    if n == 4 then
-        return math.reverse_subtract2(...)
-    elseif n == 6 then
-        return math.reverse_subtract3(...)
-    elseif n == 8 then
-        return math.reverse_subtract4(...)
-    else
-        rt.error("In math.reverse_subtract: wrong number of arguments, expected 4, 6, or 8, got `", select("#", ...), "`")
-    end
-end
+math.reverse_subtract = math.reverse_subtract2
 
 --- @brief
-function math.multiply(...)
-    local n = select("#", ...)
-    if n == 4 then
-        return math.multiply2(...)
-    elseif n == 6 then
-        return math.multiply3(...)
-    elseif n == 8 then
-        return math.multiply4(...)
-    else
-        rt.error("In math.multiply: wrong number of arguments, expected 4, 6, or 8, got `", select("#", ...), "`")
-    end
-end
+math.multiply = math.multiply2
 
 --- @brief
-function math.divide(...)
-    local n = select("#", ...)
-    if n == 4 then
-        return math.divide2(...)
-    elseif n == 6 then
-        return math.divide3(...)
-    elseif n == 8 then
-        return math.divide4(...)
-    else
-        rt.error("In math.divide: wrong number of arguments, expected 4, 6, or 8, got `", select("#", ...), "`")
-    end
-end
+math.divide = math.divide2
 
 --- @brief
 function math.turn(x, y, left_or_right)
@@ -841,18 +743,7 @@ function math.flip4(x, y, z, w)
 end
 
 --- @brief
-function math.flip(...)
-    local n = select("#", ...)
-    if n == 2 then
-        return math.flip2(...)
-    elseif n == 3 then
-        return math.flip3(...)
-    elseif n == 4 then
-        return math.flip4(...)
-    else
-        rt.error("In math.flip: wrong number of arguments, expected 2, 3, or 4, got `", n, "`")
-    end
-end
+math.flip = math.flip2
 
 function math.gaussian(x, ramp)
     return math.exp(((-4 * math.pi) / 3) * (ramp * x) * (ramp * x))

@@ -3,7 +3,7 @@ require "common.matrix"
 rt.settings.overworld.light_map = {
     max_n_point_lights = 1024,
     max_n_segment_lights = 512,
-    n_point_lights_per_tile = 128,
+    n_point_lights_per_tile = 64 + 16,
     n_segment_lights_per_tile = 16,
     tile_size = 32,
     work_group_size_x = 32,
@@ -485,20 +485,49 @@ do
         local range_threshold = (settings.light_range_threshold * camera:get_final_scale())^2
 
         if settings.should_sort_by_distance then
-            if self._tile_to_min_heap == nil then
-                self._tile_to_min_heap = {}
-                for tile_i = 1, self._n_tiles do
-                    self._tile_to_min_heap[tile_i] = heap_new(n_point_lights_per_tile)
-                end
+            -- prioritize lights closer to the player
+            local player_x, player_y = world_to_screen_transform:transform_point(stage:get_scene():get_player():get_position())
+
+            if self._tile_light_count == nil then
+                self._tile_light_count = {}
+            else
+                table.clear(self._tile_light_count)
             end
 
-            -- compute which tiles overlap aabb of light, then do narrow phase for those tiles
+            if self._light_order == nil then
+                self._light_order = {}
+            else
+                table.clear(self._light_order)
+            end
 
-            for point_i = 1, n_point_lights do
+            if self._light_i_to_distance == nil then
+                self._light_i_to_distance = {}
+            else
+                table.clear(self._light_i_to_distance)
+            end
+
+            local tile_light_count = self._tile_light_count
+            local light_order = self._light_order
+            local light_i_to_distance = self._light_i_to_distance
+
+            for i = 1, n_point_lights do
+                light_order[i] = i
+                local data = point_light_data[i]
+                local dx = data[1] - player_x
+                local dy = data[2] - player_y
+                light_i_to_distance[i] = math.squared_distance(data[1], data[2], player_x, player_y)
+            end
+
+            table.sort(light_order, function(a, b)
+                return light_i_to_distance[a] < light_i_to_distance[b]
+            end)
+
+            for order_i = 1, n_point_lights do
+                local point_i = light_order[order_i]
                 local data = point_light_data[point_i]
                 local x, y, radius, opacity = data[1], data[2], data[3], data[7]
 
-                local effective_radius = math.sqrt(range_threshold + radius^2)
+                local effective_radius = math.sqrt(range_threshold + radius * radius)
                 local first_row = math.max(1, math.floor((x - effective_radius) / tile_size) + 1)
                 local last_row = math.min(n_rows, math.floor((x + effective_radius) / tile_size) + 1)
                 local first_column = math.max(1, math.floor((y - effective_radius) / tile_size) + 1)
@@ -509,25 +538,20 @@ do
                         local tile_x = (row_i - 1) * tile_size
                         local tile_y = (column_i - 1) * tile_size
 
-                        local distance = distance_between_square_and_point(tile_x, tile_y, tile_size, x, y)
-                        if distance < range_threshold + radius^2 then
+                        if distance_between_square_and_point(tile_x, tile_y, tile_size, x, y) < range_threshold + radius * radius then
                             local tile_index = xy_to_tile_index(width, tile_size, tile_x, tile_y)
-
-                            -- approximated distance heuristic
-                            local weight = math.squared_distance(x, y, tile_x + 0.5 * tile_size, tile_y + 0.5 * tile_size)
-                            heap_add(self._tile_to_min_heap[tile_index], point_i, weight)
+                            local tile_count = tile_light_count[tile_index] or 0
+                            if tile_count < n_point_lights_per_tile then
+                                tile_light_count[tile_index] = tile_count + 1
+                                add_point_light_to_tile(tile_data, tile_data_stride, n_point_lights_per_tile, tile_index, point_i)
+                            end
                         end
                     end
                 end
             end
 
-            for tile_i = 1, self._n_tiles do
-                local heap = self._tile_to_min_heap[tile_i]
-                for _, point_i in ipairs(heap_list(heap)) do
-                    add_point_light_to_tile(tile_data, tile_data_stride, n_point_lights_per_tile, tile_i, point_i)
-                end
-
-                heap_clear(heap)
+            for tile_index = 1, self._n_tiles do
+                tile_light_count[tile_index] = 0
             end
         else
             for point_i = 1, n_point_lights do
