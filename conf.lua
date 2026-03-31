@@ -2,10 +2,6 @@ DEBUG = true -- overriden by build script
 
 require "include"
 function love.conf(settings)
-    require "common.msaa_quality"
-    require "common.vsync_mode"
-    require "common.player_sprint_mode"
-
     require "build.config"
     local config = bd.get_config()
 

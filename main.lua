@@ -5,7 +5,6 @@ require "common.music_manager"
 require "common.sound_manager"
 require "common.input_manager"
 
-
 love.load = function(args)
     local w, h = love.graphics.getDimensions()
 

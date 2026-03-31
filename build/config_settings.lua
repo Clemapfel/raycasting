@@ -36,6 +36,7 @@ local INTEGER_RANGE = function(default, lower, upper)
 end
 
 do
+    require "love.window"
     local window_min_w, window_min_h = 400, 300
     local window_max_w, window_max_h = window_min_w, window_min_h
     do
@@ -48,6 +49,7 @@ do
 
     local renderers = {}
     do
+        require "love.system"
         local os = love.system.getOS()
         if os == "OS X" then
             renderers["metal"] = true

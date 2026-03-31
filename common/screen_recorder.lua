@@ -10,8 +10,13 @@ rt.ScreenRecorder = meta.class("ScreenRecorder")
 local MessageType = {
     SHUTDOWNN = "SHUTDOWN",
     SHUTDOWN_RESPONSE = "SHUTDOWN_RESPONSE",
-    IMAGE = "HANDLE_IMAGE",
-    READBACK = "READBACK"
+
+    IMAGE = "IMAGE",
+    IMAGE_RESPONSE = "IMAGE_RESPONSE",
+
+    READBACK = "READBACK",
+    READBACK_RESPONSE = "READBACK_RESPONSE",
+    UPDATE = "UPDATE"
 }
 
 local _worker, _main_to_worker, _worker_to_main
@@ -24,6 +29,11 @@ function rt.ScreenRecorder:instantiate()
 
     self._hdr_before = nil
     self._fixed_timestep_before = nil
+
+
+    self._texture_ring_buffer = nil
+    self._current_texture_buffer_i = 1
+    self._width, self._heigth = -1, -1
 
     self._frame_queue = {}
 end
@@ -55,7 +65,7 @@ function rt.ScreenRecorder:start_recording()
         end
     end
 
-    if self._texture == nil then self:_initialize(love.graphics.getDimensions()) end
+    if self._texture_ring_buffer == nil then self:_initialize(love.graphics.getDimensions()) end
 
     if self._is_active == true then
         self:stop_recording()
@@ -84,7 +94,7 @@ function rt.ScreenRecorder:start_recording()
 end
 
 --- @brief
-function rt.ScreenRecorder:_get_filename()
+function rt.ScreenRecorder:_get_current_filename()
     local index = self._frame_index
     local name = tostring(index)
     while #name < 6 do
@@ -96,58 +106,59 @@ end
 
 --- @brief
 function rt.ScreenRecorder:_initialize(width, height)
-    self._texture = rt.RenderTexture(width, height, rt.TextureFormat.RGBA8)
+    if self._texture_ring_buffer == nil then self._texture_ring_buffer = {} end
+
+    for i = 1, 1 do
+        table.insert(self._texture_ring_buffer, rt.RenderTexture(width, height, rt.TextureFormat.RGBA8))
+    end
+    self._current_texture_buffer_i = 1
+
+    dbg(#self._texture_ring_buffer)
+
+    self._width = width
+    self._height = height
 end
 
 --- @brief
 function rt.ScreenRecorder:bind()
     if self._is_active ~= true then return end
-    self._texture:bind()
+    --self._texture_ring_buffer[self._current_texture_buffer_i]:bind()
 end
 
 --- @brief
 function rt.ScreenRecorder:unbind()
     if self._is_active ~= true then return end
-    self._texture:unbind()
+    --self._texture_ring_buffer[self._current_texture_buffer_i]:unbind()
 end
 
 --- @brief
 function rt.ScreenRecorder:draw()
     if self._is_active ~= true then return end
-    love.graphics.reset()
-    love.graphics.setColor(1, 1, 1, 1)
-    self._texture:draw()
+    --love.graphics.reset()
+    --love.graphics.setColor(1, 1, 1, 1)
+    --self._texture_ring_buffer[self._current_texture_buffer_i]:draw()
+    --self._current_texture_buffer_i = math.wrap(self._current_texture_buffer_i + 1, #self._texture_ring_buffer)
 end
+
+local _volatile = {}
 
 --- @brief
 function rt.ScreenRecorder:update(delta)
     if self._is_active ~= true then return end
 
     local screen_w, screen_h = love.graphics.getDimensions()
-    if self._texture:get_width() ~= screen_w or self._texture:get_height() ~= screen_h then
+    if self._width ~= screen_w or self._height ~= screen_h then
         self:_initialize(screen_w, screen_h)
     end
 
-    table.insert(self._frame_queue, love.graphics.readbackTextureAsync(self._texture:get_native()))
+    local readback = love.graphics.readbackTextureAsync(self._texture_ring_buffer[self._current_texture_buffer_i]:get_native())
 
-    while #self._frame_queue > 0 do
-        local readback = self._frame_queue[1]
-        readback:update()
-        if readback:isComplete() then
-            _main_to_worker:push({
-                type = MessageType.HANDLE_IMAGE,
-                data = readback:getImageData(),
-                file_name = self:_get_filename()
-            })
-        elseif readback:hasError() then
-            rt.error("In rt.ScreenRecorder.update: `readbackTextureAsync` errored")
-        else
-            break
-        end
-
-        -- error or complete
-        table.remove(self._frame_queue, 1)
-    end
+    --[[
+    _main_to_worker:push({
+        type = MessageType.READBACK,
+        readback = readback,
+        filename = self:_get_current_filename()
+    })
 
     self._frame_index = self._frame_index + 1
 
@@ -157,10 +168,27 @@ function rt.ScreenRecorder:update(delta)
             if message.success ~= true then
                 rt.error("In rt.ScreenRecorder: thread errored on shutdown: ", message.error)
             end
+        elseif message.type == MessageType.READBACK_RESPONSE then
+            if message.success ~= true then
+                rt.error("In rt.ScreenRecorder: error in texture readback : ", message.error)
+            else
+                -- noop
+            end
+        elseif message.type == MessageType.IMAGE_RESPONSE then
+            if message.success ~= true then
+                rt.error("In rt.ScreenRecorder: error in image data encode : ", message.error)
+            else
+                -- noop
+            end
         else
             rt.error("In rt.ScreenRecorder: unhandled message type `", message.type, "`")
         end
     end
+
+    _main_to_worker:push({
+        type = MessageType.UPDATE
+    })
+    ]]
 end
 
 --- @brief

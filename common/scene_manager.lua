@@ -219,8 +219,6 @@ function rt.SceneManager:update(delta)
         self._current_scene:update(delta)
         self._current_scene:signal_emit("update", delta)
     end
-
-    self._screen_recorder:update(delta)
 end
 
 --- @brief
@@ -686,6 +684,7 @@ love.run = function()
                 love.graphics.pop()
             end
 
+            state._screen_recorder:update(delta)
             love.graphics.present()
         end
 
