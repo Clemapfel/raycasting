@@ -3,7 +3,12 @@ rt.Channel = meta.class("Channel")
 
 --- @brief
 function rt.Channel:instantiate(...)
-    self._native = love.thread.newChannel(...)
+    local first = select(1)
+    if first ~= nil and meta.is_function(first.typeOf) and first.typeOf("Channel") == true then
+        self._native = first
+    else
+        self._native = love.thread.newChannel(...)
+    end
 end
 
 --- @brief

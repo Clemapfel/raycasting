@@ -314,6 +314,7 @@ end
 function ow.OverworldScene:enter(new_stage_id, show_title_card)
     self._input:activate()
     rt.SceneManager:set_use_fixed_timestep(true)
+    rt.SceneManager:set_pause_on_focus_lost(false)
 
     self._fade_active = false
     self._fade:skip()
@@ -989,11 +990,6 @@ function ow.OverworldScene:show_result_screen()
             flow = self._stage:get_flow_fraction(),
         }
     )
-end
-
---- @brief
-function ow.OverworldScene:get_pause_on_focus_lost()
-    return false
 end
 
 --- @brief

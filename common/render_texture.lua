@@ -71,7 +71,7 @@ function rt.RenderTexture:unbind()
 end
 
 --- @brief
-function rt.RenderTexture:as_image()
+function rt.RenderTexture:download()
     if love.getVersion() >= 12 then
         return rt.Image(love.graphics.readbackTexture(self._native))
     else

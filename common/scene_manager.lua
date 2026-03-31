@@ -6,6 +6,7 @@ require "common.cursor"
 require "common.thread_manager"
 require "common.bloom"
 require "common.hdr"
+require "common.screen_recorder"
 
 rt.settings.scene_manager = {
     max_n_steps_per_frame = 8,
@@ -46,12 +47,19 @@ function rt.SceneManager:instantiate()
         _should_use_fade = false,
         _use_fixed_timestep = false,
 
+        _use_fixed_fps = true,
+        _target_fps = 30,
+
         _bloom = nil, -- initialized on first use
         _hdr = nil, -- ^
         _input = rt.InputSubscriber(),
 
+        _screen_recorder = rt.ScreenRecorder(),
+
         _cursor_visible = false,
         _cursor = rt.Cursor(),
+
+        _pause_on_focus_lost = true,
 
         _restart_active = false,
 
@@ -211,6 +219,8 @@ function rt.SceneManager:update(delta)
         self._current_scene:update(delta)
         self._current_scene:signal_emit("update", delta)
     end
+
+    self._screen_recorder:update(delta)
 end
 
 --- @brief
@@ -378,6 +388,16 @@ function rt.SceneManager:get_use_fixed_timestep()
 end
 
 --- @brief
+function rt.SceneManager:set_pause_on_focus_lost(b)
+    self._pause_on_focus_lost = b
+end
+
+--- @brief
+function rt.SceneManager:get_pause_on_focus_lost()
+    return self._pause_on_focus_lost
+end
+
+--- @brief
 function rt.SceneManager:get_timestep()
     if self._use_fixed_timestep then return 1 / 120 else return 1 / love.timer.getFPS() end
 end
@@ -513,6 +533,19 @@ function rt.SceneManager:get_light_map()
 end
 
 --- @brief
+function rt.SceneManager:get_hdr()
+    if self._hdr == nil then
+        self._hdr = rt.HDR(self._width, self._height)
+    end
+    return self._hdr
+end
+
+--- @brief
+function rt.SceneManager:get_screen_recorder()
+    return self._screen_recorder
+end
+
+--- @brief
 function rt.SceneManager:set_is_cursor_visible(b)
     self._cursor_visible = b
 end
@@ -542,6 +575,21 @@ love.focus = function(b)
     rt.SceneManager._is_focused = b
 end
 
+love.quit = function()
+    -- make sure temp is in appdata, not mounted
+    pcall(bd.unmount_path, "temp")
+
+    -- try delete
+    local success, error = pcall(bd.remove_directory, "temp")
+
+    local path = bd.join_path(bd.get_save_directory(), "temp")
+    if success then
+        rt.log("In love.quit: succesfully deleted folder at `", path, "`")
+    else
+        rt.critical("In love.quit: unable to delete folder at `", path, "`: ", error)
+    end
+end
+
 -- max uncapped fps
 local _fps_limit = 1000
 
@@ -550,11 +598,13 @@ love.run = function()
     love.mouse.setGrabbed(false)
 
     if love.load then love.load(love.arg.parseGameArguments(arg), arg) end
+    arg = nil
+
     if love.timer then love.timer.step() end
 
     return function()
         -- performance metrics
-        local frame_before, frame_fater, update_before, update_after, draw_before, draw_after
+        local update_before, update_after, draw_before, draw_after = 0, 0, 0, 0
 
         local state = rt.SceneManager
         local current_scene = rt.SceneManager._current_scene
@@ -575,7 +625,7 @@ love.run = function()
         update_before = love.timer.getTime()
 
         -- skip if window unfocused, prevent large delta after becoming active again
-        local pause_on_focus_lost = current_scene == nil or current_scene:get_pause_on_focus_lost() == true
+        local pause_on_focus_lost = current_scene == nil or state._pause_on_focus_lost == true
         if state._ignore_next_step == true or (not state._is_focused and pause_on_focus_lost) then
             state._ignore_next_step = false
             state._accumulator = 0
@@ -619,11 +669,15 @@ love.run = function()
 
         if love.graphics and love.graphics.isActive() then
             love.graphics.reset()
+            state._screen_recorder:bind() -- automatically noop if inactive
             love.graphics.clear(0, 0, 0, 0)
 
             draw_before = love.timer.getTime()
             if love.draw ~= nil then love.draw() end
             draw_after = love.timer.getTime()
+
+            state._screen_recorder:unbind()
+            state._screen_recorder:draw()
 
             if rt.GameState:get_draw_debug_information() then
                 love.graphics.push()

@@ -86,7 +86,7 @@ end
 function rt.GameState:set_vsync_mode(mode)
     meta.assert_enum_value(mode, rt.VSyncMode, 1)
     bd.get_config().vsync = mode
-    love.window.setVSync(mode)
+    love.window.setVSync(rt.graphics.vsync_mode_to_native(mode))
 end
 
 --- @brief

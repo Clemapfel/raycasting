@@ -38,7 +38,7 @@ function rt.MusicManager:instantiate()
         until message.message_id == "shutdown";
     end)
 
-    if not rt.ThreadManager:shutdown_active() then
+    if not rt.ThreadManager:get_is_shutdown_active() then
         self._thread:start(
             self._main_to_worker:get_native(),
             self._worker_to_main:get_native(),

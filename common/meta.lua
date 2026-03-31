@@ -120,6 +120,7 @@ function meta.assert_enum_value(x, enum, argument_i)
     end
     rt.assert(meta.is_enum_value(x, enum), prefix,  "expected value of enum `",  _type_to_typename[enum],  "`, got `",  tostring(x),  "`")
 end
+
 --- @brief
 function meta.is_nil(x)
     return x == nil

@@ -50,3 +50,8 @@ function rt.HDR:draw()
     self._texture:draw()
     _shader:unbind()
 end
+
+--- @brief
+function rt.HDR:get_native()
+    return self._texture:get_native()
+end

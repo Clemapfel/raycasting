@@ -5,6 +5,7 @@ require "common.music_manager"
 require "common.sound_manager"
 require "common.input_manager"
 
+
 love.load = function(args)
     local w, h = love.graphics.getDimensions()
 
@@ -53,6 +54,18 @@ love.load = function(args)
 
     --init()
 end
+
+DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
+    if which == rt.KeyboardKey.H then
+        rt.SceneManager:get_screen_recorder():start_recording()
+    end
+end)
+
+DEBUG_INPUT:signal_connect("keyboard_key_released", function(_, which)
+    if which == rt.KeyboardKey.H then
+        rt.SceneManager:get_screen_recorder():stop_recording()
+    end
+end)
 
 love.update = function(delta)
     if rt.SceneManager ~= nil then

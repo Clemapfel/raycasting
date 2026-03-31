@@ -18,7 +18,7 @@ function rt.ThreadManager:request_shutdown()
 end
 
 --- @brief
-function rt.ThreadManager:shutdown_active()
+function rt.ThreadManager:get_is_shutdown_active()
     return self._shutdown_active
 end
 

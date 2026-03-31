@@ -62,7 +62,7 @@ function rt.FileIO:instantiate(n_workers)
             self:shutdown()
         end)
 
-        if not rt.ThreadManager:shutdown_active() then
+        if not rt.ThreadManager:get_is_shutdown_active() then
             worker.thread:start(
                 worker.main_to_worker:get_native(),
                 worker.worker_to_main:get_native(),
