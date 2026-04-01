@@ -32,14 +32,14 @@ float gaussian(float x, float ramp)
 
 uniform sampler3D lch_texture;
 vec3 lch_to_rgb(vec3 lch) {
-    return texture3D(lch_texture, lch).rgb;
+    return texture(lch_texture, lch).rgb;
 }
 
 uniform float fraction;
 uniform vec2 size;
 uniform float hue;
 
-vec4 effect(vec4 color, Image image, vec2 texture_coords, vec2 vertex_position) {
+vec4 effect(vec4 color, sampler2D image, vec2 texture_coords, vec2 vertex_position) {
 
     float distortion_ramp = 2;
     float fade_out = gaussian(texture_coords.x, 1);

@@ -70,7 +70,7 @@ bd.config.parse_keybind_from_string = function(str)
 end
 
 do
-    local path = rt.settings.config.default_keybind_path
+    local path = bd.config.default_keybind_path
     local success, file_or_error = pcall(love.filesystem.read, path)
 
     if not success then

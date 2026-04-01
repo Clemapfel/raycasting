@@ -81,7 +81,7 @@ vec4 position(mat4 transform_projection, vec4 vertex_position)
 varying vec2 texture_coords;
 uniform vec2 texture_resolution; // resolution of spritesheet
 
-vec4 effect(vec4 color, Image tex, vec2 _, vec2 screen_coords)
+vec4 effect(vec4 color, sampler2D tex, vec2 _, vec2 screen_coords)
 {
     vec2 uv = texture_coords;
 
@@ -154,7 +154,7 @@ vec4 effect(vec4 color, Image tex, vec2 _, vec2 screen_coords)
 
 varying vec2 texture_coords;
 
-vec4 effect(vec4 color, Image tex, vec2 _, vec2 screen_coords)
+vec4 effect(vec4 color, sampler2D tex, vec2 _, vec2 screen_coords)
 {
     return color * texture(tex, texture_coords);
 }

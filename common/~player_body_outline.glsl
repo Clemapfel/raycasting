@@ -40,7 +40,7 @@ float gaussian(float x, float ramp)
 
 #if MODE == MODE_THRESHOLD
 
-vec4 effect(vec4 color, Image img, vec2 texture_coordinates, vec2 frag_position) {
+vec4 effect(vec4 color, sampler2D img, vec2 texture_coordinates, vec2 frag_position) {
 
     float threshold = 0.6; // Metaball threshold
     float smoothness = 0.05; // Smoothness factor for blending
@@ -58,7 +58,7 @@ vec4 effect(vec4 color, Image img, vec2 texture_coordinates, vec2 frag_position)
 
 #elif MODE == MODE_OUTLINE
 
-vec4 effect(vec4 color, Image image, vec2 texture_coordinates, vec2 frag_position) {
+vec4 effect(vec4 color, sampler2D image, vec2 texture_coordinates, vec2 frag_position) {
     vec2 pixel_size = vec2(1 / 250.0);
 
     // Sample only the 6 texels where Sobel kernels have non-zero values

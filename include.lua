@@ -11,27 +11,6 @@ require "common.common"
 require "common.math"
 meta = require "common.meta"
 
--- why are these necessary
-require "love.audio"
-require "love.data"
-require "love.event"
-require "love.filesystem"
-require "love.font"
-require "love.graphics"
-require "love.image"
-require "love.joystick"
-require "love.keyboard"
-require "love.math"
-require "love.mouse"
-require "love.physics"
-require "love.sound"
-require "love.system"
-require "love.thread"
-require "love.timer"
-require "love.touch"
-require "love.video"
-require "love.window"
-
 if DEBUG then
     -- load love language server definitions
     require "love.definitions.audio"

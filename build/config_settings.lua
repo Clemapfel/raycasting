@@ -36,33 +36,13 @@ local INTEGER_RANGE = function(default, lower, upper)
 end
 
 do
-    require "love.window"
-    local window_min_w, window_min_h = 400, 300
-    local window_max_w, window_max_h = window_min_w, window_min_h
-    do
-        for i = 1, love.window.getDisplayCount() do
-            local w, h = love.window.getDesktopDimensions(i)
-            window_max_w = math.max(window_max_w, w)
-            window_max_h = math.max(window_max_h, h)
-        end
-    end
-
-    local renderers = {}
-    do
-        require "love.system"
-        local os = love.system.getOS()
-        if os == "OS X" then
-            renderers["metal"] = true
-        else
-            renderers["metal"] = false
-        end
-
-        renderers["vulkan"] = true
-        renderers["opengl"] = true
-    end
-
     local height = 600
     local aspect_ratio = 16 / 9
+
+    require "common.meta"
+    require "common.vsync_mode"
+    require "common.msaa_quality"
+    require "common.player_sprint_mode"
 
     bd.config.entries = {
         -- should window initialize in fullscreen mode
@@ -77,13 +57,13 @@ do
         -- initial window width
         window_width = INTEGER_RANGE(
             height * aspect_ratio,
-            0, window_max_w
+            0, math.huge
         ),
 
         -- initial window height
         window_height = INTEGER_RANGE(
             height,
-            0, window_max_h
+            0, math.huge
         ),
 
         -- if window can be resized
@@ -93,9 +73,9 @@ do
         use_dpi_scale = BOOLEAN(false),
 
         -- which renderers are allowed
-        allow_opengl = BOOLEAN(renderers["opengl"]),
-        allow_vulkan = BOOLEAN(renderers["vulkan"]),
-        allow_metal = BOOLEAN(renderers["metal"]),
+        allow_opengl = BOOLEAN(true),
+        allow_vulkan = BOOLEAN(true),
+        allow_metal = BOOLEAN(true),
 
         -- whether to use sRGB for the backbuffer
         use_gamma_correction = BOOLEAN(false),
@@ -304,7 +284,7 @@ do -- load default config
         end
     end
 
-    local path = rt.settings.config.default_settings_path
+    local path = bd.config.default_settings_path
     local success, file_or_error = pcall(love.filesystem.read, path)
 
     if not success then
@@ -312,5 +292,12 @@ do -- load default config
     else
         bd.config.default_settings = bd.config.parse_settings_from_string(file_or_error)
         bd.config.settings = table.deepcopy(bd.config.default_settings)
+    end
+end
+
+-- make screen size even
+for config in range(bd.config.default_settings, bd.config.settings) do
+    for which in range("window_width", "window_height") do
+        if config[which] % 2 == 1 then config[which] = config[which] + 1 end
     end
 end

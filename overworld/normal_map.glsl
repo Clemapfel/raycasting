@@ -1,7 +1,7 @@
 
 uniform vec2 player_position; // in texture coords
 
-vec4 effect(vec4 vertex_color, Image img, vec2 texture_coords, vec2 frag_position) {
+vec4 effect(vec4 vertex_color, sampler2D img, vec2 texture_coords, vec2 frag_position) {
     // Sample the normal map data
     vec4 data = Texel(img, texture_coords);
     vec2 normal = normalize(data.xy * 2.0 - 1.0); // Convert from [0, 1] to [-1, 1]

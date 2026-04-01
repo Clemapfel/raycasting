@@ -85,7 +85,7 @@ uniform float hue;
 uniform float fraction;
 uniform float brightness_scale;
 
-vec4 effect(vec4 color, Image img, vec2 uv, vec2 _) {
+vec4 effect(vec4 color, sampler2D img, vec2 uv, vec2 _) {
 
     const float threshold = 1.0 - 0.9;
     const float eps = 0.01;

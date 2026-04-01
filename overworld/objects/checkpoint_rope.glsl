@@ -24,7 +24,7 @@ uniform vec4 color = vec4(1, 0, 1, 1);
 uniform bool bloom_active = false;
 uniform float brightness_scale;
 
-vec4 effect(vec4 vertex_color, Image image, vec2 texture_coords, vec2 vertex_position) {
+vec4 effect(vec4 vertex_color, sampler2D image, vec2 texture_coords, vec2 vertex_position) {
     vec2 uv = texture_coords;
     float side = sign((2 * vertex_color.a) - 1);
     vec2 seed = uv.xy;

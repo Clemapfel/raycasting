@@ -21,7 +21,7 @@ void vertexmain() {
 
 uniform sampler3D lch_texture;
 vec3 lch_to_rgb(vec3 lch) {
-    return texture3D(lch_texture, lch).rgb;
+    return texture(lch_texture, lch).rgb;
 }
 
 in vec3 varying_texture_coords;

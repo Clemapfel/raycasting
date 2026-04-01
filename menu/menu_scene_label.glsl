@@ -49,7 +49,7 @@ uniform vec4 black;
 
 #if MODE == MODE_SDF
 
-vec4 effect(vec4 color, Image img, vec2 texture_coords, vec2 vertex_position) {
+vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 vertex_position) {
     float dist = texture(img, texture_coords).a;
     const float thickness = 1 - 0.05;
     return vec4(vec3(smoothstep(0.0, 1 - thickness, dist)), 1) * black;
@@ -63,7 +63,7 @@ vec2 clamped_coords(vec2 base_coords, vec2 offset, vec2 texel_size) {
 
 uniform sampler3D lch_texture;
 vec3 lch_to_rgb(vec3 lch) {
-    return texture3D(lch_texture, lch).rgb;
+    return texture(lch_texture, lch).rgb;
 }
 
 uniform float hue;
@@ -92,7 +92,7 @@ float gaussian(float x, float ramp)
     return exp(((-4 * PI) / 3) * (ramp * x) * (ramp * x));
 }
 
-vec4 effect(vec4 color, Image img, vec2 texture_coords, vec2 vertex_position) {
+vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 vertex_position) {
     vec2 seed = to_uv(vertex_position) * 140;
     vec2 seed_magnitude = 3.5 * 1 / love_ScreenSize.xy;
     texture_coords += vec2(

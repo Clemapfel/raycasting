@@ -19,7 +19,7 @@ vec2 to_world_position(vec2 xy) {
 
 uniform sampler3D lch_texture;
 vec3 lch_to_rgb(vec3 lch) {
-    return texture3D(lch_texture, lch).rgb;
+    return texture(lch_texture, lch).rgb;
 }
 
 #define PI 3.1415926535897932384626433832795

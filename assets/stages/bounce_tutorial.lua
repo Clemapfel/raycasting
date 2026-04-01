@@ -2946,7 +2946,7 @@ return {
           type = "Path",
           shape = "point",
           x = 880,
-          y = 1520,
+          y = 1519,
           width = 0,
           height = 0,
           rotation = 0,
@@ -3156,14 +3156,14 @@ return {
           name = "",
           type = "Wall",
           shape = "rectangle",
-          x = 965.027,
-          y = 223.846,
-          width = 681.721,
-          height = 590.825,
+          x = 509.386,
+          y = -79.9147,
+          width = 1552.02,
+          height = 1280.31,
           rotation = 0,
           visible = true,
           properties = {
-            ["opacity"] = 1
+            ["opacity"] = 0.9
           }
         }
       }

@@ -57,7 +57,7 @@ float gaussian(float x, float ramp)
     return exp(((-4 * PI) / 3) * (ramp * x) * (ramp * x));
 }
 
-vec4 effect(vec4 color, Image img, vec2 texture_coordinates, vec2 frag_position) {
+vec4 effect(vec4 color, sampler2D img, vec2 texture_coordinates, vec2 frag_position) {
     vec2 uv = to_uv(frag_position);
 
     // Player highlight

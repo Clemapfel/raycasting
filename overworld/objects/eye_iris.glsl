@@ -7,12 +7,12 @@ float gradient_noise(vec3 xyz) {
 
 uniform sampler3D lch_texture;
 vec3 lch_to_rgb(vec3 lch) {
-    return texture3D(lch_texture, lch).rgb;
+    return texture(lch_texture, lch).rgb;
 }
 
 uniform float elapsed;
 
-vec4 effect(vec4 vertex_color, Image image, vec2 texture_coords, vec2 vertex_position) {
+vec4 effect(vec4 vertex_color, sampler2D image, vec2 texture_coords, vec2 vertex_position) {
     vec2 uv = texture_coords;
 
     const float noise_scale = 1.5;

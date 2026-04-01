@@ -39,7 +39,7 @@ vec2 to_world_position(vec2 xy) {
 
 uniform float elapsed = 0;
 
-vec4 effect(vec4 vertex_color, Image image, vec2 texture_coords, vec2 vertex_position) {
+vec4 effect(vec4 vertex_color, sampler2D image, vec2 texture_coords, vec2 vertex_position) {
     vec2 uv = texture_coords;
 
     float noise = 0;

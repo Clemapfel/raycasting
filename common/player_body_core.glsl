@@ -1,6 +1,6 @@
 uniform sampler3D lch_texture;
 vec3 lch_to_rgb(vec3 lch) {
-    return texture3D(lch_texture, lch).rgb;
+    return texture(lch_texture, lch).rgb;
 }
 
 vec3 random_3d(in vec3 p) {
@@ -43,7 +43,7 @@ uniform float elapsed;
 uniform float hue;
 uniform float saturation = 1;
 
-vec4 effect(vec4 color, Image image, vec2 texture_coordinates, vec2 _) {
+vec4 effect(vec4 color, sampler2D image, vec2 texture_coordinates, vec2 _) {
     vec4 texel = texture(image, texture_coordinates);
     vec2 uv = texture_coordinates - vec2(1);
 

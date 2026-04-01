@@ -35,7 +35,7 @@ uniform float pulse;
 uniform float elapsed;
 uniform float brightness_scale; // already scale
 
-vec4 effect(vec4 vertex_color, Image img, vec2 texture_coords, vec2 frag_position) {
+vec4 effect(vec4 vertex_color, sampler2D img, vec2 texture_coords, vec2 frag_position) {
 
     float dip = (gradient_noise(vec3(texture_coords.xx * 7, 0.5 * elapsed)) + 1) / 2;
     float y = gaussian(distance(texture_coords.y * dip, 0), 4);

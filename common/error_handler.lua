@@ -98,6 +98,7 @@ function love.errorhandler(message)
         -- check for events
         for event, a, b, c, d, e, f in love.event.poll() do
             if event == "quit" then
+                if love.quit then love.quit() end
                 return a or 1, b
             elseif event == "keypressed" then
                 local key = b

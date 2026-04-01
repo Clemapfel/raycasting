@@ -1,20 +1,15 @@
 require "common.log"
-require "common.error_handler"
-require "common.player_sprint_mode"
-require "common.msaa_quality"
-require "common.vsync_mode"
+require "common.meta"
 
-require "love.filesystem"
-
-rt.settings.config = {
-    default_settings_path = "build/default_settings.ini",
-    default_keybind_path = "build/default_keybinding.ini"
-}
+if bd == nil then bd = {} end
 
 if bd.config == nil then
     --- @module config
-    bd.config = {} 
+    bd.config = {}
 end
+
+bd.config.default_settings_path = "build/default_settings.ini"
+bd.config.default_keybind_path = "build/default_keybinding.ini"
 
 bd.config.settings = {}
 bd.config.default_settings = {}
@@ -156,6 +151,5 @@ end
 package.loaded["build.config_settings"] = nil
 require("build.config_settings")
 
--- load default keybind
 package.loaded["build.config_keybinding"] = nil
 require("build.config_keybinding")

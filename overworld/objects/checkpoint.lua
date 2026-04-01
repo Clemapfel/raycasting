@@ -81,6 +81,7 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
         _ray_fade_out_elapsed = math.huge,
         _ray_fade_out_fraction = 0,
         _ray_particles = {},
+        _ray_seed = 0,
 
         _explosion_visible = true,
         _explosion_elapsed = math.huge,
@@ -383,6 +384,7 @@ function ow.Checkpoint:_set_state(state)
 
     elseif self._state == _STATE_RAY then
         self._spawn_elapsed = 0
+        self._ray_seed = self._ray_seed + 1
 
         camera:set_apply_bounds(true)
         camera:set_position(self._bottom_x, self._bottom_y)
@@ -578,7 +580,7 @@ function ow.Checkpoint:update(delta)
         self._scene:set_blur(rt.InterpolationFunctions.GAUSSIAN_HIGHPASS(math.min(1, self._explosion_elapsed / duration)))
 
         if self._explosion_elapsed > duration then
-            if self._rope:get_is_cut() then self._rope:_despawn() end
+            if self._rope ~= nil and self._rope:get_is_cut() then self._rope:_despawn() end
             self:_set_state(_STATE_RAY)
         end
     elseif self._state == _STATE_RAY then
@@ -641,6 +643,7 @@ function ow.Checkpoint:draw(priority)
             _ray_shader:send("fade_out_fraction", ray_fade_out_fraction)
             _ray_shader:send("size", { self._ray_area.width, self._ray_area.height })
             _ray_shader:send("elapsed", self._elapsed)
+            _ray_shader:send("seed", meta.hash(self) + self._ray_seed)
             _ray_shader:send("hue", hue)
             _ray_shader:send("camera_offset", self._camera_offset)
             _ray_shader:send("camera_scale", self._camera_scale)

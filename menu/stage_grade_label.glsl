@@ -1,6 +1,6 @@
 uniform sampler3D lch_texture;
 vec3 lch_to_rgb(vec3 lch) {
-    return texture3D(lch_texture, lch).rgb;
+    return texture(lch_texture, lch).rgb;
 }
 
 vec2 rotate(vec2 v, float angle) {
@@ -33,7 +33,7 @@ uniform float opacity = 1;
 
 uniform vec4 white;
 
-vec4 effect(vec4 color, Image img, vec2 texture_coords, vec2 vertex_position) {
+vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 vertex_position) {
     float dist = texture(img, texture_coords).a;
     const float thickness = 1 - 0.8;
     vec4 result = min(vec4(1.5 * smoothstep(0, 1, smoothstep(0, 1, smoothstep(0, 1 - thickness, dist)))) * white, vec4(1));
@@ -47,7 +47,7 @@ uniform bool use_highlight;
 uniform float elapsed;
 uniform float fraction;
 
-vec4 effect(vec4 color, Image img, vec2 texture_coords, vec2 vertex_position) {
+vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 vertex_position) {
     vec4 texel = texture(img, texture_coords);
     vec2 uv = texture_coords;
     uv = rotate(uv, 1.75 * PI);

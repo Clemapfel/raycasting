@@ -72,7 +72,7 @@ vec2 to_uv(vec2 frag_position) {
     return uv;
 }
 
-vec4 effect(vec4 vertex_color, Image image, vec2 _, vec2 vertex_position) {
+vec4 effect(vec4 vertex_color, sampler2D image, vec2 _, vec2 vertex_position) {
     vec2 uv = to_uv(vertex_position);
     uv *= 0.9;
     const float outer_scale = 10;

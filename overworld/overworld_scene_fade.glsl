@@ -1,4 +1,7 @@
+#ifdef PIXEL
+
 #define PI 3.1415926535897932384626433832795
+
 vec3 random_3d(in vec3 p) {
     return fract(sin(vec3(
     dot(p, vec3(127.1, 311.7, 74.7)),
@@ -30,8 +33,9 @@ vec2 rotate(vec2 v, float angle) {
 }
 
 uniform sampler3D lch_texture;
+
 vec3 lch_to_rgb(vec3 lch) {
-    return texture3D(lch_texture, lch).rgb;
+    return texture(lch_texture, lch).rgb;
 }
 
 float gaussian(float x, float ramp)
@@ -39,13 +43,11 @@ float gaussian(float x, float ramp)
     return exp(((-4 * PI) / 3) * (ramp * x) * (ramp * x));
 }
 
-#ifdef PIXEL
-
 uniform float value; // 1 fully opaque, 0 fully transparent
 uniform float direction; // +1 going from transparent to opaque, -1 otherwise
 uniform float elapsed;
 
-vec4 effect(vec4 color, sampler2D _, vec2 texture_coords, vec2 vertex_position) {
+vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 vertex_position) {
     // override for full black at 1, which is when fade usually causes a lag frame
     if (distance(value, 1) < 0.001) return vec4(0, 0, 0, 1);
 

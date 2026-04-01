@@ -111,7 +111,7 @@ uniform vec2 texture_size;
 uniform int horizontal_or_vertical;
 
 // src: https://www.rastergrid.com/blog/2010/09/efficient-gaussian-blur-with-linear-sampling/
-vec4 effect(vec4 vertex_color, Image image, vec2 texture_coords, vec2 frag_position)
+vec4 effect(vec4 vertex_color, sampler2D image, vec2 texture_coords, vec2 frag_position)
 {
     vec4 color = Texel(image, frag_position / texture_size.xy) * weight[0];
     float alpha = color.a * weight[0];

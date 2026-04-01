@@ -21,7 +21,7 @@ float noise(vec2 p) {
 
 uniform sampler3D lch_texture;
 vec3 lch_to_rgb(vec3 lch) {
-    return texture3D(lch_texture, lch).rgb;
+    return texture(lch_texture, lch).rgb;
 }
 
 vec3 point_on_unit_sphere(float theta, float phi, float roll) {
@@ -58,7 +58,7 @@ uniform float state;
 uniform vec4 color;
 uniform float elapsed;
 
-vec4 effect(vec4 vertex_color, Image img, vec2 texture_coords, vec2 vertex_position) {
+vec4 effect(vec4 vertex_color, sampler2D img, vec2 texture_coords, vec2 vertex_position) {
 
     if (state == STATE_NONE) {
         float dist = distance(texture_coords, vec2(0.5));

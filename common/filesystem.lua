@@ -80,6 +80,16 @@ function bd.get_operating_system()
 end
 
 --- @brief
+function bd.get_temp_directory_name()
+    return "temp"
+end
+
+--- @brief
+function bd.get_temp_directory()
+    return bd.join_path(bd.get_save_directory(), bd.get_temp_directory_name())
+end
+
+--- @brief
 function bd.join_path(...)
     local n = select("#", ...)
     if n == 0 then return "" end

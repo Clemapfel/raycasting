@@ -63,7 +63,7 @@ float dirac(float x) {
 
 uniform sampler3D lch_texture;
 vec3 lch_to_rgb(vec3 lch) {
-    return texture3D(lch_texture, lch).rgb;
+    return texture(lch_texture, lch).rgb;
 }
 
 uniform vec4 player_color = vec4(1, 0, 1, 1);

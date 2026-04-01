@@ -515,6 +515,10 @@ function rt.Player:_connect_input()
             swap_bubble()
         end
     end)
+
+    DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
+        if which == "l" then self:kill() end
+    end)
 end
 
 --- @brief

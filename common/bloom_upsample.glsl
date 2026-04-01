@@ -2,7 +2,7 @@
 
 uniform vec2 texel_size;
 uniform float bloom_strength;
-uniform Image current_mip; 
+uniform sampler2D current_mip;
 
 const float kernel[9] = float[](
     1.0 / 16.0, 2.0 / 16.0, 1.0 / 16.0,

@@ -216,7 +216,7 @@ void square_tiling(in vec2 p, out float sdf, out float tile_id) {
 
 uniform sampler3D lch_texture;
 vec3 lch_to_rgb(vec3 lch) {
-    return texture3D(lch_texture, lch).rgb;
+    return texture(lch_texture, lch).rgb;
 }
 
 float symmetric(float value) {

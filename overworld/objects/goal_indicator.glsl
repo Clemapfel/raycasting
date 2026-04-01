@@ -13,7 +13,7 @@ float gaussian(float x, float ramp)
 uniform float elapsed;
 uniform float brightness_scale;
 
-vec4 effect(vec4 color, Image image, vec2 texture_coords, vec2 vertex_position) {
+vec4 effect(vec4 color, sampler2D image, vec2 texture_coords, vec2 vertex_position) {
     float value = symmetric(length(texture_coords + normalize(-1 * texture_coords) * elapsed));
     value *= mix(0, 1.5, gaussian(length(texture_coords), 1));
 

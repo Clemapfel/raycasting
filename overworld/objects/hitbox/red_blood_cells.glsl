@@ -82,7 +82,7 @@ float wnoise(vec2 uv) {
     return smoothstep(0 - eps, 0 + eps, gaussian(1 - res, 1.3));
 }
 
-vec4 effect(vec4 vertex_color, Image image, vec2 _, vec2 frag_position) {
+vec4 effect(vec4 vertex_color, sampler2D image, vec2 _, vec2 frag_position) {
 
     vec2 uv = to_uv(frag_position);
     uv *= 1.5;

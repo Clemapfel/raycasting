@@ -275,15 +275,16 @@ function log.setMessageHook(hook)
     log._message_hook = hook
 end
 
-if rt ~= nil then
-    rt.format_styled = log._printstyled
-    rt.log = log.message
-    rt.warning = log.warning
-    rt.critical = log.critical
-    rt.error = log.error
-    rt.fatal = log.fatal
-    rt.assert = log.assert
-end
+if rt == nil then rt = {} end
+rt.format_styled = log._printstyled
+rt.log = log.message
+rt.warning = log.warning
+rt.critical = log.critical
+rt.error = log.error
+rt.fatal = log.fatal
+rt.assert = log.assert
+
+io.stdout:setvbuf("no")
 
 return log
 

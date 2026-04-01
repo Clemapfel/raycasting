@@ -9,7 +9,7 @@
 uniform vec4 outline_color;
 #endif
 
-vec4 effect(vec4 color, Image image, vec2 texture_coords, vec2 vertex_position) {
+vec4 effect(vec4 color, sampler2D image, vec2 texture_coords, vec2 vertex_position) {
     #if MODE == MODE_DRAW_OUTLINE
         float dist = Texel(image, texture_coords).a;
         float outline = smoothstep(0.0, 0.02, pow(dist, 5));

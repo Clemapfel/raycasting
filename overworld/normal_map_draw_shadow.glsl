@@ -1,6 +1,6 @@
 #ifdef PIXEL
 
-vec4 effect(vec4 vertex_color, Image tex, vec2 texture_coords, vec2 screen_coords) // tex is RG8
+vec4 effect(vec4 vertex_color, sampler2D tex, vec2 texture_coords, vec2 screen_coords) // tex is RG8
 {
     vec4 data = texture(tex, texture_coords);
     float mask = data.a;

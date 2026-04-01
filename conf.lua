@@ -1,6 +1,5 @@
 DEBUG = true -- overriden by build script
 
-require "include"
 function love.conf(settings)
     require "build.config"
     local config = bd.get_config()
@@ -15,7 +14,7 @@ function love.conf(settings)
     end
 
     if config.allow_metal == true then
-        table.insert(renderers, "Metal")
+        table.insert(renderers, "metal")
     end
 
     settings.graphics.renderers = renderers

@@ -672,7 +672,9 @@ function ow.OverworldScene:draw()
         love.graphics.pop()
     end
 
-    if rt.GameState:get_draw_debug_information() then
+    if rt.GameState:get_draw_debug_information()
+        and rt.SceneManager:get_screen_recorder():get_is_recording() == false
+    then
         self:_draw_debug_information()
     end
 end

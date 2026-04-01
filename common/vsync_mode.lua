@@ -5,6 +5,8 @@ rt.VSyncMode = meta.enum("VSyncMode", {
     ON = "on"
 })
 
+if rt.graphics == nil then rt.graphics = {} end
+
 --- @brief
 function rt.graphics.vsync_mode_to_native(mode)
     local mapping = {

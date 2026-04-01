@@ -50,7 +50,7 @@ vec2 to_uv(vec2 frag_position) {
     return uv;
 }
 
-vec4 effect(vec4 vertex_color, Image image, vec2 _, vec2 frag_position) {
+vec4 effect(vec4 vertex_color, sampler2D image, vec2 _, vec2 frag_position) {
     vec2 uv = to_uv(frag_position);
     float aspect_ratio = love_ScreenSize.x / love_ScreenSize.y;
     uv.x += 0.5 * aspect_ratio;

@@ -10,7 +10,7 @@
 uniform float threshold = 0.5;
 uniform float smoothness = 0.05;
 
-vec4 effect(vec4 color, Image img, vec2 texture_coordinates, vec2 frag_position) {
+vec4 effect(vec4 color, sampler2D img, vec2 texture_coordinates, vec2 frag_position) {
 
     vec4 data = texture(img, texture_coordinates);
     float value = smoothstep(
@@ -25,7 +25,7 @@ vec4 effect(vec4 color, Image img, vec2 texture_coordinates, vec2 frag_position)
 #elif MODE == MODE_OUTLINE
 
 
-vec4 effect(vec4 color, Image image, vec2 texture_coordinates, vec2 frag_position) {
+vec4 effect(vec4 color, sampler2D image, vec2 texture_coordinates, vec2 frag_position) {
     vec2 pixel_size = vec2(1 / 1000.0);
 
     float tl = texture(image, texture_coordinates + vec2(-1, -1) * pixel_size).a;

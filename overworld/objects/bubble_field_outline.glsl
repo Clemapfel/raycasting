@@ -14,7 +14,7 @@ vec2 to_world_position(vec2 xy) {
 
 uniform sampler3D lch_texture;
 vec3 lch_to_rgb(vec3 lch) {
-    return texture3D(lch_texture, lch).rgb;
+    return texture(lch_texture, lch).rgb;
 }
 
 #define PI 3.1415926535897932384626433832795
@@ -29,7 +29,7 @@ uniform float elapsed;
 uniform float hue;
 uniform float hue_offset;
 
-vec4 effect(vec4 color, Image image, vec2 texture_coords, vec2 vertex_position) {
+vec4 effect(vec4 color, sampler2D image, vec2 texture_coords, vec2 vertex_position) {
     vec2 uv = to_world_position(vertex_position) / 60;
     float noise = gradient_noise(vec3(uv, elapsed / 4));
 

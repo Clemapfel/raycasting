@@ -37,7 +37,7 @@ float smooth_max(float a, float b, float k) {
 
 uniform sampler3D lch_texture;
 vec3 lch_to_rgb(vec3 lch) {
-    return texture3D(lch_texture, lch).rgb;
+    return texture(lch_texture, lch).rgb;
 }
 
 vec3 rgb_to_lch(vec3 rgb) {
@@ -112,6 +112,7 @@ uniform vec2 size;
 uniform float fraction;
 uniform float fade_out_fraction;
 uniform float hue;
+uniform float seed;
 
 uniform vec2 camera_offset;
 uniform float camera_scale = 1;
@@ -128,14 +129,14 @@ vec2 to_uv(vec2 frag_position) {
     return uv;
 }
 
-vec4 effect(vec4 color, Image image, vec2 texture_coords, vec2 vertex_position) {
+vec4 effect(vec4 color, sampler2D image, vec2 texture_coords, vec2 vertex_position) {
     vec2 uv = to_uv(vertex_position);
 
     vec2 normalization = vec2(1, (size.y / size.x));
     float strike = gaussian(distance(texture_coords * normalization, vec2(0.5, 1) * normalization), 1.5);
 
     float distortion_strength = (1 - distance(texture_coords.x, 0.5) * 2) ;
-    vec2 distortion_scale = vec2(1.8, 10);
+    vec2 distortion_scale = vec2(1.8, 8);
     float ground_weight = 1 - gaussian(1 - texture_coords.y, 12); // so ray touches bottom at center
 
     vec2 norm = size / max(size.x, size.y);
@@ -146,8 +147,8 @@ vec4 effect(vec4 color, Image image, vec2 texture_coords, vec2 vertex_position) 
     ball *= ball_attenuation * (texture_coords.y > 0 ? 1 : 0);
 
     vec2 distortion = vec2(
-        gradient_noise(vec3(uv * distortion_scale, elapsed)),
-        gradient_noise(vec3(uv * distortion_scale, elapsed))
+        gradient_noise(vec3(uv * distortion_scale, seed)),
+        gradient_noise(vec3(uv * distortion_scale, -seed))
     ) * distortion_strength;
 
     float fade = 1 - gaussian(texture_coords.y - fraction, 15); // multiply so fade out is below ground

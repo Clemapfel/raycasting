@@ -54,7 +54,7 @@ vec2 to_uv(vec2 frag_position) {
     return uv;
 }
 
-vec4 effect(vec4 color, Image img, vec2 texture_coords, vec2 vertex_position) {
+vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 vertex_position) {
     vec2 uv = to_uv(vertex_position);
 
     const float noise_scale = 6;

@@ -30,55 +30,17 @@ local function write_file(path, content, allow_overwrite, allow_create_directory
     bd.create_file(path, content, allow_overwrite)
 end
 
---[[
-message formats:
-
-WRITE: main -> worker
-    type    : MessageType
-    id      : Integer
-    path    : String
-    content : String
-    allow_overwrite  : Boolean
-    allow_create_directory : Boolean
-
-WRITE_RESPONSE: worker -> main
-    type    : MessageType
-    id      : Integer
-    path    : String
-    success : Boolean
-    error   : String?
-
-READ: main -> worker
-    type    : MessageType
-    id      : Integer
-    path    : String
-
-READ_RESPONSE: worker -> main
-    type    : MessageType
-    id      : Integer
-    path    : String
-    content : String
-    success : Boolean
-    error   : String?
-
-ERROR: worker -> main
-    type    : MessageType
-    message : String
-
-SHUTDOWN: main -> worker
-    type    : MessageType
-
-SHUTDOWN_RESPONSE: worker -> main
-    type    : MessageType
-    success : Boolean
-    error   : String?
-]]
-
-
-local function main()
+local success, error_maybe = pcall(function()
     local shutdown_active = false
+
     while true do
-        if shutdown_active and main_to_worker:getCount() == 0 then break end
+        local message
+        if shutdown_active then
+            message = main_to_worker:pop()
+            if message == nil then return end
+        else
+            message = main_to_worker:demand()
+        end
 
         local message = main_to_worker:demand()
         if message.type == MessageType.WRITE then
@@ -111,9 +73,8 @@ local function main()
             shutdown_active = true
         end
     end
-end
+end) -- pcall
 
-local success, error_maybe = pcall(main)
 worker_to_main:push({
     type = MessageType.SHUTDOWN_RESPONSE,
     success = success,

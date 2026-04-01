@@ -107,13 +107,13 @@ vec4 position(mat4 transform, vec4 vertex_position) {
 #if MODE == MODE_DRAW_TEXT
 uniform sampler3D lch_texture;
 vec3 lch_to_rgb(vec3 lch) {
-    return texture3D(lch_texture, lch).rgb;
+    return texture(lch_texture, lch).rgb;
 }
 #endif
 
 flat varying int letter_index;
 
-vec4 effect(vec4 color, Image img, vec2 texture_coords, vec2 vertex_position) {
+vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 vertex_position) {
     if (letter_index >= n_visible_characters)
         discard;
 

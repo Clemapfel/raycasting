@@ -134,7 +134,7 @@ uniform float player_hue;
 
 uniform float elapsed;
 
-vec4 effect(vec4 color, Image density_image, vec2 texture_coords, vec2 screen_coords) {
+vec4 effect(vec4 color, sampler2D density_image, vec2 texture_coords, vec2 screen_coords) {
     // Compute world position of this fragment in the same space as player_position
     vec2 uv = to_uv(screen_coords) * 22.0;
     vec2 pixel_size = 1.0 / love_ScreenSize.xy * 10.0; // scale pixel size to match uv scaling

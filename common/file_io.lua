@@ -41,6 +41,48 @@ local MessageType = {
     SHUTDOWN_RESPONSE = 6
 }
 
+--[[
+WRITE: main -> worker
+    type    : MessageType
+    id      : Integer
+    path    : String
+    content : String
+    allow_overwrite  : Boolean
+    allow_create_directory : Boolean
+
+WRITE_RESPONSE: worker -> main
+    type    : MessageType
+    id      : Integer
+    path    : String
+    success : Boolean
+    error   : String?
+
+READ: main -> worker
+    type    : MessageType
+    id      : Integer
+    path    : String
+
+READ_RESPONSE: worker -> main
+    type    : MessageType
+    id      : Integer
+    path    : String
+    content : String
+    success : Boolean
+    error   : String?
+
+ERROR: worker -> main
+    type    : MessageType
+    message : String
+
+SHUTDOWN: main -> worker
+    type    : MessageType
+
+SHUTDOWN_RESPONSE: worker -> main
+    type    : MessageType
+    success : Boolean
+    error   : String?
+]]
+
 --- @brief
 function rt.FileIO:instantiate(n_workers)
     self._workers = {}
