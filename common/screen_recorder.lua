@@ -3,7 +3,7 @@ require "common.thread"
 rt.settings.screen_recorder = {
     target_fps = 60,
     frame_name_pattern = "_%06d.png",
-    export_prefix = "export"
+    export_prefix = "temp"
 }
 
 --- @class rt.ScreenRecorder
@@ -71,9 +71,10 @@ UPDATE: main -> worker
     id   : String
 
 EXPORT: main -> worker
-    type    : MessageType
-    command : String
-    id      : String
+    type     : MessageType
+    command  : String
+    filename : String
+    id       : String
     
 EXPORT_RESPONSE: main -> worker
     type    : MessageType
@@ -84,7 +85,7 @@ local _worker, _main_to_worker, _worker_to_main
 
 local STATE_RECORDING = "RECORDING"
 local STATE_EXPORTING = "EXPORTING"
-local STATE_IDLE
+local STATE_IDLE = "IDLE"
 
 --- @brief
 function rt.ScreenRecorder:instantiate()
@@ -123,7 +124,7 @@ function rt.ScreenRecorder:start_recording()
 
     self:_try_initialize()
 
-    if not self._state == STATE_IDLE then
+    if self._state ~= STATE_IDLE then
         rt.critical("In rt.ScreenRecorder.start_recording: a past recording is still active")
         return
     end
@@ -131,15 +132,11 @@ function rt.ScreenRecorder:start_recording()
     self._fixed_timestep_before = rt.SceneManager:get_use_fixed_timestep()
     self._vsync_before = rt.GameState:get_vsync_mode()
 
-    rt.GameState:set_vsync_mode(rt.VSyncMode.OFF)
-    rt.SceneManager:set_use_fixed_timestep(true)
+    rt.SceneManager:set_use_fixed_fps(true, 60)
 
     -- get temporal hash, has no meaning other than getting sub-second precision on filenames
     local hash_n_digits = 5
-    local hash = tostring(math.floor(os.time() % 10^hash_n_digits))
-    while hash_n_digits < 5 do
-        hash_n_digits = "0" .. hash_n_digits
-    end
+    local hash = string.format("%05d", math.floor(os.time() % 10^hash_n_digits))
 
     self._active_recording_id = os.date("%Y_%m_%d_%H_%M_%S") .. "_" .. hash
     self._is_active = true
@@ -159,13 +156,12 @@ function rt.ScreenRecorder:start_recording()
         id = self._active_recording_id
     })
     rt.log("In rt.ScreenRecorder: starting recording at `", bd.join_path(bd.get_temp_directory(), self._active_recording_id) , "`")
-
     self._state = STATE_RECORDING
 end
 
 --- @brief
 function rt.ScreenRecorder:stop_recording()
-    if not self._state == STATE_RECORDING then
+    if self._state ~= STATE_RECORDING then
         rt.critical("In rt.ScreenRecorder.stop_recording: no recording is currently active")
         return
     end
@@ -176,7 +172,7 @@ function rt.ScreenRecorder:stop_recording()
     })
 
     rt.log("In rt.ScreenRecorder: stopping recording at `", bd.join_path(bd.get_temp_directory(), self._active_recording_id) , "`")
-    -- self._is_active update delayed until thread is done
+    self._state = STATE_EXPORTING
 end
 
 --- @brief
@@ -213,34 +209,32 @@ end
 
 --- @brief
 function rt.ScreenRecorder:bind()
-    if self._is_active ~= true then return end
+    --f self._is_active ~= true then return end
     self:_try_initialize()
     self._texture:bind()
 end
 
 --- @brief
 function rt.ScreenRecorder:unbind()
-    if self._is_active ~= true then return end
+    --if self._is_active ~= true then return end
     self:_try_initialize()
     self._texture:unbind()
 end
 
 --- @brief
 function rt.ScreenRecorder:draw()
-    if self._is_active ~= true then return end
-    self:_try_initialize()
+    --if self._is_active ~= true then return end
 
+    self:_try_initialize()
     love.graphics.setColor(1, 1, 1, 1)
     self._texture:draw()
 end
 
 --- @brief
 function rt.ScreenRecorder:notify_end_of_frame(delta)
-    if self._is_active ~= true then return end
-    self:_try_initialize()
-
-    if self._state == STATE_RECORDING then
-        -- queue new readback
+    if self._state == STATE_IDLE then
+        return
+    elseif self._state == STATE_RECORDING then
         _main_to_worker:push({
             type = MessageType.READBACK,
             readback = love.graphics.readbackTextureAsync(self._texture:get_native()),
@@ -250,14 +244,12 @@ function rt.ScreenRecorder:notify_end_of_frame(delta)
 
         self._frame_index = self._frame_index + 1
     elseif self._state == STATE_EXPORTING then
-        -- queue readback export
         _main_to_worker:push({
             type = MessageType.UPDATE,
             id = self._active_recording_id
         })
     end
 
-    -- work through queue
     while _worker_to_main:get_n_messages() > 0 do
         local message = _worker_to_main:pop()
         if message.type == MessageType.SHUTDOWN_RESPONSE then
@@ -269,11 +261,12 @@ function rt.ScreenRecorder:notify_end_of_frame(delta)
         elseif message.type == MessageType.READBACK_RESPONSE then
             rt.log("In rt.ScreenRecorder: wrote frame to `", message.filename, "`")
         elseif message.type == MessageType.RECORDING_END_RESPONSE then
+            rt.SceneManager:set_use_fixed_fps(false) -- undo from start_recording
+
             local settings = rt.settings.screen_recorder
             local frame_filename = bd.join_path(bd.get_save_directory(), self:_get_current_folder(), "_%06d.png")
             local export_filename = bd.join_path(bd.get_save_directory(), self:_get_video_filename())
 
-            self._state = STATE_EXPORTING
             _main_to_worker:push({
                 type = MessageType.EXPORT,
                 id = self._active_recording_id,
@@ -286,7 +279,7 @@ function rt.ScreenRecorder:notify_end_of_frame(delta)
                 )
             })
         elseif message.type == MessageType.EXPORT_RESPONSE then
-            rt.log("In rt.ScreenRecorder: successfully exported to `", message.filename)
+            rt.log("In rt.ScreenRecorder: successfully exported to `", message.filename, "`")
             self._state = STATE_IDLE
         elseif message.type == MessageType.ERROR then
             rt.error("In rt.ScreenRecorder: thread error: ", message.error)
@@ -298,7 +291,7 @@ end
 
 --- @brief
 function rt.ScreenRecorder:get_is_recording()
-    return self._is_active
+    return self._state ~= STATE_IDLE
 end
 
 rt.ScreenRecorder = rt.ScreenRecorder() -- singleton instance

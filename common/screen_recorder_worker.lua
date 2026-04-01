@@ -118,7 +118,7 @@ local success, error_maybe = pcall(function()
                         if success == true then
                             worker_to_main:push({
                                 type = MessageType.EXPORT_RESPONSE,
-                                filename = current_message.export_filename,
+                                filename = current_message.filename,
                                 id = current_message.id
                             })
                         else

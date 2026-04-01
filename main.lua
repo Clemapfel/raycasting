@@ -73,7 +73,6 @@ love.update = function(delta)
 end
 
 love.draw = function()
-    love.graphics.clear(0, 0, 0, 0)
     if rt.SceneManager ~= nil then
         rt.SceneManager:draw()
     end

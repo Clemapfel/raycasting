@@ -67,12 +67,7 @@ function b2.Body:instantiate(world, type, x, y, shape, ...)
         _use_interpolation = false, -- false = extrapolation, cf. get_predicted_position
 
         _friction = nil,
-        _collision_disabled = false,
-
-        _last_x = x,
-        _last_last_x = x,
-        _last_y = y,
-        _last_last_y = y
+        _collision_disabled = false
     })
 
     self._native:setSleepingAllowed(true)
@@ -113,7 +108,6 @@ function b2.Body:set_position(x, y)
     if not pcall(self._native.setPosition, self._native, x, y) then
         self._world:_notify_position_changed(self, x, y)
     end
-    self._last_x, self._last_y = x, y
 end
 
 --- @brief
@@ -128,22 +122,13 @@ function b2.Body:get_rotation()
     return self._native:getAngle()
 end
 
+--- @brief
 function b2.Body:get_predicted_position()
     if self._native:isDestroyed() then return 0, 0 end
-
     local x, y = self._native:getPosition()
-    local vx, vy = self._native:getLinearVelocity()
-    local last_last_x, last_last_y = self._last_last_x, self._last_last_y
-    local last_x, last_y = self._last_x, self._last_y
-    local current_x, current_y = self._native:getPosition()
-
-    local step = self._world:get_timestep()
-    return math.mix2(
-        current_x, current_y,
-        current_x + (last_x - last_last_x) * step,
-        current_y + (last_y - last_last_y) * step,
-        self._world._elapsed / self._world:get_timestep()
-    )
+    local velocity_x, velocity_y = self._native:getLinearVelocity()
+    local time_since_last_update = rt.SceneManager._draw_interpolation_time
+    return x + velocity_x * time_since_last_update, y + velocity_y * time_since_last_update
 end
 
 --- @brief

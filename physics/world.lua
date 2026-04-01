@@ -233,11 +233,6 @@ function b2.World:update(delta)
     while self._elapsed >= step and n_steps < _max_n_steps_per_frame do
         self:_start_collision_resolution()
 
-        for body in keys(self._interpolating_bodies) do
-            body._last_last_x, body._last_last_y = body._last_x, body._last_y
-            body._last_x, body._last_y = body:get_position()
-        end
-
         -- update
         self._native:update(step, _n_velocity_iterations, _n_position_iterations)
         self._n_updates = self._n_updates + 1
