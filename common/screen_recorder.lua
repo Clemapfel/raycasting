@@ -1,41 +1,97 @@
 require "common.thread"
 
 rt.settings.screen_recorder = {
-    target_fps = 60
+    target_fps = 60,
+    frame_name_pattern = "_%06d.png",
+    export_prefix = "export"
 }
 
 --- @class rt.ScreenRecorder
 rt.ScreenRecorder = meta.class("ScreenRecorder")
 
 local MessageType = {
-    SHUTDOWNN = "SHUTDOWN",
+    ERROR = "ERROR",
+    SHUTDOWN = "SHUTDOWN",
     SHUTDOWN_RESPONSE = "SHUTDOWN_RESPONSE",
-
-    IMAGE = "IMAGE",
-    IMAGE_RESPONSE = "IMAGE_RESPONSE",
-
+    RECORDING_START = "RECORDING_START",
+    RECORDING_START_RESPONSE = "RECORDING_START_RESPONSE",
+    RECORDING_END = "RECORDING_END",
+    RECORDING_END_RESPONSE = "RECORDING_END_RESPONSE",
     READBACK = "READBACK",
     READBACK_RESPONSE = "READBACK_RESPONSE",
-    UPDATE = "UPDATE"
+    UPDATE = "UPDATE",
+    EXPORT = "EXPORT",
+    EXPORT_RESPONSE = "EXPORT_RESPONSE"
 }
+
+--[[
+ERROR: worker -> main
+    type  : MessageType
+    id    : String
+    error : String
+
+SHUTDOWN: main -> worker
+    type : MessageType
+
+SHUTDOWN_RESPONSE: worker -> main
+    type    : MessageType
+    success : Boolean
+    error   : String?
+
+RECORDING_START: main -> worker
+    type : MessageType
+    id   : String
+
+RECORDING_START_RESPONSE: worker -> main
+    type : MessageType
+    id   : String
+
+RECORDING_END: main -> worker
+    type : MessageType
+    id   : String
+
+RECORDING_END_RESPONSE: worker -> main
+    type     : MessageType
+    id       : String
+    n_frames : Integer
+
+READBACK: main -> worker
+    type     : MessageType
+    readback : love.GraphicsReadback
+    filename : String
+    id       : String
+
+READBACK_RESPONSE: worker -> main
+    type     : MessageType
+    filename : String
+    frame_i  : Integer
+
+UPDATE: main -> worker
+    type : MessageType
+    id   : String
+
+EXPORT: main -> worker
+    type    : MessageType
+    command : String
+    id      : String
+    
+EXPORT_RESPONSE: main -> worker
+    type    : MessageType
+    filename  : String
+]]
 
 local _worker, _main_to_worker, _worker_to_main
 
+local STATE_RECORDING = "RECORDING"
+local STATE_EXPORTING = "EXPORTING"
+local STATE_IDLE
+
 --- @brief
 function rt.ScreenRecorder:instantiate()
-    self._is_active = false
-    self._active_directory = nil
-    self._current_frame_i = 0
-
-    self._hdr_before = nil
-    self._fixed_timestep_before = nil
-
-
-    self._texture_ring_buffer = nil
-    self._current_texture_buffer_i = 1
-    self._width, self._heigth = -1, -1
-
-    self._frame_queue = {}
+    self._state = STATE_IDLE
+    self._active_recording_id = nil
+    self._texture = nil -- rt.RenderTexture
+    self._frame_index = 0
 end
 
 --- @brief
@@ -65,10 +121,11 @@ function rt.ScreenRecorder:start_recording()
         end
     end
 
-    if self._texture_ring_buffer == nil then self:_initialize(love.graphics.getDimensions()) end
+    self:_try_initialize()
 
-    if self._is_active == true then
-        self:stop_recording()
+    if not self._state == STATE_IDLE then
+        rt.critical("In rt.ScreenRecorder.start_recording: a past recording is still active")
+        return
     end
 
     self._fixed_timestep_before = rt.SceneManager:get_use_fixed_timestep()
@@ -84,111 +141,159 @@ function rt.ScreenRecorder:start_recording()
         hash_n_digits = "0" .. hash_n_digits
     end
 
-    self._active_directory = "temp/" .. os.date("%Y_%m_%d_%H_%M_%S") .. "_" .. hash
-    bd.create_directory(self._active_directory)
-
-    self._frame_index = 0
+    self._active_recording_id = os.date("%Y_%m_%d_%H_%M_%S") .. "_" .. hash
     self._is_active = true
+    self._frame_index = 0
 
-    rt.log("In rt.ScreenRecorder: starting recording at `", self._active_directory, "`")
+    bd.create_directory(bd.join_path(bd.get_temp_directory_name(), self._active_recording_id))
+
+    local export_folder = rt.settings.screen_recorder.export_prefix
+    if bd.is_file(export_folder) then
+        rt.error("In rt.ScreenRecorder: folder at `", bd.join_path(bd.get_save_directory(), export_folder), "` is not a directory")
+    else
+        bd.create_directory(export_folder)
+    end
+
+    _main_to_worker:push({
+        type = MessageType.RECORDING_START,
+        id = self._active_recording_id
+    })
+    rt.log("In rt.ScreenRecorder: starting recording at `", bd.join_path(bd.get_temp_directory(), self._active_recording_id) , "`")
+
+    self._state = STATE_RECORDING
 end
 
 --- @brief
-function rt.ScreenRecorder:_get_current_filename()
-    local index = self._frame_index
-    local name = tostring(index)
-    while #name < 6 do
-        name = "0" .. name
+function rt.ScreenRecorder:stop_recording()
+    if not self._state == STATE_RECORDING then
+        rt.critical("In rt.ScreenRecorder.stop_recording: no recording is currently active")
+        return
     end
 
-    return bd.join_path(self._active_directory, "_" .. name .. ".png")
+    _main_to_worker:push({
+        type = MessageType.RECORDING_END,
+        id = self._active_recording_id
+    })
+
+    rt.log("In rt.ScreenRecorder: stopping recording at `", bd.join_path(bd.get_temp_directory(), self._active_recording_id) , "`")
+    -- self._is_active update delayed until thread is done
 end
 
 --- @brief
-function rt.ScreenRecorder:_initialize(width, height)
-    if self._texture_ring_buffer == nil then self._texture_ring_buffer = {} end
+function rt.ScreenRecorder:_get_current_folder()
+    return bd.join_path(bd.get_temp_directory_name(), self._active_recording_id)
+end
 
-    for i = 1, 1 do
-        table.insert(self._texture_ring_buffer, rt.RenderTexture(width, height, rt.TextureFormat.RGBA8))
+--- @brief
+function rt.ScreenRecorder:_get_frame_filename()
+    local pattern = rt.settings.screen_recorder.frame_name_pattern
+    local frame_name = string.format(pattern, self._frame_index)
+    return bd.join_path(self:_get_current_folder(), frame_name)
+end
+
+--- @brief
+function rt.ScreenRecorder:_get_video_filename()
+    return bd.join_path(
+        rt.settings.screen_recorder.export_prefix,
+        self._active_recording_id .. ".mp4"
+    )
+end
+
+--- @brief
+function rt.ScreenRecorder:_try_initialize()
+    local width, height = love.graphics.getDimensions()
+
+    if self._texture == nil
+        or self._texture:get_width() ~= width
+        or self._texture:get_height() ~= height
+    then
+        self._texture = rt.RenderTexture(width, height, rt.TextureFormat.RGBA8)
     end
-    self._current_texture_buffer_i = 1
-
-    dbg(#self._texture_ring_buffer)
-
-    self._width = width
-    self._height = height
 end
 
 --- @brief
 function rt.ScreenRecorder:bind()
     if self._is_active ~= true then return end
-    --self._texture_ring_buffer[self._current_texture_buffer_i]:bind()
+    self:_try_initialize()
+    self._texture:bind()
 end
 
 --- @brief
 function rt.ScreenRecorder:unbind()
     if self._is_active ~= true then return end
-    --self._texture_ring_buffer[self._current_texture_buffer_i]:unbind()
+    self:_try_initialize()
+    self._texture:unbind()
 end
 
 --- @brief
 function rt.ScreenRecorder:draw()
     if self._is_active ~= true then return end
-    --love.graphics.reset()
-    --love.graphics.setColor(1, 1, 1, 1)
-    --self._texture_ring_buffer[self._current_texture_buffer_i]:draw()
-    --self._current_texture_buffer_i = math.wrap(self._current_texture_buffer_i + 1, #self._texture_ring_buffer)
+    self:_try_initialize()
+
+    love.graphics.setColor(1, 1, 1, 1)
+    self._texture:draw()
 end
 
-local _volatile = {}
-
 --- @brief
-function rt.ScreenRecorder:update(delta)
+function rt.ScreenRecorder:notify_end_of_frame(delta)
     if self._is_active ~= true then return end
+    self:_try_initialize()
 
-    local screen_w, screen_h = love.graphics.getDimensions()
-    if self._width ~= screen_w or self._height ~= screen_h then
-        self:_initialize(screen_w, screen_h)
+    if self._state == STATE_RECORDING then
+        -- queue new readback
+        _main_to_worker:push({
+            type = MessageType.READBACK,
+            readback = love.graphics.readbackTextureAsync(self._texture:get_native()),
+            filename = self:_get_frame_filename(),
+            id = self._active_recording_id
+        })
+
+        self._frame_index = self._frame_index + 1
+    elseif self._state == STATE_EXPORTING then
+        -- queue readback export
+        _main_to_worker:push({
+            type = MessageType.UPDATE,
+            id = self._active_recording_id
+        })
     end
 
-    local readback = love.graphics.readbackTextureAsync(self._texture_ring_buffer[self._current_texture_buffer_i]:get_native())
-
-    --[[
-    _main_to_worker:push({
-        type = MessageType.READBACK,
-        readback = readback,
-        filename = self:_get_current_filename()
-    })
-
-    self._frame_index = self._frame_index + 1
-
+    -- work through queue
     while _worker_to_main:get_n_messages() > 0 do
         local message = _worker_to_main:pop()
         if message.type == MessageType.SHUTDOWN_RESPONSE then
-            if message.success ~= true then
-                rt.error("In rt.ScreenRecorder: thread errored on shutdown: ", message.error)
+            if message.success == false then
+                rt.error("In rt.ScreenRecorder: thread error: ", message.error)
             end
+        elseif message.type == MessageType.RECORDING_START_RESPONSE then
+            -- noop
         elseif message.type == MessageType.READBACK_RESPONSE then
-            if message.success ~= true then
-                rt.error("In rt.ScreenRecorder: error in texture readback : ", message.error)
-            else
-                -- noop
-            end
-        elseif message.type == MessageType.IMAGE_RESPONSE then
-            if message.success ~= true then
-                rt.error("In rt.ScreenRecorder: error in image data encode : ", message.error)
-            else
-                -- noop
-            end
+            rt.log("In rt.ScreenRecorder: wrote frame to `", message.filename, "`")
+        elseif message.type == MessageType.RECORDING_END_RESPONSE then
+            local settings = rt.settings.screen_recorder
+            local frame_filename = bd.join_path(bd.get_save_directory(), self:_get_current_folder(), "_%06d.png")
+            local export_filename = bd.join_path(bd.get_save_directory(), self:_get_video_filename())
+
+            self._state = STATE_EXPORTING
+            _main_to_worker:push({
+                type = MessageType.EXPORT,
+                id = self._active_recording_id,
+                filename = export_filename,
+                command = string.format(
+                    bd.join_path(bd.get_source_directory(), "love", "windows", "ffmpeg.exe") .. ' -framerate %d -i "%s" -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -c:v libx264 -crf 18 -preset slow -pix_fmt yuv420p "%s"',
+                    settings.target_fps,
+                    frame_filename,
+                    export_filename
+                )
+            })
+        elseif message.type == MessageType.EXPORT_RESPONSE then
+            rt.log("In rt.ScreenRecorder: successfully exported to `", message.filename)
+            self._state = STATE_IDLE
+        elseif message.type == MessageType.ERROR then
+            rt.error("In rt.ScreenRecorder: thread error: ", message.error)
         else
             rt.error("In rt.ScreenRecorder: unhandled message type `", message.type, "`")
         end
     end
-
-    _main_to_worker:push({
-        type = MessageType.UPDATE
-    })
-    ]]
 end
 
 --- @brief
@@ -196,11 +301,4 @@ function rt.ScreenRecorder:get_is_recording()
     return self._is_active
 end
 
---- @brief
-function rt.ScreenRecorder:stop_recording()
-    rt.SceneManager:set_use_fixed_timestep(self._fixed_timestep_before)
-    rt.GameState:set_vsync_mode(self._vsync_before)
-    self._is_active = false
-
-    rt.log("In rt.ScreenRecorder: finished recording at `", self._active_directory, "`")
-end
+rt.ScreenRecorder = rt.ScreenRecorder() -- singleton instance

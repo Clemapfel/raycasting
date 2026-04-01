@@ -54,7 +54,7 @@ function rt.SceneManager:instantiate()
         _hdr = nil, -- ^
         _input = rt.InputSubscriber(),
 
-        _screen_recorder = rt.ScreenRecorder(),
+        _screen_recorder = rt.ScreenRecorder, -- sic, no (), singleton instance
 
         _cursor_visible = false,
         _cursor = rt.Cursor(),
@@ -574,17 +574,20 @@ love.focus = function(b)
 end
 
 love.quit = function()
-    -- make sure temp is in appdata, not mounted
-    pcall(bd.unmount_path, "temp")
+    local temp = bd.get_temp_directory_name()
+    if bd.is_directory(temp) then
+        -- make sure temp is in appdata, not mounted
+        pcall(bd.unmount_path, temp)
 
-    -- try delete
-    local success, error = pcall(bd.remove_directory, "temp")
+        -- try delete
+        local success, error = pcall(bd.remove_directory, temp)
 
-    local path = bd.join_path(bd.get_save_directory(), "temp")
-    if success then
-        rt.log("In love.quit: succesfully deleted folder at `", path, "`")
-    else
-        rt.critical("In love.quit: unable to delete folder at `", path, "`: ", error)
+        local path = bd.get_temp_directory()
+        if success then
+            rt.log("In love.quit: succesfully deleted folder at `", path, "`")
+        else
+            rt.critical("In love.quit: unable to delete folder at `", path, "`: ", error)
+        end
     end
 end
 
@@ -684,7 +687,7 @@ love.run = function()
                 love.graphics.pop()
             end
 
-            state._screen_recorder:update(delta)
+            state._screen_recorder:notify_end_of_frame()
             love.graphics.present()
         end
 
