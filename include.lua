@@ -11,28 +11,37 @@ require "common.common"
 require "common.math"
 meta = require "common.meta"
 
-if DEBUG then
-    -- load love language server definitions
-    require "love.definitions.audio"
-    require "love.definitions.data"
-    require "love.definitions.event"
-    require "love.definitions.filesystem"
-    require "love.definitions.font"
-    require "love.definitions.graphics"
-    require "love.definitions.image"
-    require "love.definitions.joystick"
-    require "love.definitions.keyboard"
-    require "love.definitions.math"
-    require "love.definitions.mouse"
-    require "love.definitions.physics"
-    require "love.definitions.sound"
-    require "love.definitions.system"
-    require "love.definitions.thread"
-    require "love.definitions.timer"
-    require "love.definitions.touch"
-    require "love.definitions.video"
-    require "love.definitions.window"
-end
+-- load love language server definitions
+
+---@diagnostic disable: unnecessary-if
+if false then love = {} end
+
+--- @alias Nil nil
+--- @alias Number number
+--- @alias String string
+--- @alias Boolean boolean
+--- @alias Table table
+--- @alias Function function
+
+require "love.definitions.audio"
+require "love.definitions.data"
+require "love.definitions.event"
+require "love.definitions.filesystem"
+require "love.definitions.font"
+require "love.definitions.graphics"
+require "love.definitions.image"
+require "love.definitions.joystick"
+require "love.definitions.keyboard"
+require "love.definitions.math"
+require "love.definitions.mouse"
+require "love.definitions.physics"
+require "love.definitions.sound"
+require "love.definitions.system"
+require "love.definitions.thread"
+require "love.definitions.timer"
+require "love.definitions.touch"
+require "love.definitions.video"
+require "love.definitions.window"
 
 -- globals
 if rt == nil then rt = {} end -- common

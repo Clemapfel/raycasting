@@ -1,2 +1,6 @@
-require "common.meta"a
+require "common.meta"
+
+rt.Animalese = meta.class("Animalese")
+
+
 

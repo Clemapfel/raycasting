@@ -18,7 +18,6 @@ rt.settings.overworld.normal_map = {
     n_post_process_passes = 2
 }
 
---- @class ow.NormalMap
 ow.NormalMap = meta.class("NormalMap")
 meta.add_signal(ow.NormalMap, "done")
 

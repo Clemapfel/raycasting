@@ -74,6 +74,97 @@ def export(engine_path, text, output_path):
         print("[rt] export failed: " + str(error))
         return False
 
+syllables = {
+    # vowels
+    "a": "ア", "i": "イ", "u": "ウ", "e": "エ", "o": "オ",
+
+    # K
+    "ka": "カ", "ki": "キ", "ku": "ク", "ke": "ケ", "ko": "コ",
+
+    # S
+    "sa": "サ", "shi": "シ", "su": "ス", "se": "セ", "so": "ソ",
+
+    # T
+    "ta": "タ", "chi": "チ", "tsu": "ツ", "te": "テ", "to": "ト",
+
+    # N
+    "na": "ナ", "ni": "ニ", "nu": "ヌ", "ne": "ネ", "no": "ノ",
+
+    # H
+    "ha": "ハ", "hi": "ヒ", "fu": "フ", "he": "ヘ", "ho": "ホ",
+
+    # M
+    "ma": "マ", "mi": "ミ", "mu": "ム", "me": "メ", "mo": "モ",
+
+    # Y
+    "ya": "ヤ", "yu": "ユ", "yo": "ヨ", "ye": "ヱ",
+
+    # R
+    "ra": "ラ", "ri": "リ", "ru": "ル", "re": "レ", "ro": "ロ",
+
+    # W (wi and we removed as they are obsolete in modern Japanese)
+    "wa": "ワ",
+
+    # N (syllabic nasal)
+    "n": "ン",
+
+    # G (voiced K)
+    "ga": "ガ", "gi": "ギ", "gu": "グ", "ge": "ゲ", "go": "ゴ",
+
+    # Z (voiced S)
+    "za": "ザ", "zu": "ズ", "ze": "ゼ", "zo": "ゾ",
+
+    # "ji": "ジ", "wo": "ヲ",
+
+    # D (voiced T)
+    "da": "ダ", "di": "ヂ", "du": "ヅ", "de": "デ", "do": "ド",
+
+    # B (voiced H)
+    "ba": "バ", "bi": "ビ", "bu": "ブ", "be": "ベ", "bo": "ボ",
+
+    # P (semi-voiced H)
+    "pa": "パ", "pi": "ピ", "pu": "プ", "pe": "ペ", "po": "ポ",
+
+    # KY (palatalized K)
+    "kya": "キャ", "kyu": "キュ", "kyo": "キョ",
+
+    # SH (palatalized S)
+    "sha": "シャ", "shu": "シュ", "sho": "ショ",
+
+    # CH (palatalized T)
+    "cha": "チャ", "chu": "チュ", "cho": "チョ",
+
+    # NY (palatalized N)
+    "nya": "ニャ", "nyu": "ニュ", "nyo": "ニョ",
+
+    # HY (palatalized H)
+    "hya": "ヒャ", "hyu": "ヒュ", "hyo": "ヒョ",
+
+    # MY (palatalized M)
+    "mya": "ミャ", "myu": "ミュ", "myo": "ミョ",
+
+    # RY (palatalized R)
+    "rya": "リャ", "ryu": "リュ", "ryo": "リョ",
+
+    # GY (palatalized G)
+    "gya": "ギャ", "gyu": "ギュ", "gyo": "ギョ",
+
+    # JY (palatalized J)
+    "ja": "ジャ", "ju": "ジュ", "jo": "ジョ",
+
+    # BY (palatalized B)
+    "bya": "ビャ", "byu": "ビュ", "byo": "ビョ",
+
+    # PY (palatalized P)
+    "pya": "ピャ", "pyu": "ピュ", "pyo": "ピョ",
+
+    # foreign sounds
+    "fa": "ファ", "fi": "フィ", "fe": "フェ", "fo": "フォ",
+    "va": "ヴァ", "vi": "ヴィ", "vu": "ヴ", "ve": "ヴェ", "vo": "ヴォ",
+    "ti": "ティ", "tu": "トゥ",
+    "tsa": "ツァ", "tsi": "ツィ", "tse": "ツェ", "tso": "ツォ",
+    "she": "シェ", "je": "ジェ", "che": "チェ",
+}
 
 def main():
     # load engines
@@ -94,102 +185,6 @@ def main():
 
     assert(engines[Gender.MALE][Emotion.NORMAL] is not None and engines[Gender.FEMALE][Emotion.NORMAL] is not None)
 
-    # syllables
-
-    syllables = {
-        # vowels
-        "a": "ア", "i": "イ", "u": "ウ", "e": "エ", "o": "オ",
-
-        # K
-        "ka": "カ", "ki": "キ", "ku": "ク", "ke": "ケ", "ko": "コ",
-
-        # S
-        "sa": "サ", "shi": "シ", "su": "ス", "se": "セ", "so": "ソ",
-
-        # T
-        "ta": "タ", "chi": "チ", "tsu": "ツ", "te": "テ", "to": "ト",
-
-        # N
-        "na": "ナ", "ni": "ニ", "nu": "ヌ", "ne": "ネ", "no": "ノ",
-
-        # H
-        "ha": "ハ", "hi": "ヒ", "fu": "フ", "he": "ヘ", "ho": "ホ",
-
-        # M
-        "ma": "マ", "mi": "ミ", "mu": "ム", "me": "メ", "mo": "モ",
-
-        # Y
-        "ya": "ヤ", "yu": "ユ", "yo": "ヨ",
-
-        # R
-        "ra": "ラ", "ri": "リ", "ru": "ル", "re": "レ", "ro": "ロ",
-
-        # W
-        "wa": "ワ", "wi": "ヰ", "we": "ヱ", "wo": "ヲ",
-
-        # N (syllabic nasal)
-        "n": "ン",
-
-        # G (voiced K)
-        "ga": "ガ", "gi": "ギ", "gu": "グ", "ge": "ゲ", "go": "ゴ",
-
-        # Z (voiced S)
-        "za": "ザ", "ji": "ジ", "zu": "ズ", "ze": "ゼ", "zo": "ゾ",
-
-        # D (voiced T)
-        "da": "ダ", "di": "ヂ", "du": "ヅ", "de": "デ", "do": "ド",
-
-        # B (voiced H)
-        "ba": "バ", "bi": "ビ", "bu": "ブ", "be": "ベ", "bo": "ボ",
-
-        # P (semi-voiced H)
-        "pa": "パ", "pi": "ピ", "pu": "プ", "pe": "ペ", "po": "ポ",
-
-        # KY (palatalized K)
-        "kya": "キャ", "kyu": "キュ", "kyo": "キョ",
-
-        # SH (palatalized S)
-        "sha": "シャ", "shu": "シュ", "sho": "ショ",
-
-        # CH (palatalized T)
-        "cha": "チャ", "chu": "チュ", "cho": "チョ",
-
-        # NY (palatalized N)
-        "nya": "ニャ", "nyu": "ニュ", "nyo": "ニョ",
-
-        # HY (palatalized H)
-        "hya": "ヒャ", "hyu": "ヒュ", "hyo": "ヒョ",
-
-        # MY (palatalized M)
-        "mya": "ミャ", "myu": "ミュ", "myo": "ミョ",
-
-        # RY (palatalized R)
-        "rya": "リャ", "ryu": "リュ", "ryo": "リョ",
-
-        # GY (palatalized G)
-        "gya": "ギャ", "gyu": "ギュ", "gyo": "ギョ",
-
-        # JY (palatalized J)
-        "ja": "ジャ", "ju": "ジュ", "jo": "ジョ",
-
-        # BY (palatalized B)
-        "bya": "ビャ", "byu": "ビュ", "byo": "ビョ",
-
-        # PY (palatalized P)
-        "pya": "ピャ", "pyu": "ピュ", "pyo": "ピョ",
-
-        # DY (palatalized D, archaic)
-        "dya": "ヂャ", "dyu": "ヂュ", "dyo": "ヂョ",
-
-        # foreign sounds
-        "fa": "ファ", "fi": "フィ", "fe": "フェ", "fo": "フォ",
-        "va": "ヴァ", "vi": "ヴィ", "vu": "ヴ", "ve": "ヴェ", "vo": "ヴォ",
-        "ti": "ティ", "tu": "トゥ", #"di2": "ディ", "du2": "ドゥ",
-        "tsa": "ツァ", "tsi": "ツィ", "tse": "ツェ", "tso": "ツォ",
-        "she": "シェ", "je": "ジェ", "che": "チェ",
-        #"wi2": "ウィ", "we2": "ウェ", "wo2": "ウォ",
-    }
-
     export_prefix_path = Path(EXPORT_PREFIX)
 
     if export_prefix_path.exists():
@@ -208,7 +203,7 @@ def main():
 
                 for romaji, japanese in syllables.items():
                     filename = path / (romaji + "." + EXPORT_FORMAT)
-                    export(engine, japanese, filename.as_posix())
+                    #export(engine, japanese, filename.as_posix())
 
                     syllable_list.add(romaji)
 
@@ -221,6 +216,20 @@ def main():
     print("[rt] wrote syllable list to `" + syllable_list_path.as_posix() + "`")
 
 ###
+
+n_emotions = 0
+for _ in Emotion:
+    n_emotions += 1
+
+n_genders = 0
+for _ in Gender:
+    n_genders += 1
+
+n_syllables = 0
+for _ in syllables:
+    n_syllables += 1
+
+print(n_emotions * n_genders * n_syllables)
 
 before = time.time()
 

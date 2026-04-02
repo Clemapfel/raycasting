@@ -1,4 +1,5 @@
 require "common.common"
+
 if meta == nil then meta = {} end
 
 --- @class meta.Type
@@ -35,15 +36,6 @@ local _native_type_to_type = {
     ["function"] = "Function",
     ["thread"] = "Coroutine"
 }
-
---- @class Nil
---- @class Number
---- @class String
---- @class Boolean
---- @class Table
---- @class Function
---- @class Coroutine
---- @class TiledObject
 
 --- @brief
 function meta.typeof(instance)
@@ -469,8 +461,8 @@ local function _install_signals(instance, type)
 end
 
 --- @param typename String
---- @param super meta.Type
---- @return meta.Type
+--- @param super meta.Type?
+--- @return meta.Type?
 function meta.class(typename, super, instantiate_maybe)
     meta.assert(typename, "String")
     if super ~= nil then rt.assert(meta.typeof(super) == "Type", "In meta.class: super is not a `Type`") end

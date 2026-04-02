@@ -13,19 +13,21 @@ rt.settings.label = {
 }
 
 --- @class rt.TextEffect
-rt.TextEffect = meta.enum("TextEffect", {
+rt.TextEffect = {
     NONE = "NONE",
     SHAKE = "SHAKE",
     WAVE = "WAVE",
     RAINBOW = "RAINBOW"
-})
+}
+rt.TextEffect = meta.enum("TextEffect", rt.TextEffect)
 
 ---@class rt.JustifyMode
-rt.JustifyMode = meta.enum("JustifyMode", {
-    LEFT = "LEFT",
-    RIGHT = "RIGHT",
-    CENTER = "CENTER"
-})
+rt.JustifyMode = {
+     LEFT = "LEFT",
+     RIGHT = "RIGHT",
+     CENTER = "CENTER"
+ }
+rt.JustifyMode = meta.enum("JustifyMode", rt.JustifyMode)
 
 --- @class rt.Label
 rt.Label = meta.class("Label", rt.Widget)
