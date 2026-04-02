@@ -16,6 +16,7 @@ do -- generate enum for all input buttons
         enum_values[key] = button
     end
 
+    --- @enum rt.ControlIndicatorButton
     rt.ControlIndicatorButton = meta.enum("ControlIndicatorButton", enum_values)
 end
 

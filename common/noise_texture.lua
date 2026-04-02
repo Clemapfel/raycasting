@@ -15,12 +15,12 @@ local _n_scales_to_texture_format = {
 local _texture_format_to_shader = {} -- cached shaders
 local _atlas = {} -- cached volume textures
 
---- @class rt.NoiseType
-rt.NoiseType = meta.enum("NoiseType", {
+--- @enum rt.NoiseType
+rt.NoiseType = {
     GRADIENT = 0x0,
     WORLEY = 0x1
-})
-
+}
+rt.NoiseType = meta.enum("NoiseType", rt.NoiseType)
 
 --- @brief
 function rt.NoiseTexture:instantiate(size_x, size_y, size_z, ...)

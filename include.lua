@@ -29,7 +29,6 @@ end
 --- @alias Table table
 --- @alias Function function
 --- @alias Any any
-
 --- @alias Integer number
 --- @alias Radians number
 --- @alias Degrees number

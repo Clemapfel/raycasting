@@ -1,9 +1,10 @@
---- @class rt.VSyncMode
-rt.VSyncMode = meta.enum("VSyncMode", {
+--- @enum rt.VSyncMode
+rt.VSyncMode = {
     ADAPTIVE = "adaptive",
     OFF = "off",
     ON = "on"
-})
+}
+rt.VSyncMode = meta.enum("VSyncMode", rt.VSyncMode)
 
 if rt.graphics == nil then rt.graphics = {} end
 

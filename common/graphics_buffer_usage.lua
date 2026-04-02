@@ -1,4 +1,4 @@
---- @class rt.GraphicsBufferUsage
+--- @enum rt.GraphicsBufferUsage
 rt.GraphicsBufferUsage = meta.enum("GraphicsBufferUsage", {
     DYNAMIC = "dynamic",
     STATIC = "static",

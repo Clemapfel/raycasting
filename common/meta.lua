@@ -460,8 +460,9 @@ local function _install_signals(instance, type)
     end
 end
 
+--- @brief create a new class
 --- @param typename String
---- @param super meta.Type?
+--- @param ... meta.Type?
 --- @return meta.Type
 function meta.class(typename, super, instantiate_maybe)
     meta.assert(typename, "String")
@@ -585,11 +586,11 @@ end
 
 local _enum_to_instances = {}
 
---- @return nil
+--- @return meta.Enum
 function meta.enum(typename, fields)
         local enum_metatable = {
             __index = function(self, key)
-                local result = fields[key]
+                local result = rawget(fields, key)
                 if result == nil then
                     rt.error("In meta.enum: trying to access field `",  key,  "` of enum `",  typename,  "`, but enum has no such field")
                     return nil

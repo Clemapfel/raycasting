@@ -1,4 +1,4 @@
---- @class bd.FileType
+--- @enum bd.FileType
 bd.FileType = meta.enum("FileType", {
     FILE = "file",
     DIRECTORY = "directory",
@@ -65,14 +65,16 @@ function bd.create_directory(path)
     end
 end
 
---- @class bd.OperatingSystem
-bd.OperatingSystem = meta.enum("OperatingSystem",  {
+--- @enum bd.OperatingSystem
+bd.OperatingSystem = {
     MAC = "OS X",
     WINDOWS = "Windows",
     LINUX = "Linux",
     ANDROID ="Android",
     IOS = "iOS"
-})
+}
+
+bd.OperatingSystem = meta.enum("OperatingSystem", bd.OperatingSystem)
 
 --- @brief
 function bd.get_operating_system()

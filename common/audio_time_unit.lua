@@ -1,4 +1,4 @@
---- @class rt.AudioTimeUnit
+--- @enum rt.AudioTimeUnit
 rt.AudioTimeUnit = meta.enum("AudioTimeUnit", {
     SAMPLES = "samples",
     SECONDS = "seconds"

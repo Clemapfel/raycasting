@@ -27,11 +27,12 @@ rt.settings.overworld.checkpoint = {
 --- @types Point
 ow.Checkpoint = meta.class("Checkpoint")
 
---- @class ow.CheckpointTye
-ow.CheckpointType = meta.enum("CheckpointType", {
+--- @enum ow.CheckpointTye
+ow.CheckpointType = {
     PLAYER_SPAWN = 0,
     MIDWAY = 1
-})
+}
+ow.CheckpointType = meta.enum("CheckPointType", ow.CheckpointType)
 
 --- @class ow.PlayerSpawn
 --- @types Point

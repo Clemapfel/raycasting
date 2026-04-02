@@ -1,11 +1,12 @@
 
 --- @class rt.MSAAQuality
-rt.MSAAQuality = meta.enum("MSAAQuality", {
+rt.MSAAQuality = {
     OFF = "off",
     GOOD = "good",
     BETTER = "better",
     BEST = "best"
-})
+}
+rt.MSAAQuality = meta.enum("MSAAQuality", rt.MSAAQuality)
 
 --- @brief
 function rt.graphics.msaa_quality_to_native(quality)

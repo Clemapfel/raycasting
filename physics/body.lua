@@ -9,15 +9,16 @@ meta.add_signals(b2.Body,
     "destroy"
 )
 
---- @class b2.BodyType
-b2.BodyType = meta.enum("PhysicsBodyType", {
+--- @enum b2.BodyType
+b2.BodyType = {
     STATIC = "static",
     KINEMATIC = "kinematic",
     DYNAMIC = "dynamic"
-})
+}
+b2.BodyType = meta.enum("PhysicsBodyType", b2.BodyType)
 
---- @class b2.CollisionGroup
-b2.CollisionGroup = meta.enum("PhysicsCollisionGroup", {
+--- @enum b2.CollisionGroup
+b2.CollisionGroup = {
     NONE = 0x0,
     ALL = bit.bnot(0x0),
     DEFAULT = 1,
@@ -37,7 +38,8 @@ b2.CollisionGroup = meta.enum("PhysicsCollisionGroup", {
     GROUP_14 = bit.lshift(1, 13),
     GROUP_15 = bit.lshift(1, 14),
     GROUP_16 = bit.lshift(1, 15),
-})
+}
+b2.CollisionGroup = meta.enum("CollisionGroup", b2.CollisionGroup)
 
 --- @brief
 --- @param world b2.World

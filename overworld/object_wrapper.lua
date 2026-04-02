@@ -7,14 +7,15 @@ rt.settings.overworld.object_wrapper = {
 --- @class ow.ObjectWrapper
 ow.ObjectWrapper = meta.class("ObjectWrapper")
 
---- @class ow.ObjectType
-ow.ObjectType = meta.enum("ObjectType", {
+--- @enum ow.ObjectType
+ow.ObjectType = {
     SPRITE = "sprite", -- rectangle + gid set
     RECTANGLE = "rectangle",
     ELLIPSE = "ellipse",
     POLYGON = "polygon",
     POINT = "point"
-})
+}
+ow.ObjectType = meta.enum("ObjectType", ow.ObjectType)
 
 local _calculate_n_outer_vertices = function(x_radius, y_radius)
     return rt.Mesh.radius_to_n_vertices(x_radius, y_radius)
@@ -153,6 +154,7 @@ function ow.ObjectWrapper:get_class()
     return self.class
 end
 
+--- @enum ow.ObjectWrapperShapeType
 ow.ObjectWrapperShapeType = meta.enum("ObjectWrapperShapeType", {
     CIRCLE = true,
     POLYGON = false

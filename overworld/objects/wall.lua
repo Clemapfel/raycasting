@@ -7,6 +7,7 @@ rt.settings.overworld.wall = {
 --- @class ow.Wall
 ow.Wall = meta.class("Wall")
 
+--- @enum ow.WallPatternType
 ow.WallPatternType = meta.enum("WallPatternType", {
     FLAT = "FLAT",
     SPHERES = "SPHERES"

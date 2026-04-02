@@ -4,15 +4,16 @@ require "common.log"
 
 if bd == nil then bd = {} end
 
---- @class bd.SystemArchitecture
-bd.SystemArchitecture = meta.enum("SystemArchitexture", {
+--- @enum bd.SystemArchitecture
+bd.SystemArchitecture = {
     WINDOWS_AMD = "windows_amd",
     WINDOWS_ARM = "windows_arm",
     LINUX_AMD = "linux_amd",
     LINUX_ARM = "linux_arm",
     MAC_OS = "mac_os",
     UNSUPPORTED = "unsupported"
-})
+}
+bd.SystemArchitecture = meta.enum("SystemArchitexture", bd.SystemArchitecture)
 
 love.filesystem.setSymlinksEnabled(true)
 

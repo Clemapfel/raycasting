@@ -8,10 +8,12 @@ rt.settings.menu.message_dialog = {
     shadow_strength = 0.2
 }
 
-mn.MessageDialogOption = meta.enum("MessageDialogOption", {
+--- @enum mn.MessageDialogOption
+mn.MessageDialogOption = {
     ACCEPT = "OK",
     CANCEL = "Cancel"
-})
+}
+mn.MessageDialogOption = meta.enum("MessageDialogOption", mn.MessageDialogOption)
 
 --- @class mn.MessageDialog
 mn.MessageDialog = meta.class("MessageDialog", rt.Widget)

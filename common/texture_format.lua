@@ -1,5 +1,5 @@
 
---- @class rt.TextureFormat
+--- @enum rt.TextureFormat
 rt.TextureFormat = {
     --                                    | #components | bits/pixel | range
     NORMAL            = "normal",      -- | 4           | 32         | [0, 1]

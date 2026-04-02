@@ -12,7 +12,7 @@ rt.settings.label = {
     outline_width_offset = 2 -- px
 }
 
---- @class rt.TextEffect
+--- @enum rt.TextEffect
 rt.TextEffect = {
     NONE = "NONE",
     SHAKE = "SHAKE",
@@ -21,7 +21,7 @@ rt.TextEffect = {
 }
 rt.TextEffect = meta.enum("TextEffect", rt.TextEffect)
 
----@class rt.JustifyMode
+---@enum rt.JustifyMode
 rt.JustifyMode = {
      LEFT = "LEFT",
      RIGHT = "RIGHT",

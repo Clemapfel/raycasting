@@ -58,7 +58,8 @@ ow.CameraMode = meta.enum("CameraMode", {
 
 local _bloom_shader = nil
 
-ow.ControlIndicatorType = meta.enum("ControlIndicatorType", {
+--- @enum ow.ControlIndicatorType
+ow.ControlIndicatorType = {
     MOTION_NON_BUBBLE = "MOTION_NON_BUBBLE",
     MOTION_BUBBLE = "MOTION_BUBBLE",
     INTERACT = "INTERACT",
@@ -71,7 +72,8 @@ ow.ControlIndicatorType = meta.enum("ControlIndicatorType", {
     AIR_DASH = "AIR_DASH",
     DOUBLE_JUMP = "DOUBLE_JUMP",
     NONE = "NONE"
-})
+}
+ow.ControlIndicatorType = meta.enum("ControlIndicatorType", ow.ControlIndicatorType)
 
 --- @brief
 function ow.OverworldScene:instantiate(state)

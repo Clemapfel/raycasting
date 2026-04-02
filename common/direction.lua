@@ -1,4 +1,4 @@
---- @class rt.Direction
+--- @enum rt.Direction
 rt.Direction = meta.enum("Direction", {
     UP = "up",
     RIGHT = "right",

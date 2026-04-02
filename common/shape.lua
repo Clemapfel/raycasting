@@ -227,7 +227,7 @@ end
 
 --- ### LINE ###
 
---- @class rt.LineJoin
+--- @enum rt.LineJoin
 rt.LineJoin = meta.enum("LineJoin", {
     MITER = "miter",
     NONE = "none",

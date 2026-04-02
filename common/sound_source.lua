@@ -1,4 +1,4 @@
---- @class rt.SoundSourceFilterType
+--- @enum rt.SoundSourceFilterType
 rt.SoundSourceFilterType = meta.enum("SoundSourceFilterType", {
     LOWPASS = "lowpass",
     BANDPASS = "bandpass",

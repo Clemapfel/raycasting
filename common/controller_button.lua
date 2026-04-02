@@ -1,5 +1,5 @@
 
---- @class rt.ControllerButton
+--- @enum rt.ControllerButton
 rt.ControllerButton = {
     TOP = "top",                       -- "y"
     RIGHT = "right",                   -- "b"

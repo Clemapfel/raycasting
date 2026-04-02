@@ -1,6 +1,6 @@
 if rt.graphics == nil then rt.graphics = {} end
 
---- @class rt.BlendMode
+--- @enum rt.BlendMode
 rt.BlendMode = meta.enum("BlendMode", {
     NONE = -1,
     NORMAL = 0,
@@ -11,7 +11,7 @@ rt.BlendMode = meta.enum("BlendMode", {
     MAX = 5
 })
 
---- @class rt.BlendOperation
+--- @enum rt.BlendOperation
 rt.BlendOperation = meta.enum("BlendOperation", {
     ADD = "add",
     SUBTRACT = "subtract",
@@ -20,7 +20,7 @@ rt.BlendOperation = meta.enum("BlendOperation", {
     MAX = "max"
 })
 
---- @class rt.BlendFactor
+--- @enum rt.BlendFactor
 rt.BlendFactor = meta.enum("BlendFactor", {
     ZERO = "zero",
     ONE = "one",

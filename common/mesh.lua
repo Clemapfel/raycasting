@@ -1,27 +1,29 @@
 require "common.graphics_buffer_usage"
 
---- @class rt.MeshDrawMode
-rt.MeshDrawMode = meta.enum("MeshDrawMode", {
+--- @enum rt.MeshDrawMode
+rt.MeshDrawMode = {
     TRIANGLE_FAN = "fan",
     TRIANGLE_STRIP = "strip",
     TRIANGLES = "triangles",
     POINTS = "points"
-})
+}
+rt.MeshDrawMode = meta.enum("MeshDrawMode", rt.MeshDrawMode)
 
---- @class rt.MeshAttributeAttachmentMode
-rt.MeshAttributeAttachmentMode = meta.enum("MeshAttributeAttachmentMode", {
+--- @enum rt.MeshAttributeAttachmentMode
+rt.MeshAttributeAttachmentMode = {
     PER_VERTEX = "pervertex",
     PER_INSTANCE = "perinstance"
-})
+}
+rt.MeshAttributeAttachmentMode = meta.enum("MeshAttributeAttachmentMode", rt.MeshAttributeAttachmentMode)
 
---- @class rt.VertexAttribute
+--- @enum rt.VertexAttribute
 rt.VertexAttribute = meta.enum("VertexAttribute", {
     POSITION = "VertexPosition",
     TEXTURE_COORDINATES = "VertexTexCoord",
     COLOR = "VertexColor"
 })
 
---- @class rt.VertexAttributeLocation
+--- @enum rt.VertexAttributeLocation
 rt.VertexAttributeLocation = meta.enum("VertexAttribute", {
     POSITION = 0,
     TEXTURE_COORDINATES = 1,

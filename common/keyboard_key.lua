@@ -1,4 +1,4 @@
---- @class rt.KeyboardKey
+--- @enum rt.KeyboardKey
 rt.KeyboardKey = {
     UNKNOWN = "unknown",
     A = "a",

@@ -8,7 +8,7 @@ rt.settings.overworld.stage_config = {
     config_path = "assets/stages"
 }
 
---- @class ow.LayerType
+--- @enum ow.LayerType
 ow.LayerType = meta.enum("LayerType", {
     TILES = "tilelayer",
     OBJECTS = "objectlayer",

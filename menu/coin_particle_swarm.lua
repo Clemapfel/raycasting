@@ -15,7 +15,7 @@ rt.settings.menu.coin_particle_swarm = {
 --- @class mn.CoinParticleSwarm
 mn.CoinParticleSwarm = meta.class("CoinParticleSwarm")
 
---- @class mn.CoinParticleSwarmMode
+--- @enum mn.CoinParticleSwarmMode
 mn.CoinParticleSwarmMode = meta.enum("CoinParticleSwarmMode", {
     FOLLOW = "FOLLOW",
     CIRCLE = "CIRCLE",

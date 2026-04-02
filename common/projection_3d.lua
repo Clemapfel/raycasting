@@ -8,7 +8,7 @@ rt.settings.render_texture_3d = {
 --- @class rt.Projection3D
 rt.Projection3D = meta.class("Projection3D")
 
---- @class rt.ProjectionType
+--- @enum rt.ProjectionType
 rt.ProjectionType = meta.enum("ProjectionType", {
     PERSPECTIVE = "perspective",
     ORTHOGRAPHIC = "orthographic"

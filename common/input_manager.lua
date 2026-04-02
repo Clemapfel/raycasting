@@ -3,14 +3,14 @@ require "common.input_action"
 --- @class rt.InputManager
 rt.InputManager = meta.class("InputManager")
 
---- @class rt.InputMethod
+--- @enum rt.InputMethod
 rt.InputMethod = {
     KEYBOARD = true,
     CONTROLLER = false
 }
 rt.InputMethod = meta.enum("InputMethod", rt.InputMethod)
 
---- @class rt.MouseButton
+--- @enum rt.MouseButton
 rt.MouseButton = {
     LEFT = 1,
     RIGHT = 2,

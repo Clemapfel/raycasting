@@ -7,7 +7,7 @@ rt.settings.particle_emitter = {
     default_speed = 100
 }
 
---- @class rt.ParticleEmissionAreaShape
+--- @enum rt.ParticleEmissionAreaShape
 rt.ParticleEmissionAreaShape = meta.enum("ParticleEmissionAreaShape", {
     UNIFORM = "uniform",
     ROUND = "normal"

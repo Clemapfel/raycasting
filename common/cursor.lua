@@ -2,7 +2,7 @@ rt.settings.cursor = {
     radius = 5
 }
 
---- @class rt.CursorType
+--- @enum rt.CursorType
 rt.CursorType = meta.enum("CursorType", {
     POINTER = "POINTER",
     CAN_CLICK = "CAN_CLICK",

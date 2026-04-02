@@ -1,15 +1,17 @@
---- @class rt.AnimationResult
-rt.AnimationResult = meta.enum("AnimationResult", {
+--- @enum rt.AnimationResult
+rt.AnimationResult = {
     CONTINUE = false,
     DISCONTINUE = true
-})
+}
+rt.AnimationResult = meta.enum("AnimationResult", rt.AnimationResult)
 
---- @class rt.AnimationState
-rt.AnimationState = meta.enum("AnimationState", {
+--- @enum rt.AnimationState
+rt.AnimationState = {
     IDLE = 1,       -- not yet started
     STARTED = 2,    -- running
     FINISHED = 3    -- done running
-})
+}
+rt.AnimationState = meta.enum("AnimationState", rt.AnimationState)
 
 --- @class rt.QueuableAnimation
 --- @signal start (self) -> nil

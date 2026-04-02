@@ -1,4 +1,4 @@
---- @class rt.InputAction
+--- @enum rt.InputAction
 rt.InputAction = {
     -- common
     UP = "up",

@@ -15,6 +15,7 @@ rt.settings.overworld.npc = {
     focus_indicator_radius = 6
 }
 
+--- @enum ow.NPCType
 ow.NPCType = meta.enum("NPCType", {
     EYES = "EYES",
     GHOST = "GHOST",

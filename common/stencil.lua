@@ -12,16 +12,17 @@ function rt.graphics.get_stencil_value()
     return out
 end
 
---- @class rt.StencilDrawMode
-rt.StencilDrawMode = meta.enum("StencilDrawMode", {
+--- @enum rt.StencilDrawMode
+rt.StencilDrawMode = {
     KEEP = "keep",
     REPLACE = "replace",
     INCREMENT = "increment",
     DECREMENT = "decrement"
-})
+}
+rt.StencilDrawMode = meta.enum("StencilDrawMode", rt.StencilDrawMode)
 
---- @class rt.StencilCompareMode
-rt.StencilCompareMode = meta.enum("StencilCompareMode", {
+--- @enum rt.StencilCompareMode
+rt.StencilCompareMode = {
     EQUAL = "equal",
     NOT_EQUAL = "notequal",
     LESS_THAN = "less",
@@ -29,13 +30,15 @@ rt.StencilCompareMode = meta.enum("StencilCompareMode", {
     GREATER_THAN = "greater",
     GREATER_THAN_OR_EQUAL = "gequal",
     ALWAYS = "always"
-})
+}
+rt.StencilCompareMode = meta.enum("StencilCompareMode", rt.StencilCompareMode)
 
---- @class rt.StencilMode
-rt.StencilMode = meta.enum("StencilMode", {
+--- @enum rt.StencilMode
+rt.StencilMode = {
     DRAW = "draw",
     TEST = "test"
-})
+}
+rt.StencilMode = meta.enum("StencilMode", rt.StencilMode)
 
 local _draw_to_backbuffer = true
 local _canvas_shader

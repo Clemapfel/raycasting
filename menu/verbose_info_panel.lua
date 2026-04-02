@@ -8,7 +8,8 @@ rt.settings.menu.verbose_info_panel = {
     indicator_base_color = rt.Palette.FOREGROUND
 }
 
-mn.VerboseInfoObject = meta.enum("VerboseInfoObject", {
+--- @enum mn.VerboseInfoObject
+mn.VerboseInfoObject = {
     VSYNC = "vsync",
     SHOW_FPS_WIDGET = "vsync_widget",
     FULLSCREEN = "fullscreen",
@@ -47,7 +48,8 @@ mn.VerboseInfoObject = meta.enum("VerboseInfoObject", {
     INPUT_ACTION_BACK = "input_action_back",
     INPUT_ACTION_RESET = "input_action_reset",
     INPUT_ACTION_SPECIAL = "input_action_special"
-})
+}
+mn.VerboseInfoObject = meta.enum("VerboseInfoObject", mn.VerboseInfoObject)
 
 --- @class mn.VerboseInfoPanel
 mn.VerboseInfoPanel = meta.class("MenuVerboseInfoPanel", rt.Widget)

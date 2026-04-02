@@ -7,7 +7,7 @@ rt.settings.font = {
 --- @class rt.Font
 rt.Font = meta.class("Font")
 
---- @class rt.FontSize
+--- @enum rt.FontSize
 rt.FontSize = meta.enum("FontSize", {
     GIGANTIC = 0.15,
     HUGE = 60 / rt.settings.native_height,
@@ -19,7 +19,7 @@ rt.FontSize = meta.enum("FontSize", {
     TINY = 12 / rt.settings.native_height
 })
 
---- @class rt.FontStyle
+--- @enum rt.FontStyle
 rt.FontStyle = meta.enum("FontStyle", {
     REGULAR = "REGULAR",
     ITALIC = "ITALIC",

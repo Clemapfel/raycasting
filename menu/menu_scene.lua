@@ -44,6 +44,7 @@ rt.settings.menu_scene = {
 --- @class mn.MenuScene
 mn.MenuScene = meta.class("MenuScene", rt.Scene)
 
+--- @enum mn.MenuSceneState
 mn.MenuSceneState = meta.enum("MenuSceneState", {
     TITLE_SCREEN = "TITLE_SCREEN",
     FALLING = "FALLING",

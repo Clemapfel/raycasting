@@ -1,0 +1,1 @@
+./love/windows/lovec.exe main.lua --fused

@@ -2,24 +2,24 @@ require "common.drawable"
 require "common.texture_format"
 require "common.shader"
 
---- @class rt.TextureScaleMode
-rt.TextureScaleMode = meta.enum("TextureScaleMode", {
+--- @enum rt.TextureScaleMode
+rt.TextureScaleMode = {
     LINEAR = "linear",
     NEAREST = "nearest"
-})
+}
+rt.TextureScaleMode = meta.enum("TextureScaleMode", rt.TextureScaleMode)
 
---- @class rt.TextureWrapMode
-rt.TextureWrapMode = meta.enum("TextureWrapMode", {
+--- @enum rt.TextureWrapMode
+rt.TextureWrapMode = {
     ZERO = "clampzero",
     ONE = "clampone",
     CLAMP = "clamp",
     REPEAT = "repeat",
     MIRROR = "mirroredrepeat"
-})
+}
+rt.TextureWrapMode = meta.enum("TextureWrapMode", rt.TextureWrapMode)
 
 --- @class rt.Texture
---- @param pathor_width String (or Number)
---- @param height Number (or nil)
 rt.Texture = meta.class("Texture", rt.Drawable)
 
 --- @brief

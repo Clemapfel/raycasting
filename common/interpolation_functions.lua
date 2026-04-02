@@ -1,4 +1,4 @@
---- @class rt.InterpolationFunction
+--- @enum rt.InterpolationFunction
 rt.InterpolationFunctions = {
     CONSTANT = function(x, constant)
         -- c

@@ -1,4 +1,4 @@
---- @class rt.SoundEffectType
+--- @enum rt.SoundEffectType
 rt.SoundEffectType = meta.enum("SoundEffectType", {
     CHORUS = "chorus",
     COMPRESSION = "compressor",
@@ -11,7 +11,7 @@ rt.SoundEffectType = meta.enum("SoundEffectType", {
     FILTER = "filter"
 })
 
---- @class rt.SoundEffectWaveform
+--- @enum rt.SoundEffectWaveform
 rt.SoundEffectWaveform = meta.enum("SoundEffectWaveform", {
     SINE = "sine",
     SQUARE = "square",

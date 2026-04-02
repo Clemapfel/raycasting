@@ -85,6 +85,8 @@ rt.settings.player_body = {
 --- @class rt.PlayerBody
 rt.PlayerBody = meta.class("PlayerBody")
 
+
+--- @enum rt.PlayerBody
 rt.PlayerBodyContourType = meta.enum("PlayerBodyContourType", {
     CIRCLE = "circle",
     SQUARE = "square",
