@@ -26,7 +26,7 @@ local _GRAY_7 = rt.Palette.GRAY_8
 local _TRUE_WHITE = rt.Palette.TRUE_WHITE
 local _WHITE = rt.Palette.WHITE
 
---- @overload
+--- @brief
 function rt.KeybindingIndicator:instantiate()
     meta.install(self, {
         _font = nil, -- rt.Font
@@ -84,7 +84,7 @@ function rt.KeybindingIndicator:create_from_gamepad_button(button)
     end
 end
 
---- @overload
+--- @brief
 function rt.KeybindingIndicator:reformat(x, y, width, height)
     if x ~= nil then self._bounds.x = math.floor(x) end
     if y ~= nil then self._bounds.y = math.floor(y) end

@@ -123,7 +123,7 @@ function rt.Frame:unbind_stencil()
     rt.graphics.set_stencil_mode(nil)
 end
 
---- @overload rt.Widget.realize
+--- @override rt.Widget.realize
 function rt.Frame:realize()
     if self:already_realized() then return end
     if meta.isa(self._child, rt.Widget) then
@@ -188,7 +188,7 @@ function rt.Frame:get_corner_radius()
     return self._corner_radius
 end
 
---- @overload rt.Widget.measure
+--- @override rt.Widget.measure
 function rt.Frame:measure()
     if meta.is_widget(self._child) then
         local w, h = self._child:measure()

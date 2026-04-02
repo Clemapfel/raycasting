@@ -674,11 +674,9 @@ love.run = function()
             end
             state:_notify_update_duration(love.timer.getTime() - before)
         else
-            if love.update then
-                local before = love.timer.getTime()
-                if love.update then love.update(step) end
-                state:_notify_update_duration(love.timer.getTime() - before)
-            end
+            local before = love.timer.getTime()
+            if love.update then love.update(delta) end
+            state:_notify_update_duration(love.timer.getTime() - before)
         end
 
         state._last_update_timestamp = love.timer.getTime()

@@ -34,7 +34,7 @@ end
 
 --- @brief set uniform
 --- @param name String
---- @param value
+--- @param value Any
 function rt.ComputeShader:send(name, value, ...)
     if self._is_disabled then return end
 
@@ -56,7 +56,7 @@ end
 
 --- @brief set uniform
 --- @param name String
---- @param value
+--- @param value Any
 function rt.ComputeShader:try_send(name, value, ...)
     if self._is_disabled then return end
 

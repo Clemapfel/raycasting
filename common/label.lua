@@ -390,10 +390,6 @@ local _sub = utf8.sub
 local _insert = table.insert
 local _concat = table.concat
 local _find = string.find -- safe as non-utf8 because only used on control sequences
-local _max = math.max
-local _min = math.min
-local _floor = math.floor
-local _ceil = math.ceil
 local _rt_palette = rt.Palette
 local _rt_color_unpack = rt.color_unpack
 
@@ -546,7 +542,7 @@ function rt.Label:_parse()
             step(1)
             _insert(current_word, s)
             step(1)
-            goto continue;
+            goto skip;
         elseif s == " " then
             push_glyph()
             _insert(glyphs, _syntax.SPACE)
@@ -585,19 +581,19 @@ function rt.Label:_parse()
                 sequence_i = sequence_i + 1
             until sequence_s == ">"
 
-            sequence = _concat(sequence)
+            local as_string = _concat(sequence)
 
-            local settings_key = _sequence_to_settings_key[sequence]
+            local settings_key = _sequence_to_settings_key[as_string]
             if settings_key ~= nil then
                 if is_closing_tag then
                     if settings[settings_key] == false then
-                        throw_parse_error("trying to close region with `" .. sequence .. "`, but not such region is open")
+                        throw_parse_error("trying to close region with `" .. as_string .. "`, but not such region is open")
                     end
 
                     settings[settings_key] = false
                 else
                     if settings[settings_key] == true then
-                        throw_parse_error("trying to open region with `" .. sequence .. "`, but such a region is already open")
+                        throw_parse_error("trying to open region with `" .. as_string .. "`, but such a region is already open")
                     end
 
                     settings[settings_key] = true
@@ -606,7 +602,7 @@ function rt.Label:_parse()
                 if is_closing_tag then -- manually parse color tags
                     local found = false
                     for other in keys(_syntax.COLOR_TAG_END) do
-                        if sequence == other then
+                        if as_string == other then
                             settings.color = default_color
                             settings.color_active = false
                             found = true
@@ -616,7 +612,7 @@ function rt.Label:_parse()
 
                     if not found then
                         for other in keys(_syntax.OUTLINE_COLOR_TAG_END) do
-                            if sequence == other then
+                            if as_string == other then
                                 settings.outline_color = default_outline_color
                                 settings.outline_color_active = false
                                 found = true
@@ -626,13 +622,13 @@ function rt.Label:_parse()
                     end
 
                     if not found then
-                        throw_parse_error("unrecognized tag `" .. sequence .. "`")
+                        throw_parse_error("unrecognized tag `" .. as_string .. "`")
                     end
                 else
                     -- parse out color string
                     local found, new_color
                     for tag in keys(_syntax.COLOR_TAG_START) do
-                        found, _, new_color = _find(sequence, tag)
+                        found, _, new_color = _find(as_string, tag)
                         if found ~= nil then
                             if _rt_palette[new_color] == nil then
                                 throw_parse_error("malformed color tag: color `" .. new_color .. "` unknown")
@@ -646,7 +642,7 @@ function rt.Label:_parse()
 
                     if found == nil then
                         for tag in keys(_syntax.OUTLINE_COLOR_TAG_START) do
-                            found, _, new_color = _find(sequence, tag)
+                            found, _, new_color = _find(as_string, tag)
                             if found ~= nil then
                                 if _rt_palette[new_color] == nil then
                                     throw_parse_error("malformed outline color tag: color `" .. new_color .. "` unknown")
@@ -660,17 +656,16 @@ function rt.Label:_parse()
                     end
 
                     if found == nil then
-                        throw_parse_error("unrecognized tag `" .. sequence .. "`")
+                        throw_parse_error("unrecognized tag `" .. as_string .. "`")
                     end
                 end
             end
-
             step(sequence_i - 1)
         else
             _insert(current_word, s)
         end
         step(1)
-        ::continue::
+        ::skip::
     end
     push_glyph()
 
@@ -706,7 +701,7 @@ function rt.Label:_parse()
             width = width + ternary(last_glyph_was_mono, mono_tab_w, tab_w)
             last_glyph_was_mono = false
         elseif glyph == _syntax.NEWLINE then
-            max_width = _max(max_width, width)
+            max_width = math.max(max_width, width)
             width = 0
             n_rows = n_rows + 1
             last_glyph_was_mono = false
@@ -718,7 +713,7 @@ function rt.Label:_parse()
         end
     end
 
-    self._width = _max(max_width, width)
+    self._width = math.max(max_width, width)
     self._height = n_rows * self._font:get_native(self._font_size, rt.FontStyle.BOLD_ITALIC):getHeight()
     if self._n_visible_characters == -1 then
         self._n_visible_characters = n_characters
@@ -764,7 +759,7 @@ function rt.Label:_apply_wrapping()
     local row_w = 0
     local max_glyph_x = 0
     local newline = function()
-        max_glyph_x = _max(max_glyph_x, glyph_x)
+        max_glyph_x = math.max(max_glyph_x, glyph_x)
         _insert(row_widths, glyph_x)
         if is_first_word ~= true then
             glyph_x = 0
@@ -820,8 +815,8 @@ function rt.Label:_apply_wrapping()
             glyph.row_index = row_i
 
             if glyph.is_outlined then
-                min_outline_y = _min(min_outline_y, glyph.y)
-                max_outline_y = _max(max_outline_y, glyph.y + glyph.height)
+                min_outline_y = math.min(min_outline_y, glyph.y)
+                max_outline_y = math.max(max_outline_y, glyph.y + glyph.height)
             end
 
             local color_matches = true
@@ -840,7 +835,7 @@ function rt.Label:_apply_wrapping()
                     else
                         glyph.underline_ax = glyph.x + _padding
                     end
-                    glyph.underline_ay = _ceil(glyph.y + underline_y)
+                    glyph.underline_ay = math.ceil(glyph.y + underline_y)
                     glyph.underline_bx = glyph.x + glyph.width + _padding
                     glyph.underline_by = glyph.underline_ay
                 end
@@ -851,16 +846,16 @@ function rt.Label:_apply_wrapping()
                     else
                         glyph.strikethrough_ax = glyph.x + _padding
                     end
-                    glyph.strikethrough_ay = _ceil(glyph.y + strikethrough_y)
+                    glyph.strikethrough_ay = math.ceil(glyph.y + strikethrough_y)
                     glyph.strikethrough_bx = glyph.x + glyph.width + _padding
                     glyph.strikethrough_by = glyph.strikethrough_ay
                 end
             end
 
-            min_x = _min(min_x, glyph.x)
-            min_y = _min(min_y, glyph.y)
-            max_x = _max(max_x, glyph.x + glyph.width)
-            max_y = _max(max_y, glyph.y + glyph.height)
+            min_x = math.min(min_x, glyph.x)
+            min_y = math.min(min_y, glyph.y)
+            max_x = math.max(max_x, glyph.x + glyph.width)
+            max_y = math.max(max_y, glyph.y + glyph.height)
 
             glyph_x = glyph_x + glyph.width
 
@@ -1030,8 +1025,8 @@ function rt.Label:_draw()
         local r, g, b, a = table.unpack(glyph.outline_color)
         love.graphics.setColor(r, g, b, a)
         love.graphics.draw(glyph.outline_glyph,
-            _floor(glyph.x + _padding),
-            _floor(glyph.y + _padding)
+            math.floor(glyph.x + _padding),
+            math.floor(glyph.y + _padding)
         )
 
         love.graphics.pop()
@@ -1064,8 +1059,8 @@ function rt.Label:_draw()
         local r, g, b, a = table.unpack(glyph.color)
         love.graphics.setColor(r, g, b, a)
         love.graphics.draw(glyph.glyph,
-            _floor(glyph.x + _padding ),
-            _floor(glyph.y + _padding)
+            math.floor(glyph.x + _padding ),
+            math.floor(glyph.y + _padding)
         )
 
         love.graphics.pop()
@@ -1319,11 +1314,11 @@ function rt.Glyph:size_allocate(x, y, width, height)
     end
 
     local glyph = self._native
-    glyph.x, glyph.y = _floor(x), _floor(y)
+    glyph.x, glyph.y = math.floor(x), math.floor(y)
 
     local font = glyph.font
-    local w = _ceil(glyph.font_sdf:getWidth(glyph.text))
-    local h = _ceil(glyph.font_sdf:getHeight())
+    local w = math.ceil(glyph.font_sdf:getWidth(glyph.text))
+    local h = math.ceil(glyph.font_sdf:getHeight())
     glyph.width, glyph.height = w, h
 
     local underline_y = font:getBaseline() + 4
@@ -1331,16 +1326,16 @@ function rt.Glyph:size_allocate(x, y, width, height)
 
     if glyph.is_underlined then
         glyph.underline_ax = glyph.x
-        glyph.underline_ay = _ceil(glyph.y + underline_y)
+        glyph.underline_ay = math.ceil(glyph.y + underline_y)
         glyph.underline_bx = glyph.x + glyph.width
-        glyph.underline_by = _ceil(glyph.y + underline_y)
+        glyph.underline_by = math.ceil(glyph.y + underline_y)
     end
 
     if glyph.is_strikethrough then
         glyph.strikethrough_ax = glyph.x
-        glyph.strikethrough_ay = _ceil(glyph.y + strikethrough_y)
+        glyph.strikethrough_ay = math.ceil(glyph.y + strikethrough_y)
         glyph.strikethrough_bx = glyph.x + glyph.width
-        glyph.strikethrough_by = _ceil(glyph.y + strikethrough_y)
+        glyph.strikethrough_by = math.ceil(glyph.y + strikethrough_y)
     end
 
     local rest_w = width - glyph.width

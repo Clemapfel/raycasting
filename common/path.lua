@@ -2,6 +2,7 @@
 --- @brief arc-length parameterized chain of line segments, unlike spline, extremely fast to evaluate
 rt.Path = meta.class("Path")
 
+--- @alias rt.Path2D rt.Path
 rt.Path2D = rt.Path -- alias to be consistent with `Path3D`
 
 --- @brief
@@ -352,7 +353,7 @@ function rt.Path:get_length()
 end
 
 --- @brief override arclength parameterization with custom per-segment fraction
---- @param, . Number of values equal to number of segments, must sum to 1
+--- @param ... Number of values equal to number of segments, must sum to 1
 function rt.Path:override_parameterization(...)
     local n_args = select("#", ...)
     if n_args ~= self._n_entries then

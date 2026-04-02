@@ -278,7 +278,7 @@ function rt.Path3D:draw()
 end
 
 --- @brief override arclength parameterization with custom per-segment fraction
---- @param, . Number of values equal to number of segments, must sum to 1
+--- @param ... Number of values equal to number of segments, must sum to 1
 function rt.Path3D:override_parameterization(...)
     local n_args = select("#", ...)
     if n_args ~= self._n_entries then

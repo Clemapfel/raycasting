@@ -1,3 +1,4 @@
+---@diagnostic disable: unnecessary-if
 ENABLE_DEBUGGER = true -- if true, love errorhandler invokes debugger
 require "common.splash_screen" -- splash screen during compilation
 
@@ -9,12 +10,17 @@ bit = require "bit"
 
 require "common.common"
 require "common.math"
-meta = require "common.meta"
+require "common.meta"
 
 -- load love language server definitions
 
----@diagnostic disable: unnecessary-if
-if false then love = {} end
+if false then
+    love = {}
+    math = {}
+    ffi = {}
+    utf8 = {}
+end
+
 
 --- @alias Nil nil
 --- @alias Number number
@@ -22,6 +28,11 @@ if false then love = {} end
 --- @alias Boolean boolean
 --- @alias Table table
 --- @alias Function function
+--- @alias Any any
+
+--- @alias Integer number
+--- @alias Radians number
+--- @alias Degrees number
 
 require "love.definitions.audio"
 require "love.definitions.data"

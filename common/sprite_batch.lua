@@ -65,8 +65,8 @@ function rt.SpriteBatch._params_to_data(x, y, w, h, tx, ty, tw, th, flip_horizon
 end
 
 --- @brief
---- @param rotation radians rotates bottom left corner
---- @return
+--- @param rotation Radians rotates bottom left corner
+--- @return Integer
 function rt.SpriteBatch:add(x, y, w, h, tx, ty, tw, th, flip_horizontally, flip_vertically, angle)
     if flip_horizontally == nil then flip_horizontally = false end
     if flip_vertically == nil then flip_vertically = false end

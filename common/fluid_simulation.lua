@@ -1028,6 +1028,8 @@ do
                 goto ignore
             end
 
+            local value = value -- sic, shadow iterator
+
             if entry.type == "color" then
                 -- assert value is rgba table
                 if not meta.isa(value, rt.RGBA) then

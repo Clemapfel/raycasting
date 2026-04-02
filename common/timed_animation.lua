@@ -1,13 +1,14 @@
 require "common.interpolation_functions"
 
 --- @class rt.TimedAnimation
---- @param duration
---- @param start_value
---- @param end_value
---- @param interpolation_function
 rt.TimedAnimation = meta.class("TimedAnimation")
 meta.add_signals(rt.TimedAnimation, "done")
 
+--- @brief
+--- @param duration Number
+--- @param start_value Number
+--- @param end_value Number
+--- @param interpolation_function Number
 function rt.TimedAnimation:instantiate(duration, start_value, end_value, interpolation_function, ...)
     if start_value == nil then start_value = 0 end
     if end_value == nil then end_value = 1 end

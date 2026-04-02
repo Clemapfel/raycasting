@@ -36,7 +36,10 @@ function rt.Matrix:set(x, y, value)
     if y > self._max_y then self._max_y = y end
 end
 
---- @return (Number, Number, Number, Number) min_x, min_y, max_x, max_y
+--- @return Number min_x
+--- @return Number min_y
+--- @return Number max_x
+--- @return Number max_y
 function rt.Matrix:get_index_range()
     if self._index_range_update_needed then
         self:_update_index_range()

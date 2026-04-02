@@ -3,6 +3,7 @@ rt.settings.shader = {
 }
 
 --- @class rt.Shader
+--- @overload fun(filename : String?, defines : Table?)
 rt.Shader = meta.class("Shader")
 
 local _dummy_shader = love.graphics.newShader([[
@@ -72,7 +73,7 @@ end
 
 --- @brief set uniform
 --- @param name String
---- @param value
+--- @param value Any
 function rt.Shader:send(name, value, ...)
     if self._is_disabled then return elseif self._native == nil then self:compile() end
 

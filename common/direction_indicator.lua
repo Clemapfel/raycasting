@@ -41,7 +41,7 @@ function rt.DirectionIndicator:instantiate(direction)
     return self
 end
 
---- @overload rt.Drawable.draw
+--- @override rt.Drawable.draw
 function rt.DirectionIndicator:draw()
     if not self:get_is_visible() then return end
 
@@ -58,7 +58,7 @@ function rt.DirectionIndicator:draw()
     rt.graphics.set_blend_mode()
 end
 
---- @overload rt.Widget.size_allocate
+--- @override rt.Widget.size_allocate
 function rt.DirectionIndicator:size_allocate(x, y, width, height)
     local center_x, center_y = x + 0.5 * width, y + 0.5 * height
     local radius = math.min(width, height) / 2

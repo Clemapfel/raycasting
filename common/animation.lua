@@ -14,9 +14,12 @@ rt.AnimationState = meta.enum("AnimationState", {
 --- @class rt.QueuableAnimation
 --- @signal start (self) -> nil
 --- @signal finish (self) -> nil
-rt.Animation = meta.abstract_class("Animation", function()
+rt.Animation = meta.abstract_class("Animation")
+
+--- @brief
+function rt.Animation:instantiate()
     self._state = rt.AnimationState.IDLE
-end)
+end
 
 meta.add_signals(rt.Animation,
     "start", -- before start invocation
@@ -51,13 +54,16 @@ end
 -- ###
 
 --- @class rt.AnimationQueue
-rt.AnimationQueue = meta.class("AnimationQueue", function()
+rt.AnimationQueue = meta.class("AnimationQueue")
+
+--- @brief
+function rt.AnimationQueue:instantiate()
     meta.install(self, {
         _nodes = {},
         _n_nodes = 0,
         _start_should_trigger = true
     })
-end)
+end
 
 meta.add_signals(rt.AnimationQueue,
     "emptied"
