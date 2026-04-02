@@ -177,7 +177,7 @@ end
 local _signal_disconnect = function(instance, id, callback_id)
     local component = instance[_object_signal_component_index]
     if component == nil then
-        rt.error("In ",  meta.typeof(instance),  ".signal_disconnect: object `",  meta.typeof(self),  "` does not have any signals")
+        rt.error("In ",  meta.typeof(instance),  ".signal_disconnect: object `",  meta.typeof(instance),  "` does not have any signals")
         return
     end
 
@@ -240,7 +240,7 @@ end
 local _signal_list_handler_ids = function(instance, id)
     local component = instance[_object_signal_component_index]
     if component == nil then
-        rt.error("In ",  meta.typeof(instance),  ".signal_list_handler_id: object `",  meta.typeof(self),  "` does not have any signals")
+        rt.error("In ",  meta.typeof(instance),  ".signal_list_handler_id: object `",  meta.typeof(instance),  "` does not have any signals")
         return
     end
 
@@ -256,7 +256,7 @@ end
 local _signal_disconnect_all = function(instance, id)
     local component = instance[_object_signal_component_index]
     if component == nil then
-        rt.error("In ",  meta.typeof(instance),  ".signal_disconnect_all: object `",  meta.typeof(self),  "` does not have any signals")
+        rt.error("In ",  meta.typeof(instance),  ".signal_disconnect_all: object `",  meta.typeof(instance),  "` does not have any signals")
         return
     end
 
@@ -285,7 +285,7 @@ end
 local _signal_set_is_blocked = function(instance, id, b)
     local component = instance[_object_signal_component_index]
     if component == nil then
-        rt.error("In ",  meta.typeof(instance),  ".signal_set_is_blocked: object `",  meta.typeof(self),  "` does not have any signals")
+        rt.error("In ",  meta.typeof(instance),  ".signal_set_is_blocked: object `",  meta.typeof(instance),  "` does not have any signals")
         return
     end
 
@@ -301,7 +301,7 @@ end
 local _signal_get_is_blocked = function(instance, id)
     local component = instance[_object_signal_component_index]
     if component == nil then
-        rt.error("In ",  meta.typeof(instance),  ".signal_get_is_blocked: object `",  meta.typeof(self),  "` does not have any signals")
+        rt.error("In ",  meta.typeof(instance),  ".signal_get_is_blocked: object `",  meta.typeof(instance),  "` does not have any signals")
         return
     end
 
@@ -317,7 +317,7 @@ end
 local _signal_block_all = function(instance)
     local component = instance[_object_signal_component_index]
     if component == nil then
-        rt.error("In ",  meta.typeof(instance),  ".signal_block_all: object `",  meta.typeof(self),  "` does not have any signals")
+        rt.error("In ",  meta.typeof(instance),  ".signal_block_all: object `",  meta.typeof(instance),  "` does not have any signals")
         return
     end
 
@@ -329,7 +329,7 @@ end
 local _signal_unblock_all = function(instance)
     local component = instance[_object_signal_component_index]
     if component == nil then
-        rt.error("In ",  meta.typeof(instance),  ".signal_unblock_all: object `",  meta.typeof(self),  "` does not have any signals")
+        rt.error("In ",  meta.typeof(instance),  ".signal_unblock_all: object `",  meta.typeof(instance),  "` does not have any signals")
         return
     end
 
@@ -341,7 +341,7 @@ end
 local _signal_has_signal = function(instance, id)
     local component = instance[_object_signal_component_index]
     if component == nil then
-        rt.error("In ",  meta.typeof(instance),  ".signal_has_signal: object `",  meta.typeof(self),  "` does not have any signals")
+        rt.error("In ",  meta.typeof(instance),  ".signal_has_signal: object `",  meta.typeof(instance),  "` does not have any signals")
         return
     end
 
@@ -351,7 +351,7 @@ end
 local _signal_list_handler_ids = function(instance, id)
     local component = instance[_object_signal_component_index]
     if component == nil then
-        rt.error("In ",  meta.typeof(instance),  ".signal_list_handler_ids: object `",  meta.typeof(self),  "` does not have any signals")
+        rt.error("In ",  meta.typeof(instance),  ".signal_list_handler_ids: object `",  meta.typeof(instance),  "` does not have any signals")
         return
     end
 

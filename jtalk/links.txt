@@ -1,0 +1,2 @@
+https://github.com/r9y9/pyopenjtalk
+https://sourceforge.net/projects/mmdagent/
