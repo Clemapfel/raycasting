@@ -33,10 +33,10 @@ vec2 rotate(vec2 v, float angle) {
 #ifdef PIXEL
 
 uniform float elapsed;
-uniform vec4 color_a;
-uniform vec4 color_b;
+uniform vec4 color_a = vec4(1);
+uniform vec4 color_b = vec4(0, 0, 0, 1);
 
-uniform vec2 camera_offset;
+uniform vec2 camera_offset = vec2(0);
 uniform float camera_scale = 1;
 vec2 to_uv(vec2 frag_position) {
     vec2 uv = frag_position;

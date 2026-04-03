@@ -217,6 +217,7 @@ function bd.create_file(path, content, should_overwrite)
     end
 end
 
+--- @brief
 function bd.read_file(path)
     meta.assert(path, "String")
 
@@ -236,6 +237,30 @@ function bd.read_file(path)
     end
 
     return data
+end
+
+--- @brief
+function bd.iterate_lines(path)
+    meta.assert(path, "String")
+    path = bd.normalize_path(path)
+    if not bd.exists(path) then
+        return nil
+    end
+
+    if not bd.is_file(path) then
+        rt.error("In bd.read_file: object at `", path, "` is not a file")
+    end
+
+    local success, iterator_or_error = pcall(love.filesystem.lines, path)
+    if success == false then
+        rt.error("In bd.iterate_lines: unable to read file at `", path, "`: ", iterator_or_error)
+    end
+
+    if iterator_or_error == nil then
+        rt.error("In bd.iterate_lines: unable to read file at `", path, "`")
+    end
+
+    return iterator_or_error
 end
 
 --- @brief overwrite an existing file with string

@@ -644,7 +644,13 @@ end
 
 --- @return table
 function meta.instances(enum)
-    return _enum_to_instances[enum]
+    local out = _enum_to_instances[enum]
+    if out == nil then
+        rt.error("In meta.instances: object of type `", meta.typeof(enum), "` is not an enum")
+        return {}
+    else
+        return out
+    end
 end
 
 --- @brief

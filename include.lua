@@ -14,14 +14,6 @@ require "common.meta"
 
 -- load love language server definitions
 
-if false then
-    love = {}
-    math = {}
-    ffi = {}
-    utf8 = {}
-end
-
-
 --- @alias Nil nil
 --- @alias Number number
 --- @alias String string
@@ -32,6 +24,8 @@ end
 --- @alias Integer number
 --- @alias Radians number
 --- @alias Degrees number
+
+if false then love = {} end
 
 require "love.definitions.audio"
 require "love.definitions.data"

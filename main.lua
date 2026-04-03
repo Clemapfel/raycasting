@@ -5,8 +5,22 @@ require "common.music_manager"
 require "common.sound_manager"
 require "common.input_manager"
 
+require "jtalk.animalese"
+local animalese = rt.Animalese()
+
+DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
+    if which == rt.KeyboardKey.P then
+        animalese:queue(rt.AnimaleseGender.FEMALE, rt.AnimaleseEmotion.NORMAL,
+            "ka", "ma", "ma", "ma", "ji", "tsu", "ne"
+        )
+    end
+end)
+
 love.load = function(args)
     local w, h = love.graphics.getDimensions()
+
+    require "common.texture_format"
+    local texture = rt.TextureScaleMode
 
     local result_screen = 1
     local overworld = 2
@@ -40,7 +54,7 @@ love.load = function(args)
     end
 
     require "overworld.overworld_scene"
-    rt.SceneManager:push(ow.OverworldScene, "bounce_tutorial", false)
+    --rt.SceneManager:push(ow.OverworldScene, "bounce_tutorial", false)
 
     require "menu.keybinding_scene"
     --rt.SceneManager:push(mn.KeybindingScene)
@@ -70,6 +84,8 @@ love.update = function(delta)
     if rt.SceneManager ~= nil then
         rt.SceneManager:update(delta)
     end
+
+    animalese:update(delta)
 end
 
 love.draw = function()
