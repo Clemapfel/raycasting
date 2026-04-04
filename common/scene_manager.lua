@@ -12,6 +12,7 @@ rt.settings.scene_manager = {
     max_n_steps_per_frame = 8,
     performance_metrics_n_frames = 144,
     fade_duration = 0.2,
+    performance_metrics_n_samples = 120,
     fps_limit = 1000,
 
     draw_instance_count_interval = 5 -- seconds
@@ -96,19 +97,19 @@ function rt.SceneManager:instantiate()
     self._fade:set_duration(rt.settings.scene_manager.fade_duration)
 
     -- performance
-    local n_samples = 1000
+    local n_samples = rt.settings.scene_manager.performance_metrics_n_samples
 
-    local timestep = 1 / self._update_fixed_fps
-    self._update_durations = table.rep(timestep, n_samples)
-    self._update_sum = n_samples * timestep
+    local duration = 0
+    self._update_durations = table.rep(duration, n_samples)
+    self._update_sum = n_samples * duration
 
-    timestep = 1 / self._draw_fixed_fps
-    self._draw_durations = table.rep(timestep, n_samples)
-    self._draw_sum = n_samples * timestep
+    duration = 0
+    self._draw_durations = table.rep(duration, n_samples)
+    self._draw_sum = n_samples * duration
 
     self._draw_instants = {}
-    self._fps_samples = table.rep(self._draw_fixed_fps, n_samples)
-    self._fps_sum = n_samples * self._draw_fixed_fps
+    self._fps_samples = table.rep(60, n_samples)
+    self._fps_sum = n_samples * 60
 end
 
 --- @brief

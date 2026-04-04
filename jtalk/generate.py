@@ -209,15 +209,15 @@ def main():
 
 # ---
 
-before = time.time()
+if __name__ == "__main__":
+    before = time.time()
+    try:
+        main()
+    except Exception as error:
+        print("[rt] script failed with " + str(error))
+        export_path = Path(EXPORT_PREFIX)
+        if export_path.exists():
+            shutil.rmtree(export_path)
 
-try:
-    main()
-except Exception as error:
-    print("[rt] script failed with " + str(error))
-    export_path = Path(EXPORT_PREFIX)
-    if export_path.exists():
-        shutil.rmtree(export_path)
-
-duration = time.time() - before
-print(f"done (took {duration:.4f}s)")
+    duration = time.time() - before
+    print(f"done (took {duration:.4f}s)")
