@@ -7,12 +7,12 @@ require "common.input_manager"
 
 require "jtalk.animalese"
 local animalese = rt.Animalese()
-dbg(animalese:translate("owo wats dis. does dis work uwu?"))
 
 DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
     if which == rt.KeyboardKey.P then
-        animalese:queue(rt.AnimaleseGender.FEMALE, rt.AnimaleseEmotion.NORMAL,
-            "ka", "ma", "ma", "ma", "beat", "ji", "tsu", "ne"
+        local t = animalese:translate("flawless victory")
+        animalese:queue(rt.Animalese.Gender.FEMALE, rt.Animalese.Emotion.NORMAL,
+            table.unpack(t)
         )
     end
 end)

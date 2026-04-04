@@ -13,14 +13,14 @@ rt.settings.animalese = {
 --- @class rt.Animalese
 rt.Animalese = meta.class("Animalese")
 
---- @enum rt.AnimaleseGender
+--- @enum rt.Animalese.Gender
 rt.Animalese.Gender = {
     MALE = "takumi",
     FEMALE = "mei"
 }
-rt.Animalese.Gender = meta.enum("AnimaleseGender", rt.Animalese.Gender)
+rt.Animalese.Gender = meta.enum("Animalese.Gender", rt.Animalese.Gender)
 
---- @enum rt.AnimaleseEmotion
+--- @enum rt.Animalese.Emotion
 rt.Animalese.Emotion = {
     ANGRY = "angry",
     BASHFUL = "bashful",
@@ -28,7 +28,7 @@ rt.Animalese.Emotion = {
     NORMAL = "normal",
     SAD = "sad"
 }
-rt.Animalese.Emotion = meta.enum("AnimaleseEmotion", rt.Animalese.Emotion)
+rt.Animalese.Emotion = meta.enum("Animalese.Emotion", rt.Animalese.Emotion)
 
 require "jtalk.animalese_phonemes"
 
@@ -44,7 +44,7 @@ function rt.Animalese:instantiate()
     local phonemes = {}
     for phoneme in bd.iterate_lines(bd.join_path(prefix, settings.phonemes_list_filename)) do
         if not meta.is_enum_value(phoneme, rt.Animalese.Phoneme) then
-            rt.critical("In rt.Animalese: phoneme `", phoneme, "` is found on disk but not part of enum `rt.AnimalesePhoneme`")
+            rt.critical("In rt.Animalese: phoneme `", phoneme, "` is found on disk but not part of enum `rt.Animalese.Phoneme`")
         else
             table.insert(phonemes, phoneme)
         end
@@ -87,15 +87,17 @@ function rt.Animalese:_get_free_source(entry)
 end
 
 function rt.Animalese:queue(gender, emotion, ...)
-    if gender == nil then gender = rt.AnimaleseGender.FEMALE end
-    if emotion == nil then emotion = rt.AnimaleseEmotion.NORMAL end
+    if gender == nil then gender = rt.Animalese.Gender.FEMALE end
+    if emotion == nil then emotion = rt.Animalese.Emotion.NORMAL end
 
-    meta.assert_enum_value(gender, rt.AnimaleseGender, 2)
-    meta.assert_enum_value(emotion, rt.AnimaleseEmotion, 3)
+    meta.assert_enum_value(gender, rt.Animalese.Gender, 2)
+    meta.assert_enum_value(emotion, rt.Animalese.Emotion, 3)
+
+    dbg(...)
 
     local data = self._data
-    local gender_entry = data[gender] or data[rt.AnimaleseGender.FEMALE]
-    local emotion_entry = gender_entry[emotion] or gender_entry[rt.AnimaleseEmotion.NORMAL]
+    local gender_entry = data[gender] or data[rt.Animalese.Gender.FEMALE]
+    local emotion_entry = gender_entry[emotion] or gender_entry[rt.Animalese.Emotion.NORMAL]
 
     -- track if the queue was completely empty before we started appending
     local was_empty = (#self._queue == 0)
@@ -103,7 +105,7 @@ function rt.Animalese:queue(gender, emotion, ...)
     for i = 1, select("#", ...) do
         local phoneme = select(i, ...)
 
-        if phoneme == rt.AnimalesePhoneme.BEAT then
+        if phoneme == rt.Animalese.Phoneme.BEAT then
             table.insert(self._queue, {
                 is_beat = true,
                 duration = rt.settings.animalese.beat_duration,
@@ -226,14 +228,14 @@ function rt.Animalese:update(delta)
 end
 
 --- @brief
-function rt.Animalese:translate(english_text)
+function rt.Animalese:_english_to_phoneme(text)
     if not bd.is_file("jtalk/to_phonemes.py") then
         rt.error("In rt.Animalese: `jtalk/to_phonemes.py` not present, are you trying to call this function outside build time?")
         return {}
     end
 
     -- capture tty output
-    local command = string.format("python ./jtalk/to_phonemes.py \"%s\"", english_text)
+    local command = string.format("python ./jtalk/to_phonemes.py \"%s\"", text)
     local f = io.popen(command, 'r')
     local s = assert(f:read('*a'))
     f:close()
@@ -262,5 +264,246 @@ function rt.Animalese:translate(english_text)
     end
 
     return {} -- unreachable
+end
+
+do
+    local English = rt.Animalese.EnglishPhoneme
+    local Japanese = rt.Animalese.Phoneme
+
+    local english_is_consonant = {}
+    for x in range(
+        English.B,
+        English.D,
+        English.G,
+        English.K,
+        English.P,
+        English.T,
+        English.DH,
+        English.F,
+        English.HH,
+        English.S,
+        English.SH,
+        English.TH,
+        English.V,
+        English.Z,
+        English.ZH,
+        English.CH,
+        English.JH,
+        English.M,
+        English.N,
+        English.NG,
+        English.L,
+        English.R,
+        English.W,
+        English.Y
+    ) do
+        english_is_consonant[x] = true
+    end
+
+    local stress_levels = { "0", "1", "2" }
+
+    local english_is_vowel = {}
+    for x in range(
+        English.AA,
+        English.AE,
+        English.AH,
+        English.AO,
+        English.EH,
+        English.IH,
+        English.IY,
+        English.UH,
+        English.UW,
+        English.AW,
+        English.AY,
+        English.EY,
+        English.OW,
+        English.OY,
+        English.ER
+    ) do
+        english_is_vowel[x] = true
+        for stress in values(stress_levels) do
+            english_is_vowel[x .. stress] = true
+        end
+    end
+
+    local english_pure_vowel_to_japanese_vowel = {
+        [English.AA]  = Japanese.A,
+        [English.AE]  = Japanese.A,
+        [English.AH]  = Japanese.A,
+        [English.AO]  = Japanese.O,
+        [English.EH]  = Japanese.E,
+        [English.IH]  = Japanese.I,
+        [English.IY]  = Japanese.II,
+        [English.UH]  = Japanese.U,
+        [English.UW]  = Japanese.UU,
+        [English.AW] = { Japanese.A, Japanese.U },
+        [English.AY] = { Japanese.A, Japanese.I },
+        [English.EY] = { Japanese.EE, Japanese.I },
+        [English.OW] = Japanese.OO,
+        [English.OY] = Japanese.O,
+        [English.ER] = { Japanese.E, Japanese.RU },
+    }
+
+    local english_suffix_vowel_to_japanese_vowel = {
+        [English.AA]  = Japanese.A,
+        [English.AE]  = Japanese.A,
+        [English.AH]  = Japanese.A,
+        [English.AO]  = Japanese.O,
+        [English.EH]  = Japanese.E,
+        [English.IH]  = Japanese.I,
+        [English.IY]  = Japanese.I,
+        [English.UH]  = Japanese.U,
+        [English.UW]  = Japanese.U,
+        [English.AW] = { Japanese.A, Japanese.U },
+        [English.AY] = { Japanese.A, Japanese.I },
+        [English.EY] = { Japanese.E, Japanese.I },
+        [English.OW] = Japanese.O,
+        [English.OY] = Japanese.O,
+        [English.ER] = { Japanese.E, Japanese.RU },
+    }
+
+    for t in range(
+        english_pure_vowel_to_japanese_vowel,
+        english_suffix_vowel_to_japanese_vowel
+    ) do
+        local to_add = {}
+        for x, value in pairs(t) do
+            for stress in values(stress_levels) do
+                to_add[x .. stress] = value
+            end
+        end
+
+        for k, v in pairs(to_add) do
+            t[k] = v
+        end
+
+        for k, v in pairs(t) do
+            if not meta.is_table(v) then
+                t[k] = { v }
+            end
+        end
+    end
+
+    local english_consonant_to_japanese_prefix = {
+        [English.B] = "B",
+        [English.D] = "D",
+        [English.G] = "G",
+        [English.K] = "K",
+        [English.P] = "P",
+        [English.T] = "T",
+        [English.DH] = "Z",
+        [English.F]  = "F",
+        [English.HH] = "H",
+        [English.S]  = "S",
+        [English.SH] = "SH",
+        [English.TH] = "Z",
+        [English.V] = "W",
+        [English.Z]  = "Z",
+        [English.ZH] = "J",
+        [English.CH] = "CH",
+        [English.JH] = "J",
+        [English.M]  = "M",
+        [English.N]  = "N",
+        [English.NG] = "N",
+        [English.L] = "R",
+        [English.R] = "R",
+        [English.W] = "W",
+        [English.Y] = "Y",
+    }
+
+    --- @brief
+    function rt.Animalese:translate(text)
+        local phonemes = self:_english_to_phoneme(text)
+
+        local translation = {}
+
+        local is_vowel = function(x)
+            return english_is_vowel[x] == true
+        end
+
+        local is_consonant = function(x)
+            return english_is_consonant[x] == true
+        end
+
+        local is_stop = function(x)
+            return x == nil
+                or x == English.BEAT
+                or x == English.COMMA
+                or not meta.is_enum_value(x, English)
+        end
+
+        local mapping = {
+            ["SI"] = Japanese.SHI,
+            ["ZI"] = Japanese.JI,
+            ["TI"] = Japanese.CHI,
+            ["TU"] = Japanese.TSU,
+            ["YI"] = Japanese.JI,
+            ["YE"] = Japanese.JE,
+            ["WI"] = Japanese.VI,
+            ["WE"] = Japanese.VE,
+            ["WU"] = Japanese.VU,
+            ["VA"] = Japanese.WA
+        }
+
+        local push = function(x)
+            x = mapping[x] or x
+            rt.assert(meta.is_enum_value(x, Japanese), "In push: `", x, "` is not a japanese phenome")
+            table.insert(translation, x)
+        end
+
+        local i = 1
+        local n = #phonemes
+
+        while i <= n do
+            local current = phonemes[i+0]
+            local next = phonemes[i+1]
+
+            if is_consonant(current) then
+                if is_vowel(next) then
+                    -- consonant-vowel: form syllable
+                    local vowels = english_suffix_vowel_to_japanese_vowel[next]
+                    if vowels == nil then
+                        rt.error("Unhandled vowel `", next, "`")
+                    end
+
+                    push(english_consonant_to_japanese_prefix[current] .. vowels[1])
+                    for j = 2, #vowels do push(vowels[j]) end
+                    i = i + 2
+                elseif is_consonant(next) or is_stop(next) then
+                    if current == "N" then
+                        push(Japanese.N)
+                    else
+                        -- consonant-consonant: use silent u
+                        push(english_consonant_to_japanese_prefix[current] .. "U")
+                    end
+                    i = i + 1
+                else
+                    rt.error("Unhandled case: `", current, "`, `", next, "`")
+                end
+            elseif is_vowel(current) then
+                if is_vowel(next) or is_consonant(next) or is_stop(next) then
+                    -- pure vowel
+                    local vowels = english_pure_vowel_to_japanese_vowel[current]
+                    if vowels == nil then
+                        rt.error("Unhandled vowel `", next, "`")
+                    end
+
+                    for x in values(vowels) do push(x) end
+                    i = i + 1
+                else
+                    rt.error("Unhandled case: `", current, "`, `", next, "`")
+                end
+            elseif meta.is_enum_value(current, Japanese) then
+                push(current)
+                i = i + 1
+            elseif current == nil then
+                break
+            else
+                rt.critical("In rt.Animalese.translate: unhandled character `", current, "`")
+            end
+        end
+
+        return translation
+    end
 end
 

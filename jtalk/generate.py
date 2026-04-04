@@ -20,7 +20,7 @@ EXPORT_PREFIX = "export"
 SYLLABLE_LIST_FILENAME = "phonemes_jp.txt"
 EXPORT_EMOTIONS = [ Emotion.NORMAL ]
 EXPORT_GENDERS = [ Gender.FEMALE, Gender.MALE ]
-EXPORT_SPEED = 2
+EXPORT_SPEED = 1.8
 EXPORT_FORMAT = Format.WAV
 
 # -------------------------------------- #
@@ -77,88 +77,76 @@ def export(engine_path, text, output_path):
 
 phonemes = {
     # Vowels
-    "a": "ア", "i": "イ", "u": "ウ", "e": "エ", "o": "オ",
+    "A": "ア", "I": "イ", "U": "ウ", "E": "エ", "O": "オ",
 
     # Long vowels
-    "aa": "アア", "ii": "イイ", "uu": "ウウ", "ee": "えい", "oo": "オオ",
+    "AA": "アア", "II": "イイ", "UU": "ウウ", "EE": "えい", "OO": "オオ",
 
     # K-row
-    "ka": "カ", "ki": "キ", "ku": "ク", "ke": "ケ", "ko": "コ",
+    "KA": "カ", "KI": "キ", "KU": "ク", "KE": "ケ", "KO": "コ",
     # G-row
-    "ga": "ガ", "gi": "ギ", "gu": "グ", "ge": "ゲ", "go": "ゴ",
+    "GA": "ガ", "GI": "ギ", "GU": "グ", "GE": "ゲ", "GO": "ゴ",
     # S-row
-    "sa": "サ", "si": "シ", "su": "ス", "se": "セ", "so": "ソ",
+    "SA": "サ", "SI": "シ", "SU": "ス", "SE": "セ", "SO": "ソ",
     # Z-row
-    "za": "ザ", "zi": "ジ", "zu": "ズ", "ze": "ゼ", "zo": "ゾ",
+    "ZA": "ザ", "ZI": "ジ", "ZU": "ズ", "ZE": "ゼ", "ZO": "ゾ",
     # T-row
-    "ta": "タ", "ti": "チ", "tu": "ツ", "te": "テ", "to": "ト",
+    "TA": "タ", "TI": "チ", "TU": "ツ", "TE": "テ", "TO": "ト",
     # D-row
-    "da": "ダ", "di": "ディ", "du": "ヅ", "de": "デ", "do": "ド",
+    "DA": "ダ", "DI": "ディ", "DU": "ヅ", "DE": "デ", "DO": "ド",
     # N-row
-    "na": "ナ", "ni": "ニ", "nu": "ヌ", "ne": "ネ", "no": "ノ",
+    "NA": "ナ", "NI": "ニ", "NU": "ヌ", "NE": "ネ", "NO": "ノ",
     # H-row
-    "ha": "ハ", "hi": "ヒ", "hu": "フ", "he": "ヘ", "ho": "ホ",
+    "HA": "ハ", "HI": "ヒ", "HU": "フ", "HE": "ヘ", "HO": "ホ",
     # B-row
-    "ba": "バ", "bi": "ビ", "bu": "ぶ", "be": "ベ", "bo": "ボ",
+    "BA": "バ", "BI": "ビ", "BU": "ぶ", "BE": "ベ", "BO": "ボ",
     # P-row
-    "pa": "パ", "pi": "ピ", "pu": "プ", "pe": "ペ", "po": "ポ",
+    "PA": "パ", "PI": "ピ", "PU": "プ", "PE": "ペ", "PO": "ポ",
     # M-row
-    "ma": "マ", "mi": "ミ", "mu": "ム", "me": "メ", "mo": "モ",
+    "MA": "マ", "MI": "ミ", "MU": "ム", "ME": "メ", "MO": "モ",
     # Y-row
-    "ya": "ヤ", "yu": "ユ", "yo": "ヨ",
+    "YA": "ヤ", "YU": "ユ", "YO": "ヨ",
     # R-row
-    "ra": "ラ", "ri": "リ", "ru": "ル", "re": "レ", "ro": "ロ",
+    "RA": "ラ", "RI": "リ", "RU": "ル", "RE": "レ", "RO": "ロ",
     # W-row
-    "wa": "ワ", "wo": "ヲ",
+    "WA": "ワ", "WO": "ヲ",
 
     # Palatalized — K
-    "kya": "キャ", "kyu": "キュ", "kyo": "キョ",
+    "KYA": "キャ", "KYU": "キュ", "KYO": "キョ",
     # Palatalized — G
-    "gya": "ギャ", "gyu": "ギュ", "gyo": "ギョ",
+    "GYA": "ギャ", "GYU": "ギュ", "GYO": "ギョ",
     # Palatalized — SH
-    "sha": "シャ", "shi": "シ", "shu": "シュ", "she": "シェ", "sho": "ショ",
+    "SHA": "シャ", "SHI": "シ", "SHU": "シュ", "SHE": "シェ", "SHO": "ショ",
     # Palatalized — J
-    "ja": "ジャ", "ji": "ジ", "ju": "ジュ", "je": "ジェ", "jo": "ジョ",
+    "JA": "ジャ", "JI": "ジ", "JU": "ジュ", "JE": "ジェ", "JO": "ジョ",
     # Palatalized — CH
-    "cha": "チャ", "chi": "チ", "chu": "チュ", "che": "チェ", "cho": "チョ",
+    "CHA": "チャ", "CHI": "チ", "CHU": "チュ", "CHE": "チェ", "CHO": "チョ",
     # Palatalized — TS
-    "tsa": "ツァ", "tsi": "ツィ", "tsu": "ツ", "tse": "ツェ", "tso": "ツォ",
+    "TSA": "ツァ", "TSI": "ツィ", "TSU": "ツ", "TSE": "ツェ", "TSO": "ツォ",
     # Palatalized — N
-    "nya": "ニャー", "nyu": "ニュ", "nyo": "ニョ",
+    "NYA": "ニャー", "NYU": "ニュ", "NYO": "ニョ",
     # Palatalized — H
-    "hya": "ヒャ", "hyu": "ヒュ", "hyo": "ヒョ",
+    "HYA": "ヒャ", "HYU": "ヒュ", "HYO": "ヒョ",
     # Palatalized — F
-    "fa": "ファ", "fi": "フィ", "fu": "フ", "fe": "フェ", "fo": "フォ",
+    "FA": "ファ", "FI": "フィ", "FU": "フ", "FE": "フェ", "FO": "フォ",
     # Palatalized — B
-    "bya": "ビャ", "byu": "ビュ", "byo": "ビョ",
+    "BYA": "ビャ", "BYU": "ビュ", "BYO": "ビョ",
     # Palatalized — P
-    "pya": "ピャ", "pyu": "ピュ", "pyo": "ピョ",
+    "PYA": "ピャ", "PYU": "ピュ", "PYO": "ピョ",
     # Palatalized — M
-    "mya": "ミャ", "myu": "ミュ", "myo": "ミョ",
+    "MYA": "ミャ", "MYU": "ミュ", "MYO": "ミョ",
     # Palatalized — R
-    "rya": "リャ", "ryu": "リュ", "ryo": "リョ",
+    "RYA": "リャ", "RYU": "リュ", "RYO": "リョ",
 
     # V-row (foreign loans)
-    "va": "ヴァ", "vi": "ヴィ", "vu": "ヴ", "ve": "ヴェ", "vo": "ヴォ",
+    "VA": "ヴァ", "VI": "ヴィ", "VU": "ヴ", "VE": "ヴェ", "VO": "ヴォ",
 
     # Foreign stops on /t/ and /d/
-    "thi": "ティ", "tyu": "テュ", "dyu": "デュ",
+    "THI": "ティ", "TYU": "テュ", "DYU": "デュ",
 
     # Moraic nasal and geminate
-    "n": "ン",
+    "N": "ン",
 }
-
-# manual exclude
-for exclude in [
-    "nya", # sounds like "na"
-    "ro",  # sounds like "ryo"
-    "si",  # sounds like "shi"
-    "ti",  # sounds like "chi"
-    "tu",  # sounds like "tsu"
-    "va",  # sounds like "va"
-    "zi",  # sounds like "ji"
-]:
-    phonemes.pop(exclude)
 
 def main():
     engines = {}

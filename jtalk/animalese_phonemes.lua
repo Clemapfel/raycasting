@@ -7,27 +7,29 @@ rt.Animalese.EnglishPhoneme = {
     START = "<s>",
     END = "</s>",
     BEAT = " ",
+    COMMA = ",",
+    COLON = ".",
 
     -- monophthongs (pure vowels)
-    AA0 = "AA0", AA1 = "AA1", AA2 = "AA2", -- "bot" /ɑ/
-    AE0 = "AE0", AE1 = "AE1", AE2 = "AE2", -- "bat" /æ/
-    AH0 = "AH0", AH1 = "AH1", AH2 = "AH2", -- "but" /ʌ/
-    AO0 = "AO0", AO1 = "AO1", AO2 = "AO2", -- "bought" /ɔ/
-    EH0 = "EH0", EH1 = "EH1", EH2 = "EH2", -- "bet" /ɛ/
-    IH0 = "IH0", IH1 = "IH1", IH2 = "IH2", -- "bit" /ɪ/
-    IY0 = "IY0", IY1 = "IY1", IY2 = "IY2", -- "beat" /i/
-    UH0 = "UH0", UH1 = "UH1", UH2 = "UH2", -- "book" /ʊ/
-    UW  = "UW",  UW0 = "UW0", UW1 = "UW1", UW2 = "UW2", -- "boot" /u/
+    AA = "AA", AA0 = "AA0", AA1 = "AA1", AA2 = "AA2", -- "bot" /ɑ/
+    AE = "AE", AE0 = "AE0", AE1 = "AE1", AE2 = "AE2", -- "bat" /æ/
+    AH = "AH", AH0 = "AH0", AH1 = "AH1", AH2 = "AH2", -- "but" /ʌ/
+    AO = "AO", AO0 = "AO0", AO1 = "AO1", AO2 = "AO2", -- "bought" /ɔ/
+    EH = "EH", EH0 = "EH0", EH1 = "EH1", EH2 = "EH2", -- "bet" /ɛ/
+    IH = "IH", IH0 = "IH0", IH1 = "IH1", IH2 = "IH2", -- "bit" /ɪ/
+    IY = "IY", IY0 = "IY0", IY1 = "IY1", IY2 = "IY2", -- "beat" /i/
+    UH = "UH", UH0 = "UH0", UH1 = "UH1", UH2 = "UH2", -- "book" /ʊ/
+    UW = "UW", UW0 = "UW0", UW1 = "UW1", UW2 = "UW2", -- "boot" /u/
 
     -- diphthongs (gliding vowels)
-    AW0 = "AW0", AW1 = "AW1", AW2 = "AW2", -- "bout" /aʊ/
-    AY0 = "AY0", AY1 = "AY1", AY2 = "AY2", -- "bite" /aɪ/
-    EY0 = "EY0", EY1 = "EY1", EY2 = "EY2", -- "bait" /eɪ/
-    OW0 = "OW0", OW1 = "OW1", OW2 = "OW2", -- "boat" /oʊ/
-    OY0 = "OY0", OY1 = "OY1", OY2 = "OY2", -- "boy" /ɔɪ/
+    AW = "AW", AW0 = "AW0", AW1 = "AW1", AW2 = "AW2", -- "bout" /aʊ/
+    AY = "AY", AY0 = "AY0", AY1 = "AY1", AY2 = "AY2", -- "bite" /aɪ/
+    EY = "EY", EY0 = "EY0", EY1 = "EY1", EY2 = "EY2", -- "bait" /eɪ/
+    OW = "OW", OW0 = "OW0", OW1 = "OW1", OW2 = "OW2", -- "boat" /oʊ/
+    OY = "OY", OY0 = "OY0", OY1 = "OY1", OY2 = "OY2", -- "boy" /ɔɪ/
 
     -- r-colored vowels
-    ER0 = "ER0", ER1 = "ER1", ER2 = "ER2", -- "bird" /ɝ/
+    ER = "ER", ER0 = "ER0", ER1 = "ER1", ER2 = "ER2", -- "bird" /ɝ/
 
     -- stops (consonants)
     B = "B",   -- "bat"
@@ -68,76 +70,80 @@ rt.Animalese.EnglishPhoneme = meta.enum("EnglishPhoneme", rt.Animalese.EnglishPh
 --- @enum rt.Animalese.Phoneme
 rt.Animalese.Phoneme = {
     -- vowels
-    A = "a", I = "i", U = "u", E = "e", O = "o",
+    A = "A", I = "I", U = "U", E = "E", O = "O",
     -- long vowels
-    AA = "aa", II = "ii", UU = "uu", EE = "ee", OO = "oo",
+    AA = "AA", II = "II", UU = "UU", EE = "EE", OO = "OO",
 
     -- k
-    KA = "ka", KI = "ki", KU = "ku", KE = "ke", KO = "ko",
+    KA = "KA", KI = "KI", KU = "KU", KE = "KE", KO = "KO",
     -- g
-    GA = "ga", GI = "gi", GU = "gu", GE = "ge", GO = "go",
+    GA = "GA", GI = "GI", GU = "GU", GE = "GE", GO = "GO",
     -- s
-    SA = "sa", SHI = "shi", SU = "su", SE = "se", SO = "so",
+    SA = "SA", SHI = "SHI", SU = "SU", SE = "SE", SO = "SO",
     -- z
-    ZA = "za", JI = "ji", ZU = "zu", ZE = "ze", ZO = "zo",
+    ZA = "ZA", JI = "JI", ZU = "ZU", ZE = "ZE", ZO = "ZO",
     -- z
-    TA = "ta", CHI = "chi", TSU = "tsu", TE = "te", TO = "to",
+    TA = "TA", CHI = "CHI", TSU = "TSU", TE = "TE", TO = "TO",
     -- d
-    DA = "da", DI = "di", DU = "du", DE = "de", DO = "do",
+    DA = "DA", DI = "DI", DU = "DU", DE = "DE", DO = "DO",
     -- n
-    NA = "na", NI = "ni", NU = "nu", NE = "ne", NO = "no",
+    NA = "NA", NI = "NI", NU = "NU", NE = "NE", NO = "NO",
     -- h
-    HA = "ha", HI = "hi", HU = "hu", HE = "he", HO = "ho",
+    HA = "HA", HI = "HI", HU = "HU", HE = "HE", HO = "HO",
     -- b
-    BA = "ba", BI = "bi", BU = "bu", BE = "be", BO = "bo",
+    BA = "BA", BI = "BI", BU = "BU", BE = "BE", BO = "BO",
     -- p
-    PA = "pa", PI = "pi", PU = "pu", PE = "pe", PO = "po",
+    PA = "PA", PI = "PI", PU = "PU", PE = "PE", PO = "PO",
     -- m
-    MA = "ma", MI = "mi", MU = "mu", ME = "me", MO = "mo",
+    MA = "MA", MI = "MI", MU = "MU", ME = "ME", MO = "MO",
     -- y
-    YA = "ya", YU = "yu", YO = "yo",
+    YA = "YA", YU = "YU", YO = "YO",
     -- r
-    RA = "ra", RI = "ri", RU = "ru", RE = "re", RO = "ro",
+    RA = "RA", RI = "RI", RU = "RU", RE = "RE", RO = "RO",
     -- w
-    WA = "wa", WO = "wo",
+    WA = "WA", WO = "WO",
 
     -- palatized k
-    KYA = "kya", KYU = "kyu", KYO = "kyo",
+    KYA = "KYA", KYU = "KYU", KYO = "KYO",
     -- palatalized g
-    GYA = "gya", GYU = "gyu", GYO = "gyo",
+    GYA = "GYA", GYU = "GYU", GYO = "GYO",
     -- palatalized sh
-    SHA = "sha", SHI = "shi", SHU = "shu", SHE = "she", SHO = "sho",
+    SHA = "SHA", SHI = "SHI", SHU = "SHU", SHE = "SHE", SHO = "SHO",
     -- palatalized j
-    JA = "ja", JI = "ji", JU = "ju", JE = "je", JO = "jo",
+    JA = "JA", JI = "JI", JU = "JU", JE = "JE", JO = "JO",
     -- palatalized ch
-    CHA = "cha", CHI = "chi", CHU = "chu", CHE = "che", CHO = "cho",
+    CHA = "CHA", CHI = "CHI", CHU = "CHU", CHE = "CHE", CHO = "CHO",
     -- palatalized ts
-    TSA = "tsa", TSI = "tsi", TSU = "tsu", TSE = "tse", TSO = "tso",
+    TSA = "TSA", TSI = "TSI", TSU = "TSU", TSE = "TSE", TSO = "TSO",
     -- palatized n
-    NYU = "nyu", NYO = "nyo",
+    NYU = "NYU", NYO = "NYO",
     -- palatized h
-    HYA = "hya", HYU = "hyu", HYO = "hyo",
+    HYA = "HYA", HYU = "HYU", HYO = "HYO",
     -- palatized f
-    FA = "fa", FI = "fi", FU = "fu", FE = "fe", FO = "fo",
+    FA = "FA", FI = "FI", FU = "FU", FE = "FE", FO = "FO",
     -- palatized b
-    BYA = "bya", BYU = "byu", BYO = "byo",
+    BYA = "BYA", BYU = "BYU", BYO = "BYO",
     -- palatized p
-    PYA = "pya", PYU = "pyu", PYO = "pyo",
+    PYA = "PYA", PYU = "PYU", PYO = "PYO",
     -- palatized m
-    MYA = "mya", MYU = "myu", MYO = "myo",
+    MYA = "MYA", MYU = "MYU", MYO = "MYO",
     -- palatized r
-    RYA = "rya", RYU = "ryu", RYO = "ryo",
+    RYA = "RYA", RYU = "RYU", RYO = "RYO",
 
     -- v (foreign loans)
-    VI = "vi", VU = "vu", VE = "ve", VO = "vo",
+    VI = "VI", VU = "VU", VE = "VE", VO = "VO",
 
     -- foreign stops
-    THI = "thi", TYU = "tyu", DYU = "dyu",
+    THI = "THI", TYU = "TYU", DYU = "DYU",
 
     -- moraic nasal
-    N = "n",
+    N = "N",
 
     -- control characters,
-    BEAT = "beat", QUESTION_MARK = "?"
+    BEAT = rt.Animalese.EnglishPhoneme.BEAT,
+    COMMA = rt.Animalese.EnglishPhoneme.COMMA,
+    COLON = rt.Animalese.EnglishPhoneme.COLON,
+    QUESTION_MARK = "?"
 }
+
 rt.Animalese.Phoneme = meta.enum("AnimalesePhoneme", rt.Animalese.Phoneme)
