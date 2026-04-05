@@ -5,17 +5,10 @@ require "common.mesh"
 require "common.sprite"
 require "common.stencil"
 require "common.sound_manager"
+require "common.dialog"
 
 -- accepted ids for dialog node in config file
 rt.settings.overworld.dialog_box = {
-    speaker_key = "speaker",
-    speaker_orientation_key = "orientation",
-    speaker_orientation_left = "left",
-    speaker_orientation_right = "right",
-    next_key = "next",
-    dialog_choice_key = "choices",
-    state_key = "state",
-
     speaker_text_prefix = "",
     speaker_text_postfix = "",
     choice_text_prefix = "<b><color=SELECTION><outline_color=BLACK>",
@@ -131,7 +124,7 @@ function ow.DialogBox:realize()
 
     self._id_to_node = {}
 
-    local settings = rt.settings.overworld.dialog_box
+    local settings = rt.settings.dialog
     local speaker_key = settings.speaker_key
     local next_key = settings.next_key
     local dialog_choice_key = settings.dialog_choice_key
@@ -140,6 +133,7 @@ function ow.DialogBox:realize()
     local orientation_left = settings.speaker_orientation_left
     local orientation_right = settings.speaker_orientation_right
 
+    settings = rt.settings.overworld.dialog_box
     local speaker_prefix = settings.speaker_text_prefix
     local speaker_postfix = settings.speaker_text_postfix
 

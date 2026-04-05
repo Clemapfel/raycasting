@@ -123,7 +123,7 @@ return {
             orientation = NPC_SIDE,
             next = "loop_b",
 
-            "like this?"
+            "like test?"
         },
 
         loop_b = {

@@ -421,98 +421,113 @@ local _serialize_insert = function(buffer, ...)
     end
 end
 
+local function _safe_comment_str(val)
+    return tostring(val):gsub("%]%]", "] ]")
+end
+
 local function _serialize_inner(buffer, object, n_indent_tabs, seen, comment_out)
-    if type(object) == "number" then
-        _serialize_insert(buffer, object)
-    elseif type(object) == "string" then
-        _serialize_insert(buffer, "\"", object, "\"")
-    elseif type(object) == "boolean" then
-        if object == true then
-            _serialize_insert(buffer, "true")
+    local object_type = type(object)
+
+    if object_type == "number" then
+        if object == math.huge then
+            _serialize_insert(buffer, "math.huge")
+        elseif object == -math.huge then
+            _serialize_insert(buffer, "-math.huge")
+        elseif object ~= object then
+            _serialize_insert(buffer, "(0/0)") -- NaN
         else
-            _serialize_insert(buffer, "false")
+            _serialize_insert(buffer, tostring(object))
         end
-    elseif type(object) == "nil" then
+    elseif object_type == "string" then
+        _serialize_insert(buffer, string.format("%q", object))
+    elseif object_type == "boolean" then
+        _serialize_insert(buffer, object and "true" or "false")
+    elseif object_type == "nil" then
         _serialize_insert(buffer, "nil")
-    elseif type(object) == "table" then
+    elseif object_type == "table" then
         if seen[object] then
-            _serialize_insert(buffer, "nil --[[ (cyclic table ]]")
+            if comment_out then
+                _serialize_insert(buffer, "nil --[[ cyclic table ]]")
+            else
+                _serialize_insert(buffer, "nil")
+            end
             return
         end
 
         seen[object] = true
-        local n_entries = 0
+
+        local is_empty = true
         for _ in pairs(object) do
-            n_entries = n_entries + 1
+            is_empty = false
+            break
         end
 
-        if n_entries > 0 then
+        if is_empty then
+            _serialize_insert(buffer, "{}")
+        else
             _serialize_insert(buffer, "{\n")
             n_indent_tabs = n_indent_tabs + 1
 
-            local index = 0
             for key, value in pairs(object) do
-                if type(key) == "table" and seen[key] then
-                    _serialize_insert(buffer, "--[[ (cyclic key) ]]\n")
-                else
-                    seen[key] = true
-                    if comment_out and (type(value) == "function" or type(value) == "userdata") then
-                        _serialize_insert(buffer, "--[[ ", key, " = ", tostring(value), ", ]]\n")
-                    else
-                        if type(key) == "string" then
-                            _serialize_insert(buffer, _serialize_get_indent(n_indent_tabs), "[\"", tostring(key), "\"]", " = ")
-                        elseif type(key) == "number" then
-                            _serialize_insert(buffer, _serialize_get_indent(n_indent_tabs), "[", tostring(key), "] = ")
-                        else
-                            _serialize_insert(buffer, _serialize_get_indent(n_indent_tabs), "[", _serialize(key), "] = ")
-                        end
+                local k_type = type(key)
+                local v_type = type(value)
 
-                        _serialize_inner(buffer, value, n_indent_tabs, seen, comment_out)
+                local k_unserializable = (k_type == "function" or k_type == "userdata" or k_type == "thread")
+                local v_unserializable = (v_type == "function" or v_type == "userdata" or v_type == "thread")
+
+                -- check for immediate cycles to prevent evaluating keys to nil
+                local k_cyclic = (k_type == "table" and seen[key])
+                local v_cyclic = (v_type == "table" and seen[value])
+
+                if k_unserializable or v_unserializable or k_cyclic or v_cyclic then
+                    if comment_out then
+                        local reason = "unserializable"
+                        if k_cyclic or v_cyclic then reason = "cyclic reference" end
+
+                        _serialize_insert(buffer, _serialize_get_indent(n_indent_tabs),
+                            "--[[ [", _safe_comment_str(key), "] = ", _safe_comment_str(value), " (", reason, ") ]],\n")
                     end
-                    seen[key] = nil
-                end
-
-                index = index + 1
-                if index < n_entries then
-                    _serialize_insert(buffer, ",\n")
                 else
-                    _serialize_insert(buffer, "\n")
+                    _serialize_insert(buffer, _serialize_get_indent(n_indent_tabs), "[")
+                    _serialize_inner(buffer, key, n_indent_tabs, seen, comment_out)
+                    _serialize_insert(buffer, "] = ")
+                    _serialize_inner(buffer, value, n_indent_tabs, seen, comment_out)
+                    _serialize_insert(buffer, ",\n")
                 end
             end
-            _serialize_insert(buffer, _serialize_get_indent(n_indent_tabs-1), "}")
-        else
-            _serialize_insert(buffer, "{}")
+            n_indent_tabs = n_indent_tabs - 1
+            _serialize_insert(buffer, _serialize_get_indent(n_indent_tabs), "}")
         end
+
+        seen[object] = nil
     else
-        _serialize_insert(buffer, "[", tostring(object), "]")
+        if comment_out then
+            _serialize_insert(buffer, "nil --[[ ", _safe_comment_str(object), " ]]")
+        else
+            _serialize_insert(buffer, "nil")
+        end
     end
 end
 
 --- @brief convert arbitrary object to string
 --- @param object any
---- @param comment_out_unserializable Boolean false by default
+--- @param comment_out_unserializable boolean false by default
 --- @return string
 local function _serialize(object, comment_out_unserializable)
     if comment_out_unserializable == nil then comment_out_unserializable = true end
     if object == nil then return "nil" end
 
-    if object == nil then
-        return nil
-    end
-
-    local buffer = {""}
+    local buffer = {}
     local seen = {}
     _serialize_inner(buffer, object, 0, seen, comment_out_unserializable)
     return table.concat(buffer, "")
 end
 
---- @brief
+--- @brief validates if graph can be fully serialized without errors or cycle omissions
 local function _is_serializable(value, seen)
-    seen = seen or {}
-
     local value_type = type(value)
 
-    if value_type == "function" or value_type == "userdata" then
+    if value_type == "function" or value_type == "userdata" or value_type == "thread" then
         return false
     end
 
@@ -520,31 +535,20 @@ local function _is_serializable(value, seen)
         return true
     end
 
+    seen = seen or {}
+
     if seen[value] then
-        return false
+        return false -- cyclic
     end
 
     seen[value] = true
 
     for key, entry in pairs(value) do
-        if seen[key] then
-            return false
-        end
-
-        if type(key) == "table" then
-            seen[key] = true
-        end
-
         if not _is_serializable(key, seen) then
             return false
         end
-
         if not _is_serializable(entry, seen) then
             return false
-        end
-
-        if type(key) == "table" then
-            seen[key] = nil
         end
     end
 

@@ -267,11 +267,39 @@ function bd.iterate_lines(path)
     return iterator_or_error
 end
 
+--- @brief
+function bd.write_file(path, content, overwrite_ok)
+    meta.assert(path, "String", content, "String")
+
+    path = bd.normalize_path(path)
+
+    if bd.exists(path) then
+        if overwrite_ok ~= true then
+            rt.error("In bd.write_file: object at `", path, "` already exists")
+        else
+            bd.remove_file(path)
+        end
+    end
+
+    if bd.is_directory(path) then
+        rt.error("In bd.write_file: object at `", path, "` is a directory")
+    end
+
+    local write_success, write_error_maybe = love.filesystem.write(path, content)
+    if not write_success then
+        rt.error("In bd.overwrite_file: unable to write file to `", path, "`: ", write_error_maybe)
+    end
+end
+
 --- @brief overwrite an existing file with string
 function bd.overwrite_file(path, content)
     meta.assert(path, "String", content, "String")
 
     path = bd.normalize_path(path)
+
+    if not bd.exists(path) then
+        rt.error("In bd.overwrite_file: object at `", path, "` does not yet exist")
+    end
 
     if bd.is_directory(path) then
         rt.error("In bd.overwrite_file: object at `", path, "` is a directory")

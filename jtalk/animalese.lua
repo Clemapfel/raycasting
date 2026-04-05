@@ -32,6 +32,8 @@ rt.Animalese.Emotion = meta.enum("Animalese.Emotion", rt.Animalese.Emotion)
 
 require "jtalk.animalese_phonemes"
 
+local _precomputed = {}
+
 --- @brief
 function rt.Animalese:instantiate()
     self._data = {}
@@ -228,17 +230,29 @@ function rt.Animalese:update(delta)
 end
 
 --- @brief
-function rt.Animalese:_english_to_phoneme(text)
+function rt.Animalese:_english_to_phoneme(args)
     if not bd.is_file("jtalk/to_phonemes.py") then
         rt.error("In rt.Animalese: `jtalk/to_phonemes.py` not present, are you trying to call this function outside build time?")
         return {}
     end
 
+    local quoted = {}
+    for _, text in ipairs(args) do
+        text = string.gsub(text, "[^%a%d%.,]", " ")
+        table.insert(quoted, string.format("%q", text))
+    end
+
+    local command = string.format("python ./jtalk/to_phonemes.py %s", table.concat(quoted, " "))
+    rt.log("In rt.Animalese._english_to_phonemes: starting translation of `", #args, " strings")
+
     -- capture tty output
-    local command = string.format("python ./jtalk/to_phonemes.py \"%s\"", text)
+    local before = love.timer.getTime()
     local f = io.popen(command, 'r')
     local s = assert(f:read('*a'))
     f:close()
+
+    rt.log("done. Took ", love.timer.getTime() - before, "s")
+
     s = string.gsub(s, '^%s+', '')
     s = string.gsub(s, '%s+$', '')
     s = string.gsub(s, '[\n\r]+', ' ')
@@ -253,17 +267,38 @@ function rt.Animalese:_english_to_phoneme(text)
         local success, error_maybe = pcall(chunk)
         if success ~= true then
             rt.error("In rt.Animalese.translate: when trying to run output of `jtalk/to_phonemes.py`: ", error_maybe)
+            return {}
         else
-            local output = error_maybe
-            if not meta.is_table(output) then
-                return { output }
-            else
-                return output
-            end
+            return { chunk() } -- call again to captue varargs
         end
     end
 
     return {} -- unreachable
+end
+
+--- @brief
+function rt.Animalese.load_translation(t) -- sic, static method
+    for text, translation in pairs(t) do
+        if not meta.is_string(text) then
+            rt.critical("In rt.Animalese:load_translation: key `", text, "` is not a string")
+            goto continue
+        end
+
+        if not meta.is_table(translation) then
+            rt.critical("In rt.Animalese.load_translation: value at key `", text, "` is not a table")
+            goto continue
+        end
+
+        for phoneme in values(translation) do
+            if not meta.is_enum_value(phoneme, rt.Animalese.Phoneme) then
+                rt.critical("In rt.Animalese.load_translation: for key `", text, "`: `", phoneme, "` is not a valid phoneme")
+                goto continue
+            end
+        end
+
+        translation[text] = translation
+        ::continue::
+    end
 end
 
 do
@@ -412,8 +447,8 @@ do
     }
 
     --- @brief
-    function rt.Animalese:translate(text)
-        local phonemes = self:_english_to_phoneme(text)
+    function rt.Animalese:translate(...)
+        local table_of_phonemes = self:_english_to_phoneme(...)
 
         local translation = {}
 
@@ -451,59 +486,64 @@ do
             table.insert(translation, x)
         end
 
-        local i = 1
-        local n = #phonemes
+        local result = {}
+        for phonemes in values(table_of_phonemes) do
+            local i = 1
+            local n = #phonemes
 
-        while i <= n do
-            local current = phonemes[i+0]
-            local next = phonemes[i+1]
+            while i <= n do
+                local current = phonemes[i+0]
+                local next = phonemes[i+1]
 
-            if is_consonant(current) then
-                if is_vowel(next) then
-                    -- consonant-vowel: form syllable
-                    local vowels = english_suffix_vowel_to_japanese_vowel[next]
-                    if vowels == nil then
-                        rt.error("Unhandled vowel `", next, "`")
-                    end
+                if is_consonant(current) then
+                    if is_vowel(next) then
+                        -- consonant-vowel: form syllable
+                        local vowels = english_suffix_vowel_to_japanese_vowel[next]
+                        if vowels == nil then
+                            rt.error("Unhandled vowel `", next, "`")
+                        end
 
-                    push(english_consonant_to_japanese_prefix[current] .. vowels[1])
-                    for j = 2, #vowels do push(vowels[j]) end
-                    i = i + 2
-                elseif is_consonant(next) or is_stop(next) then
-                    if current == "N" then
-                        push(Japanese.N)
+                        push(english_consonant_to_japanese_prefix[current] .. vowels[1])
+                        for j = 2, #vowels do push(vowels[j]) end
+                        i = i + 2
+                    elseif is_consonant(next) or is_stop(next) then
+                        if current == "N" then
+                            push(Japanese.N)
+                        else
+                            -- consonant-consonant: use silent u
+                            push(english_consonant_to_japanese_prefix[current] .. "U")
+                        end
+                        i = i + 1
                     else
-                        -- consonant-consonant: use silent u
-                        push(english_consonant_to_japanese_prefix[current] .. "U")
+                        rt.error("Unhandled case: `", current, "`, `", next, "`")
                     end
-                    i = i + 1
-                else
-                    rt.error("Unhandled case: `", current, "`, `", next, "`")
-                end
-            elseif is_vowel(current) then
-                if is_vowel(next) or is_consonant(next) or is_stop(next) then
-                    -- pure vowel
-                    local vowels = english_pure_vowel_to_japanese_vowel[current]
-                    if vowels == nil then
-                        rt.error("Unhandled vowel `", next, "`")
-                    end
+                elseif is_vowel(current) then
+                    if is_vowel(next) or is_consonant(next) or is_stop(next) then
+                        -- pure vowel
+                        local vowels = english_pure_vowel_to_japanese_vowel[current]
+                        if vowels == nil then
+                            rt.error("Unhandled vowel `", next, "`")
+                        end
 
-                    for x in values(vowels) do push(x) end
+                        for x in values(vowels) do push(x) end
+                        i = i + 1
+                    else
+                        rt.error("Unhandled case: `", current, "`, `", next, "`")
+                    end
+                elseif meta.is_enum_value(current, Japanese) then
+                    push(current)
                     i = i + 1
+                elseif current == nil then
+                    break
                 else
-                    rt.error("Unhandled case: `", current, "`, `", next, "`")
+                    rt.critical("In rt.Animalese.translate: unhandled character `", current, "`")
                 end
-            elseif meta.is_enum_value(current, Japanese) then
-                push(current)
-                i = i + 1
-            elseif current == nil then
-                break
-            else
-                rt.critical("In rt.Animalese.translate: unhandled character `", current, "`")
             end
+
+            table.insert(result, phonemes)
         end
 
-        return translation
+        return result
     end
 end
 

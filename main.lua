@@ -5,7 +5,7 @@ require "common.music_manager"
 require "common.sound_manager"
 require "common.input_manager"
 
-require "overworld.dialog"
+require "common.dialog"
 require "jtalk.animalese"
 local animalese = rt.Animalese()
 
