@@ -1,159 +1,104 @@
-local PLAYER = rt.Translation.player_name
-local PLAYER_SIDE = "right"
-local NPC = "Unnamed Eyes" --rt.Translation.npc_name
-local NPC_SIDE = "left"
+rt.settings.dialog = {
+    path = "assets/text",
+    filename = "dialog.lua"
+}
 
-local EYES_NAME = "(# EYES_NAME)"
-local GHOST_NAME = "(# GHOST_NAME)"
+--- @class rt.Dialog
+rt.Dialog = {}
 
-local BOOST_FIELD_NAME = "Boost Field"
+do
+    require "common.filesystem"
+    require "common.language"
 
-return setmetatable({
-    slippery_floor_tutorial = {
-        {
-            speaker = EYES_NAME,
-            "<b>Glass</b> like this is <wave>slippery</wave>, if you walk on it you slide around instead of stopping.",
-            "There is no way to climb walls made out of glass, and none of your \"paint\" will stick to it. Be careful and always try to keep in mind the type of surface you are touching"
-        }
-    },
+    local language = bd.get_config().language
+    local prefix = rt.settings.dialog.path
+    if not bd.exists(bd.join_path(prefix, language)) then
+        rt.critical(
+            "In rt.Dialog: trying to load language `",
+            language,
+            "` but no such folder at `",
+            bd.join_path(bd.get_source_directory(), prefix),
+            "` exist"
+        )
 
-    temp = {
-        {
-            speaker = EYES_NAME,
-            next = 2,
-            "r8 my <rainbow><wave><b>NPC</b></wave></rainbow>!",
-        },
-        {
-            speaker = EYES_NAME,
-            "I like that he warps the map so it feels like he is not part of the game, I will use him to convey <i><b>non-diagetic information</b></i>, like tips about the game, everything else except the button prompts I guess should be diagetic."
-        }
-    },
-
-    boost_field_tip_01 = {
-        {
-            speaker = EYES_NAME,
-            "These <b>" .. BOOST_FIELD_NAME .. "s</b> make you go faster whigle your are touching them. Make sure to <b>maximize the amount of time you are touching them</b> to get the most speed"
-        }
-    },
-
-    on_bounce_complain = {
-        {
-            next = 2,
-            speaker = "Yet Unnamend Ghost",
-            "If you don't lock the player movement, the very first thing they are going to do is try to bounce on me",
-        },
-
-        {
-            speaker = "Yet Unnamend Ghost",
-            "Which is very rude"
-        }
-    },
-
-    one_way_platform_tutorial_debug = {
-        {
-            speaker = "Mysterious Object",
-            next = 2,
-            state = {
-                test = "test test test test test test test test test test test test test test test test"
-            },
-
-            "Hey, pss, up here"
-        },
-
-        {
-            speaker = "Mysterious Object",
-            next = nil,
-
-            "new line"
-        },
-    },
-
-    one_way_platform_tutorial_cant_pass = {
-        {
-             "test test test test test test test test test test test test test test test test",
-            orientation = "right",
-
-            choices = {
-                {
-                    "choice A",
-                    next = nil
-                },
-                {
-                    "choice B",
-                    next = nil
-                }
-            }
-        }
-    },
-
-    -- template
-
-    template = {
-        {
-            speaker = NPC,
-            orientation = NPC_SIDE,
-            next = 2,
-            state = {
-                happy = 0.4,
-                other_state = "test",
-            },
-
-            "Are|| you|||| sure about that?"
-        },
-
-        {
-            speaker = PLAYER,
-            orientation = PLAYER_SIDE,
-            next = 3,
-
-            "I did.\n But idk if the player should talk at all, the NPC definitely should, but I really want to implement that thing where instead of choosing an option, the player has to nod or shake their head."
-        },
-
-        {
-            speaker = PLAYER,
-            orientation = PLAYER_SIDE,
-            next = "loop_a",
-            next = 4,
-
-            "Anyway, this dialog also has fancy camera movement."
-        },
-
-        loop_a = {
-            speaker = NPC,
-            orientation = NPC_SIDE,
-            next = "loop_b",
-
-            "like this?"
-        },
-
-        loop_b = {
-            speaker = PLAYER,
-            orientation = PLAYER_SIDE,
-            next = "loop_a",
-
-            "no, like this"
-        }
-    }
-}, {
-    __newindex = function(self, key, value)
-        rt.error("In ow.Dialog: trying to set key `", key, "` in dialog table, but it was declared immutable")
-        return
-    end,
-
-    __index = function(self, key)
-        local result = rawget(self, key)
-        if result == nil then
-            rt.critical("In ow.Dialog: no dialog with id `", key, "` present")
-
-            -- return placeholder
-            return {
-                {
-                    speaker = "Error",
-                    [1] = "(#" .. key .. ")"
-                }
-            }
-        else
-            return result
-        end
+        language = rt.Language.ENGLISH
     end
-})
+
+    local path = bd.join_path(prefix, language, rt.settings.dialog.filename)
+
+    if not bd.exists(path) then
+        rt.fatal("In rt.Dialog: asset file at `", path, "` does not exist")
+    end
+
+    local load_success, dialog_or_error = pcall(bd.load, path, true, {
+
+    }) -- sandboxed fenv
+
+    if not load_success then
+        rt.fatal("In rt.Dialog: when trying to load file at `", path, "`: ", dialog_or_error)
+    end
+
+    if not meta.is_table(dialog_or_error) then
+        rt.fatal("In rt.Dialog: object returned by `", path, "` is not a table")
+    end
+
+    local read_success, string_or_error = pcall(bd.read_file, path)
+
+    if not read_success then
+        rt.error("In rt.Dialog: when trying to read file at `", path, "`: ", string_or_error)
+    end
+
+    -- export animalese
+
+    local current_hash = string.sha256(string_or_error)
+    local hash_prefix = rt.settings.filesystem.internal_directory
+    if not bd.exists(hash_prefix) then bd.create_directory(hash_prefix) end
+
+    hash_prefix = bd.join_path(hash_prefix, "dialog")
+    if not bd.exists(hash_prefix) then bd.create_directory(hash_prefix) end
+
+    local hash_path = bd.join_path(hash_prefix, ".hash")
+
+    local should_regenerate = false
+    if not bd.exists(hash_path) then
+        should_regenerate = true
+    else
+        local hash_success, hash_or_error = pcall(bd.read_file, hash_path)
+        if hash_success == false then
+            rt.error("In rt.Dialog: when trying to read file at `", hash_path, "`: ", hash_or_error)
+        end
+
+        should_regenerate = hash_or_error ~= current_hash
+    end
+
+    if should_regenerate then
+        bd.overwrite_file(hash_path, current_hash)
+
+
+    end
+
+    -- make immutable
+    rt.Dialog = setmetatable(dialog_or_error, {
+        __newindex = function(self, key, value)
+            rt.error("In ow.Dialog: trying to set key `", key, "` in dialog table, but it was declared immutable")
+            return
+        end,
+
+        __index = function(self, key)
+            local result = rawget(self, key)
+            if result == nil then
+                rt.critical("In ow.Dialog: no dialog with id `", key, "` present")
+
+                -- return placeholder
+                return {
+                    {
+                        speaker = "Error",
+                        [1] = "(#" .. key .. ")"
+                    }
+                }
+            else
+                return result
+            end
+        end
+    })
+end

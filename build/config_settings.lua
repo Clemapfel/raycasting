@@ -43,6 +43,7 @@ do
     require "common.vsync_mode"
     require "common.msaa_quality"
     require "common.player_sprint_mode"
+    require "common.language"
 
     bd.config.entries = {
         -- should window initialize in fullscreen mode
@@ -123,6 +124,13 @@ do
         -- audio
         sound_effect_level = FLOAT_RANGE(1, 0, 1),
         music_level = FLOAT_RANGE(1, 0, 1),
+
+        -- language
+        language = ENUM(rt.Language.ENGLISH,
+            rt.Language.ENGLISH,
+            rt.Language.JAPANESE,
+            rt.Language.GERMAN
+        ),
 
         -- accessibility
         is_color_blind_mode_enabled = BOOLEAN(false),

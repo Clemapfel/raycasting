@@ -44,7 +44,7 @@ function rt.Animalese:instantiate()
     local phonemes = {}
     for phoneme in bd.iterate_lines(bd.join_path(prefix, settings.phonemes_list_filename)) do
         if not meta.is_enum_value(phoneme, rt.Animalese.Phoneme) then
-            rt.critical("In rt.Animalese: phoneme `", phoneme, "` is found on disk but not part of enum `rt.Animalese.Phoneme`")
+            rt.warning("In rt.Animalese: phoneme `", phoneme, "` is found on disk but not part of enum `rt.Animalese.Phoneme`")
         else
             table.insert(phonemes, phoneme)
         end

@@ -1,3 +1,7 @@
+rt.settings.filesystem = {
+    internal_directory = "internal",
+}
+
 --- @enum bd.FileType
 bd.FileType = meta.enum("FileType", {
     FILE = "file",
@@ -269,12 +273,8 @@ function bd.overwrite_file(path, content)
 
     path = bd.normalize_path(path)
 
-    if not bd.exists(path) then
-        rt.error("In bd.overwrite_file: file at `", path, "` does not exist")
-    end
-
-    if not bd.is_file(path) then
-        rt.error("In bd.overwrite_file: object at `", path, "` is not a file")
+    if bd.is_directory(path) then
+        rt.error("In bd.overwrite_file: object at `", path, "` is a directory")
     end
 
     local write_success, write_error_maybe = love.filesystem.write(path, content)
@@ -544,14 +544,43 @@ function bd.load(path, should_sandbox, fenv)
 end
 
 --- @brief
-function bd.load_string(code, ...)
-    local chunk, error_maybe = load(code, "=(bd.load_string)", "t", nil)
-    if chunk == nil then
-        rt.error("In bd.load_string: unable to compile string: ", error_maybe)
+function bd.load(path, should_sandbox, fenv)
+    if should_sandbox == nil then should_sandbox = true end
+    meta.assert(path, "String", should_sandbox, "Boolean")
+
+    local load_success, chunk_or_error, love_error = pcall(love.filesystem.load, path)
+    if not load_success then
+        rt.error("In bd.load: error when parsing file at `",  path,  "`: ",  chunk_or_error)
         return nil
-    else
-        return chunk(...)
     end
+
+    if love_error ~= nil then
+        rt.error("In bd.load: error when loading file at `",  path,  "`: ",  love_error)
+        return nil
+    end
+
+    local chunk = chunk_or_error
+
+    local setfenv = debug.setfenv or setfenv or _G._setfenv
+    if setfenv ~= nil then
+        if should_sandbox then
+            if fenv == nil then
+                setfenv(chunk, {})
+            else
+                setfenv(chunk, fenv)
+            end
+        else
+            setfenv(chunk, _G)
+        end
+    end
+
+    local chunk_success, config_or_error = pcall(chunk)
+    if not chunk_success then
+        rt.error("In bd.load: error when running file at `",  path,  "`: ",  config_or_error)
+        return nil
+    end
+
+    return config_or_error
 end
 
 do
