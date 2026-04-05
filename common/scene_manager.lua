@@ -12,10 +12,9 @@ rt.settings.scene_manager = {
     max_n_steps_per_frame = 8,
     performance_metrics_n_frames = 144,
     fade_duration = 0.2,
-    performance_metrics_n_samples = 120,
     fps_limit = 1000,
-
-    draw_instance_count_interval = 5 -- seconds
+    
+    performance_metrics_interval = 5 -- seconds
 }
 
 --- @class SceneManager
@@ -99,17 +98,27 @@ function rt.SceneManager:instantiate()
     -- performance
     local n_samples = rt.settings.scene_manager.performance_metrics_n_samples
 
-    local duration = 0
-    self._update_durations = table.rep(duration, n_samples)
-    self._update_sum = n_samples * duration
+    self._update_samples = {}
+    self._draw_samples = {}
+    self._fps_samples = {}
 
-    duration = 0
-    self._draw_durations = table.rep(duration, n_samples)
-    self._draw_sum = n_samples * duration
+    local now = love.timer.getTime()
+    table.insert(self._update_samples, {
+        timestamp = now,
+        value = 0
+    })
+
+    table.insert(self._draw_samples, {
+        timestamp = now,
+        value = 0
+    })
+
+    table.insert(self._fps_samples, {
+        timestamp = now,
+        value = 60
+    })
 
     self._draw_instants = {}
-    self._fps_samples = table.rep(60, n_samples)
-    self._fps_sum = n_samples * 60
 end
 
 --- @brief
@@ -441,28 +450,69 @@ end
 
 --- @brief
 function rt.SceneManager:_notify_update_duration(duration)
-    local first, last = self._update_durations[1], duration
-    self._update_sum = self._update_sum - first + last
-    table.remove(self._update_durations, 1)
-    table.insert(self._update_durations, duration)
+    table.insert(self._update_samples, {
+        timestamp = love.timer.getTime(),
+        value = duration
+    })
 end
 
 --- @brief
 function rt.SceneManager:_notify_draw_duration(duration)
-    local first, last = self._draw_durations[1], duration
-    self._draw_sum = self._draw_sum - first + last
+    table.insert(self._draw_samples, {
+        timestamp = love.timer.getTime(),
+        value = duration
+    })
 
-    table.remove(self._draw_durations, 1)
-    table.insert(self._draw_durations, duration)
     table.insert(self._draw_instants, love.timer.getTime())
+
+    local count = 0
+    local threshold = love.timer.getTime() - 1 -- last second
+    for i = #self._draw_instants, 1, -1 do
+        if self._draw_instants[i] < threshold then break end
+        count = count + 1
+    end
+
+    table.insert(self._fps_samples, {
+        timestamp = love.timer.getTime(),
+        value = count
+    })
 end
 
 local _default_font = love.graphics.getFont()
 
 --- @brief
 function rt.SceneManager:_draw_performance_metrics()
-    local update_mean = self._update_sum / #self._update_durations
-    local draw_mean = self._draw_sum / #self._draw_durations
+    local threshold = love.timer.getTime() - rt.settings.scene_manager.performance_metrics_interval
+
+    local update_samples = function(t)
+        local max = -math.huge
+        local sum = 0
+        local to_remove = {}
+        for i, entry in ipairs(t) do
+            if entry.timestamp < threshold then
+                table.insert(to_remove, 1, i)
+            else
+                max = math.max(max, entry.value)
+                sum = sum + entry.value
+            end
+        end
+
+        for i in values(to_remove) do
+            table.remove(t, i)
+        end
+
+        return sum / #t, max
+    end
+
+    local update_mean, update_max = update_samples(self._update_samples)
+    local draw_mean, draw_max = update_samples(self._draw_samples)
+    local fps_mean, _ = update_samples(self._fps_samples)
+
+    local fps_variance = 0
+    for entry in values(self._fps_samples) do
+        fps_variance = fps_variance + (entry.value - fps_mean)^2
+    end
+    fps_variance = math.sqrt(fps_variance / #self._fps_samples)
 
     local stats = love.graphics.getStats()
     local n_draws = tostring(stats.drawcalls)
@@ -482,38 +532,10 @@ function rt.SceneManager:_draw_performance_metrics()
         return str
     end
 
-    do
-        local draw_instant_interval = rt.settings.scene_manager.draw_instance_count_interval
-        local cutoff = love.timer.getTime() - draw_instant_interval
-        local first_valid = 1
-        for i = 1, #self._draw_instants do
-            if self._draw_instants[i] >= cutoff then
-                for j = 1, i - 1 do
-                    table.remove(self._draw_instants, 1)
-                end
-                break
-            end
-        end
-
-        local fps = #self._draw_instants / draw_instant_interval
-        local first, last = self._fps_samples[1], fps
-        self._fps_sum = self._fps_sum - first + last
-        table.remove(self._fps_samples, 1)
-        table.insert(self._fps_samples, fps)
-    end
-
-    local fps_mean = self._fps_sum / #self._fps_samples
-
-    local fps_variance = 0
-    for _, value in ipairs(self._fps_samples) do
-        fps_variance = fps_variance + (value - fps_mean)^2
-    end
-    fps_variance = fps_variance / #self._fps_samples
-
     local str = table.concat({
-        format(math.ceil(fps_mean)), " fps \u{00B1} " .. format(math.ceil(fps_variance)) .. " | ",
-        format(math.ceil(to_percent(update_mean))), "% | ",
-        format(math.ceil(to_percent(draw_mean))), "% | ",
+        format(math.round(fps_mean)), " fps \u{00B1} " .. format(math.round(fps_variance)) .. " | ",
+        format(to_percent(update_mean)), " (", format(to_percent(update_max)), ") % | ",
+        format(to_percent(draw_mean)), " (", format(to_percent(draw_max)), ") % | ",
         n_draws, " draws | ",
         gpu_side_memory, " mb "
     })
@@ -634,6 +656,7 @@ love.run = function()
 
     if love.timer then love.timer.step() end
 
+    local was_active = love.graphics.isActive() and love.window.hasFocus()
     return function()
         -- performance metrics
         local state = rt.SceneManager
@@ -653,7 +676,16 @@ love.run = function()
 
         local delta = love.timer.step()
 
+        local is_active = love.graphics.isActive() and love.window.hasFocus()
+
         -- ### UPDATE ###
+
+        if was_active == false and is_active == true then
+            state._update_accumulator = 0
+            state._sound_manager_accumulator = 0
+            goto skip_update
+            -- skip on window gaining focus, since `delta` can be very large in that case
+        end
 
         state._update_accumulator = state._update_accumulator + delta
 
@@ -680,7 +712,7 @@ love.run = function()
             state:_notify_update_duration(love.timer.getTime() - before)
         end
 
-        state._last_update_timestamp = love.timer.getTime()
+        was_active = is_active
 
         -- ### SOUND ###
 
@@ -696,6 +728,10 @@ love.run = function()
             rt.SoundManager:update(delta)
         end
 
+        state._last_update_timestamp = love.timer.getTime()
+
+        ::skip_update::
+
         -- ### DRAW ###
 
         state._draw_accumulator = state._draw_accumulator + delta
@@ -709,7 +745,8 @@ love.run = function()
             state:_notify_draw_duration(love.timer.getTime() - before)
         end
 
-        if love.keyboard.isDown("space") then --state._draw_use_fixed_timestep then
+        if state._draw_use_fixed_timestep then
+            local n_steps = 0
             local step = 1 / state._draw_fixed_fps
             while state._draw_accumulator >= step do
                 state._screen_recorder:bind()
@@ -719,10 +756,16 @@ love.run = function()
                 state._screen_recorder:notify_end_of_frame()
 
                 state._draw_accumulator = state._draw_accumulator - step
+
+                n_steps = n_steps + 1
+                if n_steps > rt.settings.scene_manager.max_n_steps_per_frame then
+                    state._update_accumulator = 0
+                    break
+                end
             end
 
             if drawn then
-                state._screen_recorder:draw()
+                state._screen_recorder:draw() -- update main framebuffer
             end
         else
             draw()
