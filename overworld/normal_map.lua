@@ -59,6 +59,7 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
         self._chunks = entry.chunks
         self._chunk_size = entry.chunk_size
         self._chunk_padding = entry.chunk_padding
+        self._texture_atlas = entry.texture_atlas
         self._bounds = entry.bounds
         self._computation_started = true
         self._is_done = true
@@ -284,17 +285,10 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
                                 should_skip = false,
                                 x = x,
                                 y = y,
-                                texture = rt.RenderTexture(
-                                    chunk_size,
-                                    chunk_size, -- no padding, cropped during export
-                                    0,
-                                    _normal_map_texture_format,
-                                    true -- no compute write
-                                ),
+                                quad = nil, -- love.Quad, cf. texture atlas below
                                 tris = {}
                             }
 
-                            chunk.texture:set_wrap_mode(rt.TextureWrapMode.CLAMP)
                             self._chunks[xi][yi] = chunk
                             table.insert(self._non_empty_chunks, chunk)
                         end
@@ -356,7 +350,35 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
             }
         )
 
-        local dispatch_size_x, dispatch_size_y = (chunk_size + 2 * padding) / size_x, (chunk_size + 2 * padding) / size_y
+        -- allocate texture atlas
+        local n_chunks = #self._non_empty_chunks
+        local render_atlas_n_rows = math.ceil(math.sqrt(n_chunks))
+        local render_atlas_n_columns = math.ceil(math.sqrt(n_chunks))
+
+        self._texture_atlas = rt.RenderTexture(
+            render_atlas_n_rows * chunk_size,
+            render_atlas_n_columns * chunk_size,
+            0,
+            _normal_map_texture_format,
+            true
+        )
+
+        for i, chunk in ipairs(self._non_empty_chunks) do
+            local col = (i - 1) % render_atlas_n_columns
+            local row = math.floor((i - 1) / render_atlas_n_columns)
+            local x = col * chunk_size
+            local y = row * chunk_size
+
+            chunk.quad = love.graphics.newQuad(
+                x, y,
+                chunk_size, chunk_size,
+                self._texture_atlas:get_size()
+            )
+        end
+
+        local dispatch_size_x, dispatch_size_y = math.ceil(chunk_size + 2 * padding) / size_x,
+            math.ceil(chunk_size + 2 * padding) / size_y
+
         local lg = love.graphics
 
         for chunk in values(self._non_empty_chunks) do
@@ -401,18 +423,14 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
             _export_shader:send("final_layer", current_layer)
             _export_shader:send("mask_texture", mask)
             _export_shader:send("jfa_texture_array", jfa_texture)
-            _export_shader:send("export_texture", chunk.texture)
+            _export_shader:send("export_texture", self._texture_atlas)
             _export_shader:send("export_texture_quad", { self._quad:getViewport() })
+            _export_shader:send("texture_atlas_quad", { chunk.quad:getViewport() })
             _export_shader:send("max_distance", rt.settings.overworld.normal_map.max_distance)
-            _export_shader:dispatch(dispatch_size_x, dispatch_size_y)
-
-            _post_process_shader:send("export_texture", chunk.texture)
-            local post_process_dispatch_x = math.ceil(chunk.texture:get_width() / size_x)
-            local post_process_dispatch_y = math.ceil(chunk.texture:get_height() / size_y)
-
-            for _ = 1, rt.settings.overworld.normal_map.n_post_process_passes do
-                _post_process_shader:dispatch(post_process_dispatch_x, post_process_dispatch_y)
-            end
+            _export_shader:dispatch(
+                math.ceil((chunk_size + 2 * padding) / size_x),
+                math.ceil((chunk_size + 2 * padding) / size_y)
+            )
 
             chunk.is_initialized = true
 
@@ -429,7 +447,8 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
             chunks = self._chunks,
             chunk_size = self._chunk_size,
             chunk_padding = self._chunk_padding,
-            bounds = self._bounds
+            bounds = self._bounds,
+            texture_atlas = self._texture_atlas
         }
 
         self:signal_emit("done")
@@ -495,6 +514,8 @@ function ow.NormalMap:draw_light(
     love.graphics.setBlendMode("add", "premultiplied")
     love.graphics.setColor(1, 1, 1, 1)
 
+    local native = self._texture_atlas:get_native()
+
     for chunk_x = min_chunk_x, max_chunk_x do
         local column = self._chunks[chunk_x]
         if column ~= nil then
@@ -503,7 +524,7 @@ function ow.NormalMap:draw_light(
                 if chunk ~= nil and chunk.is_initialized then
                     local cell_x = bounds.x + chunk_x * chunk_size
                     local cell_y = bounds.y + chunk_y * chunk_size
-                    love.graphics.draw(chunk.texture:get_native(), cell_x, cell_y)
+                    love.graphics.draw(native, chunk.quad, cell_x, cell_y)
                 end
             end
         end
@@ -533,7 +554,7 @@ function ow.NormalMap:draw_shadow(camera)
             shader_bound = true
         end
 
-        love.graphics.draw(chunk.texture:get_native(),
+        love.graphics.draw(self._texture_atlas:get_native(), chunk.quad,
             bounds.x + chunk_x * chunk_size,
             bounds.y + chunk_y * chunk_size
         )
@@ -575,14 +596,6 @@ end
 
 --- @brief
 function ow.NormalMap:clear_cache()
-    for cache in values(_atlas) do
-        for chunk in values(cache.chunks) do
-            if chunk.texture ~= nil then
-                chunk.texture:destroy()
-            end
-        end
-    end
-
     _atlas = {}
 end
 

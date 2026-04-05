@@ -42,6 +42,7 @@ layout(MASK_TEXTURE_FORMAT) uniform readonly image2D mask_texture;
 layout(JFA_TEXTURE_FORMAT) uniform readonly image2DArray jfa_texture_array;
 layout(NORMAL_MAP_TEXTURE_FORMAT) uniform writeonly image2D export_texture;
 uniform vec4 export_texture_quad; // x, y, w, h
+uniform vec4 texture_atlas_quad;
 
 uniform int final_layer;  // which layer contains the final JFA result
 
@@ -147,6 +148,12 @@ void computemain() {
 
     #elif MODE == MODE_EXPORT
 
+    ivec2 local_position = position - ivec2(export_texture_quad.xy);
+
+    // skip pixels outside of export quad
+    if (any(lessThan(local_position, ivec2(0))) || any(greaterThanEqual(local_position, ivec2(export_texture_quad.zw))))
+        return;
+
     // compute gradient (optimized Sobel operator - only non-zero terms)
 
     float v00 = imageLoad(jfa_texture_array, ivec3(position + ivec2(-1, -1), final_layer)).z;
@@ -176,13 +183,15 @@ void computemain() {
     vec4 mask = imageLoad(mask_texture, position);
     vec4 current = imageLoad(jfa_texture_array, ivec3(position, final_layer));
 
-    position.x -= int(export_texture_quad.x);
-    position.y -= int(export_texture_quad.y);
+    ivec2 write_pos = ivec2(
+        int(texture_atlas_quad.x) + local_position.x,
+        int(texture_atlas_quad.y) + local_position.y
+    );
 
-    imageStore(export_texture, position, vec4(
-        current.z / max_distance,  // normalized distance
-        gradient.x, gradient.y,    // gradient in [0, 1]
-        mask.r                     // mask (2 bits of precision)
+    imageStore(export_texture, write_pos, vec4(
+        current.z / max_distance,
+        gradient.x, gradient.y,
+        mask.r
     ));
 
     #elif MODE == MODE_POST_PROCESS
