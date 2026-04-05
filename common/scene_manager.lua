@@ -501,7 +501,7 @@ function rt.SceneManager:_draw_performance_metrics()
             table.remove(t, i)
         end
 
-        return sum / #t, max
+        return #t > 0 and sum / #t or 0, max
     end
 
     local update_mean, update_max = update_samples(self._update_samples)

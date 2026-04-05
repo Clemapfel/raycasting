@@ -148,10 +148,10 @@ void computemain() {
 
     #elif MODE == MODE_EXPORT
 
-    ivec2 local_position = position - ivec2(export_texture_quad.xy);
+    ivec2 local_pos = position - ivec2(export_texture_quad.xy);
 
     // skip pixels outside of export quad
-    if (any(lessThan(local_position, ivec2(0))) || any(greaterThanEqual(local_position, ivec2(export_texture_quad.zw))))
+    if (any(lessThan(local_pos, ivec2(0))) || any(greaterThanEqual(local_pos, ivec2(export_texture_quad.zw))))
         return;
 
     // compute gradient (optimized Sobel operator - only non-zero terms)
@@ -184,8 +184,8 @@ void computemain() {
     vec4 current = imageLoad(jfa_texture_array, ivec3(position, final_layer));
 
     ivec2 write_pos = ivec2(
-        int(texture_atlas_quad.x) + local_position.x,
-        int(texture_atlas_quad.y) + local_position.y
+        int(texture_atlas_quad.x) + local_pos.x,
+        int(texture_atlas_quad.y) + local_pos.y
     );
 
     imageStore(export_texture, write_pos, vec4(

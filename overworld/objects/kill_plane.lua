@@ -179,7 +179,7 @@ function ow.KillPlane:instantiate(object, stage, scene)
                     rt.settings.overworld.kill_plane.max_rotation_speed
                 ),
                 axis = {
-                    math.normalize(
+                    math.normalize3(
                         rt.random.number(-1, 1),
                         rt.random.number(-1, 1),
                         rt.random.number(-1, 1)

@@ -427,10 +427,7 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
             _export_shader:send("export_texture_quad", { self._quad:getViewport() })
             _export_shader:send("texture_atlas_quad", { chunk.quad:getViewport() })
             _export_shader:send("max_distance", rt.settings.overworld.normal_map.max_distance)
-            _export_shader:dispatch(
-                math.ceil((chunk_size + 2 * padding) / size_x),
-                math.ceil((chunk_size + 2 * padding) / size_y)
-            )
+            _export_shader:dispatch(dispatch_size_x, dispatch_size_y)
 
             chunk.is_initialized = true
 
