@@ -455,7 +455,7 @@ function ow.Goal:reset()
     self._player_time_dilation_animation:reset()
     self:update(0)
     self._particles:clear()
-    self._player:request_is_disabled(self)
+    self._scene:get_player():request_is_disabled(self)
     self._is_shattered = false
 end
 

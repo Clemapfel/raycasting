@@ -3,7 +3,7 @@ require "common.render_texture"
 require "common.impulse_manager"
 
 rt.settings.overworld.normal_map = {
-    chunk_size = 2^10,
+    chunk_size = 1024,
     work_group_size_x = 16,
     work_group_size_y = 16,
     chunk_bounds_padding = 8,
@@ -75,7 +75,10 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
 
     local last = love.timer.getTime()
     local savepoint = function()
-        coroutine.yield()
+        if (love.timer.getTime() - last) / (1 / 60) > 0.01 then
+            coroutine.yield()
+            last = love.timer.getTime()
+        end
     end
 
     self._callback = coroutine.create(function()
@@ -336,18 +339,17 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
 
         local mask = rt.RenderTexture(
             chunk_size + 2 * padding, chunk_size + 2 * padding,
-            8, _mask_texture_format, true
-        ):get_native()
+            0, -- msaa
+            _mask_texture_format,
+            true -- computewrite
+        )
 
-        local jfa_texture = love.graphics.newTexture(
+        local jfa_texture = rt.RenderTextureArray(
             chunk_size + 2 * padding, chunk_size + 2 * padding,
-            2, -- layer count
-            {
-                format = _jfa_texture_format,
-                type = "array",
-                canvas = true,
-                computewrite = true
-            }
+            2, -- n layers
+            0, -- msaa
+            _jfa_texture_format,
+            true -- computewrite
         )
 
         -- allocate texture atlas
@@ -379,18 +381,22 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
         local dispatch_size_x, dispatch_size_y = math.ceil(chunk_size + 2 * padding) / size_x,
             math.ceil(chunk_size + 2 * padding) / size_y
 
-        local lg = love.graphics
+        local mask_native = {
+            mask:get_native(),
+            stencil = true
+        }
 
         for chunk in values(self._non_empty_chunks) do
             -- fill mask
-            lg.setCanvas({ mask, stencil = true })
-            lg.clear(0, 0, 0, 0)
+            love.graphics.setCanvas(mask_native)
+            love.graphics.clear(true, false, false)
 
-            lg.push()
-            lg.translate(-chunk.x + padding, -chunk.y + padding)
+            love.graphics.push()
+            love.graphics.translate(-chunk.x + padding, -chunk.y + padding)
             self._draw_mask_callback()
-            lg.pop()
-            lg.setCanvas(nil)
+            love.graphics.pop()
+
+            love.graphics.setCanvas(nil)
 
             -- init (writes to layer 0, boundaries to both layers)
             _init_shader:send("mask_texture", mask)
@@ -399,7 +405,7 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
 
             savepoint()
 
-            -- jfa ping-pong between layers
+            -- jfa flip flop between layers
             local jump = 0.5 * chunk_size
             local current_layer = 0
 

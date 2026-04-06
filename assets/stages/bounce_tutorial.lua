@@ -508,8 +508,8 @@ return {
           rotation = 0,
           visible = true,
           polygon = {
-            { x = 0, y = 0 },
-            { x = 3824, y = 0 },
+            { x = 0, y = 217.336 },
+            { x = 3824, y = 217.336 },
             { x = 3824, y = 793.336 },
             { x = 0, y = 793.336 }
           },
@@ -573,8 +573,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = 1273.97,
-          y = 577.196,
+          x = 1464.03,
+          y = 1082.6,
           width = 0,
           height = 0,
           rotation = 0,
@@ -3150,21 +3150,6 @@ return {
             { x = -47.9671, y = 173.895 }
           },
           properties = {}
-        },
-        {
-          id = 646,
-          name = "",
-          type = "Wall",
-          shape = "rectangle",
-          x = 509.386,
-          y = -79.9147,
-          width = 1552.02,
-          height = 1280.31,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["opacity"] = 0.9
-          }
         }
       }
     },

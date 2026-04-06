@@ -27,6 +27,7 @@
 
 layout(MASK_TEXTURE_FORMAT) uniform readonly image2D mask_texture;
 layout(JFA_TEXTURE_FORMAT) uniform writeonly image2DArray jfa_texture_array;
+uniform vec2 mask_offset; // x, y
 
 #elif MODE == MODE_JUMP
 
@@ -42,7 +43,7 @@ layout(MASK_TEXTURE_FORMAT) uniform readonly image2D mask_texture;
 layout(JFA_TEXTURE_FORMAT) uniform readonly image2DArray jfa_texture_array;
 layout(NORMAL_MAP_TEXTURE_FORMAT) uniform writeonly image2D export_texture;
 uniform vec4 export_texture_quad; // x, y, w, h
-uniform vec4 texture_atlas_quad;
+uniform vec4 texture_atlas_quad;  // x, y, w, h
 
 uniform int final_layer;  // which layer contains the final JFA result
 
@@ -92,7 +93,10 @@ void computemain() {
     const vec4 wall = vec4(position.x, position.y, -1, 0);   // boundary of walled area
     const vec4 non_wall = vec4(-1, -1, infinity, 1);         // free space
 
-    vec4 pixel = imageLoad(mask_texture, position);
+    vec4 pixel = imageLoad(mask_texture, ivec2(
+        position.x + mask_offset.x,
+        position.y + mask_offset.y
+    ));
 
     if (pixel.r > threshold) {
         uint n_others = 0;

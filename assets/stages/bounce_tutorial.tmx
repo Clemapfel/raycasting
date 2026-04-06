@@ -91,7 +91,7 @@
    <polygon points="-448,-16 -448,288 1552,288 1552,-688 1792,-688 1792,-848 1296,-848 1296,-16"/>
   </object>
   <object id="634" type="Wall" x="464" y="854.664">
-   <polygon points="0,0 3824,0 3824,793.336 0,793.336"/>
+   <polygon points="0,217.336 3824,217.336 3824,793.336 0,793.336"/>
   </object>
   <object id="647" type="BouncePad" x="1024" y="1136">
    <polygon points="0,0 224,0 224,-32 0,-32"/>
@@ -101,7 +101,7 @@
   </object>
  </objectgroup>
  <objectgroup id="6" name="hitbox">
-  <object id="260" name="Spawn" type="PlayerSpawn" x="1273.97" y="577.196">
+  <object id="260" name="Spawn" type="PlayerSpawn" x="1464.03" y="1082.6">
    <point/>
   </object>
   <object id="261" type="Hitbox" x="336" y="-576">
@@ -589,11 +589,6 @@
   </object>
   <object id="643" type="Hitbox" x="576" y="1232">
    <polygon points="-48,-96 3712,-96 3712,176 -47.9671,173.895"/>
-  </object>
-  <object id="646" type="Wall" x="509.386" y="-79.9147" width="1552.02" height="1280.31">
-   <properties>
-    <property name="opacity" type="float" value="0.9"/>
-   </properties>
   </object>
  </objectgroup>
  <objectgroup id="2" name="front">
