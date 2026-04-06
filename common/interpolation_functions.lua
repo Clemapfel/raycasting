@@ -298,12 +298,10 @@ rt.InterpolationFunctions = {
         if total == 0 then return 1 end
 
         local function sine_ease_in(t)
-            -- Smooth ease from 0 to 1 using sinusoid
             return 1 - math.cos(t * math.pi / 2)
         end
 
         local function sine_ease_out(t)
-            -- Smooth ease from 1 to 0 using sinusoid
             return math.cos(t * math.pi / 2)
         end
 
