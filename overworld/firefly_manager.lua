@@ -173,32 +173,36 @@ local FALSE, TRUE = 0, 1
 
 local _x_offset = 0
 local _y_offset = 1
-local _speed_offset = 2
-local _state_offset = 3
-local _noise_position_offset = 4
-local _noise_speed_offset = 5
-local _glow_offset_t_offset = 6
-local _glow_cycle_duration_offset = 7
-local _glow_elapsed_offset = 8
-local _glow_value_offset = 9
-local _hover_offset_t_offset = 10
-local _hover_cycle_duration_offset = 11
-local _hover_elapsed_offset = 12
-local _follow_offset = 13
-local _repel_target_x_offset = 14
-local _repel_target_y_offset = 15
-local _repel_intensity_offset = 16
-local _should_move_in_place_offset = 17
-local _radius_offset = 18
-local _hue_offset = 19
-local _r_offset = 20
-local _g_offset = 21
-local _b_offset = 22
-local _home_x_offset = 23
-local _home_y_offset = 24
-local _follow_target_offset_x = 25
-local _follow_target_offset_y = 26
-local _batch_id_offset = 27
+local _x_offset_offset = 2
+local _y_offset_offset = 3
+local _x_velocity_offset = 4
+local _y_velocity_offset = 5
+local _speed_offset = 6
+local _state_offset = 7
+local _noise_position_offset = 8
+local _noise_speed_offset = 9
+local _glow_offset_t_offset = 10
+local _glow_cycle_duration_offset = 11
+local _glow_elapsed_offset = 12
+local _glow_value_offset = 13
+local _hover_offset_t_offset = 14
+local _hover_cycle_duration_offset = 15
+local _hover_elapsed_offset = 16
+local _follow_offset = 17
+local _repel_target_x_offset = 18
+local _repel_target_y_offset = 19
+local _repel_intensity_offset = 20
+local _should_move_in_place_offset = 21
+local _radius_offset = 22
+local _hue_offset = 23
+local _r_offset = 24
+local _g_offset = 25
+local _b_offset = 26
+local _home_x_offset = 27
+local _home_y_offset = 28
+local _follow_target_offset_x = 29
+local _follow_target_offset_y = 30
+local _batch_id_offset = 31
 
 local _stride = _batch_id_offset + 1
 local _particle_i_to_data_offset = function(particle_i)
@@ -243,6 +247,13 @@ function ow.FireflyManager:register(x, y, count, should_move_in_place)
         local i = #data + 1
         data[i + _x_offset] = home_x
         data[i + _y_offset] = home_y
+
+        data[i + _x_offset_offset] = 0
+        data[i + _y_offset_offset] = 0
+
+        data[i + _x_velocity_offset] = 0
+        data[i + _y_velocity_offset] = 0
+
         data[i + _speed_offset] = settings.speed_multiplier * rt.random.number(settings.min_speed, settings.max_speed)
         data[i + _state_offset] = STATE_IDLE
 
@@ -375,6 +386,67 @@ function ow.FireflyManager:notify_reset(id)
 end
 
 --- @brief
+function ow.FireflyManager:notify_set_position(id, x, y)
+    local entry = self._batch_id_to_entry[id]
+    local data = self._data
+    for particle_i in values(entry.indices) do
+        local i = _particle_i_to_data_offset(particle_i)
+        if data[i + _state_offset] == STATE_IDLE then
+            data[i + _x_offset_offset] = x - data[i + _home_x_offset]
+            data[i + _y_offset_offset] = y - data[i + _home_y_offset]
+        end
+    end
+end
+
+--- @brief
+function ow.FireflyManager:get_position(id)
+    local entry = self._batch_id_to_entry[id]
+    local data = self._data
+    local x_sum, y_sum = 0, 0
+    for particle_i in values(entry.indices) do
+        local i = _particle_i_to_data_offset(particle_i)
+        if data[i + _state_offset] == STATE_IDLE then
+            x_sum = x_sum + data[i + _home_x_offset] + data[i + _x_offset_offset]
+            y_sum = y_sum + data[i + _home_y_offset] + data[i + _y_offset_offset]
+        end
+    end
+
+    local n = #entry.indices
+    return x_sum / n, y_sum / n
+end
+
+--- @brief
+function ow.FireflyManager:notify_set_velocity(id, vx, vy)
+    if true then return end
+    local entry = self._batch_id_to_entry[id]
+    local data = self._data
+    for particle_i in values(entry.indices) do
+        local i = _particle_i_to_data_offset(particle_i)
+        if data[i + _state_offset] == STATE_IDLE then
+            data[i + _x_velocity_offset] = vx
+            data[i + _y_velocity_offset] = vy
+        end
+    end
+end
+
+--- @brief
+function ow.FireflyManager:get_velocity(id)
+    local entry = self._batch_id_to_entry[id]
+    local data = self._data
+    local x_sum, y_sum = 0, 0
+    for particle_i in values(entry.indices) do
+        local i = _particle_i_to_data_offset(particle_i)
+        if data[i + _state_offset] == STATE_IDLE then
+            x_sum = x_sum + data[i + _x_velocity_offset]
+            y_sum = y_sum + data[i + _y_velocity_offset]
+        end
+    end
+
+    local n = #entry.indices
+    return x_sum / n, y_sum / n
+end
+
+--- @brief
 function ow.FireflyManager:update(delta)
     local settings = rt.settings.overworld.firefly_manager
     local player_radius = rt.settings.player.radius
@@ -436,8 +508,11 @@ function ow.FireflyManager:update(delta)
             data[i + _repel_target_x_offset] = dx * magnitude
             data[i + _repel_target_y_offset] = dy * magnitude
         elseif state == STATE_IDLE then
-            target_x = data[i + _home_x_offset]
-            target_y = data[i + _home_y_offset]
+            --data[i + _x_offset_offset] = data[i + _x_offset_offset] + delta * data[i + _x_velocity_offset]
+            --data[i + _y_offset_offset] = data[i + _y_offset_offset] + delta * data[i + _y_velocity_offset]
+
+            target_x = data[i + _home_x_offset] + data[i + _x_offset_offset]
+            target_y = data[i + _home_y_offset] + data[i + _y_offset_offset]
 
             if not (
                 x >= bounds_x
@@ -559,6 +634,16 @@ function ow.FireflyManager:draw()
             data[i + _radius_offset],
             data[i + _x_offset],
             data[i + _y_offset]
+        )
+    end
+
+    for _, i in ipairs(self._visible_data_is) do
+        local alpha = data[i + _glow_value_offset] * composition_opacity
+        love.graphics.setColor(1, 1, 1, 1)
+        love.graphics.circle("fill",
+            data[i + _home_x_offset],
+            data[i + _home_y_offset],
+            5
         )
     end
 

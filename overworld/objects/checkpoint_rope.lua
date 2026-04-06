@@ -572,12 +572,6 @@ function ow.CheckpointRope:_draw(bloom_active)
     if self._is_despawned then return end
 
     _shader:bind()
-
-    if bloom_active then
-        _shader:send("black", { 0, 0, 0, 0 })
-    else
-        _shader:send("black", { rt.Palette.BLACK:unpack() })
-    end
     _shader:send("noise_texture", _noise_texture)
     _shader:send("elapsed", rt.SceneManager:get_elapsed())
     _shader:send("color", { self._color:unpack() })

@@ -60,12 +60,8 @@ function rt.SceneManager:instantiate()
         _cursor_visible = false,
         _cursor = rt.Cursor(),
 
-        _pause_on_focus_lost = true,
-
         _restart_active = false,
 
-        -- love.run variables
-        _ignore_next_step = false,
         _frame_i = 0,
         _frame_timestamp = love.timer.getTime(),
 
@@ -86,7 +82,6 @@ function rt.SceneManager:instantiate()
         _sound_manager_fixed_fps = 240,
         _sound_manager_accumulator = 0,
 
-        _is_focused = true,
         _composition_overlay_visible = false
     })
 
@@ -425,16 +420,6 @@ function rt.SceneManager:get_use_fixed_fps()
 end
 
 --- @brief
-function rt.SceneManager:set_pause_on_focus_lost(b)
-    self._pause_on_focus_lost = b
-end
-
---- @brief
-function rt.SceneManager:get_pause_on_focus_lost()
-    return self._pause_on_focus_lost
-end
-
---- @brief
 function rt.SceneManager:get_timestep()
     if self._update_use_fixed_timestep then return 1 / self._update_fixed_fps else return 1 / love.timer.getFPS() end
 end
@@ -504,9 +489,21 @@ function rt.SceneManager:_draw_performance_metrics()
         return #t > 0 and sum / #t or 0, max
     end
 
-    local update_mean, update_max = update_samples(self._update_samples)
-    local draw_mean, draw_max = update_samples(self._draw_samples)
+    local update_mean, update_max
+    local draw_mean, draw_max
     local fps_mean, _ = update_samples(self._fps_samples)
+
+    if #self._update_samples == 0 then
+        update_mean, update_max = 0, 0
+    else
+        update_mean, update_max = update_samples(self._update_samples)
+    end
+
+    if #self._draw_samples == 0 then
+        draw_mean, draw_max = 0, 0
+    else
+        draw_mean, draw_max = update_samples(self._draw_samples)
+    end
 
     local fps_variance = 0
     for entry in values(self._fps_samples) do
@@ -621,14 +618,6 @@ end
 
 rt.SceneManager = rt.SceneManager() -- static global singleton
 
-love.focus = function(b)
-    if rt.SceneManager._is_focused == false and b == true then
-        rt.SceneManager._ignore_next_step = true
-    end
-
-    rt.SceneManager._is_focused = b
-end
-
 love.quit = function()
     local temp = bd.get_temp_directory_name()
     if bd.is_directory(temp) then
@@ -712,7 +701,6 @@ love.run = function()
             state:_notify_update_duration(love.timer.getTime() - before)
         end
 
-        was_active = is_active
 
         -- ### SOUND ###
 
@@ -731,6 +719,7 @@ love.run = function()
         state._last_update_timestamp = love.timer.getTime()
 
         ::skip_update::
+        was_active = is_active
 
         -- ### DRAW ###
 

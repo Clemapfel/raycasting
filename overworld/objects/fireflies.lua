@@ -9,7 +9,7 @@ rt.settings.overworld.fireflies = {
 }
 
 --- @class ow.Fireflies
-ow.Fireflies = meta.class("Fireflies")
+ow.Fireflies = meta.class("Fireflies", ow.MovableObject)
 
 function ow.Fireflies.reinitialize(scene, stage)
     require "overworld.firefly_manager"
@@ -84,4 +84,16 @@ function ow.Fireflies:instantiate(object, stage, scene)
     self._stage:signal_connect("respawn", function(_)
         self._stage.firefly_manager:notify_reset(self._id)
     end)
+end
+
+--- @brief
+function ow.Fireflies:set_position(x, y)
+    self._stage.firefly_manager:notify_set_position(self._id, x, y)
+    self._body:set_position(x, y)
+end
+
+--- @brief
+function ow.Fireflies:set_velocity(vx, vy)
+    self._stage.firefly_manager:notify_set_velocity(self._id, vx, vy)
+    self._body:set_velocity(vx, vy)
 end

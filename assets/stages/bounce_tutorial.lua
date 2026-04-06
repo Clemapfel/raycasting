@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 649,
+  nextobjectid = 686,
   properties = {},
   tilesets = {
     {
@@ -225,22 +225,6 @@ return {
           rotation = 0,
           visible = true,
           properties = {}
-        },
-        {
-          id = 621,
-          name = "",
-          type = "OverlapTrigger",
-          shape = "rectangle",
-          x = 832,
-          y = 1456,
-          width = 123.58,
-          height = 144,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["signal"] = "unpause",
-            ["target"] = { id = 616 }
-          }
         },
         {
           id = 627,
@@ -497,31 +481,12 @@ return {
           properties = {}
         },
         {
-          id = 634,
+          id = 676,
           name = "",
           type = "Wall",
           shape = "polygon",
-          x = 464,
-          y = 854.664,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = 217.336 },
-            { x = 3824, y = 217.336 },
-            { x = 3824, y = 793.336 },
-            { x = 0, y = 793.336 }
-          },
-          properties = {}
-        },
-        {
-          id = 647,
-          name = "",
-          type = "BouncePad",
-          shape = "polygon",
-          x = 1024,
-          y = 1136,
+          x = 1408,
+          y = -64,
           width = 0,
           height = 0,
           rotation = 0,
@@ -529,26 +494,10 @@ return {
           polygon = {
             { x = 0, y = 0 },
             { x = 224, y = 0 },
-            { x = 224, y = -32 },
-            { x = 0, y = -32 }
-          },
-          properties = {}
-        },
-        {
-          id = 648,
-          name = "",
-          type = "BouncePad",
-          shape = "polygon",
-          x = 672,
-          y = 1072,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = 0 },
-            { x = 96, y = -80 },
-            { x = 0, y = -80 }
+            { x = 224, y = -128 },
+            { x = 624, y = -128 },
+            { x = 624, y = 512 },
+            { x = 0, y = 512 }
           },
           properties = {}
         }
@@ -573,13 +522,15 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = 1464.03,
-          y = 1082.6,
+          x = 489.206,
+          y = 457.799,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
-          properties = {}
+          properties = {
+            ["is_visible"] = false
+          }
         },
         {
           id = 261,
@@ -773,34 +724,39 @@ return {
           name = "",
           type = "SlipperyHitbox",
           shape = "polygon",
-          x = 16,
-          y = 784,
+          x = 1696,
+          y = 384,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
           polygon = {
-            { x = 0, y = -32 },
+            { x = 0, y = -48 },
             { x = 0, y = 32 },
             { x = -16, y = 48 },
-            { x = -256, y = 48 },
-            { x = -256, y = -496 },
-            { x = -272, y = -496 },
-            { x = -272, y = 64 },
+            { x = -272, y = 48 },
+            { x = -272, y = -400 },
+            { x = -48, y = -432 },
+            { x = -48, y = -576 },
+            { x = -64, y = -576 },
+            { x = -64, y = -448 },
+            { x = -288, y = -448 },
+            { x = -288, y = 64 },
             { x = 0, y = 64 },
             { x = 0, y = 112 },
-            { x = -336, y = 112 },
-            { x = -336, y = -272 },
-            { x = -304, y = -272 },
-            { x = -304, y = -496 },
+            { x = -352, y = 112 },
+            { x = -352, y = -272 },
+            { x = -320, y = -272 },
+            { x = -320, y = -496 },
             { x = -320, y = -496 },
             { x = -320, y = -304 },
-            { x = -352, y = -272 },
-            { x = -352, y = 112 },
-            { x = -336, y = 128 },
+            { x = -336, y = -304 },
+            { x = -368, y = -272 },
+            { x = -368, y = 112 },
+            { x = -352, y = 128 },
             { x = 0, y = 128 },
             { x = 16, y = 112 },
-            { x = 16, y = -32 }
+            { x = 16, y = -48 }
           },
           properties = {}
         },
@@ -809,15 +765,15 @@ return {
           name = "",
           type = "SlipperyHitbox",
           shape = "polygon",
-          x = 64,
-          y = 784,
+          x = 1728,
+          y = 384,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
           polygon = {
-            { x = -16, y = 128 },
-            { x = -32, y = 144 },
+            { x = 0, y = 112 },
+            { x = -16, y = 144 },
             { x = -400, y = 144 },
             { x = -416, y = 128 },
             { x = -416, y = -272 },
@@ -826,16 +782,20 @@ return {
             { x = -464, y = -272 },
             { x = -432, y = -272 },
             { x = -432, y = 160 },
-            { x = 0, y = 160 },
-            { x = 0, y = 64 },
-            { x = 272, y = 64 },
-            { x = 272, y = -480 },
-            { x = 256, y = -480 },
-            { x = 256, y = 48 },
-            { x = 16, y = 48 },
-            { x = 0, y = 32 },
-            { x = 0, y = -32 },
-            { x = -16, y = -32 }
+            { x = 16, y = 160 },
+            { x = 16, y = 64 },
+            { x = 304, y = 64 },
+            { x = 304, y = -480 },
+            { x = 288, y = -480 },
+            { x = 288, y = -448 },
+            { x = 48, y = -448 },
+            { x = 48, y = -432 },
+            { x = 288, y = -384 },
+            { x = 288, y = 48 },
+            { x = 32, y = 48 },
+            { x = 16, y = 32 },
+            { x = 16, y = -48 },
+            { x = 0, y = -48 }
           },
           properties = {}
         },
@@ -844,8 +804,8 @@ return {
           name = "",
           type = "BoostField",
           shape = "polygon",
-          x = -368,
-          y = 512,
+          x = 1296,
+          y = 112,
           width = 0,
           height = 0,
           rotation = 0,
@@ -862,7 +822,8 @@ return {
             ["axis_y"] = 1,
             ["has_outline"] = false,
             ["hue"] = "player",
-            ["velocity"] = 1
+            ["is_visible"] = true,
+            ["velocity"] = 2
           }
         },
         {
@@ -870,8 +831,8 @@ return {
           name = "",
           type = "BoostField",
           shape = "polygon",
-          x = -368,
-          y = 912,
+          x = 1296,
+          y = 512,
           width = 0,
           height = 0,
           rotation = 0,
@@ -881,15 +842,16 @@ return {
             { x = 16, y = -16 },
             { x = 32, y = -16 },
             { x = 48, y = 0 },
-            { x = 384, y = 0 },
-            { x = 384, y = 16 },
+            { x = 400, y = 0 },
+            { x = 400, y = 16 },
             { x = 32, y = 16 }
           },
           properties = {
             ["axis_x"] = 1,
             ["has_outline"] = false,
             ["hue"] = "player",
-            ["velocity"] = 1
+            ["is_visible"] = true,
+            ["velocity"] = 2
           }
         },
         {
@@ -897,26 +859,27 @@ return {
           name = "",
           type = "BoostField",
           shape = "polygon",
-          x = 32,
-          y = 784,
+          x = 1712,
+          y = 384,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
           polygon = {
-            { x = 0, y = -32 },
+            { x = 0, y = -48 },
             { x = 0, y = 112 },
             { x = -16, y = 128 },
             { x = -16, y = 144 },
             { x = 0, y = 144 },
             { x = 16, y = 128 },
-            { x = 16, y = -32 }
+            { x = 16, y = -48 }
           },
           properties = {
             ["axis_y"] = -1,
             ["has_outline"] = false,
             ["hue"] = "player",
-            ["velocity"] = 1
+            ["is_visible"] = true,
+            ["velocity"] = 0.6
           }
         },
         {
@@ -924,21 +887,23 @@ return {
           name = "",
           type = "Hitbox",
           shape = "polygon",
-          x = 16,
-          y = 848,
+          x = 1680,
+          y = 448,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
           polygon = {
-            { x = 0, y = 0 },
+            { x = 16, y = 0 },
             { x = -272, y = 0 },
-            { x = -272, y = -560 },
-            { x = -304, y = -560 },
+            { x = -272, y = -512 },
+            { x = -48, y = -512 },
+            { x = -48, y = -640 },
+            { x = -304, y = -640 },
             { x = -304, y = -336 },
             { x = -336, y = -336 },
             { x = -336, y = 48 },
-            { x = 0, y = 48 }
+            { x = 16, y = 48 }
           },
           properties = {}
         },
@@ -947,8 +912,8 @@ return {
           name = "",
           type = "Hitbox",
           shape = "polygon",
-          x = -410.9,
-          y = 445.505,
+          x = 1296,
+          y = 112,
           width = 0,
           height = 0,
           rotation = 0,
@@ -957,12 +922,12 @@ return {
             { x = 0, y = 0 },
             { x = -64, y = 0 },
             { x = -64, y = 480 },
-            { x = 880, y = 480 },
-            { x = 880, y = -208 },
-            { x = 704, y = -208 },
-            { x = 704, y = 336 },
-            { x = 432, y = 336 },
-            { x = 432, y = 432 },
+            { x = 928, y = 480 },
+            { x = 928, y = -208 },
+            { x = 736, y = -208 },
+            { x = 736, y = 336 },
+            { x = 448, y = 336 },
+            { x = 448, y = 432 },
             { x = 0, y = 432 }
           },
           properties = {}
@@ -972,8 +937,8 @@ return {
           name = "",
           type = "BouncePad",
           shape = "polygon",
-          x = 64,
-          y = 752,
+          x = 1744,
+          y = 352,
           width = 0,
           height = 0,
           rotation = 0,
@@ -991,8 +956,8 @@ return {
           name = "",
           type = "BouncePad",
           shape = "polygon",
-          x = 16,
-          y = 752,
+          x = 1696,
+          y = 352,
           width = 0,
           height = 0,
           rotation = 0,
@@ -2853,117 +2818,6 @@ return {
           properties = {}
         },
         {
-          id = 611,
-          name = "",
-          type = "Hitbox",
-          shape = "polygon",
-          x = 576,
-          y = 1648,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = -144, y = -608 },
-            { x = 96, y = -608 },
-            { x = 96, y = -576 },
-            { x = -112, y = -576 },
-            { x = -112, y = 0 },
-            { x = 3712, y = 0 },
-            { x = 3712, y = 176 },
-            { x = -144, y = 176 }
-          },
-          properties = {}
-        },
-        {
-          id = 612,
-          name = "",
-          type = "SlipperyMovableHitbox",
-          shape = "polygon",
-          x = 832,
-          y = 1584,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = -32, y = 64 },
-            { x = -32, y = -16 },
-            { x = 0, y = -16 },
-            { x = 0, y = 16 },
-            { x = 208, y = 16 },
-            { x = 208, y = -16 },
-            { x = 240, y = -16 },
-            { x = 256, y = 64 }
-          },
-          properties = {}
-        },
-        {
-          id = 613,
-          name = "",
-          type = "SlipperyMovableHitbox",
-          shape = "polygon",
-          x = 832,
-          y = 1456,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = -32, y = -48 },
-            { x = -32, y = 32 },
-            { x = 0, y = 32 },
-            { x = 0, y = 0 },
-            { x = 208, y = 0 },
-            { x = 208, y = 32 },
-            { x = 240, y = 32 },
-            { x = 256, y = -48 }
-          },
-          properties = {}
-        },
-        {
-          id = 615,
-          name = "",
-          type = "BouncePad",
-          shape = "polygon",
-          x = 832,
-          y = 1600,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = -32 },
-            { x = 208, y = -32 },
-            { x = 208, y = 0 },
-            { x = 0, y = 0 }
-          },
-          properties = {}
-        },
-        {
-          id = 616,
-          name = "",
-          type = "Path",
-          shape = "point",
-          x = 880,
-          y = 1519,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["is_paused"] = true,
-            ["next"] = { id = 617 },
-            ["target_01"] = { id = 612 },
-            ["target_02"] = { id = 615 },
-            ["target_03"] = { id = 613 },
-            ["target_04"] = { id = 622 },
-            ["target_05"] = { id = 628 },
-            ["target_06"] = { id = 629 },
-            ["velocity"] = 10
-          }
-        },
-        {
           id = 617,
           name = "",
           type = "PathNode",
@@ -2974,25 +2828,6 @@ return {
           height = 0,
           rotation = 0,
           visible = true,
-          properties = {}
-        },
-        {
-          id = 622,
-          name = "",
-          type = "BouncePad",
-          shape = "polygon",
-          x = 832,
-          y = 1504,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = -48 },
-            { x = 208, y = -48 },
-            { x = 208, y = -16 },
-            { x = 0, y = -16 }
-          },
           properties = {}
         },
         {
@@ -3018,66 +2853,6 @@ return {
             ["axis_x"] = 1,
             ["velocity"] = 3
           }
-        },
-        {
-          id = 631,
-          name = "",
-          type = "BoostField",
-          shape = "polygon",
-          x = 784,
-          y = 1488,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = -16, y = 0 },
-            { x = 48, y = 0 },
-            { x = 48, y = 80 },
-            { x = -16, y = 80 }
-          },
-          properties = {
-            ["axis_x"] = 1,
-            ["velocity"] = 0.5
-          }
-        },
-        {
-          id = 632,
-          name = "",
-          type = "SlipperyHitbox",
-          shape = "polygon",
-          x = 800,
-          y = 1488,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = 0 },
-            { x = -32, y = 0 },
-            { x = -64, y = -80 },
-            { x = 0, y = -80 }
-          },
-          properties = {}
-        },
-        {
-          id = 633,
-          name = "",
-          type = "SlipperyHitbox",
-          shape = "polygon",
-          x = 800,
-          y = 1568,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = 0 },
-            { x = -32, y = 0 },
-            { x = -64, y = 80 },
-            { x = 0, y = 80 }
-          },
-          properties = {}
         },
         {
           id = 638,
@@ -3133,21 +2908,292 @@ return {
           properties = {}
         },
         {
-          id = 643,
+          id = 655,
           name = "",
-          type = "Hitbox",
+          type = "BouncePad",
           shape = "polygon",
-          x = 576,
-          y = 1232,
+          x = 1424,
+          y = 352,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
           polygon = {
-            { x = -48, y = -96 },
-            { x = 3712, y = -96 },
-            { x = 3712, y = 176 },
-            { x = -47.9671, y = 173.895 }
+            { x = 0, y = 0 },
+            { x = 0, y = 80 },
+            { x = 80, y = 80 }
+          },
+          properties = {}
+        },
+        {
+          id = 656,
+          name = "",
+          type = "BouncePad",
+          shape = "polygon",
+          x = 2016,
+          y = 352,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 0, y = 80 },
+            { x = -80, y = 80 }
+          },
+          properties = {}
+        },
+        {
+          id = 667,
+          name = "",
+          type = "BouncePad",
+          shape = "polygon",
+          x = 1696,
+          y = 160,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = -32, y = 0 },
+            { x = 80, y = 0 },
+            { x = 80, y = -48 },
+            { x = -32, y = -48 }
+          },
+          properties = {}
+        },
+        {
+          id = 668,
+          name = "",
+          type = "OneWayPlatform",
+          shape = "point",
+          x = 1696,
+          y = 336,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["hue"] = "player",
+            ["other"] = { id = 669 }
+          }
+        },
+        {
+          id = 669,
+          name = "",
+          type = "OneWayPlatformNode",
+          shape = "point",
+          x = 1744,
+          y = 336,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 670,
+          name = "",
+          type = "OneWayPlatform",
+          shape = "point",
+          x = 1648,
+          y = -64,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["other"] = { id = 671 }
+          }
+        },
+        {
+          id = 671,
+          name = "",
+          type = "OneWayPlatformNode",
+          shape = "point",
+          x = 1776,
+          y = -64,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 674,
+          name = "",
+          type = "OneWayPlatform",
+          shape = "point",
+          x = 1376,
+          y = 80,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["hue"] = "player",
+            ["other"] = { id = 675 }
+          }
+        },
+        {
+          id = 675,
+          name = "",
+          type = "OneWayPlatformNode",
+          shape = "point",
+          x = 1264,
+          y = 80,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 677,
+          name = "",
+          type = "Fireflies",
+          shape = "point",
+          x = 1120,
+          y = -32,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 678,
+          name = "",
+          type = "Path",
+          shape = "point",
+          x = 1056,
+          y = 16,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["next"] = { id = 679 },
+            ["target"] = { id = 677 },
+            ["target_02"] = { id = 682 }
+          }
+        },
+        {
+          id = 679,
+          name = "",
+          type = "PathNode",
+          shape = "point",
+          x = 1184,
+          y = 16,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["next"] = { id = 680 }
+          }
+        },
+        {
+          id = 680,
+          name = "",
+          type = "PathNode",
+          shape = "point",
+          x = 1184,
+          y = -96,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["next"] = { id = 681 }
+          }
+        },
+        {
+          id = 681,
+          name = "",
+          type = "PathNode",
+          shape = "point",
+          x = 1056,
+          y = -96,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["next"] = { id = 678 },
+            ["should_loop"] = true
+          }
+        },
+        {
+          id = 682,
+          name = "",
+          type = "MovableHitbox",
+          shape = "ellipse",
+          x = 1104,
+          y = -48,
+          width = 32,
+          height = 32,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 683,
+          name = "",
+          type = "Hitbox",
+          shape = "polygon",
+          x = 528,
+          y = 480,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 0, y = 640 },
+            { x = 720, y = 640 },
+            { x = 720, y = 592 },
+            { x = 48, y = 592 },
+            { x = 48, y = 0 }
+          },
+          properties = {}
+        },
+        {
+          id = 684,
+          name = "",
+          type = "",
+          shape = "polygon",
+          x = 672,
+          y = 480,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 0, y = 496 },
+            { x = 576, y = 496 },
+            { x = 576, y = 448 },
+            { x = 48, y = 448 },
+            { x = 48, y = 0 }
+          },
+          properties = {}
+        },
+        {
+          id = 685,
+          name = "",
+          type = "BouncePad",
+          shape = "polygon",
+          x = 576,
+          y = 992,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 80, y = 80 },
+            { x = 0, y = 80 }
           },
           properties = {}
         }
@@ -3293,34 +3339,6 @@ return {
           rotation = 0,
           visible = true,
           properties = {}
-        },
-        {
-          id = 629,
-          name = "",
-          type = "OneWayPlatformNode",
-          shape = "point",
-          x = 800,
-          y = 1648,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 628,
-          name = "",
-          type = "OneWayPlatform",
-          shape = "point",
-          x = 800,
-          y = 1392,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["other"] = { id = 629 }
-          }
         }
       }
     },

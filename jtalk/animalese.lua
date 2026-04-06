@@ -243,7 +243,7 @@ function rt.Animalese:_english_to_phoneme(args)
     end
 
     local command = string.format("python ./jtalk/to_phonemes.py %s", table.concat(quoted, " "))
-    rt.log("In rt.Animalese._english_to_phonemes: starting translation of `", #args, " strings")
+    rt.log("In rt.Animalese._english_to_phonemes: starting translation of `", #args, "` strings")
 
     -- capture tty output
     local before = love.timer.getTime()
@@ -362,15 +362,15 @@ do
     end
 
     local english_pure_vowel_to_japanese_vowel = {
-        [English.AA]  = Japanese.A,
-        [English.AE]  = Japanese.A,
-        [English.AH]  = Japanese.A,
-        [English.AO]  = Japanese.O,
-        [English.EH]  = Japanese.E,
-        [English.IH]  = Japanese.I,
-        [English.IY]  = Japanese.II,
-        [English.UH]  = Japanese.U,
-        [English.UW]  = Japanese.UU,
+        [English.AA] = Japanese.A,
+        [English.AE] = Japanese.A,
+        [English.AH] = Japanese.A,
+        [English.AO] = Japanese.O,
+        [English.EH] = Japanese.E,
+        [English.IH] = Japanese.I,
+        [English.IY] = Japanese.II,
+        [English.UH] = Japanese.U,
+        [English.UW] = Japanese.UU,
         [English.AW] = { Japanese.A, Japanese.U },
         [English.AY] = { Japanese.A, Japanese.I },
         [English.EY] = { Japanese.EE, Japanese.I },
@@ -380,15 +380,15 @@ do
     }
 
     local english_suffix_vowel_to_japanese_vowel = {
-        [English.AA]  = Japanese.A,
-        [English.AE]  = Japanese.A,
-        [English.AH]  = Japanese.A,
-        [English.AO]  = Japanese.O,
-        [English.EH]  = Japanese.E,
-        [English.IH]  = Japanese.I,
-        [English.IY]  = Japanese.I,
-        [English.UH]  = Japanese.U,
-        [English.UW]  = Japanese.U,
+        [English.AA] = Japanese.A,
+        [English.AE] = Japanese.A,
+        [English.AH] = Japanese.A,
+        [English.AO] = Japanese.O,
+        [English.EH] = Japanese.E,
+        [English.IH] = Japanese.I,
+        [English.IY] = Japanese.I,
+        [English.UH] = Japanese.U,
+        [English.UW] = Japanese.U,
         [English.AW] = { Japanese.A, Japanese.U },
         [English.AY] = { Japanese.A, Japanese.I },
         [English.EY] = { Japanese.E, Japanese.I },
@@ -450,8 +450,6 @@ do
     function rt.Animalese:translate(...)
         local table_of_phonemes = self:_english_to_phoneme(...)
 
-        local translation = {}
-
         local is_vowel = function(x)
             return english_is_vowel[x] == true
         end
@@ -480,16 +478,19 @@ do
             ["VA"] = Japanese.WA
         }
 
-        local push = function(x)
-            x = mapping[x] or x
-            rt.assert(meta.is_enum_value(x, Japanese), "In push: `", x, "` is not a japanese phenome")
-            table.insert(translation, x)
-        end
-
         local result = {}
+
         for phonemes in values(table_of_phonemes) do
             local i = 1
             local n = #phonemes
+
+            local translation = {}
+
+            local push = function(x)
+                x = mapping[x] or x
+                rt.assert(meta.is_enum_value(x, Japanese), "In push: `", x, "` is not a japanese phenome")
+                table.insert(translation, x)
+            end
 
             while i <= n do
                 local current = phonemes[i+0]
@@ -540,7 +541,7 @@ do
                 end
             end
 
-            table.insert(result, phonemes)
+            table.insert(result, translation)
         end
 
         return result

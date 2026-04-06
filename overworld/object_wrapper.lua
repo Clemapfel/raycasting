@@ -166,30 +166,26 @@ local function _rotate_point(x, y, angle)
     return x * cos_theta - y * sin_theta, x * sin_theta + y * cos_theta
 end
 
+local function _translate_point(x, y, a, b)
+    return x + a, y + b
+end
+
 local function _process_polygon(vertices, object)
     local out = {}
     for i = 1, #vertices, 2 do
         local x, y = vertices[i], vertices[i + 1]
 
-        x, y = x - object.origin_x, y - object.origin_y
-        x, y = _rotate_point(x, y, object.rotation)
-        x, y = x + object.origin_x, y + object.origin_y
+        x, y = _translate_point(x, y, -object.flip_origin_x, -object.flip_origin_y)
+        if object.flip_horizontally then x = -x end
+        if object.flip_vertically then y = -y end
+        x, y = _translate_point(x, y, object.flip_origin_x, object.flip_origin_y)
 
-        if object.flip_horizontally or object.flip_vertically then
-            x, y = x - object.flip_origin_x, y - object.flip_origin_y
-            x = object.flip_horizontally and -x or x
-            y = object.flip_vertically and -y or y
-            x, y = x + object.flip_origin_x, y + object.flip_origin_y
-        end
+        x, y = _translate_point(x, y, -object.rotation_origin_x, -object.rotation_origin_y)
+        x, y = _rotate_point(x, y, object.rotation + object.rotation_offset)
+        x, y = _translate_point(x, y, object.rotation_origin_x, object.rotation_origin_y)
 
-        x, y = x + object.offset_x, y + object.offset_y
-
-        x, y = x - object.rotation_origin_x, y - object.rotation_origin_y
-        x, y = _rotate_point(x, y, object.rotation_offset)
-        x, y = x + object.rotation_origin_x, y + object.rotation_origin_y
-
-        table.insert(out, math.round(x))
-        table.insert(out, math.round(y))
+        table.insert(out, x)
+        table.insert(out, y)
     end
 
     return out
@@ -845,10 +841,15 @@ local function _parse_single_object_group(object_group, group_offset_x, group_of
             elseif shape_type == "polygon" then
                 local vertices = {}
                 local offset_x, offset_y = _get(object, "x"), _get(object, "y")
+
+                local min_x, min_y = math.huge, math.huge
+
                 for vertex in values(_get(object, "polygon")) do
                     local vx, vy = _get(vertex, "x"), _get(vertex, "y")
-                    table.insert(vertices, vx + offset_x + group_offset_x)
-                    table.insert(vertices, vy + offset_y + group_offset_y)
+                    vx = vx + offset_x + group_offset_x
+                    vy = vy + offset_y + group_offset_y
+                    table.insert(vertices, vx)
+                    table.insert(vertices, vy)
                 end
 
                 wrapper:_as_polygon(
@@ -857,6 +858,12 @@ local function _parse_single_object_group(object_group, group_offset_x, group_of
                     offset_x + group_offset_x,
                     offset_y + group_offset_y
                 )
+
+                local origin_x, origin_y = _get(object, "x"), _get(object, "y")
+                wrapper.rotation_origin_x = origin_x
+                wrapper.rotation_origin_y = origin_y
+                wrapper.flip_origin_x = origin_x
+                wrapper.flip_origin_y = origin_y
 
             elseif shape_type == "point" then
                 local x, y = _get(object, "x"),  _get(object, "y")

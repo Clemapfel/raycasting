@@ -313,7 +313,6 @@ end
 function ow.OverworldScene:enter(new_stage_id, show_title_card)
     self._input:activate()
     rt.SceneManager:set_use_fixed_timestep(true)
-    rt.SceneManager:set_pause_on_focus_lost(false)
 
     self._fade_active = false
     self._fade:skip()

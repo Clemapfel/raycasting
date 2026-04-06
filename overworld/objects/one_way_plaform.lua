@@ -1,7 +1,7 @@
 require "overworld.movable_object"
 
 rt.settings.overworld.one_way_platform = {
-    mesh_thickness = 40,
+    mesh_thickness = 16 * 2,
     bloom_intensity = 0.5, -- fraction
     direction_light_intensity = 0.5, -- fraction
     line_width = 3,

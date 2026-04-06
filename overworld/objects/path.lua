@@ -69,6 +69,9 @@ function ow.Path:instantiate(object, stage, scene)
     self._is_absolute = object:get_boolean("is_absolute", false)
     if self._is_absolute == nil then self._is_absolute = false end
 
+    self._should_reverse = object:get_boolean("should_reverse", false)
+    if self._should_reverse == nil then self._should_reverse = false end
+
     self:signal_connect("pause", function()
         self._is_paused = true
     end)
@@ -119,10 +122,14 @@ function ow.Path:instantiate(object, stage, scene)
         end
 
         -- read path by iterating through nodes
+        local seen = {}
         local node = object
         local path = {}
         repeat
             assert(node:get_type() == ow.ObjectType.POINT, "In ow.Path: `PathNode` (" .. object:get_id() .. ") is not a point")
+
+            if seen[node] == true then break end
+            seen[node] = true
 
             -- move path to align with center of mass
             table.insert(path, node.x)
@@ -203,7 +210,7 @@ end
 
 function ow.Path:update(delta)
     if self._stage:get_active_checkpoint():get_is_respawning() then
-        return -- waiting for respawn to be finished
+        return
     end
 
     if self._is_paused then delta = 0 end
@@ -215,35 +222,30 @@ function ow.Path:update(delta)
     local t, direction
 
     if self._should_loop then
-        local distance = self._velocity * self._elapsed
-        -- Apply cycle_offset to the t calculation
-        local raw_cycles = (distance / length) + self._cycle_offset
+        local raw_cycles = (self._velocity * self._elapsed / length) + self._cycle_offset
         self._n_cycles = raw_cycles
         t = raw_cycles % 1.0
         direction = 1
-    else
-        local distance_in_cycle = (self._velocity * self._elapsed) % (2 * length)
-        -- Apply cycle_offset by adjusting the distance within the cycle
+    elseif self._should_reverse then
         local offset_distance = self._cycle_offset * 2 * length
-        distance_in_cycle = (distance_in_cycle + offset_distance) % (2 * length)
-
-        -- Calculate continuous cycle progress
-        local total_distance = self._velocity * self._elapsed + self._cycle_offset * 2 * length
-        self._n_cycles = total_distance / (2 * length)
+        local distance_in_cycle = (self._velocity * self._elapsed + offset_distance) % (2 * length)
+        self._n_cycles = (self._velocity * self._elapsed + offset_distance) / (2 * length)
 
         if distance_in_cycle <= length then
-            -- going forwards
             t = distance_in_cycle / length
             direction = 1
         else
-            -- going backwards
-            local backward_distance = distance_in_cycle - length
-            t = (length - backward_distance) / length
+            t = (2 * length - distance_in_cycle) / length
             direction = -1
         end
+    else
+        local offset_distance = self._cycle_offset * length
+        local distance_in_cycle = (self._velocity * self._elapsed + offset_distance) % length
+        self._n_cycles = (self._velocity * self._elapsed + offset_distance) / length
+        t = distance_in_cycle / length
+        direction = 1
     end
 
-    -- find target position
     local eased_t = math.clamp(self._easing(t), 0, 1)
     local current_x, current_y = self._path:at(eased_t)
 
@@ -251,19 +253,18 @@ function ow.Path:update(delta)
         if delta == 0 then
             entry.target:set_velocity(0, 0)
         else
-            -- set velocity based on last frames position
             if self._last_x ~= nil and self._last_y ~= nil then
-                local velocity_x = (current_x - self._last_x) / delta
-                local velocity_y = (current_y - self._last_y) / delta
-                entry.target:set_velocity(velocity_x, velocity_y)
+                entry.target:set_velocity(
+                    (current_x - self._last_x) / delta,
+                    (current_y - self._last_y) / delta
+                )
             else
-                local easing_t_dt = self._easing(math.clamp(t + delta, 0, 1))
-                local easing_derivative = (easing_t_dt - eased_t) / delta
-
-                local dx, dy = self._path:tangent_at(math.clamp(eased_t, 0, 1))
-                local velocity_x = dx * self._velocity * direction * easing_derivative
-                local velocity_y = dy * self._velocity * direction * easing_derivative
-                entry.target:set_velocity(velocity_x, velocity_y)
+                local easing_derivative = (self._easing(math.clamp(t + delta, 0, 1)) - eased_t) / delta
+                local dx, dy = self._path:tangent_at(eased_t)
+                entry.target:set_velocity(
+                    dx * self._velocity * direction * easing_derivative,
+                    dy * self._velocity * direction * easing_derivative
+                )
             end
         end
 
@@ -275,15 +276,10 @@ function ow.Path:update(delta)
     self._last_x = current_x
     self._last_y = current_y
 
-    -- when object completes loop, snap to start to avoid numerical drift
-    local difference = math.abs(self._last_t - t)
-    if difference > 0.5 then
+    if math.abs(self._last_t - t) > 0.5 then
         local x, y = self._path:at(0)
         for entry in values(self._entries) do
-            entry.target:set_position(
-                x + entry.offset_x,
-                y + entry.offset_y
-            )
+            entry.target:set_position(x + entry.offset_x, y + entry.offset_y)
         end
     end
 
@@ -293,13 +289,11 @@ function ow.Path:update(delta)
         if self._n_cycles >= self._max_n_cycles then
             local x, y = self._path:at(ternary(direction == 1, 0, 1))
             for entry in values(self._entries) do
-                entry.target:set_position(
-                    x + entry.offset_x,
-                    y + entry.offset_y
-                )
+                entry.target:set_position(x + entry.offset_x, y + entry.offset_y)
             end
         end
     end
+
     self._last_direction = direction
 end
 

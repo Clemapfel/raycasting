@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="649">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="686">
  <editorsettings>
   <export target="bounce_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -40,12 +40,6 @@
    <polygon points="0,0 0,656 496,656 496,0"/>
   </object>
   <object id="600" type="CameraBounds" x="3503.7" y="304" width="1696.3" height="432"/>
-  <object id="621" type="OverlapTrigger" x="832" y="1456" width="123.58" height="144">
-   <properties>
-    <property name="signal" value="unpause"/>
-    <property name="target" type="object" value="616"/>
-   </properties>
-  </object>
   <object id="627" type="CameraBounds" x="508.324" y="2105.53" width="2797.59" height="789.077"/>
   <object id="644" type="CameraBounds" x="1302.8" y="2938.19" width="3856" height="592"/>
  </objectgroup>
@@ -90,18 +84,15 @@
   <object id="593" type="Wall" x="3648" y="400">
    <polygon points="-448,-16 -448,288 1552,288 1552,-688 1792,-688 1792,-848 1296,-848 1296,-16"/>
   </object>
-  <object id="634" type="Wall" x="464" y="854.664">
-   <polygon points="0,217.336 3824,217.336 3824,793.336 0,793.336"/>
-  </object>
-  <object id="647" type="BouncePad" x="1024" y="1136">
-   <polygon points="0,0 224,0 224,-32 0,-32"/>
-  </object>
-  <object id="648" type="BouncePad" x="672" y="1072">
-   <polygon points="0,0 96,-80 0,-80"/>
+  <object id="676" type="Wall" x="1408" y="-64">
+   <polygon points="0,0 224,0 224,-128 624,-128 624,512 0,512"/>
   </object>
  </objectgroup>
  <objectgroup id="6" name="hitbox">
-  <object id="260" name="Spawn" type="PlayerSpawn" x="1464.03" y="1082.6">
+  <object id="260" name="Spawn" type="PlayerSpawn" x="489.206" y="457.799">
+   <properties>
+    <property name="is_visible" type="bool" value="false"/>
+   </properties>
    <point/>
   </object>
   <object id="261" type="Hitbox" x="336" y="-576">
@@ -128,49 +119,52 @@
   <object id="286" type="SlipperyHitbox" x="-240" y="-576">
    <polygon points="112,-16 48,-32 0,-32 5.68434e-14,-208 -16,-208 -16,0 96,0 96,32 112,32"/>
   </object>
-  <object id="305" type="SlipperyHitbox" x="16" y="784">
-   <polygon points="0,-32 0,32 -16,48 -256,48 -256,-496 -272,-496 -272,64 0,64 0,112 -336,112 -336,-272 -304,-272 -304,-496 -320,-496 -320,-304 -352,-272 -352,112 -336,128 0,128 16,112 16,-32"/>
+  <object id="305" type="SlipperyHitbox" x="1696" y="384">
+   <polygon points="0,-48 0,32 -16,48 -272,48 -272,-400 -48,-432 -48,-576 -64,-576 -64,-448 -288,-448 -288,64 0,64 0,112 -352,112 -352,-272 -320,-272 -320,-496 -320,-496 -320,-304 -336,-304 -368,-272 -368,112 -352,128 0,128 16,112 16,-48"/>
   </object>
-  <object id="306" type="SlipperyHitbox" x="64" y="784">
-   <polygon points="-16,128 -32,144 -400,144 -416,128 -416,-272 -448,-304 -464,-304 -464,-272 -432,-272 -432,160 0,160 0,64 272,64 272,-480 256,-480 256,48 16,48 0,32 0,-32 -16,-32"/>
+  <object id="306" type="SlipperyHitbox" x="1728" y="384">
+   <polygon points="0,112 -16,144 -400,144 -416,128 -416,-272 -448,-304 -464,-304 -464,-272 -432,-272 -432,160 16,160 16,64 304,64 304,-480 288,-480 288,-448 48,-448 48,-432 288,-384 288,48 32,48 16,32 16,-48 0,-48"/>
   </object>
-  <object id="307" type="BoostField" x="-368" y="512">
+  <object id="307" type="BoostField" x="1296" y="112">
    <properties>
     <property name="axis_y" type="float" value="1"/>
     <property name="has_outline" type="bool" value="false"/>
     <property name="hue" value="player"/>
-    <property name="velocity" type="float" value="1"/>
+    <property name="is_visible" type="bool" value="true"/>
+    <property name="velocity" type="float" value="2"/>
    </properties>
    <polygon points="16,0 16,384 32,384 32,0 64,-32 -16,-32"/>
   </object>
-  <object id="308" type="BoostField" x="-368" y="912">
+  <object id="308" type="BoostField" x="1296" y="512">
    <properties>
     <property name="axis_x" type="float" value="1"/>
     <property name="has_outline" type="bool" value="false"/>
     <property name="hue" value="player"/>
-    <property name="velocity" type="float" value="1"/>
+    <property name="is_visible" type="bool" value="true"/>
+    <property name="velocity" type="float" value="2"/>
    </properties>
-   <polygon points="16,0 16,-16 32,-16 48,0 384,0 384,16 32,16"/>
+   <polygon points="16,0 16,-16 32,-16 48,0 400,0 400,16 32,16"/>
   </object>
-  <object id="309" type="BoostField" x="32" y="784">
+  <object id="309" type="BoostField" x="1712" y="384">
    <properties>
     <property name="axis_y" type="float" value="-1"/>
     <property name="has_outline" type="bool" value="false"/>
     <property name="hue" value="player"/>
-    <property name="velocity" type="float" value="1"/>
+    <property name="is_visible" type="bool" value="true"/>
+    <property name="velocity" type="float" value="0.6"/>
    </properties>
-   <polygon points="0,-32 0,112 -16,128 -16,144 0,144 16,128 16,-32"/>
+   <polygon points="0,-48 0,112 -16,128 -16,144 0,144 16,128 16,-48"/>
   </object>
-  <object id="311" type="Hitbox" x="16" y="848">
-   <polygon points="0,0 -272,0 -272,-560 -304,-560 -304,-336 -336,-336 -336,48 0,48"/>
+  <object id="311" type="Hitbox" x="1680" y="448">
+   <polygon points="16,0 -272,0 -272,-512 -48,-512 -48,-640 -304,-640 -304,-336 -336,-336 -336,48 16,48"/>
   </object>
-  <object id="312" type="Hitbox" x="-410.9" y="445.505">
-   <polygon points="0,0 -64,0 -64,480 880,480 880,-208 704,-208 704,336 432,336 432,432 0,432"/>
+  <object id="312" type="Hitbox" x="1296" y="112">
+   <polygon points="0,0 -64,0 -64,480 928,480 928,-208 736,-208 736,336 448,336 448,432 0,432"/>
   </object>
-  <object id="316" type="BouncePad" x="64" y="752">
+  <object id="316" type="BouncePad" x="1744" y="352">
    <polygon points="0,0 0,64 16,80 80,80"/>
   </object>
-  <object id="317" type="BouncePad" x="16" y="752">
+  <object id="317" type="BouncePad" x="1696" y="352">
    <polygon points="0,0 0,64 -16,80 -80,80"/>
   </object>
   <object id="318" x="-96" y="32">
@@ -528,37 +522,8 @@
   <object id="599" name="Checkpoint" type="Checkpoint" x="3360" y="576">
    <point/>
   </object>
-  <object id="611" type="Hitbox" x="576" y="1648">
-   <polygon points="-144,-608 96,-608 96,-576 -112,-576 -112,0 3712,0 3712,176 -144,176"/>
-  </object>
-  <object id="612" type="SlipperyMovableHitbox" x="832" y="1584">
-   <polygon points="-32,64 -32,-16 0,-16 0,16 208,16 208,-16 240,-16 256,64"/>
-  </object>
-  <object id="613" type="SlipperyMovableHitbox" x="832" y="1456">
-   <polygon points="-32,-48 -32,32 0,32 0,0 208,0 208,32 240,32 256,-48"/>
-  </object>
-  <object id="615" type="BouncePad" x="832" y="1600">
-   <polygon points="0,-32 208,-32 208,0 0,0"/>
-  </object>
-  <object id="616" type="Path" x="880" y="1519">
-   <properties>
-    <property name="is_paused" type="bool" value="true"/>
-    <property name="next" type="object" value="617"/>
-    <property name="target_01" type="object" value="612"/>
-    <property name="target_02" type="object" value="615"/>
-    <property name="target_03" type="object" value="613"/>
-    <property name="target_04" type="object" value="622"/>
-    <property name="target_05" type="object" value="628"/>
-    <property name="target_06" type="object" value="629"/>
-    <property name="velocity" type="float" value="10"/>
-   </properties>
-   <point/>
-  </object>
   <object id="617" type="PathNode" x="2752" y="1520">
    <point/>
-  </object>
-  <object id="622" type="BouncePad" x="832" y="1504">
-   <polygon points="0,-48 208,-48 208,-16 0,-16"/>
   </object>
   <object id="630" type="BoostField" x="2688" y="1472">
    <properties>
@@ -567,19 +532,6 @@
    </properties>
    <polygon points="16,0 208,0 384,32 384,80 208,112 16,112"/>
   </object>
-  <object id="631" type="BoostField" x="784" y="1488">
-   <properties>
-    <property name="axis_x" type="float" value="1"/>
-    <property name="velocity" type="float" value="0.5"/>
-   </properties>
-   <polygon points="-16,0 48,0 48,80 -16,80"/>
-  </object>
-  <object id="632" type="SlipperyHitbox" x="800" y="1488">
-   <polygon points="0,0 -32,0 -64,-80 0,-80"/>
-  </object>
-  <object id="633" type="SlipperyHitbox" x="800" y="1568">
-   <polygon points="0,0 -32,0 -64,80 0,80"/>
-  </object>
   <object id="638" type="Goal" x="3072" y="1408" width="102.008" height="240"/>
   <object id="641" type="SlipperyHitbox" x="2704" y="1408">
    <polygon points="0,0 0,64 192,64 368,96 432,0"/>
@@ -587,8 +539,85 @@
   <object id="642" type="SlipperyHitbox" x="2704" y="1648">
    <polygon points="0,0 0,-64 192,-64 368,-96 432,0"/>
   </object>
-  <object id="643" type="Hitbox" x="576" y="1232">
-   <polygon points="-48,-96 3712,-96 3712,176 -47.9671,173.895"/>
+  <object id="655" type="BouncePad" x="1424" y="352">
+   <polygon points="0,0 0,80 80,80"/>
+  </object>
+  <object id="656" type="BouncePad" x="2016" y="352">
+   <polygon points="0,0 0,80 -80,80"/>
+  </object>
+  <object id="667" type="BouncePad" x="1696" y="160">
+   <polygon points="-32,0 80,0 80,-48 -32,-48"/>
+  </object>
+  <object id="668" type="OneWayPlatform" x="1696" y="336">
+   <properties>
+    <property name="hue" value="player"/>
+    <property name="other" type="object" value="669"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="669" type="OneWayPlatformNode" x="1744" y="336">
+   <point/>
+  </object>
+  <object id="670" type="OneWayPlatform" x="1648" y="-64">
+   <properties>
+    <property name="other" type="object" value="671"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="671" type="OneWayPlatformNode" x="1776" y="-64">
+   <point/>
+  </object>
+  <object id="674" type="OneWayPlatform" x="1376" y="80">
+   <properties>
+    <property name="hue" value="player"/>
+    <property name="other" type="object" value="675"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="675" type="OneWayPlatformNode" x="1264" y="80">
+   <point/>
+  </object>
+  <object id="677" type="Fireflies" x="1120" y="-32">
+   <point/>
+  </object>
+  <object id="678" type="Path" x="1056" y="16">
+   <properties>
+    <property name="next" type="object" value="679"/>
+    <property name="target" type="object" value="677"/>
+    <property name="target_02" type="object" value="682"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="679" type="PathNode" x="1184" y="16">
+   <properties>
+    <property name="next" type="object" value="680"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="680" type="PathNode" x="1184" y="-96">
+   <properties>
+    <property name="next" type="object" value="681"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="681" type="PathNode" x="1056" y="-96">
+   <properties>
+    <property name="next" type="object" value="678"/>
+    <property name="should_loop" type="bool" value="true"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="682" type="MovableHitbox" x="1104" y="-48" width="32" height="32">
+   <ellipse/>
+  </object>
+  <object id="683" type="Hitbox" x="528" y="480">
+   <polygon points="0,0 0,640 720,640 720,592 48,592 48,0"/>
+  </object>
+  <object id="684" x="672" y="480">
+   <polygon points="0,0 0,496 576,496 576,448 48,448 48,0"/>
+  </object>
+  <object id="685" type="BouncePad" x="576" y="992">
+   <polygon points="0,0 80,80 0,80"/>
   </object>
  </objectgroup>
  <objectgroup id="2" name="front">
@@ -632,15 +661,6 @@
    <point/>
   </object>
   <object id="595" name="Coin" type="Coin" x="4738.11" y="-568.178">
-   <point/>
-  </object>
-  <object id="629" type="OneWayPlatformNode" x="800" y="1648">
-   <point/>
-  </object>
-  <object id="628" type="OneWayPlatform" x="800" y="1392">
-   <properties>
-    <property name="other" type="object" value="629"/>
-   </properties>
    <point/>
   </object>
  </objectgroup>

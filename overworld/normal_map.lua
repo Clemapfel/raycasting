@@ -21,7 +21,7 @@ rt.settings.overworld.normal_map = {
 ow.NormalMap = meta.class("NormalMap")
 meta.add_signal(ow.NormalMap, "done")
 
-local _is_disabled = false -- TODO
+local _is_disabled = true -- TODO
 
 local _mask_texture_format = rt.TextureFormat.R8  -- used to store alpha of walls
 local _jfa_texture_format = rt.TextureFormat.RGBA32F -- used during JFA
@@ -283,20 +283,15 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
                         local chunk = self._chunks[xi][yi]
                         if chunk == nil then -- chunk seen for the first time
                             chunk = {
-                                is_empty = false,
                                 is_initialized = false,
-                                should_skip = false,
                                 x = x,
                                 y = y,
                                 quad = nil, -- love.Quad, cf. texture atlas below
-                                tris = {}
                             }
 
                             self._chunks[xi][yi] = chunk
                             table.insert(self._non_empty_chunks, chunk)
                         end
-
-                        table.insert(chunk.tris, tri)
                     end
                 end
             end
@@ -371,11 +366,7 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
             local x = col * chunk_size
             local y = row * chunk_size
 
-            chunk.quad = love.graphics.newQuad(
-                x, y,
-                chunk_size, chunk_size,
-                self._texture_atlas:get_size()
-            )
+            chunk.quad = { x, y, chunk_size, chunk_size }
         end
 
         local dispatch_size_x, dispatch_size_y = math.ceil(chunk_size + 2 * padding) / size_x,
@@ -431,7 +422,7 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
             _export_shader:send("jfa_texture_array", jfa_texture)
             _export_shader:send("export_texture", self._texture_atlas)
             _export_shader:send("export_texture_quad", { self._quad:getViewport() })
-            _export_shader:send("texture_atlas_quad", { chunk.quad:getViewport() })
+            _export_shader:send("texture_atlas_quad", chunk.quad)
             _export_shader:send("max_distance", rt.settings.overworld.normal_map.max_distance)
             _export_shader:dispatch(dispatch_size_x, dispatch_size_y)
 
@@ -455,6 +446,7 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
         }
 
         self:signal_emit("done")
+
     end)
 end
 
@@ -525,9 +517,16 @@ function ow.NormalMap:draw_light(
             for chunk_y = min_chunk_y, max_chunk_y do
                 local chunk = column[chunk_y]
                 if chunk ~= nil and chunk.is_initialized then
+                    if chunk.draw_quad == nil then
+                        chunk.draw_quad = love.graphics.newQuad(
+                            chunk.quad[1], chunk.quad[2], chunk.quad[3], chunk.quad[4],
+                            self._texture_atlas:get_size()
+                        )
+                    end
+
                     local cell_x = bounds.x + chunk_x * chunk_size
                     local cell_y = bounds.y + chunk_y * chunk_size
-                    love.graphics.draw(native, chunk.quad, cell_x, cell_y)
+                    love.graphics.draw(native, chunk.draw_quad, cell_x, cell_y)
                 end
             end
         end
@@ -557,7 +556,14 @@ function ow.NormalMap:draw_shadow(camera)
             shader_bound = true
         end
 
-        love.graphics.draw(self._texture_atlas:get_native(), chunk.quad,
+        if chunk.draw_quad == nil then
+            chunk.draw_quad = love.graphics.newQuad(
+                chunk.quad[1], chunk.quad[2], chunk.quad[3], chunk.quad[4],
+                self._texture_atlas:get_size()
+            )
+        end
+
+        love.graphics.draw(self._texture_atlas:get_native(), chunk.draw_quad,
             bounds.x + chunk_x * chunk_size,
             bounds.y + chunk_y * chunk_size
         )
@@ -604,7 +610,7 @@ end
 
 --- @brief
 function ow.NormalMap:get_is_done()
-    return self._is_done
+    return self._is_done or _is_disabled
 end
 
 --- @brief
