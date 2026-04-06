@@ -113,6 +113,7 @@ rt.InterpolationFunctions = {
     end,
 
     DISCONTINUOUS_DIRAC = function(x)
+        -- f\left(x\right)=5.81894409826698685315796808094\cdot\min\left(0.045\cdot\left(\frac{1}{0.045}+1\right)^{x}-0.045,0.045\cdot\left(\frac{1}{0.045}+1\right)^{1-x}-0.045\right)
         local a = 0.045 * math.exp(math.log(1 / 0.045 + 1) * x) - 0.045
         local b = 0.045 * math.exp(math.log(1 / 0.045 + 1) * (1 - x)) - 0.045
         local t = 5.81894409826698685315796808094
