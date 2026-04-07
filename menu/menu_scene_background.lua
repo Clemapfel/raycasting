@@ -49,7 +49,8 @@ local _mesh_format = {
     { location = 4, name = "color", format = "floatvec3" },
     { location = 5, name = "radius", format = "float" },
     { location = 6, name = "scale", format = "floatvec2" },
-    { location = 7, name = "rotation", format = "float" }
+    { location = 7, name = "rotation", format = "float" },
+    { location = 8, name = "test", format = "float"}
 }
 
 local _texture_format = rt.TextureFormat.RGBA16F

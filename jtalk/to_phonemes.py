@@ -1,6 +1,17 @@
 import sys
 from g2p_en import G2p
 
+from nltk import pos_tag
+from nltk.corpus import cmudict
+import nltk
+from nltk.tokenize import TweetTokenizer
+word_tokenize = TweetTokenizer().tokenize
+import numpy as np
+import codecs
+import re
+import os
+import unicodedata
+from builtins import str as unicode
 
 def text_to_phonemes_lua(text):
     g2p = G2p()

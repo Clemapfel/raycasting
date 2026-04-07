@@ -141,8 +141,6 @@ function debugger.pop(id, show_instant_time)
         end
         entry.max = new_max
     end
-
-    println("| ", id, " | ", elapsed, " |")
 end
 
 
@@ -161,7 +159,7 @@ function debugger.stop_measure(name)
 end
 
 --- @brief
-function debugger.report(use_max)
+function debugger.report()
     if #_data == 0 then return end
 
     table.sort(_data, function(a, b)
@@ -170,17 +168,16 @@ function debugger.report(use_max)
 
     local max_id_length = 2
     for entry in values(_data) do
-        local value = ternary(use_max ~= false, entry.max, entry.sum / #entry.history)
-        if value > 0 then
+        if entry.max > 0 then
             max_id_length = math.max(max_id_length, #entry.id)
         end
     end
 
     println("")
     for entry in values(_data) do
-        local value = ternary(use_max ~= false, entry.max, entry.sum / #entry.history)
-        if value > 0 then
-            println(string.format("| %-" .. max_id_length .. "s | %.3f |", entry.id, value))
+        local mean = entry.sum / #entry.history
+        if entry.max > 0 then
+            println(string.format("| %-" .. max_id_length .. "s | mean: %.3f | max: %.3f |", entry.id, mean, entry.max))
         end
     end
     println("")

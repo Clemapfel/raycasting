@@ -1544,6 +1544,13 @@ function rt.Player:update(delta)
                 force = force * math.max(0, self._joystick_position_y) -- linear easing, only detect down
             end
 
+            if not is_grounded then
+                -- weigh to prevent deceleration when velocity is pointing upwards and down is held
+                force = force * math.max(0,
+                    select(2, math.normalize(next_velocity_x, next_velocity_y))
+                )
+            end
+
             local dx, dy = gravity_direction_x, gravity_direction_y
 
             if is_grounded then

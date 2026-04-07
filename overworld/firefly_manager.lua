@@ -637,16 +637,6 @@ function ow.FireflyManager:draw()
         )
     end
 
-    for _, i in ipairs(self._visible_data_is) do
-        local alpha = data[i + _glow_value_offset] * composition_opacity
-        love.graphics.setColor(1, 1, 1, 1)
-        love.graphics.circle("fill",
-            data[i + _home_x_offset],
-            data[i + _home_y_offset],
-            5
-        )
-    end
-
     love.graphics.pop()
 end
 
@@ -675,7 +665,23 @@ local _cluster_brightness = 10
 
 --- @brief
 function ow.FireflyManager:collect_point_lights(callback)
+
     local data = self._data
+
+    for _, i in ipairs(self._visible_data_is) do
+        local x = data[i + _x_offset]
+        local y = data[i + _y_offset]
+        local r = data[i + _r_offset]
+        local g = data[i + _g_offset]
+        local b = data[i + _b_offset]
+        local radius = data[i + _radius_offset]
+        local glow = data[i + _glow_value_offset]
+        callback(x, y, radius, r, g, b, glow)
+    end
+
+    if true then return end
+
+
     local core_radius_factor = rt.settings.overworld.firefly_particle.core_radius_factor
 
     local cluster_distance_sq = rt.settings.overworld.firefly_manager.max_radius_factor * rt.settings.overworld.fireflies.radius

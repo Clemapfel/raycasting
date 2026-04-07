@@ -140,6 +140,14 @@ do -- load from image
     rt.Palette[rt.StageGrade.NONE] = rt.Palette.GRAY_5
 end
 
+--- @brief
+function rt.Palette.get_hue(id)
+    id = string.upper(id)
+    local entry = rt.Palette[id]
+    if entry == nil then rt.error("In rt.Palette.get_hue: no palette color with id `", id, "`") end
+    return select(1, rt.rgba_to_hsva(entry:unpack()))
+end
+
 local _backup = rt.Palette
 rt.Palette = {}
 setmetatable(rt.Palette, {

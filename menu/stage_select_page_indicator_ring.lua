@@ -35,7 +35,7 @@ local _particle_mesh_format = {
 
 local _data_mesh_format = {
     { location = 3, name = "offset", format = "floatvec2" },
-    { location = 4, name = "radius", format = "float" },
+    { location = 4, name = "radius", format = "float" }
 }
 
 local _particle_shader = rt.Shader("menu/stage_select_page_indicator_ring_particle.glsl")

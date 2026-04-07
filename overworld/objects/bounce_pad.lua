@@ -100,8 +100,15 @@ function ow.BouncePad:instantiate(object, stage, scene)
     self._body:set_collides_with(bounce_group)
     self._body:set_collision_group(bounce_group)
 
+    self._player_collision_light = {
+        0, 0, 0,    -- x y radius
+        0, 0, 0, 0  -- r g b a
+    }
+    self._player_collision_light_offset_x, self._player_collision_light_offset_y = self._body:get_position()
+
     self._body:signal_connect("collision_start", function(_, other_body, nx, ny, cx, cy)
         local other = other_body:get_user_data()
+        if other == nil or not other_body:has_tag("player") then return end
 
         local restitution
         if meta.is_function(other.bounce) then
@@ -128,6 +135,16 @@ function ow.BouncePad:instantiate(object, stage, scene)
         self._bounce_contact_x, self._bounce_contact_y = cx, cy
         self._bounce_normal_x, self._bounce_normal_y = nx, ny
         self._bounce_magnitude = math.max(settings.bounce_max_offset * restitution, settings.bounce_min_magnitude)
+
+        self._player_collision_light[1] = cx
+        self._player_collision_light[2] = cy
+        self._player_collision_light[3] = rt.settings.player.radius * 2
+        local color = self._scene:get_player():get_color()
+        self._player_collision_light[4] = color.r
+        self._player_collision_light[5] = color.g
+        self._player_collision_light[6] = color.b
+        self._player_collision_light[7] = color.a
+        self._player_collision_light_offset_x, self._player_collision_light_offset_y = self._body:get_position()
 
         local n_particles = rt.random.number(
             settings.min_n_particles,
@@ -162,7 +179,7 @@ function ow.BouncePad:instantiate(object, stage, scene)
     rt.contour.close(self._contour)
 
     -- lights
-    self._body:add_tag("point_light_source", "segment_light_source")
+    self._body:add_tag("point_light_source")
     self._body:set_user_data(self)
 
     self._segment_lights = {}
@@ -585,41 +602,34 @@ local _signal_eps = 0.02
 
 --- @brief
 function ow.BouncePad:collect_point_lights(callback)
-    if self._signal < _signal_eps then return end
-
     for batch in values(self._batches) do
         local data = batch.particle_data
         for particle_i = 1, batch.n_particles do
             local i = _particle_i_to_data_offset(particle_i)
-            callback(
-                data[i + _position_x_offset],
-                data[i + _position_y_offset],
-                data[i + _radius_offset],
-                data[i + _color_r_offset],
-                data[i + _color_g_offset],
-                data[i + _color_b_offset],
-                data[i + _t_offset]
-            )
+            if data[i + _t_offset] > _signal_eps then
+                callback(
+                    data[i + _position_x_offset],
+                    data[i + _position_y_offset],
+                    data[i + _radius_offset],
+                    data[i + _color_r_offset],
+                    data[i + _color_g_offset],
+                    data[i + _color_b_offset],
+                    data[i + _t_offset]
+                )
+            end
         end
     end
-end
-
---- @brief
-function ow.BouncePad:collect_segment_lights(callback)
-    if self._signal < _signal_eps then return end
 
     local bx, by = self._body:get_position()
-    local offset_x, offset_y = bx + self._draw_offset_x, by + self._draw_offset_y
+    local offset_x = bx - self._player_collision_light_offset_x
+    local offset_y = by - self._player_collision_light_offset_y
 
-    local r, g, b, a = table.unpack(self._draw_inner_color)
-    for segment in values(self._segment_lights) do
-        local x1, y1, x2, y2 = table.unpack(segment)
+    local x, y, radius, r, g, b, a = table.unpack(self._player_collision_light)
+    if a * self._signal > _signal_eps then
         callback(
-            x1 + offset_x,
-            y1 + offset_y,
-            x2 + offset_x,
-            y2 + offset_y,
-            r, g, b, self._signal
+            x + offset_x, y + offset_y,
+            radius,
+            r, g, b, a * self._signal
         )
     end
 end

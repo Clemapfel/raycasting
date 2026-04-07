@@ -293,9 +293,14 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
         self._hue = math.fract(stage.one_way_platform_current_hue_step % _n_hue_steps / _n_hue_steps)
         stage.one_way_platform_current_hue_step = stage.one_way_platform_current_hue_step + 1
         self._use_player_hue = false
-    elseif meta.is_string(hue) and hue == "player" then
-        self._hue = 0
-        self._use_player_hue = true
+    elseif meta.is_string(hue) then
+        if hue == "player" then
+            self._hue = 0
+            self._use_player_hue = true
+        else
+            self._hue = rt.Palette.get_hue(hue)
+            self._use_player_hue = false
+        end
     else
         self._hue = object:get_number("hue", true)
         self._use_player_hue = false
