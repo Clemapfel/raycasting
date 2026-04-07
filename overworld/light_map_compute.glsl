@@ -226,7 +226,9 @@ void computemain() {
     ivec2 work_group_base_position = ivec2(gl_WorkGroupID.xy) * ivec2(WORK_GROUP_SIZE_X, WORK_GROUP_SIZE_Y);
     int tile_offset = xy_to_tile_data_offset(work_group_base_position, image_size);
 
-    int n_point_lights = min(get_n_point_lights(tile_offset), N_POINT_LIGHTS_PER_TILE);
+    PointLight first = tile_data[1].point_lights[1];
+
+    int n_point_lights = min(get_n_point_lights(tile_offset), N_POINT_LIGHTS_PER_TILE) + int(first.position.x);
     int n_segment_lights = min(get_n_segment_lights(tile_offset), N_SEGMENT_LIGHTS_PER_TILE);
 
     uint local_id = gl_LocalInvocationIndex; // id within the same work group
@@ -244,7 +246,6 @@ void computemain() {
     }
 
     // ensure writes to shared memory are visible to all invocations in this workgroup, then synchronize
-    memoryBarrierShared();
     barrier();
 
     if (any(greaterThanEqual(position, image_size))) return;

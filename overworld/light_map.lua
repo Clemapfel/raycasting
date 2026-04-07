@@ -3,7 +3,7 @@ require "common.matrix"
 rt.settings.overworld.light_map = {
     max_n_point_lights = 1024,
     max_n_segment_lights = 512,
-    n_point_lights_per_tile = 256,
+    n_point_lights_per_tile = 32,
     n_segment_lights_per_tile = 16,
     tile_size = 64,
     work_group_size_x = 32,
@@ -11,7 +11,7 @@ rt.settings.overworld.light_map = {
     light_range = 64, -- px
     light_range_threshold = 256,
     light_z_height = 512 + 128, -- px, smaller values = more dramatic normal falloff
-    intensity = 1,
+    intensity = 10,
     intensity_texture_format = rt.TextureFormat.RGBA8,
     direction_texture_format = rt.TextureFormat.RG16F,
     mask_texture_format = rt.TextureFormat.R8,
@@ -204,7 +204,8 @@ do
         tile_data[tile_offset + 0] = count
     end
 
-    local function get_n_point_lights(tile_data, tile_data_stride, tile_index)
+    local function get_n_point_lights(tile_data, tile_data_stride, _, tile_index)
+        -- unused arg for consistent signature with get_n_segment_lights
         local tile_offset = tile_index_to_data_offset(tile_data_stride, tile_index)
         return tile_data[tile_offset + 0]
     end
@@ -222,7 +223,7 @@ do
     local function add_point_light_to_tile(tile_data, tile_data_stride, n_point_lights_per_tile, tile_index, light_source_index)
         local tile_offset = tile_index_to_data_offset(tile_data_stride, tile_index)
         local count = tile_data[tile_offset]
-        if get_n_point_lights(tile_data, tile_data_stride, tile_index) >= n_point_lights_per_tile then
+        if get_n_point_lights(tile_data, tile_data_stride, n_point_lights_per_tile, tile_index) >= n_point_lights_per_tile then
             return
         end
         tile_data[tile_offset + 1 + count] = light_source_index - 1
@@ -420,6 +421,8 @@ do
         local point_spatial_hash = {}
         local segment_spatial_hash = {}
 
+        debugger.push("collect")
+
         if DEBUG then
             stage:collect_point_lights(function(x, y, radius, color_r, color_g, color_b, color_a)
                 meta.assert(x, "Number", y, "Number", radius, "Number", color_r, "Number", color_g, "Number", color_b, "Number", color_a, "Number")
@@ -448,16 +451,20 @@ do
             end)
         end
 
+        debugger.pop("collect")
+
         local n_segment_lights = segment_light_i - 1
         local n_point_lights = point_light_i - 1
 
         -- only update start of the buffers, tile buffer with count = 0 makes compute shader skip stale data
 
+        debugger.push("source_buffer")
+
         if n_segment_lights > 0 then
             self._point_light_buffer:replace_data(self._point_light_buffer_data,
                 1, -- source index
                 1, -- destination index
-                n_segment_lights -- count
+                n_point_lights -- count
             )
         end
 
@@ -468,6 +475,10 @@ do
                 n_segment_lights
             )
         end
+
+        debugger.pop("source_buffer")
+
+        debugger.push("tile_buffer")
 
         self._current_n_point_lights = n_point_lights
         self._current_n_segment_lights = n_segment_lights
@@ -606,7 +617,14 @@ do
             end
         end
 
+        debugger.pop("tile_buffer")
+        debugger.push("tile_buffer_upload")
+
         self._tile_data_buffer:replace_data(tile_data) -- always update whole buffer
+
+        debugger.pop("tile_buffer_upload")
+
+        debugger.push("dispatch")
 
         local shader = self._shader
         shader:send("point_light_source_buffer", self._point_light_buffer)
@@ -617,14 +635,17 @@ do
         shader:send("mask_texture", self._mask_texture)
         shader:dispatch(self._dispatch_x, self._dispatch_y)
 
+        debugger.pop("dispatch")
+        --debugger.report()
+
         if DEBUG then
             if self._measured_max_n_segments == nil then self._measured_max_n_segments = -math.huge end
             if self._measured_max_n_points == nil then self._measured_max_n_points = -math.huge end
             local before_n_points, before_n_segments = self._measured_max_n_points, self._measured_max_n_segments
 
             for tile_i = 1, self._n_tiles do
-                --self._measured_max_n_points = math.max(self._measured_max_n_points, get_n_point_lights(tile_data, tile_data_stride, n_point_lights_per_tile, tile_i))
-                --self._measured_max_n_segments = math.max(self._measured_max_n_segments, get_n_segment_lights(tile_data, tile_data_stride, n_point_lights_per_tile, tile_i))
+                self._measured_max_n_points = math.max(self._measured_max_n_points, get_n_point_lights(tile_data, tile_data_stride, n_point_lights_per_tile, tile_i))
+                self._measured_max_n_segments = math.max(self._measured_max_n_segments, get_n_segment_lights(tile_data, tile_data_stride, n_point_lights_per_tile, tile_i))
             end
 
             if self._measured_max_n_points > max_n_point_lights and before_n_points < self._measured_max_n_points then
