@@ -1,33 +1,108 @@
 import sys
 from g2p_en import G2p
-
-from nltk import pos_tag
-from nltk.corpus import cmudict
-import nltk
-from nltk.tokenize import TweetTokenizer
-word_tokenize = TweetTokenizer().tokenize
-import numpy as np
-import codecs
-import re
+import threading
+import queue
 import os
-import unicodedata
-from builtins import str as unicode
+from enum import Enum
+from dataclasses import dataclass
 
-def text_to_phonemes_lua(text):
+THREAD_COUNT = 2
+
+class MessageType(Enum):
+    TRANSLATE = 1
+    TRANSLATE_RESPONSE = 2
+    SHUTDOWN = 3
+    SHUTDOWN_RESPONSE = 4
+
+@dataclass
+class Message:
+    type: MessageType
+    argument_index: int | None = None
+    to_translate: str | None = None
+    translation: list[str] | None = None
+
+
+@dataclass
+class Worker:
+    thread: threading.Thread
+    main_to_worker: queue.Queue
+    worker_to_main: queue.Queue
+
+def thread_main(main_to_worker, worker_to_main):
     g2p = G2p()
-    phonemes = g2p(text)
-    lua_table = "{ " + ", ".join(f'"{phoneme}"' for phoneme in phonemes) + " }"
-    return lua_table
+    while True:
+        message = main_to_worker.get(block=True)
+        match message.type:
+            case MessageType.TRANSLATE:
+                worker_to_main.put(Message(
+                    type=MessageType.TRANSLATE_RESPONSE,
+                    argument_index=message.argument_index,
+                    to_translate=message.to_translate,
+                    translation=g2p(message.to_translate),
+                ))
+            case MessageType.SHUTDOWN:
+                break
+            case _:
+                raise AssertionError(f"In thread_main: unhandled message type {message.type}")
 
+    worker_to_main.put(Message(type=MessageType.SHUTDOWN_RESPONSE))
+
+
+def text_to_phonemes_lua(phonemes):
+    return "{ " + ", ".join(f'"{phoneme}"' for phoneme in phonemes) + " }"
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Usage: python script.py <string1> <string2> ...")
         sys.exit(1)
 
-    input_texts = sys.argv[1:]
-    lua_tables = [text_to_phonemes_lua(text) for text in input_texts]
+    arguments = sys.argv[1:]
+    n_tasks = len(arguments)
+    worker_to_main = queue.Queue()
+    workers = []
 
-    lua_result = "return " + ", ".join(lua_tables)
+    # distribute tasks round robin
 
-    print(lua_result)
+    for _ in range(THREAD_COUNT):
+        main_to_worker = queue.Queue()
+        worker = Worker(
+            thread=threading.Thread(target=thread_main, args=(main_to_worker, worker_to_main)),
+            main_to_worker=main_to_worker,
+            worker_to_main=worker_to_main,
+        )
+        worker.thread.start()
+        workers.append(worker)
+
+    for index, text in enumerate(arguments):
+        workers[index % len(workers)].main_to_worker.put(Message(
+            type=MessageType.TRANSLATE,
+            argument_index=index,
+            to_translate=text,
+        ))
+
+    # wait for translations
+
+    translations = [None] * n_tasks # presize
+    n_translated = 0
+    n_shutdown = 0
+
+    while n_translated < n_tasks:
+        message = worker_to_main.get(block=True)
+        match message.type:
+            case MessageType.TRANSLATE_RESPONSE:
+                translations[message.argument_index] = message.translation
+                n_translated += 1
+            case _:
+                raise AssertionError(f"In main: unhandled message type {message.type}")
+
+    # safe shutdown
+
+    for worker in workers:
+        worker.main_to_worker.put(Message(
+            type=MessageType.SHUTDOWN
+        ))
+
+    for worker in workers:
+        worker.thread.join()
+
+    print("return " + ", ".join(text_to_phonemes_lua(phonemes) for phonemes in translations))
