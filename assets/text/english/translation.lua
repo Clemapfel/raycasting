@@ -219,31 +219,42 @@ return {
         sprint_mode_title = "Sprint Mode",
         sprint_mode_description = "Whether the player should walk by default and sprint when the sprint button is held, or sprint by default and walk if the sprint button is held.",
 
-        input_action_a_title = "A: Jump / Confirm",
-        input_action_b_title = "B: Sprint / Go Back",
-        input_action_x_title = "X: Unused",
-        input_action_y_title = "Y: Unused",
-        input_action_up_title = "UP: Move Up",
-        input_action_right_title = "RIGHT: Move Right",
-        input_action_down_title = "DOWN TODO",
-        input_action_left_title = "LEFT TODO",
-        input_action_start_title = "START TODO",
-        input_action_select_title = "SElECT TODO",
-        input_action_l_title = "L TODO",
-        input_action_r_title = "R TODO",
+        input_action_up_title = "Up",
+        input_action_up_description = "TODO Up",
 
-        input_action_a_description = "A DESCRIPTION TODO",
-        input_action_b_description = "B DESCRIPTION TODO",
-        input_action_x_description = "X DESCRIPTION TODO",
-        input_action_y_description = "Y  DESCRIPTION TODO",
-        input_action_up_description = "UP  DESCRIPTION TODO",
-        input_action_right_description = "RIGHT DESCRIPTION TODO",
-        input_action_down_description = "DOWN DESCRIPTION TODO",
-        input_action_left_description = "LEFT DESCRIPTION TODO",
-        input_action_start_description = "START DESCRIPTION TODO",
-        input_action_select_description = "SELECT DESCRIPTION TODO",
-        input_action_l_description = "L DESCRIPTION TODO",
-        input_action_r_description = "R DESCRIPTION TODO"
+        input_action_right_title = "Right",
+        input_action_right_description = "TODO Right",
+
+        input_action_down_title = "Down",
+        input_action_down_description = "TODO Down",
+
+        input_action_left_title = "Left",
+        input_action_left_description = "TODO Left",
+
+        input_action_jump_title = "Jump",
+        input_action_jump_description = "TODO Jump",
+
+        input_action_sprint_title = "Sprint",
+        input_action_sprint_description = "TODO Sprint",
+
+        input_action_interact_title = "Interact",
+        input_action_interact_description = "TODO Interact",
+
+        input_action_confirm_title = "Confirm",
+        input_action_confirm_description = "TODO Confirm",
+
+        input_action_back_title = "Back / Undo",
+        input_action_back_description = "TODO Back",
+
+        input_action_reset_title = "Reset",
+        input_action_reset_description = "TODO Reset",
+
+        input_action_pause_title = "Pause / Unpause",
+        input_action_pause_description = "TODO Pause",
+
+        input_action_special_title = "Special",
+        input_action_special_description = "???",
+
     },
 
     -- settings screen

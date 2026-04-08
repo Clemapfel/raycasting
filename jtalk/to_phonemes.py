@@ -107,4 +107,4 @@ if __name__ == "__main__":
     for worker in workers:
         worker.thread.join()
 
-    print("return " + ", ".join(text_to_phonemes_lua(phonemes) for phonemes in translations))
+    print("return { " + ", ".join(text_to_phonemes_lua(phonemes) for phonemes in translations) + "}")
