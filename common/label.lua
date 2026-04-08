@@ -9,7 +9,58 @@ rt.settings.label = {
     outline_offset_padding = 8,
     scroll_speed = 40, -- beats per second
     line_width_factor = 2 / 20,
-    outline_width_offset = 2 -- px
+    outline_width_offset = 2, -- px
+
+    syntax = {
+        SPACE = " ",
+        NEWLINE = "\n",
+        TAB = "    ",
+        ESCAPE_CHARACTER = "\\",
+        BEAT_TO_WEIGHT = {
+            ["|"] = 10,
+            ["."] = 10,
+            [","] = 4,
+            [";"] = 10,
+            ["!"] = 10,
+            ["?"] = 10,
+        },
+
+        BOLD_TAG_START = { "<b>", "<bold>" },
+        BOLD_TAG_END = { "</b>", "</bold>" },
+
+        ITALIC_TAG_START = { "<i>", "<italic>" },
+        ITALIC_TAG_END = { "</i>", "</italic>" },
+
+        UNDERLINED_TAG_START = { "<u>", "<underlined>" },
+        UNDERLINED_TAG_END = { "</u>", "</underlined>" },
+
+        STRIKETHROUGH_TAG_START = { "<s>", "<strikethrough>" },
+        STRIKETHROUGH_TAG_END = { "</s>", "</strikethrough>" },
+
+        COLOR_TAG_START = { "<col=(.*)>", "<color=(.*)>" },
+        COLOR_TAG_END = { "</col>", "</color>" },
+
+        OUTLINE_COLOR_TAG_START = { "<ocol=(.*)>", "<outline_color=(.*)>" },
+        OUTLINE_COLOR_TAG_END = { "</ocol>", "</outline_color>" },
+
+        OUTLINE_TAG_START = { "<o>", "<outline>" },
+        OUTLINE_TAG_END = { "</o>", "</outline>" },
+
+        BACKGROUND_TAG_START = { "<bg=(.*)>", "<background=(.*)>" },
+        BACKGROUND_TAG_END = { "</bg>", "</background>" },
+
+        EFFECT_SHAKE_TAG_START = { "<shake>", "<fx_shake>" },
+        EFFECT_SHAKE_TAG_END = { "</shake>", "</fx_shake>" },
+        EFFECT_WAVE_TAG_START = { "<wave>", "<fx_wave>" },
+        EFFECT_WAVE_TAG_END = { "</wave>", "</fx_wave>" },
+        EFFECT_RAINBOW_TAG_START = { "<rainbow>", "<fx_rainbow>" },
+        EFFECT_RAINBOW_TAG_END = { "</rainbow>", "</fx_rainbow>" },
+        EFFECT_NOISE_TAG_START = { "<noise>", "<fx_noise>" },
+        EFFECT_NOISE_TAG_END = { "</noise>", "</fx_noise>" },
+
+        MONOSPACE_TAG_START = { "<tt>", "<mono>" },
+        MONOSPACE_TAG_END = { "</tt>", "</mono>" }
+    }
 }
 
 --- @enum rt.TextEffect
@@ -184,7 +235,7 @@ end
 --- @override
 function rt.Label:realize()
     if self:already_realized() then return end
-    self:_parse()
+    self:_parse(self._raw)
 end
 
 --- @brief
@@ -192,7 +243,7 @@ function rt.Label:_check_for_rescale()
     local current_window_height = love.graphics.getHeight()
     if self._last_window_height ~= current_window_height then
         self._last_window_height = current_window_height
-        self:_parse()
+        self:_parse(self._raw)
         self:_apply_wrapping()
         self:_update_texture()
         self:_update_n_visible_characters()
@@ -237,7 +288,7 @@ function rt.Label:set_text(text)
 
     self._raw = text
     if self._is_realized then
-        self:_parse()
+        self:_parse(self._raw)
         self._n_visible_characters = self._n_characters
         self:_apply_wrapping(self._bounds.width)
         self:_update_texture()
@@ -283,66 +334,59 @@ function rt.Label:get_line_height()
     return self._font:get_native(rt.FontStyle.BOLD_ITALIC):getHeight()
 end
 
-local _make_set = function(...)
-    local n_args = _G.select("#", ...)
+local _make_set = function(arg)
     local out = {}
-    for i = 1, n_args do
-        local arg = _G.select(i, ...)
-        out[arg] = true
+    for i = 1, #arg do
+        out[arg[i]] = true
     end
     return out
 end
 
+local settings = rt.settings.label.syntax
+
 local _syntax = {
-    SPACE = " ",
-    NEWLINE = "\n",
-    TAB = "    ",
-    ESCAPE_CHARACTER = "\\",
-    BEAT = "|", -- pause when text scrolling
-    BEAT_WEIGHTS = { -- factor, takes n times longer to scroll than a regular character
-        ["|"] = 10,
-        ["."] = 10,
-        [","] = 4,
-        ["!"] = 10,
-        ["?"] = 10
-    },
+    SPACE = settings.SPACE,
+    NEWLINE = settings.NEWLINE,
+    TAB = settings.TAB,
+    ESCAPE_CHARACTER = settings.ESCAPE_CHARACTER,
+    BEAT = settings.BEAT,
+    BEAT_TO_WEIGHT = settings.BEAT_TO_WEIGHT,
 
-    -- regex patterns to match tags
-    BOLD_TAG_START = _make_set("<b>", "<bold>"),
-    BOLD_TAG_END = _make_set("</b>", "</bold>"),
+    BOLD_TAG_START = _make_set(settings.BOLD_TAG_START),
+    BOLD_TAG_END = _make_set(settings.BOLD_TAG_END),
 
-    ITALIC_TAG_START = _make_set("<i>", "<italic>"),
-    ITALIC_TAG_END = _make_set("</i>", "</italic>"),
+    ITALIC_TAG_START = _make_set(settings.ITALIC_TAG_START),
+    ITALIC_TAG_END = _make_set(settings.ITALIC_TAG_END),
 
-    UNDERLINED_TAG_START = _make_set("<u>", "<underlined>"),
-    UNDERLINED_TAG_END = _make_set("</u>", "</underlined>"),
+    UNDERLINED_TAG_START = _make_set(settings.UNDERLINED_TAG_START),
+    UNDERLINED_TAG_END = _make_set(settings.UNDERLINED_TAG_END),
 
-    STRIKETHROUGH_TAG_START = _make_set("<s>", "<strikethrough>"),
-    STRIKETHROUGH_TAG_END = _make_set("</s>", "</strikethrough>"),
+    STRIKETHROUGH_TAG_START = _make_set(settings.STRIKETHROUGH_TAG_START),
+    STRIKETHROUGH_TAG_END = _make_set(settings.STRIKETHROUGH_TAG_END),
 
-    COLOR_TAG_START = _make_set("<col=(.*)>", "<color=(.*)>"),
-    COLOR_TAG_END = _make_set("</col>", "</color>"),
+    COLOR_TAG_START = _make_set(settings.COLOR_TAG_START),
+    COLOR_TAG_END = _make_set(settings.COLOR_TAG_END),
 
-    OUTLINE_COLOR_TAG_START = _make_set("<ocol=(.*)>", "<outline_color=(.*)>"),
-    OUTLINE_COLOR_TAG_END = _make_set("</ocol>", "</outline_color>"),
+    OUTLINE_COLOR_TAG_START = _make_set(settings.OUTLINE_COLOR_TAG_START),
+    OUTLINE_COLOR_TAG_END = _make_set(settings.OUTLINE_COLOR_TAG_END),
 
-    OUTLINE_TAG_START = _make_set("<o>", "<outline>"),
-    OUTLINE_TAG_END = _make_set("</o>", "</outline>"),
+    OUTLINE_TAG_START = _make_set(settings.OUTLINE_TAG_START),
+    OUTLINE_TAG_END = _make_set(settings.OUTLINE_TAG_END),
 
-    BACKGROUND_TAG_START = _make_set("<bg=(.*)>", "<background=(.*)>"),
-    BACKGROUND_TAG_END = _make_set("</bg>", "</background>"),
+    BACKGROUND_TAG_START = _make_set(settings.BACKGROUND_TAG_START),
+    BACKGROUND_TAG_END = _make_set(settings.BACKGROUND_TAG_END),
 
-    EFFECT_SHAKE_TAG_START = _make_set("<shake>", "<fx_shake>"),
-    EFFECT_SHAKE_TAG_END = _make_set("</shake>", "</fx_shake>"),
-    EFFECT_WAVE_TAG_START = _make_set("<wave>", "<fx_wave>"),
-    EFFECT_WAVE_TAG_END = _make_set("</wave>", "</fx_wave>"),
-    EFFECT_RAINBOW_TAG_START = _make_set("<rainbow>", "<fx_rainbow>"),
-    EFFECT_RAINBOW_TAG_END = _make_set("</rainbow>", "</fx_rainbow>"),
-    EFFECT_NOISE_TAG_START = _make_set("<noise>", "<fx_noise>"),
-    EFFECT_NOISE_TAG_END = _make_set("</noise>", "</fx_noise>"),
+    EFFECT_SHAKE_TAG_START = _make_set(settings.EFFECT_SHAKE_TAG_START),
+    EFFECT_SHAKE_TAG_END = _make_set(settings.EFFECT_SHAKE_TAG_END),
+    EFFECT_WAVE_TAG_START = _make_set(settings.EFFECT_WAVE_TAG_START),
+    EFFECT_WAVE_TAG_END = _make_set(settings.EFFECT_WAVE_TAG_END),
+    EFFECT_RAINBOW_TAG_START = _make_set(settings.EFFECT_RAINBOW_TAG_START),
+    EFFECT_RAINBOW_TAG_END = _make_set(settings.EFFECT_RAINBOW_TAG_END),
+    EFFECT_NOISE_TAG_START = _make_set(settings.EFFECT_NOISE_TAG_START),
+    EFFECT_NOISE_TAG_END = _make_set(settings.EFFECT_NOISE_TAG_END),
 
-    MONOSPACE_TAG_START = _make_set("<tt>", "<mono>"),
-    MONOSPACE_TAG_END = _make_set("</tt>", "</mono>")
+    MONOSPACE_TAG_START = _make_set(settings.MONOSPACE_TAG_START),
+    MONOSPACE_TAG_END = _make_set(settings.MONOSPACE_TAG_END),
 }
 
 local _sequence_to_settings_key = {}
@@ -415,7 +459,7 @@ local _font_style_to_mono_font_style = {
 }
 
 --- @brief [internal]
-function rt.Label:_parse()
+function rt.Label:_parse(raw)
     self._glyphs = {}
     self._glyphs_only = meta.make_weak({})
     self._non_outlined_glyphs = meta.make_weak({})
@@ -427,7 +471,7 @@ function rt.Label:_parse()
     self._use_animation = false
 
     self._total_beats = 0
-    local beat_weights = _syntax.BEAT_WEIGHTS
+    local BEAT_TO_WEIGHT = _syntax.BEAT_TO_WEIGHT
 
     local glyphs = self._glyphs
     local glyph_indices = self._glyph_indices
@@ -459,7 +503,7 @@ function rt.Label:_parse()
     }
 
     local at = function(i)
-        return _sub(self._raw, i, i)
+        return _sub(raw, i, i)
     end
 
     local i = 1
@@ -519,7 +563,7 @@ function rt.Label:_parse()
         self._n_glyphs = self._n_glyphs + 1
 
         for j = 1, utf8.len(word) do
-            local weight = beat_weights[utf8.sub(word, j, j)]
+            local weight = BEAT_TO_WEIGHT[utf8.sub(word, j, j)]
             if weight == nil then weight = 1 end
             self._total_beats = self._total_beats + weight
         end
@@ -536,7 +580,7 @@ function rt.Label:_parse()
         s = at(i)
     end
 
-    local n_characters = utf8.len(self._raw)
+    local n_characters = utf8.len(raw)
     while i <= n_characters do
         if s == _syntax.ESCAPE_CHARACTER then
             step(1)
@@ -546,19 +590,19 @@ function rt.Label:_parse()
         elseif s == " " then
             push_glyph()
             _insert(glyphs, _syntax.SPACE)
-            self._total_beats = self._total_beats + (beat_weights[_syntax.SPACE] or 1)
+            self._total_beats = self._total_beats + (BEAT_TO_WEIGHT[_syntax.SPACE] or 1)
         elseif s == "\n" then
             push_glyph()
             _insert(glyphs, _syntax.NEWLINE)
-            self._total_beats = self._total_beats + (beat_weights[_syntax.NEWLINE] or 1)
+            self._total_beats = self._total_beats + (BEAT_TO_WEIGHT[_syntax.NEWLINE] or 1)
         elseif s == "\t" then
             push_glyph()
             _insert(glyphs, _syntax.TAB)
-            self._total_beats = self._total_beats + (beat_weights[_syntax.TAB] or 1)
-        elseif s == _syntax.BEAT then
+            self._total_beats = self._total_beats + (BEAT_TO_WEIGHT[_syntax.TAB] or 1)
+        elseif BEAT_TO_WEIGHT[s] ~= nil then
             push_glyph() -- remove?
             _insert(glyphs, _syntax.BEAT)
-            self._total_beats = self._total_beats + (beat_weights[_syntax.BEAT] or 1)
+            self._total_beats = self._total_beats + (BEAT_TO_WEIGHT[_syntax.BEAT] or 1)
         elseif s == "<" then
             push_glyph()
 
@@ -718,6 +762,8 @@ function rt.Label:_parse()
     if self._n_visible_characters == -1 then
         self._n_visible_characters = n_characters
     end
+
+    return self._glyphs_only
 end
 
 --- @brief [internal]
@@ -949,7 +995,7 @@ function rt.Label:update_n_visible_characters_from_elapsed(elapsed, n_characters
     local so_far = elapsed
     local step = 1 / n_characters_per_second
     local n_visible = 0
-    local weights = _syntax.BEAT_WEIGHTS
+    local weights = _syntax.BEAT_TO_WEIGHT
     local max_row = 0
     for glyph in values(self._glyphs) do
         if meta.is_table(glyph) then

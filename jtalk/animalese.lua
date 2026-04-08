@@ -7,7 +7,11 @@ rt.settings.animalese = {
     phonemes_list_filename = "phonemes_jp.txt",
     filetype = "wav",
     silence_eps = 0.05,
-    beat_duration = 0.15 -- seconds
+    beat_duration = 0.15, -- seconds
+
+    path = "jtalk/export",
+    hash_filename = ".animalese.hash",
+    animalese_translation_filename = ".animalese",
 }
 
 --- @class rt.Animalese
@@ -238,7 +242,6 @@ function rt.Animalese:_english_to_phoneme(args)
 
     local quoted = {}
     for _, text in ipairs(args) do
-        text = string.gsub(text, "[^%a%d%.,]", " ")
         table.insert(quoted, string.format("%q", text))
     end
 
@@ -446,9 +449,35 @@ do
         [English.Y] = "Y",
     }
 
+    local _sanitize = function(str)
+        for character in range(
+            "\"",
+            ".",
+            ":",
+            ";",
+            "!",
+            "\t",
+            "\n"
+        ) do
+            str = string.gsub(str, string.gsub(character, "%p", "%%%1"), "")
+        end
+        return str
+    end
+
     --- @brief
     function rt.Animalese:translate(...)
-        local table_of_phonemes = self:_english_to_phoneme(...)
+        local input
+        if meta.is_string(select(1, ...)) then
+            input = { ... }
+        else
+            input = select(1, ...)
+        end
+
+        for i = 1, #input do
+            input[i] = _sanitize(input[i])
+        end
+
+        local table_of_phonemes = self:_english_to_phoneme(input)
 
         local is_vowel = function(x)
             return english_is_vowel[x] == true
@@ -545,6 +574,306 @@ do
         end
 
         return result
+    end
+end
+
+-- precompute animalese translations
+do
+    require "common.filesystem"
+    require "common.language"
+    require "jtalk.animalese"
+
+    local settings = rt.settings.dialog
+
+    local language = bd.get_config().language
+    local prefix = settings.path
+    if not bd.exists(bd.join_path(prefix, language)) then
+        rt.critical(
+            "In rt.Dialog: trying to load language `",
+            language,
+            "` but no such folder at `",
+            bd.join_path(bd.get_source_directory(), prefix),
+            "` exist"
+        )
+
+        language = rt.Language.ENGLISH
+    end
+
+    local path = bd.join_path(prefix, language, settings.filename)
+
+    if not bd.exists(path) then
+        rt.fatal("In rt.Dialog: asset file at `", path, "` does not exist")
+    end
+
+    local load_success, dialog_or_error = pcall(bd.load, path, true, {
+
+    }) -- sandboxed fenv
+
+    if not load_success then
+        rt.fatal("In rt.Dialog: when trying to load file at `", path, "`: ", dialog_or_error)
+    end
+
+    if not meta.is_table(dialog_or_error) then
+        rt.fatal("In rt.Dialog: object returned by `", path, "` is not a table")
+    end
+
+    local read_success, string_or_error = pcall(bd.read_file, path)
+    local current_hash
+
+    if not read_success then
+        rt.error("In rt.Dialog: when trying to read file at `", path, "`: ", string_or_error)
+    else
+        current_hash = string.sha256(string_or_error)
+    end
+
+    -- export animalese
+    -- compare dialog hash to past hash, if mismatch or not yet generated, regenerate
+
+    local dialog_prefix = bd.join_path(bd.get_source_directory(), "jtalk")
+    dialog_prefix = bd.mount_path(dialog_prefix, "jtalk")
+
+    dialog_prefix = bd.join_path(dialog_prefix, "export")
+    if not bd.exists(dialog_prefix) then bd.create_directory(dialog_prefix) end
+
+    local hash_path = bd.join_path(dialog_prefix, settings.hash_filename)
+    local translation_path = bd.join_path(dialog_prefix, settings.animalese_translation_filename)
+
+    local should_regenerate = false
+    if not bd.exists(hash_path) or not bd.exists(translation_path) or current_hash == nil then
+        should_regenerate = true
+    else
+        local hash_success, hash_or_error = pcall(bd.read_file, hash_path)
+        if hash_success == false then
+            rt.error("In rt.Dialog: when trying to read file at `", hash_path, "`: ", hash_or_error)
+            should_regenerate = true
+        else
+            should_regenerate = hash_or_error ~= current_hash
+        end
+    end
+
+    if true then --should_regenerate then
+        bd.write_file(hash_path, current_hash, true) -- overwite allowed
+
+        local lines = {}
+
+        local is_integer = function(key)
+            return meta.is_number(key) and math.fract(key) == 0 and key > 0
+        end
+
+        -- extract dialog strings
+
+        local to_exclude = {}
+        for exclude in range(
+            settings.speaker_key,
+            settings.next_key,
+            settings.state_key
+        ) do
+            to_exclude[exclude] = true
+        end
+
+        local should_exclude = function(key)
+            return to_exclude[key] == true
+        end
+
+        for dialog in values(dialog_or_error) do
+            for entries_key, entries in pairs(dialog) do
+                local valid = false
+                for key, value in pairs(entries) do
+                    if key == settings.dialog_choice_key then
+                        for choice in values(value) do
+                            table.insert(lines, choice[1])
+                            valid = true
+                        end
+                    elseif not should_exclude(key) then
+                        table.insert(lines, value)
+                        valid = true
+                    end
+                end
+
+                if not valid then
+                    rt.warning("In rt.Dialog: entry `", entries_key, "` has not valid lines at integer indices")
+                end
+            end
+        end
+
+        -- extract translation string
+        do
+            require "common.translation"
+            local function parse(to_parse)
+                if meta.is_table(to_parse) then
+                    for key, value in pairs(to_parse) do
+                        if meta.is_table(value) then
+                            parse(value)
+                        elseif meta.is_string(value) then
+                            table.insert(lines, value)
+                        end
+                    end
+                end
+            end
+
+            parse(rt.Translation)
+        end
+
+        -- use label parser to extract control sequences and map lines to words
+        require "common.label"
+        local proxy = rt.Label()
+        local words = {}
+        for line in values(lines) do
+            for glyph in values(proxy:_parse(line)) do
+                table.insert(words, glyph.text)
+            end
+        end
+
+        -- then translate words individually
+        local translations = rt.Animalese:translate(words)
+        assert(#translations == #words)
+
+        local to_write = {}
+        for i = 1, #translations do
+            to_write[words[i]] = translations[i]
+        end
+
+        to_write = "return " .. table.serialize(to_write)
+        bd.write_file(translation_path, to_write, true) -- overwrite allowed
+    else
+        local translation_success, translation_or_error = pcall(bd.load, translation_path)
+        if not translation_success then
+            rt.error("In rt.Dialog: when trying to read file at `", translation_path, "`: ", translation_or_error)
+        end
+
+        if not meta.is_table(translation_or_error) then
+            rt.error("In rt.Dialog: when trying to read file at `", translation_path, "`: file does not return a table")
+        end
+
+        rt.Animalese.load_translation(translation_or_error)
+    end
+
+    do
+        require "common.filesystem"
+        require "common.language"
+        require "common.dialog"
+        require "common.translation"
+
+        local dialog_settings = rt.settings.dialog
+        local dialog_path = bd.join_path(dialog_settings.path, bd.get_config().language, dialog_settings.file_name)
+
+        local translation_settings = rt.settings.translation
+        local translation_path = bd.join_path(translation_settings.path, bd.get_config().language, translation_settings.filename)
+
+        local dialog_file = bd.read_file(dialog_path)
+        local translation_file = bd.read_file(translation_path)
+
+        local hash = string.sha256(dialog_file) .. string.sha256(translation_file)
+
+        local should_regenerate = false
+
+        bd.mount_path(bd.join_path(bd.get_source_directory(), "jtalk"))
+        local animalese_settings = rt.settings.animalese
+        local hash_path = bd.joint_path(animalese_settings.path, animalese_settings.hash_filename)
+
+        if not bd.exists(hash_path) then
+            should_regenerate = true
+        else
+            local old_hash = bd.read_file(hash_path)
+            should_regenerate = old_hash ~= hash
+        end
+
+        if should_regenerate then
+            bd.write_file(hash_path, hash, true) -- overwite allowed
+
+            local lines = {}
+
+            local is_integer = function(key)
+                return meta.is_number(key) and math.fract(key) == 0 and key > 0
+            end
+
+            -- extract dialog strings
+
+            local to_exclude = {}
+            for exclude in range(
+                dialog_settings.speaker_key,
+                dialog_settings.next_key,
+                dialog_settings.state_key
+            ) do
+                to_exclude[exclude] = true
+            end
+
+            local should_exclude = function(key)
+                return to_exclude[key] == true
+            end
+
+            for dialog in values(dialog_or_error) do
+                for entries_key, entries in pairs(dialog) do
+                    local valid = false
+                    for key, value in pairs(entries) do
+                        if key == settings.dialog_choice_key then
+                            for choice in values(value) do
+                                table.insert(lines, choice[1])
+                                valid = true
+                            end
+                        elseif not should_exclude(key) then
+                            table.insert(lines, value)
+                            valid = true
+                        end
+                    end
+
+                    if not valid then
+                        rt.warning("In rt.Dialog: entry `", entries_key, "` has not valid lines at integer indices")
+                    end
+                end
+            end
+
+            -- extract translation string
+            do
+                require "common.translation"
+                local function parse(to_parse)
+                    if meta.is_table(to_parse) then
+                        for key, value in pairs(to_parse) do
+                            if meta.is_table(value) then
+                                parse(value)
+                            elseif meta.is_string(value) then
+                                table.insert(lines, value)
+                            end
+                        end
+                    end
+                end
+
+                parse(rt.Translation)
+            end
+
+            -- use label parser to extract control sequences and map lines to words
+            require "common.label"
+            local proxy = rt.Label()
+            local words = {}
+            for line in values(lines) do
+                for glyph in values(proxy:_parse(line)) do
+                    table.insert(words, glyph.text)
+                end
+            end
+
+            -- then translate words individually
+            local translations = rt.Animalese:translate(words)
+            assert(#translations == #words)
+
+            local to_write = {}
+            for i = 1, #translations do
+                to_write[words[i]] = translations[i]
+            end
+
+            to_write = "return " .. table.serialize(to_write)
+            bd.write_file(translation_path, to_write, true) -- overwrite allowed
+        else
+            local translation_success, translation_or_error = pcall(bd.load, translation_path)
+            if not translation_success then
+                rt.error("In rt.Dialog: when trying to read file at `", translation_path, "`: ", translation_or_error)
+            end
+
+            if not meta.is_table(translation_or_error) then
+                rt.error("In rt.Dialog: when trying to read file at `", translation_path, "`: file does not return a table")
+            end
+
+            rt.Animalese.load_translation(translation_or_error)
+        end
     end
 end
 

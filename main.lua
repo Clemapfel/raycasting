@@ -1,3 +1,4 @@
+require "build.config"
 require "include"
 require "common.game_state"
 require "common.scene_manager"
@@ -56,13 +57,13 @@ love.load = function(args)
     end
 
     require "overworld.overworld_scene"
-    rt.SceneManager:push(ow.OverworldScene, "bounce_tutorial", false)
+    --rt.SceneManager:push(ow.OverworldScene, "bounce_tutorial", false)
 
     require "menu.keybinding_scene"
     --rt.SceneManager:push(mn.KeybindingScene)
 
     require "menu.settings_scene"
-    --rt.SceneManager:push(mn.SettingsScene)
+    rt.SceneManager:push(mn.SettingsScene)
 
     require "menu.menu_scene"
     --rt.SceneManager:push(mn.MenuScene) -- skip title
@@ -81,6 +82,7 @@ DEBUG_INPUT:signal_connect("keyboard_key_released", function(_, which)
         rt.SceneManager:get_screen_recorder():stop_recording()
     end
 end)
+
 
 love.update = function(delta)
     if rt.SceneManager ~= nil then

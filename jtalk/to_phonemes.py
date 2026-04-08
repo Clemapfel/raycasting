@@ -6,7 +6,7 @@ import os
 from enum import Enum
 from dataclasses import dataclass
 
-THREAD_COUNT = 2
+THREAD_COUNT = 3
 
 class MessageType(Enum):
     TRANSLATE = 1
@@ -21,7 +21,6 @@ class Message:
     to_translate: str | None = None
     translation: list[str] | None = None
 
-
 @dataclass
 class Worker:
     thread: threading.Thread
@@ -30,7 +29,11 @@ class Worker:
 
 def thread_main(main_to_worker, worker_to_main):
     g2p = G2p()
+    shutdown_active = False
     while True:
+        if main_to_worker.empty() and shutdown_active:
+            break
+
         message = main_to_worker.get(block=True)
         match message.type:
             case MessageType.TRANSLATE:
@@ -41,12 +44,11 @@ def thread_main(main_to_worker, worker_to_main):
                     translation=g2p(message.to_translate),
                 ))
             case MessageType.SHUTDOWN:
-                break
+                shutdown_active = True
             case _:
                 raise AssertionError(f"In thread_main: unhandled message type {message.type}")
 
     worker_to_main.put(Message(type=MessageType.SHUTDOWN_RESPONSE))
-
 
 def text_to_phonemes_lua(phonemes):
     return "{ " + ", ".join(f'"{phoneme}"' for phoneme in phonemes) + " }"
@@ -63,7 +65,7 @@ if __name__ == "__main__":
 
     # distribute tasks round robin
 
-    for _ in range(THREAD_COUNT):
+    for _ in range(min(n_tasks, THREAD_COUNT)):
         main_to_worker = queue.Queue()
         worker = Worker(
             thread=threading.Thread(target=thread_main, args=(main_to_worker, worker_to_main)),

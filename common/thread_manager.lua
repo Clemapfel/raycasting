@@ -37,5 +37,10 @@ function rt.ThreadManager:_notify_thread_added(thread)
     table.insert(self._threads, thread)
 end
 
+--- @brief
+function rt.ThreadManager:get_system_n_cores()
+    return love.system.getProcessorCount()
+end
+
 
 rt.ThreadManager = rt.ThreadManager() -- singleton instance

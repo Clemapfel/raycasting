@@ -169,6 +169,9 @@ function bd.mount_path(path, mount_point)
         false
     ) then
         rt.error("In bd.mount_path: unable to mount path at `",  path,  "`")
+        return nil
+    else
+        return mount_point
     end
 end
 
