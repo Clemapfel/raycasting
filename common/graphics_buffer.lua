@@ -9,7 +9,11 @@ local _usage = {
 rt.GraphicsBuffer = meta.class("GraphicsBuffer")
 
 --- @brief
-function rt.GraphicsBuffer:instantiate(format, n_elements, usage)
+function rt.GraphicsBuffer:instantiate(format, n_elements_or_table, usage)
+    if meta.is_table(n_elements_or_table) and meta.is_function(n_elements_or_table.get_native) then
+        n_elements_or_table = n_elements_or_table:get_native()
+    end
+
     local usage_config = _usage
     if usage ~= nil then
         meta.assert_typeof(usage, "String", 3)
@@ -20,7 +24,7 @@ function rt.GraphicsBuffer:instantiate(format, n_elements, usage)
     end
 
     meta.install(self,{
-        _native = love.graphics.newBuffer(format, n_elements, usage_config),
+        _native = love.graphics.newBuffer(format, n_elements_or_table, usage_config),
         _format = format,
         _readback = nil,
         _formatting_initialized = false
@@ -29,6 +33,10 @@ end
 
 --- @brief
 function rt.GraphicsBuffer:replace_data(data, data_index, buffer_index, n_elements)
+    if meta.is_table(data) and meta.is_function(data.get_native) then
+        data = data:get_native()
+    end
+
     self._native:setArrayData(data, data_index, buffer_index, n_elements)
 end
 
@@ -212,4 +220,20 @@ function rt.GraphicsBuffer:at(i, component_i)
     else
         return self._getter[component_i](offset)
     end
+end
+
+--- @brief
+function rt.GraphicsBuffer:get_element_stride()
+    return self._native:getElementStride()
+end
+
+--- @brief
+function rt.GraphicsBuffer:get_n_elemen()
+    return self._native.getElementCount()
+end
+
+--- @brief
+function rt.GraphicsBuffer:create_byte_data()
+    require "common.byte_data"
+    return rt.ByteData(self._native:getElementStride(), self._native:getElementCount())
 end

@@ -23,6 +23,8 @@
 struct PointLight {
     vec2 position; // in screen space
     float radius;
+    uint hash;
+    int reverse_hash;
     vec4 color;
 };
 

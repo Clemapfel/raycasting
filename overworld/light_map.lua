@@ -1,4 +1,5 @@
 require "common.matrix"
+require "common.byte_data"
 
 rt.settings.overworld.light_map = {
     max_n_point_lights = 1024,
@@ -77,6 +78,8 @@ function ow.LightMap:instantiate(width, height)
         rt.GraphicsBufferUsage.DYNAMIC
     )
 
+    dbg(self._point_light_buffer:get_native():getFormat())
+
     self._current_n_point_lights = 0
     self._point_light_buffer_data = {}
     for i = 1, settings.max_n_point_lights do
@@ -104,24 +107,15 @@ function ow.LightMap:instantiate(width, height)
 
     self._n_tiles = math.ceil(width / self._tile_size) * math.ceil(height / self._tile_size)
 
-    self._tile_data_buffer_data = {}
-    for i = 1, self._n_tiles do
-        table.insert(self._tile_data_buffer_data, 0) -- point light count
-        for _ = 1, settings.n_point_lights_per_tile do
-            table.insert(self._tile_data_buffer_data, -1) -- point light index
-        end
-
-        table.insert(self._tile_data_buffer_data, 0) -- segment light count
-        for _ = 1, settings.n_segment_lights_per_tile do
-            table.insert(self._tile_data_buffer_data, -1) -- segment light index
-        end
-    end
+    local buffer_n_elements = (1 + settings.n_point_lights_per_tile + 1 + settings.n_segment_lights_per_tile) * self._n_tiles
 
     self._tile_data_buffer = rt.GraphicsBuffer(
         self._shader:get_buffer_format("tile_data_buffer"),
-        self._tile_data_buffer_data,
+        self._n_tiles,
         rt.GraphicsBufferUsage.DYNAMIC
     )
+
+    self._tile_data_buffer_data = self._tile_data_buffer:create_byte_data()
 
     --- layout: inline [n_point_lights, N_POINT_LIGHTS_PER_TILE * int, n_segment_lights, N_SEGMENT_LIGHTS_PER_TILE * int]
 end
@@ -195,49 +189,57 @@ do
         return tile_index + 1
     end
 
+    local function set(data, i, value) -- 1-based
+        data:set(i, value)
+    end
+
+    local function get(data, i) -- 1-based
+        return data:get(i)
+    end
+
     local function tile_index_to_data_offset(tile_data_stride, tile_index)
         return (tile_index - 1) * tile_data_stride + 1
     end
 
     local function set_n_point_lights(tile_data, tile_data_stride, tile_index, count)
         local tile_offset = tile_index_to_data_offset(tile_data_stride, tile_index)
-        tile_data[tile_offset + 0] = count
+        set(tile_data, tile_offset + 0, count)
     end
 
     local function get_n_point_lights(tile_data, tile_data_stride, _, tile_index)
         -- unused arg for consistent signature with get_n_segment_lights
         local tile_offset = tile_index_to_data_offset(tile_data_stride, tile_index)
-        return tile_data[tile_offset + 0]
+        return get(tile_data, tile_offset + 0)
     end
 
     local function set_n_segment_lights(tile_data, tile_data_stride, n_point_lights_per_tile, tile_index, count)
         local tile_offset = tile_index_to_data_offset(tile_data_stride, tile_index)
-        tile_data[tile_offset + 1 + n_point_lights_per_tile] = count
+        set(tile_data, tile_offset + 1 + n_point_lights_per_tile, count)
     end
 
     local function get_n_segment_lights(tile_data, tile_data_stride, n_point_lights_per_tile, tile_index)
         local tile_offset = tile_index_to_data_offset(tile_data_stride, tile_index)
-        return tile_data[tile_offset + 1 + n_point_lights_per_tile]
+        return get(tile_data, tile_offset + 1 + n_point_lights_per_tile)
     end
 
     local function add_point_light_to_tile(tile_data, tile_data_stride, n_point_lights_per_tile, tile_index, light_source_index)
         local tile_offset = tile_index_to_data_offset(tile_data_stride, tile_index)
-        local count = tile_data[tile_offset]
+        local count = get(tile_data, tile_offset)
         if get_n_point_lights(tile_data, tile_data_stride, n_point_lights_per_tile, tile_index) >= n_point_lights_per_tile then
             return
         end
-        tile_data[tile_offset + 1 + count] = light_source_index - 1
-        tile_data[tile_offset] = count + 1
+        set(tile_data, tile_offset + 1 + count, light_source_index - 1)
+        set(tile_data, tile_offset, count + 1)
     end
 
     local function add_segment_light_to_tile(tile_data, tile_data_stride, n_point_lights_per_tile, n_segment_lights_per_tile, tile_index, light_source_index)
         local tile_offset = tile_index_to_data_offset(tile_data_stride, tile_index)
-        local count = tile_data[tile_offset + 1 + n_point_lights_per_tile]
+        local count = get(tile_data, tile_offset + 1 + n_point_lights_per_tile)
         if get_n_segment_lights(tile_data, tile_data_stride, n_point_lights_per_tile, tile_index) >= n_segment_lights_per_tile then
             return
         end
-        tile_data[tile_offset + 1 + n_point_lights_per_tile + 1 + count] = light_source_index - 1
-        tile_data[tile_offset + 1 + n_point_lights_per_tile] = count + 1
+        set(tile_data, tile_offset + 1 + n_point_lights_per_tile + 1 + count, light_source_index - 1)
+        set(tile_data, tile_offset + 1 + n_point_lights_per_tile, count + 1)
     end
 
     local add_point_light = function(point_light_data, max_n_point_lights, point_light_i, world_to_screen_transform, final_scale, x, y, radius, color_r, color_g, color_b, color_a)
