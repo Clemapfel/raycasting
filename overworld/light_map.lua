@@ -78,8 +78,6 @@ function ow.LightMap:instantiate(width, height)
         rt.GraphicsBufferUsage.DYNAMIC
     )
 
-    dbg(self._point_light_buffer:get_native():getFormat())
-
     self._current_n_point_lights = 0
     self._point_light_buffer_data = {}
     for i = 1, settings.max_n_point_lights do
@@ -111,12 +109,10 @@ function ow.LightMap:instantiate(width, height)
 
     self._tile_data_buffer = rt.GraphicsBuffer(
         self._shader:get_buffer_format("tile_data_buffer"),
-        self._n_tiles,
-        rt.GraphicsBufferUsage.DYNAMIC
+        buffer_n_elements,
+        rt.GraphicsBufferUsage.STREAM
     )
-
-    self._tile_data_buffer_data = self._tile_data_buffer:create_byte_data()
-
+    self._tile_data_buffer_data = self._tile_data_buffer:create_byte_data():cast(rt.ByteDataFormat.INT32)
     --- layout: inline [n_point_lights, N_POINT_LIGHTS_PER_TILE * int, n_segment_lights, N_SEGMENT_LIGHTS_PER_TILE * int]
 end
 
@@ -622,7 +618,8 @@ do
         debugger.pop("tile_buffer")
         debugger.push("tile_buffer_upload")
 
-        self._tile_data_buffer:replace_data(tile_data) -- always update whole buffer
+        self._tile_data_buffer:upload()
+        --self._tile_data_buffer:replace_data(self._tile_data_buffer_data) -- always update whole buffer
 
         debugger.pop("tile_buffer_upload")
 
@@ -638,7 +635,7 @@ do
         shader:dispatch(self._dispatch_x, self._dispatch_y)
 
         debugger.pop("dispatch")
-        --debugger.report()
+        debugger.report()
 
         if DEBUG then
             if self._measured_max_n_segments == nil then self._measured_max_n_segments = -math.huge end

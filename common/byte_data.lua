@@ -13,6 +13,7 @@ rt.ByteDataFormat = {
     UINT64 = "uint64_t",
     FLOAT32 = "float",
     FLOAT64 = "double",
+    UNKNOWN = "void"
 }
 rt.ByteDataFormat = meta.enum("ByteDataFormat", rt.ByteDataFormat)
 
@@ -30,6 +31,7 @@ rt.ByteData.format_to_n_bytes = function(format)
 end
 
 local _format_to_getter_setter = {
+    [rt.ByteDataFormat.UNKNOWN] = { get = "getUInt8", set = "setUInt8" },
     [rt.ByteDataFormat.INT8]    = { get = "getInt8",   set = "setInt8"   },
     [rt.ByteDataFormat.INT16]   = { get = "getInt16",  set = "setInt16"  },
     [rt.ByteDataFormat.INT32]   = { get = "getInt32",  set = "setInt32"  },
@@ -43,22 +45,37 @@ local _format_to_getter_setter = {
 }
 
 local use_ffi, _ = pcall(require, "ffi")
+use_ffi = true
 
 --- @brief
-function rt.ByteData:instantiate(format, count)
+function rt.ByteData:instantiate(format, count_or_native)
     meta.assert_enum_value(format, rt.ByteDataFormat, 1)
-    rt.assert(meta.is_number(count) and count >= 0 and math.fract(count) == 0, "In rt.ByteData.instantiate: count `", count, "` is not an integer")
+
+    if meta.is_function(count_or_native.typeOf) and count_or_native:typeOf("ByteData") then
+        self._native = count_or_native
+    else
+        rt.assert(meta.is_number(count_or_native) and count_or_native >= 0 and math.fract(count_or_native) == 0, "In rt.ByteData.instantiate: for argument #2: count `", count_or_native, "` is not an integer")
+        self._native = love.data.newByteData(rt.ByteData.format_to_n_bytes * count_or_native)
+    end
+
+    self:cast(format)
+end
+
+--- @brief
+function rt.ByteData:cast(format)
+    meta.assert_enum_value(format, rt.ByteDataFormat, 1)
     self._format = format
-    self._native = love.data.newByteData(rt.ByteData.format_to_n_bytes(format) * count)
     self._stride = rt.ByteData.format_to_n_bytes(format)
 
-    if use_ffi then
-        self._pointer = ffi.cast(self._format .. "*", self._native:getFFIPointer())
-    else
+    if not use_ffi then
         local entry = _format_to_getter_setter[self._format]
-        self._getter = entry.get
-        self._setter = entry.set
+        self._getter = self._native[entry.get]
+        self._setter = self._native[entry.set]
+    else
+        self._pointer = ffi.cast(self._format .. "*", self._native:getFFIPointer())
     end
+
+    return self
 end
 
 if use_ffi then
@@ -79,12 +96,12 @@ if use_ffi then
 else
     --- @brief
     function rt.ByteData:get(i)
-        return self._native[self._getter](self._native, i - 1)
+        return self._getter(self._native, i - 1)
     end
 
     --- @brief
     function rt.ByteData:set(i, value)
-        self._native[self._setter](self._native, i - 1, value)
+        self._setter(self._native, i - 1, value)
     end
 
     --- @brief
