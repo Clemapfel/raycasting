@@ -61,10 +61,9 @@ vec2 reflect_point_across_line(vec2 point, vec4 line)
     return reflected;
 }
 
-uniform vec2 camera_offset;
 uniform float camera_scale = 1;
 vec2 to_uv(vec2 xy) {
-    const vec2 reference_size = vec2(800, 600);
+    vec2 reference_size = vec2(800, 600) * camera_scale;
     return (xy / (reference_size / love_ScreenSize.xy)) / love_ScreenSize.xy;
 }
 
@@ -90,7 +89,7 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 screen_coords)
 
     // player glow
     vec2 reflected_player_pos = to_uv(reflect_point_across_line(player_position, axis_of_reflection));
-    float glow = mirror_falloff * gaussian(distance(uv, reflected_player_pos) / camera_scale, 1. / 50);
+    float glow = mirror_falloff * gaussian(distance(uv, reflected_player_pos), 1. / 50);
 
     // diffuse reflection
     vec2 diffuse_center = closest_point_on_line(reflected_player_pos, axis);

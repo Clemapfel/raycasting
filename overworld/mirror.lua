@@ -83,6 +83,7 @@ function ow.Mirror:draw()
     _shader:bind()
     _shader:send("player_color", { player:get_color():unpack() })
     _shader:send("player_position", { camera:world_xy_to_screen_xy(player:get_position()) })
+    _shader:send("camera_scale", camera:get_final_scale())
 
     local n_drawn = 0
     for image in values(self._mirror_images) do
@@ -100,6 +101,7 @@ function ow.Mirror:draw()
         local lx2, ly2 = camera:world_xy_to_screen_xy(x2, y2)
 
         _shader:send("axis_of_reflection", { lx1, ly1, lx2, ly2 })
+
         love.graphics.setColor(1, 1, 1, 1)
         love.graphics.draw(
             canvas:get_native(),
