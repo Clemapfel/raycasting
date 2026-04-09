@@ -464,21 +464,23 @@ do
         local n_segment_lights = segment_light_i - 1
         local n_point_lights = point_light_i - 1
 
-        -- only update start of the buffers, tile buffer with count = 0 makes compute shader skip stale data
-
         debugger.push("source_buffer")
 
-        upload_point_light_data(self._point_light_buffer, point_light_data,
-            1, -- source index
-            1, -- destination index
-            n_point_lights -- count
-        )
+        if n_point_lights > 0 then
+            upload_point_light_data(self._point_light_buffer, point_light_data,
+                1, -- source index
+                1, -- destination index
+                n_point_lights -- count
+            )
+        end
 
-        upload_segment_light_data(self._segment_light_buffer, segment_light_data,
-            1,
-            1,
-            n_segment_lights
-        )
+        if n_segment_lights > 0 then
+            upload_segment_light_data(self._segment_light_buffer, segment_light_data,
+                1,
+                1,
+                n_segment_lights
+            )
+        end
 
         debugger.pop("source_buffer")
 

@@ -681,7 +681,6 @@ function ow.FireflyManager:collect_point_lights(callback)
 
     if true then return end
 
-
     local core_radius_factor = rt.settings.overworld.firefly_particle.core_radius_factor
 
     local cluster_distance_sq = rt.settings.overworld.firefly_manager.max_radius_factor * rt.settings.overworld.fireflies.radius

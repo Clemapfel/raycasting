@@ -389,9 +389,10 @@ function rt.GraphicsBuffer:get_n_element()
     return self._native:getElementCount()
 end
 
---- @brief
+--- @brief update the local copy of buffer data
 function rt.GraphicsBuffer:download()
     self._data = love.graphics.readbackBuffer(self._native)
+    return nil
 end
 
 --- @brief
