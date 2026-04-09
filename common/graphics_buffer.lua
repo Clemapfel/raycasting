@@ -221,7 +221,7 @@ end
 
 --- @brief
 function rt.GraphicsBuffer:get_n_element()
-    return self._native.getElementCount()
+    return self._native:getElementCount()
 end
 
 --- @brief

@@ -249,21 +249,6 @@ do
         set(tile_data, tile_offset + 1 + n_point_lights_per_tile, count + 1)
     end
 
-    local add_point_light = function(point_light_data, max_n_point_lights, point_light_i, world_to_screen_transform, final_scale, x, y, radius, color_r, color_g, color_b, color_a)
-        if point_light_i > max_n_point_lights then
-            return point_light_i
-        end
-
-        radius = math.max(radius, 1) * final_scale
-        x, y = world_to_screen_transform:transform_point(x, y)
-
-        local data = point_light_data[point_light_i]
-        data[1], data[2], data[3] = x, y, radius
-        data[4], data[5], data[6], data[7] = color_r, color_g, color_b, color_a
-
-        return point_light_i + 1
-    end
-
     local add_segment_light = function(segment_light_data, max_n_segment_lights, segment_light_i, world_to_screen_transform, x1, y1, x2, y2, color_r, color_g, color_b, color_a)
         if segment_light_i > max_n_segment_lights then
             return segment_light_i
@@ -298,6 +283,28 @@ do
         end
 
         local point_light_data = self._point_light_buffer_data
+        local add_point_light, get_point_light
+        do
+            add_point_light = function(point_light_data, max_n_point_lights, point_light_i, world_to_screen_transform, final_scale, x, y, radius, color_r, color_g, color_b, color_a)
+                if point_light_i > max_n_point_lights then
+                    return point_light_i
+                end
+
+                radius = math.max(radius, 1) * final_scale
+                x, y = world_to_screen_transform:transform_point(x, y)
+
+                local data = point_light_data[point_light_i]
+                data[1], data[2], data[3] = x, y, radius
+                data[4], data[5], data[6], data[7] = color_r, color_g, color_b, color_a
+
+                return point_light_i + 1
+            end
+
+            get_point_light = function(point_light_data, point_light_i)
+                return table.unpack(point_light_data[point_light_i])
+            end
+        end
+
         local segment_light_data = self._segment_light_buffer_data
 
         local camera = stage:get_scene():get_camera()
@@ -413,10 +420,10 @@ do
 
             for i = 1, n_point_lights do
                 light_order[i] = i
-                local data = point_light_data[i]
-                local dx = data[1] - player_x
-                local dy = data[2] - player_y
-                light_i_to_distance[i] = math.squared_distance(data[1], data[2], player_x, player_y)
+                local x, y = get_point_light(point_light_data, i)
+                local dx = x - player_x
+                local dy = y - player_y
+                light_i_to_distance[i] = math.squared_distance(x, y, player_x, player_y)
             end
 
             table.sort(light_order, function(a, b)
@@ -425,8 +432,7 @@ do
 
             for order_i = 1, n_point_lights do
                 local point_i = light_order[order_i]
-                local data = point_light_data[point_i]
-                local x, y, radius, opacity = data[1], data[2], data[3], data[7]
+                local x, y, radius, _, _, _, opacity = get_point_light(point_light_data, point_i)
 
                 -- only check cells in aabb of disk
                 local effective_radius = math.sqrt(range_threshold + radius * radius)
@@ -457,8 +463,7 @@ do
             end
         else
             for point_i = 1, n_point_lights do
-                local data = point_light_data[point_i]
-                local x, y, radius, opacity = data[1], data[2], data[3], data[7]
+                local x, y, radius, _, _, _, opacity = get_point_light(point_light_data, point_i)
 
                 local effective_radius = math.sqrt(range_threshold + radius^2)
                 local first_row = math.max(1, math.floor((x - effective_radius) / tile_size) + 1)
