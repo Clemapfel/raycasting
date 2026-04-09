@@ -314,8 +314,6 @@ function rt.GraphicsBuffer:_initialize_formatting()
             components = {}
         }
 
-        dbg(e)
-
         self._field_i_to_format[i] = format
 
         rt.assert(_format_to_n_components[e.format] ~= nil
@@ -398,6 +396,7 @@ end
 
 --- @brief
 function rt.GraphicsBuffer:flush(...)
+    if self._data == nil then self:download() end
     self._native:setArrayData(self._data, ...)
 end
 

@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 819,
+  nextobjectid = 821,
   properties = {},
   tilesets = {
     {
@@ -3302,12 +3302,50 @@ return {
           name = "",
           type = "Fireflies",
           shape = "point",
-          x = 1120,
-          y = 2448,
+          x = 1232,
+          y = 2496,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
+          properties = {}
+        },
+        {
+          id = 819,
+          name = "",
+          type = "BouncePad",
+          shape = "polygon",
+          x = 1168,
+          y = 2560,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = -96, y = 0 },
+            { x = -96, y = -32 },
+            { x = 0, y = -32 }
+          },
+          properties = {}
+        },
+        {
+          id = 820,
+          name = "",
+          type = "BouncePad",
+          shape = "polygon",
+          x = 1168,
+          y = 2480,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = -96, y = 0 },
+            { x = -96, y = -32 },
+            { x = 0, y = -32 }
+          },
           properties = {}
         }
       }

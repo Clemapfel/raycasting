@@ -16,7 +16,8 @@ rt.settings.overworld.light_map = {
     intensity_texture_format = rt.TextureFormat.RGBA8,
     direction_texture_format = rt.TextureFormat.RG16F,
     mask_texture_format = rt.TextureFormat.R8,
-    should_sort_by_distance = true -- choose closest light source deterministically if too many per tile
+    should_sort_by_distance = false, -- choose closest light source deterministically if too many per tile
+    use_byte_data = false
 }
 
 --- @class ow.LightMap
@@ -253,48 +254,105 @@ do
         local add_point_light, get_point_light, upload_point_light_data, point_light_data
         local add_segment_light, get_segment_light, upload_segment_light_data, segment_light_data
 
-        if false then
+        if settings.use_byte_data then
             point_light_data = self._point_light_buffer:get_byte_data():get_native()
 
-            local buffer = self._point_light_buffer
-            local stride = buffer:get_element_stride()
-            local x_offset = buffer:get_byte_offset("position", 1)
-            local y_offset = buffer:get_byte_offset("position", 2)
-            local radius_offset = buffer:get_byte_offset("radius")
-            local r_offset = buffer:get_byte_offset("color", 1)
-            local g_offset = buffer:get_byte_offset("color", 2)
-            local b_offset = buffer:get_byte_offset("color", 3)
-            local a_offset = buffer:get_byte_offset("color", 4)
+            do
+                local buffer = self._point_light_buffer
+                local stride = buffer:get_element_stride()
+                local x_offset = buffer:get_byte_offset("position", 1)
+                local y_offset = buffer:get_byte_offset("position", 2)
+                local radius_offset = buffer:get_byte_offset("radius")
+                local r_offset = buffer:get_byte_offset("color", 1)
+                local g_offset = buffer:get_byte_offset("color", 2)
+                local b_offset = buffer:get_byte_offset("color", 3)
+                local a_offset = buffer:get_byte_offset("color", 4)
 
-            add_point_light = function(point_light_data, max_n_point_lights, point_light_i, world_to_screen_transform, final_scale, x, y, radius, color_r, color_g, color_b, color_a)
-                if point_light_i > max_n_point_lights then
-                    return point_light_i
+                add_point_light = function(point_light_data, max_n_point_lights, point_light_i, world_to_screen_transform, final_scale, x, y, radius, color_r, color_g, color_b, color_a)
+                    if point_light_i > max_n_point_lights then
+                        return point_light_i
+                    end
+
+                    radius = math.max(radius, 1) * final_scale
+                    x, y = world_to_screen_transform:transform_point(x, y)
+
+                    local offset = (point_light_i - 1) * stride
+                    point_light_data:setFloat(offset + x_offset, x)
+                    point_light_data:setFloat(offset + y_offset, y)
+                    point_light_data:setFloat(offset + radius_offset, radius)
+                    point_light_data:setFloat(offset + r_offset, color_r)
+                    point_light_data:setFloat(offset + g_offset, color_g)
+                    point_light_data:setFloat(offset + b_offset, color_b)
+                    point_light_data:setFloat(offset + a_offset, color_a)
+
+                    return point_light_i + 1
                 end
 
-                radius = math.max(radius, 1) * final_scale
-                x, y = world_to_screen_transform:transform_point(x, y)
+                get_point_light = function(point_light_data, point_light_i)
+                    local offset = (point_light_i - 1) * stride
+                    return point_light_data:getFloat(offset + x_offset),
+                        point_light_data:getFloat(offset + y_offset),
+                        point_light_data:getFloat(offset + radius_offset),
+                        point_light_data:getFloat(offset + r_offset),
+                        point_light_data:getFloat(offset + g_offset),
+                        point_light_data:getFloat(offset + b_offset),
+                        point_light_data:getFloat(offset + a_offset)
+                end
 
-                local offset = (point_light_i - 1) * stride
-                point_light_data:setFloat(offset + x_offset, x)
-                point_light_data:setFloat(offset + y_offset, y)
-                point_light_data:setFloat(offset + radius_offset, radius)
-                point_light_data:setFloat(offset + r_offset, color_r)
-                point_light_data:setFloat(offset + g_offset, color_g)
-                point_light_data:setFloat(offset + b_offset, color_b)
-                point_light_data:setFloat(offset + a_offset, color_a)
-
-                return point_light_i + 1
+                upload_point_light_data = function(point_light_buffer, _)
+                    point_light_buffer:flush()
+                end
             end
 
-            get_point_light = function(point_light_data, point_light_i)
-                local offset = (point_light_i - 1) * stride
-                return point_light_data:getFloat(offset + x_offset),
-                point_light_data:getFloat(offset + y_offset),
-                point_light_data:getFloat(offset + radius_offset),
-                point_light_data:getFloat(offset + r_offset),
-                point_light_data:getFloat(offset + g_offset),
-                point_light_data:getFloat(offset + b_offset),
-                point_light_data:getFloat(offset + a_offset)
+            do
+                local buffer = self._segment_light_buffer
+                local stride = buffer:get_element_stride()
+                local x1_offset = buffer:get_byte_offset("segment", 1)
+                local y1_offset = buffer:get_byte_offset("segment", 2)
+                local x2_offset = buffer:get_byte_offset("segment", 3)
+                local y2_offset = buffer:get_byte_offset("segment", 4)
+                local r_offset = buffer:get_byte_offset("color", 1)
+                local g_offset = buffer:get_byte_offset("color", 2)
+                local b_offset = buffer:get_byte_offset("color", 3)
+                local a_offset = buffer:get_byte_offset("color", 4)
+
+                segment_light_data = self._segment_light_buffer:get_byte_data():get_native()
+                add_segment_light = function(segment_light_data, max_n_segment_lights, segment_light_i, world_to_screen_transform, x1, y1, x2, y2, color_r, color_g, color_b, color_a)
+                    if segment_light_i > max_n_segment_lights then
+                        return segment_light_i
+                    end
+
+                    x1, y1 = world_to_screen_transform:transform_point(x1, y1)
+                    x2, y2 = world_to_screen_transform:transform_point(x2, y2)
+
+                    local offset = (segment_light_i - 1) * stride
+                    segment_light_data:setFloat(offset + x1_offset, x1)
+                    segment_light_data:setFloat(offset + y1_offset, y1)
+                    segment_light_data:setFloat(offset + x2_offset, x2)
+                    segment_light_data:setFloat(offset + y2_offset, y2)
+                    segment_light_data:setFloat(offset + r_offset, color_r)
+                    segment_light_data:setFloat(offset + g_offset, color_g)
+                    segment_light_data:setFloat(offset + b_offset, color_b)
+                    segment_light_data:setFloat(offset + a_offset, color_a)
+
+                    return segment_light_i + 1
+                end
+
+                get_segment_light = function(segment_light_data, segment_light_i)
+                    local offset = (segment_light_i - 1) * stride
+                    return segment_light_data:getFloat(offset + x1_offset),
+                        segment_light_data:getFloat(offset + y1_offset),
+                        segment_light_data:getFloat(offset + x2_offset),
+                        segment_light_data:getFloat(offset + y2_offset),
+                        segment_light_data:getFloat(offset + r_offset),
+                        segment_light_data:getFloat(offset + g_offset),
+                        segment_light_data:getFloat(offset + b_offset),
+                        segment_light_data:getFloat(offset + a_offset)
+                end
+
+                upload_segment_light_data = function(segment_light_buffer, _)
+                    segment_light_buffer:flush()
+                end
             end
         else
             -- point
@@ -398,17 +456,8 @@ do
 
         debugger.push("source_buffer")
 
-        upload_point_light_data(self._point_light_buffer, point_light_data,
-            1, -- source index
-            1, -- destination index
-            n_point_lights -- count
-        )
-
-        upload_segment_light_data(self._segment_light_buffer, segment_light_data,
-            1,
-            1,
-            n_segment_lights
-        )
+        upload_point_light_data(self._point_light_buffer, point_light_data)
+        upload_segment_light_data(self._segment_light_buffer, segment_light_data)
 
         debugger.pop("source_buffer")
 
@@ -568,7 +617,10 @@ do
         shader:dispatch(self._dispatch_x, self._dispatch_y)
 
         debugger.pop("dispatch")
-        --debugger.report()
+
+        if love.keyboard.isDown("P") then
+            debugger.report()
+        end
 
         if DEBUG then
             if self._measured_max_n_segments == nil then self._measured_max_n_segments = -math.huge end

@@ -6,19 +6,6 @@ require "common.music_manager"
 require "common.sound_manager"
 require "common.input_manager"
 
-require "common.dialog"
-require "jtalk.animalese"
-local animalese = rt.Animalese()
-
-DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
-    if which == rt.KeyboardKey.P then
-        local t = animalese:translate("flawless victory")
-        animalese:queue(rt.Animalese.Gender.FEMALE, rt.Animalese.Emotion.NORMAL,
-            table.unpack(t)
-        )
-    end
-end)
-
 love.load = function(args)
     local w, h = love.graphics.getDimensions()
 
@@ -88,8 +75,6 @@ love.update = function(delta)
     if rt.SceneManager ~= nil then
         rt.SceneManager:update(delta)
     end
-
-    animalese:update(delta)
 end
 
 love.draw = function()
