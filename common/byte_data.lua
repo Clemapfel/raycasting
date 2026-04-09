@@ -71,6 +71,7 @@ function rt.ByteData:cast(format)
         local entry = _format_to_getter_setter[self._format]
         self._getter = self._native[entry.get]
         self._setter = self._native[entry.set]
+        self._stride = rt.ByteData.format_to_n_bytes(self._format)
     else
         self._pointer = ffi.cast(self._format .. "*", self._native:getFFIPointer())
     end
@@ -96,12 +97,12 @@ if use_ffi then
 else
     --- @brief
     function rt.ByteData:get(i)
-        return self._getter(self._native, i)
+        return self._getter(self._native, self._stride * (i - 1))
     end
 
     --- @brief
     function rt.ByteData:set(i, value)
-        self._setter(self._native, i, value)
+        self._setter(self._native, self._stride * (i - 1), value)
     end
 
     --- @brief
