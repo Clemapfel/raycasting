@@ -568,33 +568,57 @@ function ow.BouncePad:_update_particles(delta)
     end
 end
 
---- @brief
-function ow.BouncePad:_draw_particles()
-    local black_r, black_g, black_b = rt.Palette.BLACK:unpack()
-    love.graphics.setLineWidth(1)
-    for batch in values(self._batches) do
-        local data = batch.particle_data
+do
+    local lighten = function(x)
+        return 1.25 * x
+    end
 
-        for particle_i = 1, batch.n_particles do
-            local i = _particle_i_to_data_offset(particle_i)
-            love.graphics.setColor(data[i + _color_r_offset], data[i + _color_g_offset], data[i + _color_b_offset], data[i + _color_a_offset])
-            love.graphics.circle("fill",
-                data[i + _position_x_offset],
-                data[i + _position_y_offset],
-                data[i + _radius_offset]
-            )
-        end
+    --- @brief
+    function ow.BouncePad:_draw_particles()
+        local black_r, black_g, black_b = rt.Palette.BLACK:unpack()
+        local outline_r, outline_g, outline_b = rt.Palette.BOUNCE_PAD:unpack()
 
-        love.graphics.setLineWidth(1)
-        for particle_i = 1, batch.n_particles do
-            local i = _particle_i_to_data_offset(particle_i)
-            love.graphics.setColor(data[i + _color_r_offset], data[i + _color_g_offset], data[i + _color_b_offset], data[i + _color_a_offset])
-            love.graphics.circle("line",
-                data[i + _position_x_offset],
-                data[i + _position_y_offset],
-                data[i + _radius_offset]
-            )
+        love.graphics.push("all")
+        local line_width = 0.5
+        love.graphics.setLineWidth(line_width)
+        love.graphics.setLineJoin("bevel")
+        for batch in values(self._batches) do
+            local data = batch.particle_data
+
+            for particle_i = 1, batch.n_particles do
+                local i = _particle_i_to_data_offset(particle_i)
+                local a = data[i + _color_a_offset]
+                love.graphics.setColor(
+                    data[i + _color_r_offset],
+                    data[i + _color_g_offset],
+                    data[i + _color_b_offset],
+                    a
+                )
+                love.graphics.circle("fill",
+                    data[i + _position_x_offset],
+                    data[i + _position_y_offset],
+                    data[i + _radius_offset] - 2 * line_width
+                )
+            end
+
+            for particle_i = 1, batch.n_particles do
+                local i = _particle_i_to_data_offset(particle_i)
+                local a = data[i + _color_a_offset]
+                love.graphics.setColor(
+                    lighten(data[i + _color_r_offset]),
+                    lighten(data[i + _color_g_offset]),
+                    lighten(data[i + _color_b_offset]),
+                    a
+                )
+
+                love.graphics.circle("line",
+                    data[i + _position_x_offset],
+                    data[i + _position_y_offset],
+                    data[i + _radius_offset]
+                )
+            end
         end
+        love.graphics.pop()
     end
 end
 
