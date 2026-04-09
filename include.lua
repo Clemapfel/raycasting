@@ -4,7 +4,17 @@ require "common.splash_screen" -- splash screen during compilation
 
 -- standard library extension
 
-ffi = require "ffi"
+ffi = nil
+do
+    local ffi_success, ffi_maybe = pcall(require, "ffi")
+    if ffi_success == true then
+        ffi = ffi_maybe
+    else
+        ffi = nil
+    end
+end
+
+
 utf8 = require "utf8"
 bit = require "bit"
 

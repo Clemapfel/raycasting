@@ -52,200 +52,166 @@ function rt.GraphicsBuffer:get_native()
     return self._native
 end
 
+rt.DataFormat = {
+    FLOAT = "float",
+    FLOAT_VEC2 = "floatvec2",
+    FLOAT_VEC4 = "floatvec4",
+
+    INT32 = "int32",
+    INT32_VEC2 = "int32vec2",
+    INT32_VEC4 = "int32vec4",
+
+    UINT32 = "uint32",
+    UINT32_VEC2 = "uint32vec2",
+    UINT32_VEC4 = "uint32vec4",
+
+    UNORM8_VEC4 = "unorm8vec4",
+    SNORM8_VEC4 = "snorm8vec4",
+    INT8_VEC4 = "int8vec4",
+    UINT8_VEC4 = "uint8vec4",
+
+    UNORM16_VEC2 = "unorm16vec2",
+    UNORM16_VEC4 = "unorm16vec4",
+
+    INT16_VEC2 = "int16vec2",
+    INT16_VEC4 = "int16vec4",
+
+    UINT16 = "uint16",
+    UINT16_VEC2 = "uint16vec2",
+    UINT16_VEC4 = "uint16vec4",
+}
+rt.DataFormat = meta.enum("DataFormat", rt.DataFormat)
+
 local _format_to_n_components = {
-    float = 1,
-    floatvec2 = 2,
-    floatvec3 = 3,
-    floatvec4 = 4,
-    int32 = 1,
-    int32vec2 = 2,
-    int32vec3 = 3,
-    int32vec4 = 4,
-    uint32 = 1,
-    uint32vec2 = 2,
-    uint32vec3 = 3,
-    uint32vec4 = 4
+    [rt.DataFormat.FLOAT] = 1,
+    [rt.DataFormat.FLOAT_VEC2] = 2,
+    [rt.DataFormat.FLOAT_VEC4] = 4,
+
+    [rt.DataFormat.INT32] = 1,
+    [rt.DataFormat.INT32_VEC2] = 2,
+    [rt.DataFormat.INT32_VEC4] = 4,
+
+    [rt.DataFormat.UINT32] = 1,
+    [rt.DataFormat.UINT32_VEC2] = 2,
+    [rt.DataFormat.UINT32_VEC4] = 4,
+
+    [rt.DataFormat.UNORM8_VEC4] = 4,
+    [rt.DataFormat.SNORM8_VEC4] = 4,
+    [rt.DataFormat.INT8_VEC4] = 4,
+    [rt.DataFormat.UINT8_VEC4] = 4,
+
+    [rt.DataFormat.UNORM16_VEC2] = 2,
+    [rt.DataFormat.UNORM16_VEC4] = 4,
+
+    [rt.DataFormat.INT16_VEC2] = 2,
+    [rt.DataFormat.INT16_VEC4] = 4,
+
+    [rt.DataFormat.UINT16] = 1,
+    [rt.DataFormat.UINT16_VEC2] = 2,
+    [rt.DataFormat.UINT16_VEC4] = 4
 }
 
-local _format_to_component_size = {
-    float = 32 / 8,
-    floatvec2 = 32 / 8,
-    floatvec3 = 32 / 8,
-    floatvec4 = 32 / 8,
-    int32 = 32 / 8,
-    int32vec2 = 32 / 8,
-    int32vec3 = 32 / 8,
-    int32vec4 = 32 / 8,
-    uint32 = 32 / 8,
-    uint32vec2 = 32 / 8,
-    uint32vec3 = 32 / 8,
-    uint32vec4 = 32 / 8
+local _format_to_size = {
+    [rt.DataFormat.FLOAT] = 4,
+    [rt.DataFormat.FLOAT_VEC2] = 8,
+    [rt.DataFormat.FLOAT_VEC4] = 16,
+
+    [rt.DataFormat.INT32] = 4,
+    [rt.DataFormat.INT32_VEC2] = 8,
+    [rt.DataFormat.INT32_VEC4] = 16,
+
+    [rt.DataFormat.UINT32] = 4,
+    [rt.DataFormat.UINT32_VEC2] = 8,
+    [rt.DataFormat.UINT32_VEC4] = 16,
+
+    [rt.DataFormat.UNORM8_VEC4] = 4,
+    [rt.DataFormat.SNORM8_VEC4] = 4,
+    [rt.DataFormat.INT8_VEC4] = 4,
+    [rt.DataFormat.UINT8_VEC4] = 4,
+
+    [rt.DataFormat.UNORM16_VEC2] = 4,
+    [rt.DataFormat.UNORM16_VEC4] = 8,
+
+    [rt.DataFormat.INT16_VEC2] = 4,
+    [rt.DataFormat.INT16_VEC4] = 8,
+
+    [rt.DataFormat.UINT16] = 2,
+    [rt.DataFormat.UINT16_VEC2] = 4,
+    [rt.DataFormat.UINT16_VEC4] = 8
 }
 
 --- @brief
 function rt.GraphicsBuffer:_initialize_formatting()
-    local element_length = 0
-    local getters, setters = {}, {}
+    local n = self._native:getElementCount()
+    local stride = self._native:getElementStride()
+    self._i_to_format = {}
+    self._field_name_to_field_i = {}
 
-    local i = 1
-    for e in values(self._native:getFormat()) do
+    for i, e in ipairs(self._native:getFormat()) do
         local n_components = _format_to_n_components[e.format]
-        local component_size = _format_to_component_size[e.format]
-        local element_offset = e.offset
+        local size = _format_to_size[e.format]
+        local format = {
+            name = e.name,
+            n_components = n_components,
+            component_i_to_offset = {}
+        }
 
-        if e.arraylength > 0 then
-            rt.error("In rt.GraphicsBuffer._initialize_formatting: unhandled array length `", e.array_length, "`")
+        self._i_to_format[i] = format
+
+        local component_size = size / _format_to_n_components[e.format]
+        local offset = e.offset
+        for component_i = 1, n_components do
+            format.component_i_to_offset[component_i] = offset
+            offset = offset + component_size
         end
 
-        if e.format == "uint32" then
-            getters[i] = function(data, offset)
-                return data:getUInt32(offset + element_offset)
-            end
-            setters[i] = function(data, offset, value)
-                data:setUInt32(offset + element_offset, value)
-            end
-            i = i + 1
-        elseif e.format == "int32" then
-            getters[i] = function(data, offset)
-                return data:getInt32(offset + element_offset)
-            end
-            setters[i] = function(data, offset, value)
-                data:setInt32(offset + element_offset, value)
-            end
-            i = i + 1
-        elseif e.format == "float" then
-            getters[i] = function(data, offset)
-                return data:getFloat(offset + element_offset)
-            end
-            setters[i] = function(data, offset, value)
-                data:setFloat(offset + element_offset, value)
-            end
-            i = i + 1
-        elseif e.format == "floatvec2" then
-            for j = 0, n_components - 1 do
-                local component_offset = element_offset + j * component_size
-                getters[i] = function(data, offset)
-                    return data:getFloat(offset + component_offset)
-                end
-                setters[i] = function(data, offset, value)
-                    data:setFloat(offset + component_offset, value)
-                end
-                i = i + 1
-            end
-        elseif e.format == "floatvec3" then
-            for j = 0, n_components - 1 do
-                local component_offset = element_offset + j * component_size
-                getters[i] = function(data, offset)
-                    return data:getFloat(offset + component_offset)
-                end
-                setters[i] = function(data, offset, value)
-                    data:setFloat(offset + component_offset, value)
-                end
-                i = i + 1
-            end
-        elseif e.format == "floatvec4" then
-            for j = 0, n_components - 1 do
-                local component_offset = element_offset + j * component_size
-                getters[i] = function(data, offset)
-                    return data:getFloat(offset + component_offset)
-                end
-                setters[i] = function(data, offset, value)
-                    data:setFloat(offset + component_offset, value)
-                end
-                i = i + 1
-            end
-        elseif e.format == "int32vec2" then
-            for j = 0, n_components - 1 do
-                local component_offset = element_offset + j * component_size
-                getters[i] = function(data, offset)
-                    return data:getInt32(offset + component_offset)
-                end
-                setters[i] = function(data, offset, value)
-                    data:setInt32(offset + component_offset, value)
-                end
-                i = i + 1
-            end
-        elseif e.format == "int32vec3" then
-            for j = 0, n_components - 1 do
-                local component_offset = element_offset + j * component_size
-                getters[i] = function(data, offset)
-                    return data:getInt32(offset + component_offset)
-                end
-                setters[i] = function(data, offset, value)
-                    data:setInt32(offset + component_offset, value)
-                end
-                i = i + 1
-            end
-        elseif e.format == "int32vec4" then
-            for j = 0, n_components - 1 do
-                local component_offset = element_offset + j * component_size
-                getters[i] = function(data, offset)
-                    return data:getInt32(offset + component_offset)
-                end
-                setters[i] = function(data, offset, value)
-                    data:setInt32(offset + component_offset, value)
-                end
-                i = i + 1
-            end
-        elseif e.format == "uint32vec2" then
-            for j = 0, n_components - 1 do
-                local component_offset = element_offset + j * component_size
-                getters[i] = function(data, offset)
-                    return data:getUInt32(offset + component_offset)
-                end
-                setters[i] = function(data, offset, value)
-                    data:setUInt32(offset + component_offset, value)
-                end
-                i = i + 1
-            end
-        elseif e.format == "uint32vec3" then
-            for j = 0, n_components - 1 do
-                local component_offset = element_offset + j * component_size
-                getters[i] = function(data, offset)
-                    return data:getUInt32(offset + component_offset)
-                end
-                setters[i] = function(data, offset, value)
-                    data:setUInt32(offset + component_offset, value)
-                end
-                i = i + 1
-            end
-        elseif e.format == "uint32vec4" then
-            for j = 0, n_components - 1 do
-                local component_offset = element_offset + j * component_size
-                getters[i] = function(data, offset)
-                    return data:getUInt32(offset + component_offset)
-                end
-                setters[i] = function(data, offset, value)
-                    data:setUInt32(offset + component_offset, value)
-                end
-                i = i + 1
-            end
-        else
-            rt.error("In rt.GraphicsBuffer:_initialize_formatting: unhandled format `", e.format, "`")
-        end
+        self._field_name_to_field_i[e.name] = i
+    end
+end
+
+--- @brief
+function rt.GraphicsBuffer:field_name_to_field_i(name)
+    local result = self._element_name_to_i[name]
+    if result == nil then
+        rt.error("In rt.GraphicsBuffer.get_element_i: no element with name `", name, "` present in buffer")
+    end
+    return result
+end
+
+--- @brief
+function rt.GraphicsBuffer:get_element_name(i)
+    local format = self._format[i]
+    if format == nil then
+        rt.error("In rt.GraphicsBuffer.get_element_name: index `", i, "` out of range for buffer with `", #self._native:getFormat(), "` fields")
     end
 
-    self._n_components = math.max(i - 1, 0)
-    self._element_size = self._native:getElementStride()
-    self._getter = getters
-    self._setters = setters
-
-    self._formatting_initialized = true
+    return format.name
 end
 
 --- @brief
---- @param i Number 1-based
-function rt.GraphicsBuffer:at(i, component_i)
-    if self._data == nil then self:download() end
-    return self._getters[component_i](self._data, self._element_size * (i - 1))
-end
+function rt.GraphicsBuffer:get_byte_data_offset(field_i, component_i)
+    if meta.is_string(field_i) then field_i = self:field_name_to_field_i(field_i) end
 
---- @brief
---- @param i Number 1-based
-function rt.GraphicsBuffer:set(i, component_i, value)
-    if self._data == nil then self:download() end
-    local offset = self._element_size * (i - 1)
-    return self._setters[component_i](self._data, offset, value)
+    local format = self._i_to_format[field_i]
+    if format == nil then
+        rt.error("In rt.GraphicsBuffer.get_byte_data_offset: field index `", field_i, "` out of range for buffer with `", #self._native:getFormat(), "` fields")
+    end
+
+    if component_i == nil then component_i = 1 end
+
+    if component_i > format.n_components then
+        rt.error("In rt.GraphicsBuffer.get_byte_data_offset: component index `", component_i, "` out of range for field `", format.name, "` with `", format.n_components, "` components")
+    end
+
+    if field_i <= 0 then
+        rt.error("In rt.GraphicsBuffer.get_byte_data_offset: field index <= 0. field indices are 1-based")
+    end
+
+    if component_i <= 0 then
+        rt.error("In rt.GraphicsBuffer.get_byte_data_offset: component index <= 0. component indices are 1-based")
+    end
+
+    return format.component_i_to_offset[component_i]
 end
 
 --- @brief
@@ -269,7 +235,7 @@ function rt.GraphicsBuffer:upload()
 end
 
 --- @brief
-function rt.GraphicsBuffer:create_byte_data()
+function rt.GraphicsBuffer:get_byte_data()
     if self._data == nil then self:download() end
     return rt.ByteData(rt.ByteDataFormat.UNKNOWN, self._data)
 end

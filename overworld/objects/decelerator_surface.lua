@@ -97,12 +97,6 @@ function ow.DeceleratorSurface:draw()
     local body_x, body_y = self._body:get_position()
     self._graphics_body:set_offset(self._centroid_x - body_x, self._centroid_y - body_y)
     self._graphics_body:draw()
-
-    for i, segment in ipairs(self._segment_lights) do
-        local value = (i - 1) / #self._segment_lights
-        love.graphics.setColor(value, value, value, 1)
-        love.graphics.line(segment)
-    end
 end
 
 --- @brief

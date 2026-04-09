@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 511,
+  nextobjectid = 538,
   properties = {},
   tilesets = {
     {
@@ -455,8 +455,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = -8589.76,
-          y = -1059.5,
+          x = -4688,
+          y = 1264,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1728,25 +1728,6 @@ return {
           properties = {}
         },
         {
-          id = 484,
-          name = "",
-          type = "DeceleratorSurface",
-          shape = "polygon",
-          x = -7312,
-          y = -1088,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = 0 },
-            { x = 0, y = 16 },
-            { x = 160, y = 16 },
-            { x = 160, y = 0 }
-          },
-          properties = {}
-        },
-        {
           id = 487,
           name = "",
           type = "AcceleratorSurface",
@@ -1824,46 +1805,19 @@ return {
           properties = {}
         },
         {
-          id = 490,
-          name = "",
-          type = "",
-          shape = "polygon",
-          x = -9136,
-          y = -1456,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = 0 },
-            { x = 0, y = 448 },
-            { x = 640, y = 448 },
-            { x = 640, y = -80 },
-            { x = 0, y = -80 },
-            { x = 0, y = 16 },
-            { x = -32, y = 16 },
-            { x = -32, y = -112 },
-            { x = 672, y = -112 },
-            { x = 672, y = 480 },
-            { x = -32, y = 480 },
-            { x = -32, y = 0 }
-          },
-          properties = {}
-        },
-        {
           id = 504,
           name = "",
           type = "DeceleratorSurface",
           shape = "polygon",
-          x = -9057.94,
-          y = -1344.3,
+          x = -8784,
+          y = -768,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
           polygon = {
-            { x = 157.395, y = -41.9225 },
-            { x = 332.279, y = -41.9225 },
+            { x = 160, y = -16 },
+            { x = 334.884, y = -16 },
             { x = 332.279, y = 146.729 },
             { x = 157.395, y = 146.729 }
           },
@@ -1889,47 +1843,43 @@ return {
           properties = {}
         },
         {
-          id = 508,
+          id = 511,
           name = "",
-          type = "Path",
-          shape = "point",
-          x = -9056,
-          y = -1424,
+          type = "Wall",
+          shape = "polygon",
+          x = -4000,
+          y = 1344,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
-          properties = {
-            ["next"] = { id = 509 },
-            ["target"] = { id = 504 }
-          }
+          polygon = {
+            { x = 0, y = 0 },
+            { x = -640, y = 0 },
+            { x = -640, y = -512 },
+            { x = 0, y = -512 }
+          },
+          properties = {}
         },
         {
-          id = 509,
+          id = 537,
           name = "",
-          type = "PathNode",
-          shape = "point",
-          x = -9040,
-          y = -1088,
+          type = "BouncePad",
+          shape = "polygon",
+          x = -4368,
+          y = 1120,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
-          properties = {
-            ["next"] = { id = 510 }
-          }
-        },
-        {
-          id = 510,
-          name = "",
-          type = "PathNode",
-          shape = "point",
-          x = -8576,
-          y = -1312,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = -48, y = 64 },
+            { x = 16, y = 112 },
+            { x = 176, y = 80 },
+            { x = 128, y = -16 },
+            { x = 80, y = 32 }
+          },
           properties = {}
         }
       }

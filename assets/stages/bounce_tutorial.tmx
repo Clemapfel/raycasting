@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="751">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="819">
  <editorsettings>
   <export target="bounce_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -8,7 +8,7 @@
  <imagelayer id="3" name="background" repeatx="1" repeaty="1">
   <image source="../tilesets/debug_tileset_16x16/tile.png" width="16" height="16"/>
  </imagelayer>
- <objectgroup id="5" name="aux" visible="0">
+ <objectgroup id="5" name="aux">
   <object id="288" type="ControlIndicatorTrigger" x="-240" y="-1040">
    <properties>
     <property name="type" value="HOLD_DOWN_TO_ACCELERATE"/>
@@ -40,7 +40,6 @@
    <polygon points="0,0 0,656 496,656 496,0"/>
   </object>
   <object id="600" type="CameraBounds" x="3503.7" y="304" width="1696.3" height="432"/>
-  <object id="627" type="CameraBounds" x="508.324" y="2105.53" width="2797.59" height="789.077"/>
   <object id="644" type="CameraBounds" x="1302.8" y="2938.19" width="3856" height="592"/>
   <object id="689" type="CameraFit" x="1360" y="-144">
    <polygon points="16,0 704,0 704,672 16,672"/>
@@ -66,7 +65,7 @@
    <polygon points="0,0 0,336 2352,336 2352,-272 304,-272 304,0"/>
   </object>
  </objectgroup>
- <objectgroup id="7" name="back" visible="0">
+ <objectgroup id="7" name="back">
   <object id="287" type="Wall" x="-368" y="-1088">
    <properties>
     <property name="opacity" type="float" value="0.85"/>
@@ -121,14 +120,11 @@
   <object id="736" type="PathNode" x="3040" y="1520">
    <point/>
   </object>
+  <object id="765" type="Wall" x="800" y="2208">
+   <polygon points="0,0 48,432 720,448 656,128 272,-48"/>
+  </object>
  </objectgroup>
  <objectgroup id="6" name="hitbox">
-  <object id="260" name="Spawn" type="PlayerSpawn" x="824.95" y="1487.4">
-   <properties>
-    <property name="is_visible" type="bool" value="false"/>
-   </properties>
-   <point/>
-  </object>
   <object id="261" type="Hitbox" x="336" y="-576">
    <polygon points="-592,0 -592,-208 -704,-208 -704,144 256,144 256,-336 128,-336 144,-320 144,0 32,0 32,32 -160,32 -160,0 -288,0 -288,32 -480,32 -480,0"/>
   </object>
@@ -206,7 +202,7 @@
     <property name="unjumpable" type="bool" value="true"/>
     <property name="unwalkable" type="bool" value="true"/>
    </properties>
-   <polygon points="-48,-320 64,-320 64,-448 -144,-448 -144,-96 -160,-112 -160,-448 -144,-464 64,-464 80,-448 80,-304 64,-304 -32,-304 -32,-16 -16,0 2304,0 2304,16 -48,16"/>
+   <polygon points="-48,-320 0,-320 0,-448 -144,-448 -144,-96 -160,-112 -160,-448 -144,-464 0,-464 16,-448 16,-304 0,-304 -32,-304 -32,-16 -16,0 2304,0 2304,16 -48,16"/>
   </object>
   <object id="324" type="KillPlane" x="736" y="1584">
    <properties>
@@ -216,10 +212,10 @@
    <polygon points="-32,-16 -32,32 2304,32 2304,-16"/>
   </object>
   <object id="331" x="800" y="1296">
-   <polygon points="0,0 0,-48 -176,-48 -176,384 2240,384 2240,336 -112,336 -112,0"/>
+   <polygon points="-64,0 -64,-48 -176,-48 -176,384 2240,384 2240,336 -112,336 -112,0"/>
   </object>
   <object id="332" type="SlipperyHitbox" x="832" y="1312">
-   <polygon points="0,0 0,-160 -16,-176 -257.187,-176 -272,-160 -272,192 -288,208 -288,-192 16,-192 16,-16 160,-16 160,-96 176,-96 176,0"/>
+   <polygon points="-64,0 -64,-160 -80,-176 -257.187,-176 -272,-160 -272,192 -288,208 -288,-192 -48,-192 -48,-16 160,-16 160,-96 176,-96 176,0"/>
   </object>
   <object id="334" type="BoostField" x="-273.341" y="-318.659">
    <properties>
@@ -607,6 +603,19 @@
   <object id="750" x="736" y="1488">
    <polygon points="0,0 176,0 176,32 0,32"/>
   </object>
+  <object id="751" type="Hitbox" x="912" y="2560">
+   <polygon points="-144,-302.282 48,-302.282 48,0 768,1.71836 768,225.718 -144,225.718"/>
+  </object>
+  <object id="759" type="SlipperyHitbox" x="992" y="2240">
+   <polygon points="0,16 0,320 -32,320 -32,16"/>
+  </object>
+  <object id="809" name="spawn" type="PlayerSpawn" x="1312" y="2528">
+   <point/>
+  </object>
+  <object id="810" type="CameraFit" x="926.199" y="2234.73" width="745.948" height="476.068"/>
+  <object id="818" type="Fireflies" x="1120" y="2448">
+   <point/>
+  </object>
  </objectgroup>
  <objectgroup id="2" name="front">
   <object id="271" type="OneWayPlatform" x="-240" y="-928">
@@ -646,9 +655,6 @@
    <point/>
   </object>
   <object id="448" type="OneWayPlatformNode" x="96" y="1376">
-   <point/>
-  </object>
-  <object id="595" name="Coin" type="Coin" x="4738.11" y="-568.178">
    <point/>
   </object>
   <object id="703" type="OneWayPlatform" x="-432" y="480">

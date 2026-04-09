@@ -45,7 +45,7 @@ local _format_to_getter_setter = {
 }
 
 local use_ffi, _ = pcall(require, "ffi")
-use_ffi = true
+use_ffi = false
 
 --- @brief
 function rt.ByteData:instantiate(format, count_or_native)
@@ -96,12 +96,12 @@ if use_ffi then
 else
     --- @brief
     function rt.ByteData:get(i)
-        return self._getter(self._native, i - 1)
+        return self._getter(self._native, i)
     end
 
     --- @brief
     function rt.ByteData:set(i, value)
-        self._setter(self._native, i - 1, value)
+        self._setter(self._native, i, value)
     end
 
     --- @brief

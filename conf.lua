@@ -4,20 +4,20 @@ function love.conf(settings)
     require "build.config"
     local config = bd.get_config()
 
-    local renderers = {}
-    if config.allow_opengl == true then
-        table.insert(renderers, "opengl")
+    local to_exclude = {}
+    if config.allow_opengl == false then
+        table.insert(to_exclude, "opengl")
     end
 
-    if config.allow_vulkan == true then
-        table.insert(renderers, "vulkan")
+    if config.allow_vulkan == false then
+        table.insert(to_exclude, "vulkan")
     end
 
-    if config.allow_metal == true then
-        table.insert(renderers, "metal")
+    if config.allow_metal == false then
+        table.insert(to_exclude, "metal")
     end
 
-    settings.graphics.renderers = renderers
+    settings.graphics.excluderenderers = to_exclude
 
     settings.window.width = config.window_width
     settings.window.height = config.window_height

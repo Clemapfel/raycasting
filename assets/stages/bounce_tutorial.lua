@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 751,
+  nextobjectid = 819,
   properties = {},
   tilesets = {
     {
@@ -49,7 +49,7 @@ return {
       id = 5,
       name = "aux",
       class = "",
-      visible = false,
+      visible = true,
       opacity = 1,
       offsetx = 0,
       offsety = 0,
@@ -227,19 +227,6 @@ return {
           properties = {}
         },
         {
-          id = 627,
-          name = "",
-          type = "CameraBounds",
-          shape = "rectangle",
-          x = 508.324,
-          y = 2105.53,
-          width = 2797.59,
-          height = 789.077,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
           id = 644,
           name = "",
           type = "CameraBounds",
@@ -363,7 +350,7 @@ return {
       id = 7,
       name = "back",
       class = "",
-      visible = false,
+      visible = true,
       opacity = 1,
       offsetx = 0,
       offsety = 0,
@@ -655,6 +642,26 @@ return {
           rotation = 0,
           visible = true,
           properties = {}
+        },
+        {
+          id = 765,
+          name = "",
+          type = "Wall",
+          shape = "polygon",
+          x = 800,
+          y = 2208,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 48, y = 432 },
+            { x = 720, y = 448 },
+            { x = 656, y = 128 },
+            { x = 272, y = -48 }
+          },
+          properties = {}
         }
       }
     },
@@ -672,21 +679,6 @@ return {
       parallaxy = 1,
       properties = {},
       objects = {
-        {
-          id = 260,
-          name = "Spawn",
-          type = "PlayerSpawn",
-          shape = "point",
-          x = 824.95,
-          y = 1487.4,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["is_visible"] = false
-          }
-        },
         {
           id = 261,
           name = "",
@@ -1143,17 +1135,17 @@ return {
           visible = true,
           polygon = {
             { x = -48, y = -320 },
-            { x = 64, y = -320 },
-            { x = 64, y = -448 },
+            { x = 0, y = -320 },
+            { x = 0, y = -448 },
             { x = -144, y = -448 },
             { x = -144, y = -96 },
             { x = -160, y = -112 },
             { x = -160, y = -448 },
             { x = -144, y = -464 },
-            { x = 64, y = -464 },
-            { x = 80, y = -448 },
-            { x = 80, y = -304 },
-            { x = 64, y = -304 },
+            { x = 0, y = -464 },
+            { x = 16, y = -448 },
+            { x = 16, y = -304 },
+            { x = 0, y = -304 },
             { x = -32, y = -304 },
             { x = -32, y = -16 },
             { x = -16, y = 0 },
@@ -1200,8 +1192,8 @@ return {
           rotation = 0,
           visible = true,
           polygon = {
-            { x = 0, y = 0 },
-            { x = 0, y = -48 },
+            { x = -64, y = 0 },
+            { x = -64, y = -48 },
             { x = -176, y = -48 },
             { x = -176, y = 384 },
             { x = 2240, y = 384 },
@@ -1223,16 +1215,16 @@ return {
           rotation = 0,
           visible = true,
           polygon = {
-            { x = 0, y = 0 },
-            { x = 0, y = -160 },
-            { x = -16, y = -176 },
+            { x = -64, y = 0 },
+            { x = -64, y = -160 },
+            { x = -80, y = -176 },
             { x = -257.187, y = -176 },
             { x = -272, y = -160 },
             { x = -272, y = 192 },
             { x = -288, y = 208 },
             { x = -288, y = -192 },
-            { x = 16, y = -192 },
-            { x = 16, y = -16 },
+            { x = -48, y = -192 },
+            { x = -48, y = -16 },
             { x = 160, y = -16 },
             { x = 160, y = -96 },
             { x = 176, y = -96 },
@@ -3238,6 +3230,85 @@ return {
             { x = 0, y = 32 }
           },
           properties = {}
+        },
+        {
+          id = 751,
+          name = "",
+          type = "Hitbox",
+          shape = "polygon",
+          x = 912,
+          y = 2560,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = -144, y = -302.282 },
+            { x = 48, y = -302.282 },
+            { x = 48, y = 0 },
+            { x = 768, y = 1.71836 },
+            { x = 768, y = 225.718 },
+            { x = -144, y = 225.718 }
+          },
+          properties = {}
+        },
+        {
+          id = 759,
+          name = "",
+          type = "SlipperyHitbox",
+          shape = "polygon",
+          x = 992,
+          y = 2240,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 16 },
+            { x = 0, y = 320 },
+            { x = -32, y = 320 },
+            { x = -32, y = 16 }
+          },
+          properties = {}
+        },
+        {
+          id = 809,
+          name = "spawn",
+          type = "PlayerSpawn",
+          shape = "point",
+          x = 1312,
+          y = 2528,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 810,
+          name = "",
+          type = "CameraFit",
+          shape = "rectangle",
+          x = 926.199,
+          y = 2234.73,
+          width = 745.948,
+          height = 476.068,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 818,
+          name = "",
+          type = "Fireflies",
+          shape = "point",
+          x = 1120,
+          y = 2448,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
         }
       }
     },
@@ -3363,19 +3434,6 @@ return {
           shape = "point",
           x = 96,
           y = 1376,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 595,
-          name = "Coin",
-          type = "Coin",
-          shape = "point",
-          x = 4738.11,
-          y = -568.178,
           width = 0,
           height = 0,
           rotation = 0,
