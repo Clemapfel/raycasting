@@ -153,6 +153,7 @@ function ow.Stage:instantiate(scene, id)
     local render_priority_to_entry = {}
     self._below_player = {}
     self._above_player = {}
+    self._above_bloom = {}
 
     -- add hitbox as renderable proxy
     local hitbox_render_priority = rt.settings.overworld.hitbox.render_priority
@@ -231,17 +232,21 @@ function ow.Stage:instantiate(scene, id)
                             rt.error("In ow.",  wrapper.class,  ".get_render_priority: does not return a number or tuple of numbers")
                         end
 
-                        local entry = render_priority_to_entry[priority]
-                        if entry == nil then
-                            entry = {
-                                priority = priority,
-                                objects = {}
-                            }
+                        if priority == math.huge then
+                            table.insert(self._above_bloom, instance)
+                        else
+                            local entry = render_priority_to_entry[priority]
+                            if entry == nil then
+                                entry = {
+                                    priority = priority,
+                                    objects = {}
+                                }
 
-                            render_priority_to_entry[priority] = entry
+                                render_priority_to_entry[priority] = entry
+                            end
+
+                            table.insert(entry.objects, instance)
                         end
-
-                        table.insert(entry.objects, instance)
                     end
                 end
 
@@ -440,6 +445,13 @@ function ow.Stage:draw_bloom()
 
     self._blood_splatter:draw()
     self._mirror:draw()
+end
+
+--- @brief
+function ow.Stage:draw_above_bloom()
+    for object in values(self._above_bloom) do
+        object:draw()
+    end
 end
 
 --- @brief

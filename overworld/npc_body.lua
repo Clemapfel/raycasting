@@ -69,10 +69,11 @@ function ow.NPCBody:_initialize(
     local function add_vertex(x, y, t)
         local u = (x - min_x) / (max_x - min_x)
         local v = (y - min_y) / (max_y - min_y)
+        local value = 1 + 0.5 * t
         table.insert(mesh_data, {
             x, y,
             u, v,
-            1, 1, 1, t
+            value, value, value, 1
         })
     end
 
@@ -306,10 +307,10 @@ end
 --- @brief
 function ow.NPCBody:draw()
     --love.graphics.setWireframe(true)
-    _shader:bind()
+    --_shader:bind()
     love.graphics.setColor(1, 1, 1, 1)
     self._dilation_mesh:draw()
-    _shader:unbind()
+    --_shader:unbind()
     --love.graphics.setWireframe(false)
 end
 

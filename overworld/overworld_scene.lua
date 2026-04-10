@@ -562,6 +562,10 @@ function ow.OverworldScene:draw()
 
         draw_bloom()
 
+        self._camera:bind()
+        self._stage:draw_above_bloom()
+        self._camera:unbind()
+
     elseif blur_value > blur_eps then -- respawning
         if self._blur ~= nil then
             self._blur:set_blur_strength(blur_value * rt.settings.overworld_scene.max_blur_strength)
@@ -709,7 +713,8 @@ function ow.OverworldScene:_update_screenshot(draw_player)
 
     if rt.GameState:get_is_bloom_enabled() == true then
         local bloom = rt.SceneManager:get_bloom()
-        -- skip bloom, use bloom from last update
+        -- use bloom from last draw
+        bloom:composite(rt.settings.overworld_scene.bloom_composite_strength)
     end
 
     self._screenshot:unbind()

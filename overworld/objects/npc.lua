@@ -41,6 +41,17 @@ function ow.NPC:instantiate(object, stage, scene)
     self._camera_body = b2.Body(world, b2.BodyType.STATIC, object.x, object.y, b2.Circle(0, 0, 0.5 * width))
     self._camera_body:set_collides_with(0x0)
     self._camera_body:set_collision_group(0x0)
+    self._camera_body:add_tag("point_light_source")
+    self._camera_body:set_user_data(self)
+    self.collect_point_lights = function(self, callback)
+        local r, g, b, a = self._scene:get_player():get_color():unpack()
+        callback(
+            self._position_x,
+            self._position_y,
+            settings.hole_radius * self._dilation_motion:get_value(),
+            r, g, b, a
+        )
+    end
 
     local px, py = self._scene:get_player():get_position()
 
@@ -252,5 +263,5 @@ end
 
 --- @brief
 function ow.NPC:get_render_priority()
-    return 1
+    return math.huge
 end
