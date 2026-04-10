@@ -21,12 +21,6 @@ ow.NPCBody = meta.class("NPCBody")
 local _settings = rt.settings.overworld.cloth_body
 local _shader = rt.Shader("overworld/npc_body.glsl")
 
-DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
-    if which == "j" then
-        _shader:recompile()
-    end
-end)
-
 --- @brief
 function ow.NPCBody:instantiate(
     top_left_x, top_left_y,
@@ -39,8 +33,10 @@ function ow.NPCBody:instantiate(
     self._dilation = 0
     self._strands = {}
 
+    self._bounds = rt.AABB(top_left_x, top_left_y, width, height)
+
     local radius = math.min(width, height) / 2
-    self:_init(
+    self:_initialize(
         top_left_x, top_left_y,
         top_left_x + width, top_left_y + height,
         radius, -- outer radius
@@ -51,7 +47,7 @@ function ow.NPCBody:instantiate(
 end
 
 --- @brief
-function ow.NPCBody:_init(
+function ow.NPCBody:_initialize(
     min_x, min_y,
     max_x, max_y,
     radius, inner_radius,
@@ -317,3 +313,7 @@ function ow.NPCBody:draw()
     --love.graphics.setWireframe(false)
 end
 
+--- @brief
+function ow.NPCBody:get_bounds()
+    return self._bounds:clone()
+end

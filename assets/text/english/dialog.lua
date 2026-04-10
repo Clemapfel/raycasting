@@ -112,8 +112,8 @@ return {
         {
             speaker = PLAYER,
             orientation = PLAYER_SIDE,
-            next = "loop_a",
-            next = 4,
+            --next = "loop_a",
+            next = nil,
 
             "Anyway, this dialog also has fancy camera movement."
         },

@@ -1,5 +1,4 @@
 require "overworld.npc_body"
-require "overworld.npc_eyes"
 require "overworld.dialog_emitter"
 
 rt.settings.overworld.npc = {
@@ -60,12 +59,6 @@ function ow.NPC:instantiate(object, stage, scene)
 
         if entry == nil then
             entry = {
-                eyes = ow.NPCEyes(
-                    0 + 0.5 * width, -- center of eyes
-                    0 + 0.5 * height,
-                    eye_radius
-                ),
-
                 body = ow.NPCBody(
                     0,
                     0,
@@ -82,7 +75,6 @@ function ow.NPC:instantiate(object, stage, scene)
         end
 
         self._eye_entry = entry
-        self._eyes = entry.eyes
 
         self._dilation_motion = rt.SmoothedMotion1D(0)
         self._graphics_body = entry.body
@@ -202,16 +194,6 @@ function ow.NPC:instantiate(object, stage, scene)
     local should_lock = object:get_boolean("should_lock", false)
     if should_lock == nil then should_lock = true end
 
-    self._should_focus = false --TODOshould_focus
-    for emitter in range(
-        self._enter_dialog_emitter,
-        self._interact_dialog_emitter,
-        self._exit_dialog_emitter
-    ) do
-        emitter:set_should_focus(should_focus)
-        emitter:set_should_lock(should_lock)
-    end
-
     -- override with local
     for tuple in range(
         { self._enter_dialog_emitter, "enter" },
@@ -327,13 +309,6 @@ function ow.NPC:update(delta)
         self._dilation_motion:update(delta)
         self._graphics_body:set_dilation(self._dilation_motion:get_value())
 
-        if self._eye_entry.needs_update == true then
-            self._eyes:update(delta)
-            self._eye_entry.needs_update = false
-        end
-
-        local px, py = self._scene:get_player():get_position()
-        self._eyes:set_target(px - self._graphics_body_x, py - self._graphics_body_y)
     elseif self._type == ow.NPCType.GHOST_BUBBLE or self._type == ow.NPCType.GHOST then
         self._graphics_body:update(delta)
 
@@ -453,6 +428,8 @@ function ow.NPC:draw(priority)
         if exclude_from_drawing == true or not self._stage:get_is_body_visible(self._camera_body) then return end
 
         exclude_from_drawing = true -- prevent loop
+        local bounds = self._graphics_body:get_bounds()
+        local camera = self._scene:get_camera()
         local screenshot = self._scene:get_screenshot(true) -- draw player
         exclude_from_drawing = false
 
@@ -486,7 +463,6 @@ function ow.NPC:draw(priority)
 
         love.graphics.push()
         love.graphics.translate(self._graphics_body_x, self._graphics_body_y)
-        self._eyes:draw()
         self._graphics_body:draw()
         love.graphics.pop()
     else
@@ -535,7 +511,7 @@ end
 
 function ow.NPC:draw_bloom()
     if self._type == ow.NPCType.EYES then
-        --self._eyes:draw_bloom()
+        -- noop
     elseif self._type == ow.NPCType.GHOST then
         self._graphics_body:draw_bloom()
     end

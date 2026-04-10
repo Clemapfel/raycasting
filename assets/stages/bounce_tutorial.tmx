@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="821">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="822">
  <editorsettings>
   <export target="bounce_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -613,14 +613,11 @@
    <point/>
   </object>
   <object id="810" type="CameraFit" x="926.199" y="2234.73" width="745.948" height="476.068"/>
-  <object id="818" type="Fireflies" x="1232" y="2496">
+  <object id="821" type="NPC" x="1104" y="2496">
+   <properties>
+    <property name="dialog_id" value="template"/>
+   </properties>
    <point/>
-  </object>
-  <object id="819" type="BouncePad" x="1168" y="2560">
-   <polygon points="0,0 -96,0 -96,-32 0,-32"/>
-  </object>
-  <object id="820" type="BouncePad" x="1168" y="2480">
-   <polygon points="0,0 -96,0 -96,-32 0,-32"/>
   </object>
  </objectgroup>
  <objectgroup id="2" name="front">

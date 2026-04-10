@@ -69,7 +69,7 @@ end
 function ow.CameraFit:_bind()
     local camera = self._scene:get_camera()
 
-    self._scene:push_camera_mode(ow.CameraMode.CUTSCENE)
+    self._scene:push_camera_mode(ow.CameraMode.STATIC)
     camera:set_apply_bounds(false)
     camera:set_scale_speed(self._scale_speed)
     camera:set_speed(self._speed)
@@ -88,7 +88,7 @@ end
 --- @brief
 function ow.CameraFit:_unbind()
     local camera = self._scene:get_camera()
-    self._scene:pop_camera_mode(ow.CameraMode.CUTSCENE)
+    self._scene:pop_camera_mode(ow.CameraMode.STATIC)
     self._is_bound = false
     self._is_active = false
 end

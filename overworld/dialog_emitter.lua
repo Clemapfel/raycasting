@@ -9,14 +9,8 @@ local _HIDDEN = 1
 local _REVEALED = 0
 
 --- @brief
-function ow.DialogEmitter:instantiate(scene, id, target, should_lock, should_focus)
+function ow.DialogEmitter:instantiate(scene, id, target)
     self._scene = scene
-
-    self._should_lock = should_lock
-    if self._should_lock == nil then self._should_lock = true end
-
-    self._should_focus = should_focus
-    if self._should_focus == nil then self._should_focus = true end
 
     self._target = target -- may be nil
     if target ~= nil and target.get_position == nil then
@@ -24,8 +18,6 @@ function ow.DialogEmitter:instantiate(scene, id, target, should_lock, should_foc
     end
 
     self._is_active = false
-    self._should_reset = false
-    self._queue_dialog_box_close = false
 
     self._dialog_box = ow.DialogBox(id)
     self._dialog_box_motion = rt.SmoothedMotion1D(_HIDDEN)
@@ -33,183 +25,101 @@ function ow.DialogEmitter:instantiate(scene, id, target, should_lock, should_foc
     self._dialog_box_y = 0
     self._dialog_box_height = 0
 
-    self._dialog_box:signal_connect("advance", function(_, can_advance, can_exit)
-        if can_advance == true and can_exit == true then
-            self._scene:set_control_indicator_type(ow.ControlIndicatorType.DIALOG_CAN_ADVANCE_CAN_EXIT)
-        elseif can_advance == true and can_exit == false then
-            self._scene:set_control_indicator_type(ow.ControlIndicatorType.DIALOG_CAN_ADVANCE_CANNOT_EXIT)
-        elseif can_advance == false and can_exit == true then
-            self._scene:set_control_indicator_type(ow.ControlIndicatorType.DIALOG_CANNOT_ADVANCE_CAN_EXIT)
-        elseif can_advance == false and can_exit == false then
-            self._scene:set_control_indicator_type(ow.ControlIndicatorType.DIALOG_CANNOT_ADVANCE_CANNOT_EXIT)
+    self._input = rt.InputSubscriber()
+    self._input:signal_connect("pressed", function(_, which)
+        if self._is_active and self:_get_motion_is_done() then
+            self._dialog_box:handle_button_pressed(which)
         end
     end)
 
-    self._dialog_box:signal_connect("done", function(_)
-        self._scene:set_control_indicator_type(ow.ControlIndicatorType.NONE)
-        self:close()
+    self._input:signal_connect("released", function(_, which)
+        if self._is_active and self:_get_motion_is_done() then
+            self._dialog_box:handle_button_released(which)
+        end
     end)
 
-    self._input_delay = 0 -- n frames
-    self._input = rt.InputSubscriber()
-    self._input:signal_connect("pressed", function(_, which)
-        if self._is_active and self._input_delay <= 0 then
-            if self._dialog_box:get_is_last_node() and which == rt.InputAction.INTERACT then
-                self._queue_dialog_box_close = true
-                self._dialog_box:signal_emit("done") -- hide animation
-            else
-                self._dialog_box:handle_button(which)
-            end
+    self._dialog_box:signal_connect("control_state_changed", function(_, state)
+        if state == ow.DialogBoxControlState.ADVANCE then
+            self._scene:set_control_indicator_type(ow.ControlIndicatorType.DIALOG_ADVANCE)
+        elseif state == ow.DialogBoxControlState.EXIT then
+            self._scene:set_control_indicator_type(ow.ControlIndicatorType.DIALOG_EXIT)
+        elseif state == ow.DialogBoxControlState.IDLE then
+            self._scene:set_control_indicator_type(ow.ControlIndicatorType.NONE)
+        end
+    end)
+
+    self._dialog_box:signal_connect("speaker_changed", function(dialog_box, new_speaker, state)
+        local camera = self._scene:get_camera()
+        if new_speaker == rt.Translation.player_name then
+            camera:move_to(self._scene:get_player():get_position())
+        elseif self._target ~= nil and meta.is_function(self._target.get_position) then
+            camera:move_to(self._target:get_position())
         end
     end)
 
     self._dialog_box:realize()
     self:reformat(self._scene:get_bounds():unpack())
 
-    self._dialog_box:signal_connect("speaker_changed", function(dialog_box, new_speaker, state)
-        local px, py = self._x, self._y
-        if new_speaker == rt.Translation.player_name then
-            px, py = self._scene:get_player():get_position()
-        elseif self._target ~= nil then
-            if self._target.get_position ~= nil then
-                px, py = self._target:get_position()
-            else
-                px, py = self._target_wrapper:get_centroid()
-            end
-        else
-            return
-        end
-
-        self._scene:get_camera():move_to(px, py)
-    end)
-    
-    self._needs_reformat = false
     self._scene:signal_connect("resize", function(_, x, y, width, height)
         self:reformat(x, y, width, height)
     end)
 end
 
 --- @brief
+function ow.DialogEmitter:_get_motion_is_done()
+    return math.abs(self._dialog_box_motion:get_value() - self._dialog_box_motion:get_target_value()) < 1
+end
+
+--- @brief
 function ow.DialogEmitter:present()
+    if self._is_active == true then return end
+
     self._is_active = true
-
-    self._input_delay = 3
-
-    if self._needs_reformat == true then
-        self:reformat(self._scene:get_bounds():unpack())
-        self._needs_reformat = false
-    end
-
-    self:signal_emit("start")
+    self._dialog_box_motion:set_target_value(_REVEALED)
+    self._scene:get_player():request_is_movement_disabled(self, true)
 
     self._dialog_box:reset()
-    self._dialog_box_motion:set_target_value(_REVEALED)
-
-    if self._should_lock then
-        self._scene:get_player():request_is_movement_disabled(self, true)
-    end
-
-    if self._should_focus then
-        self._scene:push_camera_mode(ow.CameraMode.CUTSCENE)
-        local camera = self._scene:get_camera()
-        camera:set_apply_bounds(true)
-        camera:scale_to(1)
-        if self._target ~= nil then
-            if self._target.get_position ~= nil then
-                camera:move_to(self._target:get_position())
-            end
-        else
-            camera:move_to(self._scene:get_player():get_position())
-        end
-    end
-
-    self._dialog_box:signal_connect("done", function(_)
-        self._scene:set_control_indicator_type(ow.ControlIndicatorType.NONE)
-        self._dialog_box_motion:set_target_value(_HIDDEN)
-        return meta.DISCONNECT_SIGNAL
-    end)
+    self._queue_dialog_box_start = true
+    self._scene:push_camera_mode(ow.CameraMode.CUTSCENE)
 end
 
 --- @brief
 function ow.DialogEmitter:close()
     self._is_active = false
-
-    if self._should_lock then
-        local n_delay = 5
-        self._scene:signal_connect("update", function()
-            n_delay = n_delay - 1
-            if n_delay <= 0 then
-                self._scene:get_player():request_is_movement_disabled(self, nilg)
-                return meta.DISCONNECT_SIGNAL
-            end
-        end)
-    end
-
-    if self._should_focus then
-        self._scene:pop_camera_mode(ow.CameraMode.CUTSCENE)
-    end
-
     self._dialog_box_motion:set_target_value(_HIDDEN)
-    self._scene:set_control_indicator_type(ow.ControlIndicatorType.NONE)
-    self:signal_emit("end")
-
-    self._should_reset = true
+    self._scene:get_player():request_is_movement_disabled(self, false)
+    self._scene:pop_camera_mode(ow.CameraMode.CUTSCENE)
 end
 
 --- @brief
 function ow.DialogEmitter:reset()
-    local was_active = self._is_active
-    self._is_active = false
-    self._queue_dialog_box_close = false
-
-    if was_active then self:close() end
-    self._dialog_box_motion:set_value(_HIDDEN)
-end
-
---- @brief
-function ow.DialogEmitter:_get_is_fully_off_screen()
-    local offset = self._dialog_box_motion:get_value() * self._dialog_box_motion_max_offset
-    -- dialog box is fully off screen
-    return self._dialog_box_y + offset > self:get_bounds().height
+    if self._is_active then self._dialog_box:signal_emit("done") end
+    self._dialog_box:reset()
 end
 
 --- @brief
 function ow.DialogEmitter:update(delta)
-    if self._is_active
-        and math.abs(self._dialog_box_motion:get_value() - _REVEALED) * self._dialog_box_motion_max_offset < 2
-    -- and dialog box is less than 2 px away from its final position
-    then
-        self._dialog_box:update(delta)
-    end
-
-    if self._needs_reformat == true then
-        self:_reformat_dialog_box(self._scene:get_bounds():unpack())
-        self._needs_reformat = false
-    end
-
     self._dialog_box_motion:update(delta)
-    local is_off_screen = self:_get_is_fully_off_screen()
-    if self._queue_dialog_box_close and is_off_screen then
-        self._dialog_box:handle_button(rt.InputAction.INTERACT)
-    elseif self._should_reset and is_off_screen then
-        -- reset once fully of screen
-        self:reset()
+
+    if self:_get_motion_is_done() and self._queue_dialog_box_start == true then
+        self._dialog_box:signal_connect("done", function(_)
+            self:close()
+            return meta.DISCONNECT_SIGNAL
+        end)
+        self._dialog_box:start()
+        self._queue_dialog_box_start = nil
     end
 
-    if self._input_delay > 0 then
-        self._input_delay = self._input_delay - 1
-    end
+    self._dialog_box:update(delta)
 end
 
 --- @brief
 function ow.DialogEmitter:draw()
-    if not self:_get_is_fully_off_screen() then
-        love.graphics.push()
-        love.graphics.origin()
-        love.graphics.translate(0, self._dialog_box_motion:get_value() * self._dialog_box_motion_max_offset)
-        self._dialog_box:draw()
-        love.graphics.pop()
-    end
+    love.graphics.push()
+    love.graphics.origin()
+    love.graphics.translate(0, self._dialog_box_motion:get_value() * self._dialog_box_motion_max_offset)
+    self._dialog_box:draw()
+    love.graphics.pop()
 end
 
 --- @brief
@@ -219,35 +129,21 @@ end
 
 --- @brief
 function ow.DialogEmitter:size_allocate(x, y, width, height)
-    self:_reformat_dialog_box(x, y, width, height)
-end
-
---- @brief
-function ow.DialogEmitter:_reformat_dialog_box(x, y, w, h)
     local x_margin = 10 * rt.settings.margin_unit
-    local y_margin = select(2, self._scene:get_control_indicator(ow.ControlIndicatorType.DIALOG_CAN_ADVANCE_CAN_EXIT):measure())
+    local y_margin = select(2, self._scene:get_control_indicator(ow.ControlIndicatorType.DIALOG_SELECT_OPTION):measure())
     y_margin = y_margin - rt.settings.margin_unit
 
     local dialog_box_y = y + y_margin
-    local dialog_box_h = h - 2 * y_margin
+    local dialog_box_h = height - 2 * y_margin
     self._dialog_box:reformat(
         x + x_margin,
         dialog_box_y,
-        w - 2 * x_margin,
+        width - 2 * x_margin,
         dialog_box_h
     )
 
-    self._dialog_box_motion_max_offset = (h - dialog_box_y) + 2 -- for _get_is_fully_off_screen
+    self._dialog_box_motion_max_offset = (height - dialog_box_y) + 2 -- for _get_is_fully_off_screen
     self._dialog_box_y = dialog_box_y
     self._dialog_box_height = dialog_box_h
 end
 
---- @brief
-function ow.DialogEmitter:set_should_lock(b)
-    self._should_lock = b
-end
-
---- @brief
-function ow.DialogEmitter:set_should_focus(b)
-    self._should_focus = b
-end

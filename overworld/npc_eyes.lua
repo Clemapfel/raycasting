@@ -378,7 +378,7 @@ function ow.NPCEyes:_initialize_3d()
     -- 3D texture (scaled resolution)
     local tex3_w = math.ceil(2 * (r_scaled + 2 * p_scaled))
     local tex3_h = math.ceil(2 * (r_scaled + 2 * p_scaled))
-    self._3d_texture = rt.RenderTexture3D(tex3_w, tex3_h, 4)
+    self._3d_texture = rt.RenderTexture(tex3_w, tex3_h, 4)
     self._3d_texture:set_scale_mode(rt.TextureScaleMode.LINEAR)
 
     -- transforms scaled to keep same composition when downscaling later

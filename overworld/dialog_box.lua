@@ -18,11 +18,25 @@ rt.settings.overworld.dialog_box = {
     portrait_resolution_h = 80,
     n_lines = 3,
 
+    scroll_speed_speedup = 2, -- factor
+
     menu_move_sound_id = "menu_move",
     menu_confirm_sound_id = "menu_confirm",
 
     config_location = "overworld/dialog",
+
+    advance_button = rt.InputAction.INTERACT,
+    n_advance_triggers = 2, -- how often advance has to be pressed to skip to end of current node
 }
+
+--- @enum ow.DialogBoxControlState
+ow.DialogBoxControlState = {
+    ADVANCE = "ADVANCE",    -- non-choice node done
+    EXIT = "EXIT",          -- last node done
+    SELECT_OPTION = "SELECT_OPTION", -- choice node active
+    IDLE = "IDLE"           -- not shown
+}
+ow.DialogBoxControlState = meta.enum("DialogBoxControlState", ow.DialogBoxControlState)
 
 --- @class ow.DialogBox
 --- @signal done (DialogBox) -> nil
@@ -36,20 +50,21 @@ meta.add_signals(ow.DialogBox,
     "speaker_changed",
 
     --- @signal (ow.DialogBox, is_last_node, state) -> nil
-    "advance"
-)
+    "advance",
 
-local atlas = nil
+    --- @signal (ow.DialogBox, ow.DialogBoxControlState) -> nil
+    "control_state_changed"
+)
 
 --- @brief
 function ow.DialogBox:instantiate(id)
-    if atlas == nil then atlas = require(
-        string.gsub(rt.settings.overworld.dialog_box.config_location, "[/\\]", "."))
-    end
-
     meta.assert(id, "String")
     self._id = id
-    self._config = atlas[id]
+    self._config = rt.Dialog[id]
+
+    if self._config == nil then
+        rt.fatal("In ow.DialogBox: no dialog with id `", id, "`")
+    end
 
     meta.install(self, {
         _is_initialized = false,
@@ -63,6 +78,8 @@ function ow.DialogBox:instantiate(id)
 
         _should_auto_advance = false,
         _is_waiting_for_advance = false,
+        _advance_button_is_down = false,
+        _is_started = false,
 
         _frame = rt.Frame(),
         _frame_x = 0,
@@ -149,6 +166,7 @@ function ow.DialogBox:realize()
         node.labels = {}
         node.next_id = node_entry[next_key]
         node.state = node_entry[state_key] or {}
+        node.n_advance_triggers = 0
 
         local speaker_id = node_entry[speaker_key]
         local orientation = node_entry[orientation_key]
@@ -273,14 +291,33 @@ function ow.DialogBox:realize()
 end
 
 --- @brief
+function ow.DialogBox:get_control_state()
+    if self._active_node == nil and self._active_choice_node == nil then
+        return ow.DialogBoxControlState.IDLE
+    elseif self._active_choice_node ~= nil then
+        return ow.DialogBoxControlState.SELECT_OPTION
+    else
+        local active = self._active_node
+        if active.is_done and active.next == nil then
+            return ow.DialogBoxControlState.EXIT
+        else
+            return ow.DialogBoxControlState.ADVANCE
+        end
+    end
+end
+
+--- @brief
 function ow.DialogBox:_set_active_node(node)
     local m = rt.settings.margin_unit
     local before = self._active_node
 
     if node == nil then
-        if self._done_emitted == false then
-            self._done_emitted = true
-            self:signal_emit("done")
+        if self._active_node ~= nil then
+            if self._done_emitted == false then
+                self._done_emitted = true
+                self:signal_emit("done")
+                self:signal_emit("control_state_changed", ow.DialogBoxControlState.IDLE)
+            end
         end
     else
         if node.type == _node_type_choice then
@@ -290,6 +327,8 @@ function ow.DialogBox:_set_active_node(node)
             self._choice_frame:reformat(0, 0, frame_w, frame_h)
             self._choice_frame_x = self._frame_x + m
             self._choice_frame_y = self._frame_y - m - frame_h
+        else
+            node.n_advance_triggers = 0
         end
 
         self._portrait_visible = self._speaker_id_to_portrait_callback[node.speaker_id] ~= nil
@@ -328,6 +367,7 @@ function ow.DialogBox:_set_active_node(node)
         end
     end
 
+    local node_before = self._active_node
     self._active_node = node
 end
 
@@ -444,6 +484,10 @@ end
 
 --- @brief
 function ow.DialogBox:update(delta)
+    if not self._is_started then return end
+
+    local control_state_before = self:get_control_state()
+
     if self._active_node ~= nil then
         for labels in range(
             self._active_node.labels,
@@ -457,6 +501,7 @@ function ow.DialogBox:update(delta)
 
         if self._is_first_update then
             self:signal_emit("speaker_changed", self._active_node.speaker_id)
+            self:signal_emit("control_state_changed", ow.DialogBoxControlState.ADVANCE)
             self._is_first_update = false
         end
     end
@@ -479,6 +524,11 @@ function ow.DialogBox:update(delta)
             if label.dialog_box_is_done == nil then label.dialog_box_is_done = false end
         end
 
+        local n_characters_per_second = rt.settings.label.scroll_speed * rt.GameState:get_text_speed()
+        if self._advance_button_is_down then
+            n_characters_per_second = n_characters_per_second * rt.settings.overworld.dialog_box.scroll_speed_speedup
+        end
+
         for label in values(node.labels) do
             -- inject local per-label values
             init_label(label)
@@ -487,7 +537,9 @@ function ow.DialogBox:update(delta)
                 n_lines_visible = n_lines_visible + label:get_n_lines()
             else
                 label.dialog_box_elapsed = label.dialog_box_elapsed + delta
-                local is_done, new_n_lines, _ = label:update_n_visible_characters_from_elapsed(label.dialog_box_elapsed)
+                local is_done, new_n_lines, _ = label:update_n_visible_characters_from_elapsed(
+                    label.dialog_box_elapsed
+                )
                 n_lines_visible = n_lines_visible + new_n_lines
                 label.dialog_box_is_done = is_done
             end
@@ -512,9 +564,7 @@ function ow.DialogBox:update(delta)
         self:_update_node_offset_from_n_lines_visible(n_lines_visible)
 
         if self._should_emit_advance == true then
-            local can_advance = self._active_node.next ~= nil or self._active_choice_node ~= nil
-            local can_exit = self._active_choice_node == nil
-            self:signal_emit("advance", can_advance, can_exit) -- can advance
+            self:signal_emit("advance")
             self._should_emit_advance = false
         end
 
@@ -522,6 +572,11 @@ function ow.DialogBox:update(delta)
         if self._is_waiting_for_advance and self._should_auto_advance then
             self:_advance()
         end
+    end
+
+    local control_state_after = self:get_control_state()
+    if control_state_before ~= control_state_after then
+        self:signal_emit("control_state_changed", control_state_after)
     end
 end
 
@@ -532,14 +587,18 @@ function ow.DialogBox:_advance()
     local sound_id = rt.settings.overworld.dialog_box.menu_confirm_sound_id
 
     -- skip to end of current node
-    local n_lines_visible = 0
-    for label in values(self._active_node.labels) do
-        label.dialog_box_is_done = true
-        label.dialog_box_elapsed = math.huge
-        label:set_n_visible_characters(math.huge)
-        n_lines_visible = n_lines_visible + label:get_n_lines()
+    self._active_node.n_advance_triggers = self._active_node.n_advance_triggers + 1
+    local target_n_advance =  rt.settings.overworld.dialog_box.n_advance_triggers
+    if self._active_node.n_advance_triggers >= target_n_advance then
+        local n_lines_visible = 0
+        for label in values(self._active_node.labels) do
+            label.dialog_box_is_done = true
+            label.dialog_box_elapsed = math.huge
+            label:set_n_visible_characters(math.huge)
+            n_lines_visible = n_lines_visible + label:get_n_lines()
+        end
+        self:_update_node_offset_from_n_lines_visible(n_lines_visible)
     end
-    self:_update_node_offset_from_n_lines_visible(n_lines_visible)
 
     -- go to next node if already fully advanced
     if self._is_waiting_for_advance then
@@ -554,10 +613,8 @@ function ow.DialogBox:_advance()
 end
 
 --- @brief
-function ow.DialogBox:handle_button(which)
-    if which == rt.InputAction.INTERACT and self._active_choice_node == nil then
-        self:_set_active_node(nil)
-    end
+function ow.DialogBox:handle_button_pressed(which)
+    local advance_button = rt.settings.overworld.dialog_box.advance_button
 
     if self._active_choice_node ~= nil  and self._active_node.is_done == true then
         local move_sound_id = rt.settings.overworld.dialog_box.menu_move_sound_id
@@ -576,10 +633,25 @@ function ow.DialogBox:handle_button(which)
         elseif which == rt.InputAction.CONFIRM then
             self:_set_active_node(node.answer_i_to_next_node[node.highlighted_answer_i])
         end
-    elseif self._active_node ~= nil and self._active_node.next ~= nil then
-        if which == rt.InputAction.CONFIRM then
-            self:_advance()
+    elseif self._active_node ~= nil then
+        if which == advance_button then
+            if self._active_node.next == nil and self._active_node.is_done == true then
+                self:_set_active_node(nil) -- exit dialog
+            else
+                self:_advance()
+            end
         end
+    end
+
+    if which == advance_button then
+        self._advance_button_is_down = true
+    end
+end
+
+--- @brief
+function ow.DialogBox:handle_button_released(which)
+    if which == rt.settings.dialog_box.advance_button then
+        self._advance_button_is_down = false
     end
 end
 
@@ -631,7 +703,7 @@ function ow.DialogBox:draw()
         love.graphics.pop()
     end
 
-    if self._is_waiting_for_advance and self._active_node ~= nil and self._active_node.next ~= nil then
+    if self._is_waiting_for_advance and self._active_node ~= nil then
         love.graphics.push()
         rt.Palette.BASE:bind()
         love.graphics.translate(0, self._advance_indicator_offset)
@@ -702,11 +774,20 @@ function ow.DialogBox:reset()
 
             node.is_done = false
         end
-    end
 
+        node.n_advance_triggers = 0
+    end
+    self:signal_emit("control_state_changed", ow.DialogBoxControlState.IDLE)
+    self._is_started = false
+end
+
+--- @brief
+function ow.DialogBox:start()
     self:_set_active_node(self._id_to_node[1])
     self._done_emitted = false
     self._is_first_update = true
+    self:signal_emit("control_state_changed", ow.DialogBoxControlState.ADVANCE)
+    self._is_started = true
 end
 
 --- @brief

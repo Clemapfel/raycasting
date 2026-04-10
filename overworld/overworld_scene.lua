@@ -52,6 +52,7 @@ ow.OverworldScene = meta.class("OverworldScene", rt.Scene)
 ow.CameraMode = meta.enum("CameraMode", {
     FREEZE = "FREEZE",       -- all movement disabled
     CUTSCENE = "CUTSCENE",   -- fully controlled externally
+    STATIC = "STATIC",       -- hold position, but not frozen
     BOUNDED = "BOUNDED",     -- follow player, stay in camera bounds
     UNBOUNDED = "UNBOUNDED", -- follow player, camera bounds ignored
 })
@@ -65,10 +66,10 @@ ow.ControlIndicatorType = {
     INTERACT = "INTERACT",
     SLIDE = "SLIDE",
     HOLD_DOWN_TO_ACCELERATE = "HOLD_DOWN_TO_ACCELERATE",
-    DIALOG_CAN_ADVANCE_CAN_EXIT = "DIALOG_CAN_ADVANCE_CAN_EXIT",
-    DIALOG_CAN_ADVANCE_CANNOT_EXIT = "DIALOG_CAN_ADVANCE_CANNOT_EXIT",
-    DIALOG_CANNOT_ADVANCE_CAN_EXIT = "DIALOG_CANNOT_ADVANCE_CAN_EXIT",
-    DIALOG_CANNOT_ADVANCE_CANNOT_EXIT = "DIALOG_CANNOT_ADVANCE_CANNOT_EXIT",
+    DIALOG_ADVANCE = "DIALOG_ADVANCE",
+    DIALOG_SKIP = "DIALOG_SKIP",
+    DIALOG_EXIT = "DIALOG_EXIT",
+    DIALOG_SELECT_OPTION = "DIALOG_SELECT_OPTION",
     AIR_DASH = "AIR_DASH",
     DOUBLE_JUMP = "DOUBLE_JUMP",
     NONE = "NONE"
@@ -148,24 +149,6 @@ function ow.OverworldScene:instantiate(state)
     self._background = ow.Background(self)
 
     local translation = rt.Translation.overworld_scene
-    local dialog_control_indicator = function(can_advance, can_exit)
-        if can_advance == false and can_exit == false then return nil end
-
-        local config = {}
-        if can_advance then
-            table.insert(config, rt.ControlIndicatorButton.CONFIRM)
-            table.insert(config, translation.control_indicator_dialog_confirm)
-        end
-
-        if can_exit then
-            table.insert(config, rt.ControlIndicatorButton.INTERACT)
-            table.insert(config, translation.control_indicator_dialog_leave)
-        end
-
-        local out = rt.ControlIndicator(table.unpack(config))
-        out:set_has_frame(false)
-        return out
-    end
 
     local function create_non_bubble_indicator()
         local indicator
@@ -192,6 +175,8 @@ function ow.OverworldScene:instantiate(state)
         indicator:set_has_frame(true)
         return indicator
     end
+
+    local dialog_button = rt.settings.overworld.dialog_box.advance_button
 
     self._control_indicator_type_to_control_indicator = {
         [ow.ControlIndicatorType.MOTION_NON_BUBBLE] = create_non_bubble_indicator(),
@@ -224,11 +209,32 @@ function ow.OverworldScene:instantiate(state)
         ),
 
         [ow.ControlIndicatorType.NONE] = nil,
-        [ow.ControlIndicatorType.DIALOG_CAN_ADVANCE_CAN_EXIT] = dialog_control_indicator(true, true),
-        [ow.ControlIndicatorType.DIALOG_CAN_ADVANCE_CANNOT_EXIT] = dialog_control_indicator(true, false),
-        [ow.ControlIndicatorType.DIALOG_CANNOT_ADVANCE_CAN_EXIT] = dialog_control_indicator(false, true),
-        [ow.ControlIndicatorType.DIALOG_CANNOT_ADVANCE_CANNOT_EXIT] = dialog_control_indicator(false, false),
+        [ow.ControlIndicatorType.DIALOG_SKIP] = create_indicator(
+            dialog_button, translation.control_indicator_dialog_skip
+        ),
+
+        [ow.ControlIndicatorType.DIALOG_ADVANCE] = create_indicator(
+            dialog_button, translation.control_indicator_dialog_advance
+        ),
+
+        [ow.ControlIndicatorType.DIALOG_EXIT] = create_indicator(
+            dialog_button, translation.control_indicator_dialog_exit
+        ),
+
+        [ow.ControlIndicatorType.DIALOG_SELECT_OPTION] = create_indicator(
+            rt.ControlIndicatorButton.UP_DOWN, translation.control_indicator_dialog_select_option,
+            dialog_button, translation.control_indicator_dialog_confirm_option
+        )
     }
+
+    for which in range(
+        ow.ControlIndicatorType.DIALOG_SKIP,
+        ow.ControlIndicatorType.DIALOG_ADVANCE,
+        ow.ControlIndicatorType.DIALOG_EXIT,
+        ow.ControlIndicatorType.DIALOG_SELECT_OPTION
+    ) do
+        self._control_indicator_type_to_control_indicator[which]:set_has_frame(false)
+    end
 
     self._control_indicator_opacity_motion = rt.SmoothedMotion1D(0, 1) -- opacity
     self._control_indicator_offset_motion = rt.SmoothedMotion2D(
@@ -407,20 +413,6 @@ end
 
 --- @brief
 function ow.OverworldScene:size_allocate(x, y, width, height)
-    if self._screenshot == nil
-        or self._screenshot:get_width() ~= width
-        or self._screenshot:get_height() ~= height
-    then
-        if self._screenshot ~= nil then self._screenshot:free() end
-
-        self._screenshot = rt.RenderTexture(
-            width, height,
-            0, -- msaa
-            rt.settings.overworld_scene.screenshot_texture_format
-        )
-        self._screenshot_needs_update = true
-    end
-
     if self._blur == nil
         or self._blur:get_width() ~= width
         or self._blur:get_height() ~= height
@@ -442,6 +434,9 @@ function ow.OverworldScene:size_allocate(x, y, width, height)
             max_h = math.max(max_h, control_h)
         end
         self._control_indicator_max_offset = 2 * max_h
+        self._control_indicator_offset_motion:set_position(
+            0, self._control_indicator_max_offset
+        )
     end
 
     for widget in range(
@@ -679,9 +674,16 @@ end
 
 function ow.OverworldScene:_update_screenshot(draw_player)
     if self._stage == nil
-        or self._screenshot == nil
         or self._screenshot_needs_update == false
     then return end
+
+    local width, height = self:get_bounds().width, self:get_bounds().height
+    if self._screenshot == nil
+        or self._screenshot:get_width() ~= width
+        or self._screenshot:get_height() ~= height
+    then
+        self._screenshot = rt.RenderTexture(width, height, rt.GameState:get_msaa_quality())
+    end
 
     love.graphics.push("all")
     love.graphics.reset()
@@ -717,8 +719,13 @@ function ow.OverworldScene:_update_screenshot(draw_player)
 end
 
 --- @brief
-function ow.OverworldScene:get_screenshot(draw_player)
-    self:_update_screenshot(draw_player)
+function ow.OverworldScene:get_screenshot(draw_player, x, y, width, height)
+    if x == nil then x = 0 end
+    if y == nil then y = 0 end
+    if width == nil then width = self:get_bounds().width end
+    if height == nil then height = self:get_bounds().height end
+
+    self:_update_screenshot(draw_player, x, y, width, height)
     return self._screenshot
 end
 
@@ -822,6 +829,7 @@ function ow.OverworldScene:update(delta)
     if math.equals(self._control_indicator_opacity_motion:get_target_value(), 1) and self._control_indicator_delay_elapsed > rt.settings.overworld_scene.control_indicator_delay then
         self._control_indicator_opacity_motion:update(delta)
     end
+
     self._control_indicator_offset_motion:update(delta)
 
     if self._pause_menu_active then
@@ -886,8 +894,9 @@ end
 local _camera_mode_priority = {
     [1] = ow.CameraMode.FREEZE,
     [2] = ow.CameraMode.CUTSCENE,
-    [3] = ow.CameraMode.BOUNDED,
-    [4] = ow.CameraMode.UNBOUNDED
+    [3] = ow.CameraMode.STATIC,
+    [4] = ow.CameraMode.BOUNDED,
+    [5] = ow.CameraMode.UNBOUNDED
 }
 
 --- @brief
@@ -978,7 +987,10 @@ function ow.OverworldScene:show_result_screen()
         coins[coin_i] = self._stage:get_coin_is_collected(coin_i)
     end
 
-    self:_update_screenshot(false) -- do not draw player
+    self:_update_screenshot(false, -- do not draw player
+        0, 0, self:get_bounds().width, self:get_bounds().height
+    )
+
     rt.SceneManager:set_scene(
         ow.ResultScreenScene,
         player_x, player_y,
@@ -996,6 +1008,12 @@ end
 function ow.OverworldScene:set_control_indicator_type(type, emit_particles)
     if type == nil then type = ow.ControlIndicatorType.NONE end
     meta.assert_enum_value(type, ow.ControlIndicatorType)
+
+    if type ~= self._control_indicator_type then
+        self._control_indicator_offset_motion:set_position(
+            0, self._control_indicator_max_offset
+        )
+    end
 
     if type == ow.ControlIndicatorType.NONE then
         self._control_indicator_opacity_motion:set_target_value(0)
@@ -1071,13 +1089,22 @@ function ow.OverworldScene:clear_camera_mode()
     end
 end
 
+local _CAMERA_STATE_CUTSCENE = 1
+local _CAMERA_STATE_FROZEN = 2
+local _CAMERA_STATE_STATIC = 3
+local _CAMERA_STATE_BOUNDED = 4
+local _CAMERA_STATE_UNBOUNDED = 5
+local _CAMERA_STATE_FOLLOW_PLAYER = 6
+local _CAMERA_STATE_OVERRIDE = 7
+
 --- @brief
 function ow.OverworldScene:_update_camera(delta)
     local camera = self._camera
     local settings = rt.settings.overworld_scene
+    local state_before = self._camera_state
+    local override_before = self._camera_override_active
 
     -- override state
-    local before = self._camera_override_active
     if rt.InputManager:get_input_method() == rt.InputMethod.KEYBOARD then
         local mouse_down = rt.InputManager:get_mouse_is_down(rt.MouseButton.RIGHT)
         local key_down = false
@@ -1122,8 +1149,6 @@ function ow.OverworldScene:_update_camera(delta)
         local triggers_pressed = rt.InputManager:get_left_trigger() > math.eps
             or rt.InputManager:get_right_trigger() > math.eps
 
-
-
         local right_joystick = math.magnitude(rt.InputManager:get_right_joystick()) > math.eps
 
         self._camera_override_active = right_joystick or triggers_pressed
@@ -1139,7 +1164,7 @@ function ow.OverworldScene:_update_camera(delta)
     self._camera:set_apply_bounds(not self._camera_override_active)
 
     -- on state change
-    if self._camera_override_active ~= before then
+    if self._camera_override_active ~= override_before then
         self._camera_position_override_x, self._camera_position_override_y = self._camera:get_position()
 
         if rt.InputManager:get_input_method() == rt.InputMethod.KEYBOARD then
@@ -1181,47 +1206,56 @@ function ow.OverworldScene:_update_camera(delta)
         self._camera_position_override_y = self._camera_position_override_y + self._camera_velocity_y * delta
 
         camera:move_to(self._camera_position_override_x, self._camera_position_override_y)
-        return
+        self._camera_state = _CAMERA_STATE_OVERRIDE
     else
-        if before == true then
-            -- re apply when exiting override mode
-            self._stage:apply_camera_bounds(self._player:get_position())
+        -- regular camera behavior
+        local top = self._camera_modes[1]
+        local px, py = self._player:get_position()
+
+        local is_frozen = self._camera_modes[ow.CameraMode.FREEZE] > 0
+        local has_cutscene = self._camera_modes[ow.CameraMode.CUTSCENE] > 0
+        local has_bounded = self._camera_modes[ow.CameraMode.BOUNDED] > 0
+        local has_unbounded = self._camera_modes[ow.CameraMode.UNBOUNDED] > 0
+        local has_static = self._camera_modes[ow.CameraMode.STATIC] > 0
+
+        if is_frozen then
+            camera:set_is_enabled(false)
+            self._camera_state = _CAMERA_STATE_FROZEN
+        else
+            camera:set_is_enabled(true)
+
+            if has_cutscene then
+                -- noop, controlled externally
+                self._camera_state = _CAMERA_STATE_CUTSCENE
+            elseif has_static then
+                -- also controlled externally but lower priority than cutscene
+                self._camera_state = _CAMERA_STATE_STATIC
+            elseif has_bounded then
+                -- scale and bounds controlled externaly
+                camera:set_apply_bounds(true)
+                camera:move_to(px, py)
+                self._camera_state = _CAMERA_STATE_BOUNDED
+            elseif has_unbounded then
+                -- only scale controlled externally
+                camera:set_apply_bounds(false)
+                camera:move_to(px, py)
+                camera:scale_to(1)
+                self._camera_state = _CAMERA_STATE_UNBOUNDED
+            else
+                -- nothing controlled externally, follow player
+                camera:set_apply_bounds(false)
+                camera:scale_to(1)
+                camera:move_to(px, py)
+                self._camera_state = _CAMERA_STATE_FOLLOW_PLAYER
+            end
         end
     end
 
-    -- regular camera behavior
-    local top = self._camera_modes[1]
-    local px, py = self._player:get_position()
-
-    local is_frozen = self._camera_modes[ow.CameraMode.FREEZE] > 0
-    local has_cutscene = self._camera_modes[ow.CameraMode.CUTSCENE] > 0
-    local has_bounded = self._camera_modes[ow.CameraMode.BOUNDED] > 0
-    local has_unbounded = self._camera_modes[ow.CameraMode.UNBOUNDED] > 0
-
-    if is_frozen then
-        camera:set_is_enabled(false)
-        return
-    else
-        camera:set_is_enabled(true)
-    end
-
-    if has_cutscene then
-        -- noop, controlled externally
-        return
-    elseif has_bounded then
-        -- scale and bounds controlled externaly
-        camera:set_apply_bounds(true)
-        camera:move_to(px, py)
-    elseif has_unbounded then
-        -- only scale controlled externally
-        camera:set_apply_bounds(false)
-        camera:move_to(px, py)
-        camera:scale_to(1)
-    else
-        -- nothing controlled externally, follow player
-        camera:set_apply_bounds(false)
-        camera:scale_to(1)
-        camera:move_to(px, py)
+    -- reapply bounds when switching states
+    if self._camera_state ~= state_before
+        and self._camera_state ~= _CAMERA_STATE_CUTSCENE
+    then
+        self._stage:apply_camera_bounds(self._player:get_position())
     end
 end
 

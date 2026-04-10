@@ -44,9 +44,6 @@ local _format_to_getter_setter = {
     [rt.ByteDataFormat.FLOAT64] = { get = "getDouble", set = "setDouble" },
 }
 
-local use_ffi, _ = pcall(require, "ffi")
-use_ffi = false
-
 --- @brief
 function rt.ByteData:instantiate(format, count_or_native)
     meta.assert_enum_value(format, rt.ByteDataFormat, 1)
@@ -67,7 +64,7 @@ function rt.ByteData:cast(format)
     self._format = format
     self._stride = rt.ByteData.format_to_n_bytes(format)
 
-    if not use_ffi then
+    if ffi == nil then
         local entry = _format_to_getter_setter[self._format]
         self._getter = self._native[entry.get]
         self._setter = self._native[entry.set]
@@ -79,7 +76,7 @@ function rt.ByteData:cast(format)
     return self
 end
 
-if use_ffi then
+if ffi == nil then
     --- @brief
     function rt.ByteData:get(i)
         return self._pointer[i - 1]

@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 821,
+  nextobjectid = 822,
   properties = {},
   tilesets = {
     {
@@ -3298,55 +3298,19 @@ return {
           properties = {}
         },
         {
-          id = 818,
+          id = 821,
           name = "",
-          type = "Fireflies",
+          type = "NPC",
           shape = "point",
-          x = 1232,
+          x = 1104,
           y = 2496,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
-          properties = {}
-        },
-        {
-          id = 819,
-          name = "",
-          type = "BouncePad",
-          shape = "polygon",
-          x = 1168,
-          y = 2560,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = 0 },
-            { x = -96, y = 0 },
-            { x = -96, y = -32 },
-            { x = 0, y = -32 }
-          },
-          properties = {}
-        },
-        {
-          id = 820,
-          name = "",
-          type = "BouncePad",
-          shape = "polygon",
-          x = 1168,
-          y = 2480,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = 0 },
-            { x = -96, y = 0 },
-            { x = -96, y = -32 },
-            { x = 0, y = -32 }
-          },
-          properties = {}
+          properties = {
+            ["dialog_id"] = "template"
+          }
         }
       }
     },
