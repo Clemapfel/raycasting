@@ -1527,18 +1527,11 @@ function rt.Player:update(delta)
             and not is_frozen
             and down_is_down
             and not ((left_is_down and self._left_wall) or (right_is_down and self._right_wall))
-        -- exclude wall clinging, handled by explicit friction release in apply_friction
+            -- exclude wall clinging, handled by explicit friction release in apply_friction
         then
             local force = 1 / velocity_easing * settings.downwards_force * delta
             if use_analog_input then
                 force = force * math.max(0, self._joystick_position_y) -- linear easing, only detect down
-            end
-
-            if not is_grounded then
-                -- weigh to prevent deceleration when velocity is pointing upwards and down is held
-                force = force * math.max(0,
-                    select(2, math.normalize(next_velocity_x, next_velocity_y))
-                )
             end
 
             local dx, dy = gravity_direction_x, gravity_direction_y
@@ -1554,23 +1547,15 @@ function rt.Player:update(delta)
                 end
 
                 local ground_tangent_x, ground_tangent_y = math.turn_left(ground_normal_x, ground_normal_y)
-                local dot = math.dot(ground_tangent_x, ground_tangent_y, next_velocity_x, next_velocity_y)
-                local sign = math.sign(dot)
+                local gravity_tangent_dot = math.dot(ground_tangent_x, ground_tangent_y, gravity_direction_x, gravity_direction_y)
 
-                ground_tangent_x = ground_tangent_x * sign
-                ground_tangent_y = ground_tangent_y * sign
-
-                if ground_tangent_y <= 0 then
-                    dx, dy = gravity_direction_x, gravity_direction_y
-                else
-                    dx, dy = ground_tangent_x, ground_tangent_y
-                end
+                next_velocity_x = next_velocity_x + ground_tangent_x * gravity_tangent_dot * force
+                next_velocity_y = next_velocity_y + ground_tangent_y * gravity_tangent_dot * force
+                is_sliding = true
+            else
+                next_velocity_x = next_velocity_x + dx * force
+                next_velocity_y = next_velocity_y + dy * force
             end
-
-            next_velocity_x = next_velocity_x + dx * force
-            next_velocity_y = next_velocity_y + dy * force
-
-            if is_grounded then is_sliding = true end
         end
 
         -- friction
@@ -2606,7 +2591,7 @@ function rt.Player:_get_ray_mask()
     return bit.band(mask, bit.bnot(settings.exempt_collision_group))
 end
 
--- coyote raycast stash
+-- coyote raycast cache so raycast is only necessary once per frame
 local _last_frame_i, _last_frame_nothing_below = nil, false
 
 --- @brief
@@ -2621,10 +2606,10 @@ function rt.Player:_get_jump_allowed()
     then
         regular_jump_allowed = false
     elseif bottom == false and self._coyote_elapsed <= settings.coyote_time then
+        -- for coyote time, actually check if no ground below
         local allow_coyote = false
         local current_frame_i = rt.SceneManager:get_frame_index()
         if current_frame_i ~= _last_frame_i then
-            -- for coyote time, actually check if no ground below
             local ray_length = self._radius * settings.coyote_time_downwards_ray_factor
             local mask = self:_get_ray_mask()
             local x, y = self:get_position()
