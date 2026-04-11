@@ -72,6 +72,8 @@ do
         ground_instant_turn_around_magnitude = 300,
 
         coyote_time = 12 / 60, -- seconds after leaving ground
+        coyote_time_downwards_ray_factor = 2,
+
         wall_jump_coyote_time = 8 / 60, -- seconds after letting go of direction against wall
 
         platform_velocity_decay = 0.7,
@@ -625,19 +627,7 @@ function rt.Player:update(delta)
     -- raycast to check for walls
     local x, y = self:get_position()
 
-    local mask
-    if is_ghost == false then
-        require "overworld.objects.hitbox"
-        mask = bit.bor(
-            rt.settings.overworld.hitbox.collision_group,
-            settings.bounce_collision_group
-        )
-        mask = bit.band(mask, bit.bnot(settings.player_outer_body_collision_group))
-    else
-        mask = settings.ghost_collision_group
-    end
-
-    mask = bit.band(mask, bit.bnot(settings.exempt_collision_group))
+    local mask = self:_get_ray_mask()
 
     local bubble_factor = 1
     if is_bubble then
@@ -964,7 +954,7 @@ function rt.Player:update(delta)
                 for wall_body in range(self._bottom_body, self._bottom_left_body, self._bottom_wall_body) do
                     local entry = self._body_to_collision_normal[wall_body]
                     if entry ~= nil then
-                        self._graphics_body:set_down_squish(true,
+                        self._graphics_body:set_down_squish(not self:get_is_disabled(),
                             entry.normal_x, entry.normal_y,
                             entry.contact_x, entry.contact_y
                         )
@@ -2328,6 +2318,11 @@ function rt.Player:draw_core()
     end
 
     self._graphics_body:draw_core()
+
+    if self._dbg ~= nil then
+        love.graphics.setColor(1, 1, 1, 1)
+        love.graphics.line(self._dbg)
+    end
 end
 
 --- @brief
@@ -2595,9 +2590,28 @@ function rt.Player:_get_walljump_allowed()
 end
 
 --- @brief
+function rt.Player:_get_ray_mask()
+    local mask
+    if self:get_is_ghost() == false then
+        require "overworld.objects.hitbox"
+        mask = bit.bor(
+            rt.settings.overworld.hitbox.collision_group,
+            settings.bounce_collision_group
+        )
+        mask = bit.band(mask, bit.bnot(settings.player_outer_body_collision_group))
+    else
+        mask = settings.ghost_collision_group
+    end
+
+    return bit.band(mask, bit.bnot(settings.exempt_collision_group))
+end
+
+-- coyote raycast stash
+local _last_frame_i, _last_frame_nothing_below = nil, false
+
+--- @brief
 function rt.Player:_get_jump_allowed()
     local bottom = (self._bottom_wall and not self._bottom_wall_body:has_tag("unjumpable"))
-        or self._coyote_elapsed <= settings.coyote_time
 
     local regular_jump_allowed = not self._jump_blocked and bottom
 
@@ -2606,6 +2620,22 @@ function rt.Player:_get_jump_allowed()
         self._bottom_right_wall and self._bottom_right_wall_body:has_tag("unjumpable")
     then
         regular_jump_allowed = false
+    elseif bottom == false and self._coyote_elapsed <= settings.coyote_time then
+        local allow_coyote = false
+        local current_frame_i = rt.SceneManager:get_frame_index()
+        if current_frame_i ~= _last_frame_i then
+            -- for coyote time, actually check if no ground below
+            local ray_length = self._radius * settings.coyote_time_downwards_ray_factor
+            local mask = self:_get_ray_mask()
+            local x, y = self:get_position()
+            local dx, dy = 0, 1
+            local _, _, _, _, body = self._world:query_ray_any(x, y, dx * ray_length, dy * ray_length, mask)
+
+            _last_frame_i = current_frame_i
+            _last_frame_nothing_below = body == nil
+        end
+
+        if _last_frame_nothing_below then regular_jump_allowed = true end
     end
 
     return regular_jump_allowed
