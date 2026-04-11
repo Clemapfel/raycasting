@@ -83,6 +83,11 @@ rt.JustifyMode = meta.enum("JustifyMode", rt.JustifyMode)
 --- @class rt.Label
 rt.Label = meta.class("Label", rt.Widget)
 
+meta.add_signal(rt.Label,
+    --- @signal glyph_shown (rt.Label, text) -> nil
+    "glyph_shown"
+)
+
 --- @class rt.Glyph
 rt.Glyph = meta.class("Glyph", rt.Widget)
 
@@ -768,6 +773,8 @@ end
 
 --- @brief [internal]
 function rt.Label:_glyph_set_n_visible_characters(glyph, n)
+    local before = glyph.n_visible_characters
+
     glyph.n_visible_characters = n
     if glyph.is_underlined or glyph.is_strikethrough then
         local new_width = glyph.font:getWidth(string.sub(glyph.text, 1, glyph.n_visible_characters))
@@ -779,6 +786,10 @@ function rt.Label:_glyph_set_n_visible_characters(glyph, n)
         if glyph.is_strikethrough then
             glyph.strikethrough_bx = glyph.x + _padding + new_width
         end
+    end
+
+    if before == 0 and glyph.n_visible_characters > 0 then
+        self:signal_emit("glyph_shown", glyph.text)
     end
 end
 

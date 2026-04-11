@@ -613,9 +613,9 @@
    <point/>
   </object>
   <object id="810" type="CameraFit" x="926.199" y="2234.73" width="745.948" height="476.068"/>
-  <object id="821" type="NPC" x="1104" y="2496">
+  <object id="821" name="NPC" type="NPC" x="1104" y="2496">
    <properties>
-    <property name="dialog_id" value="template"/>
+    <property name="dialog_id" value="one_way_platform_tutorial_cant_pass"/>
    </properties>
    <point/>
   </object>

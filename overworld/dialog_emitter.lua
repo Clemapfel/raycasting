@@ -43,6 +43,8 @@ function ow.DialogEmitter:instantiate(scene, id, target)
             self._scene:set_control_indicator_type(ow.ControlIndicatorType.DIALOG_ADVANCE)
         elseif state == ow.DialogBoxControlState.EXIT then
             self._scene:set_control_indicator_type(ow.ControlIndicatorType.DIALOG_EXIT)
+        elseif state == ow.DialogBoxControlState.SELECT_OPTION then
+            self._scene:set_control_indicator_type(ow.ControlIndicatorType.DIALOG_SELECT_OPTION)
         elseif state == ow.DialogBoxControlState.IDLE then
             self._scene:set_control_indicator_type(ow.ControlIndicatorType.NONE)
         end

@@ -505,7 +505,6 @@ do
 
         -- else, generate externally
 
-
         for i = 1, #input do
             input[i] = _sanitize(input[i])
         end

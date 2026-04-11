@@ -3299,7 +3299,7 @@ return {
         },
         {
           id = 821,
-          name = "",
+          name = "NPC",
           type = "NPC",
           shape = "point",
           x = 1104,
@@ -3309,7 +3309,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["dialog_id"] = "template"
+            ["dialog_id"] = "one_way_platform_tutorial_cant_pass"
           }
         }
       }

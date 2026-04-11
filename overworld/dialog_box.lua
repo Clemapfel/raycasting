@@ -56,6 +56,8 @@ meta.add_signals(ow.DialogBox,
     "control_state_changed"
 )
 
+local _animalese
+
 --- @brief
 function ow.DialogBox:instantiate(id)
     meta.assert(id, "String")
@@ -127,12 +129,21 @@ function ow.DialogBox:instantiate(id)
         _max_n_lines = rt.settings.overworld.dialog_box.n_lines,
 
         _is_first_update = true,
-        _input_delay = 0
     })
+
+    if _animalese == nil then
+        require "jtalk.animalese"
+        _animalese = rt.Animalese()
+    end
 end
 
 local _node_type_text = "text"
 local _node_type_choice = "choice"
+
+--- @brief
+function ow.DialogBox:_glyph_shown_callback(node, glyph_text)
+    dbg(_animalese:translate(glyph_text))
+end
 
 --- @brief
 function ow.DialogBox:realize()
@@ -156,6 +167,10 @@ function ow.DialogBox:realize()
 
     local selected_answer_prefix = settings.choice_text_prefix
     local selected_answer_postfix = settings.choice_text_postfix
+
+    local glyph_shown_callback = function(label, glyph_text, glyph)
+        self:_glyph_shown_callback(label.dialog_box_node, glyph_text, glyph)
+    end
 
     local can_be_visited = {}
     for key, node_entry in pairs(entry) do
@@ -205,8 +220,13 @@ function ow.DialogBox:realize()
             local label = rt.Label(text)
             label:realize()
             label:set_n_visible_characters(0)
+
+            label.dialog_box_node = node
+            label:signal_connect("glyph_shown", glyph_shown_callback)
+
             table.insert(node.labels, label)
             i = i + 1
+
             text = node_entry[i]
         end
 
@@ -226,14 +246,14 @@ function ow.DialogBox:realize()
             node.answer_i_to_next_node = {}
             node.width = 0
             node.height = 0
-            for i, choice in ipairs(node_entry[dialog_choice_key]) do
-                local text = choice[1]
-                if not meta.is_string(text) then
+            for j, choice in ipairs(node_entry[dialog_choice_key]) do
+                local choice_text = choice[1]
+                if not meta.is_string(choice_text) then
                     rt.error("In ow.DialogBox: for dialog `",  self._id,  "` multiple choice node `",  key,  "` does not have answer at position 1")
                 end
 
-                local label = rt.Label(text)
-                local highlighted_label = rt.Label(selected_answer_prefix .. text .. selected_answer_postfix)
+                local label = rt.Label(choice_text)
+                local highlighted_label = rt.Label(selected_answer_prefix .. choice_text .. selected_answer_postfix)
 
                 label:realize()
                 highlighted_label:realize()
@@ -242,7 +262,7 @@ function ow.DialogBox:realize()
                 table.insert(node.highlighted_choice_labels, highlighted_label)
 
                 node.n_answers = node.n_answers + 1
-                node.answer_i_to_next_node_id[i] = choice.next
+                node.answer_i_to_next_node_id[j] = choice.next
             end
 
             if node_entry[state_key] ~= nil then
@@ -292,16 +312,19 @@ end
 
 --- @brief
 function ow.DialogBox:get_control_state()
-    if self._active_node == nil and self._active_choice_node == nil then
+    if self._active_node == nil then
         return ow.DialogBoxControlState.IDLE
-    elseif self._active_choice_node ~= nil then
-        return ow.DialogBoxControlState.SELECT_OPTION
     else
         local active = self._active_node
-        if active.is_done and active.next == nil then
-            return ow.DialogBoxControlState.EXIT
+
+        if self._active_choice_node ~= nil and active.is_done then
+            return ow.DialogBoxControlState.SELECT_OPTION
         else
-            return ow.DialogBoxControlState.ADVANCE
+            if active.is_done and active.next == nil then
+                return ow.DialogBoxControlState.EXIT
+            else
+                return ow.DialogBoxControlState.ADVANCE
+            end
         end
     end
 end
@@ -452,7 +475,7 @@ function ow.DialogBox:size_allocate(x, y, width, height)
 
         if node.type == _node_type_choice then
             -- measure all labels
-            node.width = choice_w
+            node.width = 0
             node.height = 0
             local current_y = m
             for i = 1, node.n_answers do
@@ -616,7 +639,7 @@ end
 function ow.DialogBox:handle_button_pressed(which)
     local advance_button = rt.settings.overworld.dialog_box.advance_button
 
-    if self._active_choice_node ~= nil  and self._active_node.is_done == true then
+    if self._active_choice_node ~= nil and self._active_node.is_done == true then
         local move_sound_id = rt.settings.overworld.dialog_box.menu_move_sound_id
         local confirm_sound_id = rt.settings.overworld.dialog_box.menu_confirm_sound_id
         local node = self._active_choice_node
@@ -630,7 +653,7 @@ function ow.DialogBox:handle_button_pressed(which)
                 node.highlighted_answer_i = node.highlighted_answer_i + 1
                 rt.SoundManager:play(move_sound_id)
             end
-        elseif which == rt.InputAction.CONFIRM then
+        elseif which == rt.InputAction.INTERACT then
             self:_set_active_node(node.answer_i_to_next_node[node.highlighted_answer_i])
         end
     elseif self._active_node ~= nil then
