@@ -3309,7 +3309,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["dialog_id"] = "one_way_platform_tutorial_cant_pass"
+            ["dialog_id"] = "template"
           }
         }
       }

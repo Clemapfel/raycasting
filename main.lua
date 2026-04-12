@@ -6,10 +6,6 @@ require "common.music_manager"
 require "common.sound_manager"
 require "common.input_manager"
 
-require "common.animalese"
-local animalese = rt.Animalese()
-dbg(animalese:translate("the"))
-
 love.load = function(args)
     local w, h = love.graphics.getDimensions()
 
@@ -48,7 +44,7 @@ love.load = function(args)
     end
 
     require "overworld.overworld_scene"
-    rt.SceneManager:push(ow.OverworldScene, "bounce_tutorial", false)
+    --rt.SceneManager:push(ow.OverworldScene, "bounce_tutorial", false)
 
     require "menu.keybinding_scene"
     --rt.SceneManager:push(mn.KeybindingScene)
@@ -62,18 +58,14 @@ love.load = function(args)
     --init()
 end
 
-DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
-    if which == rt.KeyboardKey.H then
-        rt.SceneManager:get_screen_recorder():start_recording()
-    end
-end)
-
-DEBUG_INPUT:signal_connect("keyboard_key_released", function(_, which)
-    if which == rt.KeyboardKey.H then
-        rt.SceneManager:get_screen_recorder():stop_recording()
-    end
-end)
-
+require "common.animalese"
+local animalese = rt.Animalese()
+local translation = animalese:translate("hey pss")
+dbg(translation)
+animalese:queue(
+    rt.AnimaleseGender.FEMALE,
+    rt.AnimaleseEmotion.NORMAL
+)
 
 love.update = function(delta)
     if rt.SceneManager ~= nil then

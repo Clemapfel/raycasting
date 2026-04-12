@@ -4,6 +4,7 @@ require "common.palette"
 require "common.font"
 require "common.render_texture"
 require "common.lch_texture"
+require "common.animalese_phonemes"
 
 rt.settings.label = {
     outline_offset_padding = 8,
@@ -484,7 +485,9 @@ function rt.Label:_parse(raw)
     local default_color = "FOREGROUND"
     local default_outline_color = "BLACK"
 
-    local settings = {
+    local tokens = {}
+
+    local glyph_settings = {
         is_bold = false,
         is_italic = false,
         is_bold = false,
@@ -515,50 +518,61 @@ function rt.Label:_parse(raw)
     local s = at(i)
     local current_word = {}
 
+    local push_beat = function(beat)
+        table.insert(self._glyphs, beat)
+
+        local n_tokens = _syntax.BEAT_TO_WEIGHT[beat]
+        if n_tokens ~= nil then
+            for _ = 1, n_tokens do
+                table.insert(tokens, rt.Animalese.Phoneme.BEAT)
+            end
+        end
+    end
+
     local push_glyph = function()
         if #current_word == 0 then return end
 
         local style = rt.FontStyle.REGULAR
-        if settings.is_bold and settings.is_italic then
+        if glyph_settings.is_bold and glyph_settings.is_italic then
             style = rt.FontStyle.BOLD_ITALIC
-        elseif settings.is_bold then
+        elseif glyph_settings.is_bold then
             style = rt.FontStyle.BOLD
-        elseif settings.is_italic then
+        elseif glyph_settings.is_italic then
             style = rt.FontStyle.ITALIC
         end
 
         local font = self._font
-        if settings.is_mono == true then
+        if glyph_settings.is_mono == true then
             style = _font_style_to_mono_font_style[style]
         end
 
-        local color_r, color_g, color_b = _rt_color_unpack(_rt_palette[settings.color])
-        local outline_color_r, outline_color_g, outline_color_b = _rt_color_unpack(_rt_palette[settings.outline_color])
+        local color_r, color_g, color_b = _rt_color_unpack(_rt_palette[glyph_settings.color])
+        local outline_color_r, outline_color_g, outline_color_b = _rt_color_unpack(_rt_palette[glyph_settings.outline_color])
 
         local word = _concat(current_word)
         local to_insert = rt.Label._glyph_new(
-           word, font, self._font_size, style, settings.is_mono,
+            word, font, self._font_size, style, glyph_settings.is_mono,
             color_r, color_g, color_b,
             outline_color_r, outline_color_g, outline_color_b,
-            settings.is_underlined,
-            settings.is_strikethrough,
-            settings.is_outlined or settings.outline_color_active,
-            settings.is_effect_shake,
-            settings.is_effect_wave,
-            settings.is_effect_rainbow,
-            settings.is_effect_noise
+            glyph_settings.is_underlined,
+            glyph_settings.is_strikethrough,
+            glyph_settings.is_outlined or glyph_settings.outline_color_active,
+            glyph_settings.is_effect_shake,
+            glyph_settings.is_effect_wave,
+            glyph_settings.is_effect_rainbow,
+            glyph_settings.is_effect_noise
         )
 
         _insert(glyphs, to_insert)
 
-        if settings.is_outlined or settings.outline_color_active then
+        if glyph_settings.is_outlined or glyph_settings.outline_color_active then
             _insert(self._outlined_glyphs, to_insert)
             self._use_outline = true
         else
             _insert(self._non_outlined_glyphs, to_insert)
         end
 
-        if settings.is_effect_shake or settings.is_effect_wave or settings.is_effect_rainbow or settings.is_effect_noise then
+        if glyph_settings.is_effect_shake or glyph_settings.is_effect_wave or glyph_settings.is_effect_rainbow or glyph_settings.is_effect_noise then
             self._use_animation = true
         end
 
@@ -572,6 +586,8 @@ function rt.Label:_parse(raw)
             if weight == nil then weight = 1 end
             self._total_beats = self._total_beats + weight
         end
+
+        table.insert(tokens, word)
 
         current_word = {}
     end
@@ -594,19 +610,19 @@ function rt.Label:_parse(raw)
             goto skip;
         elseif s == " " then
             push_glyph()
-            _insert(glyphs, _syntax.SPACE)
+            push_beat(_syntax.SPACE)
             self._total_beats = self._total_beats + (BEAT_TO_WEIGHT[_syntax.SPACE] or 1)
         elseif s == "\n" then
             push_glyph()
-            _insert(glyphs, _syntax.NEWLINE)
+            push_beat(_syntax.NEWLINE)
             self._total_beats = self._total_beats + (BEAT_TO_WEIGHT[_syntax.NEWLINE] or 1)
         elseif s == "\t" then
             push_glyph()
-            _insert(glyphs, _syntax.TAB)
+            push_beat(_syntax.TAB)
             self._total_beats = self._total_beats + (BEAT_TO_WEIGHT[_syntax.TAB] or 1)
         elseif BEAT_TO_WEIGHT[s] ~= nil then
             push_glyph() -- remove?
-            _insert(glyphs, _syntax.BEAT)
+            push_beat(_syntax.BEAT)
             self._total_beats = self._total_beats + (BEAT_TO_WEIGHT[_syntax.BEAT] or 1)
         elseif s == "<" then
             push_glyph()
@@ -635,25 +651,25 @@ function rt.Label:_parse(raw)
             local settings_key = _sequence_to_settings_key[as_string]
             if settings_key ~= nil then
                 if is_closing_tag then
-                    if settings[settings_key] == false then
+                    if glyph_settings[settings_key] == false then
                         throw_parse_error("trying to close region with `" .. as_string .. "`, but not such region is open")
                     end
 
-                    settings[settings_key] = false
+                    glyph_settings[settings_key] = false
                 else
-                    if settings[settings_key] == true then
+                    if glyph_settings[settings_key] == true then
                         throw_parse_error("trying to open region with `" .. as_string .. "`, but such a region is already open")
                     end
 
-                    settings[settings_key] = true
+                    glyph_settings[settings_key] = true
                 end
             else
                 if is_closing_tag then -- manually parse color tags
                     local found = false
                     for other in keys(_syntax.COLOR_TAG_END) do
                         if as_string == other then
-                            settings.color = default_color
-                            settings.color_active = false
+                            glyph_settings.color = default_color
+                            glyph_settings.color_active = false
                             found = true
                             break
                         end
@@ -662,8 +678,8 @@ function rt.Label:_parse(raw)
                     if not found then
                         for other in keys(_syntax.OUTLINE_COLOR_TAG_END) do
                             if as_string == other then
-                                settings.outline_color = default_outline_color
-                                settings.outline_color_active = false
+                                glyph_settings.outline_color = default_outline_color
+                                glyph_settings.outline_color_active = false
                                 found = true
                                 break
                             end
@@ -683,8 +699,8 @@ function rt.Label:_parse(raw)
                                 throw_parse_error("malformed color tag: color `" .. new_color .. "` unknown")
                             end
 
-                            settings.color = new_color
-                            settings.color_active = true
+                            glyph_settings.color = new_color
+                            glyph_settings.color_active = true
                             break
                         end
                     end
@@ -697,8 +713,8 @@ function rt.Label:_parse(raw)
                                     throw_parse_error("malformed outline color tag: color `" .. new_color .. "` unknown")
                                 end
 
-                                settings.outline_color = new_color
-                                settings.outline_color_active = true
+                                glyph_settings.outline_color = new_color
+                                glyph_settings.outline_color_active = true
                                 break
                             end
                         end
@@ -718,17 +734,17 @@ function rt.Label:_parse(raw)
     end
     push_glyph()
 
-    if settings.is_bold then throw_parse_error("reached end of text, but bold region is still open") end
-    if settings.is_italic then throw_parse_error("reached end of text, but italic region is still open") end
-    if settings.color_active then throw_parse_error("reached end of text, but colored region is still open") end
-    if settings.outline_color_active then throw_parse_error("reached end of text, but outline color region is still open") end
-    if settings.is_effect_shake then throw_parse_error("reached end of text, but effect shake region is still open") end
-    if settings.is_effect_wave then throw_parse_error("reached end of text, but effect wave region is still open") end
-    if settings.is_effect_rainbow then throw_parse_error("reached end of text, but effect rainbow region is still open") end
-    if settings.is_effect_noise then throw_parse_error("reached end of text, but effect noise region is still open") end
-    if settings.is_underlined then throw_parse_error("reached end of text, but effect underlined region is still open") end
-    if settings.is_strikethrough then throw_parse_error("reached end of text, but effect strikethrough region is still open") end
-    if settings.is_outlined then throw_parse_error("reached end of text, but effect outline region is still open") end
+    if glyph_settings.is_bold then throw_parse_error("reached end of text, but bold region is still open") end
+    if glyph_settings.is_italic then throw_parse_error("reached end of text, but italic region is still open") end
+    if glyph_settings.color_active then throw_parse_error("reached end of text, but colored region is still open") end
+    if glyph_settings.outline_color_active then throw_parse_error("reached end of text, but outline color region is still open") end
+    if glyph_settings.is_effect_shake then throw_parse_error("reached end of text, but effect shake region is still open") end
+    if glyph_settings.is_effect_wave then throw_parse_error("reached end of text, but effect wave region is still open") end
+    if glyph_settings.is_effect_rainbow then throw_parse_error("reached end of text, but effect rainbow region is still open") end
+    if glyph_settings.is_effect_noise then throw_parse_error("reached end of text, but effect noise region is still open") end
+    if glyph_settings.is_underlined then throw_parse_error("reached end of text, but effect underlined region is still open") end
+    if glyph_settings.is_strikethrough then throw_parse_error("reached end of text, but effect strikethrough region is still open") end
+    if glyph_settings.is_outlined then throw_parse_error("reached end of text, but effect outline region is still open") end
 
     -- estimate size before wrapping
     local max_width = 0
@@ -768,7 +784,7 @@ function rt.Label:_parse(raw)
         self._n_visible_characters = n_characters
     end
 
-    return self._glyphs_only
+    return tokens
 end
 
 --- @brief [internal]

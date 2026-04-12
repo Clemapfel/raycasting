@@ -89,8 +89,7 @@ return {
 
     -- overworld gameplay
     player_name = "Player",
-    eyes_name = "Eyes",
-    ghost_name = "Ghost",
+    npc_name = "NPC",
 
     overworld_scene = {
         control_indicator_move = "Move",

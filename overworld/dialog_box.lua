@@ -158,8 +158,8 @@ function ow.DialogBox:realize()
     local dialog_choice_key = settings.dialog_choice_key
     local state_key = settings.state_key
     local orientation_key = settings.speaker_orientation_key
-    local orientation_left = settings.speaker_orientation_left
-    local orientation_right = settings.speaker_orientation_right
+    local orientation_left = rt.DialogSpeakerOrientation.LEFT
+    local orientation_right = rt.DialogSpeakerOrientation.RIGHT
 
     settings = rt.settings.overworld.dialog_box
     local speaker_prefix = settings.speaker_text_prefix
@@ -185,12 +185,14 @@ function ow.DialogBox:realize()
 
         local speaker_id = node_entry[speaker_key]
         local orientation = node_entry[orientation_key]
-        if orientation == nil or orientation == orientation_left then
+
+        rt.assert(meta.is_enum_value(orientation, rt.DialogSpeakerOrientation))
+
+        if orientation == orientation_left then
             node.speaker_orientation = true
         elseif orientation == orientation_right then
             node.speaker_orientation = false
         else
-            rt.error("In ow.DialogBox: for dialog `",  self._id,  "` node `",  key,  "` has invalid value for `orientation` field, expected `",  orientation_left,  "` or `",  orientation_right,  "`, got: `",  orientation)
             node.speaker_orientation = true
         end
 
@@ -210,9 +212,7 @@ function ow.DialogBox:realize()
             )
         end
 
-        if not meta.is_string(node_entry[1]) then
-            rt.error("In ow.DialogBox: for dialog `",  self._id,  "`: node `",  node.id,  "` does not have any dialog text")
-        end
+        rt.assert(meta.is_string(node_entry[1]))
 
         local i = 1
         local text = node_entry[i]
@@ -231,10 +231,8 @@ function ow.DialogBox:realize()
         end
 
         if node_entry[dialog_choice_key] ~= nil then
-            if node_entry[next_key] ~= nil then
-                rt.warning("In ow.DialogBox: for dialog `",  self._id,  "` multiple choice node `",  key,  "` has `", next_key, "` set, it will be ignore")
-                node.next = nil
-            end
+            node.next = nil
+            rt.assert(node_entry[next_key] == nil, "In ow.DialogBox: for dialog `", self._id, "`: multiple choice node `", key, "` has toplevel `next` set, it should be nil")
 
             node.n_answers = 0
             node.highlighted_answer_i = 1
@@ -248,9 +246,7 @@ function ow.DialogBox:realize()
             node.height = 0
             for j, choice in ipairs(node_entry[dialog_choice_key]) do
                 local choice_text = choice[1]
-                if not meta.is_string(choice_text) then
-                    rt.error("In ow.DialogBox: for dialog `",  self._id,  "` multiple choice node `",  key,  "` does not have answer at position 1")
-                end
+                rt.assert(meta.is_string(choice[1]), "In ow.DialogBox: for dialog `", self._id, "` multiple choice node `", key, "` does not have answer at position `1`")
 
                 local label = rt.Label(choice_text)
                 local highlighted_label = rt.Label(selected_answer_prefix .. choice_text .. selected_answer_postfix)
@@ -264,10 +260,6 @@ function ow.DialogBox:realize()
                 node.n_answers = node.n_answers + 1
                 node.answer_i_to_next_node_id[j] = choice.next
             end
-
-            if node_entry[state_key] ~= nil then
-                rt.warning("In ow.DialogBox: dialog at `", self._id, "`: node `", node.id, "` is a multiple choice node, but has `", state_key, "` set. It will be ignored")
-            end
         end
 
         node.is_done = false
@@ -277,10 +269,7 @@ function ow.DialogBox:realize()
     end
 
     local first_node = self._id_to_node[1]
-    if first_node == nil then
-        rt.warning("In ow.DialogBox: for dialog `",  self._id,  "`, no node with id `1`")
-        first_node = table.first(self._id_to_node)
-    end
+    rt.assert(first_node ~= nil, "In ow.DialogBox: for dialog `", self._id, "`, no node with id `1`")
     can_be_visited[first_node] = true
 
     for node in values(self._id_to_node) do

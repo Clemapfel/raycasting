@@ -20,7 +20,6 @@ local _type_to_super = {}
 local _type_to_instance_metatable = {}
 local _typename_to_type = {}
 local _type_to_typename = {}
-meta._benchmark = {}
 
 --- @brief
 function meta.get_typename(type)
@@ -490,9 +489,6 @@ function meta.class(typename, super, instantiate_maybe)
     -- create instance
     local type_metatable = {
         __call = function(self, ...)
-            local current = meta._benchmark[typename]
-            if current == nil then meta._benchmark[typename] = 1 else meta._benchmark[typename] = current + 1 end
-
             local instance = setmetatable({}, instance_metatable)
             rawset(instance, _object_hash_index, _current_hash)
             _current_hash = _current_hash + 1
@@ -588,28 +584,28 @@ local _enum_to_instances = {}
 
 --- @return meta.Enum
 function meta.enum(typename, fields)
-        local enum_metatable = {
-            __index = function(self, key)
-                local result = rawget(fields, key)
-                if result == nil then
-                    rt.error("In meta.enum: trying to access field `",  key,  "` of enum `",  typename,  "`, but enum has no such field")
-                    return nil
-                end
-                return result
-            end,
+    local enum_metatable = {
+        __index = function(self, key)
+            local result = rawget(fields, key)
+            if result == nil then
+                rt.error("In meta.enum: trying to access field `",  key,  "` of enum `",  typename,  "`, but enum has no such field")
+                return nil
+            end
+            return result
+        end,
 
-            __newindex = function()
-                rt.error("In meta.enum: trying to modify enum `",  typename,  "`, but it is immutable")
-                return
-            end,
+        __newindex = function()
+            rt.error("In meta.enum: trying to modify enum `",  typename,  "`, but it is immutable")
+            return
+        end,
 
-            __typename = "Enum",
-            __tostring = function() return typename end,
-            __value_to_is_present = {}
-        }
+        __typename = "Enum",
+        __tostring = function() return typename end,
+        __value_to_is_present = {}
+    }
 
-        for _, value in pairs(fields) do
-        enum_metatable.__value_to_is_present[value] = true
+    for _, value in pairs(fields) do
+    enum_metatable.__value_to_is_present[value] = true
     end
 
     local enum = setmetatable({}, enum_metatable)
@@ -635,6 +631,11 @@ end
 --- @return boolean
 function meta.is_enum_value(x, enum)
     return getmetatable(enum).__value_to_is_present[x] == true
+end
+
+--- @return string
+function meta.get_enum_name(enum)
+    return getmetatable(enum).__tostring()
 end
 
 --- @return number

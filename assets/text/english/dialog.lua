@@ -1,17 +1,7 @@
-local PLAYER = "Player"
-local PLAYER_SIDE = "right"
-local NPC = "Unnamed Eyes" --rt.Translation.npc_name
-local NPC_SIDE = "left"
-
-local EYES_NAME = "(# EYES_NAME)"
-local GHOST_NAME = "(# GHOST_NAME)"
-
-local BOOST_FIELD_NAME = "Boost Field"
-
 return {
     slippery_floor_tutorial = {
         {
-            speaker = EYES_NAME,
+            speaker = rt.NPC_NAME,
             "<b>Glass</b> like this is <wave>slippery</wave>, if you walk on it you slide around instead of stopping.",
             "There is no way to climb walls made out of glass, and none of your \"paint\" will stick to it. Be careful and always try to keep in mind the type of surface you are touching"
         }
@@ -19,20 +9,20 @@ return {
 
     temp = {
         {
-            speaker = EYES_NAME,
+            speaker = rt.NPC_NAME,
             next = 2,
             "r8 my <rainbow><wave><b>NPC</b></wave></rainbow>!",
         },
         {
-            speaker = EYES_NAME,
+            speaker = rt.NPC_NAME,
             "I like that he warps the map so it feels like he is not part of the game, I will use him to convey <i><b>non-diagetic information</b></i>, like tips about the game, everything else except the button prompts I guess should be diagetic."
         }
     },
 
     boost_field_tip_01 = {
         {
-            speaker = EYES_NAME,
-            "These <b>" .. BOOST_FIELD_NAME .. "s</b> make you go faster whigle your are touching them. Make sure to <b>maximize the amount of time you are touching them</b> to get the most speed"
+            speaker = rt.NPC_NAME,
+            "These <b>" .. "boost field" .. "s</b> make you go faster whigle your are touching them. Make sure to <b>maximize the amount of time you are touching them</b> to get the most speed"
         }
     },
 
@@ -90,8 +80,8 @@ return {
 
     template = {
         {
-            speaker = NPC,
-            orientation = NPC_SIDE,
+            speaker = rt.NPC_NAME,
+            orientation = rt.SpeakerOrientation.LEFT,
             next = 2,
             state = {
                 happy = 0.4,
@@ -102,16 +92,16 @@ return {
         },
 
         {
-            speaker = PLAYER,
-            orientation = PLAYER_SIDE,
+            speaker = rt.PLAYER_NAME,
+            orientation = rt.SpeakerOrientation.RIGHT,
             next = 3,
 
             "I did.\n But idk if the player should talk at all, the NPC definitely should, but I really want to implement that thing where instead of choosing an option, the player has to nod or shake their head."
         },
 
         {
-            speaker = PLAYER,
-            orientation = PLAYER_SIDE,
+            speaker = rt.PLAYER_NAME,
+            orientation = rt.SpeakerOrientation.RIGHT,
             --next = "loop_a",
             next = nil,
 
@@ -119,16 +109,16 @@ return {
         },
 
         loop_a = {
-            speaker = NPC,
-            orientation = NPC_SIDE,
+            speaker = rt.NPC_NAME,
+            orientation = rt.SpeakerOrientation.LEFT,
             next = "loop_b",
 
             "like test?"
         },
 
         loop_b = {
-            speaker = PLAYER,
-            orientation = PLAYER_SIDE,
+            speaker = rt.PLAYER_NAME,
+            orientation = rt.SpeakerOrientation.RIGHT,
             next = "loop_a",
 
             "no, like this"

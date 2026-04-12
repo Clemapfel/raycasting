@@ -17,7 +17,6 @@ rt.settings.animalese = {
 --- @class rt.Animalese
 rt.Animalese = meta.class("Animalese")
 
-
 require "common.animalese_gender"
 require "common.animalese_emotion"
 require "common.animalese_phonemes"
@@ -43,10 +42,10 @@ function rt.Animalese:instantiate()
     end
 
     local data = self._data
-    for gender in values(meta.instances(rt.Animalese.Gender)) do
+    for gender in values(meta.instances(rt.AnimaleseGender)) do
         if data[gender] == nil then data[gender] = {} end
 
-        for emotion in values(meta.instances(rt.Animalese.Emotion)) do
+        for emotion in values(meta.instances(rt.AnimaleseEmotion)) do
             if data[gender][emotion] == nil then data[gender][emotion] = {} end
 
             for phoneme in values(phonemes) do
@@ -79,15 +78,15 @@ function rt.Animalese:_get_free_source(entry)
 end
 
 function rt.Animalese:queue(gender, emotion, ...)
-    if gender == nil then gender = rt.Animalese.Gender.FEMALE end
-    if emotion == nil then emotion = rt.Animalese.Emotion.NORMAL end
+    if gender == nil then gender = rt.AnimaleseGender.FEMALE end
+    if emotion == nil then emotion = rt.AnimaleseEmotion.NORMAL end
 
-    meta.assert_enum_value(gender, rt.Animalese.Gender, 2)
-    meta.assert_enum_value(emotion, rt.Animalese.Emotion, 3)
+    meta.assert_enum_value(gender, rt.AnimaleseGender, 2)
+    meta.assert_enum_value(emotion, rt.AnimaleseEmotion, 3)
 
     local data = self._data
-    local gender_entry = data[gender] or data[rt.Animalese.Gender.FEMALE]
-    local emotion_entry = gender_entry[emotion] or gender_entry[rt.Animalese.Emotion.NORMAL]
+    local gender_entry = data[gender] or data[rt.AnimaleseGender.FEMALE]
+    local emotion_entry = gender_entry[emotion] or gender_entry[rt.AnimaleseEmotion.NORMAL]
 
     -- track if the queue was completely empty before we started appending
     local was_empty = (#self._queue == 0)
@@ -165,6 +164,7 @@ function rt.Animalese:queue(gender, emotion, ...)
     end
 end
 
+--- @brief
 function rt.Animalese:update(delta)
     local current = self._queue[1]
     local next_item = self._queue[2]
@@ -473,7 +473,11 @@ do
             for text in values(input) do
                 local glyphs = proxy:_parse(text)
                 for glyph in values(glyphs) do
-                    table.insert(tokens, _sanitize(glyph.text))
+                    if glyph ~= rt.Animalese.Phoneme.BEAT then
+                        text = _sanitize(text)
+                    end
+
+                    table.insert(tokens, text)
                 end
             end
 
@@ -483,6 +487,7 @@ do
                 if translated == nil then
                     rt.error("In rt.Animalese.translate: precomputed translation was loaded, but encountered unknown token `", token, "`")
                 end
+
                 table.insert(translation, translated)
             end
 
@@ -644,7 +649,9 @@ do
         for exclude in range(
             dialog_settings.speaker_key,
             dialog_settings.next_key,
-            dialog_settings.state_key
+            dialog_settings.state_key,
+            dialog_settings.emotion_key,
+            dialog_settings.gender_key
         ) do
             to_exclude[exclude] = true
         end

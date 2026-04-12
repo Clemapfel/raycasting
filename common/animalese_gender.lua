@@ -1,6 +1,6 @@
---- @enum rt.Animalese.Gender
-rt.Animalese.Gender = {
+--- @enum rt.AnimaleseGender
+rt.AnimaleseGender = {
     MALE = "takumi",
     FEMALE = "mei"
 }
-rt.Animalese.Gender = meta.enum("Animalese.Gender", rt.Animalese.Gender)
+rt.AnimaleseGender = meta.enum("AnimaleseGender", rt.AnimaleseGender)
