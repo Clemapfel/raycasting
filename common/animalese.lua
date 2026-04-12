@@ -17,24 +17,10 @@ rt.settings.animalese = {
 --- @class rt.Animalese
 rt.Animalese = meta.class("Animalese")
 
---- @enum rt.Animalese.Gender
-rt.Animalese.Gender = {
-    MALE = "takumi",
-    FEMALE = "mei"
-}
-rt.Animalese.Gender = meta.enum("Animalese.Gender", rt.Animalese.Gender)
 
---- @enum rt.Animalese.Emotion
-rt.Animalese.Emotion = {
-    ANGRY = "angry",
-    BASHFUL = "bashful",
-    HAPPY = "happy",
-    NORMAL = "normal",
-    SAD = "sad"
-}
-rt.Animalese.Emotion = meta.enum("Animalese.Emotion", rt.Animalese.Emotion)
-
-require "jtalk.animalese_phonemes"
+require "common.animalese_gender"
+require "common.animalese_emotion"
+require "common.animalese_phonemes"
 
 local _precomputed = nil
 
