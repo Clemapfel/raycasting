@@ -21,7 +21,6 @@ do
     local settings = rt.settings.dialog
     local path = bd.join_path(settings.path, bd.get_config().language, settings.filename)
     local load_success, dialog_or_error = pcall(bd.load, path, true, {
-
     }) -- sandboxed fenv
 
     if not load_success then

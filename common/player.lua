@@ -1553,8 +1553,11 @@ function rt.Player:update(delta)
                 next_velocity_y = next_velocity_y + ground_tangent_y * gravity_tangent_dot * force
                 is_sliding = true
             else
-                next_velocity_x = next_velocity_x + dx * force
-                next_velocity_y = next_velocity_y + dy * force
+                -- weigh by velocity alignment with gravity, prevents force being applied while jumping
+                local dot = math.dot(0, 1, math.normalize(next_velocity_x, next_velocity_y))
+                local weight = (math.clamp( (dot + 1) / 2, 0, 1))
+                next_velocity_x = next_velocity_x + dx * force * weight
+                next_velocity_y = next_velocity_y + dy * force * weight
             end
         end
 

@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 822,
+  nextobjectid = 823,
   properties = {},
   tilesets = {
     {
@@ -3247,11 +3247,6 @@ return {
             { x = 48, y = -302.282 },
             { x = 48, y = 0 },
             { x = 768, y = 1.71836 },
-            { x = 1328, y = 64 },
-            { x = 1664, y = 0 },
-            { x = 2240, y = 128 },
-            { x = 2640, y = -32 },
-            { x = 2720, y = 208 },
             { x = 768, y = 225.718 },
             { x = -144, y = 225.718 }
           },
@@ -3294,8 +3289,8 @@ return {
           name = "",
           type = "CameraFit",
           shape = "rectangle",
-          x = 462.239,
-          y = 1664.72,
+          x = 848,
+          y = 2208,
           width = 745.948,
           height = 476.068,
           rotation = 0,

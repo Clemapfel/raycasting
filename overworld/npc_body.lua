@@ -73,7 +73,7 @@ function ow.NPCBody:_initialize(
         table.insert(mesh_data, {
             x, y,
             u, v,
-            value, value, value, 1
+            1, 1, 1, math.clamp(t, 0, 1)
         })
     end
 
@@ -307,10 +307,10 @@ end
 --- @brief
 function ow.NPCBody:draw()
     --love.graphics.setWireframe(true)
-    --_shader:bind()
+    _shader:bind()
     love.graphics.setColor(1, 1, 1, 1)
     self._dilation_mesh:draw()
-    --_shader:unbind()
+    _shader:unbind()
     --love.graphics.setWireframe(false)
 end
 

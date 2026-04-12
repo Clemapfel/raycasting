@@ -6,6 +6,10 @@ require "common.music_manager"
 require "common.sound_manager"
 require "common.input_manager"
 
+require "common.animalese"
+local animalese = rt.Animalese()
+dbg(animalese:translate("the"))
+
 love.load = function(args)
     local w, h = love.graphics.getDimensions()
 

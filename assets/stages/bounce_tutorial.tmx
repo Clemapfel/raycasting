@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="822">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="823">
  <editorsettings>
   <export target="bounce_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -604,7 +604,7 @@
    <polygon points="0,0 176,0 176,32 0,32"/>
   </object>
   <object id="751" type="Hitbox" x="912" y="2560">
-   <polygon points="-144,-302.282 48,-302.282 48,0 768,1.71836 1328,64 1664,0 2240,128 2640,-32 2720,208 768,225.718 -144,225.718"/>
+   <polygon points="-144,-302.282 48,-302.282 48,0 768,1.71836 768,225.718 -144,225.718"/>
   </object>
   <object id="759" type="SlipperyHitbox" x="992" y="2240">
    <polygon points="0,16 0,320 -32,320 -32,16"/>
@@ -612,7 +612,7 @@
   <object id="809" name="spawn" type="PlayerSpawn" x="1312" y="2528">
    <point/>
   </object>
-  <object id="810" type="CameraFit" x="462.239" y="1664.72" width="745.948" height="476.068"/>
+  <object id="810" type="CameraFit" x="848" y="2208" width="745.948" height="476.068"/>
   <object id="821" name="NPC" type="NPC" x="1104" y="2496">
    <properties>
     <property name="dialog_id" value="one_way_platform_tutorial_cant_pass"/>

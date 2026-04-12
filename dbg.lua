@@ -1,3 +1,3 @@
 return {
-    contour = 0.25
+    contour = 0.25,
 }

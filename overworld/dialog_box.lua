@@ -132,7 +132,7 @@ function ow.DialogBox:instantiate(id)
     })
 
     if _animalese == nil then
-        require "jtalk.animalese"
+        require "common.animalese"
         _animalese = rt.Animalese()
     end
 end
