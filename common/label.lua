@@ -519,13 +519,18 @@ function rt.Label:_parse(raw)
     local s = at(i)
     local current_word = {}
 
-    local push_beat = function(beat)
+    local push_beat = function(beat, raw)
+        if raw == nil then raw = beat end
         table.insert(self._glyphs, beat)
 
-        local n_tokens = BEAT_TO_WEIGHT[beat]
-        if n_tokens ~= nil then
-            for _ = 1, n_tokens do
-                table.insert(tokens, rt.AnimalesePhoneme.BEAT)
+        if meta.is_enum_value(raw, rt.AnimalesePhoneme) then
+            table.insert(tokens, raw)
+        else
+            local n_tokens = BEAT_TO_WEIGHT[raw]
+            if n_tokens ~= nil then
+                for _ = 1, n_tokens do
+                    table.insert(tokens, rt.AnimalesePhoneme.BEAT)
+                end
             end
         end
     end
@@ -623,7 +628,7 @@ function rt.Label:_parse(raw)
             self._total_beats = self._total_beats + (BEAT_TO_WEIGHT[_syntax.TAB] or 1)
         elseif BEAT_TO_WEIGHT[s] ~= nil then
             push_glyph() -- remove?
-            push_beat(_syntax.BEAT)
+            push_beat(_syntax.BEAT, s)
             self._total_beats = self._total_beats + (BEAT_TO_WEIGHT[_syntax.BEAT] or 1)
         elseif s == "<" then
             push_glyph()

@@ -1,20 +1,25 @@
 -- display splash screen while loading
 return function(text)
     if love.graphics then
-        local screen_w, screen_h = love.graphics.getWidth(), love.graphics.getHeight()
-        love.graphics.setColor(0, 0, 0, 1)
-        local label = text
-        local font = love.graphics.newFont(0.15 * love.graphics.getHeight())
-        local label_w, label_h = font:getWidth(label), font:getHeight(label)
+        local screen_width, screen_height = love.graphics.getWidth(), love.graphics.getHeight()
+
+        local font_size = math.ceil(0.15 * love.graphics.getHeight())
+        local font
+
+        repeat
+            font = love.graphics.newFont(font_size)
+            font_size = font_size - 1
+            if font_size < 12 then break end
+        until font:getWidth(text) < screen_width and font:getHeight() < screen_height
 
         love.graphics.setColor(0, 0, 0, 1)
-        love.graphics.rectangle("fill", 0, 0, screen_w, screen_h)
+        love.graphics.rectangle("fill", 0, 0, screen_width, screen_height)
 
         local value = 0.3
         love.graphics.setColor(value, value, value, 1)
-        love.graphics.print(label, font,
-            math.floor(0.5 * screen_w - 0.5 * label_w),
-            math.floor(0.5 * screen_h - 0.5 * label_h)
+        love.graphics.print(text, font,
+            math.floor(0.5 * screen_width - 0.5 * font:getWidth(text)),
+            math.floor(0.5 * screen_height - 0.5 * font:getHeight())
         )
         love.graphics.present()
     end

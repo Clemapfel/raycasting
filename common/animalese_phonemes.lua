@@ -7,8 +7,7 @@ rt.EnglishPhoneme = {
     START = "<s>",
     END = "</s>",
     BEAT = " ",
-    COMMA = ",",
-    COLON = ".",
+    QUESTION_MARK = "?",
 
     -- monophthongs (pure vowels)
     AA = "AA", AA0 = "AA0", AA1 = "AA1", AA2 = "AA2", -- "bot" /ɑ/
@@ -141,8 +140,6 @@ rt.AnimalesePhoneme = {
 
     -- control characters,
     BEAT = rt.EnglishPhoneme.BEAT,
-    COMMA = rt.EnglishPhoneme.COMMA,
-    COLON = rt.EnglishPhoneme.COLON,
     QUESTION_MARK = "?"
 }
 

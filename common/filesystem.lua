@@ -636,7 +636,7 @@ do
                     return true
                 end
             else
-                if f(full_path, item) == true then
+                if f(full_path, item, path) == true then
                     return true -- signal exit
                 end
             end
@@ -674,7 +674,7 @@ function bd.apply(path, f)
         local items = love.filesystem.getDirectoryItems(path)
         for item in values(items) do
             local full_path = bd.join_path(path, item)
-            if f(full_path, item) == true then
+            if f(full_path, item, path) == true then
                 return -- exit early if callback returns true
             end
         end

@@ -8,13 +8,29 @@ rt.settings.animalese = {
     path = "jtalk",
     native_prefix = "jtalk",
 
+    export_path = "jtalk/export",
     script_filename = "jtalk/to_phonemes.py",
     hash_filename = "export/.animalese.hash",
     translation_filename = "export/.animalese",
+    sample_file_extension = ".wav"
 }
 
 --- @class rt.Animalese
 rt.Animalese = meta.class("Animalese")
+
+meta.add_signals(rt.Animalese,
+    --- @signal (rt.Animalese, batch_id)
+    "batch_done",
+
+    --- @signal (rt.Animalese, batch_id, beat_count, beat_type)
+    "beat"
+)
+
+--- @brief
+function rt.Animalese:instantiate()
+    -- instanced as singleton, see below
+    self:_initialize()
+end
 
 require "common.animalese_gender"
 require "common.animalese_emotion"
@@ -28,7 +44,7 @@ do
         for character in range(
             "\"", "'", "`",
             ".", ",", ":", ";",
-            "!", "?",
+            "!", --"?",
             "@", "#", "$", "%", "^", "&", "*",
             "-", "+", "=", "~",
             "|",
@@ -147,10 +163,8 @@ function rt.Animalese:_load_precomputed()
         rt.settings.animalese.translation_filename
     )
 
-    local translation_success, translation_or_error = pcall(bd.load, animalese_translation_path)
-    if not translation_success then
-        rt.error("In rt.Animalese: when trying to read file at `", animalese_translation_path, "`: ", translation_or_error)
-    end
+    local success, translation_or_error = pcall(bd.load, animalese_translation_path)
+    if not success then return end
 
     if not meta.is_table(translation_or_error) then
         rt.error("In rt.Dialog: when trying to read file at `", animalese_translation_path, "`: file does not return a table")
@@ -344,8 +358,7 @@ do
         local is_stop = function(x)
             return x == nil
                 or x == English.BEAT
-                or x == English.COMMA
-                or x == English.COLON
+                or x == English.QUESTION_MARK
                 or x == English.END
         end
 
@@ -361,7 +374,7 @@ do
             rt.error("In rt.Animalese._english_phonemes_to_animalese_phonemes: ", ...)
         end
 
-        for phoneme in values(phonemes) do
+        do
             local i = 1
             local n = #phonemes
 
@@ -448,8 +461,12 @@ function rt.Animalese:translate(texts, update_precomputed)
         local tokens = {}
         for token in keys(needs_translation) do table.insert(tokens, token) end
 
+        if rt.SceneManager:get_current_scene() == nil then
+            -- splashscreen only before initialization
+            require("common.splash_screen")("translating animalese...")
+        end
+
         -- convert unknown tokens to phonemes in one batch
-        require("common.splash_screen")("translating animalese...")
         local phonemes = rt.Animalese:_tokens_to_english_phonemes(tokens)
 
         -- convert phonemes to animalese, update precomputed
@@ -478,11 +495,191 @@ function rt.Animalese:translate(texts, update_precomputed)
     return animalese
 end
 
+--- @brief
+function rt.Animalese:_initialize()
+    local prefix = rt.settings.animalese.export_path
+    local fallback = bd.join_path(prefix, rt.AnimaleseGender.FEMALE, rt.AnimaleseEmotion.NORMAL)
+    if not bd.is_directory(fallback) then
+        rt.error("In rt.Animalese: unable to locate fallback directory at `", fallback, "`")
+    end
+
+    self._data = {}
+    self._queue = {}
+    self._batch_id = 0
+
+    local data = self._data
+
+    local is_beat = {}
+    for x in range(
+        rt.AnimalesePhoneme.BEAT,
+        rt.AnimalesePhoneme.QUESTION_MARK
+    ) do is_beat[x] = true end
+
+    local beat_weights = rt.settings.label.syntax.BEAT_TO_WEIGHT
+    local beat_duration = 1 / rt.settings.label.scroll_speed
+
+    local seen_paths = {}
+
+    for gender in values(meta.instances(rt.AnimaleseGender)) do
+        if data[gender] == nil then data[gender] = {} end
+        for emotion in values(meta.instances(rt.AnimaleseEmotion)) do
+            if data[gender][emotion] == nil then data[gender][emotion] = {} end
+
+            local path = bd.join_path(prefix, gender, emotion)
+            if not bd.exists(path) then path = fallback end
+
+            local entry = data[gender][emotion]
+
+            for phoneme in values(meta.instances(rt.AnimalesePhoneme)) do
+                local beat = is_beat[phoneme] == true
+                local start_t, end_t, duration
+
+                if beat then
+                    beat = true
+                    duration = (beat_weights[phoneme] or 1) * beat_duration
+                    start_t, end_t = 0, duration
+                else
+                    start_t, end_t, duration = 0, 0, 0
+                    -- set in _initialize_entry
+                end
+
+                local full_path = bd.join_path(prefix, gender, emotion, phoneme .. rt.settings.animalese.sample_file_extension)
+                if beat or bd.exists(full_path) then
+                    data[gender][emotion][phoneme] = {
+                        is_initialized = beat,
+                        start_t = start_t, -- seconds
+                        end_t = end_t,
+                        path = ternary(not beat, full_path, nil),
+                        duration = 0,
+                        sources = {},
+                        phoneme = phoneme,
+                        is_beat = beat
+                    }
+
+                    seen_paths[full_path] = true
+                end
+            end
+
+            -- delete unused samples
+            bd.apply(bd.join_path(prefix, gender, emotion), function(filename)
+                if seen_paths[filename] ~= true then
+                    rt.warning("In rt.Animalese._initialize: detected unused sample at `", filename, "`. It will be deleted")
+                    bd.remove_file(filename)
+                end
+            end)
+        end
+    end
+end
+
+--- @brief
+function rt.Animalese:_initialize_entry(entry)
+    if entry.is_initialized ~= true then
+        local success, sound_data_or_error = pcall(love.sound.newSoundData, entry.path)
+        if not success then
+            rt.error("In rt.Animalese: failed to initialize source at `", entry.path, "`: ", sound_data_or_error)
+        else
+            local sound_data = sound_data_or_error
+            local n_samples = sound_data:getSampleCount()
+            local eps = rt.settings.animalese.silence_eps
+
+            local first_sample_i = 0
+            while first_sample_i < n_samples do
+                if math.abs(sound_data:getSample(first_sample_i)) > eps then break end
+                first_sample_i = first_sample_i + 1
+            end
+
+            local last_sample_i = n_samples - 1
+            while last_sample_i >= 0 do
+                if math.abs(sound_data:getSample(last_sample_i)) > eps then break end
+                last_sample_i = last_sample_i - 1
+            end
+
+            local sample_rate = sound_data:getSampleRate()
+
+            entry.start_t = first_sample_i / sample_rate
+            entry.end_t = last_sample_i / sample_rate
+
+            local initial_source = love.audio.newSource(sound_data)
+            initial_source:setLooping(false)
+            entry.sources = { initial_source }
+
+            entry.is_initialized = true
+        end
+    end
+end
+
+--- @brief
+function rt.Animalese:talk(text, gender, emotion)
+    if gender == nil then gender = rt.AnimaleseGender.FEMALE end
+    if emotion == nil then emotion = rt.AnimaleseEmotion.NORMAL end
+
+    meta.assert_typeof(text, "String", 1)
+    meta.assert_enum_value(gender, rt.AnimaleseGender, 2)
+    meta.assert_enum_value(emotion, rt.AnimaleseEmotion, 3)
+
+    local batch_id = self._batch_id
+    self._batch_id = self._batch_id + 1
+
+    local beat_i = 1
+
+    local translated = rt.Animalese:translate(text)
+    if translated == nil or #translated == 0 then return end
+
+    for phonemes in values(translated[1]) do
+        for phoneme in values(phonemes) do
+            local gender_entry = self._data[gender]
+            if gender == nil then
+                gender_entry = next(self._data)
+                rt.critical("In rt.Animalese.talk: no sample files for gender `", gender, "` available")
+            end
+
+            local emotion_entry = gender_entry[emotion]
+            if emotion == nil then
+                emotion_entry = next(gender_entry)
+                rt.critical("In rt.Animalese.talk: no sample files for gender `", gender, "` with emotion `", emotion, "` available")
+            end
+
+            local entry = emotion_entry[phoneme]
+            if entry == nil then
+                rt.critical("In rt.Animalese.talk: no sample files for gender `", gender, "`, emotion `", emotion, "`, phoneme `", phoneme, "` available", phoneme == rt.AnimalesePhoneme)
+                entry = emotion_entry[rt.AnimalesePhoneme.BEAT]
+            end
+
+            table.insert(self._queue, {
+                timestamp = nil, -- seconds, set in update
+                batch_id = batch_id,
+                entry = entry
+            })
+        end
+    end
+
+    return batch_id
+end
+
+--- @brief
+function rt.Animalese:remove(batch_id)
+    local to_remove = {}
+    for i, entry in ipairs(self._queue) do
+        if entry.batch_id == batch_id then
+            TODO: turn of active source
+            table.insert(to_remove, i, 1)
+        end
+    end
+
+    for i in values(to_remove) do
+        table.remove(self._queue, i)
+    end
+end
+
+--- @brief
+function rt.Animalese:update(delta)
+
+end
+
 rt.Animalese = meta.as_singleton(rt.Animalese)
 rt.Animalese:_load_precomputed()
 
-do
-    -- try retranslate dialog / translation
+do -- try retranslate dialog / translation
     require "common.filesystem"
     require "common.language"
     require "common.dialog"
