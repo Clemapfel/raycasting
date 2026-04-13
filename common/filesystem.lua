@@ -65,7 +65,7 @@ function bd.create_directory(path)
 
     local success = love.filesystem.createDirectory(path)
     if not success then
-        rt.error("In bd.create_directory: unable to create directory at `",  path,  "`")
+        rt.error("In bd.create_directory: unable to create directory at `", path, "`")
     end
 end
 
@@ -104,6 +104,7 @@ function bd.join_path(...)
     local table_i = 1
     for i = 1, n do
         local part = select(i, ...)
+        meta.assert_typeof(part, "String", i)
         if part and part ~= "" then
             part = string.gsub(tostring(part), "[\\/]*$", "") -- remove trailing slashes
             to_concatenate[table_i] = part
@@ -168,7 +169,7 @@ function bd.mount_path(path, mount_point)
         "readwrite",
         false
     ) then
-        rt.error("In bd.mount_path: unable to mount path at `",  path,  "`")
+        rt.error("In bd.mount_path: unable to mount path at `", path, "`")
         return nil
     else
         return mount_point
@@ -180,7 +181,7 @@ function bd.unmount_path(path)
     meta.assert(path, "String")
     path = bd.normalize_path(path)
     if not love.filesystem.unmountFullPath(path) then
-        rt.error("In bd.unmount_path: unable to mount path at `",  path,  "`")
+        rt.error("In bd.unmount_path: unable to mount path at `", path, "`")
     end
 end
 
@@ -382,16 +383,16 @@ function bd.remove_file(file_path)
     file_path = bd.normalize_path(file_path)
 
     if not bd.exists(file_path) then
-        rt.error("In bd.remove_file: file at `",  file_path,  "` does not exist")
+        rt.error("In bd.remove_file: file at `", file_path, "` does not exist")
     end
 
     if not bd.is_file(file_path) then
-        rt.error("In bd.remove_file: object at `",  file_path,  "` is not a file")
+        rt.error("In bd.remove_file: object at `", file_path, "` is not a file")
     end
 
     local remove_success = love.filesystem.remove(file_path)
     if not remove_success then
-        rt.error("In bd.remove_file: unable to remove file at `",  file_path,  "`")
+        rt.error("In bd.remove_file: unable to remove file at `", file_path, "`")
     end
 end
 
@@ -403,11 +404,11 @@ function bd.copy_directory(source_directory_path, destination_directory_path)
     destination_directory_path = bd.normalize_path(destination_directory_path)
 
     if not bd.exists(source_directory_path) then
-        rt.error("In bd.copy_directory: directory at `",  source_directory_path,  "` does not exist")
+        rt.error("In bd.copy_directory: directory at `", source_directory_path, "` does not exist")
     end
 
     if not bd.is_directory(source_directory_path) then
-        rt.error("In bd.copy_directory: object at `",  source_directory_path,  "` is not a directory")
+        rt.error("In bd.copy_directory: object at `", source_directory_path, "` is not a directory")
     end
 
     if not bd.exists(destination_directory_path) then
@@ -438,11 +439,11 @@ function bd.remove_directory(directory_path)
     directory_path = bd.normalize_path(directory_path)
 
     if not bd.exists(directory_path) then
-        rt.error("In bd.remove_directory: directory at `",  directory_path,  "` does not exist")
+        rt.error("In bd.remove_directory: directory at `", directory_path, "` does not exist")
     end
 
     if not bd.is_directory(directory_path) then
-        rt.error("In bd.remove_directory: object at `",  directory_path,  "` is not a directory")
+        rt.error("In bd.remove_directory: object at `", directory_path, "` is not a directory")
     end
 
     local items = love.filesystem.getDirectoryItems(directory_path)
@@ -458,7 +459,7 @@ function bd.remove_directory(directory_path)
 
     local remove_success = love.filesystem.remove(directory_path)
     if not remove_success then
-        rt.warning("In bd.remove_directory: unable to remove directory at `",  directory_path,  "`")
+        rt.warning("In bd.remove_directory: unable to remove directory at `", directory_path, "`")
     end
 end
 
@@ -470,7 +471,7 @@ function bd.copy(source_path, destination_path)
     elseif bd.is_file(source_path) then
         bd.copy_file(source_path, destination_path)
     else
-        rt.error("In bd.copy: object at `",  source_path,  "` is not a file or directory")
+        rt.error("In bd.copy: object at `", source_path, "` is not a file or directory")
     end
 end
 
@@ -482,7 +483,7 @@ function bd.remove(source_path)
     elseif bd.is_file(source_path) then
         bd.remove_file(source_path)
     else
-        rt.error("In bd.remove: object at `",  source_path,  "` is not a file or directory")
+        rt.error("In bd.remove: object at `", source_path, "` is not a file or directory")
     end
 end
 
@@ -522,7 +523,7 @@ function bd.move(source_path, destination_path)
     destination_path = bd.normalize_path(destination_path)
 
     if not bd.exists(source_path) then
-        rt.error("In bd.move: object at `",  source_path,  "` does not exist")
+        rt.error("In bd.move: object at `", source_path, "` does not exist")
     end
 
     if bd.is_file(source_path) then
@@ -530,7 +531,7 @@ function bd.move(source_path, destination_path)
     elseif bd.is_directory(source_path) then
         bd.move_directory(source_path, destination_path)
     else
-        rt.error("In bd.move: object at `",  source_path,  "` is neither a file nor a directory")
+        rt.error("In bd.move: object at `", source_path, "` is neither a file nor a directory")
     end
 end
 
@@ -541,12 +542,12 @@ function bd.load(path, should_sandbox, fenv)
 
     local load_success, chunk_or_error, love_error = pcall(love.filesystem.load, path)
     if not load_success then
-        rt.error("In bd.load: error when parsing file at `",  path,  "`: ",  chunk_or_error)
+        rt.error("In bd.load: error when parsing file at `", path, "`: ", chunk_or_error)
         return nil
     end
 
     if love_error ~= nil then
-        rt.error("In bd.load: error when loading file at `",  path,  "`: ",  love_error)
+        rt.error("In bd.load: error when loading file at `", path, "`: ", love_error)
         return nil
     end
 
@@ -567,7 +568,7 @@ function bd.load(path, should_sandbox, fenv)
 
     local chunk_success, config_or_error = pcall(chunk)
     if not chunk_success then
-        rt.error("In bd.load: error when running file at `",  path,  "`: ",  config_or_error)
+        rt.error("In bd.load: error when running file at `", path, "`: ", config_or_error)
         return nil
     end
     
@@ -581,12 +582,12 @@ function bd.load(path, should_sandbox, fenv)
 
     local load_success, chunk_or_error, love_error = pcall(love.filesystem.load, path)
     if not load_success then
-        rt.error("In bd.load: error when parsing file at `",  path,  "`: ",  chunk_or_error)
+        rt.error("In bd.load: error when parsing file at `", path, "`: ", chunk_or_error)
         return nil
     end
 
     if love_error ~= nil then
-        rt.error("In bd.load: error when loading file at `",  path,  "`: ",  love_error)
+        rt.error("In bd.load: error when loading file at `", path, "`: ", love_error)
         return nil
     end
 
@@ -607,7 +608,7 @@ function bd.load(path, should_sandbox, fenv)
 
     local chunk_success, config_or_error = pcall(chunk)
     if not chunk_success then
-        rt.error("In bd.load: error when running file at `",  path,  "`: ",  config_or_error)
+        rt.error("In bd.load: error when running file at `", path, "`: ", config_or_error)
         return nil
     end
 

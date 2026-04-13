@@ -1,17 +1,16 @@
 require "common.meta"
 require "common.filesystem"
 
--- In your settings configuration:
 rt.settings.animalese = {
-    asset_path = "jtalk/export",
-    phonemes_list_filename = "phonemes_jp.txt",
     filetype = "wav",
     silence_eps = 0.05,
-    beat_duration = 0.15, -- seconds
 
-    path = "jtalk/export",
-    hash_filename = ".animalese.hash",
-    animalese_translation_filename = ".animalese",
+    path = "jtalk",
+    native_prefix = "jtalk",
+
+    script_filename = "jtalk/to_phonemes.py",
+    hash_filename = "export/.animalese.hash",
+    translation_filename = "export/.animalese",
 }
 
 --- @class rt.Animalese
@@ -20,279 +19,152 @@ rt.Animalese = meta.class("Animalese")
 require "common.animalese_gender"
 require "common.animalese_emotion"
 require "common.animalese_phonemes"
+require "common.label"
 
-local _precomputed = nil
+do
+    local _label = rt.Label()
+
+    local _sanitize = function(str)
+        for character in range(
+            "\"", "'", "`",
+            ".", ",", ":", ";",
+            "!", "?",
+            "@", "#", "$", "%", "^", "&", "*",
+            "-", "+", "=", "~",
+            "|",
+            "/", "\\",
+            "\t", "\n", "\r",
+            "[", "]", "<", ">", "(", ")", "{", "}"
+        ) do
+            str = string.gsub(str, string.gsub(character, "%p", "%%%1"), "")
+        end
+        return str
+    end
+
+    --- @brief
+    function rt.Animalese:_text_to_tokens(text)
+        local tokens = _label:_parse(text)
+        for i, token in ipairs(tokens) do
+            tokens[i] = _sanitize(token)
+        end
+
+        return tokens
+    end
+end
+
+local _token_to_animalese = {}
 
 --- @brief
-function rt.Animalese:instantiate()
-    self._data = {}
-    self._queue = {}
+function rt.Animalese:_tokens_to_english_phonemes(tokens)
+    local in_filename, out_filename = "in.temp", "out.temp"
 
     local settings = rt.settings.animalese
+    local in_file = bd.join_path(settings.path, in_filename)
+    local out_file = bd.join_path(settings.path, out_filename)
 
-    -- get list of phonemes
-    local prefix = settings.asset_path
-    local phonemes = {}
-    for phoneme in bd.iterate_lines(bd.join_path(prefix, settings.phonemes_list_filename)) do
-        if not meta.is_enum_value(phoneme, rt.Animalese.Phoneme) then
-            rt.warning("In rt.Animalese: phoneme `", phoneme, "` is found on disk but not part of enum `rt.Animalese.Phoneme`")
-        else
-            table.insert(phonemes, phoneme)
-        end
-    end
-
-    local data = self._data
-    for gender in values(meta.instances(rt.AnimaleseGender)) do
-        if data[gender] == nil then data[gender] = {} end
-
-        for emotion in values(meta.instances(rt.AnimaleseEmotion)) do
-            if data[gender][emotion] == nil then data[gender][emotion] = {} end
-
-            for phoneme in values(phonemes) do
-                local path = bd.join_path(prefix, gender, emotion, phoneme) .. "." .. settings.filetype
-                if bd.exists(path) then
-                    data[gender][emotion][phoneme] = {
-                        path = path,
-                        phoneme = phoneme,
-                        is_initialized = false,
-                        source = nil,
-                        duration = -1
-                    }
-                end
-            end
-        end
-    end
-end
-
-function rt.Animalese:_get_free_source(entry)
-    for i = 1, #entry.sources do
-        local src = entry.sources[i]
-        if not src:isPlaying() then
-            return src
-        end
-    end
-
-    local new_source = entry.sources[1]:clone()
-    table.insert(entry.sources, new_source)
-    return new_source
-end
-
-function rt.Animalese:queue(gender, emotion, ...)
-    if gender == nil then gender = rt.AnimaleseGender.FEMALE end
-    if emotion == nil then emotion = rt.AnimaleseEmotion.NORMAL end
-
-    meta.assert_enum_value(gender, rt.AnimaleseGender, 2)
-    meta.assert_enum_value(emotion, rt.AnimaleseEmotion, 3)
-
-    local data = self._data
-    local gender_entry = data[gender] or data[rt.AnimaleseGender.FEMALE]
-    local emotion_entry = gender_entry[emotion] or gender_entry[rt.AnimaleseEmotion.NORMAL]
-
-    -- track if the queue was completely empty before we started appending
-    local was_empty = (#self._queue == 0)
-
-    for i = 1, select("#", ...) do
-        local phoneme = select(i, ...)
-
-        if phoneme == rt.Animalese.Phoneme.BEAT then
-            table.insert(self._queue, {
-                is_beat = true,
-                duration = rt.settings.animalese.beat_duration,
-                timer = 0
-            })
-        else
-            local entry = emotion_entry[phoneme]
-
-            if entry ~= nil then
-                if entry.is_initialized ~= true then
-                    local success, sound_data_or_error = pcall(love.sound.newSoundData, entry.path)
-                    if not success then
-                        rt.error("In rt.Animalese: failed to initialize source at `", entry.path, "`: ", sound_data_or_error)
-                    else
-                        local sound_data = sound_data_or_error
-                        local n_samples = sound_data:getSampleCount()
-                        local eps = rt.settings.animalese.silence_eps
-
-                        local first_sample_i = 0
-                        while first_sample_i < n_samples do
-                            if math.abs(sound_data:getSample(first_sample_i)) > eps then break end
-                            first_sample_i = first_sample_i + 1
-                        end
-
-                        local last_sample_i = n_samples - 1
-                        while last_sample_i >= 0 do
-                            if math.abs(sound_data:getSample(last_sample_i)) > eps then break end
-                            last_sample_i = last_sample_i - 1
-                        end
-
-                        local sample_rate = sound_data:getSampleRate()
-
-                        entry.start_t = first_sample_i / sample_rate
-                        entry.end_t = last_sample_i / sample_rate
-
-                        local initial_source = love.audio.newSource(sound_data)
-                        initial_source:setLooping(false)
-                        entry.sources = { initial_source }
-
-                        entry.is_initialized = true
-                    end
-                end
-
-                if entry.is_initialized then
-                    table.insert(self._queue, {
-                        is_beat = false,
-                        entry = entry,
-                        active_source = nil
-                    })
-                end
-            else
-                rt.critical("In rt.Animalese: no entry for phoneme `", phoneme, "` using gender `", gender, "` with emotion `", emotion, "`")
-            end
-        end
-    end
-
-    if was_empty and #self._queue > 0 then
-        local first = self._queue[1]
-        if first.is_beat then
-            first.timer = 0
-        else
-            local source = self:_get_free_source(first.entry)
-            first.active_source = source
-            source:seek(0)
-            source:play()
-        end
-    end
-end
-
---- @brief
-function rt.Animalese:update(delta)
-    local current = self._queue[1]
-    local next_item = self._queue[2]
-
-    if current == nil then return end -- queue empty
-
-    local should_transition = false
-
-    if current.is_beat then
-        current.timer = current.timer + delta
-        if current.timer >= current.duration then
-            should_transition = true
-        end
-    else
-        local transition_time = current.entry.end_t
-        if next_item ~= nil then
-            if next_item.is_beat then
-                transition_time = current.entry.end_t
-            else
-                transition_time = current.entry.end_t - next_item.entry.start_t
-                transition_time = math.max(0, transition_time)
-            end
+    local success, results_or_error = pcall(function(tokens)
+        if meta.is_string(tokens) then tokens = { tokens } end
+        for i, token in ipairs(tokens) do
+            meta.assert_typeof(token, "String", i)
         end
 
-        if current.active_source then
-            if current.active_source:tell("seconds") + delta >= transition_time
-                or current.active_source:isPlaying() == false
-            then
-                should_transition = true
-            end
-        else
-            should_transition = true
+        bd.create_file(in_file, table.concat(tokens, "\n"), true)
+        bd.create_file(out_file, "", true)
+
+        local script = bd.join_path(".", settings.script_filename)
+        local command = string.format("python " .. script .. " %s %s",
+            bd.join_path(bd.get_source_directory(), settings.path, in_filename),
+            bd.join_path(bd.get_source_directory(), settings.path, out_filename)
+        )
+
+        rt.log("In rt.Animalese._english_to_phonemes: starting translation of `", #tokens, "` strings")
+
+        -- capture tty output
+        local before = love.timer.getTime()
+        local f = io.popen(command, 'r')
+        local s = assert(f:read('*a'))
+        f:close()
+
+        rt.log("done. Took ", love.timer.getTime() - before, "s")
+
+        s = string.gsub(s, '^%s+', '')
+        s = string.gsub(s, '%s+$', '')
+        s = string.gsub(s, '[\n\r]+', ' ')
+
+        if not bd.exists(out_file) then
+            rt.error("In rt.Animalese._english_phonemes_to_animalese_phonemes: error when running script at `", script, "`: ", s)
         end
-    end
 
-    if should_transition then
-        table.remove(self._queue, 1)
+        -- python script writes to outfile
 
-        local new_current = self._queue[1]
-        if new_current ~= nil then
-            if new_current.is_beat then
-                new_current.timer = 0
-            else
-                local source = self:_get_free_source(new_current.entry)
-                new_current.active_source = source
-                source:seek(0)
-                source:play()
-            end
-        end
-    end
-end
-
---- @brief
-function rt.Animalese:_english_to_phoneme(args)
-    if not bd.is_file("jtalk/to_phonemes.py") then
-        rt.error("In rt.Animalese: `jtalk/to_phonemes.py` not present, are you trying to call this function outside build time?")
-        return {}
-    end
-
-    local quoted = {}
-    for _, text in ipairs(args) do
-        table.insert(quoted, string.format("%q", text))
-    end
-
-    local command = string.format("python ./jtalk/to_phonemes.py %s", table.concat(quoted, " "))
-    rt.log("In rt.Animalese._english_to_phonemes: starting translation of `", #args, "` strings")
-
-    -- capture tty output
-    local before = love.timer.getTime()
-    local f = io.popen(command, 'r')
-    local s = assert(f:read('*a'))
-    f:close()
-
-    rt.log("done. Took ", love.timer.getTime() - before, "s")
-
-    s = string.gsub(s, '^%s+', '')
-    s = string.gsub(s, '%s+$', '')
-    s = string.gsub(s, '[\n\r]+', ' ')
-
-    -- python script returns lua table
-    local chunk = load(s)
-
-    if chunk == nil then
-        rt.error("In rt.Animalese.translate: output of `jtalk/to_phonemes.py` is malformatted")
-        return {}
-    else
-        local success, error_maybe = pcall(chunk)
+        local success, error_or_result = pcall(bd.load, out_file)
         if success ~= true then
-            rt.error("In rt.Animalese.translate: when trying to run output of `jtalk/to_phonemes.py`: ", error_maybe)
+            rt.error("In rt.Animalese.translate: when trying to run output of `jtalk/to_phonemes.py`: ", error_or_result)
             return {}
         else
-            return { chunk() } -- call again to captue varargs
+            return error_or_result
         end
-    end
+    end, tokens) -- pcall
 
-    return {} -- unreachable
+    bd.remove_file(in_file)
+    bd.remove_file(out_file)
+
+    if success == false then
+        rt.error(results_or_error)
+        return {}
+    else
+        return results_or_error
+    end
+end
+
+-- mount on require
+bd.mount_path(bd.join_path(
+        bd.get_source_directory(),
+        rt.settings.animalese.native_prefix
+    ),
+    rt.settings.animalese.path
+)
+
+--- @brief
+function rt.Animalese:_export_precomputed()
+    local animalese_translation_path = bd.join_path(
+        rt.settings.animalese.path,
+        rt.settings.animalese.translation_filename
+    )
+
+    local to_write = "return " .. table.serialize(_token_to_animalese)
+    bd.write_file(
+        animalese_translation_path,
+        to_write,
+        true -- overwrite allowed
+    )
 end
 
 --- @brief
-function rt.Animalese.load_translation(t) -- sic, static method
-    if _precomputed == nil then _precomputed = {} end
+function rt.Animalese:_load_precomputed()
+    local animalese_translation_path = bd.join_path(
+        rt.settings.animalese.path,
+        rt.settings.animalese.translation_filename
+    )
 
-    for text, translation in pairs(t) do
-        if not meta.is_string(text) then
-            rt.critical("In rt.Animalese:load_translation: key `", text, "` is not a string")
-            goto continue
-        end
+    local translation_success, translation_or_error = pcall(bd.load, animalese_translation_path)
+    if not translation_success then
+        rt.error("In rt.Animalese: when trying to read file at `", animalese_translation_path, "`: ", translation_or_error)
+    end
 
-        if not meta.is_table(translation) then
-            rt.critical("In rt.Animalese.load_translation: value at key `", text, "` is not a table")
-            goto continue
-        end
+    if not meta.is_table(translation_or_error) then
+        rt.error("In rt.Dialog: when trying to read file at `", animalese_translation_path, "`: file does not return a table")
+    end
 
-        for phoneme in values(translation) do
-            if not meta.is_enum_value(phoneme, rt.Animalese.Phoneme) then
-                rt.critical("In rt.Animalese.load_translation: for key `", text, "`: `", phoneme, "` is not a valid phoneme")
-                goto continue
-            end
-        end
-
-        _precomputed[text] = translation
-        ::continue::
+    if _token_to_animalese == nil then _token_to_animalese = {} end
+    for key, value in pairs(translation_or_error) do
+        if _token_to_animalese[key] == nil then _token_to_animalese[key] = value end
     end
 end
 
 do
-    local English = rt.Animalese.EnglishPhoneme
-    local Japanese = rt.Animalese.Phoneme
+    local English = rt.EnglishPhoneme
+    local Japanese = rt.AnimalesePhoneme
 
     local english_is_consonant = {}
     for x in range(
@@ -435,72 +307,31 @@ do
         [English.Y] = "Y",
     }
 
-    local _sanitize = function(str)
-        for character in range(
-            "\"",
-            ".",
-            ":",
-            ";",
-            "!",
-            "\t",
-            "\n",
-            "/",
-            "\\",
-            "(",
-            ")",
-            "{",
-            "}"
-        ) do
-            str = string.gsub(str, string.gsub(character, "%p", "%%%1"), "")
-        end
-        return str
-    end
+    local _remap = {
+        ["SI"] = Japanese.SHI,
+        ["ZI"] = Japanese.JI,
+        ["TI"] = Japanese.CHI,
+        ["TU"] = Japanese.TSU,
+        ["YI"] = Japanese.JI,
+        ["YE"] = Japanese.JE,
+        ["WI"] = Japanese.VI,
+        ["WE"] = Japanese.VE,
+        ["WU"] = Japanese.VU,
+        ["VA"] = Japanese.WA
+    }
 
     --- @brief
-    function rt.Animalese:translate(...)
-        local input
-        if meta.is_string(select(1, ...)) then
-            input = { ... }
-        else
-            input = select(1, ...)
+    function rt.Animalese:_english_phonemes_to_animalese_phonemes(phonemes)
+        meta.assert(phonemes, "Table")
+
+        if table.is_empty(phonemes) then
+            return { rt.AnimalesePhoneme.BEAT }
         end
 
-        if _precomputed ~= nil then
-            local tokens = {}
-
-            require "common.label"
-            local proxy = rt.Label()
-            for text in values(input) do
-                local glyphs = proxy:_parse(text)
-                for glyph in values(glyphs) do
-                    if glyph ~= rt.Animalese.Phoneme.BEAT then
-                        text = _sanitize(text)
-                    end
-
-                    table.insert(tokens, text)
-                end
-            end
-
-            local translation = {}
-            for token in values(tokens) do
-                local translated = _precomputed[token]
-                if translated == nil then
-                    rt.error("In rt.Animalese.translate: precomputed translation was loaded, but encountered unknown token `", token, "`")
-                end
-
-                table.insert(translation, translated)
-            end
-
-            return translation
+        for i, phoneme in ipairs(phonemes) do
+            rt.assert(meta.is_enum_value(phoneme, rt.EnglishPhoneme), "In rt.Animalese._english_phoenems_to_animalese_phonemes: phoneme `", phoneme, "` at `", i, "` is not a value of rt.EnglishPhonemes")
         end
-
-        -- else, generate externally
-
-        for i = 1, #input do
-            input[i] = _sanitize(input[i])
-        end
-
-        local table_of_table_of_phonemes = self:_english_to_phoneme(input)
+        local to_translate = {}
 
         local is_vowel = function(x)
             return english_is_vowel[x] == true
@@ -514,87 +345,73 @@ do
             return x == nil
                 or x == English.BEAT
                 or x == English.COMMA
-                or not meta.is_enum_value(x, English)
+                or x == English.COLON
+                or x == English.END
         end
-
-        local mapping = {
-            ["SI"] = Japanese.SHI,
-            ["ZI"] = Japanese.JI,
-            ["TI"] = Japanese.CHI,
-            ["TU"] = Japanese.TSU,
-            ["YI"] = Japanese.JI,
-            ["YE"] = Japanese.JE,
-            ["WI"] = Japanese.VI,
-            ["WE"] = Japanese.VE,
-            ["WU"] = Japanese.VU,
-            ["VA"] = Japanese.WA
-        }
 
         local result = {}
 
-        for t in values(table_of_table_of_phonemes) do
-            for phonemes in values(t) do
-                local i = 1
-                local n = #phonemes
+        local push = function(x)
+            x = _remap[x] or x
+            rt.assert(meta.is_enum_value(x, Japanese), "In push: `", x, "` is not a japanese phenome")
+            table.insert(result, x)
+        end
 
-                local translation = {}
+        local throw = function(...)
+            rt.error("In rt.Animalese._english_phonemes_to_animalese_phonemes: ", ...)
+        end
 
-                local push = function(x)
-                    x = mapping[x] or x
-                    rt.assert(meta.is_enum_value(x, Japanese), "In push: `", x, "` is not a japanese phenome")
-                    table.insert(translation, x)
-                end
+        for phoneme in values(phonemes) do
+            local i = 1
+            local n = #phonemes
 
-                while i <= n do
-                    local current = phonemes[i+0]
-                    local next = phonemes[i+1]
+            while i <= n do
+                local current = phonemes[i + 0]
+                local next = phonemes[i + 1]
 
-                    if is_consonant(current) then
-                        if is_vowel(next) then
-                            -- consonant-vowel: form syllable
-                            local vowels = english_suffix_vowel_to_japanese_vowel[next]
-                            if vowels == nil then
-                                rt.error("Unhandled vowel `", next, "`")
-                            end
-
-                            push(english_consonant_to_japanese_prefix[current] .. vowels[1])
-                            for j = 2, #vowels do push(vowels[j]) end
-                            i = i + 2
-                        elseif is_consonant(next) or is_stop(next) then
-                            if current == "N" then
-                                push(Japanese.N)
-                            else
-                                -- consonant-consonant: use silent u
-                                push(english_consonant_to_japanese_prefix[current] .. "U")
-                            end
-                            i = i + 1
-                        else
-                            rt.error("Unhandled case: `", current, "`, `", next, "`")
+                if is_consonant(current) then
+                    if is_vowel(next) then
+                        -- consonant-vowel: form syllable
+                        local vowels = english_suffix_vowel_to_japanese_vowel[next]
+                        if vowels == nil then
+                            rt.error("Unhandled vowel `", next, "`")
                         end
-                    elseif is_vowel(current) then
-                        if is_vowel(next) or is_consonant(next) or is_stop(next) then
-                            -- pure vowel
-                            local vowels = english_pure_vowel_to_japanese_vowel[current]
-                            if vowels == nil then
-                                rt.error("Unhandled vowel `", next, "`")
-                            end
 
-                            for x in values(vowels) do push(x) end
-                            i = i + 1
+                        push(english_consonant_to_japanese_prefix[current] .. vowels[1])
+                        for j = 2, #vowels do push(vowels[j]) end
+                        i = i + 2
+                    elseif is_consonant(next) or is_stop(next) then
+                        if current == "N" then
+                            push(Japanese.N)
                         else
-                            rt.error("Unhandled case: `", current, "`, `", next, "`")
+                            -- consonant-consonant: use silent u
+                            push(english_consonant_to_japanese_prefix[current] .. "U")
                         end
-                    elseif meta.is_enum_value(current, Japanese) then
-                        push(current)
                         i = i + 1
-                    elseif current == nil then
-                        break
                     else
-                        rt.critical("In rt.Animalese.translate: unhandled character `", current, "`")
+                        throw("unhandled case: `", current, "`, `", next, "`")
                     end
-                end
+                elseif is_vowel(current) then
+                    if is_vowel(next) or is_consonant(next) or is_stop(next) then
+                        -- pure vowel
+                        local vowels = english_pure_vowel_to_japanese_vowel[current]
+                        if vowels == nil then
+                            throw("unhandled vowel `", next, "`")
+                        end
 
-                table.insert(result, translation)
+                        for x in values(vowels) do push(x) end
+                        i = i + 1
+                    else
+                        throw("unhandled case: `", current, "`, `", next, "`")
+                    end
+                elseif is_stop(current) then
+                    push(rt.AnimalesePhoneme.BEAT)
+                    i = i + 1
+                elseif current == nil then
+                    break
+                else
+                    rt.critical("In rt.Animalese.translate: unhandled character `", current, "`")
+                end
             end
         end
 
@@ -602,7 +419,70 @@ do
     end
 end
 
+--- @brief
+function rt.Animalese:translate(texts, update_precomputed)
+    if not meta.is_table(texts) then texts = { texts } end
+    if update_precomputed == nil then update_precomputed = true end
+
+    for i, text in ipairs(texts) do
+        meta.assert_typeof(text, "String", i)
+    end
+
+    -- conver to tokens
+    local text_i_to_tokens = {}
+
+    local needs_translation = {}
+    for text_i, text in ipairs(texts) do
+        local tokens = rt.Animalese:_text_to_tokens(text)
+        text_i_to_tokens[text_i] = tokens
+
+        -- extract untranslated
+        for token in values(tokens) do
+            if _token_to_animalese[token] == nil then
+                needs_translation[token] = true
+            end
+        end
+    end
+
+    if not table.is_empty(needs_translation) then
+        local tokens = {}
+        for token in keys(needs_translation) do table.insert(tokens, token) end
+
+        -- convert unknown tokens to phonemes in one batch
+        require("common.splash_screen")("translating animalese...")
+        local phonemes = rt.Animalese:_tokens_to_english_phonemes(tokens)
+
+        -- convert phonemes to animalese, update precomputed
+        for i, english_phonemes in ipairs(phonemes) do
+            _token_to_animalese[tokens[i]] = rt.Animalese:_english_phonemes_to_animalese_phonemes(english_phonemes)
+        end
+
+        if update_precomputed == true then rt.Animalese:_export_precomputed() end
+    end
+
+    -- convert text to animalese
+    local animalese = {}
+    for text_i, text in ipairs(texts) do
+        local tokens = text_i_to_tokens[text_i]
+        local translation = {}
+        for token in values(tokens) do
+            if DEBUG then
+                rt.assert(_token_to_animalese[token] ~= nil, "In rt.Animalese.translate: encountered untranslated token `", token, "`")
+            end
+            table.insert(translation, _token_to_animalese[token])
+        end
+
+        table.insert(animalese, translation)
+    end
+
+    return animalese
+end
+
+rt.Animalese = meta.as_singleton(rt.Animalese)
+rt.Animalese:_load_precomputed()
+
 do
+    -- try retranslate dialog / translation
     require "common.filesystem"
     require "common.language"
     require "common.dialog"
@@ -615,132 +495,58 @@ do
     local translation_path = bd.join_path(translation_settings.path, bd.get_config().language, translation_settings.filename)
 
     local animalese_settings = rt.settings.animalese
-    local animalese_translation_path = bd.join_path(animalese_settings.path, animalese_settings.animalese_translation_filename)
+    local animalese_hash_path = bd.join_path(animalese_settings.path, animalese_settings.hash_filename)
+    local animalese_translation_path = bd.join_path(animalese_settings.path, animalese_settings.translation_filename)
 
-    local dialog_file = bd.read_file(dialog_path)
-    local translation_file = bd.read_file(translation_path)
-
-    local hash = string.sha256(dialog_file) .. string.sha256(translation_file)
+    local hash
+    do
+        local dialog_file = bd.read_file(dialog_path)
+        local translation_file = bd.read_file(translation_path)
+        hash = string.sha256(dialog_file) .. string.sha256(translation_file)
+    end
 
     local should_regenerate = false
-
-    bd.mount_path(bd.join_path(bd.get_source_directory(), "jtalk"), "jtalk")
-    local hash_path = bd.join_path(animalese_settings.path, animalese_settings.hash_filename)
-
-    if not bd.exists(hash_path) then
+    if not bd.exists(animalese_hash_path)
+        or hash ~= bd.read_file(animalese_hash_path)
+    then
         should_regenerate = true
-    else
-        local old_hash = bd.read_file(hash_path)
-        should_regenerate = old_hash ~= hash
     end
 
     if should_regenerate then
-        bd.write_file(hash_path, hash, true) -- overwite allowed
+        -- write new hash
+        bd.write_file(animalese_hash_path, hash, true) -- overwrite allowed
 
         local lines = {}
+        local function extract(lines, t, seen, to_exclude)
+            if meta.is_table(t) then
+                if seen[t] == true then return end
+                seen[t] = true
 
-        local is_integer = function(key)
-            return meta.is_number(key) and math.fract(key) == 0 and key > 0
-        end
-
-        -- extract dialog strings
-
-        local to_exclude = {}
-        for exclude in range(
-            dialog_settings.speaker_key,
-            dialog_settings.next_key,
-            dialog_settings.state_key,
-            dialog_settings.emotion_key,
-            dialog_settings.gender_key
-        ) do
-            to_exclude[exclude] = true
-        end
-
-        local should_exclude = function(key)
-            return to_exclude[key] == true
-        end
-
-        for dialog in values(rt.Dialog) do
-            for entries_key, entries in pairs(dialog) do
-                local valid = false
-                for key, value in pairs(entries) do
-                    if key == dialog_settings.dialog_choice_key then
-                        for choice in values(value) do
-                            table.insert(lines, choice[1])
-                            valid = true
-                        end
-                    elseif not should_exclude(key) then
-                        table.insert(lines, value)
-                        valid = true
+                for key, value in pairs(t) do
+                    if to_exclude[key] ~= true then
+                        extract(lines, value, seen, to_exclude)
                     end
                 end
-
-                if not valid then
-                    rt.warning("In rt.Dialog: entry `", entries_key, "` has not valid lines at integer indices")
-                end
+            elseif meta.is_string(t) or meta.is_number(t) then
+                table.insert(lines, tostring(t))
             end
         end
 
-        -- extract translation string
-        do
-            require "common.translation"
-            local function parse(to_parse)
-                if meta.is_table(to_parse) then
-                    for key, value in pairs(to_parse) do
-                        if meta.is_table(value) then
-                            parse(value)
-                        elseif meta.is_string(value) then
-                            table.insert(lines, value)
-                        end
-                    end
-                end
-            end
+        extract(lines, rt.Dialog, {}, {
+            [dialog_settings.next_key] = true,
+            [dialog_settings.state_key] = true,
+            [dialog_settings.emotion_key] = true,
+            [dialog_settings.gender_key] = true,
+            [dialog_settings.speaker_key] = true
+        })
 
-            parse(rt.Translation)
-        end
+        extract(lines, rt.Translation, {}, {
+            -- no excludes
+        })
 
-        -- use label parser to extract control sequences and map lines to words
-        require "common.label"
-        local proxy = rt.Label()
-        local words = {}
-        for line in values(lines) do
-            for glyph in values(proxy:_parse(line)) do
-                table.insert(words, glyph.text)
-            end
-        end
-
-        -- then translate words individually
-        local translations = rt.Animalese:translate(words)
-        assert(#translations == #words)
-
-        local to_write = {}
-        for i = 1, #translations do
-            to_write[words[i]] = translations[i]
-        end
-
-        to_write = "return " .. table.serialize(to_write)
-        bd.write_file(
-            animalese_translation_path,
-            to_write,
-            true -- overwrite allowed
-        )
-
-        bd.write_file(
-            hash_path,
-            hash,
-            true
-        )
-    else
-        local translation_success, translation_or_error = pcall(bd.load, animalese_translation_path)
-        if not translation_success then
-            rt.error("In rt.Animalese: when trying to read file at `", translation_path, "`: ", translation_or_error)
-        end
-
-        if not meta.is_table(translation_or_error) then
-            rt.error("In rt.Dialog: when trying to read file at `", translation_path, "`: file does not return a table")
-        end
-
-        rt.Animalese.load_translation(translation_or_error)
+        rt.Animalese:translate(lines) -- automatically updates _precomputed
+        rt.Animalese:_export_precomputed()
+        rt.Animalese:_load_precomputed() -- reload to verify file integrity
     end
 end
 

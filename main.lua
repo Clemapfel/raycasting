@@ -59,13 +59,12 @@ love.load = function(args)
 end
 
 require "common.animalese"
-local animalese = rt.Animalese()
-local translation = animalese:translate("hey pss")
-dbg(translation)
+dbg(rt.Animalese:translate("hey pss"))
+--[[
 animalese:queue(
     rt.AnimaleseGender.FEMALE,
     rt.AnimaleseEmotion.NORMAL
-)
+)]]
 
 love.update = function(delta)
     if rt.SceneManager ~= nil then

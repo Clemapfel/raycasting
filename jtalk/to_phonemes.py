@@ -54,11 +54,18 @@ def text_to_phonemes_lua(phonemes):
     return "{ " + ", ".join(f'"{phoneme}"' for phoneme in phonemes) + " }"
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python script.py <string1> <string2> ...")
+    in_filename = sys.argv[1]
+    out_filename = sys.argv[2]
+
+    if in_filename == None or out_filename == None:
+        print("Usage: python script.py <input_file> <output_file>")
         sys.exit(1)
 
-    arguments = sys.argv[1:]
+    arguments = []
+    with open(in_filename, "r") as file:
+        for line in file:
+            arguments.append(line.strip("\n"))
+
     n_tasks = len(arguments)
     worker_to_main = queue.Queue()
     workers = []
@@ -107,4 +114,5 @@ if __name__ == "__main__":
     for worker in workers:
         worker.thread.join()
 
-    print("return { " + ", ".join(text_to_phonemes_lua(phonemes) for phonemes in translations) + "}")
+    with open(out_filename, "w") as file:
+        file.write("return { " + ", ".join(text_to_phonemes_lua(phonemes) for phonemes in translations) + "}")

@@ -967,7 +967,7 @@ end
 
 --- @brief
 function ow.OverworldScene:unpause()
-    if not self._pause_menu_active == true then return end
+    if self._pause_menu_active ~= true then return end
     self._pause_menu_active = false
     self._pause_menu:close()
     rt.InputManager:flush()

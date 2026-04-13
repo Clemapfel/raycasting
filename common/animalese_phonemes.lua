@@ -1,6 +1,6 @@
---- @enum rt.Animalese.EnglishPhoneme
+--- @enum rt.EnglishPhoneme
 --- @see https://en.wikipedia.org/wiki/ARPABET
-rt.Animalese.EnglishPhoneme = {
+rt.EnglishPhoneme = {
     -- control characters
     PAD = "<pad>",
     UNK = "<unk>",
@@ -32,22 +32,22 @@ rt.Animalese.EnglishPhoneme = {
     ER = "ER", ER0 = "ER0", ER1 = "ER1", ER2 = "ER2", -- "bird" /ɝ/
 
     -- stops (consonants)
-    B = "B",   -- "bat"
-    D = "D",   -- "dog"
-    G = "G",   -- "go"
-    K = "K",   -- "cat"
-    P = "P",   -- "pot"
-    T = "T",   -- "top"
+    B = "B",   -- "bat" /b/
+    D = "D",   -- "dog" /d/
+    G = "G",   -- "go" /ɡ/
+    K = "K",   -- "cat" /k/
+    P = "P",   -- "pot" /p/
+    T = "T",   -- "top" /t/
 
     -- fricatives (consonants)
     DH = "DH", -- "that" /ð/
-    F  = "F",  -- "fat"
-    HH = "HH", -- "hat"
-    S  = "S",  -- "sat"
+    F  = "F",  -- "fat" /f/
+    HH = "HH", -- "hat" /h/
+    S  = "S",  -- "sat" /s/
     SH = "SH", -- "shoe" /ʃ/
     TH = "TH", -- "thin" /θ/
-    V  = "V",  -- "vat"
-    Z  = "Z",  -- "zoo"
+    V  = "V",  -- "vat" /v/
+    Z  = "Z",  -- "zoo" /z/
     ZH = "ZH", -- "measure" /ʒ/
 
     -- affricates (consonants)
@@ -55,20 +55,20 @@ rt.Animalese.EnglishPhoneme = {
     JH = "JH", -- "judge" /dʒ/
 
     -- nasals (consonants)
-    M  = "M",  -- "mat"
-    N  = "N",  -- "not"
+    M  = "M",  -- "mat" /m/
+    N  = "N",  -- "not" /n/
     NG = "NG", -- "sing" /ŋ/
 
     -- liquids & glides (consonants)
-    L = "L",   -- "lot"
-    R = "R",   -- "rot"
-    W = "W",   -- "wet"
-    Y = "Y",   -- "yet"
+    L = "L",   -- "lot" /l/
+    R = "R",   -- "rot" /ɹ/
+    W = "W",   -- "wet" /w/
+    Y = "Y",   -- "yet" /j/
 }
-rt.Animalese.EnglishPhoneme = meta.enum("EnglishPhoneme", rt.Animalese.EnglishPhoneme)
+rt.EnglishPhoneme = meta.enum("EnglishPhoneme", rt.EnglishPhoneme)
 
---- @enum rt.Animalese.Phoneme
-rt.Animalese.Phoneme = {
+--- @enum rt.AnimalesePhoneme
+rt.AnimalesePhoneme = {
     -- vowels
     A = "A", I = "I", U = "U", E = "E", O = "O",
     -- long vowels
@@ -140,10 +140,10 @@ rt.Animalese.Phoneme = {
     N = "N",
 
     -- control characters,
-    BEAT = rt.Animalese.EnglishPhoneme.BEAT,
-    COMMA = rt.Animalese.EnglishPhoneme.COMMA,
-    COLON = rt.Animalese.EnglishPhoneme.COLON,
+    BEAT = rt.EnglishPhoneme.BEAT,
+    COMMA = rt.EnglishPhoneme.COMMA,
+    COLON = rt.EnglishPhoneme.COLON,
     QUESTION_MARK = "?"
 }
 
-rt.Animalese.Phoneme = meta.enum("AnimalesePhoneme", rt.Animalese.Phoneme)
+rt.AnimalesePhoneme = meta.enum("AnimalesePhoneme", rt.AnimalesePhoneme)

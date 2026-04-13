@@ -18,6 +18,7 @@ rt.settings.label = {
         TAB = "    ",
         ESCAPE_CHARACTER = "\\",
         BEAT_TO_WEIGHT = {
+            [" "] = 1,
             ["|"] = 10,
             ["."] = 10,
             [","] = 4,
@@ -521,10 +522,10 @@ function rt.Label:_parse(raw)
     local push_beat = function(beat)
         table.insert(self._glyphs, beat)
 
-        local n_tokens = _syntax.BEAT_TO_WEIGHT[beat]
+        local n_tokens = BEAT_TO_WEIGHT[beat]
         if n_tokens ~= nil then
             for _ = 1, n_tokens do
-                table.insert(tokens, rt.Animalese.Phoneme.BEAT)
+                table.insert(tokens, rt.AnimalesePhoneme.BEAT)
             end
         end
     end
