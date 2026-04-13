@@ -47,7 +47,7 @@ function rt.ImpulseManager:pulse()
     end
 end
 
-rt.ImpulseManager = rt.ImpulseManager() -- singleton instance
+rt.ImpulseManager = meta.as_singleton(rt.ImpulseManager)
 
 -- ###
 

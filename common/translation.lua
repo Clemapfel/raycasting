@@ -85,6 +85,5 @@ do
         return _as_immutable(t)
     end
 
-    -- singleton
-    rt.Translation = _make_immutable(translation_or_error)
+    rt.Translation = _make_immutable(translation_or_error) -- singleton
 end

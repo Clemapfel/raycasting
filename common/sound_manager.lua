@@ -728,4 +728,4 @@ function rt.SoundManager:update(delta)
     end
 end
 
-rt.SoundManager = rt.SoundManager() -- singleton instance
+rt.SoundManager = meta.as_singleton(rt.SoundManager)

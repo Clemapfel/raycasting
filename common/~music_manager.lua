@@ -207,4 +207,4 @@ function rt.MusicManager:get_is_paused()
     return self._state == _STATE_PAUSED or self._state == _STATE_STOPPED
 end
 
-rt.MusicManager = rt.MusicManager() -- singleton instance
+rt.MusicManager = meta.as_singleton(rt.MusicManager)

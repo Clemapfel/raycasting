@@ -294,4 +294,4 @@ function rt.ScreenRecorder:get_is_recording()
     return self._state ~= STATE_IDLE
 end
 
-rt.ScreenRecorder = rt.ScreenRecorder() -- singleton instance
+rt.ScreenRecorder = meta.as_singleton(rt.ScreenRecorder)

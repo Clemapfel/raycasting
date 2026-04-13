@@ -43,4 +43,4 @@ function rt.ThreadManager:get_system_n_cores()
 end
 
 
-rt.ThreadManager = rt.ThreadManager() -- singleton instance
+rt.ThreadManager = meta.as_singleton(rt.ThreadManager)

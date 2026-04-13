@@ -87,7 +87,7 @@ function meta.assert(...)
         local typename = _type_to_typename[type]
         if typename == nil then typename = type end -- assume string
 
-        rt.assert(meta.typeof(instance) == typename, "In meta.assert: wrong type for argument #",  i.. ": expected `",  typename,  "`, got `",  meta.typeof(instance),  "`")
+        rt.assert(meta.typeof(instance) == typename, "In meta.assert: wrong type for argument #", i.. ": expected `", typename, "`, got `", meta.typeof(instance), "`")
     end
 end
 
@@ -100,7 +100,7 @@ function meta.assert_typeof(x, type, argument_i)
     end
 
     if _G.type(type) ~= "string" then type = tostring(type) end
-    rt.assert(instance_type == type, prefix,  "expected `",  tostring(type),  "`, got `",  meta.typeof(x),  "`")
+    rt.assert(instance_type == type, prefix, "expected `", tostring(type), "`, got `", meta.typeof(x), "`")
 end
 
 --- @brief
@@ -109,7 +109,7 @@ function meta.assert_enum_value(x, enum, argument_i)
     if argument_i ~= nil then
         prefix = "For argument #" .. argument_i .. ": "
     end
-    rt.assert(meta.is_enum_value(x, enum), prefix,  "expected value of enum `",  _type_to_typename[enum],  "`, got `",  tostring(x),  "`")
+    rt.assert(meta.is_enum_value(x, enum), prefix, "expected value of enum `", _type_to_typename[enum], "`, got `", tostring(x), "`")
 end
 
 --- @brief
@@ -149,7 +149,7 @@ local _signal_connect = function(instance, id, callback)
     local component = instance[_object_signal_component_index]
     local entry = component[id]
     if entry == nil then
-        rt.error("In ",  meta.typeof(instance), ".signal_connect: no signal with id `", id, "`")
+        rt.error("In ", meta.typeof(instance), ".signal_connect: no signal with id `", id, "`")
         return
     end
 
@@ -168,13 +168,13 @@ end
 local _signal_disconnect = function(instance, id, callback_id)
     local component = instance[_object_signal_component_index]
     if component == nil then
-        rt.error("In ",  meta.typeof(instance),  ".signal_disconnect: object `",  meta.typeof(instance),  "` does not have any signals")
+        rt.error("In ", meta.typeof(instance), ".signal_disconnect: object `", meta.typeof(instance), "` does not have any signals")
         return
     end
 
     local entry = component[id]
     if entry == nil then
-        rt.error("In ",  meta.typeof(instance),  ".signal_disconnect: no signal with id `",  id,  "`")
+        rt.error("In ", meta.typeof(instance), ".signal_disconnect: no signal with id `", id, "`")
         return
     end
 
@@ -183,7 +183,7 @@ local _signal_disconnect = function(instance, id, callback_id)
     else
         local callback = entry.callback_id_to_callback[callback_id]
         if callback == nil then
-            rt.error("In ",  meta.typeof(instance),  ".signal_disconnect: no callback with id `",  tostring(callback_id),  "` connected to signal `",  id,  "`")
+            rt.error("In ", meta.typeof(instance), ".signal_disconnect: no callback with id `", tostring(callback_id), "` connected to signal `", id, "`")
             return
         end
         entry.callback_id_to_callback[callback_id] = nil
@@ -231,13 +231,13 @@ end
 local _signal_list_handler_ids = function(instance, id)
     local component = instance[_object_signal_component_index]
     if component == nil then
-        rt.error("In ",  meta.typeof(instance),  ".signal_list_handler_id: object `",  meta.typeof(instance),  "` does not have any signals")
+        rt.error("In ", meta.typeof(instance), ".signal_list_handler_id: object `", meta.typeof(instance), "` does not have any signals")
         return
     end
 
     local entry = component[id]
     if entry == nil then
-        rt.error("In ",  meta.typeof(instance),  ".signal_list_handler_id: no signal with id `",  id,  "`")
+        rt.error("In ", meta.typeof(instance), ".signal_list_handler_id: no signal with id `", id, "`")
         return
     end
 
@@ -247,7 +247,7 @@ end
 local _signal_disconnect_all = function(instance, id)
     local component = instance[_object_signal_component_index]
     if component == nil then
-        rt.error("In ",  meta.typeof(instance),  ".signal_disconnect_all: object `",  meta.typeof(instance),  "` does not have any signals")
+        rt.error("In ", meta.typeof(instance), ".signal_disconnect_all: object `", meta.typeof(instance), "` does not have any signals")
         return
     end
 
@@ -262,7 +262,7 @@ local _signal_disconnect_all = function(instance, id)
     else
         local entry = component[id]
         if entry == nil then
-            rt.error("In ",  meta.typeof(instance),  ".signal_disconnect_all: no signal with id `",  id,  "`")
+            rt.error("In ", meta.typeof(instance), ".signal_disconnect_all: no signal with id `", id, "`")
             return
         end
 
@@ -276,13 +276,13 @@ end
 local _signal_set_is_blocked = function(instance, id, b)
     local component = instance[_object_signal_component_index]
     if component == nil then
-        rt.error("In ",  meta.typeof(instance),  ".signal_set_is_blocked: object `",  meta.typeof(instance),  "` does not have any signals")
+        rt.error("In ", meta.typeof(instance), ".signal_set_is_blocked: object `", meta.typeof(instance), "` does not have any signals")
         return
     end
 
     local entry = component[id]
     if entry == nil then
-        rt.error("In ",  meta.typeof(instance),  ".signal_set_is_blocked: no signal with id `",  id,  "`")
+        rt.error("In ", meta.typeof(instance), ".signal_set_is_blocked: no signal with id `", id, "`")
         return
     end
 
@@ -292,13 +292,13 @@ end
 local _signal_get_is_blocked = function(instance, id)
     local component = instance[_object_signal_component_index]
     if component == nil then
-        rt.error("In ",  meta.typeof(instance),  ".signal_get_is_blocked: object `",  meta.typeof(instance),  "` does not have any signals")
+        rt.error("In ", meta.typeof(instance), ".signal_get_is_blocked: object `", meta.typeof(instance), "` does not have any signals")
         return
     end
 
     local entry = component[id]
     if entry == nil then
-        rt.error("In ",  meta.typeof(instance),  ".signal_get_is_blocked: no signal with id `",  id,  "`")
+        rt.error("In ", meta.typeof(instance), ".signal_get_is_blocked: no signal with id `", id, "`")
         return
     end
 
@@ -308,7 +308,7 @@ end
 local _signal_block_all = function(instance)
     local component = instance[_object_signal_component_index]
     if component == nil then
-        rt.error("In ",  meta.typeof(instance),  ".signal_block_all: object `",  meta.typeof(instance),  "` does not have any signals")
+        rt.error("In ", meta.typeof(instance), ".signal_block_all: object `", meta.typeof(instance), "` does not have any signals")
         return
     end
 
@@ -320,7 +320,7 @@ end
 local _signal_unblock_all = function(instance)
     local component = instance[_object_signal_component_index]
     if component == nil then
-        rt.error("In ",  meta.typeof(instance),  ".signal_unblock_all: object `",  meta.typeof(instance),  "` does not have any signals")
+        rt.error("In ", meta.typeof(instance), ".signal_unblock_all: object `", meta.typeof(instance), "` does not have any signals")
         return
     end
 
@@ -332,7 +332,7 @@ end
 local _signal_has_signal = function(instance, id)
     local component = instance[_object_signal_component_index]
     if component == nil then
-        rt.error("In ",  meta.typeof(instance),  ".signal_has_signal: object `",  meta.typeof(instance),  "` does not have any signals")
+        rt.error("In ", meta.typeof(instance), ".signal_has_signal: object `", meta.typeof(instance), "` does not have any signals")
         return
     end
 
@@ -342,13 +342,13 @@ end
 local _signal_list_handler_ids = function(instance, id)
     local component = instance[_object_signal_component_index]
     if component == nil then
-        rt.error("In ",  meta.typeof(instance),  ".signal_list_handler_ids: object `",  meta.typeof(instance),  "` does not have any signals")
+        rt.error("In ", meta.typeof(instance), ".signal_list_handler_ids: object `", meta.typeof(instance), "` does not have any signals")
         return
     end
 
     local entry = component[id]
     if entry == nil then
-        rt.error("In ",  meta.typeof(instance),  ".signal_list_handler_ids: no signal with id `",  id,  "`")
+        rt.error("In ", meta.typeof(instance), ".signal_list_handler_ids: no signal with id `", id, "`")
         return
     end
 
@@ -374,7 +374,7 @@ local _signal_emit = function(instance, id, ...)
     local component = instance[_object_signal_component_index]
     local entry = component[id]
     if entry == nil then
-        rt.error("In ",  meta.typeof(instance),  ".signal_emit: no signal with id `",  id,  "`")
+        rt.error("In ", meta.typeof(instance), ".signal_emit: no signal with id `", id, "`")
         return
     end
 
@@ -545,9 +545,19 @@ function meta.abstract_class(typename, super)
     local type = meta.class(typename, super)
     local type_metatable = getmetatable(type)
     type_metatable.__call = function()
-        rt.error("In ",  typename,  "(): trying to instantiated type, but it was declared abstract")
+        rt.error("In ", typename, "(): trying to instantiated type, but it was declared abstract")
     end
     return type
+end
+
+--- @brief
+function meta.as_singleton(type, ...)
+    local instance = type(...)
+    getmetatable(instance).__call = function()
+        rt.error("In ", meta.get_typename(type), "(): trying to instantiate type, but is a singleton that cannot be instatiated")
+    end
+
+    return instance
 end
 
 --- @brief
@@ -588,14 +598,14 @@ function meta.enum(typename, fields)
         __index = function(self, key)
             local result = rawget(fields, key)
             if result == nil then
-                rt.error("In meta.enum: trying to access field `",  key,  "` of enum `",  typename,  "`, but enum has no such field")
+                rt.error("In meta.enum: trying to access field `", key, "` of enum `", typename, "`, but enum has no such field")
                 return nil
             end
             return result
         end,
 
         __newindex = function()
-            rt.error("In meta.enum: trying to modify enum `",  typename,  "`, but it is immutable")
+            rt.error("In meta.enum: trying to modify enum `", typename, "`, but it is immutable")
             return
         end,
 
@@ -605,7 +615,7 @@ function meta.enum(typename, fields)
     }
 
     for _, value in pairs(fields) do
-    enum_metatable.__value_to_is_present[value] = true
+        enum_metatable.__value_to_is_present[value] = true
     end
 
     local enum = setmetatable({}, enum_metatable)
@@ -694,14 +704,14 @@ function meta.make_immutable(t)
         __index = function(_, key)
             local out = t[key]
             if out == nil then
-                rt.error("trying to access `",  key,  "` of `",  tostring(t),  "`, but this value does not exist")
+                rt.error("trying to access `", key, "` of `", tostring(t), "`, but this value does not exist")
                 return nil
             end
             return out
         end,
 
         __newindex = function(_, key, value)
-            rt.error("trying to modify table `",  tostring(t),  "`, but it is immutable")
+            rt.error("trying to modify table `", tostring(t), "`, but it is immutable")
         end
     }
 
@@ -713,7 +723,7 @@ function meta.make_id_table(t, scope, debug_mode)
     meta.assert(t, "Table", scope, "String", debug_mode, "Boolean")
 
     if debug_mode then
-        rt.warning("In meta.make_id_table: debug mode for `",  scope,  "` is active, ids will be overriden")
+        rt.warning("In meta.make_id_table: debug mode for `", scope, "` is active, ids will be overriden")
     end
 
     local _as_immutable = function(t, path)
@@ -721,7 +731,7 @@ function meta.make_id_table(t, scope, debug_mode)
             __index = function(self, key)
                 local value = rawget(self, key)
                 if value == nil then
-                    rt.warning("In ",  scope,  ": key `",  key,  "` does not point to valid id")
+                    rt.warning("In ", scope, ": key `", key, "` does not point to valid id")
                     return nil
                 else
                     return value
@@ -729,7 +739,7 @@ function meta.make_id_table(t, scope, debug_mode)
             end,
 
             __newindex = function(self, key, new_value)
-                rt.error("In ",  scope,  ": trying to modify dictionary, but it is declared immutable")
+                rt.error("In ", scope, ": trying to modify dictionary, but it is declared immutable")
             end
         })
     end

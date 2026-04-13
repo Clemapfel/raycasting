@@ -101,4 +101,4 @@ function rt.MusicManager:get_volume()
     return self._volume
 end
 
-rt.MusicManager = rt.MusicManager() -- singleton instance
+rt.MusicManager = meta.as_singleton(rt.MusicManager)

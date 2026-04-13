@@ -616,7 +616,7 @@ function rt.SceneManager:get_cursor_type()
     return self._cursor:get_type()
 end
 
-rt.SceneManager = rt.SceneManager() -- static global singleton
+rt.SceneManager = meta.as_singleton(rt.SceneManager)
 
 love.quit = function()
     local temp = bd.get_temp_directory_name()

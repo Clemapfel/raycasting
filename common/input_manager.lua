@@ -347,7 +347,7 @@ function rt.InputManager:get_right_trigger()
     return _apply_trigger_deadzone(joystick:getGamepadAxis("triggerright"))
 end
 
-rt.InputManager = rt.InputManager() -- static singleton instance
+rt.InputManager = meta.as_singleton(rt.InputManager)
 
 --- ### love callbacks ###
 
