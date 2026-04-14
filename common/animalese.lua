@@ -5,8 +5,8 @@ rt.settings.animalese = {
     filetype = "wav",
     silence_eps = 0.05,
 
-    path = "jtalk",
-    native_prefix = "jtalk",
+    path = "jtalk", -- mount point
+    native_prefix = "jtalk", -- native directory name
 
     export_path = "jtalk/export",
     script_filename = "jtalk/to_phonemes.py",
@@ -661,7 +661,6 @@ function rt.Animalese:remove(batch_id)
     local to_remove = {}
     for i, entry in ipairs(self._queue) do
         if entry.batch_id == batch_id then
-            TODO: turn of active source
             table.insert(to_remove, i, 1)
         end
     end

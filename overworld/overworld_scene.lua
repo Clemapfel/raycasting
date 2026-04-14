@@ -516,23 +516,24 @@ end
 function ow.OverworldScene:draw()
     if self._stage == nil then return end
 
-    local draw_bloom = function()
-        if rt.GameState:get_is_bloom_enabled() == true then
-            local bloom = rt.SceneManager:get_bloom()
-            love.graphics.push()
-            bloom:bind()
-            love.graphics.clear(0, 0, 0, 0)
-            self._camera:bind()
-            if self._player_is_visible then
-                self._player:draw_bloom()
-            end
-            self._stage:draw_bloom()
-            self._camera:unbind()
-            bloom:unbind()
-            love.graphics.pop()
-
-            bloom:composite(rt.settings.overworld_scene.bloom_composite_strength)
+    local bloom_enabled, bloom = rt.GameState:get_is_bloom_enabled() == true
+    if bloom_enabled then
+        bloom = rt.SceneManager:get_bloom()
+        love.graphics.push()
+        bloom:bind()
+        love.graphics.clear(0, 0, 0, 0)
+        self._camera:bind()
+        if self._player_is_visible then
+            self._player:draw_bloom()
         end
+        self._stage:draw_bloom()
+        self._camera:unbind()
+        bloom:unbind()
+        love.graphics.pop()
+    end
+
+    local function draw_bloom()
+        bloom:composite(rt.settings.overworld_scene.bloom_composite_strength)
     end
 
     love.graphics.push("all")
@@ -560,8 +561,6 @@ function ow.OverworldScene:draw()
         self._stage:draw_above_player()
         self._camera:unbind()
 
-        draw_bloom()
-
         self._camera:bind()
         self._stage:draw_above_bloom()
         self._camera:unbind()
@@ -578,7 +577,7 @@ function ow.OverworldScene:draw()
             self._stage:draw_above_player()
             self._camera:unbind()
 
-            draw_bloom()
+            self._stage:draw_above_bloom()
 
             self._blur:unbind()
 
@@ -612,23 +611,6 @@ function ow.OverworldScene:draw()
         end
 
         self._title_card:draw()
-
-        if rt.GameState:get_is_bloom_enabled() == true then
-            local bloom = rt.SceneManager:get_bloom()
-            love.graphics.push()
-            bloom:bind()
-            love.graphics.clear(0, 0, 0, 0)
-            self._camera:bind()
-            if self._player_is_visible then
-                self._player:draw_bloom()
-            end
-            self._title_card:draw()
-            self._camera:unbind()
-            bloom:unbind()
-            love.graphics.pop()
-
-            bloom:composite(rt.settings.overworld_scene.bloom_composite_strength)
-        end
     end
 
     love.graphics.pop()
@@ -682,11 +664,17 @@ function ow.OverworldScene:_update_screenshot(draw_player)
     then return end
 
     local width, height = self:get_bounds().width, self:get_bounds().height
+    local format = ternary(rt.GameState:get_is_hdr_enabled(), rt.settings.hdr.texture_format, rt.settings.overworld_scene.screenshot_texture_format)
     if self._screenshot == nil
         or self._screenshot:get_width() ~= width
         or self._screenshot:get_height() ~= height
+        or self._screenshot:get_format() ~= format
     then
-        self._screenshot = rt.RenderTexture(width, height, rt.GameState:get_msaa_quality())
+        self._screenshot = rt.RenderTexture(
+            width, height,
+            rt.GameState:get_msaa_quality(),
+            format
+        )
     end
 
     love.graphics.push("all")
@@ -710,12 +698,6 @@ function ow.OverworldScene:_update_screenshot(draw_player)
     end
     self._stage:draw_above_player()
     self._camera:unbind()
-
-    if rt.GameState:get_is_bloom_enabled() == true then
-        local bloom = rt.SceneManager:get_bloom()
-        -- use bloom from last draw
-        bloom:composite(rt.settings.overworld_scene.bloom_composite_strength)
-    end
 
     self._screenshot:unbind()
 

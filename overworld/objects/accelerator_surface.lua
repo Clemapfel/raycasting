@@ -330,7 +330,7 @@ function ow.AcceleratorSurface:update(delta)
     end
 
     -- periodically remove stale particles
-    if #self._stale_particle_indices > 32 then
+    if #self._stale_particle_indices > 0 then
         table.sort(self._stale_particle_indices, function(a, b) return a > b end)
 
         local n_removed = 0
@@ -349,7 +349,7 @@ function ow.AcceleratorSurface:update(delta)
 end
 
 local base_priority = 0
-local particle_priority = math.huge
+local particle_priority = 1
 
 --- @brief
 function ow.AcceleratorSurface:draw(priority)

@@ -25,7 +25,7 @@ rt.Texture = meta.class("Texture", rt.Drawable)
 --- @brief
 function rt.Texture:instantiate(...)
     local first = select(1, ...)
-    if first ~= nil and meta.is_function(first.typeOf) and first.typeOf("Image") == true then
+    if first ~= nil and meta.is_function(first.typeOf) and first:typeOf("Texture") == true then
         self._native = first
     elseif select("#", ...) > 0 then
         -- called directly, instead of as parent

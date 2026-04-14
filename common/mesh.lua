@@ -567,7 +567,16 @@ end
 
 --- @brief
 function rt.Mesh:set_texture(texture)
-    self._native:setTexture(texture and texture._native or nil)
+    if texture ~= nil and meta.is_function(texture.get_native) then
+        texture = texture:get_native()
+    end
+
+    self._native:setTexture(texture)
+end
+
+--- @brief
+function rt.Mesh:get_texture()
+    return rt.Texture(self._native:getTexture())
 end
 
 --- @brief

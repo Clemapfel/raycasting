@@ -67,7 +67,7 @@ function mn.PauseMenu:instantiate(scene)
                 self._confirm_exit_dialog:close()
             end
 
-            -- unpause handled in OverworldScene._input
+        -- unpause handled in OverworldScene._input
         elseif self._confirm_restart_dialog:get_is_active() then
             self._confirm_restart_dialog:handle_button(which)
         elseif self._confirm_exit_dialog:get_is_active() then

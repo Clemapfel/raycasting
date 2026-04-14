@@ -7,15 +7,12 @@ return {
         }
     },
 
-    temp = {
+    accelerator_tutorial_press_tangential = {
         {
             speaker = rt.NPC_NAME,
-            next = 2,
-            "r8 my <rainbow><wave><b>NPC</b></wave></rainbow>!",
-        },
-        {
-            speaker = rt.NPC_NAME,
-            "I like that he warps the map so it feels like he is not part of the game, I will use him to convey <i><b>non-diagetic information</b></i>, like tips about the game, everything else except the button prompts I guess should be diagetic."
+            next = nil,
+            "These <rainbow><wave>crystalline surfaces</wave></rainbow> will allow you to <rainbow>accelerate</rainbow> along them, but only as long as you're touching them and are holding the correct direction",
+            "Hold <b>up</b> to go <b>up</b>, hold <b>right</b> to go <b>right</b>, hold <i>diagonally</i> to go <i>diagonally</i>, you'll figure it out"
         }
     },
 

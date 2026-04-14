@@ -130,11 +130,6 @@ function ow.DialogBox:instantiate(id)
 
         _is_first_update = true,
     })
-
-    if _animalese == nil then
-        require "common.animalese"
-        _animalese = rt.Animalese()
-    end
 end
 
 local _node_type_text = "text"
@@ -142,7 +137,7 @@ local _node_type_choice = "choice"
 
 --- @brief
 function ow.DialogBox:_glyph_shown_callback(node, glyph_text)
-    dbg(_animalese:translate(glyph_text))
+    -- TODO
 end
 
 --- @brief
@@ -186,7 +181,9 @@ function ow.DialogBox:realize()
         local speaker_id = node_entry[speaker_key]
         local orientation = node_entry[orientation_key]
 
-        rt.assert(meta.is_enum_value(orientation, rt.DialogSpeakerOrientation))
+        if orientation ~= nil then
+            rt.assert(meta.is_enum_value(orientation, rt.DialogSpeakerOrientation), "In rt.Dialog: for dialog `", self._id, "`: node `", key, "`: assigned value `", orientation, "` of `", orientation_key, "` is not an value of enum `rt.SpeakerOrientation`")
+        end
 
         if orientation == orientation_left then
             node.speaker_orientation = true

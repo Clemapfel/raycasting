@@ -44,7 +44,7 @@ love.load = function(args)
     end
 
     require "overworld.overworld_scene"
-    --rt.SceneManager:push(ow.OverworldScene, "bounce_tutorial", false)
+    rt.SceneManager:push(ow.OverworldScene, "accelerator_tutorial", false)
 
     require "menu.keybinding_scene"
     --rt.SceneManager:push(mn.KeybindingScene)
@@ -58,8 +58,8 @@ love.load = function(args)
     --init()
 end
 
-require "common.animalese"
-rt.Animalese:talk("nani?")
+--require "common.animalese"
+--rt.Animalese:talk("nani?")
 
 love.update = function(delta)
     if rt.SceneManager ~= nil then

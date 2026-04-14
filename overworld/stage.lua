@@ -159,15 +159,12 @@ function ow.Stage:instantiate(scene, id)
     local hitbox_render_priority = rt.settings.overworld.hitbox.render_priority
     render_priority_to_entry[hitbox_render_priority] = {
         priority = hitbox_render_priority,
-        objects = {
-            { draw = function()
-                    ow.Hitbox:draw_base()
-                    self._normal_map:draw_shadow(self._scene:get_camera())
-                    ow.Hitbox:draw_outline()
-                end
-
-            }
-        }
+        objects = { {
+            draw = function()
+                ow.Hitbox:draw_base()
+                self._normal_map:draw_shadow(self._scene:get_camera())
+            end
+       } }
     }
 
     -- checkpoint to checkpoint split
@@ -272,7 +269,13 @@ function ow.Stage:instantiate(scene, id)
         self._world,
         self._normal_map
     ) do
-        table.insert(self._to_update, object)
+        if meta.is_function(object.update) then
+            table.insert(self._to_update, object)
+        end
+
+        if meta.is_function(object.draw_bloom) then
+            table.insert(self._bloom_objects, object)
+        end
     end
 
     -- distribute drawables
@@ -442,9 +445,6 @@ function ow.Stage:draw_bloom()
     for object in values(self._bloom_objects) do
         object:draw_bloom()
     end
-
-    self._blood_splatter:draw()
-    self._mirror:draw()
 end
 
 --- @brief

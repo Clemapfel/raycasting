@@ -701,6 +701,7 @@ love.run = function()
             state:_notify_update_duration(love.timer.getTime() - before)
         end
 
+        rt.InputManager:_notify_end_of_frame()
 
         -- ### SOUND ###
 
