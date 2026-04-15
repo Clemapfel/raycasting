@@ -483,13 +483,10 @@ function rt.Animalese:translate(texts, update_precomputed)
         local tokens = text_i_to_tokens[text_i]
         local translation = {}
         for token in values(tokens) do
-            if DEBUG then
-                rt.assert(_token_to_animalese[token] ~= nil, "In rt.Animalese.translate: encountered untranslated token `", token, "`")
+            for phoneme in values(_token_to_animalese[token]) do
+                table.insert(animalese, phoneme)
             end
-            table.insert(translation, _token_to_animalese[token])
         end
-
-        table.insert(animalese, translation)
     end
 
     return animalese
@@ -505,7 +502,7 @@ function rt.Animalese:_initialize()
 
     self._data = {}
     self._queue = {}
-    self._batch_id = 0
+    self._queue_i = 0
 
     local data = self._data
 
@@ -609,6 +606,38 @@ function rt.Animalese:_initialize_entry(entry)
 end
 
 --- @brief
+function rt.Animalese:queue(phoneme, gender, emotion)
+    if gender == nil then gender = rt.AnimaleseGender.FEMALE end
+    if emotion == nil then emotion = rt.AnimaleseEmotion.NORMAL end
+
+    local gender_entry = self._data[gender]
+    if gender == nil then
+        gender_entry = next(self._data)
+        rt.critical("In rt.Animalese.talk: no sample files for gender `", gender, "` available")
+    end
+
+    local emotion_entry = gender_entry[emotion]
+    if emotion == nil then
+        emotion_entry = next(gender_entry)
+        rt.critical("In rt.Animalese.talk: no sample files for gender `", gender, "` with emotion `", emotion, "` available")
+    end
+
+    local entry = emotion_entry[phoneme]
+    if entry == nil then
+        rt.critical("In rt.Animalese.talk: no sample files for gender `", gender, "`, emotion `", emotion, "`, phoneme `", phoneme, "` available", phoneme == rt.AnimalesePhoneme)
+        entry = emotion_entry[rt.AnimalesePhoneme.BEAT]
+    end
+
+    local queue_i = self._queue_i
+    self._queue_i = self._queue_i + 1
+
+    table.insert(self._queue, {
+        batch_id = queue_i,
+        entry = entry
+    })
+end
+
+--- @brief
 function rt.Animalese:talk(text, gender, emotion)
     if gender == nil then gender = rt.AnimaleseGender.FEMALE end
     if emotion == nil then emotion = rt.AnimaleseEmotion.NORMAL end
@@ -617,43 +646,17 @@ function rt.Animalese:talk(text, gender, emotion)
     meta.assert_enum_value(gender, rt.AnimaleseGender, 2)
     meta.assert_enum_value(emotion, rt.AnimaleseEmotion, 3)
 
-    local batch_id = self._batch_id
-    self._batch_id = self._batch_id + 1
-
-    local beat_i = 1
-
     local translated = rt.Animalese:translate(text)
     if translated == nil or #translated == 0 then return end
 
+    local queue_is = {}
     for phonemes in values(translated[1]) do
         for phoneme in values(phonemes) do
-            local gender_entry = self._data[gender]
-            if gender == nil then
-                gender_entry = next(self._data)
-                rt.critical("In rt.Animalese.talk: no sample files for gender `", gender, "` available")
-            end
-
-            local emotion_entry = gender_entry[emotion]
-            if emotion == nil then
-                emotion_entry = next(gender_entry)
-                rt.critical("In rt.Animalese.talk: no sample files for gender `", gender, "` with emotion `", emotion, "` available")
-            end
-
-            local entry = emotion_entry[phoneme]
-            if entry == nil then
-                rt.critical("In rt.Animalese.talk: no sample files for gender `", gender, "`, emotion `", emotion, "`, phoneme `", phoneme, "` available", phoneme == rt.AnimalesePhoneme)
-                entry = emotion_entry[rt.AnimalesePhoneme.BEAT]
-            end
-
-            table.insert(self._queue, {
-                timestamp = nil, -- seconds, set in update
-                batch_id = batch_id,
-                entry = entry
-            })
+            table.insert(queue_is, rt.Animalese:queue(phoneme, gender, emotion))
         end
     end
 
-    return batch_id
+    return table.unpack(queue_is)
 end
 
 --- @brief
@@ -731,7 +734,6 @@ do -- try retranslate dialog / translation
         extract(lines, rt.Dialog, {}, {
             [dialog_settings.next_key] = true,
             [dialog_settings.state_key] = true,
-            [dialog_settings.emotion_key] = true,
             [dialog_settings.gender_key] = true,
             [dialog_settings.speaker_key] = true
         })
