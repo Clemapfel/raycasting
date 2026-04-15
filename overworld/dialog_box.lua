@@ -136,8 +136,8 @@ local _node_type_text = "text"
 local _node_type_choice = "choice"
 
 --- @brief
-function ow.DialogBox:_glyph_shown_callback(node, glyph_text)
-    -- TODO
+function ow.DialogBox:_glyph_shown_callback(node, glyph_text, emotion)
+    dbg(glyph_text, emotion)
 end
 
 --- @brief
@@ -163,8 +163,8 @@ function ow.DialogBox:realize()
     local selected_answer_prefix = settings.choice_text_prefix
     local selected_answer_postfix = settings.choice_text_postfix
 
-    local glyph_shown_callback = function(label, glyph_text, glyph)
-        self:_glyph_shown_callback(label.dialog_box_node, glyph_text, glyph)
+    local glyph_shown_callback = function(label, glyph_text, emotion)
+        self:_glyph_shown_callback(label.dialog_box_node, glyph_text, emotion)
     end
 
     local can_be_visited = {}

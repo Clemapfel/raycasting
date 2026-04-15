@@ -34,7 +34,7 @@
   </object>
  </objectgroup>
  <objectgroup id="6" name="hitbox">
-  <object id="341" name="Spawn" type="PlayerSpawn" x="-4307.24" y="-606.885">
+  <object id="341" name="Spawn" type="PlayerSpawn" x="-4322.43" y="1268.59">
    <point/>
   </object>
   <object id="358" type="Hitbox" x="-4496" y="1312">
@@ -63,7 +63,7 @@
   </object>
   <object id="542" name="NPC tangential" type="NPC" x="-4528" y="1264">
    <properties>
-    <property name="dialog_id" value="s"/>
+    <property name="dialog_id" value="accelerator_tutorial_press_tangential"/>
    </properties>
    <point/>
   </object>

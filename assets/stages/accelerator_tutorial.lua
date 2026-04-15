@@ -215,8 +215,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = -4307.24,
-          y = -606.885,
+          x = -4322.43,
+          y = 1268.59,
           width = 0,
           height = 0,
           rotation = 0,
@@ -403,7 +403,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["dialog_id"] = "s"
+            ["dialog_id"] = "accelerator_tutorial_press_tangential"
           }
         },
         {

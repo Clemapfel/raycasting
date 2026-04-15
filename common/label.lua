@@ -927,10 +927,6 @@ function rt.Label:_glyph_set_n_visible_characters(glyph, n)
             glyph.strikethrough_bx = glyph.x + _padding + new_width
         end
     end
-
-    if before == 0 and glyph.n_visible_characters > 0 then
-        self:signal_emit("glyph_shown", glyph.text, glyph.emotion)
-    end
 end
 
 --- @brief [internal]
@@ -1177,7 +1173,6 @@ function rt.Label:update_n_visible_characters_from_elapsed(elapsed, n_characters
             end
         end
     end
-
 
     local is_done = elapsed > self._total_beats * (1 / n_characters_per_second)
     self:_update_texture()
