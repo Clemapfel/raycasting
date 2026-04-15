@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="572">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="613">
  <editorsettings>
   <export target="accelerator_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -15,8 +15,11 @@
   <object id="548" type="CameraFit" x="-3248" y="1328">
    <polygon points="80,32 1024,32 1024,-720 80,-720"/>
   </object>
-  <object id="571" x="-1040" y="1392">
+  <object id="571" type="CameraBounds" x="-1040" y="1392">
    <polygon points="0,0 -368,0 -368,-1152 0,-1152"/>
+  </object>
+  <object id="598" type="CameraFit" x="-1648" y="-736">
+   <polygon points="0,0 0,672 768,672 768,0"/>
   </object>
  </objectgroup>
  <objectgroup id="7" name="back">
@@ -31,11 +34,11 @@
   </object>
  </objectgroup>
  <objectgroup id="6" name="hitbox">
-  <object id="341" name="Spawn" type="PlayerSpawn" x="-3371.5" y="1165.08">
+  <object id="341" name="Spawn" type="PlayerSpawn" x="-4307.24" y="-606.885">
    <point/>
   </object>
   <object id="358" type="Hitbox" x="-4496" y="1312">
-   <polygon points="-112,0 528,0 528,-288 512,-288 544,-336 576,-288 560,-288 560,0 1200,0 1200,-64 1264,-64 1264,0 3248,0 3248,-656 3520,-656 3520,-352 3520,0 3376,0 3376,-352 3408,-352 3360,-416 3312,-352 3344,-352 3344,0 3568,0 3584,160 -272,160 -272,-768 -112,-768"/>
+   <polygon points="-112,0 528,0 528,-288 512,-288 544,-336 576,-288 560,-288 560,0 1200,0 1200,-64 1264,-64 1264,0 3280,0 3280,-1104 3520,-1104 3520,-352 3520,0 3376,0 3376,-352 3408,-352 3360,-416 3312,-352 3344,-352 3344,0 3568,0 3584,160 -272,160 -272,-768 -112,-768"/>
   </object>
   <object id="359" type="SlipperyHitbox" x="-4016" y="1312">
    <polygon points="0,0 0,-224 -16,-224 -16,-400 0,-384 128,-384 144,-400 144,-224 128,-224 128,0 80,0 80,-288 96,-288 64,-336 32,-288 48,-288 48,0"/>
@@ -91,6 +94,60 @@
   <object id="569" type="AcceleratorSurface" x="-1520" y="1296">
    <polygon points="-192,-16 -160,-16 -160,16 -672,16 -672,-144 -640,-144 -640,-96 -627.164,-58.5404 -606.019,-32.7977 -567.666,-10.9191 -512,0 -448,0 -240,0"/>
   </object>
+  <object id="572" type="AcceleratorSurface" x="-1216" y="656">
+   <polygon points="272,-1056 272,-864 268.94,-845.763 261.127,-828.409 249.654,-810.788 235.043,-800.59 216.878,-790.434 192,-784 -32,-784 -32,-752 0,-752 304,-752 304,-1056"/>
+  </object>
+  <object id="574" type="SlipperyHitbox" x="-1312" y="400">
+   <polygon points="0,128 32,128 32,208 0,192 0,160 -880,160 -880,-192 0,-192"/>
+  </object>
+  <object id="575" type="BoostField" x="-1280" y="-128">
+   <properties>
+    <property name="axis_y" type="float" value="1"/>
+   </properties>
+   <polygon points="0,0 0,48 32,48 32,0"/>
+  </object>
+  <object id="579" type="AcceleratorSurface" x="-1216" y="656">
+   <polygon points="-32,-752 -32,354.504 -34.8787,388.571 -38.3005,415.175 -49.4977,436.809 -62.1346,458.538 -77.5558,479.683 -104.849,498.77 -144,512 -32,512 -32,656 0,656 0,-752"/>
+  </object>
+  <object id="580" type="AcceleratorSurface" x="-1280" y="-96">
+   <polygon points="0,0 -32,0 -32,624 0,624"/>
+  </object>
+  <object id="584" type="AcceleratorSurface" x="-1312" y="656">
+   <polygon points="-272,-1056 -272,-864 -268.94,-845.763 -261.127,-828.409 -249.654,-810.788 -235.043,-800.59 -216.878,-790.434 -192,-784 32,-784 32,-752 0,-752 -304,-752 -304,-1056"/>
+  </object>
+  <object id="596" type="AcceleratorSurface" x="-1312" y="-1456">
+   <polygon points="-272,1056 -272,864 -268.94,845.763 -261.127,828.409 -249.654,810.788 -235.043,800.59 -216.878,790.434 -192,784 32,784 32,752 0,752 -304,752 -304,1056"/>
+  </object>
+  <object id="597" type="AcceleratorSurface" x="-1216" y="-1456">
+   <polygon points="272,1056 272,864 268.94,845.763 261.127,828.409 249.654,810.788 235.043,800.59 216.878,790.434 192,784 -32,784 -32,752 0,752 304,752 304,1056"/>
+  </object>
+  <object id="599" x="-4048" y="-544">
+   <polygon points="-384,-16 -384,80 2032,80 2032,-16"/>
+  </object>
+  <object id="600" name="Normal" type="Hitbox" x="-3952" y="-784" width="128" height="128"/>
+  <object id="601" name="Glass" type="SlipperyHitbox" x="-3712" y="-784" width="128" height="128"/>
+  <object id="602" name="Accelerator" type="AcceleratorSurface" x="-2816" y="-784" width="128" height="128"/>
+  <object id="603" name="Decelerator" type="DeceleratorSurface" x="-2592" y="-784" width="128" height="128"/>
+  <object id="604" name="Boost" type="BoostField" x="-3488" y="-784" width="128" height="128">
+   <properties>
+    <property name="axis_y" type="float" value="-1"/>
+   </properties>
+  </object>
+  <object id="605" name="Bounce" type="BouncePad" x="-3264" y="-784" width="128" height="128"/>
+  <object id="606" name="Bubble" type="BubbleField" x="-3040" y="-784" width="128" height="128"/>
+  <object id="607" x="-4167.59" y="410.85">
+   <polygon points="0,0 0,-352 1296,-352 1296,0"/>
+  </object>
+  <object id="609" type="CameraFit" x="-4032" y="-544" visible="0">
+   <polygon points="0,16 0,-448 1632,-448 1632,16"/>
+  </object>
+  <object id="610" type="Wall" x="-4032" y="-544">
+   <polygon points="0,16 0,-448 1632,-448 1632,16"/>
+  </object>
+  <object id="611" x="-3984" y="-1072">
+   <polygon points="-384,-16 -384,80 2032,80 2032,-16"/>
+  </object>
+  <object id="612" name="Normal" type="KillPlane" x="-4208" y="-784" width="128" height="128"/>
  </objectgroup>
  <objectgroup id="2" name="front">
   <object id="554" type="OneWayPlatform" x="-3152" y="1008">
@@ -100,6 +157,15 @@
    <point/>
   </object>
   <object id="556" type="OneWayPlatformNode" x="-3152" y="1104">
+   <point/>
+  </object>
+  <object id="576" type="OneWayPlatform" x="-1280" y="-128">
+   <properties>
+    <property name="other" type="object" value="577"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="577" type="OneWayPlatformNode" x="-1248" y="-128">
    <point/>
   </object>
  </objectgroup>

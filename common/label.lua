@@ -5,6 +5,7 @@ require "common.font"
 require "common.render_texture"
 require "common.lch_texture"
 require "common.animalese_phonemes"
+require "common.animalese_emotion"
 
 rt.settings.label = {
     outline_offset_padding = 8,
@@ -61,7 +62,18 @@ rt.settings.label = {
         EFFECT_NOISE_TAG_END = { "</noise>", "</fx_noise>" },
 
         MONOSPACE_TAG_START = { "<tt>", "<mono>" },
-        MONOSPACE_TAG_END = { "</tt>", "</mono>" }
+        MONOSPACE_TAG_END = { "</tt>", "</mono>" },
+
+        EMOTION_TAG_NORMAL_START = { "<normal>" },
+        EMOTION_TAG_NORMAL_END = { "</normal>" },
+        EMOTION_TAG_ANGRY_START = { "<angry>" },
+        EMOTION_TAG_ANGRY_END = { "</angry>" },
+        EMOTION_TAG_HAPPY_START = { "<happy>" },
+        EMOTION_TAG_HAPPY_END = { "</happy>" },
+        EMOTION_TAG_SAD_START = { "<sad>" },
+        EMOTION_TAG_SAD_END = { "</sad>" },
+        EMOTION_TAG_BASHFUL_START = { "<bashful>" },
+        EMOTION_TAG_BASHFUL_END = { "</bashful>" }
     }
 }
 
@@ -120,6 +132,7 @@ function rt.Label:instantiate(text, font_size, font, use_caching)
         _glyphs_only = meta.make_weak({}),
         _non_outlined_glyphs = meta.make_weak({}),
         _outlined_glyphs = meta.make_weak({}),
+        _tokens = meta.make_weak({}),
 
         _use_outline = false,
         _use_animation = false,
@@ -162,7 +175,8 @@ function rt.Label._glyph_new(
     is_effect_shake,
     is_effect_wave,
     is_effect_rainbow,
-    is_effect_noise
+    is_effect_noise,
+    emotion
 )
     local font_native = font:get_native(font_size, style, false)
     local glyph, outline_glyph = love.graphics.newTextBatch(font_native, text), nil
@@ -171,6 +185,8 @@ function rt.Label._glyph_new(
     if is_outlined then
         outline_glyph = love.graphics.newTextBatch(font_sdf_native, text)
     end
+
+    meta.assert_enum_value(emotion, rt.AnimaleseEmotion)
 
     local out = {
         text = text, -- necessary for beat weights
@@ -187,6 +203,7 @@ function rt.Label._glyph_new(
         is_effect_rainbow = is_effect_rainbow,
         is_effect_wave = is_effect_wave,
         is_effect_noise = is_effect_noise,
+        emotion = emotion,
         color = { color_r, color_g, color_b, 1 },
         outline_color = { outline_color_r, outline_color_g, outline_color_b, 1 },
         n_visible_characters = utf8.len(text),
@@ -392,50 +409,106 @@ local _syntax = {
     EFFECT_NOISE_TAG_START = _make_set(settings.EFFECT_NOISE_TAG_START),
     EFFECT_NOISE_TAG_END = _make_set(settings.EFFECT_NOISE_TAG_END),
 
+    EMOTION_TAG_NORMAL_START = _make_set(settings.EMOTION_TAG_NORMAL_START),
+    EMOTION_TAG_NORMAL_END = _make_set(settings.EMOTION_TAG_NORMAL_END),
+
+    EMOTION_TAG_ANGRY_START = _make_set(settings.EMOTION_TAG_ANGRY_START),
+    EMOTION_TAG_ANGRY_END = _make_set(settings.EMOTION_TAG_ANGRY_END),
+
+    EMOTION_TAG_HAPPY_START = _make_set(settings.EMOTION_TAG_HAPPY_START),
+    EMOTION_TAG_HAPPY_END = _make_set(settings.EMOTION_TAG_HAPPY_END),
+
+    EMOTION_TAG_SAD_START = _make_set(settings.EMOTION_TAG_SAD_START),
+    EMOTION_TAG_SAD_END = _make_set(settings.EMOTION_TAG_SAD_END),
+
+    EMOTION_TAG_BASHFUL_START = _make_set(settings.EMOTION_TAG_BASHFUL_START),
+    EMOTION_TAG_BASHFUL_END = _make_set(settings.EMOTION_TAG_BASHFUL_END),
+
     MONOSPACE_TAG_START = _make_set(settings.MONOSPACE_TAG_START),
     MONOSPACE_TAG_END = _make_set(settings.MONOSPACE_TAG_END),
 }
 
 local _sequence_to_settings_key = {}
 for set_settings_key in range(
-    {_syntax.BOLD_TAG_START, "is_bold"},
-    {_syntax.BOLD_TAG_END, "is_bold"},
+    {_syntax.BOLD_TAG_START, "is_bold" },
+    {_syntax.BOLD_TAG_END, "is_bold" },
 
-    {_syntax.ITALIC_TAG_START, "is_italic"},
-    {_syntax.ITALIC_TAG_END, "is_italic"},
+    {_syntax.ITALIC_TAG_START, "is_italic" },
+    {_syntax.ITALIC_TAG_END, "is_italic" },
 
-    {_syntax.UNDERLINED_TAG_START, "is_underlined"},
-    {_syntax.UNDERLINED_TAG_END, "is_underlined"},
+    {_syntax.UNDERLINED_TAG_START, "is_underlined" },
+    {_syntax.UNDERLINED_TAG_END, "is_underlined" },
 
-    {_syntax.STRIKETHROUGH_TAG_START, "is_strikethrough"},
-    {_syntax.STRIKETHROUGH_TAG_END, "is_strikethrough"},
+    {_syntax.STRIKETHROUGH_TAG_START, "is_strikethrough" },
+    {_syntax.STRIKETHROUGH_TAG_END, "is_strikethrough" },
 
---{_syntax.COLOR_TAG_START, "color_active"}, sic
---{_syntax.COLOR_TAG_END, "color_active"}, sic
+--{_syntax.COLOR_TAG_START, "color_active" }, sic
+--{_syntax.COLOR_TAG_END, "color_active" }, sic
 
---{_syntax.OUTLINE_COLOR_TAG_START, "outline_color_active"}, sic
---{_syntax.OUTLINE_COLOR_TAG_END, "outline_color_active"}, sic
+--{_syntax.OUTLINE_COLOR_TAG_START, "outline_color_active" }, sic
+--{_syntax.OUTLINE_COLOR_TAG_END, "outline_color_active" }, sic
 
-    {_syntax.OUTLINE_TAG_START, "is_outlined"},
-    {_syntax.OUTLINE_TAG_END, "is_outlined"},
+    {_syntax.OUTLINE_TAG_START, "is_outlined" },
+    {_syntax.OUTLINE_TAG_END, "is_outlined" },
 
-    {_syntax.EFFECT_SHAKE_TAG_START, "is_effect_shake"},
-    {_syntax.EFFECT_SHAKE_TAG_END, "is_effect_shake"},
-    {_syntax.EFFECT_WAVE_TAG_START, "is_effect_wave"},
-    {_syntax.EFFECT_WAVE_TAG_END, "is_effect_wave"},
-    {_syntax.EFFECT_RAINBOW_TAG_START, "is_effect_rainbow"},
-    {_syntax.EFFECT_RAINBOW_TAG_END, "is_effect_rainbow"},
-    {_syntax.EFFECT_NOISE_TAG_START, "is_effect_noise"},
-    {_syntax.EFFECT_NOISE_TAG_END, "is_effect_noise"},
+    {_syntax.EFFECT_SHAKE_TAG_START, "is_effect_shake" },
+    {_syntax.EFFECT_SHAKE_TAG_END, "is_effect_shake" },
+    {_syntax.EFFECT_WAVE_TAG_START, "is_effect_wave" },
+    {_syntax.EFFECT_WAVE_TAG_END, "is_effect_wave" },
+    {_syntax.EFFECT_RAINBOW_TAG_START, "is_effect_rainbow" },
+    {_syntax.EFFECT_RAINBOW_TAG_END, "is_effect_rainbow" },
+    {_syntax.EFFECT_NOISE_TAG_START, "is_effect_noise" },
+    {_syntax.EFFECT_NOISE_TAG_END, "is_effect_noise" },
 
-    {_syntax.MONOSPACE_TAG_START, "is_mono"},
-    {_syntax.MONOSPACE_TAG_END, "is_mono"}
+    {_syntax.MONOSPACE_TAG_START, "is_mono" },
+    {_syntax.MONOSPACE_TAG_END, "is_mono" },
+
+    { _syntax.EMOTION_TAG_NORMAL_START, "emotion_normal" },
+    { _syntax.EMOTION_TAG_NORMAL_END, "emotion_normal" },
+
+    { _syntax.EMOTION_TAG_ANGRY_START, "emotion_angry" },
+    { _syntax.EMOTION_TAG_ANGRY_END, "emotion_angry" },
+
+    { _syntax.EMOTION_TAG_HAPPY_START, "emotion_happy" },
+    { _syntax.EMOTION_TAG_HAPPY_END, "emotion_happy" },
+
+    { _syntax.EMOTION_TAG_SAD_START, "emotion_sad" },
+    { _syntax.EMOTION_TAG_SAD_END, "emotion_sad" },
+
+    { _syntax.EMOTION_TAG_BASHFUL_START, "emotion_bashful" },
+    { _syntax.EMOTION_TAG_BASHFUL_END, "emotion_bashful" }
 ) do
     local set, settings_key = table.unpack(set_settings_key)
     for x in keys(set) do
         _sequence_to_settings_key[x] = settings_key
     end
 end
+
+local _is_emotion_tag = {}
+for tags in range(
+    settings.EMOTION_TAG_NORMAL_START,
+    settings.EMOTION_TAG_NORMAL_END,
+    settings.EMOTION_TAG_ANGRY_START,
+    settings.EMOTION_TAG_ANGRY_END,
+    settings.EMOTION_TAG_HAPPY_START,
+    settings.EMOTION_TAG_HAPPY_END,
+    settings.EMOTION_TAG_SAD_START,
+    settings.EMOTION_TAG_SAD_END,
+    settings.EMOTION_TAG_BASHFUL_START,
+    settings.EMOTION_TAG_BASHFUL_END
+) do
+    for tag in values(tags) do
+        _is_emotion_tag[tag] = true
+    end
+end
+
+local _emotion_settings_key_to_emotion = {
+    emotion_normal = rt.AnimaleseEmotion.NORMAL,
+    emotion_happy = rt.AnimaleseEmotion.HAPPY,
+    emotion_sad = rt.AnimaleseEmotion.SAD,
+    emotion_angry = rt.AnimaleseEmotion.ANGRY,
+    emotion_bashful = rt.AnimaleseEmotion.BASHFUL
+}
 
 local _sub = utf8.sub
 local _insert = table.insert
@@ -471,6 +544,7 @@ function rt.Label:_parse(raw)
     self._glyphs_only = meta.make_weak({})
     self._non_outlined_glyphs = meta.make_weak({})
     self._outlined_glyphs = meta.make_weak({})
+    self._tokens = meta.make_weak({})
 
     self._n_glyphs = 0
     self._n_characters = 0
@@ -486,7 +560,7 @@ function rt.Label:_parse(raw)
     local default_color = "FOREGROUND"
     local default_outline_color = "BLACK"
 
-    local tokens = {}
+    local tokens = self._tokens
 
     local glyph_settings = {
         is_bold = false,
@@ -508,7 +582,13 @@ function rt.Label:_parse(raw)
         is_effect_noise = false,
         is_effect_rainbow = false,
         is_effect_shake = false,
-        is_effect_wave = false
+        is_effect_wave = false,
+
+        emotion_normal = false,
+        emotion_angry = false,
+        emotion_happy = false,
+        emotion_sad = false,
+        emotion_bashful = false
     }
 
     local at = function(i)
@@ -555,6 +635,20 @@ function rt.Label:_parse(raw)
         local color_r, color_g, color_b = _rt_color_unpack(_rt_palette[glyph_settings.color])
         local outline_color_r, outline_color_g, outline_color_b = _rt_color_unpack(_rt_palette[glyph_settings.outline_color])
 
+        local emotion = rt.AnimaleseEmotion.NORMAL
+        for key in range(
+            "emotion_normal",
+            "emotion_happy",
+            "emotion_sad",
+            "emotion_angry",
+            "emotion_bashful"
+        ) do
+            if glyph_settings[key] == true then
+                emotion = _emotion_settings_key_to_emotion[key]
+                break
+            end
+        end
+
         local word = _concat(current_word)
         local to_insert = rt.Label._glyph_new(
             word, font, self._font_size, style, glyph_settings.is_mono,
@@ -566,7 +660,8 @@ function rt.Label:_parse(raw)
             glyph_settings.is_effect_shake,
             glyph_settings.is_effect_wave,
             glyph_settings.is_effect_rainbow,
-            glyph_settings.is_effect_noise
+            glyph_settings.is_effect_noise,
+            emotion
         )
 
         _insert(glyphs, to_insert)
@@ -598,8 +693,8 @@ function rt.Label:_parse(raw)
         current_word = {}
     end
 
-    local function throw_parse_error(reason)
-        rt.error("In rt.Label._parse: Error at position `", i, "`: " .. reason)
+    local function throw_parse_error(...)
+        rt.error("In rt.Label._parse: Error at position `", i, "`: ", ...)
     end
 
     local function step(n)
@@ -640,7 +735,7 @@ function rt.Label:_parse(raw)
             local is_closing_tag = false
             repeat
                 if i + sequence_i > n_characters then
-                    throw_parse_error("malformed tag, `" .. _concat(sequence) .. "` reached end of text")
+                    throw_parse_error("malformed tag: `", _concat(sequence), "` reached end of text")
                 end
 
                 sequence_s = at(i + sequence_i)
@@ -658,18 +753,32 @@ function rt.Label:_parse(raw)
             if settings_key ~= nil then
                 if is_closing_tag then
                     if glyph_settings[settings_key] == false then
-                        throw_parse_error("trying to close region with `" .. as_string .. "`, but not such region is open")
+                        throw_parse_error("trying to close region with `", as_string, "`, but not such region is open")
                     end
 
                     glyph_settings[settings_key] = false
                 else
                     if glyph_settings[settings_key] == true then
-                        throw_parse_error("trying to open region with `" .. as_string .. "`, but such a region is already open")
+                        throw_parse_error("trying to open region with `", as_string, "`, but such a region is already open")
+                    end
+
+                    if _is_emotion_tag[as_string] then
+                        for key in range(
+                            "emotion_normal",
+                            "emotion_happy",
+                            "emotion_sad",
+                            "emotion_angry",
+                            "emotion_bashful"
+                        ) do
+                            if glyph_settings[key] == true then
+                                throw_parse_error("trying to open region with `", as_string, "`, but region for emotion `", _emotion_settings_key_to_emotion[key], "` is already active. Only one emotion can be active at the same time")
+                            end
+                        end
                     end
 
                     glyph_settings[settings_key] = true
                 end
-            else
+            else -- color
                 if is_closing_tag then -- manually parse color tags
                     local found = false
                     for other in keys(_syntax.COLOR_TAG_END) do
@@ -693,7 +802,7 @@ function rt.Label:_parse(raw)
                     end
 
                     if not found then
-                        throw_parse_error("unrecognized tag `" .. as_string .. "`")
+                        throw_parse_error("unrecognized tag `", as_string, "`")
                     end
                 else
                     -- parse out color string
@@ -702,7 +811,7 @@ function rt.Label:_parse(raw)
                         found, _, new_color = _find(as_string, tag)
                         if found ~= nil then
                             if _rt_palette[new_color] == nil then
-                                throw_parse_error("malformed color tag: color `" .. new_color .. "` unknown")
+                                throw_parse_error("malformed color tag: color `", new_color, "` unknown")
                             end
 
                             glyph_settings.color = new_color
@@ -716,7 +825,7 @@ function rt.Label:_parse(raw)
                             found, _, new_color = _find(as_string, tag)
                             if found ~= nil then
                                 if _rt_palette[new_color] == nil then
-                                    throw_parse_error("malformed outline color tag: color `" .. new_color .. "` unknown")
+                                    throw_parse_error("malformed outline color tag: color `", new_color, "` unknown")
                                 end
 
                                 glyph_settings.outline_color = new_color
@@ -727,7 +836,7 @@ function rt.Label:_parse(raw)
                     end
 
                     if found == nil then
-                        throw_parse_error("unrecognized tag `" .. as_string .. "`")
+                        throw_parse_error("unrecognized tag `", as_string, "`")
                     end
                 end
             end
@@ -740,17 +849,26 @@ function rt.Label:_parse(raw)
     end
     push_glyph()
 
-    if glyph_settings.is_bold then throw_parse_error("reached end of text, but bold region is still open") end
-    if glyph_settings.is_italic then throw_parse_error("reached end of text, but italic region is still open") end
-    if glyph_settings.color_active then throw_parse_error("reached end of text, but colored region is still open") end
-    if glyph_settings.outline_color_active then throw_parse_error("reached end of text, but outline color region is still open") end
-    if glyph_settings.is_effect_shake then throw_parse_error("reached end of text, but effect shake region is still open") end
-    if glyph_settings.is_effect_wave then throw_parse_error("reached end of text, but effect wave region is still open") end
-    if glyph_settings.is_effect_rainbow then throw_parse_error("reached end of text, but effect rainbow region is still open") end
-    if glyph_settings.is_effect_noise then throw_parse_error("reached end of text, but effect noise region is still open") end
-    if glyph_settings.is_underlined then throw_parse_error("reached end of text, but effect underlined region is still open") end
-    if glyph_settings.is_strikethrough then throw_parse_error("reached end of text, but effect strikethrough region is still open") end
-    if glyph_settings.is_outlined then throw_parse_error("reached end of text, but effect outline region is still open") end
+    local throw_end_error = function(which)
+        throw_parse_error("reached end of text, but ", which, " region is still open")
+    end
+
+    if glyph_settings.is_bold then throw_end_error("<bold>") end
+    if glyph_settings.is_italic then throw_end_error("<italic>") end
+    if glyph_settings.color_active then throw_end_error("<color>") end
+    if glyph_settings.is_outlined then throw_end_error("<outline>") end
+    if glyph_settings.outline_color_active then throw_end_error("<outline_color>") end
+    if glyph_settings.is_effect_shake then throw_end_error("<shake>") end
+    if glyph_settings.is_effect_wave then throw_end_error("<wave>") end
+    if glyph_settings.is_effect_rainbow then throw_end_error("<rainbow>") end
+    if glyph_settings.is_effect_noise then throw_end_error("<noise>") end
+    if glyph_settings.is_underlined then throw_end_error("<underlined>") end
+    if glyph_settings.is_strikethrough then throw_end_error("<strikethrough>") end
+    if glyph_settings.emotion_normal then throw_end_error("<normal>") end
+    if glyph_settings.emotion_happy then throw_end_error("<happy>") end
+    if glyph_settings.emotion_sad then throw_end_error("<sad>") end
+    if glyph_settings.emotion_angry then throw_end_error("<angry>") end
+    if glyph_settings.emotion_bashful then throw_end_error("<bashful>") end
 
     -- estimate size before wrapping
     local max_width = 0
@@ -811,7 +929,7 @@ function rt.Label:_glyph_set_n_visible_characters(glyph, n)
     end
 
     if before == 0 and glyph.n_visible_characters > 0 then
-        self:signal_emit("glyph_shown", glyph.text)
+        self:signal_emit("glyph_shown", glyph.text, glyph.emotion)
     end
 end
 
@@ -1256,6 +1374,7 @@ function rt.Label:draw(x, y)
     end
 end
 
+--- @brief
 function rt.Label:_update_texture()
     if self._n_glyphs == 0 or self._texture == nil or not self._use_caching then return end
 
@@ -1270,6 +1389,11 @@ function rt.Label:_update_texture()
 
     love.graphics.setCanvas(nil)
     love.graphics.pop()
+end
+
+--- @brief
+function rt.Label:get_tokens()
+    return self._tokens
 end
 
 --- ####
@@ -1291,6 +1415,7 @@ function rt.Glyph:instantiate(text, properties)
     local is_effect_wave = false
     local is_effect_rainbow = false
     local is_effect_noise = false
+    local emotion = rt.AnimaleseEmotion.NORMAL
 
     local outline_set = false
     local outline_color_set = false
@@ -1326,6 +1451,8 @@ function rt.Glyph:instantiate(text, properties)
             is_effect_noise = value
         elseif name == "justify_mode" then
             self._justify_mode = value
+        elseif name == "emotion" then
+            emotion = value
         else
             rt.error("In rt.Glyph: unknown property `", tostring(name), "`")
         end
@@ -1349,7 +1476,8 @@ function rt.Glyph:instantiate(text, properties)
         is_effect_shake,
         is_effect_wave,
         is_effect_rainbow,
-        is_effect_noise
+        is_effect_noise,
+        emotion
     }
 
     self._native = rt.Label._glyph_new(table.unpack(self._config))

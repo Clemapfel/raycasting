@@ -7,7 +7,6 @@ rt.settings.dialog = {
     next_key = "next",
     dialog_choice_key = "choices",
     state_key = "state",
-    emotion_key = "emotion",
     gender_key = "gender"
 }
 
@@ -24,7 +23,6 @@ do
     require "common.filesystem"
     require "common.language"
     require "common.translation"
-    require "common.animalese_emotion"
     require "common.animalese_gender"
 
     local settings = rt.settings.dialog

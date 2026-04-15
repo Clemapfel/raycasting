@@ -1,9 +1,9 @@
 --- @enum rt.AnimaleseEmotion
 rt.AnimaleseEmotion = {
-    ANGRY = "angry",
-    BASHFUL = "bashful",
-    HAPPY = "happy",
     NORMAL = "normal",
-    SAD = "sad"
+    HAPPY = "happy",
+    SAD = "sad",
+    ANGRY = "angry",
+    BASHFUL = "bashful"
 }
 rt.AnimaleseEmotion = meta.enum("AnimaleseEmotion", rt.AnimaleseEmotion)
