@@ -513,6 +513,7 @@ end
 function ow.OverworldScene:stop_timer()
     self._timer_stopped = true
 end
+
 function ow.OverworldScene:draw()
     if self._stage == nil then return end
 
@@ -658,6 +659,25 @@ function ow.OverworldScene:draw()
     end
 end
 
+--[[
+--- @brief
+function ow.OverwoldScene:draw()
+    local draw_player = function()
+
+    end
+
+    if self._fade_active then
+
+        -- when fading, draw player above stage
+
+        self._fade:draw()
+        draw_player()
+        self._title_card:draw()
+    end
+end
+]]
+
+--- @brief
 function ow.OverworldScene:_update_screenshot(draw_player)
     if self._stage == nil
         or self._screenshot_needs_update == false
@@ -680,27 +700,8 @@ function ow.OverworldScene:_update_screenshot(draw_player)
     love.graphics.push("all")
     love.graphics.reset()
     self._screenshot:bind()
-
-    love.graphics.clear(0, 0, 0, 0)
-    self._background:draw()
-
-    if self._fade_to_black > 0 then
-        local r, g, b, _ = rt.Palette.BLACK:unpack()
-        love.graphics.setColor(r, g, b, self._fade_to_black)
-        love.graphics.rectangle("fill", self._bounds:unpack())
-    end
-
-    self._camera:bind()
-    self._stage:draw_below_player()
-    if draw_player == true then
-        self._player:draw_body()
-        self._player:draw_core()
-    end
-    self._stage:draw_above_player()
-    self._camera:unbind()
-
+    self:draw()
     self._screenshot:unbind()
-
     love.graphics.pop()
     self._screenshot_needs_update = false
 end

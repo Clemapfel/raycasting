@@ -97,11 +97,6 @@ rt.JustifyMode = meta.enum("JustifyMode", rt.JustifyMode)
 --- @class rt.Label
 rt.Label = meta.class("Label", rt.Widget)
 
-meta.add_signal(rt.Label,
-    --- @signal glyph_shown (rt.Label, text) -> nil
-    "glyph_shown"
-)
-
 --- @class rt.Glyph
 rt.Glyph = meta.class("Glyph", rt.Widget)
 
@@ -1136,7 +1131,6 @@ end
 --- @return Boolean, Number, Number is_done, n_visible_rows, n_characters
 function rt.Label:update_n_visible_characters_from_elapsed(elapsed, n_characters_per_second)
     if self:get_is_realized() ~= true then self:realize() end
-
     if n_characters_per_second == nil then n_characters_per_second = rt.settings.label.scroll_speed * rt.GameState:get_text_speed() end
 
     local so_far = elapsed
@@ -1144,6 +1138,7 @@ function rt.Label:update_n_visible_characters_from_elapsed(elapsed, n_characters
     local n_visible = 0
     local weights = _syntax.BEAT_TO_WEIGHT
     local max_row = 0
+
     for glyph in values(self._glyphs) do
         if meta.is_table(glyph) then
             if so_far <= 0 then
@@ -1163,6 +1158,8 @@ function rt.Label:update_n_visible_characters_from_elapsed(elapsed, n_characters
                     n_seen = n_seen + 1
                     if so_far < 0 then break end
                 end
+
+                local before = glyph.n_visible_characters
                 self:_glyph_set_n_visible_characters(glyph, n_seen)
                 max_row = math.max(max_row, glyph.row_index)
             end
@@ -1178,6 +1175,61 @@ function rt.Label:update_n_visible_characters_from_elapsed(elapsed, n_characters
     self:_update_texture()
     local rest_delta = so_far
     return is_done, max_row, so_far
+end
+
+--- @brief
+function rt.Label:get_scroll_event_map(n_characters_per_second)
+    if self:get_is_realized() ~= true then self:realize() end
+    if n_characters_per_second == nil then n_characters_per_second = rt.settings.label.scroll_speed * rt.GameState:get_text_speed() end
+
+    local step = 1 / n_characters_per_second
+    local current_time = 0
+    local weights = _syntax.BEAT_TO_WEIGHT
+    local events = {}
+
+    for glyph in values(self._glyphs) do
+        if meta.is_table(glyph) then
+            local duration = 0
+            for i = 1, glyph.n_characters do
+                local weight = weights[string.sub(glyph.text, i, i)]
+                if weight == nil then
+                    duration = duration + step
+                else
+                    duration = duration + (weight * step)
+                end
+            end
+
+            table.insert(events, {
+                time = current_time,
+                glyph = glyph.text,
+                emotion = glyph.emotion,
+                duration = duration,
+                is_beat = false
+            })
+
+            current_time = current_time + duration
+        else
+            local weight = weights[glyph]
+            if weight == nil then
+                rt.error("In rt.Label:get_scroll_event_map: no scroll weight for control character `", glyph, "`")
+                weight = 0
+            end
+
+            local duration = (weight * step)
+
+            table.insert(events, {
+                time = current_time,
+                glyph = glyph,
+                emotion = nil,
+                duration = duration,
+                is_beat = true
+            })
+
+            current_time = current_time + duration
+        end
+    end
+
+    return events
 end
 
 function rt.Label:_draw()

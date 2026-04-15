@@ -6,6 +6,7 @@ require "common.sprite"
 require "common.stencil"
 require "common.sound_manager"
 require "common.dialog"
+require "common.animalese"
 
 -- accepted ids for dialog node in config file
 rt.settings.overworld.dialog_box = {
@@ -136,11 +137,6 @@ local _node_type_text = "text"
 local _node_type_choice = "choice"
 
 --- @brief
-function ow.DialogBox:_glyph_shown_callback(node, glyph_text, emotion)
-    dbg(glyph_text, emotion)
-end
-
---- @brief
 function ow.DialogBox:realize()
     if self:already_realized() then return end
     local entry = self._config
@@ -152,6 +148,7 @@ function ow.DialogBox:realize()
     local next_key = settings.next_key
     local dialog_choice_key = settings.dialog_choice_key
     local state_key = settings.state_key
+    local gender_key = settings.gender_key
     local orientation_key = settings.speaker_orientation_key
     local orientation_left = rt.DialogSpeakerOrientation.LEFT
     local orientation_right = rt.DialogSpeakerOrientation.RIGHT
@@ -163,15 +160,10 @@ function ow.DialogBox:realize()
     local selected_answer_prefix = settings.choice_text_prefix
     local selected_answer_postfix = settings.choice_text_postfix
 
-    local glyph_shown_callback = function(label, glyph_text, emotion)
-        self:_glyph_shown_callback(label.dialog_box_node, glyph_text, emotion)
-    end
-
     local can_be_visited = {}
     for key, node_entry in pairs(entry) do
         local node = {}
         node.id = key
-
         node.type = ternary(node_entry[dialog_choice_key] ~= nil, _node_type_choice, _node_type_text)
         node.labels = {}
         node.next_id = node_entry[next_key]
@@ -209,7 +201,10 @@ function ow.DialogBox:realize()
             )
         end
 
-        rt.assert(meta.is_string(node_entry[1]))
+        node.gender = node_entry[gender_key]
+        meta.assert_enum_value(node.gender, rt.AnimaleseGender)
+
+        local event_maps = {}
 
         local i = 1
         local text = node_entry[i]
@@ -218,13 +213,36 @@ function ow.DialogBox:realize()
             label:realize()
             label:set_n_visible_characters(0)
 
-            label.dialog_box_node = node
-            label:signal_connect("glyph_shown", glyph_shown_callback)
-
             table.insert(node.labels, label)
+            table.insert(event_maps, label:get_scroll_event_map())
             i = i + 1
 
             text = node_entry[i]
+        end
+
+        -- compute overall event map
+        node.event_map = {}
+        node.elapsed = 0
+        node.duration = 0
+        do
+            local elapsed = 0
+            for map in values(event_maps) do
+                for event in values(map) do
+                    table.insert(node.event_map, {
+                        time = elapsed,
+                        duration = event.duration,
+                        glyph = event.glyph,
+                        is_beat = event.is_beat,
+                        emotion = event.emotion,
+                        gender = node.gender,
+                        animalese = rt.Animalese:translate(event.glyph),
+                        played = false,
+                        id = nil, -- result of rt.Animalese:queue
+                    })
+                    elapsed = elapsed + event.duration
+                end
+            end
+            node.duration = elapsed
         end
 
         if node_entry[dialog_choice_key] ~= nil then
@@ -492,6 +510,21 @@ function ow.DialogBox:_update_node_offset_from_n_lines_visible(n_lines_visible)
 end
 
 --- @brief
+function ow.DialogBox:_update_animalese(node, delta)
+    node.elapsed = node.elapsed + delta
+    for _, event in ipairs(node.event_map) do
+        if event.time < node.elapsed and event.was_played == false then
+            if event.is_beat then
+                event.id = rt.Animalese:queue_beat(event.duration)
+            else
+                event.id = rt.Animalese:queue(event.animalese, node.gender, event.emotion)
+            end
+            event.was_played = true
+        end
+    end
+end
+
+--- @brief
 function ow.DialogBox:update(delta)
     if not self._is_started then return end
 
@@ -513,6 +546,8 @@ function ow.DialogBox:update(delta)
             self:signal_emit("control_state_changed", ow.DialogBoxControlState.ADVANCE)
             self._is_first_update = false
         end
+
+        self:_update_animalese(self._active_node, delta)
     end
 
     if self._is_waiting_for_advance then
@@ -527,15 +562,11 @@ function ow.DialogBox:update(delta)
         local at_least_one_label_not_done = false
 
         local node = self._active_node
+        node.elapsed = math.min(node.elapsed + delta, node.duration)
 
         local init_label = function(label)
             if label.dialog_box_elapsed == nil then label.dialog_box_elapsed = 0 end
             if label.dialog_box_is_done == nil then label.dialog_box_is_done = false end
-        end
-
-        local n_characters_per_second = rt.settings.label.scroll_speed * rt.GameState:get_text_speed()
-        if self._advance_button_is_down then
-            n_characters_per_second = n_characters_per_second * rt.settings.overworld.dialog_box.scroll_speed_speedup
         end
 
         for label in values(node.labels) do
@@ -559,7 +590,7 @@ function ow.DialogBox:update(delta)
             end
         end
 
-        node.is_done = not at_least_one_label_not_done
+        node.is_done = (node.elapsed / node.duration) >= 1
         if node.is_done and node.type == _node_type_choice then
             for labels in range(node.choice_labels, node.highlighted_choice_labels) do
                 for label in values(labels) do
@@ -782,6 +813,11 @@ function ow.DialogBox:reset()
             end
 
             node.is_done = false
+        end
+
+        for event in values(node.event_map) do
+            rt.Animalese:remove(event.id)
+            event.was_played = false
         end
 
         node.n_advance_triggers = 0

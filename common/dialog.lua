@@ -7,7 +7,9 @@ rt.settings.dialog = {
     next_key = "next",
     dialog_choice_key = "choices",
     state_key = "state",
-    gender_key = "gender"
+    gender_key = "gender",
+
+    default_gender = rt.AnimaleseGender.FEMALE
 }
 
 --- @class rt.Dialog
@@ -78,7 +80,6 @@ do
         settings.next_key,
         settings.dialog_choice_key,
         settings.state_key,
-        settings.emotion_key,
         settings.gender_key
     ) do
         valid_keys[key] = true
@@ -112,9 +113,10 @@ do
             local speaker_orientation = node[settings.speaker_orientation_key]
             local next = node[settings.next_key]
             local state = node[settings.state_key]
-            local emotion = node[settings.emotion_key]
             local gender = node[settings.gender_key]
             local choice = node[settings.dialog_choice_key]
+
+            if gender == nil then node[settings.gender_key] = rt.settings.dialog.default_gender end
 
             local consecutive_numbers = {}
             for key, value in pairs(node) do
@@ -146,8 +148,6 @@ do
                 -- noop
             elseif state ~= nil and not meta.is_table(state) then
                 throw("`state` is not a table")
-            elseif emotion ~= nil then
-                validate_enum(emotion, rt.AnimaleseEmotion)
             elseif gender ~= nil then
                 validate_enum(gender, rt.AnimaleseGender)
             end

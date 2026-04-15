@@ -58,13 +58,14 @@ love.load = function(args)
     --init()
 end
 
---require "common.animalese"
---rt.Animalese:talk("nani?")
+require "common.animalese"
 
 love.update = function(delta)
     if rt.SceneManager ~= nil then
         rt.SceneManager:update(delta)
     end
+
+    rt.Animalese:update(delta)
 end
 
 love.draw = function()

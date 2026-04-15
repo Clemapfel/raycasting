@@ -615,7 +615,7 @@ function ow.Checkpoint:update(delta)
 end
 
 local _base_priority = 0
-local _effect_priority = math.huge
+local _effect_priority = 4
 
 --- @brief
 function ow.Checkpoint:draw(priority)

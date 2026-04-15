@@ -19,10 +19,10 @@ rt.settings.animalese = {
 rt.Animalese = meta.class("Animalese")
 
 meta.add_signals(rt.Animalese,
-    --- @signal (rt.Animalese, batch_id)
+    --- @signal (rt.Animalese, id)
     "batch_done",
 
-    --- @signal (rt.Animalese, batch_id, beat_count, beat_type)
+    --- @signal (rt.Animalese, id, beat_count, beat_type)
     "beat"
 )
 
@@ -482,8 +482,8 @@ function rt.Animalese:translate(texts, update_precomputed)
     for text_i, text in ipairs(texts) do
         local tokens = text_i_to_tokens[text_i]
         local translation = {}
-        for token in values(tokens) do
-            for phoneme in values(_token_to_animalese[token]) do
+        for _, token in ipairs(tokens) do
+            for _, phoneme in ipairs(_token_to_animalese[token]) do
                 table.insert(animalese, phoneme)
             end
         end
@@ -503,6 +503,7 @@ function rt.Animalese:_initialize()
     self._data = {}
     self._queue = {}
     self._queue_i = 0
+    self._delay_timer = 0
 
     local data = self._data
 
@@ -595,10 +596,8 @@ function rt.Animalese:_initialize_entry(entry)
 
             entry.start_t = first_sample_i / sample_rate
             entry.end_t = last_sample_i / sample_rate
-
-            local initial_source = love.audio.newSource(sound_data)
-            initial_source:setLooping(false)
-            entry.sources = { initial_source }
+            entry.sound_data = sound_data
+            entry.sources = {}
 
             entry.is_initialized = true
         end
@@ -606,9 +605,20 @@ function rt.Animalese:_initialize_entry(entry)
 end
 
 --- @brief
-function rt.Animalese:queue(phoneme, gender, emotion)
+function rt.Animalese:queue(phonemes, gender, emotion)
     if gender == nil then gender = rt.AnimaleseGender.FEMALE end
     if emotion == nil then emotion = rt.AnimaleseEmotion.NORMAL end
+
+    if not meta.is_table(phonemes) then phonemes = { phonemes } end
+
+    for phoneme in values(phonemes) do
+        meta.assert_enum_value(phoneme, rt.AnimalesePhoneme, 1)
+    end
+
+    meta.assert_enum_value(gender, rt.AnimaleseGender, 2)
+    meta.assert_enum_value(emotion, rt.AnimaleseEmotion, 3)
+
+    if gender == rt.AnimaleseGender.NONE then return end
 
     local gender_entry = self._data[gender]
     if gender == nil then
@@ -622,18 +632,55 @@ function rt.Animalese:queue(phoneme, gender, emotion)
         rt.critical("In rt.Animalese.talk: no sample files for gender `", gender, "` with emotion `", emotion, "` available")
     end
 
-    local entry = emotion_entry[phoneme]
-    if entry == nil then
-        rt.critical("In rt.Animalese.talk: no sample files for gender `", gender, "`, emotion `", emotion, "`, phoneme `", phoneme, "` available", phoneme == rt.AnimalesePhoneme)
-        entry = emotion_entry[rt.AnimalesePhoneme.BEAT]
+    local beat_duration = 1 / rt.settings.label.scroll_speed * (rt.settings.label.syntax.BEAT_TO_WEIGHT[phonemes] or 0)
+
+    local queue_i = self._queue_i
+    self._queue_i = self._queue_i + 1
+
+    for _, phoneme in ipairs(phonemes) do
+        local entry = emotion_entry[phoneme]
+        if entry == nil then
+            rt.critical("In rt.Animalese.talk: no sample files for gender `", gender, "`, emotion `", emotion, "`, phoneme `", phonemes, "` available")
+            entry = emotion_entry[rt.AnimalesePhoneme.BEAT]
+        end
+
+        if phoneme == rt.AnimalesePhoneme.BEAT then
+            table.insert(self._queue, {
+                id = queue_i,
+                entry = nil,
+                is_beat = true,
+                duration = beat_duration -- seconds
+            })
+        else
+            table.insert(self._queue, {
+                id = queue_i,
+                entry = entry,
+                is_beat = false,
+                duration = nil
+            })
+        end
     end
+
+    return queue_i
+end
+
+--- @brief
+function rt.Animalese:queue_beat(duration, gender, emotion)
+    if gender == nil then gender = rt.AnimaleseGender.FEMALE end
+    if emotion == nil then emotion = rt.AnimaleseEmotion.NORMAL end
+    meta.assert_enum_value(gender, rt.AnimaleseGender, 2)
+    meta.assert_enum_value(emotion, rt.AnimaleseEmotion, 3)
+
+    if gender == rt.AnimaleseGender.NONE then return end
 
     local queue_i = self._queue_i
     self._queue_i = self._queue_i + 1
 
     table.insert(self._queue, {
-        batch_id = queue_i,
-        entry = entry
+        id = queue_i,
+        entry = nil,
+        is_beat = true,
+        duration = duration -- seconds
     })
 end
 
@@ -650,20 +697,18 @@ function rt.Animalese:talk(text, gender, emotion)
     if translated == nil or #translated == 0 then return end
 
     local queue_is = {}
-    for phonemes in values(translated[1]) do
-        for phoneme in values(phonemes) do
-            table.insert(queue_is, rt.Animalese:queue(phoneme, gender, emotion))
-        end
+    for phoneme in values(translated) do
+        table.insert(queue_is, rt.Animalese:queue(phoneme, gender, emotion))
     end
 
     return table.unpack(queue_is)
 end
 
 --- @brief
-function rt.Animalese:remove(batch_id)
+function rt.Animalese:remove(id)
     local to_remove = {}
     for i, entry in ipairs(self._queue) do
-        if entry.batch_id == batch_id then
+        if entry.id == id then
             table.insert(to_remove, i, 1)
         end
     end
@@ -675,7 +720,48 @@ end
 
 --- @brief
 function rt.Animalese:update(delta)
+    if table.is_empty(self._queue) then
+        self._delay_timer = 0
+        return
+    end
 
+    self._delay_timer = self._delay_timer - delta
+
+    while self._delay_timer <= 0 and #self._queue > 0 do
+        local item = table.remove(self._queue, 1)
+
+        if item.is_beat then
+            self._delay_timer = self._delay_timer + item.duration
+        else
+            local entry = item.entry
+            if entry.is_initialized ~= true then
+                self:_initialize_entry(entry)
+            end
+
+            if entry.sound_data ~= nil then
+
+                local available_source = nil
+                for source in values(entry.sources) do
+                    if not source:isPlaying() then
+                        available_source = source
+                        break
+                    end
+                end
+
+                if available_source == nil then
+                    available_source = love.audio.newSource(entry.sound_data, "static")
+                    available_source:setLooping(false)
+                    table.insert(entry.sources, available_source)
+                end
+
+                available_source:seek(entry.start_t)
+                available_source:play()
+            end
+
+            local active_duration = math.max(0, entry.end_t - entry.start_t)
+            self._delay_timer = self._delay_timer + active_duration
+        end
+    end
 end
 
 rt.Animalese = meta.as_singleton(rt.Animalese)

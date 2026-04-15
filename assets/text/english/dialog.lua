@@ -8,10 +8,15 @@ return {
     },
 
     accelerator_tutorial_press_tangential = {
-        {
+        [1] = {
+            speaker = rt.NPC_NAME,
+            next = 2,
+            "These <rainbow><wave>crystalline surfaces</wave></rainbow> will allow you to <rainbow>accelerate</rainbow> along them, but only as long as you're touching them and are holding the correct direction"
+        },
+
+        [2] = {
             speaker = rt.NPC_NAME,
             next = nil,
-            "These <rainbow><wave>crystalline surfaces</wave></rainbow> will allow you to <rainbow>accelerate</rainbow> along them, but only as long as you're touching them and are holding the correct direction",
             "Hold <b>up</b> to go <b>up</b>, hold <b>right</b> to go <b>right</b>, hold <i>diagonally</i> to go <i>diagonally</i>, you'll figure it out"
         }
     },
