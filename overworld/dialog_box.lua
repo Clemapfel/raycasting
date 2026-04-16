@@ -19,8 +19,6 @@ rt.settings.overworld.dialog_box = {
     portrait_resolution_h = 80,
     n_lines = 3,
 
-    scroll_speed_speedup = 2, -- factor
-
     menu_move_sound_id = "menu_move",
     menu_confirm_sound_id = "menu_confirm",
 
@@ -204,6 +202,7 @@ function ow.DialogBox:realize()
         node.gender = node_entry[gender_key]
         meta.assert_enum_value(node.gender, rt.AnimaleseGender)
 
+        local animalese_factor = rt.settings.animalese.scroll_speed_factor
         local event_maps = {}
 
         local i = 1
@@ -214,7 +213,9 @@ function ow.DialogBox:realize()
             label:set_n_visible_characters(0)
 
             table.insert(node.labels, label)
-            table.insert(event_maps, label:get_scroll_event_map())
+            table.insert(event_maps, label:get_scroll_event_map(
+                rt.settings.label.scroll_speed * animalese_factor
+            ))
             i = i + 1
 
             text = node_entry[i]
@@ -228,17 +229,19 @@ function ow.DialogBox:realize()
             local elapsed = 0
             for map in values(event_maps) do
                 for event in values(map) do
-                    table.insert(node.event_map, {
-                        time = elapsed,
-                        duration = event.duration,
-                        glyph = event.glyph,
-                        is_beat = event.is_beat,
-                        emotion = event.emotion,
-                        gender = node.gender,
-                        animalese = rt.Animalese:translate(event.glyph),
-                        played = false,
-                        id = nil, -- result of rt.Animalese:queue
-                    })
+                    for phoneme in values(rt.Animalese:translate(event.glyph)) do
+                        table.insert(node.event_map, {
+                            time = elapsed,
+                            duration = event.duration / animalese_factor,
+                            glyph = event.glyph,
+                            is_beat = event.is_beat,
+                            emotion = event.emotion,
+                            gender = node.gender,
+                            animalese = { phoneme },
+                            played = false,
+                            id = nil, -- result of rt.Animalese:queue
+                        })
+                    end
                     elapsed = elapsed + event.duration
                 end
             end
@@ -394,6 +397,10 @@ function ow.DialogBox:_set_active_node(node)
         end
     end
 
+    if node ~= nil and node.gender ~= rt.AnimaleseGender.NONE then
+        self:_queue_animalese(node)
+    end
+
     local node_before = self._active_node
     self._active_node = node
 end
@@ -506,16 +513,15 @@ end
 
 --- @brief [internal]
 function ow.DialogBox:_update_node_offset_from_n_lines_visible(n_lines_visible)
-    self._node_offset_y = -1 * math.max( n_lines_visible - self._max_n_lines, 0) * self._line_height
+    self._node_offset_y = -1 * math.max(n_lines_visible - self._max_n_lines, 0) * self._line_height
 end
 
 --- @brief
-function ow.DialogBox:_update_animalese(node, delta)
-    node.elapsed = node.elapsed + delta
+function ow.DialogBox:_queue_animalese(node)
     for _, event in ipairs(node.event_map) do
-        if event.time < node.elapsed and event.was_played == false then
+        if event.was_played == false then
             if event.is_beat then
-                event.id = rt.Animalese:queue_beat(event.duration)
+                event.id = rt.Animalese:queue_beat(0)
             else
                 event.id = rt.Animalese:queue(event.animalese, node.gender, event.emotion)
             end
@@ -530,11 +536,19 @@ function ow.DialogBox:update(delta)
 
     local control_state_before = self:get_control_state()
 
+    if self._is_waiting_for_advance then
+        self._advance_indicator_elapsed = self._advance_indicator_elapsed + delta
+        local offset = (math.sin(3 * self._advance_indicator_elapsed) + 1) / 2 - 1
+        self._advance_indicator_offset = offset * self._advance_indicator_radius * 0.5
+    end
+
     if self._active_node ~= nil then
+        local node = self._active_node
+
         for labels in range(
-            self._active_node.labels,
-            self._active_node.choice_labels,  -- nil for non choice
-            self._active_node.highlighted_choice_labels
+            node.labels,
+            node.choice_labels,  -- nil for non choice
+            node.highlighted_choice_labels
         ) do
             for label in values(labels) do
                 label:update(delta)
@@ -542,27 +556,25 @@ function ow.DialogBox:update(delta)
         end
 
         if self._is_first_update then
-            self:signal_emit("speaker_changed", self._active_node.speaker_id)
+            self:signal_emit("speaker_changed", node.speaker_id)
             self:signal_emit("control_state_changed", ow.DialogBoxControlState.ADVANCE)
             self._is_first_update = false
         end
 
-        self:_update_animalese(self._active_node, delta)
-    end
+        local continue = true
+        for _, event in ipairs(node.event_map) do
+            if event.is_beat and event.time <= node.elapsed and rt.Animalese:get_is_done(event.id) == false then
+                continue = false
+                break
+            end
+        end
 
-    if self._is_waiting_for_advance then
-        self._advance_indicator_elapsed = self._advance_indicator_elapsed + delta
-        local offset = (math.sin(3 * self._advance_indicator_elapsed) + 1) / 2 - 1
-        self._advance_indicator_offset = offset * self._advance_indicator_radius * 0.5
-    end
+        if continue ~= true then goto skip end
 
-    -- scrolling logic
-    if self._active_node ~= nil then
+        node.elapsed = node.elapsed + delta
+
         local n_lines_visible = 0
         local at_least_one_label_not_done = false
-
-        local node = self._active_node
-        node.elapsed = math.min(node.elapsed + delta, node.duration)
 
         local init_label = function(label)
             if label.dialog_box_elapsed == nil then label.dialog_box_elapsed = 0 end
@@ -578,7 +590,7 @@ function ow.DialogBox:update(delta)
             else
                 label.dialog_box_elapsed = label.dialog_box_elapsed + delta
                 local is_done, new_n_lines, _ = label:update_n_visible_characters_from_elapsed(
-                    label.dialog_box_elapsed
+                    label.dialog_box_elapsed, rt.settings.label.scroll_speed * rt.settings.animalese.scroll_speed_factor
                 )
                 n_lines_visible = n_lines_visible + new_n_lines
                 label.dialog_box_is_done = is_done
@@ -612,6 +624,8 @@ function ow.DialogBox:update(delta)
         if self._is_waiting_for_advance and self._should_auto_advance then
             self:_advance()
         end
+
+        ::skip::
     end
 
     local control_state_after = self:get_control_state()
@@ -818,9 +832,11 @@ function ow.DialogBox:reset()
         for event in values(node.event_map) do
             rt.Animalese:remove(event.id)
             event.was_played = false
+            event.id = nil
         end
 
         node.n_advance_triggers = 0
+        node.elapsed = 0
     end
     self:signal_emit("control_state_changed", ow.DialogBoxControlState.IDLE)
     self._is_started = false

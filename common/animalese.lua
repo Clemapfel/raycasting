@@ -3,7 +3,9 @@ require "common.filesystem"
 
 rt.settings.animalese = {
     filetype = "wav",
-    silence_eps = 0.05,
+    silence_eps = 0.06, -- normalized
+    attack_decay_duration = 2.5 / 60, -- seconds
+    scroll_speed_factor = 1 / 1.5,
 
     path = "jtalk", -- mount point
     native_prefix = "jtalk", -- native directory name
@@ -16,7 +18,7 @@ rt.settings.animalese = {
 }
 
 --- @class rt.Animalese
-rt.Animalese = meta.class("Animalese")
+rt.Animalese = meta.class("Animales e")
 
 meta.add_signals(rt.Animalese,
     --- @signal (rt.Animalese, id)
@@ -264,12 +266,12 @@ do
         [English.IY] = Japanese.I,
         [English.UH] = Japanese.U,
         [English.UW] = Japanese.U,
-        [English.AW] = { Japanese.A, Japanese.U },
-        [English.AY] = { Japanese.A, Japanese.I },
-        [English.EY] = { Japanese.E, Japanese.I },
+        [English.AW] = Japanese.A,--{ Japanese.A, Japanese.U },
+        [English.AY] = Japanese.I,--{ Japanese.A, Japanese.I },
+        [English.EY] = Japanese.I,--{ Japanese.E, Japanese.I },
         [English.OW] = Japanese.O,
         [English.OY] = Japanese.O,
-        [English.ER] = { Japanese.E, Japanese.RU },
+        [English.ER] = Japanese.E--{ Japanese.E, Japanese.RU },
     }
 
     for t in range(
@@ -325,7 +327,6 @@ do
         ["SI"] = Japanese.SHI,
         ["ZI"] = Japanese.JI,
         ["TI"] = Japanese.CHI,
-        ["TU"] = Japanese.TSU,
         ["YI"] = Japanese.JI,
         ["YE"] = Japanese.JE,
         ["WI"] = Japanese.VI,
@@ -503,7 +504,7 @@ function rt.Animalese:_initialize()
     self._data = {}
     self._queue = {}
     self._queue_i = 0
-    self._delay_timer = 0
+    self._is_done = {} -- Set
 
     local data = self._data
 
@@ -530,28 +531,20 @@ function rt.Animalese:_initialize()
 
             for phoneme in values(meta.instances(rt.AnimalesePhoneme)) do
                 local beat = is_beat[phoneme] == true
-                local start_t, end_t, duration
-
-                if beat then
-                    beat = true
-                    duration = (beat_weights[phoneme] or 1) * beat_duration
-                    start_t, end_t = 0, duration
-                else
-                    start_t, end_t, duration = 0, 0, 0
-                    -- set in _initialize_entry
-                end
 
                 local full_path = bd.join_path(prefix, gender, emotion, phoneme .. rt.settings.animalese.sample_file_extension)
                 if beat or bd.exists(full_path) then
                     data[gender][emotion][phoneme] = {
                         is_initialized = beat,
-                        start_t = start_t, -- seconds
-                        end_t = end_t,
                         path = ternary(not beat, full_path, nil),
-                        duration = 0,
                         sources = {},
                         phoneme = phoneme,
-                        is_beat = beat
+                        is_beat = beat,
+
+                        -- set in _initialize_entry
+                        start_t = nil, -- seconds
+                        end_t = nil,
+                        duration = nil,
                     }
 
                     seen_paths[full_path] = true
@@ -559,12 +552,14 @@ function rt.Animalese:_initialize()
             end
 
             -- delete unused samples
+            --[[
             bd.apply(bd.join_path(prefix, gender, emotion), function(filename)
                 if seen_paths[filename] ~= true then
                     rt.warning("In rt.Animalese._initialize: detected unused sample at `", filename, "`. It will be deleted")
                     bd.remove_file(filename)
                 end
             end)
+            ]]
         end
     end
 end
@@ -593,11 +588,33 @@ function rt.Animalese:_initialize_entry(entry)
             end
 
             local sample_rate = sound_data:getSampleRate()
+            local attack_decay_samples = math.floor(rt.settings.animalese.attack_decay_duration * sample_rate)
+
+            for i = 0, n_samples - 1 do
+                local sample = sound_data:getSample(i)
+
+                local envelope
+                if i < first_sample_i or i > last_sample_i then
+                    envelope = 0
+                else
+                    local relative_i = i - first_sample_i
+                    local active_samples = last_sample_i - first_sample_i
+                    local x = active_samples > 1 and (relative_i / (active_samples - 1)) or 0
+
+                    local attack_fraction = math.min(attack_decay_samples, active_samples / 2) / active_samples
+                    local decay_fraction  = attack_fraction
+
+                    envelope = rt.InterpolationFunctions.ENVELOPE(x, attack_fraction, decay_fraction)
+                end
+
+                sound_data:setSample(i, sample * envelope)
+            end
 
             entry.start_t = first_sample_i / sample_rate
             entry.end_t = last_sample_i / sample_rate
             entry.sound_data = sound_data
             entry.sources = {}
+            entry.duration = entry.end_t - entry.start_t
 
             entry.is_initialized = true
         end
@@ -622,13 +639,13 @@ function rt.Animalese:queue(phonemes, gender, emotion)
 
     local gender_entry = self._data[gender]
     if gender == nil then
-        gender_entry = next(self._data)
+        gender_entry = self._data[rt.Gender.FEMALE]
         rt.critical("In rt.Animalese.talk: no sample files for gender `", gender, "` available")
     end
 
     local emotion_entry = gender_entry[emotion]
     if emotion == nil then
-        emotion_entry = next(gender_entry)
+        emotion_entry = gender_entry[rt.AnimaleseEmotion.NORMAL]
         rt.critical("In rt.Animalese.talk: no sample files for gender `", gender, "` with emotion `", emotion, "` available")
     end
 
@@ -644,21 +661,26 @@ function rt.Animalese:queue(phonemes, gender, emotion)
             entry = emotion_entry[rt.AnimalesePhoneme.BEAT]
         end
 
-        if phoneme == rt.AnimalesePhoneme.BEAT then
-            table.insert(self._queue, {
-                id = queue_i,
-                entry = nil,
-                is_beat = true,
-                duration = beat_duration -- seconds
-            })
-        else
-            table.insert(self._queue, {
-                id = queue_i,
-                entry = entry,
-                is_beat = false,
-                duration = nil
-            })
+        if entry.is_initialized == false then
+            self:_initialize_entry(entry)
         end
+
+        local is_beat, duration
+        if phoneme == rt.AnimalesePhoneme.BEAT then
+            is_beat = true
+            duration = beat_duration
+        else
+            is_beat = false
+            duration = entry.duration
+        end
+
+        table.insert(self._queue, {
+            id = queue_i,
+            entry = entry,
+            is_beat = is_beat,
+            duration = duration, -- seconds
+            elapsed = 0
+        })
     end
 
     return queue_i
@@ -680,8 +702,11 @@ function rt.Animalese:queue_beat(duration, gender, emotion)
         id = queue_i,
         entry = nil,
         is_beat = true,
-        duration = duration -- seconds
+        duration = duration, -- seconds
+        elapsed = 0
     })
+
+    return queue_i
 end
 
 --- @brief
@@ -719,47 +744,48 @@ function rt.Animalese:remove(id)
 end
 
 --- @brief
+function rt.Animalese:get_is_done(batch_id)
+    return self._is_done[batch_id] == true
+end
+
 function rt.Animalese:update(delta)
-    if table.is_empty(self._queue) then
-        self._delay_timer = 0
-        return
-    end
+    local remaining = delta
+    while remaining > 0 do
+        local current = self._queue[1]
+        if current == nil then return end
 
-    self._delay_timer = self._delay_timer - delta
+        local time_left = current.duration - current.elapsed
+        if remaining < time_left then
+            current.elapsed = current.elapsed + remaining
+            return
+        end
 
-    while self._delay_timer <= 0 and #self._queue > 0 do
-        local item = table.remove(self._queue, 1)
+        remaining = math.max(0, remaining - time_left)
 
-        if item.is_beat then
-            self._delay_timer = self._delay_timer + item.duration
-        else
-            local entry = item.entry
-            if entry.is_initialized ~= true then
-                self:_initialize_entry(entry)
+        self._is_done[current.id] = true
+        table.remove(self._queue, 1)
+
+        local next = self._queue[1]
+
+        if next == nil then return end
+
+        if not next.is_beat then
+            local free_source = nil
+            for source in values(next.sources) do
+                if not source:isPlaying() then
+                    free_source = source
+                    break
+                end
             end
 
-            if entry.sound_data ~= nil then
-
-                local available_source = nil
-                for source in values(entry.sources) do
-                    if not source:isPlaying() then
-                        available_source = source
-                        break
-                    end
-                end
-
-                if available_source == nil then
-                    available_source = love.audio.newSource(entry.sound_data, "static")
-                    available_source:setLooping(false)
-                    table.insert(entry.sources, available_source)
-                end
-
-                available_source:seek(entry.start_t)
-                available_source:play()
+            if free_source == nil then
+                free_source = love.audio.newSource(next.entry.sound_data, "static")
+                table.insert(next.entry.sources, free_source)
             end
 
-            local active_duration = math.max(0, entry.end_t - entry.start_t)
-            self._delay_timer = self._delay_timer + active_duration
+            free_source:seek(next.entry.start_t)
+            free_source:setPitch(rt.random.number(0.9, 1.1))
+            free_source:play()
         end
     end
 end
@@ -792,6 +818,7 @@ do -- try retranslate dialog / translation
 
     local should_regenerate = false
     if not bd.exists(animalese_hash_path)
+        or not bd.exists(animalese_translation_path)
         or hash ~= bd.read_file(animalese_hash_path)
     then
         should_regenerate = true

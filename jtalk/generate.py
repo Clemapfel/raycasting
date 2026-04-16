@@ -18,9 +18,9 @@ class Format(str, Enum):
 
 EXPORT_PREFIX = "export"
 SYLLABLE_LIST_FILENAME = "phonemes_jp.txt"
-EXPORT_EMOTIONS = [ Emotion.ANGRY, Emotion.BASHFUL, Emotion.NORMAL, Emotion.SAD ]
+EXPORT_EMOTIONS = [ Emotion.NORMAL , Emotion.HAPPY, Emotion.SAD, Emotion.ANGRY, Emotion.BASHFUL ]
 EXPORT_GENDERS = [ Gender.FEMALE, Gender.MALE ]
-EXPORT_SPEED = 2
+EXPORT_SPEED = 1
 EXPORT_FORMAT = Format.WAV
 
 # -------------------------------------- #
@@ -60,9 +60,6 @@ def export(engine_path, text, output_path):
             temp_path = output_path + ".temp.wav"
             try:
                 wavfile.write(temp_path, engine.get_sampling_frequency(), waveform.astype(np.int16))
-                if os.path.isfile(output_path):
-                    os.remove(output_path)
-
                 convert(temp_path, output_path)
             finally:
                 if os.path.isfile(temp_path):
@@ -166,10 +163,6 @@ def main():
     assert(engines[Gender.MALE][Emotion.NORMAL] is not None and engines[Gender.FEMALE][Emotion.NORMAL] is not None)
 
     export_prefix_path = Path(EXPORT_PREFIX)
-
-    if export_prefix_path.exists():
-        shutil.rmtree(export_prefix_path)
-
     export_prefix_path.mkdir(exist_ok = True)
 
     syllable_list = set()

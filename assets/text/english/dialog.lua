@@ -1,3 +1,6 @@
+local prefix = "<normal>"
+local postfix = "</normal>"
+
 return {
     slippery_floor_tutorial = {
         {
@@ -9,9 +12,22 @@ return {
 
     accelerator_tutorial_press_tangential = {
         [1] = {
-            speaker = rt.NPC_NAME,
             next = 2,
-            "These <rainbow><wave>crystalline surfaces</wave></rainbow> will allow you to <rainbow>accelerate</rainbow> along them, but only as long as you're touching them and are holding the correct direction"
+            gender = rt.Gender.FEMALE,
+            "my <happy>animalese</happy> works but it sounds awful. <sad>I already tried manipulating the samples but I'm about to throw away like 3 days of work</sad>."
+        },
+
+        [2] = {
+            next = nil,
+            "<bashful>the worst part is that the text doesn't scroll evenly, but if I don't synchronize by stopping ocassionally then the audio will go out of synch with the words</bashful>"
+        },
+
+        --[[
+        [1] = {
+            speaker = rt.NPC_NAME,
+            gender = rt.Gender.FEMALE,
+            next = 2,
+            prefix .. "These <rainbow><wave>crystalline surfaces</wave></rainbow> will allow you to <rainbow>accelerate</rainbow> along them, but only as long as you're touching them and are holding the correct direction" .. postfix
         },
 
         [2] = {
@@ -19,6 +35,7 @@ return {
             next = nil,
             "Hold <b>up</b> to go <b>up</b>, hold <b>right</b> to go <b>right</b>, hold <i>diagonally</i> to go <i>diagonally</i>, you'll figure it out"
         }
+        ]]
     },
 
     boost_field_tip_01 = {

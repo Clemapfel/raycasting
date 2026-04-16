@@ -82,7 +82,7 @@ rt.AnimalesePhoneme = {
     -- z
     ZA = "ZA", JI = "JI", ZU = "ZU", ZE = "ZE", ZO = "ZO",
     -- z
-    TA = "TA", CHI = "CHI", TSU = "TSU", TE = "TE", TO = "TO",
+    TA = "TA", TI = "TI", TU = "TU", TE = "TE", TO = "TO",
     -- d
     DA = "DA", DI = "DI", DU = "DU", DE = "DE", DO = "DO",
     -- n

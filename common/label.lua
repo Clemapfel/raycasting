@@ -19,10 +19,10 @@ rt.settings.label = {
         TAB = "    ",
         ESCAPE_CHARACTER = "\\",
         BEAT_TO_WEIGHT = {
-            [" "] = 1,
+            [" "] =  1,
             ["|"] = 10,
             ["."] = 10,
-            [","] = 4,
+            [","] =  4,
             [";"] = 10,
             ["!"] = 10,
             ["?"] = 10,
@@ -526,6 +526,13 @@ function rt.Label:_measure_glyph(glyph, is_mono)
     return font:getWidth(glyph)
 end
 
+local _is_punctuation = {}
+for x in range(
+    ".", ":", ";", "?", "!"
+) do
+    _is_punctuation[x] = true
+end
+
 local _font_style_to_mono_font_style = {
     [rt.FontStyle.REGULAR] = rt.FontStyle.MONO_REGULAR,
     [rt.FontStyle.ITALIC] = rt.FontStyle.MONO_ITALIC,
@@ -717,7 +724,11 @@ function rt.Label:_parse(raw)
             push_beat(_syntax.TAB)
             self._total_beats = self._total_beats + (BEAT_TO_WEIGHT[_syntax.TAB] or 1)
         elseif BEAT_TO_WEIGHT[s] ~= nil then
-            push_glyph() -- remove?
+            if _is_punctuation[s] == true then
+                _insert(current_word, s)
+            end
+
+            push_glyph()
             push_beat(_syntax.BEAT, s)
             self._total_beats = self._total_beats + (BEAT_TO_WEIGHT[_syntax.BEAT] or 1)
         elseif s == "<" then
