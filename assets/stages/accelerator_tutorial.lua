@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 614,
+  nextobjectid = 615,
   properties = {},
   tilesets = {
     {
@@ -1027,6 +1027,29 @@ return {
           height = 0,
           rotation = 0,
           visible = true,
+          properties = {
+            ["bounds"] = { id = 614 }
+          }
+        },
+        {
+          id = 614,
+          name = "",
+          type = "FluidBounds",
+          shape = "polygon",
+          x = -4160,
+          y = 864,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = -432, y = 0 },
+            { x = -432, y = 432 },
+            { x = -416, y = 448 },
+            { x = -80, y = 448 },
+            { x = 0, y = 368 }
+          },
           properties = {}
         }
       }

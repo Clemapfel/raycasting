@@ -144,7 +144,6 @@ meta.add_signals(rt.Player,
     "died" -- when respawning after a death
 )
 
-
 local _clear = function(t) for key in keys(t) do t[key] = nil end end
 
 --- @brief

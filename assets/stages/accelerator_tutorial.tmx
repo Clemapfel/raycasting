@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="614">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="615">
  <editorsettings>
   <export target="accelerator_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -149,7 +149,13 @@
   </object>
   <object id="612" name="Normal" type="KillPlane" x="-4208" y="-784" width="128" height="128"/>
   <object id="613" name="Fluid" type="Fluid" x="-4400" y="1072">
+   <properties>
+    <property name="bounds" type="object" value="614"/>
+   </properties>
    <point/>
+  </object>
+  <object id="614" type="FluidBounds" x="-4160" y="864">
+   <polygon points="0,0 -432,0 -432,432 -416,448 -80,448 0,368"/>
   </object>
  </objectgroup>
  <objectgroup id="2" name="front">
