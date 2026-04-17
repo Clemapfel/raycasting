@@ -73,6 +73,10 @@ function ow.Fluid:_initialize(center_x, center_y, n_particles)
         self._instance_mesh:set_texture(self._particle_texture)
     end
 
+    do -- instance mesh texture
+
+    end
+
     do -- data mesh
         local native = love.graphics.newMesh(
             _data_mesh_format,
@@ -164,51 +168,78 @@ function ow.Fluid:_initialize(center_x, center_y, n_particles)
     self._particle_max_x = max_x
     self._particle_max_y = max_y
 
+    self._canvas_padding = rt.settings.overworld.fluid.particles.radius
+
     self:_resize_canvas() -- sets self._canvas_needs_update
-    --self:_update_data_mesh()
+    self:_update_data_mesh()
 end
+
+local use_ffi = ffi ~= nil
 
 --- @brief
 function ow.Fluid:_update_data_mesh()
-    local data = self._data_buffer_data:get_native()
-    local buffer_data = ffi.cast("float*", data:getFFIPointer())
-    local buffer = self._data_buffer
-
-    local to_offset = 4
-    local buffer_stride = buffer:get_element_stride() / to_offset
-    local buffer_x_offset = buffer:get_byte_offset(1, 1) / to_offset -- position.x
-    local buffer_y_offset = buffer:get_byte_offset(1, 2) / to_offset -- position.y
-    local buffer_radius_offset = buffer:get_byte_offset(2, 1) / to_offset -- radius
-    local buffer_r_offset = buffer:get_byte_offset(3, 1) / to_offset -- color.r
-    local buffer_g_offset = buffer:get_byte_offset(3, 2) / to_offset -- color.g
-    local buffer_b_offset = buffer:get_byte_offset(3, 3) / to_offset -- color.b
-    local buffer_a_offset = buffer:get_byte_offset(3, 4) / to_offset -- color.a
-
     local particle_data = self._data
-    for particle_i = 1, self._n_particles do
-        local particle_data_i = _particle_i_to_data_offset(particle_i, _particle_stride)
-        local buffer_i = (particle_i - 1) * buffer_stride
 
-        buffer_data[buffer_i + buffer_x_offset] = particle_data[particle_data_i + _x_offset]
-        buffer_data[buffer_i + buffer_y_offset] = particle_data[particle_data_i + _y_offset]
-        buffer_data[buffer_i + buffer_radius_offset] = particle_data[particle_data_i + _radius_offset]
-        buffer_data[buffer_i + buffer_r_offset] = particle_data[particle_data_i + _r_offset]
-        buffer_data[buffer_i + buffer_g_offset] = particle_data[particle_data_i + _g_offset]
-        buffer_data[buffer_i + buffer_b_offset] = particle_data[particle_data_i + _b_offset]
-        buffer_data[buffer_i + buffer_a_offset] = particle_data[particle_data_i + _a_offset]
+    if use_ffi then
+        local data = ffi.cast("float*", self._data_buffer_data:get_native():getFFIPointer())
+
+        local to_ffi_offset = 1 / ffi.sizeof("float")
+        local buffer_x_offset = self._data_buffer:get_byte_offset(1, 1) * to_ffi_offset
+        local buffer_y_offset = self._data_buffer:get_byte_offset(1, 2) * to_ffi_offset
+        local buffer_radius_offset = self._data_buffer:get_byte_offset(2, 1) * to_ffi_offset
+        local buffer_r_offset = self._data_buffer:get_byte_offset(3, 1) * to_ffi_offset
+        local buffer_g_offset = self._data_buffer:get_byte_offset(3, 2) * to_ffi_offset
+        local buffer_b_offset = self._data_buffer:get_byte_offset(3, 3) * to_ffi_offset
+        local buffer_a_offset = self._data_buffer:get_byte_offset(3, 4) * to_ffi_offset
+        local buffer_stride = self._data_buffer:get_element_stride() * to_ffi_offset
+
+        for particle_i = 1, self._n_particles do
+            local particle_data_i = _particle_i_to_data_offset(particle_i, _particle_stride)
+            local buffer_i = (particle_i - 1) * buffer_stride
+
+            data[buffer_i + buffer_x_offset] = particle_data[particle_data_i + _x_offset]
+            data[buffer_i + buffer_y_offset] = particle_data[particle_data_i + _y_offset]
+            data[buffer_i + buffer_radius_offset] = particle_data[particle_data_i + _radius_offset]
+            data[buffer_i + buffer_r_offset] = particle_data[particle_data_i + _r_offset]
+            data[buffer_i + buffer_g_offset] = particle_data[particle_data_i + _g_offset]
+            data[buffer_i + buffer_b_offset] = particle_data[particle_data_i + _b_offset]
+            data[buffer_i + buffer_a_offset] = particle_data[particle_data_i + _a_offset]
+        end
+    else
+        local data = self._data_buffer_data:get_native()
+
+        local buffer_x_offset = self._data_buffer:get_byte_offset(1, 1)
+        local buffer_y_offset = self._data_buffer:get_byte_offset(1, 2)
+        local buffer_radius_offset = self._data_buffer:get_byte_offset(2, 1)
+        local buffer_r_offset = self._data_buffer:get_byte_offset(3, 1)
+        local buffer_g_offset = self._data_buffer:get_byte_offset(3, 2)
+        local buffer_b_offset = self._data_buffer:get_byte_offset(3, 3)
+        local buffer_a_offset = self._data_buffer:get_byte_offset(3, 4)
+        local buffer_stride = self._data_buffer:get_element_stride()
+
+        for particle_i = 1, self._n_particles do
+            local particle_data_i = _particle_i_to_data_offset(particle_i, _particle_stride)
+            local buffer_i = (particle_i - 1) * buffer_stride
+
+            data:setFloat(buffer_i + buffer_x_offset, particle_data[particle_data_i + _x_offset])
+            data:setFloat(buffer_i + buffer_y_offset, particle_data[particle_data_i + _y_offset])
+            data:setFloat(buffer_i + buffer_radius_offset, particle_data[particle_data_i + _radius_offset])
+            data:setFloat(buffer_i + buffer_r_offset, particle_data[particle_data_i + _r_offset])
+            data:setFloat(buffer_i + buffer_g_offset, particle_data[particle_data_i + _g_offset])
+            data:setFloat(buffer_i + buffer_b_offset, particle_data[particle_data_i + _b_offset])
+            data:setFloat(buffer_i + buffer_a_offset, particle_data[particle_data_i + _a_offset])
+        end
     end
 
-    buffer:replace_data(data)
+    self._data_mesh:replace_data(self._data_buffer_data)
 end
 
 --- @brief
 function ow.Fluid:_resize_canvas()
-    local padding = rt.settings.overworld.fluid.particles.radius
-
     local width = self._particle_max_x - self._particle_min_x
     local height = self._particle_max_y - self._particle_min_y
-    width = width + 2 * padding
-    height = height + 2 * padding
+    width = width + 2 * self._canvas_padding
+    height = height + 2 * self._canvas_padding
 
     require "common.msaa_quality"
     require "common.texture_format"
@@ -228,97 +259,89 @@ function ow.Fluid:_resize_canvas()
 end
 
 --- @brief
+function ow.Fluid:_debug_draw()
+    if use_ffi then
+        local data = ffi.cast("float*", self._data_buffer_data:get_native():getFFIPointer())
+
+        local to_ffi_offset = 1 / ffi.sizeof("float")
+        local buffer_x_offset = self._data_buffer:get_byte_offset(1, 1) * to_ffi_offset
+        local buffer_y_offset = self._data_buffer:get_byte_offset(1, 2) * to_ffi_offset
+        local buffer_radius_offset = self._data_buffer:get_byte_offset(2, 1) * to_ffi_offset
+        local buffer_r_offset = self._data_buffer:get_byte_offset(3, 1) * to_ffi_offset
+        local buffer_g_offset = self._data_buffer:get_byte_offset(3, 2) * to_ffi_offset
+        local buffer_b_offset = self._data_buffer:get_byte_offset(3, 3) * to_ffi_offset
+        local buffer_a_offset = self._data_buffer:get_byte_offset(3, 4) * to_ffi_offset
+        local buffer_stride = self._data_buffer:get_element_stride() * to_ffi_offset
+
+        local particle_data = self._data
+        for particle_i = 1, self._n_particles do
+            local buffer_i = (particle_i - 1) * buffer_stride
+
+            love.graphics.setColor(
+                data[buffer_i + buffer_r_offset],
+                data[buffer_i + buffer_g_offset],
+                data[buffer_i + buffer_b_offset],
+                data[buffer_i + buffer_a_offset]
+            )
+
+            love.graphics.circle("fill",
+                data[buffer_i + buffer_x_offset],
+                data[buffer_i + buffer_y_offset],
+                data[buffer_i + buffer_radius_offset]
+            )
+        end
+    else
+        local data = self._data_buffer_data:get_native()
+        local particle_data = self._data
+        local buffer_x_offset = self._data_buffer:get_byte_offset(1, 1)
+        local buffer_y_offset = self._data_buffer:get_byte_offset(1, 2)
+        local buffer_radius_offset = self._data_buffer:get_byte_offset(2, 1)
+        local buffer_r_offset = self._data_buffer:get_byte_offset(3, 1)
+        local buffer_g_offset = self._data_buffer:get_byte_offset(3, 2)
+        local buffer_b_offset = self._data_buffer:get_byte_offset(3, 3)
+        local buffer_a_offset = self._data_buffer:get_byte_offset(3, 4)
+        local buffer_stride = self._data_buffer:get_element_stride()
+
+        for particle_i = 1, self._n_particles do
+            local particle_data_i = _particle_i_to_data_offset(particle_i, _particle_stride)
+            local buffer_i = (particle_i - 1) * buffer_stride
+
+            love.graphics.setColor(
+                data:getFloat(buffer_i + buffer_r_offset),
+                data:getFloat(buffer_i + buffer_g_offset),
+                data:getFloat(buffer_i + buffer_b_offset),
+                data:getFloat(buffer_i + buffer_a_offset)
+            )
+
+            love.graphics.circle("fill",
+                data:getFloat(buffer_i + buffer_x_offset),
+                data:getFloat(buffer_i + buffer_y_offset),
+                data:getFloat(buffer_i + buffer_radius_offset)
+            )
+        end
+    end
+end
+
+--- @brief
 function ow.Fluid:draw()
     love.graphics.setColor(1, 1, 1, 1)
 
     if self._canvas_needs_update then
         love.graphics.push("all")
+        love.graphics.reset()
         self._canvas:bind()
         love.graphics.clear(0, 0, 0, 1)
-
-        love.graphics.translate(-1 * self._particle_min_x, -1 * self._particle_min_x)
-
+        love.graphics.translate(-self._particle_min_x + self._canvas_padding, -self._particle_min_y + self._canvas_padding)
         _instance_draw_shader:bind()
         self._instance_mesh:draw_instanced(self._n_particles)
         _instance_draw_shader:unbind()
-
         self._canvas:unbind()
         love.graphics.pop()
         self._canvas_needs_update = false
     end
 
     love.graphics.push()
-    love.graphics.translate(self._particle_min_x, self._particle_min_y)
-    -- _canvas_draw_shader:bind()
+    love.graphics.translate(self._particle_min_x - self._canvas_padding, self._particle_min_y - self._canvas_padding)
     self._canvas:draw()
-    -- _canvas_draw_shader:unbind()
     love.graphics.pop()
-
-    --[[
-    local data_buffer = self._data_buffer
-    local data_buffer_data = self._data_buffer_data
-
-    local buffer = data_buffer
-    local buffer_data = ffi.cast("float*", data_buffer_data:get_native():getFFIPointer())
-
-    local to_offset = 4
-    local buffer_stride = buffer:get_element_stride() / to_offset
-    local buffer_x_offset = buffer:get_byte_offset(1, 1) / to_offset -- position.x
-    local buffer_y_offset = buffer:get_byte_offset(1, 2) / to_offset -- position.y
-    local buffer_radius_offset = buffer:get_byte_offset(2, 1) / to_offset -- radius
-    local buffer_r_offset = buffer:get_byte_offset(3, 1) / to_offset -- color.r
-    local buffer_g_offset = buffer:get_byte_offset(3, 2) / to_offset -- color.g
-    local buffer_b_offset = buffer:get_byte_offset(3, 3) / to_offset -- color.b
-    local buffer_a_offset = buffer:get_byte_offset(3, 4) / to_offset -- color.a
-
-    local particle_data = self._data
-    for particle_i = 1, self._n_particles do
-        local particle_data_i = _particle_i_to_data_offset(particle_i, _particle_stride)
-        local buffer_i = (particle_i - 1) * buffer_stride
-
-        love.graphics.setColor(
-            buffer_data[buffer_i + buffer_r_offset],
-            buffer_data[buffer_i + buffer_g_offset],
-            buffer_data[buffer_i + buffer_b_offset],
-            buffer_data[buffer_i + buffer_a_offset]
-        )
-
-        local x = buffer_data[buffer_i + buffer_x_offset]
-        local y = buffer_data[buffer_i + buffer_y_offset]
-        local r = buffer_data[buffer_i + buffer_radius_offset]
-        love.graphics.circle("fill", x, y, r)
-    end
-    ]]
-
-    local love_buffer = love.graphics.newBuffer(_data_mesh_format, self._n_particles, {
-        shaderstorage = true,
-        usage = rt.GraphicsBufferUsage.DYNAMIC
-    })
-
-    local love_byte_data = love.graphics.readbackBuffer(love_buffer)
-
-    local buffer = rt.GraphicsBuffer(_data_mesh_format, self._n_particles, "dynamic")
-    local byte_data = buffer:get_byte_data()
-
-    dbg(love_byte_data:getSize(), byte_data:get_native():getSize(), (4 + 2 + 1) * 4 * self._n_particles)
-
-    local data = ffi.cast("float*", self._data_buffer_data:get_native():getFFIPointer())
-    local to_offset = 4
-    local buffer_stride = self._data_buffer:get_element_stride() / to_offset
-    local buffer_x_offset = self._data_buffer:get_byte_offset(1, 1) / to_offset -- position.x
-    local buffer_y_offset = self._data_buffer:get_byte_offset(1, 2) / to_offset -- position.y
-    local buffer_radius_offset = self._data_buffer:get_byte_offset(2, 1) / to_offset -- radius
-    local buffer_r_offset = self._data_buffer:get_byte_offset(3, 1) / to_offset -- color.r
-    local buffer_g_offset = self._data_buffer:get_byte_offset(3, 2) / to_offset -- color.g
-    local buffer_b_offset = self._data_buffer:get_byte_offset(3, 3) / to_offset -- color.b
-    local buffer_a_offset = self._data_buffer:get_byte_offset(3, 4) / to_offset -- color.a
-
-    for particle_i = 1, love_buffer:getElementCount() do
-        local i = (particle_i - 1) * (4 + 2 + 1)
-        love.graphics.circle("fill",
-            data[i + 0],
-            data[i + 1],
-            data[i + 2]
-        )
-    end
 end

@@ -592,7 +592,15 @@ end
 
 --- @brief
 function rt.Mesh:replace_data(...)
-    self._native:setVertices(...)
+    local first = select(1, ...)
+    if meta.is_function(first.get_native) then first = first:get_native() end
+
+    local args = { first }
+    for i = 2, select("#", ...) do
+        table.insert(args, select(i, ...))
+    end
+
+    self._native:setVertices(table.unpack(args))
 end
 
 --- @brief
