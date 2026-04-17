@@ -78,7 +78,7 @@ rt.AnimalesePhoneme = {
     -- g
     GA = "GA", GI = "GI", GU = "GU", GE = "GE", GO = "GO",
     -- s
-    SA = "SA", SHI = "SHI", SU = "SU", SE = "SE", SO = "SO",
+    SA = "SA", SI = "SI", SU = "SU", SE = "SE", SO = "SO",
     -- z
     ZA = "ZA", JI = "JI", ZU = "ZU", ZE = "ZE", ZO = "ZO",
     -- z

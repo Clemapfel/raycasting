@@ -518,10 +518,12 @@ end
 
 --- @brief
 function ow.DialogBox:_queue_animalese(node)
+    if node.gender == rt.AnimaleseGender.NONE then return end
+
     for _, event in ipairs(node.event_map) do
         if event.was_played == false then
             if event.is_beat then
-                event.id = rt.Animalese:queue_beat(0)
+                event.id = rt.Animalese:queue_beat(0) -- use only as sentinel
             else
                 event.id = rt.Animalese:queue(event.animalese, node.gender, event.emotion)
             end
@@ -562,10 +564,12 @@ function ow.DialogBox:update(delta)
         end
 
         local continue = true
-        for _, event in ipairs(node.event_map) do
-            if event.is_beat and event.time <= node.elapsed and rt.Animalese:get_is_done(event.id) == false then
-                continue = false
-                break
+        if node.gender ~= rt.AnimaleseGender.NONE then
+            for _, event in ipairs(node.event_map) do
+                if event.is_beat and event.time <= node.elapsed and rt.Animalese:get_is_done(event.id) == false then
+                    continue = false
+                    break
+                end
             end
         end
 

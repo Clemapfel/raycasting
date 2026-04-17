@@ -6,7 +6,7 @@ import os
 from enum import Enum
 from dataclasses import dataclass
 
-THREAD_COUNT = 3
+THREAD_COUNT = 4
 
 class MessageType(Enum):
     TRANSLATE = 1

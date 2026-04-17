@@ -3,7 +3,7 @@ require "common.filesystem"
 
 rt.settings.animalese = {
     filetype = "wav",
-    silence_eps = 0.06, -- normalized
+    silence_eps = 0.04, -- normalized
     attack_decay_duration = 2.5 / 60, -- seconds
     scroll_speed_factor = 1 / 1.5,
 
@@ -245,15 +245,15 @@ do
         [English.AO] = Japanese.O,
         [English.EH] = Japanese.E,
         [English.IH] = Japanese.I,
-        [English.IY] = Japanese.II,
+        [English.IY] = Japanese.I,--Japanese.II,
         [English.UH] = Japanese.U,
-        [English.UW] = Japanese.UU,
-        [English.AW] = { Japanese.A, Japanese.U },
-        [English.AY] = { Japanese.A, Japanese.I },
-        [English.EY] = { Japanese.EE, Japanese.I },
-        [English.OW] = Japanese.OO,
+        [English.UW] = Japanese.U, --Japanese.UU,
+        [English.AW] = Japanese.A, --{ Japanese.A, Japanese.U },
+        [English.AY] = Japanese.A, --{ Japanese.A, Japanese.I },
+        [English.EY] = Japanese.E, --{ Japanese.EE, Japanese.I },
+        [English.OW] = Japanese.O, --Japanese.OO,
         [English.OY] = Japanese.O,
-        [English.ER] = { Japanese.E, Japanese.RU },
+        [English.ER] = Japanese.E, --{ Japanese.E, Japanese.RU },
     }
 
     local english_suffix_vowel_to_japanese_vowel = {
@@ -324,15 +324,99 @@ do
     }
 
     local _remap = {
-        ["SI"] = Japanese.SHI,
         ["ZI"] = Japanese.JI,
-        ["TI"] = Japanese.CHI,
         ["YI"] = Japanese.JI,
         ["YE"] = Japanese.JE,
         ["WI"] = Japanese.VI,
         ["WE"] = Japanese.VE,
         ["WU"] = Japanese.VU,
-        ["VA"] = Japanese.WA
+        ["VA"] = Japanese.WA,
+
+        -- existing
+        [Japanese.SHI] = Japanese.SI,
+        [Japanese.TSU] = Japanese.TU,
+
+        -- SH
+        [Japanese.SHA] = Japanese.SA,
+        [Japanese.SHU] = Japanese.SU,
+        [Japanese.SHE] = Japanese.SE,
+        [Japanese.SHO] = Japanese.SO,
+
+        -- CH
+        [Japanese.CHI] = Japanese.TI,
+        [Japanese.CHA] = Japanese.TA,
+        [Japanese.CHU] = Japanese.TU,
+        [Japanese.CHE] = Japanese.TE,
+        [Japanese.CHO] = Japanese.TO,
+
+        -- J
+        [Japanese.JA] = Japanese.ZA,
+        [Japanese.JU] = Japanese.ZU,
+        [Japanese.JE] = Japanese.ZE,
+        [Japanese.JO] = Japanese.ZO,
+
+        -- TS extended
+        [Japanese.TSA] = Japanese.TA,
+        [Japanese.TSI] = Japanese.TI,
+        [Japanese.TSE] = Japanese.TE,
+        [Japanese.TSO] = Japanese.TO,
+
+        -- K palatalized
+        [Japanese.KYA] = Japanese.KA,
+        [Japanese.KYU] = Japanese.KU,
+        [Japanese.KYO] = Japanese.KO,
+
+        -- G palatalized
+        [Japanese.GYA] = Japanese.GA,
+        [Japanese.GYU] = Japanese.GU,
+        [Japanese.GYO] = Japanese.GO,
+
+        -- N palatalized
+        [Japanese.NYU] = Japanese.NU,
+        [Japanese.NYO] = Japanese.NO,
+
+        -- H palatalized
+        [Japanese.HYA] = Japanese.HA,
+        [Japanese.HYU] = Japanese.HU,
+        [Japanese.HYO] = Japanese.HO,
+
+        -- B palatalized
+        [Japanese.BYA] = Japanese.BA,
+        [Japanese.BYU] = Japanese.BU,
+        [Japanese.BYO] = Japanese.BO,
+
+        -- P palatalized
+        [Japanese.PYA] = Japanese.PA,
+        [Japanese.PYU] = Japanese.PU,
+        [Japanese.PYO] = Japanese.PO,
+
+        -- M palatalized
+        [Japanese.MYA] = Japanese.MA,
+        [Japanese.MYU] = Japanese.MU,
+        [Japanese.MYO] = Japanese.MO,
+
+        -- R palatalized
+        [Japanese.RYA] = Japanese.RA,
+        [Japanese.RYU] = Japanese.RU,
+        [Japanese.RYO] = Japanese.RO,
+
+        -- F row (already 2 letters but keeping consistency if needed)
+        [Japanese.FA] = Japanese.HA,
+        [Japanese.FI] = Japanese.HI,
+        [Japanese.FU] = Japanese.HU,
+        [Japanese.FE] = Japanese.HE,
+        [Japanese.FO] = Japanese.HO,
+
+        -- V sounds → B fallback (archaic-safe)
+        [Japanese.VI] = Japanese.BI,
+        [Japanese.VU] = Japanese.BU,
+        [Japanese.VE] = Japanese.BE,
+        [Japanese.VO] = Japanese.BO,
+
+        -- foreign clusters
+        [Japanese.THI] = Japanese.TI,
+        [Japanese.TYU] = Japanese.TU,
+        [Japanese.DYU] = Japanese.DU,
     }
 
     --- @brief
@@ -366,7 +450,13 @@ do
         local result = {}
 
         local push = function(x)
-            x = _remap[x] or x
+            local seen = {}
+            while _remap[x] ~= nil do
+                x = _remap[x]
+                if seen[x] then break end
+                seen[x] = true
+            end
+
             rt.assert(meta.is_enum_value(x, Japanese), "In push: `", x, "` is not a japanese phenome")
             table.insert(result, x)
         end
@@ -754,6 +844,8 @@ function rt.Animalese:update(delta)
         local current = self._queue[1]
         if current == nil then return end
 
+        self._is_done[current.id] = true
+
         local time_left = current.duration - current.elapsed
         if remaining < time_left then
             current.elapsed = current.elapsed + remaining
@@ -761,8 +853,6 @@ function rt.Animalese:update(delta)
         end
 
         remaining = math.max(0, remaining - time_left)
-
-        self._is_done[current.id] = true
         table.remove(self._queue, 1)
 
         local next = self._queue[1]

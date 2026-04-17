@@ -11,7 +11,7 @@ class Emotion(str, Enum):
 class Gender(str, Enum):
     MALE = "takumi",
     FEMALE = "mei"
-    
+
 class Format(str, Enum):
     WAV = "wav",
     OGG = "ogg"
@@ -19,9 +19,11 @@ class Format(str, Enum):
 EXPORT_PREFIX = "export"
 SYLLABLE_LIST_FILENAME = "phonemes_jp.txt"
 EXPORT_EMOTIONS = [ Emotion.NORMAL , Emotion.HAPPY, Emotion.SAD, Emotion.ANGRY, Emotion.BASHFUL ]
-EXPORT_GENDERS = [ Gender.FEMALE, Gender.MALE ]
+EXPORT_GENDERS = [ Gender.FEMALE ]#, Gender.MALE ]
 EXPORT_SPEED = 1
 EXPORT_FORMAT = Format.WAV
+
+THREAD_COUNT = 4
 
 # -------------------------------------- #
 
@@ -32,9 +34,36 @@ from pathlib import Path
 import shutil
 
 import subprocess
+import threading
+import queue
 import numpy as np
 import os
 import time
+from dataclasses import dataclass
+
+# -------------------------------------- #
+
+class MessageType(Enum):
+    EXPORT = 1
+    EXPORT_RESPONSE = 2
+    SHUTDOWN = 3
+    SHUTDOWN_RESPONSE = 4
+
+@dataclass
+class Message:
+    type: MessageType
+    engine_path: str | None = None
+    text: str | None = None
+    output_path: str | None = None
+    success: bool | None = None
+
+@dataclass
+class Worker:
+    thread: threading.Thread
+    main_to_worker: queue.Queue
+    worker_to_main: queue.Queue
+
+# -------------------------------------- #
 
 def convert(wav_path, ogg_path):
     return subprocess.run(
@@ -72,77 +101,80 @@ def export(engine_path, text, output_path):
         print("[rt] export failed: " + str(error))
         return False
 
+# -------------------------------------- #
+
+def thread_main(main_to_worker, worker_to_main):
+    shutdown_active = False
+    while True:
+        if main_to_worker.empty() and shutdown_active:
+            break
+
+        message = main_to_worker.get(block=True)
+        match message.type:
+            case MessageType.EXPORT:
+                success = export(message.engine_path, message.text, message.output_path)
+                worker_to_main.put(Message(
+                    type=MessageType.EXPORT_RESPONSE,
+                    engine_path=message.engine_path,
+                    text=message.text,
+                    output_path=message.output_path,
+                    success=success,
+                ))
+            case MessageType.SHUTDOWN:
+                shutdown_active = True
+            case _:
+                raise AssertionError(f"In thread_main: unhandled message type {message.type}")
+
+    worker_to_main.put(Message(type=MessageType.SHUTDOWN_RESPONSE))
+
+# -------------------------------------- #
+
 phonemes = {
-    # Vowels
     "A": "ア", "I": "イ", "U": "ウ", "E": "エ", "O": "オ",
 
-    # Long vowels
-    "AA": "アア", "II": "イイ", "UU": "ウウ", "EE": "えい", "OO": "オオ",
+    "AA": "アー", "II": "イー", "UU": "ウー", "EE": "エー", "OO": "オー",
 
-    # K-row
     "KA": "カ", "KI": "キ", "KU": "ク", "KE": "ケ", "KO": "コ",
-    # G-row
     "GA": "ガ", "GI": "ギ", "GU": "グ", "GE": "ゲ", "GO": "ゴ",
-    # S-row
+
     "SA": "サ", "SI": "シ", "SU": "ス", "SE": "セ", "SO": "ソ",
-    # Z-row
     "ZA": "ザ", "ZI": "ジ", "ZU": "ズ", "ZE": "ゼ", "ZO": "ゾ",
-    # T-row
-    "TA": "タ", "TI": "チ", "TU": "ツ", "TE": "テ", "TO": "ト",
-    # D-row
-    "DA": "ダ", "DI": "ディ", "DU": "ヅ", "DE": "デ", "DO": "ド",
-    # N-row
+
+    "TA": "タ", "TI": "ティ", "TU": "トゥ", "TE": "テ", "TO": "ト",
+    "DA": "ダ", "DI": "ディ", "DU": "ドゥ", "DE": "デ", "DO": "ド",
+
     "NA": "ナ", "NI": "ニ", "NU": "ヌ", "NE": "ネ", "NO": "ノ",
-    # H-row
+
     "HA": "ハ", "HI": "ヒ", "HU": "フ", "HE": "ヘ", "HO": "ホ",
-    # B-row
-    "BA": "バ", "BI": "ビ", "BU": "ぶ", "BE": "ベ", "BO": "ボ",
-    # P-row
+
+    "BA": "バ", "BI": "ビ", "BU": "ブ", "BE": "ベ", "BO": "ボ",
     "PA": "パ", "PI": "ピ", "PU": "プ", "PE": "ペ", "PO": "ポ",
-    # M-row
+
     "MA": "マ", "MI": "ミ", "MU": "ム", "ME": "メ", "MO": "モ",
-    # Y-row
+
     "YA": "ヤ", "YU": "ユ", "YO": "ヨ",
-    # R-row
+
     "RA": "ラ", "RI": "リ", "RU": "ル", "RE": "レ", "RO": "ロ",
-    # W-row
-    "WA": "ワ", "WO": "ヲ",
 
-    # Palatalized — K
-    "KYA": "キャ", "KYU": "キュ", "KYO": "キョ",
-    # Palatalized — G
-    "GYA": "ギャ", "GYU": "ギュ", "GYO": "ギョ",
-    # Palatalized — SH
+    "WA": "ワ", "WI": "ウィ", "WE": "ウェ", "WO": "ウォ",
+
     "SHA": "シャ", "SHI": "シ", "SHU": "シュ", "SHE": "シェ", "SHO": "ショ",
-    # Palatalized — J
     "JA": "ジャ", "JI": "ジ", "JU": "ジュ", "JE": "ジェ", "JO": "ジョ",
-    # Palatalized — CH
-    "CHA": "チャ", "CHI": "チ", "CHU": "チュ", "CHE": "チェ", "CHO": "チョ",
-    # Palatalized — TS
-    "TSA": "ツァ", "TSI": "ツィ", "TSU": "ツ", "TSE": "ツェ", "TSO": "ツォ",
-    # Palatalized — N
-    "NYA": "ニャー", "NYU": "ニュ", "NYO": "ニョ",
-    # Palatalized — H
-    "HYA": "ヒャ", "HYU": "ヒュ", "HYO": "ヒョ",
-    # Palatalized — F
-    "FA": "ファ", "FI": "フィ", "FU": "フ", "FE": "フェ", "FO": "フォ",
-    # Palatalized — B
-    "BYA": "ビャ", "BYU": "ビュ", "BYO": "ビョ",
-    # Palatalized — P
-    "PYA": "ピャ", "PYU": "ピュ", "PYO": "ピョ",
-    # Palatalized — M
-    "MYA": "ミャ", "MYU": "ミュ", "MYO": "ミョ",
-    # Palatalized — R
-    "RYA": "リャ", "RYU": "リュ", "RYO": "リョ",
 
-    # V-row (foreign loans)
+    "CHA": "チャ", "CHI": "チ", "CHU": "チュ", "CHE": "チェ", "CHO": "チョ",
+
+    "TSA": "ツァ", "TSI": "ツィ", "TSU": "ツ", "TSE": "ツェ", "TSO": "ツォ",
+
+    "FA": "ファ", "FI": "フィ", "FU": "フゥ", "FE": "フェ", "FO": "フォ",
+
     "VA": "ヴァ", "VI": "ヴィ", "VU": "ヴ", "VE": "ヴェ", "VO": "ヴォ",
 
-    # Foreign stops on /t/ and /d/
-    "THI": "ティ", "TYU": "テュ", "DYU": "デュ",
+    "THA": "タ", "THI": "ティ", "THU": "トゥ", "THE": "デ", "THO": "ド",
 
-    # Moraic nasal and geminate
+    "TYU": "テュ", "DYU": "デュ", "KW": "クヮ", "GW": "グヮ",
+
     "N": "ン",
+    "Q": "ッ",
 }
 
 def main():
@@ -165,6 +197,8 @@ def main():
     export_prefix_path = Path(EXPORT_PREFIX)
     export_prefix_path.mkdir(exist_ok = True)
 
+    # build taks list
+    tasks = []
     syllable_list = set()
 
     for gender in EXPORT_GENDERS:
@@ -172,16 +206,56 @@ def main():
             engine = engines[gender][emotion]
             if engine is not None:
                 path = export_prefix_path / gender / emotion
-                path.mkdir(parents = True, exist_ok = True)
+                path.mkdir(parents=True, exist_ok=True) # pre allocate folders in main
 
                 for romaji, japanese in phonemes.items():
                     filename = path / (romaji + "." + EXPORT_FORMAT)
-                    export(engine, japanese, filename.as_posix())
-
+                    tasks.append((engine, japanese, filename.as_posix()))
                     syllable_list.add(romaji)
 
-    syllable_list_path = Path(EXPORT_PREFIX) / (SYLLABLE_LIST_FILENAME)
-    syllable_list_path.unlink(missing_ok = True) # delete if already exists
+    n_tasks = len(tasks)
+    worker_to_main = queue.Queue()
+    workers = []
+
+    for _ in range(min(n_tasks, THREAD_COUNT)):
+        main_to_worker = queue.Queue()
+        worker = Worker(
+            thread=threading.Thread(target=thread_main, args=(main_to_worker, worker_to_main)),
+            main_to_worker=main_to_worker,
+            worker_to_main=worker_to_main,
+        )
+        worker.thread.start()
+        workers.append(worker)
+
+    # distribute tasks round robin
+    for index, (engine_path, text, output_path) in enumerate(tasks):
+        workers[index % len(workers)].main_to_worker.put(Message(
+            type=MessageType.EXPORT,
+            engine_path=engine_path,
+            text=text,
+            output_path=output_path,
+        ))
+
+    # collect responses
+    n_completed = 0
+    while n_completed < n_tasks:
+        message = worker_to_main.get(block=True)
+        match message.type:
+            case MessageType.EXPORT_RESPONSE:
+                n_completed += 1
+            case _:
+                raise AssertionError(f"In main: unhandled message type {message.type}")
+
+    # shutdown
+    for worker in workers:
+        worker.main_to_worker.put(Message(type=MessageType.SHUTDOWN))
+
+    for worker in workers:
+        worker.thread.join()
+
+    # write syllable list
+    syllable_list_path = Path(EXPORT_PREFIX) / SYLLABLE_LIST_FILENAME
+    syllable_list_path.unlink(missing_ok=True)
 
     with open(syllable_list_path, "w") as file:
         file.writelines(element + "\n" for element in sorted(syllable_list))

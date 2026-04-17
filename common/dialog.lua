@@ -9,7 +9,7 @@ rt.settings.dialog = {
     state_key = "state",
     gender_key = "gender",
 
-    default_gender = rt.AnimaleseGender.FEMALE
+    default_gender = rt.AnimaleseGender.NONE
 }
 
 --- @class rt.Dialog
