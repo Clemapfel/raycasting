@@ -357,27 +357,30 @@ function rt.GraphicsBuffer:field_name_to_field_i(name)
     return result
 end
 
---- @brief
+--- @brief Gets the byte offset. If element_i is provided, returns absolute offset in buffer.
 function rt.GraphicsBuffer:get_byte_offset(field_i, component_i)
-    if meta.is_string(field_i) then field_i = self:field_name_to_field_i(field_i) end
-
-    local format = self._field_i_to_format[field_i]
-    if format == nil then
-        rt.error("In rt.GraphicsBuffer.get_byte_data_offset: field index `", field_i, "` out of range for buffer with `", #self._native:getFormat(), "` fields")
-    end
-
+    if field_i == nil then field_i = 1 end
     if component_i == nil then component_i = 1 end
 
-    if component_i > format.n_components then
-        rt.error("In rt.GraphicsBuffer.get_byte_data_offset: component index `", component_i, "` out of range for field `", format.name, "` with `", format.n_components, "` components")
+    if meta.is_string(field_i) then
+        field_i = self:field_name_to_field_i(field_i)
     end
 
     if field_i <= 0 then
-        rt.error("In rt.GraphicsBuffer.get_byte_data_offset: field index <= 0. field indices are 1-based")
+        rt.error("In rt.GraphicsBuffer.get_byte_offset: field index <= 0 or nil. field indices are 1-based")
     end
 
     if component_i <= 0 then
-        rt.error("In rt.GraphicsBuffer.get_byte_data_offset: component index <= 0. component indices are 1-based")
+        rt.error("In rt.GraphicsBuffer.get_byte_offset: component index <= 0. component indices are 1-based")
+    end
+
+    local format = self._field_i_to_format[field_i]
+    if format == nil then
+        rt.error("In rt.GraphicsBuffer.get_byte_offset: field index `", field_i, "` out of range for buffer with `", #self._native:getFormat(), "` fields")
+    end
+
+    if component_i > format.n_components then
+        rt.error("In rt.GraphicsBuffer.get_byte_offset: component index `", component_i, "` out of range for field `", format.name, "` with `", format.n_components, "` components")
     end
 
     return format.components[component_i].offset
@@ -417,12 +420,18 @@ function rt.GraphicsBuffer:get_data()
     local data = love.graphics.readbackBuffer(self._native)
 
     local stride = self._native:getElementStride()
-    for element_i = 1, self._native:getElementCount() do
+    local element_count = self._native:getElementCount()
+
+    for element_i = 1, element_count do
         local element = {}
-        for field_i, field in ipairs(self._field_i_to_format) do
-            for component_i, component in ipairs(field.components) do
-                local value = data[component.getter](data, (element_i - 1) * stride + component.offset)
-                value = value * component.normalization_constant
+        local element_start_byte = (element_i - 1) * stride
+
+        for _, field in ipairs(self._field_i_to_format) do
+            for _, component in ipairs(field.components) do
+                local byte_offset = element_start_byte + component.offset
+                local value = data[component.getter](data, byte_offset)
+
+                value = value / component.normalization_constant
                 table.insert(element, value)
             end
         end
