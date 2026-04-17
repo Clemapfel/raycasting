@@ -9,27 +9,31 @@ local _usage = {
 rt.GraphicsBuffer = meta.class("GraphicsBuffer")
 
 --- @brief
-function rt.GraphicsBuffer:instantiate(format, n_elements_or_table, usage)
-    if meta.is_table(n_elements_or_table) and meta.is_function(n_elements_or_table.get_native) then
-        n_elements_or_table = n_elements_or_table:get_native()
-    end
-
-    if usage == nil then usage = rt.GraphicsBufferUsage.DYNAMIC end
-    if usage == rt.GraphicsBufferUsage.STREAM then
-        -- map stream to dynamic, keep local bytedata
-        self._native = love.graphics.newBuffer(format, n_elements_or_table, {
-            shaderstorage = true,
-            usage = rt.GraphicsBufferUsage.DYNAMIC
-        })
-        self:download()
+function rt.GraphicsBuffer:instantiate(format_or_native, n_elements_or_table, usage)
+    if meta.is_function(format_or_native.typeOf) and format_or_native:typeOf("GraphicsBuffer") then
+        self._native = format_or_native
     else
-        self._native = love.graphics.newBuffer(format, n_elements_or_table, {
-            shaderstorage = true,
-            usage = usage
-        })
+        if meta.is_table(n_elements_or_table) and meta.is_function(n_elements_or_table.get_native) then
+            n_elements_or_table = n_elements_or_table:get_native()
+        end
+
+        if usage == nil then usage = rt.GraphicsBufferUsage.DYNAMIC end
+        if usage == rt.GraphicsBufferUsage.STREAM then
+            -- map stream to dynamic, keep local bytedata
+            self._native = love.graphics.newBuffer(format_or_native, n_elements_or_table, {
+                shaderstorage = true,
+                usage = rt.GraphicsBufferUsage.DYNAMIC
+            })
+            self:download()
+        else
+            self._native = love.graphics.newBuffer(format_or_native, n_elements_or_table, {
+                shaderstorage = true,
+                usage = usage
+            })
+        end
     end
 
-    self._format = format
+    self._format = self._native:getFormat()
     self:_initialize_formatting()
 end
 

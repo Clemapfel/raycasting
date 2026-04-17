@@ -52,14 +52,20 @@ rt.Mesh = meta.class("Mesh", rt.Drawable)
 --- @param draw_mode rt.MeshDrawMode?
 --- @param format Table<Table<Number>>?
 --- @param usage rt.GraphicsBufferUsage?
-function rt.Mesh:instantiate(data, draw_mode, format, usage)
-    meta.install(self, {
-        _native = love.graphics.newMesh(
+function rt.Mesh:instantiate(data_or_native, draw_mode, format, usage)
+    if meta.is_function(data_or_native.typeOf) and data_or_native:typeOf("Mesh") then
+        self._native = data_or_native
+    else
+        self._native = love.graphics.newMesh(
             format or rt.VertexFormat,
-            data,
+            data_or_native,
             draw_mode or rt.MeshDrawMode.TRIANGLE_FAN,
             usage or rt.GraphicsBufferUsage.STATIC
-        ),
+        )
+    end
+
+    meta.install(self, {
+
         _r = 1,
         _g = 1,
         _b = 1,

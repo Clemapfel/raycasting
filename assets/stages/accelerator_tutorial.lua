@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 613,
+  nextobjectid = 614,
   properties = {},
   tilesets = {
     {
@@ -1012,6 +1012,19 @@ return {
           y = -784,
           width = 128,
           height = 128,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 613,
+          name = "Fluid",
+          type = "Fluid",
+          shape = "point",
+          x = -4400,
+          y = 1072,
+          width = 0,
+          height = 0,
           rotation = 0,
           visible = true,
           properties = {}
