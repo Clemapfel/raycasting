@@ -606,9 +606,7 @@ do -- update helpers (XPBD with lambdas)
         return position_new_x, position_new_y, world_velocity_new_x, world_velocity_new_y, previous_x, previous_y, distance_lambda, bending_lambda, axis_lambda
     end
 
-    -- XPBD distance constraint between two particles (A,B)
-    -- C = |b - a| - d0 = 0
-    local function _enforce_distance_xpbd(
+    local function _enforce_distance(
         ax, ay, bx, by,
         inverse_mass_a, inverse_mass_b,
         target_distance,
@@ -643,23 +641,10 @@ do -- update helpers (XPBD with lambdas)
         return correction_ax, correction_ay, correction_bx, correction_by, lambda_new
     end
 
-    -- XPBD bending: keep B on the line through A–C using a point-to-line constraint.
-    -- Constraint:
-    --   Let t = normalize(c - a), n = perp(t) = (-t_y, t_x)
-    --   C = dot(((a + c) / 2) - b, n) = 0
-    -- This drives the midpoint of A and C to lie on B along the normal of AC (or equivalently B to lie on line AC).
-    -- Using constant-n approximation (treat n as constant w.r.t positions), the gradients are:
-    --   g_a =  0.5 * n
-    --   g_b = -1.0 * n
-    --   g_c =  0.5 * n
-    -- which satisfy translation invariance: g_a + g_b + g_c = 0.
-    -- XPBD update:
-    --   dλ = -(C + α λ) / (Σ w_i |g_i|^2 + α)
-    --   x_i += w_i * dλ * g_i
-    local function _enforce_bending_xpbd(
+    local function _enforce_bending(
         ax, ay, bx, by, cx, cy,
         inverse_mass_a, inverse_mass_b, inverse_mass_c,
-        _target_ac_distance, -- kept for signature compatibility; not used in this formulation
+        _,
         alpha,
         lambda_before
     )
@@ -716,11 +701,8 @@ do -- update helpers (XPBD with lambdas)
         return correction_ax, correction_ay, correction_bx, correction_by, correction_cx, correction_cy, lambda_new
     end
 
-    -- XPBD axis-alignment (1D scalar constraint: perpendicular projection to rotate segment towards axis)
-    -- Let target axis unit be t = (tx,ty), perpendicular p = (-vy, vx) from current segment dir (with sign flip to avoid 180° flip).
-    -- C = (b - (a + t * L)) · p = 0
-    -- grad_a ≈ -p, grad_b ≈ p (treat p as constant - ignore derivative w.r.t positions)
-    local function _enforce_axis_alignment_xpbd(
+
+    local function _enforce_axis_alignment(
         ax, ay,
         bx, by,
         inverse_mass_a, inverse_mass_b,
@@ -765,7 +747,6 @@ do -- update helpers (XPBD with lambdas)
         local delta_lambda = -(constraint + alpha * lambda_before) / denominator
         local lambda_new = lambda_before + delta_lambda
 
-        -- x_i += w_i * dλ * gradC_i; grad_a = -p, grad_b = p
         local correction_ax = inverse_mass_a * delta_lambda * (-perpendicular_x)
         local correction_ay = inverse_mass_a * delta_lambda * (-perpendicular_y)
         local correction_bx = inverse_mass_b * delta_lambda * ( perpendicular_x)
@@ -774,8 +755,7 @@ do -- update helpers (XPBD with lambdas)
         return correction_ax, correction_ay, correction_bx, correction_by, lambda_new
     end
 
-    -- XPBD line collision (inequality): C = n·(x - c) - r >= 0, λ >= 0
-    local function _enforce_line_collision_xpbd(
+    local function _enforce_line_collision(
         position_x, position_y, inverse_mass,
         radius,
         line_contact_x, line_contact_y,
@@ -794,7 +774,6 @@ do -- update helpers (XPBD with lambdas)
         local signed_distance = math.dot(relative_x, relative_y, normalized_x, normalized_y)
 
         local constraint = signed_distance - radius
-        -- inactive if satisfied; reset lambda to 0 to avoid stickiness
         if constraint >= 0.0 or inverse_mass <= 0.0 then
             return 0.0, 0.0, 0.0
         end
@@ -809,7 +788,6 @@ do -- update helpers (XPBD with lambdas)
         local lambda_new = math.clamp(lambda_before + delta_lambda, 0.0, math.huge)
         delta_lambda = lambda_new - lambda_before
 
-        -- x += w * dλ * n
         local correction_x = inverse_mass * delta_lambda * normalized_x
         local correction_y = inverse_mass * delta_lambda * normalized_y
 
@@ -915,7 +893,7 @@ do -- update helpers (XPBD with lambdas)
                             segment_length = data[a_i + _contour_segment_length_offset]
                         end
 
-                        local correction_ax, correction_ay, correction_bx, correction_by, lambda_new = _enforce_distance_xpbd(
+                        local correction_ax, correction_ay, correction_bx, correction_by, lambda_new = _enforce_distance(
                             ax, ay, bx, by,
                             inverse_mass_a, inverse_mass_b,
                             segment_length,
@@ -948,7 +926,7 @@ do -- update helpers (XPBD with lambdas)
                         local segment_length_bc = data[b_i + _segment_length_offset]
                         local target_length = segment_length_ab + segment_length_bc
 
-                        local correction_ax, correction_ay, correction_bx, correction_by, correction_cx, correction_cy, lambda_new = _enforce_bending_xpbd(
+                        local correction_ax, correction_ay, correction_bx, correction_by, correction_cx, correction_cy, lambda_new = _enforce_bending(
                             ax, ay, bx, by, particle_c_x, particle_c_y,
                             inverse_mass_a, inverse_mass_b, inverse_mass_c,
                             target_length,
@@ -982,7 +960,7 @@ do -- update helpers (XPBD with lambdas)
                         local segment_length = data[a_i + _segment_length_offset]
 
                         local axis_j = node_i - rope.start_i + 1
-                        local correction_ax, correction_ay, correction_bx, correction_by, lambda_new = _enforce_axis_alignment_xpbd(
+                        local correction_ax, correction_ay, correction_bx, correction_by, lambda_new = _enforce_axis_alignment(
                             ax, ay, bx, by,
                             inverse_mass_a, inverse_mass_b,
                             segment_length,
@@ -1014,7 +992,7 @@ do -- update helpers (XPBD with lambdas)
                         local alpha_multiplier = data[offset + _collision_strength_offset]
                         if self._use_contour then alpha_multiplier = 0 end
 
-                        local correction_x, correction_y, lambda_new = _enforce_line_collision_xpbd(
+                        local correction_x, correction_y, lambda_new = _enforce_line_collision(
                             data[offset + _x_offset],
                             data[offset + _y_offset],
                             data[offset + _inverse_mass_offset],
@@ -1056,10 +1034,10 @@ do -- update helpers (XPBD with lambdas)
     -- export for other classes to use
     rt.PlayerBody._pre_solve = _pre_solve
     rt.PlayerBody._post_solve = _post_solve
-    rt.PlayerBody._enforce_distance = _enforce_distance_xpbd
-    rt.PlayerBody._enforce_axis_alignment = _enforce_axis_alignment_xpbd
-    rt.PlayerBody._enforce_bending = _enforce_bending_xpbd
-    rt.PlayerBody._enforce_line_collision_xpbd = _enforce_line_collision_xpbd
+    rt.PlayerBody._enforce_distance = _enforce_distance
+    rt.PlayerBody._enforce_axis_alignment = _enforce_axis_alignment
+    rt.PlayerBody._enforce_bending = _enforce_bending
+    rt.PlayerBody._enforce_line_collision_xpbd = _enforce_line_collision
 end
 
 --- @brief

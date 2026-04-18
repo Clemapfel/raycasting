@@ -950,4 +950,3 @@ do -- try retranslate dialog / translation
         rt.Animalese:_load_precomputed() -- reload to verify file integrity
     end
 end
-
