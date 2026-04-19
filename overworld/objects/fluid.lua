@@ -16,8 +16,8 @@ rt.settings.overworld.fluid = {
     spatial_hash_outer_size = 1000,
 
     follow_compliance = 0.01,
-    segment_compliance = 1,
-    collision_compliance = 0.000
+    segment_compliance = 0,
+    collision_compliance = 1
 }
 
 --- @class ow.Fluid
@@ -117,6 +117,19 @@ local _data_mesh_format = {
 local _instance_draw_shader = rt.Shader("overworld/objects/fluid_draw_particles.glsl")
 local _particle_texture_shader = rt.Shader("overworld/objects/fluid_particle_texture.glsl")
 
+local _xy_to_spatial_hash_xy = function(
+    x, y,
+    particle_min_x, particle_min_y,
+    particle_area_width, particle_area_height,
+    spatial_hash_cell_radius
+)
+    -- translate so position can never be <= 0
+    -- then shift so particle cluster is centered in spatial hash
+    local offset_x = x - particle_min_x + 0.5 * particle_area_width
+    local offset_y = y - particle_min_y + 0.5 * particle_area_height
+    return offset_x, offset_y
+end
+
 local _spatial_hash_xy_to_cell_xy = function(
     spatial_hash_x, spatial_hash_y,
     spatial_hash_cell_radius,
@@ -124,9 +137,6 @@ local _spatial_hash_xy_to_cell_xy = function(
 )
     local cell_x = math.floor(spatial_hash_x / spatial_hash_cell_radius) + 1
     local cell_y = math.floor(spatial_hash_y / spatial_hash_cell_radius) + 1
-
-    cell_x = math.clamp(cell_x, 1, spatial_hash_n_cols)
-    cell_y = math.clamp(cell_y, 1, spatial_hash_n_rows)
 
     return cell_x, cell_y
 end
@@ -285,10 +295,18 @@ function ow.Fluid:_initialize(center_x, center_y)
         self._collision_lambdas = table.new(_n_particles_to_n_collision_lambdas(self._n_particles), 0)
     end
 
+    self._spatial_hash_cell_radius = 2 * rt.settings.overworld.fluid.particles.radius
+
+    self._particle_area_padding = 2 * self._spatial_hash_cell_radius
+    min_x = min_x - self._particle_area_padding
+    min_y = min_y - self._particle_area_padding
+    max_x = max_x + self._particle_area_padding
+    max_y = max_y + self._particle_area_padding
+
     self._particle_min_x = min_x
     self._particle_min_y = min_y
-    self._particle_max_x = max_x
-    self._particle_max_y = max_y
+    self._particle_area_width = max_x - min_x
+    self._particle_area_height = max_y - min_y
     self._particle_centroid_x = center_x
     self._particle_centroid_y = center_y
 
@@ -316,11 +334,8 @@ function ow.Fluid:_initialize(center_x, center_y)
             end
         end
 
-        local cell_size = 2 * rt.settings.overworld.fluid.particles.radius
+        local cell_size = self._spatial_hash_cell_radius
         local outer_r = rt.settings.overworld.fluid.spatial_hash_outer_size
-
-        self._spatial_hash_cell_r = cell_size
-        self._spatial_hash_r = outer_r
 
         local n_rows = math.ceil(outer_r / cell_size)
         local n_columns = n_rows
@@ -348,7 +363,7 @@ function ow.Fluid:_initialize(center_x, center_y)
             end
         end
 
-        for i = 1, #self._spatial_hash do
+        for i = 1, n_rows * n_columns do
             assert(self._spatial_hash[i] ~= nil)
         end
     end
@@ -359,7 +374,7 @@ function ow.Fluid:_initialize(center_x, center_y)
     self:_update_data_mesh()
 end
 
---do -- update helpers
+do -- update helpers
     local function _enforce_distance(
         ax, ay, bx, by,
         inverse_mass_a, inverse_mass_b,
@@ -399,18 +414,24 @@ end
         follow_x, follow_y,
         compliance, lambda_before
     )
+        local dx_raw, dy_raw = follow_x - px, follow_y - py
         local current_distance = math.distance(px, py, follow_x, follow_y)
-        local target_distance = r
+        local dx, dy = math.normalize(dx_raw, dy_raw)
 
-        if inverse_mass < math.eps then return end
+        local constraint_violation = r - current_distance
 
-        local dx, dy = math.normalize(follow_x - px, follow_y - py)
+        local denominator = (inverse_mass + compliance)
+        if math.abs(denominator) < math.eps then
+            return 0, 0, lambda_before
+        end
 
-        local constraint_violation = current_distance - target_distance
-        local delta_lambda = constraint_violation / (inverse_mass + compliance)
+        local delta_lambda = (-constraint_violation - compliance * lambda_before) / denominator
+
+        local lambda_after = lambda_before + delta_lambda
 
         return dx * delta_lambda * inverse_mass,
-            dy * delta_lambda * inverse_mass
+            dy * delta_lambda * inverse_mass,
+            lambda_after
     end
 
     local function _enforce_segment_collision(
@@ -442,17 +463,12 @@ end
             lambda_new
     end
 
-    local _xy_to_spatial_hash_xy = function(x, y, particle_min_x, particle_min_y, spatial_hash_cell_radius)
-        return x - (particle_min_x - 2 * spatial_hash_cell_radius),
-            y - (particle_min_y - 2 * spatial_hash_cell_radius)
-    end
-
     local _point_on_segment = function(px, py, r, x1, y1, x2, y2)
         local dx, dy = x2 - x1, y2 - y1
         local t = math.dot(px - x1, py - y1, dx, dy) / (math.dot(dx, dy, dx, dy) + math.eps)
 
         -- is particle in voronoi region
-        if not (t <= math.eps or t >= 1 - math.eps) then return false end
+        --if not (t <= math.eps or t >= 1 - math.eps) then return false end
 
         -- is particle closer than r to segment
         local cx, cy = x1 + t * dx, y1 + t * dy
@@ -486,7 +502,7 @@ end
         local spatial_hash_cell_starts = {}
 
         local spatial_hash_n_particles_per_cell = self._spatial_hash_n_particles_per_cell
-        local spatial_hash_cell_radius = 0.5 * settings.particles.radius
+        local spatial_hash_cell_radius = self._spatial_hash_cell_radius
         local spatial_hash_n_rows = self._spatial_hash_n_rows
         local spatial_hash_n_cols = self._spatial_hash_n_columns
         local spatial_hash = self._spatial_hash
@@ -495,7 +511,7 @@ end
         local cell_particle_index = self._spatial_hash_particle_index
 
         local particle_min_x, particle_min_y = self._particle_min_x, self._particle_min_y
-        local particle_max_x, particle_max_y = self._particle_max_x, self._particle_max_y
+        local particle_area_width, particle_area_height = self._particle_area_width, self._particle_area_height
 
         local segments = self._segments
         local sidedness = self._sidedness
@@ -535,17 +551,17 @@ end
                 data[i + _follow_lambda_offset] = 0
 
                 -- reset segment lambdas
-                for lambda_i = _first_segment_lambda_offset, _first_segment_lambda_offset + n_segments do
-                    data[i + lambda_i] = 0
+                for offset = 0, n_segments - 1 do
+                    data[i + _first_segment_lambda_offset + offset] = 0
                 end
 
                 -- update spatial hash
                 local radius = data[i + _radius_offset]
 
-                -- translate so spatial hash indices are always positive
                 local spatial_hash_x, spatial_hash_y = _xy_to_spatial_hash_xy(
                     x, y,
                     particle_min_x, particle_min_y,
+                    particle_area_width, particle_area_height,
                     spatial_hash_cell_radius
                 )
 
@@ -561,17 +577,35 @@ end
                 local cell_i = _cell_xy_to_linear_index(cell_y, cell_x, spatial_hash_n_rows, spatial_hash_n_cols)
                 local cell = spatial_hash[cell_i]
 
-                if cell == nil then
-                    cell = {}
-                    spatial_hash[cell_i] = cell
-                    cell[cell_particle_count_index] = 0
+                if cell == nil then -- emergency resize of spatial hash
+                    if DEBUG then
+                        rt.error("In ow.Fluid: particle at `", x, " ", y, "` is out of bounds")
+                    else
+                        rt.warning("In ow.Fluid: forced to resize spatial hash from ",
+                            "`", self._spatial_hash_n_rows, "` `", self._spatial_hash_n_columns, "` to ",
+                            "`", cell_x, "`", "`", cell_y, "`"
+                        )
+
+                        if cell_x > self._spatial_hash_n_rows then
+                            self._spatial_hash_n_rows = cell_x
+                        end
+
+                        if cell_y > self._spatial_hash_n_columns then
+                            self._spatial_hash_n_columns = cell_y
+                        end
+
+                        if cell == nil then
+                            cell = {}
+                            spatial_hash[cell_i] = cell
+                            cell[cell_particle_count_index] = 0
+                        end
+                    end
                 end
 
                 local offset = cell[cell_particle_count_index]
                 cell[cell_particle_index + offset] = particle_i
                 cell[cell_particle_count_index] = offset + 1
 
-                -- TODO
                 local fx, fy = self._scene:get_player():get_position()
                 data[i + _follow_x_offset] = fx
                 data[i + _follow_y_offset] = fy
@@ -592,7 +626,7 @@ end
                 local correction_x, correction_y, lambda = _enforce_position(
                     x, y, data[i + _radius_offset], data[i + _inverse_mass_offset],
                     data[i + _follow_x_offset], data[i + _follow_y_offset],
-                    follow_alpha, data[_follow_lambda_offset]
+                    follow_alpha, data[i + _follow_lambda_offset]
                 )
 
                 data[i + _x_offset] = x + correction_x
@@ -601,6 +635,8 @@ end
             end
 
             -- ### COLLISION ###
+
+            if false then
 
             -- particle - particle collision
             for self_particle_i = 1, n_particles do
@@ -612,8 +648,8 @@ end
                 for x_offset = -1, 1 do
                     for y_offset = -1, 1 do
                         local cell_i = _cell_xy_to_linear_index(
+                            cell_y + y_offset, -- sic
                             cell_x + x_offset,
-                            cell_y + y_offset,
                             spatial_hash_n_rows,
                             spatial_hash_n_cols
                         )
@@ -645,7 +681,7 @@ end
                                         self_x, self_y, other_x, other_y
                                     )
 
-                                    if distance <= min_distance^2 then
+                                    if distance <= min_distance ^ 2 then
                                         local self_correction_x, self_correction_y,
                                         other_correction_x, other_correction_y,
                                         lambda = _enforce_distance(
@@ -669,35 +705,62 @@ end
                     end
                 end
             end
+            end
 
-            if false then
+            for particle_i = 1, n_particles do
+                local i = _particle_i_to_data_offset(particle_i, particle_stride)
+
+                for segment_i, segment in ipairs(self._segments) do
+                    local x1, y1, x2, y2, origin_x, origin_y, normal_x, normal_y = table.unpack(segment)
+
+                    local x_i, y_i = i + _x_offset, i + _y_offset
+                    local lambda_i = i + _first_segment_lambda_offset + (segment_i - 1)
+
+                    local x, y = data[x_i], data[y_i]
+                    local radius = data[i + _radius_offset]
+
+                    if _point_on_segment(x, y, radius, x1, y1, x2, y2) then
+                        local correction_x, correction_y, lambda = _enforce_segment_collision(
+                            x, y, radius, data[i + _inverse_mass_offset],
+                            origin_x, origin_y, normal_x, normal_y,
+                            segment_alpha, data[lambda_i]
+                        )
+
+                        data[x_i] = x + correction_x
+                        data[y_i] = y + correction_y
+                        data[lambda_i] = lambda
+                    end
+                end
+            end
 
             -- particle - segment collision
-            for segment_i, segment in ipairs(self._segments) do
+            for i = 0, -1 do --segment_i, segment in ipairs(self._segments) do
                 local x1, y1, x2, y2, origin_x, origin_y, normal_x, normal_y = table.unpack(segment)
 
-                x1, y1 = _xy_to_spatial_hash_xy(
+                local spatial_hash_x1, spatial_hash_y1 = _xy_to_spatial_hash_xy(
                     x1, y1,
                     particle_min_x, particle_min_y,
+                    particle_area_width, particle_area_height,
                     spatial_hash_cell_radius
                 )
 
-                x2, y2 = _xy_to_spatial_hash_xy(
+                local spatial_hash_x2, spatial_hash_y2 = _xy_to_spatial_hash_xy(
                     x2, y2,
                     particle_min_x, particle_min_y,
+                    particle_area_width, particle_area_height,
                     spatial_hash_cell_radius
                 )
 
                 local min_cell_x, min_cell_y = _spatial_hash_xy_to_cell_xy(
-                    math.min(x1, x2),
-                    math.min(y1, y2),
+                    math.min(spatial_hash_x1, spatial_hash_x2) - 0.5 * spatial_hash_cell_radius,
+                    math.min(spatial_hash_y1, spatial_hash_y2) - 0.5 * spatial_hash_cell_radius,
                     spatial_hash_cell_radius,
                     spatial_hash_n_rows, spatial_hash_n_cols
                 )
 
                 local max_cell_x, max_cell_y = _spatial_hash_xy_to_cell_xy(
-                    math.max(x1, x2),
-                    math.max(y1, y2),
+                    math.max(spatial_hash_x1, spatial_hash_x2) + 0.5 * spatial_hash_cell_radius,
+                    math.max(spatial_hash_y1, spatial_hash_y2) + 0.5 * spatial_hash_cell_radius,
                     spatial_hash_cell_radius,
                     spatial_hash_n_rows, spatial_hash_n_cols
                 )
@@ -734,7 +797,6 @@ end
                         end
                     end
                 end
-            end
             end
 
             -- ### POST SOLVE ###
@@ -773,10 +835,10 @@ end
                 centroid_y = centroid_y / n_particles
             end
 
-            self._particle_min_x = min_x
-            self._particle_min_y = min_y
-            self._particle_max_x = max_x
-            self._particle_max_y = max_y
+            self._particle_min_x = min_x - self._particle_area_padding
+            self._particle_min_y = min_y - self._particle_area_padding
+            self._particle_area_width = math.max(self._particle_area_width, max_x - min_x + 2 * self._particle_area_padding)
+            self._particle_area_height = math.max(self._particle_area_height, max_y - min_y + 2 * self._particle_area_padding)
             self._particle_centroid_x = centroid_x
             self._particle_centroid_y = centroid_y
         end
@@ -785,7 +847,7 @@ end
         self:_update_data_mesh()
         self._canvas_needs_update = true
     end
---end -- update helpers
+end -- update helpers
 
 local use_ffi = ffi ~= nil
 
@@ -850,8 +912,8 @@ end
 
 --- @brief
 function ow.Fluid:_resize_canvas()
-    local width = self._particle_max_x - self._particle_min_x
-    local height = self._particle_max_y - self._particle_min_y
+    local width = self._particle_area_width
+    local height = self._particle_area_height
     width = width + 2 * self._canvas_padding
     height = height + 2 * self._canvas_padding
 
@@ -937,32 +999,88 @@ function ow.Fluid:_debug_draw_particles()
 end
 
 --- @brief
-    function ow.Fluid:_debug_draw_spatial_hash()
+function ow.Fluid:_debug_draw_spatial_hash()
     local x_offset, y_offset = self._particle_min_x, self._particle_min_y
     love.graphics.push()
 
     local max_count = 0
     for cell in values(self._spatial_hash) do
-        max_count = math.max(max_count, cell[1])
+        max_count = math.max(max_count, cell[self._spatial_hash_particle_count_index])
     end
 
-    local cell_size = self._spatial_hash_cell_r
-    love.graphics.translate(x_offset - 2 * cell_size, y_offset - 2 * cell_size)
+    local cell_size = self._spatial_hash_cell_radius
+    local offset_x, offset_y = _xy_to_spatial_hash_xy(
+        0, 0,
+        self._particle_min_x, self._particle_min_y,
+        self._particle_area_width, self._particle_area_height,
+        cell_size
+    )
+    love.graphics.translate(-offset_x, -offset_y)
 
     local n_rows, n_columns = self._spatial_hash_n_rows, self._spatial_hash_n_columns
     for row_i = 1, n_rows do
         for col_i = 1, n_columns do
             local x, y = (row_i - 1) * cell_size, (col_i - 1) * cell_size
-            local i = _spatial_hash_xy_to_cell_xy(x, y, cell_size, n_rows, n_columns)
-            local cell = self._spatial_hash[i]
-            if cell ~= nil then
-                local opacity = cell[1] / max_count
 
-                local r, g, b, a = rt.lcha_to_rgba(0.8, 1, opacity, opacity)
-                love.graphics.setColor(r, g, b, a)
-                love.graphics.rectangle("fill",
-                    x, y, cell_size, cell_size
-                )
+            local cell_x, cell_y = _spatial_hash_xy_to_cell_xy(x, y, cell_size, n_rows, n_columns)
+            local linear_index = _cell_xy_to_linear_index(cell_x, cell_y, n_rows, n_columns)
+            local cell = self._spatial_hash[linear_index]
+
+            local opacity = cell[self._spatial_hash_particle_count_index] / max_count
+            opacity = opacity ^ (1 / 3.5)
+            local r, g, b, a = rt.lcha_to_rgba(0.8, 1, opacity, opacity)
+            love.graphics.setColor(r, g, b, a)
+            love.graphics.rectangle("fill",
+                x, y, cell_size, cell_size
+            )
+        end
+    end
+
+    local particle_min_x, particle_min_y = self._particle_min_x, self._particle_min_y
+    local particle_area_width, particle_area_height = self._particle_area_width, self._particle_area_height
+    local spatial_hash_cell_radius = self._spatial_hash_cell_radius
+    local spatial_hash_n_rows = self._spatial_hash_n_rows
+    local spatial_hash_n_cols = self._spatial_hash_n_columns
+    local spatial_hash = self._spatial_hash
+
+    -- particle - segment collision
+    for segment_i, segment in ipairs(self._segments) do
+        local x1, y1, x2, y2, origin_x, origin_y, normal_x, normal_y = table.unpack(segment)
+
+        x1, y1 = _xy_to_spatial_hash_xy(
+            x1, y1,
+            particle_min_x, particle_min_y,
+            particle_area_width, particle_area_height,
+            spatial_hash_cell_radius
+        )
+
+        x2, y2 = _xy_to_spatial_hash_xy(
+            x2, y2,
+            particle_min_x, particle_min_y,
+            particle_area_width, particle_area_height,
+            spatial_hash_cell_radius
+        )
+
+
+        local min_cell_x, min_cell_y = _spatial_hash_xy_to_cell_xy(
+            math.min(x1, x2) - 0.5 * spatial_hash_cell_radius,
+            math.min(y1, y2) - 0.5 * spatial_hash_cell_radius,
+            spatial_hash_cell_radius,
+            spatial_hash_n_rows, spatial_hash_n_cols
+        )
+
+        local max_cell_x, max_cell_y = _spatial_hash_xy_to_cell_xy(
+            math.max(x1, x2) + 0.5 * spatial_hash_cell_radius,
+            math.max(y1, y2) + 0.5 * spatial_hash_cell_radius,
+            spatial_hash_cell_radius,
+            spatial_hash_n_rows, spatial_hash_n_cols
+        )
+
+        -- iterate all cells in segment aabb
+        for row_i = min_cell_x, max_cell_x do
+            for col_i = min_cell_y, max_cell_y do
+                local x, y = (row_i - 1) * cell_size, (col_i - 1) * cell_size
+                local cell_x, cell_y = _spatial_hash_xy_to_cell_xy(x, y, cell_size, n_rows, n_columns)
 
                 love.graphics.setColor(1, 1, 1, 1)
                 love.graphics.rectangle("line",
