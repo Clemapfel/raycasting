@@ -17,7 +17,7 @@ rt.settings.overworld.fluid = {
 
     follow_compliance = 0.01,
     segment_compliance = 0,
-    collision_compliance = 1
+    collision_compliance = 0
 }
 
 --- @class ow.Fluid
@@ -310,6 +310,8 @@ function ow.Fluid:_initialize(center_x, center_y)
     self._particle_centroid_x = center_x
     self._particle_centroid_y = center_y
 
+    self._segment_aabb_padding = 8 * self._spatial_hash_cell_radius
+
     do -- spatial hash
         local primes = {
             2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71,
@@ -495,6 +497,7 @@ do -- update helpers
 
         local segments = self._segments
         local n_segments = self._n_segments
+        local segment_aabb_padding = self._segment_aabb_padding
 
         local collision_lambdas = self._collision_lambdas
 
@@ -512,9 +515,6 @@ do -- update helpers
 
         local particle_min_x, particle_min_y = self._particle_min_x, self._particle_min_y
         local particle_area_width, particle_area_height = self._particle_area_width, self._particle_area_height
-
-        local segments = self._segments
-        local sidedness = self._sidedness
 
         for _ = 1, n_sub_steps do
             -- ### PRE SOLVE ###
@@ -636,8 +636,6 @@ do -- update helpers
 
             -- ### COLLISION ###
 
-            if false then
-
             -- particle - particle collision
             for self_particle_i = 1, n_particles do
                 local self_i = _particle_i_to_data_offset(self_particle_i, particle_stride)
@@ -705,36 +703,9 @@ do -- update helpers
                     end
                 end
             end
-            end
-
-            for particle_i = 1, n_particles do
-                local i = _particle_i_to_data_offset(particle_i, particle_stride)
-
-                for segment_i, segment in ipairs(self._segments) do
-                    local x1, y1, x2, y2, origin_x, origin_y, normal_x, normal_y = table.unpack(segment)
-
-                    local x_i, y_i = i + _x_offset, i + _y_offset
-                    local lambda_i = i + _first_segment_lambda_offset + (segment_i - 1)
-
-                    local x, y = data[x_i], data[y_i]
-                    local radius = data[i + _radius_offset]
-
-                    if _point_on_segment(x, y, radius, x1, y1, x2, y2) then
-                        local correction_x, correction_y, lambda = _enforce_segment_collision(
-                            x, y, radius, data[i + _inverse_mass_offset],
-                            origin_x, origin_y, normal_x, normal_y,
-                            segment_alpha, data[lambda_i]
-                        )
-
-                        data[x_i] = x + correction_x
-                        data[y_i] = y + correction_y
-                        data[lambda_i] = lambda
-                    end
-                end
-            end
 
             -- particle - segment collision
-            for i = 0, -1 do --segment_i, segment in ipairs(self._segments) do
+            for segment_i, segment in ipairs(self._segments) do
                 local x1, y1, x2, y2, origin_x, origin_y, normal_x, normal_y = table.unpack(segment)
 
                 local spatial_hash_x1, spatial_hash_y1 = _xy_to_spatial_hash_xy(
@@ -752,15 +723,15 @@ do -- update helpers
                 )
 
                 local min_cell_x, min_cell_y = _spatial_hash_xy_to_cell_xy(
-                    math.min(spatial_hash_x1, spatial_hash_x2) - 0.5 * spatial_hash_cell_radius,
-                    math.min(spatial_hash_y1, spatial_hash_y2) - 0.5 * spatial_hash_cell_radius,
+                    math.min(spatial_hash_x1, spatial_hash_x2) - segment_aabb_padding,
+                    math.min(spatial_hash_y1, spatial_hash_y2) - segment_aabb_padding,
                     spatial_hash_cell_radius,
                     spatial_hash_n_rows, spatial_hash_n_cols
                 )
 
                 local max_cell_x, max_cell_y = _spatial_hash_xy_to_cell_xy(
-                    math.max(spatial_hash_x1, spatial_hash_x2) + 0.5 * spatial_hash_cell_radius,
-                    math.max(spatial_hash_y1, spatial_hash_y2) + 0.5 * spatial_hash_cell_radius,
+                    math.max(spatial_hash_x1, spatial_hash_x2) + segment_aabb_padding,
+                    math.max(spatial_hash_y1, spatial_hash_y2) + segment_aabb_padding,
                     spatial_hash_cell_radius,
                     spatial_hash_n_rows, spatial_hash_n_cols
                 )
