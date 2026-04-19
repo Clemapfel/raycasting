@@ -17,7 +17,7 @@ rt.settings.overworld.fluid = {
 
     follow_compliance = 0.01,
     segment_compliance = 0,
-    collision_compliance = 0
+    collision_compliance = 0.0001
 }
 
 --- @class ow.Fluid
@@ -25,6 +25,16 @@ ow.Fluid = meta.class("OverworldFluid")
 
 --- @class ow.FluidBounds
 ow.FluidBounds = meta.class("FluidBounds")
+
+local _segment_x1_offset = 0
+local _segment_y1_offset = 1
+local _segment_x2_offset = 2
+local _segment_y2_offset = 3
+local _segment_origin_x_offset = 4
+local _segment_origin_y_offset = 5
+local _segment_normal_x_offset = 6
+local _segment_normal_y_offset = 7
+local _segment_stride = _segment_normal_y_offset + 1
 
 --- @brief
 function ow.Fluid:instantiate(object, stage, scene)
@@ -36,29 +46,46 @@ function ow.Fluid:instantiate(object, stage, scene)
     rt.assert(other:get_type() == ow.ObjectType.POLYGON, "In ow.Fluid: object `", other:get_id(), "` is not a polygon")
 
     local contour = other:create_contour()
-    self._segments = {}
-    for i = 1, #contour + 2, 2 do
-        local x1 = contour[math.wrap(i + 0, #contour)]
-        local y1 = contour[math.wrap(i + 1, #contour)]
-        local x2 = contour[math.wrap(i + 2, #contour)]
-        local y2 = contour[math.wrap(i + 3, #contour)]
 
-        -- precompute origin
-        local origin_x, origin_y = math.mix2(x1, y1, x2, y2, 0.5)
+    do
+        self._segments = {}
+        self._n_segments = 0
 
-        -- precompute normal, require for line collision constraint
-        local nx, ny = math.normalize(math.turn_left(
-            x2 - x1,
-            y2 - y1
-        ))
+        local data = self._segments
+        for segment_i = 1, #contour + 2, 2 do
+            local x1 = contour[math.wrap(segment_i + 0, #contour)]
+            local y1 = contour[math.wrap(segment_i + 1, #contour)]
+            local x2 = contour[math.wrap(segment_i + 2, #contour)]
+            local y2 = contour[math.wrap(segment_i + 3, #contour)]
 
-        table.insert(self._segments, {
-            x1, y1, x2, y2,
-            origin_x, origin_y, nx, ny
-        })
+            -- precompute origin
+            local origin_x, origin_y = math.mix2(x1, y1, x2, y2, 0.5)
+
+            -- precompute normal, require for line collision constraint
+            local normal_x, normal_y = math.normalize(math.turn_left(
+                x2 - x1,
+                y2 - y1
+            ))
+
+            local i = #data + 1
+            data[i + _segment_x1_offset] = x1
+            data[i + _segment_y1_offset] = y1
+            data[i + _segment_x2_offset] = x2
+            data[i + _segment_y2_offset] = y2
+            data[i + _segment_origin_x_offset] = origin_x
+            data[i + _segment_origin_y_offset] = origin_y
+            data[i + _segment_normal_x_offset] = normal_x
+            data[i + _segment_normal_y_offset] = normal_y
+
+            assert(#data - i == _segment_stride - 1)
+
+            self._n_segments = self._n_segments + 1
+        end
+
+        for i = 1, #self._segments do
+            assert(self._segments[i] ~= nil)
+        end
     end
-    self._n_segments = #self._segments
-    self._sidedness = -1 -- tiled always uses clockwise winding
 
     -- init particles
     self:_initialize(object.x, object.y, 400)
@@ -470,11 +497,20 @@ do -- update helpers
         local t = math.dot(px - x1, py - y1, dx, dy) / (math.dot(dx, dy, dx, dy) + math.eps)
 
         -- is particle in voronoi region
-        --if not (t <= math.eps or t >= 1 - math.eps) then return false end
+        if not (t <= math.eps or t >= 1 - math.eps) then return false end
 
         -- is particle closer than r to segment
         local cx, cy = x1 + t * dx, y1 + t * dy
         return (px - cx)^2 + (py - cy)^2 < r^2
+    end
+
+    local _point_on_side = function(position_x, position_y, line_contact_x, line_contact_y, line_normal_x, line_normal_y)
+        local offset_x = position_x - line_contact_x
+        local offset_y = position_y - line_contact_y
+
+        -- is particle on side of line the normal points in
+        local signed_distance = offset_x * line_normal_x + offset_y * line_normal_y
+        return signed_distance < 0.0
     end
 
     --- @brief
@@ -579,26 +615,27 @@ do -- update helpers
 
                 if cell == nil then -- emergency resize of spatial hash
                     if DEBUG then
-                        rt.error("In ow.Fluid: particle at `", x, " ", y, "` is out of bounds")
-                    else
-                        rt.warning("In ow.Fluid: forced to resize spatial hash from ",
-                            "`", self._spatial_hash_n_rows, "` `", self._spatial_hash_n_columns, "` to ",
-                            "`", cell_x, "`", "`", cell_y, "`"
-                        )
+                        --rt.error("In ow.Fluid: particle at `", x, " ", y, "` is out of bounds")
+                    end
 
-                        if cell_x > self._spatial_hash_n_rows then
-                            self._spatial_hash_n_rows = cell_x
-                        end
+                    -- emergency resize spatial hash
+                    rt.warning("In ow.Fluid: forced to resize spatial hash from ",
+                        "`", self._spatial_hash_n_rows, "` `", self._spatial_hash_n_columns, "` to ",
+                        "`", cell_x, "`", "`", cell_y, "`"
+                    )
 
-                        if cell_y > self._spatial_hash_n_columns then
-                            self._spatial_hash_n_columns = cell_y
-                        end
+                    if cell_x > self._spatial_hash_n_rows then
+                        self._spatial_hash_n_rows = cell_x
+                    end
 
-                        if cell == nil then
-                            cell = {}
-                            spatial_hash[cell_i] = cell
-                            cell[cell_particle_count_index] = 0
-                        end
+                    if cell_y > self._spatial_hash_n_columns then
+                        self._spatial_hash_n_columns = cell_y
+                    end
+
+                    if cell == nil then
+                        cell = {}
+                        spatial_hash[cell_i] = cell
+                        cell[cell_particle_count_index] = 0
                     end
                 end
 
@@ -705,67 +742,36 @@ do -- update helpers
             end
 
             -- particle - segment collision
-            for segment_i, segment in ipairs(self._segments) do
-                local x1, y1, x2, y2, origin_x, origin_y, normal_x, normal_y = table.unpack(segment)
+            for particle_i = 1, n_particles do
+                local particle_offset = _particle_i_to_data_offset(particle_i, particle_stride)
+                local x_i, y_i = particle_offset + _x_offset, particle_offset + _y_offset
+                local x, y = data[x_i], data[y_i]
+                local radius = data[particle_offset + _radius_offset]
 
-                local spatial_hash_x1, spatial_hash_y1 = _xy_to_spatial_hash_xy(
-                    x1, y1,
-                    particle_min_x, particle_min_y,
-                    particle_area_width, particle_area_height,
-                    spatial_hash_cell_radius
-                )
+                for segment_i = 1, n_segments do
+                    local segment_offset = _particle_i_to_data_offset(segment_i, _segment_stride)
+                    local x1 = segments[segment_offset + _segment_x1_offset]
+                    local y1 = segments[segment_offset + _segment_y1_offset]
+                    local x2 = segments[segment_offset + _segment_x2_offset]
+                    local y2 = segments[segment_offset + _segment_y2_offset]
+                    local origin_x = segments[segment_offset + _segment_origin_x_offset]
+                    local origin_y = segments[segment_offset + _segment_origin_y_offset]
+                    local normal_x = segments[segment_offset + _segment_normal_x_offset]
+                    local normal_y = segments[segment_offset + _segment_normal_y_offset]
 
-                local spatial_hash_x2, spatial_hash_y2 = _xy_to_spatial_hash_xy(
-                    x2, y2,
-                    particle_min_x, particle_min_y,
-                    particle_area_width, particle_area_height,
-                    spatial_hash_cell_radius
-                )
+                    local lambda_i = particle_offset + _first_segment_lambda_offset + (segment_i - 1)
+                    if _point_on_side(x, y, origin_x, origin_y, normal_x, normal_y)
+                        or _point_on_segment(x, y, radius, x1, y1, x2, y2)
+                    then
+                        local correction_x, correction_y, lambda = _enforce_segment_collision(
+                            x, y, radius, data[particle_offset + _inverse_mass_offset],
+                            origin_x, origin_y, normal_x, normal_y,
+                            segment_alpha, data[lambda_i]
+                        )
 
-                local min_cell_x, min_cell_y = _spatial_hash_xy_to_cell_xy(
-                    math.min(spatial_hash_x1, spatial_hash_x2) - segment_aabb_padding,
-                    math.min(spatial_hash_y1, spatial_hash_y2) - segment_aabb_padding,
-                    spatial_hash_cell_radius,
-                    spatial_hash_n_rows, spatial_hash_n_cols
-                )
-
-                local max_cell_x, max_cell_y = _spatial_hash_xy_to_cell_xy(
-                    math.max(spatial_hash_x1, spatial_hash_x2) + segment_aabb_padding,
-                    math.max(spatial_hash_y1, spatial_hash_y2) + segment_aabb_padding,
-                    spatial_hash_cell_radius,
-                    spatial_hash_n_rows, spatial_hash_n_cols
-                )
-
-                -- iterate all cells in segment aabb
-                for row_i = min_cell_x, max_cell_x do
-                    for col_i = min_cell_y, max_cell_y do
-                        local cell = spatial_hash[_cell_xy_to_linear_index(
-                            row_i, col_i, spatial_hash_n_rows, spatial_hash_n_cols
-                        )]
-
-                        if cell ~= nil then
-                            for offset = 0, cell[cell_particle_count_index] - 1 do
-                                local particle_i = cell[cell_particle_index + offset]
-                                local i = _particle_i_to_data_offset(particle_i, particle_stride)
-                                local x_i, y_i = i + _x_offset, i + _y_offset
-                                local lambda_i = i + _first_segment_lambda_offset + (segment_i - 1)
-
-                                local x, y = data[x_i], data[y_i]
-                                local radius = data[i + _radius_offset]
-
-                                if _point_on_segment(x, y, radius, x1, y1, x2, y2) then
-                                    local correction_x, correction_y, lambda = _enforce_segment_collision(
-                                        x, y, radius, data[i + _inverse_mass_offset],
-                                        origin_x, origin_y, normal_x, normal_y,
-                                        segment_alpha, data[lambda_i]
-                                    )
-
-                                    data[x_i] = x + correction_x
-                                    data[y_i] = y + correction_y
-                                    data[lambda_i] = lambda
-                                end
-                            end
-                        end
+                        data[x_i] = x + correction_x
+                        data[y_i] = y + correction_y
+                        data[lambda_i] = lambda
                     end
                 end
             end
@@ -1007,60 +1013,6 @@ function ow.Fluid:_debug_draw_spatial_hash()
         end
     end
 
-    local particle_min_x, particle_min_y = self._particle_min_x, self._particle_min_y
-    local particle_area_width, particle_area_height = self._particle_area_width, self._particle_area_height
-    local spatial_hash_cell_radius = self._spatial_hash_cell_radius
-    local spatial_hash_n_rows = self._spatial_hash_n_rows
-    local spatial_hash_n_cols = self._spatial_hash_n_columns
-    local spatial_hash = self._spatial_hash
-
-    -- particle - segment collision
-    for segment_i, segment in ipairs(self._segments) do
-        local x1, y1, x2, y2, origin_x, origin_y, normal_x, normal_y = table.unpack(segment)
-
-        x1, y1 = _xy_to_spatial_hash_xy(
-            x1, y1,
-            particle_min_x, particle_min_y,
-            particle_area_width, particle_area_height,
-            spatial_hash_cell_radius
-        )
-
-        x2, y2 = _xy_to_spatial_hash_xy(
-            x2, y2,
-            particle_min_x, particle_min_y,
-            particle_area_width, particle_area_height,
-            spatial_hash_cell_radius
-        )
-
-
-        local min_cell_x, min_cell_y = _spatial_hash_xy_to_cell_xy(
-            math.min(x1, x2) - 0.5 * spatial_hash_cell_radius,
-            math.min(y1, y2) - 0.5 * spatial_hash_cell_radius,
-            spatial_hash_cell_radius,
-            spatial_hash_n_rows, spatial_hash_n_cols
-        )
-
-        local max_cell_x, max_cell_y = _spatial_hash_xy_to_cell_xy(
-            math.max(x1, x2) + 0.5 * spatial_hash_cell_radius,
-            math.max(y1, y2) + 0.5 * spatial_hash_cell_radius,
-            spatial_hash_cell_radius,
-            spatial_hash_n_rows, spatial_hash_n_cols
-        )
-
-        -- iterate all cells in segment aabb
-        for row_i = min_cell_x, max_cell_x do
-            for col_i = min_cell_y, max_cell_y do
-                local x, y = (row_i - 1) * cell_size, (col_i - 1) * cell_size
-                local cell_x, cell_y = _spatial_hash_xy_to_cell_xy(x, y, cell_size, n_rows, n_columns)
-
-                love.graphics.setColor(1, 1, 1, 1)
-                love.graphics.rectangle("line",
-                    x, y, cell_size, cell_size
-                )
-            end
-        end
-    end
-
     love.graphics.pop()
 end
 
@@ -1068,8 +1020,13 @@ end
 function ow.Fluid:_debug_draw_segments()
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.setLineWidth(1)
-    for segment in values(self._segments) do
-        love.graphics.line(segment[1], segment[2], segment[3], segment[4])
+    for segment_i = 1, self._n_segments do
+        local segment_offset = _particle_i_to_data_offset(segment_i, _segment_stride)
+        local x1 = self._segments[segment_offset + _segment_x1_offset]
+        local y1 = self._segments[segment_offset + _segment_y1_offset]
+        local x2 = self._segments[segment_offset + _segment_x2_offset]
+        local y2 = self._segments[segment_offset + _segment_y2_offset]
+        love.graphics.line(x1, y1, x2, y2)
     end
 end
 
@@ -1098,7 +1055,7 @@ function ow.Fluid:draw()
     love.graphics.setBlendMode("alpha", "alphamultiply")
     love.graphics.pop()
 
-    self:_debug_draw_segments()
+    --self:_debug_draw_segments()
     --self:_debug_draw_particles()
-    self:_debug_draw_spatial_hash()
+    --self:_debug_draw_spatial_hash()
 end

@@ -155,7 +155,7 @@
    <point/>
   </object>
   <object id="614" type="FluidBounds" x="-4160" y="864">
-   <polygon points="0,0 -432,0 -432,432 -416,448 -80,448 0,368"/>
+   <polygon points="0,0 -432,0 -432,432 -416,448 0,448"/>
   </object>
  </objectgroup>
  <objectgroup id="2" name="front">
