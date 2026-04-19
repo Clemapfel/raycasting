@@ -510,7 +510,7 @@ do -- update helpers
 
         -- is particle on side of line the normal points in
         local signed_distance = offset_x * line_normal_x + offset_y * line_normal_y
-        return signed_distance < 0.0
+        return signed_distance > 0.0
     end
 
     --- @brief
@@ -742,25 +742,25 @@ do -- update helpers
             end
 
             -- particle - segment collision
-            for particle_i = 1, n_particles do
-                local particle_offset = _particle_i_to_data_offset(particle_i, particle_stride)
-                local x_i, y_i = particle_offset + _x_offset, particle_offset + _y_offset
-                local x, y = data[x_i], data[y_i]
-                local radius = data[particle_offset + _radius_offset]
+            for segment_i = 1, n_segments do
+                local segment_offset = _particle_i_to_data_offset(segment_i, _segment_stride)
+                local x1 = segments[segment_offset + _segment_x1_offset]
+                local y1 = segments[segment_offset + _segment_y1_offset]
+                local x2 = segments[segment_offset + _segment_x2_offset]
+                local y2 = segments[segment_offset + _segment_y2_offset]
+                local origin_x = segments[segment_offset + _segment_origin_x_offset]
+                local origin_y = segments[segment_offset + _segment_origin_y_offset]
+                local normal_x = segments[segment_offset + _segment_normal_x_offset]
+                local normal_y = segments[segment_offset + _segment_normal_y_offset]
 
-                for segment_i = 1, n_segments do
-                    local segment_offset = _particle_i_to_data_offset(segment_i, _segment_stride)
-                    local x1 = segments[segment_offset + _segment_x1_offset]
-                    local y1 = segments[segment_offset + _segment_y1_offset]
-                    local x2 = segments[segment_offset + _segment_x2_offset]
-                    local y2 = segments[segment_offset + _segment_y2_offset]
-                    local origin_x = segments[segment_offset + _segment_origin_x_offset]
-                    local origin_y = segments[segment_offset + _segment_origin_y_offset]
-                    local normal_x = segments[segment_offset + _segment_normal_x_offset]
-                    local normal_y = segments[segment_offset + _segment_normal_y_offset]
+                for particle_i = 1, n_particles do
+                    local particle_offset = _particle_i_to_data_offset(particle_i, particle_stride)
+                    local x_i, y_i = particle_offset + _x_offset, particle_offset + _y_offset
+                    local x, y = data[x_i], data[y_i]
+                    local radius = data[particle_offset + _radius_offset]
 
                     local lambda_i = particle_offset + _first_segment_lambda_offset + (segment_i - 1)
-                    if _point_on_side(x, y, origin_x, origin_y, normal_x, normal_y)
+                    if not _point_on_side(x, y, origin_x, origin_y, normal_x, normal_y)
                         or _point_on_segment(x, y, radius, x1, y1, x2, y2)
                     then
                         local correction_x, correction_y, lambda = _enforce_segment_collision(
