@@ -659,23 +659,133 @@ function ow.OverworldScene:draw()
     end
 end
 
---[[
 --- @brief
-function ow.OverwoldScene:draw()
-    local draw_player = function()
+function ow.OverworldScene:draw()
+    local draw_below = function()
+        love.graphics.push()
+        love.graphics.origin()
+        self._background:draw()
+        love.graphics.pop()
 
+        if self._fade_to_black > 0 then
+            local r, g, b, _ = rt.Palette.BLACK:unpack()
+            love.graphics.setColor(r, g, b, self._fade_to_black)
+            love.graphics.rectangle("fill", self._bounds:unpack())
+        end
+
+        self._camera:bind()
+        self._stage:draw_below_player()
+        self._camera:unbind()
     end
 
-    if self._fade_active then
+    local draw_player = function()
+        self._camera:bind()
+        if self._player_is_visible then
+            self._player:draw_body()
+            self._player:draw_core()
+        end
+        self._camera:unbind()
+    end
 
+    local draw_above = function()
+        self._camera:bind()
+        self._stage:draw_above_player()
+        self._camera:unbind()
+
+        if rt.GameState:get_is_bloom_enabled() then
+            rt.SceneManager:get_bloom():composite(
+                rt.settings.overworld_scene.bloom_composite_strength
+            )
+        end
+    end
+
+    local draw_indicators = function()
+        self._control_indicator_particle_effect:draw()
+        local opacity = self._control_indicator_opacity_motion:get_value()
+        if opacity > 0 and self._pause_menu_active == false then
+            local indicator = self._control_indicator_type_to_control_indicator[self._control_indicator_type]
+            if indicator ~= nil then
+                indicator:set_opacity(opacity)
+                love.graphics.push()
+                love.graphics.translate(self._control_indicator_offset_motion:get_position())
+                indicator:draw()
+                love.graphics.pop()
+            end
+        end
+
+        if self._camera_override_active then
+            love.graphics.push("all")
+            love.graphics.setBlendMode("add", "premultiplied")
+
+            local draw = function(v, border)
+                v = v * rt.settings.overworld_scene.border_scroll_opacity
+                love.graphics.setColor(v, v, v, v)
+                border:draw()
+            end
+
+            draw(self._camera_top_border_t, self._camera_top_border)
+            draw(self._camera_right_border_t, self._camera_right_border)
+            draw(self._camera_bottom_border_t, self._camera_bottom_border)
+            draw(self._camera_left_border_t, self._camera_left_border)
+
+            love.graphics.pop()
+        end
+    end
+
+    -- update bloom
+    if rt.GameState:get_is_bloom_enabled() then
+        local bloom = rt.SceneManager:get_bloom()
+        bloom:bind()
+        love.graphics.clear(0, 0, 0, 0)
+        self._camera:bind()
+        if self._player_is_visible then
+            self._player:draw_bloom()
+        end
+        self._stage:draw_bloom()
+        self._camera:unbind()
+        bloom:unbind()
+    end
+
+    local blur_value = self._blur_motion:get_value()
+    local use_blur = blur_value > 0.01
+    if use_blur then
+        self._blur:set_blur_strength(blur_value * rt.settings.overworld_scene.max_blur_strength)
+        self._blur:bind()
+        love.graphics.clear(0, 0, 0, 0)
+    end
+
+    if self._fade_active or self._show_title_card then
         -- when fading, draw player above stage
-
+        draw_below()
+        draw_above()
         self._fade:draw()
         draw_player()
         self._title_card:draw()
+    else
+        draw_below()
+        draw_player()
+        draw_above()
+    end
+
+    if use_blur then
+        self._blur:unbind()
+        local t = 1 - math.mix(0, rt.settings.overworld_scene.max_blur_darkening, self._blur_motion:get_value())
+        love.graphics.setColor(t, t, t, t)
+        self._blur:draw()
+    end
+
+    draw_indicators()
+
+    if self._pause_menu_active then
+        self._pause_menu:draw()
+    end
+
+    if rt.GameState:get_draw_debug_information()
+        and rt.SceneManager:get_screen_recorder():get_is_recording() == false
+    then
+        self:_draw_debug_information()
     end
 end
-]]
 
 --- @brief
 function ow.OverworldScene:_update_screenshot(draw_player)

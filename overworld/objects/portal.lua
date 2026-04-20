@@ -155,7 +155,7 @@ function ow.Portal:instantiate(object, stage, scene)
     self._offset_x, self._offset_y = 0, 0
     self._is_dead_end = false -- if true, player cannot enter portal
 
-    self._color = rt.RGBA(1, 1, 1, 1) -- synched in initialize
+    self._color = nil -- synched in initialize
 
     stage:signal_connect("initialized", function()
         do -- read segment position, move to origin
@@ -203,8 +203,11 @@ function ow.Portal:instantiate(object, stage, scene)
 
             self._hue_set = true
             target_instance._hue_set = true
-            self._color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, self._hue, 1))
-            target_instance._color = self._color
+
+            if self._color == nil then
+                self._color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, self._hue, 1))
+                target_instance._color = self._color
+            end
         else
             self._one_way_light_animation = rt.TimedAnimation(
                 rt.settings.overworld.portal.one_way_light_animation_duration,
@@ -781,15 +784,20 @@ end
 
 --- @brief
 function ow.Portal:draw()
-    if not self._stage:get_is_body_visible(self._area_sensor) then return end
+    local self_visible = self._stage:get_is_body_visible(self._area_sensor)
 
     local r, g, b, a = self._color:unpack()
-
     if self._tether ~= nil and rt.GameState:get_is_color_blind_mode_enabled() then
-        love.graphics.setLineWidth(2)
-        love.graphics.setColor(r, g, b, a)
-        self._tether:draw()
+        local other_visible = self._stage:get_is_body_visible(self._target._area_sensor)
+
+        if self_visible or other_visible then
+            love.graphics.setLineWidth(2)
+            love.graphics.setColor(r, g, b, a)
+            self._tether:draw()
+        end
     end
+
+    if not self_visible then return end
 
     if self._canvas_needs_update == true then
         love.graphics.push("all")
@@ -840,7 +848,7 @@ function ow.Portal:draw()
     local black_r, black_g, black_b = rt.Palette.BLACK:unpack()
     _particle_shader:send("black", { black_r, black_g, black_b })
     local w, h = self._static_canvas:get_size()
-    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.setColor(r, g, b, 1)
     love.graphics.draw(
         self._static_canvas:get_native(),
         self._canvas_x, self._canvas_y, self._canvas_angle,

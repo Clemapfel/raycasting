@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 615,
+  nextobjectid = 631,
   properties = {},
   tilesets = {
     {
@@ -115,21 +115,21 @@ return {
           properties = {}
         },
         {
-          id = 598,
+          id = 621,
           name = "",
           type = "CameraFit",
           shape = "polygon",
-          x = -1648,
-          y = -736,
+          x = -1712,
+          y = -864,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
           polygon = {
             { x = 0, y = 0 },
-            { x = 0, y = 672 },
-            { x = 768, y = 672 },
-            { x = 768, y = 0 }
+            { x = 896, y = 0 },
+            { x = 896, y = 800 },
+            { x = 0, y = 800 }
           },
           properties = {}
         }
@@ -193,6 +193,25 @@ return {
           properties = {
             ["type"] = "spheres"
           }
+        },
+        {
+          id = 622,
+          name = "",
+          type = "Wall",
+          shape = "polygon",
+          x = -1712,
+          y = -864,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 896, y = 0 },
+            { x = 896, y = 800 },
+            { x = 0, y = 800 }
+          },
+          properties = {}
         }
       }
     },
@@ -215,8 +234,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = -4322.43,
-          y = 1268.59,
+          x = -1992.21,
+          y = 904.104,
           width = 0,
           height = 0,
           rotation = 0,
@@ -617,14 +636,14 @@ return {
           name = "",
           type = "AcceleratorSurface",
           shape = "polygon",
-          x = -1216,
-          y = 656,
+          x = -1120,
+          y = 688,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
           polygon = {
-            { x = 272, y = -1056 },
+            { x = 272, y = -1424 },
             { x = 272, y = -864 },
             { x = 268.94, y = -845.763 },
             { x = 261.127, y = -828.409 },
@@ -632,11 +651,10 @@ return {
             { x = 235.043, y = -800.59 },
             { x = 216.878, y = -790.434 },
             { x = 192, y = -784 },
-            { x = -32, y = -784 },
-            { x = -32, y = -752 },
-            { x = 0, y = -752 },
+            { x = -96, y = -784 },
+            { x = -96, y = -752 },
             { x = 304, y = -752 },
-            { x = 304, y = -1056 }
+            { x = 304, y = -1424 }
           },
           properties = {}
         },
@@ -669,7 +687,7 @@ return {
           type = "BoostField",
           shape = "polygon",
           x = -1280,
-          y = -128,
+          y = -96,
           width = 0,
           height = 0,
           rotation = 0,
@@ -732,221 +750,6 @@ return {
           properties = {}
         },
         {
-          id = 584,
-          name = "",
-          type = "AcceleratorSurface",
-          shape = "polygon",
-          x = -1312,
-          y = 656,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = -272, y = -1056 },
-            { x = -272, y = -864 },
-            { x = -268.94, y = -845.763 },
-            { x = -261.127, y = -828.409 },
-            { x = -249.654, y = -810.788 },
-            { x = -235.043, y = -800.59 },
-            { x = -216.878, y = -790.434 },
-            { x = -192, y = -784 },
-            { x = 32, y = -784 },
-            { x = 32, y = -752 },
-            { x = 0, y = -752 },
-            { x = -304, y = -752 },
-            { x = -304, y = -1056 }
-          },
-          properties = {}
-        },
-        {
-          id = 596,
-          name = "",
-          type = "AcceleratorSurface",
-          shape = "polygon",
-          x = -1312,
-          y = -1456,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = -272, y = 1056 },
-            { x = -272, y = 864 },
-            { x = -268.94, y = 845.763 },
-            { x = -261.127, y = 828.409 },
-            { x = -249.654, y = 810.788 },
-            { x = -235.043, y = 800.59 },
-            { x = -216.878, y = 790.434 },
-            { x = -192, y = 784 },
-            { x = 32, y = 784 },
-            { x = 32, y = 752 },
-            { x = 0, y = 752 },
-            { x = -304, y = 752 },
-            { x = -304, y = 1056 }
-          },
-          properties = {}
-        },
-        {
-          id = 597,
-          name = "",
-          type = "AcceleratorSurface",
-          shape = "polygon",
-          x = -1216,
-          y = -1456,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 272, y = 1056 },
-            { x = 272, y = 864 },
-            { x = 268.94, y = 845.763 },
-            { x = 261.127, y = 828.409 },
-            { x = 249.654, y = 810.788 },
-            { x = 235.043, y = 800.59 },
-            { x = 216.878, y = 790.434 },
-            { x = 192, y = 784 },
-            { x = -32, y = 784 },
-            { x = -32, y = 752 },
-            { x = 0, y = 752 },
-            { x = 304, y = 752 },
-            { x = 304, y = 1056 }
-          },
-          properties = {}
-        },
-        {
-          id = 599,
-          name = "",
-          type = "",
-          shape = "polygon",
-          x = -4048,
-          y = -544,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = -384, y = -16 },
-            { x = -384, y = 80 },
-            { x = 2032, y = 80 },
-            { x = 2032, y = -16 }
-          },
-          properties = {}
-        },
-        {
-          id = 600,
-          name = "Normal",
-          type = "Hitbox",
-          shape = "rectangle",
-          x = -3952,
-          y = -784,
-          width = 128,
-          height = 128,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 601,
-          name = "Glass",
-          type = "SlipperyHitbox",
-          shape = "rectangle",
-          x = -3712,
-          y = -784,
-          width = 128,
-          height = 128,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 602,
-          name = "Accelerator",
-          type = "AcceleratorSurface",
-          shape = "rectangle",
-          x = -2816,
-          y = -784,
-          width = 128,
-          height = 128,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 603,
-          name = "Decelerator",
-          type = "DeceleratorSurface",
-          shape = "rectangle",
-          x = -2592,
-          y = -784,
-          width = 128,
-          height = 128,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 604,
-          name = "Boost",
-          type = "BoostField",
-          shape = "rectangle",
-          x = -3488,
-          y = -784,
-          width = 128,
-          height = 128,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["axis_y"] = -1
-          }
-        },
-        {
-          id = 605,
-          name = "Bounce",
-          type = "BouncePad",
-          shape = "rectangle",
-          x = -3264,
-          y = -784,
-          width = 128,
-          height = 128,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 606,
-          name = "Bubble",
-          type = "BubbleField",
-          shape = "rectangle",
-          x = -3040,
-          y = -784,
-          width = 128,
-          height = 128,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 607,
-          name = "",
-          type = "",
-          shape = "polygon",
-          x = -4167.59,
-          y = 410.85,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = 0 },
-            { x = 0, y = -352 },
-            { x = 1296, y = -352 },
-            { x = 1296, y = 0 }
-          },
-          properties = {}
-        },
-        {
           id = 609,
           name = "",
           type = "CameraFit",
@@ -963,57 +766,6 @@ return {
             { x = 1632, y = -448 },
             { x = 1632, y = 16 }
           },
-          properties = {}
-        },
-        {
-          id = 610,
-          name = "",
-          type = "Wall",
-          shape = "polygon",
-          x = -4032,
-          y = -544,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = 16 },
-            { x = 0, y = -448 },
-            { x = 1632, y = -448 },
-            { x = 1632, y = 16 }
-          },
-          properties = {}
-        },
-        {
-          id = 611,
-          name = "",
-          type = "",
-          shape = "polygon",
-          x = -3984,
-          y = -1072,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = -384, y = -16 },
-            { x = -384, y = 80 },
-            { x = 2032, y = 80 },
-            { x = 2032, y = -16 }
-          },
-          properties = {}
-        },
-        {
-          id = 612,
-          name = "Normal",
-          type = "KillPlane",
-          shape = "rectangle",
-          x = -4208,
-          y = -784,
-          width = 128,
-          height = 128,
-          rotation = 0,
-          visible = true,
           properties = {}
         },
         {
@@ -1048,6 +800,87 @@ return {
             { x = -432, y = 432 },
             { x = -416, y = 448 },
             { x = 0, y = 448 }
+          },
+          properties = {}
+        },
+        {
+          id = 618,
+          name = "",
+          type = "AcceleratorSurface",
+          shape = "polygon",
+          x = -64,
+          y = -560,
+          width = 0,
+          height = 0,
+          rotation = -90,
+          visible = true,
+          polygon = {
+            { x = 272, y = -1200 },
+            { x = 272, y = -864 },
+            { x = 268.94, y = -845.763 },
+            { x = 261.127, y = -828.409 },
+            { x = 249.654, y = -810.788 },
+            { x = 235.043, y = -800.59 },
+            { x = 216.878, y = -790.434 },
+            { x = 192, y = -784 },
+            { x = 176, y = -784 },
+            { x = 176, y = -752 },
+            { x = 304, y = -752 },
+            { x = 304, y = -1200 }
+          },
+          properties = {}
+        },
+        {
+          id = 619,
+          name = "",
+          type = "AcceleratorSurface",
+          shape = "polygon",
+          x = -1408,
+          y = 688,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = -272, y = -880 },
+            { x = -272, y = -864 },
+            { x = -268.94, y = -845.763 },
+            { x = -261.127, y = -828.409 },
+            { x = -249.654, y = -810.788 },
+            { x = -235.043, y = -800.59 },
+            { x = -216.878, y = -790.434 },
+            { x = -192, y = -784 },
+            { x = 96, y = -784 },
+            { x = 96, y = -752 },
+            { x = -304, y = -752 },
+            { x = -304, y = -880 }
+          },
+          properties = {}
+        },
+        {
+          id = 620,
+          name = "",
+          type = "AcceleratorSurface",
+          shape = "polygon",
+          x = -2464,
+          y = -560,
+          width = 0,
+          height = 0,
+          rotation = 90,
+          visible = true,
+          polygon = {
+            { x = -272, y = -1200 },
+            { x = -272, y = -864 },
+            { x = -268.94, y = -845.763 },
+            { x = -261.127, y = -828.409 },
+            { x = -249.654, y = -810.788 },
+            { x = -235.043, y = -800.59 },
+            { x = -216.878, y = -790.434 },
+            { x = -192, y = -784 },
+            { x = 368, y = -784 },
+            { x = 368, y = -752 },
+            { x = -304, y = -752 },
+            { x = -304, y = -1200 }
           },
           properties = {}
         }
@@ -1101,7 +934,7 @@ return {
           type = "OneWayPlatform",
           shape = "point",
           x = -1280,
-          y = -128,
+          y = -96,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1116,7 +949,138 @@ return {
           type = "OneWayPlatformNode",
           shape = "point",
           x = -1248,
-          y = -128,
+          y = -96,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 623,
+          name = "",
+          type = "SlipperyHitbox",
+          shape = "polygon",
+          x = -1264,
+          y = -656,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 64, y = 32 },
+            { x = 32, y = 80 },
+            { x = -32, y = 80 },
+            { x = -64, y = 32 }
+          },
+          properties = {}
+        },
+        {
+          id = 624,
+          name = "",
+          type = "Portal",
+          shape = "point",
+          x = -1328,
+          y = -624,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["other"] = { id = 625 },
+            ["target"] = { id = 626 }
+          }
+        },
+        {
+          id = 625,
+          name = "",
+          type = "PortalNode",
+          shape = "point",
+          x = -1200,
+          y = -624,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 626,
+          name = "",
+          type = "Portal",
+          shape = "point",
+          x = -1312,
+          y = -976,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["other"] = { id = 627 }
+          }
+        },
+        {
+          id = 627,
+          name = "",
+          type = "PortalNode",
+          shape = "point",
+          x = -1232,
+          y = -976,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 628,
+          name = "",
+          type = "Hitbox",
+          shape = "polygon",
+          x = -1328,
+          y = -1024,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = -32, y = 48 },
+            { x = -384, y = 48 },
+            { x = -384, y = 160 },
+            { x = 512, y = 160 },
+            { x = 512, y = 48 },
+            { x = 144, y = 48 },
+            { x = 112, y = 0 },
+            { x = 96, y = 0 },
+            { x = 96, y = 48 },
+            { x = 16, y = 48 },
+            { x = 16, y = 0 }
+          },
+          properties = {}
+        },
+        {
+          id = 629,
+          name = "",
+          type = "OneWayPlatform",
+          shape = "point",
+          x = -1328,
+          y = -1024,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["other"] = { id = 630 }
+          }
+        },
+        {
+          id = 630,
+          name = "",
+          type = "OneWayPlatformNode",
+          shape = "point",
+          x = -1216,
+          y = -1024,
           width = 0,
           height = 0,
           rotation = 0,

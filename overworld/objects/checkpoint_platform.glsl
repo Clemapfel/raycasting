@@ -43,6 +43,7 @@ vec4 effect(vec4 vertex_color, sampler2D img, vec2 uv, vec2 vertex_position) {
         return brightness_scale * color * vec4(mix(vec3(inner), vec3(0.0), outline), max(inner, outline));
     else
         return color * mix(vec4(inner), vec4(0.0), outline);
+
 }
 
 #endif
