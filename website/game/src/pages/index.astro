@@ -1,10 +1,16 @@
 ---
-import BlogLayout from '../layouts/Layout.astro';
+import Layout from '../layouts/Layout.astro';
 import MarkdownRenderer from '../components/Markdown.astro';
+
+import { getEntry, render } from 'astro:content';
+const post = await getEntry('posts', 'test');
+
+const { Content, headings } = await render(post);
 ---
 
-<BlogLayout>
+<Layout>
     <div>
-        <MarkdownRenderer post_id="test"/>
+        <!MarkdownRenderer post_id="test"/>
+        <Content />
     </div>
-</BlogLayout>
+</Layout>

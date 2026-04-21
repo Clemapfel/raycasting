@@ -1,24 +1,7 @@
 ---
-import { getEntry, render, getCollection } from 'astro:content';
+import { getCollection, getEntry, render } from 'astro:content';
+import { getCollection } from 'astro:content';
 import type { CollectionEntry } from 'astro:content';
-
-interface Props {
-    post_id: CollectionEntry<'posts'>['id'];
-}
-
-const { post_id } = Astro.props;
-
-if (!post_id) {
-    throw new Error('Post ID undefined');
-}
-
-const post = await getEntry('posts', post_id);
-
-if (!post) {
-    throw new Error(`Post ${post_id} not found in the collection.`);
-}
-
-const Content = await render(post);
 ---
 
 <div class="fluid-markdown-container">
