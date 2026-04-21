@@ -1,12 +1,20 @@
 ---
-import { getCollection, getEntry, render } from 'astro:content';
-import { getCollection } from 'astro:content';
-import type { CollectionEntry } from 'astro:content';
----
+import { getEntry, render } from 'astro:content';
 
-<div class="fluid-markdown-container">
-    <Content />
-</div>
+interface Props {
+    id: string;
+}
+
+const { id } = Astro.props;
+
+const post = await getEntry('posts', id);
+
+if (!post) {
+    throw new Error(`no post width id "${id}" at "src/content/posts/${id}.md"`);
+}
+
+const { Content } = await render(post);
+---
 
 <style>
     /* * Base Container: Inherits width from parent (non-fixed).
@@ -14,49 +22,48 @@ import type { CollectionEntry } from 'astro:content';
      */
     :root {
         /* --- Text Colors --- */
-        --md-heading-color: #ffffff;
-        --md-text-color: #ffffff;
-        --md-inline-code-color: #ffffff;
-        --md-math-color: #ffffff;
+        --heading-color: #e2e2e2;
+        --text-color: #e2e2e2;
+        --code-color: #E3E3E3;
+        --math-color: #E3E3E3;
 
         /* --- Component Layout & Background --- */
-        --md-bg-color: #0d0211;          /* Deep dark purple background */
-        --md-margin-top: 40px;
-        --md-margin-bottom: 40px;
-        --md-margin-left: auto;          /* Centering the container */
-        --md-margin-right: auto;
+        --bg-color: #2B2D30;          /* Deep dark purple background */
+        --margin-top: 40px;
+        --margin-bottom: 40px;
+        --margin-left: auto;          /* Centering the container */
+        --margin-right: auto;
 
         /* --- Typography --- */
-        --md-font-body: 'Cantarelle', Roboto, Helvetica, sans-serif;
-        --md-font-mono: 'JetBrains Mono', monospace;
+        --font-body: 'Cantarelle', Noto, sans-serif;
+        --font-mono: 'DejaVu Mono', monospace;
 
         /* --- Heading Sizes --- */
-        --md-h1-size: 3.5rem;
-        --md-h2-size: 2.75rem;
-        --md-h3-size: 2rem;
-        --md-h4-size: 1.5rem;
-        --md-h5-size: 1.25rem;
-        --md-h6-size: 1.1rem;
+        --h1-size: 3.5rem;
+        --h2-size: 2.75rem;
+        --h3-size: 2rem;
+        --h4-size: 1.5rem;
+        --h5-size: 1.25rem;
+        --h6-size: 1.1rem;
 
-        /* --- Code Block Frame & Layout --- */
-        --md-code-bg: #1a1b26;           /* Tokyo Night style background */
-        --md-code-margin: 2rem 0;
-        --md-code-frame: 1px solid #f700ff; /* Neon pink border */
-        --md-font-code: 'JetBrains Mono', monospace;
+        --code-bg: #1F1F23;
+        --code-margin: 2rem 0;
+        --code-frame: 1px solid #505050;
 
         /* --- Syntax Highlighting (Shiki) --- */
-        --md-code-color-text: #a9b1d6;
-        --md-code-color-keyword: #bb9af7;  /* Purple keywords */
-        --md-code-color-string: #9ece6a;   /* Green strings */
-        --md-code-color-function: #7aa2f7; /* Blue functions */
-        --md-code-color-comment: #565f89;  /* Muted comments */
-        --md-code-color-constant: #ff9e64; /* Orange constants */
-        --md-code-color-parameter: #e0af68;
-        --md-code-color-punctuation: #89ddff;
+        --code-color-keyword: #FF0065;
+        --code-color-string: #E633FF;
+        --code-color-string-expression: #E633FF;
+        --code-color-function: #FF21B3;
+        --code-color-comment: #5FFDAE;
+        --code-color-constant: #FF7B00;
+        --code-color-parameter: #FFABAB;
+        --code-color-punctuation: #E3E3E3;
+        --code-color-link: #589DF6;
 
         /* --- Math (LaTeX/KaTeX) --- */
-        --md-math-font: 'KaTeX_Main', serif;
-        --md-math-size: 1.2em;             /* Slightly larger for readability */
+        --math-font: 'KaTeX_Main', sans-serif;
+        --math-size: 1.2em;
     }
 
     /* * Base Container: Inherits width from parent (non-fixed).
@@ -64,28 +71,30 @@ import type { CollectionEntry } from 'astro:content';
      */
     .fluid-markdown-container {
         /* Container Layout & Background */
-        background-color: var(--md-bg-color, transparent);
-        margin-top: var(--md-margin-top, 0);
-        margin-right: var(--md-margin-right, 0);
-        margin-bottom: var(--md-margin-bottom, 0);
-        margin-left: var(--md-margin-left, 0);
+        background-color: var(--bg-color, transparent);
+        margin-top: var(--margin-top, 0);
+        margin-right: var(--margin-right, 0);
+        margin-bottom: var(--margin-bottom, 0);
+        margin-left: var(--margin-left, 0);
 
         /* Base Typography */
-        font-family: var(--md-font-body, system-ui, sans-serif) sans-serif;
-        color: var(--md-text-color, inherit);
+        font-family: var(--font-body, system-ui, sans-serif) sans-serif;
+        color: var(--text-color, inherit);
         width: 100%;
         display: block;
 
         /* Syntax Highlighting Colors (Shiki css-variables theme mapping) */
-        --astro-code-color-background: var(--md-code-bg, #1e1e1e);
-        --astro-code-color-text: var(--md-code-color-text, #abb2bf);
-        --astro-code-token-constant: var(--md-code-color-constant, #d19a66);
-        --astro-code-token-string: var(--md-code-color-string, #98c379);
-        --astro-code-token-comment: var(--md-code-color-comment, #5c6370);
-        --astro-code-token-keyword: var(--md-code-color-keyword, #c678dd);
-        --astro-code-token-parameter: var(--md-code-color-parameter, #e06c75);
-        --astro-code-token-function: var(--md-code-color-function, #61afef);
-        --astro-code-token-punctuation: var(--md-code-color-punctuation, #abb2bf);
+        --astro-code-color-background: var(--code-bg);
+        --astro-code-color-text: var(--code-color);
+        --astro-code-token-constant: var(--code-color-constant);
+        --astro-code-token-string: var(--code-color-string);
+        --astro-code-token-comment: var(--code-color-comment);
+        --astro-code-token-keyword: var(--code-color-keyword);
+        --astro-code-token-parameter: var(--code-color-parameter);
+        --astro-code-token-function: var(--code-color-function);
+        --astro-code-token-string-expression: var(--code-color-string-expression);
+        --astro-code-token-punctuation: var(--code-color-punctuation);
+        --astro-code-token-link: var(--code-color-link);
     }
 
     /* Headings */
@@ -95,44 +104,76 @@ import type { CollectionEntry } from 'astro:content';
     .fluid-markdown-container :global(h4),
     .fluid-markdown-container :global(h5),
     .fluid-markdown-container :global(h6) {
-        color: var(--md-heading-color, inherit);
+        color: var(--heading-color, inherit);
     }
 
-    .fluid-markdown-container :global(h1) { font-size: var(--md-h1-size, 2.5rem); }
-    .fluid-markdown-container :global(h2) { font-size: var(--md-h2-size, 2rem); }
-    .fluid-markdown-container :global(h3) { font-size: var(--md-h3-size, 1.75rem); }
-    .fluid-markdown-container :global(h4) { font-size: var(--md-h4-size, 1.5rem); }
-    .fluid-markdown-container :global(h5) { font-size: var(--md-h5-size, 1.25rem); }
-    .fluid-markdown-container :global(h6) { font-size: var(--md-h6-size, 1rem); }
+    .fluid-markdown-container :global(h1) { font-size: var(--h1-size, 2.5rem); }
+    .fluid-markdown-container :global(h2) { font-size: var(--h2-size, 2rem); }
+    .fluid-markdown-container :global(h3) { font-size: var(--h3-size, 1.75rem); }
+    .fluid-markdown-container :global(h4) { font-size: var(--h4-size, 1.5rem); }
+    .fluid-markdown-container :global(h5) { font-size: var(--h5-size, 1.25rem); }
+    .fluid-markdown-container :global(h6) { font-size: var(--h6-size, 1rem); }
 
     /* Body text (paragraphs, lists, blockquotes, etc.) */
     .fluid-markdown-container :global(p),
     .fluid-markdown-container :global(li),
     .fluid-markdown-container :global(blockquote),
     .fluid-markdown-container :global(td),
-    .fluid-markdown-container :global(th) {
-        color: var(--md-text-color, inherit);
-        font-family: var(--md-font-body, system-ui, sans-serif), sans-serif;
+    .fluid-markdown-container :global(th),
+    .fluid-markdown-container :global(h1),
+    .fluid-markdown-container :global(h2),
+    .fluid-markdown-container :global(h3),
+    .fluid-markdown-container :global(h4),
+    .fluid-markdown-container :global(h5),
+    .fluid-markdown-container :global(h6) {
+        color: var(--text-color, inherit);
+        font-family: var(--font-body, system-ui, sans-serif), sans-serif;
     }
 
     /* Monospace (Inline Code) */
-    .fluid-markdown-container :global(code:not(pre code)) {
-        font-family: var(--md-font-mono, monospace), monospace;
-        color: var(--md-inline-code-color, inherit);
+    .fluid-markdown-container :global(code) {
+        font-family: var(--font-mono, monospace), monospace;
+        color: var(--inline-code-color, inherit);
+        background-color: var(--code-bg) !important;
     }
 
     /* Code Snippets (Blocks) */
     .fluid-markdown-container :global(pre) {
-        font-family: var(--md-font-code, monospace), monospace !important;
-        background-color: var(--md-code-bg, #1e1e1e) !important;
-        margin: var(--md-code-margin, 1.5rem 0);
-        border: var(--md-code-frame, 1px solid #333);
+        font-family: inherit;
+        background-color: var(--code-bg) !important;
+        margin: var(--code-margin, 1.5rem 0);
+        border: var(--code-frame, 2px solid);
         padding: 1rem;
         overflow-x: auto;
     }
 
+    /* code blocks no inside pre */
+    .fluid-markdown-container :global(code:not(pre code)) {
+        border: 1px solid var(--code-frame);
+        padding: 4px 4px;
+        border-radius: 4px;
+        border: var(--code-frame, 0.5px solid);
+        display: inline-block;
+        vertical-align: baseline;
+        line-height: 1;
+    }
+
+    /* Reset for Code Blocks
+       Ensures words inside <pre> don't inherit the frame or margins
+    */
+    .fluid-markdown-container :global(pre code) {
+        margin: 0 !important;
+        padding: 0 !important;
+        border: none !important;
+        display: block;
+    }
+
     .fluid-markdown-container :global(.katex) {
-        font-size: var(--md-math-size, 1.1em) !important;
-        color: var(--md-math-color, inherit) !important;
+        font-size: var(--math-size, 1.1em) !important;
+        color: var(--math-color, inherit) !important;
     }
 </style>
+
+<div class="fluid-markdown-container">
+    <Content />
+</div>
