@@ -10,4 +10,11 @@ const posts = defineCollection({
     })
 });
 
-export const collections = { posts };
+const shaders = defineCollection({
+    loader: glob({pattern: "**/*.glsl", base: "./src/content/shaders"})
+});
+
+export const collections = {
+    posts,
+    shaders
+};

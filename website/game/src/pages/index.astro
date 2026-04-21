@@ -1,6 +1,7 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import MarkdownRenderer from '../components/Markdown.astro';
+import ShaderCanvas from '../components/ShaderCanvas.astro';
 
 import { getEntry, render } from 'astro:content';
 const post = await getEntry('posts', 'test');
@@ -8,8 +9,13 @@ const post = await getEntry('posts', 'test');
 const { Content, headings } = await render(post);
 ---
 
+<ShaderCanvas />
+
 <Layout>
     <div>
-        <MarkdownRenderer id="test"/>
+        <!MarkdownRenderer id="test"/>
     </div>
 </Layout>
+
+
+

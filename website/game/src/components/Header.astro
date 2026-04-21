@@ -1,22 +1,7 @@
 ---
-import { getEntry } from 'astro:content';
-
 interface Props {
-    vertex_shader_id?: string;
-    fragment_shader_id?: string;
-}
-
-const { vertex_shader_id, fragment_shader_id } = Astro.props;
-
-const fragment_shader = await getEntry('shaders', fragment_shader_id);
-const vertex_shader = await getEntry('shaders', vertex_shader_id);
-
-if (!fragment_shader) {
-    throw new Error(`no fragment shader with id "${fragment_shader_id}" at "src/content/shaders/${fragment_shader_id}.glsl"`);
-}
-
-if (!vertex_shader) {
-    throw new Error(`no vertex shader with id "${vertex_shader_id}" at "src/content/shaders/${vertex_shader_id}.glsl"`);
+    vertex_shader?: string;
+    fragment_shader?: string;
 }
 
 const {
@@ -32,7 +17,6 @@ const {
       gl_Position = vec4(position, 0.0, 1.0);
     }
   `,
-    
     fragment_shader = `
     precision mediump float;
     
@@ -48,6 +32,18 @@ const {
 
 <div class="canvas-container">
     <canvas id="shader_background"></canvas>
+
+    <div id="shader_error" class="error-overlay" hidden>
+        <code id="shader_error_message"></code>
+    </div>
+
+    <nav class="centered-links">
+        <a href="/home">Home</a>
+        <a href="/about">About</a>
+        <a href="/game">Game</a>
+        <a href="/contact">Contact</a>
+        <a href="/blog">Blog</a>
+    </nav>
 </div>
 
 <style>
@@ -73,6 +69,34 @@ const {
         background: #0a0a0a;
     }
 
+    .centered-links {
+        display: flex;
+        gap: 2.5rem;
+        padding: 1.5rem 3rem;
+        background: rgba(25, 25, 25, 0.4);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 50px;
+        backdrop-filter: blur(12px);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        z-index: 10;
+    }
+
+    .centered-links a {
+        color: #e0e0e0;
+        text-decoration: none;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 1.1rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        transition: color 0.3s ease, text-shadow 0.3s ease;
+    }
+
+    .centered-links a:hover {
+        color: #00e5ff;
+        text-shadow: 0 0 12px rgba(0, 229, 255, 0.6);
+    }
+
     .error-overlay {
         position: absolute;
         inset: 1rem;
@@ -87,9 +111,22 @@ const {
         overflow: auto;
         z-index: 100;
     }
+
+    /* Responsive fallback for mobile devices */
+    @media (max-width: 768px) {
+        .centered-links {
+            flex-direction: column;
+            gap: 1.2rem;
+            padding: 2rem;
+            border-radius: 20px;
+            text-align: center;
+        }
+    }
 </style>
 
 <script define:vars={{ vertex_shader, fragment_shader }}>
+    const BORDER_PX = 20;
+
     const canvas = document.getElementById("shader_background");
     const gl = canvas.getContext("webgl");
 
@@ -165,7 +202,16 @@ const {
         // Setup Element (Index) Buffer — static, never changes
         // 5 quads (center + top + right + bottom + left), 2 triangles each, 3 vertices each
         const indices = new Uint16Array([
+            // Center Quad
             0, 1, 2,   0, 2, 3,
+            // Top Side Quad
+            4, 5, 1,   4, 1, 0,
+            // Right Side Quad
+            5, 6, 2,   5, 2, 1,
+            // Bottom Side Quad
+            6, 7, 3,   6, 3, 2,
+            // Left Side Quad
+            7, 4, 0,   7, 0, 3
         ]);
 
         const ebo = gl.createBuffer();
@@ -195,20 +241,38 @@ const {
         const elapsed_uniform = gl.getUniformLocation(program, "elapsed");
         const canvas_size_uniform = gl.getUniformLocation(program, "canvas_size");
 
+        /**
+         * Rebuilds the vertex buffer so the outer boundary sits exactly
+         * BORDER_PX pixels inward from the canvas edges (in NDC).
+         *
+         * NDC x: pixel_x / width  * 2 - 1
+         * NDC y: pixel_y / height * 2 - 1  (y-up, so top = +1)
+         *
+         * The outer quad is the full screen (-1..1).
+         * The inner quad is inset by BORDER_PX on every side.
+         */
         function build_vertices(width, height) {
-            const border = 0;
-            const bx = (border / width)  * 2;   // border in NDC x
-            const by = (border / height) * 2;   // border in NDC y
+            const bx = (BORDER_PX / width)  * 2;   // border in NDC x
+            const by = (BORDER_PX / height) * 2;   // border in NDC y
+
+            // Inner quad corners (inset from screen edges by BORDER_PX)
             const il = -1.0 + bx;   // inner left   NDC x
             const ir =  1.0 - bx;   // inner right  NDC x
             const it =  1.0 - by;   // inner top    NDC y
             const ib = -1.0 + by;   // inner bottom NDC y
 
             return new Float32Array([
-                il,  it,  0.0, 0.0, // top left
-                ir,  it,  1.0, 0.0, // top right
-                ir,  ib,  1.0, 1.0, // bottom right
-                il,  ib,  0.0, 1.0, // bottom left
+                // Inner quad (u=0), v encodes arc-length around the loop
+                il,  it,  0.0, 0.0,    // 0: Inner Top-Left
+                ir,  it,  0.0, 0.25,   // 1: Inner Top-Right
+                ir,  ib,  0.0, 0.5,    // 2: Inner Bottom-Right
+                il,  ib,  0.0, 0.75,   // 3: Inner Bottom-Left
+
+                // Outer quad boundary (u=1), full screen edges
+                -1.0,  1.0,  1.0, 0.0,    // 4: Outer Top-Left
+                1.0,  1.0,  1.0, 0.25,   // 5: Outer Top-Right
+                1.0, -1.0,  1.0, 0.5,    // 6: Outer Bottom-Right
+                -1.0, -1.0,  1.0, 0.75,   // 7: Outer Bottom-Left
             ]);
         }
 

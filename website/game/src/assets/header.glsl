@@ -24,15 +24,6 @@ float gradient_noise(vec3 p) {
     dot( -1.0 + 2.0 * random_3d(i + vec3(1.0,1.0,1.0)), v - vec3(1.0,1.0,1.0)), u.x), u.y), u.z );
 }
 
-#define PI 3.1415926535897932384626433832795
-float gaussian(float x, float ramp) {
-    return exp(((-4.0 * PI) / 3.0) * (ramp * x) * (ramp * x));
-}
-
-float symmetric(float value) {
-    return abs(fract(value) * 2.0 - 1.0);
-}
-
 varying vec2 texture_coords;
 uniform float elapsed;
 
@@ -40,12 +31,5 @@ const float outline_width = 0.08;
 
 void main() {
     vec2 uv = texture_coords;
-    uv.x += gradient_noise(vec3(uv.yyy + elapsed));
-
-    if (uv.x == 0.0) {
-        gl_FragColor = vec4(0);
-        return;
-    }
-
-    gl_FragColor = vec4(uv.x);
+    gl_FragColor = gradient_noise(vec3(uv.xy, elapsed));
 }
