@@ -515,6 +515,8 @@ do -- update helpers
 
     --- @brief
     function ow.Fluid:update(delta)
+        if true then return end -- TODO
+
         local settings = rt.settings.overworld.fluid
 
         local damping = settings.damping

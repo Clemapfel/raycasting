@@ -26,7 +26,7 @@ ow.StickyHitbox = function(object, stage, scene)
     return ow.Hitbox(object, stage, scene)
 end
 
--- manually batched, cf. draw_all
+-- manually batched
 ow.Hitbox._slippery_collision_tris = {}
 ow.Hitbox._slipper_mesh_tris = {}
 ow.Hitbox._slippery_mesh = nil
@@ -204,7 +204,7 @@ function ow.Hitbox:draw()
     love.graphics.setLineWidth(self._outline_width)
     love.graphics.setLineJoin("bevel")
     self._color:bind()
-    love.graphics.line(self._contour)
+    --love.graphics.line(self._contour)
 end
 
 --- @brief

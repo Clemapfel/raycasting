@@ -56,6 +56,11 @@ love.load = function(args)
     --rt.SceneManager:push(mn.MenuScene) -- skip title
 
     --init()
+
+    paste(
+        "behold then",
+        "syntax"
+    )
 end
 
 require "common.animalese"

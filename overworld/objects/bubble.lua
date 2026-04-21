@@ -39,7 +39,9 @@ local _shader = rt.Shader("overworld/objects/bubble.glsl")
 local _n_hue_steps = 13
 
 function ow.Bubble:instantiate(object, stage, scene)
-    rt.assert(object:get_type() == ow.ObjectType.ELLIPSE, "In ow.Bubble: object is not an ellipse")
+    rt.assert(object:get_type() == ow.ObjectType.ELLIPSE,
+        "In ow.Bubble: object `", object:get_id(), "` is not an ellipse"
+    )
 
     self._scene = scene
     self._stage = stage
@@ -99,7 +101,7 @@ function ow.Bubble:instantiate(object, stage, scene)
     end
 
     local hue = math.fract( stage.bubble_current_hue_step / _n_hue_steps)
-    stage.bubble_current_hue_step =  stage.bubble_current_hue_step + 1
+    stage.bubble_current_hue_step = stage.bubble_current_hue_step + 1
 
     self._hue = hue
     self._color = { rt.lcha_to_rgba(0.8, 1, hue, 1) }

@@ -16,6 +16,7 @@ rt.settings.overworld.accelerator_surface = {
     },
 
     outline_width = 2,
+    bloom_intensity = 0.25
 }
 
 --- @class ow.AcceleratorSurface
@@ -404,14 +405,17 @@ function ow.AcceleratorSurface:draw(priority)
 end
 
 --- @brief
-function ow.AcceleratorSurface:draw_bloom(priority)
-    if not self._is_visible or not self._stage:get_is_body_visible(self._body) or priority ~= base_priority then return end
+function ow.AcceleratorSurface:draw_bloom()
+    if not self._is_visible
+        or not self._stage:get_is_body_visible(self._body)
+    then return end
 
     love.graphics.push()
     local offset_x, offset_y = self._body:get_position()
     love.graphics.translate(offset_x, offset_y)
 
-    love.graphics.setColor(1, 1, 1, 1)
+    local t = rt.settings.overworld.accelerator_surface.bloom_intensity
+    love.graphics.setColor(t, t, t, t)
     _outline_shader:bind()
     _outline_shader:send("camera_offset", { self._scene:get_camera():get_offset() })
     _outline_shader:send("camera_scale", self._scene:get_camera():get_scale())
