@@ -19,13 +19,13 @@ rt.settings.label = {
         TAB = "    ",
         ESCAPE_CHARACTER = "\\",
         BEAT_TO_WEIGHT = {
-            [" "] =  1,
-            ["|"] = 10,
-            ["."] = 10,
-            [","] =  4,
-            [";"] = 10,
-            ["!"] = 10,
-            ["?"] = 10,
+            [" "] = 0.25,
+            ["|"] = 7,
+            ["."] = 3,
+            [","] = 2,
+            [";"] = 4,
+            ["!"] = 4,
+            ["?"] = 4,
         },
 
         BOLD_TAG_START = { "<b>", "<bold>" },
@@ -528,7 +528,7 @@ end
 
 local _is_punctuation = {}
 for x in range(
-    ".", ":", ";", "?", "!"
+    ".", ",", ":", ";", "?", "!"
 ) do
     _is_punctuation[x] = true
 end
@@ -601,18 +601,13 @@ function rt.Label:_parse(raw)
     local s = at(i)
     local current_word = {}
 
-    local push_beat = function(beat, raw)
-        if raw == nil then raw = beat end
+    local push_beat = function(beat)
         table.insert(self._glyphs, beat)
 
-        if meta.is_enum_value(raw, rt.AnimalesePhoneme) then
-            table.insert(tokens, raw)
-        else
-            local n_tokens = BEAT_TO_WEIGHT[raw]
-            if n_tokens ~= nil then
-                for _ = 1, n_tokens do
-                    table.insert(tokens, rt.AnimalesePhoneme.BEAT)
-                end
+        local n_tokens = BEAT_TO_WEIGHT[beat]
+        if n_tokens ~= nil then
+            for _ = 1, n_tokens do -- sic, skip single beats
+                table.insert(tokens, rt.AnimalesePhoneme.BEAT)
             end
         end
     end
@@ -652,6 +647,7 @@ function rt.Label:_parse(raw)
         end
 
         local word = _concat(current_word)
+
         local to_insert = rt.Label._glyph_new(
             word, font, self._font_size, style, glyph_settings.is_mono,
             color_r, color_g, color_b,
@@ -726,11 +722,12 @@ function rt.Label:_parse(raw)
         elseif BEAT_TO_WEIGHT[s] ~= nil then
             if _is_punctuation[s] == true then
                 _insert(current_word, s)
+            else
+                push_glyph()
             end
 
-            push_glyph()
-            push_beat(_syntax.BEAT, s)
-            self._total_beats = self._total_beats + (BEAT_TO_WEIGHT[_syntax.BEAT] or 1)
+            push_beat(s)
+            self._total_beats = self._total_beats + (BEAT_TO_WEIGHT[s] or 1)
         elseif s == "<" then
             push_glyph()
 
@@ -900,7 +897,7 @@ function rt.Label:_parse(raw)
             width = 0
             n_rows = n_rows + 1
             last_glyph_was_mono = false
-        elseif glyph == _syntax.BEAT then
+        elseif _syntax.BEAT_TO_WEIGHT[glyph] ~= nil then
             -- noop
         else
             width = width + glyph.width
@@ -999,7 +996,7 @@ function rt.Label:_apply_wrapping()
             last_glyph_was_underlined = false
             last_glyph_was_strikethrough = false
             last_r, last_g, last_b = nil, nil, nil
-        elseif glyph == _syntax.BEAT then
+        elseif _syntax.BEAT_TO_WEIGHT[glyph] ~= nil then
             -- noop
         else
             if glyph_x + glyph.width >= max_w then
@@ -1227,7 +1224,6 @@ function rt.Label:get_scroll_event_map(n_characters_per_second)
             end
 
             local duration = (weight * step)
-
             table.insert(events, {
                 time = current_time,
                 glyph = glyph,

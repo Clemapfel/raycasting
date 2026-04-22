@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 631,
+  nextobjectid = 632,
   properties = {},
   tilesets = {
     {
@@ -234,8 +234,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = -1992.21,
-          y = 904.104,
+          x = -4400,
+          y = 1264,
           width = 0,
           height = 0,
           rotation = 0,
@@ -416,13 +416,13 @@ return {
           type = "NPC",
           shape = "point",
           x = -4528,
-          y = 1264,
+          y = 1200,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
           properties = {
-            ["dialog_id"] = "accelerator_tutorial_press_tangential"
+            ["dialog_id"] = "animalese_test"
           }
         },
         {

@@ -679,6 +679,7 @@ function ow.OverworldScene:draw()
     end
 
     local draw_player = function()
+        if true then return end -- TODO
         self._camera:bind()
         if self._player_is_visible then
             self._player:draw_body()
@@ -697,6 +698,10 @@ function ow.OverworldScene:draw()
                 rt.settings.overworld_scene.bloom_composite_strength
             )
         end
+
+        self._camera:bind()
+        self._stage:draw_above_bloom()
+        self._camera:unbind()
     end
 
     local draw_indicators = function()

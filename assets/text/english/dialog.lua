@@ -2,6 +2,40 @@ local prefix = "<normal>"
 local postfix = "</normal>"
 
 return {
+    animalese_test = {
+        {
+            gender = rt.Gender.FEMALE,
+            next = 2,
+            "Do you have any advice on how to improve my <rainbow><wave>animalese</wave></rainbow> implementation?",
+        },
+        {
+            gender = rt.Gender.FEMALE,
+            next = 3,
+            "The syllable mapping works correctly already, I think, it's just the <i>sound playback</i> specifically.",
+        },
+        {
+            gender = rt.Gender.FEMALE,
+            next = 4,
+            "<sad><color=BLUE>I'm unhappy with how it sounds overall, even though you can swap intonations</color></sad>|<happy><color=YELLOW><b> like this, it sounds way different now</b></color></happy>|<sad><color=BLUE> but overall it doesn't feel like animal crossing.</color></sad>"
+        },
+        {
+            gender = rt.Gender.MALE,
+            next = 5,
+            "This is a <shake><b>male</b></shake> voice now. Another thing I don't like is that it scrolls unevenly, but I <b>have</b> to do this if I want the syllables to synch up.",
+        },
+        {
+            gender = rt.Gender.MALE,
+            next = 6,
+            "Do you have any advice on how to improve my animalese?",
+        },
+        {
+            gender = rt.Gender.MALE,
+            next = nil,
+            "<happy><wave><b>Thank you~</b></wave></happy>"
+        }
+    },
+
+
     slippery_floor_tutorial = {
         {
             speaker = rt.NPC_NAME,

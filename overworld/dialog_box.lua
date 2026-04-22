@@ -248,6 +248,19 @@ function ow.DialogBox:realize()
             node.duration = elapsed
         end
 
+        -- discard trailing beats
+        local to_remove = {}
+        for event_i = #node.event_map - 1, 1, -1 do
+            if node.event_map[event_i].is_beat then
+                table.insert(to_remove, 1, event_i)
+            else
+                break
+            end
+        end
+        for _, remove_i in ipairs(to_remove) do
+            table.remove(node.event_map, remove_i)
+        end
+
         if node_entry[dialog_choice_key] ~= nil then
             node.next = nil
             rt.assert(node_entry[next_key] == nil, "In ow.DialogBox: for dialog `", self._id, "`: multiple choice node `", key, "` has toplevel `next` set, it should be nil")
@@ -523,7 +536,7 @@ function ow.DialogBox:_queue_animalese(node)
     for _, event in ipairs(node.event_map) do
         if event.was_played == false then
             if event.is_beat then
-                event.id = rt.Animalese:queue_beat(0) -- use only as sentinel
+                event.id = rt.Animalese:queue_beat(event.duration) -- use only as sentinel
             else
                 event.id = rt.Animalese:queue(event.animalese, node.gender, event.emotion)
             end
@@ -566,7 +579,7 @@ function ow.DialogBox:update(delta)
         local continue = true
         if node.gender ~= rt.AnimaleseGender.NONE then
             for _, event in ipairs(node.event_map) do
-                if event.is_beat and event.time <= node.elapsed and rt.Animalese:get_is_done(event.id) == false then
+                if event.time <= node.elapsed and rt.Animalese:get_is_done(event.id) == false then
                     continue = false
                     break
                 end
@@ -717,6 +730,7 @@ end
 function ow.DialogBox:draw()
     if not self:get_is_realized() or self._done_emitted == true then return end
 
+    love.graphics.clear(0.5, 0.5, 0.5, 1)
     self._frame:draw()
 
     if self._portrait_visible then

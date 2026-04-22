@@ -44,7 +44,7 @@ love.load = function(args)
     end
 
     require "overworld.overworld_scene"
-    rt.SceneManager:push(ow.OverworldScene, "accelerator_tutorial", true)
+    rt.SceneManager:push(ow.OverworldScene, "accelerator_tutorial", false)
 
     require "menu.keybinding_scene"
     --rt.SceneManager:push(mn.KeybindingScene)
@@ -56,11 +56,6 @@ love.load = function(args)
     --rt.SceneManager:push(mn.MenuScene) -- skip title
 
     --init()
-
-    paste(
-        "behold then",
-        "syntax"
-    )
 end
 
 require "common.animalese"

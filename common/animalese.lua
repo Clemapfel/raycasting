@@ -5,7 +5,7 @@ rt.settings.animalese = {
     filetype = "wav",
     silence_eps = 0.04, -- normalized
     attack_decay_duration = 2.5 / 60, -- seconds
-    scroll_speed_factor = 1 / 1.5,
+    scroll_speed_factor = 1,
 
     path = "jtalk", -- mount point
     native_prefix = "jtalk", -- native directory name
@@ -944,6 +944,8 @@ do -- try retranslate dialog / translation
         extract(lines, rt.Translation, {}, {
             -- no excludes
         })
+
+        dbg(lines)
 
         rt.Animalese:translate(lines) -- automatically updates _precomputed
         rt.Animalese:_export_precomputed()
