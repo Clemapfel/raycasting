@@ -18,8 +18,8 @@ class Format(str, Enum):
 
 EXPORT_PREFIX = "export"
 SYLLABLE_LIST_FILENAME = "phonemes_jp.txt"
-EXPORT_EMOTIONS = [ Emotion.NORMAL , Emotion.HAPPY, Emotion.SAD, Emotion.ANGRY, Emotion.BASHFUL ]
-EXPORT_GENDERS = [ Gender.FEMALE , Gender.MALE ]
+EXPORT_EMOTIONS = [ Emotion.NORMAL ] #, Emotion.HAPPY, Emotion.SAD, Emotion.ANGRY, Emotion.BASHFUL ]
+EXPORT_GENDERS = [ Gender.FEMALE ] # , Gender.MALE ]
 EXPORT_SPEED = 1
 EXPORT_FORMAT = Format.WAV
 
@@ -197,6 +197,8 @@ def main():
     export_prefix_path = Path(EXPORT_PREFIX)
     export_prefix_path.mkdir(exist_ok = True)
 
+    question_mark = "?"
+
     # build taks list
     tasks = []
     syllable_list = set()
@@ -212,6 +214,12 @@ def main():
                     filename = path / (romaji + "." + EXPORT_FORMAT)
                     tasks.append((engine, japanese, filename.as_posix()))
                     syllable_list.add(romaji)
+
+                    q_japanese = japanese + question_mark
+                    q_romaji = romaji + question_mark
+                    q_filename = path / (romaji + "_q." + EXPORT_FORMAT)
+                    tasks.append((engine, q_japanese, q_filename.as_posix()))
+                    syllable_list.add(q_romaji)
 
     n_tasks = len(tasks)
     worker_to_main = queue.Queue()
@@ -265,14 +273,18 @@ def main():
 # ---
 
 if __name__ == "__main__":
-    before = time.time()
-    try:
-        main()
-    except Exception as error:
-        print("[rt] script failed with " + str(error))
-        export_path = Path(EXPORT_PREFIX)
-        if export_path.exists():
-            shutil.rmtree(export_path)
+    if False:
+        before = time.time()
+        try:
+            main()
+        except Exception as error:
+            print("[rt] script failed with " + str(error))
+            export_path = Path(EXPORT_PREFIX)
+            if export_path.exists():
+                shutil.rmtree(export_path)
 
-    duration = time.time() - before
-    print(f"done (took {duration:.4f}s)")
+        duration = time.time() - before
+        print(f"done (took {duration:.4f}s)")
+
+    import sys
+    export("./mmda_agents/Voice/mei/mei_normal.htsvoice", sys.argv[1], "test.wav")

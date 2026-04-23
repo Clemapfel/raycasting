@@ -274,6 +274,42 @@ do
         [English.ER] = Japanese.E--{ Japanese.E, Japanese.RU },
     }
 
+    local english_pure_vowel_to_japanese_vowel = {
+        [English.AA] = Japanese.A,
+        [English.AE] = Japanese.A,
+        [English.AH] = Japanese.A,
+        [English.AO] = Japanese.O,
+        [English.EH] = Japanese.E,
+        [English.IH] = Japanese.I,
+        [English.IY] = Japanese.II,
+        [English.UH] = Japanese.U,
+        [English.UW] = Japanese.UU,
+        [English.AW] = { Japanese.A, Japanese.U },
+        [English.AY] = { Japanese.A, Japanese.I },
+        [English.EY] = { Japanese.EE, Japanese.I },
+        [English.OW] = Japanese.OO,
+        [English.OY] = Japanese.O,
+        [English.ER] = { Japanese.E, Japanese.RU },
+    }
+
+    local english_suffix_vowel_to_japanese_vowel = {
+        [English.AA] = Japanese.A,
+        [English.AE] = Japanese.A,
+        [English.AH] = Japanese.A,
+        [English.AO] = Japanese.O,
+        [English.EH] = Japanese.E,
+        [English.IH] = Japanese.I,
+        [English.IY] = Japanese.I,
+        [English.UH] = Japanese.U,
+        [English.UW] = Japanese.U,
+        [English.AW] = { Japanese.A, Japanese.U },
+        [English.AY] = { Japanese.A, Japanese.I },
+        [English.EY] = { Japanese.E, Japanese.I },
+        [English.OW] = Japanese.O,
+        [English.OY] = Japanese.O,
+        [English.ER] = { Japanese.E, Japanese.RU },
+    }
+
     for t in range(
         english_pure_vowel_to_japanese_vowel,
         english_suffix_vowel_to_japanese_vowel
@@ -312,7 +348,7 @@ do
         [English.V] = "W",
         [English.Z]  = "Z",
         [English.ZH] = "J",
-        [English.CH] = "CH",
+        [English.CH] = "K",
         [English.JH] = "J",
         [English.M]  = "M",
         [English.N]  = "N",
@@ -899,11 +935,13 @@ do -- try retranslate dialog / translation
     local animalese_hash_path = bd.join_path(animalese_settings.path, animalese_settings.hash_filename)
     local animalese_translation_path = bd.join_path(animalese_settings.path, animalese_settings.translation_filename)
 
+
     local hash
     do
         local dialog_file = bd.read_file(dialog_path)
         local translation_file = bd.read_file(translation_path)
-        hash = string.sha256(dialog_file) .. string.sha256(translation_file)
+        local this_file = bd.read_file("common/animalese.lua")
+        hash = string.sha256(dialog_file) .. string.sha256(translation_file) .. string.sha256(this_file)
     end
 
     local should_regenerate = false
@@ -944,8 +982,6 @@ do -- try retranslate dialog / translation
         extract(lines, rt.Translation, {}, {
             -- no excludes
         })
-
-        dbg(lines)
 
         rt.Animalese:translate(lines) -- automatically updates _precomputed
         rt.Animalese:_export_precomputed()
