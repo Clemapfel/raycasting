@@ -3,8 +3,10 @@ require "common.filesystem"
 
 rt.settings.animalese = {
     filetype = "wav",
-    silence_eps = 0.04, -- normalized
-    attack_decay_duration = 2.5 / 60, -- seconds
+    silence_start_eps = 0.005, -- normalized
+    silence_end_eps = 0.01,
+    attack_duration = 5 / 60, -- seconds
+    decay_duration = 5 / 60,
     scroll_speed_factor = 1,
 
     path = "jtalk", -- mount point
@@ -17,11 +19,11 @@ rt.settings.animalese = {
     sample_file_extension = ".wav",
 
     long_postfix = "_long",
-    question_postfic = "_q"
+    question_postfix = "_q"
 }
 
 --- @class rt.Animalese
-rt.Animalese = meta.class("Animales e")
+rt.Animalese = meta.class("Animalese")
 
 meta.add_signals(rt.Animalese,
     --- @signal (rt.Animalese, id)
@@ -353,7 +355,6 @@ do
             return x == nil
                 or x == English.BEAT
                 or x == English.END
-                or x == English.QUESTION_MARK
         end
 
         local result = {}
@@ -407,6 +408,8 @@ do
                             push(english_consonant_to_japanese_prefix[current] .. "U")
                         end
                         i = i + 1
+                    elseif next == English.QUESTION_MARK then
+                        push(Japanese.QUESTION_MARK)
                     else
                         throw("unhandled case: `", current, "`, `", next, "`")
                     end
@@ -426,6 +429,9 @@ do
                 elseif is_stop(current) then
                     push(rt.AnimalesePhoneme.BEAT)
                     i = i + 1
+                elseif current == English.QUESTION_MARK then
+                    push(rt.AnimalesePhoneme.QUESTION_MARK)
+                    i = i + 1
                 elseif current == nil then
                     break
                 else
@@ -442,8 +448,6 @@ do
         end
 
         rt.warning("In rt.Animalese: deleting unused phoneme `{", table.concat(unused, ", "), "}`")
-
-
         return result
     end
 end
@@ -508,6 +512,21 @@ function rt.Animalese:translate(texts, update_precomputed)
     return animalese
 end
 
+do
+    local long_postfix = rt.settings.animalese.long_postfix
+    local question_postfix = rt.settings.animalese.question_postfix
+    local long_question_postfix = long_postfix .. question_postfix
+
+    rt.AnimalesePronounciation = {
+        NORMAL = "",
+        LONG = long_postfix,
+        QUESTION = question_postfix,
+        LONG_QUESTION = long_question_postfix
+    }
+end
+
+rt.AnimalesePronounciation = meta.enum("AnimalesePronounciation", rt.AnimalesePronounciation)
+
 --- @brief
 function rt.Animalese:_initialize()
     local prefix = rt.settings.animalese.export_path
@@ -520,16 +539,20 @@ function rt.Animalese:_initialize()
     self._queue = {}
     self._queue_i = 0
     self._is_done = {} -- Set
+    self._all_entries = {}
 
     local data = self._data
 
     local is_beat = {}
     for x in range(
-        rt.AnimalesePhoneme.BEAT
+        rt.AnimalesePhoneme.BEAT,
+        rt.AnimalesePhoneme.QUESTION_MARK
     ) do is_beat[x] = true end
 
     local beat_weights = rt.settings.label.syntax.BEAT_TO_WEIGHT
     local beat_duration = 1 / rt.settings.label.scroll_speed
+
+    local extension = rt.settings.animalese.sample_file_extension
 
     local seen_paths = {}
 
@@ -541,28 +564,32 @@ function rt.Animalese:_initialize()
             local path = bd.join_path(prefix, gender, emotion)
             if not bd.exists(path) then path = fallback end
 
-            local entry = data[gender][emotion]
-
             for phoneme in values(meta.instances(rt.AnimalesePhoneme)) do
                 local beat = is_beat[phoneme] == true
+                local entry = {
+                    phoneme = phoneme,
+                    is_beat = beat
+                }
 
-                local full_path = bd.join_path(prefix, gender, emotion, phoneme .. rt.settings.animalese.sample_file_extension)
-                if beat or bd.exists(full_path) then
-                    data[gender][emotion][phoneme] = {
-                        is_initialized = beat,
-                        path = ternary(not beat, full_path, nil),
-                        sources = {},
-                        phoneme = phoneme,
-                        is_beat = beat,
+                if not beat then
+                    for pronounciation in values(meta.instances(rt.AnimalesePronounciation)) do
+                        local full_path = bd.join_path(prefix, gender, emotion, phoneme .. pronounciation .. extension)
+                        entry[pronounciation] = {
+                            is_initialized = false,
+                            path = full_path,
+                            sources = {},
 
-                        -- set in _initialize_entry
-                        start_t = nil, -- seconds
-                        end_t = nil,
-                        duration = nil,
-                    }
+                            start_t = nil, -- set in _initialize_entry
+                            end_t = nil,
+                            duration = nil
+                        }
 
-                    seen_paths[full_path] = true
+                        seen_paths[full_path] = true
+                    end
                 end
+
+                data[gender][emotion][phoneme] = entry
+                table.insert(self._all_entries, entry)
             end
 
             -- delete unused samples
@@ -587,41 +614,40 @@ function rt.Animalese:_initialize_entry(entry)
         else
             local sound_data = sound_data_or_error
             local n_samples = sound_data:getSampleCount()
-            local eps = rt.settings.animalese.silence_eps
+            local start_eps = rt.settings.animalese.silence_start_eps
+            local end_eps = rt.settings.animalese.silence_end_eps
 
             local first_sample_i = 0
             while first_sample_i < n_samples do
-                if math.abs(sound_data:getSample(first_sample_i)) > eps then break end
+                if math.abs(sound_data:getSample(first_sample_i)) > start_eps then break end
                 first_sample_i = first_sample_i + 1
             end
 
             local last_sample_i = n_samples - 1
             while last_sample_i >= 0 do
-                if math.abs(sound_data:getSample(last_sample_i)) > eps then break end
+                if math.abs(sound_data:getSample(last_sample_i)) > end_eps then break end
                 last_sample_i = last_sample_i - 1
             end
 
-            local sample_rate = sound_data:getSampleRate()
-            local attack_decay_samples = math.floor(rt.settings.animalese.attack_decay_duration * sample_rate)
+            local sample_rate = sound_data:getSampleRate() -- hertz
+            local total_duration = sound_data:getDuration()
+            local attack_duration = rt.settings.animalese.attack_duration -- seconds
+            local decay_duration = rt.settings.animalese.decay_duration -- seconds
+
+            local attack_fraction = attack_duration / total_duration
+            local decay_fraction  = decay_duration / total_duration
+            local envelope = rt.InterpolationFunctions.ENVELOPE
+
+            local envelope_start_t = first_sample_i / n_samples
+            local envelope_end_t = last_sample_i / n_samples
+
+            local active_samples = math.max(0, last_sample_i - first_sample_i)
+            local active_duration = active_samples / sample_rate
 
             for i = 0, n_samples - 1 do
-                local sample = sound_data:getSample(i)
-
-                local envelope
-                if i < first_sample_i or i > last_sample_i then
-                    envelope = 0
-                else
-                    local relative_i = i - first_sample_i
-                    local active_samples = last_sample_i - first_sample_i
-                    local x = active_samples > 1 and (relative_i / (active_samples - 1)) or 0
-
-                    local attack_fraction = math.min(attack_decay_samples, active_samples / 2) / active_samples
-                    local decay_fraction  = attack_fraction
-
-                    envelope = rt.InterpolationFunctions.ENVELOPE(x, attack_fraction, decay_fraction)
-                end
-
-                sound_data:setSample(i, sample * envelope)
+                local t = (i - first_sample_i) / active_samples
+                local gain = envelope(t, attack_fraction, decay_fraction)
+                sound_data:setSample(i, gain * sound_data:getSample(i))
             end
 
             entry.start_t = first_sample_i / sample_rate
@@ -631,6 +657,28 @@ function rt.Animalese:_initialize_entry(entry)
             entry.duration = entry.end_t - entry.start_t
 
             entry.is_initialized = true
+        end
+    end
+end
+
+--- @brief
+function rt.Animalese:free()
+    for entry in values(self._all_entries) do
+        for pronounciation in values(meta.instances(rt.AnimalesePronounciation)) do
+            local current = entry[pronounciation]
+            if current ~= nil and current.is_initialized then
+                current.is_initialized = false
+                current.start_t = 0
+                current.end_t = 0
+                current.duration = 0
+
+                current.sound_data:release()
+                current.sound_data = nil
+                for source in values(current.sources) do
+                    source:release()
+                end
+                current.sources = {}
+            end
         end
     end
 end
@@ -668,23 +716,53 @@ function rt.Animalese:queue(phonemes, gender, emotion)
     local queue_i = self._queue_i
     self._queue_i = self._queue_i + 1
 
-    for _, phoneme in ipairs(phonemes) do
-        local entry = emotion_entry[phoneme]
-        if entry == nil then
+    for phoneme_i, phoneme in ipairs(phonemes) do
+        local phoneme_entry = emotion_entry[phoneme]
+        if phoneme_entry == nil then
             rt.critical("In rt.Animalese.talk: no sample files for gender `", gender, "`, emotion `", emotion, "`, phoneme `", phonemes, "` available")
-            entry = emotion_entry[rt.AnimalesePhoneme.BEAT]
+            phoneme_entry = emotion_entry[rt.AnimalesePhoneme.BEAT]
         end
 
-        if entry.is_initialized == false then
-            self:_initialize_entry(entry)
+        -- scan if next non-beat token is questionmark
+        local is_question = false
+        for i = phoneme_i + 1, #phonemes do
+            if phonemes[i] ~= rt.AnimalesePhoneme.BEAT then
+                break
+            elseif phonemes[i] == rt.AnimalesePhoneme.QUESTION_MARK then
+                is_question = true
+            end
         end
 
-        local is_beat, duration
-        if phoneme == rt.AnimalesePhoneme.BEAT then
+        local is_beat, duration, entry
+        if phoneme_entry.is_beat then
             is_beat = true
             duration = beat_duration
+            entry = nil
         else
             is_beat = false
+
+            local is_long = rt.random.toss_coin(0.25)
+            local pronounciation
+            if is_question then
+                if is_long then
+                    pronounciation = rt.AnimalesePronounciation.LONG_QUESTION
+                else
+                    pronounciation = rt.AnimalesePronounciation.QUESTION
+                end
+            else
+                if is_long then
+                    pronounciation = rt.AnimalesePronounciation.LONG
+                else
+                    pronounciation = rt.AnimalesePronounciation.NORMAL
+                end
+            end
+
+            entry = phoneme_entry[pronounciation]
+
+            if entry.is_initialized == false then
+                self:_initialize_entry(entry)
+            end
+
             duration = entry.duration
         end
 
@@ -798,7 +876,6 @@ function rt.Animalese:update(delta)
             end
 
             free_source:seek(next.entry.start_t)
-            free_source:setPitch(rt.random.number(0.9, 1.1))
             free_source:play()
         end
     end
@@ -822,7 +899,6 @@ do -- try retranslate dialog / translation
     local animalese_settings = rt.settings.animalese
     local animalese_hash_path = bd.join_path(animalese_settings.path, animalese_settings.hash_filename)
     local animalese_translation_path = bd.join_path(animalese_settings.path, animalese_settings.translation_filename)
-
 
     local hash
     do

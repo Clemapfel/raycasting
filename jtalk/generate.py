@@ -19,7 +19,7 @@ class Format(str, Enum):
 EXPORT_PREFIX = "export"
 SYLLABLE_LIST_FILENAME = "phonemes_jp.txt"
 EXPORT_EMOTIONS = [ Emotion.NORMAL , Emotion.HAPPY, Emotion.SAD, Emotion.ANGRY, Emotion.BASHFUL ]
-EXPORT_GENDERS = [ Gender.FEMALE ] #, Gender.MALE ]
+EXPORT_GENDERS = [ Gender.FEMALE , Gender.MALE ]
 EXPORT_SPEED = 1
 EXPORT_FORMAT = Format.WAV
 
