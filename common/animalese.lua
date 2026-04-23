@@ -3,10 +3,11 @@ require "common.filesystem"
 
 rt.settings.animalese = {
     filetype = "wav",
-    silence_start_eps = 0.005, -- normalized
+    silence_start_eps = 0.003, -- normalized
     silence_end_eps = 0.01,
     attack_duration = 5 / 60, -- seconds
     decay_duration = 5 / 60,
+    target_peak = 0.1,
     scroll_speed_factor = 1,
 
     path = "jtalk", -- mount point
@@ -581,7 +582,8 @@ function rt.Animalese:_initialize()
 
                             start_t = nil, -- set in _initialize_entry
                             end_t = nil,
-                            duration = nil
+                            duration = nil,
+                            peak = nil
                         }
 
                         seen_paths[full_path] = true
@@ -629,33 +631,46 @@ function rt.Animalese:_initialize_entry(entry)
                 last_sample_i = last_sample_i - 1
             end
 
-            local sample_rate = sound_data:getSampleRate() -- hertz
-            local total_duration = sound_data:getDuration()
-            local attack_duration = rt.settings.animalese.attack_duration -- seconds
-            local decay_duration = rt.settings.animalese.decay_duration -- seconds
+            local sample_rate = sound_data:getSampleRate()
+            local active_samples = last_sample_i - first_sample_i
+            local active_duration = (active_samples + 1) / sample_rate
 
-            local attack_fraction = attack_duration / total_duration
-            local decay_fraction  = decay_duration / total_duration
-            local envelope = rt.InterpolationFunctions.ENVELOPE
+            local attack_duration = rt.settings.animalese.attack_duration
+            local decay_duration = rt.settings.animalese.decay_duration
+            local attack_fraction = attack_duration / active_duration
+            local decay_fraction  = decay_duration / active_duration
 
-            local envelope_start_t = first_sample_i / n_samples
-            local envelope_end_t = last_sample_i / n_samples
+            local envelope = rt.InterpolationFunctions.HANN_ENVELOPE
 
-            local active_samples = math.max(0, last_sample_i - first_sample_i)
-            local active_duration = active_samples / sample_rate
+            local new_first_sample_i = n_samples
+            local new_last_sample_i = -1
+
+            local peak = -math.huge
 
             for i = 0, n_samples - 1 do
-                local t = (i - first_sample_i) / active_samples
+                local t = (i - first_sample_i) / (active_samples + 1)
                 local gain = envelope(t, attack_fraction, decay_fraction)
-                sound_data:setSample(i, gain * sound_data:getSample(i))
+                local sample = sound_data:getSample(i) * gain
+                sound_data:setSample(i, sample)
+
+                local magnitude = math.abs(sample)
+                if magnitude > start_eps then
+                    if i < new_first_sample_i then new_first_sample_i = i end
+                end
+
+                if magnitude > end_eps then
+                    if i > new_last_sample_i then new_last_sample_i = i end
+                end
+
+                peak = math.max(peak, magnitude)
             end
 
-            entry.start_t = first_sample_i / sample_rate
-            entry.end_t = last_sample_i / sample_rate
+            entry.start_t = new_first_sample_i / sample_rate
+            entry.end_t = new_last_sample_i / sample_rate
             entry.sound_data = sound_data
             entry.sources = {}
             entry.duration = entry.end_t - entry.start_t
-
+            entry.peak = peak
             entry.is_initialized = true
         end
     end
@@ -723,58 +738,20 @@ function rt.Animalese:queue(phonemes, gender, emotion)
             phoneme_entry = emotion_entry[rt.AnimalesePhoneme.BEAT]
         end
 
-        -- scan if next non-beat token is questionmark
-        local is_question = false
-        for i = phoneme_i + 1, #phonemes do
-            if phonemes[i] ~= rt.AnimalesePhoneme.BEAT then
-                break
-            elseif phonemes[i] == rt.AnimalesePhoneme.QUESTION_MARK then
-                is_question = true
-            end
-        end
-
-        local is_beat, duration, entry
-        if phoneme_entry.is_beat then
-            is_beat = true
-            duration = beat_duration
-            entry = nil
-        else
-            is_beat = false
-
-            local is_long = rt.random.toss_coin(0.25)
-            local pronounciation
-            if is_question then
-                if is_long then
-                    pronounciation = rt.AnimalesePronounciation.LONG_QUESTION
-                else
-                    pronounciation = rt.AnimalesePronounciation.QUESTION
-                end
-            else
-                if is_long then
-                    pronounciation = rt.AnimalesePronounciation.LONG
-                else
-                    pronounciation = rt.AnimalesePronounciation.NORMAL
-                end
-            end
-
-            entry = phoneme_entry[pronounciation]
-
-            if entry.is_initialized == false then
-                self:_initialize_entry(entry)
-            end
-
-            duration = entry.duration
-        end
+        local is_beat = phoneme == rt.AnimalesePhoneme.BEAT or phoneme == rt.AnimalesePhoneme.QUESTION_MARK
 
         table.insert(self._queue, {
             id = queue_i,
-            entry = entry,
+            phoneme = phoneme,
+            pronounciation = rt.AnimalesePronounciation.NORMAL,
+            entry = phoneme_entry,
             is_beat = is_beat,
-            duration = duration, -- seconds
+            duration = ternary(is_beat, beat_duration, nil), -- non-beat duration set in pronounciation update
             elapsed = 0
         })
     end
 
+    self._pronounciation_needs_update = true
     return queue_i
 end
 
@@ -792,12 +769,15 @@ function rt.Animalese:queue_beat(duration, gender, emotion)
 
     table.insert(self._queue, {
         id = queue_i,
+        phoneme = rt.AnimalesePhoneme.BEAT,
+        pronounciation = rt.AnimalesePronounciation.NORMAL,
         entry = nil,
         is_beat = true,
-        duration = duration, -- seconds
+        duration = duration,
         elapsed = 0
     })
 
+    self._pronounciation_needs_update = true
     return queue_i
 end
 
@@ -841,12 +821,99 @@ function rt.Animalese:get_is_done(batch_id)
 end
 
 function rt.Animalese:update(delta)
+    -- rescan queue to set pronounciation
+    if self._pronounciation_needs_update then
+
+        -- first pass: naive pronounciation
+        for i, queue_entry in ipairs(self._queue) do
+            if not queue_entry.is_beat then
+                local is_long = self._queue[i+1] == nil or self._queue[i+1].phoneme == rt.AnimalesePhoneme.BEAT
+                local is_question = false
+
+                for j = i, #self._queue do
+                    local next_entry = self._queue[j]
+                    if next_entry.phoneme ~= rt.AnimalesePhoneme.BEAT then
+                        break
+                    elseif next_entry.phoneme == rt.AnimalesePhoneme.QUESTION_MARK then
+                        is_question = true
+                    end
+                end
+
+                local pronounciation
+                if is_question then
+                    if is_long then
+                        pronounciation = rt.AnimalesePronounciation.LONG_QUESTION
+                    else
+                        pronounciation = rt.AnimalesePronounciation.QUESTION
+                    end
+                else
+                    if is_long then
+                        pronounciation = rt.AnimalesePronounciation.LONG
+                    else
+                        pronounciation = rt.AnimalesePronounciation.NORMAL
+                    end
+                end
+
+                queue_entry.pronounciation = pronounciation
+            end
+        end
+
+        -- second pass: flip-flop if multiple copies of phoneme are present
+        local signs = {}
+        for _, queue_entry in ipairs(self._queue) do
+            if queue_entry.is_beat ~= true then
+                local sign = signs[queue_entry.phoneme]
+                if sign == nil then
+                    sign = true
+                else
+                    sign = not sign
+                end
+
+                signs[queue_entry.phoneme] = sign
+
+                -- flip pronounciation
+                if queue_entry.pronounciation == rt.AnimalesePronounciation.LONG_QUESTION
+                    or queue_entry.pronounciation == rt.AnimalesePronounciation.QUESTION
+                then
+                    if sign == true then
+                        queue_entry.pronounciation = rt.AnimalesePronounciation.QUESTION
+                    else
+                        queue_entry.pronounciation = rt.AnimalesePronounciation.LONG_QUESTION
+                    end
+                else
+                    if sign == true then
+                        queue_entry.pronounciation = rt.AnimalesePronounciation.NORMAL
+                    else
+                        queue_entry.pronounciation = rt.AnimalesePronounciation.LONG
+                    end
+                end
+            end
+        end
+
+        -- initialize
+        for i, queue_entry in ipairs(self._queue) do
+            if queue_entry.is_beat ~= true then
+                local pronounciation_entry = queue_entry.entry[queue_entry.pronounciation]
+                if pronounciation_entry.is_initialized == false then
+                    self:_initialize_entry(pronounciation_entry)
+                end
+                queue_entry.duration = pronounciation_entry.duration
+            end
+        end
+
+        self._pronounciation_needs_update = false
+    end
+
     local remaining = delta
     while remaining > 0 do
         local current = self._queue[1]
         if current == nil then return end
 
         self._is_done[current.id] = true
+
+        if current.duration == nil then
+            dbg(current)
+        end
 
         local time_left = current.duration - current.elapsed
         if remaining < time_left then
@@ -862,8 +929,14 @@ function rt.Animalese:update(delta)
         if next == nil then return end
 
         if not next.is_beat then
+            local next_entry = next.entry[next.pronounciation]
+
+            if next_entry.is_initialized ~= true then
+                self:_initialize_entry(next_entry)
+            end
+
             local free_source = nil
-            for source in values(next.sources) do
+            for source in values(next_entry.sources) do
                 if not source:isPlaying() then
                     free_source = source
                     break
@@ -871,11 +944,12 @@ function rt.Animalese:update(delta)
             end
 
             if free_source == nil then
-                free_source = love.audio.newSource(next.entry.sound_data, "static")
-                table.insert(next.entry.sources, free_source)
+                free_source = love.audio.newSource(next_entry.sound_data, "static")
+                table.insert(next_entry.sources, free_source)
             end
 
-            free_source:seek(next.entry.start_t)
+            free_source:seek(next_entry.start_t)
+            free_source:setVolume(rt.settings.animalese.target_peak / next_entry.peak)
             free_source:play()
         end
     end
