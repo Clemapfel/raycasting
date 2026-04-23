@@ -14,7 +14,10 @@ rt.settings.animalese = {
     script_filename = "jtalk/to_phonemes.py",
     hash_filename = "export/.animalese.hash",
     translation_filename = "export/.animalese",
-    sample_file_extension = ".wav"
+    sample_file_extension = ".wav",
+
+    long_postfix = "_long",
+    question_postfic = "_q"
 }
 
 --- @class rt.Animalese
@@ -245,69 +248,33 @@ do
         [English.AO] = Japanese.O,
         [English.EH] = Japanese.E,
         [English.IH] = Japanese.I,
-        [English.IY] = Japanese.I,--Japanese.II,
-        [English.UH] = Japanese.U,
-        [English.UW] = Japanese.U, --Japanese.UU,
-        [English.AW] = Japanese.A, --{ Japanese.A, Japanese.U },
-        [English.AY] = Japanese.A, --{ Japanese.A, Japanese.I },
-        [English.EY] = Japanese.E, --{ Japanese.EE, Japanese.I },
-        [English.OW] = Japanese.O, --Japanese.OO,
-        [English.OY] = Japanese.O,
-        [English.ER] = Japanese.E, --{ Japanese.E, Japanese.RU },
-    }
-
-    local english_suffix_vowel_to_japanese_vowel = {
-        [English.AA] = Japanese.A,
-        [English.AE] = Japanese.A,
-        [English.AH] = Japanese.A,
-        [English.AO] = Japanese.O,
-        [English.EH] = Japanese.E,
-        [English.IH] = Japanese.I,
         [English.IY] = Japanese.I,
         [English.UH] = Japanese.U,
         [English.UW] = Japanese.U,
-        [English.AW] = Japanese.A,--{ Japanese.A, Japanese.U },
-        [English.AY] = Japanese.I,--{ Japanese.A, Japanese.I },
-        [English.EY] = Japanese.I,--{ Japanese.E, Japanese.I },
+        [English.AW] = Japanese.AU,
+        [English.AY] = Japanese.AI,
+        [English.EY] = Japanese.EI,
         [English.OW] = Japanese.O,
         [English.OY] = Japanese.O,
-        [English.ER] = Japanese.E--{ Japanese.E, Japanese.RU },
+        [English.ER] = Japanese.E,
     }
 
-    local english_pure_vowel_to_japanese_vowel = {
-        [English.AA] = Japanese.A,
+    local english_suffix_vowel_to_japanese_vowel = {
+        [English.AA] = Japanese.O,
         [English.AE] = Japanese.A,
         [English.AH] = Japanese.A,
-        [English.AO] = Japanese.O,
-        [English.EH] = Japanese.E,
+        [English.AO] = Japanese.OU,
+        [English.EH] = Japanese.EI,
         [English.IH] = Japanese.I,
         [English.IY] = Japanese.II,
         [English.UH] = Japanese.U,
         [English.UW] = Japanese.UU,
-        [English.AW] = { Japanese.A, Japanese.U },
-        [English.AY] = { Japanese.A, Japanese.I },
-        [English.EY] = { Japanese.EE, Japanese.I },
-        [English.OW] = Japanese.OO,
-        [English.OY] = Japanese.O,
-        [English.ER] = { Japanese.E, Japanese.RU },
-    }
-
-    local english_suffix_vowel_to_japanese_vowel = {
-        [English.AA] = Japanese.A,
-        [English.AE] = Japanese.A,
-        [English.AH] = Japanese.A,
-        [English.AO] = Japanese.O,
-        [English.EH] = Japanese.E,
-        [English.IH] = Japanese.I,
-        [English.IY] = Japanese.I,
-        [English.UH] = Japanese.U,
-        [English.UW] = Japanese.U,
-        [English.AW] = { Japanese.A, Japanese.U },
-        [English.AY] = { Japanese.A, Japanese.I },
-        [English.EY] = { Japanese.E, Japanese.I },
-        [English.OW] = Japanese.O,
-        [English.OY] = Japanese.O,
-        [English.ER] = { Japanese.E, Japanese.RU },
+        [English.AW] = Japanese.AU,
+        [English.AY] = Japanese.AI,
+        [English.EY] = Japanese.EI,
+        [English.OW] = Japanese.OU,
+        [English.OY] = Japanese.OI,
+        [English.ER] = Japanese.E,
     }
 
     for t in range(
@@ -344,116 +311,22 @@ do
         [English.HH] = "H",
         [English.S]  = "S",
         [English.SH] = "SH",
-        [English.TH] = "Z",
-        [English.V] = "W",
+        [English.TH] = "SH",
+        [English.V] = "V",
         [English.Z]  = "Z",
         [English.ZH] = "J",
-        [English.CH] = "K",
+        [English.CH] = "SH",
         [English.JH] = "J",
         [English.M]  = "M",
         [English.N]  = "N",
-        [English.NG] = "N",
+        [English.NG] = "G",
         [English.L] = "R",
         [English.R] = "R",
         [English.W] = "W",
         [English.Y] = "Y",
     }
 
-    local _remap = {
-        ["ZI"] = Japanese.JI,
-        ["YI"] = Japanese.JI,
-        ["YE"] = Japanese.JE,
-        ["WI"] = Japanese.VI,
-        ["WE"] = Japanese.VE,
-        ["WU"] = Japanese.VU,
-        ["VA"] = Japanese.WA,
-
-        -- existing
-        [Japanese.SHI] = Japanese.SI,
-        [Japanese.TSU] = Japanese.TU,
-
-        -- SH
-        [Japanese.SHA] = Japanese.SA,
-        [Japanese.SHU] = Japanese.SU,
-        [Japanese.SHE] = Japanese.SE,
-        [Japanese.SHO] = Japanese.SO,
-
-        -- CH
-        [Japanese.CHI] = Japanese.TI,
-        [Japanese.CHA] = Japanese.TA,
-        [Japanese.CHU] = Japanese.TU,
-        [Japanese.CHE] = Japanese.TE,
-        [Japanese.CHO] = Japanese.TO,
-
-        -- J
-        [Japanese.JA] = Japanese.ZA,
-        [Japanese.JU] = Japanese.ZU,
-        [Japanese.JE] = Japanese.ZE,
-        [Japanese.JO] = Japanese.ZO,
-
-        -- TS extended
-        [Japanese.TSA] = Japanese.TA,
-        [Japanese.TSI] = Japanese.TI,
-        [Japanese.TSE] = Japanese.TE,
-        [Japanese.TSO] = Japanese.TO,
-
-        -- K palatalized
-        [Japanese.KYA] = Japanese.KA,
-        [Japanese.KYU] = Japanese.KU,
-        [Japanese.KYO] = Japanese.KO,
-
-        -- G palatalized
-        [Japanese.GYA] = Japanese.GA,
-        [Japanese.GYU] = Japanese.GU,
-        [Japanese.GYO] = Japanese.GO,
-
-        -- N palatalized
-        [Japanese.NYU] = Japanese.NU,
-        [Japanese.NYO] = Japanese.NO,
-
-        -- H palatalized
-        [Japanese.HYA] = Japanese.HA,
-        [Japanese.HYU] = Japanese.HU,
-        [Japanese.HYO] = Japanese.HO,
-
-        -- B palatalized
-        [Japanese.BYA] = Japanese.BA,
-        [Japanese.BYU] = Japanese.BU,
-        [Japanese.BYO] = Japanese.BO,
-
-        -- P palatalized
-        [Japanese.PYA] = Japanese.PA,
-        [Japanese.PYU] = Japanese.PU,
-        [Japanese.PYO] = Japanese.PO,
-
-        -- M palatalized
-        [Japanese.MYA] = Japanese.MA,
-        [Japanese.MYU] = Japanese.MU,
-        [Japanese.MYO] = Japanese.MO,
-
-        -- R palatalized
-        [Japanese.RYA] = Japanese.RA,
-        [Japanese.RYU] = Japanese.RU,
-        [Japanese.RYO] = Japanese.RO,
-
-        -- F row (already 2 letters but keeping consistency if needed)
-        [Japanese.FA] = Japanese.HA,
-        [Japanese.FI] = Japanese.HI,
-        [Japanese.FU] = Japanese.HU,
-        [Japanese.FE] = Japanese.HE,
-        [Japanese.FO] = Japanese.HO,
-
-        -- V sounds → B fallback (archaic-safe)
-        [Japanese.VI] = Japanese.BI,
-        [Japanese.VU] = Japanese.BU,
-        [Japanese.VE] = Japanese.BE,
-        [Japanese.VO] = Japanese.BO,
-
-        -- foreign clusters
-        [Japanese.THI] = Japanese.TI,
-        [Japanese.TYU] = Japanese.TU,
-        [Japanese.DYU] = Japanese.DU,
-    }
+    local _remap = {} -- no remap
 
     --- @brief
     function rt.Animalese:_english_phonemes_to_animalese_phonemes(phonemes)
@@ -464,7 +337,7 @@ do
         end
 
         for i, phoneme in ipairs(phonemes) do
-            rt.assert(meta.is_enum_value(phoneme, rt.EnglishPhoneme), "In rt.Animalese._english_phoenems_to_animalese_phonemes: phoneme `", phoneme, "` at `", i, "` is not a value of rt.EnglishPhonemes")
+            rt.assert(meta.is_enum_value(phoneme, rt.EnglishPhoneme), "In rt.Animalese._english_to_animalese_phonemes: phoneme `", phoneme, "` at `", i, "` is not a value of rt.EnglishPhonemes")
         end
         local to_translate = {}
 
@@ -479,11 +352,16 @@ do
         local is_stop = function(x)
             return x == nil
                 or x == English.BEAT
-                or x == English.QUESTION_MARK
                 or x == English.END
+                or x == English.QUESTION_MARK
         end
 
         local result = {}
+
+        local phoneme_used = {}
+        for syllable in values(meta.instances(rt.AnimalesePhoneme)) do
+            phoneme_used[syllable] = false
+        end
 
         local push = function(x)
             local seen = {}
@@ -495,6 +373,7 @@ do
 
             rt.assert(meta.is_enum_value(x, Japanese), "In push: `", x, "` is not a japanese phenome")
             table.insert(result, x)
+            phoneme_used[x] = true
         end
 
         local throw = function(...)
@@ -554,6 +433,16 @@ do
                 end
             end
         end
+
+        local unused = {}
+        for phoneme, used in pairs(phoneme_used) do
+            if used == false then
+                table.insert(unused, phoneme)
+            end
+        end
+
+        rt.warning("In rt.Animalese: deleting unused phoneme `{", table.concat(unused, ", "), "}`")
+
 
         return result
     end
@@ -636,8 +525,7 @@ function rt.Animalese:_initialize()
 
     local is_beat = {}
     for x in range(
-        rt.AnimalesePhoneme.BEAT,
-        rt.AnimalesePhoneme.QUESTION_MARK
+        rt.AnimalesePhoneme.BEAT
     ) do is_beat[x] = true end
 
     local beat_weights = rt.settings.label.syntax.BEAT_TO_WEIGHT

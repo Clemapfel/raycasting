@@ -68,77 +68,27 @@ rt.EnglishPhoneme = meta.enum("EnglishPhoneme", rt.EnglishPhoneme)
 
 --- @enum rt.AnimalesePhoneme
 rt.AnimalesePhoneme = {
-    -- vowels
-    A = "A", I = "I", U = "U", E = "E", O = "O",
-    -- long vowels
-    AA = "AA", II = "II", UU = "UU", EE = "EE", OO = "OO",
-
-    -- k
-    KA = "KA", KI = "KI", KU = "KU", KE = "KE", KO = "KO",
-    -- g
-    GA = "GA", GI = "GI", GU = "GU", GE = "GE", GO = "GO",
-    -- s
-    SA = "SA", SI = "SI", SU = "SU", SE = "SE", SO = "SO",
-    -- z
-    ZA = "ZA", JI = "JI", ZU = "ZU", ZE = "ZE", ZO = "ZO",
-    -- z
-    TA = "TA", TI = "TI", TU = "TU", TE = "TE", TO = "TO",
-    -- d
-    DA = "DA", DI = "DI", DU = "DU", DE = "DE", DO = "DO",
-    -- n
-    NA = "NA", NI = "NI", NU = "NU", NE = "NE", NO = "NO",
-    -- h
-    HA = "HA", HI = "HI", HU = "HU", HE = "HE", HO = "HO",
-    -- b
-    BA = "BA", BI = "BI", BU = "BU", BE = "BE", BO = "BO",
-    -- p
-    PA = "PA", PI = "PI", PU = "PU", PE = "PE", PO = "PO",
-    -- m
-    MA = "MA", MI = "MI", MU = "MU", ME = "ME", MO = "MO",
-    -- y
-    YA = "YA", YU = "YU", YO = "YO",
-    -- r
-    RA = "RA", RI = "RI", RU = "RU", RE = "RE", RO = "RO",
-    -- w
-    WA = "WA", WO = "WO",
-
-    -- palatized k
-    KYA = "KYA", KYU = "KYU", KYO = "KYO",
-    -- palatalized g
-    GYA = "GYA", GYU = "GYU", GYO = "GYO",
-    -- palatalized sh
-    SHA = "SHA", SHI = "SHI", SHU = "SHU", SHE = "SHE", SHO = "SHO",
-    -- palatalized j
-    JA = "JA", JI = "JI", JU = "JU", JE = "JE", JO = "JO",
-    -- palatalized ch
-    CHA = "CHA", CHI = "CHI", CHU = "CHU", CHE = "CHE", CHO = "CHO",
-    -- palatalized ts
-    TSA = "TSA", TSI = "TSI", TSU = "TSU", TSE = "TSE", TSO = "TSO",
-    -- palatized n
-    NYU = "NYU", NYO = "NYO",
-    -- palatized h
-    HYA = "HYA", HYU = "HYU", HYO = "HYO",
-    -- palatized f
-    FA = "FA", FI = "FI", FU = "FU", FE = "FE", FO = "FO",
-    -- palatized b
-    BYA = "BYA", BYU = "BYU", BYO = "BYO",
-    -- palatized p
-    PYA = "PYA", PYU = "PYU", PYO = "PYO",
-    -- palatized m
-    MYA = "MYA", MYU = "MYU", MYO = "MYO",
-    -- palatized r
-    RYA = "RYA", RYU = "RYU", RYO = "RYO",
-
-    -- v (foreign loans)
-    VI = "VI", VU = "VU", VE = "VE", VO = "VO",
-
-    -- foreign stops
-    THI = "THI", TYU = "TYU", DYU = "DYU",
-
-    -- moraic nasal
+    I = "I", A = "A", O = "O", U = "U", E = "E", AU = "AU", AI = "AI", EI = "EI", OU = "OU", II = "II", UU = "UU", OI = "OI",
+    BI = "BI", BO = "BO", BU = "BU", BA = "BA", BE = "BE", BAU = "BAU", BAI = "BAI", BEI = "BEI", BOU = "BOU", BII = "BII", BUU = "BUU", BOI = "BOI",
+    DA = "DA", DE = "DE", DI = "DI", DO = "DO", DU = "DU", DAU = "DAU", DAI = "DAI", DEI = "DEI", DOU = "DOU", DII = "DII", DUU = "DUU", DOI = "DOI",
+    FA = "FA", FE = "FE", FI = "FI", FO = "FO", FU = "FU", FAU = "FAU", FAI = "FAI", FEI = "FEI", FOU = "FOU", FII = "FII", FUU = "FUU", FOI = "FOI",
+    GA = "GA", GE = "GE", GI = "GI", GO = "GO", GU = "GU", GAU = "GAU", GAI = "GAI", GEI = "GEI", GOU = "GOU", GII = "GII", GUU = "GUU", GOI = "GOI",
+    HA = "HA", HE = "HE", HI = "HI", HO = "HO", HU = "HU", HAU = "HAU", HAI = "HAI", HEI = "HEI", HOU = "HOU", HII = "HII", HUU = "HUU", HOI = "HOI",
+    JA = "JA", JE = "JE", JI = "JI", JO = "JO", JU = "JU", JAU = "JAU", JAI = "JAI", JEI = "JEI", JOU = "JOU", JII = "JII", JUU = "JUU", JOI = "JOI",
+    KA = "KA", KE = "KE", KI = "KI", KO = "KO", KU = "KU", KAU = "KAU", KAI = "KAI", KEI = "KEI", KOU = "KOU", KII = "KII", KUU = "KUU", KOI = "KOI",
+    MA = "MA", ME = "ME", MI = "MI", MO = "MO", MU = "MU", MAU = "MAU", MAI = "MAI", MEI = "MEI", MOU = "MOU", MII = "MII", MUU = "MUU", MOI = "MOI",
+    NA = "NA", NE = "NE", NI = "NI", NO = "NO", NU = "NU", NAU = "NAU", NAI = "NAI", NEI = "NEI", NOU = "NOU", NII = "NII", NUU = "NUU", NOI = "NOI",
+    PA = "PA", PE = "PE", PI = "PI", PO = "PO", PU = "PU", PAU = "PAU", PAI = "PAI", PEI = "PEI", POU = "POU", PII = "PII", PUU = "PUU", POI = "POI",
+    RA = "RA", RE = "RE", RI = "RI", RO = "RO", RU = "RU", RAU = "RAU", RAI = "RAI", REI = "REI", ROU = "ROU", RII = "RII", RUU = "RUU", ROI = "ROI",
+    SA = "SA", SE = "SE", SI = "SI", SO = "SO", SU = "SU", SAU = "SAU", SAI = "SAI", SEI = "SEI", SOU = "SOU", SII = "SII", SUU = "SUU", SOI = "SOI",
+    SHA = "SHA", SHE = "SHE", SHI = "SHI", SHO = "SHO", SHU = "SHU", SHAU = "SHAU", SHAI = "SHAI", SHEI = "SHEI", SHOU = "SHOU", SHII = "SHII", SHUU = "SHUU", SHOI = "SHOI",
+    TA = "TA", TE = "TE", TI = "TI", TO = "TO", TU = "TU", TAU = "TAU", TAI = "TAI", TEI = "TEI", TOU = "TOU", TII = "TII", TUU = "TUU", TOI = "TOI",
+    VA = "VA", VE = "VE", VI = "VI", VO = "VO", VU = "VU", VAU = "VAU", VAI = "VAI", VEI = "VEI", VOU = "VOU", VII = "VII", VUU = "VUU", VOI = "VOI",
+    WA = "WA", WE = "WE", WI = "WI", WO = "WO", WU = "WU", WAU = "WAU", WAI = "WAI", WEI = "WEI", WOU = "WOU", WII = "WII", WUU = "WUU", WOI = "WOI",
+    YA = "YA", YE = "YE", YI = "YI", YO = "YO", YU = "YU", YAU = "YAU", YAI = "YAI", YEI = "YEI", YOU = "YOU", YII = "YII", YUU = "YUU", YOI = "YOI",
+    ZA = "ZA", ZE = "ZE", ZI = "ZI", ZO = "ZO", ZU = "ZU", ZAU = "ZAU", ZAI = "ZAI", ZEI = "ZEI", ZOU = "ZOU", ZII = "ZII", ZUU = "ZUU", ZOI = "ZOI",
     N = "N",
 
-    -- control characters,
     BEAT = rt.EnglishPhoneme.BEAT,
     QUESTION_MARK = "?"
 }
