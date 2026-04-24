@@ -80,6 +80,7 @@ do
 
         jump_duration = 11 / 60,
         jump_impulse = 530, -- 10 * 16 tiles neutral jump
+        jump_freeze_duration = 30 / 60,
 
         wall_jump_initial_impulse = 400,
         wall_jump_sustained_impulse = 1000,
@@ -203,6 +204,7 @@ function rt.Player:instantiate()
         _right_wall_jump_buffer_elapsed = math.huge,
 
         _jump_elapsed = math.huge,
+        _jump_freeze_elapsed = math.huge,
         _jump_blocked = true,
         _coyote_elapsed = math.huge,
         _left_wall_coyote_elapsed = math.huge,
@@ -414,6 +416,8 @@ function rt.Player:_connect_input()
         if which == rt.InputAction.JUMP then
             self._jump_button_is_down = false
             self._jump_button_is_down_elapsed = math.huge
+
+            self._jump_elapsed = math.huge
         elseif which == rt.InputAction.SPRINT then
             self._sprint_button_is_down = false
             self._sprint_button_is_down_elapsed = math.huge
@@ -1446,6 +1450,7 @@ function rt.Player:update(delta)
             if self._jump_elapsed <= settings.jump_duration then
                 -- regular jump
                 if self._jump_button_is_down then
+                    local before = next_velocity_y
                     next_velocity_y = -1 * time_dilation * settings.jump_impulse * math.sqrt(self._jump_elapsed / settings.jump_duration)
                     is_jumping = true
                 end
@@ -1480,7 +1485,7 @@ function rt.Player:update(delta)
                         is_jumping = true
                     end
                 elseif self._jump_button_is_down then
-                    -- sustained jump, if not sprinting, add additional air time to make up for reduced x speed
+                    -- sustained wall jump, if not sprinting, add additional air time to make up for reduced x speed
                     local dx, dy = math.cos(settings.wall_jump_sustained_angle), math.sin(settings.wall_jump_sustained_angle)
 
                     if self._wall_jump_freeze_sign == 1 then dx = dx * -1 end
@@ -1496,6 +1501,7 @@ function rt.Player:update(delta)
             end
 
             self._wall_jump_freeze_elapsed = self._wall_jump_freeze_elapsed + delta
+            self._jump_freeze_elapsed = self._jump_freeze_elapsed + delta
             self._jump_elapsed = self._jump_elapsed + delta
             self._wall_jump_elapsed = self._wall_jump_elapsed + delta
 
@@ -2598,8 +2604,11 @@ local _last_frame_i, _last_frame_nothing_below = nil, false
 
 --- @brief
 function rt.Player:_get_jump_allowed()
-    local bottom = (self._bottom_wall and not self._bottom_wall_body:has_tag("unjumpable"))
+    if self._jump_freeze_elapsed <= settings.jump_freeze_duration then
+        return false
+    end
 
+    local bottom = (self._bottom_wall and not self._bottom_wall_body:has_tag("unjumpable"))
     local regular_jump_allowed = not self._jump_blocked and bottom
 
     -- only bottom counts for grounded check, but bottom left/right can override with tags
@@ -2683,6 +2692,7 @@ function rt.Player:jump()
         if regular_jump_allowed then
             self._jump_elapsed = 0
             self._jump_blocked = true
+            self._jump_freeze_elapsed = 0
             jumped = true
         end
     end
@@ -3201,6 +3211,7 @@ function rt.Player:_update_bubble(is_bubble)
     self._wall_jump_elapsed = math.huge
     self._bounce_elapsed = math.huge
     self._wall_jump_freeze_elapsed = math.huge
+    self._jump_freeze_elapsed = math.huge
 
     if self._world == nil then return end
 
@@ -3609,4 +3620,9 @@ end
 --- @brief
 function rt.Player:get_input_smoothing()
     return self._input_smoothing
+end
+
+--- @brief
+function rt.Player:get_mass()
+    return ternary(self:get_is_bubble(), self._bubble_mass, self._mass)
 end

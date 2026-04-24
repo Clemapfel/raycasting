@@ -257,6 +257,8 @@ function ow.Hook:_unhook()
             self._bubble_callback_id = nil
         end
 
+        player:request_is_jump_allowed_override(self, nil)
+
         return meta.DISCONNECT_SIGNAL
     end)
 

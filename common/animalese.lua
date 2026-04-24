@@ -4,9 +4,9 @@ require "common.filesystem"
 rt.settings.animalese = {
     filetype = "wav",
     silence_start_eps = 0.003, -- normalized
-    silence_end_eps = 0.01,
+    silence_end_eps = 0.015,
     attack_duration = 5 / 60, -- seconds
-    decay_duration = 5 / 60,
+    decay_duration = 10 / 60,
     target_peak = 0.1,
     scroll_speed_factor = 1,
 
@@ -20,7 +20,11 @@ rt.settings.animalese = {
     sample_file_extension = ".wav",
 
     long_postfix = "_long",
-    question_postfix = "_q"
+    question_postfix = "_q",
+    question_max_pitch = 1.1,
+    question_n_phonemes = 5,
+
+    pitch_variance_magnitude = 0.05
 }
 
 --- @class rt.Animalese
@@ -314,7 +318,7 @@ do
         [English.HH] = "H",
         [English.S]  = "S",
         [English.SH] = "SH",
-        [English.TH] = "SH",
+        [English.TH] = "Z",
         [English.V] = "V",
         [English.Z]  = "Z",
         [English.ZH] = "J",
@@ -640,7 +644,7 @@ function rt.Animalese:_initialize_entry(entry)
             local attack_fraction = attack_duration / active_duration
             local decay_fraction  = decay_duration / active_duration
 
-            local envelope = rt.InterpolationFunctions.HANN_ENVELOPE
+            local envelope = function() return 1 end --rt.InterpolationFunctions.CONSTANT --rt.InterpolationFunctions.ENVELOPE
 
             local new_first_sample_i = n_samples
             local new_last_sample_i = -1
@@ -650,7 +654,9 @@ function rt.Animalese:_initialize_entry(entry)
             for i = 0, n_samples - 1 do
                 local t = (i - first_sample_i) / (active_samples + 1)
                 local gain = envelope(t, attack_fraction, decay_fraction)
-                local sample = sound_data:getSample(i) * gain
+
+                local sample = sound_data:getSample(i)
+                sample = sample * gain
                 sound_data:setSample(i, sample)
 
                 local magnitude = math.abs(sample)
@@ -747,7 +753,8 @@ function rt.Animalese:queue(phonemes, gender, emotion)
             entry = phoneme_entry,
             is_beat = is_beat,
             duration = ternary(is_beat, beat_duration, nil), -- non-beat duration set in pronounciation update
-            elapsed = 0
+            elapsed = 0,
+            pitch = 1
         })
     end
 
@@ -774,7 +781,9 @@ function rt.Animalese:queue_beat(duration, gender, emotion)
         entry = nil,
         is_beat = true,
         duration = duration,
-        elapsed = 0
+        elapsed = 0,
+        is_question = false,
+        pitch = 1
     })
 
     self._pronounciation_needs_update = true
@@ -823,70 +832,66 @@ end
 function rt.Animalese:update(delta)
     -- rescan queue to set pronounciation
     if self._pronounciation_needs_update then
+        local pitch_variance = rt.settings.animalese.pitch_variance_magnitude
 
-        -- first pass: naive pronounciation
-        for i, queue_entry in ipairs(self._queue) do
-            if not queue_entry.is_beat then
-                local is_long = self._queue[i+1] == nil or self._queue[i+1].phoneme == rt.AnimalesePhoneme.BEAT
-                local is_question = false
-
-                for j = i, #self._queue do
-                    local next_entry = self._queue[j]
-                    if next_entry.phoneme ~= rt.AnimalesePhoneme.BEAT then
-                        break
-                    elseif next_entry.phoneme == rt.AnimalesePhoneme.QUESTION_MARK then
-                        is_question = true
-                    end
-                end
-
-                local pronounciation
-                if is_question then
-                    if is_long then
-                        pronounciation = rt.AnimalesePronounciation.LONG_QUESTION
-                    else
-                        pronounciation = rt.AnimalesePronounciation.QUESTION
-                    end
+        -- first pass: flip-flop so consecutive copies get different prononuciations
+        local signs = {}
+        local question_marks = {}
+        for i, entry in ipairs(self._queue) do
+            if entry.is_beat ~= true then
+                local sign = signs[entry.phoneme]
+                if sign == nil then
+                    sign = 0
                 else
-                    if is_long then
-                        pronounciation = rt.AnimalesePronounciation.LONG
-                    else
-                        pronounciation = rt.AnimalesePronounciation.NORMAL
-                    end
+                    sign = sign + 1
                 end
 
-                queue_entry.pronounciation = pronounciation
+                signs[entry.phoneme] = sign
+
+                local mod = sign % 4
+
+                if mod == 0 then
+                    entry.pronounciation = rt.AnimalesePronounciation.NORMAL
+                elseif mod == 1 then
+                    entry.pronounciation = rt.AnimalesePronounciation.LONG
+                elseif mod == 2 then
+                    entry.pronounciation = rt.AnimalesePronounciation.QUESTION
+                elseif mod == 3 then
+                    entry.pronounciation = rt.AnimalesePronounciation.LONG_QUESTION
+                end
+            elseif entry.phoneme == rt.AnimalesePhoneme.QUESTION_MARK then
+                table.insert(question_marks, i)
             end
+
+            entry.pitch = 1 + rt.random.number(-pitch_variance, pitch_variance) -- reset pitch
         end
 
-        -- second pass: flip-flop if multiple copies of phoneme are present
-        local signs = {}
-        for _, queue_entry in ipairs(self._queue) do
-            if queue_entry.is_beat ~= true then
-                local sign = signs[queue_entry.phoneme]
-                if sign == nil then
-                    sign = true
-                else
-                    sign = not sign
+        -- update pitch, mark words before ? as questions
+        for _, i in ipairs(question_marks) do
+            local word_seen = false
+            for j = i - 1, 1, -1 do
+                local entry = self._queue[j]
+
+                if word_seen and entry.is_beat then
+                    break
                 end
 
-                signs[queue_entry.phoneme] = sign
-
-                -- flip pronounciation
-                if queue_entry.pronounciation == rt.AnimalesePronounciation.LONG_QUESTION
-                    or queue_entry.pronounciation == rt.AnimalesePronounciation.QUESTION
-                then
-                    if sign == true then
-                        queue_entry.pronounciation = rt.AnimalesePronounciation.QUESTION
-                    else
-                        queue_entry.pronounciation = rt.AnimalesePronounciation.LONG_QUESTION
-                    end
-                else
-                    if sign == true then
-                        queue_entry.pronounciation = rt.AnimalesePronounciation.NORMAL
-                    else
-                        queue_entry.pronounciation = rt.AnimalesePronounciation.LONG
-                    end
+                if entry.phoneme ~= rt.AnimalesePhoneme.BEAT then
+                    word_seen = true
                 end
+
+                if entry.pronounciation == rt.AnimalesePronounciation.LONG then
+                    entry.pronounciation = rt.AnimalesePronounciation.LONG_QUESTION
+                elseif entry.pronounciation == rt.AnimalesePronounciation.NORMAL then
+                    entry.pronounciation = rt.AnimalesePronounciation.QUESTION
+                end
+
+                -- pitch raises towards questionmark
+                entry.pitch = math.mix(
+                    1,
+                    rt.settings.animalese.question_max_pitch,
+                    1 - math.clamp(math.abs(j + 1 - i) / rt.settings.animalese.question_n_phonemes, 0, 1)
+                )
             end
         end
 
@@ -910,10 +915,6 @@ function rt.Animalese:update(delta)
         if current == nil then return end
 
         self._is_done[current.id] = true
-
-        if current.duration == nil then
-            dbg(current)
-        end
 
         local time_left = current.duration - current.elapsed
         if remaining < time_left then
@@ -949,6 +950,7 @@ function rt.Animalese:update(delta)
             end
 
             free_source:seek(next_entry.start_t)
+            free_source:setPitch(next.pitch)
             free_source:setVolume(rt.settings.animalese.target_peak / next_entry.peak)
             free_source:play()
         end

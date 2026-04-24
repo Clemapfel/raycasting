@@ -49,7 +49,7 @@ function ow.Path:instantiate(object, stage, scene)
 
     self._max_n_cycles = object:get_number("n_cycles", false) or math.huge
     self._should_loop = object:get_boolean("should_loop", false)
-    if self._should_loop == nil then self._should_loop = false end
+    if self._should_loop == nil then self._should_loop = true end
 
     self._is_visible = object:get_boolean("is_visible", false)
     if self._is_visible == nil then self._is_visible = true end

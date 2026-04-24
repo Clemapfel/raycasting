@@ -39,8 +39,8 @@ local _n_particles = 0 -- global count
 --- @brief
 function ow.TetherParticleEffect:emit(
     path,
-    color_r, color_g, color_b, color_a,
-    velocity_x, velocity_y
+    velocity_x, velocity_y,
+    color_r, color_g, color_b, color_a
 )
     meta.assert(path, rt.Path)
 
@@ -51,8 +51,8 @@ function ow.TetherParticleEffect:emit(
     table.insert(self._batches, batch)
     self:_init_batch(batch,
         path,
-        color_r, color_g, color_b, color_a,
-        velocity_x, velocity_y
+        velocity_x, velocity_y,
+        color_r, color_g, color_b, color_a
     )
 end
 
@@ -116,8 +116,8 @@ end
 --- @brief
 function ow.TetherParticleEffect:_init_batch(
     batch, path,
-    color_r, color_g, color_b, color_a,
-    velocity_x, velocity_y
+    velocity_x, velocity_y,
+    color_r, color_g, color_b, color_a
 )
     require "table.new"
 
@@ -137,6 +137,8 @@ function ow.TetherParticleEffect:_init_batch(
 
     batch.particle_data = {}
     batch.n_particles = 0
+
+    local nvx, nvy = math.normalize(velocity_x, velocity_y)
 
     local data = batch.particle_data
     for particle_i = 1, n_particles do
@@ -160,11 +162,14 @@ function ow.TetherParticleEffect:_init_batch(
             vx, vy = down_x, down_y
         end
 
+        vx = vx + nvx
+        vy = vy + nvy
+
         local i = #batch.particle_data + 1
         data[i + _position_x_offset] = position_x
         data[i + _position_y_offset] = position_y
-        data[i + _velocity_x_offset] = (vx + velocity_x) * magnitude
-        data[i + _velocity_y_offset] = (vy + velocity_y) * magnitude
+        data[i + _velocity_x_offset] = vx * magnitude
+        data[i + _velocity_y_offset] = vy * magnitude
         data[i + _acceleration_offset] = math.mix(min_acceleration, max_acceleration, mass_t)
         data[i + _color_r_offset] = color_r
         data[i + _color_g_offset] = color_g

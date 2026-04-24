@@ -606,8 +606,6 @@ function ow.OverworldScene:draw()
             self._camera:bind()
             self._player:draw_body()
             self._player:draw_core()
-
-            -- TODO
             self._camera:unbind()
         end
 
@@ -679,7 +677,6 @@ function ow.OverworldScene:draw()
     end
 
     local draw_player = function()
-        if true then return end -- TODO
         self._camera:bind()
         if self._player_is_visible then
             self._player:draw_body()

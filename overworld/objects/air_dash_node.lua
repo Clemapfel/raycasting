@@ -18,7 +18,7 @@ rt.settings.overworld.air_dash_node = {
 --- @types Circle
 ow.AirDashNode = meta.class("AirDashNode", ow.MovableObject)
 
-local _core_shader = rt.Shader("overworld/objects/air_dash_node_glow.glsl")
+local _glow_shader = rt.Shader("overworld/objects/air_dash_node_glow.glsl")
 local _noise_texture = rt.NoiseTexture(64, 64, 64,
     rt.NoiseType.GRADIENT, 3.5
 )
@@ -35,7 +35,7 @@ end
 
 --- @brief
 function ow.AirDashNode:instantiate(object, stage, scene)
-    assert(object:get_type() == ow.ObjectType.ELLIPSE and math.equals(object.x_radius, object.y_radius), "In ow.AirDashNode: object `" .. object:get_id() .. "` is not a circle")
+    rt.assert(object:get_type() == ow.ObjectType.ELLIPSE and math.equals(object.x_radius, object.y_radius), "In ow.AirDashNode: object `" .. object:get_id() .. "` is not a circle")
 
     if stage.air_dash_node_manager_is_first == true then
         self._is_handler_proxy = true
@@ -221,8 +221,10 @@ function ow.AirDashNode:set_is_tethered(b)
         local ax, ay = px, py --x - dx, y - dy
 
         self._queue_emit = function()
+            local vx, vy = self._body:get_velocity()
             self._particles:emit(
                 rt.Path(ax, ay, bx, by),
+                vx, vy,
                 self:get_color():unpack()
             )
         end
@@ -291,7 +293,7 @@ function ow.AirDashNode:update(delta)
         self._particle:update(delta)
         self._particles:update(delta)
 
-        if self._is_tethered or self._is_current then
+        if self._is_tethered or self._is_current and not self._queue_emit then
             local x, y = self._body:get_position()
             local px, py = self._scene:get_player():get_position()
             local dx, dy = math.normalize(x - px, y - py)
@@ -403,12 +405,12 @@ function ow.AirDashNode:draw(priority)
 
         if opacity > 0.01 then
             love.graphics.setColor(1, 1, 1, 1)
-            _core_shader:bind()
-            _core_shader:send("elapsed", rt.SceneManager:get_elapsed() + meta.hash(self))
-            _core_shader:send("color", { r, g, b, opacity })
-            _core_shader:send("noise_texture", _noise_texture)
+            _glow_shader:bind()
+            _glow_shader:send("elapsed", rt.SceneManager:get_elapsed() + meta.hash(self))
+            _glow_shader:send("color", { r, g, b, opacity })
+            _glow_shader:send("noise_texture", _noise_texture)
             self._glow_mesh:draw()
-            _core_shader:unbind()
+            _glow_shader:unbind()
         end
 
         if self._is_current == false then
@@ -421,7 +423,7 @@ function ow.AirDashNode:draw(priority)
         self._particles:draw()
 
     elseif priority == _in_front_of_payer_priority then
-        if self._indicator_mesh ~= nil and (self._is_current or self._is_tethered
+        if self._indicator_mesh ~= nil and not self._queue_emit and (self._is_current or self._is_tethered
             or self._queue_emit_elapsed < rt.settings.overworld.air_dash_node.particle_emit_delay_duration
         ) then
             local line_width = 0.5 * rt.settings.player.radius

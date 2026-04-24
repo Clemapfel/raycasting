@@ -4,7 +4,10 @@ require "common.path"
 rt.settings.overworld.air_dash_node_manager = {
     node_collision_group = b2.CollisionGroup.GROUP_09,
     dash_velocity = 1000, -- on exit
-    dash_velocity_bubble = 500
+    dash_velocity_bubble = 500,
+
+    min_player_damping = 0.8,
+    max_player_damping = 0.92
 }
 
 --- @class ow.AirDashNodeManager
@@ -23,8 +26,8 @@ function ow.AirDashNodeManager:instantiate(scene, stage)
 
     self._tether_path = nil -- rt.Path
     self._tether_dx, self._tether_dy = 0, 0 -- direction
-    self._tether_exit_line = {} -- Array<Number, 4>
-    self._tether_exit_sign = 0
+    self._tether_sign_line = { 0, 0, 0, 0 } -- Array<Number, 4>
+    self._tether_sign = 0
 
     self._input = rt.InputSubscriber(rt.settings.player.input_subscriber_priority + 1)
     self._input = rt.InputSubscriber()
@@ -259,7 +262,11 @@ function ow.AirDashNodeManager:update(delta)
 
         if not player:get_is_grounded() then
             self:_update_damping(
-                math.mix(0.94, 0.98, (math.distance(px, py, self._next_node:get_position()) / self._next_node:get_radius()))
+                math.mix(
+                    rt.settings.overworld.air_dash_node_manager.min_player_damping,
+                    rt.settings.overworld.air_dash_node_manager.max_player_damping,
+                    math.sqrt(math.distance(px, py, self._next_node:get_position()) / self._next_node:get_radius())
+                ) -- sic, no clamp
             )
         else
             self:_update_damping(1)

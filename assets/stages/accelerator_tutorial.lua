@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 632,
+  nextobjectid = 639,
   properties = {},
   tilesets = {
     {
@@ -234,8 +234,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = -4400,
-          y = 1264,
+          x = -2848,
+          y = 256,
           width = 0,
           height = 0,
           rotation = 0,
@@ -882,6 +882,63 @@ return {
             { x = -304, y = -752 },
             { x = -304, y = -1200 }
           },
+          properties = {}
+        },
+        {
+          id = 632,
+          name = "from",
+          type = "Path",
+          shape = "point",
+          x = -2976,
+          y = 96,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["next"] = { id = 633 },
+            ["target"] = { id = 638 },
+            ["target_2"] = { id = 0 },
+            ["velocity"] = 2
+          }
+        },
+        {
+          id = 633,
+          name = "to",
+          type = "PathNode",
+          shape = "point",
+          x = -2256,
+          y = 96,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 635,
+          name = "",
+          type = "CameraFit",
+          shape = "rectangle",
+          x = -3136.17,
+          y = -418.977,
+          width = 1072.17,
+          height = 707.076,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 638,
+          name = "",
+          type = "Hook",
+          shape = "point",
+          x = -2976,
+          y = 96,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
           properties = {}
         }
       }
