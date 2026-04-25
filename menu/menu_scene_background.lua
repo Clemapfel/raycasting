@@ -55,10 +55,11 @@ local _mesh_format = {
 
 local _texture_format = rt.TextureFormat.RGBA16F
 
-local _shader = rt.Shader("menu/menu_scene_background.glsl")
 local _particle_draw_shader = rt.Shader("menu/menu_scene_background_particle_draw.glsl")
 local _particle_texture_shader = rt.Shader("menu/menu_scene_background_particle.glsl")
 local _canvas_draw_shader = rt.Shader("menu/menu_scene_background.glsl")
+
+local _lch_texture = rt.LCHTexture(1, 1, 256)
 
 --- @brief
 function mn.MenuSceneBackground:instantiate(scene)
@@ -293,6 +294,7 @@ function mn.MenuSceneBackground:draw()
     _canvas_draw_shader:send("camera_offset", { offset_x, offset_y })
     _canvas_draw_shader:send("camera_scale", camera:get_final_scale())
     _canvas_draw_shader:send("fraction", self._fraction)
+    _canvas_draw_shader:send("lch_texture", _lch_texture)
     love.graphics.setColor(1, 1, 1, 1)
     self._canvas:draw()
     _canvas_draw_shader:unbind()

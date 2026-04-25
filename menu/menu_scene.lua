@@ -19,8 +19,8 @@ rt.settings.menu_scene = {
     player_falling_x_damping = 0.98,
     player_falling_x_perturbation = 3,
     exit_acceleration = 60, -- per second
-    bloom_strength = 1,
-    bloom_composite = 0.1,
+    bloom_blur_strength = 1.5,
+    bloom_composite = 0.2,
 
     title_screen = {
         title_font_path = "assets/fonts/RubikSprayPaint/RubikSprayPaint-Regular.ttf",
@@ -487,7 +487,7 @@ function mn.MenuScene:enter(skip_title)
     rt.SceneManager:set_use_fixed_timestep(true)
 
     if rt.GameState:get_is_bloom_enabled() then
-        rt.SceneManager:get_bloom():set_bloom_strength(rt.settings.menu_scene.bloom_strength)
+        rt.SceneManager:get_bloom():set_bloom_strength(rt.settings.menu_scene.bloom_blur_strength)
     end
 
     if skip_title then
@@ -504,6 +504,8 @@ end
 --- @brief
 function mn.MenuScene:exit()
     self._player:request_is_disabled(self, nil)
+    self._player:request_is_flow_frozen(self, nil)
+
     self._camera:set_is_shaking(false)
     self._title_screen.input:deactivate()
     self._stage_select.input:deactivate()
@@ -591,6 +593,7 @@ function mn.MenuScene:_set_state(next)
 
         self._player:reset()
         self._player:request_is_bubble(self, true)
+        self._player:request_is_flow_frozen(self, true)
         self._title_screen.opacity_fade_animation:reset()
         self._stage_select.item_reveal_animation:reset()
         return
@@ -604,6 +607,7 @@ function mn.MenuScene:_set_state(next)
         self._player:request_gravity_multiplier(self, 1)
         self._player:request_is_bubble(self, false)
         self._player:request_is_disabled(self, false)
+        self._player:request_is_flow_frozen(self, true)
 
         for boundary in values(self._title_screen.boundaries) do
             boundary:set_is_sensor(true)
