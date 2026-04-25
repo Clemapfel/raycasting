@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="6" nextobjectid="83">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="6" nextobjectid="89">
  <editorsettings>
   <export target="air_dash_node_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -23,7 +23,7 @@
   <object id="1" type="Hitbox" x="-96" y="16">
    <polygon points="0,0 1200,0 1200,64 0,64"/>
   </object>
-  <object id="2" name="Spawn" type="PlayerSpawn" x="-1367.8" y="1984.3">
+  <object id="2" name="Spawn" type="PlayerSpawn" x="-1088" y="2208">
    <point/>
   </object>
   <object id="5" name="Checkpoint" type="Checkpoint" x="512" y="0">
@@ -102,72 +102,6 @@
   <object id="47" type="DeceleratorSurface" x="-655.897" y="3456">
    <polygon points="0,0 0,32 1248,32 1248,0"/>
   </object>
-  <object id="48" x="-832" y="2400">
-   <polygon points="-128,128 2560,128 2560,256 -128,272"/>
-  </object>
-  <object id="50" type="AirDashNode" x="-432" y="2384" width="200" height="200">
-   <properties>
-    <property name="indicator_always_visible" type="bool" value="true"/>
-   </properties>
-   <ellipse/>
-  </object>
-  <object id="51" type="AirDashNode" x="-432" y="2064" width="200" height="200">
-   <properties>
-    <property name="indicator_always_visible" type="bool" value="true"/>
-   </properties>
-   <ellipse/>
-  </object>
-  <object id="64" type="AirDashNode" x="-112" y="2112" width="200" height="200">
-   <properties>
-    <property name="indicator_always_visible" type="bool" value="true"/>
-   </properties>
-   <ellipse/>
-  </object>
-  <object id="66" type="AirDashNode" x="-432" y="1728" width="200" height="200">
-   <properties>
-    <property name="indicator_always_visible" type="bool" value="true"/>
-   </properties>
-   <ellipse/>
-  </object>
-  <object id="68" type="SlipperyHitbox" x="-192" y="1632">
-   <properties>
-    <property name="unjumpable" type="bool" value="true"/>
-   </properties>
-   <polygon points="0,48.0896 22.6956,-32 48,48.0896 48,800 0,800"/>
-  </object>
-  <object id="69" type="AirDashNode" x="80" y="1920" width="200" height="200">
-   <properties>
-    <property name="indicator_always_visible" type="bool" value="true"/>
-   </properties>
-   <ellipse/>
-  </object>
-  <object id="70" type="AirDashNode" x="272" y="1728" width="200" height="200">
-   <properties>
-    <property name="indicator_always_visible" type="bool" value="true"/>
-   </properties>
-   <ellipse/>
-  </object>
-  <object id="71" type="AirDashNode" x="528" y="1712" width="200" height="200">
-   <properties>
-    <property name="indicator_always_visible" type="bool" value="true"/>
-   </properties>
-   <ellipse/>
-  </object>
-  <object id="72" type="AirDashNode" x="784" y="1712" width="200" height="200">
-   <properties>
-    <property name="indicator_always_visible" type="bool" value="true"/>
-   </properties>
-   <ellipse/>
-  </object>
-  <object id="73" x="1024" y="1888">
-   <polygon points="0,0 0,48 224,48 224,0"/>
-  </object>
-  <object id="77" type="KillPlane" x="-352" y="2016">
-   <polygon points="583.211,-349.832 1376,-352 1376,-384 583.211,-381.832"/>
-  </object>
-  <object id="78" type="Coin" x="-128" y="2128">
-   <point/>
-  </object>
   <object id="79" type="DeceleratorSurface" x="-656" y="3072">
    <polygon points="0,0 0,32 1248,32 1248,0"/>
   </object>
@@ -176,6 +110,32 @@
   </object>
   <object id="82" type="DoubleJumpTether" x="-677.768" y="3336.25">
    <point/>
+  </object>
+  <object id="83" x="-992" y="2240">
+   <polygon points="0,0 624,0 624,-800 704,-800 704,288 0,288"/>
+  </object>
+  <object id="84" x="-368" y="1440">
+   <polygon points="0,0 -16,0 -16,784 -32,800 0,800"/>
+  </object>
+  <object id="85" type="Path" x="-496" y="2160">
+   <properties>
+    <property name="next" type="object" value="86"/>
+    <property name="should_loop" type="bool" value="true"/>
+    <property name="target" type="object" value="88"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="86" type="PathNode" x="-496" y="1504">
+   <point/>
+  </object>
+  <object id="87" type="OverlapTrigger" x="-992" y="2048" width="624" height="192">
+   <properties>
+    <property name="signal" value="unpause"/>
+    <property name="target" type="object" value="85"/>
+   </properties>
+  </object>
+  <object id="88" type="AirDashNode" x="-544" y="2096" width="112" height="112">
+   <ellipse/>
   </object>
  </objectgroup>
  <layer id="4" name="noop" width="32" height="32">

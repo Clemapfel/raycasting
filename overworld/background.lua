@@ -347,7 +347,6 @@ end
 
 --- @brief
 function ow.Background:_draw()
-    love.graphics.clear(rt.Palette.BLACK:unpack())
     local intensity = rt.settings.overworld.background.intensity
     love.graphics.setColor(intensity, intensity, intensity, 1)
 

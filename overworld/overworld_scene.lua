@@ -64,8 +64,11 @@ ow.ControlIndicatorType = {
     MOTION_NON_BUBBLE = "MOTION_NON_BUBBLE",
     MOTION_BUBBLE = "MOTION_BUBBLE",
     INTERACT = "INTERACT",
-    SLIDE = "SLIDE",
-    HOLD_DOWN_TO_ACCELERATE = "HOLD_DOWN_TO_ACCELERATE",
+    SLIDE_FREELY = "SLIDE_FREELY",
+    MID_AIR_HOLD_DOWN_TO_ACCELERATRE = "MID_AIR_HOLD_DOWN_TO_ACCELERATE",
+    ACCELERATOR_SURFACE_VERTICAL = "ACCELERATOR_SURFACE_VERTICAL",
+    ACCELERATOR_SURFACE_HORIZONTAL = "ACCELERATOR_SURFACE_HORIZONTAL",
+    ACCELERATOR_SURFACE_GENERAL = "ACCELERATOR_SURFACE_GENERAL",
     DIALOG_ADVANCE = "DIALOG_ADVANCE",
     DIALOG_SKIP = "DIALOG_SKIP",
     DIALOG_EXIT = "DIALOG_EXIT",
@@ -179,6 +182,8 @@ function ow.OverworldScene:instantiate(state)
     local dialog_button = rt.settings.overworld.dialog_box.advance_button
 
     self._control_indicator_type_to_control_indicator = {
+        [ow.ControlIndicatorType.NONE] = nil,
+
         [ow.ControlIndicatorType.MOTION_NON_BUBBLE] = create_non_bubble_indicator(),
 
         [ow.ControlIndicatorType.MOTION_BUBBLE] = create_indicator(
@@ -199,16 +204,27 @@ function ow.OverworldScene:instantiate(state)
             rt.ControlIndicatorButton.JUMP, translation.control_indicator_double_jump
         ),
 
-        [ow.ControlIndicatorType.SLIDE] = create_indicator(
+        [ow.ControlIndicatorType.SLIDE_FREELY] = create_indicator(
             rt.ControlIndicatorButton.DOWN, translation.control_indicator_slide
         ),
 
-        [ow.ControlIndicatorType.HOLD_DOWN_TO_ACCELERATE] = create_indicator(
+        [ow.ControlIndicatorType.MID_AIR_HOLD_DOWN_TO_ACCELERATRE] = create_indicator(
             rt.ControlIndicatorButton.LEFT_RIGHT, translation.control_indicator_move,
             rt.ControlIndicatorButton.DOWN, translation.control_indicator_hold_down
         ),
 
-        [ow.ControlIndicatorType.NONE] = nil,
+        [ow.ControlIndicatorType.ACCELERATOR_SURFACE_VERTICAL] = create_indicator(
+            rt.ControlIndicatorButton.UP_DOWN, translation.control_indicator_accelerator_surface_hold
+        ),
+
+        [ow.ControlIndicatorType.ACCELERATOR_SURFACE_HORIZONTAL] = create_indicator(
+            rt.ControlIndicatorButton.LEFT_RIGHT, translation.control_indicator_accelerator_surface_hold
+        ),
+
+        [ow.ControlIndicatorType.ACCELERATOR_SURFACE_GENERAL] = create_indicator(
+            rt.ControlIndicatorButton.ALL_DIRECTIONS, translation.control_indicator_accelerator_surface_hold
+        ),
+
         [ow.ControlIndicatorType.DIALOG_SKIP] = create_indicator(
             dialog_button, translation.control_indicator_dialog_skip
         ),
@@ -512,149 +528,6 @@ end
 --- @brief
 function ow.OverworldScene:stop_timer()
     self._timer_stopped = true
-end
-
-function ow.OverworldScene:draw()
-    if self._stage == nil then return end
-
-    local bloom_enabled, bloom = rt.GameState:get_is_bloom_enabled() == true
-    if bloom_enabled then
-        bloom = rt.SceneManager:get_bloom()
-        love.graphics.push()
-        bloom:bind()
-        love.graphics.clear(0, 0, 0, 0)
-        self._camera:bind()
-        if self._player_is_visible then
-            self._player:draw_bloom()
-        end
-        self._stage:draw_bloom()
-        self._camera:unbind()
-        bloom:unbind()
-        love.graphics.pop()
-    end
-
-    local function draw_bloom()
-        bloom:composite(rt.settings.overworld_scene.bloom_composite_strength)
-    end
-
-    love.graphics.push("all")
-
-    local blur_eps = 0.02
-    local blur_value = self._blur_motion:get_value()
-
-    love.graphics.origin()
-    if blur_value <= blur_eps and not (self._show_title_card == true and (self._fade:get_is_active() or self._fade:get_is_visible())) then
-        self._background:draw()
-
-        if self._fade_to_black > 0 then
-            local r, g, b, _ = rt.Palette.BLACK:unpack()
-            love.graphics.setColor(r, g, b, self._fade_to_black)
-            love.graphics.rectangle("fill", self._bounds:unpack())
-        end
-
-        self._camera:bind()
-        self._stage:draw_below_player()
-
-        if self._player_is_visible then
-            self._player:draw_body()
-            self._player:draw_core()
-        end
-        self._stage:draw_above_player()
-        self._camera:unbind()
-
-        self._camera:bind()
-        self._stage:draw_above_bloom()
-        self._camera:unbind()
-
-    elseif blur_value > blur_eps then -- respawning
-        if self._blur ~= nil then
-            self._blur:set_blur_strength(blur_value * rt.settings.overworld_scene.max_blur_strength)
-            self._blur:bind()
-            love.graphics.clear(0, 0, 0, 0)
-
-            self._background:draw()
-            self._camera:bind()
-            self._stage:draw_below_player()
-            self._stage:draw_above_player()
-            self._camera:unbind()
-
-            self._stage:draw_above_bloom()
-
-            self._blur:unbind()
-
-            local t = 1 - math.mix(0, rt.settings.overworld_scene.max_blur_darkening, self._blur_motion:get_value())
-            love.graphics.setColor(t, t, t, t)
-            self._blur:draw()
-
-            if self._player_is_visible then
-                self._camera:bind()
-                self._player:draw_body()
-                self._player:draw_core()
-                self._camera:unbind()
-            end
-        end
-    else -- fading
-        self._background:draw()
-        self._camera:bind()
-        self._stage:draw_below_player()
-        self._stage:draw_above_player()
-        self._camera:unbind()
-
-        self._fade:draw()
-
-        if self._player_is_visible then
-            self._camera:bind()
-            self._player:draw_body()
-            self._player:draw_core()
-            self._camera:unbind()
-        end
-
-        self._title_card:draw()
-    end
-
-    love.graphics.pop()
-
-    if self._pause_menu_active then
-        self._pause_menu:draw()
-    end
-
-    self._control_indicator_particle_effect:draw()
-
-    local opacity = self._control_indicator_opacity_motion:get_value()
-    if opacity > 0 and self._pause_menu_active == false then
-        local indicator = self._control_indicator_type_to_control_indicator[self._control_indicator_type]
-        if indicator ~= nil then
-            indicator:set_opacity(opacity)
-            love.graphics.push()
-            love.graphics.translate(self._control_indicator_offset_motion:get_position())
-            indicator:draw()
-            love.graphics.pop()
-        end
-    end
-
-    if self._camera_override_active then
-        love.graphics.push("all")
-        love.graphics.setBlendMode("add", "premultiplied")
-
-        local draw = function(v, border)
-            v = v * rt.settings.overworld_scene.border_scroll_opacity
-            love.graphics.setColor(v, v, v, v)
-            border:draw()
-        end
-
-        draw(self._camera_top_border_t, self._camera_top_border)
-        draw(self._camera_right_border_t, self._camera_right_border)
-        draw(self._camera_bottom_border_t, self._camera_bottom_border)
-        draw(self._camera_left_border_t, self._camera_left_border)
-
-        love.graphics.pop()
-    end
-
-    if rt.GameState:get_draw_debug_information()
-        and rt.SceneManager:get_screen_recorder():get_is_recording() == false
-    then
-        self:_draw_debug_information()
-    end
 end
 
 --- @brief
@@ -1334,6 +1207,7 @@ function ow.OverworldScene:_update_camera(delta)
                 -- scale and bounds controlled externaly
                 camera:set_apply_bounds(true)
                 camera:move_to(px, py)
+                camera:scale_to(1)
                 self._camera_state = _CAMERA_STATE_BOUNDED
             elseif has_unbounded then
                 -- only scale controlled externally

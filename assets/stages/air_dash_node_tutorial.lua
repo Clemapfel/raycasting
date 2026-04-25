@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 6,
-  nextobjectid = 83,
+  nextobjectid = 89,
   properties = {},
   tilesets = {
     {
@@ -121,21 +121,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = -1367.8,
-          y = 1984.3,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 3,
-          name = "Goal",
-          type = "Goal",
-          shape = "point",
-          x = 992,
-          y = 0,
+          x = -1088,
+          y = 2208,
           width = 0,
           height = 0,
           rotation = 0,
@@ -526,218 +513,6 @@ return {
           properties = {}
         },
         {
-          id = 48,
-          name = "",
-          type = "",
-          shape = "polygon",
-          x = -832,
-          y = 2400,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = -128, y = 128 },
-            { x = 2560, y = 128 },
-            { x = 2560, y = 256 },
-            { x = -128, y = 272 }
-          },
-          properties = {}
-        },
-        {
-          id = 50,
-          name = "",
-          type = "AirDashNode",
-          shape = "ellipse",
-          x = -432,
-          y = 2384,
-          width = 200,
-          height = 200,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["indicator_always_visible"] = true
-          }
-        },
-        {
-          id = 51,
-          name = "",
-          type = "AirDashNode",
-          shape = "ellipse",
-          x = -432,
-          y = 2064,
-          width = 200,
-          height = 200,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["indicator_always_visible"] = true
-          }
-        },
-        {
-          id = 64,
-          name = "",
-          type = "AirDashNode",
-          shape = "ellipse",
-          x = -112,
-          y = 2112,
-          width = 200,
-          height = 200,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["indicator_always_visible"] = true
-          }
-        },
-        {
-          id = 66,
-          name = "",
-          type = "AirDashNode",
-          shape = "ellipse",
-          x = -432,
-          y = 1728,
-          width = 200,
-          height = 200,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["indicator_always_visible"] = true
-          }
-        },
-        {
-          id = 68,
-          name = "",
-          type = "SlipperyHitbox",
-          shape = "polygon",
-          x = -192,
-          y = 1632,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = 48.0896 },
-            { x = 22.6956, y = -32 },
-            { x = 48, y = 48.0896 },
-            { x = 48, y = 800 },
-            { x = 0, y = 800 }
-          },
-          properties = {
-            ["unjumpable"] = true
-          }
-        },
-        {
-          id = 69,
-          name = "",
-          type = "AirDashNode",
-          shape = "ellipse",
-          x = 80,
-          y = 1920,
-          width = 200,
-          height = 200,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["indicator_always_visible"] = true
-          }
-        },
-        {
-          id = 70,
-          name = "",
-          type = "AirDashNode",
-          shape = "ellipse",
-          x = 272,
-          y = 1728,
-          width = 200,
-          height = 200,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["indicator_always_visible"] = true
-          }
-        },
-        {
-          id = 71,
-          name = "",
-          type = "AirDashNode",
-          shape = "ellipse",
-          x = 528,
-          y = 1712,
-          width = 200,
-          height = 200,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["indicator_always_visible"] = true
-          }
-        },
-        {
-          id = 72,
-          name = "",
-          type = "AirDashNode",
-          shape = "ellipse",
-          x = 784,
-          y = 1712,
-          width = 200,
-          height = 200,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["indicator_always_visible"] = true
-          }
-        },
-        {
-          id = 73,
-          name = "",
-          type = "",
-          shape = "polygon",
-          x = 1024,
-          y = 1888,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = 0 },
-            { x = 0, y = 48 },
-            { x = 224, y = 48 },
-            { x = 224, y = 0 }
-          },
-          properties = {}
-        },
-        {
-          id = 77,
-          name = "",
-          type = "KillPlane",
-          shape = "polygon",
-          x = -352,
-          y = 2016,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 583.211, y = -349.832 },
-            { x = 1376, y = -352 },
-            { x = 1376, y = -384 },
-            { x = 583.211, y = -381.832 }
-          },
-          properties = {}
-        },
-        {
-          id = 78,
-          name = "",
-          type = "Coin",
-          shape = "point",
-          x = -128,
-          y = 2128,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
           id = 79,
           name = "",
           type = "DeceleratorSurface",
@@ -788,6 +563,106 @@ return {
           y = 3336.25,
           width = 0,
           height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 83,
+          name = "",
+          type = "",
+          shape = "polygon",
+          x = -992,
+          y = 2240,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 624, y = 0 },
+            { x = 624, y = -800 },
+            { x = 704, y = -800 },
+            { x = 704, y = 288 },
+            { x = 0, y = 288 }
+          },
+          properties = {}
+        },
+        {
+          id = 84,
+          name = "",
+          type = "",
+          shape = "polygon",
+          x = -368,
+          y = 1440,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = -16, y = 0 },
+            { x = -16, y = 784 },
+            { x = -32, y = 800 },
+            { x = 0, y = 800 }
+          },
+          properties = {}
+        },
+        {
+          id = 85,
+          name = "",
+          type = "Path",
+          shape = "point",
+          x = -496,
+          y = 2160,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["next"] = { id = 86 },
+            ["should_loop"] = true,
+            ["target"] = { id = 88 }
+          }
+        },
+        {
+          id = 86,
+          name = "",
+          type = "PathNode",
+          shape = "point",
+          x = -496,
+          y = 1504,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 87,
+          name = "",
+          type = "OverlapTrigger",
+          shape = "rectangle",
+          x = -992,
+          y = 2048,
+          width = 624,
+          height = 192,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["signal"] = "unpause",
+            ["target"] = { id = 85 }
+          }
+        },
+        {
+          id = 88,
+          name = "",
+          type = "AirDashNode",
+          shape = "ellipse",
+          x = -544,
+          y = 2096,
+          width = 112,
+          height = 112,
           rotation = 0,
           visible = true,
           properties = {}

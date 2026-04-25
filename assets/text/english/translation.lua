@@ -106,8 +106,10 @@ return {
         control_indicator_dialog_confirm_option = "Confirm",
 
         control_indicator_air_dash = "<i>(mid-air)</i> Dash",
-        control_indicator_slide = "<i>(grounded)</i> slide freely",
-        control_indicator_hold_down = "<i>(mid-air)</i> Hold to Accelerate",
+        control_indicator_slide = "<i>(grounded)</i> Slide Freely",
+        control_indicator_hold_down = "<i>(mid-air)</i> Fall Faster",
+
+        control_indicator_accelerator_surface_hold = "(hold direction) accelerate",
 
         debug_information_time_paused = "paused",
         debug_information_frames = "cycles"
@@ -364,38 +366,8 @@ return {
 
     stages = { -- order matters
         {
-            id = "exhibition",
-            title = "Debug Level Name",
-            target_time = math.huge
-        },
-
-        {
-            id = "jump_tutorial",
-            title = "The Shape of Jump to Come",
-            target_time = math.huge
-        },
-
-        {
-            id = "one_way_platform_tutorial",
-            title = "TODO",
-            target_time = math.huge
-        },
-
-        {
-            id = "tutorial",
-            title = "[DEBUG TUTORIAL]",
-            target_time = math.huge,
-        },
-
-        {
-            id = "accelerator_tutorial",
-            title = "Accelerators",
-            target_time = math.huge,
-        },
-
-        {
-            id = "bounce_tutorial",
-            title = "TODO",
+            id = "introductions",
+            title = "Introductions",
             target_time = math.huge
         }
 
@@ -409,11 +381,7 @@ return {
             target_time = math.huge,
         },
 
-        {
-            id = "air_dash_node_tutorial",
-            title = "TODO",
-            target_time = math.huge,
-        },
+
 
         {
             id = "portal_tutorial",

@@ -120,7 +120,7 @@ do
 
         flow_source_default_magnitude = 0.05, -- % per second
         flow_source_default_duration = 120 / 60,
-        flow_decay_per_second = 0.015, -- % per second
+        flow_decay_per_second = 0.25, -- % per second
 
         input_subscriber_priority = 1
     }
@@ -1834,7 +1834,7 @@ function rt.Player:update(delta)
     end
 
     -- detect being squished by moving objects
-    if not is_ghost then
+    if not is_ghost and not is_disabled then
         local center_body, to_check, x_positions, y_positions
         if not is_bubble then
             center_body = self._body
@@ -2851,7 +2851,7 @@ function rt.Player:reset()
         self._is_jump_disabled_requests,
         self._is_jump_allowed_override_requests,
         self._is_trail_visible_requests,
-        self._is_flow_froze_requests,
+        self._is_flow_frozen_requests,
         self._is_idle_timer_frozen_requests,
         self._opacity_requests,
         self._time_dilation_requests,
@@ -3298,11 +3298,11 @@ end
 
 --- @brief
 function rt.Player:get_is_flow_frozen()
-    for source in values(self._is_flow_froze_requests) do
+    for source in values(self._is_flow_frozen_requests) do
         if source.is_frozen == true then return true end
     end
 
-    return true
+    return false
 end
 
 --- @brief
@@ -3311,7 +3311,7 @@ function rt.Player:get_is_idle_timer_frozen()
         if source.is_frozen == true then return true end
     end
 
-    return true
+    return false
 end
 
 --- @brief
@@ -3504,7 +3504,7 @@ function rt.Player:_update_flow(delta)
     local to_add = 0
 
     local to_remove = {}
-    for id, source in values(self._flow_sources) do
+    for id, source in pairs(self._flow_sources) do
         to_add = to_add + source.flow_per_second * delta
 
         source.elapsed = source.elapsed + delta
@@ -3518,7 +3518,6 @@ function rt.Player:_update_flow(delta)
     end
 
     to_add = to_add - settings.flow_decay_per_second * delta
-
     self._current_flow = math.clamp(self._current_flow + to_add, 0, 1)
 end
 
