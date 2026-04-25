@@ -51,6 +51,7 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
 
     local x1, y1 = object.x, object.y
     local x2, y2 = other.x, other.y
+
     local centroid_x, centroid_y = math.mix2(x1, y1, x2, y2, 0.5)
 
     x1 = x1 - centroid_x
