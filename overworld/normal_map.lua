@@ -370,7 +370,7 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
         end
 
         local dispatch_size_x, dispatch_size_y = math.ceil(chunk_size + 2 * padding) / size_x,
-            math.ceil(chunk_size + 2 * padding) / size_y
+        math.ceil(chunk_size + 2 * padding) / size_y
 
         local mask_native = {
             mask:get_native(),
@@ -489,10 +489,10 @@ function ow.NormalMap:draw_light(
     local x, y, w, h = camera:get_world_bounds():unpack()
 
     local eps = _chunk_eps(chunk_size)
-    local camera_left = x - bounds.x - eps
-    local camera_right = x + w - bounds.x + eps
-    local camera_top = y - bounds.y - eps
-    local camera_bottom = y + h - bounds.y + eps
+    local camera_left = x - self._offset_x - bounds.x - eps
+    local camera_right = x - self._offset_x + w - bounds.x + eps
+    local camera_top = y - self._offset_y - bounds.y - eps
+    local camera_bottom = y - self._offset_y + h - bounds.y + eps
 
     local min_chunk_x = math.floor(camera_left / chunk_size)
     local max_chunk_x = math.floor(camera_right / chunk_size)
@@ -524,8 +524,8 @@ function ow.NormalMap:draw_light(
                         )
                     end
 
-                    local cell_x = bounds.x + chunk_x * chunk_size
-                    local cell_y = bounds.y + chunk_y * chunk_size
+                    local cell_x = bounds.x + chunk_x * chunk_size + self._offset_x
+                    local cell_y = bounds.y + chunk_y * chunk_size + self._offset_y
                     love.graphics.draw(native, chunk.draw_quad, cell_x, cell_y)
                 end
             end
@@ -564,21 +564,18 @@ function ow.NormalMap:draw_shadow(camera)
         end
 
         love.graphics.draw(self._texture_atlas:get_native(), chunk.draw_quad,
-            bounds.x + chunk_x * chunk_size,
-            bounds.y + chunk_y * chunk_size
+            bounds.x + chunk_x * chunk_size + self._offset_x,
+            bounds.y + chunk_y * chunk_size + self._offset_y
         )
     end
 
     local x, y, w, h = camera:get_world_bounds():unpack()
 
-    x = x + self._offset_x
-    y = y + self._offset_y
-
     local eps = _chunk_eps(chunk_size)
-    local camera_left = x - bounds.x - eps
-    local camera_right = x + w - bounds.x + eps
-    local camera_top = y - bounds.y - eps
-    local camera_bottom = y + h - bounds.y + eps
+    local camera_left = x - self._offset_x - bounds.x - eps
+    local camera_right = x - self._offset_x + w - bounds.x + eps
+    local camera_top = y - self._offset_y - bounds.y - eps
+    local camera_bottom = y - self._offset_y + h - bounds.y + eps
 
     local min_chunk_x = math.floor(camera_left / chunk_size)
     local max_chunk_x = math.floor(camera_right / chunk_size)
@@ -591,7 +588,7 @@ function ow.NormalMap:draw_shadow(camera)
             for chunk_y = min_chunk_y, max_chunk_y do
                 local chunk = column[chunk_y]
                 if chunk ~= nil and chunk.is_initialized then
-                   draw_chunk(chunk, chunk_x, chunk_y)
+                    draw_chunk(chunk, chunk_x, chunk_y)
                 end
             end
         end
