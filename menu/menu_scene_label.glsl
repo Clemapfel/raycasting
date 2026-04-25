@@ -51,8 +51,8 @@ uniform vec4 black;
 
 vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 vertex_position) {
     float dist = texture(img, texture_coords).a;
-    const float thickness = 1 - 0.05;
-    return vec4(vec3(smoothstep(0.0, 1 - thickness, dist)), 1) * black;
+    const float thickness = 1 - 0.1;
+    return vec4(smoothstep(0, 1 - thickness, dist)) * black;
 }
 
 #elif MODE == MODE_NO_SDF
@@ -67,18 +67,11 @@ vec3 lch_to_rgb(vec3 lch) {
 }
 
 uniform float hue;
-uniform vec2 camera_offset;
-uniform float camera_scale = 1;
-vec2 to_uv(vec2 frag_position) {
-    vec2 uv = frag_position;
-    vec2 origin = vec2(love_ScreenSize.xy / 2);
-    uv -= origin;
-    uv /= camera_scale;
-    uv += origin;
-    uv -= camera_offset;
-    uv.x *= love_ScreenSize.x / love_ScreenSize.y;
-    uv /= love_ScreenSize.xy;
-    return uv;
+
+uniform mat4x4 screen_to_world_transform;
+vec2 to_world_position(vec2 xy) {
+    vec4 result = screen_to_world_transform * vec4(xy, 0.0, 1.0);
+    return result.xy / result.w;
 }
 
 vec2 rotate(vec2 v, float angle) {
@@ -93,7 +86,7 @@ float gaussian(float x, float ramp)
 }
 
 vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 vertex_position) {
-    vec2 seed = to_uv(vertex_position) * 140;
+    vec2 seed = to_world_position(vertex_position) / love_ScreenSize.xy * 140;
     vec2 seed_magnitude = 3.5 * 1 / love_ScreenSize.xy;
     texture_coords += vec2(
         gradient_noise(vec3(seed, elapsed)) * seed_magnitude.x,
@@ -141,7 +134,7 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 vertex_position
     float magnitude = length(vec2(gx, gy));
     magnitude = smoothstep(edge_threshold_low, edge_threshold_high, magnitude);
 
-    vec2 uv = to_uv(vertex_position);
+    vec2 uv = to_world_position(vertex_position) / love_ScreenSize.xy;
     uv += vec2(elapsed / 20);
     uv = rotate(uv, 0.33 * PI);
     uv.x /= 2;
