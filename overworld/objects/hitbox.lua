@@ -204,7 +204,7 @@ function ow.Hitbox:draw()
     love.graphics.setLineWidth(self._outline_width)
     love.graphics.setLineJoin("bevel")
     self._color:bind()
-    --love.graphics.line(self._contour)
+    love.graphics.line(self._contour)
 end
 
 --- @brief
