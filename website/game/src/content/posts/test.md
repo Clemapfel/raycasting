@@ -3,6 +3,8 @@ title: "My Post"
 slug: "test"
 ---
 
+# H1 Heading
+
 ```ts
 const PI = 3
 function test(x1 : Int32, x2) {

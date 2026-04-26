@@ -17,29 +17,34 @@ if (!post) {
 }
 
 const { Content } = await render(post);
+
+import '../styles/default.css';
 ---
 
 <style>
     :root {
-        --heading-color: #e2e2e2;
-        --text-color: #e2e2e2;
+        --heading-color: var(--default-color-emphasized);
+        --text-color: var(--default-color-foreground);
         --code-color: #E3E3E3;
         --math-color: #E3E3E3;
 
-        --background-color: #2B2D30;
+        --background-color: var(--default-color-background);
 
-        --padding-horizontal: 5vw;
-        --padding-top: 20px;
-        --padding-bottom: 20px;
+        --padding-horizontal: 2vw;
+        --padding-top: 5px;
+        --padding-bottom: 40px;
 
-        --margin-horizontal: 5vw;
+        --margin-horizontal: 20px;
         --margin-top: 5vh;
-        --margin-bottom: 10vh;
+        --margin-bottom: 0; /* footer is below */
 
-        --border-radius: 10px;
+        --border-radius: 0px;
+        --border-width: 20px;
 
-        --font-body: 'Cantarelle', Noto, sans-serif;
-        --font-mono: 'DejaVu Mono', Noto Mono, monospace;
+        --max-width: 75vw;
+
+        --font-body: var(--default-font);
+        --font-mono: var(--default-font-mono);
 
         --h1-size: 3.5rem;
         --h2-size: 2.75rem;
@@ -52,17 +57,17 @@ const { Content } = await render(post);
         --code-margin: 2rem 0;
         --code-frame: 1px solid #505050;
 
-        --code-color-keyword: #FF0065;
+        --code-color-keyword: var(--default-color-primary);
         --code-color-string: #E633FF;
         --code-color-string-expression: #E633FF;
         --code-color-function: #FF21B3;
-        --code-color-comment: #5FFDAE;
+        --code-color-comment: var(--default-color-secondary);
         --code-color-constant: #FF7B00;
         --code-color-parameter: #FFABAB;
         --code-color-punctuation: #E3E3E3;
         --code-color-link: #589DF6;
         
-        --math-font: 'KaTeX_Main', sans-serif;
+        --math-font: 'Noto Math', 'KaTeX_Main' !important;
         --math-size: 1.2em;
     }
 
@@ -74,12 +79,28 @@ const { Content } = await render(post);
         padding-bottom: var(--padding-bottom, 5vh);
         font-family: var(--font-body, system-ui, sans-serif), sans-serif;
         color: var(--text-color, inherit);
-        border-radius: var(--border-radius, 10px);
-        max-width: 100%;
+
+        border-radius: var(--border-radius, 0px);
+        border-top: 0;
+        border-bottom: 0;
+        border-left: var(--border-width) solid;
+        border-right: var(--border-width) solid;
+        border-image: linear-gradient(
+                to bottom,
+                var(--default-color-primary),
+                var(--default-color-secondary)
+        ) 1;
+
+        outline: 2px solid var(--background-color);
+
+        max-width: var(--max-width, 100%);
+
         margin-left: var(--margin-horizontal, auto);
         margin-right: var(--margin-horizontal, auto);
         margin-top: var(--margin-top, auto);
         margin-bottom: var(--margin-bottom, auto);
+        margin-inline: auto; /* keep centered */
+
         box-sizing: border-box;
         display: block;
 

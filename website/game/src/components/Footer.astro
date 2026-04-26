@@ -1,0 +1,35 @@
+---
+//
+// Usage: <Footer author="Jim Bobbins"/>
+//
+
+interface Props {
+    author: string;
+}
+
+const { author } = Astro.props;
+
+if (!author) {
+    throw new Error('In Footer: `author` property not specified');
+}
+
+const currentYear = new Date().getFullYear();
+
+import '../styles/default.css';
+---
+
+<style>
+    footer {
+        font-family: var(--default-font);
+        color: var(--default-color-foreground);
+        -webkit-text-stroke: 3px var(--default-color-background);
+        -webkit-text-fill-color: var(--default-color-foreground);
+        paint-order: stroke fill;
+        text-align: center;
+        opacity: 0.75;
+    }
+</style>
+
+<footer>
+    <p> Copyright &copy; {currentYear} {author} </p>
+</footer>

@@ -6,13 +6,13 @@
 import { getEntry, getCollection } from 'astro:content';
 
 interface Props {
-    id?: string;
+    id: string;
 }
 
 const { id } = Astro.props;
 
 if (!id) {
-    throw new Error("ShaderCanvas requires an 'id' prop.");
+    throw new Error('In ShaderCanvas: \`id\` property not specified');
 }
 
 const fragment_shader_entry = await getEntry('shaders', 'test');
