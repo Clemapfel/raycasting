@@ -2,241 +2,216 @@
 import { getEntry } from 'astro:content';
 
 interface Props {
-    vertex_shader_id?: string;
-    fragment_shader_id?: string;
+    id?: string;
 }
 
-const { vertex_shader_id, fragment_shader_id } = Astro.props;
+const { id } = Astro.props;
 
-const fragment_shader = await getEntry('shaders', fragment_shader_id);
-const vertex_shader = await getEntry('shaders', vertex_shader_id);
-
-if (!fragment_shader) {
-    throw new Error(`no fragment shader with id "${fragment_shader_id}" at "src/content/shaders/${fragment_shader_id}.glsl"`);
+if (!id) {
+    throw new Error("ShaderCanvas requires an 'id' prop.");
 }
 
-if (!vertex_shader) {
-    throw new Error(`no vertex shader with id "${vertex_shader_id}" at "src/content/shaders/${vertex_shader_id}.glsl"`);
+const shaders = import.meta.glob('/src/content/shaders/*.glsl', {
+    query: '?raw',
+    import: 'default'
+});
+
+const loader = shaders[`/src/content/shaders/${id}.glsl`];
+
+if (!loader) {
+    throw new Error(`No fragment shader with id "${id}" at "src/content/shaders/${id}.glsl"`);
 }
 
-const {
-    vertex_shader = `
+const vertex_shader = `
     attribute vec2 position;
     attribute vec2 uv;
-    
+
     varying vec2 texture_coords;
-    uniform vec2 canvas_size;
 
     void main() {
-      texture_coords = uv;
-      gl_Position = vec4(position, 0.0, 1.0);
+        texture_coords = uv;
+        gl_Position = vec4(position, 0.0, 1.0);
     }
-  `,
-    
-    fragment_shader = `
-    precision mediump float;
-    
-    varying vec2 texture_coords;
-    uniform float elapsed;
-
-    void main() {
-      gl_FragColor = vec4(fract(texture_coords.xyx + elapsed), 1.0);
-    }
-  `,
-} = Astro.props;
+`;
 ---
 
-<div class="canvas-container">
-    <canvas id="shader_background"></canvas>
-</div>
+<shader-canvas-wrapper>
+    <script type="x-shader/x-vertex" class="vert-shader" set:html={vertex_shader}></script>
+    <script type="x-shader/x-fragment" class="frag-shader" set:html={fragment_shader}></script>
+
+    <canvas class="webgl-canvas"></canvas>
+    <div class="shader-error" style="display: none;"></div>
+</shader-canvas-wrapper>
 
 <style>
-    .canvas-container {
-        position: relative;
-        width: 100vw;
-        height: 100vh;
-        overflow: hidden;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    #shader_background {
-        position: absolute;
+    shader-canvas-wrapper {
+        position: fixed;
         top: 0;
         left: 0;
-        width: 100%;
-        height: 100%;
-        z-index: -1;
-        pointer-events: none;
-        display: block;
-        background: #0a0a0a;
+        width: 100vw;
+        height: 100vh;
+        z-index: -9999; /* Deep in the background */
+        pointer-events: none; /* Let clicks pass through to the page */
+        overflow: hidden;
     }
 
-    .error-overlay {
-        position: absolute;
-        inset: 1rem;
-        background: rgba(180, 0, 0, 0.15);
-        border: 1px solid rgba(255, 80, 80, 0.4);
-        border-radius: 8px;
+    .webgl-canvas {
+        width: 100%;
+        height: 100%;
+        display: block;
+    }
+
+    .shader-error {
+        position: fixed;
+        top: 1rem;
+        left: 1rem;
+        right: 1rem;
+        background: darkred; /* Red error background */
+        color: white;
         padding: 1rem;
+        border-radius: 0.5rem;
         font-family: monospace;
-        font-size: 0.8rem;
-        color: #ff6b6b;
         white-space: pre-wrap;
-        overflow: auto;
-        z-index: 100;
+        z-index: 9999; /* Bring errors to the absolute front */
+        pointer-events: auto; /* Allow text selection of the error */
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
     }
 </style>
 
-<script define:vars={{ vertex_shader, fragment_shader }}>
-    const canvas = document.getElementById("shader_background");
-    const gl = canvas.getContext("webgl");
+<script>
+    class ShaderCanvas extends HTMLElement {
+        connectedCallback() {
+            const canvas = this.querySelector('.webgl-canvas') as HTMLCanvasElement;
+            const errorOverlay = this.querySelector('.shader-error') as HTMLDivElement;
+            const vsSource = this.querySelector('.vert-shader')?.textContent || '';
+            const fsSource = this.querySelector('.frag-shader')?.textContent || '';
 
-    function dispatch_error(err) {
-        canvas.dispatchEvent(new CustomEvent("webgl:error", {
-            bubbles: true,
-            detail: { message: err.message, stack: err.stack }
-        }));
-    }
-
-    document.getElementById("shader_background").addEventListener("webgl:error", (e) => {
-        const overlay = document.getElementById("shader_error");
-        overlay.hidden = false;
-        document.getElementById("shader_error_message").textContent = e.detail.message;
-    });
-
-    canvas.addEventListener("webglcontextlost", (e) => {
-        e.preventDefault();
-        dispatch_error(new Error("WebGL context lost"));
-    });
-
-    canvas.addEventListener("webglcontextrestored", () => {
-        // re-init everything if you want to recover
-    });
-
-    function gl_check(label) {
-        const err = gl.getError();
-        if (err !== gl.NO_ERROR) {
-            const messages = {
-                [gl.INVALID_ENUM]:                  "INVALID_ENUM",
-                [gl.INVALID_VALUE]:                 "INVALID_VALUE",
-                [gl.INVALID_OPERATION]:             "INVALID_OPERATION",
-                [gl.INVALID_FRAMEBUFFER_OPERATION]: "INVALID_FRAMEBUFFER_OPERATION",
-                [gl.OUT_OF_MEMORY]:                 "OUT_OF_MEMORY",
-                [gl.CONTEXT_LOST_WEBGL]:            "CONTEXT_LOST_WEBGL",
+            const showError = (msg: string) => {
+                console.error("WebGL Error:", msg);
+                errorOverlay.textContent = `Shader Error:\n\n${msg}`;
+                errorOverlay.style.display = 'block';
+                canvas.style.display = 'none'; // Hide canvas on error
             };
-            throw new Error(`WebGL error at [${label}]: ${messages[err] ?? `0x${err.toString(16)}`}`);
+
+            try {
+                const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl') as WebGLRenderingContext;
+
+                if (!gl) {
+                    throw new Error("WebGL is not supported on this machine/browser.");
+                }
+
+                // --- 1. Compile Shaders ---
+                const compileShader = (type: number, source: string) => {
+                    const shader = gl.createShader(type);
+                    if (!shader) throw new Error("Could not create WebGL shader.");
+
+                    gl.shaderSource(shader, source);
+                    gl.compileShader(shader);
+
+                    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                        const info = gl.getShaderInfoLog(shader);
+                        gl.deleteShader(shader);
+                        const shaderType = type === gl.VERTEX_SHADER ? "Vertex" : "Fragment";
+                        throw new Error(`${shaderType} Shader compilation failed:\n${info}`);
+                    }
+                    return shader;
+                };
+
+                const vertexShader = compileShader(gl.VERTEX_SHADER, vsSource);
+                const fragmentShader = compileShader(gl.FRAGMENT_SHADER, fsSource);
+
+                // --- 2. Link Program ---
+                const program = gl.createProgram();
+                if (!program) throw new Error("Could not create WebGL program.");
+
+                gl.attachShader(program, vertexShader);
+                gl.attachShader(program, fragmentShader);
+                gl.linkProgram(program);
+
+                if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+                    const info = gl.getProgramInfoLog(program);
+                    throw new Error(`Program linking failed:\n${info}`);
+                }
+
+                gl.useProgram(program);
+
+                // --- 3. Set Up Geometry (Full Screen Quad) ---
+                // Format: X, Y, U, V
+                const vertices = new Float32Array([
+                    -1.0, -1.0,  0.0, 0.0,
+                    1.0, -1.0,  1.0, 0.0,
+                    -1.0,  1.0,  0.0, 1.0,
+                    1.0, -1.0,  1.0, 0.0,
+                    1.0,  1.0,  1.0, 1.0,
+                    -1.0,  1.0,  0.0, 1.0
+                ]);
+
+                const buffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+                gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+
+                const positionLocation = gl.getAttribLocation(program, "position");
+                const uvLocation = gl.getAttribLocation(program, "uv");
+
+                const Float32Size = Float32Array.BYTES_PER_ELEMENT;
+                const stride = 4 * Float32Size;
+
+                gl.enableVertexAttribArray(positionLocation);
+                gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, stride, 0);
+
+                // Check if UVs are actually used in the vertex shader before enabling
+                if (uvLocation !== -1) {
+                    gl.enableVertexAttribArray(uvLocation);
+                    gl.vertexAttribPointer(uvLocation, 2, gl.FLOAT, false, stride, 2 * Float32Size);
+                }
+
+                // Retrieve common uniform locations (optional but helpful for future shaders)
+                const timeLocation = gl.getUniformLocation(program, "u_time");
+                const resolutionLocation = gl.getUniformLocation(program, "u_resolution");
+
+                // --- 4. Handle Resize for sharp Retina displays ---
+                const resize = () => {
+                    const dpr = window.devicePixelRatio || 1;
+                    // Match the DOM size of the canvas
+                    const width = canvas.clientWidth * dpr;
+                    const height = canvas.clientHeight * dpr;
+
+                    if (canvas.width !== width || canvas.height !== height) {
+                        canvas.width = width;
+                        canvas.height = height;
+                        gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+                    }
+                };
+
+                window.addEventListener('resize', resize);
+                resize(); // Initial sizing
+
+                // --- 5. Render Loop ---
+                let startTime = performance.now();
+                const render = (now: number) => {
+                    resize(); // Ensure canvas is perfectly sized before draw
+
+                    if (timeLocation) {
+                        gl.uniform1f(timeLocation, (now - startTime) * 0.001);
+                    }
+                    if (resolutionLocation) {
+                        gl.uniform2f(resolutionLocation, gl.canvas.width, gl.canvas.height);
+                    }
+
+                    gl.clearColor(0.0, 0.0, 0.0, 1.0);
+                    gl.clear(gl.COLOR_BUFFER_BIT);
+                    gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+                    requestAnimationFrame(render);
+                };
+
+                requestAnimationFrame(render);
+
+            } catch (err: any) {
+                showError(err.message || "An unknown WebGL error occurred.");
+            }
         }
     }
 
-    function compile_shader(source, type) {
-        const shader = gl.createShader(type);
-        gl.shaderSource(shader, source);
-        gl.compileShader(shader);
-        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-            const log = gl.getShaderInfoLog(shader);
-            gl.deleteShader(shader);
-            throw new Error(`Shader compile error:\n${log}`);
-        }
-        return shader;
-    }
-
-    function link_program(...shaders) {
-        const program = gl.createProgram();
-        shaders.forEach(s => gl.attachShader(program, s));
-        gl.linkProgram(program);
-        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-            const log = gl.getProgramInfoLog(program);
-            gl.deleteProgram(program);
-            throw new Error(`Program link error:\n${log}`);
-        }
-        return program;
-    }
-
-    try {
-        const program = link_program(
-            compile_shader(vertex_shader, gl.VERTEX_SHADER),
-            compile_shader(fragment_shader, gl.FRAGMENT_SHADER)
-        );
-        gl.useProgram(program);
-        gl_check("useProgram");
-
-        // Setup Element (Index) Buffer — static, never changes
-        // 5 quads (center + top + right + bottom + left), 2 triangles each, 3 vertices each
-        const indices = new Uint16Array([
-            0, 1, 2,   0, 2, 3,
-        ]);
-
-        const ebo = gl.createBuffer();
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ebo);
-        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
-        gl_check("ebo bufferData");
-
-        // Setup Vertex Buffer — dynamic, rebuilt on resize
-        const vbo = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
-        gl_check("vbo bind");
-
-        const FSIZE = Float32Array.BYTES_PER_ELEMENT;
-
-        // Map `position` attribute (2 floats, stride 4 floats, offset 0)
-        const position_attrib = gl.getAttribLocation(program, "position");
-        gl.enableVertexAttribArray(position_attrib);
-        gl.vertexAttribPointer(position_attrib, 2, gl.FLOAT, false, FSIZE * 4, 0);
-        gl_check("position attrib");
-
-        // Map `uv` attribute (2 floats, stride 4 floats, offset 2 floats)
-        const uv_attrib = gl.getAttribLocation(program, "uv");
-        gl.enableVertexAttribArray(uv_attrib);
-        gl.vertexAttribPointer(uv_attrib, 2, gl.FLOAT, false, FSIZE * 4, FSIZE * 2);
-        gl_check("uv attrib");
-
-        const elapsed_uniform = gl.getUniformLocation(program, "elapsed");
-        const canvas_size_uniform = gl.getUniformLocation(program, "canvas_size");
-
-        function build_vertices(width, height) {
-            const border = 0;
-            const bx = (border / width)  * 2;   // border in NDC x
-            const by = (border / height) * 2;   // border in NDC y
-            const il = -1.0 + bx;   // inner left   NDC x
-            const ir =  1.0 - bx;   // inner right  NDC x
-            const it =  1.0 - by;   // inner top    NDC y
-            const ib = -1.0 + by;   // inner bottom NDC y
-
-            return new Float32Array([
-                il,  it,  0.0, 0.0, // top left
-                ir,  it,  1.0, 0.0, // top right
-                ir,  ib,  1.0, 1.0, // bottom right
-                il,  ib,  0.0, 1.0, // bottom left
-            ]);
-        }
-
-        function resize() {
-            const dpr = window.devicePixelRatio ?? 1;
-            canvas.width  = Math.floor(window.innerWidth  * dpr);
-            canvas.height = Math.floor(window.innerHeight * dpr);
-            gl.viewport(0, 0, canvas.width, canvas.height);
-            gl.uniform2f(canvas_size_uniform, canvas.width, canvas.height);
-
-            // Re-upload vertex data with updated NDC inset for the new dimensions
-            const vertices = build_vertices(canvas.width, canvas.height);
-            gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
-            gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.DYNAMIC_DRAW);
-            gl_check("resize bufferData");
-        }
-
-        resize();
-        new ResizeObserver(resize).observe(document.documentElement);
-
-        function render(elapsedstamp) {
-            gl.uniform1f(elapsed_uniform, elapsedstamp / 1000.0);
-            gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_SHORT, 0);
-            requestAnimationFrame(render);
-        }
-
-        requestAnimationFrame(render);
-    } catch (err) {
-        dispatch_error(err);
-    }
+    customElements.define('shader-canvas-wrapper', ShaderCanvas);
 </script>
