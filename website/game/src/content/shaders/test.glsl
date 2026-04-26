@@ -27,9 +27,12 @@ float gradient_noise(vec3 p) {
 varying vec2 texture_coords;
 uniform float elapsed;
 
-const float outline_width = 0.08;
-
 void main() {
     vec2 uv = texture_coords;
-    gl_FragColor = gradient_noise(vec3(uv.xy, elapsed));
+    float time = elapsed / 10.0;
+    gl_FragColor = vec4(
+        fract(uv.x + time),
+        fract(uv.y - time),
+        fract(uv.x - time)
+    , 1); //gradient_noise(vec3(uv.xy * 10.0, elapsed)));
 }

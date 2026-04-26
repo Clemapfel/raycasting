@@ -2,19 +2,12 @@
 import Layout from '../layouts/Layout.astro';
 import MarkdownRenderer from '../components/Markdown.astro';
 import ShaderCanvas from '../components/ShaderCanvas.astro';
-
-import { getEntry, render } from 'astro:content';
-const post = await getEntry('posts', 'test');
-
-const { Content, headings } = await render(post);
+import Header from '../components/Frame.astro'
 ---
 
-<ShaderCanvas />
-
 <Layout>
-    <div>
-        <!MarkdownRenderer id="test"/>
-    </div>
+    <ShaderCanvas id="test"/>
+    <MarkdownRenderer id="test"/>
 </Layout>
 
 

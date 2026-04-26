@@ -1,4 +1,7 @@
 ---
+//
+// Usage:
+//
 import { getEntry, render } from 'astro:content';
 
 interface Props {
@@ -24,10 +27,16 @@ const { Content } = await render(post);
         --math-color: #E3E3E3;
 
         --background-color: #2B2D30;
-        --margin-top: 40px;
-        --margin-bottom: 40px;
-        --margin-left: auto;
-        --margin-right: auto;
+
+        --padding-horizontal: 5vw;
+        --padding-top: 20px;
+        --padding-bottom: 20px;
+
+        --margin-horizontal: 5vw;
+        --margin-top: 5vh;
+        --margin-bottom: 10vh;
+
+        --border-radius: 10px;
 
         --font-body: 'Cantarelle', Noto, sans-serif;
         --font-mono: 'DejaVu Mono', Noto Mono, monospace;
@@ -56,13 +65,22 @@ const { Content } = await render(post);
         --math-font: 'KaTeX_Main', sans-serif;
         --math-size: 1.2em;
     }
-    
+
     .markdown-container {
         background-color: var(--background-color, transparent);
-        padding: 40px 40px;
-        font-family: var(--font-body, system-ui, sans-serif) sans-serif;
+        padding-left: var(--padding-horizontal, 5vw);
+        padding-right: var(--padding-horizontal, 5vw);
+        padding-top: var(--padding-top, 5vh);
+        padding-bottom: var(--padding-bottom, 5vh);
+        font-family: var(--font-body, system-ui, sans-serif), sans-serif;
         color: var(--text-color, inherit);
-        width: 100%;
+        border-radius: var(--border-radius, 10px);
+        max-width: 100%;
+        margin-left: var(--margin-horizontal, auto);
+        margin-right: var(--margin-horizontal, auto);
+        margin-top: var(--margin-top, auto);
+        margin-bottom: var(--margin-bottom, auto);
+        box-sizing: border-box;
         display: block;
 
         /* shiki theme */

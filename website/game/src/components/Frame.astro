@@ -1,0 +1,404 @@
+---
+interface Props {
+    segmentDistance?: number;
+    maxOffset?: number;
+    noiseFrequency?: number;
+    color?: string;
+    outlineColor?: string;
+    cornerRadius?: number;
+    thickness?: number;
+}
+
+const {
+    segmentDistance = 8,
+    maxOffset = 6,
+    noiseFrequency = 0.25,
+    color = "transparent",
+    outlineColor = "currentColor",
+    cornerRadius = 16,
+    thickness = 2,
+} = Astro.props;
+---
+
+<div
+    class="noisy-frame"
+        data-segment-distance={segmentDistance}
+        data-max-offset={maxOffset}
+        data-noise-frequency={noiseFrequency}
+        data-corner-radius={cornerRadius}
+        style={`--nf-color:${color};--nf-outline-color:${outlineColor};--nf-corner-radius:${cornerRadius}px;--nf-thickness:${thickness}px;`}
+>
+    <svg class="noisy-frame__svg" aria-hidden="true" preserveAspectRatio="none">
+        <path class="noisy-frame__path" />
+    </svg>
+    <div class="noisy-frame__content">
+        <slot />
+    </div>
+</div>
+
+<style>
+    :root {
+        --nf-color: black;
+        --nf-outline-color: white;
+        --nf-stroke-width: 2px;
+        --nf-corner-radius: 16px;
+        --nf-thickness: 4px;
+    }
+
+    .noisy-frame {
+        position: relative;
+        display: inline-block;
+        isolation: isolate;
+    }
+
+    .noisy-frame__svg {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        overflow: visible;
+        z-index: 0;
+    }
+
+    .noisy-frame__path {
+        fill: var(--nf-color);
+        stroke: var(--nf-outline-color);
+        stroke-width: var(--nf-thickness);
+        stroke-linejoin: round;
+        stroke-linecap: round;
+        vector-effect: non-scaling-stroke;
+    }
+
+    .noisy-frame__content {
+        position: relative;
+        z-index: 1;
+        padding: calc(var(--nf-corner-radius) / 2 + var(--nf-thickness));
+    }
+</style>
+
+<script>
+    // ---------- 3D Perlin noise (classic Ken Perlin, continuous in all 3 dims) ----------
+    const perm = new Uint8Array(512);
+    {
+        const p = new Uint8Array(256);
+        for (let i = 0; i < 256; i++) p[i] = i;
+        // Deterministic shuffle so all frames share the same noise field
+        let seed = 1337;
+        const rand = () => {
+            seed = (seed * 16807) % 2147483647;
+            return seed / 2147483647;
+        };
+        for (let i = 255; i > 0; i--) {
+            const j = Math.floor(rand() * (i + 1));
+            [p[i], p[j]] = [p[j], p[i]];
+        }
+        for (let i = 0; i < 512; i++) perm[i] = p[i & 255];
+    }
+
+    const fade = (t: number) => t * t * t * (t * (t * 6 - 15) + 10);
+    const lerp = (a: number, b: number, t: number) => a + t * (b - a);
+
+    function grad(hash: number, x: number, y: number, z: number): number {
+        const h = hash & 15;
+        const u = h < 8 ? x : y;
+        const v = h < 4 ? y : h === 12 || h === 14 ? x : z;
+        return ((h & 1) === 0 ? u : -u) + ((h & 2) === 0 ? v : -v);
+    }
+
+    function perlin3(x: number, y: number, z: number): number {
+        const X = Math.floor(x) & 255;
+        const Y = Math.floor(y) & 255;
+        const Z = Math.floor(z) & 255;
+        x -= Math.floor(x);
+        y -= Math.floor(y);
+        z -= Math.floor(z);
+        const u = fade(x);
+        const v = fade(y);
+        const w = fade(z);
+        const A = perm[X] + Y;
+        const AA = perm[A] + Z;
+        const AB = perm[A + 1] + Z;
+        const B = perm[X + 1] + Y;
+        const BA = perm[B] + Z;
+        const BB = perm[B + 1] + Z;
+        return lerp(
+            lerp(
+                lerp(grad(perm[AA], x, y, z), grad(perm[BA], x - 1, y, z), u),
+                lerp(grad(perm[AB], x, y - 1, z), grad(perm[BB], x - 1, y - 1, z), u),
+                v
+            ),
+            lerp(
+                lerp(grad(perm[AA + 1], x, y, z - 1), grad(perm[BA + 1], x - 1, y, z - 1), u),
+                lerp(grad(perm[AB + 1], x, y - 1, z - 1), grad(perm[BB + 1], x - 1, y - 1, z - 1), u),
+                v
+            ),
+            w
+        );
+    }
+
+    // ---------- Rounded-rect contour sampling (arc-length parameterized) ----------
+    interface ContourSample {
+        x: number;
+        y: number;
+        nx: number; // outward unit normal (clockwise contour => normal points outward)
+        ny: number;
+    }
+
+    /**
+     * Sample the rounded-rect contour at arc-length intervals.
+     * The contour is traversed clockwise starting at the top edge just right of
+     * the top-left corner arc. Normals are defined everywhere (no degeneracies
+     * at corners because corners are quarter-circle arcs, not points) and vary
+     * smoothly in angle.
+     *
+     * The final segment is stretched/compressed so the sample count exactly
+     * closes the loop — avoiding a seam discontinuity on resize.
+     */
+    function sampleContour(
+        w: number,
+        h: number,
+        r: number,
+        segDist: number
+    ): ContourSample[] {
+        // Clamp radius to a valid value
+        r = Math.max(0, Math.min(r, Math.min(w, h) / 2));
+
+        const straightTop = w - 2 * r;
+        const straightRight = h - 2 * r;
+        const straightBottom = w - 2 * r;
+        const straightLeft = h - 2 * r;
+        const arcLen = (Math.PI / 2) * r;
+        const perimeter =
+            straightTop + arcLen + straightRight + arcLen + straightBottom + arcLen + straightLeft + arcLen;
+
+        if (perimeter <= 0) return [];
+
+        // Even sample count; distribute exactly around perimeter to close seam.
+        const n = Math.max(8, Math.round(perimeter / segDist));
+        const step = perimeter / n;
+
+        // Segment boundaries along arc-length s ∈ [0, perimeter):
+        // 0: top straight        [0, straightTop)
+        // 1: top-right arc       [straightTop, straightTop + arcLen)
+        // 2: right straight      [..., + straightRight)
+        // 3: bottom-right arc    [..., + arcLen)
+        // 4: bottom straight     [..., + straightBottom)
+        // 5: bottom-left arc     [..., + arcLen)
+        // 6: left straight       [..., + straightLeft)
+        // 7: top-left arc        [..., + arcLen)
+        const b0 = 0;
+        const b1 = b0 + straightTop;
+        const b2 = b1 + arcLen;
+        const b3 = b2 + straightRight;
+        const b4 = b3 + arcLen;
+        const b5 = b4 + straightBottom;
+        const b6 = b5 + arcLen;
+        const b7 = b6 + straightLeft;
+        // end = b7 + arcLen === perimeter
+
+        const samples: ContourSample[] = new Array(n);
+
+        for (let i = 0; i < n; i++) {
+            const s = i * step;
+            let x = 0,
+                y = 0,
+                nx = 0,
+                ny = 0;
+
+            if (s < b1) {
+                // Top straight: left-to-right. Start at (r, 0), end at (w - r, 0).
+                const t = s - b0;
+                x = r + t;
+                y = 0;
+                nx = 0;
+                ny = -1;
+            } else if (s < b2) {
+                // Top-right arc: center (w - r, r). Angle sweeps from -π/2 to 0 (clockwise).
+                const t = (s - b1) / arcLen; // 0..1
+                const a = -Math.PI / 2 + t * (Math.PI / 2);
+                x = w - r + r * Math.cos(a);
+                y = r + r * Math.sin(a);
+                nx = Math.cos(a);
+                ny = Math.sin(a);
+            } else if (s < b3) {
+                // Right straight: top-to-bottom. Start (w, r), end (w, h - r).
+                const t = s - b2;
+                x = w;
+                y = r + t;
+                nx = 1;
+                ny = 0;
+            } else if (s < b4) {
+                // Bottom-right arc: center (w - r, h - r). Angle 0 → π/2.
+                const t = (s - b3) / arcLen;
+                const a = t * (Math.PI / 2);
+                x = w - r + r * Math.cos(a);
+                y = h - r + r * Math.sin(a);
+                nx = Math.cos(a);
+                ny = Math.sin(a);
+            } else if (s < b5) {
+                // Bottom straight: right-to-left. Start (w - r, h), end (r, h).
+                const t = s - b4;
+                x = w - r - t;
+                y = h;
+                nx = 0;
+                ny = 1;
+            } else if (s < b6) {
+                // Bottom-left arc: center (r, h - r). Angle π/2 → π.
+                const t = (s - b5) / arcLen;
+                const a = Math.PI / 2 + t * (Math.PI / 2);
+                x = r + r * Math.cos(a);
+                y = h - r + r * Math.sin(a);
+                nx = Math.cos(a);
+                ny = Math.sin(a);
+            } else if (s < b7) {
+                // Left straight: bottom-to-top. Start (0, h - r), end (0, r).
+                const t = s - b6;
+                x = 0;
+                y = h - r - t;
+                nx = -1;
+                ny = 0;
+            } else {
+                // Top-left arc: center (r, r). Angle π → 3π/2.
+                const t = (s - b7) / arcLen;
+                const a = Math.PI + t * (Math.PI / 2);
+                x = r + r * Math.cos(a);
+                y = r + r * Math.sin(a);
+                nx = Math.cos(a);
+                ny = Math.sin(a);
+            }
+
+            samples[i] = { x, y, nx, ny };
+        }
+
+        return samples;
+    }
+
+    // ---------- Frame controller ----------
+    class NoisyFrameController {
+        private root: HTMLElement;
+        private svg: SVGSVGElement;
+        private path: SVGPathElement;
+        private samples: ContourSample[] = [];
+        private width = 0;
+        private height = 0;
+        private resizeObserver: ResizeObserver;
+        private rafId = 0;
+        private startTime = 0;
+        private visible = true;
+        private intersectionObserver: IntersectionObserver;
+
+        private segmentDistance: number;
+        private maxOffset: number;
+        private noiseFrequency: number;
+        private cornerRadius: number;
+
+        constructor(root: HTMLElement) {
+            this.root = root;
+            this.svg = root.querySelector(".noisy-frame__svg") as SVGSVGElement;
+            this.path = root.querySelector(".noisy-frame__path") as SVGPathElement;
+
+            this.segmentDistance = parseFloat(root.dataset.segmentDistance ?? "8");
+            this.maxOffset = parseFloat(root.dataset.maxOffset ?? "6");
+            this.noiseFrequency = parseFloat(root.dataset.noiseFrequency ?? "0.25");
+            this.cornerRadius = parseFloat(root.dataset.cornerRadius ?? "16");
+
+            this.resizeObserver = new ResizeObserver(() => this.onResize());
+            this.resizeObserver.observe(root);
+
+            this.intersectionObserver = new IntersectionObserver(
+                (entries) => {
+                    for (const entry of entries) {
+                        this.visible = entry.isIntersecting;
+                    }
+                    if (this.visible && !this.rafId) this.loop();
+                },
+                { threshold: 0 }
+            );
+            this.intersectionObserver.observe(root);
+
+            this.startTime = performance.now();
+            this.onResize();
+            this.loop();
+        }
+
+        private onResize() {
+            const rect = this.root.getBoundingClientRect();
+            this.width = rect.width;
+            this.height = rect.height;
+            this.svg.setAttribute("viewBox", `0 0 ${this.width} ${this.height}`);
+            this.svg.setAttribute("width", `${this.width}`);
+            this.svg.setAttribute("height", `${this.height}`);
+            this.samples = sampleContour(
+                this.width,
+                this.height,
+                this.cornerRadius,
+                this.segmentDistance
+            );
+        }
+
+        private buildPath(t: number): string {
+            const n = this.samples.length;
+            if (n === 0) return "";
+
+            // Embed the cyclic perimeter coordinate on a circle so noise is
+            // continuous at the seam: position θ wraps naturally since (cosθ, sinθ)
+            // is the same at θ and θ+2π. Radius chosen so spatial frequency of
+            // noise around the perimeter matches noiseFrequency per unit time.
+            const tz = t * this.noiseFrequency;
+            // Spatial radius in noise-space — small enough that adjacent samples
+            // differ by a smooth, non-repeating amount. Tuned for visual smoothness.
+            const spatialRadius = 1.5;
+
+            let d = "";
+            for (let i = 0; i < n; i++) {
+                const s = this.samples[i];
+                const theta = (i / n) * Math.PI * 2;
+                const nx_noise = Math.cos(theta) * spatialRadius;
+                const ny_noise = Math.sin(theta) * spatialRadius;
+                // perlin3 returns ~[-0.7, 0.7] in practice; normalize to [-1, 1] range
+                // then clamp so offset never exceeds maxOffset.
+                const raw = perlin3(nx_noise, ny_noise, tz);
+                const norm = Math.max(-1, Math.min(1, raw / 0.7));
+                const offset = norm * this.maxOffset;
+                const x = s.x + s.nx * offset;
+                const y = s.y + s.ny * offset;
+                d += (i === 0 ? "M" : "L") + x.toFixed(2) + "," + y.toFixed(2);
+            }
+            d += "Z";
+            return d;
+        }
+
+        private loop = () => {
+            if (!this.visible) {
+                this.rafId = 0;
+                return;
+            }
+            const t = (performance.now() - this.startTime) / 1000;
+            this.path.setAttribute("d", this.buildPath(t));
+            this.rafId = requestAnimationFrame(this.loop);
+        };
+
+        destroy() {
+            cancelAnimationFrame(this.rafId);
+            this.resizeObserver.disconnect();
+            this.intersectionObserver.disconnect();
+        }
+    }
+
+    // Instantiate for every frame in the document, and handle view transitions.
+    const controllers = new WeakMap<HTMLElement, NoisyFrameController>();
+
+    function init() {
+        const frames = document.querySelectorAll<HTMLElement>(".noisy-frame");
+        frames.forEach((el) => {
+            if (!controllers.has(el)) {
+                controllers.set(el, new NoisyFrameController(el));
+            }
+        });
+    }
+
+    init();
+    // Astro view transitions: re-init on page swap.
+    document.addEventListener("astro:page-load", init);
+</script>

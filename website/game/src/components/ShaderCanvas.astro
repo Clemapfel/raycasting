@@ -1,5 +1,9 @@
 ---
-import { getEntry } from 'astro:content';
+//
+// Usage: <ShaderCanvas id="test"/>
+//
+
+import { getEntry, getCollection } from 'astro:content';
 
 interface Props {
     id?: string;
@@ -11,15 +15,11 @@ if (!id) {
     throw new Error("ShaderCanvas requires an 'id' prop.");
 }
 
-const shaders = import.meta.glob('/src/content/shaders/*.glsl', {
-    query: '?raw',
-    import: 'default'
-});
+const fragment_shader_entry = await getEntry('shaders', 'test');
+const fragment_shader = fragment_shader_entry?.body;
 
-const loader = shaders[`/src/content/shaders/${id}.glsl`];
-
-if (!loader) {
-    throw new Error(`No fragment shader with id "${id}" at "src/content/shaders/${id}.glsl"`);
+if (!fragment_shader) {
+    throw new Error(`FragmentShader not found: ${id}`);
 }
 
 const vertex_shader = `
@@ -38,7 +38,6 @@ const vertex_shader = `
 <shader-canvas-wrapper>
     <script type="x-shader/x-vertex" class="vert-shader" set:html={vertex_shader}></script>
     <script type="x-shader/x-fragment" class="frag-shader" set:html={fragment_shader}></script>
-
     <canvas class="webgl-canvas"></canvas>
     <div class="shader-error" style="display: none;"></div>
 </shader-canvas-wrapper>
@@ -166,8 +165,8 @@ const vertex_shader = `
                 }
 
                 // Retrieve common uniform locations (optional but helpful for future shaders)
-                const timeLocation = gl.getUniformLocation(program, "u_time");
-                const resolutionLocation = gl.getUniformLocation(program, "u_resolution");
+                const timeLocation = gl.getUniformLocation(program, "elapsed");
+                const resolutionLocation = gl.getUniformLocation(program, "screen_size");
 
                 // --- 4. Handle Resize for sharp Retina displays ---
                 const resize = () => {
@@ -192,7 +191,7 @@ const vertex_shader = `
                     resize(); // Ensure canvas is perfectly sized before draw
 
                     if (timeLocation) {
-                        gl.uniform1f(timeLocation, (now - startTime) * 0.001);
+                        gl.uniform1f(timeLocation, (now - startTime) / 1000);
                     }
                     if (resolutionLocation) {
                         gl.uniform2f(resolutionLocation, gl.canvas.width, gl.canvas.height);
