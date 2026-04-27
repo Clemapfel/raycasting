@@ -6,8 +6,8 @@ rt.settings.overworld.air_dash_node_manager = {
     dash_velocity = 1000, -- on exit
     dash_velocity_bubble = 500,
 
-    min_player_damping = 0.8,
-    max_player_damping = 0.92
+    min_player_damping = 1,
+    max_player_damping = 1
 }
 
 --- @class ow.AirDashNodeManager
@@ -78,15 +78,31 @@ function ow.AirDashNodeManager:_tether(node)
     local player_x, player_y = player:get_position()
     local node_x, node_y = node:get_position()
 
-    self._tether_path = rt.Path(
-        player_x, player_y,
-        node_x, node_y
-    )
+    if meta.isa(node, ow.DirectionalAirDashNode) then
+        self._tether_dx, self._tether_dy = node._direction_x, node._direction_y
 
-    self._tether_dx, self._tether_dy = math.normalize(
-        node_x - player_x,
-        node_y - player_y
-    )
+        local velocity_x, velocity_y = player:get_velocity()
+        local delta = rt.SceneManager:get_timestep()
+        local past_x, past_y = player:get_past_position(math.distance(player_x, player_y, node_x, node_y))
+        local spline = rt.Spline(
+            past_x, past_y,
+            player_x, player_y,
+            node_x, node_y
+        )
+
+        self._tether_path = rt.Path(spline:discretize())
+        node:set_tether_path(self._tether_path)
+    else
+        self._tether_dx, self._tether_dy = math.normalize(
+            node_x - player_x,
+            node_y - player_y
+        )
+
+        self._tether_path = rt.Path(
+            player_x, player_y,
+            node_x, node_y
+        )
+    end
 
     local left_x, left_y = math.turn_left(self._tether_dx, self._tether_dy)
     local right_x, right_y = math.turn_right(self._tether_dx, self._tether_dy)
@@ -124,6 +140,14 @@ function ow.AirDashNodeManager:notify_node_added(node)
 
     self._max_node_radius = math.max(self._max_node_radius, node:get_radius())
 end
+--- @brief
+function ow.AirDashNodeManager:notify_directional_node_added(node)
+    local body = node:get_body()
+    body:set_user_data(node)
+    body:set_collision_group(rt.settings.overworld.air_dash_node_manager.node_collision_group)
+
+    self._max_node_radius = math.max(self._max_node_radius, node:get_radius())
+end
 
 --- @brief
 function ow.AirDashNodeManager:update(delta)
@@ -152,17 +176,18 @@ function ow.AirDashNodeManager:update(delta)
             rt.settings.overworld.air_dash_node_manager.dash_velocity_bubble
         )
 
-        local ax, ay = self._tether_path:at(0)
         local bx, by = self._tether_path:at(1)
 
         local easing = ternary(not player:get_is_bubble(), non_bubble_easing, bubble_easing)
         local t = easing(
-            math.mix(0.5, 1, (1 - math.distance(px, py, bx, by) / math.distance(ax, ay, bx, by)))
+            math.mix(0.5, 1, (1 - math.distance(px, py, bx, by) / self._tether_path:get_length()))
         )
 
+        local dx, dy = self._tether_path:tangent_at(t)
+
         player:set_velocity(
-            t * target_velocity * self._tether_dx,
-            t * target_velocity * self._tether_dy
+            t * target_velocity * dx,
+            t * target_velocity * dy
         )
 
         -- exit condition: moved past midline

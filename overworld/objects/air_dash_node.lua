@@ -11,7 +11,9 @@ rt.settings.overworld.air_dash_node = {
 
     solid_outline_alpha = 0.5, -- px
     solid_outline_line_width = 2,
-    glow_aliasing_width = 15
+    glow_aliasing_width = 15,
+
+    n_hue_steps = 16
 }
 
 --- @class AirDashNode
@@ -79,9 +81,15 @@ function ow.AirDashNode:instantiate(object, stage, scene)
 
     self._is_tethered_motion = rt.SmoothedMotion1D(0)
 
-    self._hue = (meta.hash(self) % 16) / 16
+    if scene.air_dash_node_hue == nil then
+        scene.air_dash_node_hue = 0
+    end
 
+    local n_hue_steps = rt.settings.overworld.air_dash_node.n_hue_steps
+    self._hue = (scene.air_dash_node_hue % n_hue_steps) / n_hue_steps
+    scene.air_dash_node_hue = scene.air_dash_node_hue + 1
     self._color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, self._hue, 1))
+
     self._particle = ow.AirDashNodeParticle(rt.settings.player.radius * rt.settings.overworld.double_jump_tether.radius_factor)
     self._particles = ow.TetherParticleEffect()
     self._dash_line = { self._x, self._y, self._x, self._y } -- love.Line
@@ -304,7 +312,7 @@ function ow.AirDashNode:update(delta)
             local bx, by = x + dx, y + dy
             local ax, ay = px, py --x - dx, y - dy
 
-            local width = rt.settings.overworld.air_dash_node.core_radius  / 2
+            local width = rt.settings.overworld.air_dash_node.core_radius / 2
             local left_x, left_y = math.turn_left(math.normalize(dx, dy))
             local right_x, right_y = math.turn_right(math.normalize(dx, dy))
 
@@ -477,4 +485,9 @@ function ow.AirDashNode:collect_point_lights(callback)
     local r, g, b, a = self._color:unpack()
     local radius = self._radius
     callback(x, y, radius, r, g, b, a)
+end
+
+--- @brief
+function ow.AirDashNode:set_tether_path(_)
+
 end
