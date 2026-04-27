@@ -280,7 +280,7 @@ end
 function ow.TetherParticleEffect:_draw_batch(batch, is_bloom)
     if is_bloom == nil then is_bloom = false end
 
-    love.graphics.setLineWidth(1.2)
+    love.graphics.setLineWidth(0.5)
     local alpha = ternary(is_bloom, 0.4, 1)
     local black_r, black_g, black_b = rt.Palette.BLACK:unpack()
     local data = batch.particle_data
@@ -288,6 +288,9 @@ function ow.TetherParticleEffect:_draw_batch(batch, is_bloom)
         local i = _particle_i_to_data_offset(particle_i)
         local radius = data[i + _radius_offset] * data[i + _mass_offset]
         if radius > 1 then
+            love.graphics.setColor(black_r, black_g, black_b, data[i + _color_a_offset])
+            love.graphics.circle("line", data[i + _position_x_offset], data[i + _position_y_offset], data[i + _radius_offset])
+
             love.graphics.setColor(data[i + _color_r_offset], data[i + _color_g_offset], data[i + _color_b_offset], alpha * data[i + _color_a_offset])
             love.graphics.circle("fill", data[i + _position_x_offset], data[i + _position_y_offset], data[i + _radius_offset])
         end

@@ -1,7 +1,7 @@
 require "common.smoothed_motion_1d"
 
 rt.settings.overworld.air_dash_node_particle = {
-    explosion_distance = 30, -- px
+    explosion_distance = 75, -- px
     scale_offset_distance = 5, -- px
     brightness_offset = 0.5, -- fraction
     n_circles = 3 -- number of circles rotating around core
@@ -16,8 +16,11 @@ function ow.AirDashNodeParticle:instantiate(radius)
     self._radius = radius
     self._x, self._y, self._z = 0, 0, 0
 
+    self._use_static_axis = false
+    self._static_axis_x, self._static_axis_y, self._static_axis_z = 0, 0, 0
+
     self._explosion_motion = rt.SmoothedMotion1D(0) -- 0: not exploded, 1: fully exploded
-    self._explosion_motion:set_speed(2, 1) -- attack, decay, fractional
+    self._explosion_motion:set_speed(2, 1 / 100) -- attack, decay, fractional
 
     self._brightness_offset = 0
     self._scale_offset = 0
@@ -80,6 +83,12 @@ function ow.AirDashNodeParticle:_update_segments()
         self._target_normal_z
     )
 
+    local theta, phi = self._theta, self._phi
+
+    if self._use_static_axis then
+        theta = 0
+    end
+
     -- choose reference vector that's not parallel to target normal
     local reference_x, reference_y, reference_z
     if math.abs(target_normal_z) < 1 - math.eps then
@@ -130,7 +139,7 @@ function ow.AirDashNodeParticle:_update_segments()
 
         -- apply spherical rotation around Y axis (phi)
         do
-            local cos_phi, sin_phi = math.cos(self._phi), math.sin(self._phi)
+            local cos_phi, sin_phi = math.cos(phi), math.sin(phi)
             local new_u_x = basis_u_x * cos_phi - basis_u_z * sin_phi
             local new_u_y = basis_u_y
             local new_u_z = basis_u_x * sin_phi + basis_u_z * cos_phi
@@ -145,7 +154,7 @@ function ow.AirDashNodeParticle:_update_segments()
 
         -- apply spherical rotation around X axis (theta)
         do
-            local cos_theta, sin_theta = math.cos(self._theta), math.sin(self._theta)
+            local cos_theta, sin_theta = math.cos(theta), math.sin(theta)
             local new_u_x = basis_u_x
             local new_u_y = basis_u_y * cos_theta - basis_u_z * sin_theta
             local new_u_z = basis_u_y * sin_theta + basis_u_z * cos_theta
@@ -170,11 +179,22 @@ function ow.AirDashNodeParticle:_update_segments()
 
         -- determine sampling resolution
         local approximate_circumference = 2 * math.pi * circle_radius
-        local segment_count = math.max(24, math.min(256, math.floor(approximate_circumference / 4)))
-        local point_count = segment_count
+
+        --[[
+        local point_count
+        if self._use_static_axis then
+            point_count = 8
+        else
+            point_count = rt.Mesh.radius_to_n_vertices(approximate_circumference / 4)
+        end
+        ]]
+
+        local point_count = rt.Mesh.radius_to_n_vertices(approximate_circumference / 4)
+
 
         -- generate and blend regular and aligned circle points
         local circle_points = {}
+
         for point_index = 0, point_count - 1 do
             local parametric_angle = (point_index / point_count) * 2 * math.pi
             local cos_angle, sin_angle = math.cos(parametric_angle), math.sin(parametric_angle)
@@ -338,11 +358,30 @@ function ow.AirDashNodeParticle:set_scale_offset(t)
     self._scale_offset = t
 end
 
---- @brief
+local function rotateAroundAxis(x, y, z, nx, ny, nz, angle)
+    local cos = math.cos(angle)
+    local sin = math.sin(angle)
+
+    -- dot product
+    local dot = x * nx + y * ny + z * nz
+
+    -- cross product
+    local cx = ny * z - nz * y
+    local cy = nz * x - nx * z
+    local cz = nx * y - ny * x
+
+    -- Rodrigues' rotation formula
+    return
+        x * cos + cx * sin + nx * dot * (1 - cos),
+        y * cos + cy * sin + ny * dot * (1 - cos),
+        z * cos + cz * sin + nz * dot * (1 - cos)
+end
+
 function ow.AirDashNodeParticle:update(delta)
     local speed = rt.settings.overworld.double_jump_tether_particle.rotation_speed
-    self._theta = math.normalize_angle(self._theta + delta * 2 * math.pi * speed)
-    self._phi = math.normalize_angle(self._phi + delta * 2 * math.pi * speed)
+    local angle = delta * 2 * math.pi * speed
+    self._theta = math.normalize_angle(self._theta + angle)
+    self._phi = math.normalize_angle(self._phi + angle)
 
     self._explosion_motion:update(delta)
     self._alignment_motion:update(delta)
@@ -353,9 +392,19 @@ end
 --- @brief
 function ow.AirDashNodeParticle:draw(x, y, draw_shape, draw_core)
     local offset = math.mix(1, rt.settings.impulse_manager.max_brightness_factor, self._brightness_offset)
+    local static_axis_angle = math.angle(self._static_axis_x, self._static_axis_y)
+    love.graphics.setLineJoin("none")
 
     local _draw = function(r, g, b, a, line_width, core_scale)
         love.graphics.push()
+
+        if self._use_static_axis then
+            -- rotate to align with axis
+            love.graphics.rotate(
+                math.mix(0.5 * math.pi + static_axis_angle, 0, self._alignment_motion:get_value())
+            )
+        end
+
         love.graphics.translate(x, y)
 
         if draw_shape then
@@ -403,6 +452,16 @@ function ow.AirDashNodeParticle:draw(x, y, draw_shape, draw_core)
     local line_width = 2
     local black_r, black_g, black_b = rt.Palette.BLACK:unpack()
 
-    _draw(black_r, black_g, black_b, a, line_width + 1.5, 1.25)
+    _draw(black_r, black_g, black_b, a, line_width + 1.5, 1 + 1 / 5)
     _draw(r, g, b, a, line_width, 1)
+end
+
+--- @brief
+function ow.AirDashNodeParticle:set_use_axis(b, nx, ny, nz)
+    nx = nx or 0
+    ny = ny or 0
+    nz = nz or 0
+    meta.assert(b, "Boolean", nx, "Number", ny, "Number", nz, "Number")
+    self._use_static_axis = b
+    self._static_axis_x, self._static_axis_y, self._static_axis_z = nx, ny, nz
 end

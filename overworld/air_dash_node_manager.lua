@@ -29,6 +29,8 @@ function ow.AirDashNodeManager:instantiate(scene, stage)
     self._tether_sign_line = { 0, 0, 0, 0 } -- Array<Number, 4>
     self._tether_sign = 0
 
+    self._particle_path = nil
+
     self._input = rt.InputSubscriber(rt.settings.player.input_subscriber_priority + 1)
     self._input = rt.InputSubscriber()
     self._input:signal_connect("pressed", function(_, which)
@@ -72,35 +74,17 @@ function ow.AirDashNodeManager:_tether(node)
     if node == nil then return end
 
     self._tethered_node = node
-    self._tethered_node:set_is_tethered(true)
 
     local player = self._scene:get_player()
     local player_x, player_y = player:get_position()
     local node_x, node_y = node:get_position()
 
-    if meta.isa(node, ow.DirectionalAirDashNode) then
+    if node:get_is_directional() then
         self._tether_dx, self._tether_dy = node._direction_x, node._direction_y
-
-        local velocity_x, velocity_y = player:get_velocity()
-        local delta = rt.SceneManager:get_timestep()
-        local past_x, past_y = player:get_past_position(math.distance(player_x, player_y, node_x, node_y))
-        local spline = rt.Spline(
-            past_x, past_y,
-            player_x, player_y,
-            node_x, node_y
-        )
-
-        self._tether_path = rt.Path(spline:discretize())
-        node:set_tether_path(self._tether_path)
     else
         self._tether_dx, self._tether_dy = math.normalize(
             node_x - player_x,
             node_y - player_y
-        )
-
-        self._tether_path = rt.Path(
-            player_x, player_y,
-            node_x, node_y
         )
     end
 
@@ -120,6 +104,26 @@ function ow.AirDashNodeManager:_tether(node)
         self._tether_sign_line
     )
 
+    if node:get_is_directional() then
+        -- flip direction depending on which side player is on
+        self._tether_dx, self._tether_dy = math.multiply2(
+            self._tether_dx, self._tether_dy,
+            self._tether_sign, self._tether_sign
+        )
+    end
+
+    self._tether_path = rt.Path(
+        player_x, player_y,
+        node_x, node_y
+    )
+
+    local radius = node:get_radius()
+    self._particle_path = rt.Path(
+        node_x - self._tether_dx * radius, node_y - self._tether_dy * radius,
+        node_x + self._tether_dx * radius, node_y + self._tether_dy * radius
+    )
+
+    self._tethered_node:set_is_tethered(true, self._tether_path)
     player:pulse(node:get_color())
     self._scene:get_camera():shake()
 end
@@ -197,6 +201,7 @@ function ow.AirDashNodeManager:update(delta)
                 target_velocity * self._tether_dx,
                 target_velocity * self._tether_dy
             )
+            self._tethered_node:emit_particles(self._particle_path)
             self:_untether()
         end
     end

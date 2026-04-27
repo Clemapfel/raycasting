@@ -90,6 +90,7 @@ function ow.DoubleJumpTether:instantiate(object, stage, scene)
         local bx, by = self._scene:get_player():get_position()
         self._particles:emit(
             self._tether:as_path(),
+            0, 0,
             self:get_color():unpack()
         )
         self._particle_emission_timestamp = love.timer.getTime()

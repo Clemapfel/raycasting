@@ -18,7 +18,7 @@ rt.settings.camera = {
         envelope_attack = 0,
         envelope_decay = 0,
         default_duration = 0.05,
-        default_intensity = 1,
+        default_intensity = 2,
         max_offset = 5,
         frequency = 15, -- nodes per second
     }

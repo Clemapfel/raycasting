@@ -151,6 +151,7 @@ function ow.DoubleJumpTetherParticle:draw(x, y, draw_shape, draw_core)
     local line_width = 2
     local r, g, b, a = love.graphics.getColor()
 
+    local core_outline = 1 / 5
 
     if draw_core == true then
         local offset = math.mix(1, rt.settings.impulse_manager.max_brightness_factor, self._brightness_offset)
@@ -159,7 +160,10 @@ function ow.DoubleJumpTetherParticle:draw(x, y, draw_shape, draw_core)
 
         local black_r, black_g, black_b = rt.Palette.BLACK:unpack()
         love.graphics.setColor(black_r, black_g, black_b, a)
+        love.graphics.push()
+        love.graphics.scale(1 + core_outline)
         self._core:draw()
+        love.graphics.pop()
 
         love.graphics.setColor(r * offset, g * offset, b * offset, a)
         self._core:draw()
@@ -181,7 +185,7 @@ function ow.DoubleJumpTetherParticle:draw(x, y, draw_shape, draw_core)
         love.graphics.line(self._draw_line)
 
         love.graphics.push()
-        love.graphics.scale(1.33, 1.33) -- core outline
+        love.graphics.scale(1 + core_outline)
         self._core:draw()
         love.graphics.pop()
 

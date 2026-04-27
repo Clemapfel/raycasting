@@ -567,9 +567,11 @@ function math.rotate3(x, y, z, angle)
 end
 
 --- @brief Get the angle of a 2D vector from the positive X axis.
-function math.angle(x, y)
+function math.angle2(x, y)
     return math.atan2(y, x)
 end
+
+math.angle = math.angle2
 
 --- @brief Get the distance between two 2D points.
 function math.distance2(x1, y1, x2, y2)

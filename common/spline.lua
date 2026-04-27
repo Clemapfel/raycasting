@@ -224,7 +224,10 @@ function rt.Spline:get_length()
 end
 
 --- @brief discretize into flat list of points, adaptive sampling
-function rt.Spline:discretize()
+function rt.Spline:discretize(min_t, max_t)
+    min_t = min_t or 0
+    max_t = max_t or 1
+
     local result = {}
     local points = self._points
 
@@ -286,7 +289,7 @@ function rt.Spline:discretize()
     end
 
     add_point(0)
-    subdivide(0, 1, 0)
+    subdivide(min_t, max_t, 0)
 
     return result
 end
