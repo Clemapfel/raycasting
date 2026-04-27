@@ -1,0 +1,254 @@
+---
+// Usage: <ShaderCircle id="test" segmentCount=1234 />
+
+import { getEntry } from 'astro:content';
+
+interface Props {
+    id: string;
+    segmentCount?: number;
+}
+
+const { id, segmentCount = 64 } = Astro.props;
+
+if (!id) {
+    throw new Error('In ShaderCircle: `id` property not specified');
+}
+
+const fragment_shader_entry = await getEntry('shaders', id);
+const fragment_shader = fragment_shader_entry?.body;
+
+if (!fragment_shader) {
+    throw new Error(`FragmentShader not found: ${id}`);
+}
+
+const vertex_shader = `
+    attribute vec2 position;
+    attribute vec2 uv;
+
+    varying vec2 texture_coords;
+
+    void main() {
+        texture_coords = uv;
+        gl_Position = vec4(position, 0.0, 1.0);
+    }
+`;
+---
+
+<shader-circle-wrapper data-segmentCount={segmentCount}>
+    <script type="x-shader/x-vertex" class="vert-shader" set:html={vertex_shader}></script>
+    <script type="x-shader/x-fragment" class="frag-shader" set:html={fragment_shader}></script>
+    <canvas class="webgl-canvas"></canvas>
+    <div class="circle-border"></div>
+    <div class="shader-error" style="display: none;"></div>
+</shader-circle-wrapper>
+
+<style>
+    shader-circle-wrapper {
+        --circle-border-width: 2px;
+        --circle-border-color: currentColor;
+
+        position: relative;
+        display: inline-block;
+        border-radius: 50%;
+        overflow: visible; /* let the border overlay sit on top */
+        line-height: 0; /* collapse whitespace gaps */
+    }
+
+    .webgl-canvas {
+        display: block;
+        border-radius: 50%;
+        width: 100%;
+        height: 100%;
+    }
+
+    /* CSS frame that perfectly traces the circle outline */
+    .circle-border {
+        position: absolute;
+        inset: 0;
+        border-radius: 50%;
+        border: var(--circle-border-width) solid var(--circle-border-color);
+        pointer-events: none;
+        /* Pull the border inward so it sits on top of the canvas edge
+           rather than expanding the layout box */
+        box-sizing: border-box;
+    }
+
+    .shader-error {
+        position: absolute;
+        inset: 0;
+        background: darkred;
+        color: white;
+        padding: 0.75rem;
+        border-radius: 50%;
+        font-family: monospace;
+        font-size: 0.7rem;
+        white-space: pre-wrap;
+        overflow: hidden;
+        pointer-events: auto;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        z-index: 10;
+    }
+</style>
+
+<script>
+    class ShaderCircle extends HTMLElement {
+        connectedCallback() {
+            const canvas = this.querySelector('.webgl-canvas') as HTMLCanvasElement;
+            const errorOverlay = this.querySelector('.shader-error') as HTMLDivElement;
+            const vsSource = this.querySelector('.vert-shader')?.textContent ?? '';
+            const fsSource = this.querySelector('.frag-shader')?.textContent ?? '';
+            const segmentCount = parseInt(this.dataset.segmentCount ?? '128', 10);
+
+            const showError = (msg: string) => {
+                console.error('WebGL Error:', msg);
+                errorOverlay.textContent = `Shader Error:\n\n${msg}`;
+                errorOverlay.style.display = 'block';
+                canvas.style.display = 'none';
+            };
+
+            try {
+                const gl = (
+                    canvas.getContext('webgl') ??
+                    canvas.getContext('experimental-webgl')
+                ) as WebGLRenderingContext | null;
+
+                if (!gl) {
+                    throw new Error('WebGL is not supported on this machine/browser.');
+                }
+
+                // --- 1. Compile Shaders ---
+                const compileShader = (type: number, source: string): WebGLShader => {
+                    const shader = gl.createShader(type);
+                    if (!shader) throw new Error('Could not create WebGL shader.');
+                    gl.shaderSource(shader, source);
+                    gl.compileShader(shader);
+                    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                        const info = gl.getShaderInfoLog(shader);
+                        gl.deleteShader(shader);
+                        const kind = type === gl.VERTEX_SHADER ? 'Vertex' : 'Fragment';
+                        throw new Error(`${kind} Shader compilation failed:\n${info}`);
+                    }
+                    return shader;
+                };
+
+                const vertexShader   = compileShader(gl.VERTEX_SHADER,   vsSource);
+                const fragmentShader = compileShader(gl.FRAGMENT_SHADER, fsSource);
+
+                // --- 2. Link Program ---
+                const program = gl.createProgram();
+                if (!program) throw new Error('Could not create WebGL program.');
+                gl.attachShader(program, vertexShader);
+                gl.attachShader(program, fragmentShader);
+                gl.linkProgram(program);
+                if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+                    throw new Error(`Program linking failed:\n${gl.getProgramInfoLog(program)}`);
+                }
+                gl.useProgram(program);
+
+                // --- 3. Build Circle Geometry (triangle fan) ---
+                //
+                // NDC position: centre at (0, 0), radius 1 → fills the square canvas.
+                // UV: centre at (0.5, 0.5), edge at distance 0.5 in each axis.
+                //     For a point at angle θ on the unit circle in NDC:
+                //       position = (cos θ, sin θ)
+                //       uv       = (0.5 + cos θ * 0.5,  0.5 - sin θ * 0.5)
+                //     (Y is flipped for UV because WebGL's Y-axis is up but UVs go down)
+                //
+                // Layout per vertex:  X  Y  U  V  (4 × f32)
+
+                const FLOATS_PER_VERTEX = 4;
+                const vertexCount = segmentCount + 2; // centre + one closing duplicate
+                const data = new Float32Array(vertexCount * FLOATS_PER_VERTEX);
+
+                // Centre vertex
+                data[0] = 0.0;  // X
+                data[1] = 0.0;  // Y
+                data[2] = 0.5;  // U
+                data[3] = 0.5;  // V
+
+                for (let i = 0; i <= segmentCount; i++) {
+                    const theta = (i / segmentCount) * Math.PI * 2;
+                    const cos   = Math.cos(theta);
+                    const sin   = Math.sin(theta);
+                    const base  = (i + 1) * FLOATS_PER_VERTEX;
+                    data[base + 0] =  cos;          // X  (NDC, -1 … 1)
+                    data[base + 1] =  sin;          // Y  (NDC, -1 … 1)
+                    data[base + 2] =  0.5 + cos * 0.5;  // U  (0 … 1)
+                    data[base + 3] =  0.5 - sin * 0.5;  // V  (0 … 1, Y flipped)
+                }
+
+                const buffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+                gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+
+                const positionLoc = gl.getAttribLocation(program, 'position');
+                const uvLoc       = gl.getAttribLocation(program, 'uv');
+                const F32 = Float32Array.BYTES_PER_ELEMENT;
+                const stride = FLOATS_PER_VERTEX * F32;
+
+                gl.enableVertexAttribArray(positionLoc);
+                gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, stride, 0);
+
+                if (uvLoc !== -1) {
+                    gl.enableVertexAttribArray(uvLoc);
+                    gl.vertexAttribPointer(uvLoc, 2, gl.FLOAT, false, stride, 2 * F32);
+                }
+
+                // Enable alpha blending so the circular canvas edges are clean
+                gl.enable(gl.BLEND);
+                gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+                // Common uniform locations
+                const timeLoc       = gl.getUniformLocation(program, 'elapsed');
+                const resolutionLoc = gl.getUniformLocation(program, 'screen_size');
+
+                // --- 4. Resize handler ---
+                // The canvas is always square (min of CSS width/height so the
+                // circle stays a circle). Retina-aware.
+                const resize = () => {
+                    const dpr  = window.devicePixelRatio || 1;
+                    const rect = this.getBoundingClientRect();
+                    const size = Math.round(Math.min(rect.width, rect.height) * dpr);
+
+                    if (canvas.width !== size || canvas.height !== size) {
+                        canvas.width  = size;
+                        canvas.height = size;
+                        gl.viewport(0, 0, size, size);
+                    }
+                };
+
+                const ro = new ResizeObserver(resize);
+                ro.observe(this);
+                resize();
+
+                // --- 5. Render Loop ---
+                const startTime = performance.now();
+                const render = (now: number) => {
+                    resize();
+
+                    if (timeLoc) {
+                        gl.uniform1f(timeLoc, (now - startTime) / 1000);
+                    }
+                    if (resolutionLoc) {
+                        gl.uniform2f(resolutionLoc, gl.drawingBufferWidth, gl.drawingBufferHeight);
+                    }
+
+                    gl.clearColor(0.0, 0.0, 0.0, 0.0); // transparent clear
+                    gl.clear(gl.COLOR_BUFFER_BIT);
+                    // TRIANGLE_FAN: centre + segmentCount + 1 closing vertex
+                    gl.drawArrays(gl.TRIANGLE_FAN, 0, segmentCount + 2);
+
+                    requestAnimationFrame(render);
+                };
+
+                requestAnimationFrame(render);
+
+            } catch (err: unknown) {
+                const msg = err instanceof Error ? err.message : 'An unknown WebGL error occurred.';
+                showError(msg);
+            }
+        }
+    }
+
+    customElements.define('shader-circle-wrapper', ShaderCircle);
+</script>
