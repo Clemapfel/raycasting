@@ -80,7 +80,7 @@ function ow.DoubleJumpTether:instantiate(object, stage, scene)
     stage.double_jump_tether_current_hue_step = stage.double_jump_tether_current_hue_step % _n_hue_steps + 1
     self._particle = ow.DoubleJumpTetherParticle(self._radius)
     self._line_opacity_motion = rt.SmoothedMotion1D(0, 3.5)
-    self._tether= ow.Tether(self._scene)
+    self._tether = ow.Tether(self._scene)
     self._particle_opacity_motion = rt.SmoothedMotion1D(1, 2)
     self._particles = ow.TetherParticleEffect()
     self._particle_emission_timestamp = math.huge

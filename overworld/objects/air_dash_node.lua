@@ -54,15 +54,30 @@ function ow.AirDashNode:instantiate(object, stage, scene)
     self._stage = stage
 
     local direction = object:get_object("direction", false)
-    self._has_direction = direction ~= nil
+    local angle = object:get_object("angle", false)
 
-    if self._has_direction then
-        rt.assert(direction:get_type() == ow.ObjectType.POINT, "In ow.DirectionalAirDashNode: direction object `", direction:get_id(), "` is not a point")
-        self._direction_x, self._direction_y = math.normalize(
-            direction.x - x,
-            direction.y - y
-        )
+    if angle ~= nil and direction == nil then
+        rt.assert(false, "In ow.DirectionalAirDashNode: `angle` specified but not `direction` property pointing to an `AirDashNodeDirection` point is present")
     end
+
+    if angle == nil then
+        angle = 0.5 * math.pi
+    else
+        rt.assert(angle >= 0 and angle <= 1, "In ow.DirectionalAirDashNode: `angle` property should be a number in [0, 1], got `", angle, "`")
+        angle = angle * 0.5 * math.pi
+    end
+
+    local mid = 0 or math.angle(direction.x - object.x, direction.y - object.y)
+    self._angle_ranges = {
+        {
+            mid - 0.5 * angle,
+            mid + 0.5 * angle
+        },
+        {
+            mid - math.pi - 0.5 * angle,
+            mid - math.pi + 0.5 * angle
+        }
+    }
 
     self._indicator_always_visible = object:get_boolean("indicator_always_visible", false)
     if self._indicator_always_visible == nil then self._indicator_always_visible = true end
@@ -104,106 +119,189 @@ function ow.AirDashNode:instantiate(object, stage, scene)
     self._particle = ow.AirDashNodeParticle(rt.settings.player.radius * rt.settings.overworld.double_jump_tether.radius_factor)
     self._particles = ow.AirDashNodeParticleEffect()
 
-    self._circle_vertices = {}
+    self._outline_vertices = {}
     local n_vertices = rt.Mesh.radius_to_n_vertices(self._radius, self._radius)
-    for i = 1, n_vertices + 1 do
-        local angle = (i - 1) / n_vertices * 2 * math.pi
-        table.insert(self._circle_vertices, math.cos(angle) * self._radius)
-        table.insert(self._circle_vertices, math.sin(angle) * self._radius)
+
+
+    self._outline_vertices = {}
+
+    local function push(x, y)
+        table.insert(self._outline_vertices, x)
+        table.insert(self._outline_vertices, y)
+    end
+
+    for s, range in ipairs(self._angle_ranges) do
+        local range_start, range_end = range[1], range[2]
+        local arc_span = range_end - range_start
+        local n_arc_vertices = math.max(2, math.ceil(n_vertices * math.abs(arc_span) / (2 * math.pi)))
+
+        for i = 1, n_arc_vertices + 1 do
+            local a = range_start + ((i - 1) / n_arc_vertices) * arc_span
+            push(math.cos(a) * self._radius, math.sin(a) * self._radius)
+        end
+
+        push(0, 0)
+
+        local next_range = self._angle_ranges[(s % #self._angle_ranges) + 1]
+        local next_start = next_range[1]
+        push(math.cos(next_start) * self._radius, math.sin(next_start) * self._radius)
     end
 
     do
         local glow_aliasing_width = rt.settings.overworld.air_dash_node.glow_aliasing_width
-        local radius_a = 2 * rt.settings.overworld.air_dash_node.core_radius
-        local radius_b = self._radius
-        local radius_c = self._radius + glow_aliasing_width
+        local radius_inner = 2 * rt.settings.overworld.air_dash_node.core_radius
+        local radius_mid = self._radius
+        local radius_outer = self._radius + glow_aliasing_width
 
         local glow_data = {}
-        local glow_vertex_map = {} -- 1-based
+        local glow_vertex_map = {}
 
-        local function add_vertex(which, x, y, u, v, arc_length, density, opacity)
-            -- shader information encoded in rgba
-            table.insert(which, {
+        local function add_vertex(x, y, u, v, arc_length, density, opacity)
+            table.insert(glow_data, {
                 x, y,
                 u, v,
-                density,    -- x = density
-                arc_length, -- y = arc length
-                opacity,    -- z = opacity
-                1           -- w = unused
+                density,
+                arc_length,
+                opacity,
+                1
             })
         end
 
-        local glow_x, glow_y = 0, 0
+        local cx, cy = 0, 0
 
-        add_vertex(glow_data,
-            glow_x, glow_y,
-            0, 0,
-            0,
-            1,
-            1
-        )
+        -- vertex 1: center
+        add_vertex(cx, cy, 0, 0, 0, 1, 1)
 
-        local n_outer_vertices = math.ceil(0.5 * self._radius)
-        for i = 1, n_outer_vertices do
-            local arc_length = (i - 1) / n_outer_vertices
-            local angle = arc_length * 2 * math.pi
-            local dx, dy = math.cos(angle), math.sin(angle)
+        -- for each angle range, emit arc vertices and radial border quads
+        -- sector_vertex_ranges[s] = { first_index, count } into glow_data (1-based)
+        local sector_first = {}
 
-            -- inner
-            add_vertex(glow_data,
-                glow_x + dx * radius_a,
-                glow_y + dy * radius_a,
-                dx, dy, arc_length,
-                1,
-                0
-            )
+        for _, range in ipairs(self._angle_ranges) do
+            local range_start, range_end = range[1], range[2]
+            local arc_span = range_end - range_start
 
-            -- center
-            add_vertex(glow_data,
-                glow_x + dx * radius_b,
-                glow_y + dy * radius_b,
-                dx, dy, arc_length,
-                1,
-                1
-            )
+            -- number of arc steps proportional to arc length
+            local n_arc = math.max(2, math.ceil(n_vertices * math.abs(arc_span) / (2 * math.pi)))
 
-            -- outer
-            add_vertex(glow_data,
-                glow_x + dx * radius_c,
-                glow_y + dy * radius_c,
-                dx, dy, 1 - arc_length,
-                0,
-                0
-            )
-        end
+            local first_index = #glow_data + 1
+            table.insert(sector_first, { first = first_index, count = n_arc + 1 })
 
-        -- triangulate
-        for i = 1, n_outer_vertices do
-            local next_i = (i % n_outer_vertices) + 1
+            for i = 1, n_arc + 1 do
+                local t = (i - 1) / n_arc
+                local arc_angle = range_start + t * arc_span
+                local dx, dy = math.cos(arc_angle), math.sin(arc_angle)
+                local arc_length = t  -- normalized 0..1 along this sector's arc
 
-            local center_i = 1
-            local a_i = 1 + (i - 1) * 3 + 1
-            local b_i = 1 + (i - 1) * 3 + 2
-            local c_i = 1 + (i - 1) * 3 + 3
-            local next_a_i = 1 + (next_i - 1) * 3 + 1
-            local next_b_i = 1 + (next_i - 1) * 3 + 2
-            local next_c_i = 1 + (next_i - 1) * 3 + 3
+                add_vertex(cx + dx * radius_inner, cy + dy * radius_inner, dx, dy, arc_length, 1, 0)
+                add_vertex(cx + dx * radius_mid,   cy + dy * radius_mid,   dx, dy, arc_length, 1, 1)
+                add_vertex(cx + dx * radius_outer, cy + dy * radius_outer, dx, dy, 1 - arc_length, 0, 0)
+            end
 
-            table.insert(glow_vertex_map, a_i)
-            table.insert(glow_vertex_map, b_i)
-            table.insert(glow_vertex_map, next_b_i)
+            -- center fan and arc ring triangles
+            for i = 1, n_arc do
+                local base = first_index + (i - 1) * 3
+                local next_base = first_index + i * 3
 
-            table.insert(glow_vertex_map, a_i)
-            table.insert(glow_vertex_map, next_b_i)
-            table.insert(glow_vertex_map, next_a_i)
+                local inner_a  = base
+                local mid_a    = base + 1
+                local inner_b  = next_base
+                local mid_b    = next_base + 1
 
-            table.insert(glow_vertex_map, b_i)
-            table.insert(glow_vertex_map, c_i)
-            table.insert(glow_vertex_map, next_c_i)
+                -- center to inner arc fan
+                table.insert(glow_vertex_map, 1)
+                table.insert(glow_vertex_map, inner_a)
+                table.insert(glow_vertex_map, inner_b)
 
-            table.insert(glow_vertex_map, b_i)
-            table.insert(glow_vertex_map, next_c_i)
-            table.insert(glow_vertex_map, next_b_i)
+                -- inner to mid ring
+                table.insert(glow_vertex_map, inner_a)
+                table.insert(glow_vertex_map, mid_a)
+                table.insert(glow_vertex_map, mid_b)
+
+                table.insert(glow_vertex_map, inner_a)
+                table.insert(glow_vertex_map, mid_b)
+                table.insert(glow_vertex_map, inner_b)
+
+                -- mid to outer ring
+                local outer_a = base + 2
+                local outer_b = next_base + 2
+
+                table.insert(glow_vertex_map, mid_a)
+                table.insert(glow_vertex_map, outer_a)
+                table.insert(glow_vertex_map, outer_b)
+
+                table.insert(glow_vertex_map, mid_a)
+                table.insert(glow_vertex_map, outer_b)
+                table.insert(glow_vertex_map, mid_b)
+            end
+
+            -- radial border quads along the two straight edges of the sector
+            -- each edge runs from center outward; we emit inner→mid and mid→outer quads
+            -- UV arc_length is 0 on the boundary (matching arc endpoint t=0 and t=1)
+            -- the quad is degenerate in angle but the shader samples by arc_length + density
+
+            -- start edge (t=0, i=1): vertices at first_index+0,+1,+2
+            -- end edge   (t=1, i=n_arc+1): vertices at first_index + n_arc*3 + 0,+1,+2
+            -- for each edge we need center→inner→mid→outer as a strip
+            -- we build two quads: (center, inner_edge_start, inner_edge_end, ... )
+            -- but the straight edges are degenerate (zero width), so we extrude by
+            -- glow_aliasing_width perpendicular to the radial direction
+
+            -- edge_start: angle = range_start, edge_end: angle = range_end
+            for edge_index, edge_t in ipairs({ 0, 1 }) do
+                local edge_angle = range_start + edge_t * arc_span
+                local dx, dy = math.cos(edge_angle), math.sin(edge_angle)
+                -- perpendicular (pointing inward to sector for both edges)
+                -- for edge_t=0: perp is +90deg (rotate CCW), for edge_t=1: perp is -90deg
+                local sign = (edge_index == 1) and 1 or -1
+                local px, py = -dy * sign, dx * sign
+
+                local edge_arc_length = edge_t
+
+                -- four vertices forming the quad: two along radial, extruded by aliasing width perpendicularly
+                local v_inner_on  = #glow_data + 1
+                add_vertex(cx + dx * radius_inner,  cy + dy * radius_inner,  dx, dy, edge_arc_length, 1, 0)
+                local v_inner_off = #glow_data + 1
+                add_vertex(cx + dx * radius_inner + px * glow_aliasing_width,
+                    cy + dy * radius_inner + py * glow_aliasing_width,
+                    dx, dy, edge_arc_length, 0, 0)
+
+                local v_mid_on  = #glow_data + 1
+                add_vertex(cx + dx * radius_mid,  cy + dy * radius_mid,  dx, dy, edge_arc_length, 1, 1)
+                local v_mid_off = #glow_data + 1
+                add_vertex(cx + dx * radius_mid + px * glow_aliasing_width,
+                    cy + dy * radius_mid + py * glow_aliasing_width,
+                    dx, dy, edge_arc_length, 0, 1)
+
+                local v_outer_on  = #glow_data + 1
+                add_vertex(cx + dx * radius_outer,  cy + dy * radius_outer,  dx, dy, edge_arc_length, 0, 0)
+                local v_outer_off = #glow_data + 1
+                add_vertex(cx + dx * radius_outer + px * glow_aliasing_width,
+                    cy + dy * radius_outer + py * glow_aliasing_width,
+                    dx, dy, edge_arc_length, 0, 0)
+
+                -- center to inner radial quad
+                table.insert(glow_vertex_map, 1)
+                table.insert(glow_vertex_map, v_inner_on)
+                table.insert(glow_vertex_map, v_inner_off)
+
+                -- inner to mid quad
+                table.insert(glow_vertex_map, v_inner_on)
+                table.insert(glow_vertex_map, v_mid_on)
+                table.insert(glow_vertex_map, v_mid_off)
+
+                table.insert(glow_vertex_map, v_inner_on)
+                table.insert(glow_vertex_map, v_mid_off)
+                table.insert(glow_vertex_map, v_inner_off)
+
+                -- mid to outer quad
+                table.insert(glow_vertex_map, v_mid_on)
+                table.insert(glow_vertex_map, v_outer_on)
+                table.insert(glow_vertex_map, v_outer_off)
+
+                table.insert(glow_vertex_map, v_mid_on)
+                table.insert(glow_vertex_map, v_outer_off)
+                table.insert(glow_vertex_map, v_mid_off)
+            end
         end
 
         self._glow_mesh = rt.Mesh(glow_data,
@@ -355,7 +453,7 @@ function ow.AirDashNode:draw(priority)
         if cooldown_t >= 1 then
             local alpha = rt.settings.overworld.air_dash_node.solid_outline_alpha * self._is_current_motion:get_value()
             love.graphics.setColor(r, g, b, alpha)
-            love.graphics.line(self._circle_vertices)
+            love.graphics.line(self._outline_vertices)
         end
 
         if opacity > 0.01 then
@@ -389,13 +487,7 @@ function ow.AirDashNode:draw(priority)
         end
 
         local x, y = 0, 0
-        local dx, dy
-        if self._has_direction then
-            dx, dy = self._direction_x, self._direction_y
-        else
-            local px, py = self._scene:get_player():get_position()
-            dx, dy = math.normalize(px - offset_x, py - offset_y)
-        end
+        local dx, dy = self:get_direction()
 
         local ax, ay = x - dx * self._radius, y - dy * self._radius
         local bx, by = x + dx * self._radius, y + dy * self._radius
@@ -403,7 +495,7 @@ function ow.AirDashNode:draw(priority)
         local alpha = self._is_current_motion:get_value() - (1 - math.min(1, cooldown_t))
 
         love.graphics.setColor(r, g, b, 0.5 * alpha)
-        love.graphics.line(self._circle_vertices)
+        love.graphics.line(self._outline_vertices)
 
         if self._indicator_always_visible == true then alpha = 0.5 end
         love.graphics.setColor(r, g, b, alpha)
@@ -457,6 +549,20 @@ end
 --- @brief
 function ow.AirDashNode:get_is_directional()
     return self._has_direction
+end
+
+--- @brief
+function ow.AirDashNode:get_direction()
+    local dx, dy = 0, 0
+    local x, y = self._body:get_position()
+    if self._has_direction then
+        dx, dy = self._direction_x, self._direction_y
+    else
+        local px, py = self._scene:get_player():get_position()
+        dx, dy = math.normalize(px - x, py - y)
+    end
+
+    return dx, dy
 end
 
 --- @brief
