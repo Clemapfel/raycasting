@@ -285,22 +285,6 @@ function ow.AirDashNode:instantiate(object, stage, scene)
         self._glow_mesh = nil
     end
 
-    do -- line mesh
-        local w = 3
-        local h = 2 * radius
-        local top_left_x, top_left_y = x - 0.5 * w, y - 0.5 * h
-        local top_right_x, top_right_y = x + 0.5 * w, y - 0.5 * h
-        local bottom_right_x, bottom_right_y = x + 0.5 * w, y + 0.5 * h
-        local bottom_left_x, bottom_left_y = x - 0.5 * w, y + 0.5 * h
-
-        self._line_mesh = rt.Mesh({
-            { top_left_x, top_left_y, 0, 0, 1, 1, 1, 1 },
-            { top_right_x, top_right_y, 1, 0, 1, 1, 1 },
-            { bottom_right_x, bottom_right_y, 1, 1, 1, 1, 1, 1 },
-            { bottom_left_x, bottom_left_y, 0, 1, 1, 1, 1, 1 }
-        })
-    end
-
     -- global handler
 
     stage.air_dash_node_manager:notify_node_added(self)
@@ -324,14 +308,7 @@ function ow.AirDashNode:set_is_tethered(b, path)
     end
 
     self._tether_path = path
-
-    if self._has_direction then
-        self._tether_dx, self._tether_dy = self._direction_x, self._direction_y
-    else
-        local px, py = self._scene:get_player():get_position()
-        local x, y = self._body:get_position()
-        self._tether_dx, self._tether_dy = math.normalize(px - x, py - y)
-    end
+    self._tether_dx, self._tether_dy = self:get_direction()
 end
 
 --- @brief
@@ -494,7 +471,17 @@ function ow.AirDashNode:draw(priority)
     if not self._stage:get_is_body_visible(self._body) then return end
 
     local r, g, b = self._color:unpack()
-    local alpha = self._is_current_motion:get_value()
+
+    local alpha
+    local cooldown = rt.settings.overworld.air_dash_node.cooldown
+    if self._cooldown_elapsed <= cooldown then
+        alpha = math.sqrt(
+            1 - math.min(1, self._cooldown_elapsed / cooldown)
+        )
+    else
+        alpha = self._is_current_motion:get_value()
+    end
+
     local line_width = rt.settings.overworld.air_dash_node.solid_outline_line_width
     love.graphics.setLineJoin("bevel")
 
@@ -510,7 +497,7 @@ function ow.AirDashNode:draw(priority)
             love.graphics.setColor(1, 1, 1, 1)
             _glow_shader:bind()
             _glow_shader:send("elapsed", rt.SceneManager:get_elapsed() + meta.hash(self))
-            _glow_shader:send("color", { r, g, b, alpha })
+            _glow_shader:send("color", { r, g, b, 1 })
             _glow_shader:send("noise_texture", _noise_texture)
             self._glow_mesh:draw()
             _glow_shader:unbind()
@@ -521,7 +508,7 @@ function ow.AirDashNode:draw(priority)
             love.graphics.setColor(r, g, b, 1)
             love.graphics.setLineStyle("smooth")
         else
-            love.graphics.setColor(r, g, b, 0.5 * alpha)
+            love.graphics.setColor(r, g, b, 0.5)
             love.graphics.setLineStyle("rough") -- to prevent aa regions overlapping at low opacity
         end
 
@@ -533,20 +520,35 @@ function ow.AirDashNode:draw(priority)
         local ax, ay = x - dx * self._radius, y - dy * self._radius
         local bx, by = x + dx * self._radius, y + dy * self._radius
 
-        love.graphics.setColor(r, g, b, alpha)
-        love.graphics.setLineWidth(line_width)
-        love.graphics.setLineStyle("smooth")
-        love.graphics.line(ax, ay, bx, by)
-
         local angle = math.angle(dx, dy)
         local arc_radius = 0.5 * line_width
-        love.graphics.arc("fill", "closed", ax, ay, arc_radius, angle + math.pi / 2, angle + 3 * math.pi / 2)
-        love.graphics.arc("fill", "closed", bx, by, arc_radius, angle - math.pi / 2, angle + math.pi / 2)
+
+        local draw_line = function()
+            love.graphics.line(ax, ay, bx, by)
+            love.graphics.arc("fill", "closed", ax, ay, arc_radius, angle + math.pi / 2, angle + 3 * math.pi / 2)
+            love.graphics.arc("fill", "closed", bx, by, arc_radius, angle - math.pi / 2, angle + math.pi / 2)
+        end
+
+        love.graphics.setLineStyle("smooth")
+
+        love.graphics.setLineWidth(line_width + 1)
+        local darken = 0.25
+        local black_r, black_g, black_b = r * darken, g * darken, b * darken
+        love.graphics.setColor(black_r, black_g, black_b, alpha)
+        draw_line()
+
+        love.graphics.setLineWidth(line_width)
+        love.graphics.setColor(r, g, b, alpha)
+        draw_line()
 
         self._particles:draw()
     end
 
     love.graphics.pop()
+
+    if priority == _behind_player_priority then
+        self._particles:draw()
+    end
 end
 
 --- @brief
@@ -589,6 +591,10 @@ end
 
 --- @brief
 function ow.AirDashNode:get_direction()
+    if self._cooldown_elapsed <= rt.settings.overworld.air_dash_node.cooldown then
+        return self._tether_dx, self._tether_dy, false
+    end
+
     local angle = self._angle
     local angle_range = self._angle_range
 
@@ -619,6 +625,6 @@ end
 
 --- @brief
 function ow.AirDashNode:emit_particles(path)
-    local vx, vy = self._scene:get_player():get_position()
+    local vx, vy = self._scene:get_player():get_velocity()
     self._particles:emit(path, vx, vy, self._color:unpack())
 end

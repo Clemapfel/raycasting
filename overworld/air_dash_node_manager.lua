@@ -113,7 +113,8 @@ function ow.AirDashNodeManager:_tether(node)
     local radius = node:get_radius()
     self._particle_path = rt.Path(
         node_x - self._tether_dx * radius, node_y - self._tether_dy * radius,
-        node_x + self._tether_dx * radius, node_y + self._tether_dy * radius
+        node_x, node_y--,
+        --node_x + self._tether_dx * radius, node_y + self._tether_dy * radius
     )
 
     self._tethered_node:set_is_tethered(true, self._tether_path)
