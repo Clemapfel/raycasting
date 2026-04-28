@@ -79,14 +79,7 @@ function ow.AirDashNodeManager:_tether(node)
     local player_x, player_y = player:get_position()
     local node_x, node_y = node:get_position()
 
-    if node:get_is_directional() then
-        self._tether_dx, self._tether_dy = node._direction_x, node._direction_y
-    else
-        self._tether_dx, self._tether_dy = math.normalize(
-            node_x - player_x,
-            node_y - player_y
-        )
-    end
+    self._tether_dx, self._tether_dy, _ = node:get_direction()
 
     local left_x, left_y = math.turn_left(self._tether_dx, self._tether_dy)
     local right_x, right_y = math.turn_right(self._tether_dx, self._tether_dy)
@@ -230,13 +223,14 @@ function ow.AirDashNodeManager:update(delta)
         if not on_cooldown then
             local node_x, node_y = node:get_position()
             local dx, dy = math.normalize(px - node_x, py - node_y)
-            local distance =  math.distance(px, py, node_x, node_y)
+            local distance = math.distance(px, py, node_x, node_y)
+            local alignment = math.dot(dx, dy, pvx, pvy)
             table.insert(entries, {
                 node = node,
                 distance = distance,
                 dx = dx,
                 dy = dy,
-                alignment = math.dot(dx, dy, pvx, pvy)
+                alignment = alignment
             })
 
             if distance < node:get_radius() + 2 * player:get_radius() then

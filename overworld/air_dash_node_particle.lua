@@ -394,6 +394,7 @@ function ow.AirDashNodeParticle:draw(x, y, draw_shape, draw_core)
     local offset = math.mix(1, rt.settings.impulse_manager.max_brightness_factor, self._brightness_offset)
     local static_axis_angle = math.angle(self._static_axis_x, self._static_axis_y)
     love.graphics.setLineJoin("none")
+    love.graphics.setLineStyle("smooth")
 
     local _draw = function(r, g, b, a, line_width, core_scale)
         love.graphics.push()
