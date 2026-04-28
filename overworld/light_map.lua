@@ -4,7 +4,7 @@ require "common.byte_data"
 rt.settings.overworld.light_map = {
     max_n_point_lights = 1024,
     max_n_segment_lights = 512,
-    n_point_lights_per_tile = 32,
+    n_point_lights_per_tile = 64,
     n_segment_lights_per_tile = 16,
     tile_size = 64,
     work_group_size_x = 32,

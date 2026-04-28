@@ -6,7 +6,7 @@ rt.settings.overworld.air_dash_node_manager = {
     dash_velocity = 1000, -- on exit
     dash_velocity_bubble = 500,
 
-    min_player_damping = 1,
+    min_player_damping = 0.9,
     max_player_damping = 1
 }
 
@@ -65,7 +65,6 @@ end
 
 --- @brief
 function ow.AirDashNodeManager:_update_damping(value)
-    if true then return end
     local player = self._scene:get_player()
     self._damping_entry_id = player:request_damping(self,
         nil, -- up
@@ -305,7 +304,7 @@ function ow.AirDashNodeManager:update(delta)
     end
 
     -- disable double jump while in range
-    player:request_is_jump_disabled(self, disable_double_jump)
+    player:request_is_jump_disabled(self, not player:get_is_grounded() and disable_double_jump)
 
     ::skip::
 end
