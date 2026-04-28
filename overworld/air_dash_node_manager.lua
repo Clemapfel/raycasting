@@ -36,7 +36,9 @@ function ow.AirDashNodeManager:instantiate(scene, stage)
     self._input:signal_connect("pressed", function(_, which)
         if which == rt.InputAction.JUMP and self._next_node ~= nil then
             if self._tethered_node ~= self._next_node then
-                self:_tether(self._next_node)
+                if self._next_node:check_player_overlap() then
+                    self:_tether(self._next_node)
+                end
             end
         end
     end)
@@ -54,8 +56,16 @@ local function _get_side(px, py, line)
     return math.sign(math.cross(dx, dy, dpx, dpy))
 end
 
+local function _get_direction(velocity_x, velocity_y, line)
+    local x1, y1, x2, y2 = table.unpack(line)
+    local normal_x = -(y2 - y1)
+    local normal_y = x2 - x1
+    return ternary(math.dot(velocity_x, velocity_y, normal_x, normal_y) < 0, -1, 1)
+end
+
 --- @brief
 function ow.AirDashNodeManager:_update_damping(value)
+    if true then return end
     local player = self._scene:get_player()
     self._damping_entry_id = player:request_damping(self,
         nil, -- up
@@ -77,6 +87,7 @@ function ow.AirDashNodeManager:_tether(node)
 
     local player = self._scene:get_player()
     local player_x, player_y = player:get_position()
+    local player_vx, player_vy = player:get_velocity()
     local node_x, node_y = node:get_position()
 
     self._tether_dx, self._tether_dy, _ = node:get_direction()
@@ -92,32 +103,23 @@ function ow.AirDashNodeManager:_tether(node)
         node_y + right_y * length
     }
 
-    self._tether_sign = _get_side(
-        player_x, player_y,
+    self._tether_sign = _get_direction(
+        player_vx, player_vy,
         self._tether_sign_line
     )
 
-    if node:get_is_directional() then
-        -- flip direction depending on which side player is on
-        self._tether_dx, self._tether_dy = math.multiply2(
-            self._tether_dx, self._tether_dy,
-            self._tether_sign, self._tether_sign
-        )
-    end
-
+    local radius = node:get_radius()
     self._tether_path = rt.Path(
         player_x, player_y,
         node_x, node_y
     )
 
-    local radius = node:get_radius()
     self._particle_path = rt.Path(
         node_x - self._tether_dx * radius, node_y - self._tether_dy * radius,
-        node_x, node_y--,
-        --node_x + self._tether_dx * radius, node_y + self._tether_dy * radius
+        node_x, node_y
     )
 
-    self._tethered_node:set_is_tethered(true, self._tether_path)
+    self._tethered_node:set_is_tethered(true)
     player:pulse(node:get_color())
     self._scene:get_camera():shake()
 end
@@ -174,11 +176,11 @@ function ow.AirDashNodeManager:update(delta)
             rt.settings.overworld.air_dash_node_manager.dash_velocity_bubble
         )
 
-        local bx, by = self._tether_path:at(1)
+        local bx, by = self._tethered_node:get_position()
 
         local easing = ternary(not player:get_is_bubble(), non_bubble_easing, bubble_easing)
         local t = easing(
-            math.mix(0.5, 1, (1 - math.distance(px, py, bx, by) / self._tether_path:get_length()))
+            math.mix(0.5, 1, (1 - math.distance(px, py, bx, by) / self._tethered_node:get_radius()))
         )
 
         local dx, dy = self._tether_path:tangent_at(t)
@@ -188,7 +190,7 @@ function ow.AirDashNodeManager:update(delta)
             t * target_velocity * dy
         )
 
-        -- exit condition: moved past midline
+        -- exit condition: moved past end line
         local side = _get_side(px, py, self._tether_sign_line)
         if side ~= self._tether_sign then
             player:set_velocity( -- ensure exit velocity

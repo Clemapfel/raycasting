@@ -466,3 +466,8 @@ function ow.AirDashNodeParticle:set_use_axis(b, nx, ny, nz)
     self._use_static_axis = b
     self._static_axis_x, self._static_axis_y, self._static_axis_z = nx, ny, nz
 end
+
+--- @brief
+function ow.AirDashNodeParticle:get_radius()
+    return self._radius
+end

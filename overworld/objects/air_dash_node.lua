@@ -63,7 +63,6 @@ function ow.AirDashNode:instantiate(object, stage, scene)
         b2.Circle(0, 0, self._radius)
     )
 
-    self._body:set_is_sensor(true)
     self._body:set_collides_with(0x0)
     self._body:set_collision_group(0x0)
     self._body:add_tag("point_light_source")
@@ -96,13 +95,17 @@ function ow.AirDashNode:instantiate(object, stage, scene)
     local angle_range = object:get_number("angle", false)
 
     if angle_range ~= nil and direction == nil then
-        rt.assert(false, "In ow.DirectionalAirDashNode: `angle` specified but not `direction` property pointing to an `AirDashNodeDirection` point is present")
+        rt.assert(false, "In ow.AirDashNode: `angle` specified but not `direction` property pointing to an `AirDashNodeDirection` point is present")
     end
 
     if angle_range == nil then
-        angle_range = 0.5 * math.pi
+        if direction ~= nil then
+            angle_range = 0
+        else
+            angle_range = 0.5 * math.pi
+        end
     else
-        rt.assert(angle_range >= 0 and angle_range <= 1, "In ow.DirectionalAirDashNode: `angle` property should be a number in [0, 1], got `", angle_range, "`")
+        rt.assert(angle_range >= 0 and angle_range <= 1, "In ow.AirDashNode: `angle` property should be a number in [0, 1], got `", angle_range, "`")
         angle_range = angle_range * 0.5 * math.pi
     end
 
@@ -291,7 +294,7 @@ function ow.AirDashNode:instantiate(object, stage, scene)
 end
 
 --- @brief
-function ow.AirDashNode:set_is_tethered(b, path)
+function ow.AirDashNode:set_is_tethered(b)
     local before = self._is_tethered
     self._is_tethered = b
 
@@ -307,7 +310,6 @@ function ow.AirDashNode:set_is_tethered(b, path)
         self._particle:set_is_exploded(false)
     end
 
-    self._tether_path = path
     self._tether_dx, self._tether_dy = self:get_direction()
 end
 
@@ -319,9 +321,6 @@ function ow.AirDashNode:set_is_current(b)
         -- skip animation
         self._is_current_motion:set_value(1)
     end
-
-    local dx, dy, _ = self:get_direction()
-    self._particle:set_aligned(b, dx, dy, 0)
 end
 
 --- @brief
@@ -369,102 +368,14 @@ function ow.AirDashNode:update(delta)
             self._particle:set_use_axis(false)
         end
 
+        local dx, dy, _ = self:get_direction()
+        self._particle:set_aligned(self._is_current, dx, dy, 0)
         self._particles:update(delta)
     end
 end
 
 local _behind_player_priority = -1
 local _above_player_priority = 1
-
---- @brief
-function ow.AirDashNode:draw(priority)
-    if not self._stage:get_is_body_visible(self._body) then return end
-
-    local offset_x, offset_y = self._body:get_position()
-
-    local r, g, b, a = self._color:unpack()
-    local black_r, black_g, black_b = rt.Palette.BLACK:unpack()
-
-    local cooldown_t = self._cooldown_elapsed / rt.settings.overworld.air_dash_node.cooldown
-
-    local line_width = rt.settings.overworld.air_dash_node.solid_outline_line_width
-    love.graphics.setLineStyle("smooth")
-    love.graphics.setLineWidth(line_width)
-
-    if priority == _behind_player_priority then
-        love.graphics.push()
-        love.graphics.translate(offset_x, offset_y)
-
-        local current_a = self._is_current_motion:get_value()
-        local cooldown_a = 1 - math.min(1, self._cooldown_elapsed / rt.settings.overworld.air_dash_node.cooldown)
-        local opacity = math.max(
-            current_a,
-            cooldown_a,
-            rt.settings.overworld.air_dash_node.min_opacity
-        )
-
-        if cooldown_t >= 1 then
-            local alpha = rt.settings.overworld.air_dash_node.solid_outline_alpha * self._is_current_motion:get_value()
-            love.graphics.setColor(r, g, b, alpha)
-            love.graphics.line(self._outline_vertices)
-        end
-
-        if opacity > 0.01 and self._glow_mesh ~= nil then
-            love.graphics.setColor(1, 1, 1, 1)
-            _glow_shader:bind()
-            _glow_shader:send("elapsed", rt.SceneManager:get_elapsed() + meta.hash(self))
-            _glow_shader:send("color", { r, g, b, opacity })
-            _glow_shader:send("noise_texture", _noise_texture)
-            self._glow_mesh:draw()
-            _glow_shader:unbind()
-        end
-
-        if self._is_current == false then
-            love.graphics.setColor(r, g, b, 1)
-            self._particle:draw(0, 0, true, true)
-        end
-
-        love.graphics.pop()
-
-        self._particles:draw()
-
-    elseif priority == _above_player_priority then
-
-        love.graphics.push()
-        love.graphics.translate(offset_x, offset_y)
-
-        love.graphics.setColor(r, g, b, 1)
-
-        if self._is_current == true then
-            self._particle:draw(0, 0, true, true)
-        end
-
-        local x, y = 0, 0
-        local dx, dy = self:get_direction()
-
-        local ax, ay = x - dx * self._radius, y - dy * self._radius
-        local bx, by = x + dx * self._radius, y + dy * self._radius
-
-        local alpha = self._is_current_motion:get_value() - (1 - math.min(1, cooldown_t))
-
-        love.graphics.setLineWidth(0.5 * line_width)
-        love.graphics.setColor(r, g, b, 0.5 * alpha)
-        love.graphics.line(self._outline_vertices)
-
-        love.graphics.setColor(r, g, b, alpha)
-
-        local angle = math.angle(dx, dy)
-        local arc_radius = 0.5 * line_width
-        love.graphics.setLineWidth(line_width)
-        love.graphics.arc("fill", "closed", ax, ay, arc_radius, angle + math.pi / 2, angle + 3 * math.pi / 2)
-        love.graphics.arc("fill", "closed", bx, by, arc_radius, angle - math.pi / 2, angle + math.pi / 2)
-
-        love.graphics.line(ax, ay, bx, by)
-        love.graphics.pop()
-
-        self._particles:draw()
-    end
-end
 
 --- @brief
 function ow.AirDashNode:draw(priority)
@@ -503,8 +414,8 @@ function ow.AirDashNode:draw(priority)
             _glow_shader:unbind()
         end
 
-        love.graphics.setLineWidth(line_width)
-        if math.distance(body_x, body_y, self._scene:get_player():get_position()) <= self._radius then
+        love.graphics.setLineWidth(0.5 * line_width)
+        if self:check_player_overlap() then
             love.graphics.setColor(r, g, b, 1)
             love.graphics.setLineStyle("smooth")
         else
@@ -520,6 +431,10 @@ function ow.AirDashNode:draw(priority)
         local ax, ay = x - dx * self._radius, y - dy * self._radius
         local bx, by = x + dx * self._radius, y + dy * self._radius
 
+        if self:check_player_overlap() then
+            line_width = line_width + 2 * self._is_current_motion:get_value()
+        end
+
         local angle = math.angle(dx, dy)
         local arc_radius = 0.5 * line_width
 
@@ -532,6 +447,12 @@ function ow.AirDashNode:draw(priority)
         love.graphics.setLineStyle("smooth")
 
         love.graphics.setLineWidth(line_width + 1)
+
+        if self._angle_range == 0 then
+            -- for line, always show line
+            alpha = math.max(alpha, 0.5)
+        end
+
         local darken = 0.25
         local black_r, black_g, black_b = r * darken, g * darken, b * darken
         love.graphics.setColor(black_r, black_g, black_b, alpha)
@@ -582,6 +503,10 @@ function ow.AirDashNode:collect_point_lights(callback)
     local r, g, b, a = self._color:unpack()
     local radius = self._radius
     callback(x, y, radius, r, g, b, a)
+
+    callback(x, y, self._particle:get_radius(), r, g, b, self._is_current_motion:get_value())
+
+    self._particles:collect_point_lights(callback)
 end
 
 --- @brief
@@ -627,4 +552,82 @@ end
 function ow.AirDashNode:emit_particles(path)
     local vx, vy = self._scene:get_player():get_velocity()
     self._particles:emit(path, vx, vy, self._color:unpack())
+end
+
+function bowtie_overlap(circle_x, circle_y, circle_radius, bowtie_x, bowtie_y, bowtie_radius, mid, span)
+    local delta_x = circle_x - bowtie_x
+    local delta_y = circle_y - bowtie_y
+
+    local dist_sq = delta_x * delta_x + delta_y * delta_y
+    local outer_radius = bowtie_radius + circle_radius
+    if dist_sq > outer_radius * outer_radius then return false end
+
+    local axis_x = math.cos(mid)
+    local axis_y = math.sin(mid)
+
+    local local_x = axis_x * delta_x + axis_y * delta_y
+    local local_y = axis_x * delta_y - axis_y * delta_x
+
+    local folded_y = math.abs(local_y)
+
+    local half_span = span * 0.5
+    local edge_x = math.cos(half_span)
+    local edge_y = math.sin(half_span)
+
+    if edge_x * folded_y - edge_y * local_x >= 0 then
+        -- Inside the angular sweep of one of the two wedges.
+        -- The bowtie extends from the origin to bowtie_radius along this sweep.
+        -- Closest point on the bowtie to the circle center is either on the arc or the origin.
+        -- Since broad phase passed and we're in the sweep, check if circle reaches the wedge interior.
+        -- The nearest bowtie boundary in this region is the arc at bowtie_radius.
+        -- Circle overlaps if dist <= bowtie_radius + circle_radius (already guaranteed by broad phase)
+        -- AND the circle isn't entirely beyond the arc (impossible since broad phase covers that).
+        -- But we also need the wedge to actually reach the circle: dist >= 0, which it does.
+        -- A circle at the origin with radius < bowtie_radius overlaps any wedge.
+        return true
+    end
+
+    local proj = math.max(0, math.min(bowtie_radius, local_x * edge_x + folded_y * edge_y))
+    local closest_x = proj * edge_x
+    local closest_y = proj * edge_y
+    local dx = local_x - closest_x
+    local dy = folded_y - closest_y
+
+    return dx * dx + dy * dy <= circle_radius * circle_radius
+end
+
+--- @brief
+function ow.AirDashNode:check_player_overlap()
+    local px, py = self._scene:get_player():get_position()
+    local pr = self._scene:get_player():get_radius() * 2 -- for lenience
+
+    local x, y = self._body:get_position()
+    local r = self._radius
+    local mid, span = self._angle, self._angle_range
+
+    if math.distance(px, py, x, y) <= pr then return true end -- if ovelapping core particle
+
+    -- circle circle overlap
+    local circle_overlap = math.distance(px, py, x, y) <= (pr + r)
+    if self._angle_range >= 0.5 * math.pi then return circle_overlap end
+
+    if not circle_overlap then return false end
+
+    if span == 0 then
+        -- circle line overlap
+        local dx, dy = math.cos(mid), math.sin(mid)
+        local path = rt.Path(
+            x - dx * r, y - dy * r,
+            x + dx * r, y + dy * r
+        )
+
+        return math.distance(px, py, path:get_closest_point(px, py)) < pr -- padding
+    else
+        -- circle bowtie overlap
+        return circle_overlap and bowtie_overlap(
+            px, py, pr, 
+            x, y, r, 
+            mid, span
+        )
+    end
 end

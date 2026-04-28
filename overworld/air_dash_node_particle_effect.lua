@@ -21,7 +21,7 @@ rt.settings.overworld.air_dash_node_particle_effect = {
     cone_arc = math.degrees_to_radians(30),
 
     max_n_particles = 5000,
-    particle_density = 0.75, -- fraction
+    particle_density = 0.5, -- fraction
 }
 
 --- @class ow.AirDashNodeParticleEffect
@@ -317,5 +317,22 @@ function ow.AirDashNodeParticleEffect:_draw_batch(batch, is_bloom)
     love.graphics.draw(native, 10, 10)
 
     love.graphics.pop()
+end
 
+--- @brief
+function ow.AirDashNodeParticleEffect:collect_point_lights(callback)
+    for batch in values(self._batches) do
+        local data = batch.particle_data
+        for particle_i = 1, batch.n_particles do
+            local i = _particle_i_to_data_offset(particle_i)
+            callback(
+                data[i + _position_x_offset], data[i + _position_y_offset],
+                data[i + _radius_offset] * data[i + _radius_factor_offset],
+                data[i + _color_r_offset],
+                data[i + _color_g_offset],
+                data[i + _color_b_offset],
+                data[i + _color_a_offset]
+            )
+        end
+    end
 end
