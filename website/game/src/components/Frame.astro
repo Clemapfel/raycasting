@@ -2,7 +2,9 @@
 interface Props {
     segmentDistance?: number;
     maxOffset?: number;
+    noiseSpeed?: number;
     noiseFrequency?: number;
+    noiseMaxOffset?: number;
     backgroundColor?: string;
     outlineColor?: string;
     outlineWidth?: number;
@@ -13,8 +15,9 @@ interface Props {
 
 const {
     segmentDistance = 8,
-    maxOffset = 6,
-    noiseFrequency = 0.25,
+    maxOffset = 4,
+    noiseSpeed = 0.25,
+    noiseFrequency = 20,
     backgroundColor = "#111111",
     outlineColor = "currentColor",
     outlineWidth = 2,
@@ -22,16 +25,17 @@ const {
     thickness = 4,
     colorSpeed = 0.05,
 } = Astro.props;
+
+import '../styles/default.css';
 ---
 
 <div
-        class="noisy-frame"
-        data-segment-distance={segmentDistance}
-        data-max-offset={maxOffset}
-        data-noise-frequency={noiseFrequency}
-        data-corner-radius={cornerRadius}
-        data-color-speed={colorSpeed}
-        style={`--nf-bg-color:${backgroundColor};--nf-outline-color:${outlineColor};--nf-outline-width:${outlineWidth}px;--nf-corner-radius:${cornerRadius}px;--nf-thickness:${thickness}px;`}
+    class="noisy-frame"
+    data-segment-distance={segmentDistance}
+    data-max-offset={maxOffset}
+    data-noise-frequency={noiseFrequency}
+    data-corner-radius={cornerRadius}
+    data-color-speed={colorSpeed}
 >
     <svg class="noisy-frame__svg" aria-hidden="true" preserveAspectRatio="none">
         <path class="noisy-frame__bg-and-outline" />
@@ -42,25 +46,21 @@ const {
     </div>
 </div>
 
-<style>
-    :root {
-        --nf-color: white;
-        --nf-bg-color: green;
-        --nf-outline-color: black;
-        --nf-outline-width: 2px;
-        --nf-stroke-width: 2px;
-        --nf-corner-radius: 16px;
-        --nf-thickness: 4px;
-    }
-
+<style define:vars={{
+    "nf-bg-color": backgroundColor,
+    "nf-outline-color": outlineColor,
+    "nf-outline-width": `${outlineWidth}px`,
+    "nf-corner-radius": `${cornerRadius}px`,
+    "nf-thickness": `${thickness}px`,
+}}>
     .noisy-frame {
         position: relative;
         display: flex;
         flex-direction: column;
-        width: 100%;
-        height: 100%;
         box-sizing: border-box;
         isolation: isolate;
+
+        margin: 20px
     }
 
     .noisy-frame__svg {
@@ -280,7 +280,9 @@ const {
 
         private segmentDistance: number;
         private maxOffset: number;
+        private noiseSpeed: number;
         private noiseFrequency: number;
+        private noiseMaxOffset: number;
         private cornerRadius: number;
         private colorSpeed: number;
 
@@ -292,7 +294,9 @@ const {
 
             this.segmentDistance = parseFloat(root.dataset.segmentDistance ?? "8");
             this.maxOffset = parseFloat(root.dataset.maxOffset ?? "6");
-            this.noiseFrequency = parseFloat(root.dataset.noiseFrequency ?? "0.25");
+            this.noiseSpeed = parseFloat(root.dataset.noiseSpeed ?? "0.25");
+            this.noiseFrequency = parseFloat(root.dataset.noiseFrequency ?? "1");
+            this.noiseMaxOffset = parseFloat(root.dataset.noiseMaxOffset ?? "0");
             this.cornerRadius = parseFloat(root.dataset.cornerRadius ?? "16");
             this.colorSpeed = parseFloat(root.dataset.colorSpeed ?? "0.05");
 
@@ -334,8 +338,8 @@ const {
             const n = this.samples.length;
             if (n === 0) return "";
 
-            const tz = t * this.noiseFrequency;
-            const spatialRadius = 1.5;
+            const tz = t * this.noiseSpeed;
+            const spatialRadius = 1;
 
             let d = "";
             for (let i = 0; i < n; i++) {
@@ -344,7 +348,7 @@ const {
                 const nx_noise = Math.cos(theta) * spatialRadius;
                 const ny_noise = Math.sin(theta) * spatialRadius;
 
-                const raw = perlin3(nx_noise, ny_noise, tz);
+                const raw = perlin3(nx_noise * this.noiseFrequency, ny_noise * this.noiseFrequency, tz);
                 const norm = Math.max(-1, Math.min(1, raw / 0.7));
                 const offset = norm * this.maxOffset;
                 const x = s.x + s.nx * offset;

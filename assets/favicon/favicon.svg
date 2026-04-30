@@ -149,13 +149,14 @@
        cy="256"
        cx="256"
        rx="212.864"
-       ry="212.86397" /><circle
+       ry="212.86397" /><ellipse
        style="display:inline;fill:url(#radialGradient17-2);fill-opacity:1;stroke:none;stroke-width:25.0428;stroke-dasharray:none;stroke-opacity:1"
        id="path1-7"
        cx="256"
        cy="256"
        inkscape:label="core bloom"
-       r="212.86397" /><circle
+       rx="212.864"
+       ry="212.86397" /><circle
        style="display:inline;fill:url(#radialGradient2449);stroke:#9f0254;stroke-width:12.5214;stroke-dasharray:none;stroke-opacity:1"
        id="path1-1"
        cx="360.45499"

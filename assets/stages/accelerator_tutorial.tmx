@@ -136,22 +136,6 @@
   <object id="620" type="AcceleratorSurface" x="-2464" y="-560" rotation="90">
    <polygon points="-272,-1200 -272,-864 -268.94,-845.763 -261.127,-828.409 -249.654,-810.788 -235.043,-800.59 -216.878,-790.434 -192,-784 368,-784 368,-752 -304,-752 -304,-1200"/>
   </object>
-  <object id="632" name="from" type="Path" x="-2976" y="96">
-   <properties>
-    <property name="next" type="object" value="633"/>
-    <property name="target" type="object" value="638"/>
-    <property name="target_2" type="object" value="0"/>
-    <property name="velocity" type="float" value="2"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="633" name="to" type="PathNode" x="-2256" y="96">
-   <point/>
-  </object>
-  <object id="635" type="CameraFit" x="-3136.17" y="-418.977" width="1072.17" height="707.076"/>
-  <object id="638" type="Hook" x="-2976" y="96">
-   <point/>
-  </object>
  </objectgroup>
  <objectgroup id="2" name="front">
   <object id="554" type="OneWayPlatform" x="-3152" y="1008">
