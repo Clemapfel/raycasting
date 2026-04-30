@@ -3,13 +3,15 @@ import Layout from '../layouts/Layout.astro';
 import MarkdownRenderer from '../components/Markdown.astro';
 import ShaderCanvas from '../components/ShaderCanvas.astro';
 import ShaderCircle from '../components/ShaderCircle.astro';
-import Header from '../components/Frame.astro'
+import Frame from '../components/Frame.astro'
 import Footer from '../components/Footer.astro'
 ---
 
 <Layout>
+    <Frame>
+        <ShaderCircle id="test"/>
+    </Frame>
     <ShaderCanvas id="test"/>
-    <ShaderCircle id="test"/>
     <MarkdownRenderer id="test"/>
     <Footer author="C. Cords"/>
 </Layout>
