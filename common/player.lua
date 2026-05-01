@@ -314,6 +314,7 @@ function rt.Player:instantiate()
             "is_movement_disabled",
             "is_jump_disabled",
             "is_jump_allowed_override",
+            "is_double_jump_disabled",
             "is_trail_visible",
             "is_flow_frozen",
             "is_idle_timer_frozen",
@@ -2671,6 +2672,7 @@ function rt.Player:jump()
         if not self._is_grounded
             and regular_jump_allowed == false
             and not table.is_empty(self._double_jump_sources)
+            and not self:get_is_double_jump_disabled()
         then
             -- consume double jump source if necessary
             local instance = self._double_jump_sources[1]
@@ -2849,6 +2851,7 @@ function rt.Player:reset()
         self._is_bubble_requests,
         self._is_movement_disabled_requests,
         self._is_jump_disabled_requests,
+        self._is_double_jump_disabled_requests,
         self._is_jump_allowed_override_requests,
         self._is_trail_visible_requests,
         self._is_flow_frozen_requests,
@@ -3008,6 +3011,9 @@ for tuple in range(
 
 --- @alias request_is_jump_disabled fun(id: Object, is_disabled: Boolean)
     { "is_jump_disabled", { [1] = { "is_disabled", "Boolean" }}},
+
+--- @alias request_is_double_jump_disabled fun(id: Object, is_disabled: Boolean)
+    { "is_double_jump_disabled", { [1] = { "is_disabled", "Boolean" }}},
 
 --- @alias request_is_jump_allowed_override fun(id: Object, is_allowed: Boolean)
     { "is_jump_allowed_override", { [1] = { "is_allowed", "Boolean" }}},
@@ -3281,6 +3287,15 @@ end
 --- @brief
 function rt.Player:get_is_jump_disabled()
     for source in values(self._is_jump_disabled_requests) do
+        if source.is_disabled == true then return true end
+    end
+
+    return false
+end
+
+--- @brief
+function rt.Player:get_is_double_jump_disabled()
+    for source in values(self._is_double_jump_disabled_requests) do
         if source.is_disabled == true then return true end
     end
 

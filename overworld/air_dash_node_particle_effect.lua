@@ -5,18 +5,17 @@ rt.settings.overworld.air_dash_node_particle_effect = {
     min_radius = 5,
     max_radius = 10,
     min_initial_velocity = 1,
-    max_initial_velocity = 3,
-    min_acceleration = 200,
+    max_initial_velocity = 2,
+    min_acceleration = 50,
     max_acceleration = 300,
-    min_lifetime = 10 / 60,
-    max_lifetime = 40 / 60,
-    min_hue_velocity = 0.3,
-    max_hue_velocity = 0.6,
-    gravity_x = 0,
-    gravity_y = 0,
-    min_mass = 1, -- fraction
-    max_mass = 2,
+    min_lifetime = 10 / 60 * 2,
+    max_lifetime = 40 / 60 * 2,
+    min_hue_velocity = 0.2 / 2,
+    max_hue_velocity = 0.5 / 2,
     opacity_fade_duration = 10 / 60,
+
+    min_air_resistance = 0,
+    max_air_resistance = 0.6,
 
     cone_arc = math.degrees_to_radians(30),
 
@@ -59,7 +58,6 @@ function ow.AirDashNodeParticleEffect:emit(
         2 * (radius + padding)
     )
 
-
     love.graphics.push("all")
     love.graphics.reset()
 
@@ -71,11 +69,12 @@ function ow.AirDashNodeParticleEffect:emit(
         0.5 * radius,
         radius,
         true,
-        n_vertices, n_vertices,
-        rt.RGBA(1, 1, 1, 0),
-        rt.RGBA(1, 1, 1, 1)
+        n_vertices,
+        rt.RGBA(1, 1, 1, 1),
+        rt.RGBA(1, 1, 1, 0)
     )
-    mesh:set_vertex_color(
+
+    mesh:set_vertex_color( -- center vertex for hole
         1,
         1, 1, 1, 0
     )
@@ -128,14 +127,13 @@ local _color_r_offset = 5
 local _color_g_offset = 6
 local _color_b_offset = 7
 local _color_a_offset = 8
-local _mass_offset = 9
-local _radius_offset = 10
-local _radius_factor_offset = 11
-local _lifetime_elapsed_offset = 12
-local _lifetime_offset = 13
-local _hue_offset = 14
-local _hue_velocity_offset = 15
-local _hue_velocity_direction_offset = 16
+local _radius_offset = 9
+local _radius_factor_offset = 10
+local _lifetime_elapsed_offset = 11
+local _lifetime_offset = 12
+local _hue_offset = 13
+local _hue_velocity_offset = 14
+local _hue_velocity_direction_offset = 15
 
 local _stride = _hue_velocity_direction_offset + 1
 local _particle_i_to_data_offset = function(particle_i)
@@ -158,19 +156,17 @@ function ow.AirDashNodeParticleEffect:_init_batch(
     local n_particles = length * settings.particle_density
 
     local min_acceleration, max_acceleration = settings.min_acceleration, settings.max_acceleration
-    local min_mass, max_mass = settings.min_mass, settings.max_mass
     local min_radius, max_radius = settings.min_radius, settings.max_radius
     local min_lifetime, max_lifetime = settings.min_lifetime, settings.max_lifetime
     local min_initial_velocity, max_initial_velocity = settings.min_initial_velocity, settings.max_initial_velocity
     local min_hue_velocity, max_hue_velocity = settings.min_hue_velocity, settings.max_hue_velocity
 
     batch.particle_data = {}
-    batch.n_particles = 0
+    batch.current_n_particles = 0
 
     local cone_arc = settings.cone_arc
     local norm_velocity_x, norm_velocity_y = math.normalize(velocity_x, velocity_y)
     -- emission direction is opposite to batch velocity
-    local emission_x, emission_y = -norm_velocity_x, -norm_velocity_y
 
     local data = batch.particle_data
     for particle_i = 1, n_particles do
@@ -180,11 +176,11 @@ function ow.AirDashNodeParticleEffect:_init_batch(
         local position_x, position_y = path:at(t)
 
         local mass_t = rt.random.number(0, 1)
-        local mass = math.mix(min_mass, max_mass, mass_t)
         local radius = math.mix(min_radius, max_radius, mass_t)
         local magnitude = math.mix(min_initial_velocity, max_initial_velocity, mass_t)
 
         local angle = rt.random.number(-cone_arc / 2, cone_arc / 2)
+        local emission_x, emission_y = math.flip(path:tangent_at(t))
         local particle_velocity_x, particle_velocity_y = math.rotate2(emission_x, emission_y, angle)
 
         local i = #batch.particle_data + 1
@@ -192,24 +188,26 @@ function ow.AirDashNodeParticleEffect:_init_batch(
         data[i + _position_y_offset] = position_y
         data[i + _velocity_x_offset] = particle_velocity_x * magnitude
         data[i + _velocity_y_offset] = particle_velocity_y * magnitude
-        data[i + _acceleration_offset] = math.mix(min_acceleration, max_acceleration, mass_t)
+        data[i + _acceleration_offset] = math.mix(min_acceleration, max_acceleration, 1 - t)
         data[i + _color_r_offset] = color_r
         data[i + _color_g_offset] = color_g
         data[i + _color_b_offset] = color_b
         data[i + _color_a_offset] = 1
-        data[i + _mass_offset] = mass
         data[i + _radius_offset] = radius
         data[i + _radius_factor_offset] = 1
         data[i + _lifetime_elapsed_offset] = 0
-        data[i + _lifetime_offset] = math.mix(min_lifetime, max_lifetime, t)
+        data[i + _lifetime_offset] = math.mix(min_lifetime, max_lifetime, mass_t)
         data[i + _hue_offset] = hue
         data[i + _hue_velocity_offset] = math.mix(min_hue_velocity, max_hue_velocity, mass_t)
         data[i + _hue_velocity_direction_offset] = rt.random.choose(-1, 1)
 
-        batch.n_particles = batch.n_particles + 1
+        assert(#data - i == _stride - 1)
+
+        batch.current_n_particles = batch.current_n_particles + 1
         _n_particles = _n_particles + 1
     end
 
+    batch.start_n_particles = batch.current_n_particles
     self:_update_batch(batch, 0)
 end
 
@@ -221,11 +219,15 @@ function ow.AirDashNodeParticleEffect:_update_batch(batch, delta)
     local n_updated = 0
 
     local air_resistance_easing = function(t)
-        return math.mix(0.05, 0.8, rt.InterpolationFunctions.SINUSOID_EASE_IN(1 - t))
+        return math.mix(
+            settings.min_air_resistance,
+            settings.max_air_resistance,
+            math.clamp(rt.InterpolationFunctions.LINEAR(1 - t), 0, 1)
+        )
     end
 
     local data = batch.particle_data
-    for particle_i = 1, batch.n_particles do
+    for particle_i = 1, batch.current_n_particles do
         local i = _particle_i_to_data_offset(particle_i)
 
         local lifetime = data[i + _lifetime_offset]
@@ -241,19 +243,16 @@ function ow.AirDashNodeParticleEffect:_update_batch(batch, delta)
         end
 
         data[i + _radius_factor_offset] = 1 + rt.InterpolationFunctions.SINUSOID_EASE_IN(lifetime_t)
-        local current_mass = math.mix(data[i + _mass_offset], 0, rt.InterpolationFunctions.SINUSOID_EASE_IN(lifetime_t))
 
-        local acceleration = data[i + _acceleration_offset] * air_resistance_easing(lifetime_t)
-        data[_acceleration_offset] = acceleration
+        local air_resistance = air_resistance_easing(lifetime_t)
+        local acceleration = data[i + _acceleration_offset]
+        data[i + _acceleration_offset] = acceleration
 
         local vx = data[i + _velocity_x_offset]
         local vy = data[i + _velocity_y_offset]
 
-        data[i + _position_x_offset] = data[i + _position_x_offset] + vx * acceleration * delta
-        data[i + _position_y_offset] = data[i + _position_y_offset] + vy * acceleration * delta
-        data[i + _velocity_x_offset] = vx
-        data[i + _velocity_y_offset] = vy
-        data[i + _mass_offset] = current_mass
+        data[i + _position_x_offset] = data[i + _position_x_offset] + vx * acceleration * delta * air_resistance
+        data[i + _position_y_offset] = data[i + _position_y_offset] + vy * acceleration * delta * air_resistance
 
         local hue = data[i + _hue_offset] + data[i + _hue_velocity_direction_offset] * data[i + _hue_velocity_offset] * delta
         hue = hue - math.floor(hue)
@@ -274,7 +273,7 @@ function ow.AirDashNodeParticleEffect:_update_batch(batch, delta)
         for _ = 1, _stride do
             table.remove(batch.particle_data, offset)
         end
-        batch.n_particles = batch.n_particles - 1
+        batch.current_n_particles = batch.current_n_particles - 1
         _n_particles = _n_particles - 1
     end
 
@@ -291,7 +290,7 @@ function ow.AirDashNodeParticleEffect:_draw_batch(batch, is_bloom)
     local texture_r = self._particle_texture:get_width() -- is square
 
     local data = batch.particle_data
-    for particle_i = 1, batch.n_particles do
+    for particle_i = 1, batch.current_n_particles do
         local i = _particle_i_to_data_offset(particle_i)
         local radius = data[i + _radius_offset] * data[i + _radius_factor_offset]
         if radius > 1 then
@@ -313,9 +312,6 @@ function ow.AirDashNodeParticleEffect:_draw_batch(batch, is_bloom)
         end
     end
 
-    love.graphics.origin()
-    love.graphics.draw(native, 10, 10)
-
     love.graphics.pop()
 end
 
@@ -323,7 +319,7 @@ end
 function ow.AirDashNodeParticleEffect:collect_point_lights(callback)
     for batch in values(self._batches) do
         local data = batch.particle_data
-        for particle_i = 1, batch.n_particles do
+        for particle_i = 1, batch.current_n_particles do
             local i = _particle_i_to_data_offset(particle_i)
             callback(
                 data[i + _position_x_offset], data[i + _position_y_offset],
@@ -336,3 +332,18 @@ function ow.AirDashNodeParticleEffect:collect_point_lights(callback)
         end
     end
 end
+
+--- @brief
+function ow.AirDashNodeParticleEffect:get_fraction()
+    local sum, n = 0, 0
+    for batch in values(self._batches) do
+        sum = sum + batch.current_n_particles / batch.start_n_particles
+        n = n + 1
+    end
+
+    if n == 0 then
+        return 0
+    else
+        return sum / n
+    end
+end 

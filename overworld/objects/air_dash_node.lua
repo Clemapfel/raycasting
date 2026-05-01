@@ -16,7 +16,8 @@ rt.settings.overworld.air_dash_node = {
 
     outline_min_alpha = 0.4,
 
-    n_hue_steps = 16
+    n_hue_steps = 16,
+    line_collision_player_radius_factor = 2
 }
 
 --- @class AirDashNode
@@ -77,8 +78,6 @@ function ow.AirDashNode:instantiate(object, stage, scene)
     self._is_current_motion = rt.SmoothedMotion1D(0)
     self._is_current_motion:set_speed(0.5, 0.5) -- attack, decay
 
-    self._is_tethered_motion = rt.SmoothedMotion1D(0)
-
     if scene.air_dash_node_hue == nil then
         scene.air_dash_node_hue = 0
     end
@@ -94,10 +93,6 @@ function ow.AirDashNode:instantiate(object, stage, scene)
     local direction = object:get_object("direction", false)
     local angle_range = object:get_number("angle", false)
 
-    if angle_range ~= nil and direction == nil then
-        rt.assert(false, "In ow.AirDashNode: `angle` specified but not `direction` property pointing to an `AirDashNodeDirection` point is present")
-    end
-
     if angle_range == nil then
         if direction ~= nil then
             angle_range = 0
@@ -111,7 +106,9 @@ function ow.AirDashNode:instantiate(object, stage, scene)
 
     local mid
     if direction == nil then
-        mid = 0
+        local axis_x = object:get_number("axis_x", false) or 0
+        local axis_y = object:get_number("axis_y", false) or -1
+        mid = math.angle(axis_x, axis_y)
     else
         local start_x, start_y = self._body:get_center_of_mass()
         local end_x, end_y = direction.x, direction.y
@@ -302,8 +299,6 @@ function ow.AirDashNode:set_is_tethered(b)
         self._cooldown_elapsed = 0
     end
 
-    self._is_current_motion:set_target_value(ternary(b, 1, 0))
-
     if before == false and b == true then
         self._particle:set_is_exploded(true)
     elseif before == true and b == false then
@@ -358,7 +353,6 @@ function ow.AirDashNode:update(delta)
 
     if self._stage:get_is_body_visible(self._body) then
         self._is_current_motion:update(delta)
-        self._is_tethered_motion:update(delta)
         self._particle:update(delta)
 
         if self._angle_range == 0 then
@@ -379,6 +373,8 @@ local _above_player_priority = 1
 
 --- @brief
 function ow.AirDashNode:draw(priority)
+    if self._is_handler_proxy then self._stage.air_dash_node_manager:draw() end
+
     if not self._stage:get_is_body_visible(self._body) then return end
 
     local r, g, b = self._color:unpack()
@@ -404,27 +400,29 @@ function ow.AirDashNode:draw(priority)
         love.graphics.setColor(r, g, b, 1)
         self._particle:draw(0, 0, true, true) -- core and outline
 
-        if self._glow_mesh ~= nil then
-            love.graphics.setColor(1, 1, 1, 1)
-            _glow_shader:bind()
-            _glow_shader:send("elapsed", rt.SceneManager:get_elapsed() + meta.hash(self))
-            _glow_shader:send("color", { r, g, b, 1 })
-            _glow_shader:send("noise_texture", _noise_texture)
-            self._glow_mesh:draw()
-            _glow_shader:unbind()
+        if self._angle_range ~= 0 then
+
+            if self._glow_mesh ~= nil then
+                love.graphics.setColor(1, 1, 1, 1)
+                _glow_shader:bind()
+                _glow_shader:send("elapsed", rt.SceneManager:get_elapsed() + meta.hash(self))
+                _glow_shader:send("color", { r, g, b, 1 })
+                _glow_shader:send("noise_texture", _noise_texture)
+                self._glow_mesh:draw()
+                _glow_shader:unbind()
+            end
+
+            love.graphics.setLineWidth(0.5 * line_width)
+            if self:check_player_overlap() then
+                love.graphics.setColor(r, g, b, 1)
+                love.graphics.setLineStyle("smooth")
+            else
+                love.graphics.setColor(r, g, b, 0.5)
+                love.graphics.setLineStyle("rough") -- to prevent aa regions overlapping at low opacity
+            end
+
+            love.graphics.line(self._outline_vertices)
         end
-
-        love.graphics.setLineWidth(0.5 * line_width)
-        if self:check_player_overlap() then
-            love.graphics.setColor(r, g, b, 1)
-            love.graphics.setLineStyle("smooth")
-        else
-            love.graphics.setColor(r, g, b, 0.5)
-            love.graphics.setLineStyle("rough") -- to prevent aa regions overlapping at low opacity
-        end
-
-        love.graphics.line(self._outline_vertices)
-
     elseif priority == _above_player_priority then
         local x, y = 0, 0
         local dx, dy = self:get_direction()
@@ -448,10 +446,12 @@ function ow.AirDashNode:draw(priority)
 
         love.graphics.setLineWidth(line_width + 1)
 
-        if self._angle_range == 0 then
-            -- for line, always show line
+        if self._cooldown_elapsed > cooldown and self._angle_range == 0 then
             alpha = math.max(alpha, 0.5)
         end
+
+        -- hide line so particles stand out better
+        alpha = rt.InterpolationFunctions.BUTTERWORTH_HIGHPASS(1 - self._particles:get_fraction(), 4)
 
         local darken = 0.25
         local black_r, black_g, black_b = r * darken, g * darken, b * darken
@@ -461,8 +461,6 @@ function ow.AirDashNode:draw(priority)
         love.graphics.setLineWidth(line_width)
         love.graphics.setColor(r, g, b, alpha)
         draw_line()
-
-        self._particles:draw()
     end
 
     love.graphics.pop()
@@ -504,9 +502,9 @@ function ow.AirDashNode:collect_point_lights(callback)
     local radius = self._radius
     callback(x, y, radius, r, g, b, a)
 
-    callback(x, y, self._particle:get_radius(), r, g, b, self._is_current_motion:get_value())
+    callback(x, y, self._particle:get_radius(), r, g, b, 1 + self._is_current_motion:get_value())
 
-    self._particles:collect_point_lights(callback)
+    --self._particles:collect_point_lights(callback)
 end
 
 --- @brief
@@ -550,11 +548,12 @@ end
 
 --- @brief
 function ow.AirDashNode:emit_particles(path)
-    local vx, vy = self._scene:get_player():get_velocity()
-    self._particles:emit(path, vx, vy, self._color:unpack())
+    local player = self._scene:get_player()
+    local vx, vy = player:get_velocity()
+    self._particles:emit(path, vx, vy, player:get_color():unpack())
 end
 
-function bowtie_overlap(circle_x, circle_y, circle_radius, bowtie_x, bowtie_y, bowtie_radius, mid, span)
+local function bowtie_overlap(circle_x, circle_y, circle_radius, bowtie_x, bowtie_y, bowtie_radius, mid, span)
     local delta_x = circle_x - bowtie_x
     local delta_y = circle_y - bowtie_y
 
@@ -575,15 +574,6 @@ function bowtie_overlap(circle_x, circle_y, circle_radius, bowtie_x, bowtie_y, b
     local edge_y = math.sin(half_span)
 
     if edge_x * folded_y - edge_y * local_x >= 0 then
-        -- Inside the angular sweep of one of the two wedges.
-        -- The bowtie extends from the origin to bowtie_radius along this sweep.
-        -- Closest point on the bowtie to the circle center is either on the arc or the origin.
-        -- Since broad phase passed and we're in the sweep, check if circle reaches the wedge interior.
-        -- The nearest bowtie boundary in this region is the arc at bowtie_radius.
-        -- Circle overlaps if dist <= bowtie_radius + circle_radius (already guaranteed by broad phase)
-        -- AND the circle isn't entirely beyond the arc (impossible since broad phase covers that).
-        -- But we also need the wedge to actually reach the circle: dist >= 0, which it does.
-        -- A circle at the origin with radius < bowtie_radius overlaps any wedge.
         return true
     end
 
@@ -596,10 +586,19 @@ function bowtie_overlap(circle_x, circle_y, circle_radius, bowtie_x, bowtie_y, b
     return dx * dx + dy * dy <= circle_radius * circle_radius
 end
 
+local function line_overlap(px, py, radius, ax, ay, bx, by)
+    local line_length = math.distance(ax, ay, bx, by)
+    if line_length < math.eps then
+        return math.distance(px, py, ax, ay)
+    end
+    local dx, dy = math.normalize(bx - ax, by - ay)
+    return math.abs(math.cross(dx, dy, px - ax, py - ay)) <= radius
+end
+
 --- @brief
 function ow.AirDashNode:check_player_overlap()
     local px, py = self._scene:get_player():get_position()
-    local pr = self._scene:get_player():get_radius() * 2 -- for lenience
+    local pr = self._scene:get_player():get_radius()
 
     local x, y = self._body:get_position()
     local r = self._radius
@@ -607,26 +606,24 @@ function ow.AirDashNode:check_player_overlap()
 
     if math.distance(px, py, x, y) <= pr then return true end -- if ovelapping core particle
 
-    -- circle circle overlap
-    local circle_overlap = math.distance(px, py, x, y) <= (pr + r)
-    if self._angle_range >= 0.5 * math.pi then return circle_overlap end
-
-    if not circle_overlap then return false end
-
     if span == 0 then
         -- circle line overlap
         local dx, dy = math.cos(mid), math.sin(mid)
-        local path = rt.Path(
-            x - dx * r, y - dy * r,
-            x + dx * r, y + dy * r
+        pr = pr * rt.settings.overworld.air_dash_node.line_collision_player_radius_factor
+        return math.distance(px, py, x, y) <= (pr + r) and line_overlap(
+            px, py, pr,
+            x - dx, y - dy,
+            x + dx, y + dy
         )
-
-        return math.distance(px, py, path:get_closest_point(px, py)) < pr -- padding
     else
+        -- circle circle overlap
+        local circle_overlap = math.distance(px, py, x, y) <= (pr + r)
+        if self._angle_range >= 0.5 * math.pi then return circle_overlap end
+
         -- circle bowtie overlap
         return circle_overlap and bowtie_overlap(
-            px, py, pr, 
-            x, y, r, 
+            px, py, pr,
+            x, y, r,
             mid, span
         )
     end

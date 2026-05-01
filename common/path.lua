@@ -83,11 +83,9 @@ function rt.Path:_update()
         -- precompute normal using winding
         local nx, ny
         if orientation >= 0 then
-            -- CCW or degenerate: use left-hand normal
-            nx, ny = -dy, dx
+            nx, ny = math.turn_left(dx, dy)
         else
-            -- CW: use right-hand normal
-            nx, ny = dy, -dx
+            nx, ny = math.turn_right(dx, dy)
         end
 
         local entry = {
@@ -222,7 +220,7 @@ end
 --- @brief
 function rt.Path:tangent_at(t)
     local segment = self:_find_segment(math.clamp(t, 0, 1))
-    return segment[_dx], segment[_dy]
+    return math.normalize(segment[_dx], segment[_dy])
 end
 
 --- @brief return normal at parameter t [0, 1]; normal is precomputed per segment and depends on path winding
@@ -687,4 +685,88 @@ end
 --- @brief
 function rt.Path:get_points()
     return self._points
+end
+
+--- @brief get parameter t in [0, 1] where path:at(t) is closest to px, py
+--- @param px Number
+--- @param py Number
+--- @return Number
+function rt.Path:get_fraction(px, py)
+    if self._n_entries == 0 then
+        return 0
+    end
+
+    local closest_distance_sq = math.huge
+    local closest_t = 0
+
+    -- iterate over precomputed segment entries
+    for i = 1, self._n_entries do
+        local entry = self._entries[i]
+
+        -- use internal closest-point helper
+        local x, y, t = self:_closest_point_on_segment(px, py, entry)
+
+        local dx = x - px
+        local dy = y - py
+        local distance_sq = dx * dx + dy * dy
+
+        if distance_sq < closest_distance_sq then
+            closest_distance_sq = distance_sq
+            closest_t = t
+        end
+    end
+
+    return math.clamp(closest_t, 0, 1)
+end
+
+--- @brief get parameter t in [0, 1] where path:at(t) is closest to px, py
+--- @param px Number
+--- @param py Number
+--- @return Number
+function rt.Path:get_fraction(px, py)
+    local entries = self._entries
+    local n_entries = self._n_entries
+
+    if n_entries == 0 then return 0 end
+
+    local closest_distance_sq = math.huge
+    local best_fraction = 0
+
+    for i = 1, n_entries do
+        local entry = entries[i]
+        local length = entry[_distance]
+
+        local local_t, closest_x, closest_y
+
+        if length < math.eps then
+            local_t = 0.5
+            closest_x = entry[_from_x]
+            closest_y = entry[_from_y]
+        else
+            local dot = math.dot(px - entry[_from_x], py - entry[_from_y], entry[_dx], entry[_dy])
+
+            if dot <= 0 then
+                local_t = 0
+                closest_x = entry[_from_x]
+                closest_y = entry[_from_y]
+            elseif dot >= length then
+                local_t = 1
+                closest_x = entry[_to_x]
+                closest_y = entry[_to_y]
+            else
+                local_t = dot / length
+                closest_x = entry[_from_x] + entry[_dx] * dot
+                closest_y = entry[_from_y] + entry[_dy] * dot
+            end
+        end
+
+        local distance = math.squared_distance(closest_x, closest_y, px, py)
+
+        if distance < closest_distance_sq then
+            closest_distance_sq = distance
+            best_fraction = entry[_fraction] + entry[_fraction_length] * local_t
+        end
+    end
+
+    return best_fraction
 end

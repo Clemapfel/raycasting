@@ -1,7 +1,7 @@
 require "common.smoothed_motion_1d"
 
 rt.settings.overworld.air_dash_node_particle = {
-    explosion_distance = 75, -- px
+    explosion_distance = 50, -- px
     scale_offset_distance = 5, -- px
     brightness_offset = 0.5, -- fraction
     n_circles = 3 -- number of circles rotating around core

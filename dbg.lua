@@ -1,3 +1,3 @@
 return {
-    contour = 0.25,
+    air_resistance = 0.5,
 }

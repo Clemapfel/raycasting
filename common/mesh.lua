@@ -247,19 +247,24 @@ rt.MeshRing = function(center_x, center_y, inner_radius, outer_radius, fill_cent
 
     local inner_r, inner_g, inner_b, inner_a = 1, 1, 1, 1
     if meta.isa(inner_color, rt.RGBA) then
+        meta.assert_typeof(inner_color, rt.RGBA, 6)
         inner_r, inner_g, inner_b, inner_a = inner_color:unpack()
     end
 
     local outer_r, outer_g, outer_b, outer_a = 1, 1, 1, 1
     if meta.isa(outer_color, rt.RGBA) then
+        meta.assert_typeof(inner_color, rt.RGBA, 7)
         outer_r, outer_g, outer_b, outer_a = outer_color:unpack()
     end
 
+    if outer_color ~= nil then
+    end
+
     local data = {{
-                      center_x, center_y,
-                      0.5, 0.5,
-                      inner_r, inner_g, inner_b, inner_a
-                  }}
+          center_x, center_y,
+          0.5, 0.5,
+          inner_r, inner_g, inner_b, inner_a
+      }}
 
     -- Inner ring vertices (indices 2 .. n_outer_vertices + 2)
     -- Note: duplicate first vertex at the end to close the seam

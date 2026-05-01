@@ -79,7 +79,7 @@ function ow.StageConfig:instantiate(stage_id)
     self._layer_i_to_layer = {}
 
     local all_path_objects = {} -- class == "Path"
-    require "overworld.objects.path"
+    require "overworld.objects.overworld_path"
     local path_class_id = rt.settings.overworld.path.class_id
     local path_target_property_pattern = rt.settings.overworld.path.target_property_pattern
 
