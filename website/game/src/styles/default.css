@@ -7,4 +7,6 @@
     --default-color-muted: #ababab;
     --default-color-emphasized: #f0f0f0;
     --default-color-background: #0b0b10;
+
+    --default-content-width: 75vw;
 }

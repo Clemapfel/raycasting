@@ -19,30 +19,30 @@ if (!post) {
 
 const { Content } = await render(post);
 
+import Frame from '../components/Frame.astro'
 import '../styles/default.css';
 ---
 
 <style>
-    :root {
+    .markdown-container {
         --heading-color: var(--default-color-emphasized);
         --text-color: var(--default-color-foreground);
         --code-color: #E3E3E3;
         --math-color: #E3E3E3;
 
-        --background-color: var(--default-color-background);
+        --background-color: transparent;
 
         --padding-horizontal: 2vw;
         --padding-top: 5px;
         --padding-bottom: 40px;
 
-        --margin-horizontal: 20px;
         --margin-top: 5vh;
         --margin-bottom: 0; /* footer is below */
 
         --border-radius: 0px;
         --border-width: 20px;
 
-        --max-width: 75vw;
+        --max-width: var(--default-content-width);
 
         --font-body: var(--default-font);
         --font-mono: var(--default-font-mono);
@@ -67,12 +67,10 @@ import '../styles/default.css';
         --code-color-parameter: #FFABAB;
         --code-color-punctuation: #E3E3E3;
         --code-color-link: #589DF6;
-        
+
         --math-font: 'Noto Math', 'KaTeX_Main' !important;
         --math-size: 1.2em;
-    }
 
-    .markdown-container {
         background-color: var(--background-color, transparent);
         padding-left: var(--padding-horizontal, 5vw);
         padding-right: var(--padding-horizontal, 5vw);
@@ -81,23 +79,7 @@ import '../styles/default.css';
         font-family: var(--font-body, system-ui, sans-serif), sans-serif;
         color: var(--text-color, inherit);
 
-        border-radius: var(--border-radius, 0px);
-        border-top: 0;
-        border-bottom: 0;
-        border-left: var(--border-width) solid;
-        border-right: var(--border-width) solid;
-        border-image: linear-gradient(
-                to bottom,
-                var(--default-color-primary),
-                var(--default-color-secondary)
-        ) 1;
-
-        outline: 2px solid var(--background-color);
-
         max-width: var(--max-width, 100%);
-
-        margin-left: var(--margin-horizontal, auto);
-        margin-right: var(--margin-horizontal, auto);
         margin-top: var(--margin-top, auto);
         margin-bottom: var(--margin-bottom, auto);
         margin-inline: auto; /* keep centered */
@@ -187,5 +169,7 @@ import '../styles/default.css';
 </style>
 
 <div class="markdown-container">
+    <Frame>
     <Content />
+    </Frame>
 </div>

@@ -1,4 +1,7 @@
 ---
+//
+// Usage: <Frame> ... </Frame>
+//
 interface Props {
     segmentDistance?: number;
     maxOffset?: number;
@@ -14,15 +17,15 @@ interface Props {
 }
 
 const {
-    segmentDistance = 8,
+    segmentDistance = 4,
     maxOffset = 4,
     noiseSpeed = 0.25,
-    noiseFrequency = 20,
+    noiseFrequency = 5,
     backgroundColor = "#111111",
     outlineColor = "currentColor",
-    outlineWidth = 2,
+    thickness = 6,
+    outlineWidth = 4,
     cornerRadius = 16,
-    thickness = 4,
     colorSpeed = 0.05,
 } = Astro.props;
 
@@ -30,12 +33,12 @@ import '../styles/default.css';
 ---
 
 <div
-    class="noisy-frame"
-    data-segment-distance={segmentDistance}
-    data-max-offset={maxOffset}
-    data-noise-frequency={noiseFrequency}
-    data-corner-radius={cornerRadius}
-    data-color-speed={colorSpeed}
+        class="noisy-frame"
+        data-segment-distance={segmentDistance}
+        data-max-offset={maxOffset}
+        data-noise-frequency={noiseFrequency}
+        data-corner-radius={cornerRadius}
+        data-color-speed={colorSpeed}
 >
     <svg class="noisy-frame__svg" aria-hidden="true" preserveAspectRatio="none">
         <path class="noisy-frame__bg-and-outline" />
@@ -55,17 +58,13 @@ import '../styles/default.css';
 }}>
     .noisy-frame {
         position: relative;
-        display: flex;
-        flex-direction: column;
-        box-sizing: border-box;
         isolation: isolate;
-
-        margin: 20px
     }
 
     .noisy-frame__svg {
         position: absolute;
-        inset: 0;
+        top: 0;
+        left: 0;
         width: 100%;
         height: 100%;
         pointer-events: none;
@@ -76,10 +75,10 @@ import '../styles/default.css';
     .noisy-frame__bg-and-outline {
         fill: var(--nf-bg-color);
         stroke: var(--nf-outline-color);
-        /* Thicker stroke to create the outline effect around the border */
-        stroke-width: calc(var(--nf-thickness) + (var(--nf-outline-width) * 2));
+        stroke-width: calc(var(--nf-thickness) + (var(--nf-outline-width)));
         stroke-linejoin: round;
         stroke-linecap: round;
+        color: black !important;
         vector-effect: non-scaling-stroke;
     }
 
@@ -94,11 +93,6 @@ import '../styles/default.css';
     .noisy-frame__content {
         position: relative;
         z-index: 1;
-        flex: 1;
-        box-sizing: border-box;
-        width: 100%;
-        height: 100%;
-        padding: calc(var(--nf-corner-radius) / 2 + var(--nf-thickness) + var(--nf-outline-width));
     }
 </style>
 
@@ -272,6 +266,7 @@ import '../styles/default.css';
         private samples: ContourSample[] = [];
         private width = 0;
         private height = 0;
+        private perimeter = 0;
         private resizeObserver: ResizeObserver;
         private rafId = 0;
         private startTime = 0;
@@ -282,7 +277,6 @@ import '../styles/default.css';
         private maxOffset: number;
         private noiseSpeed: number;
         private noiseFrequency: number;
-        private noiseMaxOffset: number;
         private cornerRadius: number;
         private colorSpeed: number;
 
@@ -296,7 +290,6 @@ import '../styles/default.css';
             this.maxOffset = parseFloat(root.dataset.maxOffset ?? "6");
             this.noiseSpeed = parseFloat(root.dataset.noiseSpeed ?? "0.25");
             this.noiseFrequency = parseFloat(root.dataset.noiseFrequency ?? "1");
-            this.noiseMaxOffset = parseFloat(root.dataset.noiseMaxOffset ?? "0");
             this.cornerRadius = parseFloat(root.dataset.cornerRadius ?? "16");
             this.colorSpeed = parseFloat(root.dataset.colorSpeed ?? "0.05");
 
@@ -323,9 +316,14 @@ import '../styles/default.css';
             const rect = this.root.getBoundingClientRect();
             this.width = rect.width;
             this.height = rect.height;
+
+            const r = Math.max(0, Math.min(this.cornerRadius, Math.min(this.width, this.height) / 2));
+            this.perimeter = (this.width - 2 * r) * 2 + (this.height - 2 * r) * 2 + (2 * Math.PI * r);
+
             this.svg.setAttribute("viewBox", `0 0 ${this.width} ${this.height}`);
             this.svg.setAttribute("width", `${this.width}`);
             this.svg.setAttribute("height", `${this.height}`);
+
             this.samples = sampleContour(
                 this.width,
                 this.height,
@@ -339,12 +337,17 @@ import '../styles/default.css';
             if (n === 0) return "";
 
             const tz = t * this.noiseSpeed;
-            const spatialRadius = 1;
+
+            // Logically tie the spatial radius to the actual physical perimeter
+            // 1000 is used as a standardizing base-size so existing `noiseFrequency` props don't break.
+            const spatialRadius = this.perimeter / 1000;
 
             let d = "";
             for (let i = 0; i < n; i++) {
                 const s = this.samples[i];
                 const theta = (i / n) * Math.PI * 2;
+
+                // Radius in the noise space scales with the element's perimeter
                 const nx_noise = Math.cos(theta) * spatialRadius;
                 const ny_noise = Math.sin(theta) * spatialRadius;
 
@@ -367,11 +370,9 @@ import '../styles/default.css';
             const elapsed = (performance.now() - this.startTime) / 1000;
             const d = this.buildPath(elapsed);
 
-            // Sync both the outline/background and the dynamic stroke to prevent any gaps
             this.bgOutlinePath.setAttribute("d", d);
             this.path.setAttribute("d", d);
 
-            // Compute LCH(0.8, 1, t, 1) mapping `t` across the 360 degree hue space
             const colorT = (elapsed * this.colorSpeed) % 1;
             const hue = colorT * 360;
             this.path.style.stroke = `lch(80% 100 ${hue} / 1)`;
