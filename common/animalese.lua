@@ -3,12 +3,13 @@ require "common.filesystem"
 
 rt.settings.animalese = {
     filetype = "wav",
-    silence_start_eps = 0.003, -- normalized
-    silence_end_eps = 0.015,
+    silence_start_eps = 0.04, -- normalized
+    silence_end_eps = 0.01,
     attack_duration = 5 / 60, -- seconds
     decay_duration = 10 / 60,
     target_peak = 0.1,
     scroll_speed_factor = 1,
+    n_words_per_file = 2,
 
     path = "jtalk", -- mount point
     native_prefix = "jtalk", -- native directory name
@@ -19,7 +20,6 @@ rt.settings.animalese = {
     translation_filename = "export/.animalese",
     sample_file_extension = ".wav",
 
-    long_postfix = "_long",
     question_postfix = "_q",
     question_max_pitch = 1.1,
     question_n_phonemes = 5,
@@ -520,13 +520,10 @@ end
 do
     local long_postfix = rt.settings.animalese.long_postfix
     local question_postfix = rt.settings.animalese.question_postfix
-    local long_question_postfix = long_postfix .. question_postfix
 
     rt.AnimalesePronounciation = {
         NORMAL = "",
-        LONG = long_postfix,
         QUESTION = question_postfix,
-        LONG_QUESTION = long_question_postfix
     }
 end
 
@@ -583,10 +580,7 @@ function rt.Animalese:_initialize()
                             is_initialized = false,
                             path = full_path,
                             sources = {},
-
-                            start_t = nil, -- set in _initialize_entry
-                            end_t = nil,
-                            duration = nil,
+                            x = {}, -- { start_t, end_t, duration }
                             peak = nil
                         }
 
@@ -611,6 +605,124 @@ function rt.Animalese:_initialize()
     end
 end
 
+local _detect_sections = function(sound_data)
+    local total_duration = sound_data:getDuration()
+    local n_samples = sound_data:getSampleCount()
+    local sample_rate = sound_data:getSampleRate()
+    local start_eps = rt.settings.animalese.silence_start_eps
+    local end_eps = rt.settings.animalese.silence_end_eps
+    local n_words = rt.settings.animalese.n_words_per_file
+
+    local sections = {}
+    local push_section = function(start_t, end_t)
+        table.insert(sections, {
+            start_t = start_t,
+            end_t = end_t,
+            duration = (end_t - start_t) * total_duration
+        })
+    end
+
+    local window_sec = 0.015 -- 15 ms window for smoothing
+    local window_n_samples = math.floor(window_sec * sample_rate)
+    if window_n_samples < 1 then window_n_samples = 1 end
+
+    local window_i_to_mean_power = {}
+    local current_energy = 0
+
+    -- compute short time energy = mean square of the signal
+
+    -- init first window
+    for i = 0, math.min(window_n_samples - 1, n_samples - 1) do
+        local s = sound_data:getSample(i)
+        current_energy = current_energy + s ^ 2
+    end
+
+    for i = 0, n_samples - 1 do
+        -- incoming energy
+        if i + window_n_samples < n_samples then
+            local s_in = sound_data:getSample(i + window_n_samples)
+            current_energy = current_energy + s_in ^ 2
+        end
+
+        -- outgoing energy
+        if i - window_n_samples >= 0 then
+            local s_out = sound_data:getSample(i - window_n_samples)
+            current_energy = current_energy - s_out ^ 2
+        end
+
+        -- average power
+        window_i_to_mean_power[i] = current_energy / (2 * window_n_samples + 1)
+    end
+
+    -- find local maxima in energy envelope
+    local peaks = {}
+    for i = 1, n_samples - 2 do
+        if window_i_to_mean_power[i] > window_i_to_mean_power[i-1]
+            and window_i_to_mean_power[i] > window_i_to_mean_power[i+1]
+        then
+            table.insert(peaks, {
+                index = i,
+                energy = window_i_to_mean_power[i]
+            })
+        end
+    end
+
+    table.sort(peaks, function(a, b) return a.energy > b.energy end)
+
+    -- non-maximum suppression to get n words
+    local min_gap_duration = 0.05 -- minimum 50ms gap between distinct words
+    local min_gap_n_samples = math.floor(min_gap_duration * sample_rate)
+
+    local selected_centers = {}
+    for _, peak in ipairs(peaks) do
+        if #selected_centers >= n_words then break end
+
+        local is_distinct = true
+        for _, center in ipairs(selected_centers) do
+            if math.abs(peak.index - center.index) < min_gap_n_samples then
+                is_distinct = false
+                break
+            end
+        end
+
+        if is_distinct then
+            table.insert(selected_centers, peak)
+        end
+    end
+
+    -- sort chronologically
+    table.sort(selected_centers, function(a, b) return a.index < b.index end)
+
+    -- expand outwards from each center to find precise boundaries
+    local start_power_eps = start_eps ^ 2
+    local end_power_eps = end_eps ^ 2
+
+    for k, center in ipairs(selected_centers) do
+        -- Define search bounds to prevent overlapping into adjacent words
+        local left_bound = (k == 1) and 0 or math.floor((center.index + selected_centers[k-1].index) / 2)
+        local right_bound = (k == #selected_centers) and (n_samples - 1) or math.floor((center.index + selected_centers[k+1].index) / 2)
+
+        -- find start
+        local start_i = center.index
+        while start_i > left_bound and window_i_to_mean_power[start_i] > start_power_eps do
+            start_i = start_i - 1
+        end
+
+        -- find end
+        local end_i = center.index
+        while end_i < right_bound and window_i_to_mean_power[end_i] > end_power_eps do
+            end_i = end_i + 1
+        end
+
+        local start_t = start_i / n_samples
+        local end_t = end_i / n_samples
+
+        push_section(start_t, end_t)
+    end
+
+    return sections
+end
+
 --- @brief
 function rt.Animalese:_initialize_entry(entry)
     if entry.is_initialized ~= true then
@@ -619,63 +731,24 @@ function rt.Animalese:_initialize_entry(entry)
             rt.error("In rt.Animalese: failed to initialize source at `", entry.path, "`: ", sound_data_or_error)
         else
             local sound_data = sound_data_or_error
-            local n_samples = sound_data:getSampleCount()
-            local start_eps = rt.settings.animalese.silence_start_eps
-            local end_eps = rt.settings.animalese.silence_end_eps
 
-            local first_sample_i = 0
-            while first_sample_i < n_samples do
-                if math.abs(sound_data:getSample(first_sample_i)) > start_eps then break end
-                first_sample_i = first_sample_i + 1
-            end
-
-            local last_sample_i = n_samples - 1
-            while last_sample_i >= 0 do
-                if math.abs(sound_data:getSample(last_sample_i)) > end_eps then break end
-                last_sample_i = last_sample_i - 1
-            end
-
-            local sample_rate = sound_data:getSampleRate()
-            local active_samples = last_sample_i - first_sample_i
-            local active_duration = (active_samples + 1) / sample_rate
-
-            local attack_duration = rt.settings.animalese.attack_duration
-            local decay_duration = rt.settings.animalese.decay_duration
-            local attack_fraction = attack_duration / active_duration
-            local decay_fraction  = decay_duration / active_duration
-
-            local envelope = function() return 1 end --rt.InterpolationFunctions.CONSTANT --rt.InterpolationFunctions.ENVELOPE
-
-            local new_first_sample_i = n_samples
-            local new_last_sample_i = -1
+            entry.sections = _detect_sections(
+                sound_data
+            ) -- { start_t, end_t, duration }
 
             local peak = -math.huge
-
-            for i = 0, n_samples - 1 do
-                local t = (i - first_sample_i) / (active_samples + 1)
-                local gain = envelope(t, attack_fraction, decay_fraction)
-
-                local sample = sound_data:getSample(i)
-                sample = sample * gain
-                sound_data:setSample(i, sample)
-
-                local magnitude = math.abs(sample)
-                if magnitude > start_eps then
-                    if i < new_first_sample_i then new_first_sample_i = i end
-                end
-
-                if magnitude > end_eps then
-                    if i > new_last_sample_i then new_last_sample_i = i end
-                end
-
-                peak = math.max(peak, magnitude)
+            for sample_i = 1, sound_data_or_error:getSampleCount() do
+                peak = math.max(peak, sound_data_or_error:getSample(sample_i - 1))
             end
 
-            entry.start_t = new_first_sample_i / sample_rate
-            entry.end_t = new_last_sample_i / sample_rate
-            entry.sound_data = sound_data
-            entry.sources = {}
-            entry.duration = entry.end_t - entry.start_t
+            local n_samples = sound_data:getSampleCount()
+            for section in values(entry.sections) do
+                local start_sample = math.floor(n_samples * section.start_t)
+                local end_sample = math.floor(n_samples * section.end_t)
+                section.sound_data = sound_data:slice(start_sample, end_sample - start_sample)
+                section.sources = {}
+            end
+
             entry.peak = peak
             entry.is_initialized = true
         end
@@ -689,16 +762,8 @@ function rt.Animalese:free()
             local current = entry[pronounciation]
             if current ~= nil and current.is_initialized then
                 current.is_initialized = false
-                current.start_t = 0
-                current.end_t = 0
-                current.duration = 0
-
-                current.sound_data:release()
+                current.sections = nil
                 current.sound_data = nil
-                for source in values(current.sources) do
-                    source:release()
-                end
-                current.sources = {}
             end
         end
     end
@@ -750,6 +815,7 @@ function rt.Animalese:queue(phonemes, gender, emotion)
             id = queue_i,
             phoneme = phoneme,
             pronounciation = rt.AnimalesePronounciation.NORMAL,
+            section_i = 1,
             entry = phoneme_entry,
             is_beat = is_beat,
             duration = ternary(is_beat, beat_duration, nil), -- non-beat duration set in pronounciation update
@@ -778,6 +844,7 @@ function rt.Animalese:queue_beat(duration, gender, emotion)
         id = queue_i,
         phoneme = rt.AnimalesePhoneme.BEAT,
         pronounciation = rt.AnimalesePronounciation.NORMAL,
+        section_i = 1,
         entry = nil,
         is_beat = true,
         duration = duration,
@@ -837,33 +904,29 @@ function rt.Animalese:update(delta)
         -- first pass: flip-flop so consecutive copies get different prononuciations
         local signs = {}
         local question_marks = {}
-        for i, entry in ipairs(self._queue) do
-            if entry.is_beat ~= true then
-                local sign = signs[entry.phoneme]
+        for i, queue_entry in ipairs(self._queue) do
+            if queue_entry.is_beat ~= true then
+                local sign = signs[queue_entry.phoneme]
                 if sign == nil then
                     sign = 0
                 else
                     sign = sign + 1
                 end
 
-                signs[entry.phoneme] = sign
+                signs[queue_entry.phoneme] = sign
 
-                local mod = sign % 4
+                local mod = sign % 2
 
                 if mod == 0 then
-                    entry.pronounciation = rt.AnimalesePronounciation.NORMAL
+                    queue_entry.pronounciation = rt.AnimalesePronounciation.NORMAL
                 elseif mod == 1 then
-                    entry.pronounciation = rt.AnimalesePronounciation.LONG
-                elseif mod == 2 then
-                    entry.pronounciation = rt.AnimalesePronounciation.QUESTION
-                elseif mod == 3 then
-                    entry.pronounciation = rt.AnimalesePronounciation.LONG_QUESTION
+                    queue_entry.pronounciation = rt.AnimalesePronounciation.QUESTION
                 end
-            elseif entry.phoneme == rt.AnimalesePhoneme.QUESTION_MARK then
+            elseif queue_entry.phoneme == rt.AnimalesePhoneme.QUESTION_MARK then
                 table.insert(question_marks, i)
             end
 
-            entry.pitch = 1 + rt.random.number(-pitch_variance, pitch_variance) -- reset pitch
+            queue_entry.pitch = 1 + rt.random.number(-pitch_variance, pitch_variance) -- reset pitch
         end
 
         -- update pitch, mark words before ? as questions
@@ -880,11 +943,7 @@ function rt.Animalese:update(delta)
                     word_seen = true
                 end
 
-                if entry.pronounciation == rt.AnimalesePronounciation.LONG then
-                    entry.pronounciation = rt.AnimalesePronounciation.LONG_QUESTION
-                elseif entry.pronounciation == rt.AnimalesePronounciation.NORMAL then
-                    entry.pronounciation = rt.AnimalesePronounciation.QUESTION
-                end
+                entry.pronounciation = rt.AnimalesePronounciation.QUESTION
 
                 -- pitch raises towards questionmark
                 entry.pitch = math.mix(
@@ -902,7 +961,8 @@ function rt.Animalese:update(delta)
                 if pronounciation_entry.is_initialized == false then
                     self:_initialize_entry(pronounciation_entry)
                 end
-                queue_entry.duration = pronounciation_entry.duration
+                queue_entry.section_i = rt.random.integer(1, #pronounciation_entry.sections)
+                queue_entry.duration = pronounciation_entry.sections[queue_entry.section_i].duration
             end
         end
 
@@ -925,19 +985,21 @@ function rt.Animalese:update(delta)
         remaining = math.max(0, remaining - time_left)
         table.remove(self._queue, 1)
 
-        local next = self._queue[1]
+        local next_queue_entry = self._queue[1]
 
-        if next == nil then return end
+        if next_queue_entry == nil then return end
 
-        if not next.is_beat then
-            local next_entry = next.entry[next.pronounciation]
+        if not next_queue_entry.is_beat then
+            local next_entry = next_queue_entry.entry[next_queue_entry.pronounciation]
 
             if next_entry.is_initialized ~= true then
                 self:_initialize_entry(next_entry)
             end
 
+            local section = next_entry.sections[next_queue_entry.section_i]
+
             local free_source = nil
-            for source in values(next_entry.sources) do
+            for source in values(section.sources) do
                 if not source:isPlaying() then
                     free_source = source
                     break
@@ -945,12 +1007,11 @@ function rt.Animalese:update(delta)
             end
 
             if free_source == nil then
-                free_source = love.audio.newSource(next_entry.sound_data, "static")
-                table.insert(next_entry.sources, free_source)
+                free_source = love.audio.newSource(section.sound_data, "static")
+                table.insert(section.sources, free_source)
             end
 
-            free_source:seek(next_entry.start_t)
-            free_source:setPitch(next.pitch)
+            free_source:setPitch(next_queue_entry.pitch)
             free_source:setVolume(rt.settings.animalese.target_peak / next_entry.peak)
             free_source:play()
         end

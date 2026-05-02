@@ -19,7 +19,7 @@ class Format(str, Enum):
 EXPORT_PREFIX = "export"
 SYLLABLE_LIST_FILENAME = "phonemes_jp.txt"
 EXPORT_EMOTIONS = [ Emotion.NORMAL , Emotion.HAPPY, Emotion.SAD, Emotion.ANGRY, Emotion.BASHFUL ]
-EXPORT_GENDERS = [ Gender.FEMALE , Gender.MALE ]
+EXPORT_GENDERS = [ Gender.MALE , Gender.FEMALE ]
 EXPORT_SPEED = 2
 EXPORT_FORMAT = Format.WAV
 
@@ -129,6 +129,12 @@ def thread_main(main_to_worker, worker_to_main):
 
 # -------------------------------------- #
 
+file_postfix_expansion = {
+    "" : lambda t: f"{t}。{t}。",
+    "_q" : lambda t: f"{t}？{t}？"#,
+    #"_long": lambda t: f"{t}ー。{t}ー",
+    #"_long_q": lambda t: f"{t}ー？{t}ー？"
+}
 
 phonemes = {
     "A":   "ア", "E":   "エ", "I":   "イ", "O":   "オ", "U":   "ウ",
@@ -155,7 +161,6 @@ phonemes = {
     "N": "ン"
 }
 
-
 def main():
     engines = {}
     engines[Gender.MALE] = {}
@@ -176,11 +181,6 @@ def main():
     export_prefix_path = Path(EXPORT_PREFIX)
     export_prefix_path.mkdir(exist_ok = True)
 
-    elongation_mark = "ー"
-    elongation_postfix = "_long"
-    question_mark = "？"
-    question_postfix = "_q"
-
     # build taks list
     tasks = []
     syllable_list = set()
@@ -195,20 +195,16 @@ def main():
                 for romaji, japanese in phonemes.items():
                     for should_elongate in [True, False]:
                         for should_question in [True, False]:
-                            japanese_copy = japanese # deep copy, 'japanese' is by reference
-                            romaji_copy = romaji
-                            if should_elongate:
-                                japanese_copy += elongation_mark
-                                romaji_copy += elongation_postfix
+                            for postfix, expansion in file_postfix_expansion.items():
+                                japanese_copy = japanese # deep copy, 'japanese' is by reference
+                                romaji_copy = romaji
 
-                            if should_question:
-                                japanese_copy += question_mark
-                                romaji_copy += question_postfix
+                                romaji_copy += postfix
+                                japanese_copy = expansion(japanese_copy)
 
-
-                            filename = path / (romaji_copy + "." + EXPORT_FORMAT)
-                            tasks.append((engine, japanese_copy, filename.as_posix()))
-                            syllable_list.add(romaji_copy)
+                                filename = path / (romaji_copy + "." + EXPORT_FORMAT)
+                                tasks.append((engine, japanese_copy, filename.as_posix()))
+                                syllable_list.add(romaji)
 
     n_tasks = len(tasks)
     worker_to_main = queue.Queue()
@@ -279,4 +275,4 @@ if __name__ == "__main__":
         print(f"done. (wrote {file_count} files in {duration:.4f}s)")
     else:
         import sys
-        export("./mmda_agents/Voice/mei/mei_normal.htsvoice", sys.argv[1], "test.wav")
+        export("./mmda_agents/Voice/takumi/takumi_normal.htsvoice", sys.argv[1], "test.wav")
