@@ -24,82 +24,49 @@ import '../styles/default.css';
 ---
 
 <style>
+    .markdown-content-inner {
+        --padding-horizontal: 30px;
+
+        padding-top: 5px;
+        padding-bottom: 30px;
+        padding-left: var(--padding-horizontal);
+        padding-right: var(--padding-horizontal);
+    }
+
     .markdown-container {
         --heading-color: var(--default-color-emphasized);
         --text-color: var(--default-color-foreground);
-        --code-color: #E3E3E3;
-        --math-color: #E3E3E3;
-
-        --background-color: transparent;
-
-        --padding-horizontal: 2vw;
-        --padding-top: 5px;
-        --padding-bottom: 40px;
-
-        --margin-top: 5vh;
-        --margin-bottom: 0; /* footer is below */
-
-        --border-radius: 0px;
-        --border-width: 20px;
-
         --max-width: var(--default-content-width);
-
         --font-body: var(--default-font);
         --font-mono: var(--default-font-mono);
-
-        --h1-size: 3.5rem;
-        --h2-size: 2.75rem;
-        --h3-size: 2rem;
-        --h4-size: 1.5rem;
-        --h5-size: 1.25rem;
-        --h6-size: 1.1rem;
-
-        --code-bg: #1F1F23;
-        --code-margin: 2rem 0;
-        --code-frame: 1px solid #505050;
-
         --code-color-keyword: var(--default-color-primary);
-        --code-color-string: #E633FF;
-        --code-color-string-expression: #E633FF;
-        --code-color-function: #FF21B3;
         --code-color-comment: var(--default-color-secondary);
-        --code-color-constant: #FF7B00;
-        --code-color-parameter: #FFABAB;
-        --code-color-punctuation: #E3E3E3;
-        --code-color-link: #589DF6;
 
-        --math-font: 'Noto Math', 'KaTeX_Main' !important;
-        --math-size: 1.2em;
+        background-color: transparent;
+        font-family: var(--default-font, system-ui, sans-serif), sans-serif;
+        color: var(--default-color-foreground, inherit);
 
-        background-color: var(--background-color, transparent);
-        padding-left: var(--padding-horizontal, 5vw);
-        padding-right: var(--padding-horizontal, 5vw);
-        padding-top: var(--padding-top, 5vh);
-        padding-bottom: var(--padding-bottom, 5vh);
-        font-family: var(--font-body, system-ui, sans-serif), sans-serif;
-        color: var(--text-color, inherit);
+        max-width: var(--default-content-width, 100%);
 
-        max-width: var(--max-width, 100%);
-        margin-top: var(--margin-top, auto);
-        margin-bottom: var(--margin-bottom, auto);
         margin-inline: auto; /* keep centered */
-
         box-sizing: border-box;
         display: block;
 
-        /* shiki theme */
-        --astro-code-color-background: var(--code-bg);
-        --astro-code-color-text: var(--code-color);
-        --astro-code-token-constant: var(--code-color-constant);
-        --astro-code-token-string: var(--code-color-string);
-        --astro-code-token-comment: var(--code-color-comment);
-        --astro-code-token-keyword: var(--code-color-keyword);
-        --astro-code-token-parameter: var(--code-color-parameter);
-        --astro-code-token-function: var(--code-color-function);
-        --astro-code-token-string-expression: var(--code-color-string-expression);
-        --astro-code-token-punctuation: var(--code-color-punctuation);
-        --astro-code-token-link: var(--code-color-link);
+        padding: 0px;
+
+        --astro-code-color-background: #1F1F23;
+        --astro-code-color-text: #E3E3E3;
+        --astro-code-token-constant: #FF7B00;
+        --astro-code-token-string: #E633FF;
+        --astro-code-token-comment: var(--default-color-secondary);
+        --astro-code-token-keyword: var(--default-color-primary);
+        --astro-code-token-parameter: #FFABAB;
+        --astro-code-token-function: #FF21B3;
+        --astro-code-token-string-expression: #E633FF;
+        --astro-code-token-punctuation: #E3E3E3;
+        --astro-code-token-link: #589DF6;
     }
+
 
     /* body / heading */
     .markdown-container :global(h1),
@@ -108,15 +75,15 @@ import '../styles/default.css';
     .markdown-container :global(h4),
     .markdown-container :global(h5),
     .markdown-container :global(h6) {
-        color: var(--heading-color, inherit);
+        color: var(--default-color-emphasized, inherit);
     }
 
-    .markdown-container :global(h1) { font-size: var(--h1-size, 2.5rem); }
-    .markdown-container :global(h2) { font-size: var(--h2-size, 2rem); }
-    .markdown-container :global(h3) { font-size: var(--h3-size, 1.75rem); }
-    .markdown-container :global(h4) { font-size: var(--h4-size, 1.5rem); }
-    .markdown-container :global(h5) { font-size: var(--h5-size, 1.25rem); }
-    .markdown-container :global(h6) { font-size: var(--h6-size, 1rem); }
+    .markdown-container :global(h1) { font-size: 3.5rem; }
+    .markdown-container :global(h2) { font-size: 2.75rem; }
+    .markdown-container :global(h3) { font-size: 2rem; }
+    .markdown-container :global(h4) { font-size: 1.5rem; }
+    .markdown-container :global(h5) { font-size: 1.25rem; }
+    .markdown-container :global(h6) { font-size: 1.1rem; }
 
     .markdown-container :global(p),
     .markdown-container :global(li),
@@ -129,33 +96,32 @@ import '../styles/default.css';
     .markdown-container :global(h4),
     .markdown-container :global(h5),
     .markdown-container :global(h6) {
-        color: var(--text-color, inherit);
-        font-family: var(--font-body, system-ui, sans-serif), sans-serif;
+        color: var(--default-color-foreground, inherit);
+        font-family: var(--default-font, system-ui, sans-serif), sans-serif;
     }
 
     /* monospace */
     .markdown-container :global(code) {
-        font-family: var(--font-mono, monospace), monospace;
-        color: var(--code-color, inherit);
-        background-color: var(--code-bg) !important;
+        font-family: var(--default-font-mono, monospace), monospace;
+        color: #E3E3E3;
+        background-color: #1F1F23 !important;
     }
 
     /* code blocks */
     .markdown-container :global(pre) {
         font-family: inherit;
-        background-color: var(--code-bg) !important;
-        margin: var(--code-margin, 1.5rem 0);
-        border: var(--code-frame, 2px solid);
+        background-color: #1F1F23 !important;
+        margin: 2rem 0;
+        border: 1px solid #505050;
         padding: 1rem;
         overflow-x: auto;
     }
 
-    /* code blocks no inside pre */
+    /* code blocks not inside pre */
     .markdown-container :global(code:not(pre code)) {
-        border: 1px solid var(--code-frame);
+        border: 1px solid #505050;
         padding: 4px 4px;
         border-radius: 4px;
-        border: var(--code-frame, 0.5px solid);
         display: inline-block;
         vertical-align: baseline;
         line-height: 1;
@@ -163,13 +129,16 @@ import '../styles/default.css';
 
     /* math */
     .markdown-container :global(.katex) {
-        font-size: var(--math-size, 1.1em) !important;
-        color: var(--math-color, inherit) !important;
+        font-family: 'Noto Math', 'KaTeX_Main' !important;
+        font-size: 1.2em !important;
+        color: #E3E3E3 !important;
     }
 </style>
 
 <div class="markdown-container">
     <Frame>
-    <Content />
+        <div class="markdown-content-inner">
+            <Content />
+        </div>
     </Frame>
 </div>

@@ -1,0 +1,30 @@
+a---
+//
+// Usage: <Header id="test"/>
+//
+
+interface Props {
+    id: string;
+}
+
+const { id } = Astro.props;
+
+import Frame from '../components/Frame.astro'
+import '../styles/default.css';
+---
+
+<style>
+    .markdown-container {
+        max-width: var(--default-content-width, 100%);
+        margin-inline: auto; /* keep centered */
+
+        box-sizing: border-box;
+        display: block;
+    }
+</style>
+
+<div class="markdown-container">
+    <Frame>
+        <p>hi</p>
+    </Frame>
+</div>

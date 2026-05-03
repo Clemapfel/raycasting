@@ -3,6 +3,8 @@ title: "My Post"
 slug: "test"
 ---
 
+front
+
 # H1 Heading
 
 ```ts
