@@ -3,10 +3,10 @@ require "common.filesystem"
 
 rt.settings.animalese = {
     filetype = "wav",
-    silence_start_eps = 0.04, -- normalized
-    silence_end_eps = 0.01,
-    attack_duration = 5 / 60, -- seconds
-    decay_duration = 10 / 60,
+    silence_start_eps = 0.015, -- normalized
+    silence_end_eps = 0.001,
+    attack_duration = 15 / 60, -- seconds
+    decay_duration = 15 / 60,
     target_peak = 0.1,
     scroll_speed_factor = 1,
     n_words_per_file = 2,
@@ -614,11 +614,11 @@ local _detect_sections = function(sound_data)
     local n_words = rt.settings.animalese.n_words_per_file
 
     local sections = {}
-    local push_section = function(start_t, end_t)
+    local push_section = function(start_i, end_i)
         table.insert(sections, {
-            start_t = start_t,
-            end_t = end_t,
-            duration = (end_t - start_t) * total_duration
+            start_i = start_i,
+            end_i = end_i,
+            duration = (end_i - start_i) / sample_rate
         })
     end
 
@@ -714,13 +714,124 @@ local _detect_sections = function(sound_data)
             end_i = end_i + 1
         end
 
-        local start_t = start_i / n_samples
-        local end_t = end_i / n_samples
-
-        push_section(start_t, end_t)
+        push_section(start_i, end_i)
     end
 
     return sections
+end
+
+local _detect_sections = function(sound_data)
+    local total_duration = sound_data:getDuration()
+    local n_samples = sound_data:getSampleCount()
+    local sample_rate = sound_data:getSampleRate()
+    local window_size = math.floor(0.015 * sample_rate) -- 15ms window
+
+    local short_time_energy = {}
+    for window_index = 0, math.ceil(n_samples / window_size) - 1 do
+        local energy = 0
+        local start_i = window_index * window_size
+        local end_i = (window_index + 1) * window_size
+        for sample_i = start_i, math.min(end_i, n_samples - 1) do
+            local sample = sound_data:getSample(sample_i) -- 0-based
+            energy = energy + sample ^ 2
+        end
+
+        short_time_energy[window_index + 1] = {
+            start_i = start_i,
+            end_i = end_i,
+            energy = energy / window_size
+        }
+    end
+
+    local _detect_minima_ampd = function(short_time_energy, n_target)
+        local x = {}
+        for i = 1, #short_time_energy do
+            x[i] = short_time_energy[i].energy
+        end
+
+        local N = #x
+        local L = math.floor(N / 2) - 1
+        local LSM = {} -- Local Scalogram Matrix
+
+        -- 1. Initialize LSM and compute scale-dependent minima
+        -- Each row k represents a scale, each column i a time point
+        for k = 1, L do
+            LSM[k] = {}
+            for i = k + 1, N - k do
+                if x[i] < x[i - k] and x[i] < x[i + k] then
+                    LSM[k][i] = 0
+                else
+                    LSM[k][i] = 1
+                end
+            end
+        end
+
+        -- 2. Row-wise summation to find the scale of dominance lambda
+        -- S[k] counts how many points are NOT minima at scale k
+        local S = {}
+        local min_S = math.huge
+        local lambda = 1
+        for k = 1, L do
+            local row_sum = 0
+            for i = k + 1, N - k do
+                row_sum = row_sum + LSM[k][i]
+            end
+            S[k] = row_sum
+            if row_sum < min_S then
+                min_S = row_sum
+                lambda = k
+            end
+        end
+
+        -- 3. Extract candidate minima based on the scale lambda
+        local candidates = {}
+        for i = lambda + 1, N - lambda do
+            local is_min = true
+            for k = 1, lambda do
+                if LSM[k][i] ~= 0 then
+                    is_min = false
+                    break
+                end
+            end
+
+            if is_min then
+                table.insert(candidates, {
+                    index = i,
+                    energy = x[i],
+                    -- We use the sum of zeros across scales as a "persistence" score
+                    persistence = 0
+                })
+            end
+        end
+
+        -- 4. Calculate persistence for each candidate to guarantee exactly N
+        for _, cand in ipairs(candidates) do
+            local score = 0
+            for k = 1, L do
+                if LSM[k][cand.index] == 0 then
+                    score = score + 1
+                else
+                    break -- Stop when it's no longer a minimum at a larger scale
+                end
+            end
+            cand.persistence = score
+        end
+
+        -- 5. Sort by persistence and return top n_target
+        table.sort(candidates, function(a, b) return a.persistence > b.persistence end)
+
+        local final_minima = {}
+        for i = 1, math.min(n_target, #candidates) do
+            table.insert(final_minima, short_time_energy[candidates[i].index])
+        end
+
+        -- Sort chronologically before returning
+        table.sort(final_minima, function(a, b) return a.start_i < b.start_i end)
+
+        return final_minima
+    end
+
+    local minima = _detect_minima_ampd(short_time_energy, rt.settings.animalese.n_words_per_file)
 end
 
 --- @brief
@@ -734,18 +845,34 @@ function rt.Animalese:_initialize_entry(entry)
 
             entry.sections = _detect_sections(
                 sound_data
-            ) -- { start_t, end_t, duration }
+            ) -- { start_i, end_i, duration }
 
             local peak = -math.huge
-            for sample_i = 1, sound_data_or_error:getSampleCount() do
-                peak = math.max(peak, sound_data_or_error:getSample(sample_i - 1))
-            end
 
-            local n_samples = sound_data:getSampleCount()
             for section in values(entry.sections) do
-                local start_sample = math.floor(n_samples * section.start_t)
-                local end_sample = math.floor(n_samples * section.end_t)
+                local start_sample = section.start_i
+                local end_sample = section.end_i
                 section.sound_data = sound_data:slice(start_sample, end_sample - start_sample)
+
+                -- apply envelope
+                local n_samples = sound_data:getSampleCount()
+                local duration = sound_data:getDuration()
+                local attack_duration = rt.settings.animalese.attack_duration / duration
+                local decay_duration = rt.settings.animalese.decay_duration / duration
+
+                local n_samples = sound_data:getSampleCount()
+                local duration = sound_data:getDuration()
+                local attack_fraction = rt.settings.animalese.attack_duration / duration
+                local decay_fraction = rt.settings.animalese.decay_duration / duration
+
+                for sample_i = 1, n_samples do
+                    local t = (sample_i - 1) / (n_samples - 1)
+                    local sample = sound_data:getSample(sample_i - 1)
+                    sample = sample * rt.InterpolationFunctions.ENVELOPE(t, attack_fraction, decay_fraction)
+                    sound_data:setSample(sample_i - 1, sample)
+                    peak = math.max(peak, math.abs(sample))
+                end
+
                 section.sources = {}
             end
 
@@ -961,7 +1088,7 @@ function rt.Animalese:update(delta)
                 if pronounciation_entry.is_initialized == false then
                     self:_initialize_entry(pronounciation_entry)
                 end
-                queue_entry.section_i = rt.random.integer(1, #pronounciation_entry.sections)
+                queue_entry.section_i = rt.random.integer(2, #pronounciation_entry.sections)
                 queue_entry.duration = pronounciation_entry.sections[queue_entry.section_i].duration
             end
         end

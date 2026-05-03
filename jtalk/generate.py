@@ -18,8 +18,8 @@ class Format(str, Enum):
 
 EXPORT_PREFIX = "export"
 SYLLABLE_LIST_FILENAME = "phonemes_jp.txt"
-EXPORT_EMOTIONS = [ Emotion.NORMAL , Emotion.HAPPY, Emotion.SAD, Emotion.ANGRY, Emotion.BASHFUL ]
-EXPORT_GENDERS = [ Gender.MALE , Gender.FEMALE ]
+EXPORT_EMOTIONS = [ Emotion.NORMAL ] #, Emotion.HAPPY, Emotion.SAD, Emotion.ANGRY, Emotion.BASHFUL ]
+EXPORT_GENDERS = [ Gender.MALE ] #, Gender.FEMALE ]
 EXPORT_SPEED = 2
 EXPORT_FORMAT = Format.WAV
 
@@ -130,8 +130,8 @@ def thread_main(main_to_worker, worker_to_main):
 # -------------------------------------- #
 
 file_postfix_expansion = {
-    "" : lambda t: f"{t}。{t}。",
-    "_q" : lambda t: f"{t}？{t}？"#,
+    #"" : lambda t: f"{t}。{t}。",
+    "_q" : lambda t: f"{t}？{t}？{t}ー.{t}ー?"#,
     #"_long": lambda t: f"{t}ー。{t}ー",
     #"_long_q": lambda t: f"{t}ー？{t}ー？"
 }
@@ -260,7 +260,7 @@ def main():
 # ---
 
 if __name__ == "__main__":
-    if True:
+    if False:
         before = time.time()
         file_count = 0
         try:
