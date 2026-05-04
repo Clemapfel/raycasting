@@ -28,8 +28,23 @@ import '../styles/default.css';
         text-align: center;
         opacity: 0.75;
     }
+
+    footer a {
+        color: inherit;
+        text-decoration: underline;
+        text-decoration-style: dotted;
+        text-decoration-thickness: 2px;
+        text-decoration-color: black;
+    }
+
+    footer a:hover {
+        text-decoration-style: solid;
+        opacity: 1;
+    }
 </style>
 
 <footer>
-    <p> Copyright &copy; {currentYear} {author} </p>
+    <p> &copy; {currentYear} {author} | Licensed <a href=" https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">
+        CC BY-NC-SA</a>
+    </p>
 </footer>

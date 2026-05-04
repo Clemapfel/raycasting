@@ -1,11 +1,12 @@
 ---
 title: "My Post"
 slug: "test"
+date: "04.05.2026"
+shader: "red_blood_cells"
 ---
 
-front
-
 # H1 Heading
+
 
 ```ts
 const PI = 3
@@ -13,6 +14,8 @@ function test(x1 : Int32, x2) {
     return x1 + 2 * PI + "test", "${test}";
 }
 ```
+
+![barboach](../images/barboach.png)
 
 `const message: string = "Hello, Astro!"; // String color`
 

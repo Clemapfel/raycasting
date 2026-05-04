@@ -9,4 +9,6 @@
     --default-color-background: #0b0b10;
 
     --default-content-width: 75vw;
+
+    --default-frame-thickness: 6px;
 }

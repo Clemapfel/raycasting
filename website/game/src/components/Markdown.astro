@@ -24,15 +24,6 @@ import '../styles/default.css';
 ---
 
 <style>
-    .markdown-content-inner {
-        --padding-horizontal: 30px;
-
-        padding-top: 5px;
-        padding-bottom: 30px;
-        padding-left: var(--padding-horizontal);
-        padding-right: var(--padding-horizontal);
-    }
-
     .markdown-container {
         --heading-color: var(--default-color-emphasized);
         --text-color: var(--default-color-foreground);
@@ -133,12 +124,30 @@ import '../styles/default.css';
         font-size: 1.2em !important;
         color: #E3E3E3 !important;
     }
+
+    /* image styling */
+    .markdown-container :global(img) {
+        display: block;
+        max-width: 100%;
+        height: auto;
+        margin: auto;
+    }
+
+    /* figure / caption support */
+    .markdown-container :global(figure) {
+        margin: 2rem 0;
+        text-align: center;
+    }
+
+    .markdown-container :global(figcaption) {
+        font-size: 0.9rem;
+        color: var(--default-color-secondary);
+        margin-top: 0.5rem;
+    }
 </style>
 
 <div class="markdown-container">
     <Frame>
-        <div class="markdown-content-inner">
-            <Content />
-        </div>
+        <Content />
     </Frame>
 </div>

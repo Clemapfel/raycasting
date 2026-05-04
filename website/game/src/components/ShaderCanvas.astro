@@ -15,7 +15,7 @@ if (!id) {
     throw new Error('In ShaderCanvas: \`id\` property not specified');
 }
 
-const fragment_shader_entry = await getEntry('shaders', 'test');
+const fragment_shader_entry = await getEntry('shaders', id);
 const fragment_shader = fragment_shader_entry?.body;
 
 if (!fragment_shader) {
@@ -36,8 +36,8 @@ const vertex_shader = `
 ---
 
 <shader-canvas-wrapper>
-    <script type="x-shader/x-vertex" class="vert-shader" set:html={vertex_shader}></script>
-    <script type="x-shader/x-fragment" class="frag-shader" set:html={fragment_shader}></script>
+    <script type="x-shader/x-vertex" class="vertex-shader" set:html={vertex_shader}></script>
+    <script type="x-shader/x-fragment" class="fragment-shader" set:html={fragment_shader}></script>
     <canvas class="webgl-canvas"></canvas>
     <div class="shader-error" style="display: none;"></div>
 </shader-canvas-wrapper>
@@ -82,14 +82,14 @@ const vertex_shader = `
         connectedCallback() {
             const canvas = this.querySelector('.webgl-canvas') as HTMLCanvasElement;
             const errorOverlay = this.querySelector('.shader-error') as HTMLDivElement;
-            const vsSource = this.querySelector('.vert-shader')?.textContent || '';
-            const fsSource = this.querySelector('.frag-shader')?.textContent || '';
+            const vertexSource = this.querySelector('.vertex-shader')?.textContent || '';
+            const fragmentSource = this.querySelector('.fragment-shader')?.textContent || '';
 
             const showError = (msg: string) => {
                 console.error("WebGL Error:", msg);
                 errorOverlay.textContent = `Shader Error:\n\n${msg}`;
                 errorOverlay.style.display = 'block';
-                canvas.style.display = 'none'; // Hide canvas on error
+                canvas.style.display = 'none'; // hide canvas on error
             };
 
             try {
@@ -99,7 +99,6 @@ const vertex_shader = `
                     throw new Error("WebGL is not supported on this machine/browser.");
                 }
 
-                // --- 1. Compile Shaders ---
                 const compileShader = (type: number, source: string) => {
                     const shader = gl.createShader(type);
                     if (!shader) throw new Error("Could not create WebGL shader.");
@@ -116,10 +115,10 @@ const vertex_shader = `
                     return shader;
                 };
 
-                const vertexShader = compileShader(gl.VERTEX_SHADER, vsSource);
-                const fragmentShader = compileShader(gl.FRAGMENT_SHADER, fsSource);
+                const vertexShader = compileShader(gl.VERTEX_SHADER, vertexSource);
+                const fragmentShader = compileShader(gl.FRAGMENT_SHADER, fragmentSource);
 
-                // --- 2. Link Program ---
+                // link program
                 const program = gl.createProgram();
                 if (!program) throw new Error("Could not create WebGL program.");
 
@@ -134,15 +133,13 @@ const vertex_shader = `
 
                 gl.useProgram(program);
 
-                // --- 3. Set Up Geometry (Full Screen Quad) ---
-                // Format: X, Y, U, V
                 const vertices = new Float32Array([
-                    -1.0, -1.0,  0.0, 0.0,
-                    1.0, -1.0,  1.0, 0.0,
-                    -1.0,  1.0,  0.0, 1.0,
-                    1.0, -1.0,  1.0, 0.0,
-                    1.0,  1.0,  1.0, 1.0,
-                    -1.0,  1.0,  0.0, 1.0
+                    -1.0, -1.0,  0.0, 0.0, // xy uv
+                    +1.0, -1.0,  1.0, 0.0,
+                    -1.0, +1.0,  0.0, 1.0,
+                    +1.0, -1.0,  1.0, 0.0,
+                    +1.0, +1.0,  1.0, 1.0,
+                    -1.0, +1.0,  0.0, 1.0
                 ]);
 
                 const buffer = gl.createBuffer();
@@ -158,20 +155,16 @@ const vertex_shader = `
                 gl.enableVertexAttribArray(positionLocation);
                 gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, stride, 0);
 
-                // Check if UVs are actually used in the vertex shader before enabling
                 if (uvLocation !== -1) {
                     gl.enableVertexAttribArray(uvLocation);
                     gl.vertexAttribPointer(uvLocation, 2, gl.FLOAT, false, stride, 2 * Float32Size);
                 }
 
-                // Retrieve common uniform locations (optional but helpful for future shaders)
                 const timeLocation = gl.getUniformLocation(program, "elapsed");
-                const resolutionLocation = gl.getUniformLocation(program, "screen_size");
+                const screenSizeLocation = gl.getUniformLocation(program, "screen_size");
 
-                // --- 4. Handle Resize for sharp Retina displays ---
                 const resize = () => {
                     const dpr = window.devicePixelRatio || 1;
-                    // Match the DOM size of the canvas
                     const width = canvas.clientWidth * dpr;
                     const height = canvas.clientHeight * dpr;
 
@@ -183,21 +176,22 @@ const vertex_shader = `
                 };
 
                 window.addEventListener('resize', resize);
-                resize(); // Initial sizing
+                resize();
 
-                // --- 5. Render Loop ---
                 let startTime = performance.now();
+
                 const render = (now: number) => {
                     resize(); // Ensure canvas is perfectly sized before draw
 
                     if (timeLocation) {
                         gl.uniform1f(timeLocation, (now - startTime) / 1000);
                     }
-                    if (resolutionLocation) {
-                        gl.uniform2f(resolutionLocation, gl.canvas.width, gl.canvas.height);
+
+                    if (screenSizeLocation) {
+                        gl.uniform2f(screenSizeLocation, gl.canvas.width, gl.canvas.height);
                     }
 
-                    gl.clearColor(0.0, 0.0, 0.0, 1.0);
+                    gl.clearColor(0.0, 0.0, 0.0, 0.0);
                     gl.clear(gl.COLOR_BUFFER_BIT);
                     gl.drawArrays(gl.TRIANGLES, 0, 6);
 

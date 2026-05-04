@@ -60,6 +60,8 @@ end
 
 require "common.animalese"
 
+dbg(rt.Palette.RED:unpack())
+
 love.update = function(delta)
     if rt.SceneManager ~= nil then
         rt.SceneManager:update(delta)

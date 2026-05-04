@@ -1,0 +1,130 @@
+---
+import { getCollection } from 'astro:content';
+import '../styles/default.css';
+
+const raw_posts = await getCollection('posts');
+const posts = raw_posts.sort((a, b) => new Date(a.data.date).getTime() - new Date(b.data.date).getTime()).reverse();
+---
+
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Posts</title>
+    <style>
+        .post-list-page {
+            min-height: 100vh;
+            background: var(--default-color-background);
+            color: var(--default-color-foreground);
+            font-family: var(--default-font);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .post-list-container {
+            width: var(--default-content-width);
+            max-width: 900px;
+        }
+
+        .post-list-heading {
+            font-size: clamp(2rem, 5vw, 3.5rem);
+            font-weight: 800;
+            color: var(--default-color-emphasized);
+            margin: 0 0 0.25em;
+            letter-spacing: -0.02em;
+            line-height: 1;
+        }
+
+        .post-list-heading-accent {
+            color: var(--default-color-primary);
+        }
+
+        .post-list-rule {
+            border: none;
+            border-top: var(--default-frame-thickness) solid var(--default-color-primary);
+            margin: 1.5rem 0 3rem;
+        }
+
+        .post-list {
+            list-style: none;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+        }
+
+        .post-list-item {
+            border-bottom: 1px solid color-mix(in srgb, var(--default-color-foreground) 12%, transparent);
+        }
+
+        .post-list-item:first-child {
+            border-top: 1px solid color-mix(in srgb, var(--default-color-foreground) 12%, transparent);
+        }
+
+        .post-list-link {
+            display: flex;
+            align-items: baseline;
+            gap: 1.5rem;
+            text-decoration: none;
+            color: inherit;
+            transition: color 0.15s ease;
+        }
+
+        .post-list-link:hover {
+            color: var(--default-color-primary);
+        }
+
+        .post-list-link:hover .post-list-date {
+            color: var(--default-color-primary);
+        }
+
+        .post-list-date {
+            font-family: var(--default-font-mono);
+            font-size: 0.78rem;
+            color: var(--default-color-muted);
+            white-space: nowrap;
+            flex-shrink: 0;
+            transition: color 0.15s ease;
+            letter-spacing: 0.04em;
+        }
+
+        .post-list-title {
+            font-size: 1.05rem;
+            font-weight: 500;
+            line-height: 1.4;
+        }
+
+        .post-list-empty {
+            color: var(--default-color-muted);
+            font-style: italic;
+        }
+    </style>
+</head>
+
+<body class="post-list-page">
+<div class="post-list-container">
+    <h1 class="post-list-heading">
+        All<span class="post-list-heading-accent"> Posts</span>
+    </h1>
+    <hr class="post-list-rule" />
+    {posts.length === 0
+        ? <p class="post-list-empty">No posts yet.</p>
+        : (
+                    <ul class="post-list">
+                        {posts.map(post => (
+                                <li class="post-list-item">
+                                    <a class="post-list-link" href={`/posts/${post.data.slug}`}>
+                                        <time class="post-list-date" datetime={post.data.date}>
+                                            {new Date(post.data.date).toLocaleDateString('en-CA')}
+                                        </time>
+                                        <span class="post-list-title">{post.data.title}</span>
+                                    </a>
+                                </li>
+                        ))}
+                    </ul>
+        )
+    }
+</div>
+</body>
+</html>

@@ -12,7 +12,6 @@ interface Props {
     outlineColor?: string;
     outlineWidth?: number;
     cornerRadius?: number;
-    thickness?: number;
     colorSpeed?: number;
 }
 
@@ -23,7 +22,6 @@ const {
     noiseFrequency = 5,
     backgroundColor = "#111111",
     outlineColor = "currentColor",
-    thickness = 6,
     outlineWidth = 4,
     cornerRadius = 16,
     colorSpeed = 0.05,
@@ -54,12 +52,17 @@ import '../styles/default.css';
     "nf-outline-color": outlineColor,
     "nf-outline-width": `${outlineWidth}px`,
     "nf-corner-radius": `${cornerRadius}px`,
-    "nf-thickness": `${thickness}px`,
 }}>
     .noisy-frame {
+        --nf-thickness: var(--default-frame-thickness);
         position: relative;
         isolation: isolate;
-        padding: 0px; /* adjust padding in slot child */
+
+        --padding-horizontal: 30px;
+        padding-top: 5px;
+        padding-bottom: 30px;
+        padding-left: var(--padding-horizontal);
+        padding-right: var(--padding-horizontal);
     }
 
     .noisy-frame__svg {

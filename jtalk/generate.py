@@ -1,5 +1,18 @@
 from enum import Enum
 from subprocess import DEVNULL
+from random import getrandbits
+
+# Usage:
+#
+# 1. generate all:
+#   python generate.py "dispatch"
+#
+# 2. generate for one gender / emotion:
+#   python generate.py "all" "<mei/takumi>" "<normal/happy/sad/angry/bashful>"
+#
+# 3. generate a single sentence
+#   python generate.py "single"  "<sentence>" "<mei/takumi>" "<normal/happy/sad/angry/bashful>" "<export_filename.wav>
+#
 
 class Emotion(str, Enum):
     ANGRY = "angry"
@@ -17,10 +30,12 @@ class Format(str, Enum):
     OGG = "ogg"
 
 EXPORT_PREFIX = "export"
-SYLLABLE_LIST_FILENAME = "phonemes_jp.txt"
-EXPORT_EMOTIONS = [ Emotion.NORMAL ] #, Emotion.HAPPY, Emotion.SAD, Emotion.ANGRY, Emotion.BASHFUL ]
-EXPORT_GENDERS = [ Gender.MALE ] #, Gender.FEMALE ]
-EXPORT_SPEED = 2
+EXPORT_EMOTIONS = [ Emotion.NORMAL , Emotion.HAPPY, Emotion.SAD, Emotion.ANGRY, Emotion.BASHFUL ]
+EXPORT_GENDERS = [ Gender.MALE , Gender.FEMALE ]
+EXPORT_SPEED = {
+    Gender.MALE : 2.8,
+    Gender.FEMALE : 2.2
+}
 EXPORT_FORMAT = Format.WAV
 
 THREAD_COUNT = 3
@@ -52,7 +67,9 @@ class MessageType(Enum):
 @dataclass
 class Message:
     type: MessageType
-    engine_path: str | None = None
+    gender: Gender = Gender.FEMALE
+    emotion: Emotion = Emotion.NORMAL
+    thread_id: int = -1
     text: str | None = None
     output_path: str | None = None
     success: bool | None = None
@@ -73,20 +90,34 @@ def convert(wav_path, ogg_path):
         stderr=DEVNULL
     )
 
-def export(engine_path, text, output_path):
+def gender_emotion_to_engine_path(gender : Gender, emotion : Emotion):
+    mei_prefix = "./mmda_agents/Voice/mei/mei"
+    takumi_prefix = "./mmda_agents/Voice/takumi/takumi"
+
+    gender_prefix = ""
+    if gender == Gender.MALE:
+        gender_prefix = takumi_prefix
+    elif gender == Gender.FEMALE:
+        gender_prefix = mei_prefix
+    else:
+        raise Exception(f"In generate.py: unhandled gender {gender}")
+
+    return Path(gender_prefix + "_" + emotion + ".htsvoice").as_posix()
+
+def export(gender : Gender, emotion : Emotion, text : str, output_path : Path):
+    engine_path = gender_emotion_to_engine_path(gender, emotion)
     if engine_path is None or not os.path.isfile(engine_path):
-        print("[rt] unable to use engine at `" + str(engine_path) + "`")
         return False
 
     try:
         engine = HTSEngine(engine_path.encode("utf-8"))
-        engine.set_speed(EXPORT_SPEED)
+        engine.set_speed(EXPORT_SPEED[gender])
         waveform = engine.synthesize(pyopenjtalk.extract_fullcontext(text))
 
         if EXPORT_FORMAT == Format.WAV:
             wavfile.write(output_path, engine.get_sampling_frequency(), waveform.astype(np.int16))
         else:
-            temp_path = output_path + ".temp.wav"
+            temp_path = output_path / (tostring(random.getrandbits(32)) + ".temp.wav")
             try:
                 wavfile.write(temp_path, engine.get_sampling_frequency(), waveform.astype(np.int16))
                 convert(temp_path, output_path)
@@ -94,7 +125,6 @@ def export(engine_path, text, output_path):
                 if os.path.isfile(temp_path):
                     os.remove(temp_path)
 
-        print("[rt] wrote to `" + output_path + "` using `" + engine_path + "`")
         return True
 
     except Exception as error:
@@ -112,28 +142,30 @@ def thread_main(main_to_worker, worker_to_main):
         message = main_to_worker.get(block=True)
         match message.type:
             case MessageType.EXPORT:
-                success = export(message.engine_path, message.text, message.output_path)
+                success = export(message.gender, message.emotion, message.text, message.output_path)
                 worker_to_main.put(Message(
                     type=MessageType.EXPORT_RESPONSE,
-                    engine_path=message.engine_path,
+                    gender=gender,
+                    emotion=emotion,
                     text=message.text,
+                    thread_id=message.thread_id,
                     output_path=message.output_path,
                     success=success,
                 ))
             case MessageType.SHUTDOWN:
                 shutdown_active = True
             case _:
-                raise AssertionError(f"In thread_main: unhandled message type {message.type}")
+                raise AssertionError(f"[rt] In thread_main: unhandled message type {message.type}")
 
     worker_to_main.put(Message(type=MessageType.SHUTDOWN_RESPONSE))
 
 # -------------------------------------- #
 
 file_postfix_expansion = {
-    #"" : lambda t: f"{t}。{t}。",
-    "_q" : lambda t: f"{t}？{t}？{t}ー.{t}ー?"#,
-    #"_long": lambda t: f"{t}ー。{t}ー",
-    #"_long_q": lambda t: f"{t}ー？{t}ー？"
+    "" : lambda t: f"{t}。{t}。",
+    "_q" : lambda t: f"{t}？{t}？",
+    "_long": lambda t: f"{t}ー。{t}ー",
+    "_long_q": lambda t: f"{t}ー？{t}ー？"
 }
 
 phonemes = {
@@ -161,50 +193,34 @@ phonemes = {
     "N": "ン"
 }
 
-def main():
-    engines = {}
-    engines[Gender.MALE] = {}
-    engines[Gender.FEMALE] = {}
-
-    mei_prefix = "./mmda_agents/Voice/mei/mei"
-    for emotion in Emotion:
-        path = Path(mei_prefix + "_" + emotion + ".htsvoice")
-        engines[Gender.FEMALE][emotion] = path.as_posix()
-
-    takumi_prefix = "./mmda_agents/Voice/takumi/takumi"
-    for emotion in Emotion:
-        path = Path(takumi_prefix + "_" + emotion + ".htsvoice")
-        engines[Gender.MALE][emotion] = path.as_posix()
-
-    assert(engines[Gender.MALE][Emotion.NORMAL] is not None and engines[Gender.FEMALE][Emotion.NORMAL] is not None)
+def main(gender : Gender, emotion : Emotion):
+    engine = gender_emotion_to_engine_path(gender, emotion)
+    if not Path(engine).exists():
+        return 0
 
     export_prefix_path = Path(EXPORT_PREFIX)
-    export_prefix_path.mkdir(exist_ok = True)
 
     # build taks list
     tasks = []
     syllable_list = set()
 
-    for gender in EXPORT_GENDERS:
-        for emotion in EXPORT_EMOTIONS:
-            engine = engines[gender][emotion]
-            if engine is not None:
-                path = export_prefix_path / gender / emotion
-                path.mkdir(parents=True, exist_ok=True) # pre allocate folders in main
+    if engine is not None:
+        path = export_prefix_path / gender / emotion
+        path.mkdir(parents=True, exist_ok=True) # pre allocate folders in main
 
-                for romaji, japanese in phonemes.items():
-                    for should_elongate in [True, False]:
-                        for should_question in [True, False]:
-                            for postfix, expansion in file_postfix_expansion.items():
-                                japanese_copy = japanese # deep copy, 'japanese' is by reference
-                                romaji_copy = romaji
+        for romaji, japanese in phonemes.items():
+            for should_elongate in [True, False]:
+                for should_question in [True, False]:
+                    for postfix, expansion in file_postfix_expansion.items():
+                        japanese_copy = japanese # deep copy, 'japanese' is by reference
+                        romaji_copy = romaji
 
-                                romaji_copy += postfix
-                                japanese_copy = expansion(japanese_copy)
+                        romaji_copy += postfix
+                        japanese_copy = expansion(japanese_copy)
 
-                                filename = path / (romaji_copy + "." + EXPORT_FORMAT)
-                                tasks.append((engine, japanese_copy, filename.as_posix()))
-                                syllable_list.add(romaji)
+                        filename = path / (romaji_copy + "." + EXPORT_FORMAT)
+                        tasks.append((gender, emotion, japanese_copy, filename.as_posix()))
+                        syllable_list.add(romaji)
 
     n_tasks = len(tasks)
     worker_to_main = queue.Queue()
@@ -221,58 +237,100 @@ def main():
         workers.append(worker)
 
     # distribute tasks round robin
-    for index, (engine_path, text, output_path) in enumerate(tasks):
-        workers[index % len(workers)].main_to_worker.put(Message(
+    for index, (gender, emotion, text, output_path) in enumerate(tasks):
+        thread_id = index % len(workers)
+        workers[thread_id].main_to_worker.put(Message(
             type=MessageType.EXPORT,
-            engine_path=engine_path,
+            gender=gender,
+            emotion=emotion,
             text=text,
             output_path=output_path,
+            thread_id=thread_id
         ))
 
-    # collect responses
     n_completed = 0
+    print_step = max(1, n_tasks // 100)
+
     while n_completed < n_tasks:
         message = worker_to_main.get(block=True)
         match message.type:
             case MessageType.EXPORT_RESPONSE:
                 n_completed += 1
+                if message.success and (n_completed % print_step == 0):
+                    percent = (n_completed / n_tasks) * 100
+                    print(f"[rt][{message.thread_id}] {gender}_{emotion}:\t{n_completed:>4} / {n_tasks:>4} ({percent:.0f}%)")
             case _:
-                raise AssertionError(f"In main: unhandled message type {message.type}")
+                raise AssertionError(f"[rt] In main: unhandled message type {message.type}")
 
     # shutdown
-    for worker in workers:
-        worker.main_to_worker.put(Message(type=MessageType.SHUTDOWN))
+    for i in range(len(workers)):
+        worker = workers[i]
+        worker.main_to_worker.put(Message(
+            type=MessageType.SHUTDOWN,
+            thread_id=i
+        ))
 
     for worker in workers:
         worker.thread.join()
-
-    # write syllable list
-    syllable_list_path = Path(EXPORT_PREFIX) / SYLLABLE_LIST_FILENAME
-    syllable_list_path.unlink(missing_ok=True)
-
-    with open(syllable_list_path, "w") as file:
-        file.writelines(element + "\n" for element in sorted(syllable_list))
-
-    print("[rt] wrote syllable list to `" + syllable_list_path.as_posix() + "`")
 
     return n_completed
 
 # ---
 
+class Mode(str, Enum):
+    DISPATCH = "dispatch",
+    ALL = "all",
+    SINGLE = "single"
+
 if __name__ == "__main__":
-    if False:
-        before = time.time()
+    import sys
+
+    Path(EXPORT_PREFIX).mkdir(exist_ok = True)
+
+    mode = sys.argv[1]
+    assert(mode in [item for item in Mode])
+
+    if mode == Mode.ALL:
+        #generate: write emotion and gender
         file_count = 0
         try:
-            file_count = main()
+            gender = sys.argv[2]
+            emotion = sys.argv[3]
+            file_count = main(gender, emotion)
         except Exception as error:
-            print("[rt] script failed with " + str(error))
-            export_path = Path(EXPORT_PREFIX)
-            if export_path.exists():
-                shutil.rmtree(export_path)
+            file_count = 0
+
+        if file_count > 0:
+            print(f"[rt] succesfully wrote `{file_count}` files for `{gender}/{emotion}`")
+        else:
+            print(f"[rt] failed to write files for `{gender}/{emotion}`")
+
+
+    # dispatch: dispatch subprocesses, this is faster than a shared threadpool
+    elif mode == Mode.DISPATCH:
+        before = time.time()
+
+        processes = []
+        for gender in EXPORT_GENDERS:
+            for emotion in EXPORT_EMOTIONS:
+                processes.append(subprocess.Popen(
+                    [sys.executable, __file__, Mode.ALL, gender, emotion]
+                ))
+
+        for process in processes:
+            process.wait()
 
         duration = time.time() - before
-        print(f"done. (wrote {file_count} files in {duration:.4f}s)")
-    else:
-        import sys
-        export("./mmda_agents/Voice/takumi/takumi_normal.htsvoice", sys.argv[1], "test.wav")
+        print(f"[rt] done. Took {duration:.4f}s)")
+
+    # render single sentencte
+    elif mode == Mode.SINGLE:
+        _, _, text, gender, emotion, path = (sys.argv)[:6]
+
+        assert(isinstance(text, str))
+        assert(gender in [x for x in Gender])
+        assert(emotion in [x for x in Emotion])
+        assert(isinstance(path, str))
+
+        export(gender, emotion, text, Path(path))
+        print(f"[rt] wrote to `{path}`")
