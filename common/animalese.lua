@@ -3,13 +3,14 @@ require "common.filesystem"
 
 rt.settings.animalese = {
     filetype = "wav",
-    silence_start_eps = 0.015, -- normalized
-    silence_end_eps = 0.001,
-    attack_duration = 15 / 60, -- seconds
-    decay_duration = 15 / 60,
+    silence_start_eps = 0.028, -- normalized
+    silence_end_eps = 0.03,
+    attack_duration = 8 / 60, -- seconds
+    decay_duration = 11 / 60,
+    word_overlap = 2.25 / 60, -- seconds
     target_peak = 0.1,
     scroll_speed_factor = 1,
-    n_words_per_file = 2,
+    n_words_per_file = 3,
 
     path = "jtalk", -- mount point
     native_prefix = "jtalk", -- native directory name
@@ -20,6 +21,7 @@ rt.settings.animalese = {
     translation_filename = "export/.animalese",
     sample_file_extension = ".wav",
 
+    long_postfix = "_long",
     question_postfix = "_q",
     question_max_pitch = 1.1,
     question_n_phonemes = 5,
@@ -523,7 +525,9 @@ do
 
     rt.AnimalesePronounciation = {
         NORMAL = "",
+        LONG = long_postfix,
         QUESTION = question_postfix,
+        LONG_QUESTION = long_postfix .. question_postfix
     }
 end
 
@@ -609,12 +613,248 @@ local _detect_sections = function(sound_data)
     local total_duration = sound_data:getDuration()
     local n_samples = sound_data:getSampleCount()
     local sample_rate = sound_data:getSampleRate()
-    local start_eps = rt.settings.animalese.silence_start_eps
-    local end_eps = rt.settings.animalese.silence_end_eps
+
+    local window_duration = 0.015 -- ms
+    local window_n_samples = math.max(1, math.floor(window_duration * sample_rate))
+
+    local overlap_factor = 0.5
+    local hop_size = math.max(1, math.floor(window_n_samples * (1 - overlap_factor)))
+
+    local windows = {}
+
+    for i = 0, n_samples - 1, hop_size do
+        local start_index = i
+        local end_index = math.min(i + window_n_samples - 1, n_samples - 1)
+
+        if start_index >= n_samples then break end
+
+        local energy_sum = 0
+        for j = start_index, end_index do
+            local sample = sound_data:getSample(j)
+            energy_sum = energy_sum + sample ^ 2
+        end
+
+        table.insert(windows, {
+            start_i = start_index,
+            end_i = end_index,
+            magnitude = energy_sum
+        })
+    end
+
     local n_words = rt.settings.animalese.n_words_per_file
 
+    local all_minima = {}
+
+    for i = 1, #windows do
+        local current_mag = windows[i].magnitude
+
+        -- 1. Scan Left: Find highest peak before a deeper minimum
+        local left_peak = -math.huge
+        local found_deeper_left = false
+        local is_plateau_duplicate = false
+
+        for j = i - 1, 1, -1 do
+            -- Deduplicate flat-bottomed valleys (plateaus)
+            if windows[j].magnitude == current_mag then
+                is_plateau_duplicate = true
+                break
+            elseif windows[j].magnitude < current_mag then
+                found_deeper_left = true
+                break
+            end
+
+            if windows[j].magnitude > left_peak then
+                left_peak = windows[j].magnitude
+            end
+        end
+
+        -- Skip if this is just the middle/end of a flat valley
+        if not is_plateau_duplicate then
+
+            -- 2. Scan Right: Find highest peak before a deeper minimum
+            local right_peak = -math.huge
+            local found_deeper_right = false
+
+            for j = i + 1, #windows do
+                if windows[j].magnitude < current_mag then
+                    found_deeper_right = true
+                    break
+                end
+
+                if windows[j].magnitude > right_peak then
+                    right_peak = windows[j].magnitude
+                end
+            end
+
+            -- If no deeper basin exists on a side, the peak bounding it is infinite
+            if not found_deeper_left then left_peak = math.huge end
+            if not found_deeper_right then right_peak = math.huge end
+
+            -- 3. The Elder Rule: The separating saddle is the lower of the two bounding peaks
+            local separating_saddle = math.min(left_peak, right_peak)
+
+            -- If the separating saddle is higher than the current point, we are at a local minimum
+            if separating_saddle > current_mag then
+                local persistence = (separating_saddle == math.huge)
+                    and math.huge
+                    or (separating_saddle - current_mag)
+
+                table.insert(all_minima, {
+                    index = i,
+                    window = windows[i],
+                    persistence = persistence
+                })
+            end
+        end
+    end
+
+    -- 4. Sort all topological features by their persistence (prominence) descending
+    table.sort(all_minima, function(a, b)
+        return a.persistence > b.persistence
+    end)
+
+    -- 5. Extract exactly 'n_words' most robust minima
+    local minima = {}
+    for i = 1, math.min(n_words, #all_minima) do
+        table.insert(minima, all_minima[i])
+    end
+
+    -- 6. Re-sort the final n minima chronologically by their index in the signal
+    table.sort(minima, function(a, b)
+        return a.index < b.index
+    end)
+
+    -- for each window, scan left and right to get the start and end of each world
+    local end_eps = rt.settings.animalese.silence_end_eps
+    local start_eps = rt.settings.animalese.silence_start_eps
+    local word_events = {}
+
+    -- scan from start for start of first word
+    for i = 1, n_samples do
+        if sound_data:getSample(i - 1) > start_eps then
+            table.insert(word_events, i)
+            break
+        end
+    end
+
+    -- discard first two features, which are min at start and end
+    for minimum_i = 1, #minima do
+        local minimum = minima[minimum_i]
+        local window = minimum.window
+        local mid_i = math.floor(math.mix(window.start_i, window.end_i, 0.5))
+
+        -- scan left for end of word
+        local start_i = mid_i
+        for i = mid_i, 0, -1 do
+            if i == 1 or sound_data:getSample(i - 1) > end_eps then
+                table.insert(word_events, i)
+                break
+            end
+        end
+
+        local end_i = mid_i
+        for i = mid_i, math.min(window.end_i, n_samples), 1 do
+            if i == n_samples or sound_data:getSample(i - 1) > start_eps then
+                table.insert(word_events, i)
+                break
+            end
+        end
+    end
+
+    -- scan from end for end of last word
+    for i = n_samples, 1, -1 do
+        if sound_data:getSample(i - 1) > end_eps then
+            table.insert(word_events, i)
+            break
+        end
+    end
+
+    table.sort(word_events)
+
     local sections = {}
-    local push_section = function(start_i, end_i)
+    for i = 1, #word_events - 1 do
+        table.insert(sections, {
+            start_i = word_events[i],
+            end_i = word_events[i+1]
+        })
+    end
+
+    return minima
+end
+
+local function _detect_sections(sound_data, filename)
+    local total_duration = sound_data:getDuration()
+    local n_samples = sound_data:getSampleCount()
+    local sample_rate = sound_data:getSampleRate()
+
+    local samples = {}
+    for i = 1, n_samples do samples[i] = sound_data:getSample(i - 1) end
+
+    local window_n_samples = math.max(1, math.floor(0.015 * sample_rate))
+    local hop_size = math.max(1, math.floor(window_n_samples * 0.5))
+
+    local windows = {}
+    for i = 1, n_samples, hop_size do
+        local start_index = i
+        local end_index = math.min(i + window_n_samples - 1, n_samples)
+
+        if start_index > n_samples then break end
+
+        local energy_sum = 0
+        for j = start_index, end_index do
+            energy_sum = energy_sum + samples[j] ^ 2
+        end
+
+        table.insert(windows, {
+            start_i = start_index,
+            end_i = end_index,
+            magnitude = energy_sum
+        })
+    end
+
+    local start_eps = rt.settings.animalese.silence_start_eps ^ 2
+    local end_eps = rt.settings.animalese.silence_end_eps ^ 2
+
+    local window_sections = {}
+    do
+        local is_in_word = false
+        local window_start_i = 1
+        for window_i = 1, #windows do
+            local window = windows[window_i]
+            if is_in_word == false and window.magnitude > start_eps then
+                is_in_word = true
+                window_start_i = window_i
+            elseif is_in_word == true and window.magnitude < end_eps then
+                is_in_word = false
+                table.insert(window_sections, {
+                    start_i = window_start_i,
+                    end_i = window_i,
+                })
+            end
+        end
+    end
+
+    local sections = {}
+    for _, window_section in ipairs(window_sections) do
+        local window_start_i = windows[window_section.start_i].start_i
+        local window_end_i = windows[window_section.end_i].end_i
+
+        local start_i, end_i = window_start_i, window_end_i
+
+        for i = window_start_i, window_end_i do
+            if samples[i] > start_eps then
+                start_i = i
+                break
+            end
+        end
+
+        for i = window_end_i, window_start_i, -1 do
+            if samples[i] > end_eps then
+                end_i = i
+                break
+            end
+        end
+
         table.insert(sections, {
             start_i = start_i,
             end_i = end_i,
@@ -622,216 +862,7 @@ local _detect_sections = function(sound_data)
         })
     end
 
-    local window_sec = 0.015 -- 15 ms window for smoothing
-    local window_n_samples = math.floor(window_sec * sample_rate)
-    if window_n_samples < 1 then window_n_samples = 1 end
-
-    local window_i_to_mean_power = {}
-    local current_energy = 0
-
-    -- compute short time energy = mean square of the signal
-
-    -- init first window
-    for i = 0, math.min(window_n_samples - 1, n_samples - 1) do
-        local s = sound_data:getSample(i)
-        current_energy = current_energy + s ^ 2
-    end
-
-    for i = 0, n_samples - 1 do
-        -- incoming energy
-        if i + window_n_samples < n_samples then
-            local s_in = sound_data:getSample(i + window_n_samples)
-            current_energy = current_energy + s_in ^ 2
-        end
-
-        -- outgoing energy
-        if i - window_n_samples >= 0 then
-            local s_out = sound_data:getSample(i - window_n_samples)
-            current_energy = current_energy - s_out ^ 2
-        end
-
-        -- average power
-        window_i_to_mean_power[i] = current_energy / (2 * window_n_samples + 1)
-    end
-
-    -- find local maxima in energy envelope
-    local peaks = {}
-    for i = 1, n_samples - 2 do
-        if window_i_to_mean_power[i] > window_i_to_mean_power[i-1]
-            and window_i_to_mean_power[i] > window_i_to_mean_power[i+1]
-        then
-            table.insert(peaks, {
-                index = i,
-                energy = window_i_to_mean_power[i]
-            })
-        end
-    end
-
-    table.sort(peaks, function(a, b) return a.energy > b.energy end)
-
-    -- non-maximum suppression to get n words
-    local min_gap_duration = 0.05 -- minimum 50ms gap between distinct words
-    local min_gap_n_samples = math.floor(min_gap_duration * sample_rate)
-
-    local selected_centers = {}
-    for _, peak in ipairs(peaks) do
-        if #selected_centers >= n_words then break end
-
-        local is_distinct = true
-        for _, center in ipairs(selected_centers) do
-            if math.abs(peak.index - center.index) < min_gap_n_samples then
-                is_distinct = false
-                break
-            end
-        end
-
-        if is_distinct then
-            table.insert(selected_centers, peak)
-        end
-    end
-
-    -- sort chronologically
-    table.sort(selected_centers, function(a, b) return a.index < b.index end)
-
-    -- expand outwards from each center to find precise boundaries
-    local start_power_eps = start_eps ^ 2
-    local end_power_eps = end_eps ^ 2
-
-    for k, center in ipairs(selected_centers) do
-        -- Define search bounds to prevent overlapping into adjacent words
-        local left_bound = (k == 1) and 0 or math.floor((center.index + selected_centers[k-1].index) / 2)
-        local right_bound = (k == #selected_centers) and (n_samples - 1) or math.floor((center.index + selected_centers[k+1].index) / 2)
-
-        -- find start
-        local start_i = center.index
-        while start_i > left_bound and window_i_to_mean_power[start_i] > start_power_eps do
-            start_i = start_i - 1
-        end
-
-        -- find end
-        local end_i = center.index
-        while end_i < right_bound and window_i_to_mean_power[end_i] > end_power_eps do
-            end_i = end_i + 1
-        end
-
-        push_section(start_i, end_i)
-    end
-
     return sections
-end
-
-local _detect_sections = function(sound_data)
-    local total_duration = sound_data:getDuration()
-    local n_samples = sound_data:getSampleCount()
-    local sample_rate = sound_data:getSampleRate()
-    local window_size = math.floor(0.015 * sample_rate) -- 15ms window
-
-    local short_time_energy = {}
-    for window_index = 0, math.ceil(n_samples / window_size) - 1 do
-        local energy = 0
-        local start_i = window_index * window_size
-        local end_i = (window_index + 1) * window_size
-        for sample_i = start_i, math.min(end_i, n_samples - 1) do
-            local sample = sound_data:getSample(sample_i) -- 0-based
-            energy = energy + sample ^ 2
-        end
-
-        short_time_energy[window_index + 1] = {
-            start_i = start_i,
-            end_i = end_i,
-            energy = energy / window_size
-        }
-    end
-
-    local _detect_minima_ampd = function(short_time_energy, n_target)
-        local x = {}
-        for i = 1, #short_time_energy do
-            x[i] = short_time_energy[i].energy
-        end
-
-        local N = #x
-        local L = math.floor(N / 2) - 1
-        local LSM = {} -- Local Scalogram Matrix
-
-        -- 1. Initialize LSM and compute scale-dependent minima
-        -- Each row k represents a scale, each column i a time point
-        for k = 1, L do
-            LSM[k] = {}
-            for i = k + 1, N - k do
-                if x[i] < x[i - k] and x[i] < x[i + k] then
-                    LSM[k][i] = 0
-                else
-                    LSM[k][i] = 1
-                end
-            end
-        end
-
-        -- 2. Row-wise summation to find the scale of dominance lambda
-        -- S[k] counts how many points are NOT minima at scale k
-        local S = {}
-        local min_S = math.huge
-        local lambda = 1
-        for k = 1, L do
-            local row_sum = 0
-            for i = k + 1, N - k do
-                row_sum = row_sum + LSM[k][i]
-            end
-            S[k] = row_sum
-            if row_sum < min_S then
-                min_S = row_sum
-                lambda = k
-            end
-        end
-
-        -- 3. Extract candidate minima based on the scale lambda
-        local candidates = {}
-        for i = lambda + 1, N - lambda do
-            local is_min = true
-            for k = 1, lambda do
-                if LSM[k][i] ~= 0 then
-                    is_min = false
-                    break
-                end
-            end
-
-            if is_min then
-                table.insert(candidates, {
-                    index = i,
-                    energy = x[i],
-                    -- We use the sum of zeros across scales as a "persistence" score
-                    persistence = 0
-                })
-            end
-        end
-
-        -- 4. Calculate persistence for each candidate to guarantee exactly N
-        for _, cand in ipairs(candidates) do
-            local score = 0
-            for k = 1, L do
-                if LSM[k][cand.index] == 0 then
-                    score = score + 1
-                else
-                    break -- Stop when it's no longer a minimum at a larger scale
-                end
-            end
-            cand.persistence = score
-        end
-
-        -- 5. Sort by persistence and return top n_target
-        table.sort(candidates, function(a, b) return a.persistence > b.persistence end)
-
-        local final_minima = {}
-        for i = 1, math.min(n_target, #candidates) do
-            table.insert(final_minima, short_time_energy[candidates[i].index])
-        end
-
-        -- Sort chronologically before returning
-        table.sort(final_minima, function(a, b) return a.start_i < b.start_i end)
-
-        return final_minima
-    end
-
-    local minima = _detect_minima_ampd(short_time_energy, rt.settings.animalese.n_words_per_file)
 end
 
 --- @brief
@@ -844,7 +875,8 @@ function rt.Animalese:_initialize_entry(entry)
             local sound_data = sound_data_or_error
 
             entry.sections = _detect_sections(
-                sound_data
+                sound_data,
+                entry.path
             ) -- { start_i, end_i, duration }
 
             local peak = -math.huge
@@ -945,7 +977,7 @@ function rt.Animalese:queue(phonemes, gender, emotion)
             section_i = 1,
             entry = phoneme_entry,
             is_beat = is_beat,
-            duration = ternary(is_beat, beat_duration, nil), -- non-beat duration set in pronounciation update
+            duration = ternary(is_beat, beat_duration, nil), -- non-beat duration set in pronounciation
             elapsed = 0,
             pitch = 1
         })
@@ -1023,6 +1055,13 @@ function rt.Animalese:get_is_done(batch_id)
     return self._is_done[batch_id] == true
 end
 
+local _mod_to_pronounciation = {
+    [1] = rt.AnimalesePronounciation.NORMAL,
+    [2] = rt.AnimalesePronounciation.LONG,
+    [3] = rt.AnimalesePronounciation.NORMAL,
+    [4] = rt.AnimalesePronounciation.LONG
+}
+
 function rt.Animalese:update(delta)
     -- rescan queue to set pronounciation
     if self._pronounciation_needs_update then
@@ -1041,19 +1080,13 @@ function rt.Animalese:update(delta)
                 end
 
                 signs[queue_entry.phoneme] = sign
+                queue_entry.pronounciation = _mod_to_pronounciation[sign % 4 + 1]
 
-                local mod = sign % 2
-
-                if mod == 0 then
-                    queue_entry.pronounciation = rt.AnimalesePronounciation.NORMAL
-                elseif mod == 1 then
-                    queue_entry.pronounciation = rt.AnimalesePronounciation.QUESTION
-                end
             elseif queue_entry.phoneme == rt.AnimalesePhoneme.QUESTION_MARK then
                 table.insert(question_marks, i)
             end
 
-            queue_entry.pitch = 1 + rt.random.number(-pitch_variance, pitch_variance) -- reset pitch
+            queue_entry.pitch = 1 --+ rt.random.number(-pitch_variance, pitch_variance) -- reset pitch
         end
 
         -- update pitch, mark words before ? as questions
@@ -1070,7 +1103,11 @@ function rt.Animalese:update(delta)
                     word_seen = true
                 end
 
-                entry.pronounciation = rt.AnimalesePronounciation.QUESTION
+                if entry.pronounciation == rt.AnimalesePronounciation.NORMAL then
+                    entry.pronounciation = rt.AnimalesePronounciation.QUESTION
+                elseif entry.pronounciation == rt.AnimalesePronounciation.LONG then
+                    entry.pronounciation = rt.AnimalesePronounciation.LONG_QUESTION
+                end
 
                 -- pitch raises towards questionmark
                 entry.pitch = math.mix(
@@ -1082,15 +1119,31 @@ function rt.Animalese:update(delta)
         end
 
         -- initialize
+        local last_entry_was_beat = true
         for i, queue_entry in ipairs(self._queue) do
             if queue_entry.is_beat ~= true then
                 local pronounciation_entry = queue_entry.entry[queue_entry.pronounciation]
                 if pronounciation_entry.is_initialized == false then
                     self:_initialize_entry(pronounciation_entry)
                 end
-                queue_entry.section_i = rt.random.integer(2, #pronounciation_entry.sections)
+
+                if last_entry_was_beat then
+                    queue_entry.section_i = 1
+                else
+                    queue_entry.section_i = math.min(
+                        rt.random.integer(2, #pronounciation_entry.sections),
+                        #pronounciation_entry.sections
+                    )
+                end
+
                 queue_entry.duration = pronounciation_entry.sections[queue_entry.section_i].duration
+
+                if i ~= #self._queue and not self._queue[1].is_beat then
+                    queue_entry.duration = math.max(0, queue_entry.duration - rt.settings.animalese.word_overlap)
+                end
             end
+
+            last_entry_was_beat = queue_entry.is_beat
         end
 
         self._pronounciation_needs_update = false

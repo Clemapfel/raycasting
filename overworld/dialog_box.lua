@@ -729,6 +729,7 @@ end
 --- @brief
 function ow.DialogBox:draw()
     if not self:get_is_realized() or self._done_emitted == true then return end
+    --love.graphics.clear(0.5, 0.5, 0.5, 1)
     self._frame:draw()
 
     if self._portrait_visible then

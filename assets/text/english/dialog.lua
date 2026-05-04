@@ -4,7 +4,7 @@ local postfix = "</normal>"
 return {
     animalese_test = {
         {
-            gender = rt.Gender.FEMALE,
+            gender = rt.Gender.MALE,
             next = 2,
             "Do you have any advice on how to improve my <rainbow><wave>animalese</wave></rainbow> implementation?",
         },
@@ -21,7 +21,7 @@ return {
         {
             gender = rt.Gender.MALE,
             next = 5,
-            "This is a <shake><b>male</b></shake> voice now. Another thing I don't like is that it scrolls unevenly, but I <b>have</b> to do this if I want the syllables to synch up.",
+            "This is a <shake><b>male</b></shake> voice now. Another thing I don't like is that it scrolls unevenly, but I <b>have</b> to do this if I want the syllables to synch up. <sad><color=BLUE>Idk if it sounds very male other than being deep but at least it's another set of different voices</color></sad>",
         },
         {
             gender = rt.Gender.MALE,
@@ -31,7 +31,7 @@ return {
         {
             gender = rt.Gender.MALE,
             next = nil,
-            "<happy><wave><b>Thank you~</b></wave></happy>"
+            "<happy><wave><color=YELLOW><b>Thank you~</b></color></wave></happy>"
         }
     },
 
