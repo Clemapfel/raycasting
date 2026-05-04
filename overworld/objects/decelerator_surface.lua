@@ -118,3 +118,11 @@ function ow.DeceleratorSurface:collect_segment_lights(callback)
         )
     end
 end
+
+--- @brief
+function ow.DeceleratorSurface:reset()
+    local player = self._scene:get_player()
+    player:request_damping(self, nil)
+    player:request_force(self, nil)
+    player:request_gravity_multiplier(self, nil)
+end

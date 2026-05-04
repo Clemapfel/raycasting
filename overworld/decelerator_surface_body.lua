@@ -1,4 +1,4 @@
-rt.settings.overworld.decelerator_body = {
+rt.settings.overworld.decelerator_surface_body = {
     n_arms = 32,
     arm_radius = rt.settings.player.radius,
     arm_length = 64,
@@ -15,7 +15,9 @@ rt.settings.overworld.decelerator_body = {
     slot_max_scale = 2,
 
     particle_texture_r = 20,
-    texture_scale = 2,
+    texture_scale = 3,
+
+    arm_inside_offset = 15,
 
     n_sub_steps = 2,
     n_constraint_iterations = 2,
@@ -32,7 +34,7 @@ rt.settings.overworld.decelerator_body = {
     outline_thickness = 1 / 4
 }
 
-rt.settings.overworld.decelerator_body.retract_threshold = rt.settings.overworld.decelerator_body.slot_max_scale * rt.settings.overworld.decelerator_body.max_radius
+rt.settings.overworld.decelerator_surface_body.retract_threshold = rt.settings.overworld.decelerator_surface_body.slot_max_scale * rt.settings.overworld.decelerator_surface_body.max_radius
 
 --- @class ow.DeceleratorSurfaceBody
 ow.DeceleratorSurfaceBody = meta.class("DeceleratorSurfaceBody")
@@ -56,7 +58,7 @@ local _particle_i_to_data_offset = function(particle_i)
     return (particle_i - 1) * _stride + 1 -- 1-based
 end
 
-local _particle_texture_shader = rt.Shader("overworld/decelerator_surface_body_particle_texture.glsl") -- sic
+local _particle_texture_shader = rt.Shader("overworld/decelerator_surface_body_particle_texture.glsl")
 local _threshold_shader = rt.Shader("overworld/decelerator_surface_body_threshold.glsl")
 local _instance_draw_shader = rt.Shader("overworld/decelerator_surface_body_instanced_draw.glsl")
 
@@ -71,7 +73,7 @@ function ow.DeceleratorSurfaceBody:instantiate(scene, contour, mesh)
 
     self._n_connected = 0
 
-    local settings = rt.settings.overworld.decelerator_body
+    local settings = rt.settings.overworld.decelerator_surface_body
     self._particle_texture_radius = settings.particle_texture_r
     do -- init particle texture
         local w = (self._particle_texture_radius + 2) * 2
@@ -186,6 +188,7 @@ function ow.DeceleratorSurfaceBody:instantiate(scene, contour, mesh)
 
     -- initialize t offsets, symmetric around midpoint arm
     local n_slots = math.floor(self._path:get_length() / settings.arm_radius)
+    local offset = rt.settings.overworld.decelerator_surface_body.arm_inside_offset
     local n_arms_left = n_arms
     for i = 1, n_slots do
         local t = (i - 1) / n_slots
@@ -194,10 +197,10 @@ function ow.DeceleratorSurfaceBody:instantiate(scene, contour, mesh)
         local normal_x, normal_y = self._path:get_normal_at(t)
         local arm_slot = {
             arm_i = nil,
-            origin_x = anchor_x,
-            origin_y = anchor_y,
-            anchor_x = anchor_x,
-            anchor_y = anchor_y,
+            origin_x = anchor_x - normal_x * offset,
+            origin_y = anchor_y - normal_y * offset,
+            anchor_x = anchor_x - normal_x * offset,
+            anchor_y = anchor_y - normal_y * offset,
             target_x = anchor_x,
             target_y = anchor_y,
             t = t,
@@ -278,7 +281,7 @@ function ow.DeceleratorSurfaceBody:set_target(x, y, radius)
         end
     end
 
-    local inlay = rt.settings.overworld.decelerator_body.retract_threshold
+    local inlay = rt.settings.overworld.decelerator_surface_body.retract_threshold
 
     local range = 2 * math.pi
     local mid_point = math.angle(dx, dy)
@@ -380,7 +383,7 @@ function ow.DeceleratorSurfaceBody:_update_instance_mesh()
     assert(particle_w == particle_h)
 
     -- slot particles
-    local settings = rt.settings.overworld.decelerator_body
+    local settings = rt.settings.overworld.decelerator_surface_body
     local min_slot_scale, max_slot_scale = settings.slot_min_scale, settings.slot_max_scale
     local slot_n_steps = math.ceil(self._path:get_length() / (settings.max_radius * max_slot_scale))
 
@@ -635,7 +638,7 @@ do -- step helpers
 
     --- @brief
     function ow.DeceleratorSurfaceBody:_step(delta)
-        local settings = rt.settings.overworld.decelerator_body
+        local settings = rt.settings.overworld.decelerator_surface_body
         local sub_delta = delta / settings.n_sub_steps
 
         local damping = settings.damping
@@ -897,7 +900,7 @@ function ow.DeceleratorSurfaceBody:draw()
         self._mesh:draw()
 
         _instance_draw_shader:bind()
-        _instance_draw_shader:send("texture_scale", rt.settings.overworld.decelerator_body.texture_scale)
+        _instance_draw_shader:send("texture_scale", rt.settings.overworld.decelerator_surface_body.texture_scale)
         self._instance_mesh:draw_instanced(self._n_instances)
         _instance_draw_shader:unbind()
 
@@ -924,7 +927,7 @@ function ow.DeceleratorSurfaceBody:draw()
     local transform = self._scene:get_camera():get_transform()
     transform = transform:inverse()
 
-    local settings = rt.settings.overworld.decelerator_body
+    local settings = rt.settings.overworld.decelerator_surface_body
     _threshold_shader:bind()
     _threshold_shader:send("threshold", settings.threshold)
     _threshold_shader:send("smoothness", settings.smoothness)
@@ -948,15 +951,15 @@ function ow.DeceleratorSurfaceBody:get_penetration()
     local to_target_x = self._target_x - self._closest_x
     local to_target_y = self._target_y - self._closest_y
 
-    local signed_dist = -1 * math.dot(to_target_x, to_target_y, normal_x, normal_y)
+    local signed_dist = math.dot(to_target_x, to_target_y, normal_x, normal_y)
 
     if signed_dist < 0 then
         -- fully inside body
         return 1, -self._closest_normal_x, -self._closest_normal_y
     else
         -- grabbed by arms
-        local penetration = math.min(1, 1 - math.min(1, (signed_dist - self._target_radius) / (rt.settings.overworld.decelerator_body.arm_length)))
-        penetration = penetration * math.min(1, self._n_connected / rt.settings.overworld.decelerator_body.n_arms_for_full_force)
+        local penetration = math.min(1, 1 - math.min(1, (signed_dist - self._target_radius) / (rt.settings.overworld.decelerator_surface_body.arm_length)))
+        penetration = penetration * math.min(1, self._n_connected / rt.settings.overworld.decelerator_surface_body.n_arms_for_full_force)
         return penetration, -self._closest_normal_x, -self._closest_normal_y
     end
 end
