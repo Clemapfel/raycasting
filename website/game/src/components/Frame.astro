@@ -40,7 +40,10 @@ import '../styles/default.css';
 >
     <svg class="noisy-frame__svg" aria-hidden="true" preserveAspectRatio="none">
         <path class="noisy-frame__bg-and-outline" />
-        <path class="noisy-frame__path" />
+        <!-- Layered paths to create the stroke-width gradient effect -->
+        <path class="noisy-frame__path noisy-frame__path--layer1" />
+        <path class="noisy-frame__path noisy-frame__path--layer2" />
+        <path class="noisy-frame__path noisy-frame__path--layer3" />
     </svg>
     <div class="noisy-frame__content">
         <slot />
@@ -54,15 +57,9 @@ import '../styles/default.css';
     "nf-corner-radius": `${cornerRadius}px`,
 }}>
     .noisy-frame {
-        --nf-thickness: var(--default-frame-thickness);
+        --nf-thickness: var(--default-frame-thickness, 6px);
         position: relative;
         isolation: isolate;
-
-        --padding-horizontal: 30px;
-        padding-top: 5px;
-        padding-bottom: 30px;
-        padding-left: var(--padding-horizontal);
-        padding-right: var(--padding-horizontal);
     }
 
     .noisy-frame__svg {
@@ -88,16 +85,27 @@ import '../styles/default.css';
 
     .noisy-frame__path {
         fill: none;
-        stroke-width: var(--nf-thickness);
         stroke-linejoin: round;
         stroke-linecap: round;
         vector-effect: non-scaling-stroke;
+    }
+
+    /* Stacked stroke widths to create the gradient profile */
+    .noisy-frame__path--layer1 {
+        stroke-width: var(--nf-thickness);
+    }
+    .noisy-frame__path--layer2 {
+        stroke-width: calc(var(--nf-thickness) * 0.6);
+    }
+    .noisy-frame__path--layer3 {
+        stroke-width: calc(var(--nf-thickness) * 0.2);
     }
 
     .noisy-frame__content {
         position: relative;
         z-index: 1;
     }
+
 </style>
 
 <script>
@@ -164,6 +172,12 @@ import '../styles/default.css';
         y: number;
         nx: number;
         ny: number;
+    }
+
+    // Extended interface to store cached noise lookup coordinates
+    interface CachedSample extends ContourSample {
+        noiseU: number;
+        noiseV: number;
     }
 
     function sampleContour(
@@ -265,9 +279,9 @@ import '../styles/default.css';
     class NoisyFrameController {
         private root: HTMLElement;
         private svg: SVGSVGElement;
-        private path: SVGPathElement;
+        private paths: NodeListOf<SVGPathElement>;
         private bgOutlinePath: SVGPathElement;
-        private samples: ContourSample[] = [];
+        private cachedSamples: CachedSample[] = [];
         private width = 0;
         private height = 0;
         private perimeter = 0;
@@ -287,7 +301,7 @@ import '../styles/default.css';
         constructor(root: HTMLElement) {
             this.root = root;
             this.svg = root.querySelector(".noisy-frame__svg") as SVGSVGElement;
-            this.path = root.querySelector(".noisy-frame__path") as SVGPathElement;
+            this.paths = root.querySelectorAll(".noisy-frame__path");
             this.bgOutlinePath = root.querySelector(".noisy-frame__bg-and-outline") as SVGPathElement;
 
             this.segmentDistance = parseFloat(root.dataset.segmentDistance ?? "8");
@@ -328,38 +342,47 @@ import '../styles/default.css';
             this.svg.setAttribute("width", `${this.width}`);
             this.svg.setAttribute("height", `${this.height}`);
 
-            this.samples = sampleContour(
+            const baseSamples = sampleContour(
                 this.width,
                 this.height,
                 this.cornerRadius,
                 this.segmentDistance
             );
+
+            // CACHE OPTIMIZATION:
+            // Calculate spatial radius and the trig/noise layout coordinates once per resize
+            // instead of doing it every single frame in the requestAnimationFrame loop.
+            const spatialRadius = this.perimeter / 1000;
+            const n = baseSamples.length;
+
+            this.cachedSamples = baseSamples.map((s, i) => {
+                const theta = (i / n) * Math.PI * 2;
+                return {
+                    ...s,
+                    noiseU: Math.cos(theta) * spatialRadius * this.noiseFrequency,
+                    noiseV: Math.sin(theta) * spatialRadius * this.noiseFrequency,
+                };
+            });
         }
 
         private buildPath(t: number): string {
-            const n = this.samples.length;
+            const n = this.cachedSamples.length;
             if (n === 0) return "";
 
             const tz = t * this.noiseSpeed;
-
-            // Logically tie the spatial radius to the actual physical perimeter
-            // 1000 is used as a standardizing base-size so existing `noiseFrequency` props don't break.
-            const spatialRadius = this.perimeter / 1000;
-
             let d = "";
+
             for (let i = 0; i < n; i++) {
-                const s = this.samples[i];
-                const theta = (i / n) * Math.PI * 2;
+                const s = this.cachedSamples[i];
 
-                // Radius in the noise space scales with the element's perimeter
-                const nx_noise = Math.cos(theta) * spatialRadius;
-                const ny_noise = Math.sin(theta) * spatialRadius;
-
-                const raw = perlin3(nx_noise * this.noiseFrequency, ny_noise * this.noiseFrequency, tz);
+                // Fetch noise using the pre-calculated UV bounds
+                const raw = perlin3(s.noiseU, s.noiseV, tz);
                 const norm = Math.max(-1, Math.min(1, raw / 0.7));
                 const offset = norm * this.maxOffset;
+
                 const x = s.x + s.nx * offset;
                 const y = s.y + s.ny * offset;
+
                 d += (i === 0 ? "M" : "L") + x.toFixed(2) + "," + y.toFixed(2);
             }
             d += "Z";
@@ -375,11 +398,23 @@ import '../styles/default.css';
             const d = this.buildPath(elapsed);
 
             this.bgOutlinePath.setAttribute("d", d);
-            this.path.setAttribute("d", d);
 
             const colorT = (elapsed * this.colorSpeed) % 1;
             const hue = colorT * 360;
-            this.path.style.stroke = `lch(80% 100 ${hue} / 1)`;
+
+            // GRADIENT EFFECT:
+            // Apply the same path to all layered paths, shifting the LCH lightness
+            // to simulate a glow/gradient from 60% (outer bounds) to 90% (inner core).
+            this.paths.forEach((path, index) => {
+                path.setAttribute("d", d);
+
+                // Calculates layers starting at 60% up to 90% Lightness.
+                // e.g., layer1 (index 0) = 60%, layer2 (index 1) = 75%, layer3 (index 2) = 90%
+                const layerRatio = index / (this.paths.length - 1);
+                const lightness = 60 + (layerRatio * 30);
+
+                path.style.stroke = `lch(${lightness}% 100 ${hue} / 1)`;
+            });
 
             this.rafId = requestAnimationFrame(this.loop);
         };

@@ -24,6 +24,14 @@ import '../styles/default.css';
 ---
 
 <style>
+    .content-wrapper {
+        --padding-horizontal: 60px;
+        padding-left: var(--padding-horizontal);
+        padding-right: var(--padding-horizontal);
+        padding-top: 0.5px !important;
+        padding-bottom: var(--padding-horizontal);
+    }
+
     .markdown-container {
         --heading-color: var(--default-color-emphasized);
         --text-color: var(--default-color-foreground);
@@ -42,8 +50,6 @@ import '../styles/default.css';
         margin-inline: auto; /* keep centered */
         box-sizing: border-box;
         display: block;
-
-        padding: 0px;
 
         --astro-code-color-background: #1F1F23;
         --astro-code-color-text: #E3E3E3;
@@ -148,6 +154,8 @@ import '../styles/default.css';
 
 <div class="markdown-container">
     <Frame>
-        <Content />
+        <div class="content-wrapper">
+            <Content />
+        </div>
     </Frame>
 </div>

@@ -1,0 +1,756 @@
+---
+// src/components/OrbRenderer.astro
+const image_path = "public/orb_particle_texture.png"
+
+const n_particles : Number = 32;
+const n_sub_steps : Number = 4;
+const n_constraint_iterations : Number = 2;
+// TODO: forward constants
+---
+
+<script>
+    const _x_offset = 0;
+    const _y_offset = 1;
+    const _previous_x_offset = 2;
+    const _previous_y_offset = 3;
+    const _velocity_x_offset = 4;
+    const _velocity_y_offset = 5;
+    const _radius_offset = 6;
+    const _inverse_mass_offset = 7;
+    const _orb_lambda_offset = 8;
+    const _r_offset = 9;
+    const _g_offset = 10;
+    const _b_offset = 11;
+    const _a_offset = 12;
+
+    const orb = {
+        initialize(width, height) {
+            this.n_particles = 32;
+            this.damping = 0.95;
+            this.gravity_dx = 0;
+            this.gravity_dy = 1;
+            this.gravity = 4000;
+            this.n_sub_steps = 4;
+            this.n_constraint_iterations = 2;
+            this.collision_compliance = 0.0001;
+            this.orb_compliance = 0.0001;
+
+            this.min_radius = 10;
+            this.max_radius = 16;
+            this.min_agitation = 3000;
+            this.max_agitation = 6000;
+
+            this.texture_scale = 2;
+            this.timestamp = performance.now() / 1000;
+
+            this.orb_center_x = width / 2;
+            this.orb_center_y = height / 2;
+            this.orb_radius = 128;
+
+            this.particle_data_stride = _a_offset + 1;
+            this.particle_data = new Float32Array(this.n_particles * this.particle_data_stride);
+
+            const golden_angle = Math.PI * (3 - Math.sqrt(5));
+            for (let particle_i = 0; particle_i < this.n_particles; particle_i++) {
+                const i = this.particle_i_to_data_offset(particle_i, this.particle_data_stride);
+                const t = particle_i / this.n_particles;
+
+                const distance = this.orb_radius * Math.sqrt(t);
+                const angle = particle_i * golden_angle;
+
+                const position_x = this.orb_center_x + distance * Math.cos(angle);
+                const position_y = this.orb_center_y + distance * Math.sin(angle);
+
+                const mass_t = this.mass_distribution(t);
+                const [r, g, b, _] = this.lcha_to_rgba(0.8, 1, t, 1);
+
+                this.particle_data[i + _x_offset] = position_x;
+                this.particle_data[i + _y_offset] = position_y;
+                this.particle_data[i + _previous_x_offset] = position_x;
+                this.particle_data[i + _previous_y_offset] = position_y;
+                this.particle_data[i + _velocity_x_offset] = 0;
+                this.particle_data[i + _velocity_y_offset] = 0;
+                this.particle_data[i + _radius_offset] = this.mix(this.min_radius, this.max_radius, mass_t);
+                this.particle_data[i + _inverse_mass_offset] = 1 / (1 + mass_t);
+                this.particle_data[i + _orb_lambda_offset] = 0;
+                this.particle_data[i + _r_offset] = r;
+                this.particle_data[i + _g_offset] = g;
+                this.particle_data[i + _b_offset] = b;
+                this.particle_data[i + _a_offset] = 1;
+            }
+
+            this.particle_collision_lambdas = new Float32Array(this.n_particles * this.n_particles);
+
+            this.mesh_vertex_stride = (2 + 2 + 4);
+            this.mesh_data_stride = this.mesh_vertex_stride * 4;
+
+            this.mesh_data = new Float32Array(this.n_particles * this.mesh_data_stride);
+
+            this.mesh_vertex_map_stride = 6;
+            this.mesh_vertex_map = new Uint16Array(this.n_particles * this.mesh_vertex_map_stride);
+
+            for (let particle_i = 0; particle_i < this.n_particles; particle_i++) {
+                const vertex_data_i = this.particle_i_to_data_offset(particle_i, this.mesh_vertex_map_stride);
+                const vertex_base = particle_i * 4;
+
+                this.mesh_vertex_map[vertex_data_i + 0] = vertex_base + 0;
+                this.mesh_vertex_map[vertex_data_i + 1] = vertex_base + 1;
+                this.mesh_vertex_map[vertex_data_i + 2] = vertex_base + 2;
+                this.mesh_vertex_map[vertex_data_i + 3] = vertex_base + 0;
+                this.mesh_vertex_map[vertex_data_i + 4] = vertex_base + 2;
+                this.mesh_vertex_map[vertex_data_i + 5] = vertex_base + 3;
+            }
+
+            this.update_mesh_data();
+        },
+
+
+        mass_distribution(t) {
+            return Math.exp(-Math.pow((7 / 5) * Math.PI * (t - 0.5), 2));
+        },
+
+        particle_i_to_data_offset(particle_i, stride) {
+            return particle_i * stride;
+        },
+
+        lcha_to_rgba(l, c, h, alpha) {
+            const L = l * 100;
+            const a = Math.cos(h * 6.283185) * c * 100;
+            const b = Math.sin(h * 6.283185) * c * 100;
+
+            let Y = (L + 16) * 0.008620689;
+            let X = a * 0.002 + Y;
+            let Z = Y - b * 0.005;
+
+            const X3 = X * X * X, Y3 = Y * Y * Y, Z3 = Z * Z * Z;
+            X = X3 > 0.008856 ? 0.95047 * X3 : 0.95047 * (X - 0.137931) * 0.128419;
+            Y = Y3 > 0.008856 ? Y3 : (Y - 0.137931) * 0.128419;
+            Z = Z3 > 0.008856 ? 1.08883 * Z3 : 1.08883 * (Z - 0.137931) * 0.128419;
+
+            let R = X * 3.2406 - Y * 1.5372 - Z * 0.4986;
+            let G = -X * 0.9689 + Y * 1.8758 + Z * 0.0415;
+            let B = X * 0.0557 - Y * 0.2040 + Z * 1.0570;
+
+            R = R > 0.0031308 ? 1.055 * Math.pow(R, 0.416666667) - 0.055 : 12.92 * R;
+            G = G > 0.0031308 ? 1.055 * Math.pow(G, 0.416666667) - 0.055 : 12.92 * G;
+            B = B > 0.0031308 ? 1.055 * Math.pow(B, 0.416666667) - 0.055 : 12.92 * B;
+
+            return [
+                R < 0 ? 0 : (R > 1 ? 1 : R),
+                G < 0 ? 0 : (G > 1 ? 1 : G),
+                B < 0 ? 0 : (B > 1 ? 1 : B),
+                alpha
+            ];
+        },
+
+        particle_is_to_lambda_i(i1, i2, n) {
+            return i1 * n + i2;
+        },
+
+        mix(lower, upper, ratio) {
+            return lower * (1 - ratio) + upper * ratio;
+        },
+
+        dot(x1, y1, x2, y2) {
+            return x1 * x2 + y1 * y2;
+        },
+
+        squared_distance(x1, y1, x2, y2) {
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            return this.dot(dx, dy, dx, dy);
+        },
+
+        magnitude(x, y) {
+            return Math.sqrt(x * x + y * y);
+        },
+
+        distance(x1, y1, x2, y2) {
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            return this.magnitude(dx, dy);
+        },
+
+        normalize(x1, y1) {
+            const magnitude = this.magnitude(x1, y1);
+            if (magnitude < 1e-8) {
+                return [0, 0];
+            } else {
+                return [x1 / magnitude, y1 / magnitude];
+            }
+        },
+
+        get_position() {
+            return {
+                position_x: this.orb_center_x,
+                position_y: this.orb_center_y,
+                radius: this.orb_radius
+            }
+        },
+
+        update_mesh_data() {
+            const now = performance.now() / 1000;
+            const elapsed = now - this.timestamp;
+
+            for (let particle_i = 0; particle_i < this.n_particles; particle_i++) {
+                const data_i = this.particle_i_to_data_offset(particle_i, this.particle_data_stride);
+                const mesh_data_i = this.particle_i_to_data_offset(particle_i, this.mesh_data_stride);
+
+                let px = this.particle_data[data_i + _x_offset];
+                let py = this.particle_data[data_i + _y_offset];
+                const vx = this.particle_data[data_i + _velocity_x_offset];
+                const vy = this.particle_data[data_i + _velocity_y_offset];
+                const radius = this.particle_data[data_i + _radius_offset] * this.texture_scale;
+                const r = this.particle_data[data_i + _r_offset];
+                const g = this.particle_data[data_i + _g_offset];
+                const b = this.particle_data[data_i + _b_offset];
+                const a = this.particle_data[data_i + _a_offset];
+
+                px = px + vx * elapsed;
+                py = py + vy * elapsed;
+
+                const top_left_x = px - radius, top_left_y = py - radius;
+                const top_right_x = px + radius, top_right_y = py - radius;
+                const bottom_right_x = px + radius, bottom_right_y = py + radius;
+                const bottom_left_x = px - radius, bottom_left_y = py + radius;
+
+                let offset = 0;
+                this.mesh_data[mesh_data_i + offset + 0] = top_left_x;
+                this.mesh_data[mesh_data_i + offset + 1] = top_left_y;
+                this.mesh_data[mesh_data_i + offset + 2] = 0;
+                this.mesh_data[mesh_data_i + offset + 3] = 0;
+                this.mesh_data[mesh_data_i + offset + 4] = r;
+                this.mesh_data[mesh_data_i + offset + 5] = g;
+                this.mesh_data[mesh_data_i + offset + 6] = b;
+                this.mesh_data[mesh_data_i + offset + 7] = a;
+
+                offset += this.mesh_vertex_stride;
+                this.mesh_data[mesh_data_i + offset + 0] = top_right_x;
+                this.mesh_data[mesh_data_i + offset + 1] = top_right_y;
+                this.mesh_data[mesh_data_i + offset + 2] = 1;
+                this.mesh_data[mesh_data_i + offset + 3] = 0;
+                this.mesh_data[mesh_data_i + offset + 4] = r;
+                this.mesh_data[mesh_data_i + offset + 5] = g;
+                this.mesh_data[mesh_data_i + offset + 6] = b;
+                this.mesh_data[mesh_data_i + offset + 7] = a;
+
+                offset += this.mesh_vertex_stride;
+                this.mesh_data[mesh_data_i + offset + 0] = bottom_right_x;
+                this.mesh_data[mesh_data_i + offset + 1] = bottom_right_y;
+                this.mesh_data[mesh_data_i + offset + 2] = 1;
+                this.mesh_data[mesh_data_i + offset + 3] = 1;
+                this.mesh_data[mesh_data_i + offset + 4] = r;
+                this.mesh_data[mesh_data_i + offset + 5] = g;
+                this.mesh_data[mesh_data_i + offset + 6] = b;
+                this.mesh_data[mesh_data_i + offset + 7] = a;
+
+                offset += this.mesh_vertex_stride;
+                this.mesh_data[mesh_data_i + offset + 0] = bottom_left_x;
+                this.mesh_data[mesh_data_i + offset + 1] = bottom_left_y;
+                this.mesh_data[mesh_data_i + offset + 2] = 0;
+                this.mesh_data[mesh_data_i + offset + 3] = 1;
+                this.mesh_data[mesh_data_i + offset + 4] = r;
+                this.mesh_data[mesh_data_i + offset + 5] = g;
+                this.mesh_data[mesh_data_i + offset + 6] = b;
+                this.mesh_data[mesh_data_i + offset + 7] = a;
+            }
+        },
+
+        enforce_distance(ax, ay, bx, by, inverse_mass_a, inverse_mass_b, target_distance, alpha, lambda_before) {
+            const eps = 1e-8;
+            const delta_x = bx - ax;
+            const delta_y = by - ay;
+            const length = this.magnitude(delta_x, delta_y);
+
+            if (length < eps) return [0, 0, 0, 0, lambda_before];
+
+            const normal_x = delta_x / length;
+            const normal_y = delta_y / length;
+
+            const constraint = length - target_distance;
+            const weight_sum = inverse_mass_a + inverse_mass_b;
+            const denominator = weight_sum + alpha;
+
+            if (denominator < eps) return [0, 0, 0, 0, lambda_before];
+
+            const delta_lambda = -(constraint + alpha * lambda_before) / denominator;
+            const lambda_new = lambda_before + delta_lambda;
+
+            return [
+                inverse_mass_a * delta_lambda * -normal_x,
+                inverse_mass_a * delta_lambda * -normal_y,
+                inverse_mass_b * delta_lambda * normal_x,
+                inverse_mass_b * delta_lambda * normal_y,
+                lambda_new
+            ];
+        },
+
+        enforce_inside_circle(particle_x, particle_y, particle_r, particle_inverse_mass, circle_x, circle_y, circle_r, alpha, lambda_before) {
+            const eps = 1e-8;
+            const delta_x = particle_x - circle_x;
+            const delta_y = particle_y - circle_y;
+            const length = this.magnitude(delta_x, delta_y);
+
+            const constraint = length - (circle_r - particle_r);
+            if (constraint <= 0 || length < eps) {
+                return [0, 0, lambda_before];
+            }
+
+            const normal_x = delta_x / length;
+            const normal_y = delta_y / length;
+
+            const denominator = particle_inverse_mass + alpha;
+            if (denominator < eps) return [0, 0, lambda_before];
+
+            const delta_lambda = -(constraint + alpha * lambda_before) / denominator;
+            const lambda_new = lambda_before + delta_lambda;
+
+            return [
+                particle_inverse_mass * delta_lambda * normal_x,
+                particle_inverse_mass * delta_lambda * normal_y,
+                lambda_new
+            ];
+        },
+
+        step(delta) {
+            const sub_delta = delta / this.n_sub_steps;
+            const collision_alpha = this.collision_compliance / (sub_delta * sub_delta);
+            const orb_alpha = this.orb_compliance / (sub_delta * sub_delta);
+
+            for (let sub_step_i = 0; sub_step_i < this.n_sub_steps; sub_step_i++) {
+                // pre solve
+                for (let particle_i = 0; particle_i < this.n_particles; particle_i++) {
+                    const i = this.particle_i_to_data_offset(particle_i, this.particle_data_stride);
+
+                    const x = this.particle_data[i + _x_offset];
+                    const y = this.particle_data[i + _y_offset];
+                    this.particle_data[i + _previous_x_offset] = x;
+                    this.particle_data[i + _previous_y_offset] = y;
+
+                    let velocity_x = this.particle_data[i + _velocity_x_offset] * this.damping;
+                    let velocity_y = this.particle_data[i + _velocity_y_offset] * this.damping;
+
+                    velocity_x += sub_delta * this.gravity_dx * this.gravity;
+                    velocity_y += sub_delta * this.gravity_dy * this.gravity;
+
+                    this.particle_data[i + _velocity_x_offset] = velocity_x;
+                    this.particle_data[i + _velocity_y_offset] = velocity_y;
+
+                    this.particle_data[i + _x_offset] = x + sub_delta * velocity_x;
+                    this.particle_data[i + _y_offset] = y + sub_delta * velocity_y;
+
+                    this.particle_data[i + _orb_lambda_offset] = 0;
+                }
+
+                for (let i = 0; i < this.n_particles * this.n_particles; i++) {
+                    this.particle_collision_lambdas[i] = 0;
+                }
+
+                for (let constraint_iteration_i = 0; constraint_iteration_i < this.n_constraint_iterations; constraint_iteration_i++) {
+                    // particle - particle collision
+                    for (let self_particle_i = 0; self_particle_i < this.n_particles; self_particle_i++) {
+                        for (let other_particle_i = 0; other_particle_i < this.n_particles; other_particle_i++) {
+                            if (self_particle_i !== other_particle_i) {
+                                const self_i = this.particle_i_to_data_offset(self_particle_i, this.particle_data_stride);
+                                const other_i = this.particle_i_to_data_offset(other_particle_i, this.particle_data_stride);
+
+                                const lambda_i = this.particle_is_to_lambda_i(self_particle_i, other_particle_i, this.n_particles);
+
+                                const self_x = this.particle_data[self_i + _x_offset];
+                                const self_y = this.particle_data[self_i + _y_offset];
+                                const self_r = this.particle_data[self_i + _radius_offset];
+                                const self_inv_mass = this.particle_data[self_i + _inverse_mass_offset];
+
+                                const other_x = this.particle_data[other_i + _x_offset];
+                                const other_y = this.particle_data[other_i + _y_offset];
+                                const other_r = this.particle_data[other_i + _radius_offset];
+                                const other_inv_mass = this.particle_data[other_i + _inverse_mass_offset];
+
+                                const min_distance = self_r + other_r;
+                                const squared_distance = this.squared_distance(self_x, self_y, other_x, other_y);
+
+                                if (squared_distance <= min_distance * min_distance) {
+                                    const [self_cx, self_cy, other_cx, other_cy, lambda] = this.enforce_distance(
+                                        self_x, self_y, other_x, other_y,
+                                        self_inv_mass, other_inv_mass,
+                                        min_distance, collision_alpha,
+                                        this.particle_collision_lambdas[lambda_i]
+                                    );
+
+                                    this.particle_data[self_i + _x_offset] = self_x + self_cx;
+                                    this.particle_data[self_i + _y_offset] = self_y + self_cy;
+                                    this.particle_data[other_i + _x_offset] = other_x + other_cx;
+                                    this.particle_data[other_i + _y_offset] = other_y + other_cy;
+                                    this.particle_collision_lambdas[lambda_i] = lambda;
+                                }
+                            }
+                        }
+                    }
+
+                    // particle - orb collision
+                    for (let particle_i = 0; particle_i < this.n_particles; particle_i++) {
+                        const self_i = this.particle_i_to_data_offset(particle_i, this.particle_data_stride);
+                        const self_x = this.particle_data[self_i + _x_offset];
+                        const self_y = this.particle_data[self_i + _y_offset];
+                        const self_r = this.particle_data[self_i + _radius_offset];
+                        const self_inv_mass = this.particle_data[self_i + _inverse_mass_offset];
+
+                        const [cx, cy, lambda] = this.enforce_inside_circle(
+                            self_x, self_y, self_r, self_inv_mass,
+                            this.orb_center_x, this.orb_center_y, this.orb_radius,
+                            orb_alpha, this.particle_data[self_i + _orb_lambda_offset]
+                        );
+
+                        this.particle_data[self_i + _x_offset] = self_x + cx;
+                        this.particle_data[self_i + _y_offset] = self_y + cy;
+                        this.particle_data[self_i + _orb_lambda_offset] = lambda;
+                    }
+                }
+
+                // post solve
+                for (let particle_i = 0; particle_i < this.n_particles; particle_i++) {
+                    const i = this.particle_i_to_data_offset(particle_i, this.particle_data_stride);
+                    const x = this.particle_data[i + _x_offset];
+                    const y = this.particle_data[i + _y_offset];
+
+                    this.particle_data[i + _velocity_x_offset] = (x - this.particle_data[i + _previous_x_offset]) / sub_delta;
+                    this.particle_data[i + _velocity_y_offset] = (y - this.particle_data[i + _previous_y_offset]) / sub_delta;
+                }
+            }
+
+            this.timestamp = performance.now() / 1000;
+            this.update_mesh_data();
+        },
+
+        set_position(x, y) {
+            this.orb_center_x = x;
+            this.orb_center_y = y;
+        },
+
+        agitate() {
+            for (let particle_i = 0; particle_i < this.n_particles; particle_i++) {
+                const i = this.particle_i_to_data_offset(particle_i, this.particle_data_stride);
+                const magnitude = this.mix(this.min_agitation, this.max_agitation, Math.random());
+
+                const dx = this.particle_data[i + _x_offset] - this.orb_center_x;
+                const dy = this.particle_data[i + _y_offset] - this.orb_center_y;
+                const [ndx, ndy] = this.normalize(dx, dy);
+
+                const vx = this.particle_data[i + _velocity_x_offset];
+                const vy = this.particle_data[i + _velocity_y_offset];
+
+                this.particle_data[i + _velocity_x_offset] = vx - ndx * magnitude;
+                this.particle_data[i + _velocity_y_offset] = vy - ndy * magnitude;
+            }
+        }
+    };
+
+    const vertex_shader_source = `#version 300 es
+        in vec2 position;
+        in vec2 uv;
+        in vec4 color;
+
+        uniform vec2 canvas_size;
+
+        out vec2 fragment_uv;
+        out vec4 fragment_color;
+
+        void main() {
+            vec2 clip = (position / canvas_size) * 2.0 - 1.0;
+            gl_Position = vec4(clip.x, -clip.y, 0.0, 1.0);
+            fragment_uv = uv;
+            fragment_color = color;
+        }
+    `;
+
+    const fragment_shader_source = `#version 300 es
+        precision mediump float;
+
+        in vec2 fragment_uv;
+        in vec4 fragment_color;
+
+        uniform sampler2D particle_texture;
+
+        out vec4 out_color;
+
+        void main() {
+            vec4 texel = texture(particle_texture, fragment_uv);
+            out_color = texel * fragment_color;
+        }
+    `;
+
+    const stencil_vertex_shader_source = `#version 300 es
+        in vec2 position;
+
+        uniform vec2 canvas_size;
+
+        void main() {
+            vec2 clip = (position / canvas_size) * 2.0 - 1.0;
+            gl_Position = vec4(clip.x, -clip.y, 0.0, 1.0);
+        }
+    `;
+
+    const stencil_fragment_shader_source = `#version 300 es
+        precision mediump float;
+
+        out vec4 out_color;
+
+        void main() {
+            out_color = vec4(0.0);
+        }
+    `;
+
+    function compile_shader(gl, type, source) {
+        const shader = gl.createShader(type);
+        gl.shaderSource(shader, source);
+        gl.compileShader(shader);
+        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+            throw new Error(gl.getShaderInfoLog(shader));
+        }
+        return shader;
+    }
+
+    function create_program(gl, vertex_source, fragment_source) {
+        const program = gl.createProgram();
+        gl.attachShader(program, compile_shader(gl, gl.VERTEX_SHADER, vertex_source));
+        gl.attachShader(program, compile_shader(gl, gl.FRAGMENT_SHADER, fragment_source));
+        gl.linkProgram(program);
+        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+            throw new Error(gl.getProgramInfoLog(program));
+        }
+        return program;
+    }
+
+    const canvas = document.getElementById("orb_canvas") as HTMLCanvasElement;
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    const gl = canvas.getContext("webgl2", { stencil: true });
+    if (!gl) throw new Error("WebGL2 not supported");
+
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+    const program = create_program(gl, vertex_shader_source, fragment_shader_source);
+    const stencil_program = create_program(gl, stencil_vertex_shader_source, stencil_fragment_shader_source);
+
+    gl.useProgram(program);
+
+    const position_location = gl.getAttribLocation(program, "position");
+    const uv_location = gl.getAttribLocation(program, "uv");
+    const color_location = gl.getAttribLocation(program, "color");
+    const canvas_size_location = gl.getUniformLocation(program, "canvas_size");
+    const particle_texture_location = gl.getUniformLocation(program, "particle_texture");
+
+    gl.uniform2f(canvas_size_location, canvas.width, canvas.height);
+    gl.uniform1i(particle_texture_location, 0);
+
+    const stencil_position_location = gl.getAttribLocation(stencil_program, "position");
+    const stencil_canvas_size_location = gl.getUniformLocation(stencil_program, "canvas_size");
+
+
+    const vertex_buffer = gl.createBuffer();
+    const index_buffer = gl.createBuffer();
+
+    const vao = gl.createVertexArray();
+    gl.bindVertexArray(vao);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, vertex_buffer);
+
+    const float_size = Float32Array.BYTES_PER_ELEMENT;
+    const vertex_stride_bytes = 8 * float_size; // x, y, u, v, r, g, b, a
+
+    gl.enableVertexAttribArray(position_location);
+    gl.vertexAttribPointer(position_location, 2, gl.FLOAT, false, vertex_stride_bytes, 0);
+
+    gl.enableVertexAttribArray(uv_location);
+    gl.vertexAttribPointer(uv_location, 2, gl.FLOAT, false, vertex_stride_bytes, 2 * float_size);
+
+    gl.enableVertexAttribArray(color_location);
+    gl.vertexAttribPointer(color_location, 4, gl.FLOAT, false, vertex_stride_bytes, 4 * float_size);
+
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, index_buffer);
+
+    gl.bindVertexArray(null);
+
+    // --- Circle stencil mesh ---
+    const n_circle_segments = 64;
+    // center vertex + n outer vertices; fan triangulation = n_circle_segments triangles = n_circle_segments * 3 indices
+    const circle_vertex_buffer = gl.createBuffer();
+    const circle_index_buffer = gl.createBuffer();
+
+    const circle_vao = gl.createVertexArray();
+    gl.bindVertexArray(circle_vao);
+    gl.bindBuffer(gl.ARRAY_BUFFER, circle_vertex_buffer);
+    gl.enableVertexAttribArray(stencil_position_location);
+    gl.vertexAttribPointer(stencil_position_location, 2, gl.FLOAT, false, 2 * float_size, 0);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, circle_index_buffer);
+
+    // Build index buffer once — topology is fixed
+    const circle_indices = new Uint16Array(n_circle_segments * 3);
+    for (let segment_i = 0; segment_i < n_circle_segments; segment_i++) {
+        circle_indices[segment_i * 3 + 0] = 0; // center
+        circle_indices[segment_i * 3 + 1] = 1 + segment_i;
+        circle_indices[segment_i * 3 + 2] = 1 + (segment_i + 1) % n_circle_segments;
+    }
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, circle_indices, gl.STATIC_DRAW);
+    gl.bindVertexArray(null);
+
+    const circle_vertices = new Float32Array((1 + n_circle_segments) * 2);
+
+    function update_circle_vertices(center_x, center_y, radius) {
+        circle_vertices[0] = center_x;
+        circle_vertices[1] = center_y;
+        for (let segment_i = 0; segment_i < n_circle_segments; segment_i++) {
+            const angle = (segment_i / n_circle_segments) * 2 * Math.PI;
+            circle_vertices[(1 + segment_i) * 2 + 0] = center_x + Math.cos(angle) * radius;
+            circle_vertices[(1 + segment_i) * 2 + 1] = center_y + Math.sin(angle) * radius;
+        }
+    }
+
+    const texture = gl.createTexture();
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+
+    const placeholder = new Uint8Array([255, 255, 255, 255]);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, placeholder);
+
+    const image = new Image();
+    image.src = "/orb_particle_texture.png";
+    image.onload = () => {
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+        gl.generateMipmap(gl.TEXTURE_2D);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    };
+
+    // Assumes orb is initialized and available on window or imported
+    orb.initialize(canvas.width, canvas.height);
+
+    // Upload index buffer once — topology never changes
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, index_buffer);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, orb.mesh_vertex_map, gl.STATIC_DRAW);
+
+    let previous_timestamp = performance.now();
+
+    function render_frame(timestamp) {
+        if (gl === null) return;
+
+        const delta = Math.min((timestamp - previous_timestamp) / 1000, 0.05);
+        previous_timestamp = timestamp;
+        orb.step(delta);
+
+        gl.viewport(0, 0, canvas.width, canvas.height);
+        gl.clearColor(0, 0, 0, 1);
+        gl.enable(gl.STENCIL_TEST);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
+
+        // Pass 1: write 1 into stencil buffer for every fragment inside the circle mesh
+        gl.stencilFunc(gl.ALWAYS, 1, 0xFF);
+        gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
+        gl.stencilMask(0xFF);
+        gl.colorMask(false, false, false, false);
+        gl.disable(gl.BLEND);
+
+        const { position_x, position_y, radius } = orb.get_position();
+        update_circle_vertices(position_x, position_y, radius);
+
+        gl.useProgram(stencil_program);
+        gl.uniform2f(stencil_canvas_size_location, canvas.width, canvas.height);
+
+        gl.bindVertexArray(circle_vao);
+        gl.bindBuffer(gl.ARRAY_BUFFER, circle_vertex_buffer);
+        gl.bufferData(gl.ARRAY_BUFFER, circle_vertices, gl.DYNAMIC_DRAW);
+        gl.drawElements(gl.TRIANGLES, n_circle_segments * 3, gl.UNSIGNED_SHORT, 0);
+        gl.bindVertexArray(null);
+
+        // Pass 2: draw particles only where stencil == 1
+        gl.stencilFunc(gl.EQUAL, 1, 0xFF);
+        gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
+        gl.stencilMask(0x00);
+        gl.colorMask(true, true, true, true);
+
+        gl.useProgram(program);
+        gl.bindVertexArray(vao);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertex_buffer);
+        gl.bufferData(gl.ARRAY_BUFFER, orb.mesh_data, gl.DYNAMIC_DRAW);
+
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.ONE, gl.ONE);
+
+        gl.drawElements(
+            gl.TRIANGLES,
+            orb.n_particles * orb.mesh_vertex_map_stride,
+            gl.UNSIGNED_SHORT,
+            0
+        );
+
+        gl.bindVertexArray(null);
+        gl.disable(gl.BLEND);
+        gl.disable(gl.STENCIL_TEST);
+
+        requestAnimationFrame(render_frame);
+    }
+
+    requestAnimationFrame(render_frame);
+
+    function handle_resize() {
+        if (gl === null) return;
+
+        const dpr = window.devicePixelRatio || 1;
+
+        const width = Math.floor(window.innerWidth * dpr);
+        const height = Math.floor(window.innerHeight * dpr);
+
+        canvas.width = width;
+        canvas.height = height;
+
+        canvas.style.width = `${window.innerWidth}px`;
+        canvas.style.height = `${window.innerHeight}px`;
+
+        gl.viewport(0, 0, width, height);
+        gl.uniform2f(canvas_size_location, width, height);
+        gl.useProgram(stencil_program);
+        gl.uniform2f(stencil_canvas_size_location, width, height);
+        gl.useProgram(program);
+
+        orb.initialize(width, height);
+        update_orb_position();
+    }
+    window.addEventListener("resize", handle_resize);
+    handle_resize();
+
+    function update_orb_position() {
+        const rect = canvas.getBoundingClientRect();
+
+        // Center of the canvas in viewport space → convert to canvas coords
+        const x = (rect.left + rect.width / 2) * (canvas.width / rect.width);
+        const y = (rect.top + rect.height / 2) * (canvas.height / rect.height);
+
+        orb.set_position(x, y);
+    }
+    window.addEventListener("scroll", update_orb_position, { passive: true });
+    update_orb_position();
+
+    canvas.addEventListener("click", () => {
+        orb.agitate();
+    });
+</script>
+
+<style>
+    #orb_canvas {
+        display: block;
+        width: 100vw;
+        height: 100vh;
+    }
+</style>
+
+<canvas id="orb_canvas"></canvas>

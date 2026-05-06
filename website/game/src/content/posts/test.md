@@ -5,7 +5,7 @@ date: "04.05.2026"
 shader: "red_blood_cells"
 ---
 
-# H1 Heading
+# Vibe-Site No More!
 
 
 ```ts
