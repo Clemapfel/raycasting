@@ -121,7 +121,7 @@ function rt.SpriteBatch:set(i, x, y, w, h, tx, ty, tw, th, flip_horizontally, fl
     )
 
     if i > self._current_i then
-        rt.error("In rt.SpriteBatch.set: index `",  i,  "` is out of bounds for a batch with `",  self._current_i,  "` sprites")
+        rt.error("In rt.SpriteBatch.set: index `", i,  "` is out of bounds for a batch with `", self._current_i,  "` sprites")
         return
     end
 

@@ -57,7 +57,7 @@ function rt.SceneManager:instantiate()
 
         _screen_recorder = rt.ScreenRecorder, -- sic, no (), singleton instance
 
-        _cursor_visible = false,
+        _cursor_visible = true,
         _cursor = rt.Cursor(),
 
         _restart_active = false,
@@ -229,6 +229,7 @@ function rt.SceneManager:update(delta)
 
     rt.GameState:update(delta)
     rt.InputManager:update(delta)
+    rt.Animalese:update(delta)
 
     self._fade:update(delta)
     if self._current_scene ~= nil then

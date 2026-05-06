@@ -267,7 +267,7 @@ function ow.Fluid:_initialize(center_x, center_y)
         for particle_index = 1, n_particles do
             local i = #data + 1
 
-            local distance = radius * math.sqrt(particle_index)
+            local distance = radius * math.sqrt((particle_index - 1) / n_particles)
             local angle = particle_index * golden_angle
             local t = gaussian_easing(distance / max_distance)
 

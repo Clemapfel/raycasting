@@ -111,13 +111,13 @@ function bd.compile(source_file_path, destination_file_path)
     -- load chunk
     local compiled_function, compile_error = _G.loadstring(file_data, "@" .. source_file_path)
     if compiled_function == nil then
-        rt.error("In bd.compile: unable to apply loadstring to content of file at  `",  source_file_path,  "`: ",  compile_error)
+        rt.error("In bd.compile: unable to apply loadstring to content of file at  `", source_file_path,  "`: ",  compile_error)
     end
 
     -- compile to bytecade
     local bytecode = string.dump(compiled_function)
     if bytecode == nil then
-        rt.error("In bd.compile: failed to generate bytecode for `",  source_file_path,  "`")
+        rt.error("In bd.compile: failed to generate bytecode for `", source_file_path,  "`")
     end
 
     -- Replace file_data with the bytecode for writing
@@ -131,7 +131,7 @@ function bd.compile(source_file_path, destination_file_path)
 
     local write_success, write_error_maybe = love.filesystem.write(destination_file_path, file_data)
     if not write_success then
-        rt.error("In bd.compile: unable to copy file from `",  source_file_path,  "` to `",  destination_file_path,  "`: ",  write_error_maybe)
+        rt.error("In bd.compile: unable to copy file from `", source_file_path,  "` to `", destination_file_path,  "`: ",  write_error_maybe)
     end
 end
 
@@ -143,7 +143,7 @@ function bd._download_love_executables(github_actions_run_id, ...)
     if bd.exists(executable_prefix) then
         local success = love.filesystem.remove(executable_prefix)
         if not success then
-            rt.warning("In bd._download_love_executables: unable to remove folder at `",  executable_prefix, "`")
+            rt.warning("In bd._download_love_executables: unable to remove folder at `", executable_prefix, "`")
         end
     end
 

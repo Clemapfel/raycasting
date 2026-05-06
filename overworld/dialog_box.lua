@@ -322,7 +322,7 @@ function ow.DialogBox:realize()
 
     for node, visited in pairs(can_be_visited) do
         if visited == false then
-            rt.warning("In ow.DialogBox: for dialog `",  self._id,  "`: node `",  node.id,  "` has node pointing to it, it cannot be visited" )
+            rt.warning("In ow.DialogBox: for dialog `", self._id,  "`: node `", node.id,  "` has node pointing to it, it cannot be visited" )
         end
     end
 

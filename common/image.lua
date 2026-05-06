@@ -6,7 +6,7 @@ rt.Image = meta.class("Image")
 --- @brief
 function rt.Image:instantiate(...)
     local first = select(1, ...)
-    if first ~= nil and meta.is_function(first.typeOf) and first.typeOf("ImageData") == true then
+    if first ~= nil and meta.is_function(first.typeOf) and first:typeOf("ImageData") == true then
         self._native = first
     else
         self._native = love.image.newImageData(...)

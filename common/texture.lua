@@ -104,6 +104,7 @@ end
 if love.getVersion() >= 12 then
     --- @overload
     function rt.Texture:download()
-        return love.graphics.readbackTexture(self._native)
+        require "common.image"
+        return rt.Image(love.graphics.readbackTexture(self._native))
     end
 end

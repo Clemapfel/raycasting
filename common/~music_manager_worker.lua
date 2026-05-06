@@ -177,7 +177,7 @@ function rt.AudioProcessor:_initialize_data()
     end
 
     if self._log_once then
-        rt.log("[rt][INFO] In rt.AudioProcessor:_initialize_data: Exporting `",  self._id,  "` to `",  export_path,  "`")
+        rt.log("[rt][INFO] In rt.AudioProcessor:_initialize_data: Exporting `", self._id,  "` to `", export_path,  "`")
     end
 
     -- cf. https://github.com/love2d/love/blob/main/src/modules/sound/wrap_SoundData.lua#L41

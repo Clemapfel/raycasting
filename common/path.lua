@@ -355,7 +355,7 @@ end
 function rt.Path:override_parameterization(...)
     local n_args = select("#", ...)
     if n_args ~= self._n_entries then
-        rt.error("In rt.Path.override_parameterization: expected `",  self._n_entries,  "` parameters, got `",  n_args,  "`")
+        rt.error("In rt.Path.override_parameterization: expected `", self._n_entries,  "` parameters, got `", n_args,  "`")
         return
     end
 
@@ -373,7 +373,7 @@ function rt.Path:override_parameterization(...)
     end
 
     if math.abs(total - 1) > 1e-10 then
-        rt.error("In rt.Path:override_parameterization: total length of override parameters is `",  total,  "`, but `1` was expected")
+        rt.error("In rt.Path:override_parameterization: total length of override parameters is `", total,  "`, but `1` was expected")
         return
     end
 

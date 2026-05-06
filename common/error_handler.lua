@@ -70,7 +70,7 @@ function love.errorhandler(message)
         if entry == nil then return end
 
         local buttons
-        if love.system.getOS() == "windows" then
+        if bd.get_operating_system() == bd.OperatingSystem.WINDOWS then
             buttons = { --[[entry.open_log,]] entry.restart, entry.exit }
         else
             buttons = { entry.exit, entry.restart, --[[entry.open_log]] }

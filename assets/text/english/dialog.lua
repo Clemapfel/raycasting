@@ -4,7 +4,7 @@ local postfix = "</normal>"
 return {
     animalese_test = {
         {
-            gender = rt.Gender.MALE,
+            gender = rt.Gender.FEMALE,
             next = 2,
             "Do you have any advice on how to improve my <rainbow><wave>animalese</wave></rainbow> implementation?",
         },

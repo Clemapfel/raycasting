@@ -118,7 +118,7 @@ function rt.SoundManager:instantiate()
     local to_remove = {}
     for id, entry in pairs(self._id_to_entry) do
         if entry.config_path ~= nil and entry.sound_path == nil then
-            rt.critical("In rt.SoundManager: found config file at `",  entry.config_path,  "` but no matching sound file with that id `",  bd.get_file_name(entry.config_path, false),  "`")
+            rt.critical("In rt.SoundManager: found config file at `", entry.config_path,  "` but no matching sound file with that id `", bd.get_file_name(entry.config_path, false),  "`")
             table.insert(to_remove, id)
         end
     end
@@ -193,7 +193,7 @@ function rt.SoundManager:_get_entry(id, scope)
         end
 
         if should_throw then
-            rt.critical("In rt.SoundManager.",  scope,  ": no sound with id `",  id,  "`")
+            rt.critical("In rt.SoundManager.",  scope,  ": no sound with id `", id,  "`")
         end
 
         return nil
@@ -271,7 +271,7 @@ function rt.SoundManager:preallocate(id, ...)
             elseif message.type == preallocate_message_types.load_failure then
                 rt.critical("In rt.SoundManager.preallocate: ",  message.error)
             else
-                rt.error("In rt.SoundManager:preallocate: unhandled main-side message `",  tostring(message.type),  "`")
+                rt.error("In rt.SoundManager:preallocate: unhandled main-side message `", tostring(message.type),  "`")
             end
 
             n_messages_received = n_messages_received + 1
@@ -347,7 +347,7 @@ function rt.SoundManager:play(id, config)
 
     for key in keys(config) do
         if _config_valid_keys[key] ~= true then
-            rt.critical("In rt.SoundManager.player: unrecognized option `",  key,  "`")
+            rt.critical("In rt.SoundManager.player: unrecognized option `", key,  "`")
         end
     end
 

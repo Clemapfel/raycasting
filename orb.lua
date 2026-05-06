@@ -141,18 +141,18 @@ function orb.initialize(width, height)
     this.particle_texture = this.generate_particle_texture()
 
     -- config
-    this.n_particles = 32
+    this.n_particles = 256
     this.damping = 0.95
     this.gravity_dx = 0
     this.gravity_dy = 1
-    this.gravity = 4000
+    this.gravity = 8000
     this.n_sub_steps = 4
     this.n_constraint_iterations = 2
     this.collision_compliance = 0.0001
     this.orb_compliance = 0.0001
 
-    this.min_radius = 10
-    this.max_radius = 16
+    this.min_radius = 6
+    this.max_radius = 11
     this.min_agitation = 3000
     this.max_agitation = 6000
 
@@ -162,7 +162,7 @@ function orb.initialize(width, height)
     -- initial allocation
     this.orb_center_x = 0
     this.orb_center_y = 0
-    this.orb_radius = 128
+    this.orb_radius = 128 + 64
 
     this.particle_data_stride = _a_offset + 1
     this.particle_data = new_float_array(this.n_particles * this.particle_data_stride)
@@ -227,7 +227,7 @@ function orb.initialize(width, height)
         this.mesh_vertex_map[vertex_data_i + 5] = vertex_base + 3
     end
 
-    orb.update_mesh_data()
+    this.update_mesh_data()
 end
 
 function orb.update_mesh_data()
@@ -539,9 +539,6 @@ end
 
 function orb.draw()
     local this = orb
-
-    love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.circle("line", this.orb_center_x, this.orb_center_y, this.orb_radius)
 
     love.graphics.setColor(1, 1, 1, 1)
     this.mesh:draw()

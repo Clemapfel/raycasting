@@ -54,7 +54,7 @@ do
             __index = function(self, key)
                 local value = rawget(self, key)
                 if value == nil then
-                    rt.warning("In rt.Translation: key `",  key,  "` does not point to valid text")
+                    rt.warning("In rt.Translation: key `", key,  "` does not point to valid text")
                     return "(#" .. key .. ")"
                 else
                     return value

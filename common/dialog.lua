@@ -7,9 +7,7 @@ rt.settings.dialog = {
     next_key = "next",
     dialog_choice_key = "choices",
     state_key = "state",
-    gender_key = "gender",
-
-    default_gender = rt.AnimaleseGender.NONE
+    gender_key = "gender"
 }
 
 --- @class rt.Dialog
@@ -116,7 +114,7 @@ do
             local gender = node[settings.gender_key]
             local choice = node[settings.dialog_choice_key]
 
-            if gender == nil then node[settings.gender_key] = rt.settings.dialog.default_gender end
+            if gender == nil then node[settings.gender_key] = rt.AnimaleseGender.NONE end
 
             local consecutive_numbers = {}
             for key, value in pairs(node) do

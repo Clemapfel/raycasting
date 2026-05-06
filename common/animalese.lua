@@ -607,6 +607,10 @@ function rt.Animalese:_initialize()
             ]]
         end
     end
+
+    self._sound_effects = {
+        rt.ReverbSoundEffect()
+    }
 end
 
 local _detect_sections = function(sound_data)
@@ -1191,7 +1195,10 @@ function rt.Animalese:update(delta)
                 table.insert(section.sources, free_source)
             end
 
-            free_source:setPitch(next_queue_entry.pitch)
+            for effect in values(self._sound_effects) do
+                free_source:setEffect(effect:get_native())
+            end
+
             free_source:setVolume(rt.settings.animalese.target_peak / next_entry.peak)
             free_source:play()
         end

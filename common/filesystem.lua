@@ -74,13 +74,14 @@ bd.OperatingSystem = {
     MAC = "OS X",
     WINDOWS = "Windows",
     LINUX = "Linux",
-    ANDROID ="Android",
+    ANDROID = "Android",
     IOS = "iOS"
 }
 
 bd.OperatingSystem = meta.enum("OperatingSystem", bd.OperatingSystem)
 
 --- @brief
+--- @return bd.OperatingSystem
 function bd.get_operating_system()
     return love.system.getOS()
 end
@@ -159,29 +160,84 @@ function bd.get_file_name(file_path, include_extension)
     return string.match(filename, "^(.+)%.[^%.]+$") or filename
 end
 
---- @brief
-function bd.mount_path(path, mount_point)
-    meta.assert(path, "String")
-    path = bd.normalize_path(path)
-    if not love.filesystem.mountFullPath(
-        path,
-        mount_point,
-        "readwrite",
-        false
-    ) then
-        rt.error("In bd.mount_path: unable to mount path at `", path, "`")
-        return nil
-    else
-        return mount_point
+do
+    local function _path_exists_raw(path)
+        if bd.get_operating_system() == bd.OperatingSystem.WINDOWS then
+            return os.execute('if exist "' .. path .. '" exit 0') == 0
+        else
+            return os.execute('[ -e "' .. path .. '" ]') == 0
+        end
     end
-end
 
---- @brief
-function bd.unmount_path(path)
-    meta.assert(path, "String")
-    path = bd.normalize_path(path)
-    if not love.filesystem.unmountFullPath(path) then
-        rt.error("In bd.unmount_path: unable to mount path at `", path, "`")
+    local _mount_point_to_path = {}
+    local _path_to_mount_point = {}
+
+    --- @brief
+    function bd.mount_path(path, mount_point)
+        meta.assert(path, "String")
+        path = bd.normalize_path(path)
+
+        if not _path_exists_raw(path) then
+            rt.error("In bd.mount_path: unable to mount path at `", path, "`: path does not exist on disk")
+            return nil
+        end
+
+        if _mount_point_to_path[mount_point] ~= nil then
+            rt.error("In bd.mount_path: unable to mount path `", path, "`: mount point `", mount_point, "` is already mounted")
+            return nil
+        end
+
+        if _path_to_mount_point[path] ~= nil then
+            rt.error("In bd.mount_path: unable to mount path `", path, "`: it is already mounted to mount point `", mount_point, "`")
+            return nil
+        end
+
+        _mount_point_to_path[mount_point] = path
+        _path_to_mount_point[path] = mount_point
+
+        if not love.filesystem.mountFullPath(
+            path,
+            mount_point,
+            "readwrite",
+            false
+        ) then
+            rt.error("In bd.mount_path: unable to mount path at `", path, "`")
+            return nil
+        else
+            return mount_point
+        end
+    end
+
+    --- @brief
+    function bd.unmount_path(path)
+        meta.assert(path, "String")
+        path = bd.normalize_path(path)
+
+        local mount_point
+        if _mount_point_to_path[path] ~= nil then
+            -- if using moint point for unmounting
+            mount_point = path
+            path = _mount_point_to_path[path]
+        else
+            mount_point = _path_to_mount_point[path]
+        end
+
+        if not _path_exists_raw(path) then
+            rt.error("In bd.unmount_path: unable to unmount path at `", path, "`: path does not exist on disk")
+            return nil
+        end
+
+        if _path_to_mount_point[path] == nil then
+            rt.error("In bd.mount_path: unable to mount path `", path, "`: it is not mounted")
+            return nil
+        end
+
+        if not love.filesystem.unmountFullPath(path) then
+            rt.error("In bd.unmount_path: unable to mount path at `", path, "`")
+        end
+
+        _path_to_mount_point[path] = nil
+        _mount_point_to_path[mount_point] = nil
     end
 end
 

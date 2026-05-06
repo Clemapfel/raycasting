@@ -202,7 +202,7 @@ function ow.Path:instantiate(object, stage, scene)
     if easing_name ~= nil then
         easing = rt.InterpolationFunctions[easing_name]
         if easing == nil then
-            rt.error("In ow.Path: for object `",  object:get_id(),  "`: unknown easing `",  easing_name,  "`")
+            rt.error("In ow.Path: for object `", object:get_id(),  "`: unknown easing `", easing_name,  "`")
         end
     end
     self._easing = easing

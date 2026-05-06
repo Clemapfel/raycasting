@@ -47,11 +47,11 @@ local function handle_message(message)
     if message == nil then return end
     local callback = message_id_to_callback[message.message_id]
     if callback == nil then
-        rt.critical("In rt.MusicManager: error in thread: unhandled message id `",  message.message_id,  "`")
+        rt.critical("In rt.MusicManager: error in thread: unhandled message id `", message.message_id,  "`")
     else
         local success, error_maybe = pcall(callback, message)
         if not success then
-            rt.critical("In rt.MusicManager: error in thread when handling message `",  message.message_id,  "`: ",  error_maybe)
+            rt.critical("In rt.MusicManager: error in thread when handling message `", message.message_id,  "`: ",  error_maybe)
         end
     end
 end
