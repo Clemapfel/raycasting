@@ -1,26 +1,34 @@
 ---
 // src/components/OrbRenderer.astro
-const image_path = "public/orb_particle_texture.png"
+const image_path = "/orb_particle_texture.png"
 ---
 
 <script>
-    const n_particles : number = 32;
-    const n_sub_steps : number = 3;
-    const n_constraint_iterations : number = 2;
-    const gravity : number = 2000;
-    const swirl_strength : number = gravity / 4;
+    const n_particles: number = 32 + 16;
+    const n_sub_steps: number = 3;
+    const n_constraint_iterations: number = 2;
+    const gravity: number = 2000;
+    const gravity_dx: number = 0;
+    const gravity_dy: number = 1;
+    const swirl_strength: number = gravity * 0.25;
 
-    const radius : number = 128;
-    const padding : number = 16;
+    const radius: number = 128;
+    const padding: number = 16;
+    const texture_scale: number = 2;
 
-    const max_agitation : number = 4;
-    const agitation_duration : number = 1.5;
+    const max_agitation: number = 2;
+    const agitation_duration: number = 1.5;
 
-    const min_radius : number = 12;
-    const max_radius : number = 16;
+    const min_radius: number = 10;
+    const max_radius: number = 15;
+    const min_radius_frequency: number = 0.75;
+    const max_radius_frequency: number = 1.25;
+    const min_radius_scale: number = 1;
+    const max_radius_scale: number = 2;
 
-    const threshold : number = 0.6;
-    const eps : number = 0.05;
+    const threshold: number = 0.3;
+    const eps: number = 0.05;
+    const blend_strength: number = 1;
 
     const _x_offset = 0;
     const _y_offset = 1;
@@ -29,19 +37,424 @@ const image_path = "public/orb_particle_texture.png"
     const _velocity_x_offset = 4;
     const _velocity_y_offset = 5;
     const _radius_offset = 6;
-    const _inverse_mass_offset = 7;
-    const _orb_lambda_offset = 8;
-    const _r_offset = 9;
-    const _g_offset = 10;
-    const _b_offset = 11;
-    const _a_offset = 12;
+    const _radius_cycle_offset = 7;
+    const _swirl_direction_offset = 8;
+    const _inverse_mass_offset = 9;
+    const _orb_lambda_offset = 10;
+    const _r_offset = 11;
+    const _g_offset = 12;
+    const _b_offset = 13;
+    const _a_offset = 14;
 
-    const orb = {
-        initialize(width, height) {
+    // ---------- WebGL Shaders ----------
+    const vertex_shader_source = `#version 300 es
+        in vec2 position;
+        in vec2 uv;
+        in vec4 color;
+
+        uniform vec2 canvas_size;
+        uniform vec2 offset;
+
+        out vec2 fragment_uv;
+        out vec4 fragment_color;
+
+        void main() {
+            vec2 p = position + offset;
+            vec2 clip = (p / canvas_size) * 2.0 - 1.0;
+            gl_Position = vec4(clip.x, -clip.y, 0.0, 1.0);
+            fragment_uv = uv;
+            fragment_color = color;
+        }
+    `;
+
+    const fragment_shader_source = `#version 300 es
+        precision mediump float;
+
+        in vec2 fragment_uv;
+        in vec4 fragment_color;
+
+        uniform sampler2D particle_texture;
+
+        out vec4 out_color;
+
+        void main() {
+            vec4 texel = texture(particle_texture, fragment_uv);
+            out_color = texel * fragment_color;
+        }
+    `;
+
+    const stencil_vertex_shader_source = `#version 300 es
+        in vec2 position;
+
+        uniform vec2 canvas_size;
+        uniform vec2 offset;
+
+        void main() {
+            vec2 p = position + offset;
+            vec2 clip = (p / canvas_size) * 2.0 - 1.0;
+            gl_Position = vec4(clip.x, -clip.y, 0.0, 1.0);
+        }
+    `;
+
+    const stencil_fragment_shader_source = `#version 300 es
+        precision mediump float;
+
+        out vec4 out_color;
+
+        void main() {
+            out_color = vec4(0.0);
+        }
+    `;
+
+    const quad_vertex_shader_source = `#version 300 es
+        in vec2 a_position;
+        in vec2 a_texcoord;
+
+        out vec2 v_texcoord;
+
+        void main() {
+            gl_Position = vec4(a_position, 0.0, 1.0);
+            v_texcoord = a_texcoord;
+        }
+    `;
+
+    const quad_fragment_shader_source = `#version 300 es
+        precision mediump float;
+
+        in vec2 v_texcoord;
+
+        uniform sampler2D u_renderTexture;
+        uniform float u_threshold;
+        uniform float u_eps;
+
+        out vec4 out_color;
+        
+        vec3 aces_approx(vec3 v) {
+            // src: https://64.github.io/tonemapping/
+            v *= 0.6;
+            float a = 2.51;
+            float b = 0.03;
+            float c = 2.43;
+            float d = 0.59;
+            float e = 0.14;
+            return clamp((v * (a * v + b)) / (v * (c * v + d) + e), 0.0, 1.0);
+        }
+
+        void main() {
+            vec4 texColor = texture(u_renderTexture, v_texcoord);
+            float lum = texColor.a;
+            float alpha = smoothstep(u_threshold - u_eps, u_threshold + u_eps, min(1.0, lum));
+            out_color = vec4(texColor.rgb , alpha);
+        }
+    `;
+
+    class OrbRenderer {
+        // --- WebGL Context & DOM ---
+        private canvas: HTMLCanvasElement;
+        private gl: WebGL2RenderingContext;
+        private canvasWidth: number = 0;
+        private canvasHeight: number = 0;
+        private useFloatTexture: boolean = false;
+
+        // --- Simulation State ---
+        private n_particles!: number;
+        private damping!: number;
+        private gravity_dx!: number;
+        private gravity_dy!: number;
+        private gravity!: number;
+        private n_sub_steps!: number;
+        private n_constraint_iterations!: number;
+        private collision_compliance!: number;
+        private orb_compliance!: number;
+        private min_radius!: number;
+        private max_radius!: number;
+        private min_radius_frequency!: number;
+        private max_radius_frequency!: number;
+        private max_agitation!: number;
+        private agitation_elapsed!: number;
+        private agitation_duration!: number;
+        private elapsed!: number;
+        private texture_scale!: number;
+        private timestamp!: number;
+        public is_paused: boolean = false;
+        private orb_center_x!: number;
+        private orb_center_y!: number;
+        private orb_radius!: number;
+
+        private particle_data_stride!: number;
+        private particle_data!: Float32Array;
+        private particle_collision_lambdas!: Float32Array;
+        private mesh_vertex_stride!: number;
+        private mesh_data_stride!: number;
+        private mesh_data!: Float32Array;
+        private mesh_vertex_map_stride!: number;
+        private mesh_vertex_map!: Uint16Array;
+
+        // --- WebGL State ---
+        private program!: WebGLProgram;
+        private stencil_program!: WebGLProgram;
+        private quad_program!: WebGLProgram;
+
+        private vao!: WebGLVertexArrayObject;
+        private vertexBuffer!: WebGLBuffer;
+        private indexBuffer!: WebGLBuffer;
+
+        private n_circle_segments = 64;
+        private circle_vertices!: Float32Array;
+        private circleVao!: WebGLVertexArrayObject;
+        private circleVertexBuffer!: WebGLBuffer;
+        private circleIndexBuffer!: WebGLBuffer;
+
+        private quadVao!: WebGLVertexArrayObject;
+        private quadPositionBuffer!: WebGLBuffer;
+        private quadTexcoordBuffer!: WebGLBuffer;
+        private quadIndexBuffer!: WebGLBuffer;
+
+        private renderTexWidth: number = 0;
+        private renderTexHeight: number = 0;
+        private renderTexture: WebGLTexture | null = null;
+        private stencilRenderbuffer: WebGLRenderbuffer | null = null;
+        private fbo: WebGLFramebuffer | null = null;
+        private particleTexture!: WebGLTexture;
+
+        private offsetUniform = [0.0, 0.0];
+        private previous_timestamp: number = performance.now();
+
+        private locs!: {
+            particle: {
+                pos: number; uv: number; color: number;
+                canvasSize: WebGLUniformLocation | null;
+                offset: WebGLUniformLocation | null;
+                texture: WebGLUniformLocation | null;
+            };
+            stencil: {
+                pos: number;
+                canvasSize: WebGLUniformLocation | null;
+                offset: WebGLUniformLocation | null;
+            };
+            quad: {
+                pos: number; texcoord: number;
+                renderTexture: WebGLUniformLocation | null;
+                threshold: WebGLUniformLocation | null;
+                eps: WebGLUniformLocation | null;
+            };
+        };
+
+        constructor(canvasId: string) {
+            this.canvas = document.getElementById(canvasId) as HTMLCanvasElement;
+            const dpr = window.devicePixelRatio || 1;
+            this.canvasWidth = 2.0 * radius + 2.0 * padding * dpr;
+            this.canvasHeight = 2.0 * radius + 2.0 * padding * dpr;
+            this.canvas.width = this.canvasWidth;
+            this.canvas.height = this.canvasHeight;
+            this.canvas.style.width = `${this.canvas.width}px`;
+            this.canvas.style.height = `${this.canvas.height}px`;
+
+            const glContext = this.canvas.getContext("webgl2", { stencil: true });
+            if (!glContext) throw new Error("WebGL2 not supported");
+            this.gl = glContext;
+
+            // Check extensions
+            const extColorBufferFloat = this.gl.getExtension('EXT_color_buffer_float');
+            const extFloatBlend = this.gl.getExtension('EXT_float_blend');
+            if (extColorBufferFloat) {
+                this.useFloatTexture = true;
+                if (!extFloatBlend) {
+                    console.warn('EXT_float_blend not available, additive blending may behave unexpectedly with float textures');
+                }
+            } else {
+                console.warn('EXT_color_buffer_float not available, falling back to RGBA8 render texture.');
+            }
+
+            this.initWebGL();
+            this.initializeSimulation(this.canvasWidth, this.canvasHeight);
+
+            // Upload static data
+            this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
+            this.gl.bufferData(this.gl.ELEMENT_ARRAY_BUFFER, this.mesh_vertex_map, this.gl.STATIC_DRAW);
+
+            this.setupRenderTarget();
+            this.bindEvents();
+
+            requestAnimationFrame(this.render_frame);
+        }
+
+        // ====================================================================
+        // WebGL Local Helpers (Reduces boilerplate/duplication)
+        // ====================================================================
+
+        private compileShader(type: number, source: string): WebGLShader {
+            const shader = this.gl.createShader(type)!;
+            this.gl.shaderSource(shader, source);
+            this.gl.compileShader(shader);
+            if (!this.gl.getShaderParameter(shader, this.gl.COMPILE_STATUS)) {
+                throw new Error(this.gl.getShaderInfoLog(shader)!);
+            }
+            return shader;
+        }
+
+        private createProgram(vertexSource: string, fragmentSource: string): WebGLProgram {
+            const program = this.gl.createProgram()!;
+            this.gl.attachShader(program, this.compileShader(this.gl.VERTEX_SHADER, vertexSource));
+            this.gl.attachShader(program, this.compileShader(this.gl.FRAGMENT_SHADER, fragmentSource));
+            this.gl.linkProgram(program);
+            if (!this.gl.getProgramParameter(program, this.gl.LINK_STATUS)) {
+                throw new Error(this.gl.getProgramInfoLog(program)!);
+            }
+            return program;
+        }
+
+        private createBuffer(target: number, data: BufferSource | null, usage: number): WebGLBuffer {
+            const buffer = this.gl.createBuffer()!;
+            this.gl.bindBuffer(target, buffer);
+            if (data) this.gl.bufferData(target, data, usage);
+            return buffer;
+        }
+
+        private setupAttribute(location: number, size: number, stride: number, offset: number) {
+            if (location !== -1) {
+                this.gl.enableVertexAttribArray(location);
+                this.gl.vertexAttribPointer(location, size, this.gl.FLOAT, false, stride, offset);
+            }
+        }
+
+        private initWebGL() {
+            this.program = this.createProgram(vertex_shader_source, fragment_shader_source);
+            this.stencil_program = this.createProgram(stencil_vertex_shader_source, stencil_fragment_shader_source);
+            this.quad_program = this.createProgram(quad_vertex_shader_source, quad_fragment_shader_source);
+
+            this.locs = {
+                particle: {
+                    pos: this.gl.getAttribLocation(this.program, "position"),
+                    uv: this.gl.getAttribLocation(this.program, "uv"),
+                    color: this.gl.getAttribLocation(this.program, "color"),
+                    canvasSize: this.gl.getUniformLocation(this.program, "canvas_size"),
+                    offset: this.gl.getUniformLocation(this.program, "offset"),
+                    texture: this.gl.getUniformLocation(this.program, "particle_texture"),
+                },
+                stencil: {
+                    pos: this.gl.getAttribLocation(this.stencil_program, "position"),
+                    canvasSize: this.gl.getUniformLocation(this.stencil_program, "canvas_size"),
+                    offset: this.gl.getUniformLocation(this.stencil_program, "offset"),
+                },
+                quad: {
+                    pos: this.gl.getAttribLocation(this.quad_program, "a_position"),
+                    texcoord: this.gl.getAttribLocation(this.quad_program, "a_texcoord"),
+                    renderTexture: this.gl.getUniformLocation(this.quad_program, "u_renderTexture"),
+                    threshold: this.gl.getUniformLocation(this.quad_program, "u_threshold"),
+                    eps: this.gl.getUniformLocation(this.quad_program, "u_eps"),
+                }
+            };
+
+            const float_size = Float32Array.BYTES_PER_ELEMENT;
+
+            // 1. Particle VAO
+            this.vao = this.gl.createVertexArray()!;
+            this.gl.bindVertexArray(this.vao);
+            this.vertexBuffer = this.createBuffer(this.gl.ARRAY_BUFFER, null, this.gl.DYNAMIC_DRAW);
+            const vertex_stride_bytes = 8 * float_size;
+            this.setupAttribute(this.locs.particle.pos, 2, vertex_stride_bytes, 0);
+            this.setupAttribute(this.locs.particle.uv, 2, vertex_stride_bytes, 2 * float_size);
+            this.setupAttribute(this.locs.particle.color, 4, vertex_stride_bytes, 4 * float_size);
+            this.indexBuffer = this.createBuffer(this.gl.ELEMENT_ARRAY_BUFFER, null, this.gl.DYNAMIC_DRAW);
+            this.gl.bindVertexArray(null);
+
+            // 2. Circle Stencil VAO
+            this.circle_vertices = new Float32Array((1 + this.n_circle_segments) * 2);
+            this.circleVao = this.gl.createVertexArray()!;
+            this.gl.bindVertexArray(this.circleVao);
+            this.circleVertexBuffer = this.createBuffer(this.gl.ARRAY_BUFFER, null, this.gl.DYNAMIC_DRAW);
+            this.setupAttribute(this.locs.stencil.pos, 2, 2 * float_size, 0);
+            const circle_indices = new Uint16Array(this.n_circle_segments * 3);
+            for (let i = 0; i < this.n_circle_segments; i++) {
+                circle_indices[i * 3 + 0] = 0;
+                circle_indices[i * 3 + 1] = 1 + i;
+                circle_indices[i * 3 + 2] = 1 + (i + 1) % this.n_circle_segments;
+            }
+            this.circleIndexBuffer = this.createBuffer(this.gl.ELEMENT_ARRAY_BUFFER, circle_indices, this.gl.STATIC_DRAW);
+            this.gl.bindVertexArray(null);
+
+            // 3. Quad VAO
+            const quad_positions = new Float32Array([-1, -1, 1, -1, 1, 1, -1, 1]);
+            const quad_texcoords = new Float32Array([0, 0, 1, 0, 1, 1, 0, 1]);
+            const quad_indices = new Uint16Array([0, 1, 2, 0, 2, 3]);
+
+            this.quadVao = this.gl.createVertexArray()!;
+            this.gl.bindVertexArray(this.quadVao);
+            this.quadPositionBuffer = this.createBuffer(this.gl.ARRAY_BUFFER, quad_positions, this.gl.STATIC_DRAW);
+            this.setupAttribute(this.locs.quad.pos, 2, 0, 0);
+            this.quadTexcoordBuffer = this.createBuffer(this.gl.ARRAY_BUFFER, quad_texcoords, this.gl.STATIC_DRAW);
+            this.setupAttribute(this.locs.quad.texcoord, 2, 0, 0);
+            this.quadIndexBuffer = this.createBuffer(this.gl.ELEMENT_ARRAY_BUFFER, quad_indices, this.gl.STATIC_DRAW);
+            this.gl.bindVertexArray(null);
+
+            // 4. Particle Texture
+            this.particleTexture = this.gl.createTexture()!;
+            this.gl.activeTexture(this.gl.TEXTURE0);
+            this.gl.bindTexture(this.gl.TEXTURE_2D, this.particleTexture);
+            const placeholder = new Uint8Array([255, 255, 255, 255]);
+            this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, 1, 1, 0, this.gl.RGBA, this.gl.UNSIGNED_BYTE, placeholder);
+
+            const image = new Image();
+            image.src = "/orb_particle_texture.png";
+            image.onload = () => {
+                this.gl.activeTexture(this.gl.TEXTURE0);
+                this.gl.bindTexture(this.gl.TEXTURE_2D, this.particleTexture);
+                this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, image);
+                this.gl.generateMipmap(this.gl.TEXTURE_2D);
+                this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.LINEAR_MIPMAP_LINEAR);
+                this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.LINEAR);
+                this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.CLAMP_TO_EDGE);
+                this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.CLAMP_TO_EDGE);
+            };
+        }
+
+        private setupRenderTarget() {
+            if (this.renderTexture) this.gl.deleteTexture(this.renderTexture);
+            if (this.stencilRenderbuffer) this.gl.deleteRenderbuffer(this.stencilRenderbuffer);
+            if (this.fbo) this.gl.deleteFramebuffer(this.fbo);
+
+            this.renderTexWidth = this.canvasWidth;
+            this.renderTexHeight = this.canvasHeight;
+
+            this.renderTexture = this.gl.createTexture()!;
+            this.gl.bindTexture(this.gl.TEXTURE_2D, this.renderTexture);
+            const internalFormat = this.useFloatTexture ? this.gl.RGBA16F : this.gl.RGBA8;
+            const type = this.useFloatTexture ? this.gl.HALF_FLOAT : this.gl.UNSIGNED_BYTE;
+            this.gl.texImage2D(this.gl.TEXTURE_2D, 0, internalFormat, this.renderTexWidth, this.renderTexHeight, 0, this.gl.RGBA, type, null);
+            this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.LINEAR);
+            this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.LINEAR);
+            this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.CLAMP_TO_EDGE);
+            this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.CLAMP_TO_EDGE);
+
+            this.stencilRenderbuffer = this.gl.createRenderbuffer()!;
+            this.gl.bindRenderbuffer(this.gl.RENDERBUFFER, this.stencilRenderbuffer);
+            this.gl.renderbufferStorage(this.gl.RENDERBUFFER, this.gl.STENCIL_INDEX8, this.renderTexWidth, this.renderTexHeight);
+
+            this.fbo = this.gl.createFramebuffer()!;
+            this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.fbo);
+            this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT0, this.gl.TEXTURE_2D, this.renderTexture, 0);
+            this.gl.framebufferRenderbuffer(this.gl.FRAMEBUFFER, this.gl.STENCIL_ATTACHMENT, this.gl.RENDERBUFFER, this.stencilRenderbuffer);
+
+            const status = this.gl.checkFramebufferStatus(this.gl.FRAMEBUFFER);
+            if (status !== this.gl.FRAMEBUFFER_COMPLETE) {
+                throw new Error(`Framebuffer not complete: ${status}`);
+            }
+
+            this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+        }
+
+        // ====================================================================
+        // Simulation Methods (Intentionally untouched local functions per prompt)
+        // ====================================================================
+
+        private initializeSimulation(width: number, height: number) {
             this.n_particles = n_particles;
             this.damping = 0.95;
-            this.gravity_dx = 0;
-            this.gravity_dy = 1;
+            
+            let gravity_dxy = this.normalize(gravity_dx, gravity_dy);
+            this.gravity_dx = gravity_dxy[0];
+            this.gravity_dy = gravity_dxy[1];
             this.gravity = gravity;
             this.n_sub_steps = n_sub_steps;
             this.n_constraint_iterations = n_constraint_iterations;
@@ -50,11 +463,14 @@ const image_path = "public/orb_particle_texture.png"
 
             this.min_radius = min_radius;
             this.max_radius = max_radius;
+            this.min_radius_frequency = min_radius_frequency;
+            this.max_radius_frequency = max_radius_frequency;
             this.max_agitation = max_agitation;
             this.agitation_elapsed = Infinity;
             this.agitation_duration = agitation_duration;
+            this.elapsed = 0;
 
-            this.texture_scale = 2;
+            this.texture_scale = texture_scale;
             this.timestamp = performance.now() / 1000;
             this.is_paused = false;
 
@@ -86,6 +502,8 @@ const image_path = "public/orb_particle_texture.png"
                 this.particle_data[i + _velocity_x_offset] = 0;
                 this.particle_data[i + _velocity_y_offset] = 0;
                 this.particle_data[i + _radius_offset] = this.mix(this.min_radius, this.max_radius, mass_t);
+                this.particle_data[i + _radius_cycle_offset] = this.mix(this.min_radius_frequency, this.max_radius_frequency, Math.random());
+                this.particle_data[i + _swirl_direction_offset] = i % 2 == 0 ? 1 : -1;
                 this.particle_data[i + _inverse_mass_offset] = 1 / (1 + mass_t);
                 this.particle_data[i + _orb_lambda_offset] = 0;
                 this.particle_data[i + _r_offset] = r;
@@ -98,7 +516,6 @@ const image_path = "public/orb_particle_texture.png"
 
             this.mesh_vertex_stride = (2 + 2 + 4);
             this.mesh_data_stride = this.mesh_vertex_stride * 4;
-
             this.mesh_data = new Float32Array(this.n_particles * this.mesh_data_stride);
 
             this.mesh_vertex_map_stride = 6;
@@ -117,18 +534,17 @@ const image_path = "public/orb_particle_texture.png"
             }
 
             this.update_mesh_data();
-        },
+        }
 
-
-        mass_distribution(t) {
+        private mass_distribution(t: number) {
             return Math.exp(-Math.pow((7 / 5) * Math.PI * (t - 0.5), 2));
-        },
+        }
 
-        particle_i_to_data_offset(particle_i, stride) {
+        private particle_i_to_data_offset(particle_i: number, stride: number) {
             return particle_i * stride;
-        },
+        }
 
-        lcha_to_rgba(l, c, h, alpha) {
+        private lcha_to_rgba(l: number, c: number, h: number, alpha: number) {
             const L = l * 100;
             const a = Math.cos(h * 6.283185) * c * 100;
             const b = Math.sin(h * 6.283185) * c * 100;
@@ -156,62 +572,62 @@ const image_path = "public/orb_particle_texture.png"
                 B < 0 ? 0 : (B > 1 ? 1 : B),
                 alpha
             ];
-        },
+        }
 
-        particle_is_to_lambda_i(i1, i2, n) {
+        private particle_is_to_lambda_i(i1: number, i2: number, n: number) {
             return i1 * n + i2;
-        },
+        }
 
-        mix(lower, upper, ratio) {
+        private mix(lower: number, upper: number, ratio: number) {
             return lower * (1 - ratio) + upper * ratio;
-        },
+        }
 
-        dot(x1, y1, x2, y2) {
+        private dot(x1: number, y1: number, x2: number, y2: number) {
             return x1 * x2 + y1 * y2;
-        },
+        }
 
-        squared_distance(x1, y1, x2, y2) {
+        private squared_distance(x1: number, y1: number, x2: number, y2: number) {
             const dx = x2 - x1;
             const dy = y2 - y1;
             return this.dot(dx, dy, dx, dy);
-        },
+        }
 
-        magnitude(x, y) {
+        private magnitude(x: number, y: number) {
             return Math.sqrt(x * x + y * y);
-        },
+        }
 
-        distance(x1, y1, x2, y2) {
+        private distance(x1: number, y1: number, x2: number, y2: number) {
             const dx = x2 - x1;
             const dy = y2 - y1;
             return this.magnitude(dx, dy);
-        },
+        }
 
-        normalize(x1, y1) {
+        private normalize(x1: number, y1: number) {
             const magnitude = this.magnitude(x1, y1);
             if (magnitude < 1e-8) {
                 return [0, 0];
             } else {
                 return [x1 / magnitude, y1 / magnitude];
             }
-        },
+        }
 
-        turn_left(x, y) {
-            return [y, -x]
-        },
+        private turn_left(x: number, y: number) {
+            return [y, -x];
+        }
 
-        turn_right(x, y) {
-            return [-y, x]
-        },
+        private turn_right(x: number, y: number) {
+            return [-y, x];
+        }
 
-        get_position() {
+        private get_position() {
             return {
                 position_x: this.orb_center_x,
                 position_y: this.orb_center_y,
                 radius: this.orb_radius
             }
-        },
+        }
 
-        update_mesh_data() {
+        private update_mesh_data() {
             const now = performance.now() / 1000;
             const elapsed = now - this.timestamp;
 
@@ -223,11 +639,13 @@ const image_path = "public/orb_particle_texture.png"
                 let py = this.particle_data[data_i + _y_offset];
                 const vx = this.particle_data[data_i + _velocity_x_offset];
                 const vy = this.particle_data[data_i + _velocity_y_offset];
-                const radius = this.particle_data[data_i + _radius_offset] * this.texture_scale;
-                const r = this.particle_data[data_i + _r_offset];
-                const g = this.particle_data[data_i + _g_offset];
-                const b = this.particle_data[data_i + _b_offset];
-                const a = this.particle_data[data_i + _a_offset];
+                const r = this.particle_data[data_i + _r_offset] * blend_strength;
+                const g = this.particle_data[data_i + _g_offset] * blend_strength;
+                const b = this.particle_data[data_i + _b_offset] * blend_strength;
+                const a = this.particle_data[data_i + _a_offset] * 1;
+                let radius = this.particle_data[data_i + _radius_offset] * this.texture_scale
+
+                radius *= this.mix(min_radius_scale, max_radius_scale, 0.5 * (1 + Math.cos(this.particle_data[data_i + _radius_cycle_offset] * Math.PI * (this.elapsed + particle_i))))
 
                 px = px + vx * elapsed;
                 py = py + vy * elapsed;
@@ -277,9 +695,9 @@ const image_path = "public/orb_particle_texture.png"
                 this.mesh_data[mesh_data_i + offset + 6] = b;
                 this.mesh_data[mesh_data_i + offset + 7] = a;
             }
-        },
+        }
 
-        enforce_distance(ax, ay, bx, by, inverse_mass_a, inverse_mass_b, target_distance, alpha, lambda_before) {
+        private enforce_distance(ax: number, ay: number, bx: number, by: number, inverse_mass_a: number, inverse_mass_b: number, target_distance: number, alpha: number, lambda_before: number) {
             const eps = 1e-8;
             const delta_x = bx - ax;
             const delta_y = by - ay;
@@ -306,9 +724,9 @@ const image_path = "public/orb_particle_texture.png"
                 inverse_mass_b * delta_lambda * normal_y,
                 lambda_new
             ];
-        },
+        }
 
-        enforce_inside_circle(particle_x, particle_y, particle_r, particle_inverse_mass, circle_x, circle_y, circle_r, alpha, lambda_before) {
+        private enforce_inside_circle(particle_x: number, particle_y: number, particle_r: number, particle_inverse_mass: number, circle_x: number, circle_y: number, circle_r: number, alpha: number, lambda_before: number) {
             const eps = 1e-8;
             const delta_x = particle_x - circle_x;
             const delta_y = particle_y - circle_y;
@@ -333,15 +751,17 @@ const image_path = "public/orb_particle_texture.png"
                 particle_inverse_mass * delta_lambda * normal_y,
                 lambda_new
             ];
-        },
+        }
 
-        swirl_easing(t) {
+        private swirl_easing(t: number) {
             let out = Math.exp(-Math.pow((Math.PI / 1.5) * t, 2));
             out *= (1 + this.mix(0, this.max_agitation, 1 - Math.min(1, this.agitation_elapsed / this.agitation_duration)));
             return out;
-        },
+        }
 
-        step(delta) {
+        public step(delta: number) {
+            this.elapsed += delta;
+
             if (this.is_paused === true) return;
 
             this.agitation_elapsed += delta;
@@ -365,14 +785,14 @@ const image_path = "public/orb_particle_texture.png"
                     velocity_x += sub_delta * this.gravity_dx * this.gravity;
                     velocity_y += sub_delta * this.gravity_dy * this.gravity;
 
-                    let dxy = orb.normalize(
+                    let dxy = this.normalize(
                         x - this.orb_center_x,
                         y - this.orb_center_y
                     );
 
-                    let orthogonal_dxy = orb.turn_left(dxy[0], dxy[1]);
-                    let strength = orb.swirl_easing(1 - Math.min(1, orb.distance(x, y, this.orb_center_x, this.orb_center_y) / this.orb_radius));
-                    velocity_x += orthogonal_dxy[0] * strength * swirl_strength * delta;
+                    let orthogonal_dxy = this.particle_data[i + _swirl_direction_offset] >= 0 ? this.turn_left(dxy[0], dxy[1]) : this.turn_right(dxy[0], dxy[1]);
+                    let strength = this.swirl_easing(1 - Math.min(1, this.distance(x, y, this.orb_center_x, this.orb_center_y) / this.orb_radius));
+                            velocity_x += orthogonal_dxy[0] * strength * swirl_strength * delta;
                     velocity_y += orthogonal_dxy[1] * strength * swirl_strength * delta;
 
                     this.particle_data[i + _velocity_x_offset] = velocity_x;
@@ -462,517 +882,162 @@ const image_path = "public/orb_particle_texture.png"
 
             this.timestamp = performance.now() / 1000;
             this.update_mesh_data();
-        },
+        }
 
-        set_position(x, y) {
-            this.orb_center_x = x;
-            this.orb_center_y = y;
-        },
-
-        agitate() {
-            /*
-            for (let particle_i = 0; particle_i < this.n_particles; particle_i++) {
-                const i = this.particle_i_to_data_offset(particle_i, this.particle_data_stride);
-                const magnitude = this.mix(this.min_agitation, this.max_agitation, Math.random());
-
-                const dx = this.particle_data[i + _x_offset] - this.orb_center_x;
-                const dy = this.particle_data[i + _y_offset] - this.orb_center_y;
-                const [ndx, ndy] = this.normalize(dx, dy);
-
-                const vx = this.particle_data[i + _velocity_x_offset];
-                const vy = this.particle_data[i + _velocity_y_offset];
-
-                this.particle_data[i + _velocity_x_offset] = vx - ndx * magnitude;
-                this.particle_data[i + _velocity_y_offset] = vy - ndy * magnitude;
-            }
-            */
+        public agitate() {
             this.agitation_elapsed = 0;
         }
-    };
 
-    // ---------- WebGL Shaders ----------
-    const vertex_shader_source = `#version 300 es
-        in vec2 position;
-        in vec2 uv;
-        in vec4 color;
-
-        uniform vec2 canvas_size;
-        uniform vec2 offset;
-
-        out vec2 fragment_uv;
-        out vec4 fragment_color;
-
-        void main() {
-            vec2 p = position + offset;
-            vec2 clip = (p / canvas_size) * 2.0 - 1.0;
-            gl_Position = vec4(clip.x, -clip.y, 0.0, 1.0);
-            fragment_uv = uv;
-            fragment_color = color;
-        }
-    `;
-
-    const fragment_shader_source = `#version 300 es
-        precision mediump float;
-
-        in vec2 fragment_uv;
-        in vec4 fragment_color;
-
-        uniform sampler2D particle_texture;
-
-        out vec4 out_color;
-
-        void main() {
-            vec4 texel = texture(particle_texture, fragment_uv);
-            out_color = texel * fragment_color;
-        }
-    `;
-
-    const stencil_vertex_shader_source = `#version 300 es
-        in vec2 position;
-
-        uniform vec2 canvas_size;
-        uniform vec2 offset;
-
-        void main() {
-            vec2 p = position + offset;
-            vec2 clip = (p / canvas_size) * 2.0 - 1.0;
-            gl_Position = vec4(clip.x, -clip.y, 0.0, 1.0);
-        }
-    `;
-
-    const stencil_fragment_shader_source = `#version 300 es
-        precision mediump float;
-
-        out vec4 out_color;
-
-        void main() {
-            out_color = vec4(0.0);
-        }
-    `;
-
-    // Fullscreen quad shader for metaball threshold
-    const quad_vertex_shader_source = `#version 300 es
-        in vec2 a_position;
-        in vec2 a_texcoord;
-
-        out vec2 v_texcoord;
-
-        void main() {
-            gl_Position = vec4(a_position, 0.0, 1.0);
-            v_texcoord = a_texcoord;
-        }
-    `;
-
-    const quad_fragment_shader_source = `#version 300 es
-        precision mediump float;
-
-        in vec2 v_texcoord;
-
-        uniform sampler2D u_renderTexture;
-        uniform float u_threshold;
-        uniform float u_eps;
-
-        out vec4 out_color;
-
-        void main() {
-            vec4 texColor = texture(u_renderTexture, v_texcoord);
-            float lum = max(texColor.r, max(texColor.g, texColor.b));
-            float alpha = smoothstep(u_threshold - u_eps, u_threshold + u_eps, lum);
-            out_color = vec4(0., 0., 0., 1.0) + vec4(texColor.rgb * alpha, alpha);
-        }
-    `;
-
-    function compile_shader(gl, type, source) {
-        const shader = gl.createShader(type);
-        gl.shaderSource(shader, source);
-        gl.compileShader(shader);
-        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-            console.error(gl.getShaderInfoLog(shader));
-            throw new Error(gl.getShaderInfoLog(shader));
-        }
-        return shader;
-    }
-
-    function create_program(gl, vertex_source, fragment_source) {
-        const program = gl.createProgram();
-        gl.attachShader(program, compile_shader(gl, gl.VERTEX_SHADER, vertex_source));
-        gl.attachShader(program, compile_shader(gl, gl.FRAGMENT_SHADER, fragment_source));
-        gl.linkProgram(program);
-        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-            console.error(gl.getProgramInfoLog(program));
-            throw new Error(gl.getProgramInfoLog(program));
-        }
-        return program;
-    }
-
-    // ---------- Main Setup ----------
-    const canvas = document.getElementById("orb_canvas") as HTMLCanvasElement;
-
-    // Force initial dimensions to be multiples of 2
-    const dpr = window.devicePixelRatio || 1;
-    let canvasWidth = 2.0 * radius + 2.0 * padding * dpr
-    let canvasHeight = 2.0 * radius + 2.0 * padding * dpr
-    canvas.width = canvasWidth;
-    canvas.height = canvasHeight;
-    canvas.style.width = `${canvas.width}px`;
-    canvas.style.height = `${canvas.height}px`;
-
-    const gl = canvas.getContext("webgl2", { stencil: true });
-    if (!gl) throw new Error("WebGL2 not supported");
-
-    // Enable required WebGL extensions
-    const extColorBufferFloat = gl.getExtension('EXT_color_buffer_float');
-    const extFloatBlend = gl.getExtension('EXT_float_blend');
-    let useFloatTexture = false;
-    if (extColorBufferFloat) {
-        useFloatTexture = true;
-        if (!extFloatBlend) {
-            console.warn('EXT_float_blend not available, additive blending may behave unexpectedly with float textures');
-        }
-    } else {
-        console.warn('EXT_color_buffer_float not available, falling back to RGBA8 render texture. Metaball threshold range limited.');
-    }
-
-    // ---------- Programs ----------
-    const program = create_program(gl, vertex_shader_source, fragment_shader_source);
-    const stencil_program = create_program(gl, stencil_vertex_shader_source, stencil_fragment_shader_source);
-    const quad_program = create_program(gl, quad_vertex_shader_source, quad_fragment_shader_source);
-
-    // Particle program uniforms
-    const position_location = gl.getAttribLocation(program, "position");
-    const uv_location = gl.getAttribLocation(program, "uv");
-    const color_location = gl.getAttribLocation(program, "color");
-    const canvas_size_location = gl.getUniformLocation(program, "canvas_size");
-    const offset_location = gl.getUniformLocation(program, "offset");
-    const particle_texture_location = gl.getUniformLocation(program, "particle_texture");
-
-    // Stencil program uniforms
-    const stencil_position_location = gl.getAttribLocation(stencil_program, "position");
-    const stencil_canvas_size_location = gl.getUniformLocation(stencil_program, "canvas_size");
-    const stencil_offset_location = gl.getUniformLocation(stencil_program, "offset");
-
-    // Quad program uniforms
-    const quad_position_location = gl.getAttribLocation(quad_program, "a_position");
-    const quad_texcoord_location = gl.getAttribLocation(quad_program, "a_texcoord");
-    const quad_renderTexture_location = gl.getUniformLocation(quad_program, "u_renderTexture");
-    const quad_threshold_location = gl.getUniformLocation(quad_program, "u_threshold");
-    const quad_eps_location = gl.getUniformLocation(quad_program, "u_eps");
-
-    // ---------- Particle VAO ----------
-    const vertex_buffer = gl.createBuffer();
-    const index_buffer = gl.createBuffer();
-
-    const vao = gl.createVertexArray();
-    gl.bindVertexArray(vao);
-    gl.bindBuffer(gl.ARRAY_BUFFER, vertex_buffer);
-
-    const float_size = Float32Array.BYTES_PER_ELEMENT;
-    const vertex_stride_bytes = 8 * float_size; // x, y, u, v, r, g, b, a
-
-    gl.enableVertexAttribArray(position_location);
-    gl.vertexAttribPointer(position_location, 2, gl.FLOAT, false, vertex_stride_bytes, 0);
-    gl.enableVertexAttribArray(uv_location);
-    gl.vertexAttribPointer(uv_location, 2, gl.FLOAT, false, vertex_stride_bytes, 2 * float_size);
-    gl.enableVertexAttribArray(color_location);
-    gl.vertexAttribPointer(color_location, 4, gl.FLOAT, false, vertex_stride_bytes, 4 * float_size);
-
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, index_buffer);
-    gl.bindVertexArray(null);
-
-    // ---------- Circle stencil mesh ----------
-    const n_circle_segments = 64;
-    const circle_vertex_buffer = gl.createBuffer();
-    const circle_index_buffer = gl.createBuffer();
-
-    const circle_vao = gl.createVertexArray();
-    gl.bindVertexArray(circle_vao);
-    gl.bindBuffer(gl.ARRAY_BUFFER, circle_vertex_buffer);
-    gl.enableVertexAttribArray(stencil_position_location);
-    gl.vertexAttribPointer(stencil_position_location, 2, gl.FLOAT, false, 2 * float_size, 0);
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, circle_index_buffer);
-
-    const circle_indices = new Uint16Array(n_circle_segments * 3);
-    for (let segment_i = 0; segment_i < n_circle_segments; segment_i++) {
-        circle_indices[segment_i * 3 + 0] = 0;
-        circle_indices[segment_i * 3 + 1] = 1 + segment_i;
-        circle_indices[segment_i * 3 + 2] = 1 + (segment_i + 1) % n_circle_segments;
-    }
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, circle_indices, gl.STATIC_DRAW);
-    gl.bindVertexArray(null);
-
-    const circle_vertices = new Float32Array((1 + n_circle_segments) * 2);
-
-    function update_circle_vertices(center_x, center_y, radius) {
-        circle_vertices[0] = center_x;
-        circle_vertices[1] = center_y;
-        for (let segment_i = 0; segment_i < n_circle_segments; segment_i++) {
-            const angle = (segment_i / n_circle_segments) * 2 * Math.PI;
-            circle_vertices[(1 + segment_i) * 2 + 0] = center_x + Math.cos(angle) * radius;
-            circle_vertices[(1 + segment_i) * 2 + 1] = center_y + Math.sin(angle) * radius;
-        }
-    }
-
-    // ---------- Fullscreen Quad VAO ----------
-    const quad_positions = new Float32Array([
-        -1, -1,   1, -1,   1,  1,  -1,  1
-    ]);
-    const quad_texcoords = new Float32Array([
-        0,  0,    1,  0,    1,  1,   0,  1
-    ]);
-    const quad_indices = new Uint16Array([0, 1, 2, 0, 2, 3]);
-
-    const quad_vao = gl.createVertexArray();
-    gl.bindVertexArray(quad_vao);
-
-    const quad_position_buffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, quad_position_buffer);
-    gl.bufferData(gl.ARRAY_BUFFER, quad_positions, gl.STATIC_DRAW);
-    gl.enableVertexAttribArray(quad_position_location);
-    gl.vertexAttribPointer(quad_position_location, 2, gl.FLOAT, false, 0, 0);
-
-    const quad_texcoord_buffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, quad_texcoord_buffer);
-    gl.bufferData(gl.ARRAY_BUFFER, quad_texcoords, gl.STATIC_DRAW);
-    gl.enableVertexAttribArray(quad_texcoord_location);
-    gl.vertexAttribPointer(quad_texcoord_location, 2, gl.FLOAT, false, 0, 0);
-
-    const quad_index_buffer = gl.createBuffer();
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, quad_index_buffer);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, quad_indices, gl.STATIC_DRAW);
-
-    gl.bindVertexArray(null);
-
-    // ---------- Render Target (Framebuffer + Texture + Stencil) ----------
-    let renderTexWidth = canvasWidth;
-    let renderTexHeight = canvasHeight;
-    let renderTexture: WebGLTexture | null = null;
-    let stencilRenderbuffer: WebGLRenderbuffer | null = null;
-    let fbo: WebGLFramebuffer | null = null;
-
-    function setupRenderTarget() {
-        if (gl === null) return;
-
-        // Delete old resources if they exist
-        if (renderTexture) gl.deleteTexture(renderTexture);
-        if (stencilRenderbuffer) gl.deleteRenderbuffer(stencilRenderbuffer);
-        if (fbo) gl.deleteFramebuffer(fbo);
-
-        renderTexWidth = canvasWidth;
-        renderTexHeight = canvasHeight;
-
-        // Create color texture (float if possible)
-        renderTexture = gl.createTexture();
-        gl.bindTexture(gl.TEXTURE_2D, renderTexture);
-        const internalFormat = useFloatTexture ? gl.RGBA16F : gl.RGBA8;
-        const type = useFloatTexture ? gl.HALF_FLOAT : gl.UNSIGNED_BYTE;
-        gl.texImage2D(gl.TEXTURE_2D, 0, internalFormat, renderTexWidth, renderTexHeight, 0, gl.RGBA, type, null);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-
-        // Create stencil renderbuffer
-        stencilRenderbuffer = gl.createRenderbuffer();
-        gl.bindRenderbuffer(gl.RENDERBUFFER, stencilRenderbuffer);
-        gl.renderbufferStorage(gl.RENDERBUFFER, gl.STENCIL_INDEX8, renderTexWidth, renderTexHeight);
-
-        // Create framebuffer and attach
-        fbo = gl.createFramebuffer();
-        gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
-        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, renderTexture, 0);
-        gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.STENCIL_ATTACHMENT, gl.RENDERBUFFER, stencilRenderbuffer);
-
-        const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
-        if (status !== gl.FRAMEBUFFER_COMPLETE) {
-            console.error('Framebuffer incomplete:', status);
-            throw new Error('Framebuffer not complete');
-        }
-
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    }
-
-    // Initial creation
-    setupRenderTarget();
-
-    // ---------- Particle Texture ----------
-    const texture = gl.createTexture();
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    const placeholder = new Uint8Array([255, 255, 255, 255]);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, placeholder);
-
-    const image = new Image();
-    image.src = "/orb_particle_texture.png";
-    image.onload = () => {
-        gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, texture);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
-        gl.generateMipmap(gl.TEXTURE_2D);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    };
-
-    // ---------- Orb Init ----------
-    orb.initialize(canvasWidth, canvasHeight);
-
-    // Upload index buffer once
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, index_buffer);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, orb.mesh_vertex_map, gl.STATIC_DRAW);
-
-    // Offset is zero because render texture size matches canvas and orb is centered
-    const offsetUniform = [0.0, 0.0];
-
-    // ---------- Render Loop ----------
-    let previous_timestamp = performance.now();
-
-    function renderToFramebuffer() {
-        if (gl == null) return;
-
-        gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
-        gl.viewport(0, 0, renderTexWidth, renderTexHeight);
-        gl.enable(gl.STENCIL_TEST);
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
-
-        // Pass 1: stencil mask
-        gl.stencilFunc(gl.ALWAYS, 1, 0xFF);
-        gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
-        gl.stencilMask(0xFF);
-        gl.colorMask(false, false, false, false);
-        gl.disable(gl.BLEND);
-
-        const { position_x, position_y, radius } = orb.get_position();
-        update_circle_vertices(position_x, position_y, radius);
-
-        gl.useProgram(stencil_program);
-        gl.uniform2f(stencil_canvas_size_location, renderTexWidth, renderTexHeight);
-        gl.uniform2f(stencil_offset_location, offsetUniform[0], offsetUniform[1]);
-
-        gl.bindVertexArray(circle_vao);
-        gl.bindBuffer(gl.ARRAY_BUFFER, circle_vertex_buffer);
-        gl.bufferData(gl.ARRAY_BUFFER, circle_vertices, gl.DYNAMIC_DRAW);
-        gl.drawElements(gl.TRIANGLES, n_circle_segments * 3, gl.UNSIGNED_SHORT, 0);
-
-        // Pass 2: particles with additive blending
-        gl.stencilFunc(gl.EQUAL, 1, 0xFF);
-        gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
-        gl.stencilMask(0x00);
-        gl.colorMask(true, true, true, true);
-        gl.enable(gl.BLEND);
-        gl.blendFunc(gl.ONE, gl.ONE);
-
-        gl.useProgram(program);
-        gl.uniform2f(canvas_size_location, renderTexWidth, renderTexHeight);
-        gl.uniform2f(offset_location, offsetUniform[0], offsetUniform[1]);
-        gl.uniform1i(particle_texture_location, 0);
-
-        gl.bindVertexArray(vao);
-        gl.bindBuffer(gl.ARRAY_BUFFER, vertex_buffer);
-        gl.bufferData(gl.ARRAY_BUFFER, orb.mesh_data, gl.DYNAMIC_DRAW);
-
-        gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, texture); // particle sprite texture
-
-        gl.drawElements(gl.TRIANGLES, orb.n_particles * orb.mesh_vertex_map_stride, gl.UNSIGNED_SHORT, 0);
-
-        gl.bindVertexArray(null);
-        gl.disable(gl.BLEND);
-        gl.disable(gl.STENCIL_TEST);
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    }
-
-    function renderToScreen() {
-        if (gl == null) return;
-
-        gl.viewport(0, 0, canvasWidth, canvasHeight);
-        gl.clear(gl.COLOR_BUFFER_BIT);
-        gl.disable(gl.BLEND);
-        gl.disable(gl.STENCIL_TEST);
-
-        gl.useProgram(quad_program);
-        gl.uniform1i(quad_renderTexture_location, 1);
-        // Threshold value; adjust to taste
-        gl.uniform1f(quad_threshold_location, threshold);
-        gl.uniform1f(quad_eps_location, eps)
-
-        gl.activeTexture(gl.TEXTURE1);
-        gl.bindTexture(gl.TEXTURE_2D, renderTexture);
-
-        gl.bindVertexArray(quad_vao);
-        gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
-        gl.bindVertexArray(null);
-    }
-
-    function render_frame(timestamp: number) {
-        if (gl === null) return;
-
-        const delta = Math.min((timestamp - previous_timestamp) / 1000, 0.05);
-        previous_timestamp = timestamp;
-        orb.step(delta);
-
-        renderToFramebuffer();
-        renderToScreen();
-
-        requestAnimationFrame(render_frame);
-    }
-    requestAnimationFrame(render_frame);
-
-    // ---------- Resize Handler ----------
-    function handle_resize() {
-        if (gl === null) return;
-
-        const dpr = window.devicePixelRatio || 1;
-        let canvasWidth = 2.0 * radius + 2.0 * padding * dpr
-        let canvasHeight = 2.0 * radius + 2.0 * padding * dpr
-        canvas.width = canvasWidth;
-        canvas.height = canvasHeight;
-        canvas.style.width = `${canvas.width}px`;
-        canvas.style.height = `${canvas.height}px`;
-
-        // Recreate render target with new size
-        setupRenderTarget();
-
-        // Update screen‑space viewport and uniforms used by quad program (none needed, viewport is set during render)
-
-        // Reinitialize orb with new canvas dimensions
-        orb.initialize(canvasWidth, canvasHeight);
-        update_orb_position();
-
-        // Re-upload particle mesh (orphan mesh data changed)
-        gl.bindBuffer(gl.ARRAY_BUFFER, vertex_buffer);
-        gl.bufferData(gl.ARRAY_BUFFER, orb.mesh_data, gl.DYNAMIC_DRAW);
-    }
-    window.addEventListener("resize", handle_resize);
-    // Initial sizing already done above
-
-    function update_orb_position() {
-        const rect = canvas.getBoundingClientRect();
-        const x = (rect.left + rect.width / 2) * (canvasWidth / rect.width);
-        const y = (rect.top + rect.height / 2) * (canvasHeight / rect.height);
-        //orb.set_position(x, y);
-    }
-    window.addEventListener("scroll", update_orb_position, { passive: true });
-    update_orb_position();
-
-    // pause when scrolling off-screen
-    const target = document.getElementById('orb_canvas');
-    if (target) {
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach((entry) => {
-                orb.is_paused = !entry.isIntersecting;
+        // ====================================================================
+        // Event Binding and Renders
+        // ====================================================================
+
+        private bindEvents() {
+            window.addEventListener("resize", this.handle_resize);
+            window.addEventListener("scroll", this.update_orb_position, { passive: true });
+            this.update_orb_position();
+
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach((entry) => {
+                    this.is_paused = !entry.isIntersecting;
+                });
+            }, {
+                root: null,
+                threshold: 0
             });
-        }, {
-            root: null,
-            threshold: 0
-        });
+            observer.observe(this.canvas);
 
-        observer.observe(target);
+            this.canvas.addEventListener("click", () => {
+                this.agitate();
+            });
+        }
+
+        private update_circle_vertices(center_x: number, center_y: number, radius: number) {
+            this.circle_vertices[0] = center_x;
+            this.circle_vertices[1] = center_y;
+            for (let segment_i = 0; segment_i < this.n_circle_segments; segment_i++) {
+                const angle = (segment_i / this.n_circle_segments) * 2 * Math.PI;
+                this.circle_vertices[(1 + segment_i) * 2 + 0] = center_x + Math.cos(angle) * radius;
+                this.circle_vertices[(1 + segment_i) * 2 + 1] = center_y + Math.sin(angle) * radius;
+            }
+        }
+
+        private renderToFramebuffer() {
+            this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.fbo);
+            this.gl.viewport(0, 0, this.renderTexWidth, this.renderTexHeight);
+            this.gl.enable(this.gl.STENCIL_TEST);
+            this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.STENCIL_BUFFER_BIT);
+
+            // Pass 1: stencil mask
+            this.gl.stencilFunc(this.gl.ALWAYS, 1, 0xFF);
+            this.gl.stencilOp(this.gl.KEEP, this.gl.KEEP, this.gl.REPLACE);
+            this.gl.stencilMask(0xFF);
+            this.gl.colorMask(false, false, false, false);
+            this.gl.disable(this.gl.BLEND);
+
+            const { position_x, position_y, radius } = this.get_position();
+            this.update_circle_vertices(position_x, position_y, radius);
+
+            this.gl.useProgram(this.stencil_program);
+            this.gl.uniform2f(this.locs.stencil.canvasSize, this.renderTexWidth, this.renderTexHeight);
+            this.gl.uniform2f(this.locs.stencil.offset, this.offsetUniform[0], this.offsetUniform[1]);
+
+            this.gl.bindVertexArray(this.circleVao);
+            this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.circleVertexBuffer);
+            this.gl.bufferData(this.gl.ARRAY_BUFFER, this.circle_vertices, this.gl.DYNAMIC_DRAW);
+            this.gl.drawElements(this.gl.TRIANGLES, this.n_circle_segments * 3, this.gl.UNSIGNED_SHORT, 0);
+
+            // Pass 2: particles with additive blending
+            this.gl.stencilFunc(this.gl.EQUAL, 1, 0xFF);
+            this.gl.stencilOp(this.gl.KEEP, this.gl.KEEP, this.gl.KEEP);
+            this.gl.stencilMask(0x00);
+            this.gl.colorMask(true, true, true, true);
+            this.gl.enable(this.gl.BLEND);
+            this.gl.blendFuncSeparate(
+                this.gl.SRC_ALPHA,           // srcRGB
+                this.gl.ONE_MINUS_SRC_ALPHA, // dstRGB
+                this.gl.ONE,                 // srcAlpha
+                this.gl.ONE                  // dstAlpha
+            );
+
+            this.gl.useProgram(this.program);
+            this.gl.uniform2f(this.locs.particle.canvasSize, this.renderTexWidth, this.renderTexHeight);
+            this.gl.uniform2f(this.locs.particle.offset, this.offsetUniform[0], this.offsetUniform[1]);
+            this.gl.uniform1i(this.locs.particle.texture, 0);
+
+            this.gl.bindVertexArray(this.vao);
+            this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBuffer);
+            this.gl.bufferData(this.gl.ARRAY_BUFFER, this.mesh_data, this.gl.DYNAMIC_DRAW);
+
+            this.gl.activeTexture(this.gl.TEXTURE0);
+            this.gl.bindTexture(this.gl.TEXTURE_2D, this.particleTexture);
+
+            this.gl.drawElements(this.gl.TRIANGLES, this.n_particles * this.mesh_vertex_map_stride, this.gl.UNSIGNED_SHORT, 0);
+
+            this.gl.bindVertexArray(null);
+            this.gl.disable(this.gl.BLEND);
+            this.gl.disable(this.gl.STENCIL_TEST);
+            this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+        }
+
+        private renderToScreen() {
+            this.gl.viewport(0, 0, this.canvasWidth, this.canvasHeight);
+            this.gl.clear(this.gl.COLOR_BUFFER_BIT);
+            this.gl.disable(this.gl.BLEND);
+            this.gl.disable(this.gl.STENCIL_TEST);
+
+            this.gl.useProgram(this.quad_program);
+            this.gl.uniform1i(this.locs.quad.renderTexture, 1);
+            this.gl.uniform1f(this.locs.quad.threshold, threshold);
+            this.gl.uniform1f(this.locs.quad.eps, eps);
+
+            this.gl.activeTexture(this.gl.TEXTURE1);
+            this.gl.bindTexture(this.gl.TEXTURE_2D, this.renderTexture);
+
+            this.gl.bindVertexArray(this.quadVao);
+            this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
+            this.gl.bindVertexArray(null);
+        }
+
+        private render_frame = (time: number) => {
+            const delta = Math.min((time - this.previous_timestamp) / 1000, 0.05);
+            this.previous_timestamp = time;
+            this.step(delta);
+
+            this.renderToFramebuffer();
+            this.renderToScreen();
+
+            requestAnimationFrame(this.render_frame);
+        }
+
+        private handle_resize = () => {
+            const dpr = window.devicePixelRatio || 1;
+            this.canvasWidth = 2.0 * radius + 2.0 * padding * dpr;
+            this.canvasHeight = 2.0 * radius + 2.0 * padding * dpr;
+            this.canvas.width = this.canvasWidth;
+            this.canvas.height = this.canvasHeight;
+            this.canvas.style.width = `${this.canvas.width}px`;
+            this.canvas.style.height = `${this.canvas.height}px`;
+
+            this.setupRenderTarget();
+            this.initializeSimulation(this.canvasWidth, this.canvasHeight);
+            this.update_orb_position();
+
+            this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBuffer);
+            this.gl.bufferData(this.gl.ARRAY_BUFFER, this.mesh_data, this.gl.DYNAMIC_DRAW);
+        }
+
+        private update_orb_position = () => {
+            const rect = this.canvas.getBoundingClientRect();
+            const x = (rect.left + rect.width / 2) * (this.canvasWidth / rect.width);
+            const y = (rect.top + rect.height / 2) * (this.canvasHeight / rect.height);
+            // this.orb_center_x = x;
+            // this.orb_center_y = y;
+        }
     }
 
-    canvas.addEventListener("click", () => {
-        orb.agitate();
-    });
+    // Initialize module
+    new OrbRenderer("orb_canvas");
 </script>
 
 <style>
