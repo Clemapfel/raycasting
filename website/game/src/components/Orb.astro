@@ -1,14 +1,22 @@
 ---
 // src/components/OrbRenderer.astro
 const image_path = "public/orb_particle_texture.png"
-
-const n_particles : Number = 32;
-const n_sub_steps : Number = 4;
-const n_constraint_iterations : Number = 2;
-// TODO: forward constants
 ---
 
 <script>
+    const n_particles : number = 32;
+    const n_sub_steps : number = 4;
+    const n_constraint_iterations : number = 2;
+    const gravity : number = 4000;
+
+    const radius : number = 128;
+    const padding : number = 16;
+
+    const min_agitation : number = 3000;
+    const max_agitation : number = 6000;
+    const min_radius : number = 10;
+    const max_radius : number = 16;
+
     const _x_offset = 0;
     const _y_offset = 1;
     const _previous_x_offset = 2;
@@ -25,27 +33,27 @@ const n_constraint_iterations : Number = 2;
 
     const orb = {
         initialize(width, height) {
-            this.n_particles = 32;
+            this.n_particles = n_particles;
             this.damping = 0.95;
             this.gravity_dx = 0;
             this.gravity_dy = 1;
-            this.gravity = 4000;
-            this.n_sub_steps = 4;
-            this.n_constraint_iterations = 2;
+            this.gravity = gravity;
+            this.n_sub_steps = n_sub_steps;
+            this.n_constraint_iterations = n_constraint_iterations;
             this.collision_compliance = 0.0001;
             this.orb_compliance = 0.0001;
 
-            this.min_radius = 10;
-            this.max_radius = 16;
-            this.min_agitation = 3000;
-            this.max_agitation = 6000;
+            this.min_radius = min_radius;
+            this.max_radius = max_radius;
+            this.min_agitation = min_agitation;
+            this.max_agitation = max_agitation;
 
             this.texture_scale = 2;
             this.timestamp = performance.now() / 1000;
 
             this.orb_center_x = width / 2;
             this.orb_center_y = height / 2;
-            this.orb_radius = 128;
+            this.orb_radius = radius;
 
             this.particle_data_stride = _a_offset + 1;
             this.particle_data = new Float32Array(this.n_particles * this.particle_data_stride);
@@ -532,7 +540,7 @@ const n_constraint_iterations : Number = 2;
             vec4 texColor = texture(u_renderTexture, v_texcoord);
             float lum = max(texColor.r, max(texColor.g, texColor.b));
             float alpha = smoothstep(u_threshold - 0.15, u_threshold + 0.15, lum);
-            out_color = vec4(texColor.rgb * alpha, alpha);
+            out_color = vec4(0., 0., 0., 1.0) + vec4(texColor.rgb * alpha, alpha);
         }
     `;
 
@@ -564,12 +572,12 @@ const n_constraint_iterations : Number = 2;
 
     // Force initial dimensions to be multiples of 2
     const dpr = window.devicePixelRatio || 1;
-    let canvasWidth = Math.floor(window.innerWidth * dpr / 2) * 2;
-    let canvasHeight = Math.floor(window.innerHeight * dpr / 2) * 2;
+    let canvasWidth = 2.0 * radius + 2.0 * padding * dpr
+    let canvasHeight = 2.0 * radius + 2.0 * padding * dpr
     canvas.width = canvasWidth;
     canvas.height = canvasHeight;
-    canvas.style.width = `${window.innerWidth}px`;
-    canvas.style.height = `${window.innerHeight}px`;
+    canvas.style.width = `${canvas.width}px`;
+    canvas.style.height = `${canvas.height}px`;
 
     const gl = canvas.getContext("webgl2", { stencil: true });
     if (!gl) throw new Error("WebGL2 not supported");
@@ -869,13 +877,12 @@ const n_constraint_iterations : Number = 2;
         if (gl === null) return;
 
         const dpr = window.devicePixelRatio || 1;
-        // Force dimensions to multiples of 2
-        canvasWidth = Math.floor(window.innerWidth * dpr / 2) * 2;
-        canvasHeight = Math.floor(window.innerHeight * dpr / 2) * 2;
+        let canvasWidth = 2.0 * radius + 2.0 * padding * dpr
+        let canvasHeight = 2.0 * radius + 2.0 * padding * dpr
         canvas.width = canvasWidth;
         canvas.height = canvasHeight;
-        canvas.style.width = `${window.innerWidth}px`;
-        canvas.style.height = `${window.innerHeight}px`;
+        canvas.style.width = `${canvas.width}px`;
+        canvas.style.height = `${canvas.height}px`;
 
         // Recreate render target with new size
         setupRenderTarget();
@@ -909,9 +916,9 @@ const n_constraint_iterations : Number = 2;
 
 <style>
     #orb_canvas {
-        display: block;
-        width: 50px;
-        height: 50px;
+        display: inline;
+        width: 160px;
+        height: 160px;
     }
 </style>
 
