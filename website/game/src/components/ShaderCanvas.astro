@@ -181,8 +181,6 @@ const vertex_shader = `
                 let startTime = performance.now();
 
                 const render = (now: number) => {
-                    resize(); // Ensure canvas is perfectly sized before draw
-
                     if (timeLocation) {
                         gl.uniform1f(timeLocation, (now - startTime) / 1000);
                     }

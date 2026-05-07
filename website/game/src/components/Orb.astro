@@ -5,17 +5,22 @@ const image_path = "public/orb_particle_texture.png"
 
 <script>
     const n_particles : number = 32;
-    const n_sub_steps : number = 4;
+    const n_sub_steps : number = 3;
     const n_constraint_iterations : number = 2;
-    const gravity : number = 4000;
+    const gravity : number = 2000;
+    const swirl_strength : number = gravity / 4;
 
     const radius : number = 128;
     const padding : number = 16;
 
-    const min_agitation : number = 3000;
-    const max_agitation : number = 6000;
-    const min_radius : number = 10;
+    const max_agitation : number = 4;
+    const agitation_duration : number = 1.5;
+
+    const min_radius : number = 12;
     const max_radius : number = 16;
+
+    const threshold : number = 0.6;
+    const eps : number = 0.05;
 
     const _x_offset = 0;
     const _y_offset = 1;
@@ -45,11 +50,13 @@ const image_path = "public/orb_particle_texture.png"
 
             this.min_radius = min_radius;
             this.max_radius = max_radius;
-            this.min_agitation = min_agitation;
             this.max_agitation = max_agitation;
+            this.agitation_elapsed = Infinity;
+            this.agitation_duration = agitation_duration;
 
             this.texture_scale = 2;
             this.timestamp = performance.now() / 1000;
+            this.is_paused = false;
 
             this.orb_center_x = width / 2;
             this.orb_center_y = height / 2;
@@ -188,6 +195,14 @@ const image_path = "public/orb_particle_texture.png"
             }
         },
 
+        turn_left(x, y) {
+            return [y, -x]
+        },
+
+        turn_right(x, y) {
+            return [-y, x]
+        },
+
         get_position() {
             return {
                 position_x: this.orb_center_x,
@@ -320,7 +335,16 @@ const image_path = "public/orb_particle_texture.png"
             ];
         },
 
+        swirl_easing(t) {
+            let out = Math.exp(-Math.pow((Math.PI / 1.5) * t, 2));
+            out *= (1 + this.mix(0, this.max_agitation, 1 - Math.min(1, this.agitation_elapsed / this.agitation_duration)));
+            return out;
+        },
+
         step(delta) {
+            if (this.is_paused === true) return;
+
+            this.agitation_elapsed += delta;
             const sub_delta = delta / this.n_sub_steps;
             const collision_alpha = this.collision_compliance / (sub_delta * sub_delta);
             const orb_alpha = this.orb_compliance / (sub_delta * sub_delta);
@@ -340,6 +364,16 @@ const image_path = "public/orb_particle_texture.png"
 
                     velocity_x += sub_delta * this.gravity_dx * this.gravity;
                     velocity_y += sub_delta * this.gravity_dy * this.gravity;
+
+                    let dxy = orb.normalize(
+                        x - this.orb_center_x,
+                        y - this.orb_center_y
+                    );
+
+                    let orthogonal_dxy = orb.turn_left(dxy[0], dxy[1]);
+                    let strength = orb.swirl_easing(1 - Math.min(1, orb.distance(x, y, this.orb_center_x, this.orb_center_y) / this.orb_radius));
+                    velocity_x += orthogonal_dxy[0] * strength * swirl_strength * delta;
+                    velocity_y += orthogonal_dxy[1] * strength * swirl_strength * delta;
 
                     this.particle_data[i + _velocity_x_offset] = velocity_x;
                     this.particle_data[i + _velocity_y_offset] = velocity_y;
@@ -436,6 +470,7 @@ const image_path = "public/orb_particle_texture.png"
         },
 
         agitate() {
+            /*
             for (let particle_i = 0; particle_i < this.n_particles; particle_i++) {
                 const i = this.particle_i_to_data_offset(particle_i, this.particle_data_stride);
                 const magnitude = this.mix(this.min_agitation, this.max_agitation, Math.random());
@@ -450,6 +485,8 @@ const image_path = "public/orb_particle_texture.png"
                 this.particle_data[i + _velocity_x_offset] = vx - ndx * magnitude;
                 this.particle_data[i + _velocity_y_offset] = vy - ndy * magnitude;
             }
+            */
+            this.agitation_elapsed = 0;
         }
     };
 
@@ -533,13 +570,14 @@ const image_path = "public/orb_particle_texture.png"
 
         uniform sampler2D u_renderTexture;
         uniform float u_threshold;
+        uniform float u_eps;
 
         out vec4 out_color;
 
         void main() {
             vec4 texColor = texture(u_renderTexture, v_texcoord);
             float lum = max(texColor.r, max(texColor.g, texColor.b));
-            float alpha = smoothstep(u_threshold - 0.15, u_threshold + 0.15, lum);
+            float alpha = smoothstep(u_threshold - u_eps, u_threshold + u_eps, lum);
             out_color = vec4(0., 0., 0., 1.0) + vec4(texColor.rgb * alpha, alpha);
         }
     `;
@@ -618,6 +656,7 @@ const image_path = "public/orb_particle_texture.png"
     const quad_texcoord_location = gl.getAttribLocation(quad_program, "a_texcoord");
     const quad_renderTexture_location = gl.getUniformLocation(quad_program, "u_renderTexture");
     const quad_threshold_location = gl.getUniformLocation(quad_program, "u_threshold");
+    const quad_eps_location = gl.getUniformLocation(quad_program, "u_eps");
 
     // ---------- Particle VAO ----------
     const vertex_buffer = gl.createBuffer();
@@ -711,6 +750,8 @@ const image_path = "public/orb_particle_texture.png"
     let fbo: WebGLFramebuffer | null = null;
 
     function setupRenderTarget() {
+        if (gl === null) return;
+
         // Delete old resources if they exist
         if (renderTexture) gl.deleteTexture(renderTexture);
         if (stencilRenderbuffer) gl.deleteRenderbuffer(stencilRenderbuffer);
@@ -787,6 +828,8 @@ const image_path = "public/orb_particle_texture.png"
     let previous_timestamp = performance.now();
 
     function renderToFramebuffer() {
+        if (gl == null) return;
+
         gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
         gl.viewport(0, 0, renderTexWidth, renderTexHeight);
         gl.enable(gl.STENCIL_TEST);
@@ -840,6 +883,8 @@ const image_path = "public/orb_particle_texture.png"
     }
 
     function renderToScreen() {
+        if (gl == null) return;
+
         gl.viewport(0, 0, canvasWidth, canvasHeight);
         gl.clear(gl.COLOR_BUFFER_BIT);
         gl.disable(gl.BLEND);
@@ -848,7 +893,8 @@ const image_path = "public/orb_particle_texture.png"
         gl.useProgram(quad_program);
         gl.uniform1i(quad_renderTexture_location, 1);
         // Threshold value; adjust to taste
-        gl.uniform1f(quad_threshold_location, 0.6);
+        gl.uniform1f(quad_threshold_location, threshold);
+        gl.uniform1f(quad_eps_location, eps)
 
         gl.activeTexture(gl.TEXTURE1);
         gl.bindTexture(gl.TEXTURE_2D, renderTexture);
@@ -904,10 +950,25 @@ const image_path = "public/orb_particle_texture.png"
         const rect = canvas.getBoundingClientRect();
         const x = (rect.left + rect.width / 2) * (canvasWidth / rect.width);
         const y = (rect.top + rect.height / 2) * (canvasHeight / rect.height);
-        orb.set_position(x, y);
+        //orb.set_position(x, y);
     }
     window.addEventListener("scroll", update_orb_position, { passive: true });
     update_orb_position();
+
+    // pause when scrolling off-screen
+    const target = document.getElementById('orb_canvas');
+    if (target) {
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach((entry) => {
+                orb.is_paused = !entry.isIntersecting;
+            });
+        }, {
+            root: null,
+            threshold: 0
+        });
+
+        observer.observe(target);
+    }
 
     canvas.addEventListener("click", () => {
         orb.agitate();

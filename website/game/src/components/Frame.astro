@@ -1,7 +1,5 @@
 ---
-//
 // Usage: <Frame> ... </Frame>
-//
 interface Props {
     segmentDistance?: number;
     maxOffset?: number;
@@ -9,7 +7,6 @@ interface Props {
     noiseFrequency?: number;
     noiseMaxOffset?: number;
     backgroundColor?: string;
-    outlineColor?: string;
     outlineWidth?: number;
     cornerRadius?: number;
     colorSpeed?: number;
@@ -21,7 +18,6 @@ const {
     noiseSpeed = 0.25,
     noiseFrequency = 5,
     backgroundColor = "#111111",
-    outlineColor = "currentColor",
     outlineWidth = 4,
     cornerRadius = 16,
     colorSpeed = 0.05,
@@ -39,11 +35,16 @@ import '../styles/default.css';
         data-color-speed={colorSpeed}
 >
     <svg class="noisy-frame__svg" aria-hidden="true" preserveAspectRatio="none">
-        <path class="noisy-frame__bg-and-outline" />
-        <!-- Layered paths to create the stroke-width gradient effect -->
-        <path class="noisy-frame__path noisy-frame__path--layer1" />
-        <path class="noisy-frame__path noisy-frame__path--layer2" />
-        <path class="noisy-frame__path noisy-frame__path--layer3" />
+        <defs>
+            <!-- Single base path – only the d attribute changes -->
+            <path id="noisy-frame-base" vector-effect="non-scaling-stroke" />
+        </defs>
+        <!-- Background & outline layer -->
+        <use href="#noisy-frame-base" class="noisy-frame__bg-and-outline" />
+        <!-- Layered strokes (gradient effect) -->
+        <use href="#noisy-frame-base" class="noisy-frame__path noisy-frame__path--layer1" />
+        <use href="#noisy-frame-base" class="noisy-frame__path noisy-frame__path--layer2" />
+        <use href="#noisy-frame-base" class="noisy-frame__path noisy-frame__path--layer3" />
     </svg>
     <div class="noisy-frame__content">
         <slot />
@@ -52,12 +53,12 @@ import '../styles/default.css';
 
 <style define:vars={{
     "nf-bg-color": backgroundColor,
-    "nf-outline-color": outlineColor,
     "nf-outline-width": `${outlineWidth}px`,
     "nf-corner-radius": `${cornerRadius}px`,
 }}>
     .noisy-frame {
         --nf-thickness: var(--default-frame-thickness, 6px);
+        --hue: 0; /* dynamically updated by JS */
         position: relative;
         isolation: isolate;
     }
@@ -75,11 +76,10 @@ import '../styles/default.css';
 
     .noisy-frame__bg-and-outline {
         fill: var(--nf-bg-color);
-        stroke: var(--nf-outline-color);
-        stroke-width: calc(var(--nf-thickness) + (var(--nf-outline-width)));
+        stroke: var(--default-color-background);
+        stroke-width: calc(var(--nf-thickness) + var(--nf-outline-width));
         stroke-linejoin: round;
         stroke-linecap: round;
-        color: black !important;
         vector-effect: non-scaling-stroke;
     }
 
@@ -90,26 +90,28 @@ import '../styles/default.css';
         vector-effect: non-scaling-stroke;
     }
 
-    /* Stacked stroke widths to create the gradient profile */
+    /* Stacked stroke widths & dynamic LCH colours */
     .noisy-frame__path--layer1 {
         stroke-width: var(--nf-thickness);
+        stroke: lch(60% 100 var(--hue) / 1);
     }
     .noisy-frame__path--layer2 {
-        stroke-width: calc(var(--nf-thickness) * 0.6);
+        stroke-width: calc(var(--nf-thickness) * 0.6666);
+        stroke: lch(75% 100 var(--hue) / 1);
     }
     .noisy-frame__path--layer3 {
-        stroke-width: calc(var(--nf-thickness) * 0.2);
+        stroke-width: calc(var(--nf-thickness) * 0.3333);
+        stroke: lch(90% 100 var(--hue) / 1);
     }
 
     .noisy-frame__content {
         position: relative;
         z-index: 1;
     }
-
 </style>
 
 <script>
-    // ---------- 3D Perlin noise (classic Ken Perlin, continuous in all 3 dims) ----------
+    // ---------- 3D Perlin noise (untouched) ----------
     const perm = new Uint8Array(512);
     {
         const p = new Uint8Array(256);
@@ -174,7 +176,6 @@ import '../styles/default.css';
         ny: number;
     }
 
-    // Extended interface to store cached noise lookup coordinates
     interface CachedSample extends ContourSample {
         noiseU: number;
         noiseV: number;
@@ -218,69 +219,46 @@ import '../styles/default.css';
 
             if (s < b1) {
                 const t = s - b0;
-                x = r + t;
-                y = 0;
-                nx = 0;
-                ny = -1;
+                x = r + t; y = 0; nx = 0; ny = -1;
             } else if (s < b2) {
                 const t = (s - b1) / arcLen;
                 const a = -Math.PI / 2 + t * (Math.PI / 2);
-                x = w - r + r * Math.cos(a);
-                y = r + r * Math.sin(a);
-                nx = Math.cos(a);
-                ny = Math.sin(a);
+                x = w - r + r * Math.cos(a); y = r + r * Math.sin(a);
+                nx = Math.cos(a); ny = Math.sin(a);
             } else if (s < b3) {
                 const t = s - b2;
-                x = w;
-                y = r + t;
-                nx = 1;
-                ny = 0;
+                x = w; y = r + t; nx = 1; ny = 0;
             } else if (s < b4) {
                 const t = (s - b3) / arcLen;
                 const a = t * (Math.PI / 2);
-                x = w - r + r * Math.cos(a);
-                y = h - r + r * Math.sin(a);
-                nx = Math.cos(a);
-                ny = Math.sin(a);
+                x = w - r + r * Math.cos(a); y = h - r + r * Math.sin(a);
+                nx = Math.cos(a); ny = Math.sin(a);
             } else if (s < b5) {
                 const t = s - b4;
-                x = w - r - t;
-                y = h;
-                nx = 0;
-                ny = 1;
+                x = w - r - t; y = h; nx = 0; ny = 1;
             } else if (s < b6) {
                 const t = (s - b5) / arcLen;
                 const a = Math.PI / 2 + t * (Math.PI / 2);
-                x = r + r * Math.cos(a);
-                y = h - r + r * Math.sin(a);
-                nx = Math.cos(a);
-                ny = Math.sin(a);
+                x = r + r * Math.cos(a); y = h - r + r * Math.sin(a);
+                nx = Math.cos(a); ny = Math.sin(a);
             } else if (s < b7) {
                 const t = s - b6;
-                x = 0;
-                y = h - r - t;
-                nx = -1;
-                ny = 0;
+                x = 0; y = h - r - t; nx = -1; ny = 0;
             } else {
                 const t = (s - b7) / arcLen;
                 const a = Math.PI + t * (Math.PI / 2);
-                x = r + r * Math.cos(a);
-                y = r + r * Math.sin(a);
-                nx = Math.cos(a);
-                ny = Math.sin(a);
+                x = r + r * Math.cos(a); y = r + r * Math.sin(a);
+                nx = Math.cos(a); ny = Math.sin(a);
             }
-
             samples[i] = { x, y, nx, ny };
         }
-
         return samples;
     }
 
     class NoisyFrameController {
         private root: HTMLElement;
         private svg: SVGSVGElement;
-        private paths: NodeListOf<SVGPathElement>;
-        private bgOutlinePath: SVGPathElement;
+        private basePath: SVGPathElement;          // the <path id="noisy-frame-base">
         private cachedSamples: CachedSample[] = [];
         private width = 0;
         private height = 0;
@@ -290,6 +268,7 @@ import '../styles/default.css';
         private startTime = 0;
         private visible = true;
         private intersectionObserver: IntersectionObserver;
+        private lastPathString = "";               // cache to avoid duplicate writes
 
         private segmentDistance: number;
         private maxOffset: number;
@@ -301,8 +280,7 @@ import '../styles/default.css';
         constructor(root: HTMLElement) {
             this.root = root;
             this.svg = root.querySelector(".noisy-frame__svg") as SVGSVGElement;
-            this.paths = root.querySelectorAll(".noisy-frame__path");
-            this.bgOutlinePath = root.querySelector(".noisy-frame__bg-and-outline") as SVGPathElement;
+            this.basePath = root.querySelector("#noisy-frame-base") as SVGPathElement;
 
             this.segmentDistance = parseFloat(root.dataset.segmentDistance ?? "8");
             this.maxOffset = parseFloat(root.dataset.maxOffset ?? "6");
@@ -349,9 +327,6 @@ import '../styles/default.css';
                 this.segmentDistance
             );
 
-            // CACHE OPTIMIZATION:
-            // Calculate spatial radius and the trig/noise layout coordinates once per resize
-            // instead of doing it every single frame in the requestAnimationFrame loop.
             const spatialRadius = this.perimeter / 1000;
             const n = baseSamples.length;
 
@@ -363,6 +338,7 @@ import '../styles/default.css';
                     noiseV: Math.sin(theta) * spatialRadius * this.noiseFrequency,
                 };
             });
+            this.lastPathString = ""; // force update after resize
         }
 
         private buildPath(t: number): string {
@@ -370,23 +346,18 @@ import '../styles/default.css';
             if (n === 0) return "";
 
             const tz = t * this.noiseSpeed;
-            let d = "";
+            const parts: string[] = new Array(n);
 
             for (let i = 0; i < n; i++) {
                 const s = this.cachedSamples[i];
-
-                // Fetch noise using the pre-calculated UV bounds
                 const raw = perlin3(s.noiseU, s.noiseV, tz);
                 const norm = Math.max(-1, Math.min(1, raw / 0.7));
                 const offset = norm * this.maxOffset;
-
                 const x = s.x + s.nx * offset;
                 const y = s.y + s.ny * offset;
-
-                d += (i === 0 ? "M" : "L") + x.toFixed(2) + "," + y.toFixed(2);
+                parts[i] = (i === 0 ? "M" : "L") + x.toFixed(2) + "," + y.toFixed(2);
             }
-            d += "Z";
-            return d;
+            return parts.join("") + "Z";
         }
 
         private loop = () => {
@@ -397,24 +368,14 @@ import '../styles/default.css';
             const elapsed = (performance.now() - this.startTime) / 1000;
             const d = this.buildPath(elapsed);
 
-            this.bgOutlinePath.setAttribute("d", d);
+            // Only update the DOM when the path actually changed
+            if (d !== this.lastPathString) {
+                this.basePath.setAttribute("d", d);
+                this.lastPathString = d;
+            }
 
-            const colorT = (elapsed * this.colorSpeed) % 1;
-            const hue = colorT * 360;
-
-            // GRADIENT EFFECT:
-            // Apply the same path to all layered paths, shifting the LCH lightness
-            // to simulate a glow/gradient from 60% (outer bounds) to 90% (inner core).
-            this.paths.forEach((path, index) => {
-                path.setAttribute("d", d);
-
-                // Calculates layers starting at 60% up to 90% Lightness.
-                // e.g., layer1 (index 0) = 60%, layer2 (index 1) = 75%, layer3 (index 2) = 90%
-                const layerRatio = index / (this.paths.length - 1);
-                const lightness = 60 + (layerRatio * 30);
-
-                path.style.stroke = `lch(${lightness}% 100 ${hue} / 1)`;
-            });
+            const hue = 360 * ((elapsed * this.colorSpeed) % 1);
+            this.root.style.setProperty("--hue", String(hue));
 
             this.rafId = requestAnimationFrame(this.loop);
         };
