@@ -35,7 +35,7 @@ export class Mesh {
         draw_mode? : MeshDrawMode
     ) {
         this.context = context;
-        const gl = context;
+        const gl = this.context; if (gl === null) return;
 
         if (draw_mode == undefined) draw_mode = MeshDrawMode.TRIANGLE_FAN;
         switch (draw_mode) {
@@ -68,19 +68,18 @@ export class Mesh {
     }
 
     public draw() {
-        const gl = this.context;
+        const gl = this.context; if (gl === null) return;
         gl.bindVertexArray(this.vertex_array_object);
         gl.drawElements(this.draw_mode, this.index_buffer.length, gl.UNSIGNED_SHORT, 0);
         gl.bindVertexArray(null);
     }
 
     public replaceData(vertex_buffer : Float32Array, index_buffer? : Uint16Array) {
-        this.free();
+        const gl = this.context; if (gl === null) return;
 
-        const gl = this.context;
+        this.free();
         this.vertex_buffer = vertex_buffer;
 
-        // verify vertex buffer integrity
         if (vertex_buffer.length == 0 || vertex_buffer.length % n_vertex_buffer_elements != 0)
             throw new Error("In Mesh: number of components in vertex buffer is not a multiple of 8 (xy uv rgba)")
 
@@ -100,11 +99,11 @@ export class Mesh {
         gl.bufferData(gl.ARRAY_BUFFER, vertex_buffer, gl.STATIC_DRAW);
 
         const bytes = Float32Array.BYTES_PER_ELEMENT;
-        const is_normalized = false;
+        const is_normalized = false as GLboolean;
 
-        gl.vertexAttribPointer(0, 2, gl.FLOAT, is_normalized, vertex_buffer_stride, 0);
-        gl.vertexAttribPointer(1, 2, gl.FLOAT, is_normalized, vertex_buffer_stride, 2 * bytes);
-        gl.vertexAttribPointer(2, 4, gl.FLOAT, is_normalized, vertex_buffer_stride, (2 + 2) * bytes);
+        gl.vertexAttribPointer(0, 2, gl.FLOAT, is_normalized, vertex_buffer_stride, (0) * bytes);
+        gl.vertexAttribPointer(1, 2, gl.FLOAT, is_normalized, vertex_buffer_stride, (0 + 2) * bytes);
+        gl.vertexAttribPointer(2, 4, gl.FLOAT, is_normalized, vertex_buffer_stride, (0 + 2 + 2) * bytes);
 
         if (!index_buffer) {
             index_buffer = new Uint16Array(this.n_vertices);
@@ -127,6 +126,7 @@ export class Mesh {
     }
 
     public free() {
+        const gl = this.context; if (gl === null) return;
         if (this.vertex_array_object) gl.deleteVertexArray(this.vertex_array_object);
         if (this.vertex_buffer_object) gl.deleteBuffer(this.vertex_buffer_object);
         if (this.index_buffer_object) gl.deleteBuffer(this.index_buffer_object);

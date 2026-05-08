@@ -1,17 +1,18 @@
 import type { GLContext } from './GLContext.ts';
 import { Vec2 } from './Math.ts';
-enum TextureFilterMode {
+
+export enum TextureFilterMode {
     NEAREST,
     LINEAR,
 }
 
-enum TextureWrapMode {
+export enum TextureWrapMode {
     REPEAT,
     CLAMP,
     MIRROR
 }
 
-enum TextureFormat {
+export enum TextureFormat {
     RGBA8,
     RG8,
     R8,
@@ -34,6 +35,8 @@ const resolve_texture_format = (gl : GLContext, format: TextureFormat): {
     type: number,
     bytes_per_pixel: number
 } => {
+    if (gl === null) return { internal_format: 0x0, source_format: 0x0, type: 0x0, bytes_per_pixel: 0x0 }
+
     switch (format) {
         case TextureFormat.RGBA8:
             return { internal_format: gl.RGBA8,              source_format: gl.RGBA, type: gl.UNSIGNED_BYTE, bytes_per_pixel: 4 };
@@ -69,8 +72,8 @@ const resolve_texture_format = (gl : GLContext, format: TextureFormat): {
 }
 
 export class Texture {
-    private width : number;
-    private height : number;
+    private width : number = 0;
+    private height : number = 0;
 
     protected native : WebGLTexture;
     protected context : GLContext;
@@ -79,7 +82,7 @@ export class Texture {
     constructor(context: GLContext, width: number, height: number, format?: number);
     constructor(context : GLContext, image_or_width: HTMLImageElement | number, height?: number, format?: TextureFormat) {
         this.context = context;
-        const gl = this.context;
+        const gl = this.context; if (gl === null) return;
 
         const texture = gl.createTexture();
         if (texture === null) throw new Error("In Texture: unable to create texture")
@@ -111,9 +114,9 @@ export class Texture {
         this.setWrapMode(TextureWrapMode.CLAMP);
     }
 
-    public setFilterMode(filter_min : TextureFilterMode, filter_mag? : TextureFilterMode) {
+    public setFilterMode(filter_min : TextureFilterMode, filter_mag? : TextureFilterMode) : void {
         if (filter_mag === undefined) filter_mag = filter_min;
-        const gl = this.context;
+        const gl = this.context; if (gl === null) return;
 
         const to_native = (mode : TextureFilterMode) => {
             if (mode == TextureFilterMode.NEAREST)
@@ -130,9 +133,9 @@ export class Texture {
         gl.bindTexture(gl.TEXTURE_2D, null);
     }
 
-    public setWrapMode(wrap_s : TextureWrapMode, wrap_t? : TextureWrapMode ) {
+    public setWrapMode(wrap_s : TextureWrapMode, wrap_t? : TextureWrapMode) : void {
         if (wrap_t === undefined) wrap_t = wrap_s;
-        const gl = this.context;
+        const gl = this.context; if (gl === null) return;
 
         const to_native = (mode : TextureWrapMode) => {
             if (mode == TextureWrapMode.REPEAT)
@@ -151,36 +154,41 @@ export class Texture {
         gl.bindTexture(gl.TEXTURE_2D, null);
     }
 
-    public free() {
-        if (this.native) this.context.deleteTexture(this.native);
+    public free() : void {
+        const gl = this.context; if (gl === null) return;
+        if (this.native) gl.deleteTexture(this.native);
     }
 
-    public getNative() {
+    public getNative() : WebGLTexture {
         return this.native;
     }
 
-    public getWidth() {
+    public getWidth() : number {
+        const gl = this.context; if (gl === null) return 0;
         return this.width;
     }
 
-    public getHeight() {
+    public getHeight() : number {
+        const gl = this.context; if (gl === null) return 0;
         return this.height;
     }
 
     public getSize() : Vec2 {
+        const gl = this.context; if (gl === null) return new Vec2(0, 0);
         return new Vec2(this.width, this.height);
     }
 }
 
 export class RenderTexture extends Texture {
 
+    //private native : WebGLTexture;
     private framebuffer : WebGLFramebuffer;
 
     constructor(context : GLContext, width : number, height: number, format?: number) {
         if (format === undefined) format = TextureFormat.RGBA8;
         super(context, width, height, format)
 
-        const gl = this.context;
+        const gl = this.context; if (gl === null) return;
 
         const framebuffer = gl.createFramebuffer();
         if (framebuffer === null) throw new Error("In RenderTexture: unable to create frame buffer");
@@ -207,18 +215,18 @@ export class RenderTexture extends Texture {
     }
 
     public free() {
+        const gl = this.context; if (gl === null) return;
         super.free()
-        const gl = this.context;
         if (this.framebuffer) gl.deleteFramebuffer(this.framebuffer);
     }
 
     public bind() {
-        const gl = this.context;
+        const gl = this.context; if (gl === null) return;
         gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer);
     }
 
     public unbind() {
-        const gl = this.context;
+        const gl = this.context; if (gl === null) return;
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     }
 }

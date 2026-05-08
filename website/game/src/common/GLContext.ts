@@ -1,11 +1,29 @@
-export type GLContext = WebGL2RenderingContext;
+const makeDebugContext: typeof import("webgl-debug").makeDebugContext = await import("webgl-debug")
+    // safe import, if package is missing, becomes noop
+    .then(m => m.makeDebugContext)
+    .catch(() => (context: WebGL2RenderingContext) => context
+);
+
+export type GLContext = WebGL2RenderingContext | null;
 
 export function clear(context: GLContext, clear_color? : boolean, clear_stencil : boolean = false, clear_depth : boolean = false) {
+    if (context === null) return;
+
     let mask = 0;
     if (clear_color !== false) mask |= context.COLOR_BUFFER_BIT;
     if (clear_stencil) mask |= context.STENCIL_BUFFER_BIT;
     if (clear_depth)  mask |= context.DEPTH_BUFFER_BIT;
     context.clear(mask);
+}
+
+export function getGLContext(canvas_name: string): GLContext {
+    const canvas = document.querySelector<HTMLCanvasElement>(`canvas[name="${canvas_name}"]`);
+    if (canvas === null) return null;
+
+    const context = canvas.getContext("webgl2");
+    if (context == null) return null;
+
+    return makeDebugContext(context);
 }
 
 export enum BlendMode {
@@ -21,6 +39,8 @@ function getBlendParams(
     gl: GLContext,
     mode: BlendMode
 ): [equation: number, source_factor: number, destination_factor: number] {
+    if (gl === null) return [0, 0, 0];
+
     switch (mode) {
         case BlendMode.ALPHA:
             return [gl.FUNC_ADD, gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA];
@@ -39,8 +59,9 @@ function getBlendParams(
     }
 }
 
-export function setBlendMode(context : GLContext, rgb : BlendMode, alpha : BlendMode = BlendMode.ALPHA) {
+export function setBlendMode(context : GLContext, rgb : BlendMode, alpha : BlendMode = BlendMode.ALPHA) : void {
     const gl = context;
+    if (gl === null) return;
 
     gl.enable(gl.BLEND)
     const [equation_rgb, source_factor_rgb, destination_factor_rgb] = getBlendParams(gl, rgb);
@@ -56,8 +77,10 @@ export enum StencilMode {
     NONE // disable stencil
 }
 
-export function setStencilMode(context : GLContext, mode : StencilMode, value : number = 1) {
+export function setStencilMode(context : GLContext, mode : StencilMode, value : number = 1) : void {
     const gl = context;
+    if (gl === null) return;
+
     switch (mode) {
         case StencilMode.DRAW:
             gl.enable(gl.STENCIL_TEST);

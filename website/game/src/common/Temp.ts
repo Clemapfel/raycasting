@@ -144,3 +144,33 @@ export class Shader {
         return loc;
     }
 }
+
+class TextureUnitCache {
+    private readonly texture_to_unit = new Map<WebGLTexture, number>();
+    private readonly unit_to_texture: (WebGLTexture | null)[];
+
+    constructor(private readonly gl: WebGL2RenderingContext, private readonly unit_count: number) {
+        this.unit_to_texture = new Array(unit_count).fill(null);
+    }
+
+    bind(texture: WebGLTexture, target: number, location: WebGLUniformLocation): void {
+        const gl = this.gl;
+        let unit = this.texture_to_unit.get(texture);
+
+        if (unit === undefined) {
+            if (this.texture_to_unit.size < this.unit_count) {
+                unit = this.texture_to_unit.size;
+            } else {
+                unit = this.texture_to_unit.keys().next().value!; // least recently used
+                this.texture_to_unit.delete(this.unit_to_texture[unit]!);
+            }
+            this.unit_to_texture[unit] = texture;
+            gl.activeTexture(gl.TEXTURE0 + unit);
+            gl.bindTexture(target, texture);
+        }
+
+        this.texture_to_unit.delete(texture);
+        this.texture_to_unit.set(texture, unit); // bump to most recently used
+        gl.uniform1i(location, unit);
+    }
+}
