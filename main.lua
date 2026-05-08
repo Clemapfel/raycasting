@@ -6,9 +6,6 @@ require "common.music_manager"
 require "common.sound_manager"
 require "common.input_manager"
 
-
-local orb = require "orb"
-
 love.load = function(args)
     local w, h = love.graphics.getDimensions()
 
@@ -59,34 +56,12 @@ love.load = function(args)
     --rt.SceneManager:push(mn.MenuScene) -- skip title
 
     --init()
-
-    orb.initialize()
 end
-
-local elapsed = 0
-local click_before = false
 
 love.update = function(delta)
     if rt.SceneManager ~= nil then
         rt.SceneManager:update(delta)
     end
-
-    local mouse_x, mouse_y = love.mouse.getPosition()
-    orb.set_position(mouse_x, mouse_y)
-
-    elapsed = elapsed + delta
-    local step = delta --rt.random.number(1 / 144, 1 / 30)
-    while elapsed >= step do
-        elapsed = elapsed - step
-        orb.step(step)
-        --step = rt.random.number(1 / 144, 1 / 30)
-    end
-
-    local click_now = love.mouse.isDown(1)
-    if click_before == false and click_now == true then
-        orb.agitate()
-    end
-    click_before = click_now
 end
 
 love.draw = function()
@@ -95,8 +70,6 @@ love.draw = function()
     if rt.SceneManager ~= nil then
         rt.SceneManager:draw()
     end
-
-    --orb.draw()
 end
 
 love.resize = function(width, height)

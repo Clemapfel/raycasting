@@ -129,22 +129,38 @@ const image_path = "/orb_particle_texture.png"
 
         out vec4 out_color;
         
-        vec3 aces_approx(vec3 v) {
-            // src: https://64.github.io/tonemapping/
-            v *= 0.6;
-            float a = 2.51;
-            float b = 0.03;
-            float c = 2.43;
-            float d = 0.59;
-            float e = 0.14;
-            return clamp((v * (a * v + b)) / (v * (c * v + d) + e), 0.0, 1.0);
+        vec3 lch_to_rgb(vec3 lch) {
+            float L = lch.x * 100.0;
+            float C = lch.y * 100.0;
+            float H = lch.z * 360.0;
+        
+            float a = cos(radians(H)) * C;
+            float b = sin(radians(H)) * C;
+        
+            float Y = (L + 16.0) / 116.0;
+            float X = a / 500.0 + Y;
+            float Z = Y - b / 200.0;
+        
+            X = 0.95047 * ((X * X * X > 0.008856) ? X * X * X : (X - 16.0 / 116.0) / 7.787);
+            Y = 1.00000 * ((Y * Y * Y > 0.008856) ? Y * Y * Y : (Y - 16.0 / 116.0) / 7.787);
+            Z = 1.08883 * ((Z * Z * Z > 0.008856) ? Z * Z * Z : (Z - 16.0 / 116.0) / 7.787);
+        
+            float R = X *  3.2406 + Y * -1.5372 + Z * -0.4986;
+            float G = X * -0.9689 + Y *  1.8758 + Z *  0.0415;
+            float B = X *  0.0557 + Y * -0.2040 + Z *  1.0570;
+        
+            R = (R > 0.0031308) ? 1.055 * pow(R, 1.0 / 2.4) - 0.055 : 12.92 * R;
+            G = (G > 0.0031308) ? 1.055 * pow(G, 1.0 / 2.4) - 0.055 : 12.92 * G;
+            B = (B > 0.0031308) ? 1.055 * pow(B, 1.0 / 2.4) - 0.055 : 12.92 * B;
+        
+            return vec3(clamp(R, 0.0, 1.0), clamp(G, 0.0, 1.0), clamp(B, 0.0, 1.0));
         }
 
         void main() {
             vec4 texColor = texture(u_renderTexture, v_texcoord);
             float lum = texColor.a;
             float alpha = smoothstep(u_threshold - u_eps, u_threshold + u_eps, min(1.0, lum));
-            out_color = vec4(texColor.rgb , alpha);
+            out_color = vec4(lch_to_rgb(vec3(0.8, 1, max(max(texColor.r, texColor.g), texColor.b))), alpha);
         }
     `;
 
@@ -276,7 +292,7 @@ const image_path = "/orb_particle_texture.png"
             this.setupRenderTarget();
             this.bindEvents();
 
-            requestAnimationFrame(this.render_frame);
+            requestAnimationFrame(this.renderFrame);
         }
 
         // ====================================================================
@@ -451,7 +467,7 @@ const image_path = "/orb_particle_texture.png"
         private initializeSimulation(width: number, height: number) {
             this.n_particles = n_particles;
             this.damping = 0.95;
-            
+
             let gravity_dxy = this.normalize(gravity_dx, gravity_dy);
             this.gravity_dx = gravity_dxy[0];
             this.gravity_dy = gravity_dxy[1];
@@ -999,15 +1015,15 @@ const image_path = "/orb_particle_texture.png"
             this.gl.bindVertexArray(null);
         }
 
-        private render_frame = (time: number) => {
-            const delta = Math.min((time - this.previous_timestamp) / 1000, 0.05);
+        private renderFrame = (time : number) => {
+            const delta = (time - this.previous_timestamp) / 1000;
             this.previous_timestamp = time;
             this.step(delta);
 
             this.renderToFramebuffer();
             this.renderToScreen();
 
-            requestAnimationFrame(this.render_frame);
+            requestAnimationFrame(this.renderFrame);
         }
 
         private handle_resize = () => {

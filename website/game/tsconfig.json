@@ -3,7 +3,12 @@
 
   "compilerOptions": {
     "strictNullChecks": true,
-    "allowJs": true
+    "allowJs": true,
+    "plugins": [
+      {
+        "name": "@astrojs/ts-plugin"
+      }
+    ]
   },
 
   "include": [".astro/types.d.ts", "**/*"],

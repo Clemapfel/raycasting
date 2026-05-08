@@ -38,6 +38,7 @@ end
 
 local _ellipses = "\u{2026}"
 local _shader = rt.Shader("menu/settings_scene_background.glsl", { MODE = 1 })
+local _lch_texture = rt.LCHTexture(1, 1, 512)
 
 --- @brief
 function mn.KeybindingScene:instantiate()
@@ -552,6 +553,7 @@ function mn.KeybindingScene:draw()
     _shader:bind()
     _shader:send("elapsed", rt.SceneManager:get_elapsed())
     _shader:send("black", { rt.Palette.BLACK:unpack() })
+    _shader:send("lch_texture", _lch_texture)
     love.graphics.rectangle("fill", self._bounds:unpack())
     _shader:unbind()
 
