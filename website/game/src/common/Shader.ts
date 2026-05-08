@@ -7,6 +7,7 @@ export const default_texture_uniform_name = "texture";
 export const default_uv_name = "fragment_uv";
 export const default_rgba_name = "fragment_color";
 export const default_fragment_out_name = "out_color";
+export const invert_y_axis = true;
 
 const default_vertex_shader_source = `#version 300 es
 
@@ -20,6 +21,7 @@ out vec4 ${default_rgba_name};
 void main() {
     ${default_uv_name} = vertex_uv;
     ${default_rgba_name} = vertex_color;
+    ${invert_y_axis ? "vertex_position.y *= -1.0;" : ""}
     gl_Position = vec4(vertex_position, 0.0, 1.0);
 }
 `;
@@ -88,11 +90,13 @@ export class Shader {
 
     // static lru queue for texture unit allocation
     static context_to_texture_unit_allocator : Map<GLContext, TextureUnitAllocator> = new Map<GLContext, TextureUnitAllocator>();
+    static default_texture : WebGLTexture | undefined = undefined;
 
     constructor(context : GLContext, fragment_shader_source? : string, vertex_shader_source? : string) {
         if (fragment_shader_source == undefined) fragment_shader_source = default_fragment_shader_source;
         if (vertex_shader_source == undefined) vertex_shader_source = default_vertex_shader_source;
         this.context = context;
+        const gl = this.context; if (gl === null) return;
 
         this.fragment_shader_source = fragment_shader_source;
         this.vertex_shader_source = vertex_shader_source;
@@ -105,7 +109,8 @@ export class Shader {
     private recompile(): void {
         const gl = this.context; if (gl === null) return;
 
-        if (this.program) gl.deleteProgram(this.program);
+        const first_compile = this.program == undefined;
+        if (!first_compile) gl.deleteProgram(this.program);
 
         const compile_shader = (type: number, source: string): WebGLShader => {
             const shader = gl.createShader(type)!;
@@ -137,11 +142,32 @@ export class Shader {
         }
 
         this.program = program;
+
+        if (first_compile) {
+            if (Shader.default_texture === undefined) {
+                const tex = gl.createTexture();
+                if (tex === null) throw new Error("In Shader: unable to create default texture");
+                Shader.default_texture = tex;
+            }
+
+            const previous_texture = gl.getParameter(gl.TEXTURE_BINDING_2D);
+            gl.bindTexture(gl.TEXTURE_2D, Shader.default_texture);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([255, 255, 255, 255]));            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            gl.bindTexture(gl.TEXTURE_2D, null)
+        }
     }
 
     public bind() {
         const gl = this.context; if (gl === null) return;
         gl.useProgram(this.program);
+
+        // bind 1x1 white default texture so the default shader does not return vec4(0)
+        if (gl.getParameter(gl.TEXTURE_BINDING_2D) === null) {
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, Shader.default_texture!);
+            gl.uniform1i(gl.getUniformLocation(this.program, default_texture_uniform_name), 0);
+        }
     }
 
     public unbind() {

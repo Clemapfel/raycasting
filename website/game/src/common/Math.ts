@@ -145,22 +145,22 @@ export function rotate(a: Vec2, angle: number, out?: Vec2) : void {
     }
 }
 
-export function add(a: Vec2, b: Vec2, out : Vec2) : void {
+export function add(a: Vec2, b: Vec2, out: Vec2) : void {
     out.x = a.x + b.x
     out.y = a.y + b.y
 }
 
-export function subtract(a: Vec2, b: Vec2, out : Vec2) : void {
+export function subtract(a: Vec2, b: Vec2, out: Vec2) : void {
     out.x = a.x - b.x
     out.y = a.y - b.y
 }
 
-export function multiply(a: Vec2, b: Vec2, out : Vec2) : void {
+export function multiply(a: Vec2, b: Vec2, out: Vec2) : void {
     out.x = a.x * b.x
     out.y = a.y * b.y
 }
 
-export function divide(a: Vec2, b: Vec2, out : Vec2) : void {
+export function divide(a: Vec2, b: Vec2, out: Vec2) : void {
     out.x = a.x / b.x
     out.y = a.y / b.y
 }
