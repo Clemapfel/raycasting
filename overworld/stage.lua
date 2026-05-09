@@ -727,7 +727,7 @@ function ow.Stage:reset()
     end
 
     for body in values(self._world:get_bodies()) do
-        body:set_is_enabled(body_to_is_enabled[body])
+        body:set_is_enabled(body_to_is_enabled[body] or true)
     end
 
     rt.SceneManager:get_light_map():clear()

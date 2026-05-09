@@ -559,7 +559,7 @@ function ow.ResultScreenScene:enter(player_x, player_y, screenshot, config)
 
     rt.SceneManager:set_use_fixed_timestep(true)
     if rt.GameState:get_is_bloom_enabled() then
-        rt.SceneManager:get_bloom():set_bloom_strength(rt.settings.menu_scene.bloom_strength)
+        rt.SceneManager:get_bloom():set_bloom_strength(rt.settings.menu_scene.bloom_blur_strength)
     end
 
     meta.assert_typeof(player_x, "Number", 1)

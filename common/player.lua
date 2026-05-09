@@ -3509,7 +3509,7 @@ end
 
 --- @brief
 function rt.Player:get_flow()
-    return self._current_flow
+    return 0.5 * self._current_flow
 end
 
 --- @brief

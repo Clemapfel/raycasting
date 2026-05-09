@@ -1066,6 +1066,8 @@ local _mod_to_pronounciation = {
     [4] = rt.AnimalesePronounciation.LONG
 }
 
+local _delay_sound_effect = nil
+
 function rt.Animalese:update(delta)
     -- rescan queue to set pronounciation
     if self._pronounciation_needs_update then
@@ -1197,6 +1199,13 @@ function rt.Animalese:update(delta)
 
             for effect in values(self._sound_effects) do
                 free_source:setEffect(effect:get_native())
+            end
+
+            if _delay_sound_effect == nil then
+                require "common.sound_effect"
+                _delay_sound_effect = rt.DelaySoundEffect({
+
+                })
             end
 
             free_source:setVolume(rt.settings.animalese.target_peak / next_entry.peak)

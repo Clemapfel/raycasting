@@ -101,7 +101,7 @@ function ow.BubbleField:instantiate(object, stage, scene)
 
     contour = rt.contour.close(contour)
     contour = rt.contour.subdivide(contour, settings.segment_length)
-    contour = rt.contour.smooth(contour, settings.n_smoothing_iterations)
+    contour = rt.contour.smooth(contour, 4) --settings.n_smoothing_iterations)
 
     self._contour = {}
 
