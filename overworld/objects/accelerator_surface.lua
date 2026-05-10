@@ -16,7 +16,9 @@ rt.settings.overworld.accelerator_surface = {
     },
 
     outline_width = 2,
-    bloom_intensity = 0.25
+    bloom_intensity = 0.25,
+    point_light_particle_radius = 1,
+    point_light_particle_alpha = 0.25
 }
 
 --- @class ow.AcceleratorSurface
@@ -158,7 +160,8 @@ function ow.AcceleratorSurface:instantiate(object, stage, scene)
         "use_friction",
         "stencil",
         "slippery",
-        "hitbox"
+        "hitbox",
+        "point_light_source"
     )
 
     self._body:set_friction(object:get_number("friction") or -1)
@@ -216,8 +219,12 @@ local _scale_offset = 7
 local _angle_offset = 8
 local _quad_i_offset = 9
 local _is_stale_offset = 10
+local _r_offset = 11 -- for lightmap
+local _g_offset = 12
+local _b_offset = 13
+local _a_offset = 14
 
-local _stride = _is_stale_offset + 1
+local _stride = _a_offset + 1
 local _particle_i_to_data_offset = function(particle_i)
     return (particle_i - 1) * _stride + 1
 end
@@ -267,6 +274,13 @@ function ow.AcceleratorSurface:update(delta)
             data[i + _quad_i_offset] = rt.random.integer(1, #_particle_quads)
             data[i + _is_stale_offset] = _is_not_stale
 
+            local hue = rt.random.number(0, 1)
+            local r, g, b, a = rt.lcha_to_rgba(0.8, 1, hue, 1)
+            data[i + _r_offset] = r
+            data[i + _g_offset] = g
+            data[i + _b_offset] = b
+            data[i + _a_offset] = a
+
             self._particle_elapsed = self._particle_elapsed - step
             self._n_particles = self._n_particles + 1
             self._stage.accelerator_total_n_particles = self._stage.accelerator_total_n_particles + 1
@@ -308,6 +322,8 @@ function ow.AcceleratorSurface:update(delta)
                 rt.settings.overworld.accelerator_surface.particle.attack,
                 rt.settings.overworld.accelerator_surface.particle.decay
             )
+
+            data[i + _a_offset] = alpha
 
             if alpha > math.eps then
                 self._particle_spritebatch:setColor(1, 1, 1, alpha)
@@ -435,4 +451,24 @@ end
 --- @brief
 function ow.AcceleratorSurface:reset()
     self._particles = {}
+end
+
+--- @brief
+function ow.AcceleratorSurface:collect_point_lights(callback)
+    local data = self._particle_data
+    local settings = rt.settings.overworld.accelerator_surface
+    for particle_i = 1, self._n_particles do
+        local i = _particle_i_to_data_offset(particle_i)
+        if data[i + _is_stale_offset] ~= _is_stale then
+            callback(
+                data[i + _x_offset],
+                data[i + _y_offset],
+                settings.point_light_particle_radius,
+                data[i + _r_offset],
+                data[i + _g_offset],
+                data[i + _b_offset],
+                data[i + _a_offset] * settings.point_light_particle_alpha
+            )
+        end
+    end
 end

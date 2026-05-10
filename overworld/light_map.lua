@@ -99,66 +99,82 @@ function ow.LightMap:reset()
     self._measured_max_tile_buffer_n_point_lights = 0
     self._measured_max_tile_buffer_n_segment_lights = 0
 
-    self:_reinitialize()
+    self._resize_frames = {} -- Set<Integer, Boolean>
+    self:_reinitialize(true, true, true, true)
 end
 
 --- @brief
-function ow.LightMap:_reinitialize()
-    local defines = self._shader_defines
-    local should_recompile = defines.MAX_N_POINT_LIGHTS ~= self._point_light_buffer_n
-        or defines.MAX_N_SEGMENT_LIGHTS ~= self._segment_light_buffer_n
-        or defines.N_POINT_LIGHTS_PER_TILE ~= self._tile_buffer_n_point_lights
-        or defines.N_SEGMENT_LIGHTS_PER_TILE ~= self._tile_buffer_n_segment_lights
+function ow.LightMap:_reinitialize(
+    resize_point_lights,
+    resize_segment_lights,
+    resize_tile_point_lights,
+    resize_tile_segment_lights
+)
+    if resize_point_lights or resize_segment_lights or resize_tile_point_lights or resize_tile_segment_lights then
+        local defines = self._shader_defines
+        local should_recompile = defines.MAX_N_POINT_LIGHTS ~= self._point_light_buffer_n
+            or defines.MAX_N_SEGMENT_LIGHTS ~= self._segment_light_buffer_n
+            or defines.N_POINT_LIGHTS_PER_TILE ~= self._tile_buffer_n_point_lights
+            or defines.N_SEGMENT_LIGHTS_PER_TILE ~= self._tile_buffer_n_segment_lights
 
-    if should_recompile then
-        defines.MAX_N_POINT_LIGHTS = self._point_light_buffer_n
-        defines.MAX_N_SEGMENT_LIGHTS = self._segment_light_buffer_n
-        defines.N_POINT_LIGHTS_PER_TILE = self._tile_buffer_n_point_lights
-        defines.N_SEGMENT_LIGHTS_PER_TILE = self._tile_buffer_n_segment_lights
-        self._shader = rt.ComputeShader("overworld/light_map_compute.glsl", defines)
+        if should_recompile then
+            defines.MAX_N_POINT_LIGHTS = self._point_light_buffer_n
+            defines.MAX_N_SEGMENT_LIGHTS = self._segment_light_buffer_n
+            defines.N_POINT_LIGHTS_PER_TILE = self._tile_buffer_n_point_lights
+            defines.N_SEGMENT_LIGHTS_PER_TILE = self._tile_buffer_n_segment_lights
+            self._shader = rt.ComputeShader("overworld/light_map_compute.glsl", defines)
+        end
+
+        self._resize_frames[rt.SceneManager:get_frame_index()] = true
     end
 
-    self._point_light_buffer = rt.GraphicsBuffer(
-        self._shader:get_buffer_format("point_light_source_buffer"),
-        self._point_light_buffer_n,
-        rt.GraphicsBufferUsage.DYNAMIC
-    )
+    if resize_point_lights then
+        self._point_light_buffer = rt.GraphicsBuffer(
+            self._shader:get_buffer_format("point_light_source_buffer"),
+            self._point_light_buffer_n,
+            rt.GraphicsBufferUsage.DYNAMIC
+        )
 
-    if self._use_byte_data then
-        self._point_light_buffer_data = self._point_light_buffer:get_byte_data():get_native()
-    else
-        self._point_light_buffer_data = self._point_light_buffer:get_data()
+        if self._use_byte_data then
+            self._point_light_buffer_data = self._point_light_buffer:get_byte_data():get_native()
+        else
+            self._point_light_buffer_data = self._point_light_buffer:get_data()
+        end
     end
 
-    self._segment_light_buffer = rt.GraphicsBuffer(
-        self._shader:get_buffer_format("segment_light_sources_buffer"),
-        self._segment_light_buffer_n,
-        rt.GraphicsBufferUsage.DYNAMIC
-    )
+    if resize_segment_lights then
+        self._segment_light_buffer = rt.GraphicsBuffer(
+            self._shader:get_buffer_format("segment_light_sources_buffer"),
+            self._segment_light_buffer_n,
+            rt.GraphicsBufferUsage.DYNAMIC
+        )
 
-    if self._use_byte_data then
-        self._segment_light_buffer_data = self._segment_light_buffer:get_byte_data():get_native()
-    else
-        self._segment_light_buffer_data = self._segment_light_buffer:get_data()
+        if self._use_byte_data then
+            self._segment_light_buffer_data = self._segment_light_buffer:get_byte_data():get_native()
+        else
+            self._segment_light_buffer_data = self._segment_light_buffer:get_data()
+        end
     end
 
-    local width, height = love.graphics.getDimensions()
-    self._n_tiles = math.ceil(width / self._tile_size) * math.ceil(height / self._tile_size)
+    if resize_tile_point_lights or resize_tile_segment_lights then
+        local width, height = love.graphics.getDimensions()
+        self._n_tiles = math.ceil(width / self._tile_size) * math.ceil(height / self._tile_size)
 
-    local buffer_n_elements = (1 + self._tile_buffer_n_point_lights + 1 + self._tile_buffer_n_segment_lights) * self._n_tiles
+        local buffer_n_elements = (1 + self._tile_buffer_n_point_lights + 1 + self._tile_buffer_n_segment_lights) * self._n_tiles
 
-    self._tile_data_buffer = rt.GraphicsBuffer(
-        self._shader:get_buffer_format("tile_data_buffer"),
-        buffer_n_elements,
-        rt.GraphicsBufferUsage.STREAM
-    )
-    --- layout: inline [n_point_lights, N_POINT_LIGHTS_PER_TILE * int, n_segment_lights, N_SEGMENT_LIGHTS_PER_TILE * int]
+        self._tile_data_buffer = rt.GraphicsBuffer(
+            self._shader:get_buffer_format("tile_data_buffer"),
+            buffer_n_elements,
+            rt.GraphicsBufferUsage.STREAM
+        )
+        --- layout: inline [n_point_lights, N_POINT_LIGHTS_PER_TILE * int, n_segment_lights, N_SEGMENT_LIGHTS_PER_TILE * int]
 
-    -- tile data is inline ints, use byte data so upload is cheaper
-    if ffi == nil then
-        self._tile_data_buffer_data = self._tile_data_buffer:get_byte_data():cast("int32_t")
-    else
-        self._tile_data_buffer_data = ffi.cast("int32_t*", self._tile_data_buffer:get_byte_data():get_native():getFFIPointer())
+        -- tile data is inline ints, use byte data so upload is cheaper
+        if ffi == nil then
+            self._tile_data_buffer_data = self._tile_data_buffer:get_byte_data():cast("int32_t")
+        else
+            self._tile_data_buffer_data = ffi.cast("int32_t*", self._tile_data_buffer:get_byte_data():get_native():getFFIPointer())
+        end
     end
 end
 
@@ -479,29 +495,42 @@ do
 
         debugger.push("collect")
 
+        -- early broad-phase rejection
+        local bounds_x, bounds_y, bounds_width, bounds_height = stage:get_scene():get_camera():get_world_bounds():unpack()
+        local contains_point = function(x, y, r)
+            return x >= bounds_x - r and x <= bounds_x + bounds_width + r and y >= bounds_y - r and y <= bounds_y + bounds_height + r
+        end
+
+        local contains_segment = function(ax, ay, bx, by)
+            return math.min(ax, bx) <= bounds_x + bounds_width
+                and math.max(ax, bx) >= bounds_x
+                and math.min(ay, by) <= bounds_y + bounds_height
+                and math.max(ay, by) >= bounds_y
+        end
+
         if DEBUG then
             stage:collect_point_lights(function(x, y, radius, color_r, color_g, color_b, color_a)
                 meta.assert(x, "Number", y, "Number", radius, "Number", color_r, "Number", color_g, "Number", color_b, "Number", color_a, "Number")
-                if color_a > 0 then
+                if color_a > 0 and contains_point(x, y, radius) then
                     point_light_i, n_point_lights = add_point_light(point_light_data, n_point_lights, max_n_point_lights, point_light_i, world_to_screen_transform, final_scale, x, y, radius, color_r, color_g, color_b, color_a)
                 end
             end)
 
             stage:collect_segment_lights(function(x1, y1, x2, y2, color_r, color_g, color_b, color_a)
                 meta.assert(x1, "Number", y1, "Number", x2, "Number", y2, "Number", color_r, "Number", color_g, "Number", color_b, "Number", color_a, "Number")
-                if color_a > 0 then
+                if color_a > 0 and contains_segment(x1, y1, x2, y2) then
                     segment_light_i, n_segment_lights = add_segment_light(segment_light_data, n_segment_lights, max_n_segment_lights, segment_light_i, world_to_screen_transform, x1, y1, x2, y2, color_r, color_g, color_b, color_a)
                 end
             end)
         else
             stage:collect_point_lights(function(x, y, radius, color_r, color_g, color_b, color_a)
-                if color_a > 0 then
+                if color_a > 0 and contains_point(x, y, radius) then
                     point_light_i, n_point_lights = add_point_light(point_light_data, n_point_lights, max_n_point_lights, point_light_i, world_to_screen_transform, final_scale, x, y, radius, color_r, color_g, color_b, color_a)
                 end
             end)
 
             stage:collect_segment_lights(function(x1, y1, x2, y2, color_r, color_g, color_b, color_a)
-                if color_a > 0 then
+                if color_a > 0 and contains_segment(x1, y1, x2, y2) then
                     segment_light_i, n_segment_lights = add_segment_light(segment_light_data, n_segment_lights, max_n_segment_lights, segment_light_i, world_to_screen_transform, x1, y1, x2, y2, color_r, color_g, color_b, color_a)
                 end
             end)
@@ -651,12 +680,70 @@ do
         self._measured_max_tile_buffer_n_point_lights = math.max(self._measured_max_tile_buffer_n_point_lights, n_point_lights_per_tile)
         self._measured_max_tile_buffer_n_segment_lights = math.max(self._measured_max_tile_buffer_n_segment_lights, n_segment_lights_per_tile)
 
+        if self._resize_frames[rt.SceneManager:get_frame_index()] ~= true then
+            local grow = function(x, max)
+                local before = x
+                local after = math.min(max, math.ceil(x / 16) * 16)
+                return after, before ~= after
+            end
+
+            local resize_point_lights = false
+            local resize_segment_lights = false
+            local resize_tile_point_lights = false
+            local resize_tile_segment_lights = false
+
+            if self._measured_max_point_light_buffer_n > self._point_light_buffer_n then
+                self._point_light_buffer_n, resize_point_lights = grow(
+                    self._measured_max_point_light_buffer_n,
+                    settings.max_n_point_lights
+                )
+                self._measured_max_point_light_buffer_n = self._point_light_buffer_n
+            end
+
+            if self._measured_max_segment_light_buffer_n > self._segment_light_buffer_n then
+                self._segment_light_buffer_n, resize_segment_lights = grow(
+                    self._measured_max_segment_light_buffer_n,
+                    settings.max_n_segment_lights
+                )
+                self._measured_max_segment_light_buffer_n = self._segment_light_buffer_n
+            end
+
+            if self._measured_max_tile_buffer_n_point_lights > self._tile_buffer_n_point_lights then
+                self._tile_buffer_n_point_lights, resize_tile_point_lights = grow(
+                    self._measured_max_tile_buffer_n_point_lights,
+                    settings.max_n_point_lights_per_tile
+                )
+                self._measured_max_tile_buffer_n_point_lights = self._tile_buffer_n_point_lights
+            end
+
+            if self._measured_max_tile_buffer_n_segment_lights > self._tile_buffer_n_segment_lights then
+                self._tile_buffer_n_segment_lights, resize_tile_segment_lights = grow(
+                    self._measured_max_tile_buffer_n_segment_lights,
+                    settings.max_n_segment_lights_per_tile
+                )
+                self._measured_max_tile_buffer_n_segment_lights = self._tile_buffer_n_segment_lights
+            end
+
+            if resize_point_lights or resize_segment_lights or resize_tile_point_lights or resize_tile_segment_lights then
+                self:_reinitialize(
+                    resize_point_lights,
+                    resize_segment_lights,
+                    resize_tile_point_lights,
+                    resize_tile_segment_lights
+                )
+
+                dbg("resize", self._tile_data_buffer:get_n_elements())
+            end
+        end
+
+        --[[
         println(
             self._measured_max_point_light_buffer_n, "\t", self._point_light_buffer_n, "\n",
             self._measured_max_segment_light_buffer_n, "\t", self._segment_light_buffer_n, "\n",
             self._measured_max_tile_buffer_n_point_lights, "\t", self._tile_buffer_n_point_lights, "\n",
             self._measured_max_tile_buffer_n_segment_lights, "\t", self._tile_buffer_n_segment_lights, "\n"
         )
+        ]]
     end
 end
 

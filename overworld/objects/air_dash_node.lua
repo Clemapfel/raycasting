@@ -66,7 +66,7 @@ function ow.AirDashNode:instantiate(object, stage, scene)
 
     self._body:set_collides_with(0x0)
     self._body:set_collision_group(0x0)
-    self._body:add_tag("point_light_source")
+    self._body:add_tag("point_light_source", "segment_light_source")
     self._body:set_user_data(self)
 
     self._is_current = false -- if the player initiates tether, this is the target
@@ -501,10 +501,21 @@ function ow.AirDashNode:collect_point_lights(callback)
     local r, g, b, a = self._color:unpack()
     local radius = self._radius
     callback(x, y, radius, r, g, b, a)
-
     callback(x, y, self._particle:get_radius(), r, g, b, 1 + self._is_current_motion:get_value())
 
-    self._particles:collect_point_lights(callback)
+    --self._particles:collect_point_lights(callback)
+end
+
+--- @brief
+function ow.AirDashNode:collect_segment_lights(callback)
+    local x, y = self._body:get_position()
+    local dx, dy = self:get_direction()
+    local radius = self._radius + 20
+    local ax, ay = x - dx * radius, y - dy * radius
+    local bx, by = x + dx * radius, y + dy * radius
+    callback(
+        ax, ay, bx, by, self._color.r, self._color.g, self._color.b, self._color.a * (1 + (1 - self._is_current_motion:get_value()))
+    )
 end
 
 --- @brief

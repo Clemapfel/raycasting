@@ -466,6 +466,11 @@ function ow.Bubble:collect_point_lights(callback)
     local radius = math.min(self._x_radius, self._y_radius)
     callback(x, y, radius, r, g, b, self._pop_fraction)
 
+    if self._pop_fraction < 1 then
+        callback(x, y, 2 * radius, r, g, b, (1 - self._pop_fraction))
+    end
+
+    --[[
     local data = self._particle_data
     for particle_i = 1, self._n_particles do
         local i = _particle_i_to_data_offset(particle_i)
@@ -476,4 +481,5 @@ function ow.Bubble:collect_point_lights(callback)
             )
         end
     end
+    ]]
 end
