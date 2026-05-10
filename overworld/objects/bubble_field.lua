@@ -348,6 +348,8 @@ function ow.BubbleField:draw()
     _outline_shader:send("hue", hue)
     _outline_shader:send("lch_texture", _lch_texture)
 
+    love.graphics.setLineStyle("smooth")
+    love.graphics.setLineJoin("bevel")
     love.graphics.line(self._contour)
 
     _outline_shader:unbind()

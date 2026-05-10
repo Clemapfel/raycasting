@@ -397,6 +397,7 @@ function ow.BouncePad:draw()
     local line_width = rt.settings.overworld.bounce_pad.line_width
     love.graphics.setLineWidth(line_width)
     love.graphics.setLineJoin("bevel")
+    love.graphics.setLineStyle("smooth")
 
     local r, g, b = rt.Palette.BLACK:unpack()
     love.graphics.setColor(r, g, b, opacity)

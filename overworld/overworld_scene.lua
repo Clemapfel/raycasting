@@ -963,6 +963,7 @@ function ow.OverworldScene:show_result_screen()
     if self._stage == nil then return end
 
     local player_x, player_y = self._camera:world_xy_to_screen_xy(self._player:get_position())
+    local player_vx, player_vy = self._player:get_velocity()
     local stage_id = self._stage:get_id()
 
     local coins = {}
@@ -977,6 +978,7 @@ function ow.OverworldScene:show_result_screen()
     rt.SceneManager:set_scene(
         ow.ResultScreenScene,
         player_x, player_y,
+        player_vx, player_vy,
         self._screenshot,
         {
             stage_id = stage_id,

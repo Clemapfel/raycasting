@@ -271,6 +271,7 @@ function ow.BoostField:draw()
 
     if self._has_outline then
         love.graphics.setLineJoin("bevel")
+        love.graphics.setLineStyle("smooth")
         local line_width = rt.settings.overworld.boost_field.line_width
 
         local offset = math.mix(1, 1.4, self._impulse:get_pulse())

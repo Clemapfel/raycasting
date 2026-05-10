@@ -46,7 +46,7 @@ function ow.Hook:instantiate(object, stage, scene)
         self._world,
         object:get_physics_body_type(),
         object.x, object.y,
-        b2.Circle(0, 0, self._radius)
+        b2.Circle(0, 0, self._radius + 0.5 * rt.settings.player.radius)
     )
 
     self._body:add_tag("point_light_source")
@@ -286,6 +286,9 @@ function ow.Hook:draw()
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.rectangle("fill", -radius, -radius, 2 * radius, 2 * radius)
     _shader:unbind()
+
+    love.graphics.setLineStyle("smooth")
+    love.graphics.setLineJoin("bevel")
 
     rt.Palette.BLACK:bind()
     love.graphics.setLineWidth(brightness_scale * rt.settings.overworld.hook.outline_width + 2)
