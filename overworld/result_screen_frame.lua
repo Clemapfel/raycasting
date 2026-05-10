@@ -27,7 +27,7 @@ local _particle_texture_shader = rt.Shader("overworld/result_screen_frame_partic
 local _outline_shader = rt.Shader("menu/stage_select_item_frame_outline.glsl", { MODE = 0 })
 local _base_shader = rt.Shader("menu/stage_select_item_frame_outline.glsl", { MODE = 1 })
 local _mask_shader = rt.Shader("overworld/result_screen_frame_mask.glsl")
-local _lch_texture = rt.LCHTexture(1, 8, 256)
+local _lch_texture = rt.LCHTexture(1, 1, 256)
 
 --- @brief
 function ow.ResultScreenFrame:instantiate()
