@@ -15,9 +15,7 @@ rt.settings.overworld.decelerator_surface_body = {
     slot_max_scale = 2,
 
     particle_texture_r = 20,
-    texture_scale = 3,
-
-    arm_inside_offset = 15,
+    texture_scale = 2.5,
 
     n_sub_steps = 2,
     n_constraint_iterations = 2,
@@ -348,30 +346,17 @@ function ow.DeceleratorSurfaceBody:set_target(x, y, radius)
     local inlay = rt.settings.overworld.decelerator_surface_body.retract_threshold
     local mid_angle = math.angle(self._target_x - self._closest_x, self._target_y - self._closest_y)
     local center_slot = math.round(self._target_t * n_slots)
-
     local arm_half = math.floor(n_arms / 2)
-    local penetration = self:get_penetration()
-
-    -- build list of active slot indices
-    local active_slot_to_attachment_angle = {}
-    for arm_offset = -arm_half, n_arms - arm_half - 1 do
-        local slot_index = (center_slot + arm_offset) % n_slots + 1
-        local t = (arm_offset + arm_half) / math.max(n_arms - 1, 1)
-        local attachment_angle = math.mix(mid_angle - 0.5 * math.pi, mid_angle + 0.5 * math.pi, t)
-        if (penetration < 1) then -- not fully inside body
-            attachment_angle = attachment_angle + math.pi
-        end
-
-        active_slot_to_attachment_angle[slot_index] = attachment_angle
-    end
 
     for slot_index = 1, n_slots do
         local slot = self._slots[slot_index]
-        local attachment_angle = active_slot_to_attachment_angle[slot_index]
+        local offset = (slot_index - 1 - center_slot) % n_slots
+        if offset < n_arms or offset > n_slots - (n_arms - arm_half) then
+            local dx, dy = math.normalize(self._target_x - slot.anchor_x, self._target_y - slot.anchor_y)
+            local closest_x, closest_y = self._target_x - dx * radius, self._target_y - dy * radius
 
-        if attachment_angle ~= nil then
-            slot.target_x = self._target_x + math.cos(attachment_angle) * self._target_radius
-            slot.target_y = self._target_y + math.sin(attachment_angle) * self._target_radius
+            slot.target_x = closest_x
+            slot.target_y = closest_y
             slot.anchor_x = slot.origin_x + slot.normal_x * inlay
             slot.anchor_y = slot.origin_y + slot.normal_y * inlay
 
@@ -394,8 +379,10 @@ function ow.DeceleratorSurfaceBody:set_target(x, y, radius)
             local arm = self._arms[arm_index]
             local slot = self._slots[arm.slot_i]
 
-            if slot ~= nil and active_slot_to_attachment_angle[arm.slot_i] ~= nil then
-                arm.is_extending = math.distance(
+            if slot ~= nil then
+                local offset = (arm.slot_i - 1 - center_slot) % n_slots
+                local is_active = offset < n_arms or offset > n_slots - (n_arms - arm_half)
+                arm.is_extending = is_active and math.distance(
                     slot.anchor_x, slot.anchor_y,
                     slot.target_x, slot.target_y
                 ) <= (self._arm_length + self._arm_length_extension)
@@ -966,21 +953,20 @@ function ow.DeceleratorSurfaceBody:draw()
         -- draw to .r: density
         love.graphics.setColor(1, 0, 0, 1)
 
-        --self._mesh:draw()
+        self._mesh:draw()
 
         _instance_draw_shader:bind()
-        _instance_draw_shader:send("texture_scale", 1) --rt.settings.overworld.decelerator_surface_body.texture_scale)
+        _instance_draw_shader:send("texture_scale", rt.settings.overworld.decelerator_surface_body.texture_scale)
         self._instance_mesh:draw_instanced(self._n_instances)
         _instance_draw_shader:unbind()
 
         -- draw to .g: mask
         love.graphics.setColor(0, 1, 1, 1)
-
-        --self._mesh:draw()
+        self._mesh:draw()
 
         love.graphics.setLineWidth(5)
         love.graphics.setLineStyle("smooth")
-        --love.graphics.line(self._contour)
+        love.graphics.line(self._contour)
 
         self._canvas:unbind()
         love.graphics.pop()

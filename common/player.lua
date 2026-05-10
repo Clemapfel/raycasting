@@ -315,6 +315,7 @@ function rt.Player:instantiate()
             "is_jump_disabled",
             "is_jump_allowed_override",
             "is_double_jump_disabled",
+            "is_omnidirectional_movement_allowed",
             "is_trail_visible",
             "is_flow_frozen",
             "is_idle_timer_frozen",
@@ -626,6 +627,7 @@ function rt.Player:update(delta)
     local is_frozen = self:get_is_frozen()
     local is_movement_disabled = self:get_is_movement_disabled()
     local is_disabled = self:get_is_disabled()
+    local is_omnidirectional_movement_allowed = self:get_is_omnidirectional_movement_allowed()
     local should_decay_platform_velocity = true
 
     -- raycast to check for walls
@@ -1079,6 +1081,10 @@ function rt.Player:update(delta)
 
         self._velocity_easing = velocity_easing
 
+        local should_apply_friction = true
+        local net_friction_x, net_friction_y = 0, 0
+        local is_jumping = false
+
         -- on input, accelerates towards new target velocity / direction
         if input_magnitude ~= 0 then
             local velocity_delta = target_velocity_x - current_velocity_x
@@ -1138,7 +1144,31 @@ function rt.Player:update(delta)
             end
         end
 
-        local should_apply_friction = true
+        -- override for omnidirectional
+        if is_omnidirectional_movement_allowed then
+            local velocity = settings.bubble_target_velocity
+            local duration = 20 / 60
+
+            local dx, dy = 0, 0
+            if up_is_down then
+                dy = dy - math.min(1, self._up_button_is_down_elapsed / duration)
+            end
+
+            if down_is_down then
+                dy = dy + math.min(1, self._down_button_is_down_elapsed / duration)
+            end
+
+            if left_is_down then
+                dx = dx - math.min(1, self._left_button_is_down_elapsed / duration)
+            end
+
+            if right_is_down then
+                dx = dy + math.min(1, self._right_button_is_down_elapsed / duration)
+            end
+
+            next_velocity_x = velocity * dx
+            next_velocity_y = velocity * dy
+        end
 
         do -- accelerators
             local player_vx, player_vy = next_velocity_x, next_velocity_y
@@ -1185,22 +1215,22 @@ function rt.Player:update(delta)
 
                         if left_is_down then
                             table.insert(candidates, -1)
-                            table.insert(candidates,  0)
+                            table.insert(candidates, 0)
                         end
 
                         if right_is_down then
-                            table.insert(candidates,  1)
-                            table.insert(candidates,  0)
+                            table.insert(candidates, 1)
+                            table.insert(candidates, 0)
                         end
 
                         if down_is_down then
-                            table.insert(candidates,  0)
-                            table.insert(candidates,  1)
+                            table.insert(candidates, 0)
+                            table.insert(candidates, 1)
                         end
 
                         if up_is_down then
-                            table.insert(candidates,  0)
-                            table.insert(candidates, -1)
+                            table.insert(candidates, 0)
+                            table.insert(candidates,-1)
                         end
 
                         -- check all of the 8 input vectors the button state allows
@@ -1259,7 +1289,6 @@ function rt.Player:update(delta)
         if is_movement_disabled then next_velocity_x = 0 end
 
         -- wall friction
-        local net_friction_x, net_friction_y = 0, 0
         do
             local seen = {}
 
@@ -1446,7 +1475,6 @@ function rt.Player:update(delta)
             next_velocity_x = current_velocity_x
         end
 
-        local is_jumping = false
         if not is_movement_disabled and not self:get_is_jump_disabled() then
             if self._jump_elapsed <= settings.jump_duration then
                 -- regular jump
@@ -1529,9 +1557,9 @@ function rt.Player:update(delta)
         local is_sliding = false
 
         -- downwards force
-        if not is_movement_disabled
+        if down_is_down
+            and not is_movement_disabled
             and not is_frozen
-            and down_is_down
             and not ((left_is_down and self._left_wall) or (right_is_down and self._right_wall))
             -- exclude wall clinging, handled by explicit friction release in apply_friction
         then
@@ -2853,6 +2881,7 @@ function rt.Player:reset()
         self._is_jump_disabled_requests,
         self._is_double_jump_disabled_requests,
         self._is_jump_allowed_override_requests,
+        self._is_omnidirectional_movement_allowed_requests,
         self._is_trail_visible_requests,
         self._is_flow_frozen_requests,
         self._is_idle_timer_frozen_requests,
@@ -2998,49 +3027,52 @@ end
 
 for tuple in range(
 --- @alias request_is_visible fun(id: Object, is_visible: Boolean)
-    { "is_visible", { [1] = { "is_visible", "Boolean" }}},
+    { "is_visible", { { "is_visible", "Boolean" } } },
 
 --- @alias request_is_frozen fun(id: Object, is_frozen: Boolean)
-    { "is_frozen", { [1] = { "is_frozen", "Boolean" }}},
+    { "is_frozen", { { "is_frozen", "Boolean" } } },
 
 --- @alias request_is_disabled fun(id: Object, is_disabled: Boolean)
-    { "is_disabled", { [1] = { "is_disabled", "Boolean" }}},
+    { "is_disabled", { { "is_disabled", "Boolean" } } },
 
 --- @alias request_is_movement_disabled fun(id: Object, is_disabled: Boolean)
-    { "is_movement_disabled", { [1] = { "is_disabled", "Boolean" }}},
+    { "is_movement_disabled", { { "is_disabled", "Boolean" } } },
 
 --- @alias request_is_jump_disabled fun(id: Object, is_disabled: Boolean)
-    { "is_jump_disabled", { [1] = { "is_disabled", "Boolean" }}},
+    { "is_jump_disabled", { { "is_disabled", "Boolean" } } },
 
 --- @alias request_is_double_jump_disabled fun(id: Object, is_disabled: Boolean)
-    { "is_double_jump_disabled", { [1] = { "is_disabled", "Boolean" }}},
+    { "is_double_jump_disabled", { { "is_disabled", "Boolean" } } },
 
 --- @alias request_is_jump_allowed_override fun(id: Object, is_allowed: Boolean)
-    { "is_jump_allowed_override", { [1] = { "is_allowed", "Boolean" }}},
+    { "is_jump_allowed_override", { { "is_allowed", "Boolean" } } },
+    
+--- @alias request_is_omnidirectional_movement_allowed = fun(id: Object, is_allowed: Boolean)
+    { "is_omnidirectional_movement_allowed", { { "is_allowed", "Boolean" } } },
 
 --- @alias request_is_trail_visible fun(id: Object, is_visible: Boolean)
-    { "is_trail_visible", { [1] = { "is_visible", "Boolean" }}},
+    { "is_trail_visible", { { "is_visible", "Boolean" } } },
 
 --- @alias request_is_flow_frozen fun(id: Object, is_frozen: Boolean)
-    { "is_flow_frozen", { [1] = { "is_frozen", "Boolean" }}},
+    { "is_flow_frozen", { { "is_frozen", "Boolean" } } },
 
 --- @alias request_is_idle_timer_frozen fun(id: Object, is_frozen: Boolean)
-    { "is_idle_timer_frozen", { [1] = { "is_frozen", "Boolean" }}},
+    { "is_idle_timer_frozen", { { "is_frozen", "Boolean" } } },
 
 --- @alias request_opacity fun(id: Object, opacity: Number)
-    { "opacity", { [1] = { "opacity", "Number" }}},
+    { "opacity", { { "opacity", "Number" } } },
 
 --- @alias request_time_dilation fun(id: Object, factor: Number)
-    { "time_dilation", { [1] = { "dilation", "Number" }}},
+    { "time_dilation", { { "dilation", "Number" } } },
 
 --- @alias request_gravity_multiplier fun(id: Object, factor: Number)
-    { "gravity_multiplier", { [1] = { "multiplier", "Number" }}},
+    { "gravity_multiplier", { { "multiplier", "Number" } } },
 
 --- @alias request_gravity_direction fun(id: Object, dx: Number, dy: Number)
-    { "gravity_direction", { [1] = { "dx", "Number" }, [2] = { "dy", "Number" }}},
+    { "gravity_direction", { { "dx", "Number" }, { "dy", "Number" } } },
 
 --- @alias request_force fun(id: Object, dx: Number, dy: Number)
-    { "force", { [1] = { "dx", "Number" }, [2] = { "dy", "Number" }}}
+    { "force", { { "dx", "Number" }, { "dy", "Number" } } }
 ) do
     local which, args_table = table.unpack(tuple)
     rt.Player["request_" .. which] = function(self, id, ...)
@@ -3300,6 +3332,19 @@ function rt.Player:get_is_double_jump_disabled()
     end
 
     return false
+end
+
+--- @brief
+function rt.Player:get_is_omnidirectional_movement_allowed()
+    if self:get_is_bubble() == true then
+        return true
+    else
+        for source in values(self._is_omnidirectional_movement_allowed_requests) do
+            if source.is_allowed == true then return true end
+        end
+
+        return false
+    end
 end
 
 --- @brief

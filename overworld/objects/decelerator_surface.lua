@@ -4,7 +4,7 @@ require "common.contour"
 
 rt.settings.overworld.decelerator_surface = {
     bubble_damping = 0.8,
-    non_bubble_damping = 0.7
+    non_bubble_damping = 0.2
 }
 
 --- @class ow.DeceleratorSurface
@@ -49,11 +49,8 @@ function ow.DeceleratorSurface:update(delta)
     end
 
     local px, py = player:get_position()
-    local pr = player:get_radius()
 
-    local offset_x, offset_y = 0, 0 --TODO self._body:get_position()
-
-    self._graphics_body:set_target(px - offset_x, py - offset_y, rt.settings.player.radius)
+    self._graphics_body:set_target(px, py, rt.settings.player.radius) -- always attach to core
     self._graphics_body:update(delta)
 
     local settings = rt.settings.overworld.decelerator_surface
@@ -61,22 +58,14 @@ function ow.DeceleratorSurface:update(delta)
 
     local penetration = self._graphics_body:get_penetration()
     if penetration ~= nil and penetration > 0 then
-        local damping = max_damping
+        local damping = math.mix(1, max_damping, penetration)
         player:request_damping(self, damping, damping, damping, damping)
-    else
-        player:request_damping(self, nil, nil, nil, nil)
-    end
-
-    if player:get_is_colliding_with(self._body) then
+        player:request_is_omnidirectional_movement_allowed(self, true)
         player:request_is_jump_allowed_override(self, true)
     else
+        player:request_damping(self, nil, nil, nil, nil)
+        player:request_is_omnidirectional_movement_allowed(self, nil)
         player:request_is_jump_allowed_override(self, nil)
-    end
-
-    if penetration > 0 then
-        player:request_gravity_multiplier(self, rt.InterpolationFunctions.GAUSSIAN_LOWPASS(penetration))
-    else
-        player:request_gravity_multiplier(self, nil)
     end
 end
 
@@ -87,11 +76,27 @@ function ow.DeceleratorSurface:draw()
     local body_x, body_y = self._body:get_position()
     self._graphics_body:set_offset(self._centroid_x - body_x, self._centroid_y - body_y)
     self._graphics_body:draw()
+
+    -- bloom handles outline on top, if player fully behind body draw manually
+    if rt.GameState:get_is_bloom_enabled() == false then
+        love.graphics.push("all")
+
+        local value = rt.graphics.get_stencil_value()
+        rt.graphics.set_stencil_mode(value, rt.StencilMode.DRAW)
+        self._graphics_body:draw()
+        rt.graphics.set_stencil_mode(value, rt.StencilMode.TEST)
+        rt.graphics.set_blend_mode(rt.BlendMode.ADD, rt.BlendMode.ADD)
+        self._scene:get_player():draw_bloom()
+        rt.graphics.set_blend_mode(nil)
+        rt.graphics.set_stencil_mode(nil)
+
+        love.graphics.pop()
+    end
 end
 
 --- @brief
 function ow.DeceleratorSurface:get_render_priority()
-    return math.huge
+    return 2 -- above player, below bloom
 end
 
 --- @brief
