@@ -108,6 +108,7 @@ return {
         control_indicator_air_dash = "<i>(mid-air)</i> Dash",
         control_indicator_slide = "<i>(grounded)</i> Slide Freely",
         control_indicator_hold_down = "<i>(mid-air)</i> Fall Faster",
+        control_indicator_omnidirectional_movement = "Move Freely",
 
         control_indicator_accelerator_surface_hold = "(hold direction) accelerate",
 

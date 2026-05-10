@@ -75,6 +75,7 @@ ow.ControlIndicatorType = {
     DIALOG_SELECT_OPTION = "DIALOG_SELECT_OPTION",
     AIR_DASH = "AIR_DASH",
     DOUBLE_JUMP = "DOUBLE_JUMP",
+    OMNIDIRECTIONAL_MOVEMENT = "OMNIDIRECTIONAL_MOVEMENT",
     NONE = "NONE"
 }
 ow.ControlIndicatorType = meta.enum("ControlIndicatorType", ow.ControlIndicatorType)
@@ -202,6 +203,11 @@ function ow.OverworldScene:instantiate(state)
         [ow.ControlIndicatorType.DOUBLE_JUMP] = create_indicator(
             rt.ControlIndicatorButton.JUMP, translation.control_indicator_jump,
             rt.ControlIndicatorButton.JUMP, translation.control_indicator_double_jump
+        ),
+
+        [ow.ControlIndicatorType.OMNIDIRECTIONAL_MOVEMENT] = create_indicator(
+            rt.ControlIndicatorButton.ALL_DIRECTIONS, translation.control_indicator_omnidirectional_movement,
+            rt.ControlIndicatorButton.JUMP, translation.control_indicator_jump
         ),
 
         [ow.ControlIndicatorType.SLIDE_FREELY] = create_indicator(
