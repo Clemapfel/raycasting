@@ -2660,7 +2660,9 @@ function rt.Player:_get_jump_allowed()
             _last_frame_nothing_below = body == nil
         end
 
-        if _last_frame_nothing_below then regular_jump_allowed = true end
+        if _last_frame_nothing_below then
+            regular_jump_allowed = true
+        end
     end
 
     return regular_jump_allowed
