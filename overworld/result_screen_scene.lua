@@ -556,7 +556,7 @@ end
 --- @brief
 --- @param player_x Number in screen coordinates
 --- @param player_y Number
-function ow.ResultScreenScene:enter(player_x, player_y, screenshot, config)
+function ow.ResultScreenScene:enter(player_x, player_y, player_vx, player_vy, screenshot, config)
     self._input:activate()
 
     rt.SceneManager:set_use_fixed_timestep(true)
@@ -575,6 +575,8 @@ function ow.ResultScreenScene:enter(player_x, player_y, screenshot, config)
     self._player:move_to_world(self._world)
     self._player:request_gravity_multiplier(self, 0)
     self._player:request_is_bubble(self, true)
+    self._player:set_velocity(player_vx, player_vy)
+    self._player_velocity_x, self._player_velocity_y = math.normalize(player_vx, player_vy)
 
     local required_keys = {}
     for key in range(
@@ -605,8 +607,6 @@ function ow.ResultScreenScene:enter(player_x, player_y, screenshot, config)
     end
 
     config.coins_grade = rt.GameState:n_coins_to_coin_grade(n_coins, #config.coins)
-
-
 
     -- TODO
     config.flow_grade = rt.StageGrade.S
@@ -924,13 +924,10 @@ function ow.ResultScreenScene:_teleport_player(px, py)
     x, y = 0, 0
 
     local r = 2 * self._player:get_radius()
-    local vx, vy = math.normalize(1, 0.5) --x + 0.5 * w - px, y + 0.5 * h - py)
     self._player:teleport_to(
         math.clamp(self._entry_x, x + r, x + w - r),
         math.clamp(self._entry_y, y + r, y + h - r)
     )
-
-    self._player_velocity_x, self._player_velocity_y = math.normalize(vx, vy)
 end
 
 --- @brief
