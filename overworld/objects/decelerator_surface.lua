@@ -27,8 +27,7 @@ function ow.DeceleratorSurface:instantiate(object, stage, scene)
     self._body:set_is_sensor(true)
 
     local contour = rt.contour.close(object:create_contour())
-    local mesh = object:create_mesh()
-    self._graphics_body = ow.DeceleratorSurfaceBody(scene, contour, mesh)
+    self._graphics_body = ow.DeceleratorSurfaceBody(scene, contour)
     self._centroid_x, self._centroid_y = object:get_centroid()
 
     self._segment_lights = {}

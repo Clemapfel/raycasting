@@ -14,7 +14,8 @@ do
         max_scale = 1.2,
         coverage = 4,
 
-        hue_range = 0.25
+        hue_range = 0.25,
+        bloom_strength = 0.15
     }
 end
 
@@ -605,6 +606,8 @@ function ow.ResultScreenFrame:draw_bloom()
     _outline_shader:send("elapsed", rt.SceneManager:get_elapsed())
     _outline_shader:send("hue", self._hue)
     _outline_shader:send("hue_range", self._hue_range)
+    local t = rt.settings.overworld.result_screen_frame.bloom_strength
+    love.graphics.setColor(t, t, t, t)
     self._particle_canvas:draw(self._canvas_x, self._canvas_y)
     _outline_shader:unbind()
 end

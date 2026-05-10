@@ -531,3 +531,21 @@ function rt.contour.compute_straight_skeleton(contour, depth)
 
     return result
 end
+
+function rt.contour.is_inside(contour, point_x, point_y)
+    local crossings = 0
+    local count = #contour
+
+    for i = 1, count, 2 do
+        local ax, ay = contour[i], contour[i + 1]
+        local bx, by = contour[(i + 1) % count + 1], contour[(i + 2) % count + 1]
+
+        if (ay <= point_y and by > point_y) or (by <= point_y and ay > point_y) then
+            if point_x < ax + (point_y - ay) / (by - ay) * (bx - ax) then
+                crossings = crossings + 1
+            end
+        end
+    end
+
+    return crossings % 2 == 1
+end

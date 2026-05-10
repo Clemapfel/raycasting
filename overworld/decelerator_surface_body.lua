@@ -61,7 +61,7 @@ local _threshold_shader = rt.Shader("overworld/decelerator_surface_body_threshol
 local _instance_draw_shader = rt.Shader("overworld/decelerator_surface_body_instanced_draw.glsl")
 
 --- @brief
-function ow.DeceleratorSurfaceBody:instantiate(scene, contour, mesh)
+function ow.DeceleratorSurfaceBody:instantiate(scene, contour)
     self._scene = scene
 
     self._target_x, self._target_y = math.huge, math.huge
@@ -93,8 +93,167 @@ function ow.DeceleratorSurfaceBody:instantiate(scene, contour, mesh)
         love.graphics.pop()
     end
 
-    self._contour = contour
-    self._mesh = mesh
+    self._contour = rt.contour.close(contour)
+
+    do
+        local arc_lengths = { 0 } -- cumulative distances
+        local total_perimeter = 0
+
+        for i = 1, #self._contour - 2, 2 do
+            local x1, y1 = self._contour[i+0], self._contour[i+1]
+            local x2, y2 = self._contour[i+2], self._contour[i+3]
+            total_perimeter = total_perimeter + math.distance(x1, y1, x2, y2)
+            table.insert(arc_lengths, total_perimeter)
+        end
+
+        local outer_mesh_data = {}
+        local outer_mesh_vertex_map = {}
+
+        local border_w = settings.arm_length / 2
+
+        local _contour_x1, _contour_y1, _contour_x2, _contour_y2 = 1, 2, 3, 4
+        local _outer_x1, _outer_y1, _outer_x2, _outer_y2 = 5, 6, 7, 8
+
+        local quads = {}
+        for i = 1, #self._contour - 2, 2 do
+            local contour_x1, contour_y1 = self._contour[i+0], self._contour[i+1]
+            local contour_x2, contour_y2 = self._contour[i+2], self._contour[i+3]
+
+            local dx, dy = math.normalize(contour_x2 - contour_x1, contour_y2 - contour_y1)
+            dx, dy = math.turn_right(dx, dy)
+
+            local outer_x1, outer_y1 = contour_x1 + dx * border_w, contour_y1 + dy * border_w
+            local outer_x2, outer_y2 = contour_x2 + dx * border_w, contour_y2 + dy * border_w
+
+            table.insert(quads, {
+                [_contour_x1] = contour_x1,
+                [_contour_y1] = contour_y1,
+                [_contour_x2] = contour_x2,
+                [_contour_y2] = contour_y2,
+                [_outer_x1] = outer_x1,
+                [_outer_y1] = outer_y1,
+                [_outer_x2] = outer_x2,
+                [_outer_y2] = outer_y2,
+            })
+        end
+
+        local function _segment_intersection(x1, y1, x2, y2, x3, y3, x4, y4)
+            local denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
+
+            if denom == 0 then
+                return nil
+            end
+
+            local t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom
+            local u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / denom
+
+            if t >= 0 and t <= 1 and u >= 0 and u <= 1 then
+                local px = x1 + t * (x2 - x1)
+                local py = y1 + t * (y2 - y1)
+                return px, py
+            end
+
+            return nil
+        end
+
+        local vertex_i = 1
+        for quad_i = 1, #quads do
+            local current = quads[quad_i+0]
+            local next = quads[(quad_i % #quads) + 1]
+
+            local ix, iy = _segment_intersection(
+                current[_outer_x1], current[_outer_y1], current[_outer_x2], current[_outer_y2],
+                next[_outer_x1], next[_outer_y1], next[_outer_x2], next[_outer_y2]
+            )
+
+            if ix ~= nil then -- concave corner, quads would overlap
+                current[_outer_x2], current[_outer_y2] = ix, iy
+                next[_outer_x1], next[_outer_y1] = ix, iy
+            end
+
+            -- calculate normalized arc-length texture coordinates
+            local u1 = arc_lengths[quad_i] / total_perimeter
+            local u2 = arc_lengths[quad_i + 1] / total_perimeter
+
+            table.insert(outer_mesh_data, {
+                current[_contour_x1], current[_contour_y1], u1, 0, 1, 1, 1, 1
+            })
+
+            table.insert(outer_mesh_data, {
+                current[_contour_x2], current[_contour_y2], u2, 0, 1, 1, 1, 1
+            })
+
+            table.insert(outer_mesh_data, {
+                current[_outer_x1], current[_outer_y1], u1, 1, 0, 0, 0, 1
+            })
+
+            table.insert(outer_mesh_data, {
+                current[_outer_x2], current[_outer_y2], u2, 1, 0, 0, 0, 1
+            })
+
+            for j in range(
+                vertex_i + 0, vertex_i + 1, vertex_i + 2,
+                vertex_i + 1, vertex_i + 2, vertex_i + 3
+            ) do
+                table.insert(outer_mesh_vertex_map, j)
+            end
+
+            vertex_i = vertex_i + 4
+        end
+
+        -- fill triangles
+        local n_vertices = vertex_i
+        for i = 1, n_vertices - 6, 4 do
+            for j in range(
+                i + 1, -- contour
+                i + 3, -- current outer
+                i + 4 + 2 -- next outer
+            ) do
+                table.insert(outer_mesh_vertex_map, j)
+            end
+        end
+
+        -- last fill triangle needs special vertices
+        if n_vertices >= 9 then -- ensure at least two quads exist
+            local inner = table.deepcopy(outer_mesh_data[n_vertices - 3])
+            local outer_last = table.deepcopy(outer_mesh_data[n_vertices - 1])
+            local outer_first = table.deepcopy(outer_mesh_data[3])
+
+            -- replace arc length parameterized texture coord to avoid interpolation
+            for vertex in range(outer_last, outer_first) do
+                vertex[3] = 1
+            end
+
+            local i = n_vertices
+            for vertex in range(inner, outer_last, outer_first) do
+                table.insert(outer_mesh_data, vertex)
+                table.insert(outer_mesh_vertex_map, i)
+                i = i + 1
+            end
+        end
+
+        local inner_mesh_data, inner_mesh_indices = {}, {}
+        local tris = rt.math.triangulate(contour)
+        for tri in values(tris) do
+            for i = 1, 6, 2 do
+                table.insert(inner_mesh_data, {
+                    tri[i], tri[i+1], 0, 0, 1, 1, 1, 1
+                })
+                table.insert(inner_mesh_indices, #inner_mesh_data)
+            end
+        end
+
+        self._outer_mesh = rt.Mesh(
+            outer_mesh_data,
+            rt.MeshDrawMode.TRIANGLES
+        )
+        self._outer_mesh:set_vertex_map(outer_mesh_vertex_map)
+
+        self._inner_mesh = rt.Mesh(
+            inner_mesh_data, rt.MeshDrawMode.TRIANGLES
+        )
+        self._inner_mesh:set_vertex_map(inner_mesh_indices)
+    end
 
     local arm_length = settings.arm_length
     self._arm_length = arm_length
@@ -177,7 +336,6 @@ function ow.DeceleratorSurfaceBody:instantiate(scene, contour, mesh)
             end_i = particle_i - 1,
             slot_i = nil,
             n_segments = n_segments,
-
             is_extending = false
         })
     end
@@ -248,7 +406,6 @@ function ow.DeceleratorSurfaceBody:_remove_from_slot(slot_i)
     self._free_arms[arm_i] = true
 end
 
---- @brief
 function ow.DeceleratorSurfaceBody:set_target(x, y, radius)
     self._is_active = true
     self._target_x, self._target_y, self._target_radius = x, y, radius
@@ -257,111 +414,51 @@ function ow.DeceleratorSurfaceBody:set_target(x, y, radius)
     self._closest_normal_x, self._closest_normal_y = self._path:get_normal_at(closest_t)
     self._target_t = closest_t
 
-    -- update slot targets
     local n_slots, n_arms = #self._slots, #self._arms
     local dx, dy = math.subtract(self._target_x, self._target_y, final_x, final_y)
-    local t_step = 1 / #self._slots
+    local t_step = 1 / n_slots
+    local n_arms_half = n_arms / 2
+    local left_t = self._target_t - math.ceil(n_arms_half) * t_step
+    local right_t = self._target_t + math.floor(n_arms_half) * t_step
+    local interval_length = right_t - left_t  -- raw, unwrapped length; always positive
 
-    local mid_t = self._target_t
-    local right_t = self._target_t + math.floor(0.5 * n_arms) * t_step
-    local left_t = self._target_t - math.ceil(0.5 * n_arms) * t_step
+    local inlay = rt.settings.overworld.decelerator_surface_body.retract_threshold
+    local mid_point = math.angle(dx, dy)
 
-    local function is_in_interval(value, left, right)
-        value = math.fract(value)
-        left = math.fract(left)
-        right = math.fract(right)
-
-        if left <= right then
-            return value >= left and value <= right
+    local function is_in_interval(value)
+        local v = math.fract(value)
+        local l = math.fract(left_t)
+        local r = math.fract(right_t)
+        if l <= r then
+            return v >= l and v <= r
         else
-            return value >= left or value <= right
+            return v >= l or v <= r
         end
     end
 
-    local inlay = rt.settings.overworld.decelerator_surface_body.retract_threshold
+    local function slot_mix_factor(slot_t)
+        local shifted = math.fract(slot_t - math.fract(left_t)) + left_t
+        if shifted > right_t + t_step then shifted = shifted - 1 end
+        return (shifted - left_t) / interval_length
+    end
 
-    local range = 2 * math.pi
-    local mid_point = math.angle(dx, dy)
+    for slot_index = 1, n_slots do
+        local slot = self._slots[slot_index]
 
-    for slot_i = 1, n_slots do
-        local slot = self._slots[slot_i]
-        local slot_t = slot.t
-
-        if is_in_interval(slot_t, left_t, right_t) then
+        if is_in_interval(slot.t) then
             local attachment_angle = math.mix(
                 mid_point - 0.5 * math.pi,
                 mid_point + 0.5 * math.pi,
-                (slot_t - left_t) / (right_t - left_t)
+                slot_mix_factor(slot.t)
             )
 
             slot.target_x = self._target_x + math.cos(attachment_angle) * self._target_radius
             slot.target_y = self._target_y + math.sin(attachment_angle) * self._target_radius
-
-            slot.anchor_x = slot.origin_x + slot.normal_x * inlay
-            slot.anchor_y = slot.origin_y + slot.normal_y * inlay
-
-            -- add first free arm
-            if slot.arm_i == nil then
-                local next_arm_i = select(1, next(self._free_arms))
-                if next_arm_i ~= nil then
-                    self:_add_to_slot(slot_i, next_arm_i)
-                end
-            end
-        else
-            slot.anchor_x = slot.origin_x
-            slot.anchor_y = slot.origin_y
-            slot.target_x = slot.anchor_x
-            slot.target_y = slot.anchor_y
-
-            -- removal done in _step when arm is retracted
-        end
-    end
-
-    for arm_i = 1, #self._arms do
-        if self._free_arms[arm_i] == nil then
-            local arm = self._arms[arm_i]
-            local slot = self._slots[arm.slot_i]
-
-            if slot ~= nil and is_in_interval(slot.t, left_t, right_t) then
-                arm.is_extending = math.distance(
-                    slot.anchor_x, slot.anchor_y,
-                    slot.target_x, slot.target_y
-                ) <= (self._arm_length + self._arm_length_extension)
-            else
-                arm.is_extending = false
-            end
-        end
-    end
-
-    self:_update_instance_mesh()
-end
-
-function ow.DeceleratorSurfaceBody:set_target(x, y, radius)
-    self._is_active = true
-    self._target_x, self._target_y, self._target_radius = x, y, radius
-    self._closest_x, self._closest_y, self._target_t = self._path:get_closest_point(x, y)
-    self._closest_normal_x, self._closest_normal_y = self._path:get_normal_at(self._target_t)
-
-    local n_slots, n_arms = #self._slots, #self._arms
-    local inlay = rt.settings.overworld.decelerator_surface_body.retract_threshold
-    local mid_angle = math.angle(self._target_x - self._closest_x, self._target_y - self._closest_y)
-    local center_slot = math.round(self._target_t * n_slots)
-    local arm_half = math.floor(n_arms / 2)
-
-    for slot_index = 1, n_slots do
-        local slot = self._slots[slot_index]
-        local offset = (slot_index - 1 - center_slot) % n_slots
-        if offset < n_arms or offset > n_slots - (n_arms - arm_half) then
-            local dx, dy = math.normalize(self._target_x - slot.anchor_x, self._target_y - slot.anchor_y)
-            local closest_x, closest_y = self._target_x - dx * radius, self._target_y - dy * radius
-
-            slot.target_x = closest_x
-            slot.target_y = closest_y
             slot.anchor_x = slot.origin_x + slot.normal_x * inlay
             slot.anchor_y = slot.origin_y + slot.normal_y * inlay
 
             if slot.arm_i == nil then
-                local next_arm_index = select(1, next(self._free_arms))
+                local next_arm_index, _ = next(self._free_arms)
                 if next_arm_index ~= nil then
                     self:_add_to_slot(slot_index, next_arm_index)
                 end
@@ -379,10 +476,8 @@ function ow.DeceleratorSurfaceBody:set_target(x, y, radius)
             local arm = self._arms[arm_index]
             local slot = self._slots[arm.slot_i]
 
-            if slot ~= nil then
-                local offset = (arm.slot_i - 1 - center_slot) % n_slots
-                local is_active = offset < n_arms or offset > n_slots - (n_arms - arm_half)
-                arm.is_extending = is_active and math.distance(
+            if slot ~= nil and is_in_interval(slot.t) then
+                arm.is_extending = math.distance(
                     slot.anchor_x, slot.anchor_y,
                     slot.target_x, slot.target_y
                 ) <= (self._arm_length + self._arm_length_extension)
@@ -953,7 +1048,7 @@ function ow.DeceleratorSurfaceBody:draw()
         -- draw to .r: density
         love.graphics.setColor(1, 0, 0, 1)
 
-        self._mesh:draw()
+        self._inner_mesh:draw()
 
         _instance_draw_shader:bind()
         _instance_draw_shader:send("texture_scale", rt.settings.overworld.decelerator_surface_body.texture_scale)
@@ -962,11 +1057,8 @@ function ow.DeceleratorSurfaceBody:draw()
 
         -- draw to .g: mask
         love.graphics.setColor(0, 1, 1, 1)
-        self._mesh:draw()
-
-        love.graphics.setLineWidth(5)
-        love.graphics.setLineStyle("smooth")
-        love.graphics.line(self._contour)
+        self._inner_mesh:draw()
+        self._outer_mesh:draw()
 
         self._canvas:unbind()
         love.graphics.pop()
@@ -996,21 +1088,32 @@ function ow.DeceleratorSurfaceBody:draw()
     _threshold_shader:unbind()
 
     love.graphics.pop()
+
+    local xy = {}
+    for slot in values(self._slots) do
+        if slot.arm_i == nil then
+            love.graphics.setColor(1, 1, 1, 1)
+        else
+            love.graphics.setColor(1, 0, 0, 1)
+        end
+        love.graphics.circle("fill", slot.origin_x, slot.origin_y, 3)
+        table.insert(xy, slot.origin_x)
+        table.insert(xy, slot.origin_y)
+    end
 end
+
 
 --- @brief
 function ow.DeceleratorSurfaceBody:get_penetration()
     if self._target_t == nil then return nil end
-    local normal_x, normal_y = self._closest_normal_x, self._closest_normal_y
-
-    local to_target_x = self._target_x - self._closest_x
-    local to_target_y = self._target_y - self._closest_y
-
-    if math.dot(to_target_x, to_target_y, normal_x, normal_y) < 0 then
+    if rt.contour.is_inside(self._contour, self._target_x, self._target_y) then
         -- fully inside body
         return 1
     else
         -- grabbed by arms
+        local to_target_x = self._target_x - self._closest_x
+        local to_target_y = self._target_y - self._closest_y
+
         local distance = math.magnitude(to_target_x, to_target_y)
         local penetration = 1 - math.min(1, distance / (rt.settings.overworld.decelerator_surface_body.arm_length))
         penetration = penetration * math.min(1, self._n_connected / rt.settings.overworld.decelerator_surface_body.n_arms_for_full_force)

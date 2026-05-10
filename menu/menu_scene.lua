@@ -115,7 +115,6 @@ function mn.MenuScene:instantiate(state)
             quit = 5
         }
 
-
         local item_i_to_translation = {
             [item_to_item_i.stage_select] = translation.stage_select,
             [item_to_item_i.new_speedrun] = translation.new_speedrun,
