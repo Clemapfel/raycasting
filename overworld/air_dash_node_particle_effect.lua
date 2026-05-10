@@ -242,7 +242,7 @@ function ow.AirDashNodeParticleEffect:_update_batch(batch, delta)
             table.insert(to_remove, 1, particle_i)
         end
 
-        data[i + _radius_factor_offset] = 1 + rt.InterpolationFunctions.SINUSOID_EASE_IN(lifetime_t)
+        --data[i + _radius_factor_offset] = 1 + rt.InterpolationFunctions.SINUSOID_EASE_IN(lifetime_t)
 
         local air_resistance = air_resistance_easing(lifetime_t)
         local acceleration = data[i + _acceleration_offset]

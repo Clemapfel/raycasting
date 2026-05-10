@@ -339,6 +339,8 @@ end
 
 --- @brief
 function ow.OverworldScene:enter(new_stage_id, show_title_card)
+    rt.SceneManager:get_light_map():reset()
+
     self._input:activate()
     rt.SceneManager:set_use_fixed_timestep(true)
     rt.SceneManager:set_is_cursor_visible(false)
@@ -431,6 +433,7 @@ end
 --- @brief
 function ow.OverworldScene:exit()
     self._input:deactivate()
+    rt.SceneManager:get_light_map():reset()
 end
 
 --- @brief

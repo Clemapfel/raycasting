@@ -504,7 +504,7 @@ function ow.AirDashNode:collect_point_lights(callback)
 
     callback(x, y, self._particle:get_radius(), r, g, b, 1 + self._is_current_motion:get_value())
 
-    --self._particles:collect_point_lights(callback)
+    self._particles:collect_point_lights(callback)
 end
 
 --- @brief

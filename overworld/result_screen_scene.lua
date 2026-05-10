@@ -25,7 +25,9 @@ rt.settings.overworld.result_screen_scene = {
     fireworks_max_n_particles = math.huge,
     fireworks_n_particles = 300,
     fireworks_hue_range = 0.1,
-    fireworks_max_n_per_instance = 3
+    fireworks_max_n_per_instance = 3,
+
+    bloom_strength = 0.2
 }
 
 --- @class ow.ResultScreenScene
@@ -559,7 +561,7 @@ function ow.ResultScreenScene:enter(player_x, player_y, screenshot, config)
 
     rt.SceneManager:set_use_fixed_timestep(true)
     if rt.GameState:get_is_bloom_enabled() then
-        rt.SceneManager:get_bloom():set_bloom_strength(rt.settings.menu_scene.bloom_blur_strength)
+        rt.SceneManager:get_bloom():set_bloom_strength(rt.settings.overworld.result_screen_scene.bloom_strength)
     end
 
     meta.assert_typeof(player_x, "Number", 1)
