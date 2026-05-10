@@ -188,12 +188,11 @@ function ow.DeceleratorSurfaceBody:instantiate(scene, contour, mesh)
 
     -- initialize t offsets, symmetric around midpoint arm
     local n_slots = math.floor(self._path:get_length() / settings.arm_radius)
-    local offset = rt.settings.overworld.decelerator_surface_body.arm_inside_offset
+    local offset = settings.arm_radius / 2
     local n_arms_left = n_arms
     for i = 1, n_slots do
         local t = (i - 1) / n_slots
         local anchor_x, anchor_y = self._path:at(t)
-
         local normal_x, normal_y = self._path:get_normal_at(t)
         local arm_slot = {
             arm_i = nil,
@@ -339,16 +338,86 @@ function ow.DeceleratorSurfaceBody:set_target(x, y, radius)
     self:_update_instance_mesh()
 end
 
+function ow.DeceleratorSurfaceBody:set_target(x, y, radius)
+    self._is_active = true
+    self._target_x, self._target_y, self._target_radius = x, y, radius
+    self._closest_x, self._closest_y, self._target_t = self._path:get_closest_point(x, y)
+    self._closest_normal_x, self._closest_normal_y = self._path:get_normal_at(self._target_t)
+
+    local n_slots, n_arms = #self._slots, #self._arms
+    local inlay = rt.settings.overworld.decelerator_surface_body.retract_threshold
+    local mid_angle = math.angle(self._target_x - self._closest_x, self._target_y - self._closest_y)
+    local center_slot = math.round(self._target_t * n_slots)
+
+    local arm_half = math.floor(n_arms / 2)
+    local penetration = self:get_penetration()
+
+    -- build list of active slot indices
+    local active_slot_to_attachment_angle = {}
+    for arm_offset = -arm_half, n_arms - arm_half - 1 do
+        local slot_index = (center_slot + arm_offset) % n_slots + 1
+        local t = (arm_offset + arm_half) / math.max(n_arms - 1, 1)
+        local attachment_angle = math.mix(mid_angle - 0.5 * math.pi, mid_angle + 0.5 * math.pi, t)
+        if (penetration < 1) then -- not fully inside body
+            attachment_angle = attachment_angle + math.pi
+        end
+
+        active_slot_to_attachment_angle[slot_index] = attachment_angle
+    end
+
+    for slot_index = 1, n_slots do
+        local slot = self._slots[slot_index]
+        local attachment_angle = active_slot_to_attachment_angle[slot_index]
+
+        if attachment_angle ~= nil then
+            slot.target_x = self._target_x + math.cos(attachment_angle) * self._target_radius
+            slot.target_y = self._target_y + math.sin(attachment_angle) * self._target_radius
+            slot.anchor_x = slot.origin_x + slot.normal_x * inlay
+            slot.anchor_y = slot.origin_y + slot.normal_y * inlay
+
+            if slot.arm_i == nil then
+                local next_arm_index = select(1, next(self._free_arms))
+                if next_arm_index ~= nil then
+                    self:_add_to_slot(slot_index, next_arm_index)
+                end
+            end
+        else
+            slot.anchor_x = slot.origin_x
+            slot.anchor_y = slot.origin_y
+            slot.target_x = slot.anchor_x
+            slot.target_y = slot.anchor_y
+        end
+    end
+
+    for arm_index = 1, n_arms do
+        if self._free_arms[arm_index] == nil then
+            local arm = self._arms[arm_index]
+            local slot = self._slots[arm.slot_i]
+
+            if slot ~= nil and active_slot_to_attachment_angle[arm.slot_i] ~= nil then
+                arm.is_extending = math.distance(
+                    slot.anchor_x, slot.anchor_y,
+                    slot.target_x, slot.target_y
+                ) <= (self._arm_length + self._arm_length_extension)
+            else
+                arm.is_extending = false
+            end
+        end
+    end
+
+    self:_update_instance_mesh()
+end
+
 --- @brief
 function ow.DeceleratorSurfaceBody:_update_instance_mesh()
     if self._instance_mesh == nil then
         local x, y, r = 0, 0, 1
         local mesh = rt.Mesh({
-            { x    , y    , 0.5, 0.5,  1, 1, 1, 1 },
-            { x - r, y - r, 0.0, 0.0,  1, 1, 1, 1 },
-            { x + r, y - r, 1.0, 0.0,  1, 1, 1, 1 },
-            { x + r, y + r, 1.0, 1.0,  1, 1, 1, 1 },
-            { x - r, y + r, 0.0, 1.0,  1, 1, 1, 1 }
+            { x    , y    , 0.5, 0.5, 1, 1, 1, 1 },
+            { x - r, y - r, 0.0, 0.0, 1, 1, 1, 1 },
+            { x + r, y - r, 1.0, 0.0, 1, 1, 1, 1 },
+            { x + r, y + r, 1.0, 1.0, 1, 1, 1, 1 },
+            { x - r, y + r, 0.0, 1.0, 1, 1, 1, 1 }
         }, rt.MeshDrawMode.TRIANGLES, rt.VertexFormat2D, rt.GraphicsBufferUsage.STATIC)
 
         mesh:set_vertex_map(
@@ -463,8 +532,8 @@ do -- step helpers
         local position_new_y = position_y + new_velocity_y * delta
 
         return position_new_x, position_new_y,
-        new_velocity_x, new_velocity_y,
-        previous_x, previous_y
+            new_velocity_x, new_velocity_y,
+            previous_x, previous_y
     end
 
     -- XPBD distance constraint between two particles (A,B)
@@ -897,21 +966,21 @@ function ow.DeceleratorSurfaceBody:draw()
         -- draw to .r: density
         love.graphics.setColor(1, 0, 0, 1)
 
-        self._mesh:draw()
+        --self._mesh:draw()
 
         _instance_draw_shader:bind()
-        _instance_draw_shader:send("texture_scale", rt.settings.overworld.decelerator_surface_body.texture_scale)
+        _instance_draw_shader:send("texture_scale", 1) --rt.settings.overworld.decelerator_surface_body.texture_scale)
         self._instance_mesh:draw_instanced(self._n_instances)
         _instance_draw_shader:unbind()
 
         -- draw to .g: mask
         love.graphics.setColor(0, 1, 1, 1)
 
-        self._mesh:draw()
+        --self._mesh:draw()
 
         love.graphics.setLineWidth(5)
         love.graphics.setLineStyle("smooth")
-        love.graphics.line(self._contour)
+        --love.graphics.line(self._contour)
 
         self._canvas:unbind()
         love.graphics.pop()
@@ -951,16 +1020,15 @@ function ow.DeceleratorSurfaceBody:get_penetration()
     local to_target_x = self._target_x - self._closest_x
     local to_target_y = self._target_y - self._closest_y
 
-    local signed_dist = math.dot(to_target_x, to_target_y, normal_x, normal_y)
-
-    if signed_dist < 0 then
+    if math.dot(to_target_x, to_target_y, normal_x, normal_y) < 0 then
         -- fully inside body
-        return 1, -self._closest_normal_x, -self._closest_normal_y
+        return 1
     else
         -- grabbed by arms
-        local penetration = math.min(1, 1 - math.min(1, (signed_dist - self._target_radius) / (rt.settings.overworld.decelerator_surface_body.arm_length)))
+        local distance = math.magnitude(to_target_x, to_target_y)
+        local penetration = 1 - math.min(1, distance / (rt.settings.overworld.decelerator_surface_body.arm_length))
         penetration = penetration * math.min(1, self._n_connected / rt.settings.overworld.decelerator_surface_body.n_arms_for_full_force)
-        return penetration, -self._closest_normal_x, -self._closest_normal_y
+        return penetration
     end
 end
 

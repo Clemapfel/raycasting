@@ -50,26 +50,6 @@ function rt.Path:_update()
     local total_length = 0
     local n_entries = 0
 
-    -- compute winding based on signed area (shoelace); positive => CCW, negative => CW
-    local signed_area2 = 0
-    if n_points >= 6 then
-        for i = 1, n_points - 2, 2 do
-            local x1, y1 = points[i], points[i + 1]
-            local x2, y2 = points[i + 2], points[i + 3]
-            signed_area2 = signed_area2 + (x1 * y2 - x2 * y1)
-        end
-        -- close the polygon by adding last -> first
-        local lx, ly = points[n_points - 1], points[n_points]
-        local fx, fy = points[1], points[2]
-        signed_area2 = signed_area2 + (lx * fy - fx * ly)
-    end
-
-    local orientation = 0
-    if math.abs(signed_area2) > math.eps then
-        orientation = signed_area2 > 0 and 1 or -1
-    end
-    self._orientation = orientation
-
     -- create entries for each line segment
     for i = 1, n_points - 2, 2 do
         local x1, y1 = points[i], points[i+1]
@@ -80,13 +60,8 @@ function rt.Path:_update()
         local distance = math.distance(x1, y1, x2, y2)
         dx, dy = math.normalize(dx, dy)
 
-        -- precompute normal using winding
-        local nx, ny
-        if orientation >= 0 then
-            nx, ny = math.turn_left(dx, dy)
-        else
-            nx, ny = math.turn_right(dx, dy)
-        end
+        -- always assume clock-wise winding
+        local nx, ny  = math.turn_right(dx, dy)
 
         local entry = {
             [_from_x] = x1,

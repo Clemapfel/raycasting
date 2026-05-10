@@ -3,9 +3,6 @@ require "overworld.decelerator_surface_body"
 require "common.contour"
 
 rt.settings.overworld.decelerator_surface = {
-    bubble_force = 1000,
-    non_bubble_force = 0,
-
     bubble_damping = 0.8,
     non_bubble_damping = 0.7
 }
@@ -47,7 +44,7 @@ function ow.DeceleratorSurface:update(delta)
     local player = self._scene:get_player()
 
     if not self._stage:get_is_body_visible(self._body) then
-        --player:request_force(self, 0, 0)
+        player:request_damping(self, nil, nil, nil, nil)
         return
     end
 
@@ -60,21 +57,14 @@ function ow.DeceleratorSurface:update(delta)
     self._graphics_body:update(delta)
 
     local settings = rt.settings.overworld.decelerator_surface
-    local max_force = ternary(player:get_is_bubble(), settings.bubble_force, settings.non_bubble_force)
     local max_damping = ternary(player:get_is_bubble(), settings.bubble_damping, settings.non_bubble_damping)
 
-    local penetration, normal_x, normal_y = self._graphics_body:get_penetration()
+    local penetration = self._graphics_body:get_penetration()
     if penetration ~= nil and penetration > 0 then
         local damping = max_damping
         player:request_damping(self, damping, damping, damping, damping)
-
-        local force = 2000 * penetration
-        local input_direction_x, input_direction_y = player:get_input_direction()
-        local force_x, force_y = input_direction_x * force, input_direction_y * force
-        --player:request_force(self, force_x, force_y)
     else
         player:request_damping(self, nil, nil, nil, nil)
-        --player:request_force(self, nil, nil)
     end
 
     if player:get_is_colliding_with(self._body) then
@@ -123,6 +113,5 @@ end
 function ow.DeceleratorSurface:reset()
     local player = self._scene:get_player()
     player:request_damping(self, nil)
-    player:request_force(self, nil)
     player:request_gravity_multiplier(self, nil)
 end

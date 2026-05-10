@@ -335,6 +335,7 @@ end
 function ow.OverworldScene:enter(new_stage_id, show_title_card)
     self._input:activate()
     rt.SceneManager:set_use_fixed_timestep(true)
+    rt.SceneManager:set_is_cursor_visible(false)
 
     self._fade_active = false
     self._fade:skip()
@@ -424,7 +425,6 @@ end
 --- @brief
 function ow.OverworldScene:exit()
     self._input:deactivate()
-    rt.SceneManager:set_is_cursor_visible(false)
 end
 
 --- @brief
@@ -1137,21 +1137,19 @@ function ow.OverworldScene:_update_camera(delta)
 
     self._camera:set_apply_bounds(not self._camera_override_active)
 
+    rt.SceneManager:set_is_cursor_visible(self._camera_override_active)
+
     -- on state change
     if self._camera_override_active ~= override_before then
         self._camera_position_override_x, self._camera_position_override_y = self._camera:get_position()
 
         if rt.InputManager:get_input_method() == rt.InputMethod.KEYBOARD then
-            rt.SceneManager:set_is_cursor_visible(self._camera_override_active)
-
             if self._camera_override_active then
                 love.mouse.setX(0.5 * love.graphics.getWidth())
                 love.mouse.setY(0.5 * love.graphics.getHeight())
                 local bounds = camera:get_world_bounds()
                 camera:move_to(bounds.x + 0.5 * bounds.width, bounds.y + 0.5 * bounds.height)
             end
-        else
-            rt.SceneManager:set_is_cursor_visible(false)
         end
 
         if self._camera_override_active == false then
