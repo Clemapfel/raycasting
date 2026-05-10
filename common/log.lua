@@ -10,6 +10,11 @@ local _prefix_format = {
     italic = false
 }
 
+local _frame_index_format = {
+    bold = false,
+    italic = false
+}
+
 local _message_prefix = "[LOG]"
 local _message_format = {
     color = "green",
@@ -117,11 +122,19 @@ local _append_current_line = function(to_add_to)
     end
 end
 
+local _append_frame_index = function(to_print)
+    if rt ~= nil and rt.SceneManager ~= nil then
+        table.insert(to_print, log._printstyled("[" .. rt.SceneManager:get_frame_index() .. "]", _frame_index_format))
+    end
+end
+
+
 --- @brief
 function log.message(...)
     local to_print = {}
 
     table.insert(to_print, log._printstyled(_prefix_label, _prefix_format))
+    _append_frame_index(to_print)
     table.insert(to_print, log._printstyled(_message_prefix, _message_format))
     _append_current_line(to_print)
 
@@ -148,6 +161,7 @@ function log.warning(...)
     local to_print = {}
 
     table.insert(to_print, log._printstyled(_prefix_label, _prefix_format))
+    _append_frame_index(to_print)
     table.insert(to_print, log._printstyled(_warning_prefix, _warning_format))
     _append_current_line(to_print)
 
@@ -173,6 +187,7 @@ function log.critical(...)
     local to_print = {}
 
     table.insert(to_print, log._printstyled(_prefix_label, _prefix_format))
+    _append_frame_index(to_print)
     table.insert(to_print, log._printstyled(_critical_prefix, _critical_format))
     _append_current_line(to_print)
 
@@ -198,6 +213,7 @@ function log.error(...)
     local to_print = {}
 
     table.insert(to_print, log._printstyled(_prefix_label, _prefix_format))
+    _append_frame_index(to_print)
     table.insert(to_print, log._printstyled(_fatal_prefix, _fatal_format)) -- sic, error does not support tty pretty printing
     table.insert(to_print, " ")
 

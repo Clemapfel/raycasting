@@ -692,6 +692,9 @@ do
             local resize_tile_point_lights = false
             local resize_tile_segment_lights = false
 
+            local n_point_lights_per_tile_before = self._tile_buffer_n_point_lights
+            local n_segment_lights_per_tile_before = self._tile_buffer_n_segment_lights
+
             if self._measured_max_point_light_buffer_n > self._point_light_buffer_n then
                 self._point_light_buffer_n, resize_point_lights = grow(
                     self._measured_max_point_light_buffer_n,
@@ -725,6 +728,9 @@ do
             end
 
             if resize_point_lights or resize_segment_lights or resize_tile_point_lights or resize_tile_segment_lights then
+                local point_n_before = self._point_light_buffer:get_n_elements()
+                local segment_n_before = self._segment_light_buffer:get_n_elements()
+
                 self:_reinitialize(
                     resize_point_lights,
                     resize_segment_lights,
@@ -732,7 +738,30 @@ do
                     resize_tile_segment_lights
                 )
 
-                dbg("resize", self._tile_data_buffer:get_n_elements())
+                local point_n_after = self._point_light_buffer:get_n_elements()
+                local segment_n_after = self._segment_light_buffer:get_n_elements()
+
+                local n_point_lights_per_tile_after = self._tile_buffer_n_point_lights
+                local n_segment_lights_per_tile_after = self._tile_buffer_n_segment_lights
+
+                local parts = {}
+                if point_n_before ~= point_n_after then
+                    table.insert(parts, "point lights: " .. point_n_before .. " -> " .. point_n_after)
+                end
+
+                if segment_n_before ~= segment_n_after then
+                    table.insert(parts, "segment lights: " .. segment_n_before .. " -> " .. segment_n_after)
+                end
+
+                if n_point_lights_per_tile_before ~= n_point_lights_per_tile_after then
+                    table.insert(parts, "tile buffer (point lights) " .. n_point_lights_per_tile_before .. " -> " .. n_point_lights_per_tile_after)
+                end
+
+                if n_segment_lights_per_tile_before ~= n_segment_lights_per_tile_after then
+                    table.insert(parts, "tile buffer (segment lights) " .. n_segment_lights_per_tile_before .. " -> " .. n_segment_lights_per_tile_after)
+                end
+
+                rt.warning("reinitializing lightmap buffer sizes: " .. table.concat(parts, ", "))
             end
         end
 
