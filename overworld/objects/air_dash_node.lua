@@ -24,6 +24,9 @@ rt.settings.overworld.air_dash_node = {
 --- @types Circle
 ow.AirDashNode = meta.class("AirDashNode", ow.MovableObject)
 
+--- @class AirDashNodeDirection
+ow.AirDashNodeDirection = meta.class("AirDashNodeDirection")
+
 local _glow_shader = rt.Shader("overworld/objects/air_dash_node_glow.glsl")
 local _noise_texture = rt.NoiseTexture(64, 64, 64,
     rt.NoiseType.GRADIENT, 3.5
@@ -104,15 +107,22 @@ function ow.AirDashNode:instantiate(object, stage, scene)
         angle_range = angle_range * 0.5 * math.pi
     end
 
+    local axis_x = object:get_number("axis_x", false)
+    local axis_y = object:get_number("axis_y", false)
+
     local mid
     if direction == nil then
-        local axis_x = object:get_number("axis_x", false) or 0
-        local axis_y = object:get_number("axis_y", false) or -1
-        mid = math.angle(axis_x, axis_y)
+        mid = math.angle(axis_x or 0, axis_y or 0)
     else
         local start_x, start_y = self._body:get_center_of_mass()
         local end_x, end_y = direction.x, direction.y
         mid = math.normalize_angle(math.angle(end_x - start_x, end_y - start_y))
+    end
+
+    if angle_range ~= nil and angle_range < 0.5 * math.pi then
+        if direction == nil and axis_x == nil and axis_y == nil then
+            rt.error("In rt.AirDashNode: object `", object:get_id(), "` has property `angle` specified, but property `direction`, or `axis_x` `axis_y` are not specified")
+        end
     end
 
     self._angle_ranges = {
@@ -433,6 +443,8 @@ function ow.AirDashNode:draw(priority)
             line_width = line_width + 2 * self._is_current_motion:get_value()
         end
 
+        love.graphics.setLineStyle("smooth")
+
         local angle = math.angle(dx, dy)
         local arc_radius = 0.5 * line_width
 
@@ -441,8 +453,6 @@ function ow.AirDashNode:draw(priority)
             love.graphics.arc("fill", "closed", ax, ay, arc_radius, angle + math.pi / 2, angle + 3 * math.pi / 2)
             love.graphics.arc("fill", "closed", bx, by, arc_radius, angle - math.pi / 2, angle + math.pi / 2)
         end
-
-        love.graphics.setLineStyle("smooth")
 
         love.graphics.setLineWidth(line_width + 1)
 
@@ -501,7 +511,7 @@ function ow.AirDashNode:collect_point_lights(callback)
     local r, g, b, a = self._color:unpack()
     local radius = self._radius
     callback(x, y, radius, r, g, b, a)
-    callback(x, y, self._particle:get_radius(), r, g, b, 1 + self._is_current_motion:get_value())
+    callback(x, y, self._particle:get_radius(), r, g, b, 1 + (1 - self._is_current_motion:get_value()))
 
     --self._particles:collect_point_lights(callback)
 end
