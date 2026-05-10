@@ -160,6 +160,7 @@ function ow.Hook:_hook()
         non_bubble:set_position(x, y)
         player:request_is_jump_allowed_override(self, true)
         player:jump()
+        player:request_is_jump_allowed_override(self, nil)
         self._is_blocked = true
     else
         -- hook properly
