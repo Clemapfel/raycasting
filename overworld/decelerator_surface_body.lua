@@ -415,31 +415,32 @@ function ow.DeceleratorSurfaceBody:set_target(x, y, radius)
     self._target_t = closest_t
 
     local n_slots, n_arms = #self._slots, #self._arms
+
+    -- Cap active arms to avoid the interval wrapping around multiple times
+    local active_arms = math.min(n_arms, n_slots)
+
     local dx, dy = math.subtract(self._target_x, self._target_y, final_x, final_y)
     local t_step = 1 / n_slots
-    local n_arms_half = n_arms / 2
+    local n_arms_half = active_arms / 2
     local left_t = self._target_t - math.ceil(n_arms_half) * t_step
     local right_t = self._target_t + math.floor(n_arms_half) * t_step
-    local interval_length = right_t - left_t  -- raw, unwrapped length; always positive
+    local interval_length = right_t - left_t
 
     local inlay = rt.settings.overworld.decelerator_surface_body.retract_threshold
     local mid_point = math.angle(dx, dy)
 
+    local is_full_circle = (active_arms == n_slots)
     local function is_in_interval(value)
-        local v = math.fract(value)
-        local l = math.fract(left_t)
-        local r = math.fract(right_t)
-        if l <= r then
-            return v >= l and v <= r
-        else
-            return v >= l or v <= r
-        end
+        if is_full_circle then return true end
+        local diff = math.fract(value - left_t)
+        return diff <= interval_length
     end
 
     local function slot_mix_factor(slot_t)
-        local shifted = math.fract(slot_t - math.fract(left_t)) + left_t
-        if shifted > right_t + t_step then shifted = shifted - 1 end
-        return (shifted - left_t) / interval_length
+        if interval_length <= 0 then return 0.5 end
+
+        local diff = math.fract(slot_t - left_t)
+        return diff / interval_length
     end
 
     for slot_index = 1, n_slots do
@@ -880,7 +881,7 @@ do -- step helpers
                         end
 
                         -- if retracting, check if fully done, if yes, free and add to buffer
-                        if not is_extending then
+                        if not is_extending and #self._slots > #self._arms then
                             local i = _particle_i_to_data_offset(end_i)
                             if math.distance(
                                 data[i + _x_offset],
