@@ -114,25 +114,35 @@ end
 function rt.Camera:constrain(x, y)
     if self._apply_bounds ~= true then return x, y end
 
-    local half_width = love.graphics.getWidth() / self._current_scale / 2
-    local half_height = love.graphics.getHeight() / self._current_scale / 2
+    local total_scale = self._current_scale * rt.get_pixel_scale()
+    local half_width = (love.graphics.getWidth() / 2) / total_scale
+    local half_height = (love.graphics.getHeight() / 2) / total_scale
+
+    local angle = self._current_angle
+    local cos_a = math.abs(math.cos(angle))
+    local sin_a = math.abs(math.sin(angle))
+
+    local extent_x = half_width * cos_a + half_height * sin_a
+    local extent_y = half_width * sin_a + half_height * cos_a
 
     for bounds in keys(self._bounds) do
-        x = math.max(x, bounds.x + half_width)
+        local min_x = bounds.x + extent_x
+        x = math.max(x, min_x)
     end
 
-    -- right bounds higher priority than left
     for bounds in keys(self._bounds) do
-        x = math.min(x, bounds.x + bounds.width - half_width)
+        local max_x = bounds.x + bounds.width - extent_x
+        x = math.min(x, max_x)
     end
 
     for bounds in keys(self._bounds) do
-        y = math.max(y, bounds.y + half_height)
+        local min_y = bounds.y + extent_y
+        y = math.max(y, min_y)
     end
 
-    -- lower bounds higher priority than top
     for bounds in keys(self._bounds) do
-        y = math.min(y, bounds.y + bounds.height - half_height)
+        local max_y = bounds.y + bounds.width - extent_y
+        y = math.min(y, max_y)
     end
 
     return x, y
