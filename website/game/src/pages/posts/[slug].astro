@@ -1,13 +1,13 @@
 ---
-import { getCollection } from 'astro:content';
+import { getCollection } from "astro:content";
 
-import Layout from '../../layouts/Layout.astro';
-import MarkdownRenderer from '../../components/Markdown.astro';
-import ShaderCanvas from '../../components/ShaderCanvas.astro';
-import Footer from '../../components/Footer.astro';
+import Layout from "../../layouts/Layout.astro";
+import MarkdownRenderer from "../../components/Markdown.astro";
+import ShaderCanvas from "../../components/ShaderCanvas.astro";
+import Footer from "../../components/Footer.astro";
 
 export async function getStaticPaths() {
-    return (await getCollection('posts')).map(post => ({
+    return (await getCollection("posts")).map(post => ({
         params: { slug: post.data.slug },
         props: { post },
     }));

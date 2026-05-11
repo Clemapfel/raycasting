@@ -1,3 +1,4 @@
+/** **/
 export class RGBA {
     r : number; // in [0, 1]
     g : number; // in [0, 1]
@@ -12,19 +13,22 @@ export class RGBA {
     }
 }
 
+/** **/
 export class HSVA {
     h : number; // in [0, 1]
     s : number; // in [0, 1]
     v : number; // in [0, 1]
     a : number; // in [0, 1]
 
+    /** **/
     constructor(h : number = 0, s : number = 0, v : number = 0, a : number = 1) {
         this.h = h;
         this.s = s;
         this.v = v;
         this.a = a;
     }
-    
+
+    /** **/
     public toRGBA(): RGBA {
         let hue = this.h;
         let value = this.v;
@@ -45,12 +49,14 @@ export class HSVA {
     }
 }
 
+/** **/
 export class LCHA {
     l : number; // in [0, 1]
     c : number; // in [0, 1]
     h : number; // in [0, 1]
     a : number; // in [0, 1]
 
+    /** **/
     constructor(l : number = 0, c : number = 0, h : number = 0, a : number = 1) {
         this.l = l;
         this.c = c;
@@ -58,6 +64,7 @@ export class LCHA {
         this.a = a;
     }
 
+    /** **/
     to_rgba(): RGBA {
         const luminance = this.l * 100;
         const a_component = Math.cos(this.h * 6.283185) * this.c * 100;

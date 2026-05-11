@@ -1,7 +1,7 @@
 ---
 // Usage: <ShaderCircle id="test" segmentCount=1234 />
 
-import { getEntry } from 'astro:content';
+import { getEntry } from "astro:content";
 
 interface Props {
     id: string;
@@ -11,10 +11,10 @@ interface Props {
 const { id, segmentCount = 64 } = Astro.props;
 
 if (!id) {
-    throw new Error('In ShaderCircle: `id` property not specified');
+    throw new Error("In ShaderCircle: `id` property not specified");
 }
 
-const fragment_shader_entry = await getEntry('shaders', id);
+const fragment_shader_entry = await getEntry("shaders", id);
 const fragment_shader = fragment_shader_entry?.body;
 
 if (!fragment_shader) {
@@ -93,39 +93,39 @@ const vertex_shader = `
 <script>
     class ShaderCircle extends HTMLElement {
         connectedCallback() {
-            const canvas = this.querySelector('.webgl-canvas') as HTMLCanvasElement;
-            const errorOverlay = this.querySelector('.shader-error') as HTMLDivElement;
-            const vsSource = this.querySelector('.vert-shader')?.textContent ?? '';
-            const fsSource = this.querySelector('.frag-shader')?.textContent ?? '';
-            const segmentCount = parseInt(this.dataset.segmentCount ?? '128', 10);
+            const canvas = this.querySelector(".webgl-canvas") as HTMLCanvasElement;
+            const errorOverlay = this.querySelector(".shader-error") as HTMLDivElement;
+            const vsSource = this.querySelector(".vert-shader")?.textContent ?? "";
+            const fsSource = this.querySelector(".frag-shader")?.textContent ?? "";
+            const segmentCount = parseInt(this.dataset.segmentCount ?? "128", 10);
 
             const showError = (msg: string) => {
-                console.error('WebGL Error:', msg);
+                console.error("WebGL Error:", msg);
                 errorOverlay.textContent = `Shader Error:\n\n${msg}`;
-                errorOverlay.style.display = 'block';
-                canvas.style.display = 'none';
+                errorOverlay.style.display = "block";
+                canvas.style.display = "none";
             };
 
             try {
                 const gl = (
-                    canvas.getContext('webgl') ??
-                    canvas.getContext('experimental-webgl')
+                    canvas.getContext("webgl") ??
+                    canvas.getContext("experimental-webgl")
                 ) as WebGLRenderingContext | null;
 
                 if (!gl) {
-                    throw new Error('WebGL is not supported on this machine/browser.');
+                    throw new Error("WebGL is not supported on this machine/browser.");
                 }
 
                 // --- 1. Compile Shaders ---
                 const compileShader = (type: number, source: string): WebGLShader => {
                     const shader = gl.createShader(type);
-                    if (!shader) throw new Error('Could not create WebGL shader.');
+                    if (!shader) throw new Error("Could not create WebGL shader.");
                     gl.shaderSource(shader, source);
                     gl.compileShader(shader);
                     if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
                         const info = gl.getShaderInfoLog(shader);
                         gl.deleteShader(shader);
-                        const kind = type === gl.VERTEX_SHADER ? 'Vertex' : 'Fragment';
+                        const kind = type === gl.VERTEX_SHADER ? "Vertex" : "Fragment";
                         throw new Error(`${kind} Shader compilation failed:\n${info}`);
                     }
                     return shader;
@@ -136,7 +136,7 @@ const vertex_shader = `
 
                 // --- 2. Link Program ---
                 const program = gl.createProgram();
-                if (!program) throw new Error('Could not create WebGL program.');
+                if (!program) throw new Error("Could not create WebGL program.");
                 gl.attachShader(program, vertexShader);
                 gl.attachShader(program, fragmentShader);
                 gl.linkProgram(program);
@@ -152,7 +152,7 @@ const vertex_shader = `
                 //     For a point at angle θ on the unit circle in NDC:
                 //       position = (cos θ, sin θ)
                 //       uv       = (0.5 + cos θ * 0.5,  0.5 - sin θ * 0.5)
-                //     (Y is flipped for UV because WebGL's Y-axis is up but UVs go down)
+                //     (Y is flipped for UV because WebGL"s Y-axis is up but UVs go down)
                 //
                 // Layout per vertex:  X  Y  U  V  (4 × f32)
 
@@ -181,8 +181,8 @@ const vertex_shader = `
                 gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
                 gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
 
-                const positionLoc = gl.getAttribLocation(program, 'position');
-                const uvLoc       = gl.getAttribLocation(program, 'uv');
+                const positionLoc = gl.getAttribLocation(program, "position");
+                const uvLoc       = gl.getAttribLocation(program, "uv");
                 const F32 = Float32Array.BYTES_PER_ELEMENT;
                 const stride = FLOATS_PER_VERTEX * F32;
 
@@ -199,8 +199,8 @@ const vertex_shader = `
                 gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
                 // Common uniform locations
-                const timeLoc       = gl.getUniformLocation(program, 'elapsed');
-                const resolutionLoc = gl.getUniformLocation(program, 'screen_size');
+                const timeLoc       = gl.getUniformLocation(program, "elapsed");
+                const resolutionLoc = gl.getUniformLocation(program, "screen_size");
 
                 // --- 4. Resize handler ---
                 // The canvas is always square (min of CSS width/height so the
@@ -244,11 +244,11 @@ const vertex_shader = `
                 requestAnimationFrame(render);
 
             } catch (err: unknown) {
-                const msg = err instanceof Error ? err.message : 'An unknown WebGL error occurred.';
+                const msg = err instanceof Error ? err.message : "An unknown WebGL error occurred.";
                 showError(msg);
             }
         }
     }
 
-    customElements.define('shader-circle-wrapper', ShaderCircle);
+    customElements.define("shader-circle-wrapper", ShaderCircle);
 </script>

@@ -102,6 +102,63 @@ rt.MeshRectangle = function(x, y, width, height)
     })
 end
 
+local function _radius_to_n_vertices(rx, ry)
+    -- cf. https://github.com/love2d/love/blob/5670df13b6980afd025cd7e7d442a24499bf86a7/src/modules/graphics/Graphics.cpp#L2419C1-L2423C2
+    if ry == nil then ry = rx end
+    return math.max(8, math.floor(math.sqrt(((rx + ry) / 2) * 20.0)))
+end
+
+rt.Mesh.radius_to_n_vertices = _radius_to_n_vertices
+
+--- @class rt.MeshCircle
+rt.MeshCircle = function(center_x, center_y, x_radius, y_radius, n_outer_vertices)
+    y_radius = y_radius or x_radius
+    n_outer_vertices = n_outer_vertices or _radius_to_n_vertices(x_radius, y_radius)
+
+    local data = {
+        {center_x, center_y, 0.5, 0.5, 1, 1, 1, 1},
+    }
+
+    local step = 2 * math.pi / n_outer_vertices
+    for angle = 0, 2 * math.pi, step do
+        table.insert(data, {
+            center_x + math.cos(angle) * x_radius,
+            center_y + math.sin(angle) * y_radius,
+            0.5 + math.cos(angle) * 0.5,
+            0.5 + math.sin(angle) * 0.5,
+            1, 1, 1, 1
+        })
+    end
+
+    local map = {}
+    for outer_i = 2, n_outer_vertices do
+        for i in range(1, outer_i, outer_i + 1) do
+            table.insert(map, i)
+        end
+    end
+
+    for i in range(n_outer_vertices + 1, 1, 2) do
+        table.insert(map, i)
+    end
+
+    local native = love.graphics.newMesh(
+        rt.VertexFormat,
+        data,
+        rt.MeshDrawMode.TRIANGLES,
+        rt.GraphicsBufferUsage.STATIC
+    )
+    native:setVertexMap(map)
+
+    local out = setmetatable({}, meta.get_instance_metatable(rt.Mesh))
+    return meta.install(out, {
+        _native = native,
+        _r = 1,
+        _g = 1,
+        _b = 1,
+        _opacity = 1
+    })
+end
+
 --- @class rt.MeshRectangle3D
 rt.MeshRectangle3D = function(
     center_x, center_y, center_z,
@@ -181,62 +238,6 @@ rt.MeshRectangle3D = function(
     return out
 end
 
-local function _radius_to_n_vertices(rx, ry)
-    -- cf. https://github.com/love2d/love/blob/5670df13b6980afd025cd7e7d442a24499bf86a7/src/modules/graphics/Graphics.cpp#L2419C1-L2423C2
-    if ry == nil then ry = rx end
-    return math.max(8, math.floor(math.sqrt(((rx + ry) / 2) * 20.0)))
-end
-
-rt.Mesh.radius_to_n_vertices = _radius_to_n_vertices
-
---- @class rt.MeshCircle
-rt.MeshCircle = function(center_x, center_y, x_radius, y_radius, n_outer_vertices)
-    y_radius = y_radius or x_radius
-    n_outer_vertices = n_outer_vertices or _radius_to_n_vertices(x_radius, y_radius)
-
-    local data = {
-        {center_x, center_y, 0.5, 0.5, 1, 1, 1, 1},
-    }
-
-    local step = 2 * math.pi / n_outer_vertices
-    for angle = 0, 2 * math.pi, step do
-        table.insert(data, {
-            center_x + math.cos(angle) * x_radius,
-            center_y + math.sin(angle) * y_radius,
-            0.5 + math.cos(angle) * 0.5,
-            0.5 + math.sin(angle) * 0.5,
-            1, 1, 1, 1
-        })
-    end
-
-    local map = {}
-    for outer_i = 2, n_outer_vertices do
-        for i in range(1, outer_i, outer_i + 1) do
-            table.insert(map, i)
-        end
-    end
-
-    for i in range(n_outer_vertices + 1, 1, 2) do
-        table.insert(map, i)
-    end
-
-    local native = love.graphics.newMesh(
-        rt.VertexFormat,
-        data,
-        rt.MeshDrawMode.TRIANGLES,
-        rt.GraphicsBufferUsage.STATIC
-    )
-    native:setVertexMap(map)
-
-    local out = setmetatable({}, meta.get_instance_metatable(rt.Mesh))
-    return meta.install(out, {
-        _native = native,
-        _r = 1,
-        _g = 1,
-        _b = 1,
-        _opacity = 1
-    })
-end
 
 --- @class rt.MeshRing
 rt.MeshRing = function(center_x, center_y, inner_radius, outer_radius, fill_center, n_outer_vertices, inner_color, outer_color)

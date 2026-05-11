@@ -1,16 +1,17 @@
-import type { GLContext } from './GLContext.ts';
-import { Vec2, Vec3, Vec4 } from './Math.ts';
-import { RGBA } from './Colors.ts';
-import { Texture } from './Texture.ts';
+import type { GLContext } from "./GLContext.ts";
+import { Vec2, Vec3, Vec4 } from "./Math.ts";
+import { RGBA } from "./Colors.ts";
+import { Texture } from "./Texture.ts";
 
-export const default_texture_uniform_name = "texture";
-export const default_uv_name = "fragment_uv";
-export const default_rgba_name = "fragment_color";
-export const default_fragment_out_name = "out_color";
+export const default_texture_uniform_name = "tex";
+export const default_uv_name = "texture_coords";
+export const default_rgba_name = "color";
+export const default_fragment_out_name = "color_out";
+export const default_screen_size_name = "screen_size"
 export const invert_y_axis = true;
+export const default_shader_version = "#version 300 es"
 
-const default_vertex_shader_source = `#version 300 es
-
+const default_vertex_shader_source = `${default_shader_version}
 layout(location = 0) in vec2 vertex_position;
 layout(location = 1) in vec2 vertex_uv;
 layout(location = 2) in vec4 vertex_color;
@@ -18,18 +19,22 @@ layout(location = 2) in vec4 vertex_color;
 out vec2 ${default_uv_name};
 out vec4 ${default_rgba_name};
 
+uniform vec2 ${default_screen_size_name};
+
 void main() {
     ${default_uv_name} = vertex_uv;
     ${default_rgba_name} = vertex_color;
-    ${invert_y_axis ? "vertex_position.y *= -1.0;" : ""}
-    gl_Position = vec4(vertex_position, 0.0, 1.0);
+    vec2 position = vertex_position;
+    ${invert_y_axis ? "position.y *= -1.0;" : ""}
+    gl_Position = vec4(position, 0.0, 1.0);
 }
 `;
 
-const default_fragment_shader_source = `#version 300 es
+const default_fragment_shader_source = `${default_shader_version}
 precision mediump float;
 
 uniform sampler2D ${default_texture_uniform_name};
+uniform vec2 ${default_screen_size_name};
 
 in vec2 ${default_uv_name};
 in vec4 ${default_rgba_name};
@@ -42,16 +47,19 @@ void main() {
 }
 `;
 
+TODO: how to notify shader of viewport size?
+
 class TextureUnitAllocator {
     private texture_to_unit: Map<WebGLTexture, number> = new Map<WebGLTexture, number>();
     private unit_to_texture: (WebGLTexture | null)[] | undefined = undefined; // initialized in constructor
     private texture_order: WebGLTexture[] = []; // least recently used
 
     constructor(context : GLContext) {
-        if (context === null) return;
+        if (!context.isValid()) return;
+        const { gl } = context;
 
         this.unit_to_texture = new Array<WebGLTexture | null>().fill(null,
-            0, context.MAX_TEXTURE_IMAGE_UNITS
+            0, gl.MAX_TEXTURE_IMAGE_UNITS
         );
     }
 
@@ -82,6 +90,7 @@ class TextureUnitAllocator {
     }
 }
 
+/** **/
 export class Shader {
     private fragment_shader_source : string;
     private vertex_shader_source : string;
@@ -92,11 +101,14 @@ export class Shader {
     static context_to_texture_unit_allocator : Map<GLContext, TextureUnitAllocator> = new Map<GLContext, TextureUnitAllocator>();
     static default_texture : WebGLTexture | undefined = undefined;
 
+    /** **/
     constructor(context : GLContext, fragment_shader_source? : string, vertex_shader_source? : string) {
         if (fragment_shader_source == undefined) fragment_shader_source = default_fragment_shader_source;
         if (vertex_shader_source == undefined) vertex_shader_source = default_vertex_shader_source;
         this.context = context;
-        const gl = this.context; if (gl === null) return;
+
+        if (!this.context.isValid()) return;
+        const { gl } = this.context;
 
         this.fragment_shader_source = fragment_shader_source;
         this.vertex_shader_source = vertex_shader_source;
@@ -106,8 +118,10 @@ export class Shader {
             Shader.context_to_texture_unit_allocator.set(context, new TextureUnitAllocator(context));
     }
 
+    /** **/
     private recompile(): void {
-        const gl = this.context; if (gl === null) return;
+        if (!this.context.isValid()) return;
+        const { gl } = this.context;
 
         const first_compile = this.program == undefined;
         if (!first_compile) gl.deleteProgram(this.program);
@@ -150,7 +164,6 @@ export class Shader {
                 Shader.default_texture = tex;
             }
 
-            const previous_texture = gl.getParameter(gl.TEXTURE_BINDING_2D);
             gl.bindTexture(gl.TEXTURE_2D, Shader.default_texture);
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([255, 255, 255, 255]));            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
@@ -158,8 +171,10 @@ export class Shader {
         }
     }
 
+    /** **/
     public bind() {
-        const gl = this.context; if (gl === null) return;
+        if (!this.context.isValid()) return;
+        const { gl } = this.context;
         gl.useProgram(this.program);
 
         // bind 1x1 white default texture so the default shader does not return vec4(0)
@@ -170,30 +185,36 @@ export class Shader {
         }
     }
 
+    /** **/
     public unbind() {
-        const gl = this.context; if (gl === null) return;
+        if (!this.context.isValid()) return;
+        const { gl } = this.context;
         gl.useProgram(null);
     }
 
+    /** **/
     public setUniform(id: string, value: number | Vec2 | Vec3 | Vec4 | RGBA | Texture) {
-        const gl = this.context; if (gl === null) return;
+        if (!this.context.isValid()) return;
+        const { gl } = this.context;
+
+        gl.useProgram(this.program);
 
         const location = gl.getUniformLocation(this.program, id);
         if (location === null) {
-            console.warn(`In Shader.setUniform: no uniform with id \'${id}\' present`);
+            console.warn(`In Shader.setUniform: no uniform with id \"${id}\" present`);
             return;
         }
 
         if (typeof value === "number") {
             const indices = gl.getUniformIndices(this.program, [id]);
             if (indices === null) {
-                console.warn(`In Shader.setUniform: unable to get uniform indices for uniform with id \'${id}\'`)
+                console.warn(`In Shader.setUniform: unable to get uniform indices for uniform with id \"${id}\"`)
                 return;
             }
 
             const info = gl.getActiveUniform(this.program, indices[0]);
             if (info === null) {
-                console.warn(`In Shader.setUniform: unable to get uniform infor for uniform with id \'${id}\'`)
+                console.warn(`In Shader.setUniform: unable to get uniform infor for uniform with id \"${id}\"`)
                 return;
             }
 
@@ -219,10 +240,22 @@ export class Shader {
             gl.uniform4f(location, value.x, value.y, value.z, value.w);
         else
             throw new Error(`In Shader.setUniform: unhandled argument type ${typeof value}`);
+
+        gl.useProgram(null);
     }
 
+    /** **/
+    public hasUniform(id : string) : boolean {
+        if (!this.context.isValid()) return false;
+        const { gl } = this.context;
+
+        return gl.getUniformLocation(this.program, id) !== null
+    }
+
+    /** **/
     public free() {
-        const gl = this.context; if (gl === null) return;
+        if (!this.context.isValid()) return;
+        const { gl } = this.context;
         if (this.program) gl.deleteProgram(this.program);
     }
 }

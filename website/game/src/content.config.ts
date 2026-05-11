@@ -14,7 +14,7 @@ const posts = defineCollection({
 });
 
 const shaders = defineCollection({
-    loader: glslLoader({ base: './src/content/shaders' }),
+    loader: glslLoader({ base: "./src/content/shaders" }),
     schema: z.object({
         id: z.string(),
     }),

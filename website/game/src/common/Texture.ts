@@ -1,17 +1,20 @@
-import type { GLContext } from './GLContext.ts';
-import { Vec2 } from './Math.ts';
+import type { GLContext } from "./GLContext.ts";
+import { Vec2 } from "./Math.ts";
 
+/** **/
 export enum TextureFilterMode {
     NEAREST,
     LINEAR,
 }
 
+/** **/
 export enum TextureWrapMode {
     REPEAT,
     CLAMP,
     MIRROR
 }
 
+/** **/
 export enum TextureFormat {
     RGBA8,
     RG8,
@@ -71,6 +74,7 @@ const resolve_texture_format = (gl : GLContext, format: TextureFormat): {
     }
 }
 
+/** **/
 export class Texture {
     private width : number = 0;
     private height : number = 0;
@@ -78,11 +82,17 @@ export class Texture {
     protected native : WebGLTexture;
     protected context : GLContext;
 
+    /** **/
     constructor(context : GLContext, image: HTMLImageElement);
+
+    /** **/
     constructor(context: GLContext, width: number, height: number, format?: number);
+
+    // ctor
     constructor(context : GLContext, image_or_width: HTMLImageElement | number, height?: number, format?: TextureFormat) {
         this.context = context;
-        const gl = this.context; if (gl === null) return;
+        if (!this.context.isValid()) return;
+        const { gl } = this.context;
 
         const texture = gl.createTexture();
         if (texture === null) throw new Error("In Texture: unable to create texture")
@@ -114,9 +124,11 @@ export class Texture {
         this.setWrapMode(TextureWrapMode.CLAMP);
     }
 
+    /** **/
     public setFilterMode(filter_min : TextureFilterMode, filter_mag? : TextureFilterMode) : void {
         if (filter_mag === undefined) filter_mag = filter_min;
-        const gl = this.context; if (gl === null) return;
+        if (!this.context.isValid()) return;
+        const { gl } = this.context;
 
         const to_native = (mode : TextureFilterMode) => {
             if (mode == TextureFilterMode.NEAREST)
@@ -133,9 +145,11 @@ export class Texture {
         gl.bindTexture(gl.TEXTURE_2D, null);
     }
 
+    /** **/
     public setWrapMode(wrap_s : TextureWrapMode, wrap_t? : TextureWrapMode) : void {
         if (wrap_t === undefined) wrap_t = wrap_s;
-        const gl = this.context; if (gl === null) return;
+        if (!this.context.isValid()) return;
+        const { gl } = this.context;
 
         const to_native = (mode : TextureWrapMode) => {
             if (mode == TextureWrapMode.REPEAT)
@@ -154,41 +168,50 @@ export class Texture {
         gl.bindTexture(gl.TEXTURE_2D, null);
     }
 
+    /** **/
     public free() : void {
-        const gl = this.context; if (gl === null) return;
+        if (!this.context.isValid()) return;
+        const { gl } = this.context;
         if (this.native) gl.deleteTexture(this.native);
     }
 
+    /** **/
     public getNative() : WebGLTexture {
         return this.native;
     }
 
+    /** **/
     public getWidth() : number {
         const gl = this.context; if (gl === null) return 0;
         return this.width;
     }
 
+    /** **/
     public getHeight() : number {
         const gl = this.context; if (gl === null) return 0;
         return this.height;
     }
 
+    /** **/
     public getSize() : Vec2 {
         const gl = this.context; if (gl === null) return new Vec2(0, 0);
         return new Vec2(this.width, this.height);
     }
 }
 
+/** **/
 export class RenderTexture extends Texture {
 
     //private native : WebGLTexture;
     private framebuffer : WebGLFramebuffer;
 
+    /** **/
     constructor(context : GLContext, width : number, height: number, format?: number) {
         if (format === undefined) format = TextureFormat.RGBA8;
         super(context, width, height, format)
 
-        const gl = this.context; if (gl === null) return;
+        if (!this.context.isValid()) return;
+        const { gl } = this.context;
 
         const framebuffer = gl.createFramebuffer();
         if (framebuffer === null) throw new Error("In RenderTexture: unable to create frame buffer");
@@ -214,19 +237,25 @@ export class RenderTexture extends Texture {
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     }
 
+    /** **/
     public free() {
-        const gl = this.context; if (gl === null) return;
+        if (!this.context.isValid()) return;
+        const { gl } = this.context;
         super.free()
         if (this.framebuffer) gl.deleteFramebuffer(this.framebuffer);
     }
 
+    /** **/
     public bind() {
-        const gl = this.context; if (gl === null) return;
+        if (!this.context.isValid()) return;
+        const { gl } = this.context;
         gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer);
     }
 
+    /** **/
     public unbind() {
-        const gl = this.context; if (gl === null) return;
+        if (!this.context.isValid()) return;
+        const { gl } = this.context;
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     }
 }

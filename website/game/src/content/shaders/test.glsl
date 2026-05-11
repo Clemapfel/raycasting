@@ -1,3 +1,4 @@
+#version 300 es
 precision mediump float;
 
 vec3 random_3d(in vec3 p) {
@@ -24,13 +25,16 @@ float gradient_noise(vec3 p) {
     dot( -1.0 + 2.0 * random_3d(i + vec3(1.0,1.0,1.0)), v - vec3(1.0,1.0,1.0)), u.x), u.y), u.z );
 }
 
-varying vec2 texture_coords;
+in vec2 texture_coords;
+in vec4 color;
+out vec4 color_out;
+
 uniform float elapsed;
 
 void main() {
     vec2 uv = texture_coords;
     float time = elapsed / 10.0;
-    gl_FragColor = vec4(
+    color_out = vec4(
         fract(uv.x + time),
         fract(uv.y - time),
         fract(uv.x - time)

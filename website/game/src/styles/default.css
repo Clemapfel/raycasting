@@ -1,6 +1,6 @@
 :root {
-    --default-font: 'Cantarelle', 'Noto Sans', sans-serif;
-    --default-font-mono: 'DejaVu Mono', 'Noto Sans Mono', monospace;
+    --default-font: "Cantarelle", "Noto Sans", sans-serif;
+    --default-font-mono: "DejaVu Mono", "Noto Sans Mono", monospace;
     --default-color-primary: #ff0066;
     --default-color-secondary: #5FFDAE;
     --default-color-foreground: #e2e2e2;

@@ -3,6 +3,7 @@
 
   "compilerOptions": {
     "strictNullChecks": true,
+    "allowImportingTsExtensions" : true,
     "allowJs": true,
     "plugins": [
       {

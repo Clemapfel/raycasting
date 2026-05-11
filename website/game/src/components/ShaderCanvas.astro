@@ -1,208 +1,50 @@
 ---
-//
-// Usage: <ShaderCanvas id="test"/>
-//
-
-import { getEntry, getCollection } from 'astro:content';
+import { getEntry } from "astro:content";
 
 interface Props {
+    /** The ID of the shader entry in the 'shaders' content collection */
     id: string;
 }
 
 const { id } = Astro.props;
 
 if (!id) {
-    throw new Error('In ShaderCanvas: \`id\` property not specified');
+    throw new Error("In ShaderCanvas: `id` property not specified");
 }
 
-const fragment_shader_entry = await getEntry('shaders', id);
+const fragment_shader_entry = await getEntry("shaders", id);
 const fragment_shader = fragment_shader_entry?.body;
 
 if (!fragment_shader) {
     throw new Error(`FragmentShader not found: ${id}`);
 }
-
-const vertex_shader = `
-    attribute vec2 position;
-    attribute vec2 uv;
-
-    varying vec2 texture_coords;
-
-    void main() {
-        texture_coords = uv;
-        gl_Position = vec4(position, 0.0, 1.0);
-    }
-`;
 ---
 
-<shader-canvas-wrapper>
-    <script type="x-shader/x-vertex" class="vertex-shader" set:html={vertex_shader}></script>
-    <script type="x-shader/x-fragment" class="fragment-shader" set:html={fragment_shader}></script>
-    <canvas class="webgl-canvas"></canvas>
-    <div class="shader-error" style="display: none;"></div>
-</shader-canvas-wrapper>
+<shader-canvas fragment-shader-source={fragment_shader}>
+    <canvas class="shader-canvas-viewport"></canvas>
+</shader-canvas>
 
 <style>
-    shader-canvas-wrapper {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100vw;
-        height: 100vh;
-        z-index: -9999; /* Deep in the background */
-        pointer-events: none; /* Let clicks pass through to the page */
-        overflow: hidden;
-    }
-
-    .webgl-canvas {
+    shader-canvas {
+        display: block;
         width: 100%;
         height: 100%;
-        display: block;
+        position: absolute;
+        top: 0;
+        left: 0;
+        z-index: -1;
+        overflow: hidden;
     }
-
-    .shader-error {
-        position: fixed;
-        top: 1rem;
-        left: 1rem;
-        right: 1rem;
-        background: darkred; /* Red error background */
-        color: white;
-        padding: 1rem;
-        border-radius: 0.5rem;
-        font-family: monospace;
-        white-space: pre-wrap;
-        z-index: 9999; /* Bring errors to the absolute front */
-        pointer-events: auto; /* Allow text selection of the error */
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    .shader-canvas-viewport {
+        display: block;
+        width: 100%;
+        height: 100%;
     }
 </style>
 
 <script>
-    class ShaderCanvas extends HTMLElement {
-        connectedCallback() {
-            const canvas = this.querySelector('.webgl-canvas') as HTMLCanvasElement;
-            const errorOverlay = this.querySelector('.shader-error') as HTMLDivElement;
-            const vertexSource = this.querySelector('.vertex-shader')?.textContent || '';
-            const fragmentSource = this.querySelector('.fragment-shader')?.textContent || '';
-
-            const showError = (msg: string) => {
-                console.error("WebGL Error:", msg);
-                errorOverlay.textContent = `Shader Error:\n\n${msg}`;
-                errorOverlay.style.display = 'block';
-                canvas.style.display = 'none'; // hide canvas on error
-            };
-
-            try {
-                const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl') as WebGLRenderingContext;
-
-                if (!gl) {
-                    throw new Error("WebGL is not supported on this machine/browser.");
-                }
-
-                const compileShader = (type: number, source: string) => {
-                    const shader = gl.createShader(type);
-                    if (!shader) throw new Error("Could not create WebGL shader.");
-
-                    gl.shaderSource(shader, source);
-                    gl.compileShader(shader);
-
-                    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-                        const info = gl.getShaderInfoLog(shader);
-                        gl.deleteShader(shader);
-                        const shaderType = type === gl.VERTEX_SHADER ? "Vertex" : "Fragment";
-                        throw new Error(`${shaderType} Shader compilation failed:\n${info}`);
-                    }
-                    return shader;
-                };
-
-                const vertexShader = compileShader(gl.VERTEX_SHADER, vertexSource);
-                const fragmentShader = compileShader(gl.FRAGMENT_SHADER, fragmentSource);
-
-                // link program
-                const program = gl.createProgram();
-                if (!program) throw new Error("Could not create WebGL program.");
-
-                gl.attachShader(program, vertexShader);
-                gl.attachShader(program, fragmentShader);
-                gl.linkProgram(program);
-
-                if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-                    const info = gl.getProgramInfoLog(program);
-                    throw new Error(`Program linking failed:\n${info}`);
-                }
-
-                gl.useProgram(program);
-
-                const vertices = new Float32Array([
-                    -1.0, -1.0,  0.0, 0.0, // xy uv
-                    +1.0, -1.0,  1.0, 0.0,
-                    -1.0, +1.0,  0.0, 1.0,
-                    +1.0, -1.0,  1.0, 0.0,
-                    +1.0, +1.0,  1.0, 1.0,
-                    -1.0, +1.0,  0.0, 1.0
-                ]);
-
-                const buffer = gl.createBuffer();
-                gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-                gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
-
-                const positionLocation = gl.getAttribLocation(program, "position");
-                const uvLocation = gl.getAttribLocation(program, "uv");
-
-                const Float32Size = Float32Array.BYTES_PER_ELEMENT;
-                const stride = 4 * Float32Size;
-
-                gl.enableVertexAttribArray(positionLocation);
-                gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, stride, 0);
-
-                if (uvLocation !== -1) {
-                    gl.enableVertexAttribArray(uvLocation);
-                    gl.vertexAttribPointer(uvLocation, 2, gl.FLOAT, false, stride, 2 * Float32Size);
-                }
-
-                const timeLocation = gl.getUniformLocation(program, "elapsed");
-                const screenSizeLocation = gl.getUniformLocation(program, "screen_size");
-
-                const resize = () => {
-                    const dpr = window.devicePixelRatio || 1;
-                    const width = canvas.clientWidth * dpr;
-                    const height = canvas.clientHeight * dpr;
-
-                    if (canvas.width !== width || canvas.height !== height) {
-                        canvas.width = width;
-                        canvas.height = height;
-                        gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
-                    }
-                };
-
-                window.addEventListener('resize', resize);
-                resize();
-
-                let startTime = performance.now();
-
-                const render = (now: number) => {
-                    if (timeLocation) {
-                        gl.uniform1f(timeLocation, (now - startTime) / 1000);
-                    }
-
-                    if (screenSizeLocation) {
-                        gl.uniform2f(screenSizeLocation, gl.canvas.width, gl.canvas.height);
-                    }
-
-                    gl.clearColor(0.0, 0.0, 0.0, 0.0);
-                    gl.clear(gl.COLOR_BUFFER_BIT);
-                    gl.drawArrays(gl.TRIANGLES, 0, 6);
-
-                    requestAnimationFrame(render);
-                };
-
-                requestAnimationFrame(render);
-
-            } catch (err: any) {
-                showError(err.message || "An unknown WebGL error occurred.");
-            }
-        }
+    import { ShaderCanvas } from "./ShaderCanvas";
+    if (!customElements.get("shader-canvas")) {
+        customElements.define("shader-canvas", ShaderCanvas);
     }
-
-    customElements.define('shader-canvas-wrapper', ShaderCanvas);
 </script>

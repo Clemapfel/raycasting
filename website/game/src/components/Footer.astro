@@ -10,12 +10,12 @@ interface Props {
 const { author } = Astro.props;
 
 if (!author) {
-    throw new Error('In Footer: `author` property not specified');
+    throw new Error("In Footer: `author` property not specified");
 }
 
 const currentYear = new Date().getFullYear();
 
-import '../styles/default.css';
+import "../styles/default.css";
 ---
 
 <style>

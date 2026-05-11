@@ -3,7 +3,7 @@
 // Usage: <MarkdownRenderer id="post-slug-id"/>
 //
 
-import { getEntry, render } from 'astro:content';
+import { getEntry, render } from "astro:content";
 
 interface Props {
     id: string;
@@ -11,7 +11,7 @@ interface Props {
 
 const { id } = Astro.props;
 
-const post = await getEntry('posts', id);
+const post = await getEntry("posts", id);
 
 if (!post) {
     throw new Error(`no post width id "${id}" at "src/content/posts/${id}.md"`);
@@ -19,8 +19,8 @@ if (!post) {
 
 const { Content } = await render(post);
 
-import Frame from '../components/Frame.astro'
-import '../styles/default.css';
+import Frame from "../components/Frame.astro"
+import "../styles/default.css";
 ---
 
 <style>
@@ -126,7 +126,7 @@ import '../styles/default.css';
 
     /* math */
     .markdown-container :global(.katex) {
-        font-family: 'Noto Math', 'KaTeX_Main' !important;
+        font-family: "Noto Math", "KaTeX_Main" !important;
         font-size: 1.2em !important;
         color: #E3E3E3 !important;
     }

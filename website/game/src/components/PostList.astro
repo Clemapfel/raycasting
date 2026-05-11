@@ -1,8 +1,8 @@
 ---
-import { getCollection } from 'astro:content';
-import '../styles/default.css';
+import { getCollection } from "astro:content";
+import "../styles/default.css";
 
-const raw_posts = await getCollection('posts');
+const raw_posts = await getCollection("posts");
 const posts = raw_posts.sort((a, b) => new Date(a.data.date).getTime() - new Date(b.data.date).getTime()).reverse();
 ---
 
@@ -116,7 +116,7 @@ const posts = raw_posts.sort((a, b) => new Date(a.data.date).getTime() - new Dat
                                 <li class="post-list-item">
                                     <a class="post-list-link" href={`/posts/${post.data.slug}`}>
                                         <time class="post-list-date" datetime={post.data.date}>
-                                            {new Date(post.data.date).toLocaleDateString('en-CA')}
+                                            {new Date(post.data.date).toLocaleDateString("en-CA")}
                                         </time>
                                         <span class="post-list-title">{post.data.title}</span>
                                     </a>

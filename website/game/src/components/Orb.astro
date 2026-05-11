@@ -271,15 +271,15 @@ const image_path = "/orb_particle_texture.png"
             this.gl = glContext;
 
             // Check extensions
-            const extColorBufferFloat = this.gl.getExtension('EXT_color_buffer_float');
-            const extFloatBlend = this.gl.getExtension('EXT_float_blend');
+            const extColorBufferFloat = this.gl.getExtension("EXT_color_buffer_float");
+            const extFloatBlend = this.gl.getExtension("EXT_float_blend");
             if (extColorBufferFloat) {
                 this.useFloatTexture = true;
                 if (!extFloatBlend) {
-                    console.warn('EXT_float_blend not available, additive blending may behave unexpectedly with float textures');
+                    console.warn("EXT_float_blend not available, additive blending may behave unexpectedly with float textures");
                 }
             } else {
-                console.warn('EXT_color_buffer_float not available, falling back to RGBA8 render texture.');
+                console.warn("EXT_color_buffer_float not available, falling back to RGBA8 render texture.");
             }
 
             this.initWebGL();
