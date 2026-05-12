@@ -28,17 +28,17 @@ float gradient_noise(vec3 p) {
 in vec2 rt_TextureCoords;
 in vec4 rt_VertexColor;
 in vec2 rt_VertexPosition;
-
 out vec4 rt_FragColor;
 
 uniform float elapsed;
+#define PI 3.1415926535897932384626433832795
 
 void main() {
     vec2 uv = rt_TextureCoords;
-    float time = elapsed;
+    float time = mod(elapsed / 100.0, 1.0);
     rt_FragColor = vec4(
         fract(uv.x + time),
         fract(uv.y - time),
         fract(uv.x - time)
-    , 1); //gradient_noise(vec3(uv.xy * 10.0, elapsed)));
+    , 1);
 }

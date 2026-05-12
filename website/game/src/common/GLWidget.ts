@@ -1,15 +1,16 @@
 import { GLContext } from "./GLContext.ts";
-import { type Seconds } from "./Time.ts";
+import {type MilliSeconds, type Seconds} from "./Time.ts";
 import { Vec2 } from "./Math.ts";
 
 export abstract class GLWidget extends HTMLElement {
     protected context!: GLContext;
+    protected canvas!: HTMLCanvasElement;
 
     protected realize(): void {}
     protected unrealize(): void {}
     protected draw(): void {}
     protected reformat(width: number, height: number): void {}
-    protected update(time_delta: Seconds): void {}
+    protected update(time_delta: MilliSeconds): void {}
 
     protected onMousePressed(event: MouseEvent): void {}
     protected onMouseReleased(event: MouseEvent): void {}
@@ -55,6 +56,11 @@ export abstract class GLWidget extends HTMLElement {
                     height = entry.contentRect.height * dpr;
                 }
 
+                // resize internal canvas
+                this.canvas.width = width;
+                this.canvas.height = height;
+
+                // notify children of resize
                 this.size.x = width;
                 this.size.y = height;
                 this.reformat(width, height);
@@ -94,23 +100,25 @@ export abstract class GLWidget extends HTMLElement {
             this.addEventListener("blur", this.handle_blur);
     }
 
-    private is_realized: boolean = false;
-    private resize_observer: ResizeObserver;
+    private is_realized : boolean = false;
+    private resize_observer : ResizeObserver;
     private size: Vec2 = new Vec2(0, 0);
-    private frame_identifier?: number;
-    private last_timestamp?: DOMHighResTimeStamp;
+    private frame_identifier? : number;
+    private last_timestamp? : DOMHighResTimeStamp = performance.now();
 
     public connectedCallback() {
         const internal_canvas = this.querySelector("canvas");
         if (!internal_canvas) {
             throw new Error("GLWidget: No canvas element found within the custom element.");
         }
-        this.context = new GLContext(internal_canvas);
+
+        this.canvas = internal_canvas;
+        this.context = new GLContext(this.canvas);
 
         this.resize_observer.observe(this, { box: "device-pixel-content-box" });
         this.realize();
         this.is_realized = true;
-        this.frame_identifier = window.requestAnimationFrame(this.on_request_animation_frame);
+        this.frame_identifier = requestAnimationFrame(this.on_request_animation_frame);
     }
 
     public disconnectedCallback() {
@@ -125,11 +133,11 @@ export abstract class GLWidget extends HTMLElement {
 
     private on_request_animation_frame = (timestamp: DOMHighResTimeStamp) => {
         if (!this.is_realized) return;
-        const delta = this.last_timestamp === undefined ? 0 : (timestamp - this.last_timestamp) / 1000;
+        const delta = this.last_timestamp === undefined ? 0 : (timestamp - this.last_timestamp);
         this.last_timestamp = timestamp;
-        this.update(delta);
+        this.update(delta / 1000.0);
         this.draw();
-        this.frame_identifier = window.requestAnimationFrame(this.on_request_animation_frame);
+        this.frame_identifier = requestAnimationFrame(this.on_request_animation_frame);
     }
 
     private handle_mouse_pressed = (event: MouseEvent) => this.onMousePressed(event);

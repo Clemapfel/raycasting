@@ -1,3 +1,5 @@
+import { RGBA } from "./Colors.ts";
+
 const makeDebugContext: typeof import("webgl-debug").makeDebugContext = await import("webgl-debug")
     // safe import, if package is missing, becomes noop
     .then(m => m.makeDebugContext)
@@ -31,6 +33,20 @@ export class GLContext {
         this.gl = canvas.getContext("webgl2");
         if (this.gl !== null)
             this.gl = makeDebugContext(this.gl)
+    }
+
+    // state
+    private color : RGBA = new RGBA(1, 1, 1, 1);
+
+    public setColor(r, g, b, a) : void {
+        this.color.r = r;
+        this.color.g = g;
+        this.color.b = b;
+        this.color.a = a;
+    }
+
+    public getColor() : RGBA {
+        return this.color.clone();
     }
 
     /**

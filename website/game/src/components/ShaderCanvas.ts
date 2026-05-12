@@ -1,7 +1,7 @@
 import { GLWidget } from "../common/GLWidget.ts";
 import { Mesh, MeshRectangle } from "../common/Mesh.ts";
 import { Shader } from "../common/Shader.ts";
-import { type Seconds } from "../common/Time.ts";
+import {type MilliSeconds, type Seconds} from "../common/Time.ts";
 
 const UNIFORM_ELAPSED_TIME = "elapsed";
 
@@ -39,12 +39,10 @@ export class ShaderCanvas extends GLWidget {
     }
 
     protected override draw(): void {
-        if (!this.shader_program || !this.quad) return;
+        if (this.shader_program === undefined || this.quad === undefined) return;
 
         if (this.shader_program.hasUniform(UNIFORM_ELAPSED_TIME))
             this.shader_program.setUniform(UNIFORM_ELAPSED_TIME, this.elapsed);
-
-        this.shader_program.setScreenSize(this.getSize());
 
         this.shader_program.bind();
         this.quad.draw();

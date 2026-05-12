@@ -11,6 +11,10 @@ export class RGBA {
         this.b = b;
         this.a = a;
     }
+
+    public clone() {
+        return new RGBA(this.r, this.g, this.b, this.a);
+    }
 }
 
 /** **/
@@ -26,6 +30,10 @@ export class HSVA {
         this.s = s;
         this.v = v;
         this.a = a;
+    }
+
+    public clone() {
+        return new HSVA(this.h, this.s, this.v, this.a);
     }
 
     /** **/
@@ -62,6 +70,10 @@ export class LCHA {
         this.c = c;
         this.h = h;
         this.a = a;
+    }
+
+    public clone() {
+        return new LCHA(this.l, this.c, this.h, this.a);
     }
 
     /** **/

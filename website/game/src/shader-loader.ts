@@ -8,11 +8,11 @@ export function glslLoader(options: { base: string | URL }): Loader {
         name: "glsl-loader",
         load: async ({ store, logger, watcher }) => {
             // 1. Resolve the base directory
-            const baseDir = typeof options.base === "string"
+            const base_directory = typeof options.base === "string"
                 ? new URL(options.base, `file://${process.cwd()}/`)
                 : options.base;
 
-            const dirPath = fileURLToPath(baseDir);
+            const dirPath = fileURLToPath(base_directory);
 
             // Helper function to read and store a single GLSL file
             const syncFile = async (filePath: string) => {
@@ -56,6 +56,8 @@ export function glslLoader(options: { base: string | URL }): Loader {
 
             // 3. Set up Hot Module Replacement (HMR) for dev mode
             if (watcher) {
+                watcher.add(dirPath);
+
                 watcher.on("add", async (path) => {
                     if (path.startsWith(dirPath) && path.endsWith(".glsl")) await syncFile(path);
                 });

@@ -5,8 +5,6 @@ uniform float elapsed;
 const vec4 color_a = 0.3 * vec4(1, 0.11372549019608, 0.46666666666667, 1);
 const vec4 color_b = 0.9 * vec4(1, 0.11372549019608, 0.46666666666667, 1);
 
-varying vec2 texture_coords;
-
 vec3 random_3d(vec3 p) {
     return fract(sin(vec3(
     dot(p, vec3(127.1, 311.7, 74.7)),
@@ -100,14 +98,19 @@ vec3 lch_to_rgb(vec3 lch) {
     return vec3(clamp(R, 0.0, 1.0), clamp(G, 0.0, 1.0), clamp(B, 0.0, 1.0));
 }
 
-uniform vec2 screen_size;
 const vec4 black = vec4(0.043137, 0.043137, 0.062745, 1.0);
 
-void main() {
-    vec2 uv = texture_coords;
-    uv.x *= screen_size.x / screen_size.y;
+uniform vec2 rt_ScreenSize;
+in vec2 rt_TextureCoords;
+in vec4 rt_VertexColor;
+in vec2 rt_VertexPosition;
+out vec4 rt_FragColor;
 
-    vec2 screen_coords = uv * screen_size;
+void main() {
+    vec2 uv = rt_VertexPosition / rt_ScreenSize;
+    uv.x *= rt_ScreenSize.x / rt_ScreenSize.y;
+
+    vec2 screen_coords = uv * rt_ScreenSize;
     vec2 world_position = uv * 20.0;
 
     float time = elapsed / 2.0;
@@ -118,5 +121,5 @@ void main() {
 
     vec3 surface_texture = noise * lch_to_rgb(vec3(0.8, 1., background_noise + mix(0.2, 0.3, noise))) * (1. - clamp(background_noise, 0., 1.));
 
-    gl_FragColor = black + vec4(surface_texture, 1.);
+    rt_FragColor = black + vec4(surface_texture, 1.);
 }

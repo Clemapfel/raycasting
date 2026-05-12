@@ -8,6 +8,7 @@ export const default_uv_name = "rt_TextureCoords";
 export const default_rgba_name = "rt_VertexColor";
 export const default_screen_pos_name = "rt_VertexPosition";
 export const default_screen_size_name = "rt_ScreenSize";
+export const default_color_name = "rt_Color";
 export const default_fragment_out_name = "rt_FragColor";
 export const default_shader_version = "#version 300 es";
 export const default_float_precision = "precision highp float";
@@ -20,6 +21,7 @@ layout(location = 1) in vec2 vertex_uv;
 layout(location = 2) in vec4 vertex_color;
 
 uniform vec2 ${default_screen_size_name};
+uniform vec4 ${default_color_name}; 
 
 out vec2 ${default_uv_name};
 out vec4 ${default_rgba_name};
@@ -27,13 +29,13 @@ out vec2 ${default_screen_pos_name};
 
 void main() {
     ${default_uv_name} = vertex_uv;
-    ${default_rgba_name} = vertex_color;
+    ${default_rgba_name} = ${default_color_name} * vertex_color;
     
     vec2 position = vertex_position;
+    ${default_screen_pos_name} = position.xy;
 
     position = (position / ${default_screen_size_name}) * 2.0 - 1.0;
     position.y *= -1.0;
-    ${default_screen_pos_name} = position.xy;
 
     gl_Position = vec4(position, 0.0, 1.0);
 }
@@ -193,6 +195,19 @@ export class Shader {
             gl.uniform1i(gl.getUniformLocation(this.program, default_texture_uniform_name), 0);
         }
 
+        // set default screen size
+        const screen_size_location = gl.getUniformLocation(this.program, default_screen_size_name);
+        if (screen_size_location !== null)
+            gl.uniform2f(screen_size_location, gl.canvas.width, gl.canvas.height)
+
+        // set color
+        const color_location = gl.getUniformLocation(this.program, default_color_name);
+        if (color_location !== null) {
+            const color = this.context.getColor();
+            gl.uniform4f(color_location, color.r, color.g, color.b, color.a)
+        }
+
+        gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
         this.is_bound = true;
     }
 
@@ -266,11 +281,6 @@ export class Shader {
         return gl.getUniformLocation(this.program, id) !== null
     }
 
-    /** **/
-    public setScreenSize(size: Vec2): void {
-        if (this.program === undefined) return;
-        this.setUniform(default_screen_size_name, size);
-    }
 
     /** **/
     public free() {
