@@ -1,7 +1,7 @@
 // src/content/config.ts
 import { defineCollection, z } from "astro:content";
 import { glob } from "astro/loaders";
-import { glslLoader } from "./shader-loader.ts";
+import { FileLoader } from "./common/FileLoader.ts";
 
 const posts = defineCollection({
     loader: glob({ pattern: "*.md", base: "./src/content/posts" }),
@@ -14,7 +14,7 @@ const posts = defineCollection({
 });
 
 const shaders = defineCollection({
-    loader: glslLoader({ base: "./src/content/shaders" }),
+    loader: FileLoader("glsl", { base: "./src/content/shaders" }),
     schema: z.object({
         id: z.string(),
     }),

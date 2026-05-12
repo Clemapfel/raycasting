@@ -32,7 +32,7 @@ export enum TextureFormat {
     DEPTH32F_STENCIL8
 }
 
-const resolve_texture_format = (gl : GLContext, format: TextureFormat): {
+const resolve_texture_format = (gl : WebGL2RenderingContext, format: TextureFormat): {
     internal_format: number,
     source_format: number,
     type: number,
@@ -202,7 +202,6 @@ export class Texture {
 /** **/
 export class RenderTexture extends Texture {
 
-    //private native : WebGLTexture;
     private framebuffer : WebGLFramebuffer;
 
     /** **/

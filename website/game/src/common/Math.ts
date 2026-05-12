@@ -83,8 +83,9 @@ export function distance(a: Vec2, b: Vec2) : number {
 
 /** **/
 export function squared_distance(a: Vec2, b: Vec2) : number {
-    const delta = { x: a.x - b.x, y: a.y - b.y };
-    return dot(delta, delta);
+    const dx = a.x - b.x
+    const dy = a.y - b.y
+    return (dx * dx) + (dy * dy)
 }
 
 /** **/
