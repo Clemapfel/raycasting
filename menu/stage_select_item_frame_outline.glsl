@@ -87,11 +87,11 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coordinates, vec2 frag_posit
 
         float outline = smoothstep(0, 0.8, min(2 * magnitude, 1));
 
-        return color * vec4(mix(vec3(0), hue, alpha), max(alpha, outline));
+        return vec4(mix(vec3(0), hue, alpha), max(alpha, outline));
 
     #elif MODE == MODE_BASE
         float value = texture(img, texture_coordinates).a;
-        return color * vec4(smoothstep(threshold - smoothness, threshold + smoothness, value)) * color;
+        return vec4(smoothstep(threshold - smoothness, threshold + smoothness, value)) * color;
 
     #endif
 }

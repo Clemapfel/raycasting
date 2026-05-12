@@ -540,6 +540,8 @@ local _font_style_to_mono_font_style = {
     [rt.FontStyle.BOLD_ITALIC] = rt.FontStyle.MONO_BOLD_ITALIC,
 }
 
+local buffer = require("string.buffer")
+
 --- @brief [internal]
 function rt.Label:_parse(raw)
     self._glyphs = {}

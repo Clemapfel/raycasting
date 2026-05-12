@@ -203,7 +203,7 @@ function rt.SceneManager:pop(...)
     local last = self._scene_stack[1]
     if last ~= nil then
         table.remove(self._scene_stack, 1)
-        self:_set_scene(false, last[1], ...) --table.unpack(last))
+        self:_set_scene(false, last[1], ...)
     end
 end
 

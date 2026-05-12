@@ -3,41 +3,51 @@ import { Vec2, Vec3, Vec4 } from "./Math.ts";
 import { RGBA } from "./Colors.ts";
 import { Texture } from "./Texture.ts";
 
-export const default_texture_uniform_name = "tex";
-export const default_uv_name = "texture_coords";
-export const default_rgba_name = "color";
-export const default_fragment_out_name = "color_out";
-export const default_screen_size_name = "screen_size"
-export const invert_y_axis = true;
-export const default_shader_version = "#version 300 es"
+export const default_texture_uniform_name = "rt_Texture0";
+export const default_uv_name = "rt_TextureCoords";
+export const default_rgba_name = "rt_VertexColor";
+export const default_screen_pos_name = "rt_VertexPosition";
+export const default_screen_size_name = "rt_ScreenSize";
+export const default_fragment_out_name = "rt_FragColor";
+export const default_shader_version = "#version 300 es";
+export const default_float_precision = "precision highp float";
 
 const default_vertex_shader_source = `${default_shader_version}
+${default_float_precision};
+
 layout(location = 0) in vec2 vertex_position;
 layout(location = 1) in vec2 vertex_uv;
 layout(location = 2) in vec4 vertex_color;
 
+uniform vec2 ${default_screen_size_name};
+
 out vec2 ${default_uv_name};
 out vec4 ${default_rgba_name};
-
-uniform vec2 ${default_screen_size_name};
+out vec2 ${default_screen_pos_name};
 
 void main() {
     ${default_uv_name} = vertex_uv;
     ${default_rgba_name} = vertex_color;
+    
     vec2 position = vertex_position;
-    ${invert_y_axis ? "position.y *= -1.0;" : ""}
+
+    position = (position / ${default_screen_size_name}) * 2.0 - 1.0;
+    position.y *= -1.0;
+    ${default_screen_pos_name} = position.xy;
+
     gl_Position = vec4(position, 0.0, 1.0);
 }
 `;
 
 const default_fragment_shader_source = `${default_shader_version}
-precision mediump float;
+${default_float_precision};
 
 uniform sampler2D ${default_texture_uniform_name};
 uniform vec2 ${default_screen_size_name};
 
 in vec2 ${default_uv_name};
 in vec4 ${default_rgba_name};
+in vec2 ${default_screen_pos_name};
 
 out vec4 ${default_fragment_out_name};
 
@@ -46,8 +56,6 @@ void main() {
     ${default_fragment_out_name} = texel * ${default_rgba_name};
 }
 `;
-
-TODO: how to notify shader of viewport size?
 
 class TextureUnitAllocator {
     private texture_to_unit: Map<WebGLTexture, number> = new Map<WebGLTexture, number>();
@@ -96,6 +104,7 @@ export class Shader {
     private vertex_shader_source : string;
     private program : WebGLShader;
     private context : GLContext;
+    private is_bound : boolean = false;
 
     // static lru queue for texture unit allocation
     static context_to_texture_unit_allocator : Map<GLContext, TextureUnitAllocator> = new Map<GLContext, TextureUnitAllocator>();
@@ -183,13 +192,17 @@ export class Shader {
             gl.bindTexture(gl.TEXTURE_2D, Shader.default_texture!);
             gl.uniform1i(gl.getUniformLocation(this.program, default_texture_uniform_name), 0);
         }
+
+        this.is_bound = true;
     }
 
     /** **/
     public unbind() {
         if (!this.context.isValid()) return;
         const { gl } = this.context;
-        gl.useProgram(null);
+
+        if (this.is_bound)
+            gl.useProgram(null);
     }
 
     /** **/
@@ -241,7 +254,8 @@ export class Shader {
         else
             throw new Error(`In Shader.setUniform: unhandled argument type ${typeof value}`);
 
-        gl.useProgram(null);
+        if (!this.is_bound)
+            gl.useProgram(null);
     }
 
     /** **/
@@ -250,6 +264,12 @@ export class Shader {
         const { gl } = this.context;
 
         return gl.getUniformLocation(this.program, id) !== null
+    }
+
+    /** **/
+    public setScreenSize(size: Vec2): void {
+        if (this.program === undefined) return;
+        this.setUniform(default_screen_size_name, size);
     }
 
     /** **/

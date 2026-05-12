@@ -4,7 +4,6 @@ import { Vec2 } from "./Math.ts";
 
 export abstract class GLWidget extends HTMLElement {
     protected context!: GLContext;
-    protected canvas!: HTMLCanvasElement;
 
     protected realize(): void {}
     protected unrealize(): void {}
@@ -44,12 +43,21 @@ export abstract class GLWidget extends HTMLElement {
 
         this.resize_observer = new ResizeObserver(entries => {
             for (const entry of entries) {
-                const rectangle = entry.contentRect;
-                this.canvas.width = rectangle.width;
-                this.canvas.height = rectangle.height;
-                this.size.x = rectangle.width;
-                this.size.y = rectangle.height;
-                this.reformat(rectangle.width, rectangle.height);
+                let width = 0;
+                let height = 0;
+
+                if (entry.devicePixelContentBoxSize) {
+                    width = entry.devicePixelContentBoxSize[0].inlineSize;
+                    height = entry.devicePixelContentBoxSize[0].blockSize;
+                } else {
+                    const dpr = window.devicePixelRatio;
+                    width = entry.contentRect.width * dpr;
+                    height = entry.contentRect.height * dpr;
+                }
+
+                this.size.x = width;
+                this.size.y = height;
+                this.reformat(width, height);
             }
         });
 
@@ -97,10 +105,9 @@ export abstract class GLWidget extends HTMLElement {
         if (!internal_canvas) {
             throw new Error("GLWidget: No canvas element found within the custom element.");
         }
-        this.canvas = internal_canvas;
-        this.context = new GLContext(this.canvas);
+        this.context = new GLContext(internal_canvas);
 
-        this.resize_observer.observe(this);
+        this.resize_observer.observe(this, { box: "device-pixel-content-box" });
         this.realize();
         this.is_realized = true;
         this.frame_identifier = window.requestAnimationFrame(this.on_request_animation_frame);
@@ -118,9 +125,9 @@ export abstract class GLWidget extends HTMLElement {
 
     private on_request_animation_frame = (timestamp: DOMHighResTimeStamp) => {
         if (!this.is_realized) return;
-        const time_delta = this.last_timestamp === undefined ? 0 : (timestamp - this.last_timestamp) / 1000;
+        const delta = this.last_timestamp === undefined ? 0 : (timestamp - this.last_timestamp) / 1000;
         this.last_timestamp = timestamp;
-        this.update(time_delta);
+        this.update(delta);
         this.draw();
         this.frame_identifier = window.requestAnimationFrame(this.on_request_animation_frame);
     }

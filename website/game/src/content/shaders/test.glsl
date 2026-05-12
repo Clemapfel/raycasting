@@ -25,16 +25,18 @@ float gradient_noise(vec3 p) {
     dot( -1.0 + 2.0 * random_3d(i + vec3(1.0,1.0,1.0)), v - vec3(1.0,1.0,1.0)), u.x), u.y), u.z );
 }
 
-in vec2 texture_coords;
-in vec4 color;
-out vec4 color_out;
+in vec2 rt_TextureCoords;
+in vec4 rt_VertexColor;
+in vec2 rt_VertexPosition;
+
+out vec4 rt_FragColor;
 
 uniform float elapsed;
 
 void main() {
-    vec2 uv = texture_coords;
-    float time = elapsed / 10.0;
-    color_out = vec4(
+    vec2 uv = rt_TextureCoords;
+    float time = elapsed;
+    rt_FragColor = vec4(
         fract(uv.x + time),
         fract(uv.y - time),
         fract(uv.x - time)

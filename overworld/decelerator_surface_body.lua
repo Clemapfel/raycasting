@@ -1089,18 +1089,6 @@ function ow.DeceleratorSurfaceBody:draw()
     _threshold_shader:unbind()
 
     love.graphics.pop()
-
-    local xy = {}
-    for slot in values(self._slots) do
-        if slot.arm_i == nil then
-            love.graphics.setColor(1, 1, 1, 1)
-        else
-            love.graphics.setColor(1, 0, 0, 1)
-        end
-        love.graphics.circle("fill", slot.origin_x, slot.origin_y, 3)
-        table.insert(xy, slot.origin_x)
-        table.insert(xy, slot.origin_y)
-    end
 end
 
 

@@ -148,6 +148,52 @@ function rt.Camera:constrain(x, y)
     return x, y
 end
 
+
+--- @brief [internal]
+function rt.Camera:constrain(x, y)
+    if self._apply_bounds ~= true then return x, y end
+
+    -- 1. Calculate the total scale applied to the viewport
+    local total_scale = self._current_scale * rt.get_pixel_scale()
+
+    -- 2. Determine world-space half-dimensions of the screen
+    local hw = (love.graphics.getWidth() / 2) / total_scale
+    local hh = (love.graphics.getHeight() / 2) / total_scale
+
+    -- 3. Account for rotation: find the bounding box of the rotated viewport
+    local angle = self._current_angle
+    local cos_a = math.abs(math.cos(angle))
+    local sin_a = math.abs(math.sin(angle))
+
+    local extent_x = hw * cos_a + hh * sin_a
+    local extent_y = hw * sin_a + hh * cos_a
+
+    -- 4. Apply constraints across all registered bounds
+    for bounds in keys(self._bounds) do
+        -- Clamp X
+        local min_x = bounds.x + extent_x
+        local max_x = bounds.x + bounds.width - extent_x
+
+        if max_x < min_x then
+            x = bounds.x + bounds.width / 2 -- Center if screen is wider than bounds
+        else
+            x = math.clamp(x, min_x, max_x)
+        end
+
+        -- Clamp Y
+        local min_y = bounds.y + extent_y
+        local max_y = bounds.y + bounds.height - extent_y
+
+        if max_y < min_y then
+            y = bounds.y + bounds.height / 2 -- Center if screen is taller than bounds
+        else
+            y = math.clamp(y, min_y, max_y)
+        end
+    end
+
+    return x, y
+end
+
 local _distance_easing = function(x, delta, speed)
     local eps = 0.5
     local exponent = math.mix(1.5 - eps, 1.5 + eps, speed / 2)

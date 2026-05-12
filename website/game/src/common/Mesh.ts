@@ -6,7 +6,7 @@ const n_vertex_buffer_elements = 8; // x y u v r g b a
 const vertex_buffer_stride = n_vertex_buffer_elements * Float32Array.BYTES_PER_ELEMENT;
 
 /** **/
-enum MeshDrawMode {
+export enum MeshDrawMode {
     POINTS,
     LINES,
     LINE_LOOP,
@@ -20,7 +20,7 @@ enum MeshDrawMode {
 export class Mesh {
     private context : GLContext;
 
-    private vertex_buffer : Float32Array; // always inline x y u v r g b a | x y u v r ...
+    private vertex_buffer : Float32Array;
     private vertex_buffer_object : WebGLBuffer;
     private vertex_array_object : WebGLVertexArrayObject;
 
@@ -43,42 +43,37 @@ export class Mesh {
         const { gl } = this.context;
 
         if (draw_mode == undefined) draw_mode = MeshDrawMode.TRIANGLE_FAN;
-        switch (draw_mode) {
-            case MeshDrawMode.POINTS:
-                this.draw_mode = gl.POINTS;
-                break;
-            case MeshDrawMode.LINES:
-                this.draw_mode = gl.LINES;
-                break;
-            case MeshDrawMode.LINE_LOOP:
-                this.draw_mode = gl.LINE_LOOP;
-                break;
-            case MeshDrawMode.LINE_STRIP:
-                this.draw_mode = gl.LINE_STRIP;
-                break;
-            case MeshDrawMode.TRIANGLES:
-                this.draw_mode = gl.TRIANGLES;
-                break;
-            case MeshDrawMode.TRIANGLE_STRIP:
-                this.draw_mode = gl.TRIANGLE_STRIP;
-                break;
-            case MeshDrawMode.TRIANGLE_FAN:
-                this.draw_mode = gl.TRIANGLE_FAN;
-                break;
-            default:
-                throw new Error(`In Mesh: unhandled draw mode ${draw_mode}`)
-        }
+
+        // Map enum to GL constants
+        const modeMap: Record<number, number> = {
+            [MeshDrawMode.POINTS]: gl.POINTS,
+            [MeshDrawMode.LINES]: gl.LINES,
+            [MeshDrawMode.LINE_LOOP]: gl.LINE_LOOP,
+            [MeshDrawMode.LINE_STRIP]: gl.LINE_STRIP,
+            [MeshDrawMode.TRIANGLES]: gl.TRIANGLES,
+            [MeshDrawMode.TRIANGLE_STRIP]: gl.TRIANGLE_STRIP,
+            [MeshDrawMode.TRIANGLE_FAN]: gl.TRIANGLE_FAN,
+        };
+
+        this.draw_mode = modeMap[draw_mode] ?? gl.TRIANGLES;
 
         this.replaceData(vertex_buffer, index_buffer);
     }
 
-    /** **/
+    /**
+     * Renders the mesh using the provided shader and optional texture.
+     **/
     public draw() {
         if (!this.context.isValid()) return;
         const { gl } = this.context;
 
         gl.bindVertexArray(this.vertex_array_object);
-        gl.drawElements(this.draw_mode, this.index_buffer.length, gl.UNSIGNED_SHORT, 0);
+
+        if (this.index_buffer)
+            gl.drawElements(this.draw_mode, this.index_buffer.length, gl.UNSIGNED_SHORT, 0);
+        else
+            gl.drawArrays(this.draw_mode, 0, this.n_vertices);
+
         gl.bindVertexArray(null);
     }
 
@@ -104,21 +99,20 @@ export class Mesh {
         this.vertex_buffer_object = vbo;
 
         gl.bindVertexArray(this.vertex_array_object);
-
         gl.bindBuffer(gl.ARRAY_BUFFER, this.vertex_buffer_object);
         gl.bufferData(gl.ARRAY_BUFFER, vertex_buffer, gl.STATIC_DRAW);
 
         const bytes = Float32Array.BYTES_PER_ELEMENT;
-        const is_normalized = false as GLboolean;
+        const is_normalized = false;
 
-        gl.enableVertexAttribArray(0); // position
-        gl.vertexAttribPointer(0, 2, gl.FLOAT, is_normalized, vertex_buffer_stride, (0) * bytes);
+        gl.enableVertexAttribArray(0); // position (x, y)
+        gl.vertexAttribPointer(0, 2, gl.FLOAT, is_normalized, vertex_buffer_stride, 0);
 
-        gl.enableVertexAttribArray(1); // uv
-        gl.vertexAttribPointer(1, 2, gl.FLOAT, is_normalized, vertex_buffer_stride, (0 + 2) * bytes);
+        gl.enableVertexAttribArray(1); // uv (u, v)
+        gl.vertexAttribPointer(1, 2, gl.FLOAT, is_normalized, vertex_buffer_stride, 2 * bytes);
 
-        gl.enableVertexAttribArray(2); // color
-        gl.vertexAttribPointer(2, 4, gl.FLOAT, is_normalized, vertex_buffer_stride, (0 + 2 + 2) * bytes);
+        gl.enableVertexAttribArray(2); // color (r, g, b, a)
+        gl.vertexAttribPointer(2, 4, gl.FLOAT, is_normalized, vertex_buffer_stride, 4 * bytes);
 
         if (!index_buffer) {
             index_buffer = new Uint16Array(this.n_vertices);
@@ -135,8 +129,9 @@ export class Mesh {
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.index_buffer_object);
         gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, index_buffer, gl.STATIC_DRAW);
 
-        gl.bindBuffer(gl.ARRAY_BUFFER, null);
         gl.bindVertexArray(null);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
     }
 
@@ -160,13 +155,18 @@ export function MeshRectangle(
     height: number = 1
 ): Mesh {
     const vertices = new Float32Array([
-        x + -1 * width, y + -1 * height,  0, 0,  1, 0, 1, 1, // sic, magenta for debugging
-        x +  1 * width, y + -1 * height,  1, 0,  1, 0, 1, 1,
-        x +  1 * width, y +  1 * height,  1, 1,  1, 0, 1, 1,
-        x + -1 * width, y +  1 * height,  0, 1,  1, 0, 1, 1,
+        x,         y,          0, 0,  1, 1, 1, 1,
+        x + width, y,          1, 0,  1, 1, 1, 1,
+        x + width, y + height, 1, 1,  1, 1, 1, 1,
+        x,         y + height, 0, 1,  1, 1, 1, 1,
     ]);
 
-    return new Mesh(context, vertices, undefined, MeshDrawMode.TRIANGLE_FAN);
+    const indices = new Uint16Array([
+        0, 1, 2,
+        0, 2, 3
+    ])
+
+    return new Mesh(context, vertices, indices, MeshDrawMode.TRIANGLES);
 }
 
 /** **/
