@@ -38,7 +38,7 @@ function ow.DialogEmitter:instantiate(scene, id, target)
         end
     end)
 
-    self._dialog_box:signal_connect("control_state_changed", function(_, state)
+    self._dialog_box:signal_connect("control_state_changed", function(dialog_box, state)
         if state == ow.DialogBoxControlState.ADVANCE then
             self._scene:set_control_indicator_type(ow.ControlIndicatorType.DIALOG_ADVANCE)
         elseif state == ow.DialogBoxControlState.EXIT then

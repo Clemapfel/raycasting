@@ -3,8 +3,17 @@ require "common.filesystem"
 
 rt.settings.animalese = {
     filetype = "wav",
-    silence_start_eps = 0.028, -- normalized
-    silence_end_eps = 0.03,
+
+    default_silence_start_eps = 0.024, -- normalized
+    emotion_to_silence_start_eps = {
+        [rt.AnimaleseEmotion.SAD] = 0.01
+    },
+
+    default_silence_end_eps = 0.03,
+    emotion_to_silence_end_eps = {
+        [rt.AnimaleseEmotion.SAD] = 0.005
+    },
+
     attack_duration = 8 / 60, -- seconds
     decay_duration = 11 / 60,
     word_overlap = 2.25 / 60, -- seconds
@@ -608,185 +617,51 @@ function rt.Animalese:_initialize()
         end
     end
 
-    self._sound_effects = {
-        rt.ReverbSoundEffect()
+    local values = {
+        [1] = { "gain", 0.1 },
+        [2] = { "late_gain", 0.09 },
+        [3] = { "early_gain", 0.09 },
+        [4] = { "decay_time", 2 }
     }
+
+    local config = {
+        gain = 0.05,
+        late_gain = 0.09,
+        early_gain = 0.1,
+        decay_time = 2,
+    }
+
+    local points = 1
+    local update_effects = function()
+        self._sound_effects = {
+            rt.ReverbSoundEffect(config)
+        }
+    end
+    update_effects()
+
+    if false then
+        local pointers = {
+            [1] = "gain", [2] = "late_gain", [3] = "early_gain", [4] = "decay_time"
+        }
+        local current_pointer = 1
+        DEBUG_INPUT:signal_connect("pressed", function(_, which)
+            if which == rt.InputAction.UP then
+                config[pointers[current_pointer]] = config[pointers[current_pointer]] + 0.01
+            elseif which == rt.InputAction.DOWN then
+                config[pointers[current_pointer]] = config[pointers[current_pointer]] - 0.01
+            elseif which == rt.InputAction.LEFT then
+                current_pointer = math.max(1, current_pointer - 1)
+            elseif which == rt.InputAction.RIGHT then
+                current_pointer = math.min(#pointers, current_pointer + 1)
+            end
+
+            update_effects()
+            dbg(pointers[current_pointer], config)
+        end)
+    end
 end
 
-local _detect_sections = function(sound_data)
-    local total_duration = sound_data:getDuration()
-    local n_samples = sound_data:getSampleCount()
-    local sample_rate = sound_data:getSampleRate()
-
-    local window_duration = 0.015 -- ms
-    local window_n_samples = math.max(1, math.floor(window_duration * sample_rate))
-
-    local overlap_factor = 0.5
-    local hop_size = math.max(1, math.floor(window_n_samples * (1 - overlap_factor)))
-
-    local windows = {}
-
-    for i = 0, n_samples - 1, hop_size do
-        local start_index = i
-        local end_index = math.min(i + window_n_samples - 1, n_samples - 1)
-
-        if start_index >= n_samples then break end
-
-        local energy_sum = 0
-        for j = start_index, end_index do
-            local sample = sound_data:getSample(j)
-            energy_sum = energy_sum + sample ^ 2
-        end
-
-        table.insert(windows, {
-            start_i = start_index,
-            end_i = end_index,
-            magnitude = energy_sum
-        })
-    end
-
-    local n_words = rt.settings.animalese.n_words_per_file
-
-    local all_minima = {}
-
-    for i = 1, #windows do
-        local current_mag = windows[i].magnitude
-
-        -- 1. Scan Left: Find highest peak before a deeper minimum
-        local left_peak = -math.huge
-        local found_deeper_left = false
-        local is_plateau_duplicate = false
-
-        for j = i - 1, 1, -1 do
-            -- Deduplicate flat-bottomed valleys (plateaus)
-            if windows[j].magnitude == current_mag then
-                is_plateau_duplicate = true
-                break
-            elseif windows[j].magnitude < current_mag then
-                found_deeper_left = true
-                break
-            end
-
-            if windows[j].magnitude > left_peak then
-                left_peak = windows[j].magnitude
-            end
-        end
-
-        -- Skip if this is just the middle/end of a flat valley
-        if not is_plateau_duplicate then
-
-            -- 2. Scan Right: Find highest peak before a deeper minimum
-            local right_peak = -math.huge
-            local found_deeper_right = false
-
-            for j = i + 1, #windows do
-                if windows[j].magnitude < current_mag then
-                    found_deeper_right = true
-                    break
-                end
-
-                if windows[j].magnitude > right_peak then
-                    right_peak = windows[j].magnitude
-                end
-            end
-
-            -- If no deeper basin exists on a side, the peak bounding it is infinite
-            if not found_deeper_left then left_peak = math.huge end
-            if not found_deeper_right then right_peak = math.huge end
-
-            -- 3. The Elder Rule: The separating saddle is the lower of the two bounding peaks
-            local separating_saddle = math.min(left_peak, right_peak)
-
-            -- If the separating saddle is higher than the current point, we are at a local minimum
-            if separating_saddle > current_mag then
-                local persistence = (separating_saddle == math.huge)
-                    and math.huge
-                    or (separating_saddle - current_mag)
-
-                table.insert(all_minima, {
-                    index = i,
-                    window = windows[i],
-                    persistence = persistence
-                })
-            end
-        end
-    end
-
-    -- 4. Sort all topological features by their persistence (prominence) descending
-    table.sort(all_minima, function(a, b)
-        return a.persistence > b.persistence
-    end)
-
-    -- 5. Extract exactly 'n_words' most robust minima
-    local minima = {}
-    for i = 1, math.min(n_words, #all_minima) do
-        table.insert(minima, all_minima[i])
-    end
-
-    -- 6. Re-sort the final n minima chronologically by their index in the signal
-    table.sort(minima, function(a, b)
-        return a.index < b.index
-    end)
-
-    -- for each window, scan left and right to get the start and end of each world
-    local end_eps = rt.settings.animalese.silence_end_eps
-    local start_eps = rt.settings.animalese.silence_start_eps
-    local word_events = {}
-
-    -- scan from start for start of first word
-    for i = 1, n_samples do
-        if sound_data:getSample(i - 1) > start_eps then
-            table.insert(word_events, i)
-            break
-        end
-    end
-
-    -- discard first two features, which are min at start and end
-    for minimum_i = 1, #minima do
-        local minimum = minima[minimum_i]
-        local window = minimum.window
-        local mid_i = math.floor(math.mix(window.start_i, window.end_i, 0.5))
-
-        -- scan left for end of word
-        local start_i = mid_i
-        for i = mid_i, 0, -1 do
-            if i == 1 or sound_data:getSample(i - 1) > end_eps then
-                table.insert(word_events, i)
-                break
-            end
-        end
-
-        local end_i = mid_i
-        for i = mid_i, math.min(window.end_i, n_samples), 1 do
-            if i == n_samples or sound_data:getSample(i - 1) > start_eps then
-                table.insert(word_events, i)
-                break
-            end
-        end
-    end
-
-    -- scan from end for end of last word
-    for i = n_samples, 1, -1 do
-        if sound_data:getSample(i - 1) > end_eps then
-            table.insert(word_events, i)
-            break
-        end
-    end
-
-    table.sort(word_events)
-
-    local sections = {}
-    for i = 1, #word_events - 1 do
-        table.insert(sections, {
-            start_i = word_events[i],
-            end_i = word_events[i+1]
-        })
-    end
-
-    return minima
-end
-
-local function _detect_sections(sound_data, filename)
+local function _detect_sections(sound_data, emotion)
     local total_duration = sound_data:getDuration()
     local n_samples = sound_data:getSampleCount()
     local sample_rate = sound_data:getSampleRate()
@@ -816,8 +691,11 @@ local function _detect_sections(sound_data, filename)
         })
     end
 
-    local start_eps = rt.settings.animalese.silence_start_eps ^ 2
-    local end_eps = rt.settings.animalese.silence_end_eps ^ 2
+    local end_eps = rt.settings.animalese.emotion_to_silence_start_eps[emotion] or rt.settings.animalese.default_silence_start_eps
+    local start_eps = rt.settings.animalese.emotion_to_silence_start_eps[emotion] or rt.settings.animalese.default_silence_start_eps
+
+    start_eps = start_eps ^ 2
+    end_eps = end_eps ^ 2
 
     local window_sections = {}
     do
@@ -869,8 +747,373 @@ local function _detect_sections(sound_data, filename)
     return sections
 end
 
+local function _detect_sections(sound_data)
+    local total_duration = sound_data:getDuration()
+    local n_samples = sound_data:getSampleCount()
+    local sample_rate = sound_data:getSampleRate()
+
+    local samples = {}
+    for i = 1, n_samples do samples[i] = sound_data:getSample(i - 1) end
+
+    local window_n_samples = math.max(1, math.floor(1 / 60 * sample_rate))
+    local window_overlap = 0.5
+    local hop_size = math.max(1, math.floor(window_n_samples * window_overlap))
+
+    -- compute signal energy
+    local energy = {}
+    local energy_i_to_window = {}
+    local window_i = 1
+    local min_energy, max_energy = math.huge, -math.huge
+    for i = 1, n_samples, hop_size do
+        local start_index = i
+        local end_index = math.min(i + window_n_samples - 1, n_samples)
+
+        if start_index > n_samples then break end
+
+        local energy_sum = 0
+        for j = start_index, end_index do
+            energy_sum = energy_sum + samples[j] ^ 2
+        end
+
+        energy_i_to_window[window_i] = {
+            start_i = start_index,
+            end_i = end_index,
+            magnitude = energy_sum
+        }
+
+        energy[window_i] = energy_sum
+
+        min_energy = math.min(min_energy, energy_sum)
+        max_energy = math.max(max_energy, energy_sum)
+
+        window_i = window_i + 1
+    end
+
+    local n_words = rt.settings.animalese.n_words_per_file
+
+    ---------------------------------------------------------------------------
+    -- TOPOLOGICAL SIGNAL PROCESSING: 1D Persistent Homology & Morse Theory
+    ---------------------------------------------------------------------------
+
+    -- Step 1: Extract the initial Morse complex (Strictly alternating Mins/Maxs)
+    local C = {}
+    table.insert(C, {type = "min", i = 1, e = energy[1]})
+    local dir = 1 -- 1 for searching max, -1 for searching min
+
+    for i = 2, #energy do
+        if dir == 1 then
+            if energy[i] < energy[i-1] then
+                table.insert(C, {type = "max", i = i-1, e = energy[i-1]})
+                dir = -1
+            end
+        else
+            if energy[i] > energy[i-1] then
+                table.insert(C, {type = "min", i = i-1, e = energy[i-1]})
+                dir = 1
+            end
+        end
+    end
+
+    -- Ensure the topological boundary conditions (starts and ends with a valley)
+    if C[#C].type == "max" then
+        table.insert(C, {type = "min", i = #energy, e = energy[#energy]})
+    else
+        C[#C] = {type = "min", i = #energy, e = energy[#energy]}
+    end
+
+    -- Helper to count current macroscopic features (peaks)
+    local function get_num_peaks()
+        return math.floor(#C / 2)
+    end
+
+    -- Fallback: If the signal is dead flat or lacks features
+    if get_num_peaks() < n_words then
+        -- Generate uniform splits as a fail-safe
+        local segments = {}
+        local step = math.floor(n_samples / n_words)
+        for i = 1, n_words do
+            local start_s = (i - 1) * step + 1
+            local end_s = (i == n_words) and n_samples or (i * step)
+            table.insert(segments, {
+                start_i = start_s,
+                end_i = end_s,
+                duration = (end_s - start_s + 1) / sample_rate
+            })
+        end
+        return segments
+    end
+
+    -- Step 2: Topological Simplification (Cancel lowest persistence features)
+    -- We merge shallow valleys into adjacent deeper ones until exactly n_words remain
+    while get_num_peaks() > n_words do
+        local min_persistence = math.huge
+        local min_pers_idx = -1
+
+        -- Find the peak with the lowest topological persistence
+        for k = 2, #C - 1, 2 do
+            local left_min = C[k-1]
+            local right_min = C[k+1]
+
+            -- Persistence = peak energy minus the HIGHER of its two bounding valleys
+            local persistence = C[k].e - math.max(left_min.e, right_min.e)
+
+            if persistence < min_persistence then
+                min_persistence = persistence
+                min_pers_idx = k
+            end
+        end
+
+        -- Cancel the peak and its highest adjacent valley (merging the two valleys)
+        local left_min = C[min_pers_idx-1]
+        local right_min = C[min_pers_idx+1]
+
+        if left_min.e > right_min.e then
+            table.remove(C, min_pers_idx)       -- Remove the max
+            table.remove(C, min_pers_idx - 1)   -- Remove the shallower left min
+        else
+            table.remove(C, min_pers_idx + 1)   -- Remove the shallower right min
+            table.remove(C, min_pers_idx)       -- Remove the max
+        end
+    end
+
+    -- Step 3: Delineate word boundaries using Perceptual (Logarithmic) Knee Detection
+    local segments = {}
+
+    -- Convert linear energy to Decibels to compress the dynamic range.
+    -- This prevents the geometry from snapping to the extreme peaks.
+    local log_energy = {}
+    for i = 1, #energy do
+        log_energy[i] = 10 * math.log10(energy[i] + 1e-12)
+    end
+
+    for w = 1, n_words do
+        local left_valley = C[2*w - 1]
+        local peak = C[2*w]
+        local right_valley = C[2*w + 1]
+
+        local start_window = peak.i
+        local end_window = peak.i
+
+        -- -----------------------------------------
+        -- Detect Start (Onset)
+        -- -----------------------------------------
+        local L_left = peak.i - left_valley.i
+        local e_start_left = log_energy[left_valley.i]
+        local e_end_left = log_energy[peak.i]
+        local e_range_left = e_end_left - e_start_left
+
+        if L_left > 0 and e_range_left > 0 then
+            local max_deviation = -math.huge
+            for j = left_valley.i, peak.i do
+                local norm_x = (j - left_valley.i) / L_left
+                local norm_y = (log_energy[j] - e_start_left) / e_range_left
+
+                -- Maximize distance below the chord (x - y)
+                local deviation = norm_x - norm_y
+                if deviation > max_deviation then
+                    max_deviation = deviation
+                    start_window = j
+                end
+            end
+        else
+            start_window = left_valley.i
+        end
+
+        -- -----------------------------------------
+        -- Detect End (Offset)
+        -- -----------------------------------------
+        local L_right = right_valley.i - peak.i
+        local e_start_right = log_energy[peak.i]
+        local e_end_right = log_energy[right_valley.i]
+        local e_range_right = e_start_right - e_end_right
+
+        if L_right > 0 and e_range_right > 0 then
+            local max_deviation = -math.huge
+            for j = peak.i, right_valley.i do
+                local norm_x = (j - peak.i) / L_right
+                local norm_y = (log_energy[j] - e_end_right) / e_range_right
+
+                -- Maximize distance below the decaying chord ((1 - x) - y)
+                local deviation = (1 - norm_x) - norm_y
+                if deviation > max_deviation then
+                    max_deviation = deviation
+                    end_window = j
+                end
+            end
+        else
+            end_window = right_valley.i
+        end
+
+        -- -----------------------------------------
+        -- Finalize Segment
+        -- -----------------------------------------
+        local start_sample = energy_i_to_window[start_window].start_i
+        local end_sample = energy_i_to_window[end_window].end_i
+        local duration = (end_sample - start_sample + 1) / sample_rate
+
+        table.insert(segments, {
+            start_i = start_sample,
+            end_i = end_sample,
+            duration = duration
+        })
+    end
+
+    return segments
+end
+
+local function _detect_sections(sound_data, filename)
+    local total_duration = sound_data:getDuration()
+    local n_samples = sound_data:getSampleCount()
+    local sample_rate = sound_data:getSampleRate()
+
+    local samples = {}
+    for i = 1, n_samples do samples[i] = sound_data:getSample(i - 1) end
+
+    local window_n_samples = math.max(1, math.floor(1 / 60 * sample_rate))
+    local window_overlap = 0.5
+    local hop_size = math.max(1, math.floor(window_n_samples * (1 - window_overlap)))
+
+    -- precompute Hann window coefficients
+    local hann = {}
+    for n = 0, window_n_samples - 1 do
+        hann[n + 1] = 1 --(0.5 * (1 - math.cos(2 * math.pi * n / (window_n_samples - 1))))^2
+    end
+
+    -- compute signal energy
+    local energy = {}
+    local energy_i_to_window = {}
+    local window_i = 1
+    local min_energy, max_energy = math.huge, -math.huge
+
+    for i = 1, n_samples, hop_size do
+        local start_index = i
+        local end_index = math.min(i + window_n_samples - 1, n_samples)
+
+        if start_index > n_samples then break end
+
+        local energy_sum = 0
+        for j = start_index, end_index do
+            local n = j - start_index + 1
+            energy_sum = energy_sum + (samples[j] * hann[n]) ^ 2
+        end
+
+        energy_i_to_window[window_i] = {
+            start_i = start_index,
+            end_i = end_index,
+            magnitude = energy_sum
+        }
+
+        energy[window_i] = energy_sum
+
+        min_energy = math.min(min_energy, energy_sum)
+        max_energy = math.max(max_energy, energy_sum)
+
+        window_i = window_i + 1
+    end
+
+    local eps_step = 0.001 * (max_energy - min_energy)
+
+    -- binary search for threshold after which segmentation yields exactly n slices
+    local upper_threshold = max_energy
+    local lower_threshold = min_energy
+
+    local target_n = rt.settings.animalese.n_words_per_file
+
+    local is_start_event = function(a, b, threshold)
+        return a < threshold and b > threshold
+    end
+
+    local is_end_event = function(a, b, threshold)
+        return a > threshold and b < threshold
+    end
+
+    local find_threshold = function(lower_threshold, upper_threshold, is_event, direction)
+        local threshold = 0.1
+        local n_events, n_events_before = 0, -1
+        repeat
+            n_events_before = n_events
+            n_events = 0
+            local last = energy[1]
+            for i = 2, #energy do
+                local current = energy[i]
+                if is_event(last, current, threshold) then
+                    n_events = n_events + 1
+                end
+                last = current
+            end
+
+            local before = threshold
+            if n_events >= target_n then
+                lower_threshold = threshold
+                threshold = math.mix(threshold, upper_threshold, 0.5)
+            else
+                upper_threshold = threshold
+                threshold = math.mix(lower_threshold, threshold, 0.5)
+            end
+
+        until n_events_before == n_events and math.abs(before - threshold) < 0.001
+
+        return threshold
+    end
+
+    local start_threshold = find_threshold(min_energy, max_energy, is_start_event, 1)
+    local end_threshold = find_threshold(min_energy, max_energy, is_end_event, -1)
+
+    if start_threshold > 0.1 then
+        dbg(energy, start_threshold, end_threshold)
+    end
+
+    -- final scan for segmentation
+    local sections = {}
+    local current_section
+
+    do
+        local last = energy[1]
+        for i = 2, #energy do
+            local current = energy[i]
+            if current_section == nil and is_start_event(last, current, start_threshold) then
+                -- open word section
+                local window = energy_i_to_window[i]
+                local sample_i = window.start_i
+                while sample_i < window.end_i do
+                    if samples[sample_i] >= start_threshold then
+                        break
+                    end
+
+                    sample_i = sample_i + 1
+                end
+
+                current_section = {
+                    start_i = sample_i
+                }
+            elseif current_section ~= nil and is_end_event(last, current, end_threshold) then
+                -- close word section
+                local window = energy_i_to_window[i]
+                local sample_i = window.end_i
+                while sample_i < window.start_i do
+                    if samples[sample_i] <= end_threshold then
+                        break
+                    end
+
+                    sample_i = sample_i - 1
+                end
+
+                current_section.end_i = math.floor(math.mix(window.start_i, window.end_i, 0.5))
+                current_section.duration = (current_section.end_i - current_section.start_i) / sample_rate
+                table.insert(sections, current_section)
+                current_section = nil
+            end
+
+            last = current
+            if #sections == target_n then break end
+        end
+    end
+
+    return sections
+end
+
 --- @brief
-function rt.Animalese:_initialize_entry(entry)
+function rt.Animalese:_initialize_entry(entry, gender, emotion)
     if entry.is_initialized ~= true then
         local success, sound_data_or_error = pcall(love.sound.newSoundData, entry.path)
         if not success then
@@ -980,6 +1223,7 @@ function rt.Animalese:queue(phonemes, gender, emotion)
             pronounciation = rt.AnimalesePronounciation.NORMAL,
             section_i = 1,
             entry = phoneme_entry,
+            emotion = emotion,
             is_beat = is_beat,
             duration = ternary(is_beat, beat_duration, nil), -- non-beat duration set in pronounciation
             elapsed = 0,
@@ -1130,7 +1374,7 @@ function rt.Animalese:update(delta)
             if queue_entry.is_beat ~= true then
                 local pronounciation_entry = queue_entry.entry[queue_entry.pronounciation]
                 if pronounciation_entry.is_initialized == false then
-                    self:_initialize_entry(pronounciation_entry)
+                    self:_initialize_entry(pronounciation_entry, queue_entry.gender, queue_entry.emotion)
                 end
 
                 if last_entry_was_beat then
@@ -1179,7 +1423,7 @@ function rt.Animalese:update(delta)
             local next_entry = next_queue_entry.entry[next_queue_entry.pronounciation]
 
             if next_entry.is_initialized ~= true then
-                self:_initialize_entry(next_entry)
+                self:_initialize_entry(next_entry, next_queue_entry.gender, next_queue_entry.emotion)
             end
 
             local section = next_entry.sections[next_queue_entry.section_i]
@@ -1197,15 +1441,13 @@ function rt.Animalese:update(delta)
                 table.insert(section.sources, free_source)
             end
 
+
             for effect in values(self._sound_effects) do
+                for active in values(free_source:getActiveEffects()) do
+                    free_source:setEffect(active, false)
+                end
+
                 free_source:setEffect(effect:get_native())
-            end
-
-            if _delay_sound_effect == nil then
-                require "common.sound_effect"
-                _delay_sound_effect = rt.DelaySoundEffect({
-
-                })
             end
 
             free_source:setVolume(rt.settings.animalese.target_peak / next_entry.peak)

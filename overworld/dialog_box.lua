@@ -343,7 +343,11 @@ function ow.DialogBox:get_control_state()
             if active.is_done and active.next == nil then
                 return ow.DialogBoxControlState.EXIT
             else
-                return ow.DialogBoxControlState.ADVANCE
+                return ternary(
+                    self:_can_advance(),
+                    ow.DialogBoxControlState.ADVANCE,
+                    ow.DialogBoxControlState.IDLE
+                )
             end
         end
     end
@@ -572,7 +576,11 @@ function ow.DialogBox:update(delta)
 
         if self._is_first_update then
             self:signal_emit("speaker_changed", node.speaker_id)
-            self:signal_emit("control_state_changed", ow.DialogBoxControlState.ADVANCE)
+            self:signal_emit("control_state_changed", ternary(
+                self:_can_advance(),
+                ow.DialogBoxControlState.ADVANCE,
+                ow.DialogBoxControlState.IDLE
+            ))
             self._is_first_update = false
         end
 
@@ -651,24 +659,31 @@ function ow.DialogBox:update(delta)
     end
 end
 
+--- @brief
+function ow.DialogBox:_can_advance()
+    return self._is_waiting_for_advance or (self._active_node ~= nil and self._active_node.gender == rt.AnimaleseGender.NONE)
+end
+
 --- @brief [internal]
 function ow.DialogBox:_advance()
     if self._active_node == nil or self._active_node.type ~= _node_type_text then return false end
 
     local sound_id = rt.settings.overworld.dialog_box.menu_confirm_sound_id
 
-    -- skip to end of current node
-    self._active_node.n_advance_triggers = self._active_node.n_advance_triggers + 1
-    local target_n_advance =  rt.settings.overworld.dialog_box.n_advance_triggers
-    if self._active_node.n_advance_triggers >= target_n_advance then
-        local n_lines_visible = 0
-        for label in values(self._active_node.labels) do
-            label.dialog_box_is_done = true
-            label.dialog_box_elapsed = math.huge
-            label:set_n_visible_characters(math.huge)
-            n_lines_visible = n_lines_visible + label:get_n_lines()
+    -- skip to end of current node, unless node is voice
+    if self._active_node ~= nil and self._active_node.gender == rt.AnimaleseGender.NONE then
+        self._active_node.n_advance_triggers = self._active_node.n_advance_triggers + 1
+        local target_n_advance = rt.settings.overworld.dialog_box.n_advance_triggers
+        if self._active_node.n_advance_triggers >= target_n_advance then
+            local n_lines_visible = 0
+            for label in values(self._active_node.labels) do
+                label.dialog_box_is_done = true
+                label.dialog_box_elapsed = math.huge
+                label:set_n_visible_characters(math.huge)
+                n_lines_visible = n_lines_visible + label:get_n_lines()
+            end
+            self:_update_node_offset_from_n_lines_visible(n_lines_visible)
         end
-        self:_update_node_offset_from_n_lines_visible(n_lines_visible)
     end
 
     -- go to next node if already fully advanced
@@ -864,7 +879,11 @@ function ow.DialogBox:start()
     self:_set_active_node(self._id_to_node[1])
     self._done_emitted = false
     self._is_first_update = true
-    self:signal_emit("control_state_changed", ow.DialogBoxControlState.ADVANCE)
+    self:signal_emit("control_state_changed", ternary(
+        self:_can_advance(),
+        ow.DialogBoxControlState.ADVANCE,
+        ow.DialogBoxControlState.IDLE
+    ))
     self._is_started = true
 end
 

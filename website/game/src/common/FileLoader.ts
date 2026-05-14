@@ -2,7 +2,7 @@ import type { Loader } from "astro/loaders";
 
 // @ts-ignore
 if (process == undefined)
-    throw new Error("In FileLoader.ts: node is not installed, it is required to load files other than Markdown, MDX, Markdoc, JSON, YAML, TOML")
+    throw new Error("In FileLoader.ts: node is not installed, it is required to load files other than Markdown, MDX, Markdoc, JSON, YAML, or TOML")
 
 // @ts-ignore
 import { promises as fs } from "node:fs";
@@ -26,7 +26,7 @@ export function FileLoader(file_extension : string, options: { base: string | UR
             const base_directory = typeof options.base === "string" ? new URL(options.base, `file://${process.cwd()}/`) : options.base;
             const prefix = fileURLToPath(base_directory);
 
-            // create stable ID:  "utils/noise.file*" -> "utils/noise"
+            // create stable ID: "utils/foo.txt" -> "utils/foo"
             const create_id = (path : string) => {
                 return relative(prefix, path).replace(`.${file_extension}`, "").replace(/\\/g, "/");
             }

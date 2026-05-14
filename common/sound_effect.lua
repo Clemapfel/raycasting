@@ -77,25 +77,23 @@ local _validate_config = function(scope, config, spec)
         end
     end
 
-    return config
-    --[[
-
     -- valid argument range
     for key, type in pairs(spec) do
         local config_value = config[key]
-        if meta.is_table(type) and type[1] == "INTERVAL" then
-            if config_value < 0 or config_value > 1 then
-                rt.error("In ", scope, ": for config value `", key, "`: expected number in [", INTERVAL.min, ", ", INTERVAL.max, "], got `", config_value, "`")
-            end
-        elseif meta.typeof(type) == "Enum" then
-            if not meta.is_enum_value(config_value, type) then
-                rt.error("In ", scope, ": for config value `", key, "`: expected value of enum `", meta.get_enum_name(type), "`, got `", config_value, "`")
+        if config_value ~= nil then
+            if meta.is_table(type) and type[1] == "INTERVAL" then
+                if config_value < type.min or config_value > type.max then
+                    rt.error("In ", scope, ": for config value `", key, "`: expected number in `[", type.min, ", ", type.max, "]`, got `", config_value, "`")
+                end
+            elseif meta.typeof(type) == "Enum" then
+                if not meta.is_enum_value(config_value, type) then
+                    rt.error("In ", scope, ": for config value `", key, "`: expected value of enum `", meta.get_enum_name(type), "`, got `", config_value, "`")
+                end
             end
         end
     end
 
     return config
-    ]]
 end
 
 local _to_t = function(value, min, max)
@@ -457,7 +455,6 @@ do
         coloration = INTERVAL_ZERO_ONE,
         diffusion = INTERVAL_ZERO_ONE,
         gain = INTERVAL_ZERO_ONE,
-        low_gain = INTERVAL_ZERO_ONE,
         high_gain = INTERVAL_ZERO_ONE,
 
         decay_time = INTERVAL(min_seconds, max_seconds), -- seconds

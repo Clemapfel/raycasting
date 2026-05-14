@@ -6,7 +6,7 @@ return {
         {
             gender = rt.Gender.FEMALE,
             next = 2,
-            "Do you have any advice on how to improve my <rainbow><wave>animalese</wave></rainbow> implementation?",
+            "<sad>Do you have any advice on how to improve my <rainbow><wave>animalese</wave></rainbow> implementation?</sad>",
         },
         {
             gender = rt.Gender.FEMALE,
