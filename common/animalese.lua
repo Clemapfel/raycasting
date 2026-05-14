@@ -4,19 +4,12 @@ require "common.filesystem"
 rt.settings.animalese = {
     filetype = "wav",
 
-    default_silence_start_eps = 0.024, -- normalized
-    emotion_to_silence_start_eps = {
-        [rt.AnimaleseEmotion.SAD] = 0.01
-    },
+    attack_duration = 0.5 / 60, -- seconds
+    decay_duration = 0.25 / 60,
+    word_overlap = 2.5 / 60, -- seconds
+    window_duration = 1 / 30,
+    window_overlap = 0.9,
 
-    default_silence_end_eps = 0.03,
-    emotion_to_silence_end_eps = {
-        [rt.AnimaleseEmotion.SAD] = 0.005
-    },
-
-    attack_duration = 8 / 60, -- seconds
-    decay_duration = 11 / 60,
-    word_overlap = 2.25 / 60, -- seconds
     target_peak = 0.1,
     scroll_speed_factor = 1,
     n_words_per_file = 3,
@@ -35,7 +28,7 @@ rt.settings.animalese = {
     question_max_pitch = 1.1,
     question_n_phonemes = 5,
 
-    pitch_variance_magnitude = 0.05
+    pitch_variance_magnitude = 0.25
 }
 
 --- @class rt.Animalese
@@ -535,7 +528,7 @@ do
     rt.AnimalesePronounciation = {
         NORMAL = "",
         LONG = long_postfix,
-        QUESTION = question_postfix,
+        NORMAL_QUESTION = question_postfix,
         LONG_QUESTION = long_postfix .. question_postfix
     }
 end
@@ -969,15 +962,9 @@ local function _detect_sections(sound_data, filename)
     local samples = {}
     for i = 1, n_samples do samples[i] = sound_data:getSample(i - 1) end
 
-    local window_n_samples = math.max(1, math.floor(1 / 60 * sample_rate))
-    local window_overlap = 0.5
+    local window_n_samples = math.max(1, math.floor(rt.settings.animalese.window_duration * sample_rate))
+    local window_overlap = rt.settings.animalese.window_overlap
     local hop_size = math.max(1, math.floor(window_n_samples * (1 - window_overlap)))
-
-    -- precompute Hann window coefficients
-    local hann = {}
-    for n = 0, window_n_samples - 1 do
-        hann[n + 1] = 1 --(0.5 * (1 - math.cos(2 * math.pi * n / (window_n_samples - 1))))^2
-    end
 
     -- compute signal energy
     local energy = {}
@@ -994,8 +981,10 @@ local function _detect_sections(sound_data, filename)
         local energy_sum = 0
         for j = start_index, end_index do
             local n = j - start_index + 1
-            energy_sum = energy_sum + (samples[j] * hann[n]) ^ 2
+            energy_sum = energy_sum + math.abs(samples[j])
         end
+
+        energy_sum = energy_sum / (end_index - start_index)
 
         energy_i_to_window[window_i] = {
             start_i = start_index,
@@ -1011,8 +1000,6 @@ local function _detect_sections(sound_data, filename)
         window_i = window_i + 1
     end
 
-    local eps_step = 0.001 * (max_energy - min_energy)
-
     -- binary search for threshold after which segmentation yields exactly n slices
     local upper_threshold = max_energy
     local lower_threshold = min_energy
@@ -1027,41 +1014,47 @@ local function _detect_sections(sound_data, filename)
         return a > threshold and b < threshold
     end
 
-    local find_threshold = function(lower_threshold, upper_threshold, is_event, direction)
-        local threshold = 0.1
-        local n_events, n_events_before = 0, -1
+    local find_threshold = function(lower_threshold, upper_threshold, direction)
+        local threshold = upper_threshold
+        local n_events = 0
+        local n_iterations = 0
         repeat
-            n_events_before = n_events
-            n_events = 0
-            local last = energy[1]
-            for i = 2, #energy do
-                local current = energy[i]
-                if is_event(last, current, threshold) then
-                    n_events = n_events + 1
+            if direction == 1 then
+                local last = energy[1]
+                for i = 2, #energy, 1 do
+                    local current = energy[i]
+                    if (last - current) > threshold then
+                        n_events = n_events + 1
+                    end
+                    last = current
                 end
-                last = current
+            else
+                local last = energy[#energy]
+                for i = #energy - 1, 1, -1 do
+                    local current = energy[i]
+                    if (last - current) > threshold then
+                        n_events = n_events + 1
+                    end
+                    last = current
+                end
             end
 
             local before = threshold
-            if n_events >= target_n then
-                lower_threshold = threshold
-                threshold = math.mix(threshold, upper_threshold, 0.5)
-            else
+            if n_events <= target_n then
                 upper_threshold = threshold
-                threshold = math.mix(lower_threshold, threshold, 0.5)
+            else
+                lower_threshold = threshold
             end
+            threshold = (lower_threshold + upper_threshold) / 2
 
-        until n_events_before == n_events and math.abs(before - threshold) < 0.001
-
+            n_iterations = n_iterations + 1
+            if n_iterations > 100 then return lower_threshold end
+        until math.abs(before - threshold) < 0.00001
         return threshold
     end
 
     local start_threshold = find_threshold(min_energy, max_energy, is_start_event, 1)
     local end_threshold = find_threshold(min_energy, max_energy, is_end_event, -1)
-
-    if start_threshold > 0.1 then
-        dbg(energy, start_threshold, end_threshold)
-    end
 
     -- final scan for segmentation
     local sections = {}
@@ -1075,8 +1068,8 @@ local function _detect_sections(sound_data, filename)
                 -- open word section
                 local window = energy_i_to_window[i]
                 local sample_i = window.start_i
-                while sample_i < window.end_i do
-                    if samples[sample_i] >= start_threshold then
+                while sample_i < window.end_i and sample_i < n_samples do
+                    if math.abs(samples[sample_i]) >= start_threshold then
                         break
                     end
 
@@ -1090,15 +1083,16 @@ local function _detect_sections(sound_data, filename)
                 -- close word section
                 local window = energy_i_to_window[i]
                 local sample_i = window.end_i
-                while sample_i < window.start_i do
-                    if samples[sample_i] <= end_threshold then
+
+                while sample_i > window.start_i and sample_i > 1 do
+                    if math.abs(samples[sample_i]) <= end_threshold then
                         break
                     end
 
                     sample_i = sample_i - 1
                 end
 
-                current_section.end_i = math.floor(math.mix(window.start_i, window.end_i, 0.5))
+                current_section.end_i = sample_i
                 current_section.duration = (current_section.end_i - current_section.start_i) / sample_rate
                 table.insert(sections, current_section)
                 current_section = nil
@@ -1134,21 +1128,16 @@ function rt.Animalese:_initialize_entry(entry, gender, emotion)
                 section.sound_data = sound_data:slice(start_sample, end_sample - start_sample)
 
                 -- apply envelope
-                local n_samples = sound_data:getSampleCount()
-                local duration = sound_data:getDuration()
-                local attack_duration = rt.settings.animalese.attack_duration / duration
-                local decay_duration = rt.settings.animalese.decay_duration / duration
-
-                local n_samples = sound_data:getSampleCount()
-                local duration = sound_data:getDuration()
+                local n_samples = section.sound_data:getSampleCount()
+                local duration = section.sound_data:getDuration()
                 local attack_fraction = rt.settings.animalese.attack_duration / duration
                 local decay_fraction = rt.settings.animalese.decay_duration / duration
 
                 for sample_i = 1, n_samples do
-                    local t = (sample_i - 1) / (n_samples - 1)
-                    local sample = sound_data:getSample(sample_i - 1)
+                    local t = (sample_i - 1) / math.max(n_samples - 1, 1)
+                    local sample = section.sound_data:getSample(sample_i - 1)
                     sample = sample * rt.InterpolationFunctions.ENVELOPE(t, attack_fraction, decay_fraction)
-                    sound_data:setSample(sample_i - 1, sample)
+                    section.sound_data:setSample(sample_i - 1, sample)
                     peak = math.max(peak, math.abs(sample))
                 end
 
@@ -1208,6 +1197,8 @@ function rt.Animalese:queue(phonemes, gender, emotion)
     local queue_i = self._queue_i
     self._queue_i = self._queue_i + 1
 
+    local pitch_variance = rt.settings.animalese.pitch_variance_magnitude
+
     for phoneme_i, phoneme in ipairs(phonemes) do
         local phoneme_entry = emotion_entry[phoneme]
         if phoneme_entry == nil then
@@ -1216,7 +1207,6 @@ function rt.Animalese:queue(phonemes, gender, emotion)
         end
 
         local is_beat = phoneme == rt.AnimalesePhoneme.BEAT or phoneme == rt.AnimalesePhoneme.QUESTION_MARK
-
         table.insert(self._queue, {
             id = queue_i,
             phoneme = phoneme,
@@ -1227,7 +1217,7 @@ function rt.Animalese:queue(phonemes, gender, emotion)
             is_beat = is_beat,
             duration = ternary(is_beat, beat_duration, nil), -- non-beat duration set in pronounciation
             elapsed = 0,
-            pitch = 1
+            pitch = rt.random.number(1 - pitch_variance, 1 + pitch_variance)
         })
     end
 
@@ -1354,7 +1344,7 @@ function rt.Animalese:update(delta)
                 end
 
                 if entry.pronounciation == rt.AnimalesePronounciation.NORMAL then
-                    entry.pronounciation = rt.AnimalesePronounciation.QUESTION
+                    entry.pronounciation = rt.AnimalesePronounciation.NORMAL_QUESTION
                 elseif entry.pronounciation == rt.AnimalesePronounciation.LONG then
                     entry.pronounciation = rt.AnimalesePronounciation.LONG_QUESTION
                 end

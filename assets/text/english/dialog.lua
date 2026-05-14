@@ -4,35 +4,55 @@ local postfix = "</normal>"
 return {
     animalese_test = {
         {
+            gender = rt.Gender.MALE,
+            next = 2,
+            "<sad><color=blue>My dude, check this out.</sad></color>."
+        },
+        {
+            gender = rt.Gender.MALE,
+            next = 3,
+            "<sad><color=blue>Y'know how this is a male voice all deep and stuff</color></sad>. I like mei much better, but just now, <i>I found out how to</i>-"
+        },
+        {
+            gender = rt.Gender.MALE,
+            next = nil,
+            "<rainbow><happy>Pitch it up and it sounds so fucking stupid, he whips out his mickey mouse voice for this in a way so captivating, I might actually put it in the game.</happy></rainbow>"
+        }--[[,
+        {
+            gender = rt.Gender.FEMALE,
+            next = nil
+        },
+        {
             gender = rt.Gender.FEMALE,
             next = 2,
-            "<sad>Do you have any advice on how to improve my <rainbow><wave>animalese</wave></rainbow> implementation?</sad>",
+            "Do you have any advice on how to improve my <rainbow><wave>animalese</wave></rainbow> implementation?",
         },
         {
             gender = rt.Gender.FEMALE,
             next = 3,
-            "The syllable mapping works correctly already, I think, it's just the <i>sound playback</i> specifically.",
+            "<sad><color=BLUE>I'm unhappy with how it sounds overall, even though you can swap intonations</color></sad>|<happy><color=YELLOW><b> like this, it sounds way different now</b></color></happy>|<sad><color=BLUE> but overall it doesn't feel like animal crossing.</color></sad>"
         },
         {
             gender = rt.Gender.FEMALE,
             next = 4,
-            "<sad><color=BLUE>I'm unhappy with how it sounds overall, even though you can swap intonations</color></sad>|<happy><color=YELLOW><b> like this, it sounds way different now</b></color></happy>|<sad><color=BLUE> but overall it doesn't feel like animal crossing.</color></sad>"
+            "<bashful><color=PINK>This is another intonation, it is called <shake><b>`bashful`</b></shake> by the developers of the vocoder</bashful>, <color=red><angry>but idk if it sounds very <wave>flirty</wave> at all. This angry one does sound <s>tsundere</s> approriate at least.</color></angry>",
         },
         {
             gender = rt.Gender.MALE,
             next = 5,
-            "This is a <shake><b>male</b></shake> voice now. Another thing I don't like is that it scrolls unevenly, but I <b>have</b> to do this if I want the syllables to synch up. <sad><color=BLUE>Idk if it sounds very male other than being deep but at least it's another set of different voices</color></sad>",
+            "<happy><color=yellow>This is a <b>male</b> voice now. </happy></color><sad><color=blue>It sounds way different but I don't like it very much.</sad></color>, it's a little bit too deep",
         },
         {
             gender = rt.Gender.MALE,
             next = 6,
-            "Do you have any advice on how to improve my animalese?",
+            "<angry><color=red>Do you have any advice on how to improve my animalese?</angry></color>"
         },
         {
             gender = rt.Gender.MALE,
             next = nil,
             "<happy><wave><color=YELLOW><b>Thank you~</b></color></wave></happy>"
         }
+         ]]
     },
 
 

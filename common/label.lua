@@ -509,7 +509,6 @@ local _sub = utf8.sub
 local _insert = table.insert
 local _concat = table.concat
 local _find = string.find -- safe as non-utf8 because only used on control sequences
-local _rt_palette = rt.Palette
 local _rt_color_unpack = rt.color_unpack
 
 --- @brief
@@ -631,8 +630,8 @@ function rt.Label:_parse(raw)
             style = _font_style_to_mono_font_style[style]
         end
 
-        local color_r, color_g, color_b = _rt_color_unpack(_rt_palette[glyph_settings.color])
-        local outline_color_r, outline_color_g, outline_color_b = _rt_color_unpack(_rt_palette[glyph_settings.outline_color])
+        local color_r, color_g, color_b = _rt_color_unpack(rt.Palette[glyph_settings.color])
+        local outline_color_r, outline_color_g, outline_color_b = _rt_color_unpack(rt.Palette[glyph_settings.outline_color])
 
         local emotion = rt.AnimaleseEmotion.NORMAL
         for key in range(
@@ -815,8 +814,11 @@ function rt.Label:_parse(raw)
                     for tag in keys(_syntax.COLOR_TAG_START) do
                         found, _, new_color = _find(as_string, tag)
                         if found ~= nil then
-                            if _rt_palette[new_color] == nil then
-                                throw_parse_error("malformed color tag: color `", new_color, "` unknown")
+                            if rawget(rt.Palette, new_color) == nil then
+                                new_color = string.upper(new_color)
+                                if rt.Palette[new_color] == nil then
+                                    throw_parse_error("malformed color tag: color `", new_color, "` unknown")
+                                end
                             end
 
                             glyph_settings.color = new_color
@@ -829,7 +831,7 @@ function rt.Label:_parse(raw)
                         for tag in keys(_syntax.OUTLINE_COLOR_TAG_START) do
                             found, _, new_color = _find(as_string, tag)
                             if found ~= nil then
-                                if _rt_palette[new_color] == nil then
+                                if rt.Palette[new_color] == nil then
                                     throw_parse_error("malformed outline color tag: color `", new_color, "` unknown")
                                 end
 

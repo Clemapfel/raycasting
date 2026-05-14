@@ -32,9 +32,37 @@ class Format(str, Enum):
 EXPORT_PREFIX = "export"
 EXPORT_EMOTIONS = [ Emotion.NORMAL , Emotion.HAPPY, Emotion.SAD, Emotion.ANGRY, Emotion.BASHFUL ]
 EXPORT_GENDERS = [ Gender.MALE , Gender.FEMALE ]
+
+base_speed_male = 2.8
+base_speed_female = 2.2
 EXPORT_SPEED = {
-    Gender.MALE : 2.8,
-    Gender.FEMALE : 2.2
+    (Gender.MALE,   Emotion.NORMAL  ): 1.0 * base_speed_male,
+    (Gender.MALE,   Emotion.HAPPY   ): 1.0 * base_speed_male,
+    (Gender.MALE,   Emotion.SAD     ): 1.0 * base_speed_male,
+    (Gender.MALE,   Emotion.ANGRY   ): 1.0 * base_speed_male,
+    (Gender.MALE,   Emotion.BASHFUL ): 1.0 * base_speed_male,
+
+    (Gender.FEMALE, Emotion.NORMAL  ): 1.0 * base_speed_female,
+    (Gender.FEMALE, Emotion.HAPPY   ): 1.0 * base_speed_female,
+    (Gender.FEMALE, Emotion.SAD     ): 1.0 * base_speed_female,
+    (Gender.FEMALE, Emotion.ANGRY   ): 1.0 * base_speed_female,
+    (Gender.FEMALE, Emotion.BASHFUL ): 1.0 * base_speed_female,
+}
+
+base_pitch_male = 3
+base_pitch_female = 0
+EXPORT_PITCH = {
+    (Gender.MALE,   Emotion.NORMAL  ): 1.0 * base_pitch_male,
+    (Gender.MALE,   Emotion.HAPPY   ): 1.0 * base_pitch_male,
+    (Gender.MALE,   Emotion.SAD     ): 1.0 * base_pitch_male,
+    (Gender.MALE,   Emotion.ANGRY   ): 1.0 * base_pitch_male,
+    (Gender.MALE,   Emotion.BASHFUL ): 1.0 * base_pitch_male,
+
+    (Gender.FEMALE, Emotion.NORMAL  ): 1.0 * base_pitch_female,
+    (Gender.FEMALE, Emotion.HAPPY   ): 1.0 * base_pitch_female,
+    (Gender.FEMALE, Emotion.SAD     ): 1.0 * base_pitch_female,
+    (Gender.FEMALE, Emotion.ANGRY   ): 1.0 * base_pitch_female,
+    (Gender.FEMALE, Emotion.BASHFUL ): 1.0 * base_pitch_female,
 }
 EXPORT_FORMAT = Format.WAV
 
@@ -111,7 +139,8 @@ def export(gender : Gender, emotion : Emotion, text : str, output_path : Path):
 
     try:
         engine = HTSEngine(engine_path.encode("utf-8"))
-        engine.set_speed(EXPORT_SPEED[gender])
+        engine.set_speed(EXPORT_SPEED[(gender, emotion)])
+        engine.add_half_tone((EXPORT_PITCH[(gender, emotion)] - 1) * 12)
         waveform = engine.synthesize(pyopenjtalk.extract_fullcontext(text))
 
         if EXPORT_FORMAT == Format.WAV:
