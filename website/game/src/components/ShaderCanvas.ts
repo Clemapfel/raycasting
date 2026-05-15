@@ -3,14 +3,14 @@ import { Mesh, MeshRectangle } from "../common/Mesh.ts";
 import { Shader } from "../common/Shader.ts";
 import {type MilliSeconds, type Seconds} from "../common/Time.ts";
 
-const UNIFORM_ELAPSED_TIME = "elapsed";
+export const default_elapsed_name = "elapsed";
 
 export class ShaderCanvas extends GLWidget {
     private shader_program?: Shader;
     private quad?: Mesh;
     private elapsed: number = Math.random();
 
-    protected override realize(): void {
+    protected override realize() : void {
         const source_code = this.getAttribute("fragment-shader-source");
         if (!source_code)
             throw new Error("ShaderCanvas: Attribute 'fragment-shader-source' is missing.");
@@ -32,6 +32,8 @@ export class ShaderCanvas extends GLWidget {
             0, 0,
             width, height
         );
+
+        this.draw(); // to prevent white frame on resize
     }
 
     protected override update(delta: Seconds): void {
@@ -41,8 +43,8 @@ export class ShaderCanvas extends GLWidget {
     protected override draw(): void {
         if (this.shader_program === undefined || this.quad === undefined) return;
 
-        if (this.shader_program.hasUniform(UNIFORM_ELAPSED_TIME))
-            this.shader_program.setUniform(UNIFORM_ELAPSED_TIME, this.elapsed);
+        if (this.shader_program.hasUniform(default_elapsed_name))
+            this.shader_program.setUniform(default_elapsed_name, this.elapsed);
 
         this.shader_program.bind();
         this.quad.draw();

@@ -19,8 +19,8 @@ if (!post) {
 
 const { Content } = await render(post);
 
-import Frame from "../components/Frame.astro"
 import "../styles/default.css";
+import NoisyFrame from "../components/NoisyFrame.astro";
 ---
 
 <style>
@@ -153,9 +153,9 @@ import "../styles/default.css";
 </style>
 
 <div class="markdown-container">
-    <Frame>
+    <NoisyFrame>
         <div class="content-wrapper">
             <Content />
         </div>
-    </Frame>
+    </NoisyFrame>
 </div>

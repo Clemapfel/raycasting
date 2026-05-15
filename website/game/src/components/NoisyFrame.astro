@@ -1,0 +1,49 @@
+---
+//
+// Usage: <ShaderCanvas id="shader_id"/>
+//
+---
+
+<noisy-frame>
+    <canvas class="noise-frame-canvas"></canvas>
+    <div class="slot-wrapper">
+        <slot/>
+    </div>
+</noisy-frame>
+
+<style>
+    :root {
+        --outline-width: 4px;
+    }
+    noisy-frame {
+        display: block;
+        position: relative;
+        outline-width: var(--outline-width);
+        border-radius: calc(var(--outline-width) * 4);
+        background: black;
+    }
+
+    noisy-frame .noise-frame-canvas {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+    }
+
+    noisy-frame .slot-wrapper {
+        position: relative;
+        padding: calc(var(--outline-width) * 4);
+    }
+</style>
+
+<script>
+    import { NoisyFrame } from "./NoisyFrame.ts";
+    function register() {
+        if (!customElements.get("noisy-frame"))
+            customElements.define("noisy-frame", NoisyFrame);
+    }
+
+    register();
+    document.addEventListener("astro:page-load", register, { once: false });
+</script>

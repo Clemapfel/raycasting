@@ -2,19 +2,13 @@
 import Layout from "../layouts/Layout.astro";
 import MarkdownRenderer from "../components/Markdown.astro";
 import ShaderCanvas from "../components/ShaderCanvas.astro";
-import Header from "../components/Header.astro";
 import Footer from "../components/Footer.astro";
-import Orb from "../components/Orb.astro";
 ---
-
-
-<!Orb />
 
 <Layout>
     <ShaderCanvas id="red_blood_cells"/>
-    <!Header id="test"/>
-    <!MarkdownRenderer id="test"/>
-    <!Footer author="C. Cords"/>
+    <MarkdownRenderer id="test"/>
+    <Footer author="C. Cords"/>
 </Layout>
 
 

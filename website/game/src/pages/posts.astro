@@ -1,7 +1,7 @@
 ---
 import Layout from "../layouts/Layout.astro";
 import ShaderCanvas from "../components/ShaderCanvas.astro";
-import Frame from "../components/Frame.astro";
+import NoisyFrame from "../components/NoisyFrame.astro";
 import PostList from "../components/PostList.astro";
 import Header from "../components/Header.astro";
 import Footer from "../components/Footer.astro";
@@ -9,9 +9,9 @@ import Footer from "../components/Footer.astro";
 
 <Layout>
     <ShaderCanvas id="test"/>
-    <Frame>
+    <NoisyFrame>
         <PostList />
-    </Frame>
+    </NoisyFrame>
     <Footer author="C. Cords"/>
 </Layout>
 

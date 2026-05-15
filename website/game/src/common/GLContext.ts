@@ -27,6 +27,7 @@ export enum StencilMode {
 /** **/
 export class GLContext {
     public gl : WebGL2RenderingContext | null;
+    public default_texture : WebGLTexture | undefined = undefined;
 
     /** **/
     constructor(canvas : HTMLCanvasElement){

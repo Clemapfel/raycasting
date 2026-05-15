@@ -1,6 +1,6 @@
 import type { GLContext } from "./GLContext.ts";
 import type { Texture } from "./Texture.ts";
-import { type Shader, default_texture_uniform_name } from "./Shader.ts";
+import { Shader, default_texture_uniform_name } from "./Shader.ts";
 
 const n_vertex_buffer_elements = 8; // x y u v r g b a
 const vertex_buffer_stride = n_vertex_buffer_elements * Float32Array.BYTES_PER_ELEMENT;
@@ -30,6 +30,8 @@ export class Mesh {
     private draw_mode : number;
     private n_vertices : number;
 
+    static context_to_default_shader = new Map<GLContext, Shader>();
+
     /** **/
     constructor(
         context : GLContext,
@@ -56,8 +58,20 @@ export class Mesh {
         };
 
         this.draw_mode = modeMap[draw_mode] ?? gl.TRIANGLES;
-
         this.replaceData(vertex_buffer, index_buffer);
+
+        if (!Mesh.context_to_default_shader.has(this.context)) {
+            Mesh.context_to_default_shader.set(this.context, new Shader(this.context));
+
+            gl.canvas.addEventListener("webglcontextlost", () => {
+                console.log("called");
+                Shader.context_to_default_texture.delete(this.context);
+            });
+
+            gl.canvas.addEventListener("webglcontextrestored", () => {
+                Shader.context_to_default_texture.set(this.context, new Shader(this.context));
+            });
+        }
     }
 
     /**
@@ -67,6 +81,11 @@ export class Mesh {
         if (!this.context.isValid()) return;
         const { gl } = this.context;
 
+        const default_shader = gl.getParameter(gl.CURRENT_PROGRAM) === null ? Mesh.context_to_default_shader.get(this.context) : undefined;
+
+        if (default_shader !== undefined)
+            default_shader.bind();
+
         gl.bindVertexArray(this.vertex_array_object);
 
         if (this.index_buffer)
@@ -75,6 +94,9 @@ export class Mesh {
             gl.drawArrays(this.draw_mode, 0, this.n_vertices);
 
         gl.bindVertexArray(null);
+
+        if (default_shader !== undefined)
+            default_shader.unbind();
     }
 
     /** **/
@@ -83,7 +105,12 @@ export class Mesh {
         const { gl } = this.context;
 
         this.free();
-        this.vertex_buffer = vertex_buffer;
+        this.vertex_buffer = vertex_buffer
+
+        if (index_buffer !== undefined)
+            this.index_buffer = index_buffer;
+        else
+            index_buffer = this.index_buffer;
 
         if (vertex_buffer.length == 0 || vertex_buffer.length % n_vertex_buffer_elements != 0)
             throw new Error("In Mesh: number of components in vertex buffer is not a multiple of 8 (xy uv rgba)")

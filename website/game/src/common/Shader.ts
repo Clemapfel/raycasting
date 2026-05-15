@@ -110,7 +110,21 @@ export class Shader {
 
     // static lru queue for texture unit allocation
     static context_to_texture_unit_allocator : Map<GLContext, TextureUnitAllocator> = new Map<GLContext, TextureUnitAllocator>();
-    static default_texture : WebGLTexture | undefined = undefined;
+
+    // default textures for meshes
+    static context_to_default_texture : Map<GLContext, WebGLTexture> = new Map<GLContext, WebGLTexture>();
+    static create_default_texture(context : GLContext) : WebGLTexture {
+        const gl = context.gl!;
+        const tex = gl.createTexture();
+        if (tex === null) throw new Error("In Shader: unable to create default texture");
+
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([255, 255, 255, 255]));            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.bindTexture(gl.TEXTURE_2D, null)
+
+        return tex
+    }
 
     /** **/
     constructor(context : GLContext, fragment_shader_source? : string, vertex_shader_source? : string) {
@@ -125,8 +139,23 @@ export class Shader {
         this.vertex_shader_source = vertex_shader_source;
         this.recompile();
 
-        if (Shader.context_to_texture_unit_allocator.has(context))
+        if (!Shader.context_to_texture_unit_allocator.has(context))
             Shader.context_to_texture_unit_allocator.set(context, new TextureUnitAllocator(context));
+
+        // event listeners to free default texture
+
+        if (!Shader.context_to_default_texture.has(this.context)) {
+            Shader.context_to_default_texture.set(this.context, Shader.create_default_texture(this.context));
+
+            gl.canvas.addEventListener("webglcontextlost", () => {
+                // gl resource already freed, no gl.deleteTexture
+                Shader.context_to_default_texture.delete(this.context);
+            });
+
+            gl.canvas.addEventListener("webglcontextrestored", () => {
+                Shader.context_to_default_texture.set(this.context, Shader.create_default_texture(this.context));
+            });
+        }
     }
 
     /** **/
@@ -167,19 +196,6 @@ export class Shader {
         }
 
         this.program = program;
-
-        if (first_compile) {
-            if (Shader.default_texture === undefined) {
-                const tex = gl.createTexture();
-                if (tex === null) throw new Error("In Shader: unable to create default texture");
-                Shader.default_texture = tex;
-            }
-
-            gl.bindTexture(gl.TEXTURE_2D, Shader.default_texture);
-            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([255, 255, 255, 255]));            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-            gl.bindTexture(gl.TEXTURE_2D, null)
-        }
     }
 
     /** **/
@@ -190,9 +206,12 @@ export class Shader {
 
         // bind 1x1 white default texture so the default shader does not return vec4(0)
         if (gl.getParameter(gl.TEXTURE_BINDING_2D) === null) {
-            gl.activeTexture(gl.TEXTURE0);
-            gl.bindTexture(gl.TEXTURE_2D, Shader.default_texture!);
-            gl.uniform1i(gl.getUniformLocation(this.program, default_texture_uniform_name), 0);
+            const tex = Shader.context_to_default_texture.get(this.context);
+            if (tex !== undefined) {
+                gl.activeTexture(gl.TEXTURE0);
+                gl.bindTexture(gl.TEXTURE_2D, tex);
+                gl.uniform1i(gl.getUniformLocation(this.program, default_texture_uniform_name), 0);
+            }
         }
 
         // set default screen size

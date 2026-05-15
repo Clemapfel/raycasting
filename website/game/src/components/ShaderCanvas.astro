@@ -1,4 +1,8 @@
 ---
+//
+// Usage: <ShaderCanvas id="shader_id"/>
+//
+
 import { getEntry } from "astro:content";
 
 interface Props {
@@ -21,12 +25,11 @@ if (!fragment_shader) {
 ---
 
 <shader-canvas fragment-shader-source={fragment_shader}>
-    <canvas class="shader-canvas-viewport"></canvas>
+    <canvas class="shader-canvas-canvas"></canvas>
 </shader-canvas>
 
 <style>
     :root {
-        --canvas-margin: 50px;
         --canvas-width: 100%;
         --canvas-height: 100%;
     }
@@ -40,7 +43,7 @@ if (!fragment_shader) {
         z-index: -9999;
     }
 
-    .shader-canvas-viewport {
+    .shader-canvas-canvas {
         position: fixed;
         top: 0;
         left: 0;
@@ -51,7 +54,13 @@ if (!fragment_shader) {
 
 <script>
     import { ShaderCanvas } from "./ShaderCanvas";
-    if (!customElements.get("shader-canvas")) {
-        customElements.define("shader-canvas", ShaderCanvas);
+
+    function register() {
+        if (!customElements.get("shader-canvas"))
+            customElements.define("shader-canvas", ShaderCanvas);
     }
+
+    register();
+    document.addEventListener("astro:page-load", register, { once: false });
+
 </script>
