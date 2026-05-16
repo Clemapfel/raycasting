@@ -1,3 +1,14 @@
+---
+import {
+	default_color_primary,
+	default_color_secondary,
+	default_color_foreground,
+	default_color_background,
+	default_color_muted,
+	default_color_emphasized
+} from "../styles/default.ts";
+---
+
 <!doctype html>
 <html lang="en">
 <head>
@@ -7,14 +18,34 @@
 	<title>Chroma Drift</title>
 	<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 
-	<!-- google fonts -->
 	<link rel="preconnect" href="https://fonts.googleapis.com">
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 	<link href="https://fonts.googleapis.com/css2?family=Cantarell&family=Noto+Sans&family=Noto+Sans+Mono&family=Noto+Sans+Math&display=swap" rel="stylesheet">
 
-	<!-- katex -->
 	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
 	<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+
+	<style is:global define:vars={{
+		default_color_primary,
+		default_color_secondary,
+		default_color_foreground,
+		default_color_muted,
+		default_color_emphasized,
+		default_color_background,
+	}}>
+		:root {
+			--default-font: "Cantarelle", "Noto Sans", sans-serif;
+			--default-font-mono: "DejaVu Mono", "Noto Sans Mono", monospace;
+			--default-color-primary: var(--default_color_primary);
+			--default-color-secondary: var(--default_color_secondary);
+			--default-color-foreground: var(--default_color_foreground);
+			--default-color-muted: var(--default_color_muted);
+			--default-color-emphasized: var(--default_color_emphasized);
+			--default-color-background: var(--default_color_background);
+			--default-content-width: 66.6666vw;
+			--default-frame-thickness: 6px;
+		}
+	</style>
 </head>
 
 <body>

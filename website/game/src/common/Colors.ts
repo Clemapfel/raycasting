@@ -24,17 +24,41 @@ export class RGBA {
     }
 }
 
-export function parseRGBA(str : string) : RGBA {
-    const match = str.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*(\d*\.?\d+))?\)/);
+export function parseRGBA(str: string): RGBA {
+    str = str.trim();
+
+    const hex_match = str.match(/^#([a-fA-F0-9]{3,8})$/);
+    if (hex_match) {
+        const hex = hex_match[1];
+        if (hex.length === 3 || hex.length === 4) {
+            return new RGBA(
+                parseInt(hex[0] + hex[0], 16) / 255,
+                parseInt(hex[1] + hex[1], 16) / 255,
+                parseInt(hex[2] + hex[2], 16) / 255,
+                hex.length === 4 ? parseInt(hex[3] + hex[3], 16) / 255 : 1
+            );
+        }
+        return new RGBA(
+            parseInt(hex.slice(0, 2), 16) / 255,
+            parseInt(hex.slice(2, 4), 16) / 255,
+            parseInt(hex.slice(4, 6), 16) / 255,
+            hex.length === 8 ? parseInt(hex.slice(6, 8), 16) / 255 : 1
+        );
+    }
+
+    const match = str.match(
+        /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*(\d*\.?\d+))?\s*\)|rgba?\(\s*(\d+)\s+(\d+)\s+(\d+)\s*(?:\/\s*(\d*\.?\d+))?\s*\)/
+    );
 
     if (!match) return new RGBA();
 
+    const is_modern = match[5] !== undefined;
     return new RGBA(
-        parseInt(match[1]),
-        parseInt(match[2]),
-        parseInt(match[3]),
-        match[4] !== undefined ? parseFloat(match[4]) : 1
-    )
+        parseInt(is_modern ? match[5] : match[1]) / 255,
+        parseInt(is_modern ? match[6] : match[2]) / 255,
+        parseInt(is_modern ? match[7] : match[3]) / 255,
+        (is_modern ? match[8] : match[4]) !== undefined ? parseFloat(is_modern ? match[8] : match[4]) : 1
+    );
 }
 
 export class HSVA {

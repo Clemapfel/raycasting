@@ -9,6 +9,7 @@ shader: "red_blood_cells"
 
 
 ```ts
+// comment
 const PI = 3
 function test(x1 : Int32, x2) {
     return x1 + 2 * PI + "test", "${test}";

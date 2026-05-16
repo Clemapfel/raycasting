@@ -5,6 +5,7 @@ import { RGBA, parseRGBA, LCHA } from "../common/Colors.ts";
 import { type Seconds } from "../common/Time.ts";
 import { perlinNoise } from "../common/Noise.ts";
 import { Vec2 } from "../common/Vector.ts";
+import { default_color_background } from "../styles/default.ts";
 
 const hue_speed : number = 1 / 40; // cycles per second
 const inner_color_lighten : number = 1.25; // rgb multiplier
@@ -13,7 +14,7 @@ const default_segment_length : number = 10; // px
 const max_noise_offset : number = 2; // px
 const noise_frequency : number = 0.04;
 const noise_speed : number = 1 / 3; // multiplies seconds
-
+const default_background_overhang : number = 2; // px
 const default_outline_width : number = 4;
 const default_border_radius : number = 8;
 const default_background_color : RGBA = new RGBA(0, 0, 0, 1);
@@ -35,7 +36,7 @@ export class NoisyFrame extends GLWidget {
         const outline_width = style.outlineWidth ? parseFloat(style.outlineWidth) : default_outline_width;
         const margin = style.margin ? parseFloat(style.margin) : 0;
         const border_radius = style.borderRadius ? parseFloat(style.borderRadius) : default_border_radius;
-        const background_color = style.backgroundColor ? parseRGBA(style.backgroundColor) : default_background_color;
+        const background_color = parseRGBA(default_color_background);
 
         this.reinitialize_mesh(
             margin, margin,
@@ -118,11 +119,13 @@ export class NoisyFrame extends GLWidget {
         thickness *= scale;
         const segment_length = default_segment_length * scale;
         const noise_magnitude = max_noise_offset;
+        const background_overhang = default_background_overhang * scale;
 
-        x += (thickness + noise_magnitude);
-        y += (thickness + noise_magnitude);
-        width -= 2 * (thickness + noise_magnitude);
-        height -= 2 * (thickness + noise_magnitude);
+        const padding = thickness + noise_magnitude + background_overhang;
+        x += padding;
+        y += padding;
+        width -= 2 * padding;
+        height -= 2 * padding;
 
         if (this.contour === undefined
             || x != this.last_x
@@ -283,7 +286,7 @@ export class NoisyFrame extends GLWidget {
             const next_right = (next_i * 3) + 2;
 
             const offset = n_background_indices - 1
-            // offset so contour tris are drawn *after* background tris
+                // offset so contour tris are drawn *after* background tris
 
             index_buffer[offset + contour_index_offset++] = current_left;
             index_buffer[offset + contour_index_offset++] = current_center;
@@ -357,13 +360,13 @@ export class NoisyFrame extends GLWidget {
             direction.x = nx - px;
             direction.y = ny - py;
             direction.normalize();
-            direction.turn_left(left);
+            direction.turn_left(left); // left is the outward-facing normal
 
             const cx = offset_contour[i * 2 + 0];
             const cy = offset_contour[i * 2 + 1];
 
-            vertex_buffer[vertex_data_offset++] = cx - left.x * thickness;
-            vertex_buffer[vertex_data_offset++] = cy - left.y * thickness;
+            vertex_buffer[vertex_data_offset++] = cx + left.x * (thickness + background_overhang);
+            vertex_buffer[vertex_data_offset++] = cy + left.y * (thickness + background_overhang);
             vertex_buffer[vertex_data_offset++] = 0;
             vertex_buffer[vertex_data_offset++] = 0;
             vertex_buffer[vertex_data_offset++] = background_r;
@@ -371,9 +374,10 @@ export class NoisyFrame extends GLWidget {
             vertex_buffer[vertex_data_offset++] = background_b;
             vertex_buffer[vertex_data_offset++] = alpha;
 
-            index_buffer[0 + background_index_offset++] = center_vertex_index;
-            index_buffer[0 + background_index_offset++] = background_start_i + i;
-            index_buffer[0 + background_index_offset++] = background_start_i + ((i + 1) % point_count);
+            const offset = 0; // inserted before background tris
+            index_buffer[offset + background_index_offset++] = center_vertex_index;
+            index_buffer[offset + background_index_offset++] = background_start_i + i;
+            index_buffer[offset + background_index_offset++] = background_start_i + ((i + 1) % point_count);
         }
 
         if (this.mesh !== undefined) this.mesh.free();
