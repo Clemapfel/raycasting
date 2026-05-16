@@ -28,9 +28,9 @@ function ow.StageTransition:instantiate(object, stage, scene)
 
     self._scene:_notify_stage_transition_added( -- set self as spawn point when entering
         self,
-        self._stage:get_id(),   -- from id
-        self._self_entrance_i,  -- from entrance
-        self._target_stage,     -- to id
+        self._stage:get_id(),  -- from id
+        self._self_entrance_i, -- from entrance
+        self._target_stage,    -- to id
         self._target_entrance_i -- to entrance
     )
 

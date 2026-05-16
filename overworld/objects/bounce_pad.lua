@@ -101,7 +101,7 @@ function ow.BouncePad:instantiate(object, stage, scene)
     self._body:set_collision_group(bounce_group)
 
     self._player_collision_light = {
-        0, 0, 0,    -- x y radius
+        0, 0, 0,   -- x y radius
         0, 0, 0, 0  -- r g b a
     }
     self._player_collision_light_offset_x, self._player_collision_light_offset_y = self._body:get_position()

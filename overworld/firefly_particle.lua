@@ -29,7 +29,7 @@ function ow.FireflyParticle:instantiate(hue, radius)
         x, y,
         math.max(self._core_radius, inner_inner_r * texture_r),
         inner_outer_r * texture_r,
-        true,     -- fill center
+        true,    -- fill center
         nil, -- n_outer_vertices
         inner_inner_color, inner_outer_color
     )

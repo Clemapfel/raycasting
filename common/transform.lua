@@ -1,4 +1,4 @@
---- @class rt.Transform
+    --- @class rt.Transform
 rt.Transform = meta.class("Transform")
 
 --- @brief initialize as identity

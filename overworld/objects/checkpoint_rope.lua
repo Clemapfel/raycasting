@@ -345,17 +345,17 @@ function ow.CheckpointRope:_update_mesh()
             local x2, y2 = positions_x[seg_idx + 1], positions_y[seg_idx + 1]
 
             -- current normals
-            local current_normal_left_x,  current_normal_left_y  = normals_left_x[seg_idx],  normals_left_y[seg_idx]
+            local current_normal_left_x, current_normal_left_y  = normals_left_x[seg_idx], normals_left_y[seg_idx]
             local current_normal_right_x, current_normal_right_y = normals_right_x[seg_idx], normals_right_y[seg_idx]
 
             -- previous normals (fallback to current at start)
             local prev_idx = seg_idx > 1 and (seg_idx - 1) or seg_idx
-            local previous_normal_left_x,  previous_normal_left_y  = normals_left_x[prev_idx],  normals_left_y[prev_idx]
+            local previous_normal_left_x, previous_normal_left_y  = normals_left_x[prev_idx], normals_left_y[prev_idx]
             local previous_normal_right_x, previous_normal_right_y = normals_right_x[prev_idx], normals_right_y[prev_idx]
 
             -- next normals (fallback to current at end)
             local next_idx = seg_idx < n_segments and (seg_idx + 1) or seg_idx
-            local next_normal_left_x,  next_normal_left_y  = normals_left_x[next_idx],  normals_left_y[next_idx]
+            local next_normal_left_x, next_normal_left_y  = normals_left_x[next_idx], normals_left_y[next_idx]
             local next_normal_right_x, next_normal_right_y = normals_right_x[next_idx], normals_right_y[next_idx]
 
             -- miters
@@ -377,11 +377,11 @@ function ow.CheckpointRope:_update_mesh()
             )
 
             -- vertices
-            local left_x1, left_y1   = x1 + miter_left_x1  * miter_left_l1,  y1 + miter_left_y1  * miter_left_l1
+            local left_x1, left_y1   = x1 + miter_left_x1  * miter_left_l1, y1 + miter_left_y1  * miter_left_l1
             local center_x1, center_y1 = x1 + 0, y1 + 0
             local right_x1, right_y1 = x1 + miter_right_x1 * miter_right_l1, y1 + miter_right_y1 * miter_right_l1
 
-            local left_x2, left_y2   = x2 + miter_left_x2  * miter_left_l2,  y2 + miter_left_y2  * miter_left_l2
+            local left_x2, left_y2   = x2 + miter_left_x2  * miter_left_l2, y2 + miter_left_y2  * miter_left_l2
             local center_x2, center_y2 = x2 + 0, y2 + 0
             local right_x2, right_y2 = x2 + miter_right_x2 * miter_right_l2, y2 + miter_right_y2 * miter_right_l2
 
@@ -395,12 +395,12 @@ function ow.CheckpointRope:_update_mesh()
             4   5   6
             ]]--
             for entry in range(
-                { left_x1,   left_y1,   left_u,   current_v, outer(left_a) },   -- 1
+                { left_x1,  left_y1,  left_u,  current_v, outer(left_a) },  -- 1
                 { center_x1, center_y1, center_u, current_v, inner(center_a) }, -- 2
-                { right_x1,  right_y1,  right_u,  current_v, outer(right_a) },  -- 3
-                { left_x2,   left_y2,   left_u,   next_v,    outer(left_a) },   -- 4
-                { center_x2, center_y2, center_u, next_v,    inner(center_a) }, -- 5
-                { right_x2,  right_y2,  right_u,  next_v,    outer(right_a) }   -- 6
+                { right_x1, right_y1, right_u, current_v, outer(right_a) }, -- 3
+                { left_x2,  left_y2,  left_u,  next_v,   outer(left_a) },  -- 4
+                { center_x2, center_y2, center_u, next_v,   inner(center_a) }, -- 5
+                { right_x2, right_y2, right_u, next_v,   outer(right_a) }   -- 6
             ) do
                 table.insert(data, entry)
             end
@@ -490,9 +490,9 @@ function ow.CheckpointRope:_update_mesh()
             if up_or_down then
                 local j = 0
                 for entry in range(
-                    { right_x1, right_y1,   right_u, 0, outer(left_a) }, -- 3
+                    { right_x1, right_y1,  right_u, 0, outer(left_a) }, -- 3
                     { center_x1, center_y1, center_u, 0, outer(center_a) }, -- 2
-                    { left_x1, left_y1,     left_u, 0, outer(right_a) }  -- 1
+                    { left_x1, left_y1,    left_u, 0, outer(right_a) }  -- 1
                 ) do
                     table.insert(data, 1, entry) -- push front, so reverse order
                 end
@@ -514,9 +514,9 @@ function ow.CheckpointRope:_update_mesh()
             else
                 local j = #data - 3
                 for entry in range( -- pointing downwards
-                    { left_x2, left_y2,     left_u, 1, outer(left_a) }, -- 4
+                    { left_x2, left_y2,    left_u, 1, outer(left_a) }, -- 4
                     { center_x2, center_y2, center_u, 1, outer(center_a) }, -- 5
-                    { right_x2, right_y2,   right_u, 1, outer(right_a) }  -- 6
+                    { right_x2, right_y2,  right_u, 1, outer(right_a) }  -- 6
                 ) do
                     table.insert(data, entry)
                 end

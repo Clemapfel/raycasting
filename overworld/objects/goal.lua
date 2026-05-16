@@ -46,7 +46,7 @@ function ow.Goal:instantiate(object, stage, scene)
         _elapsed = 0,
 
         _is_shattered = false,
-        _body = nil,    -- b2.Body
+        _body = nil,   -- b2.Body
         _shatter_surface = nil, -- ow.ShatterSurface
         _time_dilation_elapsed = 0,
         _time_dilation_active = false,
@@ -177,10 +177,10 @@ function ow.Goal:instantiate(object, stage, scene)
             local mesh = rt.Mesh(mesh_data, rt.MeshDrawMode.TRIANGLES)
 
             mesh:set_vertex_map({
-                1, 6, 2,   2, 6, 7,
-                2, 7, 3,   3, 7, 8,
-                3, 8, 4,   4, 8, 9,
-                4, 9, 5,   5, 9, 10
+                1, 6, 2,  2, 6, 7,
+                2, 7, 3,  3, 7, 8,
+                3, 8, 4,  4, 8, 9,
+                4, 9, 5,  5, 9, 10
             })
 
             return mesh

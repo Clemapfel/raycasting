@@ -62,27 +62,27 @@ function ow.CheckpointPlatform:instantiate(x1, y1, x2, y2, radius)
         table.insert(mesh_data, { x, y, u, v, 1, 1, 1, alpha })
     end
 
-    add_vertex(inner_top_left_x, inner_top_left_y, 0/4,   1, 1)
+    add_vertex(inner_top_left_x, inner_top_left_y, 0/4,  1, 1)
     add_vertex(inner_top_right_x, inner_top_right_y, 1/4, 1, 1)
     add_vertex(inner_bottom_right_x, inner_bottom_right_y, 2/4, 1, 1)
-    add_vertex(inner_bottom_left_x, inner_bottom_left_y, 3/4,   1, 1)
-    add_vertex(inner_top_left_x, inner_top_left_y, 4/4,   1, 1) -- duplicate for wrapping
+    add_vertex(inner_bottom_left_x, inner_bottom_left_y, 3/4,  1, 1)
+    add_vertex(inner_top_left_x, inner_top_left_y, 4/4,  1, 1) -- duplicate for wrapping
 
-    add_vertex(outer_top_left_x, outer_top_left_y, 0,   0, 0)
+    add_vertex(outer_top_left_x, outer_top_left_y, 0,  0, 0)
     add_vertex(outer_top_right_x, outer_top_right_y, 1/4, 0, 0)
     add_vertex(outer_bottom_right_x, outer_bottom_right_y, 2/4, 0, 0)
-    add_vertex(outer_bottom_left_x, outer_bottom_left_y, 3/4,   0, 0)
-    add_vertex(outer_top_left_x, outer_top_left_y, 4/4,   0, 0) -- duplicate for wrapping
+    add_vertex(outer_bottom_left_x, outer_bottom_left_y, 3/4,  0, 0)
+    add_vertex(outer_top_left_x, outer_top_left_y, 4/4,  0, 0) -- duplicate for wrapping
 
     self._mesh = rt.Mesh(mesh_data, rt.MeshDrawMode.TRIANGLES)
     self._mesh:set_vertex_map({
-        1, 2, 3,  1, 3, 4,
+        1, 2, 3, 1, 3, 4,
 
-        1, 6, 2,   2, 6, 7,
-        2, 7, 3,   3, 7, 8,
-        3, 8, 4,   4, 8, 9,
+        1, 6, 2,  2, 6, 7,
+        2, 7, 3,  3, 7, 8,
+        3, 8, 4,  4, 8, 9,
 
-        4, 9, 5,   5, 9, 10
+        4, 9, 5,  5, 9, 10
     })
 end
 

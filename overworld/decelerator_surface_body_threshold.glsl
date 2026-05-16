@@ -15,15 +15,15 @@ uniform float outline_width = 1.f / 4;
 
 vec2 derivative(sampler2D img, vec2 position) {
     const mat3 sobel_x = mat3(
-    -1.0,  0.0,  1.0,
-    -2.0,  0.0,  2.0,
-    -1.0,  0.0,  1.0
+    -1.0, 0.0, 1.0,
+    -2.0, 0.0, 2.0,
+    -1.0, 0.0, 1.0
     );
 
     const mat3 sobel_y = mat3(
     -1.0, -2.0, -1.0,
-    0.0,  0.0,  0.0,
-    1.0,  2.0,  1.0
+    0.0, 0.0, 0.0,
+    1.0, 2.0, 1.0
     );
 
     vec2 texel_size = vec2(outline_width) / textureSize(img, 0);
@@ -31,12 +31,12 @@ vec2 derivative(sampler2D img, vec2 position) {
     float s00 = texture(img, position + texel_size * vec2(-1.0, -1.0)).r;
     float s01 = texture(img, position + texel_size * vec2( 0.0, -1.0)).r;
     float s02 = texture(img, position + texel_size * vec2( 1.0, -1.0)).r;
-    float s10 = texture(img, position + texel_size * vec2(-1.0,  0.0)).r;
-    float s11 = texture(img, position + texel_size * vec2( 0.0,  0.0)).r;
-    float s12 = texture(img, position + texel_size * vec2( 1.0,  0.0)).r;
-    float s20 = texture(img, position + texel_size * vec2(-1.0,  1.0)).r;
-    float s21 = texture(img, position + texel_size * vec2( 0.0,  1.0)).r;
-    float s22 = texture(img, position + texel_size * vec2( 1.0,  1.0)).r;
+    float s10 = texture(img, position + texel_size * vec2(-1.0, 0.0)).r;
+    float s11 = texture(img, position + texel_size * vec2( 0.0, 0.0)).r;
+    float s12 = texture(img, position + texel_size * vec2( 1.0, 0.0)).r;
+    float s20 = texture(img, position + texel_size * vec2(-1.0, 1.0)).r;
+    float s21 = texture(img, position + texel_size * vec2( 0.0, 1.0)).r;
+    float s22 = texture(img, position + texel_size * vec2( 1.0, 1.0)).r;
 
     s01 = finalize(s01);
     s02 = finalize(s02);

@@ -50,10 +50,10 @@ end
 ow.OverworldScene = meta.class("OverworldScene", rt.Scene)
 
 ow.CameraMode = meta.enum("CameraMode", {
-    FREEZE = "FREEZE",       -- all movement disabled
-    CUTSCENE = "CUTSCENE",   -- fully controlled externally
-    STATIC = "STATIC",       -- hold position, but not frozen
-    BOUNDED = "BOUNDED",     -- follow player, stay in camera bounds
+    FREEZE = "FREEZE",      -- all movement disabled
+    CUTSCENE = "CUTSCENE",  -- fully controlled externally
+    STATIC = "STATIC",      -- hold position, but not frozen
+    BOUNDED = "BOUNDED",    -- follow player, stay in camera bounds
     UNBOUNDED = "UNBOUNDED", -- follow player, camera bounds ignored
 })
 

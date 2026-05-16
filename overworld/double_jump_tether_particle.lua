@@ -61,15 +61,15 @@ function ow.DoubleJumpTetherParticle:_update_vertices()
     local vertices = self._vertices
     if vertices == nil then
         vertices = {
-            {  1,  1,  1 },
-            { -1, -1,  1 },
-            { -1,  1, -1 },
+            {  1, 1, 1 },
+            { -1, -1, 1 },
+            { -1, 1, -1 },
             {  1, -1, -1 },
         }
     else
-        vertices[1][1], vertices[1][2], vertices[1][3] =  1,  1,  1
-        vertices[2][1], vertices[2][2], vertices[2][3] = -1, -1,  1
-        vertices[3][1], vertices[3][2], vertices[3][3] = -1,  1, -1
+        vertices[1][1], vertices[1][2], vertices[1][3] =  1, 1, 1
+        vertices[2][1], vertices[2][2], vertices[2][3] = -1, -1, 1
+        vertices[3][1], vertices[3][2], vertices[3][3] = -1, 1, -1
         vertices[4][1], vertices[4][2], vertices[4][3] =  1, -1, -1
     end
 

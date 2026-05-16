@@ -570,9 +570,9 @@ function ow.ShatterSurface._generate_mesh(contour, min_x, min_y, max_x, max_y)
         local ix1, iy1 = inset[i1], inset[i1 + 1]
         local ix2, iy2 = inset[j1], inset[j1 + 1]
 
-        table.insert(mesh_data, { x1,  y1,  rim_inner(x1, y1) })
+        table.insert(mesh_data, { x1, y1, rim_inner(x1, y1) })
         table.insert(mesh_data, { ix1, iy1, rim_outer(ix1, iy1) })
-        table.insert(mesh_data, { x2,  y2,  rim_inner(x2, y2) })
+        table.insert(mesh_data, { x2, y2, rim_inner(x2, y2) })
         table.insert(mesh_data, { ix2, iy2, rim_outer(ix2, iy2) })
 
         local base = base_start + (k - 1) * 4

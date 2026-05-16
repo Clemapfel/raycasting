@@ -162,13 +162,13 @@ void computemain() {
 
     float v00 = imageLoad(jfa_texture_array, ivec3(position + ivec2(-1, -1), final_layer)).z;
     float v02 = imageLoad(jfa_texture_array, ivec3(position + ivec2( 1, -1), final_layer)).z;
-    float v10 = imageLoad(jfa_texture_array, ivec3(position + ivec2(-1,  0), final_layer)).z;
-    float v11 = imageLoad(jfa_texture_array, ivec3(position + ivec2( 0,  0), final_layer)).z;
-    float v12 = imageLoad(jfa_texture_array, ivec3(position + ivec2( 1,  0), final_layer)).z;
-    float v20 = imageLoad(jfa_texture_array, ivec3(position + ivec2(-1,  1), final_layer)).z;
-    float v22 = imageLoad(jfa_texture_array, ivec3(position + ivec2( 1,  1), final_layer)).z;
+    float v10 = imageLoad(jfa_texture_array, ivec3(position + ivec2(-1, 0), final_layer)).z;
+    float v11 = imageLoad(jfa_texture_array, ivec3(position + ivec2( 0, 0), final_layer)).z;
+    float v12 = imageLoad(jfa_texture_array, ivec3(position + ivec2( 1, 0), final_layer)).z;
+    float v20 = imageLoad(jfa_texture_array, ivec3(position + ivec2(-1, 1), final_layer)).z;
+    float v22 = imageLoad(jfa_texture_array, ivec3(position + ivec2( 1, 1), final_layer)).z;
     float v01 = imageLoad(jfa_texture_array, ivec3(position + ivec2( 0, -1), final_layer)).z;
-    float v21 = imageLoad(jfa_texture_array, ivec3(position + ivec2( 0,  1), final_layer)).z;
+    float v21 = imageLoad(jfa_texture_array, ivec3(position + ivec2( 0, 1), final_layer)).z;
 
     float x_gradient = -v00 + v02 - 2.0 * v10 + 2.0 * v12 - v20 + v22;
     float y_gradient = -v00 - 2.0 * v01 - v02 + v20 + 2.0 * v21 + v22;

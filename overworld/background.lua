@@ -85,9 +85,9 @@ function ow.Background:realize()
 
     self._view_transform = rt.Transform()
     self._view_transform:look_at(
-        0,  0,  0, -- eye xyz
-        0,  0,  1, -- target xyz
-        0, -1,  0  -- up xyz
+        0, 0, 0, -- eye xyz
+        0, 0, 1, -- target xyz
+        0, -1, 0  -- up xyz
     )
 
     self._offset_transform = rt.Transform() -- xyz offset
@@ -664,9 +664,9 @@ function ow.Background:_init_tetrahedron_particle()
 
     local s = 1 / math.sqrt(3)
     local verts = {
-        {  s,  s,  s },
-        { -s, -s,  s },
-        { -s,  s, -s },
+        {  s, s, s },
+        { -s, -s, s },
+        { -s, s, -s },
         {  s, -s, -s },
     }
 
@@ -711,9 +711,9 @@ function ow.Background:_init_octahedron_particle()
     end
 
     local verts = {
-        {0, 1, 0},  -- top
-        {0, 0, 1},  -- front
-        {1, 0, 0},  -- right
+        {0, 1, 0}, -- top
+        {0, 0, 1}, -- front
+        {1, 0, 0}, -- right
         {0, 0, -1}, -- back
         {-1, 0, 0}, -- left
         {0, -1, 0}, -- bottom
@@ -767,17 +767,17 @@ function ow.Background:_init_icosahedron_particle()
     local scale = 1 / math.sqrt(phi * phi + 1)
 
     local verts = {
-        { 0,  scale,  phi*scale },
-        { 0, -scale,  phi*scale },
-        { 0,  scale, -phi*scale },
+        { 0, scale, phi*scale },
+        { 0, -scale, phi*scale },
+        { 0, scale, -phi*scale },
         { 0, -scale, -phi*scale },
-        {  scale,  phi*scale, 0 },
-        { -scale,  phi*scale, 0 },
+        {  scale, phi*scale, 0 },
+        { -scale, phi*scale, 0 },
         {  scale, -phi*scale, 0 },
         { -scale, -phi*scale, 0 },
-        {  phi*scale, 0,  scale },
+        {  phi*scale, 0, scale },
         {  phi*scale, 0, -scale },
-        { -phi*scale, 0,  scale },
+        { -phi*scale, 0, scale },
         { -phi*scale, 0, -scale },
     }
 
@@ -837,31 +837,31 @@ function ow.Background:_init_dodecahedron_particle()
     -- These are the 20 vertices arranged in 3 orthogonal rectangles
     local verts = {
         -- Rectangle in xy-plane
-        { 1,  1,  1},
-        { 1,  1, -1},
-        { 1, -1,  1},
+        { 1, 1, 1},
+        { 1, 1, -1},
+        { 1, -1, 1},
         { 1, -1, -1},
-        {-1,  1,  1},
-        {-1,  1, -1},
-        {-1, -1,  1},
+        {-1, 1, 1},
+        {-1, 1, -1},
+        {-1, -1, 1},
         {-1, -1, -1},
 
         -- Rectangle in yz-plane
-        { 0,  inv_phi,  phi},
-        { 0,  inv_phi, -phi},
-        { 0, -inv_phi,  phi},
+        { 0, inv_phi, phi},
+        { 0, inv_phi, -phi},
+        { 0, -inv_phi, phi},
         { 0, -inv_phi, -phi},
 
         -- Rectangle in xz-plane
-        { inv_phi,  phi, 0},
+        { inv_phi, phi, 0},
         { inv_phi, -phi, 0},
-        {-inv_phi,  phi, 0},
+        {-inv_phi, phi, 0},
         {-inv_phi, -phi, 0},
 
         -- Additional rectangle in xz-plane
-        { phi, 0,  inv_phi},
+        { phi, 0, inv_phi},
         { phi, 0, -inv_phi},
-        {-phi, 0,  inv_phi},
+        {-phi, 0, inv_phi},
         {-phi, 0, -inv_phi},
     }
 
@@ -877,18 +877,18 @@ function ow.Background:_init_dodecahedron_particle()
     -- Dodecahedron faces (12 pentagonal faces)
     -- Each face is defined by 5 vertices in CCW order when viewed from outside
     local faces = {
-        {1, 9, 11, 3, 17},     -- Front-right
-        {1, 17, 18, 2, 13},    -- Top-right
-        {1, 13, 15, 5, 9},     -- Top-front
-        {9, 5, 19, 7, 11},     -- Front-left
-        {11, 7, 16, 14, 3},    -- Bottom-front
-        {3, 14, 4, 18, 17},    -- Right
-        {2, 18, 4, 12, 10},    -- Back-right
-        {13, 2, 10, 6, 15},    -- Top-back
-        {15, 6, 20, 19, 5},    -- Left
-        {19, 20, 8, 16, 7},    -- Bottom-left
-        {16, 8, 12, 4, 14},    -- Bottom-back
-        {6, 10, 12, 8, 20},    -- Back
+        {1, 9, 11, 3, 17},    -- Front-right
+        {1, 17, 18, 2, 13},   -- Top-right
+        {1, 13, 15, 5, 9},    -- Top-front
+        {9, 5, 19, 7, 11},    -- Front-left
+        {11, 7, 16, 14, 3},   -- Bottom-front
+        {3, 14, 4, 18, 17},   -- Right
+        {2, 18, 4, 12, 10},   -- Back-right
+        {13, 2, 10, 6, 15},   -- Top-back
+        {15, 6, 20, 19, 5},   -- Left
+        {19, 20, 8, 16, 7},   -- Bottom-left
+        {16, 8, 12, 4, 14},   -- Bottom-back
+        {6, 10, 12, 8, 20},   -- Back
     }
 
     local indices = {}

@@ -625,7 +625,7 @@ do -- step helpers
         ax, ay, bx, by,
         inverse_mass_a, inverse_mass_b,
         target_distance,
-        alpha,         -- compliance (already scaled by sub_delta^2)
+        alpha,        -- compliance (already scaled by sub_delta^2)
         lambda_before    -- accumulated lambda for this constraint
     )
         local delta_x = bx - ax
@@ -696,10 +696,10 @@ do -- step helpers
     -- XPBD distance constraint between a particle (A) and a fixed point (P)
     -- C = |a - p| - d0 = 0
     local function _enforce_anchor(
-        ax, ay,               -- particle position
-        px, py,               -- fixed point position
-        inverse_mass_a,       -- only particle has mass
-        alpha,                -- compliance (already scaled by sub_delta^2)
+        ax, ay,              -- particle position
+        px, py,              -- fixed point position
+        inverse_mass_a,      -- only particle has mass
+        alpha,               -- compliance (already scaled by sub_delta^2)
         lambda_before         -- accumulated lambda for this constraint
     )
         local delta_x = ax - px
@@ -736,11 +736,11 @@ do -- step helpers
     -- C = |x - c| - (r_player + r_particle) >= 0
     -- If C < 0 (penetration), we project out.
     local function _enforce_sphere_collision(
-        ax, ay,               -- particle position
-        cx, cy,               -- sphere center
-        min_distance,         -- combined radius (player_r + particle_r)
-        inverse_mass_a,       -- particle inverse mass
-        alpha,                -- compliance
+        ax, ay,              -- particle position
+        cx, cy,              -- sphere center
+        min_distance,        -- combined radius (player_r + particle_r)
+        inverse_mass_a,      -- particle inverse mass
+        alpha,               -- compliance
         lambda_before         -- accumulated lambda
     )
         local delta_x = ax - cx

@@ -60,20 +60,20 @@ float perlin_4d(vec4 p) {
     );
 
     // hypercube corners
-    int h0000 = hash(grid_coord.x,     grid_coord.y,     grid_coord.z,     grid_coord.w);
-    int h0001 = hash(grid_coord.x,     grid_coord.y,     grid_coord.z,     grid_coord.w + 1);
-    int h0010 = hash(grid_coord.x,     grid_coord.y,     grid_coord.z + 1, grid_coord.w);
-    int h0011 = hash(grid_coord.x,     grid_coord.y,     grid_coord.z + 1, grid_coord.w + 1);
-    int h0100 = hash(grid_coord.x,     grid_coord.y + 1, grid_coord.z,     grid_coord.w);
-    int h0101 = hash(grid_coord.x,     grid_coord.y + 1, grid_coord.z,     grid_coord.w + 1);
-    int h0110 = hash(grid_coord.x,     grid_coord.y + 1, grid_coord.z + 1, grid_coord.w);
-    int h0111 = hash(grid_coord.x,     grid_coord.y + 1, grid_coord.z + 1, grid_coord.w + 1);
-    int h1000 = hash(grid_coord.x + 1, grid_coord.y,     grid_coord.z,     grid_coord.w);
-    int h1001 = hash(grid_coord.x + 1, grid_coord.y,     grid_coord.z,     grid_coord.w + 1);
-    int h1010 = hash(grid_coord.x + 1, grid_coord.y,     grid_coord.z + 1, grid_coord.w);
-    int h1011 = hash(grid_coord.x + 1, grid_coord.y,     grid_coord.z + 1, grid_coord.w + 1);
-    int h1100 = hash(grid_coord.x + 1, grid_coord.y + 1, grid_coord.z,     grid_coord.w);
-    int h1101 = hash(grid_coord.x + 1, grid_coord.y + 1, grid_coord.z,     grid_coord.w + 1);
+    int h0000 = hash(grid_coord.x,    grid_coord.y,    grid_coord.z,    grid_coord.w);
+    int h0001 = hash(grid_coord.x,    grid_coord.y,    grid_coord.z,    grid_coord.w + 1);
+    int h0010 = hash(grid_coord.x,    grid_coord.y,    grid_coord.z + 1, grid_coord.w);
+    int h0011 = hash(grid_coord.x,    grid_coord.y,    grid_coord.z + 1, grid_coord.w + 1);
+    int h0100 = hash(grid_coord.x,    grid_coord.y + 1, grid_coord.z,    grid_coord.w);
+    int h0101 = hash(grid_coord.x,    grid_coord.y + 1, grid_coord.z,    grid_coord.w + 1);
+    int h0110 = hash(grid_coord.x,    grid_coord.y + 1, grid_coord.z + 1, grid_coord.w);
+    int h0111 = hash(grid_coord.x,    grid_coord.y + 1, grid_coord.z + 1, grid_coord.w + 1);
+    int h1000 = hash(grid_coord.x + 1, grid_coord.y,    grid_coord.z,    grid_coord.w);
+    int h1001 = hash(grid_coord.x + 1, grid_coord.y,    grid_coord.z,    grid_coord.w + 1);
+    int h1010 = hash(grid_coord.x + 1, grid_coord.y,    grid_coord.z + 1, grid_coord.w);
+    int h1011 = hash(grid_coord.x + 1, grid_coord.y,    grid_coord.z + 1, grid_coord.w + 1);
+    int h1100 = hash(grid_coord.x + 1, grid_coord.y + 1, grid_coord.z,    grid_coord.w);
+    int h1101 = hash(grid_coord.x + 1, grid_coord.y + 1, grid_coord.z,    grid_coord.w + 1);
     int h1110 = hash(grid_coord.x + 1, grid_coord.y + 1, grid_coord.z + 1, grid_coord.w);
     int h1111 = hash(grid_coord.x + 1, grid_coord.y + 1, grid_coord.z + 1, grid_coord.w + 1);
 
@@ -230,8 +230,8 @@ void computemain() {
     float frequency = 1. / 1000 * (volume_texture_size.x * volume_texture_size.y);
     float noise = fractal_brownian_motion(
         pos,
-        3,  // octaves
-        3,  // lacunarity
+        3, // octaves
+        3, // lacunarity
         0.4 // gain
     );
 

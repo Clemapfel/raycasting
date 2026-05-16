@@ -10,11 +10,11 @@ rt.settings.fluid_projectiles = {
     max_scale = 1,
     core_scale = 0.8,
 
-    follow_alpha = 0.13,         -- target attraction
+    follow_alpha = 0.13,        -- target attraction
     core_follow_alpha = 0.007,
-    cohesion_alpha = 0.16,       -- particle-to-particle attraction
-    collision_alpha = 0.05,      -- prevents overlap
-    damping = 0.7,               -- overall velocity damping
+    cohesion_alpha = 0.16,      -- particle-to-particle attraction
+    collision_alpha = 0.05,     -- prevents overlap
+    damping = 0.7,              -- overall velocity damping
     n_substeps = 10
 }
 

@@ -2,15 +2,15 @@
 
 vec2 derivative(sampler2D img, vec2 position) {
     const mat3 sobel_x = mat3(
-        -1.0,  0.0,  1.0,
-        -2.0,  0.0,  2.0,
-        -1.0,  0.0,  1.0
+        -1.0, 0.0, 1.0,
+        -2.0, 0.0, 2.0,
+        -1.0, 0.0, 1.0
     );
 
     const mat3 sobel_y = mat3(
         -1.0, -2.0, -1.0,
-        0.0,  0.0,  0.0,
-        1.0,  2.0,  1.0
+        0.0, 0.0, 0.0,
+        1.0, 2.0, 1.0
     );
 
     vec2 texel_size = vec2(1.0) / textureSize(img, 0);
@@ -18,12 +18,12 @@ vec2 derivative(sampler2D img, vec2 position) {
     float s00 = texture(img, position + texel_size * vec2(-1.0, -1.0)).a;
     float s01 = texture(img, position + texel_size * vec2( 0.0, -1.0)).a;
     float s02 = texture(img, position + texel_size * vec2( 1.0, -1.0)).a;
-    float s10 = texture(img, position + texel_size * vec2(-1.0,  0.0)).a;
-    float s11 = texture(img, position + texel_size * vec2( 0.0,  0.0)).a;
-    float s12 = texture(img, position + texel_size * vec2( 1.0,  0.0)).a;
-    float s20 = texture(img, position + texel_size * vec2(-1.0,  1.0)).a;
-    float s21 = texture(img, position + texel_size * vec2( 0.0,  1.0)).a;
-    float s22 = texture(img, position + texel_size * vec2( 1.0,  1.0)).a;
+    float s10 = texture(img, position + texel_size * vec2(-1.0, 0.0)).a;
+    float s11 = texture(img, position + texel_size * vec2( 0.0, 0.0)).a;
+    float s12 = texture(img, position + texel_size * vec2( 1.0, 0.0)).a;
+    float s20 = texture(img, position + texel_size * vec2(-1.0, 1.0)).a;
+    float s21 = texture(img, position + texel_size * vec2( 0.0, 1.0)).a;
+    float s22 = texture(img, position + texel_size * vec2( 1.0, 1.0)).a;
 
     float dx = sobel_x[0][0] * s00 + sobel_x[0][1] * s01 + sobel_x[0][2] * s02 +
     sobel_x[1][0] * s10 + sobel_x[1][1] * s11 + sobel_x[1][2] * s12 +

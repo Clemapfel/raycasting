@@ -183,13 +183,13 @@ function ow.Stage:instantiate(scene, id)
         if table.sizeof(object_wrappers) > 0 then
             for wrapper in values(object_wrappers) do
                 if wrapper.class == nil then
-                    rt.warning("In ow.Stage.instantiate: object `", wrapper.id,  "` of stage `", self._config:get_id(),  "` has no class, assuming `Hitbox`")
+                    rt.warning("In ow.Stage.instantiate: object `", wrapper.id, "` of stage `", self._config:get_id(), "` has no class, assuming `Hitbox`")
                     wrapper.class = "Hitbox"
                 end
 
                 local Type = ow[wrapper.class]
                 if Type == nil then
-                    rt.error("In ow.Stage: unhandled object class `", tostring(wrapper.class),  "`")
+                    rt.error("In ow.Stage: unhandled object class `", tostring(wrapper.class), "`")
                 end
 
                 local instance = Type(wrapper, self, self._scene)
@@ -226,7 +226,7 @@ function ow.Stage:instantiate(scene, id)
 
                     for priority in values(priorities) do
                         if not meta.is_number(priority) then
-                            rt.error("In ow.",  wrapper.class,  ".get_render_priority: does not return a number or tuple of numbers")
+                            rt.error("In ow.", wrapper.class, ".get_render_priority: does not return a number or tuple of numbers")
                         end
 
                         if priority == math.huge then
@@ -309,7 +309,7 @@ function ow.Stage:instantiate(scene, id)
 
     -- check for PlayerSpawn
     if self._active_checkpoint == nil then
-        rt.warning("In ow.Stage.initialize: no `PlayerSpawn` for stage `", self._id,  "`")
+        rt.warning("In ow.Stage.initialize: no `PlayerSpawn` for stage `", self._id, "`")
     end
 
     local sort = function(t)
@@ -383,15 +383,15 @@ function ow.Stage:instantiate(scene, id)
         end
 
         if n_goals == 0 then
-            rt.warning("In ow.Stage.initialize: no `Goal` object present in stage `", self._id,  "`")
+            rt.warning("In ow.Stage.initialize: no `Goal` object present in stage `", self._id, "`")
         else
-            rt.warning("In ow.Stage.initialize: more than one `Goal` object present in stage `", self._id,  "`")
+            rt.warning("In ow.Stage.initialize: more than one `Goal` object present in stage `", self._id, "`")
         end
 
         if n_spawns == 0 then
-            rt.warning("In ow.Stage.initialize: no `PlayerSpawn` object present in stage `", self._id,  "`")
+            rt.warning("In ow.Stage.initialize: no `PlayerSpawn` object present in stage `", self._id, "`")
         else
-            rt.warning("In ow.Stage.initialize: more than one `PlayerSpawn` object present in stage `", self._id,  "`")
+            rt.warning("In ow.Stage.initialize: more than one `PlayerSpawn` object present in stage `", self._id, "`")
         end
     end
 
@@ -509,7 +509,7 @@ function ow.Stage:update(delta)
 end
 
 local _error_no_userdata = function(scope, instance)
-    rt.error("In ow.Stage.", scope, " object `", meta.typeof(instance),  "` is a point light source but, the body does not have a userdata pointing to an instance")
+    rt.error("In ow.Stage.", scope, " object `", meta.typeof(instance), "` is a point light source but, the body does not have a userdata pointing to an instance")
 end
 
 --- @brief
@@ -580,7 +580,7 @@ function ow.Stage:set_checkpoint_split(checkpoint)
     end
 
     if current ~= _no_timestamp then
-        rt.error("In ow.Stage:set_checkpoint_split: updating splits of checkpoint `", self._instance_to_wrapper[checkpoint],  "`, but time was already updated")
+        rt.error("In ow.Stage:set_checkpoint_split: updating splits of checkpoint `", self._instance_to_wrapper[checkpoint], "`, but time was already updated")
     end
 
     self._checkpoints[checkpoint] = self._scene:get_timer()
@@ -619,7 +619,7 @@ end
 function ow.Stage:set_coin_is_collected(id, is_collected)
     local entry = self._coins[id]
     if entry == nil then
-        rt.warning("In ow.Staget.set_coin_collected: no coin with id `", id,  "`")
+        rt.warning("In ow.Staget.set_coin_collected: no coin with id `", id, "`")
         return
     end
 
@@ -630,7 +630,7 @@ end
 function ow.Stage:get_coin_is_collected(coin_i)
     local entry = self._coins[coin_i]
     if entry == nil then
-        rt.warning("In ow.Staget.get_coin_is_collected: no coin with id `", coin_i,  "`")
+        rt.warning("In ow.Staget.get_coin_is_collected: no coin with id `", coin_i, "`")
         return false
     end
 

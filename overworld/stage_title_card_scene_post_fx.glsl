@@ -28,26 +28,26 @@ float blur(sampler2D img, vec2 pos) {
         texture(img, pos + texel_size * vec2(-1.0, -1.0)).a +
         texture(img, pos + texel_size * vec2( 0.0, -1.0)).a +
         texture(img, pos + texel_size * vec2( 1.0, -1.0)).a +
-        texture(img, pos + texel_size * vec2(-1.0,  0.0)).a +
+        texture(img, pos + texel_size * vec2(-1.0, 0.0)).a +
         texture(img, pos).a +
-        texture(img, pos + texel_size * vec2( 1.0,  0.0)).a +
-        texture(img, pos + texel_size * vec2(-1.0,  1.0)).a +
-        texture(img, pos + texel_size * vec2( 0.0,  1.0)).a +
-        texture(img, pos + texel_size * vec2( 1.0,  1.0)).a
+        texture(img, pos + texel_size * vec2( 1.0, 0.0)).a +
+        texture(img, pos + texel_size * vec2(-1.0, 1.0)).a +
+        texture(img, pos + texel_size * vec2( 0.0, 1.0)).a +
+        texture(img, pos + texel_size * vec2( 1.0, 1.0)).a
     ) / 9.0;
 }
 
 vec2 derivative(sampler2D img, vec2 position) {
     const mat3 sobel_x = mat3(
-    -1.0,  0.0,  1.0,
-    -2.0,  0.0,  2.0,
-    -1.0,  0.0,  1.0
+    -1.0, 0.0, 1.0,
+    -2.0, 0.0, 2.0,
+    -1.0, 0.0, 1.0
     );
 
     const mat3 sobel_y = mat3(
     -1.0, -2.0, -1.0,
-    0.0,  0.0,  0.0,
-    1.0,  2.0,  1.0
+    0.0, 0.0, 0.0,
+    1.0, 2.0, 1.0
     );
 
     vec2 texel_size = vec2(1.0) / textureSize(img, 0);
@@ -55,12 +55,12 @@ vec2 derivative(sampler2D img, vec2 position) {
     float s00 = blur(img, position + texel_size * vec2(-1.0, -1.0));
     float s01 = blur(img, position + texel_size * vec2( 0.0, -1.0));
     float s02 = blur(img, position + texel_size * vec2( 1.0, -1.0));
-    float s10 = blur(img, position + texel_size * vec2(-1.0,  0.0));
-    float s11 = blur(img, position + texel_size * vec2( 0.0,  0.0));
-    float s12 = blur(img, position + texel_size * vec2( 1.0,  0.0));
-    float s20 = blur(img, position + texel_size * vec2(-1.0,  1.0));
-    float s21 = blur(img, position + texel_size * vec2( 0.0,  1.0));
-    float s22 = blur(img, position + texel_size * vec2( 1.0,  1.0));
+    float s10 = blur(img, position + texel_size * vec2(-1.0, 0.0));
+    float s11 = blur(img, position + texel_size * vec2( 0.0, 0.0));
+    float s12 = blur(img, position + texel_size * vec2( 1.0, 0.0));
+    float s20 = blur(img, position + texel_size * vec2(-1.0, 1.0));
+    float s21 = blur(img, position + texel_size * vec2( 0.0, 1.0));
+    float s22 = blur(img, position + texel_size * vec2( 1.0, 1.0));
 
     float dx = sobel_x[0][0] * s00 + sobel_x[0][1] * s01 + sobel_x[0][2] * s02 +
     sobel_x[1][0] * s10 + sobel_x[1][1] * s11 + sobel_x[1][2] * s12 +

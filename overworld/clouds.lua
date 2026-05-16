@@ -257,10 +257,10 @@ function ow.Clouds:_init_draw_mesh(size_x, size_y, fov)
         local r, g, b, a = rt.lcha_to_rgba(0.8, 1, i / self._n_slices, 1)
         local base_index = #data
 
-        table.insert(data, { x0 + left_x,                  y0 + bottom_y,                  z_world, max_uv_u, max_uv_v, layer_index, r, g, b, a })
-        table.insert(data, { x0 + scaled_width + right_x,  y0 + bottom_y,                   z_world, min_uv_u, max_uv_v, layer_index, r, g, b, a })
-        table.insert(data, { x0 + scaled_width + right_x,  y0 + scaled_height + top_y,  z_world, min_uv_u, min_uv_v, layer_index, r, g, b, a })
-        table.insert(data, { x0 + left_x,                  y0 + scaled_height + top_y,  z_world, max_uv_u, min_uv_v, layer_index, r, g, b, a })
+        table.insert(data, { x0 + left_x,                 y0 + bottom_y,                 z_world, max_uv_u, max_uv_v, layer_index, r, g, b, a })
+        table.insert(data, { x0 + scaled_width + right_x, y0 + bottom_y,                  z_world, min_uv_u, max_uv_v, layer_index, r, g, b, a })
+        table.insert(data, { x0 + scaled_width + right_x, y0 + scaled_height + top_y, z_world, min_uv_u, min_uv_v, layer_index, r, g, b, a })
+        table.insert(data, { x0 + left_x,                 y0 + scaled_height + top_y, z_world, max_uv_u, min_uv_v, layer_index, r, g, b, a })
 
         table.insert(vertex_map, base_index + 1)
         table.insert(vertex_map, base_index + 2)

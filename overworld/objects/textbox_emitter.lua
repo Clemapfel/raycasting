@@ -18,7 +18,7 @@ function ow.TextBoxEmitter:instantiate(object, stage, scene)
         _dialog_box = ow.DialogBox(object:get_string("id", true)),
         _input = rt.InputSubscriber(),
         _interact_delay_elapsed = math.huge, -- pause right after interacting
-        _post_done_delay_elapsed = math.huge,  -- pause after textbox is done
+        _post_done_delay_elapsed = math.huge, -- pause after textbox is done
     })
 
     self:signal_connect("activate", function(self)

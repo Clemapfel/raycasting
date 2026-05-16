@@ -120,8 +120,8 @@ function ow.DeformableMesh:instantiate(scene, world, contour)
         local ox, oy = x1 - dx, y1 - dy
 
         table.insert(mesh_data, {
-            ox, oy,     -- vertex position = origin of vector
-            dx, dy,      -- texture_coords = vector
+            ox, oy,    -- vertex position = origin of vector
+            dx, dy,     -- texture_coords = vector
             ox, oy, -- copy of rest data
             dx, dy
         })

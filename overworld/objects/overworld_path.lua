@@ -114,7 +114,7 @@ function ow.Path:instantiate(object, stage, scene)
             if self._is_absolute then start_x, start_y = 0, 0 end
             local entry = {
                 target = instance,
-                offset_x = start_x,  -- will be transformed to offset below
+                offset_x = start_x, -- will be transformed to offset below
                 offset_y = start_y,
             }
 
@@ -202,7 +202,7 @@ function ow.Path:instantiate(object, stage, scene)
     if easing_name ~= nil then
         easing = rt.InterpolationFunctions[easing_name]
         if easing == nil then
-            rt.error("In ow.Path: for object `", object:get_id(),  "`: unknown easing `", easing_name,  "`")
+            rt.error("In ow.Path: for object `", object:get_id(), "`: unknown easing `", easing_name, "`")
         end
     end
     self._easing = easing

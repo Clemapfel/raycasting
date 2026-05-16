@@ -142,12 +142,12 @@ vec4 effect(vec4 color, sampler2D density_image, vec2 texture_coords, vec2 scree
     float n00 = gradient_noise(vec3(uv + pixel_size * vec2(-1.0, -1.0), elapsed));
     float n10 = gradient_noise(vec3(uv + pixel_size * vec2( 0.0, -1.0), elapsed));
     float n20 = gradient_noise(vec3(uv + pixel_size * vec2( 1.0, -1.0), elapsed));
-    float n01 = gradient_noise(vec3(uv + pixel_size * vec2(-1.0,  0.0), elapsed));
-    float n11 = gradient_noise(vec3(uv + pixel_size * vec2( 0.0,  0.0), elapsed));
-    float n21 = gradient_noise(vec3(uv + pixel_size * vec2( 1.0,  0.0), elapsed));
-    float n02 = gradient_noise(vec3(uv + pixel_size * vec2(-1.0,  1.0), elapsed));
-    float n12 = gradient_noise(vec3(uv + pixel_size * vec2( 0.0,  1.0), elapsed));
-    float n22 = gradient_noise(vec3(uv + pixel_size * vec2( 1.0,  1.0), elapsed));
+    float n01 = gradient_noise(vec3(uv + pixel_size * vec2(-1.0, 0.0), elapsed));
+    float n11 = gradient_noise(vec3(uv + pixel_size * vec2( 0.0, 0.0), elapsed));
+    float n21 = gradient_noise(vec3(uv + pixel_size * vec2( 1.0, 0.0), elapsed));
+    float n02 = gradient_noise(vec3(uv + pixel_size * vec2(-1.0, 1.0), elapsed));
+    float n12 = gradient_noise(vec3(uv + pixel_size * vec2( 0.0, 1.0), elapsed));
+    float n22 = gradient_noise(vec3(uv + pixel_size * vec2( 1.0, 1.0), elapsed));
 
     float sobel_x =
     -1.0 * n00 + 0.0 * n10 + 1.0 * n20 +

@@ -30,8 +30,8 @@ rt.settings.overworld.dialog_box = {
 
 --- @enum ow.DialogBoxControlState
 ow.DialogBoxControlState = {
-    ADVANCE = "ADVANCE",    -- non-choice node done
-    EXIT = "EXIT",          -- last node done
+    ADVANCE = "ADVANCE",   -- non-choice node done
+    EXIT = "EXIT",         -- last node done
     SELECT_OPTION = "SELECT_OPTION", -- choice node active
     IDLE = "IDLE"           -- not shown
 }
@@ -322,7 +322,7 @@ function ow.DialogBox:realize()
 
     for node, visited in pairs(can_be_visited) do
         if visited == false then
-            rt.warning("In ow.DialogBox: for dialog `", self._id,  "`: node `", node.id,  "` has node pointing to it, it cannot be visited" )
+            rt.warning("In ow.DialogBox: for dialog `", self._id, "`: node `", node.id, "` has node pointing to it, it cannot be visited" )
         end
     end
 
@@ -566,7 +566,7 @@ function ow.DialogBox:update(delta)
 
         for labels in range(
             node.labels,
-            node.choice_labels,  -- nil for non choice
+            node.choice_labels, -- nil for non choice
             node.highlighted_choice_labels
         ) do
             for label in values(labels) do

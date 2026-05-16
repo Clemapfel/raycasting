@@ -704,7 +704,7 @@ function ow.FireflyManager:collect_point_lights(callback)
                 [_cluster_x] = x,
                 [_cluster_y] = y,
                 [_cluster_hue] = hue,
-                [_cluster_r] = r * glow,  -- Accumulate weighted RGB
+                [_cluster_r] = r * glow, -- Accumulate weighted RGB
                 [_cluster_g] = g * glow,
                 [_cluster_b] = b * glow,
                 [_cluster_radius] = radius,

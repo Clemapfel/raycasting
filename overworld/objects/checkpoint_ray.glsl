@@ -86,7 +86,7 @@ float envelope(float x, float attack_fraction, float decay_fraction) {
     if (x < 0.0 || x > 1.0) return 0.0;
 
     attack_fraction = max(attack_fraction, 0.0);
-    decay_fraction  = max(decay_fraction,  0.0);
+    decay_fraction  = max(decay_fraction, 0.0);
 
     float total = attack_fraction + decay_fraction;
     if (total == 0.0) return 1.0;

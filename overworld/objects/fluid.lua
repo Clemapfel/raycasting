@@ -180,11 +180,11 @@ function ow.Fluid:_initialize(center_x, center_y)
         -- 5-vertex quad with side length 1 centered at 0, 0
         local x, y, r = 0, 0, 1
         self._instance_mesh = rt.Mesh({
-            { x    , y    , 0.5, 0.5,  1, 1, 1, 1 },
-            { x - r, y - r, 0.0, 0.0,  1, 1, 1, 1 },
-            { x + r, y - r, 1.0, 0.0,  1, 1, 1, 1 },
-            { x + r, y + r, 1.0, 1.0,  1, 1, 1, 1 },
-            { x - r, y + r, 0.0, 1.0,  1, 1, 1, 1 }
+            { x    , y    , 0.5, 0.5, 1, 1, 1, 1 },
+            { x - r, y - r, 0.0, 0.0, 1, 1, 1, 1 },
+            { x + r, y - r, 1.0, 0.0, 1, 1, 1, 1 },
+            { x + r, y + r, 1.0, 1.0, 1, 1, 1, 1 },
+            { x - r, y + r, 0.0, 1.0, 1, 1, 1, 1 }
         }, rt.MeshDrawMode.TRIANGLES, rt.VertexFormat2D, rt.GraphicsBufferUsage.STATIC)
 
         self._instance_mesh:set_vertex_map(

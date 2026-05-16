@@ -9,8 +9,8 @@ rt.settings.overworld.linear_motor = {
 ow.LinearMotor = meta.class("LinearMotor", rt.Drawable)
 meta.add_signals(ow.LinearMotor,
     "start", --- @signal start (self) -> nil
-    "stop",  --- @signal stop (self) -> nil
-    "set",   --- @signal set (self, Number) -> nil
+    "stop", --- @signal stop (self) -> nil
+    "set",  --- @signal set (self, Number) -> nil
     "toggle" --- @signal toggle (self) -> nil
 )
 
