@@ -49,11 +49,6 @@ export class GLContext {
             return null;
     }
 
-    /** **/
-    public getScale() : Vec2 {
-        return this.scale;
-    }
-
     // state
     private color : RGBA = new RGBA(1, 1, 1, 1);
 

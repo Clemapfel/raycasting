@@ -45,8 +45,10 @@ export class ShaderCanvas extends GLWidget {
             this.shader_program.setUniform(default_elapsed_name, this.elapsed.asSeconds());
 
         this.shader_program.bind();
-        this.shader_program.setUniform(default_transform_name, Shader.default_transform.asIdentity());
-        // ignore global pixel transform
+        this.shader_program.setUniform( // ignore global pixel transform
+            default_transform_name,
+            Shader.default_transform.asIdentity()
+        );
         this.quad.draw();
         this.shader_program.unbind();
     }

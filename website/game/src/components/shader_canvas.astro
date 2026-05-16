@@ -6,7 +6,6 @@
 import { getEntry } from "astro:content";
 
 interface Props {
-    /** The ID of the shader entry in the 'shaders' content collection */
     id: string;
 }
 
@@ -54,12 +53,6 @@ if (!fragment_shader) {
 
 <script>
     import { ShaderCanvas } from "./shader_canvas.ts";
-
-    function register() {
-        if (!customElements.get("shader-canvas"))
-            customElements.define("shader-canvas", ShaderCanvas);
-    }
-
-    register();
-    document.addEventListener("astro:page-load", register, { once: false });
+    import { register } from "../common/register_component.ts"
+    register("shader-canvas", ShaderCanvas)
 </script>

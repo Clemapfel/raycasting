@@ -3,8 +3,9 @@ import { Time, TimeUnit } from "./time.ts";
 import { Vec2 } from "./vector.ts";
 
 export abstract class GLWidget extends HTMLElement {
-    protected context!: GLContext;
-    private native_canvas!: HTMLCanvasElement;
+    protected context : GLContext;
+    private native_canvas : HTMLCanvasElement;
+    private delta : Time = new Time();
 
     protected realize(): void {}
     protected unrealize(): void {}
@@ -138,7 +139,8 @@ export abstract class GLWidget extends HTMLElement {
         if (!this.is_realized) return;
         const delta = this.last_timestamp === undefined ? 0 : (timestamp - this.last_timestamp);
         this.last_timestamp = timestamp;
-        this.update(new Time(delta, TimeUnit.MILLISECONDS));
+        this.delta.from(delta, TimeUnit.MILLISECONDS);
+        this.update(this.delta);
         this.draw();
         this.frame_identifier = requestAnimationFrame(this.on_request_animation_frame);
     }
