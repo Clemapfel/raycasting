@@ -1,10 +1,10 @@
-import { GLWidget } from "../common/GLWidget.ts";
-import { Mesh, MeshDrawMode } from "../common/Mesh.ts";
-import { Shader } from "../common/Shader.ts";
-import { RGBA, parseRGBA, LCHA } from "../common/Colors.ts";
-import { type Seconds } from "../common/Time.ts";
-import { perlinNoise } from "../common/Noise.ts";
-import { Vec2 } from "../common/Vector.ts";
+import { GLWidget } from "../common/gl_widget.ts";
+import { Mesh, MeshDrawMode } from "../common/mesh.ts";
+import { Shader } from "../common/shader.ts";
+import { RGBA, parseRGBA, LCHA } from "../common/color.ts";
+import { Time } from "../common/time.ts";
+import { perlinNoise } from "../common/noise.ts";
+import { Vec2 } from "../common/vector.ts";
 import { default_color_background } from "../styles/default.ts";
 
 const hue_speed : number = 1 / 40; // cycles per second
@@ -29,7 +29,7 @@ export class NoisyFrame extends GLWidget {
     private n_contour_vertices = 0;
 
     private color : LCHA = new LCHA(0.8, 1, 0, 1);
-    private elapsed : Seconds = 0;
+    private elapsed : Time = new Time();
 
     protected override reformat(width: number, height: number) {
         const style = window.getComputedStyle(this as HTMLElement);
@@ -55,9 +55,9 @@ export class NoisyFrame extends GLWidget {
         this.mesh.draw();
     }
 
-    protected override update(delta : Seconds) {
-        this.color.h = Math.fract(this.color.h += delta * hue_speed);
-        this.elapsed += delta;
+    protected override update(delta : Time) {
+        this.color.h = Math.fract(this.color.h += delta.asSeconds() * hue_speed);
+        this.elapsed.add(delta);
 
         if (this.mesh === undefined) return;
 
@@ -216,7 +216,7 @@ export class NoisyFrame extends GLWidget {
             const value = (2 * Math.PI) * (1 + perlinNoise(
                 contour[xi] * noise_frequency / scale,
                 contour[yi] * noise_frequency / scale,
-                this.elapsed * noise_speed
+                this.elapsed.asSeconds() * noise_speed
             )) / 2;
 
             offset_contour[xi] = contour[xi] + Math.cos(value) * noise_magnitude;

@@ -1,4 +1,4 @@
-import { Vec2, Vec3 } from "./Vector.ts";
+import { Vec2, Vec3 } from "./vector.ts";
 
 /** **/
 export class Transform {

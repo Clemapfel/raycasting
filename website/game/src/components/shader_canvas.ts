@@ -1,14 +1,14 @@
-import { GLWidget } from "../common/GLWidget.ts";
-import { Mesh, MeshRectangle } from "../common/Mesh.ts";
-import { Shader, default_transform_name } from "../common/Shader.ts";
-import {type MilliSeconds, type Seconds} from "../common/Time.ts";
+import { GLWidget } from "../common/gl_widget.ts";
+import { Mesh, MeshRectangle } from "../common/mesh.ts";
+import { Shader, default_transform_name } from "../common/shader.ts";
+import { Time } from "../common/time.ts";
 
 export const default_elapsed_name = "elapsed";
 
 export class ShaderCanvas extends GLWidget {
-    private shader_program?: Shader;
-    private quad?: Mesh;
-    private elapsed: number = Math.random();
+    private shader_program? : Shader;
+    private quad? : Mesh;
+    private elapsed : Time = new Time(Math.random());
 
     protected override realize() : void {
         const source_code = this.getAttribute("fragment-shader-source");
@@ -34,15 +34,15 @@ export class ShaderCanvas extends GLWidget {
         );
     }
 
-    protected override update(delta: Seconds): void {
-        this.elapsed += delta;
+    protected override update(delta: Time): void {
+        this.elapsed.add(delta);
     }
 
     protected override draw(): void {
         if (this.shader_program === undefined || this.quad === undefined) return;
 
         if (this.shader_program.hasUniform(default_elapsed_name))
-            this.shader_program.setUniform(default_elapsed_name, this.elapsed);
+            this.shader_program.setUniform(default_elapsed_name, this.elapsed.asSeconds());
 
         this.shader_program.bind();
         this.shader_program.setUniform(default_transform_name, Shader.default_transform.asIdentity());

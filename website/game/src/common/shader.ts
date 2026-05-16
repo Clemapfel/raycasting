@@ -1,8 +1,8 @@
-import type { GLContext } from "./GLContext.ts";
-import { Vec2, Vec3, Vec4 } from "./Vector.ts";
-import { Transform } from "./Transform.ts";
-import { RGBA } from "./Colors.ts";
-import { Texture } from "./Texture.ts";
+import type { GLContext } from "./gl_context.ts";
+import { Vec2, Vec3, Vec4 } from "./vector.ts";
+import { Transform } from "./transform.ts";
+import { RGBA } from "./color.ts";
+import { Texture } from "./texture.ts";
 
 export const default_texture_uniform_name = "rt_Texture0";
 export const default_uv_name = "rt_TextureCoords";

@@ -1,5 +1,5 @@
-import { RGBA } from "./Colors.ts";
-import { Vec2 } from "./Vector.ts";
+import { RGBA } from "./color.ts";
+import { Vec2 } from "./vector.ts";
 
 const makeDebugContext: typeof import("webgl-debug").makeDebugContext = await import("webgl-debug")
     // safe import, if package is missing, becomes noop

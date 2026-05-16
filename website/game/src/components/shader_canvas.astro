@@ -53,7 +53,7 @@ if (!fragment_shader) {
 </style>
 
 <script>
-    import { ShaderCanvas } from "./ShaderCanvas";
+    import { ShaderCanvas } from "./shader_canvas.ts";
 
     function register() {
         if (!customElements.get("shader-canvas"))
@@ -62,5 +62,4 @@ if (!fragment_shader) {
 
     register();
     document.addEventListener("astro:page-load", register, { once: false });
-
 </script>

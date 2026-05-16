@@ -1,4 +1,4 @@
-import { type Radians } from "./Math.ts";
+import { type Radians } from "./math.ts";
 
 /** **/
 export class Vec2 {

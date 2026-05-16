@@ -1,5 +1,5 @@
-import type { GLContext } from "./GLContext.ts";
-import { Vec2 } from "./Vector.ts";
+import type { GLContext } from "./gl_context.ts";
+import { Vec2 } from "./vector.ts";
 
 /** **/
 export enum TextureFilterMode {

@@ -1,6 +1,6 @@
-import type { GLContext } from "./GLContext.ts";
-import type { Texture } from "./Texture.ts";
-import { Shader, default_texture_uniform_name } from "./Shader.ts";
+import type { GLContext } from "./gl_context.ts";
+import type { Texture } from "./texture.ts";
+import { Shader, default_texture_uniform_name } from "./shader.ts";
 
 const n_vertex_buffer_elements = 8; // x y u v r g b a
 const vertex_buffer_stride = n_vertex_buffer_elements * Float32Array.BYTES_PER_ELEMENT;
