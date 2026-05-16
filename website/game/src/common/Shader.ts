@@ -1,5 +1,6 @@
 import type { GLContext } from "./GLContext.ts";
-import { Vec2, Vec3, Vec4 } from "./Math.ts";
+import { Vec2, Vec3, Vec4 } from "./Vector.ts";
+import { Transform } from "./Transform.ts";
 import { RGBA } from "./Colors.ts";
 import { Texture } from "./Texture.ts";
 
@@ -9,6 +10,7 @@ export const default_rgba_name = "rt_VertexColor";
 export const default_screen_pos_name = "rt_VertexPosition";
 export const default_screen_size_name = "rt_ScreenSize";
 export const default_color_name = "rt_Color";
+export const default_transform_name = "rt_Transform";
 export const default_fragment_out_name = "rt_FragColor";
 export const default_shader_version = "#version 300 es";
 export const default_float_precision = "precision highp float";
@@ -22,6 +24,7 @@ layout(location = 2) in vec4 vertex_color;
 
 uniform vec2 ${default_screen_size_name};
 uniform vec4 ${default_color_name}; 
+uniform mat4x4 ${default_transform_name};
 
 out vec2 ${default_uv_name};
 out vec4 ${default_rgba_name};
@@ -37,7 +40,7 @@ void main() {
     position = (position / ${default_screen_size_name}) * 2.0 - 1.0;
     position.y *= -1.0;
 
-    gl_Position = vec4(position, 0.0, 1.0);
+    gl_Position = ${default_transform_name} * vec4(position, 0.0, 1.0);
 }
 `;
 
@@ -106,7 +109,7 @@ export class Shader {
     private vertex_shader_source : string;
     private program : WebGLShader;
     private context : GLContext;
-    private is_bound : boolean = false;
+    private was_transform_bound : boolean = false;
 
     // static lru queue for texture unit allocation
     static context_to_texture_unit_allocator : Map<GLContext, TextureUnitAllocator> = new Map<GLContext, TextureUnitAllocator>();
@@ -125,6 +128,8 @@ export class Shader {
 
         return tex
     }
+
+    static default_transform = new Transform().asIdentity();
 
     /** **/
     constructor(context : GLContext, fragment_shader_source? : string, vertex_shader_source? : string) {
@@ -196,12 +201,14 @@ export class Shader {
         }
 
         this.program = program;
+        this.setUniform(default_transform_name, Shader.default_transform.asIdentity());
     }
 
     /** **/
     public bind() {
-        if (!this.context.isValid()) return;
+        if (!this.context.isValid() || this.program === null) return;
         const { gl } = this.context;
+
         gl.useProgram(this.program);
 
         // bind 1x1 white default texture so the default shader does not return vec4(0)
@@ -226,24 +233,42 @@ export class Shader {
             gl.uniform4f(color_location, color.r, color.g, color.b, color.a)
         }
 
+        // set transform
+        if (gl.getUniformLocation(this.program, default_transform_name)) {
+            /*
+            const element = this.context.gl!.canvas as HTMLElement;
+            const rect = element.getBoundingClientRect();
+            this.setUniform(default_transform_name, Shader.default_transform
+                .asIdentity()
+                .translate(rect.width / 2, rect.height / 2)
+                .scale(
+                    element.offsetWidth / rect.width,
+                    element.offsetHeight / rect.height
+                )
+                .translate(-rect.width / 2, -rect.height / 2)
+            );
+             */
+            this.setUniform(default_transform_name, Shader.default_transform.asIdentity());
+        }
+
         gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
-        this.is_bound = true;
     }
 
     /** **/
     public unbind() {
-        if (!this.context.isValid()) return;
+        if (!this.context.isValid() || this.program === null) return;
         const { gl } = this.context;
 
-        if (this.is_bound)
+        if (gl.getParameter(gl.CURRENT_PROGRAM) === this.program)
             gl.useProgram(null);
     }
 
     /** **/
-    public setUniform(id: string, value: number | Vec2 | Vec3 | Vec4 | RGBA | Texture) {
-        if (!this.context.isValid()) return;
+    public setUniform(id: string, value: number | Vec2 | Vec3 | Vec4 | RGBA | Transform | Texture) {
+        if (!this.context.isValid() || this.program === null) return;
         const { gl } = this.context;
 
+        const program_before = gl.getParameter(gl.CURRENT_PROGRAM);
         gl.useProgram(this.program);
 
         const location = gl.getUniformLocation(this.program, id);
@@ -270,6 +295,9 @@ export class Shader {
             else
                 gl.uniform1f(location, value as number);
         }
+        else if (value instanceof Transform) {
+            gl.uniformMatrix4fv(location, false, value.getData());
+        }
         else if (value instanceof Texture) {
             const unit = Shader.context_to_texture_unit_allocator.get(this.context)!.getTextureUnit(value.getNative());
             gl.activeTexture(gl.TEXTURE0 + unit);
@@ -286,10 +314,9 @@ export class Shader {
         else if (value instanceof Vec4)
             gl.uniform4f(location, value.x, value.y, value.z, value.w);
         else
-            throw new Error(`In Shader.setUniform: unhandled argument type ${typeof value}`);
+            throw new Error(`In Shader.setUniform: unhandled argument type ${typeof value}`); // unreachable
 
-        if (!this.is_bound)
-            gl.useProgram(null);
+        gl.useProgram(program_before);
     }
 
     /** **/
@@ -299,7 +326,6 @@ export class Shader {
 
         return gl.getUniformLocation(this.program, id) !== null
     }
-
 
     /** **/
     public free() {

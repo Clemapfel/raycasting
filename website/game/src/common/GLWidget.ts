@@ -1,10 +1,10 @@
 import { GLContext } from "./GLContext.ts";
 import {type MilliSeconds, type Seconds} from "./Time.ts";
-import { Vec2 } from "./Math.ts";
+import { Vec2 } from "./Vector.ts";
 
 export abstract class GLWidget extends HTMLElement {
     protected context!: GLContext;
-    protected canvas!: HTMLCanvasElement;
+    private native_canvas!: HTMLCanvasElement;
 
     protected realize(): void {}
     protected unrealize(): void {}
@@ -57,13 +57,16 @@ export abstract class GLWidget extends HTMLElement {
                 }
 
                 // resize internal canvas
-                this.canvas.width = width;
-                this.canvas.height = height;
+
+                this.native_canvas.width = width;
+                this.native_canvas.height = height;
 
                 // notify children of resize
                 this.size.x = width;
                 this.size.y = height;
                 this.reformat(width, height);
+
+                this.draw() // prevent blank frame on resize
             }
         });
 
@@ -108,12 +111,12 @@ export abstract class GLWidget extends HTMLElement {
 
     public connectedCallback() {
         const internal_canvas = this.querySelector("canvas");
-        if (!internal_canvas) {
+        if (internal_canvas === null) {
             throw new Error("GLWidget: No canvas element found within the custom element.");
         }
 
-        this.canvas = internal_canvas;
-        this.context = new GLContext(this.canvas);
+        this.native_canvas = internal_canvas;
+        this.context = new GLContext(this.native_canvas);
 
         this.resize_observer.observe(this, { box: "device-pixel-content-box" });
         this.realize();

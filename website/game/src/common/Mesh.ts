@@ -86,6 +86,11 @@ export class Mesh {
         if (default_shader !== undefined)
             default_shader.bind();
 
+        if (gl.getParameter(gl.CURRENT_PROGRAM) === null) {
+            console.log(default_shader);
+            throw new Error("trace point");
+        }
+
         gl.bindVertexArray(this.vertex_array_object);
 
         if (this.index_buffer)

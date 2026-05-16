@@ -1,5 +1,5 @@
 import type { GLContext } from "./GLContext.ts";
-import { Vec2 } from "./Math.ts";
+import { Vec2 } from "./Vector.ts";
 
 /** **/
 export enum TextureFilterMode {
@@ -199,22 +199,23 @@ export class Texture {
     }
 }
 
-/** **/
 export class RenderTexture extends Texture {
 
-    private framebuffer : WebGLFramebuffer;
+    private msaa_framebuffer: WebGLFramebuffer | null = null;
+    private resolve_framebuffer: WebGLFramebuffer;
+    private sample_count: number;
 
-    /** **/
-    constructor(context : GLContext, width : number, height: number, format?: number) {
+    constructor(context: GLContext, width: number, height: number, format?: number, msaa: number = 1) {
         if (format === undefined) format = TextureFormat.RGBA8;
-        super(context, width, height, format)
+        super(context, width, height, format);
+
+        this.sample_count = Math.min(msaa, (() => {
+            if (!context.isValid()) return 1;
+            return context.gl.getParameter(context.gl.MAX_SAMPLES);
+        })());
 
         if (!this.context.isValid()) return;
         const { gl } = this.context;
-
-        const framebuffer = gl.createFramebuffer();
-        if (framebuffer === null) throw new Error("In RenderTexture: unable to create frame buffer");
-        this.framebuffer = framebuffer;
 
         const attachment_point = ((format: TextureFormat): number => {
             if (format === TextureFormat.DEPTH24_STENCIL8 || format === TextureFormat.DEPTH32F_STENCIL8)
@@ -225,36 +226,65 @@ export class RenderTexture extends Texture {
                 return gl.COLOR_ATTACHMENT0;
         })(format);
 
-        const { internal_format, source_format, type } = resolve_texture_format(gl, format);
+        const { internal_format } = resolve_texture_format(gl, format);
 
-        gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+        const resolve_framebuffer = gl.createFramebuffer();
+        if (resolve_framebuffer === null) throw new Error("In RenderTexture: unable to create resolve framebuffer");
+        this.resolve_framebuffer = resolve_framebuffer;
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, resolve_framebuffer);
         gl.framebufferTexture2D(gl.FRAMEBUFFER, attachment_point, gl.TEXTURE_2D, this.native, 0);
 
         if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE)
-            throw new Error(`In RenderTexture: framebuffer incomplete`);
+            throw new Error("In RenderTexture: resolve framebuffer incomplete");
+
+        if (this.sample_count > 1) {
+            const msaa_framebuffer = gl.createFramebuffer();
+            if (msaa_framebuffer === null) throw new Error("In RenderTexture: unable to create msaa framebuffer");
+            this.msaa_framebuffer = msaa_framebuffer;
+
+            const color_renderbuffer = gl.createRenderbuffer();
+            if (color_renderbuffer === null) throw new Error("In RenderTexture: unable to create msaa renderbuffer");
+
+            gl.bindFramebuffer(gl.FRAMEBUFFER, msaa_framebuffer);
+            gl.bindRenderbuffer(gl.RENDERBUFFER, color_renderbuffer);
+            gl.renderbufferStorageMultisample(gl.RENDERBUFFER, this.sample_count, internal_format, width, height);
+            gl.framebufferRenderbuffer(gl.FRAMEBUFFER, attachment_point, gl.RENDERBUFFER, color_renderbuffer);
+
+            if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE)
+                throw new Error("In RenderTexture: msaa framebuffer incomplete");
+        }
 
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.bindRenderbuffer(gl.RENDERBUFFER, null);
     }
 
-    /** **/
     public free() {
         if (!this.context.isValid()) return;
         const { gl } = this.context;
-        super.free()
-        if (this.framebuffer) gl.deleteFramebuffer(this.framebuffer);
+        super.free();
+        if (this.msaa_framebuffer) gl.deleteFramebuffer(this.msaa_framebuffer);
+        if (this.resolve_framebuffer) gl.deleteFramebuffer(this.resolve_framebuffer);
     }
 
-    /** **/
     public bind() {
         if (!this.context.isValid()) return;
         const { gl } = this.context;
-        gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.msaa_framebuffer ?? this.resolve_framebuffer);
     }
 
-    /** **/
     public unbind() {
         if (!this.context.isValid()) return;
         const { gl } = this.context;
+
+        if (this.msaa_framebuffer !== null) {
+            const width = this.getWidth();
+            const height = this.getHeight();
+            gl.bindFramebuffer(gl.READ_FRAMEBUFFER, this.msaa_framebuffer);
+            gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, this.resolve_framebuffer);
+            gl.blitFramebuffer(0, 0, width, height, 0, 0, width, height, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+        }
+
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     }
 }

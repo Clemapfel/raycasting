@@ -1,4 +1,5 @@
 import { RGBA } from "./Colors.ts";
+import { Vec2 } from "./Vector.ts";
 
 const makeDebugContext: typeof import("webgl-debug").makeDebugContext = await import("webgl-debug")
     // safe import, if package is missing, becomes noop
@@ -29,11 +30,28 @@ export class GLContext {
     public gl : WebGL2RenderingContext | null;
     public default_texture : WebGLTexture | undefined = undefined;
 
+    constructor(canvas: HTMLCanvasElement) {
+        this.gl = canvas.getContext("webgl2", {
+            antialias: true,
+            powerPreference: "high-performance",
+            alpha: true,
+            depth: true,
+            stencil: true,
+            desynchronized: true
+        });
+    }
+
     /** **/
-    constructor(canvas : HTMLCanvasElement){
-        this.gl = canvas.getContext("webgl2");
+    public getCanvas() : HTMLCanvasElement | OffscreenCanvas | null {
         if (this.gl !== null)
-            this.gl = makeDebugContext(this.gl)
+            return this.gl.canvas;
+        else
+            return null;
+    }
+
+    /** **/
+    public getScale() : Vec2 {
+        return this.scale;
     }
 
     // state

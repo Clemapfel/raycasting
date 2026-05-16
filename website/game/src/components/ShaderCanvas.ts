@@ -1,6 +1,6 @@
 import { GLWidget } from "../common/GLWidget.ts";
 import { Mesh, MeshRectangle } from "../common/Mesh.ts";
-import { Shader } from "../common/Shader.ts";
+import { Shader, default_transform_name } from "../common/Shader.ts";
 import {type MilliSeconds, type Seconds} from "../common/Time.ts";
 
 export const default_elapsed_name = "elapsed";
@@ -32,8 +32,6 @@ export class ShaderCanvas extends GLWidget {
             0, 0,
             width, height
         );
-
-        this.draw(); // to prevent white frame on resize
     }
 
     protected override update(delta: Seconds): void {
@@ -47,6 +45,8 @@ export class ShaderCanvas extends GLWidget {
             this.shader_program.setUniform(default_elapsed_name, this.elapsed);
 
         this.shader_program.bind();
+        this.shader_program.setUniform(default_transform_name, Shader.default_transform.asIdentity());
+        // ignore global pixel transform
         this.quad.draw();
         this.shader_program.unbind();
     }

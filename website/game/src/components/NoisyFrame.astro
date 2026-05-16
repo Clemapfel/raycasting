@@ -13,14 +13,15 @@
 
 <style>
     :root {
-        --outline-width: 4px;
+        --outline-width: 4.5px;
     }
+
     noisy-frame {
         display: block;
         position: relative;
         outline-width: var(--outline-width);
         border-radius: calc(var(--outline-width) * 4);
-        background: black;
+        background: transparent !important;
     }
 
     noisy-frame .noise-frame-canvas {
@@ -35,6 +36,7 @@
         position: relative;
         padding: calc(var(--outline-width) * 4);
     }
+
 </style>
 
 <script>
