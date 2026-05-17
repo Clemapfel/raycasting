@@ -1,16 +1,17 @@
 import { GLWidget } from "../common/gl_widget.ts";
-import { Mesh, MeshRectangle } from "../common/mesh.ts";
-import { Shader, default_transform_name } from "../common/shader.ts";
+import { Mesh, MeshDrawMode } from "../common/mesh.ts";
+import { MeshVertexFormat } from "../common/mesh_vertex_format.ts";
+import { Shader, DEFAULT_TRANSFORM_NAME } from "../common/shader.ts";
 import { Time } from "../common/time.ts";
 
-export const default_elapsed_name = "elapsed";
+const default_elapsed_name = "elapsed";
 
 export class ShaderCanvas extends GLWidget {
     private shader_program? : Shader;
     private quad? : Mesh;
     private elapsed : Time = new Time(Math.random());
 
-    protected override realize() : void {
+    protected override async realize() {
         const source_code = this.getAttribute("fragment-shader-source");
         if (!source_code)
             throw new Error("ShaderCanvas: Attribute 'fragment-shader-source' is missing.");
@@ -27,11 +28,18 @@ export class ShaderCanvas extends GLWidget {
         if (this.quad !== undefined) 
             this.quad.free();
 
-        this.quad = MeshRectangle(
+        this.quad = new Mesh(
             this.context,
-            0, 0,
-            width, height
-        );
+            new Float32Array([
+                0, 0,           0, 0,
+                width, 0,       1, 0,
+                width, height,  1, 1,
+                0, height,      0, 1
+            ]),
+            new Uint16Array([ 0, 1, 2, 0, 2, 3 ]),
+            MeshDrawMode.TRIANGLES,
+            MeshVertexFormat.XY_UV
+        )
     }
 
     protected override update(delta: Time): void {
@@ -46,7 +54,7 @@ export class ShaderCanvas extends GLWidget {
 
         this.shader_program.bind();
         this.shader_program.setUniform( // ignore global pixel transform
-            default_transform_name,
+            DEFAULT_TRANSFORM_NAME,
             Shader.default_transform.asIdentity()
         );
         this.quad.draw();

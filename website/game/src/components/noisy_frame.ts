@@ -5,7 +5,7 @@ import { RGBA, parseRGBA, LCHA } from "../common/color.ts";
 import { Time } from "../common/time.ts";
 import { perlinNoise } from "../common/noise.ts";
 import { Vec2 } from "../common/vector.ts";
-import { default_color_background } from "../styles/default.ts";
+import { DEFAULT_COLOR_BACKGROUND } from "../styles/default.ts";
 
 const hue_speed : number = 1 / 40; // cycles per second
 const inner_color_lighten : number = 1.25; // rgb multiplier
@@ -36,7 +36,7 @@ export class NoisyFrame extends GLWidget {
         const outline_width = style.outlineWidth ? parseFloat(style.outlineWidth) : default_outline_width;
         const margin = style.margin ? parseFloat(style.margin) : 0;
         const border_radius = style.borderRadius ? parseFloat(style.borderRadius) : default_border_radius;
-        const background_color = parseRGBA(default_color_background);
+        const background_color = parseRGBA(DEFAULT_COLOR_BACKGROUND);
 
         this.reinitialize_mesh(
             margin, margin,

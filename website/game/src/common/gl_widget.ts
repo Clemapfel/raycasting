@@ -7,36 +7,36 @@ export abstract class GLWidget extends HTMLElement {
     private native_canvas : HTMLCanvasElement;
     private delta : Time = new Time();
 
-    protected realize(): void {}
-    protected unrealize(): void {}
-    protected draw(): void {}
-    protected reformat(width: number, height: number): void {}
-    protected update(time_delta: Time): void {}
+    protected async realize() : Promise<void> {}
+    protected unrealize() : void {}
+    protected draw() : void {}
+    protected reformat(width: number, height: number) : void {}
+    protected update(time_delta: Time) : void {}
 
-    protected onMousePressed(event: MouseEvent): void {}
-    protected onMouseReleased(event: MouseEvent): void {}
-    protected onMouseEnter(event: MouseEvent): void {}
-    protected onMouseLeave(event: MouseEvent): void {}
-    protected onMouseMoved(event: MouseEvent): void {}
-    protected onMouseWheelMoved(event: WheelEvent): void {}
-    protected onKeyPressed(event: KeyboardEvent): void {}
-    protected onKeyReleased(event: KeyboardEvent): void {}
-    protected onFocusGained(event: FocusEvent): void {}
-    protected onFocusLost(event: FocusEvent): void {}
+    protected onMousePressed(event: MouseEvent) : void {}
+    protected onMouseReleased(event: MouseEvent) : void {}
+    protected onMouseEnter(event: MouseEvent) : void {}
+    protected onMouseLeave(event: MouseEvent) : void {}
+    protected onMouseMoved(event: MouseEvent) : void {}
+    protected onMouseWheelMoved(event: WheelEvent) : void {}
+    protected onKeyPressed(event: KeyboardEvent) : void {}
+    protected onKeyReleased(event: KeyboardEvent) : void {}
+    protected onFocusGained(event: FocusEvent) : void {}
+    protected onFocusLost(event: FocusEvent) : void {}
 
-    public isRealized(): boolean {
+    public isRealized() : boolean {
         return this.is_realized;
     }
 
-    public getSize(): Vec2 {
+    public getSize() : Vec2 {
         return this.size.clone();
     }
 
-    public getWidth(): number {
+    public getWidth() : number {
         return this.size.x;
     }
 
-    public getHeight(): number {
+    public getHeight() : number {
         return this.size.y;
     }
 
@@ -110,7 +110,7 @@ export abstract class GLWidget extends HTMLElement {
     private frame_identifier? : number;
     private last_timestamp? : DOMHighResTimeStamp = performance.now();
 
-    public connectedCallback() {
+    public async connectedCallback() {
         const internal_canvas = this.querySelector("canvas");
         if (internal_canvas === null) {
             throw new Error("GLWidget: No canvas element found within the custom element.");
@@ -120,7 +120,8 @@ export abstract class GLWidget extends HTMLElement {
         this.context = new GLContext(this.native_canvas);
 
         this.resize_observer.observe(this, { box: "device-pixel-content-box" });
-        this.realize();
+
+        await this.realize(); // yield to browser
         this.is_realized = true;
         this.frame_identifier = requestAnimationFrame(this.on_request_animation_frame);
     }

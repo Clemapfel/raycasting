@@ -1,11 +1,11 @@
 ---
 import {
-	default_color_primary,
-	default_color_secondary,
-	default_color_foreground,
-	default_color_background,
-	default_color_muted,
-	default_color_emphasized
+	DEFAULT_COLOR_PRIMARY,
+	DEFAULT_COLOR_SECONDARY,
+	DEFAULT_COLOR_FOREGROUND,
+	DEFAULT_COLOR_BACKGROUND,
+	DEFAULT_COLOR_MUTED,
+	DEFAULT_COLOR_EMPHASIZED
 } from "../styles/default.ts";
 ---
 
@@ -26,12 +26,12 @@ import {
 	<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
 
 	<style is:global define:vars={{
-		default_color_primary,
-		default_color_secondary,
-		default_color_foreground,
-		default_color_muted,
-		default_color_emphasized,
-		default_color_background,
+		default_color_primary: DEFAULT_COLOR_PRIMARY,
+		default_color_secondary: DEFAULT_COLOR_SECONDARY,
+		default_color_foreground: DEFAULT_COLOR_FOREGROUND,
+		default_color_muted: DEFAULT_COLOR_MUTED,
+		default_color_emphasized: DEFAULT_COLOR_EMPHASIZED,
+		default_color_background: DEFAULT_COLOR_BACKGROUND,
 	}}>
 		:root {
 			--default-font: "Cantarelle", "Noto Sans", sans-serif;

@@ -1,3 +1,4 @@
+require "include"
 require "build.config"
 require "include"
 require "common.game_state"

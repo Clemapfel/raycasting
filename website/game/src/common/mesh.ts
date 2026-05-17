@@ -1,11 +1,7 @@
 import type { GLContext } from "./gl_context.ts";
-import type { Texture } from "./texture.ts";
-import { Shader, default_texture_uniform_name } from "./shader.ts";
+import { MeshVertexFormat, MESH_VERTEX_FORMAT_TO_N_COMPONENTS } from "./mesh_vertex_format.ts";
+import { Shader, DEFAULT_TEXTURE_UNIFORM_NAME } from "./shader.ts";
 
-const n_vertex_buffer_elements = 8; // x y u v r g b a
-const vertex_buffer_stride = n_vertex_buffer_elements * Float32Array.BYTES_PER_ELEMENT;
-
-/** **/
 export enum MeshDrawMode {
     POINTS,
     LINES,
@@ -16,118 +12,122 @@ export enum MeshDrawMode {
     TRIANGLE_FAN
 }
 
-/** **/
+const initialized_contexts = new Set<GLContext>();
+
 export class Mesh {
-    private context : GLContext;
+    private context: GLContext;
 
-    private vertex_buffer : Float32Array;
-    private vertex_buffer_object : WebGLBuffer;
-    private vertex_array_object : WebGLVertexArrayObject;
+    private vertex_buffer: Float32Array;
+    private vertex_buffer_object?: WebGLBuffer;
+    private vertex_array_object?: WebGLVertexArrayObject;
 
-    private index_buffer : Uint16Array;
-    private index_buffer_object : WebGLBuffer;
+    private index_buffer: Uint16Array;
+    private index_buffer_object?: WebGLBuffer;
 
-    private draw_mode : number;
-    private n_vertices : number;
+    private draw_mode: number;
+    private format: MeshVertexFormat;
+    private n_vertices: number = 0;
 
     static context_to_default_shader = new Map<GLContext, Shader>();
 
-    /** **/
     constructor(
-        context : GLContext,
-        vertex_buffer : Float32Array,
-        index_buffer? : Uint16Array,
-        draw_mode? : MeshDrawMode
+        context: GLContext,
+        vertex_buffer: Float32Array,
+        index_buffer?: Uint16Array,
+        draw_mode: MeshDrawMode = MeshDrawMode.TRIANGLE_FAN,
+        format: MeshVertexFormat = MeshVertexFormat.XY_UV_RGBA
     ) {
         this.context = context;
+        this.format = format;
 
         if (!this.context.isValid()) return;
         const { gl } = this.context;
 
-        if (draw_mode == undefined) draw_mode = MeshDrawMode.TRIANGLE_FAN;
+        if (draw_mode == MeshDrawMode.POINTS)
+            this.draw_mode = gl.POINTS;
+        else if (draw_mode == MeshDrawMode.LINES)
+            this.draw_mode = gl.LINES;
+        else if (draw_mode == MeshDrawMode.LINE_LOOP)
+            this.draw_mode = gl.LINE_LOOP;
+        else if (draw_mode == MeshDrawMode.LINE_STRIP)
+            this.draw_mode = gl.LINE_STRIP;
+        else if (draw_mode == MeshDrawMode.TRIANGLES)
+            this.draw_mode = gl.TRIANGLES;
+        else if (draw_mode == MeshDrawMode.TRIANGLE_STRIP)
+            this.draw_mode = gl.TRIANGLE_STRIP;
+        else if (draw_mode == MeshDrawMode.TRIANGLE_FAN)
+            this.draw_mode = gl.TRIANGLE_FAN;
+        else
+            this.draw_mode = gl.TRIANGLES;
 
-        // Map enum to GL constants
-        const modeMap: Record<number, number> = {
-            [MeshDrawMode.POINTS]: gl.POINTS,
-            [MeshDrawMode.LINES]: gl.LINES,
-            [MeshDrawMode.LINE_LOOP]: gl.LINE_LOOP,
-            [MeshDrawMode.LINE_STRIP]: gl.LINE_STRIP,
-            [MeshDrawMode.TRIANGLES]: gl.TRIANGLES,
-            [MeshDrawMode.TRIANGLE_STRIP]: gl.TRIANGLE_STRIP,
-            [MeshDrawMode.TRIANGLE_FAN]: gl.TRIANGLE_FAN,
-        };
-
-        this.draw_mode = modeMap[draw_mode] ?? gl.TRIANGLES;
-        this.replaceData(vertex_buffer, index_buffer);
-
+        // add event listeners for static member if not already present
         if (!Mesh.context_to_default_shader.has(this.context)) {
             Mesh.context_to_default_shader.set(this.context, new Shader(this.context));
 
             gl.canvas.addEventListener("webglcontextlost", () => {
-                console.log("called");
-                Shader.context_to_default_texture.delete(this.context);
-            });
+                Mesh.context_to_default_shader.delete(this.context);
+            })
 
             gl.canvas.addEventListener("webglcontextrestored", () => {
-                Shader.context_to_default_texture.set(this.context, new Shader(this.context));
+                Mesh.context_to_default_shader.set(this.context, new Shader(this.context));
             });
         }
+
+        this.replaceData(vertex_buffer, index_buffer);
     }
 
-    /**
-     * Renders the mesh using the provided shader and optional texture.
-     **/
     public draw() {
-        if (!this.context.isValid()) return;
+        if (!this.context.isValid() || this.vertex_array_object === undefined) return;
         const { gl } = this.context;
 
-        const default_shader = gl.getParameter(gl.CURRENT_PROGRAM) === null ? Mesh.context_to_default_shader.get(this.context) : undefined;
+        const default_shader = gl.getParameter(gl.CURRENT_PROGRAM) === null
+            ? Mesh.context_to_default_shader.get(this.context)
+            : undefined;
 
-        if (default_shader !== undefined)
-            default_shader.bind();
+        if (default_shader !== undefined) default_shader.bind();
 
-        if (gl.getParameter(gl.CURRENT_PROGRAM) === null) {
-            console.log(default_shader);
-            throw new Error("trace point");
-        }
+        if (gl.getParameter(gl.CURRENT_PROGRAM) === null) throw new Error("trace point");
 
         gl.bindVertexArray(this.vertex_array_object);
-
-        if (this.index_buffer)
-            gl.drawElements(this.draw_mode, this.index_buffer.length, gl.UNSIGNED_SHORT, 0);
-        else
-            gl.drawArrays(this.draw_mode, 0, this.n_vertices);
-
+        gl.drawElements(this.draw_mode, this.index_buffer.length, gl.UNSIGNED_SHORT, 0);
         gl.bindVertexArray(null);
 
-        if (default_shader !== undefined)
-            default_shader.unbind();
+        if (default_shader !== undefined) default_shader.unbind();
     }
 
-    /** **/
-    public replaceData(vertex_buffer : Float32Array, index_buffer? : Uint16Array) {
+    public replaceData(vertex_buffer: Float32Array, index_buffer?: Uint16Array) {
         if (!this.context.isValid()) return;
         const { gl } = this.context;
 
-        this.free();
-        this.vertex_buffer = vertex_buffer
+        const n_components = MESH_VERTEX_FORMAT_TO_N_COMPONENTS[this.format];
 
-        if (index_buffer !== undefined)
-            this.index_buffer = index_buffer;
-        else
+        if (vertex_buffer.length === 0 || vertex_buffer.length % n_components !== 0)
+            throw new Error(`In Mesh: vertex buffer length is not a multiple of ${n_components} for the given format`);
+
+        const n_vertices_before : number | undefined = this.n_vertices;
+        const n_vertices = vertex_buffer.length / n_components;
+
+        if (index_buffer === undefined) {
+            if (n_vertices_before !== n_vertices || this.index_buffer === undefined) {
+                this.index_buffer = new Uint16Array(n_vertices);
+                for (let i = 0; i < n_vertices; i++) this.index_buffer[i] = i;
+            }
+
             index_buffer = this.index_buffer;
+        }
 
-        if (vertex_buffer.length == 0 || vertex_buffer.length % n_vertex_buffer_elements != 0)
-            throw new Error("In Mesh: number of components in vertex buffer is not a multiple of 8 (xy uv rgba)")
+        this.free(); // safe noop not yet allocated
 
-        this.n_vertices = vertex_buffer.length / n_vertex_buffer_elements;
+        this.vertex_buffer = vertex_buffer;
+        this.index_buffer = index_buffer;
+        this.n_vertices = n_vertices;
 
         const vao = gl.createVertexArray();
-        if (vao === null) throw new Error("In Mesh.replaceData: unable to create vertex array object")
+        if (vao === null) throw new Error("In Mesh.replaceData: unable to create vertex array object");
         this.vertex_array_object = vao;
 
         const vbo = gl.createBuffer();
-        if (vbo === null) throw new Error("In Mesh.replaceData: unable to create vertex buffer object")
+        if (vbo === null) throw new Error("In Mesh.replaceData: unable to create vertex buffer object");
         this.vertex_buffer_object = vbo;
 
         gl.bindVertexArray(this.vertex_array_object);
@@ -135,46 +135,52 @@ export class Mesh {
         gl.bufferData(gl.ARRAY_BUFFER, vertex_buffer, gl.STATIC_DRAW);
 
         const bytes = Float32Array.BYTES_PER_ELEMENT;
-        const is_normalized = false;
+        const stride = n_components * bytes;
 
-        gl.enableVertexAttribArray(0); // position (x, y)
-        gl.vertexAttribPointer(0, 2, gl.FLOAT, is_normalized, vertex_buffer_stride, 0);
+        gl.enableVertexAttribArray(0);
+        gl.vertexAttribPointer(0, 2, gl.FLOAT, false, stride, 0);
 
-        gl.enableVertexAttribArray(1); // uv (u, v)
-        gl.vertexAttribPointer(1, 2, gl.FLOAT, is_normalized, vertex_buffer_stride, 2 * bytes);
-
-        gl.enableVertexAttribArray(2); // color (r, g, b, a)
-        gl.vertexAttribPointer(2, 4, gl.FLOAT, is_normalized, vertex_buffer_stride, 4 * bytes);
-
-        if (!index_buffer) {
-            index_buffer = new Uint16Array(this.n_vertices);
-            for (let i = 0; i < this.n_vertices; i++) {
-                index_buffer[i] = i;
-            }
+        if (this.format === MeshVertexFormat.XY_UV_RGBA || this.format === MeshVertexFormat.XY_UV) {
+            gl.enableVertexAttribArray(1);
+            gl.vertexAttribPointer(1, 2, gl.FLOAT, false, stride, 2 * bytes);
+        } else {
+            gl.disableVertexAttribArray(1);
         }
-        this.index_buffer = index_buffer;
+
+        if (this.format === MeshVertexFormat.XY_UV_RGBA) {
+            gl.enableVertexAttribArray(2);
+            gl.vertexAttribPointer(2, 4, gl.FLOAT, false, stride, 4 * bytes);
+        } else if (this.format === MeshVertexFormat.XY_RGBA) {
+            gl.enableVertexAttribArray(2);
+            gl.vertexAttribPointer(2, 4, gl.FLOAT, false, stride, 2 * bytes);
+        } else {
+            gl.disableVertexAttribArray(2);
+        }
 
         const ibo = gl.createBuffer();
-        if (ibo === null) throw new Error("In mesh.replaceData: unable to create index buffer object")
+        if (ibo === null) throw new Error("In Mesh.replaceData: unable to create index buffer object");
         this.index_buffer_object = ibo;
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.index_buffer_object);
-        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, index_buffer, gl.STATIC_DRAW);
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, this.index_buffer, gl.STATIC_DRAW);
 
         gl.bindVertexArray(null);
-
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
     }
 
-    /** **/
     public free() {
         if (!this.context.isValid()) return;
         const { gl } = this.context;
 
-        if (this.vertex_array_object) gl.deleteVertexArray(this.vertex_array_object);
-        if (this.vertex_buffer_object) gl.deleteBuffer(this.vertex_buffer_object);
-        if (this.index_buffer_object) gl.deleteBuffer(this.index_buffer_object);
+        if (this.vertex_array_object !== undefined) gl.deleteVertexArray(this.vertex_array_object);
+        if (this.vertex_buffer_object !== undefined) gl.deleteBuffer(this.vertex_buffer_object);
+        if (this.index_buffer_object !== undefined) gl.deleteBuffer(this.index_buffer_object);
+
+        this.vertex_array_object = undefined;
+        this.vertex_buffer_object = undefined;
+        this.index_buffer_object = undefined;
+        this.n_vertices = 0;
     }
 }
 
@@ -198,7 +204,13 @@ export function MeshRectangle(
         0, 2, 3
     ])
 
-    return new Mesh(context, vertices, indices, MeshDrawMode.TRIANGLES);
+    return new Mesh(
+        context,
+        vertices,
+        indices,
+        MeshDrawMode.TRIANGLES,
+        MeshVertexFormat.XY_UV_RGBA
+    );
 }
 
 /** **/
@@ -264,5 +276,6 @@ export function MeshCircle(
         new Float32Array(vertexData),
         indices,
         MeshDrawMode.TRIANGLES,
+        MeshVertexFormat.XY_UV_RGBA
     );
 }

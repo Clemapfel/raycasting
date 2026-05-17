@@ -2,5 +2,29 @@
 //
 // Usage: <Orb />
 //
-const image_path = "/orb_particle_texture.png"
 ---
+
+<orb-canvas>
+    <canvas class="orb-canvas-canvas"></canvas>
+</orb-canvas>
+
+astro<style>
+    orb-canvas {
+        --orb-width: 50px;
+        --orb-height: 50px;
+
+        width: var(--orb-width);
+        height: var(--orb-height);
+    }
+
+    orb-canvas .orb-canvas-canvas {
+        width: var(--orb-width);
+        height: var(--orb-height);
+    }
+</style>
+
+<script>
+    import { Orb } from "./orb.ts";
+    import { register } from "../common/register_component.ts"
+    register("orb-canvas", Orb)
+</script>

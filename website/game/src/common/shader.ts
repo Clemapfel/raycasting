@@ -3,64 +3,108 @@ import { Vec2, Vec3, Vec4 } from "./vector.ts";
 import { Transform } from "./transform.ts";
 import { RGBA } from "./color.ts";
 import { Texture } from "./texture.ts";
+import { MeshVertexFormat } from "./mesh_vertex_format.ts";
 
-export const default_texture_uniform_name = "rt_Texture0";
-export const default_uv_name = "rt_TextureCoords";
-export const default_rgba_name = "rt_VertexColor";
-export const default_screen_pos_name = "rt_VertexPosition";
-export const default_screen_size_name = "rt_ScreenSize";
-export const default_color_name = "rt_Color";
-export const default_transform_name = "rt_Transform";
-export const default_fragment_out_name = "rt_FragColor";
-export const default_shader_version = "#version 300 es";
-export const default_float_precision = "precision highp float";
+export const DEFAULT_TEXTURE_UNIFORM_NAME = "rt_Texture0";
+export const DEFAULT_UV_NAME = "rt_TextureCoords";
+export const DEFAULT_RGBA_NAME = "rt_VertexColor";
+export const DEFAULT_SCREEN_POS_NAME = "rt_VertexPosition";
+export const DEFAULT_SCREEN_SIZE_NAME = "rt_ScreenSize";
+export const DEFAULT_COLOR_NAME = "rt_Color";
+export const DEFAULT_TRANSFORM_NAME = "rt_Transform";
+export const DEFAULT_FRAGMENT_OUT_NAME = "rt_FragColor";
+export const DEFAULT_SHADER_VERSION = "#version 300 es";
+export const DEFAULT_FLOAT_PRECISION = "precision highp float";
 
-const default_vertex_shader_source = `${default_shader_version}
-${default_float_precision};
-
-layout(location = 0) in vec2 vertex_position;
-layout(location = 1) in vec2 vertex_uv;
-layout(location = 2) in vec4 vertex_color;
-
-uniform vec2 ${default_screen_size_name};
-uniform vec4 ${default_color_name}; 
-uniform mat4x4 ${default_transform_name};
-
-out vec2 ${default_uv_name};
-out vec4 ${default_rgba_name};
-out vec2 ${default_screen_pos_name};
-
-void main() {
-    ${default_uv_name} = vertex_uv;
-    ${default_rgba_name} = ${default_color_name} * vertex_color;
-    
-    vec2 position = vertex_position;
-    ${default_screen_pos_name} = position.xy;
-
-    position = (position / ${default_screen_size_name}) * 2.0 - 1.0;
-    position.y *= -1.0;
-
-    gl_Position = ${default_transform_name} * vec4(position, 0.0, 1.0);
+interface DefaultShaderSource {
+    fragment: string,
+    vertex: string
 }
-`;
 
-const default_fragment_shader_source = `${default_shader_version}
-${default_float_precision};
+const mesh_format_to_default_shader_source : Record<MeshVertexFormat, DefaultShaderSource> = (() => {
+    const format_to_has_components = {
+        [MeshVertexFormat.XY_UV_RGBA] : {
+            has_uv : true,
+            has_rgba : true
+        },
 
-uniform sampler2D ${default_texture_uniform_name};
-uniform vec2 ${default_screen_size_name};
+        [MeshVertexFormat.XY_UV] : {
+            has_uv : true,
+            has_rgba : false
+        },
 
-in vec2 ${default_uv_name};
-in vec4 ${default_rgba_name};
-in vec2 ${default_screen_pos_name};
+        [MeshVertexFormat.XY_RGBA] : {
+            has_uv : false,
+            has_rgba : true
+        },
 
-out vec4 ${default_fragment_out_name};
+        [MeshVertexFormat.XY] : {
+            has_uv : false,
+            has_rgba : false
+        }
+    } as const;
 
-void main() {
-    vec4 texel = texture(${default_texture_uniform_name}, ${default_uv_name});
-    ${default_fragment_out_name} = texel * ${default_rgba_name};
-}
-`;
+    const out = {};
+    for (const format of [
+        MeshVertexFormat.XY,
+        MeshVertexFormat.XY_UV,
+        MeshVertexFormat.XY_RGBA,
+        MeshVertexFormat.XY_UV_RGBA
+    ]) {
+        const { has_uv, has_rgba } = format_to_has_components[format];
+
+        out[format] = {
+            vertex : `${DEFAULT_SHADER_VERSION}
+                ${DEFAULT_FLOAT_PRECISION};
+                
+                layout(location = 0) in vec2 vertex_position;
+                ${ has_uv ? "layout(location = 1) in vec2 vertex_uv;" : "" }
+                ${ has_rgba ? "layout(location = 2) in vec4 vertex_color;" : "" }
+                
+                uniform vec2 ${DEFAULT_SCREEN_SIZE_NAME};
+                uniform vec4 ${DEFAULT_COLOR_NAME}; 
+                uniform mat4x4 ${DEFAULT_TRANSFORM_NAME};
+                
+                out vec2 ${DEFAULT_UV_NAME};
+                out vec4 ${DEFAULT_RGBA_NAME};
+                out vec2 ${DEFAULT_SCREEN_POS_NAME};
+                void main() {
+                    ${DEFAULT_UV_NAME} = ${ has_uv ? `vertex_uv` : "vec2(0.0)"};
+                    ${DEFAULT_RGBA_NAME} = ${ has_rgba ? `${DEFAULT_COLOR_NAME} * vertex_color` : "vec4(1.0)" };
+                    
+                    vec4 position = ${DEFAULT_TRANSFORM_NAME} * vec4(vertex_position, 0.0, 1.0);                    
+                    ${DEFAULT_SCREEN_POS_NAME} = position.xy;
+                    
+                    position.xy = (position.xy / ${DEFAULT_SCREEN_SIZE_NAME}) * 2.0 - 1.0;
+                    position.y *= -1.0;
+                    
+                    gl_Position = position;
+                }
+            `,
+
+            // fragment invariable for now
+            fragment : `${DEFAULT_SHADER_VERSION}
+                ${DEFAULT_FLOAT_PRECISION};
+                
+                uniform sampler2D ${DEFAULT_TEXTURE_UNIFORM_NAME};
+                uniform vec2 ${DEFAULT_SCREEN_SIZE_NAME};
+                
+                in vec2 ${DEFAULT_UV_NAME};
+                in vec4 ${DEFAULT_RGBA_NAME};
+                in vec2 ${DEFAULT_SCREEN_POS_NAME};
+                
+                out vec4 ${DEFAULT_FRAGMENT_OUT_NAME};
+                
+                void main() {
+                    vec4 texel = texture(${DEFAULT_TEXTURE_UNIFORM_NAME}, ${DEFAULT_UV_NAME});
+                    ${DEFAULT_FRAGMENT_OUT_NAME} = texel * ${DEFAULT_RGBA_NAME};
+                }
+            `
+        } as DefaultShaderSource;
+    }
+
+    return out;
+})() as Record<MeshVertexFormat, DefaultShaderSource>;
 
 class TextureUnitAllocator {
     private texture_to_unit: Map<WebGLTexture, number> = new Map<WebGLTexture, number>();
@@ -132,9 +176,19 @@ export class Shader {
     static default_transform = new Transform().asIdentity();
 
     /** **/
-    constructor(context : GLContext, fragment_shader_source? : string, vertex_shader_source? : string) {
-        if (fragment_shader_source == undefined) fragment_shader_source = default_fragment_shader_source;
-        if (vertex_shader_source == undefined) vertex_shader_source = default_vertex_shader_source;
+    constructor(
+        context : GLContext,
+        fragment_shader_source? : string,
+        vertex_shader_source? : string,
+        mesh_format : MeshVertexFormat = MeshVertexFormat.XY_UV_RGBA
+    ) {
+        if (!(mesh_format in mesh_format_to_default_shader_source))
+            throw new Error(`In Mesh: unsupported mesh format ${mesh_format}`);
+
+        const default_entry = mesh_format_to_default_shader_source[mesh_format];
+        if (fragment_shader_source == undefined) fragment_shader_source = default_entry.fragment;
+        if (vertex_shader_source == undefined) vertex_shader_source = default_entry.vertex;
+
         this.context = context;
 
         if (!this.context.isValid()) return;
@@ -178,7 +232,7 @@ export class Shader {
             if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
                 const log = gl.getShaderInfoLog(shader) ?? "unknown error";
                 gl.deleteShader(shader);
-                throw new Error(`In Shader: when compiling ${type === gl.VERTEX_SHADER ? "vertex" : "fragment"} shader: compilation failed:\n${log}`);
+                throw new Error(`In Shader: when compiling ${type === gl.VERTEX_SHADER ? `vertex` : "fragment"} shader: compilation failed:\n${log}`);
             }
             return shader;
         };
@@ -201,7 +255,7 @@ export class Shader {
         }
 
         this.program = program;
-        this.setUniform(default_transform_name, Shader.default_transform.asIdentity());
+        this.setUniform(DEFAULT_TRANSFORM_NAME, Shader.default_transform.asIdentity());
     }
 
     /** **/
@@ -217,24 +271,24 @@ export class Shader {
             if (tex !== undefined) {
                 gl.activeTexture(gl.TEXTURE0);
                 gl.bindTexture(gl.TEXTURE_2D, tex);
-                gl.uniform1i(gl.getUniformLocation(this.program, default_texture_uniform_name), 0);
+                gl.uniform1i(gl.getUniformLocation(this.program, DEFAULT_TEXTURE_UNIFORM_NAME), 0);
             }
         }
 
         // set default screen size
-        const screen_size_location = gl.getUniformLocation(this.program, default_screen_size_name);
+        const screen_size_location = gl.getUniformLocation(this.program, DEFAULT_SCREEN_SIZE_NAME);
         if (screen_size_location !== null)
             gl.uniform2f(screen_size_location, gl.canvas.width, gl.canvas.height)
 
         // set color
-        const color_location = gl.getUniformLocation(this.program, default_color_name);
+        const color_location = gl.getUniformLocation(this.program, DEFAULT_COLOR_NAME);
         if (color_location !== null) {
             const color = this.context.getColor();
             gl.uniform4f(color_location, color.r, color.g, color.b, color.a)
         }
 
         // set transform
-        if (gl.getUniformLocation(this.program, default_transform_name)) {
+        if (gl.getUniformLocation(this.program, DEFAULT_TRANSFORM_NAME)) {
             /*
             const element = this.context.gl!.canvas as HTMLElement;
             const rect = element.getBoundingClientRect();
@@ -248,7 +302,7 @@ export class Shader {
                 .translate(-rect.width / 2, -rect.height / 2)
             );
              */
-            this.setUniform(default_transform_name, Shader.default_transform.asIdentity());
+            this.setUniform(DEFAULT_TRANSFORM_NAME, Shader.default_transform.asIdentity());
         }
 
         gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);

@@ -28,17 +28,15 @@ if (!fragment_shader) {
 </shader-canvas>
 
 <style>
-    :root {
-        --canvas-width: 100%;
-        --canvas-height: 100%;
-    }
-
     shader-canvas {
+        --shader-canvas-width: 100%;
+        --shader-canvas-height: 100%;
+
         position: fixed;
         top: 0;
         left: 0;
-        width: var(--canvas-width);
-        height: var(--canvas-height);
+        width: var(--shader-canvas-width);
+        height: var(--shader-canvas-height);
         z-index: -9999;
     }
 
@@ -46,8 +44,8 @@ if (!fragment_shader) {
         position: fixed;
         top: 0;
         left: 0;
-        width: var(--canvas-width);
-        height: var(--canvas-height);
+        width: var(--shader-canvas-width);
+        height: var(--shader-canvas-height);
     }
 </style>
 
