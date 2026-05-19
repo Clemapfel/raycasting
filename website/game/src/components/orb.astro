@@ -4,24 +4,28 @@
 //
 ---
 
+
 <orb-canvas>
     <canvas class="orb-canvas-canvas"></canvas>
 </orb-canvas>
 
-astro<style>
+<style>
     orb-canvas {
-        --orb-width: 50px;
-        --orb-height: 50px;
+        --orb-width: 400px;
+        --orb-height: 400px;
 
+        display: inline;
         width: var(--orb-width);
         height: var(--orb-height);
+        background: black;
     }
 
-    orb-canvas .orb-canvas-canvas {
+    orb-canvas .noise-frame-canvas {
         width: var(--orb-width);
         height: var(--orb-height);
     }
 </style>
+
 
 <script>
     import { Orb } from "./orb.ts";
