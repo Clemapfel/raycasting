@@ -24,12 +24,12 @@ export enum TextureFormat {
     R16F,
     RGBA32F,
     RG32F,
-    R32F,
-    DEPTH16,
-    DEPTH24,
-    DEPTH32F,
-    DEPTH24_STENCIL8,
-    DEPTH32F_STENCIL8
+    R32F//,
+    // DEPTH16,
+    // DEPTH24,
+    // DEPTH32F,
+    // DEPTH24_STENCIL8,
+    //DEPTH32F_STENCIL8
 }
 
 const resolve_texture_format = (gl : WebGL2RenderingContext, format: TextureFormat): {
@@ -39,26 +39,71 @@ const resolve_texture_format = (gl : WebGL2RenderingContext, format: TextureForm
     bytes_per_pixel: number
 } => {
     if (gl === null) return { internal_format: 0x0, source_format: 0x0, type: 0x0, bytes_per_pixel: 0x0 }
-
     switch (format) {
         case TextureFormat.RGBA8:
-            return { internal_format: gl.RGBA8,              source_format: gl.RGBA, type: gl.UNSIGNED_BYTE, bytes_per_pixel: 4 };
+            return {
+                internal_format: gl.RGBA8,
+                source_format: gl.RGBA,
+                type: gl.UNSIGNED_BYTE,
+                bytes_per_pixel: 4
+            };
         case TextureFormat.RG8:
-            return { internal_format: gl.RG8,                source_format: gl.RG,              type: gl.UNSIGNED_BYTE,               bytes_per_pixel: 2  };
+            return {
+                internal_format: gl.RG8,
+                source_format: gl.RG,
+                type: gl.UNSIGNED_BYTE,
+                bytes_per_pixel: 2
+            };
         case TextureFormat.R8:
-            return { internal_format: gl.R8,                 source_format: gl.RED,             type: gl.UNSIGNED_BYTE,               bytes_per_pixel: 1  };
+            return {
+                internal_format: gl.R8,
+                source_format: gl.RED,
+                type: gl.UNSIGNED_BYTE,
+                bytes_per_pixel: 1
+            };
         case TextureFormat.RGBA16F:
-            return { internal_format: gl.RGBA16F,            source_format: gl.RGBA,            type: gl.HALF_FLOAT,                  bytes_per_pixel: 8  };
+            return { internal_format:
+                gl.RGBA16F,
+                source_format: gl.RGBA,
+                type: gl.HALF_FLOAT,
+                bytes_per_pixel: 8
+            };
         case TextureFormat.RG16F:
-            return { internal_format: gl.RG16F,              source_format: gl.RG,              type: gl.HALF_FLOAT,                  bytes_per_pixel: 4  };
+            return {
+                internal_format: gl.RG16F,
+                source_format: gl.RG,
+                type: gl.HALF_FLOAT,
+                bytes_per_pixel: 4
+            };
         case TextureFormat.R16F:
-            return { internal_format: gl.R16F,               source_format: gl.RED,             type: gl.HALF_FLOAT,                  bytes_per_pixel: 2  };
+            return {
+                internal_format: gl.R16F,
+                source_format: gl.RED,
+                type: gl.HALF_FLOAT,
+                bytes_per_pixel: 2
+            };
         case TextureFormat.RGBA32F:
-            return { internal_format: gl.RGBA32F,            source_format: gl.RGBA,            type: gl.FLOAT,                       bytes_per_pixel: 16 };
+            return {
+                internal_format: gl.RGBA32F,
+                source_format: gl.RGBA,
+                type: gl.FLOAT,
+                bytes_per_pixel: 16
+            };
         case TextureFormat.RG32F:
-            return { internal_format: gl.RG32F,              source_format: gl.RG,              type: gl.FLOAT,                       bytes_per_pixel: 8  };
+            return {
+                internal_format: gl.RG32F,
+                source_format: gl.RG,
+                type: gl.FLOAT,
+                bytes_per_pixel: 8
+            };
         case TextureFormat.R32F:
-            return { internal_format: gl.R32F,               source_format: gl.RED,             type: gl.FLOAT,                       bytes_per_pixel: 4  };
+            return {
+                internal_format: gl.R32F,
+                source_format: gl.RED,
+                type: gl.FLOAT,
+                bytes_per_pixel: 4
+            };
+        /*
         case TextureFormat.DEPTH16:
             return { internal_format: gl.DEPTH_COMPONENT16,  source_format: gl.DEPTH_COMPONENT, type: gl.UNSIGNED_SHORT,              bytes_per_pixel: 2  };
         case TextureFormat.DEPTH24:
@@ -69,6 +114,7 @@ const resolve_texture_format = (gl : WebGL2RenderingContext, format: TextureForm
             return { internal_format: gl.DEPTH24_STENCIL8,   source_format: gl.DEPTH_STENCIL,   type: gl.UNSIGNED_INT_24_8,           bytes_per_pixel: 4  };
         case TextureFormat.DEPTH32F_STENCIL8:
             return { internal_format: gl.DEPTH32F_STENCIL8,  source_format: gl.DEPTH_STENCIL,   type: gl.FLOAT_32_UNSIGNED_INT_24_8_REV, bytes_per_pixel: 8 };
+        */
         default:
             throw new Error(`In Texture: unsupported texture format ${format}`)
     }
@@ -95,11 +141,13 @@ export class Texture {
         const { gl } = this.context;
 
         const texture = gl.createTexture();
-        if (texture === null) throw new Error("In Texture: unable to create texture")
+        if (texture === null)
+            throw new Error("In Texture: unable to create texture");
+
         this.native = texture;
 
         if (image_or_width instanceof HTMLImageElement) {
-            // read from thml image, always RGBA8
+            // read from html image, always RGBA8
             const image = image_or_width;
             gl.bindTexture(gl.TEXTURE_2D, this.native);
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
@@ -107,9 +155,14 @@ export class Texture {
             this.height = image.height;
         }
         else {
-            const width = image_or_width;
+            let width = image_or_width;
             if (height === undefined) height = width;
             if (format === undefined) format = TextureFormat.RGBA8;
+
+            // ensure dimensions are valid integers
+            width = Math.max(1, Math.floor(width));
+            height = Math.max(1, Math.floor(height));
+
             const { internal_format, source_format, type, bytes_per_pixel } = resolve_texture_format(gl, format);
 
             gl.bindTexture(gl.TEXTURE_2D, this.native);
@@ -172,7 +225,9 @@ export class Texture {
     public free() : void {
         if (!this.context.isValid()) return;
         const { gl } = this.context;
-        if (this.native) gl.deleteTexture(this.native);
+
+        if (this.native !== null)
+            gl.deleteTexture(this.native);
     }
 
     /** **/
@@ -200,91 +255,202 @@ export class Texture {
 }
 
 export class RenderTexture extends Texture {
+    private resolve_framebuffer: WebGLFramebuffer | null = null;
+    private multisample_framebuffer: WebGLFramebuffer | null = null;
+    private color_renderbuffer: WebGLRenderbuffer | null = null;
+    private depth_renderbuffer: WebGLRenderbuffer | null = null;
+    private readonly msaa: number;
 
-    private msaa_framebuffer: WebGLFramebuffer | null = null;
-    private resolve_framebuffer: WebGLFramebuffer;
-    private sample_count: number;
-
-    constructor(context: GLContext, width: number, height: number, format?: number, msaa: number = 1) {
-        if (format === undefined) format = TextureFormat.RGBA8;
+    constructor(
+        context: GLContext,
+        width: number,
+        height: number,
+        format: TextureFormat = TextureFormat.RGBA8,
+        msaa: number = 2
+    ) {
         super(context, width, height, format);
 
-        this.sample_count = Math.min(msaa, (() => {
-            if (!context.isValid()) return 1;
-            return context.gl.getParameter(context.gl.MAX_SAMPLES);
-        })());
-
+        this.msaa = msaa;
         if (!this.context.isValid()) return;
+
         const { gl } = this.context;
 
-        const attachment_point = ((format: TextureFormat): number => {
-            if (format === TextureFormat.DEPTH24_STENCIL8 || format === TextureFormat.DEPTH32F_STENCIL8)
-                return gl.DEPTH_STENCIL_ATTACHMENT;
-            else if (format === TextureFormat.DEPTH16 || format === TextureFormat.DEPTH24 || format === TextureFormat.DEPTH32F)
-                return gl.DEPTH_ATTACHMENT;
-            else
-                return gl.COLOR_ATTACHMENT0;
-        })(format);
+        width = Math.max(1, Math.floor(width));
+        height = Math.max(1, Math.floor(height));
+        msaa = Math.max(0, Math.min(msaa, gl.getParameter(gl.MAX_SAMPLES)));
 
         const { internal_format } = resolve_texture_format(gl, format);
 
-        const resolve_framebuffer = gl.createFramebuffer();
-        if (resolve_framebuffer === null) throw new Error("In RenderTexture: unable to create resolve framebuffer");
-        this.resolve_framebuffer = resolve_framebuffer;
+        try {
+            this.resolve_framebuffer = gl.createFramebuffer();
+            if (this.resolve_framebuffer === null)
+                throw new Error("In RenderTexture: unable to create resolve framebuffer");
 
-        gl.bindFramebuffer(gl.FRAMEBUFFER, resolve_framebuffer);
-        gl.framebufferTexture2D(gl.FRAMEBUFFER, attachment_point, gl.TEXTURE_2D, this.native, 0);
+            gl.bindFramebuffer(gl.FRAMEBUFFER, this.resolve_framebuffer);
+            gl.framebufferTexture2D(
+                gl.FRAMEBUFFER,
+                gl.COLOR_ATTACHMENT0,
+                gl.TEXTURE_2D,
+                this.native,
+                0
+            );
 
-        if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE)
-            throw new Error("In RenderTexture: resolve framebuffer incomplete");
+            if (msaa === 0) {
+                this.depth_renderbuffer = gl.createRenderbuffer();
+                if (this.depth_renderbuffer === null)
+                    throw new Error("In RenderTexture: unable to create depth renderbuffer");
 
-        if (this.sample_count > 1) {
-            const msaa_framebuffer = gl.createFramebuffer();
-            if (msaa_framebuffer === null) throw new Error("In RenderTexture: unable to create msaa framebuffer");
-            this.msaa_framebuffer = msaa_framebuffer;
+                gl.bindRenderbuffer(gl.RENDERBUFFER, this.depth_renderbuffer);
 
-            const color_renderbuffer = gl.createRenderbuffer();
-            if (color_renderbuffer === null) throw new Error("In RenderTexture: unable to create msaa renderbuffer");
+                gl.renderbufferStorage(
+                    gl.RENDERBUFFER,
+                    gl.DEPTH24_STENCIL8,
+                    width,
+                    height
+                );
 
-            gl.bindFramebuffer(gl.FRAMEBUFFER, msaa_framebuffer);
-            gl.bindRenderbuffer(gl.RENDERBUFFER, color_renderbuffer);
-            gl.renderbufferStorageMultisample(gl.RENDERBUFFER, this.sample_count, internal_format, width, height);
-            gl.framebufferRenderbuffer(gl.FRAMEBUFFER, attachment_point, gl.RENDERBUFFER, color_renderbuffer);
+                gl.framebufferRenderbuffer(
+                    gl.FRAMEBUFFER,
+                    gl.DEPTH_STENCIL_ATTACHMENT,
+                    gl.RENDERBUFFER,
+                    this.depth_renderbuffer
+                );
 
-            if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE)
-                throw new Error("In RenderTexture: msaa framebuffer incomplete");
+                const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+
+                if (status !== gl.FRAMEBUFFER_COMPLETE) {
+                    throw new Error(
+                        `In RenderTexture: framebuffer incomplete (${width}x${height}): ${status}`
+                    );
+                }
+            }
+            else {
+                this.multisample_framebuffer = gl.createFramebuffer();
+                if (this.multisample_framebuffer === null)
+                    throw new Error("In RenderTexture: unable to create multisample framebuffer");
+
+                gl.bindFramebuffer(gl.FRAMEBUFFER, this.multisample_framebuffer);
+
+                this.color_renderbuffer = gl.createRenderbuffer();
+                if (this.color_renderbuffer === null)
+                    throw new Error("In RenderTexture: unable to create color renderbuffer");
+
+                gl.bindRenderbuffer(gl.RENDERBUFFER, this.color_renderbuffer);
+
+                gl.renderbufferStorageMultisample(
+                    gl.RENDERBUFFER,
+                    msaa,
+                    internal_format,
+                    width,
+                    height
+                );
+
+                gl.framebufferRenderbuffer(
+                    gl.FRAMEBUFFER,
+                    gl.COLOR_ATTACHMENT0,
+                    gl.RENDERBUFFER,
+                    this.color_renderbuffer
+                );
+
+                this.depth_renderbuffer = gl.createRenderbuffer();
+                if (this.depth_renderbuffer === null)
+                    throw new Error("In RenderTexture: unable to create depth renderbuffer");
+
+                gl.bindRenderbuffer(gl.RENDERBUFFER, this.depth_renderbuffer);
+
+                gl.renderbufferStorageMultisample(
+                    gl.RENDERBUFFER,
+                    msaa,
+                    gl.DEPTH24_STENCIL8,
+                    width,
+                    height
+                );
+
+                gl.framebufferRenderbuffer(
+                    gl.FRAMEBUFFER,
+                    gl.DEPTH_STENCIL_ATTACHMENT,
+                    gl.RENDERBUFFER,
+                    this.depth_renderbuffer
+                );
+
+                const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+
+                if (status !== gl.FRAMEBUFFER_COMPLETE) {
+                    throw new Error(
+                        `In RenderTexture: multisample framebuffer incomplete (${width}x${height}, msaa=${msaa}): ${status}`
+                    );
+                }
+            }
+        } catch (error) {
+            this.free();
+            throw error;
+        } finally {
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+            gl.bindRenderbuffer(gl.RENDERBUFFER, null);
         }
-
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-        gl.bindRenderbuffer(gl.RENDERBUFFER, null);
     }
 
-    public free() {
+    public bind(): void {
         if (!this.context.isValid()) return;
         const { gl } = this.context;
+
+        if (this.msaa === 0)
+            gl.bindFramebuffer(gl.FRAMEBUFFER, this.resolve_framebuffer);
+        else
+            gl.bindFramebuffer(gl.FRAMEBUFFER, this.multisample_framebuffer);
+    }
+
+    public unbind(): void {
+        if (!this.context.isValid()) return;
+        const { gl } = this.context;
+
+        if (this.msaa === 0) {
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+            return;
+        }
+
+        const width = this.getWidth();
+        const height = this.getHeight();
+
+        gl.bindFramebuffer(gl.READ_FRAMEBUFFER, this.multisample_framebuffer);
+        gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, this.resolve_framebuffer);
+
+        gl.blitFramebuffer(
+            0, 0, width, height,
+            0, 0, width, height,
+            gl.COLOR_BUFFER_BIT,
+            gl.NEAREST
+        );
+
+        gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
+        gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+    }
+
+    public override free(): void {
+        if (!this.context.isValid()) return;
+
+        const { gl } = this.context;
+
+        if (this.color_renderbuffer !== null) {
+            gl.deleteRenderbuffer(this.color_renderbuffer);
+            this.color_renderbuffer = null;
+        }
+
+        if (this.depth_renderbuffer !== null) {
+            gl.deleteRenderbuffer(this.depth_renderbuffer);
+            this.depth_renderbuffer = null;
+        }
+
+        if (this.multisample_framebuffer !== null) {
+            gl.deleteFramebuffer(this.multisample_framebuffer);
+            this.multisample_framebuffer = null;
+        }
+
+        if (this.resolve_framebuffer !== null) {
+            gl.deleteFramebuffer(this.resolve_framebuffer);
+            this.resolve_framebuffer = null;
+        }
+
         super.free();
-        if (this.msaa_framebuffer) gl.deleteFramebuffer(this.msaa_framebuffer);
-        if (this.resolve_framebuffer) gl.deleteFramebuffer(this.resolve_framebuffer);
-    }
-
-    public bind() {
-        if (!this.context.isValid()) return;
-        const { gl } = this.context;
-        gl.bindFramebuffer(gl.FRAMEBUFFER, this.msaa_framebuffer ?? this.resolve_framebuffer);
-    }
-
-    public unbind() {
-        if (!this.context.isValid()) return;
-        const { gl } = this.context;
-
-        if (this.msaa_framebuffer !== null) {
-            const width = this.getWidth();
-            const height = this.getHeight();
-            gl.bindFramebuffer(gl.READ_FRAMEBUFFER, this.msaa_framebuffer);
-            gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, this.resolve_framebuffer);
-            gl.blitFramebuffer(0, 0, width, height, 0, 0, width, height, gl.COLOR_BUFFER_BIT, gl.NEAREST);
-        }
-
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     }
 }

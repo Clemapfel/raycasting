@@ -18,11 +18,11 @@ export class Mesh {
     private context: GLContext;
 
     private vertex_buffer: Float32Array;
-    private vertex_buffer_object?: WebGLBuffer;
-    private vertex_array_object?: WebGLVertexArrayObject;
+    private vertex_buffer_object: WebGLBuffer | null = null;
+    private vertex_array_object: WebGLVertexArrayObject | null = null;
 
     private index_buffer: Uint16Array;
-    private index_buffer_object?: WebGLBuffer;
+    private index_buffer_object: WebGLBuffer | null = null;
 
     private draw_mode: number;
     private format: MeshVertexFormat;
@@ -99,87 +99,95 @@ export class Mesh {
         if (!this.context.isValid()) return;
         const { gl } = this.context;
 
-        const n_components = MESH_VERTEX_FORMAT_TO_N_COMPONENTS[this.format];
+        try {
 
-        if (vertex_buffer.length === 0 || vertex_buffer.length % n_components !== 0)
-            throw new Error(`In Mesh: vertex buffer length is not a multiple of ${n_components} for the given format`);
+            const n_components = MESH_VERTEX_FORMAT_TO_N_COMPONENTS[this.format];
 
-        const n_vertices_before : number | undefined = this.n_vertices;
-        const n_vertices = vertex_buffer.length / n_components;
+            if (vertex_buffer.length === 0 || vertex_buffer.length % n_components !== 0)
+                throw new Error(`In Mesh: vertex buffer length is not a multiple of ${n_components} for the given format`);
 
-        if (index_buffer === undefined) {
-            if (n_vertices_before !== n_vertices || this.index_buffer === undefined) {
-                this.index_buffer = new Uint16Array(n_vertices);
-                for (let i = 0; i < n_vertices; i++) this.index_buffer[i] = i;
+            const n_vertices_before: number | undefined = this.n_vertices;
+            const n_vertices = vertex_buffer.length / n_components;
+
+            if (index_buffer === undefined) {
+                if (n_vertices_before !== n_vertices || this.index_buffer === undefined) {
+                    this.index_buffer = new Uint16Array(n_vertices);
+                    for (let i = 0; i < n_vertices; i++) this.index_buffer[i] = i;
+                }
+
+                index_buffer = this.index_buffer;
             }
 
-            index_buffer = this.index_buffer;
+            this.free(); // safe noop not yet allocated
+
+            this.vertex_buffer = vertex_buffer;
+            this.index_buffer = index_buffer;
+            this.n_vertices = n_vertices;
+
+            const vao = gl.createVertexArray();
+            if (vao === null) throw new Error("In Mesh.replaceData: unable to create vertex array object");
+            this.vertex_array_object = vao;
+
+            const vbo = gl.createBuffer();
+            if (vbo === null) throw new Error("In Mesh.replaceData: unable to create vertex buffer object");
+            this.vertex_buffer_object = vbo;
+
+            gl.bindVertexArray(this.vertex_array_object);
+            gl.bindBuffer(gl.ARRAY_BUFFER, this.vertex_buffer_object);
+            gl.bufferData(gl.ARRAY_BUFFER, vertex_buffer, gl.STATIC_DRAW);
+
+            const bytes = Float32Array.BYTES_PER_ELEMENT;
+            const stride = n_components * bytes;
+
+            gl.enableVertexAttribArray(0);
+            gl.vertexAttribPointer(0, 2, gl.FLOAT, false, stride, 0);
+
+            if (this.format === MeshVertexFormat.XY_UV_RGBA || this.format === MeshVertexFormat.XY_UV) {
+                gl.enableVertexAttribArray(1);
+                gl.vertexAttribPointer(1, 2, gl.FLOAT, false, stride, 2 * bytes);
+            } else {
+                gl.disableVertexAttribArray(1);
+            }
+
+            if (this.format === MeshVertexFormat.XY_UV_RGBA) {
+                gl.enableVertexAttribArray(2);
+                gl.vertexAttribPointer(2, 4, gl.FLOAT, false, stride, 4 * bytes);
+            } else if (this.format === MeshVertexFormat.XY_RGBA) {
+                gl.enableVertexAttribArray(2);
+                gl.vertexAttribPointer(2, 4, gl.FLOAT, false, stride, 2 * bytes);
+            } else {
+                gl.disableVertexAttribArray(2);
+            }
+
+            const ibo = gl.createBuffer();
+            if (ibo === null) throw new Error("In Mesh.replaceData: unable to create index buffer object");
+            this.index_buffer_object = ibo;
+
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.index_buffer_object);
+            gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, this.index_buffer, gl.STATIC_DRAW);
         }
-
-        this.free(); // safe noop not yet allocated
-
-        this.vertex_buffer = vertex_buffer;
-        this.index_buffer = index_buffer;
-        this.n_vertices = n_vertices;
-
-        const vao = gl.createVertexArray();
-        if (vao === null) throw new Error("In Mesh.replaceData: unable to create vertex array object");
-        this.vertex_array_object = vao;
-
-        const vbo = gl.createBuffer();
-        if (vbo === null) throw new Error("In Mesh.replaceData: unable to create vertex buffer object");
-        this.vertex_buffer_object = vbo;
-
-        gl.bindVertexArray(this.vertex_array_object);
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.vertex_buffer_object);
-        gl.bufferData(gl.ARRAY_BUFFER, vertex_buffer, gl.STATIC_DRAW);
-
-        const bytes = Float32Array.BYTES_PER_ELEMENT;
-        const stride = n_components * bytes;
-
-        gl.enableVertexAttribArray(0);
-        gl.vertexAttribPointer(0, 2, gl.FLOAT, false, stride, 0);
-
-        if (this.format === MeshVertexFormat.XY_UV_RGBA || this.format === MeshVertexFormat.XY_UV) {
-            gl.enableVertexAttribArray(1);
-            gl.vertexAttribPointer(1, 2, gl.FLOAT, false, stride, 2 * bytes);
-        } else {
-            gl.disableVertexAttribArray(1);
+        catch (error) {
+            this.free();
+            throw error;
         }
-
-        if (this.format === MeshVertexFormat.XY_UV_RGBA) {
-            gl.enableVertexAttribArray(2);
-            gl.vertexAttribPointer(2, 4, gl.FLOAT, false, stride, 4 * bytes);
-        } else if (this.format === MeshVertexFormat.XY_RGBA) {
-            gl.enableVertexAttribArray(2);
-            gl.vertexAttribPointer(2, 4, gl.FLOAT, false, stride, 2 * bytes);
-        } else {
-            gl.disableVertexAttribArray(2);
+        finally {
+            gl.bindVertexArray(null);
+            gl.bindBuffer(gl.ARRAY_BUFFER, null);
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
         }
-
-        const ibo = gl.createBuffer();
-        if (ibo === null) throw new Error("In Mesh.replaceData: unable to create index buffer object");
-        this.index_buffer_object = ibo;
-
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.index_buffer_object);
-        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, this.index_buffer, gl.STATIC_DRAW);
-
-        gl.bindVertexArray(null);
-        gl.bindBuffer(gl.ARRAY_BUFFER, null);
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
     }
 
     public free() {
         if (!this.context.isValid()) return;
         const { gl } = this.context;
 
-        if (this.vertex_array_object !== undefined) gl.deleteVertexArray(this.vertex_array_object);
-        if (this.vertex_buffer_object !== undefined) gl.deleteBuffer(this.vertex_buffer_object);
-        if (this.index_buffer_object !== undefined) gl.deleteBuffer(this.index_buffer_object);
+        if (this.vertex_array_object !== null) gl.deleteVertexArray(this.vertex_array_object);
+        if (this.vertex_buffer_object !== null) gl.deleteBuffer(this.vertex_buffer_object);
+        if (this.index_buffer_object !== null) gl.deleteBuffer(this.index_buffer_object);
 
-        this.vertex_array_object = undefined;
-        this.vertex_buffer_object = undefined;
-        this.index_buffer_object = undefined;
+        this.vertex_array_object = null;
+        this.vertex_buffer_object = null;
+        this.index_buffer_object = null;
         this.n_vertices = 0;
     }
 }
@@ -220,7 +228,7 @@ function radius_to_n_vertices(rx: number, ry: number = rx): number {
 }
 
 /** **/
-export function MeshCircle(
+export function MeshEllipse(
     context: GLContext,
     center_x: number,
     center_y: number,

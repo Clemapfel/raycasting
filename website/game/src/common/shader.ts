@@ -14,7 +14,7 @@ export const DEFAULT_COLOR_NAME = "rt_Color";
 export const DEFAULT_TRANSFORM_NAME = "rt_Transform";
 export const DEFAULT_FRAGMENT_OUT_NAME = "rt_FragColor";
 export const DEFAULT_SHADER_VERSION = "#version 300 es";
-export const DEFAULT_FLOAT_PRECISION = "precision highp float";
+export const DEFAULT_FLOAT_PRECISION = "precision highp float;";
 
 interface DefaultShaderSource {
     fragment: string,
@@ -55,7 +55,7 @@ const mesh_format_to_default_shader_source : Record<MeshVertexFormat, DefaultSha
 
         out[format] = {
             vertex : `${DEFAULT_SHADER_VERSION}
-                ${DEFAULT_FLOAT_PRECISION};
+                ${DEFAULT_FLOAT_PRECISION}
                 
                 layout(location = 0) in vec2 vertex_position;
                 ${ has_uv ? "layout(location = 1) in vec2 vertex_uv;" : "" }
@@ -80,11 +80,12 @@ const mesh_format_to_default_shader_source : Record<MeshVertexFormat, DefaultSha
                     
                     gl_Position = position;
                 }
-            `,
+                `
+            ,
 
             // fragment invariable for now
             fragment : `${DEFAULT_SHADER_VERSION}
-                ${DEFAULT_FLOAT_PRECISION};
+                ${DEFAULT_FLOAT_PRECISION}
                 
                 uniform sampler2D ${DEFAULT_TEXTURE_UNIFORM_NAME};
                 uniform vec2 ${DEFAULT_SCREEN_SIZE_NAME};
@@ -99,7 +100,7 @@ const mesh_format_to_default_shader_source : Record<MeshVertexFormat, DefaultSha
                     vec4 texel = texture(${DEFAULT_TEXTURE_UNIFORM_NAME}, ${DEFAULT_UV_NAME});
                     ${DEFAULT_FRAGMENT_OUT_NAME} = texel * ${DEFAULT_RGBA_NAME};
                 }
-            `
+                `
         } as DefaultShaderSource;
     }
 
@@ -151,7 +152,7 @@ class TextureUnitAllocator {
 export class Shader {
     private fragment_shader_source : string;
     private vertex_shader_source : string;
-    private program : WebGLShader;
+    private program : WebGLShader | null = null;
     private context : GLContext;
     private was_transform_bound : boolean = false;
 
@@ -220,42 +221,79 @@ export class Shader {
     /** **/
     private recompile(): void {
         if (!this.context.isValid()) return;
+
         const { gl } = this.context;
 
         const first_compile = this.program == undefined;
-        if (!first_compile) gl.deleteProgram(this.program);
+        const old_program = this.program;
 
-        const compile_shader = (type: number, source: string): WebGLShader => {
-            const shader = gl.createShader(type)!;
-            gl.shaderSource(shader, source);
-            gl.compileShader(shader);
-            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-                const log = gl.getShaderInfoLog(shader) ?? "unknown error";
-                gl.deleteShader(shader);
-                throw new Error(`In Shader: when compiling ${type === gl.VERTEX_SHADER ? `vertex` : "fragment"} shader: compilation failed:\n${log}`);
+        let vertex_shader: WebGLShader | null = null;
+        let fragment_shader: WebGLShader | null = null;
+        let new_program: WebGLProgram | null = null;
+
+        try {
+            const compile_shader = (type: number, source: string): WebGLShader | null => {
+                const shader = gl.createShader(type);
+                if (!shader) {
+                    throw new Error(`In Shader: failed to create ${type === gl.VERTEX_SHADER ? "vertex" : "fragment"} shader`);
+                }
+
+                gl.shaderSource(shader, source);
+                gl.compileShader(shader);
+
+                if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                    const log = gl.getShaderInfoLog(shader) ?? "unknown error";
+                    gl.deleteShader(shader);
+
+                    throw new Error(`In Shader: when compiling ${type === gl.VERTEX_SHADER ? "vertex" : "fragment"} shader: compilation failed:\n${log}`);
+                }
+
+                return shader;
+            };
+
+            vertex_shader = compile_shader(gl.VERTEX_SHADER, this.vertex_shader_source);
+            if (vertex_shader === null)
+                throw new Error("In Shader: failed to create vertex shader");
+
+            fragment_shader = compile_shader(gl.FRAGMENT_SHADER, this.fragment_shader_source);
+            if (fragment_shader === null)
+                throw new Error("In Shader: failed to create fragment shader");
+
+            new_program = gl.createProgram();
+            if (new_program === null)
+                throw new Error("In Shader: failed to create program");
+
+            gl.attachShader(new_program, vertex_shader);
+            gl.attachShader(new_program, fragment_shader);
+            gl.linkProgram(new_program);
+
+            if (!gl.getProgramParameter(new_program, gl.LINK_STATUS)) {
+                const log = gl.getProgramInfoLog(new_program) ?? "unknown error";
+                throw new Error(`In Shader: program linking failed:\n${log}`);
             }
-            return shader;
-        };
 
-        const vertex_shader = compile_shader(gl.VERTEX_SHADER, this.vertex_shader_source);
-        const fragment_shader = compile_shader(gl.FRAGMENT_SHADER, this.fragment_shader_source);
+            if (old_program !== null) {
+                gl.deleteProgram(old_program);
+            }
 
-        const program = gl.createProgram()!;
-        gl.attachShader(program, vertex_shader);
-        gl.attachShader(program, fragment_shader);
-        gl.linkProgram(program);
+            this.program = new_program;
 
-        gl.deleteShader(vertex_shader);
-        gl.deleteShader(fragment_shader);
+            this.setUniform(
+                DEFAULT_TRANSFORM_NAME,
+                Shader.default_transform.asIdentity()
+            );
+        } catch (error) {
+            if (new_program !== null)
+                gl.deleteProgram(new_program);
 
-        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-            const log = gl.getProgramInfoLog(program) ?? "unknown error";
-            gl.deleteProgram(program);
-            throw new Error(`In Shader: program linking failed:\n${log}`);
+            throw error;
+        } finally {
+            if (vertex_shader !== null)
+                gl.deleteShader(vertex_shader);
+
+            if (fragment_shader !== null)
+                gl.deleteShader(fragment_shader);
         }
-
-        this.program = program;
-        this.setUniform(DEFAULT_TRANSFORM_NAME, Shader.default_transform.asIdentity());
     }
 
     /** **/
@@ -318,7 +356,7 @@ export class Shader {
     }
 
     /** **/
-    public setUniform(id: string, value: number | Vec2 | Vec3 | Vec4 | RGBA | Transform | Texture) {
+    public setUniform(id: string, value: number | Vec2 | Vec3 | Vec4 | RGBA | Transform | Texture | undefined) {
         if (!this.context.isValid() || this.program === null) return;
         const { gl } = this.context;
 
@@ -367,8 +405,10 @@ export class Shader {
             gl.uniform3f(location, value.x, value.y, value.z);
         else if (value instanceof Vec4)
             gl.uniform4f(location, value.x, value.y, value.z, value.w);
+        else if (!value)
+            throw new Error(`In Shader.setUniform: value for uniform ${id} is ${value}`)
         else
-            throw new Error(`In Shader.setUniform: unhandled argument type ${typeof value}`); // unreachable
+            throw new Error(`In Shader.setUniform: for uniform ${id}: unhandled argument type ${typeof value}`);
 
         gl.useProgram(program_before);
     }

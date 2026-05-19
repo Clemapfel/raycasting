@@ -1,5 +1,5 @@
-import {GLWidget} from "../common/gl_widget.ts";
-import {Mesh, MeshRectangle } from "../common/mesh.ts";
+import { GLWidget } from "../common/gl_widget.ts";
+import { Mesh, MeshRectangle, MeshEllipse } from "../common/mesh.ts";
 import {
     DEFAULT_FLOAT_PRECISION,
     DEFAULT_FRAGMENT_OUT_NAME,
@@ -11,11 +11,11 @@ import {
     DEFAULT_UV_NAME,
     Shader
 } from "../common/shader.ts";
-import {RenderTexture, Texture, TextureFormat } from "../common/texture.ts";
-import {LCHA, RGBA} from "../common/color.ts";
-import {Time} from "../common/time.ts";
+import { RenderTexture, Texture, TextureFormat } from "../common/texture.ts";
+import { LCHA, RGBA } from "../common/color.ts";
+import { Time } from "../common/time.ts";
 import "../common/math.ts";
-import {MeshVertexFormat} from "../common/mesh_vertex_format.ts";
+import { MeshVertexFormat } from "../common/mesh_vertex_format.ts";
 import { Vec2 } from "../common/vector.ts";
 
 const particle_texture_path = "/orb_particle_texture.png"
@@ -82,7 +82,7 @@ const canvas_threshold_shader_source = `${DEFAULT_SHADER_VERSION}
     uniform sampler2D ${DEFAULT_TEXTURE_UNIFORM_NAME};
     uniform vec2 ${DEFAULT_SCREEN_SIZE_NAME};
     uniform float eps;
-    unfirom float threshold;
+    uniform float threshold;
     
     in vec2 ${DEFAULT_UV_NAME};
     in vec4 ${DEFAULT_RGBA_NAME};
@@ -118,12 +118,11 @@ const canvas_threshold_shader_source = `${DEFAULT_SHADER_VERSION}
     }
 
     void main() {
-        vec4 texColor = texture(${DEFAULT_TEXTURE_UNIFORM_NAME}, ${DEFAULT_UV_NAME});
-        float lum = texColor.a;
-        float alpha = smoothstep(u_threshold - eps, threshold + eps, min(1.0, lum));
-        ${DEFAULT_FRAGMENT_OUT_NAME} = vec4(lch_to_rgb(vec3(0.8, 1, max(max(texColor.r, texColor.g), texColor.b))), alpha);
+        vec4 texel = texture(${DEFAULT_TEXTURE_UNIFORM_NAME}, ${DEFAULT_UV_NAME});
+        float alpha = smoothstep(threshold - eps, threshold + eps, min(1.0, texel.a));
+        ${DEFAULT_FRAGMENT_OUT_NAME} = vec4(lch_to_rgb(vec3(0.8, 1, max(max(texel.r, texel.g), texel.b))), alpha);
     }
-`
+    `
 
 interface EnforceDistanceResult {
     a_x_correction : number,
@@ -140,19 +139,20 @@ interface EnforceOrbResult {
 }
 
 export class Orb extends GLWidget  {
-
     private particle_mesh_shader : Shader;
     private particle_mesh : Mesh;
     private particle_mesh_texture : Texture;
 
     private canvas? : RenderTexture;
     private canvas_mesh? : Mesh;
-    private canvas_threshold_shader? : Shader;
+    private canvas_threshold_shader : Shader;
 
     private particle_data : Float64Array;
     private collision_lambdas : Float64Array;
     private particle_mesh_vertex_data : Float32Array;
     private particle_mesh_index_data : Uint16Array;
+
+    private stencil_mesh? : Mesh;
 
     private orb_radius : number = 0;
     private orb_center_x : number = 0;
@@ -164,7 +164,11 @@ export class Orb extends GLWidget  {
     private agitation_elapsed : number = 0;
 
     protected override draw() {
-        if (this.canvas === undefined || this.was_freed) return; // not yet resized
+        if (this.was_freed
+            || this.canvas === undefined
+            || this.canvas_mesh === undefined
+            || this.stencil_mesh === undefined
+        ) return; // not yet resized
 
         this.canvas.bind()
         this.context.clear(true, false, true);
@@ -174,10 +178,14 @@ export class Orb extends GLWidget  {
         this.particle_mesh_shader.unbind();
         this.canvas.unbind();
 
-        this.canvas_threshold_shader!.bind();
-        this.canvas_threshold_shader?.setUniform(DEFAULT_TEXTURE_UNIFORM_NAME, this.canvas);
+        this.canvas_threshold_shader.bind();
+        this.canvas_threshold_shader.setUniform(DEFAULT_TEXTURE_UNIFORM_NAME, this.canvas);
+        this.canvas_threshold_shader.setUniform("threshold", threshold);
+        this.canvas_threshold_shader.setUniform("eps", eps);
         this.canvas_mesh!.draw();
         this.canvas_threshold_shader!.unbind();
+
+        this.stencil_mesh!.draw()
     }
 
     private delta_accumulator : number = 0;
@@ -265,7 +273,9 @@ export class Orb extends GLWidget  {
         this.update_mesh_data();
 
         this.particle_mesh_shader = new Shader(this.context, undefined, undefined, MeshVertexFormat.XY_UV_RGBA);
-        this.particle_mesh_texture = new Texture(this.context, particle_texture_promise);
+
+        const particle_texture = await particle_texture_promise;
+        this.particle_mesh_texture = new Texture(this.context, particle_texture);
 
         this.canvas_threshold_shader = new Shader(this.context,
             canvas_threshold_shader_source,
@@ -276,11 +286,17 @@ export class Orb extends GLWidget  {
     }
 
     protected override reformat(width : number, height : number) {
+        console.log(width, height);
         if (this.canvas !== undefined) this.canvas.free();
         if (this.canvas_mesh !== undefined) this.canvas_mesh.free();
 
-        this.canvas = new RenderTexture(this.context, width, height, TextureFormat.RGBA8, 4);
+        this.canvas = new RenderTexture(this.context, width, height, TextureFormat.RGBA8);
         this.canvas_mesh = MeshRectangle(this.context, 0, 0, width, height);
+
+        this.stencil_mesh = MeshEllipse(this.context,
+            0.5 * width, 0.5 * height, // xy
+            0.5 * width, 0.5 * height  // x-radius, y-radius
+        )
     }
 
     protected override unrealize() {
