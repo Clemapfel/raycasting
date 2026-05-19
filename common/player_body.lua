@@ -1286,9 +1286,12 @@ function rt.PlayerBody:draw_bloom()
     self._swap_texture:draw()
     love.graphics.pop()
 
+    love.graphics.push()
+    love.graphics.translate(self._position_x, self._position_y)
     love.graphics.setLineWidth(rt.settings.player_body.core_outline_width)
     self._core_color:bind()
     love.graphics.line(self._core_vertices)
+    love.graphics.pop()
 end
 
 --- @brief
