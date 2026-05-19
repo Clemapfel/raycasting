@@ -17,7 +17,7 @@ rt.settings.overworld.air_dash_node_manager = {
     stuck_detection_radius = rt.settings.player.radius / 8, -- px
     stuck_detection_duration = 30 / 60, -- seconds
 
-    jump_buffer_duration = 30 / 60,
+    jump_buffer_duration = 5 / 60,
 }
 
 --- @class ow.AirDashNodeManager
@@ -118,6 +118,12 @@ function ow.AirDashNodeManager:_tether(node)
         player_x, player_y,
         self._tether_exit_sign_line
     )
+
+    local path = rt.Path(
+        node_x - dx * radius, node_y - dy * radius,
+        node_y + dx * radius, node_y + dy * radius
+    )
+    local closest_x, closest_y = path:get_closest_point(player_x, player_y)
 
     self._tether_path = rt.Path(rt.Spline(
         player_x, player_y,

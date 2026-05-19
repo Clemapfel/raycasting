@@ -69,6 +69,8 @@ function love.conf(settings)
     }) do
         settings.modules[exclude] = false
     end
+
+    settings.vsync = 0
 end
 
 

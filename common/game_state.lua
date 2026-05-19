@@ -18,7 +18,9 @@ rt.settings.game_state = {
     save_directory = "saves",
     save_file_prefix = "save_",
     save_keyboard_binding_prefix = "keyboard_binding",
-    save_controller_binding_prefix = "controller_binding"
+    save_controller_binding_prefix = "controller_binding",
+
+    default_background_id = "nebula"
 }
 
 --- @class rt.GameState

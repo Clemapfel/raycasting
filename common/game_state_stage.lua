@@ -560,3 +560,17 @@ function rt.GameState:stage_get_config(stage_id)
         return nil
     end
 end
+
+--- @brief
+function rt.GameState:stage_get_background_id(stage_id)
+    self:_initialize_stage()
+
+    meta.assert(stage_id, "String")
+    local entry = self:_get_stage(stage_id, "stage_get_config")
+
+    if entry ~= nil then
+        return entry.config.background_id or rt.settings.game_state.default_background_id
+    else
+        return nil
+    end
+end

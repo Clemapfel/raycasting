@@ -1,4 +1,3 @@
-require "include"
 require "build.config"
 require "include"
 require "common.game_state"
@@ -45,7 +44,7 @@ love.load = function(args)
     end
 
     require "overworld.overworld_scene"
-    rt.SceneManager:push(ow.OverworldScene, "introductions", false)
+    rt.SceneManager:push(ow.OverworldScene, "air_dash_node_tutorial", false)
 
     require "menu.keybinding_scene"
     --rt.SceneManager:push(mn.KeybindingScene)

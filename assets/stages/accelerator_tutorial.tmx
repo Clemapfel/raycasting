@@ -3,6 +3,9 @@
  <editorsettings>
   <export target="accelerator_tutorial.lua" format="lua"/>
  </editorsettings>
+ <properties>
+  <property name="background_id" value="&quot;test&quot;"/>
+ </properties>
  <tileset firstgid="1" source="../tilesets/debug_tileset_objects.tsx"/>
  <tileset firstgid="7" source="../tilesets/debug_tileset.tsx"/>
  <imagelayer id="3" name="background" repeatx="1" repeaty="1">
