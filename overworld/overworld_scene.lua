@@ -48,6 +48,7 @@ end
 
 --- @class ow.OverworldScene
 ow.OverworldScene = meta.class("OverworldScene", rt.Scene)
+meta.add_signal(ow.OverworldScene, "reset")
 
 ow.CameraMode = meta.enum("CameraMode", {
     FREEZE = "FREEZE",      -- all movement disabled
@@ -904,6 +905,7 @@ function ow.OverworldScene:reset()
 
     if before ~= nil then
         rt.GameState:reinitialize_stage(before)
+        self:signal_emit("reset")
     end
 
     self._stage_id = nil

@@ -20,6 +20,14 @@ rt.settings.overworld.air_dash_node = {
     line_collision_player_radius_factor = 2
 }
 
+local schema = {
+    axis_x = ow.Number,
+    axis_y = ow.Number,
+    angle = ow.Number,
+    direction = ow.Object,
+    velocity = ow.Number,
+}
+
 --- @class AirDashNode
 --- @types Circle
 ow.AirDashNode = meta.class("AirDashNode", ow.MovableObject)
@@ -44,6 +52,8 @@ end
 
 --- @brief
 function ow.AirDashNode:instantiate(object, stage, scene)
+    object:validate_schema(schema)
+
     rt.assert(object:get_type() == ow.ObjectType.ELLIPSE and math.equals(object.x_radius, object.y_radius), "In ow.AirDashNode: object `" .. object:get_id() .. "` is not a circle")
 
     if stage.air_dash_node_manager_is_first == true then
@@ -83,6 +93,9 @@ function ow.AirDashNode:instantiate(object, stage, scene)
 
     if scene.air_dash_node_hue == nil then
         scene.air_dash_node_hue = 0
+        scene:signal_connect("reset", function()
+            scene.air_dash_node_hue = nil
+        end)
     end
 
     local n_hue_steps = rt.settings.overworld.air_dash_node.n_hue_steps
@@ -124,6 +137,16 @@ function ow.AirDashNode:instantiate(object, stage, scene)
             rt.error("In rt.AirDashNode: object `", object:get_id(), "` has property `angle` specified, but property `direction`, or `axis_x` `axis_y` are not specified")
         end
     end
+
+    if axis_x ~= nil and axis_y ~= nil then
+        if axis_x == 0 and axis_y == 0 then
+            rt.error("In rt.AirDashNode: object `", object:get_id(), "` has `axis_x`, and `axis_y` specified, but both values are 0")
+        end
+
+        axis_x, axis_y = math.normalize(axis_x, axis_y)
+    end
+
+    self._velocity = object:get_number("velocity", false) or 1
 
     self._angle_ranges = {
         {
@@ -571,7 +594,7 @@ end
 function ow.AirDashNode:emit_particles(path)
     local player = self._scene:get_player()
     local vx, vy = player:get_velocity()
-    self._particles:emit(path, vx, vy, player:get_color():unpack())
+    self._particles:emit(path, vx, vy, self._color:unpack())
 end
 
 local function bowtie_overlap(circle_x, circle_y, circle_radius, bowtie_x, bowtie_y, bowtie_radius, mid, span)
@@ -648,4 +671,9 @@ function ow.AirDashNode:check_player_overlap()
             mid, span
         )
     end
+end
+
+--- @brief
+function ow.AirDashNode:get_velocity_factor()
+    return self._velocity
 end

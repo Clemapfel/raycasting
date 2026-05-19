@@ -81,6 +81,7 @@ function ow.AirDashNodeParticleEffect:emit(
     mesh:draw()
 
     self._particle_texture:unbind()
+    love.graphics.pop()
 end
 
 --- @brief

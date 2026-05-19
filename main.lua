@@ -65,6 +65,7 @@ love.update = function(delta)
 end
 
 love.draw = function()
+    sign = 0
     love.graphics.clear(0.5, 0.5, 0.5, 1)
 
     if rt.SceneManager ~= nil then

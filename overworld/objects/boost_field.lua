@@ -10,6 +10,16 @@ rt.settings.overworld.boost_field = {
     max_velocity_influence = 6,
     animation_velocity = 1 / 4 -- factor of seconds
 }
+local schema = {
+    axis_x = ow.Number,
+    axis_y = ow.Number,
+    axis = ow.Object,
+    is_visible = ow.Boolean,
+    has_outline = ow.Boolean,
+    velocity = ow.Number, -- relative factor
+    hue = { ow.String, ow.Number }, -- hue or "player"
+}
+
 
 --- @class ow.BoostField
 --- @types Polygon, Rectangle, Ellipse
@@ -88,6 +98,7 @@ end
 
 --- @brief
 function ow.BoostField:instantiate(object, stage, scene)
+    object:validate_schema(schema)
     self._body = object:create_physics_body(stage:get_physics_world())
     self._body:set_is_sensor(true)
     self._body:set_collides_with(rt.settings.player.player_collision_group)
@@ -150,7 +161,7 @@ function ow.BoostField:instantiate(object, stage, scene)
     end
 
     self._axis_x, self._axis_y = math.normalize(self._axis_x, self._axis_y)
-    rt.assert(math.magnitude(self._axis_x, self._axis_y) > 0, "In ow.BoostField.instantiate: axis of object `", object:get_id(), "` of stage `", self._stage:get_id(), "` cannot be 0")
+    rt.assert(math.magnitude(self._axis_x, self._axis_y) > 0, "In ow.BoostField.instantiate: magnitude of axis of object `", object:get_id(), "` in stage `", self._stage:get_id(), "` cannot be 0")
 
     if not self._is_visible then return end
 

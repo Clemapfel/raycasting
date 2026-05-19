@@ -12,6 +12,12 @@ rt.settings.overworld.one_way_platform = {
     push_through_coefficient = 0.57 -- the smaller, the more push through force is applied
 }
 
+local schema = {
+    other = ow.OneWayPlatform,
+    has_end_cap = ow.Boolean,
+    hue = { ow.Number, ow.String }, -- hue or "player"
+}
+
 --- @class ow.OneWayPlatform
 --- @types Rectangle
 ow.OneWayPlatform = meta.class("OneWayPlatform", ow.MovableObject)

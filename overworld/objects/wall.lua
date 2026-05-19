@@ -4,6 +4,11 @@ rt.settings.overworld.wall = {
     light_range = 30, -- px
 }
 
+local schema = {
+    opacity = ow.Number,
+    type = ow.String
+}
+
 --- @class ow.Wall
 ow.Wall = meta.class("Wall")
 
@@ -26,6 +31,8 @@ local _pattern_to_shader = {
 }
 
 function ow.Wall:instantiate(object, stage, scene)
+    object:validate_schema(schema)
+
     self._scene = scene
     self._stage = stage
     self._mesh = object:create_mesh()

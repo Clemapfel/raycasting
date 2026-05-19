@@ -1199,7 +1199,6 @@ function rt.PlayerBody:draw_core()
     rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.TEST, rt.StencilCompareMode.NOT_EQUAL)
 
     self:_apply_squish()
-
     local core_r, core_g, core_b, core_a = self._core_color:unpack()
     love.graphics.translate(self._position_x, self._position_y)
 
@@ -1288,7 +1287,7 @@ function rt.PlayerBody:draw_bloom()
 
     love.graphics.push()
     love.graphics.translate(self._position_x, self._position_y)
-    love.graphics.setLineWidth(rt.settings.player_body.core_outline_width)
+    love.graphics.setLineWidth(1)
     self._core_color:bind()
     love.graphics.line(self._core_vertices)
     love.graphics.pop()

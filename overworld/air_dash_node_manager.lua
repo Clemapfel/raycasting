@@ -17,7 +17,7 @@ rt.settings.overworld.air_dash_node_manager = {
     stuck_detection_radius = rt.settings.player.radius / 8, -- px
     stuck_detection_duration = 30 / 60, -- seconds
 
-    jump_buffer_duration = 5 / 60,
+    jump_buffer_duration = 10 / 60,
 }
 
 --- @class ow.AirDashNodeManager
@@ -196,7 +196,7 @@ function ow.AirDashNodeManager:update(delta)
         local dash_velocity = ternary(not player:get_is_bubble(),
             rt.settings.overworld.air_dash_node_manager.dash_velocity,
             rt.settings.overworld.air_dash_node_manager.dash_velocity_bubble
-        )
+        ) * self._tethered_node:get_velocity_factor()
 
         local t = self._tether_path:get_fraction(px, py)
         local dx, dy = self._tether_path:tangent_at(t)
@@ -245,7 +245,7 @@ function ow.AirDashNodeManager:update(delta)
             local exit_velocity = ternary(not player:get_is_bubble(),
                 rt.settings.overworld.air_dash_node_manager.exit_velocity,
                 rt.settings.overworld.air_dash_node_manager.exit_velocity_bubble
-            )
+            ) * self._tethered_node:get_velocity_factor()
 
             player:set_velocity( -- ensure exit velocity
                 exit_velocity * self._tether_dx,
