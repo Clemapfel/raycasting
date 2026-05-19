@@ -17,13 +17,6 @@ ow.LayerType = meta.enum("LayerType", {
 
 --- @class ow.StageConfig
 ow.StageConfig = meta.class("StageConfig")
-local _get = function(x, key)
-    local out = x[key]
-    if out == nil then
-        rt.error("In StageConfig: error when accessing key `", key, "` : value does not exist")
-    end
-    return out
-end
 
 ow.StageConfig._tileset_atlas = {}
 local _dummy_hitbox_id = -1
@@ -38,6 +31,14 @@ function ow.StageConfig:instantiate(stage_id)
     self._id = stage_id
 
     self._config = bd.load(self._path)
+
+    local _get = function(x, key)
+        local out = x[key]
+        if out == nil then
+            rt.error("In StageConfig: for stage `" ..stage_id .. "`: error when accessing key `", key, "` : value does not exist")
+        end
+        return out
+    end
 
     -- init tilesets
 
@@ -74,6 +75,15 @@ function ow.StageConfig:instantiate(stage_id)
     self._n_rows = _get(self._config, "height")
     self._tile_width = _get(self._config, "tilewidth")
     self._tile_height = _get(self._config, "tileheight")
+
+    local custom_properties = self._config.properties or {}
+    local background_id = custom_properties.background_id
+    if background_id == nil then
+        rt.warning("In ow.StageConfig: stage `", stage_id, "` does not have property `background_id` set")
+        self._background_id = nil
+    else
+        self._background_id = background_id
+    end
 
     local is_solid_property_name = rt.settings.overworld.tileset_config.is_solid_property_name
     self._layer_i_to_layer = {}

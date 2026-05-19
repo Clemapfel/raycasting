@@ -150,10 +150,7 @@ function ow.OverworldScene:instantiate(state)
         self._camera_modes[mode] = 0
     end
 
-    self._background = ow.Background(self)
-
     local translation = rt.Translation.overworld_scene
-
     local function create_non_bubble_indicator()
         local indicator
         if rt.settings.player.sprint_allowed then
@@ -360,6 +357,14 @@ end
 --- @brief
 function ow.OverworldScene:set_stage(stage_id, show_title_card)
     meta.assert(stage_id, "String")
+
+    local background_id = rt.GameState:stage_get_background_id(stage_id);
+    if self._background == nil or self._background:get_id() ~= background_id then
+        self._background = ow.Background(self, background_id)
+        self._background:realize()
+        self._background:reformat(self:get_bounds():unpack())
+    end
+
     self._input:activate()
 
     if not rt.GameState:get_stage_exists(stage_id) then
