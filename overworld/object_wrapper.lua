@@ -17,8 +17,27 @@ ow.ObjectType = {
 }
 ow.ObjectType = meta.enum("ObjectType", ow.ObjectType)
 
+--- @class ow.Number
+ow.Number = "Number"
+
+--- @class ow.String
+ow.String = "String"
+
+--- @class ow.Object
+ow.Object = "Object"
+
+--- @class ow.Integer
+ow.Integer = "Integer"
+
+--- @class ow.Boolean
+ow.Boolean = "Boolean"
+
 local _calculate_n_outer_vertices = function(x_radius, y_radius)
     return rt.Mesh.radius_to_n_vertices(x_radius, y_radius)
+end
+
+local _align = function(x)
+    return math.floor(x)
 end
 
 --- @brief
@@ -319,12 +338,12 @@ function ow.ObjectWrapper:_initialize_physics_prototypes()
     for prototype in values(prototypes) do
         if prototype.type == ow.ObjectWrapperShapeType.POLYGON then
             for i = 1, #prototype.vertices, 2 do
-                prototype.vertices[i] = prototype.vertices[i] - centroid_x
-                prototype.vertices[i + 1] = prototype.vertices[i + 1] - centroid_y
+                prototype.vertices[i] = _align(prototype.vertices[i] - centroid_x)
+                prototype.vertices[i + 1] = _align(prototype.vertices[i + 1] - centroid_y)
             end
         elseif prototype.type == ow.ObjectWrapperShapeType.CIRCLE then
-            prototype.x = prototype.x - centroid_x
-            prototype.y = prototype.y - centroid_y
+            prototype.x = _align(prototype.x - centroid_x)
+            prototype.y = _align(prototype.y - centroid_y)
         end
     end
 
@@ -432,7 +451,7 @@ function ow.ObjectWrapper:_initialize_mesh_prototype()
     for tri in values(polygonized) do
         for i = 1, #tri, 2 do
             table.insert(self.mesh_prototype, {
-                tri[i], tri[i+1], 0, 0,   1, 1, 1, 1
+                _align(tri[i]), _align(tri[i+1]), 0, 0, 1, 1, 1, 1
             })
         end
         table.insert(self.mesh_triangles, tri)
@@ -472,6 +491,11 @@ function ow.ObjectWrapper:_initialize_contour_prototype()
     end
 
     self.contour = _process_polygon(contour, self)
+
+    for i = 1, #self.contour do
+        contour[i] = _align(contour[i])
+    end
+
     self.contour_prototype_initialized = true
 end
 
@@ -529,7 +553,8 @@ function ow.ObjectWrapper:get_centroid()
         xy = { self.x, self.y }
     end
 
-    return table.unpack(_process_polygon(xy, self))
+    local x, y = table.unpack(_process_polygon(xy, self))
+    return _align(x), _align(y)
 end
 
 --- @brief
@@ -586,6 +611,69 @@ end
 
 function ow.ObjectWrapper:get_property(id)
     return self.properties[id]
+end
+
+local _valid_types = {
+    [ow.Number] = true,
+    [ow.String] = true,
+    [ow.Object] = true,
+    [ow.Boolean] = true,
+    [ow.Integer] = true
+}
+
+local _default_schema = {
+    render_priority = ow.Integer,
+    is_visible = ow.Boolean
+}
+
+--- @brief
+function ow.ObjectWrapper:validate_schema(schema)
+    if DEBUG == nil then return end
+
+    for key, value in pairs(_default_schema) do
+        if schema[key] == nil then schema[key] = value end
+    end
+
+    local valid_names = {}
+    for property_name, types in pairs(schema) do
+        if not meta.is_string(property_name) then
+            rt.error("In ow.ObjectWrapper: for stage invalid schema, key `", property_name, "` is not a string")
+        end
+        valid_names[property_name] = true
+
+        local value = self.properties[property_name]
+        if value ~= nil then
+            local is_valid = true
+
+            if not meta.is_table(types) then
+                types = { types }
+            end
+
+            for type in values(types) do
+                if _valid_types[type] ~= true then
+                    rt.error("In ow.ObjectWrapper: In stage `", self.stage_id, "`: invalid schema, key `", property_name, "` has unknown type `", type, "`")
+                end
+
+                if type == ow.Number or type == ow.String or type == ow.Boolean then
+                    is_valid = is_valid and meta.typeof(value) == type
+                elseif type == ow.Integer then
+                    is_valid = is_valid and meta.is_number(value) and math.equals(math.fract(math.abs(value)), 0)
+                elseif type == ow.Object then
+                    is_valid = is_valid and meta.is_table(value)
+                end
+
+                if not is_valid then
+                    rt.error("In ow.ObjectWrapper: In stage `", self.stage_id, "`: object `", self:get_id(), "` property `", property_name, "` does not adhere to schema: expected `", type, "`, got `", value, "`")
+                end
+            end
+        end
+    end
+
+    for name in keys(self.properties) do
+        if valid_names[name] ~= true then
+            rt.warning("In ow.ObjectWrapper: In stage `", self.stage_id, "`: property `", name, "` of object `", self.id, "` is not a valid schema key. It will be ignored.")
+        end
+    end
 end
 
 --- @brief
@@ -754,6 +842,11 @@ local _get = function(t, name)
     if out == nil then
         rt.error("In ow._parse_object_group: trying to access property `", name, "` but it does not exist")
     end
+
+    if meta.is_number(out) then
+        out = _align(out)
+    end
+
     return out
 end
 
@@ -891,6 +984,10 @@ local function _parse_single_object_group(object_group, group_offset_x, group_of
         object_id_to_wrapper[wrapper.id] = wrapper
 
         ::continue::
+    end
+
+    for object in values(objects) do
+        object.stage_id = scope
     end
 
     return objects, object_id_to_wrapper
