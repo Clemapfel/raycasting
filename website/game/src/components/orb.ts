@@ -1,8 +1,7 @@
-import { GLWidget } from "../common/gl_widget.ts";
-import { BlendMode, StencilMode } from "../common/gl_context.ts";
-import { Mesh, MeshDrawMode, MeshRectangle, MeshEllipse } from "../common/mesh.ts";
+import {GLWidget} from "../common/gl_widget.ts";
+import {BlendMode, StencilMode} from "../common/gl_context.ts";
+import {Mesh, MeshDrawMode, MeshEllipse, MeshRectangle} from "../common/mesh.ts";
 import {
-    DEFAULT_COLOR_NAME,
     DEFAULT_FLOAT_PRECISION,
     DEFAULT_FRAGMENT_OUT_NAME,
     DEFAULT_RGBA_NAME,
@@ -13,40 +12,39 @@ import {
     DEFAULT_UV_NAME,
     Shader
 } from "../common/shader.ts";
-import { RenderTexture, Texture, TextureFormat } from "../common/texture.ts";
-import { LCHA, RGBA } from "../common/color.ts";
-import { Time } from "../common/time.ts";
+import {RenderTexture, Texture, TextureFormat} from "../common/texture.ts";
+import {LCHA, RGBA} from "../common/color.ts";
+import {Time} from "../common/time.ts";
 import "../common/math.ts";
-import { MeshVertexFormat } from "../common/mesh_vertex_format.ts";
-import { Vec2 } from "../common/vector.ts";
+import {MeshVertexFormat} from "../common/mesh_vertex_format.ts";
+import {Vec2} from "../common/vector.ts";
 
 const particle_texture_path = "/orb_particle_texture.png"
 
-const n_particles = 64;
+const n_particles = 128;
 const n_sub_steps = 3;
 const n_constraint_iterations = 2;
 const step_delta = 1 / 60;
 const gravity = 2000;
-const gravity_dx = 0;
-const gravity_dy = 0;
+const gravity_dxy = new Vec2(0, 0).normalize();
 const swirl_strength = gravity * 0.25;
 const collision_compliance = 0.0001;
-const orb_compliance = 0.000;
+const orb_compliance = 0.0001;
 const damping = 0.95;
 const max_agitation = 4;
 const agitation_duration = 3;
 
 const texture_scale = 4;
 const threshold = 0.3;
-const eps = 0.05;
+const eps = 0.01;
 const blend_strength = 1;
 
-const min_radius = 10;
-const max_radius = 15;
-const min_radius_frequency = 0.75;
-const max_radius_frequency = 1.25;
-const min_radius_scale = 1;
-const max_radius_scale = 2;
+const min_radius = 5;
+const max_radius = 10;
+const min_radius_frequency = 0.005;
+const max_radius_frequency = 0.3;
+const min_radius_scale = 0.5;
+const max_radius_scale = 1;
 
 const x_offset = 0;
 const y_offset = 1;
@@ -54,19 +52,47 @@ const previous_x_offset = 2;
 const previous_y_offset = 3;
 const velocity_x_offset = 4;
 const velocity_y_offset = 5;
-const radius_offset = 6;
+const radius_base_offset = 6;
 const radius_cycle_offset = 7;
-const swirl_direction_offset = 8;
-const inverse_mass_offset = 9;
-const orb_lambda_offset = 10;
-const r_offset = 11;
-const g_offset = 12;
-const b_offset = 13;
-const a_offset = 14;
+const radius_offset = 8;
+const swirl_direction_offset = 9;
+const inverse_mass_offset = 10;
+const orb_lambda_offset = 11;
+const r_offset = 12;
+const g_offset = 13;
+const b_offset = 14;
+const a_offset = 15;
 
 const mesh_vertex_data_stride = 4 * (2 + 2 + 4); // four vertices (xy uv rgba)
 const index_data_stride = 6; // two tris
 const particle_stride = a_offset + 1;
+
+const particle_texture_shader_source = `${DEFAULT_SHADER_VERSION}
+    ${DEFAULT_FLOAT_PRECISION}
+
+    const float PI = 3.1415926535897932384626433832795;
+    
+    float gaussian(float x, float ramp)
+    {
+        return exp(((-4 * PI) / 3) * (ramp * x) * (ramp * x));
+    }
+    
+    in vec2 ${DEFAULT_UV_NAME};
+    in vec4 ${DEFAULT_RGBA_NAME};
+    in vec2 ${DEFAULT_SCREEN_POS_NAME};
+    
+    out vec4 ${DEFAULT_FRAGMENT_OUT_NAME};
+
+    void main() {
+        ${DEFAULT_FRAGMENT_OUT_NAME} = vec4(1.0 - 2.0 * (distance(texture_coords, vec2(0.5))))
+        ${DEFAULT_FRAGMENT_OUT_NAME} = vec4(gaussian(
+            2.0 * (distance(texture_coords, vec2(0.5))),
+            0.95
+        ));
+    }
+}
+`
+const particle_texture_resolution = 128;
 
 const canvas_threshold_shader_source = `${DEFAULT_SHADER_VERSION}
     ${DEFAULT_FLOAT_PRECISION}
@@ -82,39 +108,51 @@ const canvas_threshold_shader_source = `${DEFAULT_SHADER_VERSION}
     
     out vec4 ${DEFAULT_FRAGMENT_OUT_NAME};
     
-    vec3 lch_to_rgb(vec3 lch) {
-        float L = lch.x * 100.0;
-        float C = lch.y * 100.0;
-        float H = lch.z * 360.0;
-    
-        float a = cos(radians(H)) * C;
-        float b = sin(radians(H)) * C;
-    
-        float Y = (L + 16.0) / 116.0;
-        float X = a / 500.0 + Y;
-        float Z = Y - b / 200.0;
-    
-        X = 0.95047 * ((X * X * X > 0.008856) ? X * X * X : (X - 16.0 / 116.0) / 7.787);
-        Y = 1.00000 * ((Y * Y * Y > 0.008856) ? Y * Y * Y : (Y - 16.0 / 116.0) / 7.787);
-        Z = 1.08883 * ((Z * Z * Z > 0.008856) ? Z * Z * Z : (Z - 16.0 / 116.0) / 7.787);
-    
-        float R = X *  3.2406 + Y * -1.5372 + Z * -0.4986;
-        float G = X * -0.9689 + Y *  1.8758 + Z *  0.0415;
-        float B = X *  0.0557 + Y * -0.2040 + Z *  1.0570;
-    
-        R = (R > 0.0031308) ? 1.055 * pow(R, 1.0 / 2.4) - 0.055 : 12.92 * R;
-        G = (G > 0.0031308) ? 1.055 * pow(G, 1.0 / 2.4) - 0.055 : 12.92 * G;
-        B = (B > 0.0031308) ? 1.055 * pow(B, 1.0 / 2.4) - 0.055 : 12.92 * B;
-    
-        return vec3(clamp(R, 0.0, 1.0), clamp(G, 0.0, 1.0), clamp(B, 0.0, 1.0));
-    }
-
     void main() {
-        vec4 texel = texture(${DEFAULT_TEXTURE_UNIFORM_NAME}, ${DEFAULT_UV_NAME});        
-        float alpha = smoothstep(threshold - eps, threshold + eps, min(1.0, texel.a));
-        ${DEFAULT_FRAGMENT_OUT_NAME} = vec4(lch_to_rgb(vec3(0.8, 1, max(max(texel.r, texel.g), texel.b))), alpha);
+        vec2 pixel_size = 2.0 / ${DEFAULT_SCREEN_SIZE_NAME};
+
+        vec4 data = texture(${DEFAULT_TEXTURE_UNIFORM_NAME}, ${DEFAULT_UV_NAME});
+        
+        float value = smoothstep(
+            threshold - eps,
+            threshold + eps,
+            data.r
+        );
+
+        vec4 center = vec4(value) * ${DEFAULT_RGBA_NAME};
+
+        float tl = texture(${DEFAULT_TEXTURE_UNIFORM_NAME}, ${DEFAULT_UV_NAME} + vec2(-1.0, -1.0) * pixel_size).r;
+        float tm = texture(${DEFAULT_TEXTURE_UNIFORM_NAME}, ${DEFAULT_UV_NAME} + vec2( 0.0, -1.0) * pixel_size).r;
+        float tr = texture(${DEFAULT_TEXTURE_UNIFORM_NAME}, ${DEFAULT_UV_NAME} + vec2( 1.0, -1.0) * pixel_size).r;
+        float ml = texture(${DEFAULT_TEXTURE_UNIFORM_NAME}, ${DEFAULT_UV_NAME} + vec2(-1.0,  0.0) * pixel_size).r;
+        float mr = texture(${DEFAULT_TEXTURE_UNIFORM_NAME}, ${DEFAULT_UV_NAME} + vec2( 1.0,  0.0) * pixel_size).r;
+        float bl = texture(${DEFAULT_TEXTURE_UNIFORM_NAME}, ${DEFAULT_UV_NAME} + vec2(-1.0,  1.0) * pixel_size).r;
+        float bm = texture(${DEFAULT_TEXTURE_UNIFORM_NAME}, ${DEFAULT_UV_NAME} + vec2( 0.0,  1.0) * pixel_size).r;
+        float br = texture(${DEFAULT_TEXTURE_UNIFORM_NAME}, ${DEFAULT_UV_NAME} + vec2( 1.0,  1.0) * pixel_size).r;
+
+        float gradient_x = -tl + tr - 2.0 * ml + 2.0 * mr - bl + br;
+        float gradient_y = -tl - 2.0 * tm - tr + bl + 2.0 * bm + br;
+
+        vec3 surface_normal = normalize(vec3(-gradient_x, -gradient_y, 1.0));
+
+        vec3 specular_light_direction = normalize(vec3(1.0, -1.0, 1.0));
+        vec3 view_dir = vec3(0.0, 0.0, 1.0);
+        vec3 half_dir = normalize(specular_light_direction + view_dir);
+        
+        const float specular_focus = 16.0;
+        const float highlight_strength = 1.0;
+        float specular = highlight_strength * pow(max(dot(surface_normal, half_dir), 0.0), specular_focus);
+
+        // Shadow logic
+        vec3 shadow_light_direction = normalize(vec3(-0.5, 0.75, 0.0));
+        const float shadow_strength = 1.0;
+        float shadow = dot(surface_normal, shadow_light_direction);
+        shadow = smoothstep(0.0, 1.0, clamp(shadow * shadow_strength, 0.0, 1.0));
+
+        // Combine components
+        ${DEFAULT_FRAGMENT_OUT_NAME} = vec4(center.rgb - shadow + specular, center.a);
     }
-    `
+    `;
 
 const default_shader_source = `${DEFAULT_SHADER_VERSION}
     ${DEFAULT_FLOAT_PRECISION}
@@ -201,6 +239,7 @@ export class Orb extends GLWidget  {
 
         this.canvas_threshold_shader.bind();
         this.canvas_threshold_shader.setUniform(DEFAULT_TEXTURE_UNIFORM_NAME, this.canvas);
+        this.canvas_threshold_shader.setUniform(DEFAULT_SCREEN_SIZE_NAME, this.getSize());
         this.canvas_threshold_shader.setUniform("threshold", threshold);
         this.canvas_threshold_shader.setUniform("eps", eps);
         this.canvas_mesh!.draw();
@@ -226,7 +265,10 @@ export class Orb extends GLWidget  {
     }
 
     protected override onMousePressed(event: MouseEvent) {
-        this.agitation_elapsed = 0;
+        if (event.button == 0)
+            this.agitation_elapsed = 0;
+        else
+            this.reformat(this.getWidth(), this.getHeight()); // reinitialize
     }
 
     protected override async realize() {
@@ -252,6 +294,22 @@ export class Orb extends GLWidget  {
             MeshVertexFormat.XY_UV_RGBA
         )
         // canvas and canvas mesh set in reformat
+
+        // init particle texture
+        /*
+        const mesh = MeshRectangle(this.context, 0, 0, particle_texture_resolution, particle_texture_resolution);
+        const shader = new Shader(this.context, particle_texture_shader_source, undefined, MeshVertexFormat.XY_UV_RGBA);
+
+        this.particle_mesh_texture = new RenderTexture(this.context,
+            particle_texture_resolution,
+            particle_texture_resolution,
+            TextureFormat.R32F
+        )
+
+        mesh.free();
+        shader.free()
+
+         */
     }
 
     private mass_distribution = (t) => {
@@ -268,7 +326,7 @@ export class Orb extends GLWidget  {
         this.particle_data = new Float64Array(n_particles * particle_stride);
         this.collision_lambdas = new Float64Array(n_particles * n_particles);
 
-        this.canvas = new RenderTexture(this.context, width, height, TextureFormat.RGBA8);
+        this.canvas = new RenderTexture(this.context, width, height, TextureFormat.R32F);
         this.canvas_mesh = MeshRectangle(this.context, 0, 0, width, height);
 
         this.stencil_mesh = MeshEllipse(this.context,
@@ -302,14 +360,18 @@ export class Orb extends GLWidget  {
             lcha.h = t
             lcha.asRGBA(rgba);
 
+            const base_radius = Math.mix(min_radius, max_radius, mass_t);
+            const radius_cycle_offset = Math.mix(min_radius_frequency, max_radius_frequency, Math.random()) + particle_i;
+
             this.particle_data[particle_data_i + x_offset] = position_x;
             this.particle_data[particle_data_i + y_offset] = position_y;
             this.particle_data[particle_data_i + previous_x_offset] = position_x;
             this.particle_data[particle_data_i + previous_y_offset] = position_y;
             this.particle_data[particle_data_i + velocity_x_offset] = 0;
             this.particle_data[particle_data_i + velocity_y_offset] = 0;
-            this.particle_data[particle_data_i + radius_offset] = Math.mix(min_radius, max_radius, mass_t);
-            this.particle_data[particle_data_i + radius_cycle_offset] = Math.mix(min_radius_frequency, max_radius_frequency, Math.random());
+            this.particle_data[particle_data_i + radius_base_offset] = base_radius;
+            this.particle_data[particle_data_i + radius_cycle_offset] = radius_cycle_offset;
+            this.particle_data[particle_data_i + radius_offset] = this.get_radius(base_radius, radius_cycle_offset)
             this.particle_data[particle_data_i + swirl_direction_offset] = particle_data_i % 2 == 0 ? 1 : -1;
             this.particle_data[particle_data_i + inverse_mass_offset] = 1 / (1 + mass_t);
             this.particle_data[particle_data_i + orb_lambda_offset] = 0;
@@ -358,6 +420,14 @@ export class Orb extends GLWidget  {
         this.was_freed = true;
     }
 
+    private get_radius(radius : number, radius_cycle : number) {
+        return radius * Math.mix(
+            min_radius_scale,
+            max_radius_scale,
+            0.5 * (1 + Math.cos(radius_cycle * Math.PI * this.elapsed))
+        )
+    }
+
     private update_mesh_data() {
         if (this.particle_mesh === undefined) return;
 
@@ -373,11 +443,8 @@ export class Orb extends GLWidget  {
             const g = this.particle_data[particle_data_i + g_offset] * blend_strength;
             const b = this.particle_data[particle_data_i + b_offset] * blend_strength;
             const a = this.particle_data[particle_data_i + a_offset] * 1;
-            const radius_cycle = this.particle_data[particle_data_i + radius_cycle_offset]
 
-            const elapsed = this.elapsed;
-            let radius = this.particle_data[particle_data_i + radius_offset] * texture_scale
-            //radius *= Math.mix(min_radius_scale, max_radius_scale, 0.5 * (1 + Math.cos(radius_cycle * Math.PI * (elapsed + particle_i))))
+            const radius = texture_scale * this.particle_data[particle_data_i + radius_offset];
 
             px = px + vx * this.delta_accumulator;
             py = py + vy * this.delta_accumulator;
@@ -576,6 +643,8 @@ export class Orb extends GLWidget  {
             lambda : 0
         } as EnforceOrbResult;
 
+        const current_gravity = gravity * Math.min(1, this.agitation_elapsed / agitation_duration)
+
         for (let sub_step = 0; sub_step < n_sub_steps; ++sub_step) {
 
             // pre solve
@@ -590,8 +659,8 @@ export class Orb extends GLWidget  {
                 let velocity_x = data[i + velocity_x_offset] * damping;
                 let velocity_y = data[i + velocity_y_offset] * damping;
 
-                velocity_x += sub_delta * gravity_dx * gravity;
-                velocity_y += sub_delta * gravity_dy * gravity;
+                velocity_x += sub_delta * gravity_dxy.x * current_gravity;
+                velocity_y += sub_delta * gravity_dxy.y * current_gravity;
 
                 xy.x = x;
                 xy.y = y;
@@ -616,6 +685,11 @@ export class Orb extends GLWidget  {
                 data[i + x_offset] = x + sub_delta * velocity_x;
                 data[i + y_offset] = y + sub_delta * velocity_y;
 
+                data[i + radius_offset] = this.get_radius(
+                    data[i + radius_base_offset],
+                    data[i + radius_cycle_offset]
+                )
+
                 data[i + orb_lambda_offset] = 0;
             }
 
@@ -637,12 +711,14 @@ export class Orb extends GLWidget  {
 
                             const self_x = data[self_i + x_offset];
                             const self_y = data[self_i + y_offset];
-                            const self_r = data[self_i + radius_offset];
+                            const self_r = data[self_i + radius_base_offset];
+
                             const self_inv_mass = data[self_i + inverse_mass_offset];
 
                             const other_x = data[other_i + x_offset];
                             const other_y = data[other_i + y_offset];
-                            const other_r = data[other_i + radius_offset];
+                            const other_r = data[other_i + radius_base_offset];
+
                             const other_inv_mass = data[other_i + inverse_mass_offset];
 
                             const min_distance = self_r + other_r;
@@ -674,7 +750,7 @@ export class Orb extends GLWidget  {
                     const self_i = particle_i * particle_stride;
                     const self_x = data[self_i + x_offset];
                     const self_y = data[self_i + y_offset];
-                    const self_r = data[self_i + radius_offset];
+                    const self_r = data[self_i + radius_base_offset];
                     const self_inv_mass = data[self_i + inverse_mass_offset];
 
                     this.enforce_inside_circle(

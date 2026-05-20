@@ -6,27 +6,7 @@ require "common.music_manager"
 require "common.sound_manager"
 require "common.input_manager"
 
-local function functor(word)
-    return setmetatable({}, {
-        __index = function(_, key)
-            print(key .. " ")
-            return functor(key)
-        end,
 
-        __call = function()
-            print(word)
-            return self
-        end
-    })
-end
-
-setmetatable(_G, {
-    __index = function(_, key)
-        return functor(key)
-    end
-})
-
-["why"]["did"]["you"]["bring"]["this"]["scourge"]["upon"]["us?"]()
 
 love.load = function(args)
     local w, h = love.graphics.getDimensions()
