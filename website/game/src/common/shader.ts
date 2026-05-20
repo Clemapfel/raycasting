@@ -4,6 +4,7 @@ import { Transform } from "./transform.ts";
 import { RGBA } from "./color.ts";
 import { Texture } from "./texture.ts";
 import { MeshVertexFormat } from "./mesh_vertex_format.ts";
+import { List } from "./linked_list.ts"
 
 export const DEFAULT_TEXTURE_UNIFORM_NAME = "rt_Texture0";
 export const DEFAULT_UV_NAME = "rt_TextureCoords";
@@ -108,43 +109,27 @@ const mesh_format_to_default_shader_source : Record<MeshVertexFormat, DefaultSha
 })() as Record<MeshVertexFormat, DefaultShaderSource>;
 
 class TextureUnitAllocator {
-    private texture_to_unit: Map<WebGLTexture, number> = new Map<WebGLTexture, number>();
-    private unit_to_texture: (WebGLTexture | null)[] | undefined = undefined; // initialized in constructor
-    private texture_order: WebGLTexture[] = []; // least recently used
+    private context : GLContext;
+    private list : List<WebGLTexture> = new List<WebGLTexture>();
 
     constructor(context : GLContext) {
-        if (!context.isValid()) return;
-        const { gl } = context;
-
-        this.unit_to_texture = new Array<WebGLTexture | null>().fill(null,
-            0, gl.MAX_TEXTURE_IMAGE_UNITS
-        );
+        this.context = context;
     }
 
     public getTextureUnit(texture: WebGLTexture): number {
-        if (this.texture_to_unit.has(texture)) {
-            this.texture_order.splice(this.texture_order.indexOf(texture), 1);
-            this.texture_order.push(texture);
-            return this.texture_to_unit.get(texture)!;
+        if (!this.context.isValid()) return 0x0;
+        const { gl } = this.context;
+
+        if (!this.list.has(texture)) {
+            if (this.list.length >= gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS))
+                this.list.popBack();
+        }
+        else {
+            this.list.remove(texture)
         }
 
-        let unit: number;
-
-        if (this.texture_to_unit.size < this.unit_to_texture!.length) {
-            // not yet all occupied, return free slot
-            unit = this.texture_to_unit.size;
-        } else {
-            // all units occupied, evict least recently used
-            const evicted = this.texture_order.shift()!;
-            unit = this.texture_to_unit.get(evicted)!;
-            this.texture_to_unit.delete(evicted);
-        }
-
-        this.unit_to_texture![unit] = texture;
-        this.texture_to_unit.set(texture, unit);
-        this.texture_order.push(texture);
-
-        return unit;
+        this.list.pushFront(texture);
+        return this.list.getPosition(texture)!
     }
 }
 
@@ -351,8 +336,8 @@ export class Shader {
         if (!this.context.isValid() || this.program === null) return;
         const { gl } = this.context;
 
-        if (gl.getParameter(gl.CURRENT_PROGRAM) === this.program)
-            gl.useProgram(null);
+        gl.useProgram(null);
+        gl.bindTexture(gl.TEXTURE_2D, null);
     }
 
     /** **/
@@ -392,10 +377,10 @@ export class Shader {
         }
         else if (value instanceof Texture) {
             const unit = Shader.context_to_texture_unit_allocator.get(this.context)!.getTextureUnit(value.getNative());
+
             gl.activeTexture(gl.TEXTURE0 + unit);
             gl.bindTexture(gl.TEXTURE_2D, value.getNative());
             gl.uniform1i(location, unit);
-            gl.bindTexture(gl.TEXTURE_2D, null);
         }
         else if (value instanceof RGBA)
             gl.uniform4f(location, value.r, value.g, value.b, value.a);
@@ -418,7 +403,7 @@ export class Shader {
         if (!this.context.isValid()) return false;
         const { gl } = this.context;
 
-        return gl.getUniformLocation(this.program, id) !== null
+        return gl.getUniformLocation(this.program!, id) !== null
     }
 
     /** **/

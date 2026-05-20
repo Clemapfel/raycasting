@@ -1,7 +1,7 @@
 // src/content/config.ts
 import { defineCollection, z } from "astro:content";
 import { glob } from "astro/loaders";
-import { FileLoader } from "./common/FileLoader.ts";
+import { FileLoader } from "./common/file_loader.ts";
 
 const posts = defineCollection({
     loader: glob({ pattern: "*.md", base: "./src/content/posts" }),

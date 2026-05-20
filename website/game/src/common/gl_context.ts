@@ -86,19 +86,14 @@ export class GLContext {
     }
 
     /** **/
-    public clear(
-        clear_color : boolean = true,
-        clear_stencil : boolean = false,
-        clear_depth : boolean = false
-    ) : void {
+    public clear(r: number = 0, g: number = 0, b: number = 0, a: number = 1): void {
+        if (!this.isValid()) return;
         const gl = this.gl;
-        if (gl === null) return;
 
-        let mask = 0;
-        if (clear_color) mask |= gl.COLOR_BUFFER_BIT;
-        if (clear_stencil) mask |= gl.STENCIL_BUFFER_BIT;
-        if (clear_depth)  mask |= gl.DEPTH_BUFFER_BIT;
-        gl.clear(mask);
+        gl.clearColor(r, g, b, a);
+        gl.clearDepth(1.0);
+        gl.clearStencil(0);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
     }
 
     /** **/

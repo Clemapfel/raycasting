@@ -151,8 +151,10 @@ export class Texture {
             const image = image_or_width;
             gl.bindTexture(gl.TEXTURE_2D, this.native);
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+            gl.generateMipmap(gl.TEXTURE_2D);
             this.width = image.width;
             this.height = image.height;
+            gl.bindTexture(gl.TEXTURE_2D, null);
         }
         else {
             let width = image_or_width;
@@ -270,7 +272,6 @@ export class RenderTexture extends Texture {
     ) {
         super(context, width, height, format);
 
-        this.msaa = msaa;
         if (!this.context.isValid()) return;
 
         const { gl } = this.context;
@@ -280,6 +281,7 @@ export class RenderTexture extends Texture {
         msaa = Math.max(0, Math.min(msaa, gl.getParameter(gl.MAX_SAMPLES)));
 
         const { internal_format } = resolve_texture_format(gl, format);
+        this.msaa = msaa;
 
         try {
             this.resolve_framebuffer = gl.createFramebuffer();
@@ -398,6 +400,8 @@ export class RenderTexture extends Texture {
             gl.bindFramebuffer(gl.FRAMEBUFFER, this.resolve_framebuffer);
         else
             gl.bindFramebuffer(gl.FRAMEBUFFER, this.multisample_framebuffer);
+
+        gl.viewport(0, 0, this.getWidth(), this.getHeight())
     }
 
     public unbind(): void {
@@ -424,6 +428,8 @@ export class RenderTexture extends Texture {
 
         gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
         gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+
+        gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight)
     }
 
     public override free(): void {
