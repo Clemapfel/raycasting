@@ -327,8 +327,6 @@ export class Shader {
              */
             this.setUniform(DEFAULT_TRANSFORM_NAME, Shader.default_transform.asIdentity());
         }
-
-        gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
     }
 
     /** **/

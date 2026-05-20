@@ -26,7 +26,7 @@ const n_sub_steps = 3;
 const n_constraint_iterations = 2;
 const step_delta = 1 / 60;
 const gravity = 2000;
-const gravity_dxy = new Vec2(0, 0).normalize();
+const gravity_dxy = new Vec2(0, -1).normalize();
 const swirl_strength = gravity * 0.25;
 const collision_compliance = 0.0001;
 const orb_compliance = 0.0001;
@@ -34,16 +34,16 @@ const damping = 0.95;
 const max_agitation = 4;
 const agitation_duration = 3;
 
-const texture_scale = 4;
-const threshold = 0.3;
-const eps = 0.01;
+const texture_scale = 5;
+const threshold = 0.1;
+const eps = 0.005;
 const blend_strength = 1;
 
-const min_radius = 5;
-const max_radius = 10;
-const min_radius_frequency = 0.005;
-const max_radius_frequency = 0.3;
-const min_radius_scale = 0.5;
+const min_radius = 8;
+const max_radius = 8;
+const min_radius_frequency = 0.0;
+const max_radius_frequency = 0.0;
+const min_radius_scale = 1;
 const max_radius_scale = 1;
 
 const x_offset = 0;
@@ -67,32 +67,32 @@ const mesh_vertex_data_stride = 4 * (2 + 2 + 4); // four vertices (xy uv rgba)
 const index_data_stride = 6; // two tris
 const particle_stride = a_offset + 1;
 
+const particle_texture_resolution = 128;
 const particle_texture_shader_source = `${DEFAULT_SHADER_VERSION}
     ${DEFAULT_FLOAT_PRECISION}
 
     const float PI = 3.1415926535897932384626433832795;
-    
+
     float gaussian(float x, float ramp)
     {
-        return exp(((-4 * PI) / 3) * (ramp * x) * (ramp * x));
+        return exp(((-4.0 * PI) / 3.0) * (ramp * x) * (ramp * x));
     }
-    
+
     in vec2 ${DEFAULT_UV_NAME};
     in vec4 ${DEFAULT_RGBA_NAME};
     in vec2 ${DEFAULT_SCREEN_POS_NAME};
-    
+
     out vec4 ${DEFAULT_FRAGMENT_OUT_NAME};
 
     void main() {
-        ${DEFAULT_FRAGMENT_OUT_NAME} = vec4(1.0 - 2.0 * (distance(texture_coords, vec2(0.5))))
         ${DEFAULT_FRAGMENT_OUT_NAME} = vec4(gaussian(
-            2.0 * (distance(texture_coords, vec2(0.5))),
-            0.95
+            2.5 * (distance(${DEFAULT_UV_NAME}, vec2(0.5))),
+            1.0            
         ));
+        
+        //${DEFAULT_FRAGMENT_OUT_NAME} = vec4(1.0 - 2.0 * (distance(${DEFAULT_UV_NAME}, vec2(0.5))));
     }
-}
 `
-const particle_texture_resolution = 128;
 
 const canvas_threshold_shader_source = `${DEFAULT_SHADER_VERSION}
     ${DEFAULT_FLOAT_PRECISION}
@@ -109,7 +109,7 @@ const canvas_threshold_shader_source = `${DEFAULT_SHADER_VERSION}
     out vec4 ${DEFAULT_FRAGMENT_OUT_NAME};
     
     void main() {
-        vec2 pixel_size = 2.0 / ${DEFAULT_SCREEN_SIZE_NAME};
+        vec2 pixel_size = 1.0 / ${DEFAULT_SCREEN_SIZE_NAME};
 
         vec4 data = texture(${DEFAULT_TEXTURE_UNIFORM_NAME}, ${DEFAULT_UV_NAME});
         
@@ -133,7 +133,8 @@ const canvas_threshold_shader_source = `${DEFAULT_SHADER_VERSION}
         float gradient_x = -tl + tr - 2.0 * ml + 2.0 * mr - bl + br;
         float gradient_y = -tl - 2.0 * tm - tr + bl + 2.0 * bm + br;
 
-        vec3 surface_normal = normalize(vec3(-gradient_x, -gradient_y, 1.0));
+        const float gradient_influence = 0.5;
+        vec3 surface_normal = gradient_influence * normalize(vec3(-gradient_x, -gradient_y, 1.0));
 
         vec3 specular_light_direction = normalize(vec3(1.0, -1.0, 1.0));
         vec3 view_dir = vec3(0.0, 0.0, 1.0);
@@ -148,9 +149,10 @@ const canvas_threshold_shader_source = `${DEFAULT_SHADER_VERSION}
         const float shadow_strength = 1.0;
         float shadow = dot(surface_normal, shadow_light_direction);
         shadow = smoothstep(0.0, 1.0, clamp(shadow * shadow_strength, 0.0, 1.0));
+        
+        float alpha = smoothstep(threshold - eps, threshold + eps, center.r);
 
-        // Combine components
-        ${DEFAULT_FRAGMENT_OUT_NAME} = vec4(center.rgb - shadow + specular, center.a);
+        ${DEFAULT_FRAGMENT_OUT_NAME} = vec4(center.rgb - shadow + specular, alpha);
     }
     `;
 
@@ -189,12 +191,13 @@ interface EnforceOrbResult {
 export class Orb extends GLWidget  {
     private default_shader : Shader;
     private particle_mesh : Mesh;
-    private particle_mesh_texture? : Texture;
+    private particle_mesh_texture? : RenderTexture;
 
     private canvas? : RenderTexture;
     private canvas_mesh? : Mesh;
     private canvas_threshold_shader : Shader;
 
+    private is_initialized : boolean = false;
     private particle_data : Float64Array;
     private collision_lambdas : Float64Array;
     private particle_mesh_vertex_data : Float32Array;
@@ -216,9 +219,29 @@ export class Orb extends GLWidget  {
             || this.canvas === undefined
             || this.canvas_mesh === undefined
             || this.stencil_mesh === undefined  // not yet resized
-            || this.particle_mesh_texture === undefined // waiting for particle texture load
             || this.particle_mesh === undefined
         ) return;
+
+        if (this.particle_mesh_texture === undefined) {
+            const mesh = MeshRectangle(this.context, 0, 0, particle_texture_resolution, particle_texture_resolution);
+            const shader = new Shader(this.context, particle_texture_shader_source, undefined, MeshVertexFormat.XY_UV_RGBA);
+
+            this.particle_mesh_texture = new RenderTexture(this.context,
+                particle_texture_resolution,
+                particle_texture_resolution,
+                TextureFormat.RGBA8
+            )
+
+            this.particle_mesh_texture.bind()
+            shader.bind();
+            shader.setUniform(DEFAULT_SCREEN_SIZE_NAME, new Vec2(particle_texture_resolution, particle_texture_resolution))
+            mesh.draw();
+            shader.unbind();
+            this.particle_mesh_texture.unbind();
+
+            mesh.free();
+            shader.free()
+        }
 
         this.canvas.bind()
         this.context.clear(0, 0, 0, 0);
@@ -272,21 +295,11 @@ export class Orb extends GLWidget  {
     }
 
     protected override async realize() {
-        const particle_texture_promise = new Promise<HTMLImageElement>((resolve, reject) => {
-            const image = new Image();
-            image.src = particle_texture_path;
-            image.onload = () => resolve(image);
-            image.onerror = reject;
-        });
-
         this.default_shader = new Shader(this.context,
             undefined,
             undefined,
             MeshVertexFormat.XY_UV_RGBA
         );
-
-        const particle_texture = await particle_texture_promise;
-        this.particle_mesh_texture = new Texture(this.context, particle_texture);
 
         this.canvas_threshold_shader = new Shader(this.context,
             canvas_threshold_shader_source,
@@ -294,22 +307,6 @@ export class Orb extends GLWidget  {
             MeshVertexFormat.XY_UV_RGBA
         )
         // canvas and canvas mesh set in reformat
-
-        // init particle texture
-        /*
-        const mesh = MeshRectangle(this.context, 0, 0, particle_texture_resolution, particle_texture_resolution);
-        const shader = new Shader(this.context, particle_texture_shader_source, undefined, MeshVertexFormat.XY_UV_RGBA);
-
-        this.particle_mesh_texture = new RenderTexture(this.context,
-            particle_texture_resolution,
-            particle_texture_resolution,
-            TextureFormat.R32F
-        )
-
-        mesh.free();
-        shader.free()
-
-         */
     }
 
     private mass_distribution = (t) => {
@@ -402,6 +399,8 @@ export class Orb extends GLWidget  {
             this.particle_mesh_index_data,
             MeshDrawMode.TRIANGLES
         );
+
+        this.is_initialized = true;
     }
 
     protected override unrealize() {
@@ -503,7 +502,7 @@ export class Orb extends GLWidget  {
 
     private swirl_easing(t: number) {
         let out = Math.exp(-Math.pow((Math.PI / 1.5) * t, 2));
-        out *= (1 + Math.mix(0, max_agitation, 1 - Math.min(1, this.agitation_elapsed / agitation_duration)));
+        out *= (Math.mix(0, max_agitation, 1 - Math.min(1, this.agitation_elapsed / agitation_duration)));
         return out;
     }
 
@@ -614,6 +613,8 @@ export class Orb extends GLWidget  {
     }
 
     private step(delta : number) {
+        if (!this.is_initialized) return;
+
         this.agitation_elapsed += delta;
 
         const sub_delta = delta / n_sub_steps;
