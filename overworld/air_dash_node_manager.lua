@@ -3,7 +3,7 @@ require "common.path"
 
 rt.settings.overworld.air_dash_node_manager = {
     node_collision_group = b2.CollisionGroup.GROUP_09,
-    dash_velocity = 700,
+    dash_velocity = 850,
     exit_velocity = 700,
 
     dash_velocity_bubble = 500,

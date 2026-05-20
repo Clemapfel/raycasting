@@ -42,13 +42,13 @@
   </object>
  </objectgroup>
  <objectgroup id="2" name="main">
-  <object id="89" name="Spawn" type="PlayerSpawn" x="-1888" y="1344">
+  <object id="89" name="Spawn" type="PlayerSpawn" x="1554.18" y="-57.3605">
    <point/>
   </object>
   <object id="91" type="Hitbox" x="-1439.08" y="1248">
    <polygon points="-256,16 255.076,16 255.076,-416 480,-416 479.076,160 -256.924,160"/>
   </object>
-  <object id="92" type="SlipperyHitbox" x="-1171.83" y="424.35">
+  <object id="92" type="SlipperyHitbox" x="-1184" y="928">
    <polygon points="0,-96 -16,-96 -16,320 -32,336 0,336"/>
   </object>
   <object id="93" type="AirDashNode" x="-1424" y="960" width="224" height="224">
@@ -177,7 +177,7 @@
    </properties>
    <polygon points="0,0 0,32 96,32 96,0"/>
   </object>
-  <object id="165" type="CameraFit" x="1520" y="-1424">
+  <object id="165" type="CameraFit" x="1408" y="-1488">
    <polygon points="0,16 0,768 1152,768 1152,16"/>
   </object>
   <object id="166" type="Fireflies" x="2208" y="-1168">
@@ -195,7 +195,7 @@
   <object id="168" type="OneWayPlatformNode" x="2144" y="-1424">
    <point/>
   </object>
-  <object id="170" type="SlipperyHitbox" x="1040" y="-752">
+  <object id="170" type="SlipperyHitbox" x="1008" y="-752">
    <polygon points="448,-560 448,10.431 1520,16 1520,-592 1056,-688 1024,-688 1024,-720 1552,-720 1552,48 400,48 400,-704 928,-704 928,-688 896,-688"/>
   </object>
   <object id="171" type="AirDashNode" x="2032" y="-1392" width="128" height="128">
