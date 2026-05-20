@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 165,
+  nextobjectid = 175,
   properties = {
     ["background_id"] = "\"nebula\""
   },
@@ -239,8 +239,8 @@ return {
           name = "",
           type = "SlipperyHitbox",
           shape = "polygon",
-          x = -1184,
-          y = 928,
+          x = -1171.83,
+          y = 424.35,
           width = 0,
           height = 0,
           rotation = 0,
@@ -707,6 +707,161 @@ return {
           shape = "polygon",
           x = 1936,
           y = -736,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 0, y = 32 },
+            { x = 96, y = 32 },
+            { x = 96, y = 0 }
+          },
+          properties = {
+            ["axis_y"] = -1,
+            ["render_priority"] = -1
+          }
+        },
+        {
+          id = 165,
+          name = "",
+          type = "CameraFit",
+          shape = "polygon",
+          x = 1520,
+          y = -1424,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 16 },
+            { x = 0, y = 768 },
+            { x = 1152, y = 768 },
+            { x = 1152, y = 16 }
+          },
+          properties = {}
+        },
+        {
+          id = 166,
+          name = "",
+          type = "Fireflies",
+          shape = "point",
+          x = 2208,
+          y = -1168,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["count"] = 7
+          }
+        },
+        {
+          id = 167,
+          name = "",
+          type = "OneWayPlatform",
+          shape = "point",
+          x = 2048,
+          y = -1424,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["other"] = { id = 168 }
+          }
+        },
+        {
+          id = 168,
+          name = "",
+          type = "OneWayPlatformNode",
+          shape = "point",
+          x = 2144,
+          y = -1424,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 170,
+          name = "",
+          type = "SlipperyHitbox",
+          shape = "polygon",
+          x = 1040,
+          y = -752,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 448, y = -560 },
+            { x = 448, y = 10.431 },
+            { x = 1520, y = 16 },
+            { x = 1520, y = -592 },
+            { x = 1056, y = -688 },
+            { x = 1024, y = -688 },
+            { x = 1024, y = -720 },
+            { x = 1552, y = -720 },
+            { x = 1552, y = 48 },
+            { x = 400, y = 48 },
+            { x = 400, y = -704 },
+            { x = 928, y = -704 },
+            { x = 928, y = -688 },
+            { x = 896, y = -688 }
+          },
+          properties = {}
+        },
+        {
+          id = 171,
+          name = "",
+          type = "AirDashNode",
+          shape = "ellipse",
+          x = 2032,
+          y = -1392,
+          width = 128,
+          height = 128,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["angle"] = 0,
+            ["axis_y"] = -1
+          }
+        },
+        {
+          id = 172,
+          name = "",
+          type = "AirDashNode",
+          shape = "ellipse",
+          x = 1808,
+          y = -1072,
+          width = 330.286,
+          height = 330.571,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 173,
+          name = "",
+          type = "AirDashNode",
+          shape = "ellipse",
+          x = 2224,
+          y = -1168,
+          width = 224,
+          height = 224,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 174,
+          name = "",
+          type = "BoostField",
+          shape = "polygon",
+          x = 2048,
+          y = -1424,
           width = 0,
           height = 0,
           rotation = 0,

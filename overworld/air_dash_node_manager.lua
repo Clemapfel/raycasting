@@ -17,7 +17,7 @@ rt.settings.overworld.air_dash_node_manager = {
     stuck_detection_radius = rt.settings.player.radius / 8, -- px
     stuck_detection_duration = 30 / 60, -- seconds
 
-    jump_buffer_duration = 10 / 60,
+    jump_buffer_duration = 20 / 60, -- before and after collision
 }
 
 --- @class ow.AirDashNodeManager
@@ -43,18 +43,32 @@ function ow.AirDashNodeManager:instantiate(scene, stage)
     self._input = rt.InputSubscriber(rt.settings.player.input_subscriber_priority + 1)
     self._input = rt.InputSubscriber()
 
+    self._last_node_and_time = {};
+
     self._jump_buffer_elapsed = math.huge
     self._input:signal_connect("pressed", function(_, which)
         if which == rt.InputAction.JUMP then
-            self._jump_buffer_elapsed = 0
-
             if self._next_node ~= nil then
+                -- exact hit
                 if self._tethered_node ~= self._next_node then
                     if self._next_node:check_player_overlap() then
                         self:_tether(self._next_node)
                     end
                 end
+
+                -- buffered jump: after passing
+                if rt.GameState:get_is_input_buffering_enabled()
+                    and self._last_node_and_time.node ~= nil
+                    and self._next_node:check_player_overlap()
+                then
+                    local elapsed = love.timer.getTime() - self._last_node_and_time.timestamp
+                    if elapsed < rt.settings.overworld.air_dash_node_manager.jump_buffer_duration then
+                        self:_tether(self._last_node_and_time.node)
+                    end
+                end
             end
+
+            self._jump_buffer_elapsed = 0
         end
     end)
 end
@@ -337,6 +351,10 @@ function ow.AirDashNodeManager:update(delta)
         self._next_node = best_entry.node
         self._next_node:set_is_current(true)
 
+        if self._next_node ~= before then
+            before_node = before
+        end
+
         self._recommended_node = self._next_node
 
         if not player:get_is_grounded() then
@@ -352,13 +370,24 @@ function ow.AirDashNodeManager:update(delta)
         end
     end
 
-    -- buffered dash
+    -- buffered jump: before passing
+    local is_overlapping = self._next_node ~= nil and self._next_node:check_player_overlap()
     if rt.GameState:get_is_input_buffering_enabled() and self._next_node ~= nil then
-        if self._jump_buffer_elapsed < rt.settings.overworld.air_dash_node_manager.jump_buffer_duration
-            and self._next_node:check_player_overlap()
+        if is_overlapping
+            and self._tethered_node == nil
+            and self._input:get_is_down(rt.InputAction.JUMP)
+            and self._jump_buffer_elapsed < rt.settings.overworld.air_dash_node_manager.jump_buffer_duration
         then
             self:_tether(self._next_node)
         end
+    end
+
+    if is_overlapping then
+        -- store last node for after passing buffered jump
+        self._last_node_and_time = {
+            node = self._next_node,
+            timestamp = love.timer.getTime()
+        }
     end
 
     self._jump_buffer_elapsed = self._jump_buffer_elapsed + delta

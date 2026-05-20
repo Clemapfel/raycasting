@@ -94,8 +94,10 @@ do
         bounce_relative_velocity = 2000,
         bounce_duration = 2 / 60,
 
-        jump_buffer_duration = 4 / 60,
-        wall_jump_buffer_duration = 3 / 60,
+        prior_jump_buffer_duration = 4 / 60, -- buffered before hitting gronud
+        posterior_jump_buffer_duration = 10 / 60, -- buffered after leaving ground
+        prior_wall_jump_buffer_duration = 3 / 60,
+        posterior_wall_jump_buffer_duration = 10 / 60,
 
         bubble_radius_factor = 2.5,
         bubble_inner_radius_scale = 1.7,
@@ -202,6 +204,9 @@ function rt.Player:instantiate()
         _jump_buffer_elapsed = math.huge,
         _left_wall_jump_buffer_elapsed = math.huge,
         _right_wall_jump_buffer_elapsed = math.huge,
+        _last_grounded_timestamp = -math.huge,
+        _last_left_wall_timestamp = -math.huge,
+        _last_right_wall_timestamp = -math.huge,
 
         _jump_elapsed = math.huge,
         _jump_freeze_elapsed = math.huge,
@@ -832,7 +837,7 @@ function rt.Player:update(delta)
         local up_allowed = self:_get_jump_allowed()
 
         -- buffered up jump
-        if self._jump_buffer_elapsed <= settings.jump_buffer_duration
+        if self._jump_buffer_elapsed <= settings.prior_jump_buffer_duration
             and not left_allowed -- prioritize wall jump
             and not right_allowed
             and up_allowed
@@ -842,29 +847,44 @@ function rt.Player:update(delta)
             if cx ~= nil and cy ~= nil and math.distance(x, y, cx, cy) <= self._radius then
                 if self:jump() then
                     self._jump_buffer_elapsed = math.huge
+                    self._last_grounded_timestamp = -math.huge
                 end
             end
         end
         self._jump_buffer_elapsed = self._jump_buffer_elapsed + delta
 
         -- buffer left wall jump, left has priority
-        if self._left_wall_jump_buffer_elapsed < settings.wall_jump_buffer_duration
+        if self._left_wall_jump_buffer_elapsed < settings.prior_wall_jump_buffer_duration
             and left_allowed
         then
             if self:jump() then
                 self._left_wall_jump_buffer_elapsed = math.huge
+                self._last_left_wall_timestamp = -math.huge
             end
         -- else try buffer right wall jump
-        elseif self._right_wall_jump_buffer_elapsed < settings.wall_jump_buffer_duration
+        elseif self._right_wall_jump_buffer_elapsed < settings.prior_wall_jump_buffer_duration
             and right_allowed
         then
             if self:jump() then
                 self._left_wall_jump_buffer_elapsed = math.huge
+                self._last_right_wall_timestamp = -math.huge
             end
         end
 
         self._left_wall_jump_buffer_elapsed = self._left_wall_jump_buffer_elapsed + delta
         self._right_wall_jump_buffer_elapsed = self._right_wall_jump_buffer_elapsed + delta
+    end
+
+    if is_grounded then
+        self._last_grounded_timestamp = love.timer.getTime()
+    end
+
+    if not is_grounded and (self._left_wall or self._top_left_wall) then
+        self._last_left_wall_timestamp = love.timer.getTime()
+    end
+
+    if not is_grounded and (self._right_wall or self._top_right_wall) then
+        self._last_right_wall_timestamp = love.timer.getTime()
     end
 
     -- check if tethers should be cleared
@@ -2593,9 +2613,12 @@ function rt.Player:_get_walljump_allowed()
         or (self._top_right_wall and (self._top_right_wall_body:has_tag("slippery") or self._top_right_wall_body:has_tag("unjumpable")))
         or (self._bottom_right_wall and (self._bottom_right_wall_body:has_tag("slippery") or self._bottom_right_wall_body:has_tag("unjumpable")))
 
+    local left_buffer = (love.timer.getTime() - self._last_left_wall_timestamp) <= settings.posterior_wall_jump_buffer_duration
+    local right_buffer = (love.timer.getTime() - self._last_right_wall_timestamp) <= settings.posterior_wall_jump_buffer_duration
+
     -- by default, player needs to be pressing towards wall
-    local left_wall_jump_allowed = not self._is_grounded and (self._left_wall or self._top_left_wall) and not left_wall_invalid
-    local right_wall_jump_allowed = not self._is_grounded and (self._right_wall or self._top_right_wall) and not right_wall_invalid
+    local left_wall_jump_allowed = not self._is_grounded and (left_buffer or self._left_wall or self._top_left_wall) and not left_wall_invalid
+    local right_wall_jump_allowed = not self._is_grounded and (right_buffer or self._right_wall or self._top_right_wall) and not right_wall_invalid
 
     -- both conditions can be overriden by coyote time
     if not self._is_grounded then
@@ -2637,7 +2660,13 @@ function rt.Player:_get_jump_allowed()
         return false
     end
 
-    local bottom = (self._bottom_wall and not self._bottom_wall_body:has_tag("unjumpable"))
+    local bottom = self._bottom_wall
+        or (love.timer.getTime() - self._last_grounded_timestamp) < settings.posterior_jump_buffer_duration
+
+    if self._bottom_wall_body ~= nil then
+        bottom = bottom and not self._bottom_wall_body:has_tag("unjumpable")
+    end
+
     local regular_jump_allowed = not self._jump_blocked and bottom
 
     -- only bottom counts for grounded check, but bottom left/right can override with tags
