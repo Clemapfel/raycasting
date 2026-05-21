@@ -147,8 +147,6 @@ function ow.AirDashNodeManager:_tether(node)
     ):discretize())
 
     self._tether_elapsed = 0
-
-    self._tethered_node:emit_particles(self._tether_path)
     self._tethered_node:set_is_tethered(true)
 
     player:set_velocity(0, 0) -- overridden next update
@@ -267,6 +265,11 @@ function ow.AirDashNodeManager:update(delta)
                 exit_velocity * self._tether_dy
             )
             self:_untether()
+        end
+
+        -- particles
+        if self._tethered_node ~= nil then
+            self._tethered_node:emit_particles()
         end
     end
 

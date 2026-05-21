@@ -145,6 +145,9 @@ end
 function rt.GameState:set_is_dynamic_lighting_enabled(b)
     meta.assert(b, "Boolean")
     bd.get_config().is_dynamic_lighting_enabled = b
+    if b == false and rt.SceneManager ~= nil and rt.SceneManager:get_light_map() ~= nil then
+        rt.SceneManager:get_light_map():clear()
+    end
 end
 
 --- @brief
@@ -559,6 +562,7 @@ function rt.GameState:set_input_binding(input_action_to_keyboard_key, input_acti
     local controller_before = table.deepcopy(self._input_action_to_controller_button)
 
     for action, entry in pairs(input_action_to_keyboard_key) do
+        if not meta.is_table(entry) then entry = { entry } end
         meta.assert_enum_value(action, rt.InputAction)
         for key in values(entry) do
             meta.assert_enum_value(key, rt.KeyboardKey)
@@ -566,6 +570,7 @@ function rt.GameState:set_input_binding(input_action_to_keyboard_key, input_acti
     end
 
     for action, entry in pairs(input_action_to_controller_button) do
+        if not meta.is_table(entry) then entry = { entry } end
         meta.assert_enum_value(action, rt.InputAction)
         for button in values(entry) do
             meta.assert_enum_value(button, rt.ControllerButton)

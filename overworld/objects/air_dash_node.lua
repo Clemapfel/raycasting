@@ -17,7 +17,8 @@ rt.settings.overworld.air_dash_node = {
     outline_min_alpha = 0.4,
 
     n_hue_steps = 16,
-    line_collision_player_radius_factor = 2
+    line_collision_player_radius_factor = 2,
+    segment_light_boost = 6
 }
 
 local circle_schema = {
@@ -421,6 +422,14 @@ function ow.AirDashNode:update(delta)
     end
 
     if self._stage:get_is_body_visible(self._body) then
+        if self._queue_emit then
+            local player = self._scene:get_player()
+            local px, py = player:get_position()
+            local vx, vy = player:get_velocity()
+            self._particles:emit(delta, px, py, vx, vy, self._color:unpack())
+            self._queue_emit = false
+        end
+
         self._is_current_motion:update(delta)
         self._particle:update(delta)
 
@@ -582,8 +591,12 @@ function ow.AirDashNode:collect_segment_lights(callback)
     local radius = self._radius + 20
     local ax, ay = x - dx * radius, y - dy * radius
     local bx, by = x + dx * radius, y + dy * radius
+
+    local settings = rt.settings.overworld.air_dash_node
     callback(
-        ax, ay, bx, by, self._color.r, self._color.g, self._color.b, self._color.a * (1 + (1 - self._is_current_motion:get_value()))
+        ax, ay, bx, by,
+        self._color.r, self._color.g, self._color.b,
+        self._color.a * (1 + settings.segment_light_boost * (1 - math.min(self._cooldown_elapsed / settings.cooldown)))
     )
 end
 
@@ -627,10 +640,8 @@ function ow.AirDashNode:get_direction()
 end
 
 --- @brief
-function ow.AirDashNode:emit_particles(path)
-    local player = self._scene:get_player()
-    local vx, vy = player:get_velocity()
-    self._particles:emit(path, vx, vy, self._color:unpack())
+function ow.AirDashNode:emit_particles()
+    self._queue_emit = true
 end
 
 local function bowtie_overlap(circle_x, circle_y, circle_radius, bowtie_x, bowtie_y, bowtie_radius, mid, span)

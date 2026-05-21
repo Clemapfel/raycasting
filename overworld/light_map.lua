@@ -24,7 +24,6 @@ rt.settings.overworld.light_map = {
     intensity_texture_format = rt.TextureFormat.RGBA8,
     direction_texture_format = rt.TextureFormat.RG16F,
     mask_texture_format = rt.TextureFormat.R8,
-    should_sort_by_distance = true, -- choose closest light source deterministically if too many per tile
     use_byte_data = true
 }
 
@@ -157,7 +156,7 @@ function ow.LightMap:_reinitialize(
     end
 
     if resize_tile_point_lights or resize_tile_segment_lights then
-        local width, height = love.graphics.getDimensions()
+        local width, height = self._light_intensity_texture:get_size()
         self._n_tiles = math.ceil(width / self._tile_size) * math.ceil(height / self._tile_size)
 
         local buffer_n_elements = (1 + self._tile_buffer_n_point_lights + 1 + self._tile_buffer_n_segment_lights) * self._n_tiles
@@ -186,6 +185,13 @@ end
 
 --- @brief
 function ow.LightMap:unbind_mask()
+    self._mask_texture:unbind()
+end
+
+--- @brief
+function ow.LightMap:clear()
+    self._mask_texture:bind()
+    love.graphics.clear(0, 0, 0, 0)
     self._mask_texture:unbind()
 end
 
@@ -544,7 +550,7 @@ do
             upload_point_light_data(self._point_light_buffer, point_light_data,
                 1, -- source index
                 1, -- destination index
-                n_point_lights -- count
+                math.min(n_point_lights, self._point_light_buffer_n) -- count
             )
         end
 
@@ -552,7 +558,7 @@ do
             upload_segment_light_data(self._segment_light_buffer, segment_light_data,
                 1,
                 1,
-                n_segment_lights
+                math.min(n_segment_lights, self._segment_light_buffer_n)
             )
         end
 
@@ -761,7 +767,9 @@ do
                     table.insert(parts, "tile buffer (segment lights) " .. n_segment_lights_per_tile_before .. " -> " .. n_segment_lights_per_tile_after)
                 end
 
-                rt.warning("reinitializing lightmap buffer sizes: " .. table.concat(parts, ", "))
+                if not table.is_empty(parts) then
+                    rt.warning("reinitializing lightmap buffer sizes: " .. table.concat(parts, ", "))
+                end
             end
         end
 

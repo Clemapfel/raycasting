@@ -20,7 +20,7 @@ rt.settings.overworld.air_dash_node_particle_effect = {
     cone_arc = math.degrees_to_radians(30),
 
     max_n_particles = 5000,
-    particle_density = 0.5, -- fraction
+    n_particles_per_second = (16 + 4) * 60
 }
 
 --- @class ow.AirDashNodeParticleEffect
@@ -35,19 +35,33 @@ local _n_particles = 0 -- global count
 
 --- @brief
 function ow.AirDashNodeParticleEffect:emit(
-    path,
+    delta, px, py,
     velocity_x, velocity_y,
     color_r, color_g, color_b, color_a
 )
-    meta.assert(path, rt.Path)
-
     if velocity_x == nil then velocity_x = 0 end
     if velocity_y == nil then velocity_y = 0 end
 
-    local batch = {}
-    table.insert(self._batches, batch)
+    if self._last_frame_i == rt.SceneManager:get_frame_index() then
+        -- only emit once per frame
+        return
+    end
+    self._last_frame_i = rt.SceneManager:get_frame_index()
+
+    local last = self._batches[#self._batches]
+    local batch
+
+    -- append to last batch
+    if last ~= nil and last.current_n_particles > 0.25 * last.start_n_particles then
+        batch = last
+    else
+        batch = {}
+        table.insert(self._batches, batch)
+    end
+
     self:_init_batch(batch,
-        path,
+        delta,
+        px, py,
         velocity_x, velocity_y,
         color_r, color_g, color_b, color_a
     )
@@ -135,26 +149,45 @@ local _lifetime_offset = 12
 local _hue_offset = 13
 local _hue_velocity_offset = 14
 local _hue_velocity_direction_offset = 15
+local _is_stale_offset = 16
 
-local _stride = _hue_velocity_direction_offset + 1
+local TRUE, FALSE = 1, 0
+
+local _stride = _is_stale_offset + 1
 local _particle_i_to_data_offset = function(particle_i)
     return (particle_i - 1) * _stride + 1
 end
 
---- @brief
 function ow.AirDashNodeParticleEffect:_init_batch(
-    batch, path,
+    batch, delta, px, py,
     velocity_x, velocity_y,
     color_r, color_g, color_b, color_a
 )
     require "table.new"
 
-    local length = path:get_length()
-
     local hue = select(1, rt.rgba_to_hsva(color_r, color_g, color_b, color_a))
 
+    local vdx, vdy = math.normalize(math.flip(velocity_x, velocity_y))
+    local radius = rt.settings.player.radius
+    local path = rt.Path(
+        px, py,
+        px - vdx * math.abs(velocity_x) * delta, py - vdy * math.abs(velocity_y) * delta--,
+    )
+
     local settings = rt.settings.overworld.air_dash_node_particle_effect
-    local n_particles = length * settings.particle_density
+    local n_particles = settings.n_particles_per_second * delta
+
+    if batch.particle_data == nil then
+        batch.particle_data = table.new(n_particles, 0)
+    end
+
+    if batch.current_n_particles == nil then
+        batch.current_n_particles = 0
+    end
+
+    if batch.start_n_particles == nil then
+        batch.start_n_particles = 0
+    end
 
     local min_acceleration, max_acceleration = settings.min_acceleration, settings.max_acceleration
     local min_radius, max_radius = settings.min_radius, settings.max_radius
@@ -162,12 +195,7 @@ function ow.AirDashNodeParticleEffect:_init_batch(
     local min_initial_velocity, max_initial_velocity = settings.min_initial_velocity, settings.max_initial_velocity
     local min_hue_velocity, max_hue_velocity = settings.min_hue_velocity, settings.max_hue_velocity
 
-    batch.particle_data = {}
-    batch.current_n_particles = 0
-
     local cone_arc = settings.cone_arc
-    local norm_velocity_x, norm_velocity_y = math.normalize(velocity_x, velocity_y)
-    -- emission direction is opposite to batch velocity
 
     local data = batch.particle_data
     for particle_i = 1, n_particles do
@@ -177,14 +205,14 @@ function ow.AirDashNodeParticleEffect:_init_batch(
         local position_x, position_y = path:at(t)
 
         local mass_t = rt.random.number(0, 1)
-        local radius = math.mix(min_radius, max_radius, mass_t)
+        local particle_radius = math.mix(min_radius, max_radius, mass_t)
         local magnitude = math.mix(min_initial_velocity, max_initial_velocity, mass_t)
 
         local angle = rt.random.number(-cone_arc / 2, cone_arc / 2)
         local emission_x, emission_y = math.flip(path:tangent_at(t))
         local particle_velocity_x, particle_velocity_y = math.rotate2(emission_x, emission_y, angle)
 
-        local i = #batch.particle_data + 1
+        local i = #data + 1
         data[i + _position_x_offset] = position_x
         data[i + _position_y_offset] = position_y
         data[i + _velocity_x_offset] = particle_velocity_x * magnitude
@@ -194,13 +222,14 @@ function ow.AirDashNodeParticleEffect:_init_batch(
         data[i + _color_g_offset] = color_g
         data[i + _color_b_offset] = color_b
         data[i + _color_a_offset] = 1
-        data[i + _radius_offset] = radius
+        data[i + _radius_offset] = particle_radius
         data[i + _radius_factor_offset] = 1
         data[i + _lifetime_elapsed_offset] = 0
         data[i + _lifetime_offset] = math.mix(min_lifetime, max_lifetime, mass_t)
         data[i + _hue_offset] = hue
         data[i + _hue_velocity_offset] = math.mix(min_hue_velocity, max_hue_velocity, mass_t)
         data[i + _hue_velocity_direction_offset] = rt.random.choose(-1, 1)
+        data[i + _is_stale_offset] = FALSE
 
         assert(#data - i == _stride - 1)
 
@@ -228,8 +257,9 @@ function ow.AirDashNodeParticleEffect:_update_batch(batch, delta)
     end
 
     local data = batch.particle_data
-    for particle_i = 1, batch.current_n_particles do
+    for particle_i = 1, batch.start_n_particles do
         local i = _particle_i_to_data_offset(particle_i)
+        if data[i + _is_stale_offset] == TRUE then goto continue end
 
         local lifetime = data[i + _lifetime_offset]
         local lifetime_elapsed = data[i + _lifetime_elapsed_offset] + delta
@@ -240,7 +270,10 @@ function ow.AirDashNodeParticleEffect:_update_batch(batch, delta)
         data[i + _color_a_offset] = alpha
 
         if lifetime_t >= 1 then
-            table.insert(to_remove, 1, particle_i)
+            data[i + _is_stale_offset] = TRUE
+            batch.current_n_particles = batch.current_n_particles - 1
+            _n_particles = _n_particles - 1
+            goto continue
         end
 
         --data[i + _radius_factor_offset] = 1 + rt.InterpolationFunctions.SINUSOID_EASE_IN(lifetime_t)
@@ -269,15 +302,6 @@ function ow.AirDashNodeParticleEffect:_update_batch(batch, delta)
         ::continue::
     end
 
-    for i in values(to_remove) do
-        local offset = _particle_i_to_data_offset(i)
-        for _ = 1, _stride do
-            table.remove(batch.particle_data, offset)
-        end
-        batch.current_n_particles = batch.current_n_particles - 1
-        _n_particles = _n_particles - 1
-    end
-
     return n_updated == 0
 end
 
@@ -291,25 +315,27 @@ function ow.AirDashNodeParticleEffect:_draw_batch(batch, is_bloom)
     local texture_r = self._particle_texture:get_width() -- is square
 
     local data = batch.particle_data
-    for particle_i = 1, batch.current_n_particles do
+    for particle_i = 1, batch.start_n_particles do
         local i = _particle_i_to_data_offset(particle_i)
-        local radius = data[i + _radius_offset] * data[i + _radius_factor_offset]
-        if radius > 1 then
-            local alpha = data[i + _color_a_offset]
-            love.graphics.setColor(
-                alpha * data[i + _color_r_offset],
-                alpha * data[i + _color_g_offset],
-                alpha * data[i + _color_b_offset],
-                data[i + _color_a_offset]
-            )
+        if data[i + _is_stale_offset] ~= TRUE then
+            local radius = data[i + _radius_offset] * data[i + _radius_factor_offset]
+            if radius > 1 then
+                local alpha = data[i + _color_a_offset]
+                love.graphics.setColor(
+                    alpha * data[i + _color_r_offset],
+                    alpha * data[i + _color_g_offset],
+                    alpha * data[i + _color_b_offset],
+                    data[i + _color_a_offset]
+                )
 
-            local scale = radius / texture_r
-            love.graphics.draw(native,
-                data[i + _position_x_offset], data[i + _position_y_offset],
-                0,
-                scale, scale,
-                0.5 * texture_r, 0.5 * texture_r
-            )
+                local scale = radius / texture_r
+                love.graphics.draw(native,
+                    data[i + _position_x_offset], data[i + _position_y_offset],
+                    0,
+                    scale, scale,
+                    0.5 * texture_r, 0.5 * texture_r
+                )
+            end
         end
     end
 
@@ -320,16 +346,18 @@ end
 function ow.AirDashNodeParticleEffect:collect_point_lights(callback)
     for batch in values(self._batches) do
         local data = batch.particle_data
-        for particle_i = 1, batch.current_n_particles do
+        for particle_i = 1, batch.start_n_particles do
             local i = _particle_i_to_data_offset(particle_i)
-            callback(
-                data[i + _position_x_offset], data[i + _position_y_offset],
-                data[i + _radius_offset] * data[i + _radius_factor_offset],
-                data[i + _color_r_offset],
-                data[i + _color_g_offset],
-                data[i + _color_b_offset],
-                data[i + _color_a_offset]
-            )
+            if data[i + _is_stale_offset] ~= TRUE then
+                callback(
+                    data[i + _position_x_offset], data[i + _position_y_offset],
+                    data[i + _radius_offset] * data[i + _radius_factor_offset],
+                    data[i + _color_r_offset],
+                    data[i + _color_g_offset],
+                    data[i + _color_b_offset],
+                    data[i + _color_a_offset]
+                )
+            end
         end
     end
 end
