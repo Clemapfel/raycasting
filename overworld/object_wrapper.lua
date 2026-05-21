@@ -211,7 +211,6 @@ local function _process_polygon(vertices, object)
 end
 
 --- @brief [internal]
---- @brief [internal]
 function ow.ObjectWrapper:_initialize_physics_prototypes()
     if self.physics_prototypes_initialized == true then return end
 
@@ -621,6 +620,10 @@ local _valid_types = {
     [ow.Integer] = true
 }
 
+for instance in values(meta.instances(ow.ObjectType)) do
+    _valid_types[instance] = true
+end
+
 local _default_schema = {
     render_priority = ow.Integer,
     is_visible = ow.Boolean
@@ -660,6 +663,10 @@ function ow.ObjectWrapper:validate_schema(schema)
                     is_valid = is_valid and meta.is_number(value) and math.equals(math.fract(math.abs(value)), 0)
                 elseif type == ow.Object then
                     is_valid = is_valid and meta.is_table(value)
+                elseif meta.is_enum_value(type, ow.ObjectType) then
+                    is_valid = is_valid and meta.is_table(value)
+                        and meta.is_function(value.get_type)
+                        and value:get_type() == type
                 end
 
                 if not is_valid then

@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 175,
+  nextobjectid = 243,
   properties = {
     ["background_id"] = "\"nebula\""
   },
@@ -205,8 +205,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = 1554.18,
-          y = -57.3605,
+          x = -1568.66,
+          y = 2377.14,
           width = 0,
           height = 0,
           rotation = 0,
@@ -727,8 +727,8 @@ return {
           name = "",
           type = "CameraFit",
           shape = "polygon",
-          x = 1408,
-          y = -1488,
+          x = 1823.87,
+          y = -3810.12,
           width = 0,
           height = 0,
           rotation = 0,
@@ -789,8 +789,8 @@ return {
           name = "",
           type = "SlipperyHitbox",
           shape = "polygon",
-          x = 1008,
-          y = -752,
+          x = 1005.6,
+          y = -819.308,
           width = 0,
           height = 0,
           rotation = 0,
@@ -843,19 +843,6 @@ return {
           properties = {}
         },
         {
-          id = 173,
-          name = "",
-          type = "AirDashNode",
-          shape = "ellipse",
-          x = 2224,
-          y = -1168,
-          width = 224,
-          height = 224,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
           id = 174,
           name = "",
           type = "BoostField",
@@ -876,6 +863,554 @@ return {
             ["axis_y"] = -1,
             ["render_priority"] = -1
           }
+        },
+        {
+          id = 178,
+          name = "",
+          type = "",
+          shape = "polygon",
+          x = -1700.47,
+          y = 2416,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 2138.63, y = 0 },
+            { x = 2138.63, y = 64 },
+            { x = 0, y = 64 }
+          },
+          properties = {}
+        },
+        {
+          id = 191,
+          name = "",
+          type = "AirDashNode",
+          shape = "point",
+          x = -1284.63,
+          y = 2211.56,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["angle_range"] = 0,
+            ["other"] = { id = 192 }
+          }
+        },
+        {
+          id = 192,
+          name = "",
+          type = "AirDashNodeDirection",
+          shape = "point",
+          x = -1214.41,
+          y = 2071.11,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["angle_range"] = 0
+          }
+        },
+        {
+          id = 193,
+          name = "",
+          type = "AirDashNode",
+          shape = "point",
+          x = -1214.41,
+          y = 2071.11,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["angle_range"] = 0,
+            ["other"] = { id = 194 }
+          }
+        },
+        {
+          id = 194,
+          name = "",
+          type = "AirDashNodeDirection",
+          shape = "point",
+          x = -1027.15,
+          y = 2071.11,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["angle_range"] = 0
+          }
+        },
+        {
+          id = 195,
+          name = "",
+          type = "AirDashNode",
+          shape = "point",
+          x = -769.667,
+          y = 2352,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["angle_range"] = 0,
+            ["other"] = { id = 196 }
+          }
+        },
+        {
+          id = 196,
+          name = "",
+          type = "AirDashNodeDirection",
+          shape = "point",
+          x = -676.037,
+          y = 2071.11,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["angle_range"] = 0
+          }
+        },
+        {
+          id = 197,
+          name = "",
+          type = "AirDashNode",
+          shape = "point",
+          x = -863.297,
+          y = 2071.11,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["angle_range"] = 0,
+            ["other"] = { id = 198 }
+          }
+        },
+        {
+          id = 198,
+          name = "",
+          type = "AirDashNodeDirection",
+          shape = "point",
+          x = -769.667,
+          y = 2352,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["angle_range"] = 0
+          }
+        },
+        {
+          id = 199,
+          name = "",
+          type = "AirDashNode",
+          shape = "point",
+          x = -1027.15,
+          y = 2071.11,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["angle_range"] = 0,
+            ["other"] = { id = 200 }
+          }
+        },
+        {
+          id = 200,
+          name = "",
+          type = "AirDashNodeDirection",
+          shape = "point",
+          x = -956.926,
+          y = 2211.56,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["angle_range"] = 0
+          }
+        },
+        {
+          id = 201,
+          name = "",
+          type = "AirDashNode",
+          shape = "point",
+          x = -1027.15,
+          y = 2352,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["angle_range"] = 0,
+            ["other"] = { id = 202 }
+          }
+        },
+        {
+          id = 202,
+          name = "",
+          type = "AirDashNodeDirection",
+          shape = "point",
+          x = -1214.41,
+          y = 2352,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["angle_range"] = 0
+          }
+        },
+        {
+          id = 203,
+          name = "",
+          type = "AirDashNode",
+          shape = "point",
+          x = -1214.41,
+          y = 2352,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["angle_range"] = 0,
+            ["other"] = { id = 204 }
+          }
+        },
+        {
+          id = 204,
+          name = "",
+          type = "AirDashNodeDirection",
+          shape = "point",
+          x = -1284.63,
+          y = 2211.56,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["angle_range"] = 0
+          }
+        },
+        {
+          id = 205,
+          name = "",
+          type = "AirDashNode",
+          shape = "point",
+          x = -559,
+          y = 2352,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["angle_range"] = 0,
+            ["other"] = { id = 206 }
+          }
+        },
+        {
+          id = 206,
+          name = "",
+          type = "AirDashNodeDirection",
+          shape = "point",
+          x = -465.371,
+          y = 2071.11,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["angle_range"] = 0
+          }
+        },
+        {
+          id = 207,
+          name = "",
+          type = "AirDashNode",
+          shape = "point",
+          x = -676.037,
+          y = 2071.11,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["angle_range"] = 0,
+            ["other"] = { id = 208 }
+          }
+        },
+        {
+          id = 208,
+          name = "",
+          type = "AirDashNodeDirection",
+          shape = "point",
+          x = -559,
+          y = 2352,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["angle_range"] = 0
+          }
+        },
+        {
+          id = 219,
+          name = "",
+          type = "AirDashNode",
+          shape = "point",
+          x = -956.926,
+          y = 2211.56,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["angle_range"] = 0,
+            ["other"] = { id = 220 }
+          }
+        },
+        {
+          id = 220,
+          name = "",
+          type = "AirDashNodeDirection",
+          shape = "point",
+          x = -1027.15,
+          y = 2352,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["angle_range"] = 0
+          }
+        },
+        {
+          id = 223,
+          name = "",
+          type = "AirDashNode",
+          shape = "point",
+          x = -348.334,
+          y = 2211.56,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["angle_range"] = 0,
+            ["other"] = { id = 224 }
+          }
+        },
+        {
+          id = 224,
+          name = "",
+          type = "AirDashNodeDirection",
+          shape = "point",
+          x = -278.111,
+          y = 2071.11,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["angle_range"] = 0
+          }
+        },
+        {
+          id = 225,
+          name = "",
+          type = "AirDashNode",
+          shape = "point",
+          x = -278.111,
+          y = 2071.11,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["angle_range"] = 0,
+            ["other"] = { id = 226 }
+          }
+        },
+        {
+          id = 226,
+          name = "",
+          type = "AirDashNodeDirection",
+          shape = "point",
+          x = -90.8519,
+          y = 2071.11,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["angle_range"] = 0
+          }
+        },
+        {
+          id = 227,
+          name = "",
+          type = "AirDashNode",
+          shape = "point",
+          x = -90.8519,
+          y = 2071.11,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["angle_range"] = 0,
+            ["other"] = { id = 228 }
+          }
+        },
+        {
+          id = 228,
+          name = "",
+          type = "AirDashNodeDirection",
+          shape = "point",
+          x = -20.6296,
+          y = 2211.56,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["angle_range"] = 0
+          }
+        },
+        {
+          id = 229,
+          name = "",
+          type = "AirDashNode",
+          shape = "point",
+          x = -90.8519,
+          y = 2352,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["angle_range"] = 0,
+            ["other"] = { id = 230 }
+          }
+        },
+        {
+          id = 230,
+          name = "",
+          type = "AirDashNodeDirection",
+          shape = "point",
+          x = -278.111,
+          y = 2352,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["angle_range"] = 0
+          }
+        },
+        {
+          id = 231,
+          name = "",
+          type = "AirDashNode",
+          shape = "point",
+          x = -278.111,
+          y = 2352,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["angle_range"] = 0,
+            ["other"] = { id = 232 }
+          }
+        },
+        {
+          id = 232,
+          name = "",
+          type = "AirDashNodeDirection",
+          shape = "point",
+          x = -348.334,
+          y = 2211.56,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["angle_range"] = 0
+          }
+        },
+        {
+          id = 233,
+          name = "",
+          type = "AirDashNode",
+          shape = "point",
+          x = -20.6296,
+          y = 2211.56,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["angle_range"] = 0,
+            ["other"] = { id = 234 }
+          }
+        },
+        {
+          id = 234,
+          name = "",
+          type = "AirDashNodeDirection",
+          shape = "point",
+          x = -90.8519,
+          y = 2352,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["angle_range"] = 0
+          }
+        },
+        {
+          id = 240,
+          name = "",
+          type = "Wall",
+          shape = "polygon",
+          x = -1488,
+          y = 2416,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = false,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 0, y = -688 },
+            { x = 1648, y = -688 },
+            { x = 1648, y = 544 },
+            { x = 0, y = 544 }
+          },
+          properties = {}
+        },
+        {
+          id = 241,
+          name = "",
+          type = "CameraFit",
+          shape = "rectangle",
+          x = -1408,
+          y = 1808,
+          width = 1504,
+          height = 816,
+          rotation = 0,
+          visible = false,
+          properties = {}
         }
       }
     },

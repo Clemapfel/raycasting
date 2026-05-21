@@ -32,6 +32,7 @@ function ow.AirDashNodeManager:instantiate(scene, stage)
     self._next_node = nil -- if player initiates tether and is in range, this is the target
     self._recommended_node = nil -- this is the next recommended next_node
     self._tethered_node = nil -- bound node, player actively dashing
+    self._last_tethered_timestamp = -math.huge
 
     self._tether_path = nil -- rt.Path
     self._tether_dx, self._tether_dy = 0, 0 -- direction
@@ -319,7 +320,9 @@ function ow.AirDashNodeManager:update(delta)
     -- find best active entry
     local best_entry = nil
     for _, entry in ipairs(entries) do
-        if entry.distance < entry.node:get_radius() + pr then
+        if entry.distance < entry.node:get_radius() + 2 * pr
+            and not entry.node:get_is_on_cooldown()
+        then
             best_entry = entry
             break
         end
@@ -351,8 +354,22 @@ function ow.AirDashNodeManager:update(delta)
         self._next_node = best_entry.node
         self._next_node:set_is_current(true)
 
-        if self._next_node ~= before then
-            before_node = before
+        -- if overlapping mid dash, allow chaining by holding JUMP
+        if (love.timer.getTime() - self._last_tethered_timestamp) < rt.settings.overworld.air_dash_node_manager.jump_buffer_duration
+            and self._input:get_is_down(rt.InputAction.JUMP)
+            and not self._next_node:get_is_on_cooldown()
+            and self._next_node:check_player_overlap()
+        then
+            local tether = true
+            if self._tethered_node ~= nil then
+                local _, _, t = self._tether_path:get_closest_point(px, py)
+                local t_cutoff = (self._tether_path:get_length() - 2 * pr) / self._tether_path:get_length()
+                tether = t > t_cutoff and self._tethered_node ~= self._next_node
+            end
+
+            if tether then
+                self:_tether(self._next_node)
+            end
         end
 
         self._recommended_node = self._next_node
@@ -372,9 +389,8 @@ function ow.AirDashNodeManager:update(delta)
 
     -- buffered jump: before passing
     local is_overlapping = self._next_node ~= nil and self._next_node:check_player_overlap()
-    if rt.GameState:get_is_input_buffering_enabled() and self._next_node ~= nil then
+    if self._tethered_node == nil and rt.GameState:get_is_input_buffering_enabled() and self._next_node ~= nil then
         if is_overlapping
-            and self._tethered_node == nil
             and self._input:get_is_down(rt.InputAction.JUMP)
             and self._jump_buffer_elapsed < rt.settings.overworld.air_dash_node_manager.jump_buffer_duration
         then
@@ -394,6 +410,10 @@ function ow.AirDashNodeManager:update(delta)
 
     if self._recommended_node ~= nil then
         self._recommended_node:set_is_outline_visible(true)
+    end
+
+    if self._tethered_node ~= nil then
+        self._last_tethered_timestamp = love.timer.getTime()
     end
 
     -- disable double jump while in range

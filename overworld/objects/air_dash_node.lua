@@ -20,12 +20,20 @@ rt.settings.overworld.air_dash_node = {
     line_collision_player_radius_factor = 2
 }
 
-local schema = {
+local circle_schema = {
+    angle_range = ow.Number, -- angle range
+    angle = ow.Number,
+    direction = ow.ObjectType.POINT,
     axis_x = ow.Number,
     axis_y = ow.Number,
+    velocity = ow.Number -- factor
+}
+
+local point_schema = {
+    other = ow.ObjectType.POINT,
+    angle_range = ow.Number,
     angle = ow.Number,
-    direction = ow.Object,
-    velocity = ow.Number,
+    velocity = ow.Number
 }
 
 --- @class AirDashNode
@@ -52,9 +60,14 @@ end
 
 --- @brief
 function ow.AirDashNode:instantiate(object, stage, scene)
-    object:validate_schema(schema)
 
-    rt.assert(object:get_type() == ow.ObjectType.ELLIPSE and math.equals(object.x_radius, object.y_radius), "In ow.AirDashNode: object `" .. object:get_id() .. "` is not a circle")
+    if (object:get_type() == ow.ObjectType.POINT) then
+        rt.assert(object:get_object("other", true):get_type() == ow.ObjectType.POINT)
+        object:validate_schema(point_schema)
+    else
+        rt.assert(object:get_type() == ow.ObjectType.ELLIPSE and math.equals(object.x_radius, object.y_radius), "In ow.AirDashNode: object `" .. object:get_id() .. "` is not a circle")
+        object:validate_schema(circle_schema)
+    end
 
     if stage.air_dash_node_manager_is_first == true then
         self._is_handler_proxy = true
@@ -62,30 +75,16 @@ function ow.AirDashNode:instantiate(object, stage, scene)
         self._is_handler_proxy = false
     end
 
-    local x, y = object:get_centroid()
     self._indicator, self._indicator_data = nil, nil
-    self._radius = object.x_radius
 
     self._scene = scene
     self._stage = stage
-
-    -- dummy collision, for camera queries
-    self._body = b2.Body(
-        stage:get_physics_world(),
-        object:get_physics_body_type(),
-        x, y,
-        b2.Circle(0, 0, self._radius)
-    )
-
-    self._body:set_collides_with(0x0)
-    self._body:set_collision_group(0x0)
-    self._body:add_tag("point_light_source", "segment_light_source")
-    self._body:set_user_data(self)
 
     self._is_current = false -- if the player initiates tether, this is the target
     self._is_tethered = false -- player is currently tethered
 
     self._cooldown_elapsed = math.huge
+    self._cooldown_blocked = false
 
     -- graphics
     self._is_current_motion = rt.SmoothedMotion1D(0)
@@ -106,45 +105,72 @@ function ow.AirDashNode:instantiate(object, stage, scene)
     self._particle = ow.AirDashNodeParticle(rt.settings.player.radius * rt.settings.overworld.double_jump_tether.radius_factor)
     self._particles = ow.AirDashNodeParticleEffect()
 
-    local direction = object:get_object("direction", false)
-    local angle_range = object:get_number("angle", false)
+    local mid, angle_range, x, y
+    if object:get_type() == ow.ObjectType.POINT then
+        local other = object:get_object("other", true)
+        local start_x, start_y = object.x, object.y
+        local end_x, end_y = other.x, other.y
 
-    if angle_range == nil then
-        if direction ~= nil then
-            angle_range = 0
+        x, y = math.mix2(start_x, start_y, end_x, end_y, 0.5)
+        angle_range = object:get_number("angle_range", false) or object:get_number("angle", false) or 0
+        mid = math.angle(end_x - start_x, end_y - start_y)
+        self._radius = 0.5 * math.distance(start_x, start_y, end_x, end_y)
+    else
+        x, y = object:get_centroid()
+        self._radius = object.x_radius
+
+        local direction = object:get_object("direction", false)
+        angle_range = object:get_number("angle_range", false) or object:get_number("angle", false)
+
+        if angle_range == nil then
+            if direction ~= nil then
+                angle_range = 0
+            else
+                angle_range = 0.5 * math.pi
+            end
         else
-            angle_range = 0.5 * math.pi
-        end
-    else
-        rt.assert(angle_range >= 0 and angle_range <= 1, "In ow.AirDashNode: `angle` property should be a number in [0, 1], got `", angle_range, "`")
-        angle_range = angle_range * 0.5 * math.pi
-    end
-
-    local axis_x = object:get_number("axis_x", false)
-    local axis_y = object:get_number("axis_y", false)
-
-    local mid
-    if direction == nil then
-        mid = math.angle(axis_x or 0, axis_y or 0)
-    else
-        local start_x, start_y = self._body:get_center_of_mass()
-        local end_x, end_y = direction.x, direction.y
-        mid = math.normalize_angle(math.angle(end_x - start_x, end_y - start_y))
-    end
-
-    if angle_range ~= nil and angle_range < 0.5 * math.pi then
-        if direction == nil and axis_x == nil and axis_y == nil then
-            rt.error("In rt.AirDashNode: object `", object:get_id(), "` has property `angle` specified, but property `direction`, or `axis_x` `axis_y` are not specified")
-        end
-    end
-
-    if axis_x ~= nil and axis_y ~= nil then
-        if axis_x == 0 and axis_y == 0 then
-            rt.error("In rt.AirDashNode: object `", object:get_id(), "` has `axis_x`, and `axis_y` specified, but both values are 0")
+            rt.assert(angle_range >= 0 and angle_range <= 1, "In ow.AirDashNode: `angle` property should be a number in [0, 1], got `", angle_range, "`")
+            angle_range = angle_range * 0.5 * math.pi
         end
 
-        axis_x, axis_y = math.normalize(axis_x, axis_y)
+        local axis_x = object:get_number("axis_x", false)
+        local axis_y = object:get_number("axis_y", false)
+
+        if direction == nil then
+            mid = math.angle(axis_x or 0, axis_y or 0)
+        else
+            local start_x, start_y = x, y
+            local end_x, end_y = direction.x, direction.y
+            mid = math.normalize_angle(math.angle(end_x - start_x, end_y - start_y))
+        end
+
+        if angle_range ~= nil and angle_range < 0.5 * math.pi then
+            if direction == nil and axis_x == nil and axis_y == nil then
+                rt.error("In rt.AirDashNode: object `", object:get_id(), "` has property `angle` specified, but property `direction`, or `axis_x` `axis_y` are not specified")
+            end
+        end
+
+        if axis_x ~= nil and axis_y ~= nil then
+            if axis_x == 0 and axis_y == 0 then
+                rt.error("In rt.AirDashNode: object `", object:get_id(), "` has `axis_x`, and `axis_y` specified, but both values are 0")
+            end
+
+            axis_x, axis_y = math.normalize(axis_x, axis_y)
+        end
     end
+
+    -- dummy collision, for camera queries
+    self._body = b2.Body(
+        stage:get_physics_world(),
+        object:get_physics_body_type(),
+        x, y,
+        b2.Circle(0, 0, self._radius)
+    )
+
+    self._body:set_collides_with(0x0)
+    self._body:set_collision_group(0x0)
+    self._body:add_tag("point_light_source", "segment_light_source")
+    self._body:set_user_data(self)
 
     self._velocity = object:get_number("velocity", false) or 1
 
@@ -169,17 +195,20 @@ function ow.AirDashNode:instantiate(object, stage, scene)
     local center_x, center_y = 0, 0
     local radius = self._radius
 
-    if direction == nil or angle_range >= 0.5 * math.pi then
+    if angle_range >= 0.5 * math.pi then
+        -- full circle
         for i = 1, n_vertices + 1 do
             local t = ((i - 1) / n_vertices) * 2 * math.pi
             table.insert(self._outline_vertices, center_x + math.cos(t) * radius)
             table.insert(self._outline_vertices, center_y + math.sin(t) * radius)
         end
     elseif angle_range == 0 then
+        -- line
         self._outline_vertices = {
             center_x, center_y, center_x, center_y
         }
     else
+        -- bowtie
         do
             local start_angle, end_angle = self._angle_ranges[1][1], self._angle_ranges[1][2]
             local span = math.abs(start_angle - end_angle)
@@ -227,7 +256,7 @@ function ow.AirDashNode:instantiate(object, stage, scene)
             })
         end
 
-        if direction == nil or angle_range >= 0.5 * math.pi then
+        if angle_range >= 0.5 * math.pi then
             add_vertex(glow_data, x, y, 0, 0, 0, 1, 1)
             local n_outer_vertices = math.ceil(0.5 * self._radius)
             for i = 1, n_outer_vertices do
@@ -330,6 +359,7 @@ function ow.AirDashNode:set_is_tethered(b)
 
     if b == false then
         self._cooldown_elapsed = 0
+        self._cooldown_blocked = true -- wait until leaving before starting to come off cooldown
     end
 
     if before == false and b == true then
@@ -380,7 +410,13 @@ end
 function ow.AirDashNode:update(delta)
     if self._is_handler_proxy == true then self._stage.air_dash_node_manager:update(delta) end
 
-    if not self._is_tethered then
+    if self._cooldown_blocked == true then
+        if not self:check_player_overlap() then
+            self._cooldown_blocked = false
+        end
+    end
+
+    if not self._is_tethered and not self._cooldown_blocked then
         self._cooldown_elapsed = self._cooldown_elapsed + delta
     end
 
