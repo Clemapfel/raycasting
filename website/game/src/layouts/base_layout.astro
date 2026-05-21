@@ -7,6 +7,8 @@ import {
 	DEFAULT_COLOR_MUTED,
 	DEFAULT_COLOR_EMPHASIZED
 } from "../styles/default.ts";
+
+import "../styles/fonts.css";
 ---
 
 <!doctype html>
@@ -34,8 +36,9 @@ import {
 		default_color_background: DEFAULT_COLOR_BACKGROUND,
 	}}>
 		:root {
-			--default-font: "Cantarelle", "Noto Sans", sans-serif;
-			--default-font-mono: "DejaVu Mono", "Noto Sans Mono", monospace;
+			--default-font-heading: "DejaVu Sans", "Cantarell", sans-serif;
+			--default-font: "Adwaita Sans", "Noto Sans", sans-serif;
+			--default-font-mono: "DejaVu Sans Mono", "Noto Sans Mono", monospace;
 			--default-color-primary: var(--default_color_primary);
 			--default-color-secondary: var(--default_color_secondary);
 			--default-color-foreground: var(--default_color_foreground);
@@ -45,7 +48,7 @@ import {
 			--default-content-width: 66.6666vw;
 			--default-frame-thickness: 6px;
 
-			background: black;
+			background: transparent;
 		}
 	</style>
 </head>

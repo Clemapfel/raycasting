@@ -1,23 +1,54 @@
 ---
-import { getEntry, getCollection } from "astro:content";
+import Orb from "../components/orb.astro";
+
+// generate lch step keyframes
+const n_steps = 36;
+const lightness = "80%"
+const chroma = "100"
+const keyframes = Array.from({ length: n_steps + 1 }, (_, i) => {
+    const percentage = ((i / n_steps) * 100).toFixed(2);
+    const hue = i * (360 / n_steps);
+    return `${percentage}% { color: lch(${lightness} ${chroma} ${hue}deg); }`;
+}).join("\n");
 ---
 
-<style>
-    .markdown-container {
-        max-width: var(--default-content-width, 100%);
-        margin-inline: auto;
-        box-sizing: border-box;
-        display: block;
+<style is:inline set:html={`
+    @keyframes hue_cycle {
+        ${keyframes}
     }
-
-    .frame-wrapper {
-        position: relative;
-        display: inline-block;
-        width: 100%;
-    }
+`}>
 </style>
 
-<div class="markdown-container">
-    <div class="frame-wrapper">
-    </div>
+<style>
+    :root {
+        --hue-cycle-duration: 10s;
+    }
+
+    .header-layout {
+        display: flex;
+    }
+
+    .header-layout a {
+        font-size: 48px;
+        font-family: "DejaVu Sans", sans-serif;
+        font-weight: bold;
+        margin: 0 0 20px 20px;
+        text-decoration: none;
+        animation: hue_cycle var(--hue-cycle-duration) linear infinite;
+    }
+
+    .header-layout a:nth-child(1) { animation-delay: calc(var(--hue-cycle-duration) * -0 / 5); }
+    .header-layout a:nth-child(2) { animation-delay: calc(var(--hue-cycle-duration) * -1 / 5); }
+    .header-layout a:nth-child(3) { animation-delay: calc(var(--hue-cycle-duration) * -2 / 5); }
+    .header-layout a:nth-child(4) { animation-delay: calc(var(--hue-cycle-duration) * -3 / 5); }
+    .header-layout a:nth-child(5) { animation-delay: calc(var(--hue-cycle-duration) * -4 / 5); }
+</style>
+
+<div class="header-layout">
+    <Orb />
+    <a href="./home">Home</a>
+    <a href="./about">About</a>
+    <a href="./contact">Contact</a>
+    <a href="./blog">Blog</a>
+    <a href="./about">Portfolio</a>
 </div>

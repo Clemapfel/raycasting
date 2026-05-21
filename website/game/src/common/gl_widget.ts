@@ -57,6 +57,9 @@ export abstract class GLWidget extends HTMLElement {
                     height = entry.contentRect.height * dpr;
                 }
 
+                if (this.context && this.context.isValid())
+                    this.context.gl!.viewport(0, 0, width, height);
+
                 // resize internal canvas
                 this.native_canvas.width = width;
                 this.native_canvas.height = height;

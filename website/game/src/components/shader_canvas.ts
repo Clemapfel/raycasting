@@ -31,14 +31,14 @@ export class ShaderCanvas extends GLWidget {
         this.quad = new Mesh(
             this.context,
             new Float32Array([
-                0, 0,           0, 0,
-                width, 0,       1, 0,
-                width, height,  1, 1,
-                0, height,      0, 1
+                0, 0,           0, 0,   1, 1, 1, 1,
+                width, 0,       1, 0,   1, 1, 1, 1,
+                width, height,  1, 1,   1, 1, 1, 1,
+                0, height,      0, 1,    1, 1, 1, 1
             ]),
             new Uint16Array([ 0, 1, 2, 0, 2, 3 ]),
             MeshDrawMode.TRIANGLES,
-            MeshVertexFormat.XY_UV
+            MeshVertexFormat.XY_UV_RGBA
         )
     }
 

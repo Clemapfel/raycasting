@@ -21,11 +21,12 @@ import {Vec2} from "../common/vector.ts";
 
 const particle_texture_path = "/orb_particle_texture.png"
 
-const n_particles = 128;
+const n_particles = 128 + 64;
 const n_sub_steps = 3;
 const n_constraint_iterations = 2;
 const step_delta = 1 / 60;
-const gravity = 2000;
+const max_n_steps = 4;
+const gravity = 3000;
 const gravity_dxy = new Vec2(0, -1).normalize();
 const swirl_strength = gravity * 0.25;
 const collision_compliance = 0.0001;
@@ -34,7 +35,7 @@ const damping = 0.95;
 const max_agitation = 4;
 const agitation_duration = 3;
 
-const texture_scale = 5;
+const texture_scale = 5.5;
 const threshold = 0.1;
 const eps = 0.005;
 const blend_strength = 1;
@@ -67,7 +68,7 @@ const mesh_vertex_data_stride = 4 * (2 + 2 + 4); // four vertices (xy uv rgba)
 const index_data_stride = 6; // two tris
 const particle_stride = a_offset + 1;
 
-const particle_texture_resolution = 128;
+const particle_texture_resolution = 256;
 const particle_texture_shader_source = `${DEFAULT_SHADER_VERSION}
     ${DEFAULT_FLOAT_PRECISION}
 
@@ -133,7 +134,7 @@ const canvas_threshold_shader_source = `${DEFAULT_SHADER_VERSION}
         float gradient_x = -tl + tr - 2.0 * ml + 2.0 * mr - bl + br;
         float gradient_y = -tl - 2.0 * tm - tr + bl + 2.0 * bm + br;
 
-        const float gradient_influence = 0.5;
+        const float gradient_influence = 0.25;
         vec3 surface_normal = gradient_influence * normalize(vec3(-gradient_x, -gradient_y, 1.0));
 
         vec3 specular_light_direction = normalize(vec3(1.0, -1.0, 1.0));
@@ -144,7 +145,6 @@ const canvas_threshold_shader_source = `${DEFAULT_SHADER_VERSION}
         const float highlight_strength = 1.0;
         float specular = highlight_strength * pow(max(dot(surface_normal, half_dir), 0.0), specular_focus);
 
-        // Shadow logic
         vec3 shadow_light_direction = normalize(vec3(-0.5, 0.75, 0.0));
         const float shadow_strength = 1.0;
         float shadow = dot(surface_normal, shadow_light_direction);
@@ -156,7 +156,7 @@ const canvas_threshold_shader_source = `${DEFAULT_SHADER_VERSION}
     }
     `;
 
-const default_shader_source = `${DEFAULT_SHADER_VERSION}
+const glass_shader_source = `${DEFAULT_SHADER_VERSION}
     ${DEFAULT_FLOAT_PRECISION}
     
     uniform sampler2D ${DEFAULT_TEXTURE_UNIFORM_NAME};
@@ -203,7 +203,7 @@ export class Orb extends GLWidget  {
     private particle_mesh_vertex_data : Float32Array;
     private particle_mesh_index_data : Uint16Array;
 
-    private stencil_mesh? : Mesh;
+    private circle_mesh? : Mesh;
 
     private orb_radius : number = 0;
     private orb_center_x : number = 0;
@@ -218,7 +218,7 @@ export class Orb extends GLWidget  {
         if (this.was_freed
             || this.canvas === undefined
             || this.canvas_mesh === undefined
-            || this.stencil_mesh === undefined  // not yet resized
+            || this.circle_mesh === undefined  // not yet resized
             || this.particle_mesh === undefined
         ) return;
 
@@ -257,7 +257,7 @@ export class Orb extends GLWidget  {
         
         const value = 0x1
         this.context.setStencilMode(StencilMode.DRAW, value);
-        this.stencil_mesh!.draw();
+        this.circle_mesh!.draw();
         this.context.setStencilMode(StencilMode.TEST, value);
 
         this.canvas_threshold_shader.bind();
@@ -275,13 +275,20 @@ export class Orb extends GLWidget  {
     protected override update(delta : Time) {
         if (this.is_paused || this.was_freed) return;
         const as_seconds = delta.asSeconds();
-        
-        this.elapsed += as_seconds;
-        this.agitation_elapsed += as_seconds;
         this.delta_accumulator = this.delta_accumulator + delta.asSeconds();
+
+        let n_steps = 0;
         while (this.delta_accumulator >= step_delta) {
+            this.elapsed += step_delta;
+            this.agitation_elapsed += step_delta;
+
             this.step(step_delta);
             this.delta_accumulator -= step_delta;
+            if (++n_steps > max_n_steps) {
+                // in case of spiked delta
+                this.delta_accumulator = 0;
+                break;
+            }
         }
 
         this.update_mesh_data();
@@ -292,6 +299,18 @@ export class Orb extends GLWidget  {
             this.agitation_elapsed = 0;
         else
             this.reformat(this.getWidth(), this.getHeight()); // reinitialize
+    }
+
+    protected override onMouseMoved(event: MouseEvent) {
+        const element = (this as HTMLElement);
+        const rect = element.getBoundingClientRect();
+        const is_in_circle = new Vec2(
+            event.clientX - this.orb_center_x,
+            event.clientY - this.orb_center_y
+        ).magnitude()
+
+        console.log(max_agitation, this.orb_radius)
+        element.style.cursor = is_in_circle < this.orb_radius ? "pointer" : "default";
     }
 
     protected override async realize() {
@@ -326,7 +345,7 @@ export class Orb extends GLWidget  {
         this.canvas = new RenderTexture(this.context, width, height, TextureFormat.R32F);
         this.canvas_mesh = MeshRectangle(this.context, 0, 0, width, height);
 
-        this.stencil_mesh = MeshEllipse(this.context,
+        this.circle_mesh = MeshEllipse(this.context,
             0.5 * width, 0.5 * height, // xy
             0.5 * width, 0.5 * height  // x-radius, y-radius
         )
