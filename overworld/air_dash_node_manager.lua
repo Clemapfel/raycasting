@@ -13,15 +13,31 @@ rt.settings.overworld.air_dash_node_manager = {
     max_player_damping = 1,
 
     tether_path_traversal_velocity = rt.settings.player.air_target_velocity_x * 2,
+    cooldown_tether_t_threshold = 0.5,
 
     stuck_detection_radius = rt.settings.player.radius / 8, -- px
     stuck_detection_duration = 30 / 60, -- seconds
 
     jump_buffer_duration = 20 / 60, -- before and after collision
+    chain_buffer_duration = 5 / 60
 }
 
 --- @class ow.AirDashNodeManager
 ow.AirDashNodeManager = meta.class("AirDashNodeManager")
+
+
+local function _get_side(px, py, line)
+    local x1, y1, x2, y2 = table.unpack(line)
+
+    local dx = x2 - x1
+    local dy = y2 - y1
+
+    local dpx = px - x1
+    local dpy = py - y1
+
+    return math.sign(math.cross(dx, dy, dpx, dpy))
+end
+
 
 --- @brief
 function ow.AirDashNodeManager:instantiate(scene, stage)
@@ -42,9 +58,9 @@ function ow.AirDashNodeManager:instantiate(scene, stage)
     self._t_history = {}
 
     self._input = rt.InputSubscriber(rt.settings.player.input_subscriber_priority + 1)
-    self._input = rt.InputSubscriber()
 
-    self._last_node_and_time = {};
+    self._last_node_and_time = {}
+    self._node_to_cooldown_timestamp = meta.make_weak({})
 
     self._jump_buffer_elapsed = math.huge
     self._input:signal_connect("pressed", function(_, which)
@@ -72,18 +88,19 @@ function ow.AirDashNodeManager:instantiate(scene, stage)
             self._jump_buffer_elapsed = 0
         end
     end)
-end
 
-local function _get_side(px, py, line)
-    local x1, y1, x2, y2 = table.unpack(line)
-
-    local dx = x2 - x1
-    local dy = y2 - y1
-
-    local dpx = px - x1
-    local dpy = py - y1
-
-    return math.sign(math.cross(dx, dy, dpx, dpy))
+    -- on release, disable cooldown for repress
+    self._input:signal_connect("released", function(_, which)
+        if which == rt.InputAction.JUMP then
+            if self._tethered_node ~= nil then
+                local px, py = self._scene:get_player():get_position()
+                if _get_side(px, py, self._tether_exit_sign_line) ~= self._tether_sign then
+                    self._node_to_cooldown_timestamp[self._tethered_node] = nil
+                    self._tethered_node:notify_is_on_cooldown(false)
+                end
+            end
+        end
+    end)
 end
 
 --- @brief
@@ -106,6 +123,8 @@ function ow.AirDashNodeManager:_tether(node)
     if node == nil then return end
 
     self._tethered_node = node
+    self._node_to_cooldown_timestamp[self._tethered_node] = love.timer.getTime()
+    self._tethered_node:notify_is_on_cooldown(true)
 
     local player = self._scene:get_player()
     local player_x, player_y = player:get_position()
@@ -194,6 +213,10 @@ function ow.AirDashNodeManager:update(delta)
     bounds.width = bounds.width + 2 * padding
     bounds.height = bounds.height + 2 * padding
 
+    local get_is_on_cooldown = function(node)
+        return self._node_to_cooldown_timestamp[node] ~= nil
+    end
+
     local player = self._scene:get_player()
     local px, py = player:get_position()
     local pvx, pvy = player:get_velocity()
@@ -274,7 +297,6 @@ function ow.AirDashNodeManager:update(delta)
     end
 
     -- find next candidate
-    if player:get_is_ghost() then goto skip end
 
     local padding = self._max_node_radius
     bounds.x = bounds.x - padding
@@ -292,7 +314,7 @@ function ow.AirDashNodeManager:update(delta)
     local entries = {}
     for body in values(bodies) do
         local node = body:get_user_data()
-        local on_cooldown = node:get_is_on_cooldown()
+        local on_cooldown = get_is_on_cooldown(node)
         if not on_cooldown then
             local node_x, node_y = node:get_position()
             local dx, dy = math.normalize(px - node_x, py - node_y)
@@ -324,7 +346,7 @@ function ow.AirDashNodeManager:update(delta)
     local best_entry = nil
     for _, entry in ipairs(entries) do
         if entry.distance < entry.node:get_radius() + 2 * pr
-            and not entry.node:get_is_on_cooldown()
+            and not get_is_on_cooldown(entry.node)
         then
             best_entry = entry
             break
@@ -337,6 +359,15 @@ function ow.AirDashNodeManager:update(delta)
 
     if self._next_node ~= nil then
         self._next_node:set_is_current(false)
+    end
+
+    local tethered_t = nil
+    if self._tethered_node ~= nil then
+        local tether = true
+        if self._tethered_node ~= nil then
+            local _, _, t = self._tether_path:get_closest_point(px, py)
+            tethered_t = t
+        end
     end
 
     if best_entry == nil then
@@ -356,25 +387,6 @@ function ow.AirDashNodeManager:update(delta)
         local before = self._next_node
         self._next_node = best_entry.node
         self._next_node:set_is_current(true)
-
-        -- if overlapping mid dash, allow chaining by holding JUMP
-        if (love.timer.getTime() - self._last_tethered_timestamp) < rt.settings.overworld.air_dash_node_manager.jump_buffer_duration
-            and self._input:get_is_down(rt.InputAction.JUMP)
-            and not self._next_node:get_is_on_cooldown()
-            and self._next_node:check_player_overlap()
-        then
-            local tether = true
-            if self._tethered_node ~= nil then
-                local _, _, t = self._tether_path:get_closest_point(px, py)
-                local t_cutoff = (self._tether_path:get_length() - 2 * pr) / self._tether_path:get_length()
-                tether = t > t_cutoff and self._tethered_node ~= self._next_node
-            end
-
-            if tether then
-                self:_tether(self._next_node)
-            end
-        end
-
         self._recommended_node = self._next_node
 
         if not player:get_is_grounded() then
@@ -388,6 +400,17 @@ function ow.AirDashNodeManager:update(delta)
         else
             self:_update_damping(1)
         end
+    end
+
+    -- if overlapping mid dash, allow chaining by holding JUMP
+    if self._next_node ~= nil and
+        (love.timer.getTime() - self._last_tethered_timestamp) < rt.settings.overworld.air_dash_node_manager.chain_buffer_duration
+        and self._input:get_is_down(rt.InputAction.JUMP)
+        and self._next_node ~= self._tethered_node
+        and not get_is_on_cooldown(self._next_node)
+        and self._next_node:check_player_overlap()
+    then
+        self:_tether(self._next_node)
     end
 
     -- buffered jump: before passing
@@ -421,7 +444,25 @@ function ow.AirDashNodeManager:update(delta)
 
     -- disable double jump while in range
     player:request_is_double_jump_disabled(self, disable_double_jump)
-    ::skip::
+
+    -- manage cooldown
+    local to_remove = {}
+    for node, time in pairs(self._node_to_cooldown_timestamp) do
+        local is_on_cooldown = true
+
+        if node:check_player_overlap() == false then
+            is_on_cooldown = false
+        end
+
+        if not is_on_cooldown then
+            node:notify_is_on_cooldown(false)
+            table.insert(to_remove, node)
+        end
+    end
+
+    for node in values(to_remove) do
+        self._node_to_cooldown_timestamp[node] = nil
+    end
 end
 
 --- @brief
