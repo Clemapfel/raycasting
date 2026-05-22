@@ -6,7 +6,7 @@ require "overworld.movable_object"
 rt.settings.overworld.air_dash_node = {
     core_radius = 10,
     indicator_length = 30,
-    cooldown = 45 / 60,
+    cooldown = 20 / 60,
     min_opacity = 0.0,
     particle_emit_delay_duration = 5 / 60, -- seconds
 
@@ -350,6 +350,17 @@ function ow.AirDashNode:instantiate(object, stage, scene)
 
     -- global handler
 
+    self._input = rt.InputSubscriber()
+    self._input:signal_connect("released", function(_, which)
+        -- allow repress
+        if which == rt.InputAction.JUMP
+            and self._cooldown_blocked == true
+            and self:check_player_overlap()
+        then
+            self._cooldown_blocked = false
+        end
+    end)
+
     stage.air_dash_node_manager:notify_node_added(self)
 end
 
@@ -644,37 +655,124 @@ function ow.AirDashNode:emit_particles()
     self._queue_emit = true
 end
 
-local function bowtie_overlap(circle_x, circle_y, circle_radius, bowtie_x, bowtie_y, bowtie_radius, mid, span)
-    local delta_x = circle_x - bowtie_x
-    local delta_y = circle_y - bowtie_y
+local function bowtie_overlap(center_x, center_y, radius, mid, angle_range, px, py, pr)
+    local cx, cy, R = center_x, center_y, radius
 
-    local dist_sq = delta_x * delta_x + delta_y * delta_y
-    local outer_radius = bowtie_radius + circle_radius
-    if dist_sq > outer_radius * outer_radius then return false end
-
-    local axis_x = math.cos(mid)
-    local axis_y = math.sin(mid)
-
-    local local_x = axis_x * delta_x + axis_y * delta_y
-    local local_y = axis_x * delta_y - axis_y * delta_x
-
-    local folded_y = math.abs(local_y)
-
-    local half_span = span * 0.5
-    local edge_x = math.cos(half_span)
-    local edge_y = math.sin(half_span)
-
-    if edge_x * folded_y - edge_y * local_x >= 0 then
-        return true
+    -- If the bowtie has no width, it's just the center point (or radii lines),
+    -- but for simplicity we treat it as a single point.
+    if angle_range <= 0 or R <= 0 then
+        local dx = px - cx
+        local dy = py - cy
+        return (dx*dx + dy*dy) <= pr*pr
     end
 
-    local proj = math.max(0, math.min(bowtie_radius, local_x * edge_x + folded_y * edge_y))
-    local closest_x = proj * edge_x
-    local closest_y = proj * edge_y
-    local dx = local_x - closest_x
-    local dy = folded_y - closest_y
+    -- When the sector angle is >= π, the two sectors cover the whole circle.
+    if angle_range >= math.pi then
+        local dx = px - cx
+        local dy = py - cy
+        local dist = math.sqrt(dx*dx + dy*dy)
+        return dist <= R + pr
+    end
 
-    return dx * dx + dy * dy <= circle_radius * circle_radius
+    local half_range = angle_range * 0.5
+
+    local function normalize_angle(a)
+        a = a % (2 * math.pi)
+        if a < 0 then a = a + 2 * math.pi end
+        return a
+    end
+
+    local function is_angle_in_sector(angle, start, span)
+        local diff = normalize_angle(angle - start)
+        return diff <= span + 1e-12
+    end
+
+    local function overlaps_sector(start_angle)
+        local dx = px - cx
+        local dy = py - cy
+        local d = math.sqrt(dx*dx + dy*dy)
+
+        -- Circle contains the center point -> always overlaps
+        if d <= pr then
+            return true
+        end
+
+        -- Circle too far away from the whole circle that contains the sector
+        if d > R + pr then
+            return false
+        end
+
+        local theta_c = math.atan2(dy, dx)
+
+        -- Circle center lies inside the sector
+        if d <= R and is_angle_in_sector(theta_c, start_angle, angle_range) then
+            return true
+        end
+
+        -- Check intersection with the outer arc (the curved boundary)
+        local R_minus_r = math.abs(R - pr)
+        if d >= R_minus_r and d <= R + pr then
+            -- compute the two intersection points of the two circles
+            local a = (R*R - pr*pr + d*d) / (2 * d)
+            local h = math.sqrt(math.max(0, R*R - a*a))
+            local mid_x = cx + (a / d) * dx
+            local mid_y = cy + (a / d) * dy
+            local offset_x = -(dy / d) * h
+            local offset_y =  (dx / d) * h
+
+            local p1x = mid_x + offset_x
+            local p1y = mid_y + offset_y
+            local p2x = mid_x - offset_x
+            local p2y = mid_y - offset_y
+
+            local ang1 = math.atan2(p1y - cy, p1x - cx)
+            local ang2 = math.atan2(p2y - cy, p2x - cx)
+
+            if is_angle_in_sector(ang1, start_angle, angle_range) or
+                is_angle_in_sector(ang2, start_angle, angle_range) then
+                return true
+            end
+        end
+
+        -- Check intersection with the two straight edges of the sector
+        local cos_start, sin_start = math.cos(start_angle), math.sin(start_angle)
+        local end_angle = start_angle + angle_range
+        local cos_end,   sin_end   = math.cos(end_angle), math.sin(end_angle)
+
+        -- Edge 1: from center to (R, start_angle)
+        local Ex1 = cx + R * cos_start
+        local Ey1 = cy + R * sin_start
+        -- Edge 2: from center to (R, end_angle)
+        local Ex2 = cx + R * cos_end
+        local Ey2 = cy + R * sin_end
+
+        -- Test circle vs line segment AB
+        local function segmentIntersect(Ax, Ay, Bx, By)
+            local ABx = Bx - Ax
+            local ABy = By - Ay
+            local ACx = px - Ax
+            local ACy = py - Ay
+            local len2 = ABx*ABx + ABy*ABy
+            local t = (ACx*ABx + ACy*ABy) / len2
+            if t < 0 then t = 0 end
+            if t > 1 then t = 1 end
+            local projx = Ax + t * ABx
+            local projy = Ay + t * ABy
+            local dist2 = (px - projx)^2 + (py - projy)^2
+            return dist2 <= pr*pr + 1e-12
+        end
+
+        if segmentIntersect(cx, cy, Ex1, Ey1) then return true end
+        if segmentIntersect(cx, cy, Ex2, Ey2) then return true end
+
+        return false
+    end
+
+    -- The two opposite sectors
+    local start1 = mid - half_range
+    local start2 = mid + math.pi - half_range
+
+    return overlaps_sector(start1) or overlaps_sector(start2)
 end
 
 local function line_overlap(px, py, radius, ax, ay, bx, by)
@@ -711,12 +809,15 @@ function ow.AirDashNode:check_player_overlap()
         local circle_overlap = math.distance(px, py, x, y) <= (pr + r)
         if self._angle_range >= 0.5 * math.pi then return circle_overlap end
 
-        -- circle bowtie overlap
-        return circle_overlap and bowtie_overlap(
-            px, py, pr,
+        local bowtie = bowtie_overlap(
             x, y, r,
-            mid, span
+            mid, span,
+            px, py, pr
         )
+
+
+        -- circle bowtie overlap
+        return circle_overlap and bowtie
     end
 end
 
