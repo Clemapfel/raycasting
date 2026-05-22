@@ -83,21 +83,37 @@ function rt.MusicManagerPlayback:_copy_to_chunk(data_start_i, chunk_start_i, n_s
         self._data:getSampleCount() - data_start_i
     )
 
-    local sample_size = self._bit_depth / 8  -- bytes per sample
-    local channel_count = self._channel_count
+    if ffi ~= nil then
+        local sample_size = self._bit_depth / 8  -- bytes per sample
+        local channel_count = self._channel_count
 
-    local data_typed = ffi.cast(self._sample_t .. "*", self._data:getFFIPointer())
-    local chunk_typed = ffi.cast(self._sample_t .. "*", self._chunk:getFFIPointer())
+        local data_typed = ffi.cast(self._sample_t .. "*", self._data:getFFIPointer())
+        local chunk_typed = ffi.cast(self._sample_t .. "*", self._chunk:getFFIPointer())
 
-    local source_offset = data_start_i * channel_count
-    local destination_offset = chunk_start_i * channel_count
-    local n_bytes = n_samples * channel_count
+        local source_offset = data_start_i * channel_count
+        local destination_offset = chunk_start_i * channel_count
+        local n_bytes = n_samples * channel_count
 
-    ffi.copy(
-        chunk_typed + destination_offset, -- destination
-        data_typed + source_offset, -- source
-        n_bytes * sample_size -- n bytes to copy
+        ffi.copy(
+            chunk_typed + destination_offset, -- destination
+            data_typed + source_offset, -- source
+            n_bytes * sample_size -- n bytes to copy
+        )
+    else
+        self._chunk = self._data:slice(data_start_i, n_samples)
+    end
+end
+
+function rt.MusicManagerPlayback:_copy_to_chunk(data_start_i, chunk_start_i, n_samples)
+    n_samples = math.min(
+        n_samples,
+        self._chunk:getSampleCount() - chunk_start_i,
+        self._data:getSampleCount() - data_start_i
     )
+
+    if n_samples <= 0 then return end
+    local temp_slice = self._data:slice(data_start_i, n_samples)
+    self._chunk:copyFrom(temp_slice, 0, n_samples, chunk_start_i)
 end
 
 --- @brief

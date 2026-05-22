@@ -6,7 +6,6 @@ require "overworld.movable_object"
 rt.settings.overworld.air_dash_node = {
     core_radius = 10,
     indicator_length = 30,
-    cooldown = 20 / 60,
     min_opacity = 0.0,
     particle_emit_delay_duration = 5 / 60, -- seconds
 
@@ -18,7 +17,10 @@ rt.settings.overworld.air_dash_node = {
 
     n_hue_steps = 16,
     line_collision_player_radius_factor = 2,
-    segment_light_boost = 6
+    segment_light_boost = 6,
+
+    lighting_flash_duration = 30 / 60,
+    cooldown_delay = 10 / 60
 }
 
 local circle_schema = {
@@ -84,8 +86,9 @@ function ow.AirDashNode:instantiate(object, stage, scene)
     self._is_current = false -- if the player initiates tether, this is the target
     self._is_tethered = false -- player is currently tethered
 
-    self._cooldown_elapsed = math.huge
-    self._cooldown_blocked = false
+    self._cooldown_delay_elapsed = math.huge
+    self._lighting_elapsed = math.huge
+    self._is_on_cooldown = false
 
     -- graphics
     self._is_current_motion = rt.SmoothedMotion1D(0)
@@ -349,18 +352,6 @@ function ow.AirDashNode:instantiate(object, stage, scene)
     end
 
     -- global handler
-
-    self._input = rt.InputSubscriber()
-    self._input:signal_connect("released", function(_, which)
-        -- allow repress
-        if which == rt.InputAction.JUMP
-            and self._cooldown_blocked == true
-            and self:check_player_overlap()
-        then
-            self._cooldown_blocked = false
-        end
-    end)
-
     stage.air_dash_node_manager:notify_node_added(self)
 end
 
@@ -368,11 +359,6 @@ end
 function ow.AirDashNode:set_is_tethered(b)
     local before = self._is_tethered
     self._is_tethered = b
-
-    if b == false then
-        self._cooldown_elapsed = 0
-        self._cooldown_blocked = true -- wait until leaving before starting to come off cooldown
-    end
 
     if before == false and b == true then
         self._particle:set_is_exploded(true)
@@ -414,23 +400,16 @@ function ow.AirDashNode:get_body()
 end
 
 --- @brief
-function ow.AirDashNode:get_is_on_cooldown()
-    return self._cooldown_elapsed < rt.settings.overworld.air_dash_node.cooldown
+function ow.AirDashNode:notify_is_on_cooldown(b)
+    if b == false then
+        self._cooldown_delay_elapsed = 0
+    end
+    self._is_on_cooldown = b
 end
 
 --- @brief
 function ow.AirDashNode:update(delta)
     if self._is_handler_proxy == true then self._stage.air_dash_node_manager:update(delta) end
-
-    if self._cooldown_blocked == true then
-        if not self:check_player_overlap() then
-            self._cooldown_blocked = false
-        end
-    end
-
-    if not self._is_tethered and not self._cooldown_blocked then
-        self._cooldown_elapsed = self._cooldown_elapsed + delta
-    end
 
     if self._stage:get_is_body_visible(self._body) then
         if self._queue_emit then
@@ -455,6 +434,9 @@ function ow.AirDashNode:update(delta)
         self._particle:set_aligned(self._is_current, dx, dy, 0)
         self._particles:update(delta)
     end
+
+    self._lighting_elapsed = self._lighting_elapsed + delta
+    self._cooldown_delay_elapsed = self._cooldown_delay_elapsed + delta
 end
 
 local _behind_player_priority = -1
@@ -468,15 +450,7 @@ function ow.AirDashNode:draw(priority)
 
     local r, g, b = self._color:unpack()
 
-    local alpha
-    local cooldown = rt.settings.overworld.air_dash_node.cooldown
-    if self._cooldown_elapsed <= cooldown then
-        alpha = math.sqrt(
-            1 - math.min(1, self._cooldown_elapsed / cooldown)
-        )
-    else
-        alpha = self._is_current_motion:get_value()
-    end
+    local alpha = self._is_current_motion:get_value()
 
     local line_width = rt.settings.overworld.air_dash_node.solid_outline_line_width
     love.graphics.setLineJoin("bevel")
@@ -512,7 +486,7 @@ function ow.AirDashNode:draw(priority)
 
             love.graphics.line(self._outline_vertices)
         end
-    elseif priority == _above_player_priority then
+    elseif priority == _above_player_priority and not self._is_on_cooldown then
         local x, y = 0, 0
         local dx, dy = self:get_direction()
         local ax, ay = x - dx * self._radius, y - dy * self._radius
@@ -535,12 +509,12 @@ function ow.AirDashNode:draw(priority)
 
         love.graphics.setLineWidth(line_width + 1)
 
-        if self._cooldown_elapsed > cooldown and self._angle_range == 0 then
-            alpha = math.max(alpha, 0.5)
-        end
-
         -- hide line so particles stand out better
-        alpha = rt.InterpolationFunctions.BUTTERWORTH_HIGHPASS(1 - self._particles:get_fraction(), 4)
+        if self._cooldown_delay_elapsed < rt.settings.overworld.air_dash_node.cooldown_delay then
+            alpha = self._cooldown_delay_elapsed / rt.settings.overworld.air_dash_node.cooldown_delay
+        else
+            alpha = rt.InterpolationFunctions.BUTTERWORTH_HIGHPASS(1 - self._particles:get_fraction(), 4)
+        end
 
         local darken = 0.25
         local black_r, black_g, black_b = r * darken, g * darken, b * darken
@@ -550,6 +524,10 @@ function ow.AirDashNode:draw(priority)
         love.graphics.setLineWidth(line_width)
         love.graphics.setColor(r, g, b, alpha)
         draw_line()
+    end
+
+    if self:check_player_overlap() then
+        love.graphics.circle("line", 0, 0, self._radius)
     end
 
     love.graphics.pop()
@@ -607,7 +585,7 @@ function ow.AirDashNode:collect_segment_lights(callback)
     callback(
         ax, ay, bx, by,
         self._color.r, self._color.g, self._color.b,
-        self._color.a * (1 + settings.segment_light_boost * (1 - math.min(self._cooldown_elapsed / settings.cooldown)))
+        self._color.a * (1 + settings.segment_light_boost * (1 - math.min(self._lighting_elapsed / settings.lighting_flash_duration)))
     )
 end
 
@@ -618,10 +596,6 @@ end
 
 --- @brief
 function ow.AirDashNode:get_direction()
-    if self._cooldown_elapsed <= rt.settings.overworld.air_dash_node.cooldown then
-        return self._tether_dx, self._tether_dy, false
-    end
-
     local angle = self._angle
     local angle_range = self._angle_range
 
@@ -655,124 +629,78 @@ function ow.AirDashNode:emit_particles()
     self._queue_emit = true
 end
 
-local function bowtie_overlap(center_x, center_y, radius, mid, angle_range, px, py, pr)
-    local cx, cy, R = center_x, center_y, radius
-
-    -- If the bowtie has no width, it's just the center point (or radii lines),
-    -- but for simplicity we treat it as a single point.
-    if angle_range <= 0 or R <= 0 then
-        local dx = px - cx
-        local dy = py - cy
-        return (dx*dx + dy*dy) <= pr*pr
+-- Checks if a circle overlaps a circular sector.
+-- The sector is defined by:
+--   center_x, center_y: center of the sector's circle
+--   radius:            radius of the sector
+--   mid:               bisecting angle (radians)
+--   span:              total angular width (radians), must be >= 0
+-- The circle is defined by:
+--   px, py: center of the circle
+--   pr:     radius of the circle
+-- Returns true if there is any point that belongs to both shapes (boundaries included).
+function circle_overlaps_arc(px, py, pr, center_x, center_y, radius, mid, span)
+    -- 1. Handle angles that form a complete circle
+    local abs_span = math.abs(span)
+    if abs_span >= 2 * math.pi then
+        local dx = px - center_x
+        local dy = py - center_y
+        local r_sum = radius + pr
+        return (dx * dx + dy * dy) <= (r_sum * r_sum)
     end
 
-    -- When the sector angle is >= π, the two sectors cover the whole circle.
-    if angle_range >= math.pi then
-        local dx = px - cx
-        local dy = py - cy
-        local dist = math.sqrt(dx*dx + dy*dy)
-        return dist <= R + pr
+    local half_span = abs_span / 2
+
+    -- 2. Translate point to origin relative to sector center
+    local dx = px - center_x
+    local dy = py - center_y
+
+    -- 3. Rotate point by -mid to align the sector bisector with the +X axis
+    local cos_mid = math.cos(mid)
+    local sin_mid = math.sin(mid)
+    local nx = dx * cos_mid + dy * sin_mid
+    local ny = -dx * sin_mid + dy * cos_mid
+
+    -- 4. Exploit X-axis symmetry: we only need to check the positive Y half-plane
+    ny = math.abs(ny)
+
+    local cos_half = math.cos(half_span)
+    local sin_half = math.sin(half_span)
+
+    -- 'dist' is the orthogonal distance from the point to the straight edge of the sector
+    -- It also cleverly acts as a 2D cross-product to tell us which side of the angle we are on
+    local dist = ny * cos_half - nx * sin_half
+
+    if dist <= 0 then
+        -- The point is strictly inside the angular bounds of the sector cone
+        -- We just need to check if the distance to the origin is within the arc radius + pr
+        local d = math.sqrt(nx * nx + ny * ny)
+        return (d - radius) <= pr
+    else
+        -- The point is outside the angular bounds
+        -- We project the point onto the vector of the straight edge
+        local p = nx * cos_half + ny * sin_half
+
+        if p <= 0 then
+            -- The closest point on the sector is the origin (center point)
+            return (nx * nx + ny * ny) <= (pr * pr)
+        elseif p <= radius then
+            -- The closest point on the sector is along the straight edge
+            return dist <= pr
+        else
+            -- The closest point on the sector is the sharp corner of the arc
+            local cx = radius * cos_half
+            local cy = radius * sin_half
+            local cdx = nx - cx
+            local cdy = ny - cy
+            return (cdx * cdx + cdy * cdy) <= (pr * pr)
+        end
     end
+end
 
-    local half_range = angle_range * 0.5
-
-    local function normalize_angle(a)
-        a = a % (2 * math.pi)
-        if a < 0 then a = a + 2 * math.pi end
-        return a
-    end
-
-    local function is_angle_in_sector(angle, start, span)
-        local diff = normalize_angle(angle - start)
-        return diff <= span + 1e-12
-    end
-
-    local function overlaps_sector(start_angle)
-        local dx = px - cx
-        local dy = py - cy
-        local d = math.sqrt(dx*dx + dy*dy)
-
-        -- Circle contains the center point -> always overlaps
-        if d <= pr then
-            return true
-        end
-
-        -- Circle too far away from the whole circle that contains the sector
-        if d > R + pr then
-            return false
-        end
-
-        local theta_c = math.atan2(dy, dx)
-
-        -- Circle center lies inside the sector
-        if d <= R and is_angle_in_sector(theta_c, start_angle, angle_range) then
-            return true
-        end
-
-        -- Check intersection with the outer arc (the curved boundary)
-        local R_minus_r = math.abs(R - pr)
-        if d >= R_minus_r and d <= R + pr then
-            -- compute the two intersection points of the two circles
-            local a = (R*R - pr*pr + d*d) / (2 * d)
-            local h = math.sqrt(math.max(0, R*R - a*a))
-            local mid_x = cx + (a / d) * dx
-            local mid_y = cy + (a / d) * dy
-            local offset_x = -(dy / d) * h
-            local offset_y =  (dx / d) * h
-
-            local p1x = mid_x + offset_x
-            local p1y = mid_y + offset_y
-            local p2x = mid_x - offset_x
-            local p2y = mid_y - offset_y
-
-            local ang1 = math.atan2(p1y - cy, p1x - cx)
-            local ang2 = math.atan2(p2y - cy, p2x - cx)
-
-            if is_angle_in_sector(ang1, start_angle, angle_range) or
-                is_angle_in_sector(ang2, start_angle, angle_range) then
-                return true
-            end
-        end
-
-        -- Check intersection with the two straight edges of the sector
-        local cos_start, sin_start = math.cos(start_angle), math.sin(start_angle)
-        local end_angle = start_angle + angle_range
-        local cos_end,   sin_end   = math.cos(end_angle), math.sin(end_angle)
-
-        -- Edge 1: from center to (R, start_angle)
-        local Ex1 = cx + R * cos_start
-        local Ey1 = cy + R * sin_start
-        -- Edge 2: from center to (R, end_angle)
-        local Ex2 = cx + R * cos_end
-        local Ey2 = cy + R * sin_end
-
-        -- Test circle vs line segment AB
-        local function segmentIntersect(Ax, Ay, Bx, By)
-            local ABx = Bx - Ax
-            local ABy = By - Ay
-            local ACx = px - Ax
-            local ACy = py - Ay
-            local len2 = ABx*ABx + ABy*ABy
-            local t = (ACx*ABx + ACy*ABy) / len2
-            if t < 0 then t = 0 end
-            if t > 1 then t = 1 end
-            local projx = Ax + t * ABx
-            local projy = Ay + t * ABy
-            local dist2 = (px - projx)^2 + (py - projy)^2
-            return dist2 <= pr*pr + 1e-12
-        end
-
-        if segmentIntersect(cx, cy, Ex1, Ey1) then return true end
-        if segmentIntersect(cx, cy, Ex2, Ey2) then return true end
-
-        return false
-    end
-
-    -- The two opposite sectors
-    local start1 = mid - half_range
-    local start2 = mid + math.pi - half_range
-
-    return overlaps_sector(start1) or overlaps_sector(start2)
+function bowtie_overlap(center_x, center_y, radius, mid, span, px, py, pr)
+    return circle_overlaps_arc(px, py, pr, center_x, center_y, radius, mid, span)
+        or circle_overlaps_arc(px, py, pr, center_x, center_y, radius, mid + math.pi, span)
 end
 
 local function line_overlap(px, py, radius, ax, ay, bx, by)
@@ -784,6 +712,10 @@ local function line_overlap(px, py, radius, ax, ay, bx, by)
     return math.abs(math.cross(dx, dy, px - ax, py - ay)) <= radius
 end
 
+local _hash_query = function(frame_index, px, py, pr, x, y, r, mid, span)
+    return string.format("%i" .. string.rep("%.2f", 8), frame_index, px, py, pr, x, y, r, mid, span)
+end
+
 --- @brief
 function ow.AirDashNode:check_player_overlap()
     local px, py = self._scene:get_player():get_position()
@@ -793,17 +725,30 @@ function ow.AirDashNode:check_player_overlap()
     local r = self._radius
     local mid, span = self._angle, self._angle_range
 
-    if math.distance(px, py, x, y) <= pr then return true end -- if ovelapping core particle
+    -- use cached result, for repeated queries
+    local hash = _hash_query(rt.SceneManager:get_frame_index(), px, py, pr, x, y, r, mid, span)
+    if self._last_query_hash == hash and self._last_overlap_result ~= nil then
+        return self._last_overlap_result
+    end
+
+    local result = false
+    self._last_query_hash = hash
+
+    if math.distance(px, py, x, y) <= pr then
+        result = true
+        goto return_result
+    end -- if ovelapping core particle
 
     if span == 0 then
         -- circle line overlap
         local dx, dy = math.cos(mid), math.sin(mid)
         pr = pr * rt.settings.overworld.air_dash_node.line_collision_player_radius_factor
-        return math.distance(px, py, x, y) <= (pr + r) and line_overlap(
+        result = math.distance(px, py, x, y) <= (pr + r) and line_overlap(
             px, py, pr,
             x - dx, y - dy,
             x + dx, y + dy
         )
+        goto return_result
     else
         -- circle circle overlap
         local circle_overlap = math.distance(px, py, x, y) <= (pr + r)
@@ -815,10 +760,13 @@ function ow.AirDashNode:check_player_overlap()
             px, py, pr
         )
 
-
         -- circle bowtie overlap
-        return circle_overlap and bowtie
+        result = circle_overlap and bowtie
     end
+
+    ::return_result::
+    self._last_overlap_result = result
+    return result
 end
 
 --- @brief

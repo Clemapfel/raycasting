@@ -376,6 +376,12 @@ return {
             id = "air_dash_node_tutorial",
             title = "A Dashing Experience",
             target_time = math.huge
+        },
+
+        {
+            id = "accelerator_tutorial",
+            title = "TODO",
+            target_time = -1
         }
 
         --[[

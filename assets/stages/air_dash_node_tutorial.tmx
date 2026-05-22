@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="243">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="270">
  <editorsettings>
   <export target="air_dash_node_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -10,11 +10,7 @@
  <imagelayer id="3" name="background" repeatx="1" repeaty="1">
   <image source="../tilesets/debug_tileset_16x16/tile.png" width="16" height="16"/>
  </imagelayer>
- <objectgroup id="5" name="aux">
-  <object id="161" type="CameraFit" x="1408" y="-736">
-   <polygon points="0,16 0,768 1152,768 1152,16"/>
-  </object>
- </objectgroup>
+ <objectgroup id="5" name="aux"/>
  <objectgroup id="7" name="back">
   <object id="95" type="Wall" x="-1392" y="832">
    <polygon points="208,0 688,0 688,-640 1232,-640 1232,-1632 1872,-1632 1856,-1072 1888,-1072 2128,-832 2800,-832 2800,-1200 2240,-1200 2240,-1984 816,-1984 -304,432 208,432"/>
@@ -25,11 +21,11 @@
    </properties>
    <point/>
   </object>
-  <object id="160" type="Wall" x="1408" y="-736" visible="0">
+  <object id="160" type="Wall" x="1408" y="-736">
    <properties>
     <property name="type" value="spheres"/>
    </properties>
-   <polygon points="0,0 0,768 1152,768 1152,-448 0,-448"/>
+   <polygon points="0,768 1168,768 1168,-1600 0,-1600"/>
   </object>
   <object id="162" type="OneWayPlatform" x="1936" y="-736">
    <properties>
@@ -40,9 +36,18 @@
   <object id="163" type="OneWayPlatformNode" x="2032" y="-736">
    <point/>
   </object>
+  <object id="246" type="OneWayPlatform" x="1936" y="-1472">
+   <properties>
+    <property name="other" type="object" value="247"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="247" type="OneWayPlatformNode" x="2032" y="-1472">
+   <point/>
+  </object>
  </objectgroup>
  <objectgroup id="2" name="main">
-  <object id="89" name="Spawn" type="PlayerSpawn" x="-1568.66" y="2377.14">
+  <object id="89" name="Spawn" type="PlayerSpawn" x="-1630.58" y="2294.07">
    <point/>
   </object>
   <object id="91" type="Hitbox" x="-1439.08" y="1248">
@@ -146,10 +151,10 @@
    <polygon points="0,0 1024,0 1024,784 1584,784 1584,-96 0,-96"/>
   </object>
   <object id="143" type="SlipperyHitbox" x="1008" y="-352">
-   <polygon points="0,16 288,160 400,160 448,16 448,-16 448,-224 896,-352 928,-352 928,-384 400,-384 400,-16 -160,-16 -160,-800 -192,-800 -192,16"/>
+   <polygon points="0,16 288,160 400,160 448,16 448,-16 448,-224 896,-352 928,-352 928,-384 448,-384 448,-990.694 896,-1088 928,-1088 928,-1120 448,-1120 448,-1984 400,-1984 400,-16 -160,-16 -160,-800 -192,-800 -192,16"/>
   </object>
   <object id="146" type="SlipperyHitbox" x="1008" y="-16">
-   <polygon points="0,-16 288,-160 400,-160 448,-32 448,10.431 1520,16 1520,-592 1056,-688 1024,-688 1024,-720 1552,-720 1552,48 400,48 400,16 -272,16 -512,-224 -544,-224 -544,-784 -512,-784 -512,-272 -256,-16"/>
+   <polygon points="0,-16 288,-160 400,-160 448,-32 448,16 1520,16 1520,-592 1056,-688 1024,-688 1024,-720 1520,-720 1520,-1333.22 1056,-1424 1024,-1424 1024,-1456 1520,-1456 1520,-2320 1568,-2320 1568,48 400,48 400,16 -272,16 -512,-224 -544,-224 -544,-784 -512,-784 -512,-272 -256,-16"/>
   </object>
   <object id="150" type="AirDashNode" x="1920" y="-704" width="128" height="128">
    <properties>
@@ -158,7 +163,7 @@
    </properties>
    <ellipse/>
   </object>
-  <object id="155" type="AirDashNode" x="1696" y="-384" width="330.286" height="330.571">
+  <object id="155" type="AirDashNode" x="1696" y="-384" width="320" height="320">
    <ellipse/>
   </object>
   <object id="156" type="AirDashNode" x="2112" y="-480" width="224" height="224">
@@ -179,41 +184,6 @@
   </object>
   <object id="165" type="CameraFit" x="1823.87" y="-3810.12">
    <polygon points="0,16 0,768 1152,768 1152,16"/>
-  </object>
-  <object id="166" type="Fireflies" x="2208" y="-1168">
-   <properties>
-    <property name="count" type="float" value="7"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="167" type="OneWayPlatform" x="2048" y="-1424">
-   <properties>
-    <property name="other" type="object" value="168"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="168" type="OneWayPlatformNode" x="2144" y="-1424">
-   <point/>
-  </object>
-  <object id="170" type="SlipperyHitbox" x="1005.6" y="-819.308">
-   <polygon points="448,-560 448,10.431 1520,16 1520,-592 1056,-688 1024,-688 1024,-720 1552,-720 1552,48 400,48 400,-704 928,-704 928,-688 896,-688"/>
-  </object>
-  <object id="171" type="AirDashNode" x="2032" y="-1392" width="128" height="128">
-   <properties>
-    <property name="angle" type="float" value="0"/>
-    <property name="axis_y" type="float" value="-1"/>
-   </properties>
-   <ellipse/>
-  </object>
-  <object id="172" type="AirDashNode" x="1808" y="-1072" width="330.286" height="330.571">
-   <ellipse/>
-  </object>
-  <object id="174" type="BoostField" x="2048" y="-1424">
-   <properties>
-    <property name="axis_y" type="float" value="-1"/>
-    <property name="render_priority" type="float" value="-1"/>
-   </properties>
-   <polygon points="0,0 0,32 96,32 96,0"/>
   </object>
   <object id="178" x="-1700.47" y="2416">
    <polygon points="0,0 2138.63,0 2138.63,64 0,64"/>
@@ -426,10 +396,73 @@
    </properties>
    <point/>
   </object>
-  <object id="240" type="Wall" x="-1488" y="2416" visible="0">
+  <object id="240" type="Wall" x="-1488" y="2416">
    <polygon points="0,0 0,-688 1648,-688 1648,544 0,544"/>
   </object>
   <object id="241" type="CameraFit" x="-1408" y="1808" width="1504" height="816" visible="0"/>
+  <object id="245" type="BoostField" x="1936" y="-1472">
+   <properties>
+    <property name="axis_y" type="float" value="-1"/>
+    <property name="render_priority" type="float" value="-1"/>
+   </properties>
+   <polygon points="0,0 0,32 96,32 96,0"/>
+  </object>
+  <object id="257" type="AirDashNode" x="1924.95" y="-1432.23" width="128" height="128">
+   <ellipse/>
+  </object>
+  <object id="258" type="AirDashNode" x="1700.95" y="-1112.23" width="320" height="320">
+   <properties>
+    <property name="angle_range" type="float" value="0.25"/>
+    <property name="direction" type="object" value="260"/>
+   </properties>
+   <ellipse/>
+  </object>
+  <object id="259" type="AirDashNode" x="2116.95" y="-1208.23" width="224" height="224">
+   <properties>
+    <property name="angle_range" type="float" value="0.25"/>
+    <property name="direction" type="object" value="261"/>
+   </properties>
+   <ellipse/>
+  </object>
+  <object id="260" type="AirDashNodeDirection" x="2224" y="-1104">
+   <point/>
+  </object>
+  <object id="261" type="AirDashNodeDirection" x="2000" y="-1360">
+   <point/>
+  </object>
+  <object id="263" type="AirDashNode" x="1824" y="-1888" width="320" height="320">
+   <properties>
+    <property name="angle_range" type="float" value="0.5"/>
+    <property name="axis_x" type="float" value="0"/>
+    <property name="axis_y" type="float" value="-1"/>
+   </properties>
+   <ellipse/>
+  </object>
+  <object id="265" type="AirDashNode" x="1568" y="-2240" width="304" height="304">
+   <properties>
+    <property name="angle_range" type="float" value="0.5"/>
+    <property name="axis_x" type="float" value="1"/>
+    <property name="axis_y" type="float" value="0"/>
+   </properties>
+   <ellipse/>
+  </object>
+  <object id="266" type="AirDashNode" x="2096" y="-2240" width="304" height="304">
+   <properties>
+    <property name="angle_range" type="float" value="0.5"/>
+    <property name="axis_x" type="float" value="-1"/>
+    <property name="axis_y" type="float" value="0"/>
+   </properties>
+   <ellipse/>
+  </object>
+  <object id="267" type="AirDashNode" x="1984" y="-2256">
+   <properties>
+    <property name="other" type="object" value="269"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="269" type="AirDashNodeDirection" x="1984" y="-2480">
+   <point/>
+  </object>
  </objectgroup>
  <objectgroup id="6" name="front"/>
  <layer id="4" name="noop" width="32" height="32">

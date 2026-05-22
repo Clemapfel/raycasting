@@ -57,50 +57,16 @@ function ow.AirDashNodeManager:instantiate(scene, stage)
     self._tether_elapsed = math.huge
     self._t_history = {}
 
+    self._allow_tether = true
     self._input = rt.InputSubscriber(rt.settings.player.input_subscriber_priority + 1)
+    self._input:signal_connect("released", function(_, which)
+        if which == rt.InputAction.JUMP then
+            self._allow_tether = true
+        end
+    end)
 
     self._last_node_and_time = {}
     self._node_to_cooldown_timestamp = meta.make_weak({})
-
-    self._jump_buffer_elapsed = math.huge
-    self._input:signal_connect("pressed", function(_, which)
-        if which == rt.InputAction.JUMP then
-            if self._next_node ~= nil then
-                -- exact hit
-                if self._tethered_node ~= self._next_node then
-                    if self._next_node:check_player_overlap() then
-                        self:_tether(self._next_node)
-                    end
-                end
-
-                -- buffered jump: after passing
-                if rt.GameState:get_is_input_buffering_enabled()
-                    and self._last_node_and_time.node ~= nil
-                    and self._next_node:check_player_overlap()
-                then
-                    local elapsed = love.timer.getTime() - self._last_node_and_time.timestamp
-                    if elapsed < rt.settings.overworld.air_dash_node_manager.jump_buffer_duration then
-                        self:_tether(self._last_node_and_time.node)
-                    end
-                end
-            end
-
-            self._jump_buffer_elapsed = 0
-        end
-    end)
-
-    -- on release, disable cooldown for repress
-    self._input:signal_connect("released", function(_, which)
-        if which == rt.InputAction.JUMP then
-            if self._tethered_node ~= nil then
-                local px, py = self._scene:get_player():get_position()
-                if _get_side(px, py, self._tether_exit_sign_line) ~= self._tether_sign then
-                    self._node_to_cooldown_timestamp[self._tethered_node] = nil
-                    self._tethered_node:notify_is_on_cooldown(false)
-                end
-            end
-        end
-    end)
 end
 
 --- @brief
@@ -173,7 +139,7 @@ function ow.AirDashNodeManager:_tether(node)
     self._scene:get_camera():shake()
 
     self._t_history = {}
-    self._jump_buffer_active = false
+    self._allow_tether = false
 end
 
 --- @brief
@@ -361,15 +327,6 @@ function ow.AirDashNodeManager:update(delta)
         self._next_node:set_is_current(false)
     end
 
-    local tethered_t = nil
-    if self._tethered_node ~= nil then
-        local tether = true
-        if self._tethered_node ~= nil then
-            local _, _, t = self._tether_path:get_closest_point(px, py)
-            tethered_t = t
-        end
-    end
-
     if best_entry == nil then
         if self._next_node ~= nil then
             self:_update_damping(1)
@@ -402,44 +359,36 @@ function ow.AirDashNodeManager:update(delta)
         end
     end
 
-    -- if overlapping mid dash, allow chaining by holding JUMP
-    if self._next_node ~= nil and
-        (love.timer.getTime() - self._last_tethered_timestamp) < rt.settings.overworld.air_dash_node_manager.chain_buffer_duration
-        and self._input:get_is_down(rt.InputAction.JUMP)
-        and self._next_node ~= self._tethered_node
-        and not get_is_on_cooldown(self._next_node)
-        and self._next_node:check_player_overlap()
-    then
-        self:_tether(self._next_node)
+    if self._tether_node ~= nil and self._tethered_node:check_player_overlap() == false then
+        self:_untether(self._tether_node)
     end
 
-    -- buffered jump: before passing
-    local is_overlapping = self._next_node ~= nil and self._next_node:check_player_overlap()
-    if self._tethered_node == nil and rt.GameState:get_is_input_buffering_enabled() and self._next_node ~= nil then
-        if is_overlapping
-            and self._input:get_is_down(rt.InputAction.JUMP)
-            and self._jump_buffer_elapsed < rt.settings.overworld.air_dash_node_manager.jump_buffer_duration
-        then
+    if self._allow_tether then
+        if self._tethered_node == nil then
+
+        else
+            local allow = _get_side(px, py, self._tether_exit_sign_line) ~= self._tether_sign
+
+        end
+    end
+
+    if self._allow_tether
+        and self._input:get_is_down(rt.InputAction.JUMP)
+        and self._next_node ~= nil
+        and self._next_node:check_player_overlap()
+    then
+        local allow = true
+        if self._tethered_node ~= nil then
+            allow = _get_side(px, py, self._tether_exit_sign_line) ~= self._tether_sign
+        end
+
+        if allow then
             self:_tether(self._next_node)
         end
     end
 
-    if is_overlapping then
-        -- store last node for after passing buffered jump
-        self._last_node_and_time = {
-            node = self._next_node,
-            timestamp = love.timer.getTime()
-        }
-    end
-
-    self._jump_buffer_elapsed = self._jump_buffer_elapsed + delta
-
     if self._recommended_node ~= nil then
         self._recommended_node:set_is_outline_visible(true)
-    end
-
-    if self._tethered_node ~= nil then
-        self._last_tethered_timestamp = love.timer.getTime()
     end
 
     -- disable double jump while in range

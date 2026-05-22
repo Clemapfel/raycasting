@@ -610,12 +610,6 @@ function rt.Animalese:_initialize()
         end
     end
 
-    local values = {
-        [1] = { "gain", 0.1 },
-        [2] = { "late_gain", 0.09 },
-        [3] = { "early_gain", 0.09 },
-        [4] = { "decay_time", 2 }
-    }
 
     local config = {
         gain = 0.05,

@@ -879,11 +879,15 @@ function rt.Player:update(delta)
         self._last_grounded_timestamp = love.timer.getTime()
     end
 
-    if not is_grounded and (self._left_wall or self._top_left_wall) then
+    local is_valid_wall = function(body)
+        return body ~= nil and not (body:has_tag("slippery") or body:has_tag("unjumpable"))
+    end
+
+    if not is_grounded and (is_valid_wall(self._left_wall_body) or is_valid_wall(self._top_left_wall_body)) then
         self._last_left_wall_timestamp = love.timer.getTime()
     end
 
-    if not is_grounded and (self._right_wall or self._top_right_wall) then
+    if not is_grounded and (is_valid_wall(self._right_wall_body) or is_valid_wall(self._top_right_wall_body)) then
         self._last_right_wall_timestamp = love.timer.getTime()
     end
 
