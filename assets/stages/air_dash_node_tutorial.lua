@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 270,
+  nextobjectid = 278,
   properties = {
     ["background_id"] = "\"nebula\""
   },
@@ -212,8 +212,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = 1616.44,
-          y = -1490.79,
+          x = -64,
+          y = -2160,
           width = 0,
           height = 0,
           rotation = 0,
@@ -793,7 +793,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0,
+            ["angle_range"] = 0.25,
             ["other"] = { id = 192 }
           }
         },
@@ -809,7 +809,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0
+            ["angle_range"] = 0.25
           }
         },
         {
@@ -824,7 +824,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0,
+            ["angle_range"] = 0.25,
             ["other"] = { id = 194 }
           }
         },
@@ -840,7 +840,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0
+            ["angle_range"] = 0.25
           }
         },
         {
@@ -855,7 +855,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0,
+            ["angle_range"] = 0.25,
             ["other"] = { id = 196 }
           }
         },
@@ -871,7 +871,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0
+            ["angle_range"] = 0.25
           }
         },
         {
@@ -886,7 +886,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0,
+            ["angle_range"] = 0.25,
             ["other"] = { id = 198 }
           }
         },
@@ -902,7 +902,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0
+            ["angle_range"] = 0.25
           }
         },
         {
@@ -917,7 +917,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0,
+            ["angle_range"] = 0.25,
             ["other"] = { id = 200 }
           }
         },
@@ -933,7 +933,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0
+            ["angle_range"] = 0.25
           }
         },
         {
@@ -948,7 +948,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0,
+            ["angle_range"] = 0.25,
             ["other"] = { id = 202 }
           }
         },
@@ -964,7 +964,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0
+            ["angle_range"] = 0.25
           }
         },
         {
@@ -979,7 +979,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0,
+            ["angle_range"] = 0.25,
             ["other"] = { id = 204 }
           }
         },
@@ -995,7 +995,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0
+            ["angle_range"] = 0.25
           }
         },
         {
@@ -1010,7 +1010,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0,
+            ["angle_range"] = 0.25,
             ["other"] = { id = 206 }
           }
         },
@@ -1026,7 +1026,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0
+            ["angle_range"] = 0.25
           }
         },
         {
@@ -1041,7 +1041,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0,
+            ["angle_range"] = 0.25,
             ["other"] = { id = 208 }
           }
         },
@@ -1057,7 +1057,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0
+            ["angle_range"] = 0.25
           }
         },
         {
@@ -1072,7 +1072,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0,
+            ["angle_range"] = 0.25,
             ["other"] = { id = 220 }
           }
         },
@@ -1088,7 +1088,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0
+            ["angle_range"] = 0.25
           }
         },
         {
@@ -1103,7 +1103,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0,
+            ["angle_range"] = 0.25,
             ["other"] = { id = 224 }
           }
         },
@@ -1119,7 +1119,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0
+            ["angle_range"] = 0.25
           }
         },
         {
@@ -1134,7 +1134,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0,
+            ["angle_range"] = 0.25,
             ["other"] = { id = 226 }
           }
         },
@@ -1150,7 +1150,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0
+            ["angle_range"] = 0.25
           }
         },
         {
@@ -1165,7 +1165,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0,
+            ["angle_range"] = 0.25,
             ["other"] = { id = 228 }
           }
         },
@@ -1181,7 +1181,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0
+            ["angle_range"] = 0.25
           }
         },
         {
@@ -1196,7 +1196,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0,
+            ["angle_range"] = 0.25,
             ["other"] = { id = 230 }
           }
         },
@@ -1212,7 +1212,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0
+            ["angle_range"] = 0.25
           }
         },
         {
@@ -1227,7 +1227,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0,
+            ["angle_range"] = 0.25,
             ["other"] = { id = 232 }
           }
         },
@@ -1243,7 +1243,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0
+            ["angle_range"] = 0.25
           }
         },
         {
@@ -1258,7 +1258,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0,
+            ["angle_range"] = 0.25,
             ["other"] = { id = 234 }
           }
         },
@@ -1274,7 +1274,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0
+            ["angle_range"] = 0.25
           }
         },
         {
@@ -1478,6 +1478,87 @@ return {
           y = -2480,
           width = 0,
           height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 270,
+          name = "",
+          type = "KillPlane",
+          shape = "polygon",
+          x = 944,
+          y = -1248,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = -800, y = 0 },
+            { x = -800, y = -864 },
+            { x = -736, y = -864 },
+            { x = -736, y = -96 },
+            { x = 48, y = -96 },
+            { x = 48, y = 0 }
+          },
+          properties = {}
+        },
+        {
+          id = 274,
+          name = "",
+          type = "AirDashNode",
+          shape = "point",
+          x = 320,
+          y = -1392,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["other"] = { id = 275 }
+          }
+        },
+        {
+          id = 275,
+          name = "",
+          type = "AirDashNodeDirection",
+          shape = "point",
+          x = 320,
+          y = -1616,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 276,
+          name = "",
+          type = "",
+          shape = "polygon",
+          x = -142.19,
+          y = -2128.78,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 190.19, y = 0.783262 },
+            { x = 190.94, y = 50.782 },
+            { x = -1.81028, y = 48.7833 }
+          },
+          properties = {}
+        },
+        {
+          id = 277,
+          name = "",
+          type = "CameraFit",
+          shape = "rectangle",
+          x = -166.565,
+          y = -2321.76,
+          width = 1174.57,
+          height = 1073.76,
           rotation = 0,
           visible = true,
           properties = {}

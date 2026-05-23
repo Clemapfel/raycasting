@@ -13,6 +13,8 @@ rt.settings.overworld.air_dash_node_manager = {
     stuck_detection_duration = 30 / 60, -- seconds
 
     jump_buffer_duration = 5 / 60, -- before
+    allow_same_node_retether = false,
+    mid_point_t = 0.5
 }
 
 --- @class ow.AirDashNodeManager
@@ -57,30 +59,19 @@ function ow.AirDashNodeManager:instantiate(scene, stage)
     self._input = rt.InputSubscriber()
     self._input:signal_connect("pressed", function(_, which)
         if which == rt.InputAction.JUMP then
-            self._tether_allowed_timestamp = love.timer.getTime()
-
-            local px, py = self._scene:get_player():get_position()
-            local pr = 2 * self._scene:get_player():get_radius()
-
+            local allow = true
             if self._tethered_node ~= nil then
-                dbg("tether", meta.hash(self._tethered_node), self._tethered_node:check_player_overlap(px, py, pr))
-            else
-                dbg("tether")
+                if rt.settings.overworld.air_dash_node_manager.allow_same_node_retether == false then
+                    allow = false
+                else
+                    local px, py = self._scene:get_player():get_position()
+                    allow = _get_side(px, py, self._tether_mid_sign_line) ~= self._tether_mid_sign
+                end
             end
 
-            if self._next_node ~= nil then
-                dbg("next", meta.hash(self._next_node), self._next_node:check_player_overlap(px, py, pr))
-            else
-                dbg("next")
+            if allow then
+                self._tether_allowed_timestamp = love.timer.getTime()
             end
-
-            if self._recommended_node ~= nil then
-                dbg("recommended", meta.hash(self._recommended_node), self._recommended_node:check_player_overlap(px, py, pr))
-            else
-                dbg("recommended")
-            end
-
-            dbg("\n")
         end
     end)
 
@@ -110,6 +101,7 @@ function ow.AirDashNodeManager:_tether(node)
 
     local radius = node:get_radius()
     local end_x, end_y = node_x + dx * radius, node_y + dy * radius
+    local start_x, start_y = node_x - dx * radius, node_y - dy * radius
 
     local left_x, left_y = math.turn_left(dx, dy)
     local right_x, right_y = math.turn_right(dx, dy)
@@ -126,11 +118,18 @@ function ow.AirDashNodeManager:_tether(node)
         self._tether_exit_sign_line
     )
 
+    local mid_x, mid_y = math.mix2(
+        start_x, start_y,
+        end_x, end_y,
+        rt.settings.overworld.air_dash_node_manager.mid_point_t
+        + rt.settings.player.radius / self._tether_path:get_length()
+    )
+
     self._tether_mid_sign_line = {
-        node_x + left_x,
-        node_y + left_y,
-        node_x + right_x,
-        node_y + right_y
+        mid_x + left_x,
+        mid_y + left_y,
+        mid_x + right_x,
+        mid_y + right_y
     }
 
     self._tether_mid_sign = _get_side(
@@ -162,6 +161,7 @@ function ow.AirDashNodeManager:_tether(node)
     self._scene:get_camera():shake()
 
     self._t_history = {}
+    self._tether_allowed_timestamp = nil -- consume
 end
 
 --- @brief
@@ -179,82 +179,10 @@ function ow.AirDashNodeManager:update(delta)
     local player = self._scene:get_player()
     local px, py = player:get_position()
     local pvx, pvy = player:get_velocity()
-    local pr = 2 * player:get_radius() -- sic
+    local pr = player:get_radius() -- sic
 
     local get_is_on_cooldown = function(node)
         return self._node_to_cooldown_timestamp[node] ~= nil
-    end
-
-    if self._tethered_node ~= nil then
-        -- move player
-
-        local t = self._tether_path:get_fraction(px, py)
-        local dx, dy = self._tether_path:tangent_at(t)
-
-        player:set_velocity(
-            self._tether_velocity_magnitude * dx,
-            self._tether_velocity_magnitude * dy
-        )
-
-        local should_emergency_untether = false
-        do -- detect if player is stuck
-            self._tether_elapsed = self._tether_elapsed + delta
-
-            table.insert(self._t_history, 1, {
-                t = t,
-                elapsed = self._tether_elapsed
-            })
-
-            local t_radius = rt.settings.overworld.air_dash_node_manager.stuck_detection_radius / self._tether_path:get_length()
-            local duration = rt.settings.overworld.air_dash_node_manager.stuck_detection_duration
-            local t_velocity_cutoff = t_radius / duration
-
-            local total_elapsed = 0
-            local now_t, last_t = t, math.huge
-
-            -- compute t velocity in last `duration` time window
-            for i = 1, #self._t_history - 1 do
-                local current = self._t_history[i + 0]
-                local previous = self._t_history[i + 1]
-                local elapsed = current.elapsed - previous.elapsed
-                total_elapsed = total_elapsed + elapsed
-
-                if total_elapsed > duration then
-                    last_t = previous.t
-                    break
-                end
-            end
-
-            -- if t-velocity is too low, player appears stuck, untether
-            if total_elapsed > duration then
-                should_emergency_untether = math.abs(last_t - now_t) / total_elapsed < t_velocity_cutoff
-            end
-        end
-
-        -- exit condition: moved past end line
-        local side = _get_side(px, py, self._tether_exit_sign_line)
-        if should_emergency_untether or side ~= self._tether_exit_sign then
-            local exit_velocity = ternary(not player:get_is_bubble(),
-                rt.settings.overworld.air_dash_node_manager.exit_velocity,
-                rt.settings.overworld.air_dash_node_manager.exit_velocity_bubble
-            ) * self._tethered_node:get_velocity_factor()
-
-            player:set_velocity( -- ensure exit velocity
-                exit_velocity * self._tether_exit_dx,
-                exit_velocity * self._tether_exit_dy
-            )
-
-            -- untether
-            self._tethered_node:set_is_tethered(false)
-            self._tethered_node = nil
-            self._tether_elapsed = math.huge
-            dbg("called")
-        end
-
-        -- particles
-        if self._tethered_node ~= nil then
-            self._tethered_node:emit_particles()
-        end
     end
 
     -- find next candidate
@@ -348,11 +276,108 @@ function ow.AirDashNodeManager:update(delta)
         and self._tether_allowed_timestamp ~= nil
         and (love.timer.getTime() - self._tether_allowed_timestamp) < rt.settings.overworld.air_dash_node_manager.jump_buffer_duration
         and self._next_node ~= self._tethered_node
-        and self._next_node:check_player_overlap(px, py, 2 * pr)
+        and self._next_node:check_player_overlap()
     then
         self:_tether(self._next_node)
-        self._tether_allowed_timestamp = nil -- consume
+        dbg("regular", meta.hash(self._tethered_node))
     end
+
+    -- chain tether
+    if self._tethered_node ~= nil
+        and self._input:get_is_down(rt.InputAction.JUMP)
+    then
+        local past_mid_point = _get_side(px, py, self._tether_mid_sign_line) ~= self._tether_mid_sign
+
+        if past_mid_point then
+            -- find best overlapping node
+            local chain_node = nil
+            for entry in values(entries) do
+                if entry.node ~= self._tethered_node
+                    and entry.node:check_player_overlap() == true
+                then
+                    chain_node = entry.node
+                    break
+                end
+            end
+
+            if chain_node ~= nil then
+                self:_tether(chain_node)
+                dbg("chain", meta.hash(chain_node))
+            end
+        end
+    end
+
+    if self._tethered_node ~= nil then
+        -- move player
+
+        local t = self._tether_path:get_fraction(px, py)
+        local dx, dy = self._tether_path:tangent_at(t)
+
+        player:set_velocity(
+            self._tether_velocity_magnitude * dx,
+            self._tether_velocity_magnitude * dy
+        )
+
+        local should_emergency_untether = false
+        do -- detect if player is stuck
+            self._tether_elapsed = self._tether_elapsed + delta
+
+            table.insert(self._t_history, 1, {
+                t = t,
+                elapsed = self._tether_elapsed
+            })
+
+            local t_radius = rt.settings.overworld.air_dash_node_manager.stuck_detection_radius / self._tether_path:get_length()
+            local duration = rt.settings.overworld.air_dash_node_manager.stuck_detection_duration
+            local t_velocity_cutoff = t_radius / duration
+
+            local total_elapsed = 0
+            local now_t, last_t = t, math.huge
+
+            -- compute t velocity in last `duration` time window
+            for i = 1, #self._t_history - 1 do
+                local current = self._t_history[i + 0]
+                local previous = self._t_history[i + 1]
+                local elapsed = current.elapsed - previous.elapsed
+                total_elapsed = total_elapsed + elapsed
+
+                if total_elapsed > duration then
+                    last_t = previous.t
+                    break
+                end
+            end
+
+            -- if t-velocity is too low, player appears stuck, untether
+            if total_elapsed > duration then
+                should_emergency_untether = math.abs(last_t - now_t) / total_elapsed < t_velocity_cutoff
+            end
+        end
+
+        -- exit condition: moved past end line
+        local side = _get_side(px, py, self._tether_exit_sign_line)
+        if should_emergency_untether or side ~= self._tether_exit_sign then
+            local exit_velocity = ternary(not player:get_is_bubble(),
+                rt.settings.overworld.air_dash_node_manager.exit_velocity,
+                rt.settings.overworld.air_dash_node_manager.exit_velocity_bubble
+            ) * self._tethered_node:get_velocity_factor()
+
+            player:set_velocity( -- ensure exit velocity
+                exit_velocity * self._tether_exit_dx,
+                exit_velocity * self._tether_exit_dy
+            )
+
+            -- untether
+            self._tethered_node:set_is_tethered(false)
+            self._tethered_node = nil
+            self._tether_elapsed = math.huge
+        end
+
+        -- particles
+        if self._tethered_node ~= nil then
+            self._tethered_node:emit_particles()
+        end
+    end
+
 
     if self._recommended_node ~= nil then
         self._recommended_node:set_is_outline_visible(true)

@@ -353,6 +353,9 @@ function ow.AirDashNode:instantiate(object, stage, scene)
 
     -- global handler
     stage.air_dash_node_manager:notify_node_added(self)
+
+    -- draw-only angle for interpolation
+    self._draw_angle = math.angle(self:get_direction())
 end
 
 --- @brief
@@ -421,6 +424,26 @@ function ow.AirDashNode:update(delta)
         end
 
         self._is_current_motion:update(delta)
+
+        -- Calculate the target angle based on current player position
+        local target_dx, target_dy = self:get_direction()
+        local target_angle = math.angle(target_dx, target_dy)
+
+        -- Calculate the shortest angular distance (-pi to pi)
+        local angle_diff = math.angle_distance(self._draw_angle, target_angle)
+
+        -- Symmetry adjustment: Since the indicator is visually a line, 0 and PI are identical.
+        -- We adjust the diff so the line never rotates more than 90 degrees to reach the target axis.
+        if angle_diff > math.pi * 0.5 then
+            angle_diff = angle_diff - math.pi
+        elseif angle_diff < -math.pi * 0.5 then
+            angle_diff = angle_diff + math.pi
+        end
+
+        -- Smoothly interpolate self._draw_angle using exponential decay
+        local interpolation_speed = 15
+        self._draw_angle = self._draw_angle + angle_diff * (1 - math.exp(-interpolation_speed * delta))
+
         self._particle:update(delta)
 
         if self._angle_range == 0 then
@@ -488,7 +511,16 @@ function ow.AirDashNode:draw(priority)
         end
     elseif priority == _above_player_priority and not self._is_on_cooldown then
         local x, y = 0, 0
-        local dx, dy = self:get_direction()
+
+        local dx, dy
+        -- Use interpolated angle for any non-circular node (bowtie or line)
+        if true then --self._angle_range < 0.5 * math.pi then
+            local drawn_angle = self._draw_angle
+            dx, dy = math.cos(drawn_angle), math.sin(drawn_angle)
+        else
+            dx, dy = self:get_direction()
+        end
+
         local ax, ay = x - dx * self._radius, y - dy * self._radius
         local bx, by = x + dx * self._radius, y + dy * self._radius
 
@@ -526,8 +558,8 @@ function ow.AirDashNode:draw(priority)
         draw_line()
     end
 
-    if true then --self:check_player_overlap() then
-        love.graphics.circle("line", 0, 0, self._radius)
+    if self:check_player_overlap() then
+        --love.graphics.circle("line", 0, 0, self._radius)
     end
 
     love.graphics.pop()
@@ -718,7 +750,6 @@ end
 
 --- @brief
 function ow.AirDashNode:check_player_overlap(px, py, pr)
-
     if px == nil or py == nil then
         local x, y = self._scene:get_player():get_position()
         px = px or x
@@ -735,7 +766,7 @@ function ow.AirDashNode:check_player_overlap(px, py, pr)
 
     -- use cached result, for repeated queries
     local hash = _hash_query(rt.SceneManager:get_frame_index(), px, py, pr, x, y, r, mid, span)
-    if self._last_query_hash == hash and self._last_overlap_result ~= nil then
+    if false and self._last_query_hash == hash and self._last_overlap_result ~= nil then
         return self._last_overlap_result
     end
 

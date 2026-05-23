@@ -499,7 +499,7 @@ function ow.ObjectWrapper:_initialize_contour_prototype()
 end
 
 --- @brief
-function ow.ObjectWrapper:create_mesh()
+function ow.ObjectWrapper:create_mesh(translate_to_origin)
     if self.mesh_prototype_initialized ~= true then
         self:_initialize_mesh_prototype()
     end

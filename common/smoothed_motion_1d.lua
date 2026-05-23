@@ -15,6 +15,7 @@ function rt.SmoothedMotion1D:instantiate(value, speed, ramp)
     self._elapsed = 0
 
     self._is_periodic = false
+    self._use_angles = false
     self._lower_bound = 0
     self._upper_bound = 1
 end
@@ -44,7 +45,14 @@ end
 --- @brief
 function rt.SmoothedMotion1D:update(delta)
     local distance
-    if self._is_periodic then
+    if self._use_angles then
+        local diff = (self._target_value - self._current_value) % (2 * math.pi)
+        if diff > math.pi then
+            distance = diff - (2 * math.pi)
+        else
+            distance = diff
+        end
+    elseif self._is_periodic then
         local range = self._upper_bound - self._lower_bound
         local direct_distance = self._target_value - self._current_value
         local wrapped_distance = direct_distance - range * math.floor((direct_distance + range * 0.5) / range)
@@ -63,7 +71,19 @@ function rt.SmoothedMotion1D:update(delta)
 
     self._current_value = self._current_value + step
 
-    if self._is_periodic then
+    if self._use_angles then
+        local diff = (self._target_value - self._current_value) % (2 * math.pi)
+        local final_distance = diff
+        if final_distance > math.pi then
+            final_distance = final_distance - (2 * math.pi)
+        end
+
+        if math.abs(final_distance) < math.abs(step) then
+            -- Snap by distance rather than raw target_value to prevent a discontinuous jump
+            -- (e.g. snapping from ~0 up to 2*pi).
+            self._current_value = self._current_value + final_distance
+        end
+    elseif self._is_periodic then
         local range = self._upper_bound - self._lower_bound
         self._current_value = self._lower_bound + ((self._current_value - self._lower_bound) % range)
 
@@ -73,7 +93,7 @@ function rt.SmoothedMotion1D:update(delta)
             self._current_value = self._target_value
         end
     else
-        if  (distance > 0 and self._current_value > self._target_value) or
+        if (distance > 0 and self._current_value > self._target_value) or
             (distance < 0 and self._current_value < self._target_value)
         then
             self._current_value = self._target_value
@@ -123,4 +143,9 @@ function rt.SmoothedMotion1D:set_is_periodic(b, lower, upper)
     if upper ~= nil then
         self._upper_bound = upper
     end
+end
+
+--- @brief
+function rt.SmoothedMotion1D:set_use_angles(b)
+    self._use_angles = b
 end

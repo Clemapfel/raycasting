@@ -92,6 +92,8 @@ function ow.KillPlane:instantiate(object, stage, scene)
 
     self._centroid_x, self._centroid_y = object:get_centroid()
 
+    rt.error("TODO: refactor because offset is broken")
+
     self._mask = object:create_mesh()
     self._outline_width = rt.settings.overworld.kill_plane.outline_width
     self._color = rt.Palette.KILL_PLANE
