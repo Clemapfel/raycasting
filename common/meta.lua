@@ -650,6 +650,7 @@ end
 
 --- @return number
 function meta.hash(instance)
+    if instance == nil then return nil end
     return rawget(instance, _object_hash_index) or -1
 end
 

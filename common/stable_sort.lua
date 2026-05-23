@@ -1,30 +1,40 @@
 local _buffer = {}
+local _small_run_threshold = 16
+
+local function _insertion_sort(array, left, right, compare)
+    local index = left + 1
+    while index <= right do
+        local value = array[index]
+        local scan = index - 1
+        while scan >= left and compare(value, array[scan]) do
+            array[scan + 1] = array[scan]
+            scan = scan - 1
+        end
+        array[scan + 1] = value
+        index = index + 1
+    end
+end
 
 local function _merge_pass(destination, source, length, run_width, compare)
     local run_start = 1
     while run_start <= length do
         local left_end = run_start + run_width - 1
-
         if left_end >= length then
             for index = run_start, length do
                 destination[index] = source[index]
             end
             break
         end
-
         local right_end = run_start + run_width + run_width - 1
         if right_end > length then
             right_end = length
         end
-
         local left_index = run_start
         local right_index = left_end + 1
         local output_index = run_start
-
         while left_index <= left_end and right_index <= right_end do
             local left_value = source[left_index]
             local right_value = source[right_index]
-
             if compare(right_value, left_value) then
                 destination[output_index] = right_value
                 right_index = right_index + 1
@@ -35,19 +45,16 @@ local function _merge_pass(destination, source, length, run_width, compare)
             end
             output_index = output_index + 1
         end
-
         while left_index <= left_end do
             destination[output_index] = source[left_index]
             left_index = left_index + 1
             output_index = output_index + 1
         end
-
         while right_index <= right_end do
             destination[output_index] = source[right_index]
             right_index = right_index + 1
             output_index = output_index + 1
         end
-
         run_start = right_end + 1
     end
 end
@@ -63,30 +70,44 @@ function table.stable_sort(array, comparator)
         return array
     end
 
+    -- insertion sort each small run in-place before merging
+    local run_start = 1
+    while run_start <= length do
+        local run_end = run_start + _small_run_threshold - 1
+        if run_end > length then
+            run_end = length
+        end
+
+        _insertion_sort(array, run_start, run_end, comparator)
+        run_start = run_end + 1
+    end
+
+    if length <= _small_run_threshold then
+        return array
+    end
+
     if table.clear then
         table.clear(_buffer)
     else
-        for index = length + 1, #_buffer do
+        for index = 1, #_buffer do
             _buffer[index] = nil
         end
     end
 
     local source = array
     local destination = _buffer
-    local run_width = 1
-
+    local run_width = _small_run_threshold
     while run_width < length do
         _merge_pass(destination, source, length, run_width, comparator)
         source, destination = destination, source
         run_width = run_width + run_width
     end
 
-    -- ff the final result is in the temp buffer, copy it back to the array
+    -- if the final result is in the temp buffer, copy it back to the array
     if source ~= array then
         for index = 1, length do
             array[index] = source[index]
         end
     end
-
     return array
 end

@@ -526,7 +526,7 @@ function ow.AirDashNode:draw(priority)
         draw_line()
     end
 
-    if self:check_player_overlap() then
+    if true then --self:check_player_overlap() then
         love.graphics.circle("line", 0, 0, self._radius)
     end
 
@@ -717,9 +717,17 @@ local _hash_query = function(frame_index, px, py, pr, x, y, r, mid, span)
 end
 
 --- @brief
-function ow.AirDashNode:check_player_overlap()
-    local px, py = self._scene:get_player():get_position()
-    local pr = self._scene:get_player():get_radius()
+function ow.AirDashNode:check_player_overlap(px, py, pr)
+
+    if px == nil or py == nil then
+        local x, y = self._scene:get_player():get_position()
+        px = px or x
+        py = py or y
+    end
+
+    if pr == nil then
+        pr = pr or self._scene:get_player():get_radius()
+    end
 
     local x, y = self._body:get_position()
     local r = self._radius

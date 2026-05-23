@@ -212,8 +212,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = -1630.58,
-          y = 2294.07,
+          x = 1616.44,
+          y = -1490.79,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1433,8 +1433,8 @@ return {
           visible = true,
           properties = {
             ["angle_range"] = 0.5,
-            ["axis_x"] = 1,
-            ["axis_y"] = 0
+            ["axis_x"] = -1,
+            ["axis_y"] = 1
           }
         },
         {
@@ -1450,8 +1450,8 @@ return {
           visible = true,
           properties = {
             ["angle_range"] = 0.5,
-            ["axis_x"] = -1,
-            ["axis_y"] = 0
+            ["axis_x"] = 1,
+            ["axis_y"] = 1
           }
         },
         {

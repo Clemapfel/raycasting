@@ -9,22 +9,14 @@ rt.settings.overworld.air_dash_node_manager = {
     dash_velocity_bubble = 500,
     exit_velocity_bubble = 350,
 
-    min_player_damping = 1,
-    max_player_damping = 1,
-
-    tether_path_traversal_velocity = rt.settings.player.air_target_velocity_x * 2,
-    cooldown_tether_t_threshold = 0.5,
-
     stuck_detection_radius = rt.settings.player.radius / 8, -- px
     stuck_detection_duration = 30 / 60, -- seconds
 
-    jump_buffer_duration = 20 / 60, -- before and after collision
-    chain_buffer_duration = 5 / 60
+    jump_buffer_duration = 5 / 60, -- before
 }
 
 --- @class ow.AirDashNodeManager
 ow.AirDashNodeManager = meta.class("AirDashNodeManager")
-
 
 local function _get_side(px, py, line)
     local x1, y1, x2, y2 = table.unpack(line)
@@ -38,7 +30,6 @@ local function _get_side(px, py, line)
     return math.sign(math.cross(dx, dy, dpx, dpy))
 end
 
-
 --- @brief
 function ow.AirDashNodeManager:instantiate(scene, stage)
     self._scene = scene
@@ -48,36 +39,56 @@ function ow.AirDashNodeManager:instantiate(scene, stage)
     self._next_node = nil -- if player initiates tether and is in range, this is the target
     self._recommended_node = nil -- this is the next recommended next_node
     self._tethered_node = nil -- bound node, player actively dashing
-    self._last_tethered_timestamp = -math.huge
 
-    self._tether_path = nil -- rt.Path
-    self._tether_dx, self._tether_dy = 0, 0 -- direction
+    self._tether_path = rt.Path(0, 0, 0, 0)
     self._tether_exit_sign_line = { 0, 0, 0, 0 } -- Array<Number, 4>
-    self._tether_sign = 0
+    self._tether_exit_sign = 0
+
+    self._tether_mid_sign_line = { 0, 0, 0, 0 }
+    self._tether_mid_sign = 0
+
     self._tether_elapsed = math.huge
     self._t_history = {}
 
-    self._allow_tether = true
-    self._input = rt.InputSubscriber(rt.settings.player.input_subscriber_priority + 1)
-    self._input:signal_connect("released", function(_, which)
+    self._tether_velocity_magnitude = 0
+    self._node_to_cooldown_timestamp = meta.make_weak({})
+
+    self._tether_allowed_timestamp = nil
+    self._input = rt.InputSubscriber()
+    self._input:signal_connect("pressed", function(_, which)
         if which == rt.InputAction.JUMP then
-            self._allow_tether = true
+            self._tether_allowed_timestamp = love.timer.getTime()
+
+            local px, py = self._scene:get_player():get_position()
+            local pr = 2 * self._scene:get_player():get_radius()
+
+            if self._tethered_node ~= nil then
+                dbg("tether", meta.hash(self._tethered_node), self._tethered_node:check_player_overlap(px, py, pr))
+            else
+                dbg("tether")
+            end
+
+            if self._next_node ~= nil then
+                dbg("next", meta.hash(self._next_node), self._next_node:check_player_overlap(px, py, pr))
+            else
+                dbg("next")
+            end
+
+            if self._recommended_node ~= nil then
+                dbg("recommended", meta.hash(self._recommended_node), self._recommended_node:check_player_overlap(px, py, pr))
+            else
+                dbg("recommended")
+            end
+
+            dbg("\n")
         end
     end)
 
-    self._last_node_and_time = {}
-    self._node_to_cooldown_timestamp = meta.make_weak({})
-end
-
---- @brief
-function ow.AirDashNodeManager:_update_damping(value)
-    local player = self._scene:get_player()
-    self._damping_entry_id = player:request_damping(self,
-        nil, -- up
-        nil, -- right
-        value, -- down
-        nil -- left
-    )
+    self._input:signal_connect("released", function(_, which)
+        if which == rt.InputAction.JUMP then
+            self._tether_allowed_timestamp = nil
+        end
+    end)
 end
 
 --- @brief
@@ -89,8 +100,6 @@ function ow.AirDashNodeManager:_tether(node)
     if node == nil then return end
 
     self._tethered_node = node
-    self._node_to_cooldown_timestamp[self._tethered_node] = love.timer.getTime()
-    self._tethered_node:notify_is_on_cooldown(true)
 
     local player = self._scene:get_player()
     local player_x, player_y = player:get_position()
@@ -98,33 +107,38 @@ function ow.AirDashNodeManager:_tether(node)
     local node_x, node_y = node:get_position()
 
     local dx, dy, _ = node:get_direction()
-    self._tether_dx, self._tether_dy = dx, dy
 
     local radius = node:get_radius()
     local end_x, end_y = node_x + dx * radius, node_y + dy * radius
 
-    local left_x, left_y = math.turn_left(self._tether_dx, self._tether_dy)
-    local right_x, right_y = math.turn_right(self._tether_dx, self._tether_dy)
+    local left_x, left_y = math.turn_left(dx, dy)
+    local right_x, right_y = math.turn_right(dx, dy)
 
-    local length = 100 -- irrelevant for math as points define infinite line
     self._tether_exit_sign_line = {
-        end_x + left_x * length,
-        end_y + left_y * length,
-        end_x + right_x * length,
-        end_y + right_y * length
+        end_x + left_x,
+        end_y + left_y,
+        end_x + right_x,
+        end_y + right_y
     }
 
-    self._tether_sign = _get_side(
+    self._tether_exit_sign = _get_side(
         player_x, player_y,
         self._tether_exit_sign_line
     )
 
-    local path = rt.Path(
-        node_x - dx * radius, node_y - dy * radius,
-        node_y + dx * radius, node_y + dy * radius
-    )
-    local closest_x, closest_y = path:get_closest_point(player_x, player_y)
+    self._tether_mid_sign_line = {
+        node_x + left_x,
+        node_y + left_y,
+        node_x + right_x,
+        node_y + right_y
+    }
 
+    self._tether_mid_sign = _get_side(
+        player_x, player_y,
+        self._tether_mid_sign_line
+    )
+
+    self._tether_exit_dx, self._tether_exit_dy = dx, dy
     self._tether_path = rt.Path(rt.Spline(
         player_x, player_y,
         node_x, node_y,
@@ -134,21 +148,20 @@ function ow.AirDashNodeManager:_tether(node)
     self._tether_elapsed = 0
     self._tethered_node:set_is_tethered(true)
 
+    local velocity_magnitude = math.magnitude(player:get_velocity())
+    self._tether_velocity_magnitude = math.max(
+        velocity_magnitude,
+        ternary(player:get_is_bubble(),
+            rt.settings.overworld.air_dash_node_manager.dash_velocity_bubble,
+            rt.settings.overworld.air_dash_node_manager.dash_velocity
+        ) * node:get_velocity_factor()
+    )
+
     player:set_velocity(0, 0) -- overridden next update
     player:pulse(node:get_color())
     self._scene:get_camera():shake()
 
     self._t_history = {}
-    self._allow_tether = false
-end
-
---- @brief
-function ow.AirDashNodeManager:_untether()
-    if self._tethered_node == nil then return end
-    self._tethered_node:set_is_tethered(false)
-    self._tethered_node = nil
-
-    self._tether_elapsed = math.huge
 end
 
 --- @brief
@@ -160,52 +173,27 @@ function ow.AirDashNodeManager:notify_node_added(node)
 
     self._max_node_radius = math.max(self._max_node_radius, node:get_radius())
 end
---- @brief
-function ow.AirDashNodeManager:notify_directional_node_added(node)
-    local body = node:get_body()
-    body:set_user_data(node)
-    body:set_collision_group(rt.settings.overworld.air_dash_node_manager.node_collision_group)
-
-    self._max_node_radius = math.max(self._max_node_radius, node:get_radius())
-end
 
 --- @brief
 function ow.AirDashNodeManager:update(delta)
-    local camera = self._scene:get_camera()
-    local bounds = camera:get_world_bounds()
-    local padding = rt.settings.overworld.stage.visible_area_padding * camera:get_final_scale()
-    bounds.x = bounds.x - padding
-    bounds.y = bounds.y - padding
-    bounds.width = bounds.width + 2 * padding
-    bounds.height = bounds.height + 2 * padding
+    local player = self._scene:get_player()
+    local px, py = player:get_position()
+    local pvx, pvy = player:get_velocity()
+    local pr = 2 * player:get_radius() -- sic
 
     local get_is_on_cooldown = function(node)
         return self._node_to_cooldown_timestamp[node] ~= nil
     end
 
-    local player = self._scene:get_player()
-    local px, py = player:get_position()
-    local pvx, pvy = player:get_velocity()
-    local pr = player:get_radius()
-
-    local non_bubble_easing = rt.InterpolationFunctions.SINUSOID_EASE_IN
-    local bubble_easing = rt.InterpolationFunctions.CONSTANT
-
     if self._tethered_node ~= nil then
         -- move player
-        self:_update_damping(1) -- to prevent downwards dash being dampened
-
-        local dash_velocity = ternary(not player:get_is_bubble(),
-            rt.settings.overworld.air_dash_node_manager.dash_velocity,
-            rt.settings.overworld.air_dash_node_manager.dash_velocity_bubble
-        ) * self._tethered_node:get_velocity_factor()
 
         local t = self._tether_path:get_fraction(px, py)
         local dx, dy = self._tether_path:tangent_at(t)
 
         player:set_velocity(
-            dash_velocity * dx,
-            dash_velocity * dy
+            self._tether_velocity_magnitude * dx,
+            self._tether_velocity_magnitude * dy
         )
 
         local should_emergency_untether = false
@@ -223,6 +211,7 @@ function ow.AirDashNodeManager:update(delta)
 
             local total_elapsed = 0
             local now_t, last_t = t, math.huge
+
             -- compute t velocity in last `duration` time window
             for i = 1, #self._t_history - 1 do
                 local current = self._t_history[i + 0]
@@ -236,6 +225,7 @@ function ow.AirDashNodeManager:update(delta)
                 end
             end
 
+            -- if t-velocity is too low, player appears stuck, untether
             if total_elapsed > duration then
                 should_emergency_untether = math.abs(last_t - now_t) / total_elapsed < t_velocity_cutoff
             end
@@ -243,17 +233,22 @@ function ow.AirDashNodeManager:update(delta)
 
         -- exit condition: moved past end line
         local side = _get_side(px, py, self._tether_exit_sign_line)
-        if should_emergency_untether or side ~= self._tether_sign then
+        if should_emergency_untether or side ~= self._tether_exit_sign then
             local exit_velocity = ternary(not player:get_is_bubble(),
                 rt.settings.overworld.air_dash_node_manager.exit_velocity,
                 rt.settings.overworld.air_dash_node_manager.exit_velocity_bubble
             ) * self._tethered_node:get_velocity_factor()
 
             player:set_velocity( -- ensure exit velocity
-                exit_velocity * self._tether_dx,
-                exit_velocity * self._tether_dy
+                exit_velocity * self._tether_exit_dx,
+                exit_velocity * self._tether_exit_dy
             )
-            self:_untether()
+
+            -- untether
+            self._tethered_node:set_is_tethered(false)
+            self._tethered_node = nil
+            self._tether_elapsed = math.huge
+            dbg("called")
         end
 
         -- particles
@@ -264,7 +259,11 @@ function ow.AirDashNodeManager:update(delta)
 
     -- find next candidate
 
-    local padding = self._max_node_radius
+    local camera = self._scene:get_camera()
+    local bounds = camera:get_world_bounds()
+    local padding = rt.settings.overworld.stage.visible_area_padding * camera:get_final_scale()
+        + self._max_node_radius
+
     bounds.x = bounds.x - padding
     bounds.y = bounds.y - padding
     bounds.width = bounds.width + 2 * padding
@@ -328,10 +327,6 @@ function ow.AirDashNodeManager:update(delta)
     end
 
     if best_entry == nil then
-        if self._next_node ~= nil then
-            self:_update_damping(1)
-        end
-
         -- no candidate, highlight closest
         self._next_node = nil
 
@@ -345,46 +340,18 @@ function ow.AirDashNodeManager:update(delta)
         self._next_node = best_entry.node
         self._next_node:set_is_current(true)
         self._recommended_node = self._next_node
-
-        if not player:get_is_grounded() then
-            self:_update_damping(
-                math.mix(
-                    rt.settings.overworld.air_dash_node_manager.min_player_damping,
-                    rt.settings.overworld.air_dash_node_manager.max_player_damping,
-                    math.sqrt(math.distance(px, py, self._next_node:get_position()) / self._next_node:get_radius())
-                ) -- sic, no clamp
-            )
-        else
-            self:_update_damping(1)
-        end
     end
 
-    if self._tether_node ~= nil and self._tethered_node:check_player_overlap() == false then
-        self:_untether(self._tether_node)
-    end
-
-    if self._allow_tether then
-        if self._tethered_node == nil then
-
-        else
-            local allow = _get_side(px, py, self._tether_exit_sign_line) ~= self._tether_sign
-
-        end
-    end
-
-    if self._allow_tether
-        and self._input:get_is_down(rt.InputAction.JUMP)
+    -- regular tether
+    if self._tethered_node == nil
         and self._next_node ~= nil
-        and self._next_node:check_player_overlap()
+        and self._tether_allowed_timestamp ~= nil
+        and (love.timer.getTime() - self._tether_allowed_timestamp) < rt.settings.overworld.air_dash_node_manager.jump_buffer_duration
+        and self._next_node ~= self._tethered_node
+        and self._next_node:check_player_overlap(px, py, 2 * pr)
     then
-        local allow = true
-        if self._tethered_node ~= nil then
-            allow = _get_side(px, py, self._tether_exit_sign_line) ~= self._tether_sign
-        end
-
-        if allow then
-            self:_tether(self._next_node)
-        end
+        self:_tether(self._next_node)
+        self._tether_allowed_timestamp = nil -- consume
     end
 
     if self._recommended_node ~= nil then
@@ -393,40 +360,16 @@ function ow.AirDashNodeManager:update(delta)
 
     -- disable double jump while in range
     player:request_is_double_jump_disabled(self, disable_double_jump)
-
-    -- manage cooldown
-    local to_remove = {}
-    for node, time in pairs(self._node_to_cooldown_timestamp) do
-        local is_on_cooldown = true
-
-        if node:check_player_overlap() == false then
-            is_on_cooldown = false
-        end
-
-        if not is_on_cooldown then
-            node:notify_is_on_cooldown(false)
-            table.insert(to_remove, node)
-        end
-    end
-
-    for node in values(to_remove) do
-        self._node_to_cooldown_timestamp[node] = nil
-    end
 end
 
 --- @brief
 function ow.AirDashNodeManager:draw()
     if self._tethered_node == nil then return end
 
-    --[[
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.setLineWidth(1)
-    if self._tether_path ~= nil then
-        love.graphics.line(self._tether_path:get_points())
-    end
 
-    if self._tether_exit_sign_line ~= nil then
+    if self._tether_exit_sign_line ~= nil and self._tethered_node ~= nil then
         love.graphics.line(self._tether_exit_sign_line)
     end
-    ]]
 end

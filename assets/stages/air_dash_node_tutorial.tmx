@@ -47,7 +47,7 @@
   </object>
  </objectgroup>
  <objectgroup id="2" name="main">
-  <object id="89" name="Spawn" type="PlayerSpawn" x="-1630.58" y="2294.07">
+  <object id="89" name="Spawn" type="PlayerSpawn" x="1616.44" y="-1490.79">
    <point/>
   </object>
   <object id="91" type="Hitbox" x="-1439.08" y="1248">
@@ -441,16 +441,16 @@
   <object id="265" type="AirDashNode" x="1568" y="-2240" width="304" height="304">
    <properties>
     <property name="angle_range" type="float" value="0.5"/>
-    <property name="axis_x" type="float" value="1"/>
-    <property name="axis_y" type="float" value="0"/>
+    <property name="axis_x" type="float" value="-1"/>
+    <property name="axis_y" type="float" value="1"/>
    </properties>
    <ellipse/>
   </object>
   <object id="266" type="AirDashNode" x="2096" y="-2240" width="304" height="304">
    <properties>
     <property name="angle_range" type="float" value="0.5"/>
-    <property name="axis_x" type="float" value="-1"/>
-    <property name="axis_y" type="float" value="0"/>
+    <property name="axis_x" type="float" value="1"/>
+    <property name="axis_y" type="float" value="1"/>
    </properties>
    <ellipse/>
   </object>
