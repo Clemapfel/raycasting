@@ -42,6 +42,13 @@ end
 function ow.Mirror:draw()
     if rt.GameState:get_are_reflections_enabled() == false then return end
 
+    love.graphics.push()
+    love.graphics.translate(self._offset_x, self._offset_y)
+    for edge in values(self._edges) do
+        love.graphics.line(table.unpack(edge:getUserData().segment))
+    end
+    love.graphics.pop()
+
     if self._mirror_images == nil
         or #self._mirror_images == 0
         or self._scene:get_player():get_is_ghost()
@@ -86,6 +93,7 @@ function ow.Mirror:draw()
     _shader:send("camera_scale", camera:get_final_scale())
 
     local n_drawn = 0
+
     for image in values(self._mirror_images) do
         local flip_x, flip_y
         if image.flip_x == true then flip_x = -1 else flip_x = 1 end
@@ -152,7 +160,7 @@ local function _area(tri)
 end
 
 --- @brief
-function ow.Mirror:create_contour(mirror_tris, occluding_tris)
+function ow.Mirror:create_contour(mirror_tris, occluding_tris, contour_test)
     if occluding_tris == nil then occluding_tris = {} end
     meta.assert(mirror_tris, "Table", occluding_tris, "Table")
 
@@ -661,9 +669,6 @@ function ow.Mirror:update(delta)
 
     -- find segments near player
     local px, py = self._scene:get_player():get_physics_body():get_position()
-
-    local x = px - self._offset_x
-    local y = py - self._offset_y
     local r = rt.settings.overworld.mirror.segment_detection_radius_factor * rt.settings.player.radius
     if self._scene:get_player():get_is_bubble() == true then
         --r = r * rt.settings.player.bubble_radius_factor
@@ -674,7 +679,14 @@ function ow.Mirror:update(delta)
     local mirror_segments = {}
     local occluding_segments = {}
 
-    local shapes = self._world:getShapesInArea(camera_x, camera_y, camera_x + camera_w, camera_y + camera_h)---x - r, y - r, x + r, y + r)
+    camera_x = camera_x - self._offset_x
+    camera_y = camera_y - self._offset_y
+
+    local shapes = self._world:getShapesInArea(
+        camera_x, camera_y,
+        camera_x + camera_w, camera_y + camera_h
+    )
+
     for shape in values(shapes) do
         local data = shape:getUserData()
         if data.is_mirror == true then
@@ -690,6 +702,7 @@ function ow.Mirror:update(delta)
         py - self._offset_y,
         occluding_segments
     )
+
 
     self._mirror_images = {}
     for segment in values(self._visible) do
