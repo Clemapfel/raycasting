@@ -330,13 +330,13 @@ function ow.Stage:instantiate(scene, id)
     sort(self._above_player)
 
     self._blood_splatter:create_contour(
-        ow.Hitbox:get_collision_tris(true, false), -- sticky
-        ow.Hitbox:get_collision_tris(false, true)  -- slippery occluding
+        ow.Hitbox:get_contours(true, false), -- sticky
+        ow.Hitbox:get_contours(false, true)  -- slippery occluding
     )
 
     self._mirror:create_contour(
-        ow.Hitbox:get_collision_tris(false, true), -- mirror
-        ow.Hitbox:get_collision_tris(true, false) -- occluding
+        ow.Hitbox:get_contours(false, true), -- mirror
+        ow.Hitbox:get_contours(true, false) -- occluding
     )
 
     -- create flow graph

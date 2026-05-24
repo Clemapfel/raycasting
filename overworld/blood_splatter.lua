@@ -97,6 +97,8 @@ end
 
 --- @brief
 function ow.BloodSplatter:add(x, y, radius, color_r, color_g, color_b, opacity, allow_override)
+    if self._world == nil then return end
+
     if opacity == nil then opacity = 1 end
     if allow_override == nil then allow_override = true end
 
@@ -160,6 +162,8 @@ end
 
 --- @brief
 function ow.BloodSplatter:draw()
+    if self._world == nil then return end
+
     local line_width = rt.settings.overworld.blood_splatter.line_width
     love.graphics.setLineWidth(line_width)
     love.graphics.setLineStyle("rough")
@@ -225,41 +229,8 @@ local _unhash = function(hash)
 end
 
 --- @brief
-function ow.BloodSplatter:create_contour(tris, occluding_tris)
-    _hash_to_segment = {}
-    local hash_to_is_valid = {}
-
-    local segments = {}
-    for tris_and_is_valid in range(
-        { tris, true },
-        { occluding_tris, false }
-    ) do
-        local to_iterate, is_valid = table.unpack(tris_and_is_valid)
-        for tri in values(to_iterate) do
-            for segment in range(
-                {tri[1], tri[2], tri[3], tri[4]},
-                {tri[3], tri[4], tri[5], tri[6]},
-                {tri[1], tri[2], tri[5], tri[6]}
-            ) do
-                table.insert(segments, segment)
-                local hash = _hash(segment)
-                hash_to_is_valid[hash] = is_valid
-            end
-        end
-    end
-
-    local tuples = {}
-    local n_total = 0
-    for segment in values(segments) do
-        local hash = _hash(segment)
-        local current = tuples[hash]
-        if current == nil then
-            tuples[hash] = 1
-        else
-            tuples[hash] = current + 1
-        end
-        n_total = n_total + 1
-    end
+function ow.BloodSplatter:create_contour(contours)
+    meta.assert(contours, "Table")
 
     self._world = love.physics.newWorld(0, 0)
     self._edges = {}
@@ -268,9 +239,14 @@ function ow.BloodSplatter:create_contour(tris, occluding_tris)
     self._edge_body = love.physics.newBody(self._world, 0, 0, b2.BodyType.STATIC)
 
     local max_length = rt.settings.overworld.blood_splatter.subdivision_length
-    for hash, count in pairs(tuples) do
-        if count == 1 and hash_to_is_valid[hash] == true then
-            local x1, y1, x2, y2 = _unhash(hash)
+
+    for contour in values(contours) do
+        for i = 1, #contour - 2, 2 do
+            local x1, y1, x2, y2 = contour[i+0],
+            contour[i+1],
+            contour[i+2],
+            contour[i+3]
+
             local dx, dy = x2 - x1, y2 - y1
             local length = math.magnitude(dx, dy)
 
@@ -333,6 +309,8 @@ end
 
 --- @brief
 function ow.BloodSplatter:collect_segment_lights(bounds, callback)
+    if self._world == nil then return end
+
     local hue_threshold = rt.settings.overworld.blood_splatter.hue_difference_threshold
     local x, y, w, h = bounds:unpack()
     x = x - self._offset_x
@@ -395,16 +373,4 @@ end
 --- @brief
 function ow.BloodSplatter:get_offset()
     return self._offset_x, self._offset_y
-end
-
---- @brief
-function ow.BloodSplatter:get_contour_segments(min_x, min_y, max_x, max_y)
-    local segments = {}
-    for shape in values(self._world:getShapesInArea(min_x, min_y, max_x, max_y)) do
-        local data = shape:getUserData()
-        if data ~= nil then
-            table.insert(segments, table.deepcopy(data.line))
-        end
-    end
-    return segments
 end

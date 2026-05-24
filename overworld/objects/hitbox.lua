@@ -30,10 +30,12 @@ end
 ow.Hitbox._slippery_collision_tris = {}
 ow.Hitbox._slipper_mesh_tris = {}
 ow.Hitbox._slippery_mesh = nil
+ow.Hitbox._slippery_contours = {}
 
 ow.Hitbox._sticky_mesh_tris = {}
 ow.Hitbox._sticky_collision_tris = {}
 ow.Hitbox._sticky_mesh = nil
+ow.Hitbox._sticky_contours = {}
 
 ow.Hitbox._initialized = false
 
@@ -85,6 +87,7 @@ function ow.Hitbox:instantiate(object, stage, scene)
             table.insert(ow.Hitbox._slippery_collision_tris, tri)
         end
 
+        table.insert(ow.Hitbox._slippery_contours, contour)
         self._color = rt.Palette.SLIPPERY_OUTLINE
         self._outline_width = rt.settings.overworld.hitbox.slippery_outline_width
         self._render_priority = -3
@@ -94,6 +97,7 @@ function ow.Hitbox:instantiate(object, stage, scene)
             table.insert(ow.Hitbox._sticky_collision_tris, tri)
         end
 
+        table.insert(ow.Hitbox._sticky_contours, contour)
         self._color = rt.Palette.STICKY_OUTLINE
         self._outline_width = rt.settings.overworld.hitbox.sticky_outline_width
         self._render_priority = -2
@@ -292,4 +296,26 @@ function ow.Hitbox:get_collision_tris(sticky, slippery)
     end
 
     return tris
+end
+
+--- @brief
+function ow.Hitbox:get_contours(sticky, slippery)
+    if sticky == nil then sticky = true end
+    if slippery == nil then slippery = true end
+
+    local contours = {}
+
+    if sticky == true then
+        for contour in values(ow.Hitbox._sticky_contours) do
+            table.insert(contours, contour)
+        end
+    end
+
+    if slippery == true then
+        for contour in values(ow.Hitbox._slippery_contours) do
+            table.insert(contours, contour)
+        end
+    end
+
+    return contours
 end

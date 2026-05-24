@@ -42,13 +42,6 @@ end
 function ow.Mirror:draw()
     if rt.GameState:get_are_reflections_enabled() == false then return end
 
-    love.graphics.push()
-    love.graphics.translate(self._offset_x, self._offset_y)
-    for edge in values(self._edges) do
-        love.graphics.line(table.unpack(edge:getUserData().segment))
-    end
-    love.graphics.pop()
-
     if self._mirror_images == nil
         or #self._mirror_images == 0
         or self._scene:get_player():get_is_ghost()
@@ -160,73 +153,47 @@ local function _area(tri)
 end
 
 --- @brief
-function ow.Mirror:create_contour(mirror_tris, occluding_tris, contour_test)
-    if occluding_tris == nil then occluding_tris = {} end
-    meta.assert(mirror_tris, "Table", occluding_tris, "Table")
+function ow.Mirror:create_contour(mirror_contours, occluding_contours, contour_test)
+    meta.assert(mirror_contours, "Table", mirror_contours, "Table")
 
     local mirror_segments, occluding_segments = {}, {}
-
-    for segments_tris in range(
-        { mirror_segments, mirror_tris },
-        { occluding_segments, occluding_tris }
-    ) do
-        _hash_to_segment = {}
-
-        local segments, tris = table.unpack(segments_tris)
-        for tri in values(tris) do
-            for segment in range(
-                {tri[1], tri[2], tri[3], tri[4]},
-                {tri[3], tri[4], tri[5], tri[6]},
-                {tri[1], tri[2], tri[5], tri[6]}
-            ) do
-                table.insert(segments, segment)
-            end
-        end
-
-        local tuples = {}
-        local n_total = 0
-        for segment in values(segments) do
-            local hash = _hash(segment)
-            local current = tuples[hash]
-            if current == nil then
-                tuples[hash] = 1
-            else
-                tuples[hash] = current + 1
-            end
-            n_total = n_total + 1
-        end
-
-        for hash, count in pairs(tuples) do
-            if count == 1 then
-                table.insert(segments, { _unhash(hash) })
-            end
-        end
-    end
 
     self._world = love.physics.newWorld(0, 0)
     self._edges = {}
     self._edge_body = love.physics.newBody(self._world, 0, 0, b2.BodyType.STATIC)
 
-    for segment in values(mirror_segments) do
-        local x1, y1, x2, y2 = table.unpack(segment)
-        local edge = love.physics.newEdgeShape(self._edge_body, x1, y1, x2, y2)
-        edge:setUserData({
-            is_mirror = true,
-            segment = segment
-        })
+    for mirror_contour in values(mirror_contours) do
+        for i = 1, #mirror_contour - 2, 2 do
+            local x1, y1, x2, y2 = mirror_contour[i+0],
+            mirror_contour[i+1],
+            mirror_contour[i+2],
+            mirror_contour[i+3]
 
-        table.insert(self._edges, edge)
+            local edge = love.physics.newEdgeShape(self._edge_body, x1, y1, x2, y2)
+            edge:setUserData({
+                is_mirror = true,
+                segment = { x1, y1, x2, y2 }
+            })
+
+            table.insert(self._edges, edge)
+        end
     end
 
-    for segment in values(occluding_segments) do
-        local x1, y1, x2, y2 = table.unpack(segment)
-        local edge = love.physics.newEdgeShape(self._edge_body, x1, y1, x2, y2)
-        edge:setUserData({
-            is_mirror = false,
-            segment = segment
-        })
+    for occluding_contour in values(occluding_contours) do
+        for i = 1, #occluding_contour - 2, 2 do
+            local x1, y1, x2, y2 = occluding_contour[i+0],
+            occluding_contour[i+1],
+            occluding_contour[i+2],
+            occluding_contour[i+3]
 
-        table.insert(self._edges, edge)
+            local edge = love.physics.newEdgeShape(self._edge_body, x1, y1, x2, y2)
+            edge:setUserData({
+                is_mirror = false,
+                segment = { x1, y1, x2, y2 }
+            })
+
+            table.insert(self._edges, edge)
+        end
     end
 end
 
@@ -656,6 +623,7 @@ end
 --- @brief
 function ow.Mirror:update(delta)
     if rt.GameState:get_are_reflections_enabled() == false then return end
+    if self._world == nil then return end
 
     local camera = self._scene:get_camera()
     local bounds = camera:get_world_bounds()
