@@ -603,7 +603,7 @@ function rt.Player:update(delta)
                 if fraction >= 1 then
                     table.insert(to_remove, i)
                 elseif fraction < 0.5 then
-                    break
+                    --break
                 end
             end
 

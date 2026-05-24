@@ -766,7 +766,7 @@ function ow.AirDashNode:check_player_overlap(px, py, pr)
 
     -- use cached result, for repeated queries
     local hash = _hash_query(rt.SceneManager:get_frame_index(), px, py, pr, x, y, r, mid, span)
-    if false and self._last_query_hash == hash and self._last_overlap_result ~= nil then
+    if self._last_query_hash == hash and self._last_overlap_result ~= nil then
         return self._last_overlap_result
     end
 

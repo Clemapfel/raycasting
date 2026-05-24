@@ -51,6 +51,7 @@ function ow.AirDashNodeManager:instantiate(scene, stage)
 
     self._tether_elapsed = math.huge
     self._t_history = {}
+    self._chain_history = {}
 
     self._tether_velocity_magnitude = 0
     self._node_to_cooldown_timestamp = meta.make_weak({})
@@ -121,8 +122,9 @@ function ow.AirDashNodeManager:_tether(node)
     local mid_x, mid_y = math.mix2(
         start_x, start_y,
         end_x, end_y,
-        rt.settings.overworld.air_dash_node_manager.mid_point_t
-        + rt.settings.player.radius / self._tether_path:get_length()
+        math.min(1, rt.settings.overworld.air_dash_node_manager.mid_point_t
+            + (2 + rt.settings.player.radius) / self._tether_path:get_length()
+        )
     )
 
     self._tether_mid_sign_line = {
@@ -293,7 +295,8 @@ function ow.AirDashNodeManager:update(delta)
             local chain_node = nil
             for entry in values(entries) do
                 if entry.node ~= self._tethered_node
-                    and entry.node:check_player_overlap() == true
+                    and entry.node:check_player_overlap(px, py, 2 * pr) == true
+                    and self._chain_history[entry.node] ~= true
                 then
                     chain_node = entry.node
                     break

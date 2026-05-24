@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="278">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="284">
  <editorsettings>
   <export target="air_dash_node_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -47,7 +47,7 @@
   </object>
  </objectgroup>
  <objectgroup id="2" name="main">
-  <object id="89" name="Spawn" type="PlayerSpawn" x="-64" y="-2160">
+  <object id="89" name="Spawn" type="PlayerSpawn" x="64" y="-1312">
    <point/>
   </object>
   <object id="91" type="Hitbox" x="-1439.08" y="1248">
@@ -463,22 +463,51 @@
   <object id="269" type="AirDashNodeDirection" x="1984" y="-2480">
    <point/>
   </object>
-  <object id="270" type="KillPlane" x="944" y="-1248">
-   <polygon points="-800,0 -800,-864 -736,-864 -736,-96 48,-96 48,0"/>
-  </object>
-  <object id="274" type="AirDashNode" x="320" y="-1392">
+  <object id="274" type="AirDashNode" x="304" y="-1344">
    <properties>
     <property name="other" type="object" value="275"/>
+    <property name="velocity" type="float" value="4"/>
    </properties>
    <point/>
   </object>
-  <object id="275" type="AirDashNodeDirection" x="320" y="-1616">
+  <object id="275" type="AirDashNodeDirection" x="384" y="-1472">
+   <properties>
+    <property name="velocity" type="float" value="4"/>
+   </properties>
    <point/>
   </object>
   <object id="276" x="-142.19" y="-2128.78">
    <polygon points="0,0 190.19,0.783262 190.94,50.782 -1.81028,48.7833"/>
   </object>
-  <object id="277" type="CameraFit" x="-166.565" y="-2321.76" width="1174.57" height="1073.76"/>
+  <object id="278" type="AirDashNode" x="384" y="-1472">
+   <properties>
+    <property name="other" type="object" value="279"/>
+    <property name="velocity" type="float" value="4"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="279" type="AirDashNodeDirection" x="464" y="-1344">
+   <properties>
+    <property name="velocity" type="float" value="4"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="281" type="AirDashNode" x="464" y="-1344">
+   <properties>
+    <property name="other" type="object" value="282"/>
+    <property name="velocity" type="float" value="4"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="282" type="AirDashNodeDirection" x="304" y="-1344">
+   <properties>
+    <property name="velocity" type="float" value="4"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="283" type="SlipperyHitbox" x="544" y="-1248">
+   <polygon points="0,0 0,-528 208,-528 208,0"/>
+  </object>
  </objectgroup>
  <objectgroup id="6" name="front"/>
  <layer id="4" name="noop" width="32" height="32">

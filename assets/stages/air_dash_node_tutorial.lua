@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 278,
+  nextobjectid = 284,
   properties = {
     ["background_id"] = "\"nebula\""
   },
@@ -212,8 +212,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = -64,
-          y = -2160,
+          x = 64,
+          y = -1312,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1483,39 +1483,19 @@ return {
           properties = {}
         },
         {
-          id = 270,
-          name = "",
-          type = "KillPlane",
-          shape = "polygon",
-          x = 944,
-          y = -1248,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = -800, y = 0 },
-            { x = -800, y = -864 },
-            { x = -736, y = -864 },
-            { x = -736, y = -96 },
-            { x = 48, y = -96 },
-            { x = 48, y = 0 }
-          },
-          properties = {}
-        },
-        {
           id = 274,
           name = "",
           type = "AirDashNode",
           shape = "point",
-          x = 320,
-          y = -1392,
+          x = 304,
+          y = -1344,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
           properties = {
-            ["other"] = { id = 275 }
+            ["other"] = { id = 275 },
+            ["velocity"] = 4
           }
         },
         {
@@ -1523,13 +1503,15 @@ return {
           name = "",
           type = "AirDashNodeDirection",
           shape = "point",
-          x = 320,
-          y = -1616,
+          x = 384,
+          y = -1472,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
-          properties = {}
+          properties = {
+            ["velocity"] = 4
+          }
         },
         {
           id = 276,
@@ -1551,16 +1533,84 @@ return {
           properties = {}
         },
         {
-          id = 277,
+          id = 278,
           name = "",
-          type = "CameraFit",
-          shape = "rectangle",
-          x = -166.565,
-          y = -2321.76,
-          width = 1174.57,
-          height = 1073.76,
+          type = "AirDashNode",
+          shape = "point",
+          x = 384,
+          y = -1472,
+          width = 0,
+          height = 0,
           rotation = 0,
           visible = true,
+          properties = {
+            ["other"] = { id = 279 },
+            ["velocity"] = 4
+          }
+        },
+        {
+          id = 279,
+          name = "",
+          type = "AirDashNodeDirection",
+          shape = "point",
+          x = 464,
+          y = -1344,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["velocity"] = 4
+          }
+        },
+        {
+          id = 281,
+          name = "",
+          type = "AirDashNode",
+          shape = "point",
+          x = 464,
+          y = -1344,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["other"] = { id = 282 },
+            ["velocity"] = 4
+          }
+        },
+        {
+          id = 282,
+          name = "",
+          type = "AirDashNodeDirection",
+          shape = "point",
+          x = 304,
+          y = -1344,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["velocity"] = 4
+          }
+        },
+        {
+          id = 283,
+          name = "",
+          type = "SlipperyHitbox",
+          shape = "polygon",
+          x = 544,
+          y = -1248,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 0, y = -528 },
+            { x = 208, y = -528 },
+            { x = 208, y = 0 }
+          },
           properties = {}
         }
       }
