@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 284,
+  nextobjectid = 287,
   properties = {
     ["background_id"] = "\"nebula\""
   },
@@ -1597,20 +1597,54 @@ return {
         {
           id = 283,
           name = "",
-          type = "SlipperyHitbox",
+          type = "MovableHitbox",
           shape = "polygon",
-          x = 544,
-          y = -1248,
+          x = 592,
+          y = -1104,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
           polygon = {
             { x = 0, y = 0 },
+            { x = 0, y = -414.937 },
+            { x = -592, y = -288 },
+            { x = -512, y = -544 },
             { x = 0, y = -528 },
             { x = 208, y = -528 },
             { x = 208, y = 0 }
           },
+          properties = {
+            ["slippery"] = false
+          }
+        },
+        {
+          id = 284,
+          name = "",
+          type = "Path",
+          shape = "point",
+          x = 728.599,
+          y = -1063.61,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["next"] = { id = 285 },
+            ["target"] = { id = 283 }
+          }
+        },
+        {
+          id = 285,
+          name = "",
+          type = "PathNode",
+          shape = "point",
+          x = 224,
+          y = -1952,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
           properties = {}
         }
       }

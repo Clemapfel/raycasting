@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="284">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="287">
  <editorsettings>
   <export target="air_dash_node_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -505,8 +505,21 @@
    </properties>
    <point/>
   </object>
-  <object id="283" type="SlipperyHitbox" x="544" y="-1248">
-   <polygon points="0,0 0,-528 208,-528 208,0"/>
+  <object id="283" type="MovableHitbox" x="592" y="-1104">
+   <properties>
+    <property name="slippery" type="bool" value="false"/>
+   </properties>
+   <polygon points="0,0 0,-414.937 -592,-288 -512,-544 0,-528 208,-528 208,0"/>
+  </object>
+  <object id="284" type="Path" x="728.599" y="-1063.61">
+   <properties>
+    <property name="next" type="object" value="285"/>
+    <property name="target" type="object" value="283"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="285" type="PathNode" x="224" y="-1952">
+   <point/>
   </object>
  </objectgroup>
  <objectgroup id="6" name="front"/>

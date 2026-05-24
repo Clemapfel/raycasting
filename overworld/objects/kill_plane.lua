@@ -18,9 +18,11 @@ rt.settings.overworld.kill_plane = {
 
 --- @class ow.KillPlane
 --- @types Polygon, Rectangle, Ellipse
---- @field is_visible Boolean?
---- @field should_explode Boolean?
 ow.KillPlane = meta.class("KillPlane", ow.MovableObject)
+
+local schema = {
+    should_explode = ow.Boolean
+}
 
 local _data_mesh_format = {
     { location = 3, name = "particle_position", format = "floatvec2" },
@@ -53,7 +55,10 @@ function ow.KillPlane:instantiate(object, stage, scene)
     self._body:signal_connect("collision_start", function(_, other_body)
         if other_body:has_tag("player") then
             local player = self._scene:get_player()
-            if self._is_blocked == true or player:get_is_disabled() then return end
+            if self._is_blocked == true
+                or player:get_is_disabled()
+                or player:get_is_ghost()
+            then return end
 
             player:kill(self._should_explode)
             self._is_blocked = true
@@ -69,11 +74,13 @@ function ow.KillPlane:instantiate(object, stage, scene)
     if self._is_visible == nil then self._is_visible = true end
     if self._is_visible == false then return end
 
-    self._contour = rt.contour.close(object:create_contour())
+    self._contour = rt.contour.close(object:create_contour(true))  -- translate to origin
 
     -- lights
     self._body:add_tag("point_light_source", "segment_light_source")
     self._body:set_user_data(self)
+
+    local start_x, start_y = self._body:get_position()
 
     self._segment_lights = {}
     self._point_lights = {}
@@ -85,16 +92,13 @@ function ow.KillPlane:instantiate(object, stage, scene)
         end
     elseif object:get_type() == ow.ObjectType.ELLIPSE then
         table.insert(self._point_lights, {
-            object.center_x, object.center_y,
+            object.center_x - start_x,
+            object.center_y - start_y,
             math.max(object.x_radius, object.y_radius)
         })
     end
 
-    self._centroid_x, self._centroid_y = object:get_centroid()
-
-    rt.error("TODO: refactor because offset is broken")
-
-    self._mask = object:create_mesh()
+    self._mask = object:create_mesh(true) -- translate to origin
     self._outline_width = rt.settings.overworld.kill_plane.outline_width
     self._color = rt.Palette.KILL_PLANE
     self._outline_color = rt.Palette.KILL_PLANE_OUTLINE
@@ -201,17 +205,17 @@ function ow.KillPlane:instantiate(object, stage, scene)
         local n_instances = 0
         for column_i = 1, n_columns do
             for row_i = 1, n_rows do
-                local world_x = aabb.x + (column_i - 1) * cell_size + 0.5 * x_overhang + 0.5 * cell_size
-                local world_y = aabb.y + (row_i - 1) * cell_size + 0.5 * y_overhang + 0.5 * cell_size
+                local local_x = aabb.x + (column_i - 1) * cell_size + 0.5 * x_overhang + 0.5 * cell_size
+                local local_y = aabb.y + (row_i - 1) * cell_size + 0.5 * y_overhang + 0.5 * cell_size
 
-                if self._body:test_point(world_x, world_y)
-                    and rt.random.noise(noise_offset + world_x, noise_offset + world_y) > noise_cutoff
+                if self._body:test_point(local_x + start_x, local_y + start_y)
+                    and rt.random.noise(noise_offset + local_x, noise_offset + local_y) > noise_cutoff
                 then
                     local angle = rt.random.number(0, 2 * math.pi)
                     local offset = rt.random.number(-0.25 * cell_size, 0.25 * cell_size)
                     add(
-                        world_x + offset * math.cos(angle),
-                        world_y + offset * math.sin(angle)
+                        local_x + offset * math.cos(angle),
+                        local_y + offset * math.sin(angle)
                     )
 
                     n_instances = n_instances + 1
@@ -260,7 +264,6 @@ function ow.KillPlane:update(delta)
 
     local px, py = self._scene:get_player():get_position()
     local ox, oy = self._body:get_position()
-    local cx, cy = self._centroid_x, self._centroid_y
     local range = rt.settings.overworld.kill_plane.player_range
 
     local bounds = self._scene:get_camera():get_world_bounds()
@@ -274,8 +277,8 @@ function ow.KillPlane:update(delta)
         local axis_x, axis_y, axis_z = table.unpack(axis_data.axis)
 
         local x_local, y_local = data[1], data[2]
-        local x_world = x_local + (ox - cx)
-        local y_world = y_local + (oy - cy)
+        local x_world = x_local + ox
+        local y_world = y_local + oy
 
         if bounds:contains(x_world, y_world) then
             local dx = px - x_world
@@ -317,9 +320,10 @@ function ow.KillPlane:draw()
 
     local offset_x, offset_y = self._body:get_position()
     love.graphics.push()
-    love.graphics.translate(offset_x - self._centroid_x, offset_y - self._centroid_y)
+    love.graphics.translate(offset_x, offset_y)
 
     local transform = self._scene:get_camera():get_transform()
+    transform:translate(offset_x, offset_y)
     transform = transform:inverse()
 
     self._color:bind()
@@ -354,7 +358,6 @@ end
 --- @brief
 function ow.KillPlane:collect_segment_lights(callback)
     local offset_x, offset_y = self._body:get_position()
-    offset_x, offset_y = offset_x - self._centroid_x, offset_y - self._centroid_y
 
     local r, g, b, a = rt.Palette.KILL_PLANE:unpack()
     for segment in values(self._segment_lights) do
@@ -372,7 +375,6 @@ end
 --- @brief
 function ow.KillPlane:collect_point_lights(callback)
     local offset_x, offset_y = self._body:get_position()
-    offset_x, offset_y = offset_x - self._centroid_x, offset_y - self._centroid_y
 
     local r, g, b, a = rt.Palette.KILL_PLANE:unpack()
     for point in values(self._point_lights) do

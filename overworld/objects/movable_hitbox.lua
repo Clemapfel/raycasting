@@ -20,8 +20,17 @@ ow.SlipperyMovableHitbox = function(object, stage, scene)
     return ow.MovableHitbox(object, stage, scene)
 end
 
+local schema = {
+    slippery = ow.Boolean,
+    sticky = ow.Boolean,
+    unjumpable = ow.Boolean,
+    unwalkable = ow.Boolean
+}
+
 --- @brief
 function ow.MovableHitbox:instantiate(object, stage, scene)
+    object:validate_schema(schema)
+
     self._scene = scene
     self._stage = stage
     self._world = self._stage:get_physics_world()
@@ -51,26 +60,12 @@ function ow.MovableHitbox:instantiate(object, stage, scene)
         self._body:add_tag("no_blood")
     end
     self._body:add_tag("hitbox", "stencil")
+    self._body:add_tag("use_lighting")
 
-    -- mesh
-    local _, tris, mesh_data
-    _, tris, mesh_data = object:create_mesh()
-
-    for i, data in ipairs(mesh_data) do
-        data[1] = data[1] - start_x
-        data[2] = data[2] - start_y
-    end
-
-    for tri in values(tris) do
-        for j = 1, #tri, 2 do
-            tri[j+0] = tri[j+0] - start_x
-            tri[j+1] = tri[j+1] - start_y
-        end
-    end
-
-    self._offset_x, self._offset_y = start_x, start_y
-    self._mesh = rt.Mesh(mesh_data, rt.MeshDrawMode.TRIANGLES)
+    local mesh, tris = object:create_mesh(true) -- translate to origin
+    self._mesh = mesh
     self._tris = tris
+    self._contour = rt.contour.close(object:create_contour(true))
 
     -- graphics
     self._normal_map = ow.NormalMap(
@@ -90,8 +85,8 @@ function ow.MovableHitbox:instantiate(object, stage, scene)
         )
 
         self._mirror:create_contour(
-            self._tris, -- mirror tris
-            {} -- occluding tris
+            { self._contour }, -- mirror
+            {} -- occluding
         )
     else
         self._blood_splatter = ow.BloodSplatter(
@@ -99,7 +94,7 @@ function ow.MovableHitbox:instantiate(object, stage, scene)
         )
 
         self._blood_splatter:create_contour(
-            self._tris
+            { self._contour }
         )
     end
 
@@ -116,6 +111,7 @@ function ow.MovableHitbox:instantiate(object, stage, scene)
             bounds.width = bounds.width + 2 * padding
             bounds.height = bounds.height + 2 * padding
 
+            self._blood_splatter:set_offset(self._body:get_position())
             self._blood_splatter:collect_segment_lights(bounds, callback)
         end
     end
@@ -127,8 +123,6 @@ function ow.MovableHitbox:update(delta)
     if self._normal_map:get_is_done() == false then
         self._normal_map:update(delta) -- finish loading coroutine
     end
-
-    self._offset_x, self._offset_y = self._body:get_position()
 
     local is_visible = self._stage:get_is_body_visible(self._body)
 
@@ -154,15 +148,21 @@ end
 function ow.MovableHitbox:draw(priority)
     if not self._stage:get_is_body_visible(self._body) then return end
 
+    local offset_x, offset_y = self._body:get_position()
+
     if self._mirror ~= nil then
-        self._mirror:set_offset(self._body:get_predicted_position())
+        self._mirror:set_offset(offset_x, offset_y)
     else
-        self._blood_splatter:set_offset(self._body:get_predicted_position())
+        self._blood_splatter:set_offset(offset_x, offset_y)
+    end
+
+    if self._normal_map:get_is_done() then
+        self._normal_map:set_offset(offset_x, offset_y)
+        self._normal_map.dbg = true
     end
 
     love.graphics.push()
-    love.graphics.translate(self._body:get_position())
-    love.graphics.rotate(self._body:get_rotation())
+    love.graphics.translate(offset_x, offset_y)
 
     if self._is_slippery then
         rt.Palette.SLIPPERY:bind()
@@ -171,40 +171,16 @@ function ow.MovableHitbox:draw(priority)
     end
     self._mesh:draw()
 
-    local camera = self._stage:get_scene():get_camera()
-    local camera_offset_x, camera_offset_y = camera:get_position()
-    camera_offset_x = -camera_offset_x
-    camera_offset_y = -camera_offset_y
-
-    if self._normal_map:get_is_done() then
-        -- set offset to compensate for camera movement, and for translation of
-        -- tris to origin in instantiate
-        self._normal_map:set_offset(camera_offset_x, camera_offset_y)
-        self._normal_map:draw_shadow(camera)
-        self._normal_map:draw_light(camera)
-    end
-
-    local stencil_value = rt.graphics.get_stencil_value()
-    rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW)
-    self._mesh:draw()
-    rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.TEST, rt.StencilCompareMode.NOT_EQUAL)
-
     if self._is_slippery then
         rt.Palette.SLIPPERY_OUTLINE:bind()
+        love.graphics.setLineWidth(rt.settings.overworld.hitbox.slippery_outline_width)
     else
         rt.Palette.STICKY_OUTLINE:bind()
+        love.graphics.setLineWidth(rt.settings.overworld.hitbox.sticky_outline_width)
     end
 
-    love.graphics.setLineWidth(3)
     love.graphics.setLineJoin("bevel")
-
-    for tri in values(self._tris) do
-        love.graphics.line({
-            tri[1], tri[2], tri[3], tri[4], tri[5], tri[6], tri[1], tri[2]
-        })
-    end
-
-    rt.graphics.set_stencil_mode(nil)
+    love.graphics.line(self._contour)
 
     love.graphics.pop()
 
@@ -212,6 +188,12 @@ function ow.MovableHitbox:draw(priority)
         self._mirror:draw()
     elseif self._blood_splatter ~= nil then
         self._blood_splatter:draw()
+    end
+
+    if self._normal_map:get_is_done() then
+        local camera = self._scene:get_camera()
+        self._normal_map:draw_shadow(camera)
+        self._normal_map:draw_light(camera)
     end
 end
 

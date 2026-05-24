@@ -215,7 +215,7 @@ function ow.ObjectWrapper:_initialize_physics_prototypes()
     if self.physics_prototypes_initialized == true then return end
 
     local prototypes = {}
-    local all_vertices = {} -- Collect all vertices to calculate overall centroid
+    local all_vertices = {}
 
     if self.type == ow.ObjectType.RECTANGLE then
         local x, y = self.x, self.y
@@ -232,11 +232,9 @@ function ow.ObjectWrapper:_initialize_physics_prototypes()
             vertices = vertices
         })
 
-        -- Add vertices to overall collection
         for i = 1, #vertices do
             table.insert(all_vertices, vertices[i])
         end
-
     elseif self.type == ow.ObjectType.ELLIPSE then
         local is_circle = math.abs(self.x_radius - self.y_radius) < 1
         if is_circle then
@@ -252,7 +250,6 @@ function ow.ObjectWrapper:_initialize_physics_prototypes()
                 radius = math.max(self.x_radius, self.y_radius)
             })
 
-            -- For circles, add center point to vertex collection
             table.insert(all_vertices, center_vertices[1])
             table.insert(all_vertices, center_vertices[2])
         else
@@ -277,7 +274,6 @@ function ow.ObjectWrapper:_initialize_physics_prototypes()
                     vertices = shape
                 })
 
-                -- Add shape vertices to overall collection
                 for i = 1, #shape do
                     table.insert(all_vertices, shape[i])
                 end
@@ -292,7 +288,6 @@ function ow.ObjectWrapper:_initialize_physics_prototypes()
                 vertices = processed_vertices
             })
 
-            -- Add vertices to overall collection
             for i = 1, #processed_vertices do
                 table.insert(all_vertices, processed_vertices[i])
             end
@@ -307,14 +302,12 @@ function ow.ObjectWrapper:_initialize_physics_prototypes()
             radius = rt.settings.overworld.object_wrapper.point_radius
         })
 
-        -- Add point to vertex collection
         table.insert(all_vertices, xy[1])
         table.insert(all_vertices, xy[2])
     else
         rt.error("In ow.ObjectWrapper._initialize_physics_prototypes: unhandled object type `", self.type, "`")
     end
 
-    -- Calculate centroid of all vertices
     local centroid_x, centroid_y = 0, 0
     local vertex_count = 0
 
@@ -329,11 +322,9 @@ function ow.ObjectWrapper:_initialize_physics_prototypes()
         centroid_y = centroid_y / vertex_count
     end
 
-    -- Store the physics body position (centroid)
     self.physics_body_x = centroid_x
     self.physics_body_y = centroid_y
 
-    -- Adjust all shape coordinates to be relative to the centroid
     for prototype in values(prototypes) do
         if prototype.type == ow.ObjectWrapperShapeType.POLYGON then
             for i = 1, #prototype.vertices, 2 do
@@ -405,23 +396,19 @@ function ow.ObjectWrapper:create_physics_body(world, type, is_sensor)
     return out
 end
 
---- @brief
+--- @brief [internal]
 function ow.ObjectWrapper:_initialize_mesh_prototype()
     if self.mesh_prototype_initialized == true then return end
-    local to_polygonize = {}
 
-    local self_x, self_y
+    if self.physics_prototypes_initialized ~= true then
+        self:_initialize_physics_prototypes()
+    end
+
+    local to_polygonize = {}
     if self.type == ow.ObjectType.RECTANGLE or self.type == ow.ObjectType.SPRITE then
         local x, y = self.x, self.y
         local w, h = self.width, self.height
-        to_polygonize = {
-            x, y,
-            x + w, y,
-            x + w, y + h,
-            x, y + h
-        }
-
-        self_x, self_y = self.x, self.y
+        to_polygonize = { x, y, x + w, y, x + w, y + h, x, y + h }
     elseif self.type == ow.ObjectType.ELLIPSE then
         local x, y = self.center_x, self.center_y
         local x_radius, y_radius = self.x_radius, self.y_radius
@@ -433,45 +420,58 @@ function ow.ObjectWrapper:_initialize_mesh_prototype()
             table.insert(points, y + math.sin(angle) * y_radius)
         end
         to_polygonize = points
-        self_x, self_y = self.center_x, self.center_y
     elseif self.type == ow.ObjectType.POLYGON then
         to_polygonize = self.vertices
     elseif self.type == ow.ObjectType.POINT then
-        self_x, self_y = self.x, self.y
+        -- points have no mesh
     else
         rt.error("In ow.ObjectWrapper._initialize_mesh_prototype: unhandled object type `", tostring(self.type), "`")
     end
 
-    self.mesh_prototype = {}
-    self.mesh_triangles = {}
+    to_polygonize = _process_polygon(to_polygonize, self)
 
-    local polygonized = rt.math.triangulate(_process_polygon(to_polygonize, self))
+    local centroid_x = self.physics_body_x
+    local centroid_y = self.physics_body_y
+
+    self.mesh_prototype = {}
+    self.mesh_prototype_normalized = {}
+    self.mesh_triangles = {}
+    self.mesh_triangles_normalized = {}
+
+    local polygonized = rt.math.triangulate(to_polygonize)
 
     for tri in values(polygonized) do
         for i = 1, #tri, 2 do
-            table.insert(self.mesh_prototype, {
-                _align(tri[i]), _align(tri[i+1]), 0, 0, 1, 1, 1, 1
-            })
+            local x, y = _align(tri[i]), _align(tri[i+1])
+            table.insert(self.mesh_prototype, { x, y, 0, 0, 1, 1, 1, 1 })
+            table.insert(self.mesh_prototype_normalized, { x - centroid_x, y - centroid_y, 0, 0, 1, 1, 1, 1 })
         end
+
         table.insert(self.mesh_triangles, tri)
+        local copy = table.deepcopy(tri)
+        for i = 1, #copy, 2 do
+            copy[i] = copy[i] - centroid_x
+            copy[i+1] = copy[i+1] - centroid_y
+        end
+        table.insert(self.mesh_triangles_normalized, copy)
     end
 
-    -- mark as initialized to avoid repeated rebuilds
     self.mesh_prototype_initialized = true
 end
 
---- @brief
+--- @brief [internal]
 function ow.ObjectWrapper:_initialize_contour_prototype()
+    if self.contour_prototype_initialized == true then return end
+
+    if self.physics_prototypes_initialized ~= true then
+        self:_initialize_physics_prototypes()
+    end
+
     local contour = {}
     if self.type == ow.ObjectType.RECTANGLE or self.type == ow.ObjectType.SPRITE then
         local x, y = self.x, self.y
         local w, h = self.width, self.height
-        contour = {
-            x, y,
-            x + w, y,
-            x + w, y + h,
-            x, y + h
-        }
+        contour = { x, y, x + w, y, x + w, y + h, x, y + h }
     elseif self.type == ow.ObjectType.ELLIPSE then
         local x, y = self.center_x, self.center_y
         local x_radius, y_radius = self.x_radius, self.y_radius
@@ -483,16 +483,21 @@ function ow.ObjectWrapper:_initialize_contour_prototype()
         end
     elseif self.type == ow.ObjectType.POLYGON then
         contour = table.deepcopy(self.vertices)
-    elseif self.type == ow.ObjectType.POINT then
-        -- noop
-    else
-        rt.error("In ow.ObjectWrapper._initialize_mesh_prototype: unhandled object type `", tostring(self.type), "`")
     end
 
     self.contour = _process_polygon(contour, self)
 
     for i = 1, #self.contour do
-        contour[i] = _align(contour[i])
+        self.contour[i] = _align(self.contour[i])
+    end
+
+    local centroid_x = self.physics_body_x
+    local centroid_y = self.physics_body_y
+
+    self.contour_normalized = table.new(#self.contour, 0)
+    for i = 1, #self.contour, 2 do
+        self.contour_normalized[i] = self.contour[i] - centroid_x
+        self.contour_normalized[i+1] = self.contour[i+1] - centroid_y
     end
 
     self.contour_prototype_initialized = true
@@ -508,7 +513,11 @@ function ow.ObjectWrapper:create_mesh(translate_to_origin)
         rt.error("In ow.ObjectWrapper: trying to create a mesh from object `", self.id, "`, but object has a volume of 0")
     end
 
-    return rt.Mesh(self.mesh_prototype, rt.MeshDrawMode.TRIANGLES), self.mesh_triangles, self.mesh_prototype
+    if translate_to_origin then
+        return rt.Mesh(self.mesh_prototype_normalized, rt.MeshDrawMode.TRIANGLES), self.mesh_triangles_normalized, self.mesh_prototype_normalized
+    else
+        return rt.Mesh(self.mesh_prototype, rt.MeshDrawMode.TRIANGLES), self.mesh_triangles, self.mesh_prototype
+    end
 end
 
 --- @brief
@@ -525,12 +534,16 @@ function ow.ObjectWrapper:triangulate()
 end
 
 --- qbrief
-function ow.ObjectWrapper:create_contour()
+function ow.ObjectWrapper:create_contour(translate_to_origin)
     if self.contour_prototype_initialized ~= true then
         self:_initialize_contour_prototype()
     end
 
-    return self.contour
+    if translate_to_origin then
+        return self.contour_normalized
+    else
+        return self.contour
+    end
 end
 
 --- @brief

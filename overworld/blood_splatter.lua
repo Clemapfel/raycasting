@@ -334,7 +334,10 @@ function ow.BloodSplatter:collect_segment_lights(bounds, callback)
 
         local end_segment = function()
             callback(
-                x1, y1, x2, y2,
+                x1 + self._offset_x,
+                y1 + self._offset_y,
+                x2 + self._offset_x,
+                y2 + self._offset_y,
                 current_color:unpack()
             )
 

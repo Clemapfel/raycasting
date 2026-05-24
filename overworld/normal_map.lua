@@ -8,8 +8,9 @@ rt.settings.overworld.normal_map = {
     work_group_size_y = 16,
     chunk_bounds_padding = 8,
 
-    mask_sticky = true,
+    mask_sticky = true, -- accessed by ow.Stage
     mask_slippery = true,
+
     max_distance = 32, -- < 256
 
     shadow_strength = 0.15,
@@ -495,9 +496,9 @@ function ow.NormalMap:draw_light(
     local camera_bottom = y - self._offset_y + h - bounds.y + eps
 
     local min_chunk_x = math.floor(camera_left / chunk_size)
-    local max_chunk_x = math.floor(camera_right / chunk_size)
+    local max_chunk_x = math.ceil(camera_right / chunk_size)
     local min_chunk_y = math.floor(camera_top / chunk_size)
-    local max_chunk_y = math.floor(camera_bottom / chunk_size)
+    local max_chunk_y = math.ceil(camera_bottom / chunk_size)
 
     love.graphics.push("all")
 
@@ -526,6 +527,7 @@ function ow.NormalMap:draw_light(
 
                     local cell_x = bounds.x + chunk_x * chunk_size + self._offset_x
                     local cell_y = bounds.y + chunk_y * chunk_size + self._offset_y
+
                     love.graphics.draw(native, chunk.draw_quad, cell_x, cell_y)
                 end
             end
@@ -578,9 +580,9 @@ function ow.NormalMap:draw_shadow(camera)
     local camera_bottom = y - self._offset_y + h - bounds.y + eps
 
     local min_chunk_x = math.floor(camera_left / chunk_size)
-    local max_chunk_x = math.floor(camera_right / chunk_size)
+    local max_chunk_x = math.ceil(camera_right / chunk_size)
     local min_chunk_y = math.floor(camera_top / chunk_size)
-    local max_chunk_y = math.floor(camera_bottom / chunk_size)
+    local max_chunk_y = math.ceil(camera_bottom / chunk_size)
 
     for chunk_x = min_chunk_x, max_chunk_x do
         local column = self._chunks[chunk_x]
@@ -598,6 +600,15 @@ function ow.NormalMap:draw_shadow(camera)
         _draw_shadow_shader:unbind()
         love.graphics.setBlendMode("alpha")
     end
+
+    --[[
+    if self.dbg then
+        love.graphics.push()
+        love.graphics.translate(self._offset_x, self._offset_y)
+        self._draw_mask_callback()
+        love.graphics.pop()
+    end
+    ]]
 end
 
 --- @brief
