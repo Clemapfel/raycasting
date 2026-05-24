@@ -190,6 +190,10 @@ export class Mesh {
         this.index_buffer_object = null;
         this.n_vertices = 0;
     }
+
+    public getVertexCount() {
+        return this.n_vertices;
+    }
 }
 
 /** **/
@@ -286,4 +290,14 @@ export function MeshEllipse(
         MeshDrawMode.TRIANGLES,
         MeshVertexFormat.XY_UV_RGBA
     );
+}
+
+export function MeshCircle(
+    context: GLContext,
+    center_x: number,
+    center_y: number,
+    x_radius: number,
+    n_outer_vertices: number = radius_to_n_vertices(x_radius, x_radius)
+) {
+    return MeshEllipse(context, center_x, center_y, x_radius, x_radius, n_outer_vertices)
 }

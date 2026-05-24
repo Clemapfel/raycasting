@@ -19,7 +19,7 @@ import "../common/math.ts";
 import {MeshVertexFormat} from "../common/mesh_vertex_format.ts";
 import {Vec2} from "../common/vector.ts";
 
-const particle_texture_path = "/orb_particle_texture.png"
+const glass_svg_path = "/orb.svg"
 
 const n_particles = 128 + 64;
 const n_sub_steps = 3;
@@ -42,6 +42,7 @@ const blend_strength = 1;
 
 const min_radius = 8;
 const max_radius = 8;
+const reference_height = 300;
 const min_radius_frequency = 0.0;
 const max_radius_frequency = 0.0;
 const min_radius_scale = 1;
@@ -204,6 +205,8 @@ export class Orb extends GLWidget  {
     private particle_mesh_index_data : Uint16Array;
 
     private circle_mesh? : Mesh;
+    private glass_mesh? : Mesh;
+    private glass_texture? : Texture;
 
     private orb_radius : number = 0;
     private orb_center_x : number = 0;
@@ -294,23 +297,20 @@ export class Orb extends GLWidget  {
         this.update_mesh_data();
     }
 
-    protected override onMousePressed(event: MouseEvent) {
+    protected override onMousePressed(x : number, y : number, event : MouseEvent) {
         if (event.button == 0)
             this.agitation_elapsed = 0;
         else
             this.reformat(this.getWidth(), this.getHeight()); // reinitialize
     }
 
-    protected override onMouseMoved(event: MouseEvent) {
-        const element = (this as HTMLElement);
-        const rect = element.getBoundingClientRect();
+    protected override onMouseMoved(x : number, y : number, event : MouseEvent) {
         const is_in_circle = new Vec2(
-            event.clientX - this.orb_center_x,
-            event.clientY - this.orb_center_y
-        ).magnitude()
+            x - this.orb_center_x,
+            y - this.orb_center_y
+        ).magnitude() <= this.orb_radius;
 
-        console.log(max_agitation, this.orb_radius)
-        element.style.cursor = is_in_circle < this.orb_radius ? "pointer" : "default";
+        (this as HTMLElement).style.cursor = is_in_circle ? "pointer" : "default";
     }
 
     protected override async realize() {
@@ -332,7 +332,7 @@ export class Orb extends GLWidget  {
         return Math.exp(-Math.pow((7 / 5) * Math.PI * (t - 0.5), 2));
     }
 
-    protected override reformat(width : number, height : number) {
+    protected override reformat(width: number, height: number) {
         if (this.canvas !== undefined) this.canvas.free();
         if (this.canvas_mesh !== undefined) this.canvas_mesh.free();
 
@@ -345,21 +345,48 @@ export class Orb extends GLWidget  {
         this.canvas = new RenderTexture(this.context, width, height, TextureFormat.R32F);
         this.canvas_mesh = MeshRectangle(this.context, 0, 0, width, height);
 
-        this.circle_mesh = MeshEllipse(this.context,
-            0.5 * width, 0.5 * height, // xy
-            0.5 * width, 0.5 * height  // x-radius, y-radius
-        )
-
         const size = this.getSize();
         this.orb_radius = Math.min(size.x, size.y) / 2;
-        this.orb_center_x = 0.5 * size.x;
-        this.orb_center_y = 0.5 * size.y;
+
+        const center_x = size.x * 0.5;
+        const center_y = size.y * 0.5;
+
+        this.orb_center_x = center_x;
+        this.orb_center_y = center_y;
+
+        this.circle_mesh = MeshEllipse(this.context,
+            center_x, center_y,
+            this.orb_radius, this.orb_radius
+        );
+
+        {
+            const n_outer_vertices = this.circle_mesh.getVertexCount();
+            const mesh_format = MeshVertexFormat.XY_UV;
+            const glass_mesh_data = new Float32Array((1 + n_outer_vertices) * (2 + 2));
+            let idx = 0;
+
+            glass_mesh_data[idx++] = this.orb_center_x;
+            glass_mesh_data[idx++] = this.orb_center_y;
+            glass_mesh_data[idx++] = 0; // distance from center
+            glass_mesh_data[idx++] = 0; // arc-length parameterized contour
+
+            for (let i = 0; i <= n_outer_vertices; ++i) { // <= sic
+                const angle = i / n_outer_vertices * 2 * Math.PI;
+                glass_mesh_data[idx++] = this.orb_center_x + this.orb_radius * Math.cos(angle);
+                glass_mesh_data[idx++] = this.orb_center_y + this.orb_radius * Math.sin(angle);
+                glass_mesh_data[idx++] = 1;
+                glass_mesh_data[idx++] = i / n_outer_vertices;
+            }
+        }
 
         // reinitialize simulation
 
         const golden_angle = Math.PI * (3 - Math.sqrt(5));
         const lcha = new LCHA(0.8, 1, 0, 1);
         const rgba = new RGBA();
+
+        const min_radius_fraction = min_radius / reference_height;
+        const max_radius_fraction = max_radius / reference_height;
 
         let index_data_i = 0;
         for (let particle_i = 0; particle_i < n_particles; ++particle_i) {
@@ -376,7 +403,12 @@ export class Orb extends GLWidget  {
             lcha.h = t
             lcha.asRGBA(rgba);
 
-            const base_radius = Math.mix(min_radius, max_radius, mass_t);
+            const base_radius = Math.mix(
+                min_radius_fraction * height,
+                max_radius_fraction * height,
+                mass_t
+            );
+
             const radius_cycle_offset = Math.mix(min_radius_frequency, max_radius_frequency, Math.random()) + particle_i;
 
             this.particle_data[particle_data_i + x_offset] = position_x;

@@ -11,21 +11,19 @@
 
 <style>
     orb-canvas {
-        --orb-width: 400px;
-        --orb-height: 400px;
-
         display: inline-block;
-        width: var(--orb-width);
-        height: var(--orb-height);
-        background: black;
+        height: 100%;
+        width: auto;
+        min-height: 120px;
+        aspect-ratio: 1 / 1;
     }
 
-    orb-canvas .noise-frame-canvas {
-        width: var(--orb-width);
-        height: var(--orb-height);
+    orb-canvas .orb-canvas-canvas {
+        width: 100%;
+        height: 100%;
+        background: transparent;
     }
 </style>
-
 
 <script>
     import { Orb } from "./orb.ts";

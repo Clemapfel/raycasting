@@ -13,11 +13,12 @@ export abstract class GLWidget extends HTMLElement {
     protected reformat(width: number, height: number) : void {}
     protected update(time_delta: Time) : void {}
 
-    protected onMousePressed(event: MouseEvent) : void {}
-    protected onMouseReleased(event: MouseEvent) : void {}
+    protected onMousePressed(x : number, y : number, event: MouseEvent) : void {}
+    protected onMouseReleased(x : number, y : number, event: MouseEvent) : void {}
+    protected onMouseMoved(x : number, y : number, event: MouseEvent) : void {}
+
     protected onMouseEnter(event: MouseEvent) : void {}
     protected onMouseLeave(event: MouseEvent) : void {}
-    protected onMouseMoved(event: MouseEvent) : void {}
     protected onMouseWheelMoved(event: WheelEvent) : void {}
     protected onKeyPressed(event: KeyboardEvent) : void {}
     protected onKeyReleased(event: KeyboardEvent) : void {}
@@ -148,11 +149,32 @@ export abstract class GLWidget extends HTMLElement {
         this.frame_identifier = requestAnimationFrame(this.on_request_animation_frame);
     }
 
-    private handle_mouse_pressed = (event: MouseEvent) => this.onMousePressed(event);
-    private handle_mouse_released = (event: MouseEvent) => this.onMouseReleased(event);
+    private to_local_position(event: MouseEvent): { x: number; y: number } {
+        const rect = this.native_canvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio ?? 1;
+        return {
+            x: (event.clientX - rect.left) * dpr,
+            y: (event.clientY - rect.top) * dpr,
+        };
+    }
+
+    private handle_mouse_pressed = (event: MouseEvent) => {
+        const { x, y } = this.to_local_position(event);
+        this.onMousePressed(x, y, event);
+    };
+
+    private handle_mouse_released = (event: MouseEvent) => {
+        const { x, y } = this.to_local_position(event);
+        this.onMouseReleased(x, y, event);
+    };
+
+    private handle_mouse_moved = (event: MouseEvent) => {
+        const { x, y } = this.to_local_position(event);
+        this.onMouseMoved(x, y, event);
+    };
+
     private handle_mouse_enter = (event: MouseEvent) => this.onMouseEnter(event);
     private handle_mouse_leave = (event: MouseEvent) => this.onMouseLeave(event);
-    private handle_mouse_moved = (event: MouseEvent) => this.onMouseMoved(event);
     private handle_mouse_wheel_moved = (event: WheelEvent) => this.onMouseWheelMoved(event);
     private handle_key_pressed = (event: KeyboardEvent) => this.onKeyPressed(event);
     private handle_key_released = (event: KeyboardEvent) => this.onKeyReleased(event);
