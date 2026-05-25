@@ -31,16 +31,16 @@ float gradient_noise(vec3 p) {
     vec3 i = floor(p);
     vec3 v = fract(p);
 
-    vec3 u = v * v * v * (v *(v * 6.0 - 15.0) + 10.0);
+    vec3 u = v * v * v * (v * (v * 6.0 - 15.0) + 10.0);
 
-    return mix( mix( mix( dot( -1 + 2 * random_3d(i + vec3(0.0,0.0,0.0)), v - vec3(0.0,0.0,0.0)),
-    dot( -1 + 2 * random_3d(i + vec3(1.0,0.0,0.0)), v - vec3(1.0,0.0,0.0)), u.x),
-    mix( dot( -1 + 2 * random_3d(i + vec3(0.0,1.0,0.0)), v - vec3(0.0,1.0,0.0)),
-    dot( -1 + 2 * random_3d(i + vec3(1.0,1.0,0.0)), v - vec3(1.0,1.0,0.0)), u.x), u.y),
-    mix( mix( dot( -1 + 2 * random_3d(i + vec3(0.0,0.0,1.0)), v - vec3(0.0,0.0,1.0)),
-    dot( -1 + 2 * random_3d(i + vec3(1.0,0.0,1.0)), v - vec3(1.0,0.0,1.0)), u.x),
-    mix( dot( -1 + 2 * random_3d(i + vec3(0.0,1.0,1.0)), v - vec3(0.0,1.0,1.0)),
-    dot( -1 + 2 * random_3d(i + vec3(1.0,1.0,1.0)), v - vec3(1.0,1.0,1.0)), u.x), u.y), u.z );
+    return mix( mix( mix( dot( -1.0 + 2.0 * random_3d(i + vec3(0.0, 0.0, 0.0)), v - vec3(0.0, 0.0, 0.0)),
+    dot( -1.0 + 2.0 * random_3d(i + vec3(1.0, 0.0, 0.0)), v - vec3(1.0, 0.0, 0.0)), u.x),
+    mix( dot( -1.0 + 2.0 * random_3d(i + vec3(0.0, 1.0, 0.0)), v - vec3(0.0, 1.0, 0.0)),
+    dot( -1.0 + 2.0 * random_3d(i + vec3(1.0, 1.0, 0.0)), v - vec3(1.0, 1.0, 0.0)), u.x), u.y),
+    mix( mix( dot( -1.0 + 2.0 * random_3d(i + vec3(0.0, 0.0, 1.0)), v - vec3(0.0, 0.0, 1.0)),
+    dot( -1.0 + 2.0 * random_3d(i + vec3(1.0, 0.0, 1.0)), v - vec3(1.0, 0.0, 1.0)), u.x),
+    mix( dot( -1.0 + 2.0 * random_3d(i + vec3(0.0, 1.0, 1.0)), v - vec3(0.0, 1.0, 1.0)),
+    dot( -1.0 + 2.0 * random_3d(i + vec3(1.0, 1.0, 1.0)), v - vec3(1.0, 1.0, 1.0)), u.x), u.y), u.z );
 }
 
 #define MODE_DRAW_OUTLINE 0
@@ -57,20 +57,20 @@ const float wave_offset = 5.0;
 const float wave_speed = 4.0;
 const float anti_aliasing = 0.1; // [0, 1], where 0: maximum sharpness
 
-const float noise_frequency = 29;
+const float noise_frequency = 29.0;
 const float noise_offset = 0.005; // uv offset
 
-uniform int n_visible_characters;
+uniform mediump int n_visible_characters;
 uniform bool is_effect_wave;
 uniform bool is_effect_shake;
 uniform bool is_effect_noise;
 
-uniform float font_size;
-uniform float elapsed;
-uniform float opacity = 1;
+uniform highp float font_size;
+uniform highp float elapsed;
+uniform highp float opacity;
 
 #if MODE == MODE_DRAW_OUTLINE
-    uniform vec4 outline_color;
+    uniform highp vec4 outline_color;
 #elif MODE == MODE_DRAW_TEXT
     uniform bool is_effect_rainbow;
 #endif
@@ -79,7 +79,7 @@ uniform float opacity = 1;
 
 #define PI 3.1415926535897932384626433832795
 
-flat varying int letter_index;
+flat out int letter_index;
 
 vec4 position(mat4 transform, vec4 vertex_position) {
     letter_index = gl_VertexID / 4;
@@ -87,7 +87,7 @@ vec4 position(mat4 transform, vec4 vertex_position) {
     vec2 position = vertex_position.xy;
     if (is_effect_shake) {
         float i_offset = round(elapsed * shake_speed);
-        float magnitude = max(font_size / 50, 1.0); // shake magnitude as function of font_size
+        float magnitude = max(font_size / 50.0, 1.0); // shake magnitude as function of font_size
         position += noise(position * vec2(i_offset)) * magnitude;
     }
 
@@ -111,7 +111,7 @@ vec3 lch_to_rgb(vec3 lch) {
 }
 #endif
 
-flat varying int letter_index;
+flat in int letter_index;
 
 vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 vertex_position) {
     if (letter_index >= n_visible_characters)
@@ -120,8 +120,8 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 vertex_position
     if (is_effect_noise) {
         vec3 seed = vec3((vertex_position / love_ScreenSize.xy) * noise_frequency, elapsed);
         vec2 offset = vec2(
-            gradient_noise(seed.yxz * vec3(1, 1, 1)),
-            gradient_noise(seed.zxy * vec3(-1, -1, 1))
+            gradient_noise(seed.yxz * vec3(1.0, 1.0, 1.0)),
+            gradient_noise(seed.zxy * vec3(-1.0, -1.0, 1.0))
         );
         texture_coords += offset * noise_offset;
     }
@@ -129,7 +129,7 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 vertex_position
     #if MODE == MODE_DRAW_OUTLINE
         // outline uses sdf font texture
         float dist = texture(img, texture_coords).a;
-        float outline = smoothstep(0.0, 0.01, pow(dist, 5));
+        float outline = smoothstep(0.0, 0.01, pow(dist, 5.0));
         return outline * outline_color * opacity;
 
     #elif MODE == MODE_DRAW_TEXT

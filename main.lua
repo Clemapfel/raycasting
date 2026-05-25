@@ -6,8 +6,6 @@ require "common.music_manager"
 require "common.sound_manager"
 require "common.input_manager"
 
-
-
 love.load = function(args)
     local w, h = love.graphics.getDimensions()
 
@@ -21,7 +19,7 @@ love.load = function(args)
     local menu = 5
 
     for to_preallocate in range(
-         result_screen
+        -- result_screen
         --, overworld
         --, keybinding
         --, settings
@@ -55,9 +53,7 @@ love.load = function(args)
     --rt.SceneManager:push(mn.SettingsScene)
 
     require "menu.menu_scene"
-    --rt.SceneManager:push(mn.MenuScene) -- skip title
-
-    --init()
+    --rt.SceneManager:push(mn.MenuScene, true) -- skip title
 end
 
 love.update = function(delta)

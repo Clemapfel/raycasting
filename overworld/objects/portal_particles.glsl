@@ -10,16 +10,16 @@ float gradient_noise(vec3 p) {
     vec3 i = floor(p);
     vec3 v = fract(p);
 
-    vec3 u = v * v * v * (v *(v * 6.0 - 15.0) + 10.0);
+    vec3 u = v * v * v * (v * (v * 6.0 - 15.0) + 10.0);
 
-    return mix( mix( mix( dot( -1 + 2 * random_3d(i + vec3(0.0,0.0,0.0)), v - vec3(0.0,0.0,0.0)),
-    dot( -1 + 2 * random_3d(i + vec3(1.0,0.0,0.0)), v - vec3(1.0,0.0,0.0)), u.x),
-    mix( dot( -1 + 2 * random_3d(i + vec3(0.0,1.0,0.0)), v - vec3(0.0,1.0,0.0)),
-    dot( -1 + 2 * random_3d(i + vec3(1.0,1.0,0.0)), v - vec3(1.0,1.0,0.0)), u.x), u.y),
-    mix( mix( dot( -1 + 2 * random_3d(i + vec3(0.0,0.0,1.0)), v - vec3(0.0,0.0,1.0)),
-    dot( -1 + 2 * random_3d(i + vec3(1.0,0.0,1.0)), v - vec3(1.0,0.0,1.0)), u.x),
-    mix( dot( -1 + 2 * random_3d(i + vec3(0.0,1.0,1.0)), v - vec3(0.0,1.0,1.0)),
-    dot( -1 + 2 * random_3d(i + vec3(1.0,1.0,1.0)), v - vec3(1.0,1.0,1.0)), u.x), u.y), u.z );
+    return mix( mix( mix( dot( -1.0 + 2.0 * random_3d(i + vec3(0.0, 0.0, 0.0)), v - vec3(0.0, 0.0, 0.0)),
+    dot( -1.0 + 2.0 * random_3d(i + vec3(1.0, 0.0, 0.0)), v - vec3(1.0, 0.0, 0.0)), u.x),
+    mix( dot( -1.0 + 2.0 * random_3d(i + vec3(0.0, 1.0, 0.0)), v - vec3(0.0, 1.0, 0.0)),
+    dot( -1.0 + 2.0 * random_3d(i + vec3(1.0, 1.0, 0.0)), v - vec3(1.0, 1.0, 0.0)), u.x), u.y),
+    mix( mix( dot( -1.0 + 2.0 * random_3d(i + vec3(0.0, 0.0, 1.0)), v - vec3(0.0, 0.0, 1.0)),
+    dot( -1.0 + 2.0 * random_3d(i + vec3(1.0, 0.0, 1.0)), v - vec3(1.0, 0.0, 1.0)), u.x),
+    mix( dot( -1.0 + 2.0 * random_3d(i + vec3(0.0, 1.0, 1.0)), v - vec3(0.0, 1.0, 1.0)),
+    dot( -1.0 + 2.0 * random_3d(i + vec3(1.0, 1.0, 1.0)), v - vec3(1.0, 1.0, 1.0)), u.x), u.y), u.z );
 }
 
 uniform sampler3D lch_texture;
@@ -33,7 +33,7 @@ uniform float lightness;
 uniform vec3 black;
 
 vec4 effect(vec4 color, sampler2D img, vec2 texture_coordinates, vec2 frag_position) {
-    vec2 pixel_size = vec2(2.0 / textureSize(img, 0));
+    vec2 pixel_size = vec2(2.0 / vec2(textureSize(img, 0)));
 
     float outline_thickness = 0.5;
     vec2 offset = pixel_size * outline_thickness;
@@ -54,11 +54,11 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coordinates, vec2 frag_posit
     // Sobel Y gradient: [-1, -2, -1; 0, 0, 0; 1, 2, 1]
     float gradient_y = -tl - 2.0 * tm - tr + bl + 2.0 * bm + br;
 
-    float magnitude = smoothstep(0.9, 1, length(vec2(gradient_x, gradient_y)));
+    float magnitude = smoothstep(0.9, 1.0, length(vec2(gradient_x, gradient_y)));
     float alpha = mm;
 
-    float noise = 0.1 * (gradient_noise(vec3(texture_coordinates * 5, elapsed / 2)));
-    vec3 final_color = lch_to_rgb(vec3(0.8 * lightness, 1, fract(hue + noise))) - magnitude * 0.2;
+    float noise = 0.1 * (gradient_noise(vec3(texture_coordinates * 5.0, elapsed / 2.0)));
+    vec3 final_color = lch_to_rgb(vec3(0.8 * lightness, 1.0, fract(hue + noise))) - magnitude * 0.2;
 
     return vec4(final_color * alpha, alpha);
 }

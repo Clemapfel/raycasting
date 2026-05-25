@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="288">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="290">
  <editorsettings>
   <export target="air_dash_node_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -129,14 +129,6 @@
   </object>
   <object id="131" type="BouncePad" x="512" y="-336">
    <polygon points="304,304 240,304 -16,48 -16,-16"/>
-  </object>
-  <object id="137" type="AirDashNode" x="96" y="-1104" width="256" height="256">
-   <properties>
-    <property name="angle" type="float" value="0"/>
-    <property name="axis_x" type="float" value="1"/>
-    <property name="axis_y" type="float" value="0"/>
-   </properties>
-   <ellipse/>
   </object>
   <object id="138" type="AirDashNode" x="528" y="-896" width="256" height="256">
    <properties>
@@ -505,28 +497,13 @@
    </properties>
    <point/>
   </object>
-  <object id="283" type="MovableHitbox" x="592" y="-1104">
+  <object id="283" type="Wall" x="592" y="-1104">
    <properties>
-    <property name="slippery" type="bool" value="false"/>
+    <property name="type" value="spheres"/>
    </properties>
    <polygon points="0,0 0,-414.937 -592,-288 -512,-544 0,-528 208,-528 208,0"/>
   </object>
-  <object id="284" type="Path" x="728.599" y="-1063.61">
-   <properties>
-    <property name="next" type="object" value="285"/>
-    <property name="target" type="object" value="283"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="285" type="PathNode" x="224" y="-1952">
-   <point/>
-  </object>
-  <object id="287" type="NPC" x="-112" y="-1312">
-   <properties>
-    <property name="dialog_id" value="animalese_test"/>
-   </properties>
-   <point/>
-  </object>
+  <object id="289" type="Goal" x="-336" y="-1536" width="144" height="128"/>
  </objectgroup>
  <objectgroup id="6" name="front"/>
  <layer id="4" name="noop" width="32" height="32">

@@ -11,7 +11,6 @@ rt.settings.overworld.decelerator_surface = {
 ow.DeceleratorSurface = meta.class("DeceleratorSurface") -- not movable: , ow.MovableObject)
 
 local padding = 20
-local _shader = rt.Shader("overworld/objects/decelerator_surface.glsl")
 
 local first, scale = true, 0
 

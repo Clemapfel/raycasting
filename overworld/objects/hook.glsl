@@ -21,18 +21,16 @@ float gradient_noise(vec3 p) {
     vec3 i = floor(p);
     vec3 v = fract(p);
 
-    vec3 u = v * v * v * (v *(v * 6.0 - 15.0) + 10.0);
+    vec3 u = v * v * v * (v * (v * 6.0 - 15.0) + 10.0);
 
-    float result = mix( mix( mix( dot( -1 + 2 * random_3d(i + vec3(0.0,0.0,0.0)), v - vec3(0.0,0.0,0.0)),
-    dot( -1 + 2 * random_3d(i + vec3(1.0,0.0,0.0)), v - vec3(1.0,0.0,0.0)), u.x),
-    mix( dot( -1 + 2 * random_3d(i + vec3(0.0,1.0,0.0)), v - vec3(0.0,1.0,0.0)),
-    dot( -1 + 2 * random_3d(i + vec3(1.0,1.0,0.0)), v - vec3(1.0,1.0,0.0)), u.x), u.y),
-    mix( mix( dot( -1 + 2 * random_3d(i + vec3(0.0,0.0,1.0)), v - vec3(0.0,0.0,1.0)),
-    dot( -1 + 2 * random_3d(i + vec3(1.0,0.0,1.0)), v - vec3(1.0,0.0,1.0)), u.x),
-    mix( dot( -1 + 2 * random_3d(i + vec3(0.0,1.0,1.0)), v - vec3(0.0,1.0,1.0)),
-    dot( -1 + 2 * random_3d(i + vec3(1.0,1.0,1.0)), v - vec3(1.0,1.0,1.0)), u.x), u.y), u.z );
-
-    return (result + 1) / 2;
+    return mix( mix( mix( dot( -1.0 + 2.0 * random_3d(i + vec3(0.0, 0.0, 0.0)), v - vec3(0.0, 0.0, 0.0)),
+    dot( -1.0 + 2.0 * random_3d(i + vec3(1.0, 0.0, 0.0)), v - vec3(1.0, 0.0, 0.0)), u.x),
+    mix( dot( -1.0 + 2.0 * random_3d(i + vec3(0.0, 1.0, 0.0)), v - vec3(0.0, 1.0, 0.0)),
+    dot( -1.0 + 2.0 * random_3d(i + vec3(1.0, 1.0, 0.0)), v - vec3(1.0, 1.0, 0.0)), u.x), u.y),
+    mix( mix( dot( -1.0 + 2.0 * random_3d(i + vec3(0.0, 0.0, 1.0)), v - vec3(0.0, 0.0, 1.0)),
+    dot( -1.0 + 2.0 * random_3d(i + vec3(1.0, 0.0, 1.0)), v - vec3(1.0, 0.0, 1.0)), u.x),
+    mix( dot( -1.0 + 2.0 * random_3d(i + vec3(0.0, 1.0, 1.0)), v - vec3(0.0, 1.0, 1.0)),
+    dot( -1.0 + 2.0 * random_3d(i + vec3(1.0, 1.0, 1.0)), v - vec3(1.0, 1.0, 1.0)), u.x), u.y), u.z );
 }
 
 #define PI 3.1415926535897932384626433832795
@@ -43,7 +41,7 @@ float slow_angle(float dx, float dy) {
 float gaussian(float x, float ramp)
 {
     // e^{-\frac{4\pi}{3}\left(r\cdot\left(x-c\right)\right)^{2}}
-    return exp(((-4 * PI) / 3) * (ramp * x) * (ramp * x));
+    return exp(((-4.0 * PI) / 3.0) * (ramp * x) * (ramp * x));
 }
 
 vec2 rotate(vec2 v, float angle) {
@@ -91,12 +89,12 @@ vec4 effect(vec4 color, sampler2D img, vec2 uv, vec2 _) {
     const float eps = 0.01;
     float circle = smoothstep(threshold - eps, threshold + eps, (1.0 - distance(uv, vec2(0.5)) * 2.0));
 
-    float open_fraction = min(1, fraction);
-    float open = gaussian(open_fraction * distance(uv, vec2(0.5)) * 2, 1.5);
+    float open_fraction = min(1.0, fraction);
+    float open = gaussian(open_fraction * distance(uv, vec2(0.5)) * 2.0, 1.5);
     const int n = 3;
 
     uv -= vec2(0.5);
-    uv = rotate(uv, 0.75 * (1 - open_fraction) * (1.0 - distance(uv, vec2(0.0)) * 2.0 * PI) + elapsed);
+    uv = rotate(uv, 0.75 * (1.0 - open_fraction) * (1.0 - distance(uv, vec2(0.0)) * 2.0 * PI) + elapsed);
     uv += vec2(0.5);
 
     // Calculate normalized angle in [0, 1)
@@ -112,10 +110,10 @@ vec4 effect(vec4 color, sampler2D img, vec2 uv, vec2 _) {
     float blend_factor = fract(slice_f);
 
     // Define three hues (as offsets in [0,1)), spaced evenly on the color wheel
-    float offset = 1. / 3.;
-    float hue_a = fract(hue + 0 * offset);
-    float hue_b = fract(hue + 1 * offset);
-    float hue_c = fract(hue + 2 * offset);
+    float offset = 1.0 / 3.0;
+    float hue_a = fract(hue + 0.0 * offset);
+    float hue_b = fract(hue + 1.0 * offset);
+    float hue_c = fract(hue + 2.0 * offset);
 
     // Cycle hues based on slice index
     float current_hue;
@@ -139,7 +137,7 @@ vec4 effect(vec4 color, sampler2D img, vec2 uv, vec2 _) {
         next_hue = hue_c;
     }
 
-    float blend_width = 0;
+    float blend_width = 0.0;
 
     float blend_start = 0.5 - blend_width;
     float blend_end   = 0.5 + blend_width;
@@ -147,7 +145,7 @@ vec4 effect(vec4 color, sampler2D img, vec2 uv, vec2 _) {
     float local_blend = (blend_factor - blend_start) / blend_width;
 
 
-    float shine = (sin(distance(uv, vec2(0.5)) * 20 + elapsed + current_hue * 2 * n) + 1) / 2;
+    float shine = (sin(distance(uv, vec2(0.5)) * 20.0 + elapsed + current_hue * 2.0 * float(n)) + 1.0) / 2.0;
     const float l = 0.8;
     const float c = 1.0;
 
@@ -163,10 +161,10 @@ vec4 effect(vec4 color, sampler2D img, vec2 uv, vec2 _) {
         col = mix(current_rgb, next_rgb, local_blend);
     }
 
-    float vignette = 1 - smoothstep(0, 1 - 0.8, gaussian(open_fraction * distance(uv, vec2(0.5)) * 2, 1));
+    float vignette = 1.0 - smoothstep(0.0, 1.0 - 0.8, gaussian(open_fraction * distance(uv, vec2(0.5)) * 2.0, 1.0));
     col = mix(col, player_color.rgb - vignette, open_fraction);
 
-    return ((brightness_scale - 1) * 0.5 + 1) * color * vec4(col, circle);
+    return ((brightness_scale - 1.0) * 0.5 + 1.0) * color * vec4(col, circle);
 }
 
 #endif // PIXEL

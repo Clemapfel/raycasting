@@ -1143,7 +1143,7 @@ function rt.PlayerBody:draw_body()
         love.graphics.clear(0, 0, 0, 0)
         _threshold_shader:bind()
         _threshold_shader:send("threshold", ternary(self._use_contour, rt.settings.player_body.contour_threshold, rt.settings.player_body.threshold))
-
+        _threshold_shader:send("smoothness", 0.001)
         self._body_texture:draw()
         _threshold_shader:unbind()
         self._body_outline_texture:unbind()

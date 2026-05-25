@@ -8,8 +8,8 @@ float butterworth(float x, float order)
 }
 
 vec4 effect(vec4 color, sampler2D tex, vec2 texture_coords, vec2 screen_coords) {
-    float dist = 2 * (0.5 - distance(texture_coords, vec2(0.5)));
-    return vec4(vec3(1), butterworth(1 - dist, 3.0));
+    float dist = 2.0 * (0.5 - distance(texture_coords, vec2(0.5)));
+    return vec4(vec3(1.0), butterworth(1.0 - dist, 3.0));
 }
 
 #endif

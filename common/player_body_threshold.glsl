@@ -1,12 +1,12 @@
 #ifdef PIXEL
 
-uniform float threshold = 0.4;
-uniform float smoothness = 0.0;
+uniform float threshold;
+uniform float smoothness;
 
 float finalize(float x) {
     return smoothstep(
-    max(0, threshold - smoothness),
-    min(1, threshold + smoothness),
+    max(0.0, threshold - smoothness),
+    min(1.0, threshold + smoothness),
     x
     );
 }

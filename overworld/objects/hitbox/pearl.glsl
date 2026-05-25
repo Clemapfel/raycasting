@@ -76,7 +76,7 @@ float light_falloff(float x) {
 
 float gaussian(float x, float ramp)
 {
-    return exp(((-4 * PI) / 3) * (ramp * x) * (ramp * x));
+    return exp(((-4.0 * PI) / 3.0) * (ramp * x) * (ramp * x));
 }
 
 

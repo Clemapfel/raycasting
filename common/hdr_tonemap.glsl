@@ -8,7 +8,7 @@ vec3 tonemap(vec3 rgb) {
     float minimum = min(rgb.r, min(rgb.g, rgb.b));
 
     float offset;
-    if (minimum <= 2 * fresnel_90)
+    if (minimum <= 2.0 * fresnel_90)
         offset = minimum - (minimum * minimum) / (4.0 * fresnel_90);
     else
         offset = fresnel_90;

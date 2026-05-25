@@ -1,17 +1,17 @@
 #ifdef PIXEL
 
-uniform float threshold = 0.5;
-uniform float smoothness = 0.0;
+uniform float threshold;
+uniform float smoothness;
+uniform float outline_width;
 
 float finalize(float x) {
     return smoothstep(
-        max(0, threshold - smoothness),
-        min(1, threshold + smoothness),
+        max(0.0, threshold - smoothness),
+        min(1.0, threshold + smoothness),
         x
     );
 }
 
-uniform float outline_width = 1.f / 4;
 
 vec2 derivative(sampler2D img, vec2 position) {
     const mat3 sobel_x = mat3(
@@ -26,7 +26,7 @@ vec2 derivative(sampler2D img, vec2 position) {
     1.0, 2.0, 1.0
     );
 
-    vec2 texel_size = vec2(outline_width) / textureSize(img, 0);
+    vec2 texel_size = vec2(outline_width) / vec2(textureSize(img, 0));
 
     float s00 = texture(img, position + texel_size * vec2(-1.0, -1.0)).r;
     float s01 = texture(img, position + texel_size * vec2( 0.0, -1.0)).r;
@@ -70,16 +70,16 @@ float gradient_noise(vec3 p) {
     vec3 i = floor(p);
     vec3 v = fract(p);
 
-    vec3 u = v * v * v * (v *(v * 6.0 - 15.0) + 10.0);
+    vec3 u = v * v * v * (v * (v * 6.0 - 15.0) + 10.0);
 
-    return mix( mix( mix( dot( -1 + 2 * random_3d(i + vec3(0.0,0.0,0.0)), v - vec3(0.0,0.0,0.0)),
-    dot( -1 + 2 * random_3d(i + vec3(1.0,0.0,0.0)), v - vec3(1.0,0.0,0.0)), u.x),
-    mix( dot( -1 + 2 * random_3d(i + vec3(0.0,1.0,0.0)), v - vec3(0.0,1.0,0.0)),
-    dot( -1 + 2 * random_3d(i + vec3(1.0,1.0,0.0)), v - vec3(1.0,1.0,0.0)), u.x), u.y),
-    mix( mix( dot( -1 + 2 * random_3d(i + vec3(0.0,0.0,1.0)), v - vec3(0.0,0.0,1.0)),
-    dot( -1 + 2 * random_3d(i + vec3(1.0,0.0,1.0)), v - vec3(1.0,0.0,1.0)), u.x),
-    mix( dot( -1 + 2 * random_3d(i + vec3(0.0,1.0,1.0)), v - vec3(0.0,1.0,1.0)),
-    dot( -1 + 2 * random_3d(i + vec3(1.0,1.0,1.0)), v - vec3(1.0,1.0,1.0)), u.x), u.y), u.z );
+    return mix( mix( mix( dot( -1.0 + 2.0 * random_3d(i + vec3(0.0, 0.0, 0.0)), v - vec3(0.0, 0.0, 0.0)),
+    dot( -1.0 + 2.0 * random_3d(i + vec3(1.0, 0.0, 0.0)), v - vec3(1.0, 0.0, 0.0)), u.x),
+    mix( dot( -1.0 + 2.0 * random_3d(i + vec3(0.0, 1.0, 0.0)), v - vec3(0.0, 1.0, 0.0)),
+    dot( -1.0 + 2.0 * random_3d(i + vec3(1.0, 1.0, 0.0)), v - vec3(1.0, 1.0, 0.0)), u.x), u.y),
+    mix( mix( dot( -1.0 + 2.0 * random_3d(i + vec3(0.0, 0.0, 1.0)), v - vec3(0.0, 0.0, 1.0)),
+    dot( -1.0 + 2.0 * random_3d(i + vec3(1.0, 0.0, 1.0)), v - vec3(1.0, 0.0, 1.0)), u.x),
+    mix( dot( -1.0 + 2.0 * random_3d(i + vec3(0.0, 1.0, 1.0)), v - vec3(0.0, 1.0, 1.0)),
+    dot( -1.0 + 2.0 * random_3d(i + vec3(1.0, 1.0, 1.0)), v - vec3(1.0, 1.0, 1.0)), u.x), u.y), u.z );
 }
 
 
@@ -149,7 +149,7 @@ float sparse_worley_noise(vec3 p, float density) {
 }
 
 float net_texture(vec2 uv, float elapsed) {
-    return dirac(smoothstep(0, 1 - 0.3, sparse_worley_noise(vec3(uv, elapsed), 0.1)));
+    return dirac(smoothstep(0.0, 1.0 - 0.3, sparse_worley_noise(vec3(uv, elapsed), 0.1)));
 }
 
 uniform mat4x4 screen_to_world_transform;
@@ -160,8 +160,8 @@ vec2 to_world_position(vec2 xy) {
     return result.xy / result.w;
 }
 
-uniform vec4 outline_color = vec4(1, 1, 1, 1);
-uniform vec4 body_color = vec4(0.3, 0.3, 0.3, 1);
+uniform vec4 outline_color;
+uniform vec4 body_color;
 
 vec4 effect(vec4 color, sampler2D tex, vec2 texture_coordinates, vec2 screen_coords)
 {
@@ -169,18 +169,18 @@ vec4 effect(vec4 color, sampler2D tex, vec2 texture_coordinates, vec2 screen_coo
     vec4 data = texture(tex, texture_coordinates);
     float body = finalize(data.r);
     float mask = data.g;
-    float outline = smoothstep(0, 0.5, min(1, length(derivative(tex, texture_coordinates))));
+    float outline = smoothstep(0.0, 0.5, min(1.0, length(derivative(tex, texture_coordinates))));
 
     // texture
-    const float noise_scale = 1.f / 12;
+    const float noise_scale = 1.0 / 12.0;
     vec2 world_position = to_world_position(screen_coords);
-    float noise = mask * net_texture(world_position * noise_scale, elapsed / 2);
+    float noise = mask * net_texture(world_position * noise_scale, elapsed / 2.0);
 
     vec3 texture = mix(body_color.rgb, outline_color.rgb, noise);
 
-    float background_noise = gradient_noise(vec3(world_position / 30, elapsed / 4));
+    float background_noise = gradient_noise(vec3(world_position / 30.0, elapsed / 4.0));
 
-    return 0.25 * mask * mix(body_color, outline_color, background_noise) + min(vec4(1), vec4(vec4(texture, 1) * body + outline_color * outline));
+    return 0.25 * mask * mix(body_color, outline_color, background_noise) + min(vec4(1.0), vec4(vec4(texture, 1.0) * body + outline_color * outline));
 }
 
 #endif

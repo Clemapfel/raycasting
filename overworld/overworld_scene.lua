@@ -982,6 +982,7 @@ function ow.OverworldScene:show_result_screen()
         0, 0, self:get_bounds().width, self:get_bounds().height
     )
 
+    require "overworld.result_screen_scene"
     rt.SceneManager:set_scene(
         ow.ResultScreenScene,
         player_x, player_y,

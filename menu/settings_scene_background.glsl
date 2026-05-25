@@ -17,16 +17,16 @@ float gradient_noise(vec3 p) {
     vec3 i = floor(p);
     vec3 v = fract(p);
 
-    vec3 u = v * v * v * (v *(v * 6.0 - 15.0) + 10.0);
+    vec3 u = v * v * v * (v * (v * 6.0 - 15.0) + 10.0);
 
-    return mix( mix( mix( dot( -1 + 2 * random_3d(i + vec3(0.0,0.0,0.0)), v - vec3(0.0,0.0,0.0)),
-    dot( -1 + 2 * random_3d(i + vec3(1.0,0.0,0.0)), v - vec3(1.0,0.0,0.0)), u.x),
-    mix( dot( -1 + 2 * random_3d(i + vec3(0.0,1.0,0.0)), v - vec3(0.0,1.0,0.0)),
-    dot( -1 + 2 * random_3d(i + vec3(1.0,1.0,0.0)), v - vec3(1.0,1.0,0.0)), u.x), u.y),
-    mix( mix( dot( -1 + 2 * random_3d(i + vec3(0.0,0.0,1.0)), v - vec3(0.0,0.0,1.0)),
-    dot( -1 + 2 * random_3d(i + vec3(1.0,0.0,1.0)), v - vec3(1.0,0.0,1.0)), u.x),
-    mix( dot( -1 + 2 * random_3d(i + vec3(0.0,1.0,1.0)), v - vec3(0.0,1.0,1.0)),
-    dot( -1 + 2 * random_3d(i + vec3(1.0,1.0,1.0)), v - vec3(1.0,1.0,1.0)), u.x), u.y), u.z );
+    return mix( mix( mix( dot( -1.0 + 2.0 * random_3d(i + vec3(0.0, 0.0, 0.0)), v - vec3(0.0, 0.0, 0.0)),
+    dot( -1.0 + 2.0 * random_3d(i + vec3(1.0, 0.0, 0.0)), v - vec3(1.0, 0.0, 0.0)), u.x),
+    mix( dot( -1.0 + 2.0 * random_3d(i + vec3(0.0, 1.0, 0.0)), v - vec3(0.0, 1.0, 0.0)),
+    dot( -1.0 + 2.0 * random_3d(i + vec3(1.0, 1.0, 0.0)), v - vec3(1.0, 1.0, 0.0)), u.x), u.y),
+    mix( mix( dot( -1.0 + 2.0 * random_3d(i + vec3(0.0, 0.0, 1.0)), v - vec3(0.0, 0.0, 1.0)),
+    dot( -1.0 + 2.0 * random_3d(i + vec3(1.0, 0.0, 1.0)), v - vec3(1.0, 0.0, 1.0)), u.x),
+    mix( dot( -1.0 + 2.0 * random_3d(i + vec3(0.0, 1.0, 1.0)), v - vec3(0.0, 1.0, 1.0)),
+    dot( -1.0 + 2.0 * random_3d(i + vec3(1.0, 1.0, 1.0)), v - vec3(1.0, 1.0, 1.0)), u.x), u.y), u.z );
 }
 
 float discontinous_noise(vec3 p) {
@@ -47,7 +47,7 @@ float smin(float a, float b, float k) {
 float gaussian(float x, float ramp)
 {
     // e^{-\frac{4\pi}{3}\left(r\cdot\left(x-c\right)\right)^{2}}
-    return exp(((-4 * PI) / 3) * (ramp * x) * (ramp * x));
+    return exp(((-4.0 * PI) / 3.0) * (ramp * x) * (ramp * x));
 }
 
 float butterworth(float x, float ramp, float order) {
@@ -136,11 +136,11 @@ void triangle_tiling(in vec2 p, out float sdf, out float tile_id) {
     float triangle_sdf = min(d0, min(d1, d2));
 
     // Use smooth maximum to blend triangle and circle SDFs
-    sdf = triangle_sdf * 3;
+    sdf = triangle_sdf * 3.0;
 
-    float top = mix(1.5, 2.2, sigmoid((sin(elapsed / 1.5) + 1) / 2)); //1.5 + 1.4 * (sin(elapsed) + 1) / 2;
-    sdf = 1 - smoothstep(sdf, butterworth(2 * distance(p, triangle_center), top, 2), 0.3);
-    sdf = clamp(sdf, 0, 1);
+    float top = mix(1.5, 2.2, sigmoid((sin(elapsed / 1.5) + 1.0) / 2.0)); //1.5 + 1.4 * (sin(elapsed) + 1) / 2;
+    sdf = 1.0 - smoothstep(sdf, butterworth(2.0 * distance(p, triangle_center), top, 2.0), 0.3);
+    sdf = clamp(sdf, 0.0, 1.0);
 }
 
 vec2 rotate(vec2 v, vec2 origin, float angle) {
@@ -209,9 +209,9 @@ void square_tiling(in vec2 p, out float sdf, out float tile_id) {
     // Use smooth maximum to blend square and circle SDFs
     sdf = square_sdf;
 
-    float top = mix(0.8, 1.75, sigmoid((sin(elapsed / 1.5) + 1) / 2));
-    sdf = 1 - smoothstep(sdf, gaussian(distance(p, square_center), top), 0.3);
-    sdf = clamp(sdf, 0, 1);
+    float top = mix(0.8, 1.75, sigmoid((sin(elapsed / 1.5) + 1.0) / 2.0));
+    sdf = 1.0 - smoothstep(sdf, gaussian(distance(p, square_center), top), 0.3);
+    sdf = clamp(sdf, 0.0, 1.0);
 }
 
 uniform sampler3D lch_texture;
@@ -223,7 +223,7 @@ float symmetric(float value) {
     return abs(fract(value) * 2.0 - 1.0);
 }
 
-uniform vec4 black = vec4(vec3(0), 1);
+uniform vec4 black;
 
 
 vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 frag_position) {
@@ -246,7 +246,7 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 frag_position) 
     #elif MODE == MODE_SQUARE
 
     square_tiling(
-    rotate(texture_coords * 5 + scroll_offset, vec2(0.5), 0.25 * PI),
+    rotate(texture_coords * 5.0 + scroll_offset, vec2(0.5), 0.25 * PI),
     sdf,
     tile_id
     );
@@ -263,9 +263,9 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 frag_position) 
     );
 
     vec3 tile_color = lch_to_rgb(vec3(
-    0.8,
-    1,
-    gradient_noise(vec3(2 * texture_coords.xy + scroll_offset, elapsed / 10 + 5 * sqrt(2) * mask))
+        0.8,
+        1.0,
+        gradient_noise(vec3(2.0 * texture_coords.xy + scroll_offset, elapsed / 10.0 + 5.0 * sqrt(2.0) * mask))
     ));
 
     return vec4(mix(tile_color - vec3(0.1), black.rgb, mask), 1.0);

@@ -16,11 +16,11 @@ vec4 effect(vec4 vertex_color, sampler2D img, vec2 texture_coords, vec2 screen_c
     float opacity = vertex_color.z;
 
     const float noise_scale = 3.5;
-    float offset = 0.5 * (1 + noise(vec3(texture_coords, elapsed / noise_scale)));
+    float offset = 0.5 * (1.0 + noise(vec3(texture_coords, elapsed / noise_scale)));
     density -= offset - 0.15;
-    density = clamp(density, 0, 1);
+    density = clamp(density, 0.0, 1.0);
 
-    return color * vec4(vec3(1), color.a * opacity * density);
+    return color * vec4(vec3(1.0), color.a * opacity * density);
 }
 
 #endif

@@ -4,12 +4,12 @@ vec4 effect(vec4 vertex_color, sampler2D tex, vec2 texture_coords, vec2 screen_c
 {
     vec4 data = texture(tex, texture_coords);
     float mask = data.a;
-    if (mask == 0) discard;
+    if (mask == 0.0) discard;
 
-    vec2 gradient = normalize((data.yz * 2) - 1); // normalized gradient
+    vec2 gradient = normalize((data.yz * 2.0) - 1.0); // normalized gradient
     float dist = data.x; // normalized distance;
 
-    return vertex_color * mix(vec4(0), vec4(1), dist);
+    return vertex_color * mix(vec4(0.0), vec4(1.0), dist);
 }
 
 #endif

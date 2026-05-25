@@ -1300,6 +1300,7 @@ function rt.Label:_draw()
         _draw_text_shader:send("is_effect_noise", glyph.is_effect_noise)
         _draw_text_shader:send("is_effect_wave", glyph.is_effect_wave)
         _draw_text_shader:send("is_effect_shake", glyph.is_effect_shake)
+        _draw_text_shader:send("opacity", 1)
 
         local justify_offset = 0
         if justify_mode == rt.JustifyMode.CENTER then
@@ -1324,6 +1325,7 @@ function rt.Label:_draw()
     love.graphics.setShader(_draw_outline_shader:get_native())
     _draw_outline_shader:send("elapsed", self._elapsed)
     _draw_outline_shader:send("font_size", true_font_size)
+    _draw_outline_shader:send("opacity", 1)
 
     love.graphics.setLineWidth(self:_get_line_width() + rt.settings.label.outline_width_offset)
     for glyph in values(self._outlined_glyphs) do
@@ -1645,6 +1647,7 @@ function rt.Glyph:draw(x, y)
         _draw_outline_shader:send("is_effect_noise", glyph.is_effect_noise)
         _draw_outline_shader:send("is_effect_shake", glyph.is_effect_shake)
         _draw_outline_shader:send("outline_color", glyph.outline_color)
+        _draw_outline_shader:send("opacity", 1)
 
         love.graphics.push()
         love.graphics.translate(justify_offset, 0)

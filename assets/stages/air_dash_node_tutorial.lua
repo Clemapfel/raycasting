@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 288,
+  nextobjectid = 290,
   properties = {
     ["background_id"] = "\"nebula\""
   },
@@ -519,23 +519,6 @@ return {
             { x = -16, y = -16 }
           },
           properties = {}
-        },
-        {
-          id = 137,
-          name = "",
-          type = "AirDashNode",
-          shape = "ellipse",
-          x = 96,
-          y = -1104,
-          width = 256,
-          height = 256,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["angle"] = 0,
-            ["axis_x"] = 1,
-            ["axis_y"] = 0
-          }
         },
         {
           id = 138,
@@ -1597,7 +1580,7 @@ return {
         {
           id = 283,
           name = "",
-          type = "MovableHitbox",
+          type = "Wall",
           shape = "polygon",
           x = 592,
           y = -1104,
@@ -1615,52 +1598,21 @@ return {
             { x = 208, y = 0 }
           },
           properties = {
-            ["slippery"] = false
+            ["type"] = "spheres"
           }
         },
         {
-          id = 284,
+          id = 289,
           name = "",
-          type = "Path",
-          shape = "point",
-          x = 728.599,
-          y = -1063.61,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["next"] = { id = 285 },
-            ["target"] = { id = 283 }
-          }
-        },
-        {
-          id = 285,
-          name = "",
-          type = "PathNode",
-          shape = "point",
-          x = 224,
-          y = -1952,
-          width = 0,
-          height = 0,
+          type = "Goal",
+          shape = "rectangle",
+          x = -336,
+          y = -1536,
+          width = 144,
+          height = 128,
           rotation = 0,
           visible = true,
           properties = {}
-        },
-        {
-          id = 287,
-          name = "",
-          type = "NPC",
-          shape = "point",
-          x = -112,
-          y = -1312,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["dialog_id"] = "animalese_test"
-          }
         }
       }
     },

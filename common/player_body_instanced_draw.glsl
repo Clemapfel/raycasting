@@ -4,8 +4,8 @@ layout (location = 3) in vec2 particle_position;
 layout (location = 4) in vec2 particle_radius; // x: normal, y: contour
 layout (location = 5) in float particle_opacity;
 
-uniform float texture_scale = 1;
-uniform float contour_interpolation_factor = 0;
+uniform float texture_scale;
+uniform float contour_interpolation_factor;
 
 varying float opacity;
 

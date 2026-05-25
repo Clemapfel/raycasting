@@ -2,7 +2,7 @@
 
 uniform sampler3D noise_texture;
 float gradient_noise(vec3 p) {
-    p /= 24;
+    p /= 24.0;
     return texture(noise_texture, p).r;
 }
 
@@ -30,15 +30,15 @@ uniform float hue;
 uniform float hue_offset;
 
 vec4 effect(vec4 color, sampler2D image, vec2 texture_coords, vec2 vertex_position) {
-    vec2 uv = to_world_position(vertex_position) / 60;
-    float noise = gradient_noise(vec3(uv, elapsed / 4));
+    vec2 uv = to_world_position(vertex_position) / 60.0;
+    float noise = gradient_noise(vec3(uv, elapsed / 4.0));
 
     float hue_eps = hue_offset;
-    float alpha = 1;
-    hue_eps = hue_offset * 4;
+    float alpha = 1.0;
+    hue_eps = hue_offset * 4.0;
 
     float final_hue = mix(hue - hue_offset, hue + hue_offset, noise);
-    return color * vec4(lch_to_rgb(vec3(0.8, 1, final_hue)), alpha);
+    return color * vec4(lch_to_rgb(vec3(0.8, 1.0, final_hue)), alpha);
 }
 
 #endif // PIXEL

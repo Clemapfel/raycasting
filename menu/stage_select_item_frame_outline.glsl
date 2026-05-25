@@ -19,16 +19,16 @@ float gradient_noise(vec3 p) {
     vec3 i = floor(p);
     vec3 v = fract(p);
 
-    vec3 u = v * v * v * (v *(v * 6.0 - 15.0) + 10.0);
+    vec3 u = v * v * v * (v * (v * 6.0 - 15.0) + 10.0);
 
-    return mix( mix( mix( dot( -1 + 2 * random_3d(i + vec3(0.0,0.0,0.0)), v - vec3(0.0,0.0,0.0)),
-    dot( -1 + 2 * random_3d(i + vec3(1.0,0.0,0.0)), v - vec3(1.0,0.0,0.0)), u.x),
-    mix( dot( -1 + 2 * random_3d(i + vec3(0.0,1.0,0.0)), v - vec3(0.0,1.0,0.0)),
-    dot( -1 + 2 * random_3d(i + vec3(1.0,1.0,0.0)), v - vec3(1.0,1.0,0.0)), u.x), u.y),
-    mix( mix( dot( -1 + 2 * random_3d(i + vec3(0.0,0.0,1.0)), v - vec3(0.0,0.0,1.0)),
-    dot( -1 + 2 * random_3d(i + vec3(1.0,0.0,1.0)), v - vec3(1.0,0.0,1.0)), u.x),
-    mix( dot( -1 + 2 * random_3d(i + vec3(0.0,1.0,1.0)), v - vec3(0.0,1.0,1.0)),
-    dot( -1 + 2 * random_3d(i + vec3(1.0,1.0,1.0)), v - vec3(1.0,1.0,1.0)), u.x), u.y), u.z );
+    return mix( mix( mix( dot( -1.0 + 2.0 * random_3d(i + vec3(0.0, 0.0, 0.0)), v - vec3(0.0, 0.0, 0.0)),
+    dot( -1.0 + 2.0 * random_3d(i + vec3(1.0, 0.0, 0.0)), v - vec3(1.0, 0.0, 0.0)), u.x),
+    mix( dot( -1.0 + 2.0 * random_3d(i + vec3(0.0, 1.0, 0.0)), v - vec3(0.0, 1.0, 0.0)),
+    dot( -1.0 + 2.0 * random_3d(i + vec3(1.0, 1.0, 0.0)), v - vec3(1.0, 1.0, 0.0)), u.x), u.y),
+    mix( mix( dot( -1.0 + 2.0 * random_3d(i + vec3(0.0, 0.0, 1.0)), v - vec3(0.0, 0.0, 1.0)),
+    dot( -1.0 + 2.0 * random_3d(i + vec3(1.0, 0.0, 1.0)), v - vec3(1.0, 0.0, 1.0)), u.x),
+    mix( dot( -1.0 + 2.0 * random_3d(i + vec3(0.0, 1.0, 1.0)), v - vec3(0.0, 1.0, 1.0)),
+    dot( -1.0 + 2.0 * random_3d(i + vec3(1.0, 1.0, 1.0)), v - vec3(1.0, 1.0, 1.0)), u.x), u.y), u.z );
 }
 
 mat3 sobel_x = mat3(
@@ -45,7 +45,7 @@ mat3 sobel_y = mat3(
 
 uniform float elapsed;
 uniform float hue;
-uniform float hue_range = 0.25;
+const float hue_range = 0.25;
 
 #endif
 
@@ -58,7 +58,8 @@ vec3 lch_to_rgb(vec3 lch) {
 
 vec4 effect(vec4 color, sampler2D img, vec2 texture_coordinates, vec2 frag_position) {
 
-    vec2 pixel_size = vec2(4.0 / textureSize(img, 0));
+    ivec2 texture_size_i = textureSize(img, 0);
+    vec2 pixel_size = vec2(4.0 / vec2(texture_size_i.x, texture_size_i.y));
 
     float threshold = 0.5; // metaball threshold
     float smoothness = 0.45; // smoothness factor for blending
@@ -80,14 +81,14 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coordinates, vec2 frag_posit
         }
 
         float magnitude = length(vec2(gradient_x, gradient_y));
-        float alpha = smoothstep(0, 1, magnitude);
+        float alpha = smoothstep(0.0, 1.0, magnitude);
 
-        float noise = hue_range * (gradient_noise(vec3(texture_coordinates * 2, elapsed / 2)));
-        vec3 hue = lch_to_rgb(vec3(0.8, 1, fract(hue + noise)));
+        float noise = hue_range * (gradient_noise(vec3(texture_coordinates * 2.0, elapsed / 2.0)));
+        vec3 hue = lch_to_rgb(vec3(0.8, 1.0, fract(hue + noise)));
 
-        float outline = smoothstep(0, 0.8, min(2 * magnitude, 1));
+        float outline = smoothstep(0.0, 0.8, min(2.0 * magnitude, 1.0));
 
-        return vec4(mix(vec3(0), hue, alpha), max(alpha, outline));
+        return vec4(mix(vec3(0.0), hue, alpha), max(alpha, outline));
 
     #elif MODE == MODE_BASE
         float value = texture(img, texture_coordinates).a;

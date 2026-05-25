@@ -12,23 +12,23 @@ vec3 random_3d(in vec3 p) {
 float gaussian(float x, float ramp)
 {
     // e^{-\frac{4\pi}{3}\left(r\cdot\left(x-c\right)\right)^{2}}
-    return exp(((-4 * PI) / 3) * (ramp * x) * (ramp * x));
+    return exp(((-4.0 * PI) / 3.0) * (ramp * x) * (ramp * x));
 }
 
 float gradient_noise(vec3 p) {
     vec3 i = floor(p);
     vec3 v = fract(p);
 
-    vec3 u = v * v * v * (v *(v * 6.0 - 15.0) + 10.0);
+    vec3 u = v * v * v * (v * (v * 6.0 - 15.0) + 10.0);
 
-    return mix( mix( mix( dot( -1 + 2 * random_3d(i + vec3(0.0,0.0,0.0)), v - vec3(0.0,0.0,0.0)),
-    dot( -1 + 2 * random_3d(i + vec3(1.0,0.0,0.0)), v - vec3(1.0,0.0,0.0)), u.x),
-    mix( dot( -1 + 2 * random_3d(i + vec3(0.0,1.0,0.0)), v - vec3(0.0,1.0,0.0)),
-    dot( -1 + 2 * random_3d(i + vec3(1.0,1.0,0.0)), v - vec3(1.0,1.0,0.0)), u.x), u.y),
-    mix( mix( dot( -1 + 2 * random_3d(i + vec3(0.0,0.0,1.0)), v - vec3(0.0,0.0,1.0)),
-    dot( -1 + 2 * random_3d(i + vec3(1.0,0.0,1.0)), v - vec3(1.0,0.0,1.0)), u.x),
-    mix( dot( -1 + 2 * random_3d(i + vec3(0.0,1.0,1.0)), v - vec3(0.0,1.0,1.0)),
-    dot( -1 + 2 * random_3d(i + vec3(1.0,1.0,1.0)), v - vec3(1.0,1.0,1.0)), u.x), u.y), u.z );
+    return mix( mix( mix( dot( -1.0 + 2.0 * random_3d(i + vec3(0.0, 0.0, 0.0)), v - vec3(0.0, 0.0, 0.0)),
+    dot( -1.0 + 2.0 * random_3d(i + vec3(1.0, 0.0, 0.0)), v - vec3(1.0, 0.0, 0.0)), u.x),
+    mix( dot( -1.0 + 2.0 * random_3d(i + vec3(0.0, 1.0, 0.0)), v - vec3(0.0, 1.0, 0.0)),
+    dot( -1.0 + 2.0 * random_3d(i + vec3(1.0, 1.0, 0.0)), v - vec3(1.0, 1.0, 0.0)), u.x), u.y),
+    mix( mix( dot( -1.0 + 2.0 * random_3d(i + vec3(0.0, 0.0, 1.0)), v - vec3(0.0, 0.0, 1.0)),
+    dot( -1.0 + 2.0 * random_3d(i + vec3(1.0, 0.0, 1.0)), v - vec3(1.0, 0.0, 1.0)), u.x),
+    mix( dot( -1.0 + 2.0 * random_3d(i + vec3(0.0, 1.0, 1.0)), v - vec3(0.0, 1.0, 1.0)),
+    dot( -1.0 + 2.0 * random_3d(i + vec3(1.0, 1.0, 1.0)), v - vec3(1.0, 1.0, 1.0)), u.x), u.y), u.z );
 }
 
 float manhatten_distance(vec2 p)
@@ -37,7 +37,7 @@ float manhatten_distance(vec2 p)
 }
 
 vec3 hash33(vec3 p3) {
-    p3 = fract(p3 * vec3(.1031, .1030, .0973));
+    p3 = fract(p3 * vec3(0.1031, 0.1030, 0.0973));
     p3 += dot(p3, p3.yxz + 33.33);
     return fract((p3.xxy + p3.yxx) * p3.zyx);
 }
@@ -86,7 +86,7 @@ float dirac(float x) {
 
 uniform float elapsed;
 uniform float fraction; // 0: start, 1: end;
-uniform bool draw_bloom = true;
+uniform bool draw_bloom;
 uniform float flash;
 uniform float brightness_scale;
 uniform vec2 mesh_size;
@@ -96,7 +96,7 @@ uniform vec4 bounds; // aabb mesh
 vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 vertex_position) {
 
     vec2 uv = (screen_to_world_transform * vec4(vertex_position, 0.0, 1.0)).xy;
-    uv /= 150;
+    uv /= 150.0;
     uv += elapsed / 20.0;
 
     float noise = gradient_noise(vec3(uv + vec2(0.0, -elapsed), 0.0));
@@ -104,27 +104,27 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 vertex_position
     // uv encodes global position
     const float min_eps = 0.015;
     const float max_eps = 0.75;
-    float pattern_outline = checkerboard((5 * uv) + mix(0.05, 0.6, fraction) * vec2(noise));
+    float pattern_outline = checkerboard((5.0 * uv) + mix(0.05, 0.6, fraction) * vec2(noise));
 
     float threshold_eps = draw_bloom ? 0.08 : 0.04;
     float threshold_a = 0.49;
-    float threshold_b = 0.5 + 0.5 * threshold_eps + 0.02 * (draw_bloom ? 1 : 1);
+    float threshold_b = 0.5 + 0.5 * threshold_eps + 0.02 * (draw_bloom ? 1.0 : 1.0);
     pattern_outline = smoothstep(threshold_a - threshold_eps, threshold_a + threshold_eps, pattern_outline) -
         smoothstep(threshold_b - threshold_eps, threshold_b + threshold_eps, pattern_outline);
-    pattern_outline -= (1 - color.a);
+    pattern_outline -= (1.0 - color.a);
 
-    float pattern_fill = checkerboard((5 * uv) + 0.2 * noise);
+    float pattern_fill = checkerboard((5.0 * uv) + 0.2 * noise);
     pattern_fill = smoothstep(0.5 - threshold_eps, 0.5 + threshold_eps, pattern_fill);
 
-    float pattern_noise = gradient_noise(vec3(uv * 10, elapsed));
+    float pattern_noise = gradient_noise(vec3(uv * 10.0, elapsed));
 
-    float pattern_eps = 2; //fwidth(pattern_noise);
-    float pattern_threshold = 0;
+    float pattern_eps = 2.0; //fwidth(pattern_noise);
+    float pattern_threshold = 0.0;
     pattern_fill *= 0.4 * smoothstep(pattern_threshold - pattern_eps, pattern_threshold + pattern_eps, pattern_noise);
 
     // alpha encodes rim
-    float outline = 1 - color.a > 0 ? 1 : 0;
-    vec4 rim = vec4(mix( vec3(0), color.rgb, outline), outline);
+    float outline = 1.0 - color.a > 0.0 ? 1.0 : 0.0;
+    vec4 rim = vec4(mix(vec3(0.0), color.rgb, outline), outline);
 
     float intensity = 0.6;
     pattern_outline *= intensity;
@@ -132,9 +132,9 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 vertex_position
 
     vec4 result;
     if (!draw_bloom)
-        result = rim + (1 - outline) * vec4(color.rgb * vec3((1 - fraction * 0.5) * min(pattern_outline + pattern_fill, 1)), 1);
+        result = rim + (1.0 - outline) * vec4(color.rgb * vec3((1.0 - fraction * 0.5) * min(pattern_outline + pattern_fill, 1.0)), 1.0);
     else
-        result = rim + (1 - outline) * vec4(color.rgb * pattern_outline, 1);
+        result = rim + (1.0 - outline) * vec4(color.rgb * pattern_outline, 1.0);
 
     return mix(brightness_scale * result, vec4(1), flash);
 }

@@ -5,12 +5,10 @@ float smooth_abs(float x) {
 #define PI 3.1415926535897932384626433832795
 float gaussian(float x, float ramp)
 {
-    return exp(((-4 * PI) / 3) * (ramp * x) * (ramp * x));
+    return exp(((-4.0 * PI) / 3.0) * (ramp * x) * (ramp * x));
 }
 
-uniform vec2 axis = vec2(0, -1);
-
-
+uniform vec2 axis;
 uniform mat4x4 screen_to_world_transform;
 vec2 to_world_position(vec2 xy) {
     vec4 result = screen_to_world_transform * vec4(xy, 0.0, 1.0);
@@ -22,8 +20,8 @@ uniform vec4 player_color;
 uniform float player_influence;
 uniform float elapsed;
 uniform float brightness_offset; // already scaled
-uniform float contrast = 0.25; // 0, 1
-uniform float animation_velocity = 1;
+uniform float contrast; // 0, 1
+uniform float animation_velocity;
 
 vec4 effect(vec4 vertex_color, sampler2D _, vec2 texture_coordinates, vec2 frag_position) {
     vec2 uv = to_world_position(frag_position) / 500.0;
@@ -67,5 +65,5 @@ vec4 effect(vec4 vertex_color, sampler2D _, vec2 texture_coordinates, vec2 frag_
 
     vec4 color = mix(vertex_color, player_color, dist * player_influence);
 
-    return vec4(vec3(mix(1 - contrast, brightness_offset, value)), 1.0) * color;
+    return vec4(vec3(mix(1.0 - contrast, brightness_offset, value)), 1.0) * color;
 }

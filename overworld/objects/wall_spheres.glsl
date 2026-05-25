@@ -10,21 +10,21 @@ float gradient_noise(vec3 p) {
     vec3 i = floor(p);
     vec3 v = fract(p);
 
-    vec3 u = v * v * v * (v *(v * 6.0 - 15.0) + 10.0);
+    vec3 u = v * v * v * (v * (v * 6.0 - 15.0) + 10.0);
 
-    return mix( mix( mix( dot( -1 + 2 * random_3d(i + vec3(0.0,0.0,0.0)), v - vec3(0.0,0.0,0.0)),
-    dot( -1 + 2 * random_3d(i + vec3(1.0,0.0,0.0)), v - vec3(1.0,0.0,0.0)), u.x),
-    mix( dot( -1 + 2 * random_3d(i + vec3(0.0,1.0,0.0)), v - vec3(0.0,1.0,0.0)),
-    dot( -1 + 2 * random_3d(i + vec3(1.0,1.0,0.0)), v - vec3(1.0,1.0,0.0)), u.x), u.y),
-    mix( mix( dot( -1 + 2 * random_3d(i + vec3(0.0,0.0,1.0)), v - vec3(0.0,0.0,1.0)),
-    dot( -1 + 2 * random_3d(i + vec3(1.0,0.0,1.0)), v - vec3(1.0,0.0,1.0)), u.x),
-    mix( dot( -1 + 2 * random_3d(i + vec3(0.0,1.0,1.0)), v - vec3(0.0,1.0,1.0)),
-    dot( -1 + 2 * random_3d(i + vec3(1.0,1.0,1.0)), v - vec3(1.0,1.0,1.0)), u.x), u.y), u.z );
+    return mix( mix( mix( dot( -1.0 + 2.0 * random_3d(i + vec3(0.0, 0.0, 0.0)), v - vec3(0.0, 0.0, 0.0)),
+    dot( -1.0 + 2.0 * random_3d(i + vec3(1.0, 0.0, 0.0)), v - vec3(1.0, 0.0, 0.0)), u.x),
+    mix( dot( -1.0 + 2.0 * random_3d(i + vec3(0.0, 1.0, 0.0)), v - vec3(0.0, 1.0, 0.0)),
+    dot( -1.0 + 2.0 * random_3d(i + vec3(1.0, 1.0, 0.0)), v - vec3(1.0, 1.0, 0.0)), u.x), u.y),
+    mix( mix( dot( -1.0 + 2.0 * random_3d(i + vec3(0.0, 0.0, 1.0)), v - vec3(0.0, 0.0, 1.0)),
+    dot( -1.0 + 2.0 * random_3d(i + vec3(1.0, 0.0, 1.0)), v - vec3(1.0, 0.0, 1.0)), u.x),
+    mix( dot( -1.0 + 2.0 * random_3d(i + vec3(0.0, 1.0, 1.0)), v - vec3(0.0, 1.0, 1.0)),
+    dot( -1.0 + 2.0 * random_3d(i + vec3(1.0, 1.0, 1.0)), v - vec3(1.0, 1.0, 1.0)), u.x), u.y), u.z );
 }
 
 float hexagonal_dome_sdf(vec2 position, out vec3 surface_normal) {
-    const float radius = 1;
-    const float height = 1;
+    const float radius = 1.0;
+    const float height = 1.0;
     const float sqrt3 = 1.7320508075688772;
 
     float q = position.x * sqrt3 / 3.0 - position.y / 3.0;
@@ -97,18 +97,18 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 screen_coords) 
     const float tiling_height = 0.4;
 
     vec3 normal;
-    float tiling = hexagonal_dome_sdf(world_position / 30, normal);
+    float tiling = hexagonal_dome_sdf(world_position / 30.0, normal);
 
     const vec4 ambient_light_color = vec4(1);
     const float ambient_light_intensity = 0.3;
     vec3 ambient_light_direction = normalize(vec3(
-        -1, -1, mix(-0.25, 0.75, 0.5 * gradient_noise(vec3(to_world_position(screen_coords) / 10, elapsed)))
+        -1.0, -1.0, mix(-0.25, 0.75, 0.5 * gradient_noise(vec3(to_world_position(screen_coords) / 10.0, elapsed)))
     ));
     float ambient_alignment = max(dot(normal, ambient_light_direction), 0.0);
     vec4 ambient_color = ambient_light_intensity * ambient_alignment * ambient_light_color;
 
     return vec4((
-        color * 0.05 * (1 - tiling)
+        color * 0.05 * (1.0 - tiling)
         + ambient_color
         + compute_light(screen_coords, normal)
     ).rgb, color.a);

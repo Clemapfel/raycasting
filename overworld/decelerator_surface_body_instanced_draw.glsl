@@ -3,7 +3,7 @@
 layout (location = 3) in vec2 particle_position;
 layout (location = 4) in float particle_radius;
 
-uniform float texture_scale = 1;
+uniform float texture_scale;
 
 vec4 position(mat4 transform_projection, vec4 vertex_position)
 {

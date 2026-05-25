@@ -33,10 +33,10 @@ varying vec2 texture_coords;
 
 vec4 position(mat4 transform_projection, vec4 vertex_position)
 {
-    uint instance_id = love_InstanceID;
+    int instance_id = love_InstanceID;
     Sprite sprite = sprites[instance_id];
 
-    uint vertex_i = gl_VertexID.x;
+    int vertex_i = gl_VertexID;
 
     vec2 position_offsets[4] = vec2[4](
         sprite.top_left,

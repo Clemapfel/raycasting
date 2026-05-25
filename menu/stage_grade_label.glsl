@@ -10,13 +10,13 @@ vec2 rotate(vec2 v, float angle) {
 }
 
 vec2 offset_uv(vec2 base_coords, vec2 offset, vec2 texel_size) {
-    return clamp(base_coords + texel_size * offset, vec2(0.0 + 2 * texel_size), vec2(1.0 - 2 * texel_size));
+    return clamp(base_coords + texel_size * offset, vec2(0.0 + 2.0 * texel_size), vec2(1.0 - 2.0 * texel_size));
 }
 
 #define PI 3.1415926535897932384626433832795
 float gaussian(float x, float ramp)
 {
-    return exp(((-4 * PI) / 3) * (ramp * x) * (ramp * x));
+    return exp(((-4.0 * PI) / 3.0) * (ramp * x) * (ramp * x));
 }
 
 #ifdef PIXEL
@@ -27,7 +27,7 @@ float gaussian(float x, float ramp)
 #error "MODE undefined, should be 0 or 1"
 #endif
 
-uniform float opacity = 1;
+uniform float opacity;
 
 #if MODE == MODE_SDF
 
@@ -35,8 +35,8 @@ uniform vec4 white;
 
 vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 vertex_position) {
     float dist = texture(img, texture_coords).a;
-    const float thickness = 1 - 0.8;
-    vec4 result = min(vec4(1.5 * smoothstep(0, 1, smoothstep(0, 1, smoothstep(0, 1 - thickness, dist)))) * white, vec4(1));
+    const float thickness = 1.0 - 0.8;
+    vec4 result = min(vec4(1.5 * smoothstep(0.0, 1.0, smoothstep(0.0, 1.0, smoothstep(0.0, 1.0 - thickness, dist)))) * white, vec4(1.0));
     return vec4(result.rgb, result.a * opacity);
 }
 
@@ -55,7 +55,7 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 vertex_position
 
     vec4 result;
     if (use_rainbow) {
-        vec3 color = lch_to_rgb(vec3(0.8, 1.0, fract(10 * uv.x - time)));
+        vec3 color = lch_to_rgb(vec3(0.8, 1.0, fract(10.0 * uv.x - time)));
         result = vec4(color, texel.a);
     }
     else {
@@ -63,8 +63,8 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 vertex_position
     }
 
     if (use_highlight) {
-        float sin1 = (sin(100 * uv.x - elapsed) + 1) / 2;
-        float sin2 = (sin(180 * uv.x - elapsed + 0.5 * PI) + 1) / 2;
+        float sin1 = (sin(100.0 * uv.x - elapsed) + 1.0) / 2.0;
+        float sin2 = (sin(180.0 * uv.x - elapsed + 0.5 * PI) + 1.0) / 2.0;
         result.rgb += mix(sin1, sin2, 0.5) * 0.3;
     }
 
@@ -87,7 +87,7 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 vertex_position
         1.0,  2.0,  1.0
     );
 
-    vec2 texel_size = vec2(1.0) / textureSize(img, 0);
+    vec2 texel_size = vec2(1.0) / vec2(textureSize(img, 0));
     float s00 = Texel(img, offset_uv(texture_coords, vec2(-1, -1), texel_size)).a;
     float s01 = Texel(img, offset_uv(texture_coords, vec2( 0, -1), texel_size)).a;
     float s02 = Texel(img, offset_uv(texture_coords, vec2( 1, -1), texel_size)).a;

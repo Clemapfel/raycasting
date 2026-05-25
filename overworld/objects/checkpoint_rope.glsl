@@ -2,14 +2,14 @@
 
 uniform sampler3D noise_texture;
 float gradient_noise(vec3 xyz) {
-    xyz /= 8;
+    xyz /= 8.0;
     return texture(noise_texture, xyz).r;
 }
 
 #define PI 3.1415926535897932384626433832795
 float gaussian(float x, float ramp)
 {
-    return exp(((-4 * PI) / 3) * (ramp * x) * (ramp * x));
+    return exp(((-4.0 * PI) / 3.0) * (ramp * x) * (ramp * x));
 }
 
 float dirac(float x) {
@@ -20,17 +20,17 @@ float dirac(float x) {
 }
 
 uniform float elapsed;
-uniform vec4 color = vec4(1, 0, 1, 1);
-uniform bool bloom_active = false;
+uniform vec4 color;
+uniform bool bloom_active;
 uniform float brightness_scale;
 
 vec4 effect(vec4 vertex_color, sampler2D image, vec2 texture_coords, vec2 vertex_position) {
     vec2 uv = texture_coords;
-    float side = sign((2 * vertex_color.a) - 1);
+    float side = sign((2.0 * vertex_color.a) - 1.0);
     vec2 seed = uv.xy;
-    seed.y += 10 * side;
+    seed.y += 10.0 * side;
 
-    float noise_frequency = 20;
+    float noise_frequency = 20.0;
     float noise_amplitude = 0.5;
 
     seed *= noise_frequency;
@@ -39,13 +39,13 @@ vec4 effect(vec4 vertex_color, sampler2D image, vec2 texture_coords, vec2 vertex
     float value = uv.x - noise;
 
     float eps = 0.3;
-    float outline_thickness = 0.1 * (1 + 4 *(brightness_scale - 1));
-    float outline = smoothstep(outline_thickness, outline_thickness + eps, vertex_color.r * value * gaussian(1 - uv.x, 1.1));
+    float outline_thickness = 0.1 * (1.0 + 4.0 *(brightness_scale - 1.0));
+    float outline = smoothstep(outline_thickness, outline_thickness + eps, vertex_color.r * value * gaussian(1.0 - uv.x, 1.1));
 
-    value = smoothstep(0, eps, value * gaussian(1 - uv.x, 1));
-    vec4 result = brightness_scale * color * smoothstep(0, 0.6, vertex_color.r) * vec4(mix(vec3(value), vec3(0), outline), max(value, outline));
+    value = smoothstep(0.0, eps, value * gaussian(1.0 - uv.x, 1.0));
+    vec4 result = brightness_scale * color * smoothstep(0.0, 0.6, vertex_color.r) * vec4(mix(vec3(value), vec3(0.0), outline), max(value, outline));
 
-    if (bloom_active) result *= (1 - outline);
+    if (bloom_active) result *= (1.0 - outline);
     return result;
 }
 

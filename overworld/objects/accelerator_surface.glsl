@@ -25,12 +25,12 @@ vec3 lch_to_rgb(vec3 lch) {
 #define PI 3.1415926535897932384626433832795
 float gaussian(float x, float ramp)
 {
-    return exp(((-4 * PI) / 3) * (ramp * x) * (ramp * x));
+    return exp(((-4.0 * PI) / 3.0) * (ramp * x) * (ramp * x));
 }
 
 uniform sampler3D noise_texture;
 float gradient_noise(vec3 p) {
-    p /= 2;
+    p /= 2.0;
     return texture(noise_texture, p).r;
 }
 
@@ -54,8 +54,8 @@ float height_pattern(vec3 uv, out vec3 gradient, out float cell_id)
     float result = 0.0;
     cell_id = 0.0;
 
-    float frequencies[3] = float[3](2, 4, 8);
-    vec3 norm_weights = normalize(vec3(1, 1, 200));
+    float frequencies[3] = float[3](2.0, 4.0, 8.0);
+    vec3 norm_weights = normalize(vec3(1.0, 1.0, 200.0));
     float weights[3] = float[3](norm_weights.x, norm_weights.y, norm_weights.z);
 
     float total_weight = 0.0;
@@ -180,12 +180,8 @@ float mix_periodic(float a, float b, float t) {
     return fract(a + diff * t);
 }
 
-const float noise_scale = 1. / 120;
-const float time_scale = 1. / 6;
-
-float hue = fract(elapsed / 20);
-float min_hue = hue - 0.5;
-float max_hue = hue + 0.5;
+const float noise_scale = 1.0 / 120.0;
+const float time_scale = 1.0 / 6.0;
 
 uniform vec2 player_position; // world position
 uniform float player_hue;
@@ -204,40 +200,44 @@ vec4 effect(vec4 color, sampler2D tex, vec2 texture_coords, vec2 screen_coords) 
 
     vec3 gradient;
     float cell_id;
-    float noise = height_pattern(vec3(world_pos / 200 , elapsed / 100), gradient, cell_id);
+    float noise = height_pattern(vec3(world_pos / 200.0, elapsed / 100.0), gradient, cell_id);
     gradient = normalize(vec3(gradient));
 
     const vec3 light_direction = vec3(-0.5, -1.0, 0.0);
     const float ambient_strength = 0.5;
-    const float shadow_falloff = 1;
+    const float shadow_falloff = 1.0;
 
-    vec2 camera_pos = to_world_position(camera_position / 4);
+    vec2 camera_pos = to_world_position(camera_position / 4.0);
     vec2 camera_diff = normalize(camera_pos - world_pos);
 
-    vec3 normal = normalize(vec3(-gradient.x, -gradient.y, 0));
-    vec3 light_dir = normalize(-vec3(light_direction + vec3(camera_position, 0)));
+    vec3 normal = normalize(vec3(-gradient.x, -gradient.y, 0.0));
+    vec3 light_dir = normalize(-vec3(light_direction + vec3(camera_position, 0.0)));
 
     float diffuse_dot = dot(normal, light_dir);
-    float diffuse = pow(max(diffuse_dot, 0), 8);
-    float shadow = -1 * 1 - pow(max(-1 * diffuse_dot, 0), 1.2);
+    float diffuse = pow(max(diffuse_dot, 0.0), 8.0);
+    float shadow = -1.0 * 1.0 - pow(max(-1.0 * diffuse_dot, 0.0), 1.2);
     float light = min(ambient_strength + diffuse + shadow, 1.0);
 
-    vec3 specular_dir = normalize(-1 * vec3(camera_pos - world_pos, 0));
-    float specular_dot = max(dot(normal, specular_dir), 0);
-    float specular_light = pow(specular_dot, 16);
+    vec3 specular_dir = normalize(-1.0 * vec3(camera_pos - world_pos, 0.0));
+    float specular_dot = max(dot(normal, specular_dir), 0.0);
+    float specular_light = pow(specular_dot, 16.0);
 
-    float shading = mix(0.6, 1, smoothstep(-1, 1, noise));
-    float to_outline = smoothstep(0, 0.25, noise);
+    float shading = mix(0.6, 1.0, smoothstep(-1.0, 1.0, noise));
+    float to_outline = smoothstep(0.0, 0.25, noise);
 
-    float shadow_attenuation = 0;
+    float shadow_attenuation = 0.0;
     {
         vec2 player_world_pos = to_world_position(player_position);
         float dist = distance(world_pos, player_world_pos) / 100.0;
-        shadow_attenuation = 0; //gaussian(dist, shadow_attenuation_sigma);
+        shadow_attenuation = 0.0; //gaussian(dist, shadow_attenuation_sigma);
     }
 
+    float hue = fract(elapsed / 20.0);
+    float min_hue = hue - 0.5;
+    float max_hue = hue + 0.5;
+
     vec3 cell_color = lch_to_rgb(vec3(shading, 1, mix_periodic(mix(min_hue, max_hue, cell_id), player_hue, attenuation)));
-    return vec4(mix(cell_color, vec3(1), attenuation + light) - to_outline - shadow_attenuation, 1);
+    return vec4(mix(cell_color, vec3(1), attenuation + light) - to_outline - shadow_attenuation, 1.0);
 }
 
 #elif MODE == MODE_OUTLINE
@@ -251,18 +251,22 @@ vec4 effect(vec4 color, sampler2D tex, vec2 texture_coords, vec2 screen_coords) 
 
     float noise = gradient_noise(vec3(world_pos * noise_scale, elapsed * time_scale));
     return 0.9 * texture(tex, texture_coords) * vec4(
-        lch_to_rgb(vec3(0.8, 1, noise * 2)) - shadow_attenuation, // darken around player to stand out from outline better
-        1
+        lch_to_rgb(vec3(0.8, 1.0, noise * 2.0)) - shadow_attenuation, // darken around player to stand out from outline better
+        1.0
     );
 }
 
 #elif MODE == MODE_PARTICLE
 
 vec4 effect(vec4 color, sampler2D tex, vec2 texture_coords, vec2 screen_coords) {
+    float hue = fract(elapsed / 20.0);
+    float min_hue = hue - 0.5;
+    float max_hue = hue + 0.5;
+
     vec2 world_pos = to_world_position(screen_coords);
     float noise = gradient_noise(vec3(world_pos * noise_scale, elapsed * time_scale));
     return texture(tex, texture_coords) * vec4(
-        lch_to_rgb(vec3(0.8, 1, mix(min_hue, max_hue, noise * 2)))
+        lch_to_rgb(vec3(0.8, 1.0, mix(min_hue, max_hue, noise * 2.0)))
     , color.a);
 }
 

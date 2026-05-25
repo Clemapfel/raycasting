@@ -29,7 +29,7 @@ rt.settings.overworld.decelerator_surface_body = {
 
     threshold = 0.5,
     smoothness = 0.05,
-    outline_thickness = 1 / 4
+    outline_width = 1 / 4
 }
 
 rt.settings.overworld.decelerator_surface_body.retract_threshold = rt.settings.overworld.decelerator_surface_body.slot_max_scale * rt.settings.overworld.decelerator_surface_body.max_radius
@@ -1079,7 +1079,7 @@ function ow.DeceleratorSurfaceBody:draw()
     _threshold_shader:bind()
     _threshold_shader:send("threshold", settings.threshold)
     _threshold_shader:send("smoothness", settings.smoothness)
-    _threshold_shader:send("outline_thickness", settings.outline_thickness)
+    _threshold_shader:send("outline_width", settings.outline_width)
     _threshold_shader:send("outline_color", { rt.Palette.MINT:unpack() })
     _threshold_shader:send("body_color", { rt.Palette.BLACK:unpack() })
     _threshold_shader:send("screen_to_world_transform", transform)

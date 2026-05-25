@@ -2,6 +2,7 @@ require "common.sound_manager"
 require "overworld.shatter_surface"
 require "overworld.checkpoint_particles"
 require "common.label"
+require "common.timed_animation_sequence"
 
 
 rt.settings.overworld.goal = {

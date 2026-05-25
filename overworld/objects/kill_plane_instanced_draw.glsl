@@ -17,7 +17,7 @@ vec3 rotate_by_quaternion(vec3 vertex, vec4 quaternion)
     return vertex + quaternion.w * t + cross(quaternion.xyz, t);
 }
 
-uniform float outline_thickness = 1;
+uniform float outline_thickness;
 
 out float opacity;
 flat out uint use_color_override;
@@ -34,7 +34,7 @@ vec4 position(mat4 transform_projection, vec4 vertex_position)
     vertex_position.xy = rotated.xy * scale + offset;
     vertex_position.z = rotated.z;
 
-    opacity = (rotated.z + 1) / 2; // use depth as shading
+    opacity = (rotated.z + 1.0) / 2.0; // use depth as shading
     use_color_override = particle_is_outline;
 
     return transform_projection * vertex_position;
@@ -47,14 +47,14 @@ vec4 position(mat4 transform_projection, vec4 vertex_position)
 flat in uint use_color_override;
 in float opacity;
 
-uniform vec4 outline_color = vec4(1, 1, 1, 1);
-uniform vec4 black = vec4(0, 0, 0, 1);
+uniform vec4 outline_color;
+uniform vec4 black;
 
 vec4 effect(vec4 color, sampler2D tex, vec2 texture_coords, vec2 screen_coords) {
     if (use_color_override == TRUE)
         return outline_color;
     else
-        return vec4(vec4(vec3(mix(0, 1, opacity)), 1) * color);
+        return vec4(vec4(vec3(mix(0.0, 1.0, opacity)), 1.0) * color);
 }
 
 #endif

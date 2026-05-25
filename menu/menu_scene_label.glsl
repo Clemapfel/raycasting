@@ -11,19 +11,19 @@ float gradient_noise(vec3 p) {
     vec3 i = floor(p);
     vec3 v = fract(p);
 
-    vec3 u = v * v * v * (v *(v * 6.0 - 15.0) + 10.0);
+    vec3 u = v * v * v * (v * (v * 6.0 - 15.0) + 10.0);
 
-    return mix( mix( mix( dot( -1 + 2 * random_3d(i + vec3(0.0,0.0,0.0)), v - vec3(0.0,0.0,0.0)),
-    dot( -1 + 2 * random_3d(i + vec3(1.0,0.0,0.0)), v - vec3(1.0,0.0,0.0)), u.x),
-    mix( dot( -1 + 2 * random_3d(i + vec3(0.0,1.0,0.0)), v - vec3(0.0,1.0,0.0)),
-    dot( -1 + 2 * random_3d(i + vec3(1.0,1.0,0.0)), v - vec3(1.0,1.0,0.0)), u.x), u.y),
-    mix( mix( dot( -1 + 2 * random_3d(i + vec3(0.0,0.0,1.0)), v - vec3(0.0,0.0,1.0)),
-    dot( -1 + 2 * random_3d(i + vec3(1.0,0.0,1.0)), v - vec3(1.0,0.0,1.0)), u.x),
-    mix( dot( -1 + 2 * random_3d(i + vec3(0.0,1.0,1.0)), v - vec3(0.0,1.0,1.0)),
-    dot( -1 + 2 * random_3d(i + vec3(1.0,1.0,1.0)), v - vec3(1.0,1.0,1.0)), u.x), u.y), u.z );
+    return mix( mix( mix( dot( -1.0 + 2.0 * random_3d(i + vec3(0.0, 0.0, 0.0)), v - vec3(0.0, 0.0, 0.0)),
+    dot( -1.0 + 2.0 * random_3d(i + vec3(1.0, 0.0, 0.0)), v - vec3(1.0, 0.0, 0.0)), u.x),
+    mix( dot( -1.0 + 2.0 * random_3d(i + vec3(0.0, 1.0, 0.0)), v - vec3(0.0, 1.0, 0.0)),
+    dot( -1.0 + 2.0 * random_3d(i + vec3(1.0, 1.0, 0.0)), v - vec3(1.0, 1.0, 0.0)), u.x), u.y),
+    mix( mix( dot( -1.0 + 2.0 * random_3d(i + vec3(0.0, 0.0, 1.0)), v - vec3(0.0, 0.0, 1.0)),
+    dot( -1.0 + 2.0 * random_3d(i + vec3(1.0, 0.0, 1.0)), v - vec3(1.0, 0.0, 1.0)), u.x),
+    mix( dot( -1.0 + 2.0 * random_3d(i + vec3(0.0, 1.0, 1.0)), v - vec3(0.0, 1.0, 1.0)),
+    dot( -1.0 + 2.0 * random_3d(i + vec3(1.0, 1.0, 1.0)), v - vec3(1.0, 1.0, 1.0)), u.x), u.y), u.z );
 }
 
-uniform float elapsed;
+uniform highp float elapsed;
 #define PI 3.1415926535897932384626433832795
 
 #ifdef VERTEX
@@ -34,7 +34,7 @@ vec4 position(mat4 transform, vec4 vertex_position) {
         gradient_noise(vec3(vec2(vertex_position), elapsed)),
         gradient_noise(vec3(vec2(-vertex_position), elapsed))
     );
-    vertex_position.xy += 3 * offset;
+    vertex_position.xy += 3.0 * offset;
 
     return transform * vertex_position;
 }
@@ -51,14 +51,14 @@ uniform vec4 black;
 
 vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 vertex_position) {
     float dist = texture(img, texture_coords).a;
-    const float thickness = 1 - 0.1;
-    return vec4(smoothstep(0, 1 - thickness, dist)) * black;
+    const float thickness = 1.0 - 0.1;
+    return vec4(smoothstep(0.0, 1.0 - thickness, dist)) * black;
 }
 
 #elif MODE == MODE_NO_SDF
 
 vec2 clamped_coords(vec2 base_coords, vec2 offset, vec2 texel_size) {
-    return clamp(base_coords + texel_size * offset, vec2(0.0 + 2 * texel_size), vec2(1.0 - 2 * texel_size));
+    return clamp(base_coords + texel_size * offset, vec2(0.0 + 2.0 * texel_size), vec2(1.0 - 2.0 * texel_size));
 }
 
 uniform sampler3D lch_texture;
@@ -82,12 +82,12 @@ vec2 rotate(vec2 v, float angle) {
 
 float gaussian(float x, float ramp)
 {
-    return exp(((-4 * PI) / 3) * (ramp * x) * (ramp * x));
+    return exp(((-4.0 * PI) / 3.0) * (ramp * x) * (ramp * x));
 }
 
 vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 vertex_position) {
-    vec2 seed = to_world_position(vertex_position) / love_ScreenSize.xy * 140;
-    vec2 seed_magnitude = 3.5 * 1 / love_ScreenSize.xy;
+    vec2 seed = to_world_position(vertex_position) / love_ScreenSize.xy * 140.0;
+    vec2 seed_magnitude = 3.5 * 1.0 / love_ScreenSize.xy;
     texture_coords += vec2(
         gradient_noise(vec3(seed, elapsed)) * seed_magnitude.x,
         gradient_noise(vec3(-seed.yx, elapsed)) * seed_magnitude.y
@@ -106,18 +106,19 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 vertex_position
     );
 
     // Texture coordinate offsets
-    vec2 texel_size = vec2(1.0) / textureSize(img, 0);
+    ivec2 tex_size = textureSize(img, 0);
+    vec2 texel_size = vec2(1.0) / vec2(tex_size.x, tex_size.y);
 
     // Sample the image at the 3x3 neighborhood
-    float s00 = Texel(img, clamped_coords(texture_coords, vec2(-1, -1), texel_size)).a;
-    float s01 = Texel(img, clamped_coords(texture_coords, vec2( 0, -1), texel_size)).a;
-    float s02 = Texel(img, clamped_coords(texture_coords, vec2( 1, -1), texel_size)).a;
-    float s10 = Texel(img, clamped_coords(texture_coords, vec2(-1,  0), texel_size)).a;
-    float s11 = Texel(img, clamped_coords(texture_coords, vec2( 0,  0), texel_size)).a;
-    float s12 = Texel(img, clamped_coords(texture_coords, vec2( 1,  0), texel_size)).a;
-    float s20 = Texel(img, clamped_coords(texture_coords, vec2(-1,  1), texel_size)).a;
-    float s21 = Texel(img, clamped_coords(texture_coords, vec2( 0,  1), texel_size)).a;
-    float s22 = Texel(img, clamped_coords(texture_coords, vec2( 1,  1), texel_size)).a;
+    float s00 = Texel(img, clamped_coords(texture_coords, vec2(-1.0, -1.0), texel_size)).a;
+    float s01 = Texel(img, clamped_coords(texture_coords, vec2( 0.0, -1.0), texel_size)).a;
+    float s02 = Texel(img, clamped_coords(texture_coords, vec2( 1.0, -1.0), texel_size)).a;
+    float s10 = Texel(img, clamped_coords(texture_coords, vec2(-1.0,  0.0), texel_size)).a;
+    float s11 = Texel(img, clamped_coords(texture_coords, vec2( 0.0,  0.0), texel_size)).a;
+    float s12 = Texel(img, clamped_coords(texture_coords, vec2( 1.0,  0.0), texel_size)).a;
+    float s20 = Texel(img, clamped_coords(texture_coords, vec2(-1.0,  1.0), texel_size)).a;
+    float s21 = Texel(img, clamped_coords(texture_coords, vec2( 0.0,  1.0), texel_size)).a;
+    float s22 = Texel(img, clamped_coords(texture_coords, vec2( 1.0,  1.0), texel_size)).a;
 
     // Apply Sobel kernels
     float gx = sobel_x[0][0] * s00 + sobel_x[0][1] * s01 + sobel_x[0][2] * s02 +
@@ -128,25 +129,25 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 vertex_position
     sobel_y[1][0] * s10 + sobel_y[1][1] * s11 + sobel_y[1][2] * s12 +
     sobel_y[2][0] * s20 + sobel_y[2][1] * s21 + sobel_y[2][2] * s22;
 
-    float edge_threshold_low = 0;  // Lower threshold for smoothstep
+    float edge_threshold_low = 0.0;  // Lower threshold for smoothstep
     float edge_threshold_high = 1.5; // Higher threshold for smoothstep
 
     float magnitude = length(vec2(gx, gy));
     magnitude = smoothstep(edge_threshold_low, edge_threshold_high, magnitude);
 
     vec2 uv = to_world_position(vertex_position) / love_ScreenSize.xy;
-    uv += vec2(elapsed / 20);
+    uv += vec2(elapsed / 20.0);
     uv = rotate(uv, 0.33 * PI);
-    uv.x /= 2;
-    uv.y *= 1;
+    uv.x /= 2.0;
+    uv.y *= 1.0;
     uv = rotate(uv, -0.33 * PI);
 
-    float noise = gradient_noise(vec3(uv * 15, elapsed / 2));
+    float noise = gradient_noise(vec3(uv * 15.0, elapsed / 2.0));
 
-    vec3 hue = lch_to_rgb(vec3(0.8, 1, fract(hue + noise)));
+    vec3 hue = lch_to_rgb(vec3(0.8, 1.0, fract(hue + noise)));
     return vec4(hue, magnitude);
 }
 
-#endif
+#endif // MODE_NO_SDF
 
-#endif
+#endif // PIXEL

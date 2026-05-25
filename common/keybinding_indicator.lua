@@ -202,6 +202,7 @@ end
 --- @override
 function rt.KeybindingIndicator:draw()
     local x, y = math.floor(self._bounds.x), math.floor(self._bounds.y)
+    love.graphics.setLineStyle("smooth")
     love.graphics.translate(x, y)
     self._draw()
     love.graphics.translate(-x, -y)

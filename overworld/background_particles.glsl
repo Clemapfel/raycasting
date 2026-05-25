@@ -12,7 +12,7 @@ layout (location = 6) in vec4 color;
 
 vec3 rotate(vec3 vector, vec4 quaternion)
 {
-    if (length(quaternion.xyzw) == 0) return vector;
+    if (length(quaternion.xyzw) == 0.0) return vector;
 
     vec3 u = quaternion.xyz;
     float s = quaternion.w;
@@ -31,8 +31,8 @@ vec4 position(mat4 transform_projection, vec4 vertex_position)
 
     dxyz *= scale;
 
-    #if BLOOM != 1
-    dxyz = rotate(dxyz, rotation);
+    #if IS_BLOOM != 1
+        dxyz = rotate(dxyz, rotation);
     #endif
 
     dxyz += offset;
@@ -49,7 +49,7 @@ vec4 position(mat4 transform_projection, vec4 vertex_position)
 #define PI 3.1415926535897932384626433832795
 float gaussian(float x, float ramp)
 {
-    return exp(((-4 * PI) / 3) * (ramp * x) * (ramp * x));
+    return exp(((-4.0 * PI) / 3.0) * (ramp * x) * (ramp * x));
 }
 
 varying vec3 world_position;
@@ -57,9 +57,9 @@ varying vec4 vertex_color;
 
 const vec3 light_direction = vec3(0.2, -1.0, 0.0);
 const float ambient_strength = 0.35;
-const float shadow_falloff = 1;
+const float shadow_falloff = 1.0;
 
-uniform float intensity = 1;
+uniform float intensity;
 
 vec4 effect(vec4 color, sampler2D tex, vec2 texture_coords, vec2 screen_coords) {
 
@@ -78,7 +78,7 @@ vec4 effect(vec4 color, sampler2D tex, vec2 texture_coords, vec2 screen_coords) 
         float diffuse_dot = max(dot(normal, light_dir), 0.0);
         float diffuse = pow(diffuse_dot, shadow_falloff);
         float front_light = 0.6 * min(ambient_strength + diffuse, 1.0);
-        return color * vec4(intensity * (edge + front_light) * vertex_color.rgb, 1);
+        return color * vec4(intensity * (edge + front_light) * vertex_color.rgb, 1.0);
     #endif
 }
 

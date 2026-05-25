@@ -10,16 +10,16 @@ float gradient_noise(vec3 p) {
     vec3 i = floor(p);
     vec3 v = fract(p);
 
-    vec3 u = v * v * v * (v *(v * 6.0 - 15.0) + 10.0);
+    vec3 u = v * v * v * (v * (v * 6.0 - 15.0) + 10.0);
 
-    return mix( mix( mix( dot( -1 + 2 * random_3d(i + vec3(0.0,0.0,0.0)), v - vec3(0.0,0.0,0.0)),
-    dot( -1 + 2 * random_3d(i + vec3(1.0,0.0,0.0)), v - vec3(1.0,0.0,0.0)), u.x),
-    mix( dot( -1 + 2 * random_3d(i + vec3(0.0,1.0,0.0)), v - vec3(0.0,1.0,0.0)),
-    dot( -1 + 2 * random_3d(i + vec3(1.0,1.0,0.0)), v - vec3(1.0,1.0,0.0)), u.x), u.y),
-    mix( mix( dot( -1 + 2 * random_3d(i + vec3(0.0,0.0,1.0)), v - vec3(0.0,0.0,1.0)),
-    dot( -1 + 2 * random_3d(i + vec3(1.0,0.0,1.0)), v - vec3(1.0,0.0,1.0)), u.x),
-    mix( dot( -1 + 2 * random_3d(i + vec3(0.0,1.0,1.0)), v - vec3(0.0,1.0,1.0)),
-    dot( -1 + 2 * random_3d(i + vec3(1.0,1.0,1.0)), v - vec3(1.0,1.0,1.0)), u.x), u.y), u.z );
+    return mix( mix( mix( dot( -1.0 + 2.0 * random_3d(i + vec3(0.0, 0.0, 0.0)), v - vec3(0.0, 0.0, 0.0)),
+    dot( -1.0 + 2.0 * random_3d(i + vec3(1.0, 0.0, 0.0)), v - vec3(1.0, 0.0, 0.0)), u.x),
+    mix( dot( -1.0 + 2.0 * random_3d(i + vec3(0.0, 1.0, 0.0)), v - vec3(0.0, 1.0, 0.0)),
+    dot( -1.0 + 2.0 * random_3d(i + vec3(1.0, 1.0, 0.0)), v - vec3(1.0, 1.0, 0.0)), u.x), u.y),
+    mix( mix( dot( -1.0 + 2.0 * random_3d(i + vec3(0.0, 0.0, 1.0)), v - vec3(0.0, 0.0, 1.0)),
+    dot( -1.0 + 2.0 * random_3d(i + vec3(1.0, 0.0, 1.0)), v - vec3(1.0, 0.0, 1.0)), u.x),
+    mix( dot( -1.0 + 2.0 * random_3d(i + vec3(0.0, 1.0, 1.0)), v - vec3(0.0, 1.0, 1.0)),
+    dot( -1.0 + 2.0 * random_3d(i + vec3(1.0, 1.0, 1.0)), v - vec3(1.0, 1.0, 1.0)), u.x), u.y), u.z );
 }
 
 uniform float elapsed;
@@ -36,7 +36,7 @@ vec2 to_world_position(vec2 xy) {
 
 float gaussian(float x, float ramp)
 {
-    return exp(((-4 * PI) / 3) * (ramp * x) * (ramp * x));
+    return exp(((-4.0 * PI) / 3.0) * (ramp * x) * (ramp * x));
 }
 
 float sine_wave_sdf(vec2 point, float frequency, float amplitude) {
@@ -66,7 +66,7 @@ vec3 lch_to_rgb(vec3 lch) {
     return texture(lch_texture, lch).rgb;
 }
 
-uniform vec4 player_color = vec4(1, 0, 1, 1);
+uniform vec4 player_color;
 
 uniform float rainbow_fraction;
 const int n_rainbow_steps = 8;
@@ -77,20 +77,20 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 frag_position) 
     const float scale = 6.0;
     const float frequency = 4.0;
 
-    vec2 point = to_world_position(frag_position) / 800;
+    vec2 point = to_world_position(frag_position) / 800.0;
 
-    point = rotate(point, radians(45), vec2(0.5)); // this rotation
+    point = rotate(point, radians(45.0), vec2(0.5)); // this rotation
     point -= vec2(0.5);
-    point += vec2(elapsed / 30, 0);
+    point += vec2(elapsed / 30.0, 0.0);
 
     float tileIndex = floor(point.x * n_tiles);
     float direction = mod(tileIndex, 2.0) == 0.0 ? -1.0 : 1.0;
-    float side = mod(tileIndex, 1) >= 0.5 ? -1.0 : 1.0;
+    float side = mod(tileIndex, 1.0) >= 0.5 ? -1.0 : 1.0;
 
     // Store the normalized position within the tile BEFORE transformations
     vec2 tile_pos = vec2(fract(point.x * n_tiles), point.y);
 
-    point.y += step(0, direction);
+    point.y += step(0.0, direction);
     point.x = fract(point.x * n_tiles);
 
     point = rotate(point, radians(90.0), vec2(0.5));
@@ -102,7 +102,7 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 frag_position) 
     // Raw signed distance to the sine curve (keep this un-thresholded SDF)
     float d = sine_wave_sdf(point, frequency, amplitude * direction);
 
-    const float speed = 1;
+    const float speed = 1.0;
     // Use the raw SDF (d) for texture translation as before
     vec2 translated_coords = texture_coords + vec2(side * d * fraction * speed, 0.0);
     float weight = mix(1.0, gaussian(0.5 * distance(translated_coords, texture_coords), 4.0), fraction);
@@ -116,27 +116,27 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 frag_position) 
     // Thin black outline just around the white stripe boundary.
     // Use a narrow band centered at |d| == threshold, width ~ 1-2 pixels via fwidth.
     float outline_threshold = threshold + 0.08;
-    float outline_eps = 0.05 * 2 + 0.5 * outline_threshold * transition_fraction; // tune for desired outline thickness (in pixels)
-    float line_outline = 1 - smoothstep(outline_threshold - outline_eps, outline_threshold + outline_eps, abs(d));
+    float outline_eps = 0.05 * 2.0 + 0.5 * outline_threshold * transition_fraction; // tune for desired outline thickness (in pixels)
+    float line_outline = 1.0 - smoothstep(outline_threshold - outline_eps, outline_threshold + outline_eps, abs(d));
 
     // NEW: Calculate moving white rectangle
     // Rectangle dimensions and movement
-    const float rect_height = 1; // Height of the rectangle (relative to tile)
+    const float rect_height = 1.0; // Height of the rectangle (relative to tile)
     const float rect_width = 2.0;  // Width spans entire tile
 
     // Calculate rectangle edge position based on fraction and column direction
     // For even columns (direction = -1): move from top to bottom, smooth edge at bottom
     // For odd columns (direction = 1): move from bottom to top, smooth edge at top
 
-    float rect_fraction = fraction < 1 ? fraction : 10e6; // after animation, rect extends infinitely
+    float rect_fraction = fraction < 1.0 ? fraction : 10e6; // after animation, rect extends infinitely
 
     float rect_edge_y;
     if (direction < 0.0) {
         // Even column: start above screen, move down
-        rect_edge_y = -rect_height + rect_fraction * (1.0 + 2 * rect_height);
+        rect_edge_y = -rect_height + rect_fraction * (1.0 + 2.0 * rect_height);
     } else {
         // Odd column: start below screen, move up
-        rect_edge_y = 1.0 + rect_height - rect_fraction * (1.0 + 2 * rect_height);
+        rect_edge_y = 1.0 + rect_height - rect_fraction * (1.0 + 2.0 * rect_height);
     }
 
     // Create rectangle mask with gradient only on the leading edge
@@ -164,13 +164,13 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 frag_position) 
     smoothstep(rect_edge_y - rect_eps, rect_edge_y + rect_eps, tile_pos.y);
 
     // Fade the line based on how much interpolation is happening
-    float interpolation_intensity = 10 * smoothstep_value * (1.0 - smoothstep_value);
+    float interpolation_intensity = 10.0 * smoothstep_value * (1.0 - smoothstep_value);
 
     // Only draw the horizontal line where it overlaps with the inner sine wave line
     horizontal_line *= interpolation_intensity * line;
 
     float alpha = max(line, line_outline);
-    texel = texture(img, texture_coords) * (1 - fraction); // here
+    texel = texture(img, texture_coords) * (1.0 - fraction); // here
 
     float outline = (line_outline - line + horizontal_line);
 
@@ -179,10 +179,10 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 frag_position) 
 
     // Convert to LCH color space and then to RGB
     const float rainbow_intensity = 0.5;
-    vec3 rainbow_inner_color = mix(1, rainbow_intensity, rainbow_fraction) * lch_to_rgb(vec3(0.8, 1, hue));
-    vec3 rainbow_outer_color = mix(1, rainbow_intensity, rainbow_fraction) * lch_to_rgb(vec3(0.8, 0.8, hue));
+    vec3 rainbow_inner_color = mix(1.0, rainbow_intensity, rainbow_fraction) * lch_to_rgb(vec3(0.8, 1.0, hue));
+    vec3 rainbow_outer_color = mix(1.0, rainbow_intensity, rainbow_fraction) * lch_to_rgb(vec3(0.8, 0.8, hue));
 
-    vec3 non_rainbow_inner_color = vec3(0);
+    vec3 non_rainbow_inner_color = vec3(0.0);
     vec3 non_rainbow_outer_color = player_color.rgb;
 
     vec3 inner_color = mix(non_rainbow_inner_color, rainbow_inner_color, rainbow_fraction);
@@ -191,5 +191,5 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 frag_position) 
     // Apply colors with rectangle mask on top of everything
     vec3 final_color = texel.rgb + rect_mask * inner_color * line_outline + rect_mask * outline * outer_color;
 
-    return vec4(final_color, 1);
+    return vec4(final_color, 1.0);
 }

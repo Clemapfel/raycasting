@@ -45,7 +45,7 @@ vec3 point_on_unit_sphere(float theta, float phi, float roll) {
 #define PI 3.1415926535897932384626433832795
 float gaussian(float x, float ramp)
 {
-    return exp(((-4 * PI) / 3) * (ramp * x) * (ramp * x));
+    return exp(((-4.0 * PI) / 3.0) * (ramp * x) * (ramp * x));
 }
 
 #ifdef PIXEL
@@ -54,7 +54,7 @@ float gaussian(float x, float ramp)
 #define STATE_BEATEN 0
 #define STATE_PERFECT 1
 
-uniform float state;
+uniform int state;
 uniform vec4 color;
 uniform float elapsed;
 
@@ -62,14 +62,14 @@ vec4 effect(vec4 vertex_color, sampler2D img, vec2 texture_coords, vec2 vertex_p
 
     if (state == STATE_NONE) {
         float dist = distance(texture_coords, vec2(0.5));
-        float shadow = (1 - gaussian(dist, 0.8));
+        float shadow = (1.0 - gaussian(dist, 0.8));
         return color - shadow * 0.3;
     }
     else {
         vec3 origin = point_on_unit_sphere(
-            radians(45),
-            radians(-45 / 2),
-            radians(-45 / 2)
+            radians(45.0),
+            radians(-45.0 / 2.0),
+            radians(-45.0 / 2.0)
         );
 
         float dist = distance(texture_coords, (origin.xy + vec2(1)) / vec2(2));
@@ -77,12 +77,12 @@ vec4 effect(vec4 vertex_color, sampler2D img, vec2 texture_coords, vec2 vertex_p
         if (state == STATE_PERFECT) {
             dist /= 1.5;
             vec3 color = lch_to_rgb(vec3(0.8, 1.0, fract(dist - elapsed * 0.3)));
-            float shadow = 1 - gaussian(dist, 0.5);
-            return vec4(color - shadow * 1, 1);
+            float shadow = 1.0 - gaussian(dist, 0.5);
+            return vec4(color - shadow, 1.0);
         }
         else if (state == STATE_BEATEN) {
-            float highlight = gaussian(dist, 2);
-            float shadow = 1 - gaussian(dist, 0.6);
+            float highlight = gaussian(dist, 2.0);
+            float shadow = 1.0 - gaussian(dist, 0.6);
 
             return color + highlight * 0.5 - shadow * 0.2;
         }

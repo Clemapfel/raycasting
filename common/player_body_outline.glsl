@@ -4,7 +4,7 @@ uniform vec2 screen_size;
 uniform vec4 outline_color;
 uniform vec4 body_color;
 uniform float texture_scale;
-uniform float outline_thickness = 1;
+uniform float outline_thickness;
 
 vec4 effect(vec4 color, sampler2D tex, vec2 texture_coordinates, vec2 frag_position) {
     vec2 pixel_size = (outline_thickness + texture_scale) / vec2(textureSize(tex, 0));
@@ -34,16 +34,16 @@ vec4 effect(vec4 color, sampler2D tex, vec2 texture_coordinates, vec2 frag_posit
             int dy = row - 2;
             float weight = kernel[row * 5 + col];
 
-            if (weight > 0) {
+            if (weight > 0.0) {
                 vec2 offset = vec2(float(dx), float(dy)) * pixel_size;
                 float neighbour_alpha = texture(tex, texture_coordinates + offset).r;
-                max_alpha = max(max_alpha, neighbour_alpha + weight - 1);
+                max_alpha = max(max_alpha, neighbour_alpha + weight - 1.0);
             }
         }
     }
 
     max_alpha -= center.a;
-    max_alpha = smoothstep(0.0, 1.0, 2 * max_alpha); // mathematically unmotivated, but looks better this way
+    max_alpha = smoothstep(0.0, 1.0, 2.0 * max_alpha); // mathematically unmotivated, but looks better this way
 
     return mix(body_color, outline_color, max_alpha) * max(max_alpha, center.a);
 }

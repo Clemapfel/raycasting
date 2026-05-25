@@ -17,10 +17,10 @@ vec4 effect(vec4 vertex_color, sampler2D image, vec2 texture_coords, vec2 vertex
 
     const float noise_scale = 1.5;
     uv.x *= noise_scale;
-    float value = uv.y + mix(-1, 1, gradient_noise(vec3(uv.xx, elapsed / 10)));
-    value = 1 - clamp(value, 0, 1);
+    float value = uv.y + mix(-1.0, 1.0, gradient_noise(vec3(uv.xx, elapsed / 10.0)));
+    value = 1.0 - clamp(value, 0.0, 1.0);
 
-    return vertex_color * vec4(vec3(value), 1);
+    return vertex_color * vec4(vec3(value), 1.0);
 }
 
 #endif

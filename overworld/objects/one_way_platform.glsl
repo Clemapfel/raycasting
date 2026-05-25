@@ -13,7 +13,7 @@ uniform vec2 player_position;
 float gaussian(float x, float ramp)
 {
     // e^{-\frac{4\pi}{3}\left(r\cdot\left(x-c\right)\right)^{2}}
-    return exp(((-4 * PI) / 3) * (ramp * x) * (ramp * x));
+    return exp(((-4.0 * PI) / 3.0) * (ramp * x) * (ramp * x));
 }
 
 vec4 effect(vec4 color, sampler2D tex, vec2 texture_coords, vec2 screen_coords) {
@@ -29,10 +29,10 @@ vec4 effect(vec4 color, sampler2D tex, vec2 texture_coords, vec2 screen_coords) 
     screen_uv.x *= aspect_correction;
     player_uv.x *= aspect_correction;
 
-    float player_dist = min(11.5 * distance(player_uv, screen_uv), 1);
+    float player_dist = min(11.5 * distance(player_uv, screen_uv), 1.0);
 
-    vec3 self_color = lch_to_rgb(vec3(0.8, 1, hue));
-    vec3 player_color = lch_to_rgb(vec3(0.8, 1, player_hue));
+    vec3 self_color = lch_to_rgb(vec3(0.8, 1.0, hue));
+    vec3 player_color = lch_to_rgb(vec3(0.8, 1.0, player_hue));
     return color * vec4(mix(player_color, self_color, player_dist), self_dist);
 }
 

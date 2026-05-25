@@ -117,7 +117,7 @@ function ow.Bubble:instantiate(object, stage, scene)
         { mesh_x, mesh_y, 0, 0, 1, 1, 1, 1 }
     }
 
-    local n_outer_vertices = 64
+    local n_outer_vertices = rt.Mesh.radius_to_n_vertices(self._x_radius, self._y_radius)
 
     for i = 1, n_outer_vertices + 1 do
         local angle = (i - 1) / n_outer_vertices * 2 * math.pi

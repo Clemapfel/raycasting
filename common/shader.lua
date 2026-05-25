@@ -27,6 +27,8 @@ function rt.Shader:instantiate(filename, defines)
         _before = nil,
         _is_disabled = false
     })
+
+    self:compile() -- TODO
 end
 
 --- @brief
@@ -40,6 +42,16 @@ function rt.Shader:compile()
     local supported = love.graphics.getSupported()
     for feature, define in pairs(_feature_to_define) do
         self._defines[feature] = ternary(supported[feature], define, nil)
+    end
+
+    if DEBUG then
+        local valid, message = love.graphics.validateShader(true, self._filename, {
+            defines = self._defines
+        })
+
+        if not valid then
+            rt.error("In rt.Shader: Error when validating shader at `", self._filename, "` for GL ES:\n", message)
+        end
     end
 
     local success, shader = pcall(love.graphics.newShader, self._filename, {

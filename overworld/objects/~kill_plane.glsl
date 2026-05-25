@@ -13,7 +13,7 @@ uniform vec4 red;
 uniform vec2 player_position;
 
 float gaussian(float x, float ramp) {
-    return exp(((-4 * PI) / 3) * (ramp * x) * (ramp * x));
+    return exp(((-4.0 * PI) / 3.0) * (ramp * x) * (ramp * x));
 }
 
 float dirac(float x) {
