@@ -1185,6 +1185,8 @@ function ow.ResultScreenScene:draw()
 
     love.graphics.push()
 
+    self._camera:bind()
+
     self._frame:draw()
 
     local stencil = rt.graphics.get_stencil_value()
@@ -1230,8 +1232,6 @@ function ow.ResultScreenScene:draw()
 
     rt.graphics.set_stencil_mode(nil)
     love.graphics.pop()
-
-    self._camera:bind()
 
     self._fireworks:draw()
 
