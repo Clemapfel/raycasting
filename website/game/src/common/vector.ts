@@ -12,6 +12,12 @@ export class Vec2 {
     }
 
     /** **/
+    public assign(x : number, y : number) {
+        this.x = x;
+        this.y = y;
+    }
+
+    /** **/
     public clone() : Vec2 {
         return new Vec2(this.x, this.y);
     }
@@ -188,6 +194,13 @@ export class Vec3 {
     }
 
     /** **/
+    public assign(x : number, y : number, z : number) {
+        this.x = x;
+        this.y = y;
+        this.z = z;
+    }
+
+    /** **/
     public clone() : Vec3 {
         return new Vec3(this.x, this.y, this.z);
     }
@@ -358,6 +371,14 @@ export class Vec4 {
 
     /** **/
     constructor(x: number = 0, y: number = 0, z: number = 0, w: number = 0) {
+        this.x = x;
+        this.y = y;
+        this.z = z;
+        this.w = w;
+    }
+
+    /** **/
+    public assign(x : number, y : number, z : number, w : number) {
         this.x = x;
         this.y = y;
         this.z = z;

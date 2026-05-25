@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 287,
+  nextobjectid = 288,
   properties = {
     ["background_id"] = "\"nebula\""
   },
@@ -1646,6 +1646,21 @@ return {
           rotation = 0,
           visible = true,
           properties = {}
+        },
+        {
+          id = 287,
+          name = "",
+          type = "NPC",
+          shape = "point",
+          x = -112,
+          y = -1312,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["dialog_id"] = "animalese_test"
+          }
         }
       }
     },

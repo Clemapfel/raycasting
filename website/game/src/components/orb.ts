@@ -12,7 +12,7 @@ import {
     DEFAULT_UV_NAME,
     Shader
 } from "../common/shader.ts";
-import {RenderTexture, Texture, TextureFormat} from "../common/texture.ts";
+import {RenderTexture, TextureFormat} from "../common/texture.ts";
 import {LCHA, RGBA} from "../common/color.ts";
 import {Time} from "../common/time.ts";
 import "../common/math.ts";
@@ -157,8 +157,16 @@ const canvas_threshold_shader_source = `${DEFAULT_SHADER_VERSION}
     }
     `;
 
-const glass_shader_source = `${DEFAULT_SHADER_VERSION}
+const glass_mesh_shader_source = `${DEFAULT_SHADER_VERSION}
     ${DEFAULT_FLOAT_PRECISION}
+    
+    #define PI 3.1415926535897932384626433832795
+    float gaussian(float x, float ramp)
+    {
+        return exp(((-4.0 * PI) / 3.0) * (ramp * x) * (ramp * x));
+    }
+    
+    uniform vec2 cursor_position;
     
     uniform sampler2D ${DEFAULT_TEXTURE_UNIFORM_NAME};
     uniform vec2 ${DEFAULT_SCREEN_SIZE_NAME};
@@ -170,8 +178,54 @@ const glass_shader_source = `${DEFAULT_SHADER_VERSION}
     out vec4 ${DEFAULT_FRAGMENT_OUT_NAME};
     
     void main() {
-        vec4 texel = texture(${DEFAULT_TEXTURE_UNIFORM_NAME}, ${DEFAULT_UV_NAME});
-        ${DEFAULT_FRAGMENT_OUT_NAME} = texel * ${DEFAULT_RGBA_NAME};
+        vec2 dxy = ${DEFAULT_UV_NAME}.xy;
+        float distance_from_center = length(dxy);
+        float angle = atan(dxy.y, dxy.x);
+        
+        vec3 surface_normal = vec3(
+            distance_from_center * cos(angle),
+            distance_from_center * sin(angle),
+            sqrt(1.0 - distance_from_center * distance_from_center)
+        );
+        
+        const vec2 center = vec2(0.0);
+        vec2 uv = ${DEFAULT_UV_NAME};
+        
+        vec4 body_color = vec4(1.0);
+        float shadow_offset = -1.0 / 3.5;
+        float body = max(0.05, 1.0 - gaussian(distance(uv, vec2(shadow_offset)), 0.6));
+        body_color.a = 0.1;
+    
+        vec4 static_highlight_color;
+        {
+            float dist = distance(pow(distance(uv, center), 1.5) * uv, vec2(-1.0 / 3.2, -1.0 / 2.7));
+            float highlight = gaussian(dist, 1.2) * gaussian(distance(uv, center), 0.2);
+            static_highlight_color = vec4(vec3(1.0), distance(uv, center)) * highlight;
+            static_highlight_color = mix(static_highlight_color, vec4(highlight), 0.4);
+        }
+        
+        float player_highlight_color;
+        {
+            vec2 player_dir = normalize(cursor_position);
+            float player_dist = length(cursor_position);
+            float intensity = clamp(8.0 / (player_dist * player_dist), 0.0, 2.0);
+            vec2 highlight_pos = player_dir * 0.4;
+            float dist = distance(pow(distance(uv, center), 1.5) * uv, highlight_pos);
+            float highlight = gaussian(1.0 - dist, 1.3) * gaussian(1.0 - distance(uv, center), 0.25);
+            player_highlight_color = highlight * min(intensity, 0.5);
+        }
+        
+        player_highlight_color = 0.0;
+
+        float fresnel_edge = dot(surface_normal, vec3(0.0, 0.0, 1.0));
+        float limb_darkness = pow(1.0 - fresnel_edge, 2.0) * smoothstep(0.0, 0.5, distance_from_center);
+        vec4 limb_outline = vec4(1.0, 0.0, 1.0, limb_darkness);
+        
+        ${DEFAULT_FRAGMENT_OUT_NAME} = mix(
+            vec4(body_color * static_highlight_color + player_highlight_color), 
+            limb_outline, 
+            limb_outline.a
+        );
     }
     `
 
@@ -206,7 +260,8 @@ export class Orb extends GLWidget  {
 
     private circle_mesh? : Mesh;
     private glass_mesh? : Mesh;
-    private glass_texture? : Texture;
+    private glass_mesh_shader? : Shader;
+    private glass_mesh_cursor_position = new Vec2(0);
 
     private orb_radius : number = 0;
     private orb_center_x : number = 0;
@@ -223,6 +278,8 @@ export class Orb extends GLWidget  {
             || this.canvas_mesh === undefined
             || this.circle_mesh === undefined  // not yet resized
             || this.particle_mesh === undefined
+            || this.glass_mesh === undefined
+            || this.glass_mesh_shader === undefined
         ) return;
 
         if (this.particle_mesh_texture === undefined) {
@@ -257,21 +314,34 @@ export class Orb extends GLWidget  {
         this.default_shader.unbind();
 
         this.canvas.unbind();
+
+        this.context.setColor(0, 0, 0, 1)
+        this.default_shader.bind()
+        this.glass_mesh.draw();
+        this.default_shader.unbind()
         
         const value = 0x1
         this.context.setStencilMode(StencilMode.DRAW, value);
         this.circle_mesh!.draw();
         this.context.setStencilMode(StencilMode.TEST, value);
 
+        const alpha = 0.2;
+        this.context.setColor(alpha, alpha, alpha, 1)
         this.canvas_threshold_shader.bind();
         this.canvas_threshold_shader.setUniform(DEFAULT_TEXTURE_UNIFORM_NAME, this.canvas);
         this.canvas_threshold_shader.setUniform(DEFAULT_SCREEN_SIZE_NAME, this.getSize());
         this.canvas_threshold_shader.setUniform("threshold", threshold);
         this.canvas_threshold_shader.setUniform("eps", eps);
-        this.canvas_mesh!.draw();
+        this.canvas_mesh.draw();
         this.canvas_threshold_shader!.unbind();
 
         this.context.setStencilMode(StencilMode.NONE);
+
+        this.context.setColor(1, 1, 1, 1)
+        this.glass_mesh_shader.bind()
+        //this.glass_mesh_shader.setUniform("cursor_position", this.glass_mesh_cursor_position)
+        this.glass_mesh.draw();
+        this.glass_mesh_shader.unbind()
     }
 
     private delta_accumulator : number = 0;
@@ -311,6 +381,11 @@ export class Orb extends GLWidget  {
         ).magnitude() <= this.orb_radius;
 
         (this as HTMLElement).style.cursor = is_in_circle ? "pointer" : "default";
+
+        this.glass_mesh_cursor_position.assign(
+            (this.orb_center_x - x) / this.orb_radius,
+            (this.orb_center_y - y) / this.orb_radius
+        )
     }
 
     protected override async realize() {
@@ -322,6 +397,12 @@ export class Orb extends GLWidget  {
 
         this.canvas_threshold_shader = new Shader(this.context,
             canvas_threshold_shader_source,
+            undefined,
+            MeshVertexFormat.XY_UV_RGBA
+        )
+
+        this.glass_mesh_shader = new Shader(this.context,
+            glass_mesh_shader_source,
             undefined,
             MeshVertexFormat.XY_UV_RGBA
         )
@@ -362,21 +443,52 @@ export class Orb extends GLWidget  {
         {
             const n_outer_vertices = this.circle_mesh.getVertexCount();
             const mesh_format = MeshVertexFormat.XY_UV;
-            const glass_mesh_data = new Float32Array((1 + n_outer_vertices) * (2 + 2));
+            const glass_mesh_data = new Float32Array((1 + n_outer_vertices) * (2 + 2 + 4));
             let idx = 0;
 
             glass_mesh_data[idx++] = this.orb_center_x;
             glass_mesh_data[idx++] = this.orb_center_y;
-            glass_mesh_data[idx++] = 0; // distance from center
-            glass_mesh_data[idx++] = 0; // arc-length parameterized contour
+            glass_mesh_data[idx++] = 0; // u
+            glass_mesh_data[idx++] = 0; // v
+            glass_mesh_data[idx++] = 0; // r
+            glass_mesh_data[idx++] = 0; // g
+            glass_mesh_data[idx++] = 0; // b
+            glass_mesh_data[idx++] = 1; // a
 
-            for (let i = 0; i <= n_outer_vertices; ++i) { // <= sic
+            for (let i = 0; i < n_outer_vertices; ++i) { // <= sic
                 const angle = i / n_outer_vertices * 2 * Math.PI;
                 glass_mesh_data[idx++] = this.orb_center_x + this.orb_radius * Math.cos(angle);
                 glass_mesh_data[idx++] = this.orb_center_y + this.orb_radius * Math.sin(angle);
+                glass_mesh_data[idx++] = Math.cos(angle);
+                glass_mesh_data[idx++] = Math.sin(angle);
                 glass_mesh_data[idx++] = 1;
-                glass_mesh_data[idx++] = i / n_outer_vertices;
+                glass_mesh_data[idx++] = 1;
+                glass_mesh_data[idx++] = 1;
+                glass_mesh_data[idx++] = 1;
             }
+
+            const glass_mesh_indices = new Uint16Array((1 + n_outer_vertices) * 3)
+
+            idx = 0;
+            for (let outer_i = 1; outer_i <= n_outer_vertices; outer_i++) {
+                glass_mesh_indices[idx++] = 0;
+                glass_mesh_indices[idx++] = outer_i - 1;
+                glass_mesh_indices[idx++] = outer_i;
+            }
+
+            glass_mesh_indices[idx++] = n_outer_vertices;
+            glass_mesh_indices[idx++] = 0;
+            glass_mesh_indices[idx++] = 1;
+
+            this.glass_mesh = new Mesh(
+                this.context,
+                glass_mesh_data,
+                glass_mesh_indices,
+                MeshDrawMode.TRIANGLES,
+                MeshVertexFormat.XY_UV_RGBA
+            )
+
+            this.glass_mesh_cursor_position.assign(0, 0);
         }
 
         // reinitialize simulation

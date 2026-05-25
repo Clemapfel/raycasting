@@ -65,6 +65,7 @@ function love.errorhandler(message)
     end
 
     local function show_messages()
+        if true then return end
         if rt.Translation == nil then return end
         local entry = rt.Translation.error_handler
         if entry == nil then return end

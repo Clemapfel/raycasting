@@ -240,53 +240,47 @@ export function MeshEllipse(
     y_radius: number = x_radius,
     n_outer_vertices: number = radius_to_n_vertices(x_radius, y_radius)
 ): Mesh {
-    const vertexData = new Float32Array((n_outer_vertices + 2) * 8); // xy uv rgba
-    const indices = new Uint16Array(n_outer_vertices * 3);
+    const vertex_data = new Float32Array((1 + n_outer_vertices + 1) * (2 + 2 + 4));
+    const index_data = new Uint16Array((n_outer_vertices + 1) * 3)
 
-    {
-        let idx = 0;
+    let idx = 0;
 
-        // center, index 0
-        vertexData[idx++] = center_x;
-        vertexData[idx++] = center_y;
-        vertexData[idx++] = 0.5;
-        vertexData[idx++] = 0.5;
-        vertexData[idx++] = 1;
-        vertexData[idx++] = 1;
-        vertexData[idx++] = 1;
-        vertexData[idx++] = 1;
+    vertex_data[idx++] = center_x;
+    vertex_data[idx++] = center_y;
+    vertex_data[idx++] = 0.5; // u
+    vertex_data[idx++] = 0.5; // v
+    vertex_data[idx++] = 0; // r
+    vertex_data[idx++] = 0; // g
+    vertex_data[idx++] = 0; // b
+    vertex_data[idx++] = 1; // a
 
-        const step = (2 * Math.PI) / n_outer_vertices;
-        for (let angle = 0; angle <= 2 * Math.PI; angle += step) {
-            vertexData[idx++] = center_x + Math.cos(angle) * x_radius;
-            vertexData[idx++] = center_y + Math.sin(angle) * y_radius;
-            vertexData[idx++] = 0.5 + Math.cos(angle) * 0.5;
-            vertexData[idx++] = 0.5 + Math.sin(angle) * 0.5;
-            vertexData[idx++] = 1;
-            vertexData[idx++] = 1;
-            vertexData[idx++] = 1;
-            vertexData[idx++] = 1;
-        }
+    for (let i = 0; i <= n_outer_vertices; ++i) {
+        const angle = i / n_outer_vertices * 2 * Math.PI;
+        vertex_data[idx++] = center_x + x_radius * Math.cos(angle);
+        vertex_data[idx++] = center_y + y_radius * Math.sin(angle);
+        vertex_data[idx++] = 0.5 + Math.cos(angle) / 2;
+        vertex_data[idx++] = 0.5 + Math.sin(angle) / 2;
+        vertex_data[idx++] = 1;
+        vertex_data[idx++] = 1;
+        vertex_data[idx++] = 1;
+        vertex_data[idx++] = 1;
     }
 
-    {
-        let idx = 0;
-        for (let outer_i = 2; outer_i <= n_outer_vertices; outer_i++) {
-            indices[idx++] = 0;
-            indices[idx++] = outer_i - 1;
-            indices[idx++] = outer_i;
-        }
-
-        // connect last and first
-        indices[idx++] = n_outer_vertices;
-        indices[idx++] = 0;
-        indices[idx++] = 1;
+    idx = 0;
+    for (let outer_i = 1; outer_i <= n_outer_vertices; outer_i++) {
+        index_data[idx++] = 0;
+        index_data[idx++] = outer_i - 1;
+        index_data[idx++] = outer_i;
     }
+
+    index_data[idx++] = n_outer_vertices;
+    index_data[idx++] = 0;
+    index_data[idx++] = 1;
 
     return new Mesh(
         context,
-        new Float32Array(vertexData),
-        indices,
+        vertex_data,
+        index_data,
         MeshDrawMode.TRIANGLES,
         MeshVertexFormat.XY_UV_RGBA
     );
