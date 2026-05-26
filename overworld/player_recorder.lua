@@ -38,7 +38,7 @@ function ow.PlayerRecorder:instantiate(stage, scene, x, y, is_collidable)
 
     self._state = _STATE_IDLE
 
-    self._body = ow.PlayerRecorderBody(self._stage, self._scene)
+    self._body = ow.PlayerRecorderBody(self._scene, self._stage)
     self._body:initialize(
         x, y,
         b2.BodyType.KINEMATIC,

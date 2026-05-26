@@ -8,7 +8,6 @@ rt.settings.overworld.npc = {
     interact_radius = 150,
 
     focus_indicator_active_radius = 300,
-    focus_indicator_radius = 6
 }
 
 --- @class ow.NPC
@@ -55,17 +54,15 @@ function ow.NPC:instantiate(object, stage, scene)
     end
 
     local px, py = self._scene:get_player():get_position()
+    self._focus_indicator = ow.DialogFocusIndicator(
+        self._scene,
+        object.x, object.y - settings.hole_radius
+    )
 
-    self._focus_indicator_x = object.x
-    self._focus_indicator_y = object.y - settings.hole_radius
-    self._focus_indicator_opacity_motion = rt.SmoothedMotion1D(0, 2)
-    self._focus_indicator_radius = settings.focus_indicator_active_radius
-    self._focus_indicator_active = math.distance(
-        self._focus_indicator_x,
-        self._focus_indicator_y,
-        px, py
-    ) < self._focus_indicator_radius
-    self._focus_indicator_opacity_motion:set_target_value(ternary(self._focus_indicator_active, 1, 0))
+    local focus_x, focus_y = self._focus_indicator:get_position()
+    self._focus_indicator:set_is_active(
+        math.distance(focus_x, focus_y, px, py) < settings.focus_indicator_active_radius
+    )
 
     self._sensor_x, self._sensor_y = object.x, object.y
     self._sensor_radius = settings.interact_radius
@@ -99,14 +96,11 @@ function ow.NPC:update(delta)
     if not self._stage:get_is_body_visible(self._camera_body) then return end
 
     local px, py = self._scene:get_player():get_position()
-    self._focus_indicator_active = math.distance(
-        self._focus_indicator_x,
-        self._focus_indicator_y,
-        px, py
-    ) < self._focus_indicator_radius
-
-    self._focus_indicator_opacity_motion:set_target_value(ternary(self._focus_indicator_active, 1, 0))
-    self._focus_indicator_opacity_motion:update(delta)
+    local focus_x, focus_y = self._focus_indicator:get_position()
+    self._focus_indicator:set_is_active(
+        math.distance(focus_x, focus_y, px, py) < rt.settings.overworld.npc.focus_indicator_active_radius
+    )
+    self._focus_indicator:update(delta)
 
     local sensor_was_active = self._sensor_active
     self._sensor_active = math.distance(
@@ -128,72 +122,6 @@ function ow.NPC:update(delta)
         end
 
         self._interact_dialog_emitter:update(delta)
-    end
-end
-
-do
-    local angle_offset = math.pi / 2
-    local squish = 1 / 12 * math.pi / 2
-    local _focus_indicator_bottom_x = math.cos(angle_offset)
-    local _focus_indicator_bottom_y = math.sin(angle_offset)
-
-    local _focus_indicator_top_left_x = math.cos(angle_offset + 2 * math.pi / 3 + squish)
-    local _focus_indicator_top_left_y = math.sin(angle_offset + 2 * math.pi / 3 + squish)
-
-    local _focus_indicator_top_right_x = math.cos(angle_offset + 4 * math.pi / 3 - squish)
-    local _focus_indicator_top_right_y = math.sin(angle_offset + 4 * math.pi / 3 - squish)
-
-    --- @brief
-    function ow.NPC:_draw_focus_indicator(x, y)
-        require "common.cursor"
-        local radius = rt.settings.cursor.radius * 2
-        y = y - rt.settings.margin_unit - 0.5 * radius
-
-        local top_left_x = x + radius * _focus_indicator_top_left_x
-        local top_left_y = y + radius * _focus_indicator_top_left_y
-
-        local top_right_x = x + radius * _focus_indicator_top_right_x
-        local top_right_y = y + radius * _focus_indicator_top_right_y
-
-        local bottom_x = x + radius * _focus_indicator_bottom_x
-        local bottom_y = y + radius * _focus_indicator_bottom_y
-
-        local top_x = x
-        local top_y = y + 0.5 * radius * _focus_indicator_top_left_y
-
-        local black_r, black_g, black_b = rt.Palette.BLACK:unpack()
-        local r, g, b = self._scene:get_player():get_color():unpack()
-        local a = self._focus_indicator_opacity_motion:get_value()
-
-        love.graphics.setColor(black_r, black_g, black_b, a)
-        love.graphics.polygon("fill",
-            top_left_x, top_left_y,
-            top_right_x, top_right_y,
-            bottom_x, bottom_y
-        )
-
-        local line_width = 2
-        love.graphics.setLineJoin("bevel")
-        love.graphics.setLineStyle("smooth")
-
-        love.graphics.setLineWidth(line_width + 1.5)
-        love.graphics.line(
-            top_left_x, top_left_y,
-            top_x, top_y,
-            top_right_x, top_right_y,
-            bottom_x, bottom_y,
-            top_left_x, top_left_y
-        )
-
-        love.graphics.setColor(r, g, b, a)
-        love.graphics.setLineWidth(line_width)
-        love.graphics.line(
-            top_left_x, top_left_y,
-            top_x, top_y,
-            top_right_x, top_right_y,
-            bottom_x, bottom_y,
-            top_left_x, top_left_y
-        )
     end
 end
 
@@ -238,18 +166,7 @@ do
             self._graphics_body:draw()
         end
 
-        -- draw indicator unaffected by camera scale
-        love.graphics.push()
-        love.graphics.origin()
-        love.graphics.setColor(1, 1, 1, 1)
-        local x, y = self._scene:get_camera():world_xy_to_screen_xy(
-            self._focus_indicator_x,
-            self._focus_indicator_y
-        )
-
-        love.graphics.setColor(1, 1, 1, 1)
-        self:_draw_focus_indicator(x, y)
-        love.graphics.pop()
+        self._focus_indicator:draw()
 
         if self._interact_dialog_emitter ~= nil then
             self._interact_dialog_emitter:draw()

@@ -52,7 +52,10 @@ meta.add_signals(ow.DialogBox,
     "advance",
 
     --- @signal (ow.DialogBox, ow.DialogBoxControlState) -> nil
-    "control_state_changed"
+    "control_state_changed",
+
+    --- @signal (ow.DialogBox, node_id, choice_id, choice_text) -> nil
+    "choice"
 )
 
 local _animalese
@@ -183,6 +186,8 @@ function ow.DialogBox:realize()
             node.speaker_orientation = true
         end
 
+        node.choice_orientation = not node.speaker_orientation
+
         node.speaker = nil -- rt.Label
         node.speaker_id = speaker_id
         if speaker_id ~= nil then
@@ -270,6 +275,7 @@ function ow.DialogBox:realize()
 
             node.choice_labels = {} -- Table<rt.Label>
             node.highlighted_choice_labels = {} -- Table<rt.Label>
+            node.choices = {} -- Table<String>
 
             node.answer_i_to_next_node_id = {}
             node.answer_i_to_next_node = {}
@@ -287,6 +293,7 @@ function ow.DialogBox:realize()
 
                 table.insert(node.choice_labels, label)
                 table.insert(node.highlighted_choice_labels, highlighted_label)
+                table.insert(node.choices, choice_text)
 
                 node.n_answers = node.n_answers + 1
                 node.answer_i_to_next_node_id[j] = choice.next
@@ -367,17 +374,6 @@ function ow.DialogBox:_set_active_node(node)
             end
         end
     else
-        if node.type == _node_type_choice then
-            self._active_choice_node = node
-
-            local frame_w, frame_h = node.width + 4 * m, node.height + 2 * m
-            self._choice_frame:reformat(0, 0, frame_w, frame_h)
-            self._choice_frame_x = self._frame_x + m
-            self._choice_frame_y = self._frame_y - m - frame_h
-        else
-            node.n_advance_triggers = 0
-        end
-
         self._portrait_visible = self._speaker_id_to_portrait_callback[node.speaker_id] ~= nil
         self._node_offset_x, self._node_offset_y = 0, 0
 
@@ -396,6 +392,23 @@ function ow.DialogBox:_set_active_node(node)
             node.speaker:reformat(0, 0, self._speaker_frame_w, math.huge)
             self._speaker_frame:reformat(0, 0, self._speaker_frame_w, self._speaker_frame_h)
         end
+
+        if node.type == _node_type_choice then
+            self._active_choice_node = node
+
+            local frame_w, frame_h = node.width + 4 * m, node.height + 2 * m
+            self._choice_frame:reformat(0, 0, frame_w, frame_h)
+            if node.choice_orientation == false then
+                self._choice_frame_x = self._frame_x + self._speaker_frame_w + 4 * m
+            else
+                self._choice_frame_x = self._frame_x + m
+            end
+            self._choice_frame_y = self._frame_y - m - frame_h
+
+        else
+            node.n_advance_triggers = 0
+        end
+
 
         for label in values(node.labels) do
             label.dialog_box_elapsed = nil
@@ -717,7 +730,14 @@ function ow.DialogBox:handle_button_pressed(which)
                 rt.SoundManager:play(move_sound_id)
             end
         elseif which == rt.InputAction.INTERACT then
-            self:_set_active_node(node.answer_i_to_next_node[node.highlighted_answer_i])
+            local choice_node = self._active_choice_node
+            local choice_i = choice_node.highlighted_answer_i
+            self:signal_emit("choice",
+                choice_node.id,
+                choice_i,
+                choice_node.choices[choice_node.highlighted_answer_i]
+            )
+            self:_set_active_node(choice_node.answer_i_to_next_node[choice_node.highlighted_answer_i])
         end
     elseif self._active_node ~= nil then
         if which == advance_button then

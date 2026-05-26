@@ -785,12 +785,12 @@ function rt.Player:update(delta)
         self._graphics_body:set_colliding_lines(lines) -- empty if non-bubble and mid air
 
         do -- query stencils
-            local w = 2 * self._bubble_radius
+            local w = 1.5 * self._bubble_radius
             local h = w
             local mask = bit.bnot(0x0)
             mask = bit.band(mask, bit.bnot(settings.player_outer_body_collision_group))
             mask = bit.band(mask, bit.bnot(settings.player_collision_group))
-            mask = bit.band(mask, bit.bnot(settings.bounce_collision_group))
+            mask = bit.bor(mask, settings.bounce_collision_group)
 
             local x, y = self:get_position()
             local bodies = self._world:query_aabb(

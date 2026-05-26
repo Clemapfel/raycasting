@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 290,
+  nextobjectid = 291,
   properties = {
     ["background_id"] = "\"nebula\""
   },
@@ -212,8 +212,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = 64,
-          y = -1312,
+          x = 416,
+          y = -1328,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1466,153 +1466,19 @@ return {
           properties = {}
         },
         {
-          id = 274,
-          name = "",
-          type = "AirDashNode",
+          id = 290,
+          name = "Race",
+          type = "TimeAttackTriggerNPC",
           shape = "point",
-          x = 304,
-          y = -1344,
+          x = 560,
+          y = -1296,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
           properties = {
-            ["other"] = { id = 275 },
-            ["velocity"] = 4
+            ["dialog_id"] = "animalese_test"
           }
-        },
-        {
-          id = 275,
-          name = "",
-          type = "AirDashNodeDirection",
-          shape = "point",
-          x = 384,
-          y = -1472,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["velocity"] = 4
-          }
-        },
-        {
-          id = 276,
-          name = "",
-          type = "",
-          shape = "polygon",
-          x = -142.19,
-          y = -2128.78,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = 0 },
-            { x = 190.19, y = 0.783262 },
-            { x = 190.94, y = 50.782 },
-            { x = -1.81028, y = 48.7833 }
-          },
-          properties = {}
-        },
-        {
-          id = 278,
-          name = "",
-          type = "AirDashNode",
-          shape = "point",
-          x = 384,
-          y = -1472,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["other"] = { id = 279 },
-            ["velocity"] = 4
-          }
-        },
-        {
-          id = 279,
-          name = "",
-          type = "AirDashNodeDirection",
-          shape = "point",
-          x = 464,
-          y = -1344,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["velocity"] = 4
-          }
-        },
-        {
-          id = 281,
-          name = "",
-          type = "AirDashNode",
-          shape = "point",
-          x = 464,
-          y = -1344,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["other"] = { id = 282 },
-            ["velocity"] = 4
-          }
-        },
-        {
-          id = 282,
-          name = "",
-          type = "AirDashNodeDirection",
-          shape = "point",
-          x = 304,
-          y = -1344,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["velocity"] = 4
-          }
-        },
-        {
-          id = 283,
-          name = "",
-          type = "Wall",
-          shape = "polygon",
-          x = 592,
-          y = -1104,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = 0 },
-            { x = 0, y = -414.937 },
-            { x = -592, y = -288 },
-            { x = -512, y = -544 },
-            { x = 0, y = -528 },
-            { x = 208, y = -528 },
-            { x = 208, y = 0 }
-          },
-          properties = {
-            ["type"] = "spheres"
-          }
-        },
-        {
-          id = 289,
-          name = "",
-          type = "Goal",
-          shape = "rectangle",
-          x = -336,
-          y = -1536,
-          width = 144,
-          height = 128,
-          rotation = 0,
-          visible = true,
-          properties = {}
         }
       }
     },

@@ -49,7 +49,8 @@ do
             },
 
             PLAYER_NAME = rt.Translation.player_name,
-            NPC_NAME = rt.Translation.npc_name
+            NPC_NAME = rt.Translation.npc_name,
+            GHOST_NAME = rt.Translation.ghost_name
         }
     }, {
         __index = function(self, key)
@@ -71,21 +72,18 @@ do
 
     local dialog = dialog_or_error
 
-    local valid_keys = {}
-    for key in range(
-        settings.speaker_key,
-        settings.speaker_orientation_key,
-        settings.next_key,
-        settings.dialog_choice_key,
-        settings.state_key,
-        settings.gender_key
-    ) do
-        valid_keys[key] = true
-    end
+    local valid_keys_to_type = {
+        [settings.speaker_key] = "String",
+        [settings.speaker_orientation_key] = rt.DialogSpeakerOrientation,
+        [settings.next_key] = { "String", "Number" },
+        [settings.gender_key] = rt.AnimaleseGender,
+        [settings.state_key] = "Table",
+        [settings.dialog_choice_key] = "Table"
+    }
 
     local function validate(scope, nodes)
-        local throw = function(message)
-            rt.error("In rt.Dialog: for node `", scope, "`: ", message)
+        local throw = function(...)
+            rt.error("In rt.Dialog: for node `", scope, "`: ", ...)
         end
 
         local validate_enum = function(value, enum)
@@ -115,14 +113,54 @@ do
             local choice = node[settings.dialog_choice_key]
 
             if gender == nil then node[settings.gender_key] = rt.AnimaleseGender.NONE end
+            if speaker_orientation == nil then node[settings.speaker_orientation_key] = rt.DialogSpeakerOrientation.RIGHT end
 
             local consecutive_numbers = {}
             for key, value in pairs(node) do
                 if meta.is_number(key) then
                     table.insert(consecutive_numbers, key)
                 else
-                    if valid_keys[key] ~= true then
+                    local expected_type = valid_keys_to_type[key]
+                    if expected_type == nil then
                         throw("unknown key `", key, "`")
+                    end
+
+                    if meta.is_enum(expected_type) then
+                        if not meta.is_enum_value(value, expected_type) then
+                            throw("value for key `", key, "` is not a value of enum `", meta.get_enum_name(expected_type), "`")
+                        end
+                    elseif meta.is_type(expected_type) then
+                        if not meta.isa(value, expected_type) then
+                            throw("value for key `", key, "` is not of type `", meta.get_typename(expected_type), "`")
+                        end
+                    elseif meta.is_table(expected_type) then
+                        local is_valid = false
+                        for t in values(expected_type) do
+                            if meta.typeof(value) == t then
+                                is_valid = true
+                                break
+                            end
+                        end
+
+                        if not is_valid then
+                            local message = {
+                                "value for key `", key, "` is not one of `"
+                            }
+
+                            for i, t in ipairs(expected_type) do
+                                table.insert(message, t)
+                                if i < #expected_type then
+                                    table.insert(message, ", ")
+                                end
+                            end
+
+                            table.insert(message, "`")
+                            throw(table.unpack(message))
+                        end
+                    else
+                        if not meta.typeof(value) == expected_type then
+                            throw("value for key `", key, "` is not of type `", expected_type, "`")
+                        end
                     end
                 end
             end

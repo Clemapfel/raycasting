@@ -57,7 +57,14 @@ end
 --- @param x Number
 --- @param y Number
 --- @param radius Number
-b2.Circle = meta.class("PhysicsCircle", b2.Shape,function(self, x, y, radius)
+b2.Circle = meta.class("PhysicsCircle", b2.Shape, function(self, x, y, radius)
+    if y == nil and radius == nil then
+        -- when called b2.Circle(radius)
+        radius = x
+        x = 0
+        y = 0
+    end
+
     meta.install(self, {
         _x = x,
         _y = y,

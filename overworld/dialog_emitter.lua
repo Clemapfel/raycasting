@@ -59,6 +59,10 @@ function ow.DialogEmitter:instantiate(scene, id, target)
         end
     end)
 
+    self._dialog_box:signal_connect("choice", function(_, ...)
+        dbg(...)
+    end)
+
     self._dialog_box:realize()
     self:reformat(self._scene:get_bounds():unpack())
 

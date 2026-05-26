@@ -48,8 +48,12 @@ b2.CollisionGroup = meta.enum("CollisionGroup", b2.CollisionGroup)
 --- @param shape b2.Shape
 --- @param ... b2.Shapes
 function b2.Body:instantiate(world, type, x, y, shape, ...)
-    meta.assert_enum_value(type, b2.BodyType)
-    meta.assert(x, "Number", y, "Number")
+    meta.assert(
+        world, b2.World,
+        type, b2.BodyType,
+        x, "Number",
+        y, "Number"
+    )
 
     meta.install(self, {
         _world = world,

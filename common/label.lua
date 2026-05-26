@@ -106,10 +106,12 @@ function rt.Label:instantiate(text, font_size, font, use_caching)
     if font_size == nil then font_size = rt.FontSize.REGULAR end
     if use_caching == nil then use_caching = true end
 
-    meta.assert_typeof(text, "String", 1)
-    meta.assert_typeof(font, rt.Font, 2)
-    meta.assert_enum_value(font_size, rt.FontSize, 3)
-    meta.assert_typeof(use_caching, "Boolean")
+    meta.assert(
+        text, "String",
+        font, rt.Font,
+        font_size, rt.FontSize,
+        use_caching, "Boolean"
+    )
 
     meta.install(self, {
         _raw = text,

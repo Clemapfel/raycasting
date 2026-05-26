@@ -384,10 +384,7 @@ function ow.ObjectWrapper:create_physics_body(world, type, is_sensor)
     local body_x = self.physics_body_x or 0
     local body_y = self.physics_body_y or 0
 
-    local success, out = pcall(b2.Body, world, type, body_x, body_y, self:get_physics_shapes())
-    if not success then
-        rt.error("In ow.ObjectWrapper:create_physics_body: for object `", self.id, "`: ", out)
-    end
+    local out = b2.Body(world, type, body_x, body_y, self:get_physics_shapes())
     if type == b2.BodyType.DYNAMIC then
         out._native:setLinearDamping(30)
         out._native:setAngularDamping(30)

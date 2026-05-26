@@ -18,10 +18,10 @@ ow.PlayerRecorderBody = meta.class("PlayerRecorderBody")
 local _settings = rt.settings.overworld.player_recorder_body
 
 --- @brief
-function ow.PlayerRecorderBody:instantiate(stage, scene)
+function ow.PlayerRecorderBody:instantiate(scene, stage)
     meta.assert(
-        stage, ow.Stage,
-        scene, ow.OverworldScene
+        scene, ow.OverworldScene,
+        stage, ow.Stage
     )
 
     self._stage = stage
@@ -125,7 +125,7 @@ function ow.PlayerRecorderBody:initialize(x, y, body_type, is_collidable)
 
         body:set_user_data(self)
         body:add_tag("point_light_source")
-        body:add_tag("slippery", "unjumpable", "unwalkable", "stencil", "core_stencil")
+        body:add_tag("slippery", "stencil", "core_stencil")
     end
 
     self._graphics_body:set_use_contour(self._is_bubble)
@@ -399,4 +399,9 @@ function ow.PlayerRecorderBody:collect_point_lights(callback)
         x, y, self._radius,
         self:get_color():unpack()
     )
+end
+
+--- @brief
+function ow.PlayerRecorderBody:get_physics_body()
+    return ternary(self._is_bubble, self._bubble_body, self._body)
 end

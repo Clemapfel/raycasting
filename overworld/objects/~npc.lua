@@ -90,7 +90,7 @@ function ow.NPC:instantiate(object, stage, scene)
             rt.warning("In ow.NPC: object `", object:get_id(), "` specifies `is_dynamic`, but an NPC of type `", ow.NPCType.EYES, "` will ignore this setting")
         end
     elseif self._type == ow.NPCType.GHOST_BUBBLE or self._type == ow.NPCType.GHOST then
-        self._graphics_body = ow.PlayerRecorderBody(self._stage, self._scene)
+        self._graphics_body = ow.PlayerRecorderBody(self._scene, self._stage)
         self._graphics_body:initialize(
             self._graphics_body_x + 0.5 * width,
             self._graphics_body_y + 0.5 * height,

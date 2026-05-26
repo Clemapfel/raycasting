@@ -55,6 +55,27 @@ return {
          ]]
     },
 
+    time_attack_trigger_npc = {
+        {
+            speaker = rt.GHOST_NAME,
+            gender = rt.Gender.MALE,
+            orientation = rt.SpeakerOrientation.RIGHT,
+            next = nil,
+            "Wanna race?",
+
+            choices = {
+                {
+                    "choice A",
+                    next = nil
+                },
+                {
+                    "choice B",
+                    next = nil
+                }
+            }
+        }
+    },
+
 
     slippery_floor_tutorial = {
         {

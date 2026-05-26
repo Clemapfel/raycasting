@@ -26,6 +26,20 @@ function meta.get_typename(type)
     return type[_object_metatable_index].__typename
 end
 
+--- @brief
+function meta.is_type(x)
+    if type(x) ~= "table" then return false end
+    local mt = getmetatable(x)
+    return mt ~= nil and mt.__typename == "Type"
+end
+
+--- @brief
+function meta.is_enum(x)
+    if type(x) ~= "table" then return false end
+    local mt = getmetatable(x)
+    return mt ~= nil and mt.__typename == "Enum"
+end
+
 local _native_type_to_type = {
     ["nil"] = "Nil",
     ["number"] = "Number",
@@ -81,13 +95,37 @@ function meta.assert(...)
     require "common.log"
     local n = select("#", ...)
     rt.assert(n % 2 == 0)
+
+    local _assert_message = function(argument_i, expected, got)
+        return string.paste(
+            "In meta.assert: assert failed for for argument #", argument_i,
+            ": expected argument of type `", expected,
+            "`, got `", got, "`"
+        )
+    end
+
     for i = 1, n, 2 do
         local instance = select(i+0, ...)
         local type = select(i+1, ...)
-        local typename = _type_to_typename[type]
-        if typename == nil then typename = type end -- assume string
 
-        rt.assert(meta.typeof(instance) == typename, "In meta.assert: wrong type for argument #", i.. ": expected `", typename, "`, got `", meta.typeof(instance), "`")
+        local is_valid, typename = true, nil
+        if meta.is_string(type) then
+            is_valid = meta.typeof(instance) == type
+            typename = type
+        elseif meta.is_enum(type) then
+            is_valid = meta.is_enum_value(instance, type)
+            typename = meta.get_enum_name(type)
+        elseif meta.is_type(type) then
+            is_valid = meta.isa(instance, type)
+            typename = meta.get_typename(type)
+        else
+            rt.error("In meta.assert: wrong arguments for `meta.assert`: argument #", i + 1, ", expected Type, Enum or String, got `", meta.typeof(type))
+            is_valid = true
+        end
+
+        if not is_valid then
+            rt.error("In meta.assert: for argument #", i, ", expected value of type `", typename, "`, got `", meta.typeof(instance))
+        end
     end
 end
 
