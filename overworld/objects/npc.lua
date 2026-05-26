@@ -1,5 +1,6 @@
 require "overworld.npc_body"
 require "overworld.dialog_emitter"
+require "overworld.dialog_focus_indicator"
 
 rt.settings.overworld.npc = {
     canvas_radius = 200,
