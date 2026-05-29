@@ -455,7 +455,7 @@
   <object id="269" type="AirDashNodeDirection" x="1984" y="-2480">
    <point/>
   </object>
-  <object id="290" name="Race" type="TimeAttackTriggerNPC" x="560" y="-1296">
+  <object id="290" name="Race" type="TimeAttackTriggerNPC" x="548.808" y="-1304.39">
    <properties>
     <property name="dialog_id" value="animalese_test"/>
    </properties>

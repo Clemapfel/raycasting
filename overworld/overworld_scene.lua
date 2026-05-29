@@ -13,6 +13,7 @@ require "overworld.stage_title_card"
 require "common.impulse_manager"
 require "overworld.reveal_particle_effect"
 require "common.blur"
+require "overworld.time_attack_start_countdown"
 
 do
     local bloom = 0.2
@@ -108,6 +109,8 @@ function ow.OverworldScene:instantiate(state)
         _title_card = ow.StageTitleCard("UNINITIALIZED"),
         _title_card_active = false,
         _title_card_elapsed = 0,
+
+        _countdown = ow.TimeAttackStartCountdown(),
 
         _player_is_visible = true,
 
@@ -294,6 +297,8 @@ function ow.OverworldScene:instantiate(state)
             self._input:activate()
         elseif which == rt.KeyboardKey.ONE then
             rt.GameState:save()
+        elseif which == rt.KeyboardKey.I then
+            self._countdown:start()
         end
     end)
 
@@ -473,7 +478,8 @@ function ow.OverworldScene:size_allocate(x, y, width, height)
     for widget in range(
         self._background,
         self._pause_menu,
-        self._title_card
+        self._title_card,
+        self._countdown
     ) do
         widget:reformat(0, 0, width, height)
     end
@@ -587,6 +593,10 @@ function ow.OverworldScene:draw()
         self._camera:bind()
         self._stage:draw_above_bloom()
         self._camera:unbind()
+
+        if self._countdown:get_is_active() then
+            self._countdown:draw()
+        end
     end
 
     local draw_indicators = function()
@@ -633,6 +643,11 @@ function ow.OverworldScene:draw()
         end
         self._stage:draw_bloom()
         self._camera:unbind()
+
+        if self._countdown:get_is_active() then
+            self._countdown:draw_bloom()
+        end
+
         bloom:unbind()
     end
 
@@ -769,6 +784,7 @@ function ow.OverworldScene:update(delta)
         return
     end
 
+    self._countdown:update(delta)
     self._blur_motion:update(delta)
 
     if self._timer_started == true and self._timer_paused ~= true and self._timer_stopped ~= true then

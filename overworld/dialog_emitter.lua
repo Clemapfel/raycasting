@@ -27,13 +27,13 @@ function ow.DialogEmitter:instantiate(scene, id, target)
 
     self._input = rt.InputSubscriber()
     self._input:signal_connect("pressed", function(_, which)
-        if self._is_active and self:_get_motion_is_done() then
+        if self._is_active then
             self._dialog_box:handle_button_pressed(which)
         end
     end)
 
     self._input:signal_connect("released", function(_, which)
-        if self._is_active and self:_get_motion_is_done() then
+        if self._is_active then
             self._dialog_box:handle_button_released(which)
         end
     end)
@@ -61,6 +61,10 @@ function ow.DialogEmitter:instantiate(scene, id, target)
 
     self._dialog_box:signal_connect("choice", function(_, ...)
         dbg(...)
+    end)
+
+    self._dialog_box:signal_connect("done", function()
+        self._dialog_box_motion:set_target_value(_HIDDEN)
     end)
 
     self._dialog_box:realize()
@@ -119,18 +123,37 @@ function ow.DialogEmitter:update(delta)
     self._dialog_box:update(delta)
 end
 
+local base_priority = 0
+local text_priority = math.huge
+
 --- @brief
-function ow.DialogEmitter:draw()
+function ow.DialogEmitter:get_render_priority()
+    return text_priority
+end
+
+--- @brief
+function ow.DialogEmitter:draw(priority)
     love.graphics.push()
     love.graphics.origin()
     love.graphics.translate(0, self._dialog_box_motion:get_value() * self._dialog_box_motion_max_offset)
-    self._dialog_box:draw()
+
+    if priority == nil then
+        self._dialog_box:draw()
+    elseif priority == text_priority then
+        self._dialog_box:draw_base()
+        self._dialog_box:draw_text()
+    end
+
     love.graphics.pop()
 end
 
 --- @brief
 function ow.DialogEmitter:get_is_active()
-    return self._is_active
+    return self._is_active or not math.equals(
+        self._dialog_box_motion:get_value(),
+        self._dialog_box_motion:get_target_value(),
+        0.01
+    )
 end
 
 --- @brief

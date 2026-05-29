@@ -30,7 +30,7 @@ do
     local _focus_indicator_top_right_y = math.sin(angle_offset + 4 * math.pi / 3 - squish)
 
     --- @brief
-    function ow.DialogFocusIndicator:_draw(x, y)
+    function ow.DialogFocusIndicator:_draw(is_bloom, x, y)
         require "common.cursor"
         local radius = self:get_radius()
         y = y - rt.settings.margin_unit - 0.5 * radius
@@ -51,25 +51,29 @@ do
         local r, g, b = self._scene:get_player():get_color():unpack()
         local a = self._opacity_motion:get_value()
 
-        love.graphics.setColor(black_r, black_g, black_b, a)
-        love.graphics.polygon("fill",
-            top_left_x, top_left_y,
-            top_right_x, top_right_y,
-            bottom_x, bottom_y
-        )
+        if not is_bloom then
+            love.graphics.setColor(black_r, black_g, black_b, a)
+            love.graphics.polygon("fill",
+                top_left_x, top_left_y,
+                top_right_x, top_right_y,
+                bottom_x, bottom_y
+            )
+        end
 
         local line_width = 2
         love.graphics.setLineJoin("bevel")
         love.graphics.setLineStyle("smooth")
 
-        love.graphics.setLineWidth(line_width + 1.5)
-        love.graphics.line(
-            top_left_x, top_left_y,
-            top_x, top_y,
-            top_right_x, top_right_y,
-            bottom_x, bottom_y,
-            top_left_x, top_left_y
-        )
+        if not is_bloom then
+            love.graphics.setLineWidth(line_width + 1.5)
+            love.graphics.line( -- outline
+                top_left_x, top_left_y,
+                top_x, top_y,
+                top_right_x, top_right_y,
+                bottom_x, bottom_y,
+                top_left_x, top_left_y
+            )
+        end
 
         love.graphics.setColor(r, g, b, a)
         love.graphics.setLineWidth(line_width)
@@ -94,7 +98,22 @@ function ow.DialogFocusIndicator:draw()
     )
 
     love.graphics.setColor(1, 1, 1, 1)
-    self:_draw(x, y)
+    self:_draw(false, x, y)
+    love.graphics.pop()
+end
+
+--- @brief
+function ow.DialogFocusIndicator:draw_bloom()
+    love.graphics.push()
+    love.graphics.origin()
+    love.graphics.setColor(1, 1, 1, 1)
+    local x, y = self._scene:get_camera():world_xy_to_screen_xy(
+        self._x,
+        self._y
+    )
+
+    love.graphics.setColor(1, 1, 1, 1)
+    self:_draw(true, x, y)
     love.graphics.pop()
 end
 

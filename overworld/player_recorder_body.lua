@@ -2,7 +2,7 @@ require "common.smoothed_motion_1d"
 require "common.player_body"
 
 rt.settings.overworld.player_recorder_body = {
-    opacity = 0.75,
+    opacity = 1.0,
     gray_value = 0.175,
 
     splatter_gray = 0.8,
@@ -29,7 +29,7 @@ function ow.PlayerRecorderBody:instantiate(scene, stage)
 
     self._body = nil
     self._color = rt.Palette.GRAY_2
-    self._body_color = rt.RGBA(_settings.gray_value, _settings.gray_value, _settings.gray_value, _settings.opacity)
+
     self._splatter_color = rt.RGBA(_settings.splatter_gray, _settings.splatter_gray, _settings.splatter_gray, _settings.splatter_opacity)
 
     self._radius = rt.settings.player.radius
@@ -51,7 +51,6 @@ function ow.PlayerRecorderBody:instantiate(scene, stage)
         end
 
         self._graphics_body:set_shape(positions)
-        self._graphics_body:set_body_color(self._body_color)
         self._graphics_body:set_saturation(0)
     end
 
@@ -125,7 +124,7 @@ function ow.PlayerRecorderBody:initialize(x, y, body_type, is_collidable)
 
         body:set_user_data(self)
         body:add_tag("point_light_source")
-        body:add_tag("slippery", "stencil", "core_stencil")
+        body:add_tag("stencil", "core_stencil")
     end
 
     self._graphics_body:set_use_contour(self._is_bubble)

@@ -27,7 +27,8 @@ rt.settings.overworld.dialog_box = {
     advance_button = rt.InputAction.INTERACT,
     n_advance_triggers = 2, -- how often advance has to be pressed to skip to end of current node
 
-    bloom_strength = 1.0
+    bloom_blur_strength = 1.2,
+    bloom_composite_strength = 1
 }
 
 --- @enum ow.DialogBoxControlState
@@ -167,7 +168,6 @@ function ow.DialogBox:realize()
     local selected_answer_prefix = settings.choice_text_prefix
     local selected_answer_postfix = settings.choice_text_postfix
 
-    local can_be_visited = {}
     for key, node_entry in pairs(entry) do
         local node = {}
         node.id = key
@@ -307,35 +307,19 @@ function ow.DialogBox:realize()
         end
 
         node.is_done = false
-
-        can_be_visited[node] = false
         self._id_to_node[node.id] = node
     end
 
     local first_node = self._id_to_node[1]
     rt.assert(first_node ~= nil, "In ow.DialogBox: for dialog `", self._id, "`, no node with id `1`")
-    can_be_visited[first_node] = true
 
     for node in values(self._id_to_node) do
         if node.type == _node_type_choice then
             for i, next_id in pairs(node.answer_i_to_next_node_id) do
-                local next = self._id_to_node[next_id]
-                node.answer_i_to_next_node[i] = next
-                if next ~= nil then
-                    can_be_visited[next] = true
-                end
+                node.answer_i_to_next_node[i] = self._id_to_node[next_id]
             end
         elseif node.type == _node_type_text then
             node.next = self._id_to_node[node.next_id]
-            if node.next ~= nil then
-                can_be_visited[node.next] = true
-            end
-        end
-    end
-
-    for node, visited in pairs(can_be_visited) do
-        if visited == false then
-            rt.warning("In ow.DialogBox: for dialog `", self._id, "`: node `", node.id, "` has node pointing to it, it cannot be visited" )
         end
     end
 
@@ -350,7 +334,7 @@ function ow.DialogBox:get_control_state()
     else
         local active = self._active_node
 
-        if self._active_choice_node ~= nil and active.is_done then
+        if active ~= nil and self._active_choice_node ~= nil and active.is_done then
             return ow.DialogBoxControlState.SELECT_OPTION
         else
             if active.is_done and active.next == nil then
@@ -389,12 +373,20 @@ function ow.DialogBox:_set_active_node(node)
         self._speaker_visible = speaker_label ~= nil
         if speaker_label ~= nil then
             local label_w, label_h = node.speaker:measure()
-            self._speaker_frame_w = label_w + 2 * m
-            self._speaker_frame_h = label_h + m
+            local thickness = self._speaker_frame:get_thickness()
+            self._speaker_frame_w = label_w + 3 * m + 2 * thickness
+            self._speaker_frame_h = label_h + 1 * m + 2 * thickness
+
+            self._speaker_frame_left_x = self._frame_x + m
+            self._speaker_frame_left_y = self._frame_y - self._speaker_frame_h - m
             self._speaker_label_left_x = self._speaker_frame_left_x
             self._speaker_label_left_y = self._speaker_frame_left_y + 0.5 * self._speaker_frame_h - 0.5 * label_h
+
+            self._speaker_frame_right_x = self._frame_x + self._frame_w - m
+            self._speaker_frame_right_y = self._speaker_frame_left_y
             self._speaker_label_right_x = self._speaker_frame_right_x
             self._speaker_label_right_y = self._speaker_label_left_y
+
             node.speaker:reformat(0, 0, self._speaker_frame_w, math.huge)
             self._speaker_frame:reformat(0, 0, self._speaker_frame_w, self._speaker_frame_h)
         end
@@ -410,11 +402,9 @@ function ow.DialogBox:_set_active_node(node)
                 self._choice_frame_x = self._frame_x + m
             end
             self._choice_frame_y = self._frame_y - m - frame_h
-
         else
             node.n_advance_triggers = 0
         end
-
 
         for label in values(node.labels) do
             label.dialog_box_elapsed = nil
@@ -462,25 +452,14 @@ function ow.DialogBox:size_allocate(x, y, width, height)
     
     local thickness = self._speaker_frame:get_thickness()
 
-    local speaker_frame_w = 0 -- size-dependent values set in _set_active_node
-    local speaker_frame_h = self._line_height + m
-    self._speaker_frame_w = speaker_frame_w
-    self._speaker_frame_h = speaker_frame_h
-    self._speaker_frame_left_x = frame_x + m
-    self._speaker_frame_left_y = frame_y - 3 * m - thickness
-    self._speaker_frame_right_x = frame_x + frame_w - m
-    self._speaker_frame_right_y = self._speaker_frame_left_y
-    self._speaker_frame:reformat(
-        0, 0,
-        self._speaker_frame_w, self._speaker_frame_h
-    )
+    -- speaker frame reformated in _set_active_node
 
     local sprite_scale = rt.get_pixel_scale()
     local portrait_w = rt.settings.overworld.dialog_box.portrait_resolution_w * sprite_scale + 2 * thickness
     local portrait_h = rt.settings.overworld.dialog_box.portrait_resolution_h * sprite_scale + 2 * thickness
 
     self._portrait_frame_left_x = frame_x + m
-    self._portrait_frame_left_y = frame_y - speaker_frame_h - m - portrait_h
+    self._portrait_frame_left_y = frame_y - m - portrait_h - thickness
     self._portrait_frame_right_x = frame_x + frame_w - m - portrait_w
     self._portrait_frame_right_y = self._portrait_frame_left_y
     self._portrait_frame_w = portrait_w
@@ -497,8 +476,6 @@ function ow.DialogBox:size_allocate(x, y, width, height)
     then
         self._portrait_canvas = rt.RenderTexture(portrait_w, portrait_h, rt.GameState:get_msaa_quality())
     end
-    
-    self:_try_initialize_bloom()
 
     do
         local advance_radius = m
@@ -546,6 +523,8 @@ function ow.DialogBox:size_allocate(x, y, width, height)
         end
     end
 
+    self:_try_initialize_bloom()
+
     self._text_stencil = rt.AABB(
         frame_x + 2 * m,
         frame_y + m,
@@ -558,7 +537,7 @@ end
 
 --- @brief
 function ow.DialogBox:_try_initialize_bloom()
-    if rt.GameState:get_is_bloom_enabled() ~= true then return end
+    if not rt.GameState:get_is_bloom_enabled() then return end
 
     local area_min_x = math.min(self._frame_x, self._speaker_frame_left_x, self._portrait_frame_left_x)
     local area_min_y = math.min(self._frame_y, self._speaker_frame_left_y, self._portrait_frame_left_y)
@@ -579,8 +558,12 @@ function ow.DialogBox:_try_initialize_bloom()
         or self._bloom:get_width() ~= bloom_w
         or self._bloom:get_height() ~= bloom_h
     then
-        local padding = 2 * self._frame:get_thickness() + 40
+        local padding = math.max(
+            area_min_x,
+            love.graphics.getWidth() - area_max_x
+        )
         self._bloom = rt.Bloom(bloom_w, bloom_h, padding)
+        self._bloom:set_bloom_strength(rt.settings.overworld.dialog_box.bloom_blur_strength)
         self._bloom_x = area_min_x - padding
         self._bloom_y = area_min_y - padding
     end
@@ -685,7 +668,7 @@ function ow.DialogBox:update(delta)
             end
         end
 
-        node.is_done = (node.elapsed / node.duration) >= 1
+        node.is_done = ternary(node.duration == 0, true, (node.elapsed / node.duration) >= 1)
         if node.is_done and node.type == _node_type_choice then
             for labels in range(node.choice_labels, node.highlighted_choice_labels) do
                 for label in values(labels) do
@@ -770,39 +753,40 @@ end
 function ow.DialogBox:handle_button_pressed(which)
     local advance_button = rt.settings.overworld.dialog_box.advance_button
 
-    if self._active_node ~= nil
-        and self._active_choide_node ~= nil
-        and self._active_node.is_done == true
-    then
-        local move_sound_id = rt.settings.overworld.dialog_box.menu_move_sound_id
-        local confirm_sound_id = rt.settings.overworld.dialog_box.menu_confirm_sound_id
-        local node = self._active_choice_node
-        if which == rt.InputAction.UP then
-            if node.highlighted_answer_i > 1 then
-                node.highlighted_answer_i = node.highlighted_answer_i - 1
-                rt.SoundManager:play(move_sound_id)
+    if self._active_node ~= nil then
+        if self._active_choice_node ~= nil
+            and self._active_node.is_done == true
+        then
+            local move_sound_id = rt.settings.overworld.dialog_box.menu_move_sound_id
+            local confirm_sound_id = rt.settings.overworld.dialog_box.menu_confirm_sound_id
+            local node = self._active_choice_node
+            if which == rt.InputAction.UP then
+                if node.highlighted_answer_i > 1 then
+                    node.highlighted_answer_i = node.highlighted_answer_i - 1
+                    rt.SoundManager:play(move_sound_id)
+                end
+            elseif which == rt.InputAction.DOWN then
+                if node.highlighted_answer_i < node.n_answers then
+                    node.highlighted_answer_i = node.highlighted_answer_i + 1
+                    rt.SoundManager:play(move_sound_id)
+                end
+            elseif which == rt.InputAction.INTERACT then
+                local choice_node = self._active_choice_node
+                local choice_i = choice_node.highlighted_answer_i
+                self:signal_emit("choice",
+                    choice_node.id,
+                    choice_i,
+                    choice_node.choices[choice_node.highlighted_answer_i]
+                )
+                self:_set_active_node(choice_node.answer_i_to_next_node[choice_node.highlighted_answer_i])
             end
-        elseif which == rt.InputAction.DOWN then
-            if node.highlighted_answer_i < node.n_answers then
-                node.highlighted_answer_i = node.highlighted_answer_i + 1
-                rt.SoundManager:play(move_sound_id)
-            end
-        elseif which == rt.InputAction.INTERACT then
-            local choice_node = self._active_choice_node
-            local choice_i = choice_node.highlighted_answer_i
-            self:signal_emit("choice",
-                choice_node.id,
-                choice_i,
-                choice_node.choices[choice_node.highlighted_answer_i]
-            )
-            self:_set_active_node(choice_node.answer_i_to_next_node[choice_node.highlighted_answer_i])
-        end
-    elseif self._active_node ~= nil then
-        if which == advance_button then
-            if self._active_node.next == nil and self._active_node.is_done == true then
-                self:_set_active_node(nil) -- exit dialog
-            else
-                self:_advance()
+        else
+            if which == advance_button then
+                if self._active_node.next == nil and self._active_node.is_done == true then
+                    self:_set_active_node(nil) -- exit dialog
+                else
+                    self:_advance()
+                end
             end
         end
     end
@@ -814,28 +798,28 @@ end
 
 --- @brief
 function ow.DialogBox:handle_button_released(which)
-    if which == rt.settings.dialog_box.advance_button then
+    if which == rt.settings.dialog_box.overworld.advance_button then
         self._advance_button_is_down = false
     end
 end
 
-local MODE_BLOOM = 0
-local MODE_FRAME = 1
-local MODE_TEXT = 2
+do
 
---- @brief
-function ow.DialogBox:draw()
-    if not self:get_is_realized() or self._done_emitted == true then return end
+    local MODE_BLOOM = 0
+    local MODE_FRAME = 1
+    local MODE_TEXT = 2
 
-    local _draw_frame = function(mode)
+    local bloom_strength = 1
+
+    local _draw_frame = function(self, mode)
         if mode == MODE_BLOOM then
-            self._frame:draw_bloom()
+            self._frame:draw_bloom(bloom_strength)
         elseif mode == MODE_FRAME then
             self._frame:draw()
         end
     end
 
-    local _draw_portrait = function(mode)
+    local _draw_portrait = function(self, mode)
         if self._portrait_visible ~= true then return end
 
         love.graphics.push()
@@ -846,7 +830,7 @@ function ow.DialogBox:draw()
         end
 
         if mode == MODE_BLOOM then
-            self._portrait_frame:draw_bloom()
+            self._portrait_frame:draw_bloom(bloom_strength)
         elseif mode == MODE_FRAME then
             self._portrait_frame:draw()
             self._portrait_frame:bind_stencil()
@@ -857,7 +841,7 @@ function ow.DialogBox:draw()
         love.graphics.pop()
     end
 
-    local _draw_speaker = function(mode)
+    local _draw_speaker = function(self, mode)
         if self._speaker_visible ~= true then return end
 
         love.graphics.push()
@@ -868,14 +852,14 @@ function ow.DialogBox:draw()
         end
 
         if mode == MODE_BLOOM then
-            self._speaker_frame:draw_bloom()
+            self._speaker_frame:draw_bloom(bloom_strength)
         elseif mode == MODE_FRAME then
             self._speaker_frame:draw()
         end
 
         love.graphics.pop()
 
-        if mode == MODE_TEXT then
+        if mode == MODE_TEXT and self._active_node ~= nil then
             love.graphics.push()
             if self._portrait_frame_left_or_right then
                 love.graphics.translate(self._speaker_label_left_x, self._speaker_label_left_y)
@@ -887,13 +871,14 @@ function ow.DialogBox:draw()
         end
     end
 
-    local _draw_advance_indicator = function(mode)
+    local _draw_advance_indicator = function(self, mode)
+        if self._is_waiting_for_advance ~= true then return end
+
         love.graphics.push()
-        rt.Palette.BASE:bind()
         love.graphics.translate(0, self._advance_indicator_offset)
 
         if mode == MODE_FRAME then
-            rt.Palette.BASE:bind()
+            rt.Palette.BACKGROUND:bind()
             love.graphics.polygon("fill", self._advance_indicator)
         end
 
@@ -913,10 +898,30 @@ function ow.DialogBox:draw()
         love.graphics.pop()
     end
 
-    local _draw_active_node = function(mode)
+    local _draw_active_node = function(self, mode)
         if self._active_node == nil then return end
 
-        if mode == MODE_TEXT then
+        if mode == MODE_FRAME then
+            if self._active_node.is_done then
+                local node = self._active_choice_node
+                if node ~= nil then
+                    love.graphics.push()
+                    love.graphics.translate(self._choice_frame_x, self._choice_frame_y)
+                    self._choice_frame:draw()
+                    love.graphics.pop()
+                end
+            end
+        elseif mode == MODE_BLOOM then
+            if self._active_node.is_done then
+                local node = self._active_choice_node
+                if node ~= nil then
+                    love.graphics.push()
+                    love.graphics.translate(self._choice_frame_x, self._choice_frame_y)
+                    self._choice_frame:draw_bloom(bloom_strength)
+                    love.graphics.pop()
+                end
+            end
+        elseif mode == MODE_TEXT then
             love.graphics.push()
             local stencil_value = rt.graphics.get_stencil_value()
             rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW)
@@ -932,50 +937,61 @@ function ow.DialogBox:draw()
 
             if self._active_node.is_done then
                 local node = self._active_choice_node
-                love.graphics.push()
-                love.graphics.translate(self._choice_frame_x, self._choice_frame_y)
-                self._choice_frame:draw()
-                for i = 1, node.n_answers do
-                    if i == node.highlighted_answer_i then
-                        node.highlighted_choice_labels[i]:draw()
-                    else
-                        node.choice_labels[i]:draw()
+                if node ~= nil then
+                    love.graphics.push()
+                    love.graphics.translate(self._choice_frame_x, self._choice_frame_y)
+                    for i = 1, node.n_answers do
+                        if i == node.highlighted_answer_i then
+                            node.highlighted_choice_labels[i]:draw()
+                        else
+                            node.choice_labels[i]:draw()
+                        end
                     end
+                    love.graphics.pop()
                 end
-                love.graphics.pop()
             end
         end
     end
 
-    -- draw base
-    _draw_frame(MODE_FRAME)
-    _draw_portrait(MODE_FRAME)
-    _draw_speaker(MODE_FRAME)
-    _draw_advance_indicator(MODE_FRAME)
+    --- @brief
+    function ow.DialogBox:draw_base()
+        if not self:get_is_realized() then return end
 
-    -- draw bloom
-    if rt.GameState:get_is_bloom_enabled() then
-        self:_try_initialize_bloom()
-        love.graphics.push()
-        love.graphics.origin()
-        love.graphics.translate(-self._bloom_x, -self._bloom_y)
-        self._bloom:bind()
-        _draw_frame(MODE_BLOOM)
-        _draw_portrait(MODE_BLOOM)
-        _draw_speaker(MODE_BLOOM)
-        _draw_advance_indicator(MODE_BLOOM)
-        self._bloom:unbind()
-        love.graphics.pop()
+        _draw_frame(self, MODE_FRAME)
+        _draw_portrait(self, MODE_FRAME)
+        _draw_speaker(self, MODE_FRAME)
+        _draw_active_node(self, MODE_FRAME)
 
-        love.graphics.push()
-        love.graphics.translate(self._bloom_x, self._bloom_y)
-        self._bloom:composite(rt.settings.overworld.dialog_box.bloom_strength)
-        love.graphics.pop()
+        if rt.GameState:get_is_bloom_enabled() then
+            self:_try_initialize_bloom()
+            self._bloom:bind()
+            love.graphics.clear()
+            love.graphics.push()
+            love.graphics.origin()
+            love.graphics.translate(-self._bloom_x, -self._bloom_y)
+            _draw_frame(self, MODE_BLOOM)
+            _draw_portrait(self, MODE_BLOOM)
+            _draw_speaker(self, MODE_BLOOM)
+            _draw_active_node(self, MODE_BLOOM)
+            _draw_advance_indicator(self, MODE_BLOOM)
+            love.graphics.pop()
+            self._bloom:unbind()
+
+            love.graphics.push()
+            love.graphics.translate(self._bloom_x, self._bloom_y)
+            self._bloom:composite(rt.settings.overworld.dialog_box.bloom_composite_strength)
+            love.graphics.pop()
+        end
     end
 
-    -- draw text above bloom
-    _draw_speaker(MODE_TEXT)
-    _draw_active_node(MODE_TEXT)
+    --- @brief
+    function ow.DialogBox:draw_text()
+        if not self:get_is_realized() then return end
+
+        _draw_advance_indicator(self, MODE_FRAME) -- also on top of bloom to prevent bleed
+        _draw_speaker(self, MODE_TEXT)
+        _draw_active_node(self, MODE_TEXT)
+    end
 end
 
 --- @brief

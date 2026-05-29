@@ -224,6 +224,19 @@ function ow.Stage:instantiate(scene, id)
                         priorities[1] = wrapper:get_number("render_priority")
                     end
 
+                    if #priorities >= 2 then
+                        -- resolve duplicates
+                        local set = {}
+                        for priority in values(priorities) do
+                            set[priority] = true
+                        end
+
+                        priorities = {}
+                        for priority in keys(set) do
+                            table.insert(priorities, priority)
+                        end
+                    end
+
                     for priority in values(priorities) do
                         if not meta.is_number(priority) then
                             rt.error("In ow.", wrapper.class, ".get_render_priority: does not return a number or tuple of numbers")
@@ -450,7 +463,7 @@ end
 --- @brief
 function ow.Stage:draw_above_bloom()
     for object in values(self._above_bloom) do
-        object:draw()
+        object:draw(math.huge) -- above bloom priority
     end
 end
 

@@ -92,6 +92,12 @@ return {
     npc_name = "NPC",
     ghost_name = "GHOST",
 
+    time_attack_start_countdown = {
+        ready = "Ready",
+        set = "Set",
+        go = "Go!"
+    },
+
     overworld_scene = {
         control_indicator_move = "Move",
         control_indicator_down = "Duck",

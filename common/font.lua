@@ -8,7 +8,8 @@ rt.settings.font = {
 rt.Font = meta.class("Font")
 
 --- @enum rt.FontSize
-rt.FontSize = meta.enum("FontSize", {
+rt.FontSize = {
+    ENORMOUS = 0.2,
     GIGANTIC = 0.15,
     HUGE = 60 / rt.settings.native_height,
     LARGER = 50 / rt.settings.native_height,
@@ -17,10 +18,11 @@ rt.FontSize = meta.enum("FontSize", {
     REGULAR = 20 / rt.settings.native_height,
     SMALL = 16 / rt.settings.native_height,
     TINY = 12 / rt.settings.native_height
-})
+}
+rt.FontSize = meta.enum("FontSize", rt.FontSize)
 
 --- @enum rt.FontStyle
-rt.FontStyle = meta.enum("FontStyle", {
+rt.FontStyle = {
     REGULAR = "REGULAR",
     ITALIC = "ITALIC",
     BOLD = "BOLD",
@@ -29,7 +31,8 @@ rt.FontStyle = meta.enum("FontStyle", {
     MONO_ITALIC = "MONO_ITALIC",
     MONO_BOLD = "MONO_BOLD",
     MONO_BOLD_ITALIC = "MONO_BOLD_ITALIC",
-})
+}
+rt.FontStyle = meta.enum("FontStyle", rt.FontStyle)
 
 --- @brief
 function rt.Font:instantiate(

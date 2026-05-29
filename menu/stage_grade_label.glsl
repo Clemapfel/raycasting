@@ -36,8 +36,10 @@ uniform vec4 white;
 vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 vertex_position) {
     float dist = texture(img, texture_coords).a;
     const float thickness = 1.0 - 0.8;
-    vec4 result = min(vec4(1.5 * smoothstep(0.0, 1.0, smoothstep(0.0, 1.0, smoothstep(0.0, 1.0 - thickness, dist)))) * white, vec4(1.0));
-    return vec4(result.rgb, result.a * opacity);
+    const float threshold = 0.3;
+    const float eps = 0.08;
+    float alpha = smoothstep(threshold - eps, threshold + eps, dist);
+    return vec4(white.rgb, white.a * alpha * opacity);
 }
 
 #elif MODE == MODE_NO_SDF
@@ -50,7 +52,11 @@ uniform float fraction;
 vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 vertex_position) {
     vec4 texel = texture(img, texture_coords);
     vec2 uv = texture_coords;
-    uv = rotate(uv, 1.75 * PI);
+
+    const float angle = 1.75 * PI;
+    uv -= vec2(0.5);
+    uv = rotate(uv, angle);
+    uv += vec2(0.5);
     float time = elapsed * 0.3;
 
     vec4 result;
@@ -69,8 +75,11 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 vertex_position
     }
 
     const float line_width = 0.05;
-    // Sweep from below 0 to above 1
-    float center = mix(-line_width, 1.0 + line_width, fraction);
+    const float max_extent = 0.5 * (abs(sin(angle)) + abs(cos(angle)));
+    const float start_bound = 0.5 - max_extent - line_width;
+    const float end_bound = 0.5 + max_extent + line_width;
+    float center = mix(start_bound, end_bound, fraction);
+
     float dist = abs(uv.y - center);
     float line_alpha = smoothstep(line_width, 0.0, dist);
     result.rgb = mix(result.rgb, vec3(1.0), line_alpha);
@@ -88,15 +97,15 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 vertex_position
     );
 
     vec2 texel_size = vec2(1.0) / vec2(textureSize(img, 0));
-    float s00 = Texel(img, offset_uv(texture_coords, vec2(-1, -1), texel_size)).a;
-    float s01 = Texel(img, offset_uv(texture_coords, vec2( 0, -1), texel_size)).a;
-    float s02 = Texel(img, offset_uv(texture_coords, vec2( 1, -1), texel_size)).a;
-    float s10 = Texel(img, offset_uv(texture_coords, vec2(-1,  0), texel_size)).a;
-    float s11 = Texel(img, offset_uv(texture_coords, vec2( 0,  0), texel_size)).a;
-    float s12 = Texel(img, offset_uv(texture_coords, vec2( 1,  0), texel_size)).a;
-    float s20 = Texel(img, offset_uv(texture_coords, vec2(-1,  1), texel_size)).a;
-    float s21 = Texel(img, offset_uv(texture_coords, vec2( 0,  1), texel_size)).a;
-    float s22 = Texel(img, offset_uv(texture_coords, vec2( 1,  1), texel_size)).a;
+    float s00 = texture(img, offset_uv(texture_coords, vec2(-1, -1), texel_size)).a;
+    float s01 = texture(img, offset_uv(texture_coords, vec2( 0, -1), texel_size)).a;
+    float s02 = texture(img, offset_uv(texture_coords, vec2( 1, -1), texel_size)).a;
+    float s10 = texture(img, offset_uv(texture_coords, vec2(-1,  0), texel_size)).a;
+    float s11 = texture(img, offset_uv(texture_coords, vec2( 0,  0), texel_size)).a;
+    float s12 = texture(img, offset_uv(texture_coords, vec2( 1,  0), texel_size)).a;
+    float s20 = texture(img, offset_uv(texture_coords, vec2(-1,  1), texel_size)).a;
+    float s21 = texture(img, offset_uv(texture_coords, vec2( 0,  1), texel_size)).a;
+    float s22 = texture(img, offset_uv(texture_coords, vec2( 1,  1), texel_size)).a;
 
     float gx = sobel_x[0][0] * s00 + sobel_x[0][1] * s01 + sobel_x[0][2] * s02 +
     sobel_x[1][0] * s10 + sobel_x[1][1] * s11 + sobel_x[1][2] * s12 +

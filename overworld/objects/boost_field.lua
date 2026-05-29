@@ -11,16 +11,16 @@ rt.settings.overworld.boost_field = {
     max_velocity_influence = 6,
     animation_velocity = 1 / 4, -- factor of seconds
 }
+
 local schema = {
     axis_x = ow.Number,
     axis_y = ow.Number,
     axis = ow.Object,
     is_visible = ow.Boolean,
     has_outline = ow.Boolean,
-    velocity = ow.Number, -- relative factor
-    hue = { ow.String, ow.Number }, -- hue or "player"
+    velocity = ow.Number,
+    hue = { ow.String, ow.Number }
 }
-
 
 --- @class ow.BoostField
 --- @types Polygon, Rectangle, Ellipse

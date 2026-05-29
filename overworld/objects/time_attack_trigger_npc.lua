@@ -85,25 +85,36 @@ function ow.TimeAttackTriggerNPC:instantiate(object, stage, scene)
     end)
 end
 
-local _dialog_priority = math.huge -- above bloom
+local base_priority = 0
+
 --- @brief
 function ow.TimeAttackTriggerNPC:get_render_priority()
-    return 0, math.huge
+    local priorities = { self._dialog_emitter:get_render_priority() }
+    table.insert(priorities, base_priority)
+    return table.unpack(priorities)
 end
 
 --- @brief
 function ow.TimeAttackTriggerNPC:draw(priority)
-    if priority == _dialog_priority then
-
-    else
-        if self._stage:get_is_body_visible(self._graphics_body:get_physics_body()) then
-            self._graphics_body:draw()
-            self._focus_indicator:draw()
+    if self._stage:get_is_body_visible(self._graphics_body:get_physics_body()) then
+        if priority == base_priority then
+            if self._stage:get_is_body_visible(self._graphics_body:get_physics_body()) then
+                self._graphics_body:draw()
+                self._focus_indicator:draw()
+            end
         end
+    end
 
-        if self._dialog_emitter:get_is_active() then
-            self._dialog_emitter:draw()
-        end
+    if self._dialog_emitter:get_is_active() then
+        self._dialog_emitter:draw(priority) -- draws text on to of bloom
+    end
+end
+
+--- @brief
+function ow.TimeAttackTriggerNPC:draw_bloom()
+    if self._stage:get_is_body_visible(self._graphics_body:get_physics_body()) then
+        self._focus_indicator:draw_bloom()
+        self._graphics_body:draw_bloom()
     end
 end
 

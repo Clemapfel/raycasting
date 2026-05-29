@@ -6,6 +6,10 @@ rt.InterpolationFunctions = {
         if x < 0 or x > 1 then return 0 else return constant end
     end,
 
+    CONSTANT_ZERO = function(x)
+        return 0
+    end,
+
     LINEAR = function(x, slope)
         -- ax
         if x >= 1 then return 1 elseif x <= 0 then return 0 end

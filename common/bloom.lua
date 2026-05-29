@@ -178,3 +178,13 @@ end
 function rt.Bloom:get_size()
     return self._textures[1]:get_size()
 end
+
+--- @brief
+function rt.Bloom:get_width()
+    return self._textures[1]:get_width()
+end
+
+--- @brief
+function rt.Bloom:get_height()
+    return self._textures[1]:get_height()
+end

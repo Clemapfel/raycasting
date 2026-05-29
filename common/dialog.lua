@@ -70,125 +70,110 @@ do
         rt.fatal("In rt.Dialog: object returned by `", path, "` is not a table")
     end
 
-    local dialog = dialog_or_error
-
     local valid_keys_to_type = {
         [settings.speaker_key] = "String",
         [settings.speaker_orientation_key] = rt.DialogSpeakerOrientation,
-        [settings.next_key] = { "String", "Number" },
         [settings.gender_key] = rt.AnimaleseGender,
         [settings.state_key] = "Table",
         [settings.dialog_choice_key] = "Table"
     }
 
     local function validate(scope, nodes)
-        local throw = function(...)
-            rt.error("In rt.Dialog: for node `", scope, "`: ", ...)
+        local function throw(...)
+            rt.error("In rt.Dialog: for dialog `", scope, "`: ", ...)
         end
 
-        local validate_enum = function(value, enum)
-            if not meta.is_enum_value(value, enum) then
-                local to_concat = {
-                    "value `", value, "` is not part of enum `", meta.get_enum_name(enum), "`. Expected one of "
-                }
-
-                for instance in values(meta.instances(enum)) do
-                    table.insert(to_concat, string.paste("`", instance, "`"))
-                    table.insert(to_concat, ", ")
-                end
-
-                table.remove(to_concat, #to_concat) -- last comma
-                throw(table.concat(to_concat))
-            end
+        local function warn(...)
+            rt.critical("In rt.Dialog: for dialog `", scope, "`: ", ...)
         end
 
-        if nodes[1] == nil then throw("no node at position `1`") end
+        local node_to_is_reachable = {}
 
-        for node in values(nodes) do
-            local speaker = node[settings.speaker_key]
-            local speaker_orientation = node[settings.speaker_orientation_key]
-            local next = node[settings.next_key]
-            local state = node[settings.state_key]
-            local gender = node[settings.gender_key]
-            local choice = node[settings.dialog_choice_key]
-
-            if gender == nil then node[settings.gender_key] = rt.AnimaleseGender.NONE end
-            if speaker_orientation == nil then node[settings.speaker_orientation_key] = rt.DialogSpeakerOrientation.RIGHT end
-
+        for node_key, node in pairs(nodes) do
             local consecutive_numbers = {}
             for key, value in pairs(node) do
                 if meta.is_number(key) then
                     table.insert(consecutive_numbers, key)
+                elseif key == settings.next_key then
+                    local next_node = nodes[value]
+                    if next_node == nil then
+                        throw("next value `", value, "` does not point to another valid node")
+                    end
+
+                    node_to_is_reachable[next_node] = true
+                elseif key == settings.dialog_choice_key then
+                    local node_choices = value
+                    for i = 1, table.sizeof(node_choices) do
+                        if node_choices[i] == nil then
+                            throw("choices in node `", node_key, "` are not a consecutive list of tables")
+                        end
+                    end
+
+                    for choice_key, choice_node in pairs(node_choices) do
+                        if not meta.is_number(choice_key) then
+                            throw("choices in node `", node_key, "` can only be indexed with numbers, got `", choice_key, "`")
+                        end
+
+                        if not meta.is_table(choice_node) then
+                            throw("choice #", choice_key, " is not a table")
+                        end
+
+                        for k, v in keys(choice_node) do
+                            if k == settings.next_key then
+                                if nodes[v] == nil then
+                                    throw("choices in node `", node_key, "` has next key `", choice_node[settings.next_key], "`, which does not point to a valid node")
+                                end
+
+                                node_to_is_reachable[nodes[v]] = true
+                            elseif not meta.is_number(k) or k ~= 1 then
+                                throw("choices in node `", node_key, "` can only have single line of dialog, which has to be located at [1]")
+                            end
+                        end
+                    end
                 else
                     local expected_type = valid_keys_to_type[key]
                     if expected_type == nil then
-                        throw("unknown key `", key, "`")
+                        throw("invalid key `", key, "`")
                     end
 
-                    if meta.is_enum(expected_type) then
-                        if not meta.is_enum_value(value, expected_type) then
-                            throw("value for key `", key, "` is not a value of enum `", meta.get_enum_name(expected_type), "`")
+                    if meta.is_enum(type) then
+                        if not meta.is_enum_value(value, type) then
+                            throw("for key `", key, "`, expected value of enum `", meta.get_enum_name(type), "`, got `", meta.typeof(value), "`")
                         end
-                    elseif meta.is_type(expected_type) then
-                        if not meta.isa(value, expected_type) then
-                            throw("value for key `", key, "` is not of type `", meta.get_typename(expected_type), "`")
-                        end
-                    elseif meta.is_table(expected_type) then
-                        local is_valid = false
-                        for t in values(expected_type) do
-                            if meta.typeof(value) == t then
-                                is_valid = true
-                                break
-                            end
-                        end
-
-                        if not is_valid then
-                            local message = {
-                                "value for key `", key, "` is not one of `"
-                            }
-
-                            for i, t in ipairs(expected_type) do
-                                table.insert(message, t)
-                                if i < #expected_type then
-                                    table.insert(message, ", ")
-                                end
-                            end
-
-                            table.insert(message, "`")
-                            throw(table.unpack(message))
+                    elseif meta.is_type(type) then
+                        if not meta.isa(value, type) then
+                            throw("for key `", key, "`, expected value of type `", meta.get_typename(type), "`, got `", meta.typeof(value), "`")
                         end
                     else
-                        if not meta.typeof(value) == expected_type then
-                            throw("value for key `", key, "` is not of type `", expected_type, "`")
+                        if not meta.typeof(value) == type then
+                            throw("for key `", key, "`, expected value of type `", type, "`, got `", meta.typeof(value), "`")
                         end
                     end
                 end
             end
 
             table.sort(consecutive_numbers)
-            for i = 1, #consecutive_numbers - 1, 1 do
-                if consecutive_numbers[i+1] - consecutive_numbers[i] ~= 1 then
-                    throw("lines do not have consecutive numerical indices")
+            if not consecutive_numbers[1] == 1 then
+                throw("list of lines does not start at 1")
+            end
+
+            local last = 1
+            for i = 2, #consecutive_numbers do
+                local n = consecutive_numbers[i]
+                if n - last ~= 1 then
+                    throw("list of lines is not a consecutive list of numbers, key `", last - 1, "` is unassigned")
                 end
             end
 
-            if node[1] == nil then
-                throw("node does not have a line or choice at position `1`")
-            end
-
-            if speaker ~= nil and not meta.is_string(speaker) then
-                throw("`speaker` is not a string")
-            elseif speaker_orientation ~= nil then
-                validate_enum(speaker_orientation, rt.DialogSpeakerOrientation)
-            elseif next ~= nil then
-                -- noop
-            elseif state ~= nil and not meta.is_table(state) then
-                throw("`state` is not a table")
-            elseif gender ~= nil then
-                validate_enum(gender, rt.AnimaleseGender)
+            for node_key, node in pairs(nodes) do
+                if node_to_is_reachable[node] ~= true then
+                    warn("node `", node_key, "` is not reachable")
+                end
             end
         end
     end
+
+    local dialog = dialog_or_error
 
     for scope, nodes in pairs(dialog) do
         validate(scope, nodes)

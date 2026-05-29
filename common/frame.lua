@@ -25,15 +25,11 @@ rt.settings.frame = {
 --- @class rt.Frame
 rt.Frame = meta.class("Frame", rt.Widget)
 
-local _fill_shader = rt.Shader("common/frame.glsl", { MODE = 0 })
-local _outline_shader = rt.Shader("common/frame.glsl", { MODE = 1 })
-
 --- @brief
 function rt.Frame:instantiate()
     meta.install(self, {
         _child = {},
         _child_valid = false,
-        _is_animated = false,
 
         _aabb = rt.AABB(0, 0, 1, 1),
 
@@ -60,24 +56,16 @@ function rt.Frame:_update_draw()
     local thickness = self._thickness * rt.get_pixel_scale() + ternary(self._selection_state == rt.SelectionState.ACTIVE, 2, 0)
     local corner_radius = self._corner_radius
 
-    self.draw = function(self)
+    self.draw = function(self, draw_frame)
         love.graphics.setLineWidth(thickness + 2)
+        love.graphics.setLineStyle("smooth")
         love.graphics.setColor(stencil_r, stencil_g, stencil_b, opacity * stencil_a)
-
-        if self._is_animated then
-            _fill_shader:bind()
-            _fill_shader:send("elapsed", rt.SceneManager:get_elapsed())
-        end
 
         love.graphics.rectangle(
             "fill",
             x, y, w, h,
             corner_radius, corner_radius
         )
-
-        if self._is_animated then
-            _fill_shader:unbind()
-        end
 
         love.graphics.setColor(outline_r, outline_g, outline_b, opacity)
         love.graphics.rectangle(
@@ -86,22 +74,27 @@ function rt.Frame:_update_draw()
             corner_radius, corner_radius
         )
 
-        if self._is_animated then
-            _outline_shader:bind()
-            _outline_shader:send("elapsed", rt.SceneManager:get_elapsed())
+        if draw_frame == nil or draw_frame == true then
+            love.graphics.setLineWidth(thickness)
+            love.graphics.setColor(frame_r, frame_g, frame_b, opacity)
+            love.graphics.rectangle(
+                "line",
+                x, y, w, h,
+                corner_radius, corner_radius
+            )
         end
+    end
 
+    self.draw_bloom = function(self, strength)
+        if strength == nil then strength = 1 end
+        love.graphics.setLineStyle("smooth")
         love.graphics.setLineWidth(thickness)
-        love.graphics.setColor(frame_r, frame_g, frame_b, opacity)
+        love.graphics.setColor(frame_r * strength, frame_g + strength, frame_b + strength, opacity)
         love.graphics.rectangle(
             "line",
             x, y, w, h,
             corner_radius, corner_radius
         )
-
-        if self._is_animated then
-            _outline_shader:unbind()
-        end
     end
 end
 
@@ -224,6 +217,14 @@ function rt.Frame:set_selection_state(selection_state)
         self._opacity = 0.5
     end
     self:_update_draw()
+end
+
+--- @brief
+function rt.Frame:set_use_bloom(b)
+    if self._use_bloom ~= b then
+        self._use_bloom = true
+        self:_update_draw()
+    end
 end
 
 --- @brief

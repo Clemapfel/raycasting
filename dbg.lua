@@ -1,3 +1,3 @@
 return {
-    air_resistance = 0.5,
+    strength = 1.25,
 }

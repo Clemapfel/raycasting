@@ -1,6 +1,6 @@
 import {GLWidget} from "../common/gl_widget.ts";
 import {BlendMode, StencilMode} from "../common/gl_context.ts";
-import {Mesh, MeshDrawMode, MeshEllipse, MeshRectangle} from "../common/mesh.ts";
+import {Mesh, MeshDrawMode, MeshEllipse, MeshRectangle, MeshLine } from "../common/mesh.ts";
 import {
     DEFAULT_FLOAT_PRECISION,
     DEFAULT_FRAGMENT_OUT_NAME,
@@ -47,6 +47,7 @@ const min_radius_frequency = 0.0;
 const max_radius_frequency = 0.0;
 const min_radius_scale = 1;
 const max_radius_scale = 1;
+const ring_width_factor = 0.15;
 
 const x_offset = 0;
 const y_offset = 1;
@@ -259,6 +260,7 @@ export class Orb extends GLWidget  {
     private particle_mesh_index_data : Uint16Array;
 
     private circle_mesh? : Mesh;
+    private line_mesh? : Mesh;
     private glass_mesh? : Mesh;
     private glass_mesh_shader? : Shader;
     private glass_mesh_cursor_position = new Vec2(0);
@@ -280,6 +282,7 @@ export class Orb extends GLWidget  {
             || this.particle_mesh === undefined
             || this.glass_mesh === undefined
             || this.glass_mesh_shader === undefined
+            || this.line_mesh === undefined
         ) return;
 
         if (this.particle_mesh_texture === undefined) {
@@ -342,6 +345,10 @@ export class Orb extends GLWidget  {
         //this.glass_mesh_shader.setUniform("cursor_position", this.glass_mesh_cursor_position)
         this.glass_mesh.draw();
         this.glass_mesh_shader.unbind()
+
+        this.default_shader.bind()
+        this.line_mesh.draw()
+        this.default_shader.unbind()
     }
 
     private delta_accumulator : number = 0;
@@ -429,16 +436,35 @@ export class Orb extends GLWidget  {
         const size = this.getSize();
         this.orb_radius = Math.min(size.x, size.y) / 2;
 
-        const center_x = size.x * 0.5;
-        const center_y = size.y * 0.5;
-
-        this.orb_center_x = center_x;
-        this.orb_center_y = center_y;
+        this.orb_center_x = this.orb_radius;
+        this.orb_center_y = size.y * 0.5;
 
         this.circle_mesh = MeshEllipse(this.context,
-            center_x, center_y,
+            this.orb_center_x, this.orb_center_y,
             this.orb_radius, this.orb_radius
         );
+
+        const line_width = this.orb_radius * ring_width_factor
+        const margin = 5;
+
+        const line_start = new Vec2(
+            this.orb_center_x + this.orb_radius + line_width,
+            this.orb_center_y
+        )
+
+        const line_end = new Vec2(
+            this.orb_center_x + 600,
+            this.orb_center_y
+        )
+
+        this.line_mesh = MeshLine(
+            this.context,
+            [ line_start, line_end ],
+            line_width,
+            true // add_end_cap
+        );
+
+        console.log(line_start, line_end)
 
         {
             const n_outer_vertices = this.circle_mesh.getVertexCount();

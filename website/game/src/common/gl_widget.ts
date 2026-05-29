@@ -61,16 +61,15 @@ export abstract class GLWidget extends HTMLElement {
                 if (this.context && this.context.isValid())
                     this.context.gl!.viewport(0, 0, width, height);
 
-                // resize internal canvas
                 this.native_canvas.width = width;
                 this.native_canvas.height = height;
 
-                // notify children of resize
                 this.size.x = width;
                 this.size.y = height;
                 this.reformat(width, height);
+                this.draw();
 
-                this.draw() // prevent blank frame on resize
+                console.log(width, height)
             }
         });
 

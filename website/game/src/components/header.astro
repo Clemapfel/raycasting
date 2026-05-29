@@ -1,7 +1,7 @@
 ---
-import Orb from "../components/orb.astro";
+// C:/Users/cleme/Workspace/raycasting/website/game/src/components/header.astro
 
-// generate lch step keyframes
+// Generate LCH step keyframes for the rainbow text effect
 const n_steps = 36;
 const lightness = "80%"
 const chroma = "100"
@@ -22,35 +22,88 @@ const keyframes = Array.from({ length: n_steps + 1 }, (_, i) => {
 <style>
     :root {
         --hue-cycle-duration: 10s;
+        --header-text-size: 48px;
+        --orb-size: 75px;
     }
 
     .header-layout {
         display: flex;
         align-items: center;
         justify-content: center;
+        height: 120px;
     }
 
-    .header-layout a {
-        font-size: 48px;
+    .link-block {
+        margin-left: calc(0.5 * var(--orb-size));
+    }
+
+    /*
+       We turn the custom element into the container.
+       Because links bubble events, 'orb-canvas' will see events even over links.
+    */
+    orb-canvas {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        padding-left: var(--orb-size);
+        height: var(--orb-size);
+        cursor: default;
+    }
+
+    .orb-canvas-canvas {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: block;
+        z-index: -1; /* Keep it behind the links */
+        pointer-events: none; /* Allows mouse to "hit" the host orb-canvas or the links */
+    }
+
+    orb-canvas a {
+        font-size: var(--header-text-size);
         font-family: "DejaVu Sans", sans-serif;
         font-weight: bold;
-        margin: 0 0 20px 20px;
         text-decoration: none;
+        margin-left: 20px;
+        line-height: 1;
         animation: hue_cycle var(--hue-cycle-duration) linear infinite;
+        white-space: nowrap;
+        position: relative; /* Ensure links stay on top of canvas */
+        z-index: 1;
     }
 
-    .header-layout a:nth-child(1) { animation-delay: calc(var(--hue-cycle-duration) * -0 / 5); }
-    .header-layout a:nth-child(2) { animation-delay: calc(var(--hue-cycle-duration) * -1 / 5); }
-    .header-layout a:nth-child(3) { animation-delay: calc(var(--hue-cycle-duration) * -2 / 5); }
-    .header-layout a:nth-child(4) { animation-delay: calc(var(--hue-cycle-duration) * -3 / 5); }
-    .header-layout a:nth-child(5) { animation-delay: calc(var(--hue-cycle-duration) * -4 / 5); }
+    /* Ensure the first link doesn't add extra margin to the square offset */
+    orb-canvas a:first-of-type {
+        margin-left: 0;
+    }
+
+    /* Animation delays */
+    orb-canvas a:nth-of-type(1) { animation-delay: calc(var(--hue-cycle-duration) * -0 / 5); }
+    orb-canvas a:nth-of-type(2) { animation-delay: calc(var(--hue-cycle-duration) * -1 / 5); }
+    orb-canvas a:nth-of-type(3) { animation-delay: calc(var(--hue-cycle-duration) * -2 / 5); }
+    orb-canvas a:nth-of-type(4) { animation-delay: calc(var(--hue-cycle-duration) * -3 / 5); }
+    orb-canvas a:nth-of-type(5) { animation-delay: calc(var(--hue-cycle-duration) * -4 / 5); }
 </style>
 
 <div class="header-layout">
-    <Orb />
-    <a href="./home">Home</a>
-    <a href="./about">About</a>
-    <a href="./contact">Contact</a>
-    <a href="./blog">Blog</a>
-    <a href="./about">Portfolio</a>
+    <nav>
+        <orb-canvas>
+            <canvas class="orb-canvas-canvas"></canvas>
+            <div class="link-block">
+                <a href="./home">Home</a>
+                <a href="./about">About</a>
+                <a href="./contact">Contact</a>
+                <a href="./blog">Blog</a>
+                <a href="./about">Portfolio</a>
+            </div>
+        </orb-canvas>
+    </nav>
 </div>
+
+<script>
+    import { Orb } from "./orb.ts";
+    import { register } from "../common/register_component.ts";
+    register("orb-canvas", Orb);
+</script>

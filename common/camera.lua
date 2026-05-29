@@ -20,7 +20,7 @@ rt.settings.camera = {
         default_duration = 0.05,
         default_intensity = 2,
         max_offset = 5,
-        frequency = 15, -- nodes per second
+        frequency = 20, -- nodes per second
     }
 }
 
