@@ -26,6 +26,8 @@ rt.settings.overworld.dialog_box = {
 
     advance_button = rt.InputAction.INTERACT,
     n_advance_triggers = 2, -- how often advance has to be pressed to skip to end of current node
+
+    bloom_strength = 1.0
 }
 
 --- @enum ow.DialogBoxControlState
@@ -92,13 +94,15 @@ function ow.DialogBox:instantiate(id)
         _node_offset_y = 0,
 
         _portrait_frame = rt.Frame(),
-        _portrait_left_x = 0,
-        _portrait_left_y = 0,
-        _portrait_right_x = 0,
-        _portrait_right_y = 0,
+        _portrait_frame_left_x = 0,
+        _portrait_frame_left_y = 0,
+        _portrait_frame_right_x = 0,
+        _portrait_frame_right_y = 0,
         _portrait_visible = false,
-        _portrait_left_or_right = true,
+        _portrait_frame_left_or_right = true,
         _portrait_canvas = nil, -- rt.RenderTexture
+
+        _bloom = nil,
 
         _speaker_id_to_portrait_callback = {}, -- Table<String, Function>
 
@@ -132,6 +136,8 @@ function ow.DialogBox:instantiate(id)
 
         _is_first_update = true,
     })
+
+    self._frame:set_is_animated(true)
 end
 
 local _node_type_text = "text"
@@ -377,7 +383,7 @@ function ow.DialogBox:_set_active_node(node)
         self._portrait_visible = self._speaker_id_to_portrait_callback[node.speaker_id] ~= nil
         self._node_offset_x, self._node_offset_y = 0, 0
 
-        self._portrait_left_or_right = node.speaker_orientation
+        self._portrait_frame_left_or_right = node.speaker_orientation
 
         local speaker_label = node.speaker
         self._speaker_visible = speaker_label ~= nil
@@ -450,8 +456,10 @@ function ow.DialogBox:size_allocate(x, y, width, height)
 
     self._frame_x = frame_x
     self._frame_y = frame_y
+    self._frame_w = frame_w
+    self._frame_h = frame_h
     self._frame:reformat(frame_x, frame_y, frame_w, frame_h)
-
+    
     local thickness = self._speaker_frame:get_thickness()
 
     local speaker_frame_w = 0 -- size-dependent values set in _set_active_node
@@ -462,20 +470,25 @@ function ow.DialogBox:size_allocate(x, y, width, height)
     self._speaker_frame_left_y = frame_y - 3 * m - thickness
     self._speaker_frame_right_x = frame_x + frame_w - m
     self._speaker_frame_right_y = self._speaker_frame_left_y
-    self._speaker_frame:reformat(0, 0, speaker_frame_w, speaker_frame_h)
+    self._speaker_frame:reformat(
+        0, 0,
+        self._speaker_frame_w, self._speaker_frame_h
+    )
 
     local sprite_scale = rt.get_pixel_scale()
     local portrait_w = rt.settings.overworld.dialog_box.portrait_resolution_w * sprite_scale + 2 * thickness
     local portrait_h = rt.settings.overworld.dialog_box.portrait_resolution_h * sprite_scale + 2 * thickness
 
-    self._portrait_left_x = frame_x + m
-    self._portrait_left_y = frame_y - speaker_frame_h - m - portrait_h
-    self._portrait_right_x = frame_x + frame_w - m - portrait_w
-    self._portrait_right_y = self._portrait_left_y
+    self._portrait_frame_left_x = frame_x + m
+    self._portrait_frame_left_y = frame_y - speaker_frame_h - m - portrait_h
+    self._portrait_frame_right_x = frame_x + frame_w - m - portrait_w
+    self._portrait_frame_right_y = self._portrait_frame_left_y
+    self._portrait_frame_w = portrait_w
+    self._portrait_frame_h = portrait_h
     self._portrait_frame:reformat(
         0, 0,
-        portrait_w,
-        portrait_h
+        self._portrait_frame_w,
+        self._portrait_frame_h
     )
 
     if self._portrait_canvas == nil
@@ -484,6 +497,8 @@ function ow.DialogBox:size_allocate(x, y, width, height)
     then
         self._portrait_canvas = rt.RenderTexture(portrait_w, portrait_h, rt.GameState:get_msaa_quality())
     end
+    
+    self:_try_initialize_bloom()
 
     do
         local advance_radius = m
@@ -539,6 +554,36 @@ function ow.DialogBox:size_allocate(x, y, width, height)
     )
 
     self:_set_active_node(self._active_node)
+end
+
+--- @brief
+function ow.DialogBox:_try_initialize_bloom()
+    if rt.GameState:get_is_bloom_enabled() ~= true then return end
+
+    local area_min_x = math.min(self._frame_x, self._speaker_frame_left_x, self._portrait_frame_left_x)
+    local area_min_y = math.min(self._frame_y, self._speaker_frame_left_y, self._portrait_frame_left_y)
+    local area_max_x = math.max(
+        self._frame_x + self._frame_w,
+        self._speaker_frame_right_x + self._speaker_frame_w,
+        self._portrait_frame_right_x + self._portrait_frame_w
+    )
+    local area_max_y = math.max(
+        self._frame_y + self._frame_h,
+        self._speaker_frame_right_y + self._speaker_frame_h,
+        self._portrait_frame_right_y + self._portrait_frame_h
+    )
+
+    local bloom_w, bloom_h = area_max_x - area_min_x, area_max_y - area_min_y
+
+    if self._bloom == nil
+        or self._bloom:get_width() ~= bloom_w
+        or self._bloom:get_height() ~= bloom_h
+    then
+        local padding = 2 * self._frame:get_thickness() + 40
+        self._bloom = rt.Bloom(bloom_w, bloom_h, padding)
+        self._bloom_x = area_min_x - padding
+        self._bloom_y = area_min_y - padding
+    end
 end
 
 --- @brief [internal]
@@ -670,6 +715,16 @@ function ow.DialogBox:update(delta)
     if control_state_before ~= control_state_after then
         self:signal_emit("control_state_changed", control_state_after)
     end
+
+    -- update portrait canvas
+    if self._portrait_visible then
+        love.graphics.push("all")
+        self._portrait_canvas:bind()
+        local callback = self._speaker_id_to_portrait_callback[self._active_node.speaker_id]
+        if meta.is_function(callback) then callback(self._portrait_canvas:get_size()) end
+        self._portrait_canvas:unbind()
+        love.graphics.pop()
+    end
 end
 
 --- @brief
@@ -715,7 +770,10 @@ end
 function ow.DialogBox:handle_button_pressed(which)
     local advance_button = rt.settings.overworld.dialog_box.advance_button
 
-    if self._active_choice_node ~= nil and self._active_node.is_done == true then
+    if self._active_node ~= nil
+        and self._active_choide_node ~= nil
+        and self._active_node.is_done == true
+    then
         local move_sound_id = rt.settings.overworld.dialog_box.menu_move_sound_id
         local confirm_sound_id = rt.settings.overworld.dialog_box.menu_confirm_sound_id
         local node = self._active_choice_node
@@ -761,102 +819,163 @@ function ow.DialogBox:handle_button_released(which)
     end
 end
 
+local MODE_BLOOM = 0
+local MODE_FRAME = 1
+local MODE_TEXT = 2
+
 --- @brief
 function ow.DialogBox:draw()
     if not self:get_is_realized() or self._done_emitted == true then return end
-    --love.graphics.clear(0.5, 0.5, 0.5, 1)
-    self._frame:draw()
 
-    if self._portrait_visible then
+    local _draw_frame = function(mode)
+        if mode == MODE_BLOOM then
+            self._frame:draw_bloom()
+        elseif mode == MODE_FRAME then
+            self._frame:draw()
+        end
+    end
 
-        love.graphics.push("all")
-        self._portrait_canvas:bind()
-        local callback = self._speaker_id_to_portrait_callback[self._active_node.speaker_id]
-        if meta.is_function(callback) then callback(self._portrait_canvas:get_size()) end
-        self._portrait_canvas:unbind()
-        love.graphics.pop()
+    local _draw_portrait = function(mode)
+        if self._portrait_visible ~= true then return end
 
         love.graphics.push()
-        if self._portrait_left_or_right then
-            love.graphics.translate(self._portrait_left_x, self._portrait_left_y)
+        if self._portrait_frame_left_or_right then
+            love.graphics.translate(self._portrait_frame_left_x, self._portrait_frame_left_y)
         else
-            love.graphics.translate(self._portrait_right_x, self._portrait_right_y)
+            love.graphics.translate(self._portrait_frame_right_x, self._portrait_frame_right_y)
         end
-        self._portrait_frame:draw()
-        self._portrait_frame:bind_stencil()
-        self._portrait_canvas:draw()
-        self._portrait_frame:unbind_stencil()
+
+        if mode == MODE_BLOOM then
+            self._portrait_frame:draw_bloom()
+        elseif mode == MODE_FRAME then
+            self._portrait_frame:draw()
+            self._portrait_frame:bind_stencil()
+            self._portrait_canvas:draw()
+            self._portrait_frame:unbind_stencil()
+        end
+
         love.graphics.pop()
     end
 
-    if self._speaker_visible then
+    local _draw_speaker = function(mode)
+        if self._speaker_visible ~= true then return end
+
         love.graphics.push()
-        if self._portrait_left_or_right then
+        if self._portrait_frame_left_or_right then
             love.graphics.translate(self._speaker_frame_left_x, self._speaker_frame_left_y)
         else
             love.graphics.translate(self._speaker_frame_right_x - self._speaker_frame_w, self._speaker_frame_right_y)
         end
-        self._speaker_frame:draw()
+
+        if mode == MODE_BLOOM then
+            self._speaker_frame:draw_bloom()
+        elseif mode == MODE_FRAME then
+            self._speaker_frame:draw()
+        end
+
         love.graphics.pop()
 
-        love.graphics.push()
-        if self._portrait_left_or_right then
-            love.graphics.translate(self._speaker_label_left_x, self._speaker_label_left_y)
-        else
-            love.graphics.translate(self._speaker_label_right_x - self._speaker_frame_w, self._speaker_label_right_y)
+        if mode == MODE_TEXT then
+            love.graphics.push()
+            if self._portrait_frame_left_or_right then
+                love.graphics.translate(self._speaker_label_left_x, self._speaker_label_left_y)
+            else
+                love.graphics.translate(self._speaker_label_right_x - self._speaker_frame_w, self._speaker_label_right_y)
+            end
+            self._active_node.speaker:draw()
+            love.graphics.pop()
         end
-        self._active_node.speaker:draw()
-        love.graphics.pop()
     end
 
-    if self._is_waiting_for_advance and self._active_node ~= nil then
+    local _draw_advance_indicator = function(mode)
         love.graphics.push()
         rt.Palette.BASE:bind()
         love.graphics.translate(0, self._advance_indicator_offset)
-        love.graphics.polygon("fill", self._advance_indicator)
 
-        love.graphics.setLineStyle("smooth")
-        love.graphics.setLineJoin("miter")
-
-        rt.Palette.BASE_OUTLINE:bind()
-        love.graphics.setLineWidth(self._advance_indicator_outline_w + 1)
-        love.graphics.line(self._advance_indicator_outline)
-
-        rt.Palette.FOREGROUND:bind()
-        love.graphics.setLineWidth(self._advance_indicator_outline_w)
-        love.graphics.line(self._advance_indicator_outline)
-        love.graphics.pop()
-    end
-
-    if self._active_node ~= nil then
-        love.graphics.push()
-        local stencil_value = rt.graphics.get_stencil_value()
-        rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW)
-        love.graphics.rectangle("fill", self._text_stencil:unpack())
-        rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.TEST)
-
-        love.graphics.translate(self._node_offset_x + self._frame_x, self._node_offset_y + self._frame_y)
-        for label in values(self._active_node.labels) do
-            label:draw()
+        if mode == MODE_FRAME then
+            rt.Palette.BASE:bind()
+            love.graphics.polygon("fill", self._advance_indicator)
         end
-        rt.graphics.set_stencil_mode(nil)
+
+        if mode == MODE_FRAME or mode == MODE_BLOOM then
+            love.graphics.setLineStyle("smooth")
+            love.graphics.setLineJoin("miter")
+
+            rt.Palette.BASE_OUTLINE:bind()
+            love.graphics.setLineWidth(self._advance_indicator_outline_w + 1)
+            love.graphics.line(self._advance_indicator_outline)
+
+            rt.Palette.FOREGROUND:bind()
+            love.graphics.setLineWidth(self._advance_indicator_outline_w)
+            love.graphics.line(self._advance_indicator_outline)
+        end
+
         love.graphics.pop()
     end
 
-    if self._active_choice_node ~= nil and self._active_node.is_done then
-        local node = self._active_choice_node
-        love.graphics.push()
-        love.graphics.translate(self._choice_frame_x, self._choice_frame_y)
-        self._choice_frame:draw()
-        for i = 1, node.n_answers do
-            if i == node.highlighted_answer_i then
-                node.highlighted_choice_labels[i]:draw()
-            else
-                node.choice_labels[i]:draw()
+    local _draw_active_node = function(mode)
+        if self._active_node == nil then return end
+
+        if mode == MODE_TEXT then
+            love.graphics.push()
+            local stencil_value = rt.graphics.get_stencil_value()
+            rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW)
+            love.graphics.rectangle("fill", self._text_stencil:unpack())
+            rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.TEST)
+
+            love.graphics.translate(self._node_offset_x + self._frame_x, self._node_offset_y + self._frame_y)
+            for label in values(self._active_node.labels) do
+                label:draw()
+            end
+            rt.graphics.set_stencil_mode(nil)
+            love.graphics.pop()
+
+            if self._active_node.is_done then
+                local node = self._active_choice_node
+                love.graphics.push()
+                love.graphics.translate(self._choice_frame_x, self._choice_frame_y)
+                self._choice_frame:draw()
+                for i = 1, node.n_answers do
+                    if i == node.highlighted_answer_i then
+                        node.highlighted_choice_labels[i]:draw()
+                    else
+                        node.choice_labels[i]:draw()
+                    end
+                end
+                love.graphics.pop()
             end
         end
+    end
+
+    -- draw base
+    _draw_frame(MODE_FRAME)
+    _draw_portrait(MODE_FRAME)
+    _draw_speaker(MODE_FRAME)
+    _draw_advance_indicator(MODE_FRAME)
+
+    -- draw bloom
+    if rt.GameState:get_is_bloom_enabled() then
+        self:_try_initialize_bloom()
+        love.graphics.push()
+        love.graphics.origin()
+        love.graphics.translate(-self._bloom_x, -self._bloom_y)
+        self._bloom:bind()
+        _draw_frame(MODE_BLOOM)
+        _draw_portrait(MODE_BLOOM)
+        _draw_speaker(MODE_BLOOM)
+        _draw_advance_indicator(MODE_BLOOM)
+        self._bloom:unbind()
+        love.graphics.pop()
+
+        love.graphics.push()
+        love.graphics.translate(self._bloom_x, self._bloom_y)
+        self._bloom:composite(rt.settings.overworld.dialog_box.bloom_strength)
         love.graphics.pop()
     end
+
+    -- draw text above bloom
+    _draw_speaker(MODE_TEXT)
+    _draw_active_node(MODE_TEXT)
 end
 
 --- @brief
