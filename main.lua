@@ -63,35 +63,76 @@ love.update = function(delta)
 end
 
 local instance
-local time
+local density = 1 / (1 * 10e3)
+local polygons
+local all = {}
 
 local _init = function()
-    package.loaded["common.voronoi_tesselation"] = nil
+    --package.loaded["common.voronoi_tesselation"] = nil
     require "common.voronoi_tesselation"
     local before = love.timer.getTime()
     instance = rt.VoronoiTesselation()
     local w, h = love.graphics.getDimensions()
+    local r = math.min(w, h) * 0.5
 
-    local x, y, rw, rh = 0.25 * w, 0.15 * h, 0.5 * w, 0.5 * h
+    local x, y, rw, rh = 0.5 * w - 0.5 * r, 0.5 * h - 0.5 * r, r, r
     local origin_x = rt.random.number(x, x + rw)
     local origin_y = rt.random.number(y, y + rh)
 
+    instance:set_seed_density(density)
     instance:generate_seeds(
         origin_x, origin_y,
         instance:rotate_rectangle(
             x, y, rw, rh,
             origin_x, origin_y,
-            rt.random.number(-0.05, 0.05) * 2 * math.pi
+            0
     ))
 
-    instance:tesselate()
-
+    polygons = instance:tesselate()
     time = (love.timer.getTime() - before) / (1 / 60)
 end
 
 DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
     if which == rt.KeyboardKey.K then
         _init()
+    elseif which == rt.KeyboardKey.ARROW_UP then
+        density = density + 1 / 300
+    elseif which == rt.KeyboardKey.ARROW_DOWN then
+        density = density - 1 / 300
+    elseif which == rt.KeyboardKey.J then
+        if polygons ~= nil then
+            local entry = all[#polygons]
+            if entry == nil then
+                entry = {}
+                all[#polygons] = entry
+            end
+
+            local vertices = {}
+            local min_x, min_y, max_x, max_y = math.huge, math.huge, -math.huge, -math.huge
+            for polygon in values(polygons) do
+                for i = 1, #polygon, 2 do
+                    min_x = math.min(min_x, polygon[i+0])
+                    max_x = math.max(max_x, polygon[i+0])
+                    min_y = math.min(min_y, polygon[i+1])
+                    max_y = math.max(max_y, polygon[i+1])
+                end
+            end
+
+            local normalized = {}
+            for polygon in values(polygons) do
+                local to_insert = {}
+                for i = 1, #polygon, 2 do
+                    table.insert(to_insert, (polygon[i+0] - min_x) / (max_x - min_x))
+                    table.insert(to_insert, (polygon[i+1] - min_y) / (max_y - min_y))
+                end
+                table.insert(normalized, to_insert)
+            end
+
+            table.insert(entry, normalized)
+            dbg("added ", normalized)
+        end
+    elseif which == rt.KeyboardKey.P then
+        love.filesystem.write("tesselations.lua", "return " .. table.serialize(all))
     end
 end)
 
@@ -112,7 +153,8 @@ love.draw = function()
     love.graphics.print(string.paste(
         "frame duration: " .. math.floor(time * 1000) / 1000 * 100 .. "%" .. "\n",
         "# triangles: " .. #instance._tris .. "\n",
-        "# polygons : " .. #instance._polygons
+        "# polygons : " .. #instance._polygons .. "\n",
+        "density : " .. density
     ), 100, 100)
 end
 
