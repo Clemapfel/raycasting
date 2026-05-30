@@ -571,6 +571,35 @@ function math.angle2(x, y)
     return math.atan2(y, x)
 end
 
+function math.fast_angle(x, y)
+    local ax = math.abs(x)
+    local ay = math.abs(y)
+    local L = ax + ay
+
+    if L == 0 then
+        return 0.0
+    end
+
+    local p
+    if x >= 0 and y >= 0 then
+        p = 2 * ay / L
+    elseif x < 0 and y >= 0 then
+        p = 2 + 2 * ax / L
+    elseif x < 0 and y < 0 then
+        p = 4 + 2 * ay / L
+    else -- x >= 0 and y < 0
+        p = 6 + 2 * ax / L
+    end
+
+    if p >= 8 then p = p - 8 end
+
+    if p <= 4 then
+        return (math.pi / 4) * p
+    else
+        return (math.pi / 4) * p - 2 * math.pi
+    end
+end
+
 math.angle = math.angle2
 
 --- @brief Get the distance between two 2D points.

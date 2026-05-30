@@ -1,3 +1,4 @@
 return {
-    strength = 1.25,
+    mix = 0.9,
+    seed_density = 1 / 800
 }

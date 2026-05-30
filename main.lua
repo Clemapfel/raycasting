@@ -44,7 +44,7 @@ love.load = function(args)
     end
 
     require "overworld.overworld_scene"
-    rt.SceneManager:push(ow.OverworldScene, "air_dash_node_tutorial", false)
+    --rt.SceneManager:push(ow.OverworldScene, "air_dash_node_tutorial", false)
 
     require "menu.keybinding_scene"
     --rt.SceneManager:push(mn.KeybindingScene)
@@ -62,12 +62,58 @@ love.update = function(delta)
     end
 end
 
+local instance
+local time
+
+local _init = function()
+    package.loaded["common.voronoi_tesselation"] = nil
+    require "common.voronoi_tesselation"
+    local before = love.timer.getTime()
+    instance = rt.VoronoiTesselation()
+    local w, h = love.graphics.getDimensions()
+
+    local x, y, rw, rh = 0.25 * w, 0.15 * h, 0.5 * w, 0.5 * h
+    local origin_x = rt.random.number(x, x + rw)
+    local origin_y = rt.random.number(y, y + rh)
+
+    instance:generate_seeds(
+        origin_x, origin_y,
+        instance:rotate_rectangle(
+            x, y, rw, rh,
+            origin_x, origin_y,
+            rt.random.number(-0.05, 0.05) * 2 * math.pi
+    ))
+
+    instance:tesselate()
+
+    time = (love.timer.getTime() - before) / (1 / 60)
+end
+
+DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
+    if which == rt.KeyboardKey.K then
+        _init()
+    end
+end)
+
 love.draw = function()
     love.graphics.clear(0.5, 0.5, 0.5, 1)
 
     if rt.SceneManager ~= nil then
         rt.SceneManager:draw()
     end
+
+    if instance == nil then
+        _init()
+    end
+
+    instance:draw()
+
+    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.print(string.paste(
+        "frame duration: " .. math.floor(time * 1000) / 1000 * 100 .. "%" .. "\n",
+        "# triangles: " .. #instance._tris .. "\n",
+        "# polygons : " .. #instance._polygons
+    ), 100, 100)
 end
 
 love.resize = function(width, height)

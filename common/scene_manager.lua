@@ -547,7 +547,7 @@ end
 
 --- @brief
 function rt.SceneManager:_reallocate_bloom()
-    require "common.bloom"
+    require "overworld.stage"
     self._bloom = rt.Bloom(
         self._width,
         self._height,
