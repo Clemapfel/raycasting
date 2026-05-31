@@ -553,6 +553,8 @@ end
 
 --- @brief
 function ow.OverworldScene:draw()
+    if self._stage == nil then return end
+
     local draw_below = function()
         love.graphics.push()
         love.graphics.origin()

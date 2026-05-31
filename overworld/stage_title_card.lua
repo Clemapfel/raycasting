@@ -7,7 +7,7 @@ rt.settings.overworld.stage_title_card = {
 }
 
 --- @class ow.StageTitleCard
-ow.StageTitleCard = meta.class("Fade", rt.Widget)
+ow.StageTitleCard = meta.class("StageTitleCard", rt.Widget)
 meta.add_signal(ow.StageTitleCard, "done")
 
 local _STATE_IDLE = 0

@@ -2,8 +2,32 @@ require "common.common"
 
 if meta == nil then meta = {} end
 
+--- @class meta.Number
+meta.Number = "Number"
+
+--- @class meta.Boolean
+meta.Boolean = "Boolean"
+
+--- @class meta.String
+meta.String = "String"
+
+--- @class meta.Table
+meta.Table = "Table"
+
+--- @class meta.Function
+meta.Function = "Function"
+
+--- @class meta.Coroutine
+meta.Coroutine = "Coroutine"
+
+--- @class meta.Nil
+meta.Nil = "Nil"
+
 --- @class meta.Type
+meta.Type = "Type"
+
 --- @class meta.Enum
+meta.Enum = "Enum"
 
 local _current_hash = 0
 
@@ -13,8 +37,15 @@ local _object_signal_component_index = _object_hash_index + 1
 
 local _instantiate_name = "instantiate"
 local _typenames = {
-    ["Type"] = true,
-    ["Enum"] = true
+    [meta.Number] = true,
+    [meta.Boolean] = true,
+    [meta.String] = true,
+    [meta.Table] = true,
+    [meta.Function] = true,
+    [meta.Coroutine] = true,
+    [meta.Nil] = true,
+    [meta.Type] = true,
+    [meta.Enum] = true
 }
 local _type_to_super = {}
 local _type_to_instance_metatable = {}
@@ -30,24 +61,24 @@ end
 function meta.is_type(x)
     if type(x) ~= "table" then return false end
     local mt = getmetatable(x)
-    return mt ~= nil and mt.__typename == "Type"
+    return mt ~= nil and mt.__typename == meta.Type
 end
 
 --- @brief
 function meta.is_enum(x)
     if type(x) ~= "table" then return false end
     local mt = getmetatable(x)
-    return mt ~= nil and mt.__typename == "Enum"
+    return mt ~= nil and mt.__typename == meta.Enum
 end
 
 local _native_type_to_type = {
-    ["nil"] = "Nil",
-    ["number"] = "Number",
-    ["string"] = "String",
-    ["boolean"] = "Boolean",
-    ["table"] = "Table",
-    ["function"] = "Function",
-    ["thread"] = "Coroutine"
+    ["nil"] = meta.Nil,
+    ["number"] = meta.Number,
+    ["string"] = meta.String,
+    ["boolean"] = meta.Boolean,
+    ["table"] = meta.Table,
+    ["function"] = meta.Function,
+    ["thread"] = meta.Coroutine
 }
 
 --- @brief
@@ -64,7 +95,7 @@ function meta.typeof(instance)
     else
         local typename = metatable.__typename
         if typename == nil then
-            return "Table"
+            return meta.Table
         else
             return typename
         end
@@ -119,7 +150,7 @@ function meta.assert(...)
             is_valid = meta.isa(instance, type)
             typename = meta.get_typename(type)
         else
-            rt.error("In meta.assert: wrong arguments for `meta.assert`: argument #", i + 1, ", expected Type, Enum or String, got `", meta.typeof(type))
+            rt.error("In meta.assert: wrong arguments for `meta.assert`: argument #", i + 1, ", expected ", meta.Type, ", ", meta.Enum, " or ", meta.String, " got `", meta.typeof(type))
             is_valid = true
         end
 
@@ -503,8 +534,13 @@ end
 --- @return meta.Type
 function meta.class(typename, super, instantiate_maybe)
     meta.assert(typename, "String")
-    if super ~= nil then rt.assert(meta.typeof(super) == "Type", "In meta.class: super is not a `Type`") end
-    if instantiate_maybe ~= nil then rt.assert(meta.is_function(instantiate_maybe), "In meta.class: instantiation is not a `Function`") end
+    if super ~= nil then rt.assert(meta.typeof(super) == meta.Type, "In meta.class: super is not a `", meta.Type, "`") end
+    if instantiate_maybe ~= nil then rt.assert(meta.is_function(instantiate_maybe), "In meta.class: instantiation is not a `", meta.Function, "`") end
+
+    if _typenames[typename] ~= nil then
+        rt.fatal("In meta.class: a type with typename `", typename, "` already exists")
+    end
+    _typenames[typename] = true
 
     -- instance metatable
     local type = {}
@@ -557,7 +593,7 @@ function meta.class(typename, super, instantiate_maybe)
             return typename
         end,
         __index = super,
-        __typename = "Type",
+        __typename = meta.Type,
         __signals = {}
     }
 
@@ -600,12 +636,12 @@ end
 
 --- @brief
 function meta.add_signals(type, ...)
-    meta.assert(type, "Type")
+    meta.assert(type, meta.Type)
 
     local metatable = type[_object_metatable_index]
     for i = 1, select("#", ...) do
         local id = select(i, ...)
-        rt.assert(meta.typeof(id) == "String", "In meta.add_signals: expected `String`, got `", meta.typeof(id), "`")
+        rt.assert(meta.typeof(id) == meta.String, "In meta.add_signals: expected `", meta.String, "`, got `", meta.typeof(id), "`")
         table.insert(metatable.__signals, id)
     end
 end
@@ -647,7 +683,7 @@ function meta.enum(typename, fields)
             return
         end,
 
-        __typename = "Enum",
+        __typename = meta.Enum,
         __tostring = function() return typename end,
         __value_to_is_present = {}
     }
@@ -759,7 +795,7 @@ end
 
 --- @brief
 function meta.make_id_table(t, scope, debug_mode)
-    meta.assert(t, "Table", scope, "String", debug_mode, "Boolean")
+    meta.assert(t, meta.Table, scope, meta.String, debug_mode, meta.Boolean)
 
     if debug_mode then
         rt.warning("In meta.make_id_table: debug mode for `", scope, "` is active, ids will be overriden")
@@ -813,7 +849,7 @@ end
 
 --- @brief
 function meta.get_instance_metatable(type)
-    meta.assert(type, "Type")
+    meta.assert(type, meta.Type)
     return _type_to_instance_metatable[type]
 end
 

@@ -49,7 +49,8 @@ function rt.SceneManager:instantiate()
         _should_use_fade = false,
         _use_fixed_timestep = false,
 
-        _start_time = love.timer.getTime();
+        _start_time = love.timer.getTime(),
+        _elapsed = 0,
 
         _bloom = nil, -- initialized on first use
         _hdr = nil, -- ^
@@ -57,7 +58,7 @@ function rt.SceneManager:instantiate()
 
         _screen_recorder = rt.ScreenRecorder, -- sic, no (), singleton instance
 
-        _cursor_visible = true,
+        _is_cursor_visible = false,
         _cursor = rt.Cursor(),
 
         _restart_active = false,
@@ -227,6 +228,8 @@ function rt.SceneManager:update(delta)
         end
     end
 
+    self._elapsed = self._elapsed + delta
+
     rt.GameState:update(delta)
     rt.InputManager:update(delta)
     rt.Animalese:update(delta)
@@ -313,7 +316,7 @@ function rt.SceneManager:draw(...)
         ]]
     end
 
-    if self._cursor_visible then
+    if self._is_cursor_visible then
         self._cursor:draw()
     end
 end
@@ -395,7 +398,7 @@ end
 
 --- @brief
 function rt.SceneManager:get_elapsed()
-    return math.fmod(love.timer.getTime() - self._start_time, 12 * 3600) -- 12h
+    return self._elapsed --math.fmod(love.timer.getTime() - self._start_time, 12 * 3600) -- 12h
 end
 
 --- @brief
@@ -599,12 +602,12 @@ end
 
 --- @brief
 function rt.SceneManager:set_is_cursor_visible(b)
-    self._cursor_visible = b
+    self._is_cursor_visible = b
 end
 
 --- @brief
 function rt.SceneManager:get_is_cursor_visible()
-    return self._cursor_visible
+    return self._is_cursor_visible
 end
 
 --- @brief
