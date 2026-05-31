@@ -23,10 +23,12 @@ rt.settings.overworld.light_map = {
     intensity = 1,
     intensity_texture_format = rt.TextureFormat.RGBA8,
     direction_texture_format = rt.TextureFormat.RG16F,
-    mask_texture_format = rt.TextureFormat.R8
+    mask_texture_format = rt.TextureFormat.R8,
+
+    min_resize_interval_duration = 60 / 60
 }
 
-local _use_byte_data = false
+local _use_byte_data = ffi == nil
 
 --- @class ow.LightMap
 ow.LightMap = meta.class("LightMap")
@@ -96,7 +98,7 @@ function ow.LightMap:reset()
     self._measured_n_point_lights_per_tile = 0
     self._measured_n_segment_lights_per_tile = 0
 
-    self._resize_frames = {} -- Set<Integer, Boolean>
+    self._resize_to_timestamp = {}
     self:_reinitialize(
         settings.start_n_point_lights,
         settings.start_n_segment_lights,
@@ -119,6 +121,8 @@ function ow.LightMap:_reinitialize(
         new_n_segment_lights_per_tile, "Number"
     )
 
+    local was_reinitialized = false
+
     local defines = self._shader_defines
     local should_recompile = defines.MAX_N_POINT_LIGHTS ~= new_n_point_lights
         or defines.MAX_N_SEGMENT_LIGHTS ~= new_n_segment_lights
@@ -130,11 +134,9 @@ function ow.LightMap:_reinitialize(
         defines.MAX_N_SEGMENT_LIGHTS = new_n_segment_lights
         defines.N_POINT_LIGHTS_PER_TILE = new_n_point_lights_per_tile
         defines.N_SEGMENT_LIGHTS_PER_TILE = new_n_segment_lights_per_tile
-        dbg(defines)
         self._shader = rt.ComputeShader("overworld/light_map_compute.glsl", defines)
+        was_reinitialized = true
     end
-
-    self._resize_frames[rt.SceneManager:get_frame_index()] = true
 
     if self._point_light_buffer == nil
         or self._point_light_buffer:get_n_elements() ~= new_n_point_lights
@@ -150,6 +152,8 @@ function ow.LightMap:_reinitialize(
         else
             self._point_light_buffer_data = ffi.cast("float*", self._point_light_buffer:get_byte_data():get_native():getFFIPointer())
         end
+
+        was_reinitialized = true
     end
 
     if self._segment_light_buffer == nil
@@ -166,6 +170,8 @@ function ow.LightMap:_reinitialize(
         else
             self._segment_light_buffer_data = ffi.cast("float*", self._segment_light_buffer:get_byte_data():get_native():getFFIPointer())
         end
+
+        was_reinitialized = true
     end
 
     if self._tile_data_buffer == nil
@@ -193,6 +199,12 @@ function ow.LightMap:_reinitialize(
         else
             self._tile_data_buffer_data = ffi.cast("int32_t*", self._tile_data_buffer:get_byte_data():get_native():getFFIPointer())
         end
+
+        was_reinitialized = true
+    end
+
+    if was_reinitialized then
+        table.insert(self._resize_to_timestamp, 1, love.timer.getTime())
     end
 end
 
@@ -605,8 +617,6 @@ do
         local point_spatial_hash = {}
         local segment_spatial_hash = {}
 
-        debugger.push("collect")
-
         -- early broad-phase rejection
         local bounds_x, bounds_y, bounds_width, bounds_height = stage:get_scene():get_camera():get_world_bounds():unpack()
         local contains_point = function(x, y, r)
@@ -739,111 +749,130 @@ do
         shader:send("mask_texture", self._mask_texture)
         shader:dispatch(self._dispatch_x, self._dispatch_y)
 
-        -- resize logic 
-        
-        -- measure usage above buffer
-        local n_segment_lights_per_tile = 0
-        local n_point_lights_per_tile = 0
+        -- resize logic
 
-        for count in values(tile_i_to_n_point_lights) do
-            n_point_lights_per_tile = math.max(n_point_lights_per_tile, count)
-        end
+        do
 
-        for count in values(tile_i_to_n_segment_lights) do
-            n_segment_lights_per_tile = math.max(n_segment_lights_per_tile, count)
-        end
+            -- measure usage above buffer
+            local n_segment_lights_per_tile = 0
+            local n_point_lights_per_tile = 0
 
-        self._measured_n_point_lights = math.max(self._measured_n_point_lights, n_point_lights)
-        self._measured_n_segment_lights = math.max(self._measured_n_segment_lights, n_segment_lights)
-        self._measured_n_point_lights_per_tile = math.max(self._measured_n_point_lights_per_tile, n_point_lights_per_tile)
-        self._measured_n_segment_lights_per_tile = math.max(self._measured_n_segment_lights_per_tile, n_segment_lights_per_tile)
-
-        if self._resize_frames[rt.SceneManager:get_frame_index()] ~= true then
-            local grow = function(x, max)
-                local before = x
-                local after = math.min(max, math.ceil(x / 16) * 16)
-                return after
+            for count in values(tile_i_to_n_point_lights) do
+                n_point_lights_per_tile = math.max(n_point_lights_per_tile, count)
             end
 
-            local new_n_point_lights
-            local new_n_segment_lights
-            local new_n_point_lights_per_tile
-            local new_n_segment_lights_per_tile
-
-            if self._measured_n_point_lights > point_light_buffer_n_elements then
-                new_n_point_lights = grow(
-                    self._measured_n_point_lights,
-                    settings.max_n_point_lights
-                )
-                self._measured_n_point_lights = point_light_buffer_n_elements
+            for count in values(tile_i_to_n_segment_lights) do
+                n_segment_lights_per_tile = math.max(n_segment_lights_per_tile, count)
             end
 
-            if self._measured_n_segment_lights > segment_light_buffer_n_elements then
-                new_n_segment_lights = grow(
-                    self._measured_n_segment_lights,
-                    settings.max_n_segment_lights
-                )
-                self._measured_n_segment_lights = segment_light_buffer_n_elements
+            self._measured_n_point_lights = math.max(self._measured_n_point_lights, n_point_lights)
+            self._measured_n_segment_lights = math.max(self._measured_n_segment_lights, n_segment_lights)
+            self._measured_n_point_lights_per_tile = math.max(self._measured_n_point_lights_per_tile, n_point_lights_per_tile)
+            self._measured_n_segment_lights_per_tile = math.max(self._measured_n_segment_lights_per_tile, n_segment_lights_per_tile)
+
+            -- check if resize happened in the previous time, if yes, disallow to prevent lag spirals
+            local allow_resize = true
+            local now, min_time = love.timer.getTime(), rt.settings.overworld.light_map.min_resize_interval_duration
+            for _, timestamp in ipairs(self._resize_to_timestamp) do
+                if now - timestamp < min_time then
+                    allow_resize = false
+                    break
+                end
             end
 
-            if self._measured_n_point_lights_per_tile > self._n_point_lights_per_tile then
-                new_n_point_lights_per_tile = grow(
-                    self._measured_n_point_lights_per_tile,
-                    settings.max_n_point_lights_per_tile
-                )
-                self._measured_n_point_lights_per_tile = self._n_point_lights_per_tile
-            end
-
-            if self._measured_n_segment_lights_per_tile > self._n_segment_lights_per_tile then
-                new_n_segment_lights_per_tile = grow(
-                    self._measured_n_segment_lights_per_tile,
-                    settings.max_n_segment_lights_per_tile
-                )
-                self._measured_n_segment_lights_per_tile = self._n_segment_lights_per_tile
-            end
-            
-            if new_n_point_lights ~= point_light_buffer_n_elements
-                or new_n_segment_lights ~= segment_light_buffer_n_elements
-                or new_n_point_lights_per_tile ~= self._n_point_lights_per_tile
-                or new_n_segment_lights_per_tile ~= self._n_segment_lights_per_tile
-            then
-
-                local n_point_lights_before = self._point_light_buffer:get_n_elements()
-                local n_segment_lights_before = self._segment_light_buffer:get_n_elements()
-                local n_point_lights_per_tile_before = self._n_point_lights_per_tile
-                local n_segment_lights_per_tile_before = self._n_segment_lights_per_tile
-
-                self:_reinitialize(
-                    new_n_point_lights,
-                    new_n_segment_lights,
-                    new_n_point_lights_per_tile,
-                    new_n_segment_lights_per_tile
-                )
-
-                local n_point_lights_after = self._point_light_buffer:get_n_elements()
-                local n_segment_lights_after = self._segment_light_buffer:get_n_elements()
-                local n_point_lights_per_tile_after = self._n_point_lights_per_tile
-                local n_segment_lights_per_tile_after = self._n_segment_lights_per_tile
-
-                local parts = {}
-                if n_point_lights_before ~= n_point_lights_after then
-                    table.insert(parts, "# point lights: " .. n_point_lights_before .. " -> " .. n_point_lights_after)
+            if allow_resize then
+                local grow = function(x, max)
+                    local before = x
+                    local after = math.min(max, math.ceil(x / 16) * 16)
+                    return after
                 end
 
-                if n_segment_lights_before ~= n_segment_lights_after then
-                    table.insert(parts, "# segment lights: " .. n_segment_lights_before .. " -> " .. n_segment_lights_after)
+                local new_n_point_lights = self._point_light_buffer:get_n_elements()
+                local new_n_segment_lights = self._segment_light_buffer:get_n_elements()
+                local new_n_point_lights_per_tile = self._n_point_lights_per_tile
+                local new_n_segment_lights_per_tile = self._n_segment_lights_per_tile
+
+                if self._measured_n_point_lights > point_light_buffer_n_elements then
+                    new_n_point_lights = grow(
+                        self._measured_n_point_lights,
+                        settings.max_n_point_lights
+                    )
+                    self._measured_n_point_lights = point_light_buffer_n_elements
                 end
 
-                if n_point_lights_per_tile_before ~= n_point_lights_per_tile_after then
-                    table.insert(parts, "# point lights per tile: " .. n_point_lights_per_tile_before .. " -> " .. n_point_lights_per_tile_after)
+                if self._measured_n_segment_lights > segment_light_buffer_n_elements then
+                    new_n_segment_lights = grow(
+                        self._measured_n_segment_lights,
+                        settings.max_n_segment_lights
+                    )
+                    self._measured_n_segment_lights = segment_light_buffer_n_elements
                 end
 
-                if n_segment_lights_per_tile_before ~= n_segment_lights_per_tile_after then
-                    table.insert(parts, "# segment lights per tile " .. n_segment_lights_per_tile_before .. " -> " .. n_segment_lights_per_tile_after)
+                if self._measured_n_point_lights_per_tile > self._n_point_lights_per_tile then
+                    new_n_point_lights_per_tile = grow(
+                        self._measured_n_point_lights_per_tile,
+                        settings.max_n_point_lights_per_tile
+                    )
+                    self._measured_n_point_lights_per_tile = self._n_point_lights_per_tile
                 end
 
-                if not table.is_empty(parts) then
-                    rt.warning("In ow.LightMap.update: resized graphics buffers " .. table.concat(parts, ", "))
+                if self._measured_n_segment_lights_per_tile > self._n_segment_lights_per_tile then
+                    new_n_segment_lights_per_tile = grow(
+                        self._measured_n_segment_lights_per_tile,
+                        settings.max_n_segment_lights_per_tile
+                    )
+                    self._measured_n_segment_lights_per_tile = self._n_segment_lights_per_tile
+                end
+
+                if new_n_point_lights ~= point_light_buffer_n_elements
+                    or new_n_segment_lights ~= segment_light_buffer_n_elements
+                    or new_n_point_lights_per_tile ~= self._n_point_lights_per_tile
+                    or new_n_segment_lights_per_tile ~= self._n_segment_lights_per_tile
+                then
+                    local n_point_lights_before = self._point_light_buffer:get_n_elements()
+                    local n_segment_lights_before = self._segment_light_buffer:get_n_elements()
+                    local n_point_lights_per_tile_before = self._n_point_lights_per_tile
+                    local n_segment_lights_per_tile_before = self._n_segment_lights_per_tile
+
+                    self:_reinitialize(
+                        new_n_point_lights,
+                        new_n_segment_lights,
+                        new_n_point_lights_per_tile,
+                        new_n_segment_lights_per_tile
+                    )
+
+                    local n_point_lights_after = self._point_light_buffer:get_n_elements()
+                    local n_segment_lights_after = self._segment_light_buffer:get_n_elements()
+                    local n_point_lights_per_tile_after = self._n_point_lights_per_tile
+                    local n_segment_lights_per_tile_after = self._n_segment_lights_per_tile
+
+                    local parts = {}
+                    if n_point_lights_before ~= n_point_lights_after then
+                        table.insert(parts, "# point lights: " .. n_point_lights_before .. " -> " .. n_point_lights_after)
+                    end
+
+                    if n_segment_lights_before ~= n_segment_lights_after then
+                        table.insert(parts, "# segment lights: " .. n_segment_lights_before .. " -> " .. n_segment_lights_after)
+                    end
+
+                    if n_point_lights_per_tile_before ~= n_point_lights_per_tile_after then
+                        table.insert(parts, "# point lights per tile: " .. n_point_lights_per_tile_before .. " -> " .. n_point_lights_per_tile_after)
+                    end
+
+                    if n_segment_lights_per_tile_before ~= n_segment_lights_per_tile_after then
+                        table.insert(parts, "# segment lights per tile " .. n_segment_lights_per_tile_before .. " -> " .. n_segment_lights_per_tile_after)
+                    end
+
+                    if not table.is_empty(parts) then
+                        rt.warning("In ow.LightMap.update: resized graphics buffers " .. table.concat(parts, ", "))
+                        -- force compute step to make this frame the lag frame
+
+                        if _light_map_guard == nil then -- prevent stack overflow
+                            _light_map_guard = true
+                            pcall(self.update, self, stage)
+                            _light_map_guard = nil
+                        end
+                    end
                 end
             end
         end
