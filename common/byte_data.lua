@@ -68,6 +68,8 @@ function rt.ByteData:cast(format)
         local entry = _format_to_getter_setter[self._format]
         self._getter = self._native[entry.get]
         self._setter = self._native[entry.set]
+
+        rt.assert(self._getter ~= nil and self._setter ~= nil, "In rt.ByteData: invalid format: `", entry, "`")
         self._stride = rt.ByteData.format_to_n_bytes(self._format)
     else
         self._pointer = ffi.cast(self._format .. "*", self._native:getFFIPointer())
@@ -76,7 +78,7 @@ function rt.ByteData:cast(format)
     return self
 end
 
-if ffi == nil then
+if ffi ~= nil then
     --- @brief
     function rt.ByteData:get(i)
         return self._pointer[i - 1]
