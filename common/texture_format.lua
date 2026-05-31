@@ -116,7 +116,7 @@ rt.graphics.texture_format_get_fallback = function(format, is_canvas)
 
     -- if no fallback found, may error on newCanvas
     if resolved == nil then
-        rt.critical("In rt.TextureFormat: not fallback for texture `", format, "` available")
+        rt.critical("In rt.TextureFormat: no fallback for texture `", format, "` available")
         return format
     else
         return resolved
@@ -132,10 +132,6 @@ rt.TextureFormat = meta.enum("TextureFormat", rt.TextureFormat)
 --- @brief
 rt.graphics.texture_format_to_glsl_identifier = function(x)
     local _texture_format_to_glsl_identifier = {
-        ["srgba8"] = "rgba8",
-        ["rgba4"] = "rgba8",
-        ["rgb5a1"] = "rgba8",
-        ["rgb565"] = "rgba8",
         ["rgb10a2"] = "rgb10_a2",
         ["rg11b10f"] = "r11f_g11f_b10f",
         ["normal"] = "rgba8",
