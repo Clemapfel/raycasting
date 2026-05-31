@@ -54,6 +54,8 @@ function ow.Goal:instantiate(object, stage, scene)
         _shatter_velocity_x = 0,
         _shatter_velocity_y = 0,
 
+        _rotation = object:get_rotation(),
+
         _indicator_outline = { 0, 0, 1, 1 }, -- love.Line
         _indicator_line = { 0, 0, 1, 1 }, -- love.Line
         _indicator = nil, -- rt.Mesh
@@ -75,7 +77,7 @@ function ow.Goal:instantiate(object, stage, scene)
         _impulse = rt.ImpulseSubscriber()
     })
 
-    rt.assert(object:get_type() == ow.ObjectType.RECTANGLE and object:get_rotation() == 0, "In ow.Goal: object `", object:get_id(), "` in stage `", self._stage:get_id(), "` is not an axis-aligned rectangle")
+    rt.assert(object:get_type() == ow.ObjectType.RECTANGLE, "In ow.Goal: object `", object:get_id(), "` in stage `", self._stage:get_id(), "` is not a rectangle")
     self._bounds = rt.AABB(object.x, object.y, object.width, object.height)
 
     -- animations
@@ -137,6 +139,7 @@ function ow.Goal:instantiate(object, stage, scene)
             self._bounds.x + 0.5 * self._bounds.width, self._bounds.y + 0.5 * self._bounds.height,
             b2.Rectangle(-0.5 * w, -0.5 * h, w, h)
         )
+        self._body:set_rotation(self._rotation)
 
         local offset = rt.settings.overworld.goal.outline_width / 2 -- for pixel perfect hitbox accuracy
 
@@ -197,17 +200,18 @@ function ow.Goal:instantiate(object, stage, scene)
                 rt.settings.overworld.checkpoint_rope.radius
             )
 
+            local tlx, tly = math.rotate(x, y, self._rotation)
+            local trx, try = math.rotate(x + width, y, self._rotation)
+            local brx, bry = math.rotate(x + width, y + height, self._rotation)
+            local blx, bly = math.rotate(x, y + height, self._rotation)
+
             self._path = rt.Path(
-                x, y,
-                x + width, y,
-                x + width, y + height,
-                x, y + height,
-                x, y
+                tlx, tly, trx, try, brx, bry, blx, bly, tlx, tly
             )
 
             self._shatter_surface = ow.ShatterSurface(
                 self._scene, self._world,
-                x, y, width, height
+                x, y, width, height, self._rotation
             )
         end
 
@@ -219,15 +223,15 @@ function ow.Goal:instantiate(object, stage, scene)
             if self._is_shattered == false then
                 self._is_shattered = true
                 self._scene:stop_timer()
-                self._shatter_velocity_x, self._shatter_velocity_y = self._scene:get_player():get_velocity()
-                local min_x, max_x = self._bounds.x, self._bounds.x + self._bounds.width
-                local min_y, max_y = self._bounds.y, self._bounds.y + self._bounds.height
 
                 local px, py = self._scene:get_player():get_position()
-                px, py = math.subtract(px, py, self._body:get_position())
-                self._final_player_position_x, self._final_player_position_y = px, py
+                local gx, gy = self._body:get_position()
+                local lx, ly = math.rotate(px - gx, py - gy, -self._rotation)
 
-                self._shatter_surface:shatter(px, py, self._shatter_velocity_x, self._shatter_velocity_y)
+                self._final_player_position_x, self._final_player_position_y = lx, ly
+                self._shatter_velocity_x, self._shatter_velocity_y = self._scene:get_player():get_velocity()
+
+                self._shatter_surface:shatter(lx, ly, self._shatter_velocity_x, self._shatter_velocity_y)
                 rt.ImpulseManager:pulse()
 
                 self._flash_animation:reset()
@@ -394,6 +398,8 @@ function ow.Goal:draw(priority)
         love.graphics.translate(offset_x, offset_y)
 
         if self._is_shattered == false then
+            love.graphics.push()
+            love.graphics.rotate(self._rotation)
             _outline_shader:bind()
             _outline_shader:send("elapsed", rt.SceneManager:get_elapsed())
             _outline_shader:send("color", { self._color:unpack() })
@@ -401,6 +407,7 @@ function ow.Goal:draw(priority)
             _outline_shader:send("bloom_active", false)
             self._outline_mesh:draw()
             _outline_shader:unbind()
+            love.graphics.pop()
 
             -- dont draw time until result screen for suspense
             love.graphics.push()

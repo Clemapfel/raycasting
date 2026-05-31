@@ -281,7 +281,6 @@ function ow.AirDashNodeManager:update(delta)
         and self._next_node:check_player_overlap()
     then
         self:_tether(self._next_node)
-        dbg("regular", meta.hash(self._tethered_node))
     end
 
     -- chain tether
@@ -305,7 +304,6 @@ function ow.AirDashNodeManager:update(delta)
 
             if chain_node ~= nil then
                 self:_tether(chain_node)
-                dbg("chain", meta.hash(chain_node))
             end
         end
     end

@@ -1,5 +1,5 @@
 --- @class b2.Shape
-b2.Shape = meta.abstract_class("Shape")
+b2.Shape = meta.abstract_class("PhysicsShape")
 
 local _fill_a = 0.4
 local _line_a = 1

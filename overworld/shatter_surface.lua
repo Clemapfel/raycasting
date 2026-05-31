@@ -33,7 +33,7 @@ function ow.ShatterSurface:instantiate(scene, world, x, y, width, height, angle)
     self._scene = scene
     self._world = world
     self._bounds = rt.AABB(x, y, width, height)
-    self._angle = angle
+    self._rotation = angle or 0
 
     self._parts = {}
 
@@ -59,24 +59,105 @@ function ow.ShatterSurface:instantiate(scene, world, x, y, width, height, angle)
     self._impulse = rt.ImpulseSubscriber()
 end
 
---- @brief
-function ow.ShatterSurface:shatter(origin_x, origin_y, velocity_x, velocity_y)
-    meta.assert(origin_x, "Number", origin_y, "Number")
+local function polygon_area(vertices)
+    local area = 0
+    local n = #vertices / 2
 
-    do
-        local cell_size = 2 * rt.settings.overworld.shatter_surface.cell_size
-        origin_x = math.clamp(origin_x, self._bounds.x + cell_size, self._bounds.x + self._bounds.width - cell_size)
-        origin_y = math.clamp(origin_y, self._bounds.y + cell_size, self._bounds.y + self._bounds.height - cell_size)
+    -- shoelace formula
+    for i = 1, n do
+        local j = (i % n) + 1
+        local xi = vertices[(i-1) * 2 + 1]
+        local yi = vertices[(i-1) * 2 + 2]
+        local xj = vertices[(j-1) * 2 + 1]
+        local yj = vertices[(j-1) * 2 + 2]
+
+        area = area + (xi * yj) - (xj * yi)
     end
 
-    local outer_bounds = self._bounds
+    return math.abs(area / 2)
+end
+
+--- @brief
+function ow.ShatterSurface:shatter(origin_x, origin_y, velocity_x, velocity_y)
+    local settings = rt.settings.overworld.shatter_surface
+    local w, h = self._bounds.width, self._bounds.height
 
     self._parts = {}
     self._is_done = false
     self._is_shattered = true
-    self._callback = rt.Coroutine(function()
-        self._voronoi_tesselation = rt.VoronoiTesselation()
 
+    local start = love.timer.getTime()
+    self._callback = rt.Coroutine(function()
+        local tesselation = rt.VoronoiTesselation()
+        -- Generate seeds in axis-aligned local space
+        tesselation:generate_seeds(origin_x, origin_y,
+            -0.5 * w, -0.5 * h,
+            0.5 * w, -0.5 * h,
+            0.5 * w,  0.5 * h,
+            -0.5 * w,  0.5 * h
+        )
+
+        coroutine.yield()
+
+        for polygon in values(tesselation:tesselate()) do
+            table.insert(self._parts, { vertices = polygon })
+        end
+
+        coroutine.yield()
+
+        local min_mass, max_mass, max_distance = math.huge, -math.huge, -math.huge
+        for part in values(self._parts) do
+            local mx, my, n = 0, 0, 0
+            for i = 1, #part.vertices, 2 do
+                mx, my, n = mx + part.vertices[i], my + part.vertices[i+1], n + 1
+            end
+            mx, my = mx / n, my / n
+
+            for i = 1, #part.vertices, 2 do
+                part.vertices[i], part.vertices[i+1] = part.vertices[i] - mx, part.vertices[i+1] - my
+            end
+
+            part.x, part.y = mx, my -- local AA centroid
+            part.distance = math.distance(mx, my, origin_x, origin_y)
+            part.mass = polygon_area(part.vertices)
+            min_mass, max_mass = math.min(min_mass, part.mass), math.max(max_mass, part.mass)
+            max_distance = math.max(max_distance, part.distance)
+        end
+
+        local entry_i = 1
+        local hue = rt.GameState:get_player():get_hue()
+        local hue_range = 0.5 * rt.settings.overworld.shatter_surface.hue_range
+        for part in values(self._parts) do
+            part.color = rt.RGBA(rt.lcha_to_rgba(
+                rt.random.number(0.6, 0.85),
+                1,
+                math.fract(math.mix(hue - hue_range, hue + hue_range, part.distance / max_distance)),
+                1
+            ))
+
+            local wx, wy = math.rotate(part.x, part.y, self._rotation)
+            part.body = b2.Body(self._world, b2.BodyType.DYNAMIC, wx + self._offset_x, wy + self._offset_y, b2.Polygon(part.vertices))
+            part.body:set_rotation(self._rotation)
+            part.body:add_tag("stencil", "unjumpable", "unwalkable", "slippery", "point_light_source")
+            part.body:set_user_data(part)
+            part.collect_point_lights = function(_, callback)
+                local bx, by = part.body:get_position()
+                callback(bx, by, 1, part.color:unpack())
+            end
+
+            local evx, evy = math.normalize(part.x - origin_x, part.y - origin_y)
+            evx, evy = math.rotate(evx * settings.velocity_magnitude, evy * settings.velocity_magnitude, self._rotation)
+
+            local shard_mass = part.body:get_mass()
+            local t = math.magnitude(math.abs(part.x - origin_x) / w, math.abs(part.y - origin_y) / h)
+
+            part.body:set_velocity(evx + (velocity_x / (shard_mass * (1 + t)) * settings.player_velocity_influence), evy + (velocity_y / (shard_mass * (1 + t)) * settings.player_velocity_influence))
+            part.body:set_restitution(1)
+
+            part.mesh = self._generate_mesh(part.vertices, -0.5 * w - part.x, -0.5 * h - part.y, 0.5 * w - part.x, 0.5 * h - part.y)
+        end
+
+        self._is_done = true
     end):start()
 end
 
@@ -85,7 +166,7 @@ function ow.ShatterSurface:update(delta)
     if not self._is_shattered then return end
 
     -- distribute load over multiple frames
-    if not self._callback:get_is_done() then
+    if self._callback ~= nil and not self._callback:get_is_done() then
         self._callback:resume()
         return
     end
@@ -119,6 +200,7 @@ function ow.ShatterSurface:draw()
     if not self._is_done then
         love.graphics.push()
         love.graphics.translate(self._offset_x, self._offset_y)
+        love.graphics.rotate(self._rotation)
         self._pre_shatter_mesh:draw()
         love.graphics.pop()
     else
@@ -126,12 +208,16 @@ function ow.ShatterSurface:draw()
             part.color:bind()
             love.graphics.push()
             love.graphics.translate(part.x, part.y)
-            love.graphics.rotate(part.angle) -- part centered at origin
+            love.graphics.rotate(part.body:get_rotation()) -- part centered at origin
             love.graphics.draw(part.mesh:get_native())
             love.graphics.pop()
         end
     end
     _shader:unbind()
+
+    if self._tesselation ~= nil then
+        love.graphics.circle("fill", self._tesselation_origin_x, self._tesselation_origin_y, 10)
+    end
 end
 
 --- @brief
@@ -145,6 +231,7 @@ function ow.ShatterSurface:draw_bloom()
 
         love.graphics.push()
         love.graphics.translate(self._offset_x, self._offset_y)
+        love.graphics.rotate(self._rotation)
         self._pre_shatter_mesh:draw()
         love.graphics.pop()
 

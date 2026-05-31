@@ -1,10 +1,17 @@
 require "common.delaunay_triangulation"
 
 rt.settings.voronoi_tesselation = {
+    seed_density = 1 / 400, -- #seeds per px^2
+    randomization = 1 -- unitless
 }
 
 --- @class rt.VoronoiTesselation
 rt.VoronoiTesselation = meta.class("VoronoiTesselation")
+
+--- @brief
+function rt.VoronoiTesselation:instantiate()
+    self._seed_density = rt.settings.voronoi_tesselation.seed_density
+end
 
 -- check if point is in rotated rectangle
 local _point_in_area = function(px, py, x0, y0, x1, y1, x2, y2, x3, y3)
@@ -20,7 +27,7 @@ local _squared_distance = function(x1, y1, x2, y2)
 end
 
 local _rand = function(a, b)
-    local t = math.random()
+    local t = love.math.random()
     return t * a + (1 - t) * b
 end
 
@@ -41,9 +48,22 @@ function rt.VoronoiTesselation:rotate_rectangle(rect_x, rect_y, rect_w, rect_h, 
 end
 
 --- @brief
+function rt.VoronoiTesselation:set_seed_density(density)
+    self._seed_density = density
+end
+
+--- @brief
 function rt.VoronoiTesselation:generate_seeds(
     origin_x, origin_y, tl_x, tl_y, tr_x, tr_y, br_x, br_y, bl_x, bl_y
 )
+    meta.assert(
+        origin_x, "Number", origin_y, "Number",
+        tl_x, "Number", tl_y, "Number",
+        tr_x, "Number", tr_y, "Number",
+        br_x, "Number", br_y, "Number",
+        bl_x, "Number", bl_y, "Number"
+    )
+
     local radius = math.sqrt(math.max(
         _squared_distance(origin_x, origin_y, tl_x, tl_y),
         _squared_distance(origin_x, origin_y, tr_x, tr_y),
@@ -55,13 +75,14 @@ function rt.VoronoiTesselation:generate_seeds(
         return rt.InterpolationFunctions.EXPONENTIAL_ACCELERATION(t)
     end
 
-    local seed_density = debugger.get("seed_density")
-
     local golden_angle = math.pi * (3 - math.sqrt(5))
     local circle_area = (math.pi * radius * radius)
-    local n_particles = math.ceil(circle_area * seed_density)
+    local n_particles = math.ceil(circle_area * self._seed_density)
 
-    local seeds = {} -- Table<Number>
+    local seeds = {}
+    local randomness = 4 * rt.SceneManager:get_elapsed() --rt.settings.voronoi_tesselation.randomization
+
+    love.math.setRandomSeed(0)
 
     for t_raw = 0, t_easing(1), 1 / n_particles do
         local t = t_easing(t_raw)
@@ -71,45 +92,34 @@ function rt.VoronoiTesselation:generate_seeds(
         local seed_x = origin_x + distance * math.cos(angle)
         local seed_y = origin_y + distance * math.sin(angle)
 
-        local offset = -- TODO
+        local offset = randomness * (distance / math.sqrt(n_particles))
         seed_x = seed_x + _rand(-offset, offset)
         seed_y = seed_y + _rand(-offset, offset)
 
-        if _point_in_area(seed_x, seed_y,
-            tl_x, tl_y, tr_x, tr_y, br_x, br_y, bl_x, bl_y
-        ) then
+        if _point_in_area(seed_x, seed_y, tl_x, tl_y, tr_x, tr_y, br_x, br_y, bl_x, bl_y) then
             table.insert(seeds, seed_x)
             table.insert(seeds, seed_y)
         end
     end
 
-    local t_max = t_easing(1)
+    self._actual_n_seeds = #seeds / 2
 
-    for segments in range(
-        { tl_x, tl_y, tr_x, tr_y },
-        { tr_x, tr_y, br_x, br_y },
-        { br_x, br_y, bl_x, bl_y },
-        { bl_x, bl_y, tl_x, tl_y }
+    local max_dist = radius * 10
+    for x in range(
+        origin_x - max_dist, origin_y - max_dist,
+        origin_x + max_dist, origin_y - max_dist,
+        origin_x + max_dist, origin_y + max_dist,
+        origin_x - max_dist, origin_y + max_dist,
+        origin_x - max_dist, origin_y,
+        origin_x + max_dist, origin_y,
+        origin_x, origin_y - max_dist,
+        origin_x, origin_y + max_dist
     ) do
-        local x1, y1, x2, y2 = table.unpack(segments)
-        local length = math.distance(x1, y1, x2, y2)
-        local n_segments = math.max(2, math.floor(length * seed_density))
-        for i = 1, n_segments do
-            local x, y = math.mix2(x1, y1, x2, y2, i / n_segments)
-            table.insert(seeds, x)
-            table.insert(seeds, y)
-        end
+        table.insert(seeds, x)
     end
 
-    self._rect = {
-        tl_x, tl_y,
-        tr_x, tr_y,
-        br_x, br_y,
-        bl_x, bl_y
-    }
-
+    self._rect = { tl_x, tl_y, tr_x, tr_y, br_x, br_y, bl_x, bl_y }
     self._origin_x, self._origin_y = origin_x, origin_y
-
     self._seeds = seeds
     self._n_seeds = #seeds / 2
 end
@@ -170,25 +180,28 @@ end
 function rt.VoronoiTesselation:tesselate()
     self._triangulation = rt.DelaunayTriangulation(self._seeds)
     self._tri_indices = self._triangulation:get_triangle_vertex_map()
+
+    coroutine.yield()
+
     self._tris = {}
     self._polygons = {}
+    self._polygon_to_needs_clipping = {} -- Restored tracking table
 
-    local point_eps = 1 -- dedupe point distance
-    local determinant_eps = 0.001
+    local point_eps = 1
+    local determinant_eps = 1e-6
+    local clip_eps = determinant_eps
 
     local seeds = self._seeds
-    local n_seeds = #seeds / 2
-    local seed_i_to_needs_clipping = {}
-
     local top_left_x, top_left_y, top_right_x, top_right_y, bottom_right_x, bottom_right_y, bottom_left_x, bottom_left_y = table.unpack(self._rect)
 
+    -- Transform basis to check if cell vertices are inside the bounding box
     local basis_u_x, basis_u_y = math.subtract2(top_right_x, top_right_y, top_left_x, top_left_y)
     local basis_v_x, basis_v_y = math.subtract2(bottom_left_x, bottom_left_y, top_left_x, top_left_y)
     local basis_u_length_squared = math.dot2(basis_u_x, basis_u_y, basis_u_x, basis_u_y)
     local basis_v_length_squared = math.dot2(basis_v_x, basis_v_y, basis_v_x, basis_v_y)
 
     local point_cells = {}
-    for index = 1, n_seeds do
+    for index = 1, self._actual_n_seeds do
         point_cells[index] = {}
     end
 
@@ -208,39 +221,20 @@ function rt.VoronoiTesselation:tesselate()
             local determinant = 2 * math.cross2(d1x, d1y, d2x, d2y)
 
             if math.abs(determinant) > determinant_eps then
-                table.insert(self._tris, { i1x, i1y, i2x, i2y, i3x, i3y, i1x, i1y })
-
                 local magnitude1 = math.dot2(d1x, d1y, d1x, d1y)
                 local magnitude2 = math.dot2(d2x, d2y, d2x, d2y)
 
                 local circumcenter_x = i1x + (d2y * magnitude1 - d1y * magnitude2) / determinant
                 local circumcenter_y = i1y + (d1x * magnitude2 - d2x * magnitude1) / determinant
 
-                local relative_x, relative_y = math.subtract2(circumcenter_x, circumcenter_y, top_left_x, top_left_y)
-                local u = math.dot2(relative_x, relative_y, basis_u_x, basis_u_y) / basis_u_length_squared
-                local v = math.dot2(relative_x, relative_y, basis_v_x, basis_v_y) / basis_v_length_squared
-
-                if u < 0 or u > 1 or v < 0 or v > 1 then
-                    seed_i_to_needs_clipping[i1] = true
-                    seed_i_to_needs_clipping[i2] = true
-                    seed_i_to_needs_clipping[i3] = true
-                end
-
                 local cell1, cell2, cell3 = point_cells[i1], point_cells[i2], point_cells[i3]
 
-                table.insert(cell1, circumcenter_x)
-                table.insert(cell1, circumcenter_y)
-
-                table.insert(cell2, circumcenter_x)
-                table.insert(cell2, circumcenter_y)
-
-                table.insert(cell3, circumcenter_x)
-                table.insert(cell3, circumcenter_y)
+                if cell1 then table.insert(cell1, circumcenter_x) table.insert(cell1, circumcenter_y) end
+                if cell2 then table.insert(cell2, circumcenter_x) table.insert(cell2, circumcenter_y) end
+                if cell3 then table.insert(cell3, circumcenter_x) table.insert(cell3, circumcenter_y) end
             end
         end
     end
-
-    self._polygon_to_needs_clipping = {}
 
     local vertex_indices = {}
     local angles = {}
@@ -250,10 +244,10 @@ function rt.VoronoiTesselation:tesselate()
     end
 
     local clear = table.clear and table.clear or function(t)
-        for i = 1, #t do t[1] = nil end
+        for i = 1, #t do t[i] = nil end
     end
 
-    for point_i = 1, n_seeds do
+    for point_i = 1, self._actual_n_seeds do
         local cell = point_cells[point_i]
         local n_vertices = #cell / 2
 
@@ -276,6 +270,7 @@ function rt.VoronoiTesselation:tesselate()
             local polygon = {}
             local output_index = 1
             local last_x, last_y
+            local needs_clipping = false
 
             for vertex_i = 1, n_vertices do
                 local index = vertex_indices[vertex_i]
@@ -289,6 +284,16 @@ function rt.VoronoiTesselation:tesselate()
                     polygon[output_index + 1] = vertex_y
                     output_index = output_index + 2
                     last_x, last_y = vertex_x, vertex_y
+
+                    if not needs_clipping then
+                        local relative_x, relative_y = math.subtract2(vertex_x, vertex_y, top_left_x, top_left_y)
+                        local u = math.dot2(relative_x, relative_y, basis_u_x, basis_u_y) / basis_u_length_squared
+                        local v = math.dot2(relative_x, relative_y, basis_v_x, basis_v_y) / basis_v_length_squared
+
+                        if u < 0 - clip_eps or u > 1 + clip_eps or v < 0 - clip_eps or v > 1 + clip_eps then
+                            needs_clipping = true
+                        end
+                    end
                 end
             end
 
@@ -303,12 +308,16 @@ function rt.VoronoiTesselation:tesselate()
             if #polygon >= 6 then
                 table.insert(self._polygons, polygon)
 
-                if seed_i_to_needs_clipping[point_i] == true then
+                if needs_clipping then
                     self._polygon_to_needs_clipping[polygon] = true
                 end
             end
         end
     end
+
+    coroutine.yield()
+
+    local to_remove = {}
 
     for i = 1, #self._polygons do
         local polygon = self._polygons[i]
@@ -317,8 +326,17 @@ function rt.VoronoiTesselation:tesselate()
             polygon = _clip_polygon(polygon, top_right_x, top_right_y, bottom_right_x, bottom_right_y)
             polygon = _clip_polygon(polygon, bottom_right_x, bottom_right_y, bottom_left_x, bottom_left_y)
             polygon = _clip_polygon(polygon, bottom_left_x, bottom_left_y, top_left_x, top_left_y)
-            self._polygons[i] = polygon
+
+            if #polygon >= 6 then
+                self._polygons[i] = polygon
+            else
+                table.insert(to_remove, 1, i)
+            end
         end
+    end
+
+    for i in values(to_remove) do
+        table.remove(self._polygons, i)
     end
 
     return self._polygons
@@ -333,13 +351,9 @@ end
 function rt.VoronoiTesselation:draw()
     for i = #self._polygons, 1, -1 do
         local hue = (i - 1) / #self._polygons
+        love.graphics.setColor(hue, hue, hue, 1)
         love.graphics.setColor(rt.lcha_to_rgba(0.8, 1, hue, 1))
-        local polygon = self._polygons[i]
-        if self._polygon_to_needs_clipping[polygon] then
-            love.graphics.setColor(0.5, 0.5, 0.5, 1)
-        end
-
-        love.graphics.polygon("fill", polygon)
+        love.graphics.polygon("fill", self._polygons[i])
     end
 
     love.graphics.setLineWidth(1)
@@ -349,11 +363,13 @@ function rt.VoronoiTesselation:draw()
         love.graphics.polygon("line", self._polygons[i])
     end
 
+    --[[
     love.graphics.setLineWidth(0.25)
-    love.graphics.setColor(0, 0, 0, 0.5)
+    love.graphics.setColor(0, 0, 0, 0.0)
     if self._triangulation ~= nil then
         for tri in values(self._tris) do
             love.graphics.line(tri)
         end
     end
+    ]]
 end

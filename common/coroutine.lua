@@ -1,5 +1,5 @@
 --- @class rt.Coroutine
-rt.Coroutine = meta.class("Coroutine")
+rt.Coroutine = meta.class("NonNativeCoroutine")
 
 --- @brief
 function rt.Coroutine:instantiate(f)

@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 291,
+  nextobjectid = 292,
   properties = {
     ["background_id"] = "\"nebula\""
   },
@@ -212,8 +212,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = 416,
-          y = -1328,
+          x = 1526.7,
+          y = -2394.57,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1470,8 +1470,8 @@ return {
           name = "Race",
           type = "TimeAttackTriggerNPC",
           shape = "point",
-          x = 548.808,
-          y = -1304.39,
+          x = -1014.27,
+          y = -1396.34,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1479,6 +1479,19 @@ return {
           properties = {
             ["dialog_id"] = "animalese_test"
           }
+        },
+        {
+          id = 291,
+          name = "",
+          type = "Goal",
+          shape = "rectangle",
+          x = 803.529,
+          y = -1517.35,
+          width = 437.966,
+          height = 103.362,
+          rotation = 0,
+          visible = true,
+          properties = {}
         }
       }
     },

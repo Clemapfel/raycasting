@@ -643,7 +643,6 @@ function rt.Animalese:_initialize()
             end
 
             update_effects()
-            dbg(pointers[current_pointer], config)
         end)
     end
 end
