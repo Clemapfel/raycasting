@@ -45,7 +45,7 @@ mat3 sobel_y = mat3(
 
 uniform float elapsed;
 uniform float hue;
-const float hue_range = 0.25;
+uniform float hue_range;
 
 #endif
 
