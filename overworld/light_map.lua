@@ -26,7 +26,7 @@ rt.settings.overworld.light_map = {
     mask_texture_format = rt.TextureFormat.R8
 }
 
-local _use_byte_data = true
+local _use_byte_data = false
 
 --- @class ow.LightMap
 ow.LightMap = meta.class("LightMap")
@@ -88,49 +88,60 @@ end
 --- @brief
 function ow.LightMap:reset()
     local settings = rt.settings.overworld.light_map
-    self._point_light_buffer_n = settings.start_n_point_lights
-    self._segment_light_buffer_n = settings.start_n_segment_lights
-    self._tile_buffer_n_point_lights = settings.start_n_point_lights_per_tile
-    self._tile_buffer_n_segment_lights = settings.start_n_segment_lights_per_tile
+    self._n_point_lights_per_tile = settings.start_n_point_lights_per_tile
+    self._n_segment_lights_per_tile = settings.start_n_segment_lights_per_tile
 
-    self._measured_max_point_light_buffer_n = 0
-    self._measured_max_segment_light_buffer_n = 0
-    self._measured_max_tile_buffer_n_point_lights = 0
-    self._measured_max_tile_buffer_n_segment_lights = 0
+    self._measured_n_point_lights = 0
+    self._measured_n_segment_lights = 0
+    self._measured_n_point_lights_per_tile = 0
+    self._measured_n_segment_lights_per_tile = 0
 
     self._resize_frames = {} -- Set<Integer, Boolean>
-    self:_reinitialize(true, true, true, true)
+    self:_reinitialize(
+        settings.start_n_point_lights,
+        settings.start_n_segment_lights,
+        settings.start_n_point_lights_per_tile,
+        settings.start_n_segment_lights_per_tile
+    )
 end
 
 --- @brief
 function ow.LightMap:_reinitialize(
-    resize_point_lights,
-    resize_segment_lights,
-    resize_tile_point_lights,
-    resize_tile_segment_lights
+    new_n_point_lights,
+    new_n_segment_lights,
+    new_n_point_lights_per_tile,
+    new_n_segment_lights_per_tile
 )
-    if resize_point_lights or resize_segment_lights or resize_tile_point_lights or resize_tile_segment_lights then
-        local defines = self._shader_defines
-        local should_recompile = defines.MAX_N_POINT_LIGHTS ~= self._point_light_buffer_n
-            or defines.MAX_N_SEGMENT_LIGHTS ~= self._segment_light_buffer_n
-            or defines.N_POINT_LIGHTS_PER_TILE ~= self._tile_buffer_n_point_lights
-            or defines.N_SEGMENT_LIGHTS_PER_TILE ~= self._tile_buffer_n_segment_lights
+    meta.assert(
+        new_n_point_lights, "Number",
+        new_n_segment_lights, "Number",
+        new_n_point_lights_per_tile, "Number",
+        new_n_segment_lights_per_tile, "Number"
+    )
 
-        if should_recompile then
-            defines.MAX_N_POINT_LIGHTS = self._point_light_buffer_n
-            defines.MAX_N_SEGMENT_LIGHTS = self._segment_light_buffer_n
-            defines.N_POINT_LIGHTS_PER_TILE = self._tile_buffer_n_point_lights
-            defines.N_SEGMENT_LIGHTS_PER_TILE = self._tile_buffer_n_segment_lights
-            self._shader = rt.ComputeShader("overworld/light_map_compute.glsl", defines)
-        end
+    local defines = self._shader_defines
+    local should_recompile = defines.MAX_N_POINT_LIGHTS ~= new_n_point_lights
+        or defines.MAX_N_SEGMENT_LIGHTS ~= new_n_segment_lights
+        or defines.N_POINT_LIGHTS_PER_TILE ~= new_n_point_lights_per_tile
+        or defines.N_SEGMENT_LIGHTS_PER_TILE ~= new_n_segment_lights_per_tile
 
-        self._resize_frames[rt.SceneManager:get_frame_index()] = true
+    if self._shader == nil or should_recompile then
+        defines.MAX_N_POINT_LIGHTS = new_n_point_lights
+        defines.MAX_N_SEGMENT_LIGHTS = new_n_segment_lights
+        defines.N_POINT_LIGHTS_PER_TILE = new_n_point_lights_per_tile
+        defines.N_SEGMENT_LIGHTS_PER_TILE = new_n_segment_lights_per_tile
+        dbg(defines)
+        self._shader = rt.ComputeShader("overworld/light_map_compute.glsl", defines)
     end
 
-    if resize_point_lights then
+    self._resize_frames[rt.SceneManager:get_frame_index()] = true
+
+    if self._point_light_buffer == nil
+        or self._point_light_buffer:get_n_elements() ~= new_n_point_lights
+    then
         self._point_light_buffer = rt.GraphicsBuffer(
             self._shader:get_buffer_format("point_light_source_buffer"),
-            self._point_light_buffer_n,
+            new_n_point_lights,
             rt.GraphicsBufferUsage.DYNAMIC
         )
 
@@ -141,10 +152,12 @@ function ow.LightMap:_reinitialize(
         end
     end
 
-    if resize_segment_lights then
+    if self._segment_light_buffer == nil
+        or self._segment_light_buffer:get_n_elements() ~= new_n_segment_lights
+    then
         self._segment_light_buffer = rt.GraphicsBuffer(
             self._shader:get_buffer_format("segment_light_sources_buffer"),
-            self._segment_light_buffer_n,
+            new_n_segment_lights,
             rt.GraphicsBufferUsage.DYNAMIC
         )
 
@@ -155,11 +168,17 @@ function ow.LightMap:_reinitialize(
         end
     end
 
-    if resize_tile_point_lights or resize_tile_segment_lights then
+    if self._tile_data_buffer == nil
+        or self._n_point_lights_per_tile ~= new_n_point_lights_per_tile
+        or self._n_segment_lights_per_tile ~= new_n_segment_lights_per_tile
+    then
+        self._n_point_lights_per_tile = new_n_point_lights_per_tile
+        self._n_segment_lights_per_tile = new_n_segment_lights_per_tile
+        
         local width, height = self._light_intensity_texture:get_size()
         self._n_tiles = math.ceil(width / self._tile_size) * math.ceil(height / self._tile_size)
 
-        local buffer_n_elements = (1 + self._tile_buffer_n_point_lights + 1 + self._tile_buffer_n_segment_lights) * self._n_tiles
+        local buffer_n_elements = (1 + self._n_point_lights_per_tile + 1 + self._n_segment_lights_per_tile) * self._n_tiles
 
         self._tile_data_buffer = rt.GraphicsBuffer(
             self._shader:get_buffer_format("tile_data_buffer"),
@@ -344,17 +363,22 @@ do
 
         if light_functions_initialized ~= true then -- delay init because we need buffer offsets
             if _use_byte_data == false then
-                do
-                    local x_offset = 0
-                    local y_offset = 1
-                    local radius_offset = 2
-                    local r_offset = 3
-                    local g_offset = 4
-                    local b_offset = 5
-                    local a_offset = 6
-                    local stride = a_offset + 1
+                local float_size = 4
 
-                    add_point_light = function(point_light_data, n_point_lights, max_n_point_lights, point_light_i, world_to_screen_transform, final_scale, x, y, radius, color_r, color_g, color_b, color_a)
+                do
+                    local buffer = self._point_light_buffer
+                    local n = ffi.sizeof("float")
+                    local element_stride = buffer:get_element_stride()
+                    local stride = element_stride / n
+                    local x_offset = buffer:get_byte_offset("position", 1) / n
+                    local y_offset = buffer:get_byte_offset("position", 2) / n
+                    local radius_offset = buffer:get_byte_offset("radius") / n
+                    local r_offset = buffer:get_byte_offset("color", 1) / n
+                    local g_offset = buffer:get_byte_offset("color", 2) / n
+                    local b_offset = buffer:get_byte_offset("color", 3) / n
+                    local a_offset = buffer:get_byte_offset("color", 4) / n
+
+                    add_point_light = function(point_light_data, n_point_lights, max_n_point_lights, point_light_i, n_elements, world_to_screen_transform, final_scale, x, y, radius, color_r, color_g, color_b, color_a)
                         if point_light_i > max_n_point_lights then
                             return point_light_i, n_point_lights + 1
                         end
@@ -363,6 +387,13 @@ do
                         x, y = world_to_screen_transform:transform_point(x, y)
 
                         local offset = (point_light_i - 1) * stride
+
+                        if DEBUG then
+                            rt.assert(point_light_i <= n_elements, offset + a_offset < n_elements * (element_stride / float_size),
+                                "In add_point_light: trying to write to out of bounds elements at `", point_light_i, "`"
+                            )
+                        end
+
                         point_light_data[offset + x_offset] = x
                         point_light_data[offset + y_offset] = y
                         point_light_data[offset + radius_offset] = radius
@@ -371,18 +402,16 @@ do
                         point_light_data[offset + b_offset] = color_b
                         point_light_data[offset + a_offset] = color_a
 
-                        if DEBUG then
-                            rt.assert(offset + a_offset < #point_light_data / ffi.sizeof("float"), "In get_point_light: trying to access out of bounds elements at `", point_light_i, "`")
-                        end
-
                         return point_light_i + 1, n_point_lights + 1
                     end
 
-                    get_point_light = function(point_light_data, point_light_i)
+                    get_point_light = function(point_light_data, point_light_i, n_elements)
                         local offset = (point_light_i - 1) * stride
 
                         if DEBUG then
-                            rt.assert(offset + a_offset < #point_light_data / ffi.sizeof("float"), "In get_point_light: trying to access out of bounds elements at `", point_light_i, "`")
+                            rt.assert(point_light_i <= n_elements, offset + a_offset < n_elements * (element_stride / float_size),
+                                "In get_point_light: trying to access out of bounds elements at `", point_light_i, "`"
+                            )
                         end
 
                         return point_light_data[offset + x_offset],
@@ -396,17 +425,20 @@ do
                 end
 
                 do
-                    local x1_offset = 0
-                    local y1_offset = 1
-                    local x2_offset = 2
-                    local y2_offset = 3
-                    local r_offset = 4
-                    local g_offset = 5
-                    local b_offset = 6
-                    local a_offset = 7
-                    local stride = a_offset + 1
+                    local buffer = self._segment_light_buffer
+                    local n = ffi.sizeof("float")
+                    local element_stride = buffer:get_element_stride()
+                    local stride = element_stride / n
+                    local x1_offset = buffer:get_byte_offset("segment", 1) / n
+                    local y1_offset = buffer:get_byte_offset("segment", 2) / n
+                    local x2_offset = buffer:get_byte_offset("segment", 3) / n
+                    local y2_offset = buffer:get_byte_offset("segment", 4) / n
+                    local r_offset = buffer:get_byte_offset("color", 1) / n
+                    local g_offset = buffer:get_byte_offset("color", 2) / n
+                    local b_offset = buffer:get_byte_offset("color", 3) / n
+                    local a_offset = buffer:get_byte_offset("color", 4) / n
 
-                    add_segment_light = function(segment_light_data, n_segment_lights, max_n_segment_lights, segment_light_i, world_to_screen_transform, x1, y1, x2, y2, color_r, color_g, color_b, color_a)
+                    add_segment_light = function(segment_light_data, n_segment_lights, max_n_segment_lights, segment_light_i, n_elements, world_to_screen_transform, x1, y1, x2, y2, color_r, color_g, color_b, color_a)
                         if segment_light_i > max_n_segment_lights then
                             return segment_light_i, n_segment_lights + 1
                         end
@@ -415,6 +447,13 @@ do
                         x2, y2 = world_to_screen_transform:transform_point(x2, y2)
 
                         local offset = (segment_light_i - 1) * stride
+
+                        if DEBUG then
+                            rt.assert(segment_light_i <= n_elements, offset + a_offset < n_elements * (element_stride / float_size),
+                                "In add_point_light: trying to write to out of bounds elements at `", segment_light_i, "`"
+                            )
+                        end
+
                         segment_light_data[offset + x1_offset] = x1
                         segment_light_data[offset + y1_offset] = y1
                         segment_light_data[offset + x2_offset] = x2
@@ -427,8 +466,15 @@ do
                         return segment_light_i + 1, n_segment_lights + 1
                     end
 
-                    get_segment_light = function(segment_light_data, segment_light_i)
+                    get_segment_light = function(segment_light_data, segment_light_i, n_elements)
                         local offset = (segment_light_i - 1) * stride
+
+                        if DEBUG then
+                            rt.assert(segment_light_i <= n_elements, offset + a_offset < n_elements * (element_stride / float_size),
+                                "In get_point_light: trying to access out of bounds elements at `", segment_light_i, "`"
+                            )
+                        end
+
                         return segment_light_data[offset + x1_offset],
                         segment_light_data[offset + y1_offset],
                         segment_light_data[offset + x2_offset],
@@ -440,45 +486,47 @@ do
                     end
                 end
             else
-                local buffer = self._point_light_buffer
-                local stride = buffer:get_element_stride()
-                local x_offset = buffer:get_byte_offset("position", 1)
-                local y_offset = buffer:get_byte_offset("position", 2)
-                local radius_offset = buffer:get_byte_offset("radius")
-                local r_offset = buffer:get_byte_offset("color", 1)
-                local g_offset = buffer:get_byte_offset("color", 2)
-                local b_offset = buffer:get_byte_offset("color", 3)
-                local a_offset = buffer:get_byte_offset("color", 4)
+                do
+                    local buffer = self._point_light_buffer
+                    local stride = buffer:get_element_stride()
+                    local x_offset = buffer:get_byte_offset("position", 1)
+                    local y_offset = buffer:get_byte_offset("position", 2)
+                    local radius_offset = buffer:get_byte_offset("radius")
+                    local r_offset = buffer:get_byte_offset("color", 1)
+                    local g_offset = buffer:get_byte_offset("color", 2)
+                    local b_offset = buffer:get_byte_offset("color", 3)
+                    local a_offset = buffer:get_byte_offset("color", 4)
 
-                add_point_light = function(point_light_data, n_point_lights, max_n_point_lights, point_light_i, world_to_screen_transform, final_scale, x, y, radius, color_r, color_g, color_b, color_a)
-                    if point_light_i > max_n_point_lights then
-                        return point_light_i, n_point_lights + 1
+                    add_point_light = function(point_light_data, n_point_lights, max_n_point_lights, point_light_i, _, world_to_screen_transform, final_scale, x, y, radius, color_r, color_g, color_b, color_a)
+                        if point_light_i > max_n_point_lights then
+                            return point_light_i, n_point_lights + 1
+                        end
+
+                        radius = math.max(radius, 1) * final_scale
+                        x, y = world_to_screen_transform:transform_point(x, y)
+
+                        local offset = (point_light_i - 1) * stride
+                        point_light_data:setFloat(offset + x_offset, x)
+                        point_light_data:setFloat(offset + y_offset, y)
+                        point_light_data:setFloat(offset + radius_offset, radius)
+                        point_light_data:setFloat(offset + r_offset, color_r)
+                        point_light_data:setFloat(offset + g_offset, color_g)
+                        point_light_data:setFloat(offset + b_offset, color_b)
+                        point_light_data:setFloat(offset + a_offset, color_a)
+
+                        return point_light_i + 1, n_point_lights + 1
                     end
 
-                    radius = math.max(radius, 1) * final_scale
-                    x, y = world_to_screen_transform:transform_point(x, y)
-
-                    local offset = (point_light_i - 1) * stride
-                    point_light_data:setFloat(offset + x_offset, x)
-                    point_light_data:setFloat(offset + y_offset, y)
-                    point_light_data:setFloat(offset + radius_offset, radius)
-                    point_light_data:setFloat(offset + r_offset, color_r)
-                    point_light_data:setFloat(offset + g_offset, color_g)
-                    point_light_data:setFloat(offset + b_offset, color_b)
-                    point_light_data:setFloat(offset + a_offset, color_a)
-
-                    return point_light_i + 1, n_point_lights + 1
-                end
-
-                get_point_light = function(point_light_data, point_light_i)
-                    local offset = (point_light_i - 1) * stride
-                    return point_light_data:getFloat(offset + x_offset),
-                    point_light_data:getFloat(offset + y_offset),
-                    point_light_data:getFloat(offset + radius_offset),
-                    point_light_data:getFloat(offset + r_offset),
-                    point_light_data:getFloat(offset + g_offset),
-                    point_light_data:getFloat(offset + b_offset),
-                    point_light_data:getFloat(offset + a_offset)
+                    get_point_light = function(point_light_data, point_light_i, _)
+                        local offset = (point_light_i - 1) * stride
+                        return point_light_data:getFloat(offset + x_offset),
+                        point_light_data:getFloat(offset + y_offset),
+                        point_light_data:getFloat(offset + radius_offset),
+                        point_light_data:getFloat(offset + r_offset),
+                        point_light_data:getFloat(offset + g_offset),
+                        point_light_data:getFloat(offset + b_offset),
+                        point_light_data:getFloat(offset + a_offset)
+                    end
                 end
 
                 do
@@ -514,7 +562,7 @@ do
                         return segment_light_i + 1, n_segment_lights + 1
                     end
 
-                    get_segment_light = function(segment_light_data, segment_light_i)
+                    get_segment_light = function(segment_light_data, segment_light_i, _)
                         local offset = (segment_light_i - 1) * stride
                         return segment_light_data:getFloat(offset + x1_offset),
                         segment_light_data:getFloat(offset + y1_offset),
@@ -533,11 +581,11 @@ do
 
         local settings = rt.settings.overworld.light_map
         local tile_size = self._tile_size
-        local max_n_point_lights, max_n_segment_lights = self._point_light_buffer_n, self._segment_light_buffer_n
-        local max_n_point_lights_per_tile, max_n_segment_lights_per_tile = self._tile_buffer_n_point_lights, self._tile_buffer_n_segment_lights
+        local max_n_point_lights, max_n_segment_lights = self._point_light_buffer:get_n_elements(), self._segment_light_buffer:get_n_elements()
+        local max_n_point_lights_per_tile, max_n_segment_lights_per_tile = self._n_point_lights_per_tile, self._n_segment_lights_per_tile
 
         local width, height = self._light_intensity_texture:get_size()
-        local tile_data_stride = 1 + self._tile_buffer_n_point_lights + 1 + self._tile_buffer_n_segment_lights
+        local tile_data_stride = 1 + self._n_point_lights_per_tile + 1 + self._n_segment_lights_per_tile
 
         local tile_data_buffer_data = self._tile_data_buffer_data
         local point_light_buffer_data = self._point_light_buffer_data
@@ -572,33 +620,28 @@ do
                 and math.max(ay, by) >= bounds_y
         end
 
-        if DEBUG then
-            stage:collect_point_lights(function(x, y, radius, color_r, color_g, color_b, color_a)
+        local point_light_buffer_n_elements = self._point_light_buffer:get_n_elements()
+        local segment_light_buffer_n_elements = self._segment_light_buffer:get_n_elements()
+
+        stage:collect_point_lights(function(x, y, radius, color_r, color_g, color_b, color_a)
+            if DEBUG then
                 meta.assert(x, "Number", y, "Number", radius, "Number", color_r, "Number", color_g, "Number", color_b, "Number", color_a, "Number")
-                if color_a > 0 and contains_point(x, y, radius) then
-                    point_light_i, n_point_lights = add_point_light(point_light_buffer_data, n_point_lights, max_n_point_lights, point_light_i, world_to_screen_transform, final_scale, x, y, radius, color_r, color_g, color_b, color_a)
-                end
-            end)
+            end
 
-            stage:collect_segment_lights(function(x1, y1, x2, y2, color_r, color_g, color_b, color_a)
+            if color_a > 0 and contains_point(x, y, radius) then
+                point_light_i, n_point_lights = add_point_light(point_light_buffer_data, n_point_lights, max_n_point_lights, point_light_i, point_light_buffer_n_elements, world_to_screen_transform, final_scale, x, y, radius, color_r, color_g, color_b, color_a)
+            end
+        end)
+
+        stage:collect_segment_lights(function(x1, y1, x2, y2, color_r, color_g, color_b, color_a)
+            if DEBUG then
                 meta.assert(x1, "Number", y1, "Number", x2, "Number", y2, "Number", color_r, "Number", color_g, "Number", color_b, "Number", color_a, "Number")
-                if color_a > 0 and contains_segment(x1, y1, x2, y2) then
-                    segment_light_i, n_segment_lights = add_segment_light(segment_light_buffer_data, n_segment_lights, max_n_segment_lights, segment_light_i, world_to_screen_transform, x1, y1, x2, y2, color_r, color_g, color_b, color_a)
-                end
-            end)
-        else
-            stage:collect_point_lights(function(x, y, radius, color_r, color_g, color_b, color_a)
-                if color_a > 0 and contains_point(x, y, radius) then
-                    point_light_i, n_point_lights = add_point_light(point_light_buffer_data, n_point_lights, max_n_point_lights, point_light_i, world_to_screen_transform, final_scale, x, y, radius, color_r, color_g, color_b, color_a)
-                end
-            end)
+            end
 
-            stage:collect_segment_lights(function(x1, y1, x2, y2, color_r, color_g, color_b, color_a)
-                if color_a > 0 and contains_segment(x1, y1, x2, y2) then
-                    segment_light_i, n_segment_lights = add_segment_light(segment_light_buffer_data, n_segment_lights, max_n_segment_lights, segment_light_i, world_to_screen_transform, x1, y1, x2, y2, color_r, color_g, color_b, color_a)
-                end
-            end)
-        end
+            if color_a > 0 and contains_segment(x1, y1, x2, y2) then
+                segment_light_i, n_segment_lights = add_segment_light(segment_light_buffer_data, n_segment_lights, max_n_segment_lights, segment_light_i, segment_light_buffer_n_elements, world_to_screen_transform, x1, y1, x2, y2, color_r, color_g, color_b, color_a)
+            end
+        end)
 
         self._point_light_buffer:flush()
         self._segment_light_buffer:flush()
@@ -624,7 +667,7 @@ do
 
         local range_threshold = (settings.light_range_threshold * camera:get_final_scale()) ^ 2
         for point_i = 1, current_n_point_lights do
-            local x, y, radius, _, _, _, opacity = get_point_light(point_light_buffer_data, point_i)
+            local x, y, radius, _, _, _, opacity = get_point_light(point_light_buffer_data, point_i, point_light_buffer_n_elements)
 
             local effective_radius = math.sqrt(range_threshold + radius ^ 2)
             local first_row = math.max(1, math.floor((x - effective_radius) / tile_size) + 1)
@@ -655,7 +698,7 @@ do
 
         for segment_i = 1, current_n_segment_lights do
             local data = segment_light_buffer_data[segment_i]
-            local x1, y1, x2, y2, _, _, _, opacity = get_segment_light(segment_light_buffer_data, segment_i)
+            local x1, y1, x2, y2, _, _, _, opacity = get_segment_light(segment_light_buffer_data, segment_i, segment_light_buffer_n_elements)
 
             -- only check cells in aabb of segment
             local effective_radius = math.sqrt(range_threshold)
@@ -696,120 +739,114 @@ do
         shader:send("mask_texture", self._mask_texture)
         shader:dispatch(self._dispatch_x, self._dispatch_y)
 
-        if false then
-            -- measure usage above buffer
-            local n_segment_lights_per_tile = 0
-            local n_point_lights_per_tile = 0
+        -- resize logic 
+        
+        -- measure usage above buffer
+        local n_segment_lights_per_tile = 0
+        local n_point_lights_per_tile = 0
 
-            for count in values(tile_i_to_n_point_lights) do
-                n_point_lights_per_tile = math.max(n_point_lights_per_tile, count)
+        for count in values(tile_i_to_n_point_lights) do
+            n_point_lights_per_tile = math.max(n_point_lights_per_tile, count)
+        end
+
+        for count in values(tile_i_to_n_segment_lights) do
+            n_segment_lights_per_tile = math.max(n_segment_lights_per_tile, count)
+        end
+
+        self._measured_n_point_lights = math.max(self._measured_n_point_lights, n_point_lights)
+        self._measured_n_segment_lights = math.max(self._measured_n_segment_lights, n_segment_lights)
+        self._measured_n_point_lights_per_tile = math.max(self._measured_n_point_lights_per_tile, n_point_lights_per_tile)
+        self._measured_n_segment_lights_per_tile = math.max(self._measured_n_segment_lights_per_tile, n_segment_lights_per_tile)
+
+        if self._resize_frames[rt.SceneManager:get_frame_index()] ~= true then
+            local grow = function(x, max)
+                local before = x
+                local after = math.min(max, math.ceil(x / 16) * 16)
+                return after
             end
 
-            for count in values(tile_i_to_n_segment_lights) do
-                n_segment_lights_per_tile = math.max(n_segment_lights_per_tile, count)
+            local new_n_point_lights
+            local new_n_segment_lights
+            local new_n_point_lights_per_tile
+            local new_n_segment_lights_per_tile
+
+            if self._measured_n_point_lights > point_light_buffer_n_elements then
+                new_n_point_lights = grow(
+                    self._measured_n_point_lights,
+                    settings.max_n_point_lights
+                )
+                self._measured_n_point_lights = point_light_buffer_n_elements
             end
 
-            self._measured_max_point_light_buffer_n = math.max(self._measured_max_point_light_buffer_n, n_point_lights)
-            self._measured_max_segment_light_buffer_n = math.max(self._measured_max_segment_light_buffer_n, n_segment_lights)
-            self._measured_max_tile_buffer_n_point_lights = math.max(self._measured_max_tile_buffer_n_point_lights, n_point_lights_per_tile)
-            self._measured_max_tile_buffer_n_segment_lights = math.max(self._measured_max_tile_buffer_n_segment_lights, n_segment_lights_per_tile)
+            if self._measured_n_segment_lights > segment_light_buffer_n_elements then
+                new_n_segment_lights = grow(
+                    self._measured_n_segment_lights,
+                    settings.max_n_segment_lights
+                )
+                self._measured_n_segment_lights = segment_light_buffer_n_elements
+            end
 
-            if self._resize_frames[rt.SceneManager:get_frame_index()] ~= true then
-                local grow = function(x, max)
-                    local before = x
-                    local after = math.min(max, math.ceil(x / 16) * 16)
-                    return after, before ~= after
+            if self._measured_n_point_lights_per_tile > self._n_point_lights_per_tile then
+                new_n_point_lights_per_tile = grow(
+                    self._measured_n_point_lights_per_tile,
+                    settings.max_n_point_lights_per_tile
+                )
+                self._measured_n_point_lights_per_tile = self._n_point_lights_per_tile
+            end
+
+            if self._measured_n_segment_lights_per_tile > self._n_segment_lights_per_tile then
+                new_n_segment_lights_per_tile = grow(
+                    self._measured_n_segment_lights_per_tile,
+                    settings.max_n_segment_lights_per_tile
+                )
+                self._measured_n_segment_lights_per_tile = self._n_segment_lights_per_tile
+            end
+            
+            if new_n_point_lights ~= point_light_buffer_n_elements
+                or new_n_segment_lights ~= segment_light_buffer_n_elements
+                or new_n_point_lights_per_tile ~= self._n_point_lights_per_tile
+                or new_n_segment_lights_per_tile ~= self._n_segment_lights_per_tile
+            then
+
+                local n_point_lights_before = self._point_light_buffer:get_n_elements()
+                local n_segment_lights_before = self._segment_light_buffer:get_n_elements()
+                local n_point_lights_per_tile_before = self._n_point_lights_per_tile
+                local n_segment_lights_per_tile_before = self._n_segment_lights_per_tile
+
+                self:_reinitialize(
+                    new_n_point_lights,
+                    new_n_segment_lights,
+                    new_n_point_lights_per_tile,
+                    new_n_segment_lights_per_tile
+                )
+
+                local n_point_lights_after = self._point_light_buffer:get_n_elements()
+                local n_segment_lights_after = self._segment_light_buffer:get_n_elements()
+                local n_point_lights_per_tile_after = self._n_point_lights_per_tile
+                local n_segment_lights_per_tile_after = self._n_segment_lights_per_tile
+
+                local parts = {}
+                if n_point_lights_before ~= n_point_lights_after then
+                    table.insert(parts, "# point lights: " .. n_point_lights_before .. " -> " .. n_point_lights_after)
                 end
 
-                local resize_point_lights = false
-                local resize_segment_lights = false
-                local resize_tile_point_lights = false
-                local resize_tile_segment_lights = false
-
-                local n_point_lights_per_tile_before = self._tile_buffer_n_point_lights
-                local n_segment_lights_per_tile_before = self._tile_buffer_n_segment_lights
-
-                if self._measured_max_point_light_buffer_n > self._point_light_buffer_n then
-                    self._point_light_buffer_n, resize_point_lights = grow(
-                        self._measured_max_point_light_buffer_n,
-                        settings.max_n_point_lights
-                    )
-                    self._measured_max_point_light_buffer_n = self._point_light_buffer_n
+                if n_segment_lights_before ~= n_segment_lights_after then
+                    table.insert(parts, "# segment lights: " .. n_segment_lights_before .. " -> " .. n_segment_lights_after)
                 end
 
-                if self._measured_max_segment_light_buffer_n > self._segment_light_buffer_n then
-                    self._segment_light_buffer_n, resize_segment_lights = grow(
-                        self._measured_max_segment_light_buffer_n,
-                        settings.max_n_segment_lights
-                    )
-                    self._measured_max_segment_light_buffer_n = self._segment_light_buffer_n
+                if n_point_lights_per_tile_before ~= n_point_lights_per_tile_after then
+                    table.insert(parts, "# point lights per tile: " .. n_point_lights_per_tile_before .. " -> " .. n_point_lights_per_tile_after)
                 end
 
-                if self._measured_max_tile_buffer_n_point_lights > self._tile_buffer_n_point_lights then
-                    self._tile_buffer_n_point_lights, resize_tile_point_lights = grow(
-                        self._measured_max_tile_buffer_n_point_lights,
-                        settings.max_n_point_lights_per_tile
-                    )
-                    self._measured_max_tile_buffer_n_point_lights = self._tile_buffer_n_point_lights
+                if n_segment_lights_per_tile_before ~= n_segment_lights_per_tile_after then
+                    table.insert(parts, "# segment lights per tile " .. n_segment_lights_per_tile_before .. " -> " .. n_segment_lights_per_tile_after)
                 end
 
-                if self._measured_max_tile_buffer_n_segment_lights > self._tile_buffer_n_segment_lights then
-                    self._tile_buffer_n_segment_lights, resize_tile_segment_lights = grow(
-                        self._measured_max_tile_buffer_n_segment_lights,
-                        settings.max_n_segment_lights_per_tile
-                    )
-                    self._measured_max_tile_buffer_n_segment_lights = self._tile_buffer_n_segment_lights
-                end
-
-                if resize_point_lights or resize_segment_lights or resize_tile_point_lights or resize_tile_segment_lights then
-                    local point_n_before = self._point_light_buffer:get_n_elements()
-                    local segment_n_before = self._segment_light_buffer:get_n_elements()
-
-                    self:_reinitialize(
-                        resize_point_lights,
-                        resize_segment_lights,
-                        resize_tile_point_lights,
-                        resize_tile_segment_lights
-                    )
-
-                    local point_n_after = self._point_light_buffer:get_n_elements()
-                    local segment_n_after = self._segment_light_buffer:get_n_elements()
-
-                    local n_point_lights_per_tile_after = self._tile_buffer_n_point_lights
-                    local n_segment_lights_per_tile_after = self._tile_buffer_n_segment_lights
-
-                    local parts = {}
-                    if point_n_before ~= point_n_after then
-                        table.insert(parts, "point lights: " .. point_n_before .. " -> " .. point_n_after)
-                    end
-
-                    if segment_n_before ~= segment_n_after then
-                        table.insert(parts, "segment lights: " .. segment_n_before .. " -> " .. segment_n_after)
-                    end
-
-                    if n_point_lights_per_tile_before ~= n_point_lights_per_tile_after then
-                        table.insert(parts, "tile buffer (point lights) " .. n_point_lights_per_tile_before .. " -> " .. n_point_lights_per_tile_after)
-                    end
-
-                    if n_segment_lights_per_tile_before ~= n_segment_lights_per_tile_after then
-                        table.insert(parts, "tile buffer (segment lights) " .. n_segment_lights_per_tile_before .. " -> " .. n_segment_lights_per_tile_after)
-                    end
-
-                    if not table.is_empty(parts) then
-                        rt.warning("reinitializing lightmap buffer sizes: " .. table.concat(parts, ", "))
-                    end
+                if not table.is_empty(parts) then
+                    rt.warning("In ow.LightMap.update: resized graphics buffers " .. table.concat(parts, ", "))
                 end
             end
         end
-
-        --[[
-        println(
-            self._measured_max_point_light_buffer_n, "\t", self._point_light_buffer_n, "\n",
-            self._measured_max_segment_light_buffer_n, "\t", self._segment_light_buffer_n, "\n",
-            self._measured_max_tile_buffer_n_point_lights, "\t", self._tile_buffer_n_point_lights, "\n",
-            self._measured_max_tile_buffer_n_segment_lights, "\t", self._tile_buffer_n_segment_lights, "\n"
-        )
-        ]]
     end
 end
 
