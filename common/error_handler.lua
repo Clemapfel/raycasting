@@ -61,24 +61,24 @@ function love.errorhandler(message, depth)
     safe_call(rt.SoundManager.reset, rt.SoundManager)
     safe_call(rt.ThreadManager.request_shutdown, rt.ThreadManager)
 
-    local r, g, b, a = safe_call(function()
-        return rt.Palette.RED_6:unpack()
-    end)
+    local color_r, color_g, color_b, color_a = 1, 0, 0, 1
 
-    if r == nil then
-        r, g, b, a = 1, 0, 0, 1
-    end
+    safe_call(function()
+        color_r, color_g, color_b, color_a = rt.Palette.RED_6:unpack()
+    end)
 
     local h_margin = 70 -- px
     local v_margin = 40
 
-    love.graphics.clear(r, g, b, a)
+    love.graphics.clear(color_r, color_g, color_b, color_a)
+    love.graphics.present()
 
     local pixel_scale = safe_call(rt.get_pixel_scale) or 1
 
     local prefix_message = "An Error has occurred and the Application was unable to recover."
     local wrote_stack_dump_message = "Wrote stack dump to"
     local unable_to_write_stack_dump_message = "(unable to write stack dump)"
+    local stack_dump_disabled_message = "(unable to write stack dump, disabled in DEBUG mode)"
     local open_log_or_exit_message = "Press ENTER to open log file, ESCAPE to exit."
     local exit_message = "Press ESCAPE to exit"
 
@@ -89,6 +89,7 @@ function love.errorhandler(message, depth)
         wrote_stack_dump_message = translation.wrote_stack_dump_message
         unable_to_write_stack_dump_message = translation.unable_to_write_stack_dump_message
         open_log_or_exit_message = translation.open_log_or_exit_message
+        stack_dump_disabled_message = translation.stack_dump_disabled_message
         exit_message = translation.exit_message
     end)
 
@@ -102,8 +103,7 @@ function love.errorhandler(message, depth)
     local write_success = false
 
     if not DEBUG then
-
-        local success, error_maybe = pcall(function()
+        pcall(function()
             require "common.filesystem"
             if not bd.exists("/crash_reports") then
                 bd.create_directory("/crash_reports")
@@ -161,18 +161,24 @@ function love.errorhandler(message, depth)
     end
 
     local default_font = love.graphics.newFont(17 * pixel_scale)
-    local big_font = love.graphics.newFont(23 * pixel_scale)
 
     local wrap = function(font, text)
-        local _, wrapped = font:getWrap(text, love.graphics.getWidth() - 2 * h_margin)
+        local _, wrapped = font:getWrap(text, love.graphics.getWidth() - 2 * h_margin - 10)
         return table.concat(wrapped, "\n"), #wrapped * font:getHeight()
     end
+
+    local darken = 0.5
 
     local draw_text = function(font, text, y)
         love.graphics.setFont(font)
 
-        local darken = 0.5
-        love.graphics.setColor(darken * r, darken * g, darken * b, 1)
+        love.graphics.setColor(
+            darken * color_r,
+            darken * color_g,
+            darken * color_b,
+            1
+        )
+
         local offset = 0.5
         for offsets in range(
             { -offset,  offset },
@@ -185,7 +191,7 @@ function love.errorhandler(message, depth)
             love.graphics.printf(
                 text,
                 h_margin, v_margin + y,
-                love.graphics.getWidth() - 2 * h_margin
+                love.graphics.getWidth() - 2 * h_margin - 10
             )
             love.graphics.translate(-offset_x, -offset_y)
         end
@@ -194,9 +200,24 @@ function love.errorhandler(message, depth)
         love.graphics.printf(
             text,
             h_margin, v_margin + y,
-            love.graphics.getWidth() - 2 * h_margin
+            love.graphics.getWidth() - 2 * h_margin - 10
         )
     end
+
+    local scroll_y = 0
+    local scroll_bar_background_r, scroll_bar_background_g, scroll_bar_background_b, scroll_bar_background_a = 0.2, 0.2, 0.2, 1
+    local scroll_bar_foreground_r, scroll_bar_foreground_g, scroll_bar_foreground_b, scroll_bar_foreground_a = 0.4, 0.4, 0.4, 1
+    local scroll_bar_divider_r, scroll_bar_divider_g, scroll_bar_divider_b, scroll_bar_divider_a = 0, 0, 0, 1
+
+    safe_call(function()
+        scroll_bar_background_r, scroll_bar_background_g, scroll_bar_background_b, scroll_bar_background_a = rt.Palette.RED_10:unpack()
+        scroll_bar_foreground_r, scroll_bar_foreground_g, scroll_bar_foreground_b, scroll_bar_foreground_a = rt.Palette.RED_3:unpack()
+        scroll_bar_divider_r, scroll_bar_divider_g, scroll_bar_divider_b, scroll_bar_divider_a =
+            darken * scroll_bar_background_r,
+            darken * scroll_bar_background_g,
+            darken * scroll_bar_background_b,
+            1
+    end)
 
     return function()
         -- input
@@ -211,7 +232,17 @@ function love.errorhandler(message, depth)
                     return 0 -- quit
                 elseif b == "return" and write_success then
                     safe_call(love.system.openURL, "file://" .. write_path)
+                elseif b == "up" then
+                    scroll_y = scroll_y - 40 * pixel_scale
+                elseif b == "down" then
+                    scroll_y = scroll_y + 40 * pixel_scale
+                elseif b == "pageup" then
+                    scroll_y = scroll_y - love.graphics.getHeight() / 2
+                elseif b == "pagedown" then
+                    scroll_y = scroll_y + love.graphics.getHeight() / 2
                 end
+            elseif event == "wheelmoved" then
+                scroll_y = scroll_y - b * 40 * pixel_scale
             elseif event == "gamepadpressed" then
                 if b == "start" then
                     return 0
@@ -221,20 +252,57 @@ function love.errorhandler(message, depth)
 
         -- draw
         if love.graphics.isActive() then
-            love.graphics.clear(r, g, b, a)
+            love.graphics.clear(color_r, color_g, color_b, color_a)
+
+            local window_height = love.graphics.getHeight()
+            local window_width = love.graphics.getWidth()
 
             local traceback_wrapped, traceback_height = wrap(default_font, traceback)
-            draw_text(default_font, traceback_wrapped, 0)
 
             local write_message_wrapped, write_height
             if write_success then
                 write_message_wrapped, write_height = wrap(default_font, write_message)
+            elseif not DEBUG then
+                write_message_wrapped, write_height = wrap(default_font, stack_dump_disabled_message)
             else
                 write_message_wrapped, write_height = wrap(default_font, unable_to_write_stack_dump_message)
             end
 
+            local command_message_wrapped, command_height = wrap(default_font, command_message)
+
+            local total_content_height = traceback_height + v_margin + write_height + v_margin + command_height
+            local max_scroll = math.max(0, (total_content_height + 2 * v_margin) - window_height)
+            scroll_y = math.max(0, math.min(scroll_y, max_scroll))
+
+            love.graphics.push()
+            love.graphics.translate(0, -scroll_y)
+
+            draw_text(default_font, traceback_wrapped, 0)
             draw_text(default_font, write_message_wrapped, 0 + traceback_height + v_margin)
-            draw_text(default_font, command_message, 0 + traceback_height + v_margin + write_height + v_margin)
+            draw_text(default_font, command_message_wrapped, 0 + traceback_height + v_margin + write_height + v_margin)
+
+            love.graphics.pop()
+
+            if max_scroll > 0 then
+                local scroll_bar_w = 10 * pixel_scale
+                local scroll_bar_x = window_width - scroll_bar_w
+                local corner_radius = scroll_bar_w / 2
+
+                local view_ratio = window_height / (total_content_height + 2 * v_margin)
+
+                local cursor_h = math.max(20 * pixel_scale, window_height * view_ratio)
+                local cursor_y = (scroll_y / max_scroll) * (window_height - cursor_h)
+
+                love.graphics.setLineWidth(2)
+                love.graphics.setColor(scroll_bar_divider_r, scroll_bar_divider_g, scroll_bar_divider_b, scroll_bar_divider_a)
+                love.graphics.line(scroll_bar_x, 0, scroll_bar_x, window_height)
+
+                love.graphics.setColor(scroll_bar_background_r, scroll_bar_background_g, scroll_bar_background_b, scroll_bar_background_a)
+                love.graphics.rectangle("fill", scroll_bar_x, 0, scroll_bar_w, window_height)
+
+                love.graphics.setColor(scroll_bar_foreground_r, scroll_bar_foreground_g, scroll_bar_foreground_b, scroll_bar_foreground_a)
+                love.graphics.rectangle("fill", scroll_bar_x, cursor_y, scroll_bar_w, cursor_h, corner_radius, corner_radius)
+            end
 
             love.graphics.present()
         end
