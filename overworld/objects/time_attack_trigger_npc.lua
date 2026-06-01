@@ -4,8 +4,7 @@ require "overworld.dialog_focus_indicator"
 
 rt.settings.overworld.time_attack_trigger_npc = {
     hover_height = 3 * rt.settings.player.radius,
-    enter_dialog_id = "time_attack_trigger_npc_enter",
-    exit_dialog_id = "time_attack_trigger_npc_exit",
+    dialog_id = "time_attack_trigger_npc",
 
     noise_frequency = 0.2,
     noise_max_offset_radius_factor = 0.75,
@@ -78,15 +77,9 @@ function ow.TimeAttackTriggerNPC:instantiate(object, stage, scene)
         math.distance(focus_x, focus_y, px, py) < rt.settings.overworld.npc.focus_indicator_active_radius -- sic
     )
 
-    self._enter_dialog_emitter = ow.DialogEmitter(
+    self._dialog_emitter = ow.DialogEmitter(
         self._scene,
-        rt.settings.overworld.time_attack_trigger_npc.enter_dialog_id,
-        self
-    )
-
-    self._exit_dialog_emitter = ow.DialogEmitter(
-        self._scene,
-        rt.settings.overworld.time_attack_trigger_npc.exit_dialog_id,
+        rt.settings.overworld.time_attack_trigger_npc.dialog_id,
         self
     )
 
@@ -97,32 +90,19 @@ function ow.TimeAttackTriggerNPC:instantiate(object, stage, scene)
         if which == rt.InputAction.INTERACT
             and self._focus_indicator:get_is_active() -- uses same sensor range
         then
-            if self._scene:get_is_time_attack_mode_active() then
-                self._exit_dialog_emitter:signal_connect("choice", function(_, node_id, choice_i, text)
-                    self._hide_dialog_emitter = true
-                    if choice_i == rt.settings.overworld.time_attack_trigger_npc.yes_choice_answer_i then
-                        self._scene:set_is_time_attack_mode_active(false)
-                    end
-
-                    self._exit_dialog_emitter:close()
-                    self._hide_dialog_emitter = false
-                    return meta.DISCONNECT_SIGNAL
-                end)
-
-                self._exit_dialog_emitter:present()
-            else
-                self._enter_dialog_emitter:signal_connect("choice", function(_, node_id, choice_i, text)
+            if self._scene:get_is_time_attack_mode_active() ~= true then
+                self._dialog_emitter:signal_connect("choice", function(_, node_id, choice_i, text)
                     self._hide_dialog_emitter = true
                     if choice_i == rt.settings.overworld.time_attack_trigger_npc.yes_choice_answer_i then
                         self._scene:set_is_time_attack_mode_active(true)
                     end
 
-                    self._enter_dialog_emitter:close()
+                    self._dialog_emitter:close()
                     self._hide_dialog_emitter = true
                     return meta.DISCONNECT_SIGNAL
                 end)
 
-                self._enter_dialog_emitter:present()
+                self._dialog_emitter:present()
             end
         end
     end)
@@ -134,7 +114,7 @@ local base_priority = 0
 function ow.TimeAttackTriggerNPC:get_render_priority()
     if self._is_hidden then return nil end
 
-    local priorities = { self._enter_dialog_emitter:get_render_priority() }
+    local priorities = { self._dialog_emitter:get_render_priority() }
     table.insert(priorities, base_priority)
     return table.unpack(priorities)
 end
@@ -153,10 +133,8 @@ function ow.TimeAttackTriggerNPC:draw(priority)
     end
 
     if self._hide_dialog_emitter ~= true then
-        if self._enter_dialog_emitter:get_is_active() then
-            self._enter_dialog_emitter:draw(priority) -- draws text on to of bloom
-        elseif self._exit_dialog_emitter:get_is_active() then
-            self._exit_dialog_emitter:draw(priority)
+        if self._dialog_emitter:get_is_active() then
+            self._dialog_emitter:draw(priority) -- draws text on top of bloom
         end
     end
 end
@@ -206,19 +184,19 @@ function ow.TimeAttackTriggerNPC:update(delta)
         self._focus_indicator:update(delta)
 
         local is_active = self._focus_indicator:get_is_active()
-        if self._interact_enter_dialog_emitter ~= nil then
+        if self._interact_dialog_emitter ~= nil then
             if was_active == false and is_active == true then
                 self._scene:set_control_indicator_type(ow.ControlIndicatorType.INTERACT)
             elseif was_active == true and is_active == false then
                 self._scene:set_control_indicator_type(ow.ControlIndicatorType.NONE)
             end
 
-            self._interact_enter_dialog_emitter:update(delta)
+            self._interact_dialog_emitter:update(delta)
         end
     end
 
-    if self._enter_dialog_emitter:get_is_active() then
-        self._enter_dialog_emitter:update(delta)
+    if self._dialog_emitter:get_is_active() then
+        self._dialog_emitter:update(delta)
     end
 end
 

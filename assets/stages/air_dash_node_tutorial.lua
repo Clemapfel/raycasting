@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 292,
+  nextobjectid = 293,
   properties = {
     ["background_id"] = "\"nebula\""
   },
@@ -212,8 +212,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = 1526.7,
-          y = -2394.57,
+          x = 48,
+          y = -1290.57,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1489,6 +1489,19 @@ return {
           y = -1517.35,
           width = 437.966,
           height = 103.362,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 292,
+          name = "TimeAttack",
+          type = "TimeAttackTriggerNPC",
+          shape = "point",
+          x = 169.298,
+          y = -1296,
+          width = 0,
+          height = 0,
           rotation = 0,
           visible = true,
           properties = {}

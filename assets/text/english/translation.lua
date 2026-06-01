@@ -154,6 +154,11 @@ return {
         hundred_percent_label = "100%"
     },
 
+    message_dialog = {
+        option_accept = "OK",
+        option_cancel = "Cancel"
+    },
+
     stage_select_item = {
         flow_prefix = "Best Flow",
         flow_grade_prefix = "Flow",
@@ -382,7 +387,8 @@ return {
         wrote_stack_dump_message = "Wrote stack dump to ",
         unable_to_write_stack_dump_message = "(unable to write stack dump)",
         open_log_or_exit_message = "Press ENTER to open log file, ESCAPE to exit.",
-        exit_message = "Press ESCAPE to exit."
+        exit_message = "Press ESCAPE to exit.",
+        stack_dump_disabled_message = "(unable to write stack dump, disabled in DEBUG mode)"
     },
 
     -- ## STAGES ## ---

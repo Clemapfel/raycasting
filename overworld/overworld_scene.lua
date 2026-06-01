@@ -14,6 +14,7 @@ require "common.impulse_manager"
 require "overworld.reveal_particle_effect"
 require "common.blur"
 require "overworld.time_attack_start_countdown"
+require "menu.message_dialog"
 
 do
     local bloom = 0.2
@@ -147,7 +148,22 @@ function ow.OverworldScene:instantiate(state)
         _camera_top_border = nil, -- rt.Mesh
         _camera_right_border = nil,
         _camera_bottom_border = nil,
-        _camera_left_border = nil
+        _camera_left_border = nil,
+
+        -- time attack
+        _time_attack_mode_active = false,
+
+        _time_attack_mode_enter_dialog = mn.MessageDialog(
+            rt.Translation.overworld_scene.enter_time_attack_dialog_message,
+            rt.Translation.overworld_scene.enter_time_attack_dialog_submessage,
+            mn.MessageDialogOption.ACCEPT, mn.MessageDialogOption.CANCEL
+        ),
+
+        _time_attack_mode_exit_dialog = mn.MessageDialog(
+            rt.Translation.overworld_scene.exit_time_attack_dialog_message,
+            rt.Translation.overworld_scene.exit_time_attack_dialog_submessage,
+            mn.MessageDialogOption.ACCEPT, mn.MessageDialogOption.CANCEL
+        ),
     })
 
     for mode in values(meta.instances(ow.CameraMode)) do
@@ -279,6 +295,14 @@ function ow.OverworldScene:instantiate(state)
                 self:unpause()
             end
         end
+
+        if self._time_attack_mode_enter_dialog:get_is_active() then
+            self._time_attack_mode_enter_dialog:handle_button(which)
+        end
+
+        if self._time_attack_mode_exit_dialog:get_is_active() then
+            self._time_attack_mode_exit_dialog:handle_button(which)
+        end
     end)
 
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
@@ -324,7 +348,9 @@ function ow.OverworldScene:instantiate(state)
     for widget in range(
         self._background,
         self._pause_menu,
-        self._title_card
+        self._title_card,
+        self._time_attack_mode_enter_dialog,
+        self._time_attack_mode_exit_dialog
     ) do
         widget:realize()
     end
@@ -338,6 +364,28 @@ function ow.OverworldScene:instantiate(state)
     local radius = rt.settings.player.radius * settings.player_canvas_size_radius_factor
     local texture_w, texture_h = 2 * radius * self._player_canvas_scale, 2 * radius * self._player_canvas_scale
     self._player_canvas = rt.RenderTexture(texture_w, texture_h)
+
+    self._time_attack_mode_enter_dialog:signal_connect("selection", function(dialog, option)
+        if option == mn.MessageDialogOption.ACCEPT then
+            self._time_attack_mode_active = true
+            self:restart()
+        else
+            -- noop
+        end
+
+        dialog:close()
+    end)
+
+    self._time_attack_mode_exit_dialog:signal_connect("selection", function(dialog, option)
+        if option == mn.MessageDialogOption.ACCEPT then
+            self._time_attack_mode_active = false
+            self:restart()
+        else
+            -- noop
+        end
+
+        dialog:close()
+    end)
 end
 
 --- @brief
@@ -479,7 +527,9 @@ function ow.OverworldScene:size_allocate(x, y, width, height)
         self._background,
         self._pause_menu,
         self._title_card,
-        self._countdown
+        self._countdown,
+        self._time_attack_mode_enter_dialog,
+        self._time_attack_mode_exit_dialog
     ) do
         widget:reformat(0, 0, width, height)
     end
@@ -687,6 +737,12 @@ function ow.OverworldScene:draw()
         self._pause_menu:draw()
     end
 
+    if self._time_attack_mode_enter_dialog:get_is_active() then
+        self._time_attack_mode_enter_dialog:draw()
+    elseif self._time_attack_mode_exit_dialog:get_is_active() then
+        self._time_attack_mode_exit_dialog:draw()
+    end
+
     if rt.GameState:get_draw_debug_information()
         and rt.SceneManager:get_screen_recorder():get_is_recording() == false
     then
@@ -786,8 +842,19 @@ function ow.OverworldScene:update(delta)
         return
     end
 
+    if self._time_attack_mode_enter_dialog:get_is_active() then
+        self._time_attack_mode_enter_dialog:update(delta)
+        return
+    elseif self._time_attack_mode_exit_dialog:get_is_active() then
+        self._time_attack_mode_exit_dialog:update(delta)
+        return
+    end
+
     self._countdown:update(delta)
     self._blur_motion:update(delta)
+
+    self._time_attack_mode_enter_dialog:update(delta)
+    self._time_attack_mode_exit_dialog:update(delta)
 
     if self._timer_started == true and self._timer_paused ~= true and self._timer_stopped ~= true then
         self._timer = self._timer + delta
@@ -1272,4 +1339,20 @@ end
 --- @brief
 function ow.OverworldScene:set_player_is_visible(b)
     self._player_is_visible = b
+end
+
+--- @brief
+function ow.OverworldScene:set_is_time_attack_mode_active(b)
+    if self._time_attack_mode_active ~= b then
+        if b then
+            self._time_attack_mode_enter_dialog:present()
+        else
+            self._time_attack_mode_exit_dialog:present()
+        end
+    end
+end
+
+--- @brief
+function ow.OverworldScene:get_is_time_attack_mode_active()
+    return self._time_attack_mode_active
 end

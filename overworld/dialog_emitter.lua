@@ -3,7 +3,14 @@ require "overworld.dialog_box"
 
 --- @class ow.DialogEmitter
 ow.DialogEmitter = meta.class("DialogEmitter", rt.Widget)
-meta.add_signal(ow.DialogEmitter, "start", "end")
+meta.add_signal(ow.DialogEmitter,
+    -- (ow.DialogEmitter) -> nil
+    "start",
+    -- (ow.DialogEmitter) -> nil
+    "end",
+    -- (ow.DialogEmitter, node_id : Any, choice_i : Integer, text : String) -> nil
+    "choice"
+)
 
 local _HIDDEN = 1
 local _REVEALED = 0
@@ -60,7 +67,7 @@ function ow.DialogEmitter:instantiate(scene, id, target)
     end)
 
     self._dialog_box:signal_connect("choice", function(_, ...)
-        dbg(...)
+        self:signal_emit("choice", ...)
     end)
 
     self._dialog_box:signal_connect("done", function()

@@ -1501,9 +1501,11 @@ do -- try retranslate dialog / translation
             [dialog_settings.speaker_key] = true
         })
 
+        --[[
         extract(lines, rt.Translation, {}, {
             -- no excludes
         })
+        ]]
 
         rt.Animalese:translate(lines) -- automatically updates _precomputed
         rt.Animalese:_export_precomputed()

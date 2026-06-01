@@ -61,9 +61,9 @@ local function _parse_stage_entry(entry, i, path_prefix, existing_path)
     local n_coins, n_checkpoints = 0, 0
     for layer_i = 1, config:get_n_layers() do
         for object in values(config:get_layer_object_wrappers(layer_i)) do
-            if object.class == "Coin" then
+            if object.class == meta.get_typename(ow.Coin) then
                 n_coins = n_coins + 1
-            elseif object.class == "Checkpoint" or object.class == "PlayerGoal" then
+            elseif object.class == meta.get_typename(ow.Checkpoint) or object.class == meta.get_typename(ow.Goal) then
                 n_checkpoints = n_checkpoints + 1
             end
         end
@@ -551,8 +551,10 @@ end
 function rt.GameState:stage_get_is_time_attack_mode_allowed(stage_id)
     self:_initialize_stage()
 
+    if _debug_output then return true end
+
     meta.assert(stage_id, "String")
-    local results = self.stage_results[stage_id]
+    local results = self._state.stage_results[stage_id]
     if results == nil then
         return false
     else

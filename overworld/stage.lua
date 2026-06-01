@@ -174,6 +174,7 @@ function ow.Stage:instantiate(scene, id)
     self._camera_bounds = meta.make_weak({})
 
     local coins = {}
+    local n_time_attack_npcs = 0
 
     -- parse layers
     for layer_i = 1, self._config:get_n_layers() do
@@ -207,6 +208,8 @@ function ow.Stage:instantiate(scene, id)
                     n_goals = n_goals + 1
                 elseif meta.isa(instance, ow.CameraBounds) or meta.isa(instance, ow.CameraFit) then
                     table.insert(self._camera_bounds, instance)
+                elseif meta.isa(instance, ow.TimeAttackTriggerNPC) then
+                    n_time_attack_npcs = n_time_attack_npcs + 1
                 end
 
                 -- inject id
@@ -322,7 +325,11 @@ function ow.Stage:instantiate(scene, id)
 
     -- check for PlayerSpawn
     if self._active_checkpoint == nil then
-        rt.warning("In ow.Stage.initialize: no `PlayerSpawn` for stage `", self._id, "`")
+        rt.warning("In ow.Stage.initialize: no `PlayerSpawn` present in stage `", self._id, "`")
+    end
+
+    if n_time_attack_npcs < 1 then
+        rt.warning("In ow.stage.initialize: no `TimeAttackTriggerNPC` present in stage `", self._id, "`")
     end
 
     local sort = function(t)
@@ -407,6 +414,7 @@ function ow.Stage:instantiate(scene, id)
             rt.warning("In ow.Stage.initialize: more than one `PlayerSpawn` object present in stage `", self._id, "`")
         end
     end
+
 
     self._is_initialized = true
 

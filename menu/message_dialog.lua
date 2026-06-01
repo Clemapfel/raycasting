@@ -2,6 +2,7 @@ require "common.label"
 require "common.font"
 require "common.frame"
 require "common.input_subscriber"
+require "common.translation"
 
 rt.settings.menu.message_dialog = {
     input_delay = 0.2, -- seconds
@@ -10,21 +11,30 @@ rt.settings.menu.message_dialog = {
 
 --- @enum mn.MessageDialogOption
 mn.MessageDialogOption = {
-    ACCEPT = "OK",
-    CANCEL = "Cancel"
+    ACCEPT = rt.Translation.message_dialog.option_accept or "ACCEPT",
+    CANCEL = rt.Translation.message_dialog.option.cancel or "CANCEL"
 }
 mn.MessageDialogOption = meta.enum("MessageDialogOption", mn.MessageDialogOption)
 
 --- @class mn.MessageDialog
 mn.MessageDialog = meta.class("MessageDialog", rt.Widget)
 
+meta.add_signal(mn.MessageDialog,
+    -- (mn.MessageDialog, string) -> nil
+    "selection",
+
+    -- (mn.MessageDialog) -> nil
+    "presented",
+
+    -- (mn.MessageDialog) -> nil
+    "closed"
+)
+
 --- @param message String
 --- @param submessage String
 --- @param option1 vararg
 --- @signal selection (mn.MessageDialog, Unsigned) -> nil
 function mn.MessageDialog:instantiate(message, submessage, option1, ...)
-    message = message or " "
-    submessage = submessage or " "
     meta.assert(message, "String", submessage, "String")
     meta.assert_enum_value(option1, mn.MessageDialogOption, 3)
 
@@ -71,8 +81,6 @@ function mn.MessageDialog:instantiate(message, submessage, option1, ...)
         self._n_buttons = self._n_buttons + 1
     end
 end
-
-meta.add_signal(mn.MessageDialog, "selection", "presented", "closed")
 
 --- @override
 function mn.MessageDialog:realize()
@@ -172,6 +180,7 @@ end
 --- @override
 function mn.MessageDialog:draw()
     if self._is_active == false then return end
+    if self._message_label == nil then self:realize() end
 
     love.graphics.push()
     love.graphics.origin()

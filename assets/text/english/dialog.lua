@@ -65,17 +65,16 @@ return {
 
             choices = {
                 {
-                    "choice A",
+                    "Yes",
                     next = nil
                 },
                 {
-                    "choice B",
+                    "No",
                     next = nil
                 }
             }
         }
     },
-
 
     slippery_floor_tutorial = {
         {
