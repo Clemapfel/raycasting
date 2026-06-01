@@ -20,6 +20,12 @@ function ow.TimeAttackTriggerNPC:instantiate(object, stage, scene)
     self._scene = scene
     self._stage = stage
 
+    self._is_hidden = false
+    if rt.GameState:stage_get_is_time_attack_mode_allowed(stage:get_id()) ~= true then
+        self._is_hidden = true
+        return
+    end
+
     local x, y = object.x, object.y
 
     local world = self._stage:get_physics_world()
@@ -89,6 +95,8 @@ local base_priority = 0
 
 --- @brief
 function ow.TimeAttackTriggerNPC:get_render_priority()
+    if self._is_hidden then return nil end
+
     local priorities = { self._dialog_emitter:get_render_priority() }
     table.insert(priorities, base_priority)
     return table.unpack(priorities)
@@ -96,6 +104,8 @@ end
 
 --- @brief
 function ow.TimeAttackTriggerNPC:draw(priority)
+    if self._is_hidden then return end
+
     if self._stage:get_is_body_visible(self._graphics_body:get_physics_body()) then
         if priority == base_priority then
             if self._stage:get_is_body_visible(self._graphics_body:get_physics_body()) then
@@ -112,6 +122,8 @@ end
 
 --- @brief
 function ow.TimeAttackTriggerNPC:draw_bloom()
+    if self._is_hidden then return end
+
     if self._stage:get_is_body_visible(self._graphics_body:get_physics_body()) then
         self._focus_indicator:draw_bloom()
         self._graphics_body:draw_bloom()
@@ -120,6 +132,8 @@ end
 
 --- @brief
 function ow.TimeAttackTriggerNPC:update(delta)
+    if self._is_hidden then return end
+
     if self._stage:get_is_body_visible(self._graphics_body:get_physics_body()) then
         self._graphics_body:update(delta)
         

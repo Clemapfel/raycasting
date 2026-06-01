@@ -15,7 +15,8 @@ for message_id in range(
     "unpause",
     "stop",
     "set_volume",
-    "shutdown"
+    "shutdown",
+    "reset"
 ) do
     _messages[message_id] = message_id
 end
@@ -99,6 +100,12 @@ end
 --- @brief
 function rt.MusicManager:get_volume()
     return self._volume
+end
+
+function rt.MusicManager:reset()
+    self._main_to_worker:push({
+        message_id = _messages.reset
+    })
 end
 
 rt.MusicManager = meta.as_singleton(rt.MusicManager)

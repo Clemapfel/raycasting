@@ -349,6 +349,8 @@ function bd.write_file(path, content, overwrite_ok)
     if not write_success then
         rt.error("In bd.overwrite_file: unable to write file to `", path, "`: ", write_error_maybe)
     end
+
+    return write_success
 end
 
 --- @brief overwrite an existing file with string

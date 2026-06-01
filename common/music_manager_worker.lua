@@ -40,6 +40,10 @@ local message_id_to_callback = {
         if manager ~= nil then
             manager:set_volume(message.value)
         end
+    end,
+
+    [messages.reset] = function(message)
+        manager:stop()
     end
 }
 

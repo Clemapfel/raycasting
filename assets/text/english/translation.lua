@@ -106,7 +106,7 @@ return {
         control_indicator_sprint = "Sprint",
         control_indicator_bubble_move = "Move Around",
         control_indicator_interact = "Interact",
-        control_indicator_dialog_skip = "Continue",
+        control_indicator_dialog_skip = "",
         control_indicator_dialog_advance = "Advance",
         control_indicator_dialog_exit = "Leave",
         control_indicator_dialog_select_option = "Select",
@@ -120,7 +120,13 @@ return {
         control_indicator_accelerator_surface_hold = "(hold direction) accelerate",
 
         debug_information_time_paused = "paused",
-        debug_information_frames = "cycles"
+        debug_information_frames = "cycles",
+
+        enter_time_attack_dialog_message = "Enter Time Attack Mode?",
+        enter_time_attack_dialog_submessage = "Your current progress will be lost. Checkpoints no longer save your progress, dying immediately restarts the stage, your time is tracked and displayed, and your exact path through the stage is recorded such that it can be compared with other runs of the same stage.",
+
+        exit_time_attack_dialog_message = "Exit Time Attack Mode?",
+        exit_time_attack_dialog_submessage = "Your current run will be abandoned."
     },
 
     -- title screen / stage select
@@ -368,6 +374,15 @@ return {
         control_indicator_back = "Save",
         control_indicator_reset_to_default = "Reset",
         control_indicator_abort = "Exit"
+    },
+
+    -- error handler
+    error_handler = {
+        prefix_message = "An Error has occurred and the Application was unable to recover.",
+        wrote_stack_dump_message = "Wrote stack dump to ",
+        unable_to_write_stack_dump_message = "(unable to write stack dump)",
+        open_log_or_exit_message = "Press ENTER to open log file, ESCAPE to exit.",
+        exit_message = "Press ESCAPE to exit."
     },
 
     -- ## STAGES ## ---

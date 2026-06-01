@@ -43,44 +43,50 @@ local _fatal_format = {
     bold = true
 }
 
+local _throw = function(message, depth)
+    _G.error_depth = depth
+    _G.error(message)
+end
+
+
+local _to_tag = {
+    black         = "\027[30m",
+    red           = "\027[31m",
+    green         = "\027[32m",
+    yellow        = "\027[33m",
+    blue          = "\027[34m",
+    magenta       = "\027[35m",
+    cyan          = "\027[36m",
+    white         = "\027[37m",
+    gray          = "\027[90m",
+    light_black   = "\027[90m", -- same as gray
+    light_red     = "\027[91m",
+    light_green   = "\027[92m",
+    light_yellow  = "\027[93m",
+    light_blue    = "\027[94m",
+    light_magenta = "\027[95m",
+    light_cyan    = "\027[96m",
+    light_white   = "\027[97m",
+
+    normal        = "\027[0m",
+    default       = "\027[39m",
+    bold          = "\027[1m",
+    italic        = "\027[3m",
+    underlined    = "\027[4m",
+    reverse       = "\027[7m",
+    nothing       = "",
+}
+
 --- @brief [internal]
 log._printstyled = function(message, config)
     if config == nil then
         return message
     end
 
-    local to_tag = {
-        black         = "\027[30m",
-        red           = "\027[31m",
-        green         = "\027[32m",
-        yellow        = "\027[33m",
-        blue          = "\027[34m",
-        magenta       = "\027[35m",
-        cyan          = "\027[36m",
-        white         = "\027[37m",
-        gray          = "\027[90m",
-        light_black   = "\027[90m", -- same as gray
-        light_red     = "\027[91m",
-        light_green   = "\027[92m",
-        light_yellow  = "\027[93m",
-        light_blue    = "\027[94m",
-        light_magenta = "\027[95m",
-        light_cyan    = "\027[96m",
-        light_white   = "\027[97m",
-
-        normal        = "\027[0m",
-        default       = "\027[39m",
-        bold          = "\027[1m",
-        italic        = "\027[3m",
-        underlined    = "\027[4m",
-        reverse       = "\027[7m",
-        nothing       = "",
-    }
-
     local to_print = {}
 
     if config.color ~= nil then
-        local tag = to_tag[config.color]
+        local tag = _to_tag[config.color]
         if tag == nil then
             rt.error("In prinstyled: unsupported color `", config.color, "`")
         end
@@ -91,12 +97,12 @@ log._printstyled = function(message, config)
         "normal", "bold", "italic", "underline", "reverse"
     }) do
         if config[which] == true then
-            table.insert(to_print, to_tag[which])
+            table.insert(to_print, _to_tag[which])
         end
     end
 
     table.insert(to_print, message)
-    table.insert(to_print, to_tag.normal)
+    table.insert(to_print, _to_tag.normal)
     return table.concat(to_print)
 end
 
@@ -229,7 +235,7 @@ function log.error(...)
     end
 
     if should_print == true then
-        _G.error(message)
+        _throw(message, 1)
     end
 end
 
@@ -253,7 +259,7 @@ function log.fatal(...)
     end
 
     if should_print == true then
-        _G.error(message)
+        _throw(message, 1)
     end
 end
 

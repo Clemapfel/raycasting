@@ -226,6 +226,22 @@ function rt.MusicManagerInstance:stop()
     self._mixer:stop()
 end
 
+function rt.MusicManagerInstance:reset()
+    self:stop()
+    for entry in values(self._id_to_entry) do
+        if entry.source then
+            entry.source:stop()
+            if entry.source._native then entry.source._native:release() end
+            if entry.source._data then entry.source._data:release() end
+            if entry.source._chunk then entry.source._chunk:release() end
+            entry.source = nil
+        end
+    end
+    self._active_id = nil
+    self._state = _STATE_STOPPED
+    self._mixer:stop()
+end
+
 --- @brief
 function rt.MusicManagerInstance:get_is_paused()
     return self._state == _STATE_PAUSED or self._state == _STATE_STOPPED

@@ -728,4 +728,33 @@ function rt.SoundManager:update(delta)
     end
 end
 
+function rt.SoundManager:reset()
+    for entry in pairs(self._active_entries) do
+        for _, source in pairs(entry.handler_id_to_active_sources) do
+            source:stop()
+            source:release()
+        end
+        for source in pairs(entry.inactive_source_to_timestamp) do
+            source:release()
+        end
+        if entry.sound_data then
+            entry.sound_data:release()
+            entry.sound_data = nil
+        end
+        entry.handler_id_to_active_sources = {}
+        entry.handler_id_to_volume_motion = {}
+        entry.handler_id_to_pitch_motion = {}
+        entry.handler_id_to_effects = {}
+        entry.inactive_source_to_timestamp = {}
+        entry.was_processed = false
+    end
+
+    self._active_entries = {}
+    self._stop_entries = {}
+    self._id_to_n_active_sources = {}
+    self._current_handler_id = 1
+    self._equalizer.average_root_mean_square = nil
+    self._equalizer.n_sounds_processed = 0
+end
+
 rt.SoundManager = meta.as_singleton(rt.SoundManager)

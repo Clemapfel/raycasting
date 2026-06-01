@@ -548,6 +548,19 @@ function rt.GameState:stage_get_splits_best_run(stage_id)
 end
 
 --- @brief
+function rt.GameState:stage_get_is_time_attack_mode_allowed(stage_id)
+    self:_initialize_stage()
+
+    meta.assert(stage_id, "String")
+    local results = self.stage_results[stage_id]
+    if results == nil then
+        return false
+    else
+        return results.was_cleared
+    end
+end
+
+--- @brief
 function rt.GameState:stage_get_config(stage_id)
     self:_initialize_stage()
 
