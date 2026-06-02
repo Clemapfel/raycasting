@@ -41,9 +41,7 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 vertex_position
         player_highlight_color = player_color * highlight * min(intensity, 0.5);
     }
 
-    float alpha = pop_fraction;
-
-    return (body_color + static_highlight_color + player_highlight_color) * vec4(vec3(1.0), alpha);
+    return (body_color + static_highlight_color + player_highlight_color) * vec4(vec3(1.0), pop_fraction);
 }
 
 #endif

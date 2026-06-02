@@ -2,6 +2,7 @@ require "overworld.movable_object"
 
 rt.settings.overworld.bubble = {
     respawn_duration = 2,
+    fade_in_duration = 0.5,
 
     pop_light_boost_duration = 5 / 60,
     pop_light_boost_magnitude = 3.5, -- factor
@@ -12,6 +13,7 @@ rt.settings.overworld.bubble = {
     motion_velocity = 3.5, -- px / s
     motion_n_path_nodes = 10,
     outline_min_opacity = 0.5,
+
 
     bounce_impulse = 280, -- constant
 
@@ -267,6 +269,21 @@ function ow.Bubble:_unpop()
     self:reset()
 end
 
+function ow.Bubble:_get_opacity()
+    local duration = rt.settings.overworld.bubble.respawn_duration
+    local fade_in_duration = rt.settings.overworld.bubble.fade_in_duration / duration
+    local t = self._respawn_elapsed / duration
+
+    local fade_start = 1 - fade_in_duration
+    if t < fade_start then return 0 end
+
+    local fade_t = (t - fade_start) / fade_in_duration
+    return rt.InterpolationFunctions.BUTTERWORTH_HIGHPASS(
+        fade_t,
+        7 -- order
+    )
+end
+
 --- @brief
 function ow.Bubble:update(delta)
     local respawn_duration = rt.settings.overworld.bubble.respawn_duration
@@ -329,8 +346,8 @@ function ow.Bubble:update(delta)
 
     if not self._stage:get_is_body_visible(self._body) then return end
 
-    local x = math.clamp(self._respawn_elapsed / respawn_duration, 0, 1)
-    self._pop_fraction = math.pow(x, 40) -- manually chosen easing
+    local x = math.min(1, self._respawn_elapsed / respawn_duration)
+    self._pop_fraction = x
 
     if not self._is_destroyed and self._should_move_in_place then
         -- freeze while respawning
@@ -353,9 +370,12 @@ function ow.Bubble:draw()
     local body_x, body_y = self._body:get_position()
     love.graphics.translate(body_x + path_x, body_y + path_y)
 
-
     -- outline always visible so player knows where bubble will respawn
-    local opacity = math.max(rt.settings.overworld.bubble.outline_min_opacity, self._pop_fraction)
+    local opacity = math.max(
+        self:_get_opacity(),
+        rt.settings.overworld.bubble.outline_min_opacity
+    )
+
     love.graphics.setLineStyle("smooth")
     love.graphics.setLineJoin("bevel")
 
@@ -369,18 +389,16 @@ function ow.Bubble:draw()
     love.graphics.setLineWidth(rt.settings.overworld.bubble.line_width)
     love.graphics.line(self._contour)
 
-    if not self._is_destroyed then
-        -- player position in normalized uv space relative to center
-        local px, py = self._scene:get_player():get_position()
-        local dx, dy = (self._x - px) / self._x_radius, (self._y - py) / self._y_radius
+    -- player position in normalized uv space relative to center
+    local px, py = self._scene:get_player():get_position()
+    local dx, dy = (self._x - px) / self._x_radius, (self._y - py) / self._y_radius
 
-        _shader:bind()
-        _shader:send("player_position", { dx, dy })
-        _shader:send("player_color", self._color)
-        _shader:send("pop_fraction", self._pop_fraction)
-        self._mesh:draw()
-        _shader:unbind()
-    end
+    _shader:bind()
+    _shader:send("player_position", { dx, dy })
+    _shader:send("player_color", self._color)
+    _shader:send("pop_fraction", self:_get_opacity())
+    self._mesh:draw()
+    _shader:unbind()
 
     love.graphics.pop()
 
@@ -412,7 +430,7 @@ function ow.Bubble:draw_bloom()
     local body_x, body_y = self._body:get_position()
     love.graphics.translate(body_x + path_x, body_y + path_y)
 
-    local opacity = math.max(rt.settings.overworld.bubble.outline_min_opacity, self._pop_fraction)
+    local opacity = self:_get_opacity()
     love.graphics.setLineStyle("smooth")
     love.graphics.setLineJoin("bevel")
 
@@ -462,9 +480,10 @@ function ow.Bubble:collect_point_lights(callback)
     local x, y = body_x + path_x, body_y + path_y
 
     local r, g, b, a = self:get_color():unpack()
+    a = self:_get_opacity()
 
     local radius = math.min(self._x_radius, self._y_radius)
-    callback(x, y, radius, r, g, b, self._pop_fraction)
+    callback(x, y, radius, r, g, b, a)
 
     if self._pop_fraction < 1 then
         callback(x, y, 2 * radius, r, g, b, (1 - self._pop_fraction))
