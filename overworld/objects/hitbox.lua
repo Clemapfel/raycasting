@@ -26,6 +26,16 @@ ow.StickyHitbox = function(object, stage, scene)
     return ow.Hitbox(object, stage, scene)
 end
 
+local schema = {
+    slippery = ow.Boolean,
+    sticky = ow.Boolean,
+    unjumpable = ow.Boolean,
+    unwalkable = ow.Boolean,
+    friction = ow.Number,
+    outline_color = ow.Number, -- grayscale value
+    filter = ow.String
+}
+
 -- manually batched
 ow.Hitbox._slippery_collision_tris = {}
 ow.Hitbox._slipper_mesh_tris = {}
@@ -41,14 +51,15 @@ ow.Hitbox._initialized = false
 
 --- @brief
 function ow.Hitbox:instantiate(object, stage, scene)
+    object:validate_schema(schema, ow.ShapeType.NOT_A_POINT)
+
     self._body = object:create_physics_body(stage:get_physics_world())
 
     for property in range(
         "slippery",
         "sticky",
         "unjumpable",
-        "unwalkable",
-        "no_friction"
+        "unwalkable"
     ) do
         if object:get_boolean(property) then
             self._body:add_tag(property)

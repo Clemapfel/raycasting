@@ -40,7 +40,14 @@ ow.Bubble = meta.class("Bubble", ow.MovableObject)
 local _shader = rt.Shader("overworld/objects/bubble.glsl")
 local _n_hue_steps = 13
 
+local schema = {
+    should_move_in_place = ow.Boolean,
+    hue = ow.Number
+}
+
 function ow.Bubble:instantiate(object, stage, scene)
+    object:validate_schema(schema, ow.Shape.ELLIPSE)
+
     rt.assert(object:get_type() == ow.ObjectType.ELLIPSE,
         "In ow.Bubble: object `", object:get_id(), "` is not an ellipse"
     )
@@ -99,13 +106,17 @@ function ow.Bubble:instantiate(object, stage, scene)
 
     -- graphics
     if stage.bubble_current_hue_step == nil then
-        stage.bubble_current_hue_step = 1
+        stage.bubble_current_hue_step = 0
     end
 
-    local hue = math.fract( stage.bubble_current_hue_step / _n_hue_steps)
-    stage.bubble_current_hue_step = stage.bubble_current_hue_step + 1
+    local hue = object:get_property("hue")
+    if hue == nil then
+        self._hue = math.fract(stage.bubble_current_hue_step % _n_hue_steps / _n_hue_steps)
+        stage.bubble_current_hue_step = stage.bubble_current_hue_step + 1
+    else
+        self._hue = object:get_number("hue", true)
+    end
 
-    self._hue = hue
     self._color = { rt.lcha_to_rgba(0.8, 1, hue, 1) }
 
     self._contour = {}

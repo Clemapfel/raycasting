@@ -13,8 +13,8 @@ end
 
 --- @brief
 function ow.Sprite:instantiate(object, stage, scene)
-    meta.assert(object, "ObjectWrapper")
-    assert(object:get_type() == ow.ObjectType.SPRITE, "In ow.Sprite: object `" .. object:get_id() .. "` is not a sprite")
+    object:validate_schema({}, ow.ShapeType.SPRITE)
+
     self._scene = scene
     self._stage = stage
     self._wrapper = object

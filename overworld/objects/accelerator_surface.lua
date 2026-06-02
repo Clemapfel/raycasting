@@ -26,6 +26,10 @@ rt.settings.overworld.accelerator_surface = {
 --- @field friction Number? defaults to -1, negative friction speeds up player
 ow.AcceleratorSurface = meta.class("AcceleratorSurface", ow.MovableObject)
 
+local schema = {
+    friction = ow.Number
+}
+
 local _particle_texture, _particle_quads = nil, {}
 
 -- init particle meshes
@@ -50,6 +54,8 @@ local _lch_texture = rt.LCHTexture(64, 1, 256)
 
 --- @brief
 function ow.AcceleratorSurface:instantiate(object, stage, scene)
+    object:validate_schema(schema, ow.ShapeType.NOT_A_POINT)
+
     self._scene = scene
     self._stage = stage
 
@@ -146,9 +152,6 @@ function ow.AcceleratorSurface:instantiate(object, stage, scene)
 
     self._n_particles = 0
 
-    self._is_visible = object:get_boolean("is_visible", false)
-    if self._is_visible == nil then self._is_visible = true end
-
     -- physics
 
     self._body = object:create_physics_body(
@@ -179,8 +182,6 @@ function ow.AcceleratorSurface:instantiate(object, stage, scene)
     end
 
     -- mesh
-
-    if not self._is_visible then return end
 
     self._contour = rt.contour.round(object:create_contour(), 10)
     self._mesh = rt.Mesh(mesh_data, rt.MeshDrawMode.TRIANGLES)
@@ -233,8 +234,6 @@ local _is_stale = 0
 local _is_not_stale = 1
 
 function ow.AcceleratorSurface:update(delta)
-    if not self._is_visible or (not self._stage:get_is_body_visible(self._body) and self._n_particles == 0) then return end
-
     local settings = rt.settings.overworld.accelerator_surface.particle
 
     local player = self._scene:get_player()
@@ -378,7 +377,7 @@ function ow.AcceleratorSurface:draw(priority)
     transform = transform:inverse()
 
     if priority == base_priority then
-        if not self._is_visible or not self._stage:get_is_body_visible(self._body) then return end
+        if not self._stage:get_is_body_visible(self._body) then return end
 
         love.graphics.push()
         love.graphics.translate(offset_x, offset_y)

@@ -27,6 +27,10 @@ rt.settings.overworld.bubble_field = {
 --- @field inverted Boolean? if false, non-bubble -> bubble, otherwise bubble -> non-bubble
 ow.BubbleField = meta.class("BubbleField", ow.MovableObject)
 
+local schema = {
+    is_inverted = ow.Boolean
+}
+
 local _base_shader = rt.Shader("overworld/objects/bubble_field_base.glsl")
 local _outline_shader = rt.Shader("overworld/objects/bubble_field_outline.glsl")
 
@@ -49,6 +53,7 @@ local _offset_index = 1
 
 --- @brief
 function ow.BubbleField:instantiate(object, stage, scene)
+    object:validate_schema(schema, ow.NOT_A_POINT)
     self._scene = scene
     self._stage = stage
 
@@ -59,7 +64,7 @@ function ow.BubbleField:instantiate(object, stage, scene)
 
     self._x, self._y = self._body:get_position()
 
-    self._inverted = object:get_boolean("inverted")
+    self._inverted = object:get_boolean("is_inverted")
     if self._inverted == nil then self._inverted = false end
 
     local start_b = not self._inverted

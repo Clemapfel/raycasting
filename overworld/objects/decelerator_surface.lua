@@ -16,6 +16,8 @@ local first, scale = true, 0
 
 --- @brief
 function ow.DeceleratorSurface:instantiate(object, stage, scene)
+    object:validate_schema({}, ow.ShapeType.POLYGON, ow.ShapeType.RECTANGLE)
+
     self._scene = scene
     self._stage = stage
 

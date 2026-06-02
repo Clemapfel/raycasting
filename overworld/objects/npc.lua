@@ -13,13 +13,17 @@ rt.settings.overworld.npc = {
 --- @class ow.NPC
 ow.NPC = meta.class("NPC")
 
+local schema = {
+    dialog_id = ow.String
+}
+
 --- @brief
 function ow.NPC:instantiate(object, stage, scene)
+    object:validate_schema(schema, ow.ShapeType.POINT)
+
     self._scene = scene
     self._stage = stage
-
-    rt.assert(object:get_type() == ow.ObjectType.POINT, "In ow.NPC: object `", object:get_id() , "` is not a point")
-
+        
     local settings = rt.settings.overworld.npc
 
     local width = settings.canvas_radius

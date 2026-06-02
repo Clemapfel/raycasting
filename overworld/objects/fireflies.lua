@@ -11,6 +11,11 @@ rt.settings.overworld.fireflies = {
 --- @class ow.Fireflies
 ow.Fireflies = meta.class("Fireflies", ow.MovableObject)
 
+local schema = {
+    count = ow.Integer,
+    should_move_in_place = ow.Boolean,
+}
+
 function ow.Fireflies.reinitialize(scene, stage)
     require "overworld.firefly_manager"
     if stage.firefly_manager ~= nil then
@@ -27,7 +32,7 @@ end
 
 --- @brief
 function ow.Fireflies:instantiate(object, stage, scene)
-    rt.assert(object:get_type() == ow.ObjectType.POINT, "In ow.Fireflies: object `", object:get_id(), "` is not a point")
+    object:validate_schema(schema, ow.ShapeType.POINT)
 
     if stage.firefly_manager_is_first == true then
         -- first per stage is proxy instance

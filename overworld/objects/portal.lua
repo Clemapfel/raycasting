@@ -28,6 +28,12 @@ rt.settings.overworld.portal = {
 --- @field left_or_right Boolean? override winding order
 ow.Portal = meta.class("Portal", ow.MovableObject)
 
+local schema = {
+    left_or_right = ow.Boolean,
+    other = ow.Object,
+    object = ow.Object
+}
+
 --- @class ow.PortalNode
 ow.PortalNode = meta.class("PortalNode") -- dummy
 
@@ -88,6 +94,8 @@ end
 
 --- @brief
 function ow.Portal:instantiate(object, stage, scene)
+    object:validate_schema(schema, ow.ShapeType.POINT)
+
     if stage.portal_hue == nil then stage.portal_hue = 0 end
 
     if _particle_texture == nil then
@@ -166,13 +174,8 @@ function ow.Portal:instantiate(object, stage, scene)
 
             -- other: other node of line segment, always required
             local other = object:get_object("other", true)
-            if not other:get_type() == ow.ObjectType.POINT then
-                rt.error("In ow.Portal: object `", other:get_id(), "` is not a point")
-            end
+            other:validate_schema(schema, ow.ShapeType.POINT)
 
-            if not other:get_class() == meta.get_typename(ow.PortalNode) then
-                rt.error("In ow.Portal: object `", other:get_id(), "` is not a `PortalNode`, despite being the `target` of portal `", object:get_id(), "`")
-            end
             local ax, ay = other.x, other.y
 
             self._offset_x, self._offset_y = math.mix2(ax, ay, bx, by, 0.5)
@@ -183,6 +186,10 @@ function ow.Portal:instantiate(object, stage, scene)
         end
 
         local target = object:get_object("target", false)
+        if target ~= nil then
+            target:validate_schema(schema, ow.ShapeType.POINT)
+        end
+
         self._is_dead_end = target == nil
 
         if target ~= nil then

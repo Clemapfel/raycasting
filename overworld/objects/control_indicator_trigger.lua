@@ -4,11 +4,16 @@
 --- @field should_emit_particles Boolean?
 ow.ControlIndicatorTrigger = meta.class("ControlIndicatorTrigger")
 
+local schema = {
+    type = ow.String,
+    should_emit_particles = ow.Boolean
+}
+
 local _types
 
 --- @brief
 function ow.ControlIndicatorTrigger:instantiate(object, stage, scene)
-    rt.assert(object:get_type() ~= ow.ObjectType.POINT, "In ow.ControlIndicatorTrigger: object `", object:get_id(), "` is a point")
+    object:validate_schema(schema, ow.ShapeType.NOT_A_POINT)
 
     self._scene = scene
     self._stage = stage

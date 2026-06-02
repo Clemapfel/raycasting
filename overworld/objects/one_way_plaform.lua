@@ -12,15 +12,16 @@ rt.settings.overworld.one_way_platform = {
     push_through_coefficient = 0.57 -- the smaller, the more push through force is applied
 }
 
-local schema = {
-    other = ow.OneWayPlatform,
-    has_end_cap = ow.Boolean,
-    hue = { ow.Number, ow.String }, -- hue or "player"
-}
 
 --- @class ow.OneWayPlatform
 --- @types Rectangle
 ow.OneWayPlatform = meta.class("OneWayPlatform", ow.MovableObject)
+
+local schema = {
+    other = ow.Object,
+    has_end_cap = ow.Boolean,
+    hue = { ow.Number, ow.String }, -- hue or "player"
+}
 
 --- @class ow.OneWayPlatformNode
 ow.OneWayPlatformNode = meta.class("OneWayPlatformNode", ow.MovableObject)
@@ -41,6 +42,7 @@ end
 
 --- @brief
 function ow.OneWayPlatform:instantiate(object, stage, scene)
+    object:validate_schema(schema, ow.ShapeType.POINT)
     self._scene = scene
     self._stage = stage
 
@@ -49,11 +51,7 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
     end
 
     local other = object:get_object("other", true)
-    for x in range(object, other) do
-        if not x:get_type() == ow.ObjectType.POINT then
-            rt.error("In ow.OneWayPlatform: object `", x:get_id(), "` is not a point")
-        end
-    end
+    other:validate_schema({}, ow.ShapeType.POINT)
 
     local x1, y1 = object.x, object.y
     local x2, y2 = other.x, other.y

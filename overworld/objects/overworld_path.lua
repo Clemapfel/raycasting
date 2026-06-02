@@ -19,18 +19,26 @@ rt.settings.overworld.path = {
 }
 
 --- @class ow.Path
---- @types Polygon, Rectangle
---- @field velocity Number?
---- @field next ow.PathNode! pointer to path
---- @field cycle_offset Number? in [0, 1]
---- @field target Any object with set_velocity and set_position
---- @field target_x Any additional targets, where x is 0-9
 ow.Path = meta.class("OverworldPath")
 meta.add_signals(ow.Path,
     "pause",
     "unpause",
     "reset"
 )
+
+local schema = {
+    n_cycles = ow.Boolean,
+    should_loop = ow.Boolean,
+    is_smooth = ow.Boolean,
+    cycle_offset = ow.Number,
+    is_paused = ow.Boolean,
+    is_absolute = ow.Boolean,
+    should_reverse = ow.Boolean,
+    velocity = ow.Number,
+    next = ow.Object,
+    target = ow.Object,
+    -- target(.*) = ow.Obejct
+}
 
 --- @class ow.PathNode
 --- @types Point
@@ -39,7 +47,14 @@ ow.PathNode = meta.class("OverworldPathNode")
 
 --- @brief
 function ow.Path:instantiate(object, stage, scene)
-    assert(object:get_type() == ow.ObjectType.POINT, "In ow.Path: object `" .. object:get_id() .. "` is not a point")
+    local schema = table.deepcopy(schema)
+    for property in values(object:get_property_names()) do
+        if rt.settings.overworld.path.is_target_property_pattern(property) then
+            schema[property] = ow.Object
+        end
+    end
+    object:validate_schema(schema, ow.ShapeType.POINT)
+
     self._scene = scene
     self._stage = stage
     self._color = rt.RGBA(1, 1, 1, 1)
@@ -50,9 +65,6 @@ function ow.Path:instantiate(object, stage, scene)
     self._max_n_cycles = object:get_number("n_cycles", false) or math.huge
     self._should_loop = object:get_boolean("should_loop", false)
     if self._should_loop == nil then self._should_loop = true end
-
-    self._is_visible = object:get_boolean("is_visible", false)
-    if self._is_visible == nil then self._is_visible = true end
 
     self._is_smooth = object:get_boolean("is_smooth", false)
     if self._is_smooth == nil then self._is_smooth = false end
@@ -126,7 +138,7 @@ function ow.Path:instantiate(object, stage, scene)
         local node = object
         local path = {}
         repeat
-            assert(node:get_type() == ow.ObjectType.POINT, "In ow.Path: `PathNode` (" .. object:get_id() .. ") is not a point")
+            node:validate_schema(schema, ow.ShapeType.POINT)
 
             if seen[node] == true then break end
             seen[node] = true

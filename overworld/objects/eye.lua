@@ -40,7 +40,7 @@ end)
 local n_hue_steps = 64
 
 function ow.Eye:instantiate(object, stage, scene)
-    rt.assert(object:get_type() == ow.ObjectType.ELLIPSE, "In ow.Eye.instantiate: object is not a circle")
+    object:validate_schema({}, ow.ShapeType.ELLIPSE)
 
     self._camera_body = object:create_physics_body(stage:get_physics_world())
     self._camera_body:set_collides_with(0x0)

@@ -27,6 +27,10 @@ rt.settings.overworld.checkpoint = {
 --- @types Point
 ow.Checkpoint = meta.class("Checkpoint")
 
+local schema = {
+    is_invisible = ow.Boolean,
+}
+
 --- @enum ow.CheckpointTye
 ow.CheckpointType = {
     PLAYER_SPAWN = 0,
@@ -53,8 +57,9 @@ local _STATE_STAGE_ENTRY = "STAGE_ENTRY"
 
 --- @brief
 function ow.Checkpoint:instantiate(object, stage, scene, type)
+    object:validate_schema(schema, ow.ShapeType.POINT)
+
     if type == nil then type = ow.CheckpointType.MIDWAY end
-    assert(object:get_type() == ow.ObjectType.POINT, "In ow.Checkpoint: object is not a point")
 
     meta.install(self, {
         _scene = scene,

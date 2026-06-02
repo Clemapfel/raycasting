@@ -391,7 +391,7 @@
   <object id="240" type="Wall" x="-1488" y="2416" visible="0">
    <polygon points="0,0 0,-688 1648,-688 1648,544 0,544"/>
   </object>
-  <object id="241" type="CameraFit" x="-1408" y="1808" width="1504" height="816" visible="0"/>
+  <object id="241" type="CameraFit" x="-1408" y="1808" width="1504" height="816"/>
   <object id="245" type="BoostField" x="1936" y="-1472">
    <properties>
     <property name="axis_y" type="float" value="-1"/>

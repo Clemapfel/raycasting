@@ -43,63 +43,9 @@ do
     _shader = rt.Shader("overworld/objects/boost_field.glsl", defines)
 end
 
--- lineare regression
-local function _fit_line(vertices)
-    local n = #vertices / 2
-
-    local sum_x, sum_y = 0, 0
-    for i = 1, #vertices, 2 do
-        sum_x = sum_x + vertices[i]
-        sum_y = sum_y + vertices[i + 1]
-    end
-
-    local mean_x = sum_x / n
-    local mean_y = sum_y / n
-
-    local var_x, var_y = 0, 0
-    local covar = 0
-    for i = 1, #vertices, 2 do
-        local dx = vertices[i] - mean_x
-        local dy = vertices[i + 1] - mean_y
-        var_x = var_x + dx * dx
-        var_y = var_y + dy * dy
-        covar = covar + dx * dy
-    end
-
-    local dir_x, dir_y
-    if math.equals(var_x, 0) and math.equals(var_y, 0) then
-        dir_x, dir_y = 1, 0
-    elseif math.equals(var_x, 0) then
-        dir_x, dir_y = 0, 1
-    else
-        local theta = 0.5 * math.angle(var_x - var_y, 2 * covar)
-        dir_x = math.cos(theta)
-        dir_y = math.sin(theta)
-    end
-
-    dir_x, dir_y = math.normalize(dir_x, dir_y)
-
-    local min_proj = math.huge
-    local max_proj = -math.huge
-    for i = 1, #vertices, 2 do
-        local dx = vertices[i] - mean_x
-        local dy = vertices[i + 1] - mean_y
-        local proj = math.dot(dx, dy, dir_x, dir_y)
-        min_proj = math.min(min_proj, proj)
-        max_proj = math.max(max_proj, proj)
-    end
-
-    local x1 = mean_x + min_proj * dir_x
-    local y1 = mean_y + min_proj * dir_y
-    local x2 = mean_x + max_proj * dir_x
-    local y2 = mean_y + max_proj * dir_y
-
-    return x1, y1, x2, y2
-end
-
 --- @brief
 function ow.BoostField:instantiate(object, stage, scene)
-    object:validate_schema(schema)
+    object:validate_schema(schema, ow.ShapeType.NOT_A_POINT)
     self._body = object:create_physics_body(stage:get_physics_world())
     self._body:set_is_sensor(true)
     self._body:set_collides_with(rt.settings.player.player_collision_group)
@@ -120,8 +66,6 @@ function ow.BoostField:instantiate(object, stage, scene)
 
     self._scene = scene
     self._stage = stage
-    self._is_visible = object:get_boolean("is_visible", false)
-    if self._is_visible == nil then self._is_visible = true end
 
     self._has_outline = object:get_boolean("has_outline", false)
     if self._has_outline == nil then self._has_outline = true end
@@ -145,6 +89,61 @@ function ow.BoostField:instantiate(object, stage, scene)
             self._axis_x = axis_x
             self._axis_y = axis_y
         else
+
+            -- lineare regression
+            local function _fit_line(vertices)
+                local n = #vertices / 2
+
+                local sum_x, sum_y = 0, 0
+                for i = 1, #vertices, 2 do
+                    sum_x = sum_x + vertices[i]
+                    sum_y = sum_y + vertices[i + 1]
+                end
+
+                local mean_x = sum_x / n
+                local mean_y = sum_y / n
+
+                local var_x, var_y = 0, 0
+                local covar = 0
+                for i = 1, #vertices, 2 do
+                    local dx = vertices[i] - mean_x
+                    local dy = vertices[i + 1] - mean_y
+                    var_x = var_x + dx * dx
+                    var_y = var_y + dy * dy
+                    covar = covar + dx * dy
+                end
+
+                local dir_x, dir_y
+                if math.equals(var_x, 0) and math.equals(var_y, 0) then
+                    dir_x, dir_y = 1, 0
+                elseif math.equals(var_x, 0) then
+                    dir_x, dir_y = 0, 1
+                else
+                    local theta = 0.5 * math.angle(var_x - var_y, 2 * covar)
+                    dir_x = math.cos(theta)
+                    dir_y = math.sin(theta)
+                end
+
+                dir_x, dir_y = math.normalize(dir_x, dir_y)
+
+                local min_proj = math.huge
+                local max_proj = -math.huge
+                for i = 1, #vertices, 2 do
+                    local dx = vertices[i] - mean_x
+                    local dy = vertices[i + 1] - mean_y
+                    local proj = math.dot(dx, dy, dir_x, dir_y)
+                    min_proj = math.min(min_proj, proj)
+                    max_proj = math.max(max_proj, proj)
+                end
+
+                local x1 = mean_x + min_proj * dir_x
+                local y1 = mean_y + min_proj * dir_y
+                local x2 = mean_x + max_proj * dir_x
+                local y2 = mean_y + max_proj * dir_y
+
+                return x1, y1, x2, y2
+            end
+
             -- else perform linear regression, use directed line as axis
             local ax, ay, bx, by = _fit_line(object:create_contour())
             if ay < by then

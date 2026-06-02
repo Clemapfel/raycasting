@@ -17,7 +17,7 @@ ow.TimeAttackTriggerNPC = meta.class("TimeAttackTriggerNPC")
 
 --- @brief
 function ow.TimeAttackTriggerNPC:instantiate(object, stage, scene)
-    rt.assert(object:get_type() == ow.ObjectType.POINT, "In ow.TimeAttackNPC: object `", object:get_id(), "` is not a a point")
+    object:validate_schema({}, ow.ShapeType.POINT)
 
     self._scene = scene
     self._stage = stage

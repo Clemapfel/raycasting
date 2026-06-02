@@ -22,16 +22,20 @@ rt.settings.overworld.coin = {
 --- @field should_move_in_place Boolean? whether to add noise while stationary
 ow.Coin = meta.class("Coin", ow.MovableObject)
 
-local _pulse_mesh = nil
+local schema = {
+    should_move_in_place = ow.Boolean
+}
 
 function ow.Coin.index_to_hue(i, n_coins)
     if n_coins - 1 == 0 then return 0 end
     return (i - 1) / (n_coins + 1)
 end
 
+local _pulse_mesh = nil
+
 --- @brief
 function ow.Coin:instantiate(object, stage, scene)
-    assert(object:get_type() == ow.ObjectType.POINT, "In ow.Coin.instantiate: object is not a point")
+    object:validate_schema(schema, ow.ShapeType.POINT)
 
     local radius = rt.settings.overworld.coin.radius
 

@@ -5,8 +5,17 @@ ow.CameraFit = meta.class("CameraFit")
 --- @class ow.CameraFitBody
 ow.CameraFitBody = meta.class("CameraFitBody") -- dummy
 
+local schema = {
+    body = ow.Object
+}
+
 --- @brief
 function ow.CameraFit:instantiate(object, stage, scene)
+    object:validate_schema(schema,
+        ow.ShapeType.POLYGON,
+        ow.ShapeType.AXIS_ALIGNED_RECTANGLE
+    )
+
     if object:get_type() == ow.ObjectType.POLYGON then
         self._bounds = rt.contour.get_aabb(object:create_contour())
     elseif object:get_type() == ow.ObjectType.RECTANGLE then
@@ -22,6 +31,7 @@ function ow.CameraFit:instantiate(object, stage, scene)
         self._body = object:create_physics_body(stage:get_physics_world())
     else
         self._body = object:get_object("body"):create_physics_body(stage:get_physics_world())
+        self._body:validate_schema({}, shape_types)
     end
 
     self._body:set_is_sensor(true)

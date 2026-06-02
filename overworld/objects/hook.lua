@@ -13,6 +13,10 @@ rt.settings.overworld.hook = {
 --- @types Point
 ow.Hook = meta.class("OverworldHook", ow.MovableObject)
 
+local schema = {
+    hue = ow.Number
+}
+
 local _shader = rt.Shader("overworld/objects/hook.glsl")
 
 -- global hue queue such that two elements don't have the same hue
@@ -26,7 +30,8 @@ end
 
 --- @brief
 function ow.Hook:instantiate(object, stage, scene)
-    assert(object:get_type() == ow.ObjectType.POINT, "In ow.Hook: object `" .. object:get_id() .. "` is not a point")
+    object:validate_schema(schema, ow.ShapeType.POINT)
+
     self._radius = rt.settings.player.radius * rt.settings.overworld.hook.radius_factor
     self._cooldown_elapsed = math.huge
 
@@ -52,9 +57,14 @@ function ow.Hook:instantiate(object, stage, scene)
     self._body:add_tag("point_light_source")
     self._body:set_user_data(self)
 
-    self._hue = stage.hook_current_hue_step
+    if object:has_property("hue") ~= nil then
+        self._hue = object:get_number("hue", true)
+    else
+        self._hue = stage.hook_current_hue_step
+        stage.hook_current_hue_step = (stage.hook_current_hue_step % _n_hue_steps) + 1
+    end
+
     self._original_hue = self._hue
-    stage.hook_current_hue_step = (stage.hook_current_hue_step % _n_hue_steps) + 1
     self._color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, self._hue, 1))
 
     self._stage:signal_connect("respawn", function(_)

@@ -36,6 +36,8 @@ end
 
 --- @brief
 function ow.Goal:instantiate(object, stage, scene)
+    object:validate_schema({}, ow.ShapeType.RECTANGLE)
+
     meta.install(self, {
         _scene = scene,
         _stage = stage,

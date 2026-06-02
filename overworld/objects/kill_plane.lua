@@ -21,7 +21,8 @@ rt.settings.overworld.kill_plane = {
 ow.KillPlane = meta.class("KillPlane", ow.MovableObject)
 
 local schema = {
-    should_explode = ow.Boolean
+    should_explode = ow.Boolean,
+    is_visible = ow.Boolean
 }
 
 local _data_mesh_format = {
@@ -35,6 +36,8 @@ local _instance_draw_shader = rt.Shader("overworld/objects/kill_plane_instanced_
 local _background_shader = rt.Shader("overworld/objects/kill_plane_background.glsl")
 
 function ow.KillPlane:instantiate(object, stage, scene)
+    object:valid_schema(schema, ow.ShapeType.NOT_A_POINT)
+
     self._scene = scene
     self._stage = stage
 

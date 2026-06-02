@@ -142,7 +142,8 @@ local settings = setmetatable({}, {
 rt.Player = meta.class("Player")
 meta.add_signals(rt.Player,
     "jump",      -- when jumping
-    "bubble", -- (Player, Boolean), when going from non-bubble to bubble or vice versa
+    "grounded",  -- when going from airborne to grounded
+    "bubble",    --  (Player, Boolean), when going from non-bubble to bubble or vice versa
     "spawned",
     "died" -- when respawning after a death
 )
@@ -1779,6 +1780,10 @@ function rt.Player:update(delta)
         )
 
         self._last_velocity_x, self._last_velocity_y = next_velocity_x, next_velocity_y
+
+        if was_grounded == false and self._is_grounded == true then
+            self:signal_emit("grounded")
+        end
 
         -- guard against bodies catching on corners
         do

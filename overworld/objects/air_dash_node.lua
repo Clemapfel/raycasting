@@ -39,6 +39,10 @@ local point_schema = {
     velocity = ow.Number
 }
 
+local allowed_shapes = {
+    ow.ShapeType.POINT, ow.ShapeType.CIRCLE
+}
+
 --- @class AirDashNode
 --- @types Circle
 ow.AirDashNode = meta.class("AirDashNode", ow.MovableObject)
@@ -63,13 +67,12 @@ end
 
 --- @brief
 function ow.AirDashNode:instantiate(object, stage, scene)
-
     if (object:get_type() == ow.ObjectType.POINT) then
         rt.assert(object:get_object("other", true):get_type() == ow.ObjectType.POINT)
-        object:validate_schema(point_schema)
+        object:validate_schema(point_schema, allowed_shapes)
     else
         rt.assert(object:get_type() == ow.ObjectType.ELLIPSE and math.equals(object.x_radius, object.y_radius), "In ow.AirDashNode: object `" .. object:get_id() .. "` is not a circle")
-        object:validate_schema(circle_schema)
+        object:validate_schema(circle_schema, allowed_shapes)
     end
 
     if stage.air_dash_node_manager_is_first == true then

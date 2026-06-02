@@ -1,7 +1,7 @@
 require "common.delaunay_triangulation"
 
 rt.settings.voronoi_tesselation = {
-    seed_density = 1 / 400, -- #seeds per px^2
+    seed_density = 1 / 350, -- #seeds per px^2
     randomization = 1 -- unitless
 }
 

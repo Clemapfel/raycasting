@@ -7,8 +7,16 @@
 ow.OverlapTrigger = meta.class("OverlapTrigger")
 meta.add_signals(ow.OverlapTrigger, "activate")
 
+local schema = {
+    target = ow.Object,
+    signal = ow.String,
+    value = { ow.Number, ow.Integer, ow.Boolean, ow.String }
+}
+
 --- @brief
 function ow.OverlapTrigger:instantiate(object, stage, scene)
+    object:validate_schema(schema, ow.ShapeType.NOT_A_POINT)
+
     self._scene = scene
     self._stage = stage
     self._body = object:create_physics_body(stage:get_physics_world(), b2.BodyType.STATIC)

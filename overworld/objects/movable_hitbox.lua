@@ -29,7 +29,7 @@ local schema = {
 
 --- @brief
 function ow.MovableHitbox:instantiate(object, stage, scene)
-    object:validate_schema(schema)
+    object:validate_schema(schema, ow.ShapeType.NOT_A_POINT)
 
     self._scene = scene
     self._stage = stage

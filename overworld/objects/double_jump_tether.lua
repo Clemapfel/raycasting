@@ -28,7 +28,7 @@ local eps = 0.01
 
 --- @brief
 function ow.DoubleJumpTether:instantiate(object, stage, scene)
-    assert(object:get_type() == ow.ObjectType.POINT, "In ow.DoubleJumpTether: tiled object is not a point")
+    object:validate_schema(object, ow.ShapeType.POINT)
 
     self._x, self._y, self._radius = object.x, object.y, rt.settings.player.radius * rt.settings.overworld.double_jump_tether.radius_factor
     self._body = b2.Body(

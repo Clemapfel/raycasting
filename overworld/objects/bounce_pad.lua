@@ -44,6 +44,8 @@ rt.settings.overworld.bounce_pad = {
 --- @field respawn_duration Number? if single use, how long to respawn
 ow.BouncePad = meta.class("BouncePad", ow.MovableObject)
 
+local schema = {} -- no custom attributes
+
 -- mesh deformation
 local _x_index = 1
 local _y_index = 2
@@ -58,6 +60,8 @@ local _noise_texture = rt.NoiseTexture(64, 64, 16,
 
 --- @brief
 function ow.BouncePad:instantiate(object, stage, scene)
+    object:validate_schema(schema, ow.ShapeType.NOT_A_POINT)
+
     meta.install(self, {
         _scene = scene,
         _stage = stage,
@@ -81,9 +85,6 @@ function ow.BouncePad:instantiate(object, stage, scene)
         -- particles
         _batches = {},
     })
-
-    self._is_visible = object:get_boolean("is_visible")
-    if self._is_visible == nil then self._is_visible = true end
 
     self._draw_inner_color = { rt.Palette.BOUNCE_PAD:unpack() }
     self._draw_outer_color = { rt.Palette.BOUNCE_PAD:unpack() }
@@ -160,7 +161,7 @@ function ow.BouncePad:instantiate(object, stage, scene)
         )
     end)
 
-    if not self._is_visible then goto skip_graphics end
+    if object:get_boolean("is_visible") == false then goto skip_graphics end
 
     local contour = object:create_contour()
 
@@ -271,8 +272,6 @@ do
 
     --- @brief
     function ow.BouncePad:update(delta)
-        if not self._is_visible then return end
-
         if #self._batches > 0 then
             self:_update_particles(delta)
         end
@@ -367,7 +366,7 @@ end
 
 --- @brief
 function ow.BouncePad:draw()
-    if not self._is_visible or not self._stage:get_is_body_visible(self._body) then return end
+    if not self._stage:get_is_body_visible(self._body) then return end
 
     love.graphics.push()
     local bx, by = self._body:get_position()
