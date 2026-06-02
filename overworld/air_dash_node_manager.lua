@@ -51,7 +51,7 @@ function ow.AirDashNodeManager:instantiate(scene, stage)
 
     self._tether_elapsed = math.huge
     self._t_history = {}
-    self._chain_history = {}
+    self._chain_previous_node = {}
 
     self._tether_velocity_magnitude = 0
     self._node_to_cooldown_timestamp = meta.make_weak({})
@@ -181,7 +181,7 @@ function ow.AirDashNodeManager:update(delta)
     local player = self._scene:get_player()
     local px, py = player:get_position()
     local pvx, pvy = player:get_velocity()
-    local pr = player:get_radius() -- sic
+    local pr = player:get_radius()
 
     local get_is_on_cooldown = function(node)
         return self._node_to_cooldown_timestamp[node] ~= nil
@@ -292,10 +292,16 @@ function ow.AirDashNodeManager:update(delta)
         if past_mid_point then
             -- find best overlapping node
             local chain_node = nil
-            for entry in values(entries) do
+            local self_x, self_y = self._tethered_node:get_position()
+            local self_r = self._tethered_node:get_radius()
+            for _, entry in ipairs(entries) do
+                local other_x, other_y = entry.node:get_position()
+                local other_r = entry.node:get_radius()
+
                 if entry.node ~= self._tethered_node
-                    and entry.node:check_player_overlap(px, py, 2 * pr) == true
-                    and self._chain_history[entry.node] ~= true
+                    and entry.node ~= self._chain_previous_node  -- only block immediate back-chain
+                    and math.distance(self_x, self_y, other_x, other_y) <= self_r + other_r
+                    and entry.node:check_player_overlap(px, py, pr) == true
                 then
                     chain_node = entry.node
                     break
@@ -303,7 +309,15 @@ function ow.AirDashNodeManager:update(delta)
             end
 
             if chain_node ~= nil then
+                self._chain_previous_node = self._tethered_node  -- remember where we just were
                 self:_tether(chain_node)
+
+                if self._chain_previous_node ~= nil then
+                    player:signal_connect("grounded", function(_)
+                        self._chain_previous_node = nil
+                        return meta.DISCONNECT_SIGNAL
+                    end)
+                end
             end
         end
     end
@@ -391,11 +405,43 @@ end
 --- @brief
 function ow.AirDashNodeManager:draw()
     if self._tethered_node == nil then return end
+end
 
-    love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.setLineWidth(1)
-
-    if self._tether_exit_sign_line ~= nil and self._tethered_node ~= nil then
-        love.graphics.line(self._tether_exit_sign_line)
+--- @brief
+function ow.AirDashNodeManager:reset()
+    if self._tethered_node ~= nil then
+        self._tethered_node:set_is_tethered(false)
     end
+    if self._next_node ~= nil then
+        self._next_node:set_is_current(false)
+    end
+    if self._recommended_node ~= nil then
+        self._recommended_node:set_is_outline_visible(false)
+    end
+
+    local player = self._scene:get_player()
+    if player ~= nil then
+        player:request_is_double_jump_disabled(self, false)
+    end
+
+    self._max_node_radius = 0
+    self._next_node = nil
+    self._recommended_node = nil
+    self._tethered_node = nil
+
+    self._tether_path = rt.Path(0, 0, 0, 0)
+    self._tether_exit_sign_line = { 0, 0, 0, 0 }
+    self._tether_exit_sign = 0
+
+    self._tether_mid_sign_line = { 0, 0, 0, 0 }
+    self._tether_mid_sign = 0
+
+    self._tether_elapsed = math.huge
+    self._t_history = {}
+    self._chain_history = {}
+    self._chain_previous_node = nil
+
+    self._tether_velocity_magnitude = 0
+    self._node_to_cooldown_timestamp = meta.make_weak({})
+    self._tether_allowed_timestamp = nil
 end

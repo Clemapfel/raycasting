@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 293,
+  nextobjectid = 298,
   properties = {
     ["background_id"] = "\"nebula\""
   },
@@ -212,8 +212,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = 48,
-          y = -1290.57,
+          x = -253.594,
+          y = -1307.3,
           width = 0,
           height = 0,
           rotation = 0,
@@ -776,7 +776,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0.25,
+            ["angle_range"] = 0,
             ["other"] = { id = 192 }
           }
         },
@@ -792,7 +792,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0.25
+            ["angle_range"] = 0
           }
         },
         {
@@ -807,7 +807,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0.25,
+            ["angle_range"] = 0,
             ["other"] = { id = 194 }
           }
         },
@@ -823,7 +823,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0.25
+            ["angle_range"] = 0
           }
         },
         {
@@ -838,7 +838,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0.25,
+            ["angle_range"] = 0,
             ["other"] = { id = 196 }
           }
         },
@@ -854,7 +854,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0.25
+            ["angle_range"] = 0
           }
         },
         {
@@ -869,7 +869,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0.25,
+            ["angle_range"] = 0,
             ["other"] = { id = 198 }
           }
         },
@@ -885,7 +885,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0.25
+            ["angle_range"] = 0
           }
         },
         {
@@ -900,7 +900,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0.25,
+            ["angle_range"] = 0,
             ["other"] = { id = 200 }
           }
         },
@@ -916,7 +916,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0.25
+            ["angle_range"] = 0
           }
         },
         {
@@ -931,7 +931,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0.25,
+            ["angle_range"] = 0,
             ["other"] = { id = 202 }
           }
         },
@@ -947,7 +947,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0.25
+            ["angle_range"] = 0
           }
         },
         {
@@ -962,7 +962,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0.25,
+            ["angle_range"] = 0,
             ["other"] = { id = 204 }
           }
         },
@@ -978,7 +978,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0.25
+            ["angle_range"] = 0
           }
         },
         {
@@ -993,7 +993,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0.25,
+            ["angle_range"] = 0,
             ["other"] = { id = 206 }
           }
         },
@@ -1009,7 +1009,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0.25
+            ["angle_range"] = 0
           }
         },
         {
@@ -1024,7 +1024,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0.25,
+            ["angle_range"] = 0,
             ["other"] = { id = 208 }
           }
         },
@@ -1040,7 +1040,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0.25
+            ["angle_range"] = 0
           }
         },
         {
@@ -1055,7 +1055,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0.25,
+            ["angle_range"] = 0,
             ["other"] = { id = 220 }
           }
         },
@@ -1071,7 +1071,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0.25
+            ["angle_range"] = 0
           }
         },
         {
@@ -1086,7 +1086,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0.25,
+            ["angle_range"] = 0,
             ["other"] = { id = 224 }
           }
         },
@@ -1102,7 +1102,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0.25
+            ["angle_range"] = 0
           }
         },
         {
@@ -1117,7 +1117,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0.25,
+            ["angle_range"] = 0,
             ["other"] = { id = 226 }
           }
         },
@@ -1133,7 +1133,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0.25
+            ["angle_range"] = 0
           }
         },
         {
@@ -1148,7 +1148,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0.25,
+            ["angle_range"] = 0,
             ["other"] = { id = 228 }
           }
         },
@@ -1164,7 +1164,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0.25
+            ["angle_range"] = 0
           }
         },
         {
@@ -1179,7 +1179,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0.25,
+            ["angle_range"] = 0,
             ["other"] = { id = 230 }
           }
         },
@@ -1195,7 +1195,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0.25
+            ["angle_range"] = 0
           }
         },
         {
@@ -1210,7 +1210,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0.25,
+            ["angle_range"] = 0,
             ["other"] = { id = 232 }
           }
         },
@@ -1226,7 +1226,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0.25
+            ["angle_range"] = 0
           }
         },
         {
@@ -1241,7 +1241,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0.25,
+            ["angle_range"] = 0,
             ["other"] = { id = 234 }
           }
         },
@@ -1257,7 +1257,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["angle_range"] = 0.25
+            ["angle_range"] = 0
           }
         },
         {
@@ -1270,7 +1270,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
-          visible = true,
+          visible = false,
           polygon = {
             { x = 0, y = 0 },
             { x = 0, y = -688 },
@@ -1498,10 +1498,23 @@ return {
           name = "TimeAttack",
           type = "TimeAttackTriggerNPC",
           shape = "point",
-          x = 169.298,
-          y = -1296,
+          x = 1125.53,
+          y = -1284.97,
           width = 0,
           height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 297,
+          name = "",
+          type = "BouncePad",
+          shape = "ellipse",
+          x = 144,
+          y = -1456,
+          width = 224,
+          height = 224,
           rotation = 0,
           visible = true,
           properties = {}

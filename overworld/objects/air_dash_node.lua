@@ -98,6 +98,7 @@ function ow.AirDashNode:instantiate(object, stage, scene)
         scene.air_dash_node_hue = 0
         scene:signal_connect("reset", function()
             scene.air_dash_node_hue = nil
+            return meta.DISCONNECT_SIGNAL
         end)
     end
 
@@ -412,7 +413,9 @@ end
 
 --- @brief
 function ow.AirDashNode:update(delta)
-    if self._is_handler_proxy == true then self._stage.air_dash_node_manager:update(delta) end
+    if self._is_handler_proxy == true and self._stage.air_dash_node_manager ~= nil then
+        self._stage.air_dash_node_manager:update(delta)
+    end
 
     if self._stage:get_is_body_visible(self._body) then
         if self._queue_emit then
@@ -467,7 +470,9 @@ local _above_player_priority = 1
 
 --- @brief
 function ow.AirDashNode:draw(priority)
-    if self._is_handler_proxy then self._stage.air_dash_node_manager:draw() end
+    if self._is_handler_proxy and self._stage.air_dash_node_manager ~= nil then
+        self._stage.air_dash_node_manager:draw()
+    end
 
     if not self._stage:get_is_body_visible(self._body) then return end
 
@@ -811,4 +816,29 @@ end
 --- @brief
 function ow.AirDashNode:get_velocity_factor()
     return self._velocity
+end
+
+--- @brief
+function ow.AirDashNode:get_angle_range()
+    return self._angle_range
+end
+
+--- @brief
+function ow.AirDashNode:reset()
+    self._is_current = false
+    self._is_tethered = false
+    self._cooldown_delay_elapsed = math.huge
+    self._lighting_elapsed = math.huge
+    self._is_on_cooldown = false
+    self._queue_emit = false
+
+    self._is_current_motion:set_value(0)
+    self._is_current_motion:set_target_value(0)
+
+    self._particle:set_is_exploded(false)
+    self._particles:clear()
+
+    if self._is_handler_proxy and self._stage.air_dash_node_manager ~= nil then
+        self._stage.air_dash_node_manager:reset()
+    end
 end

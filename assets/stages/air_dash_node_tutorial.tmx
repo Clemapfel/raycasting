@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="293">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="298">
  <editorsettings>
   <export target="air_dash_node_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -47,7 +47,7 @@
   </object>
  </objectgroup>
  <objectgroup id="2" name="main">
-  <object id="89" name="Spawn" type="PlayerSpawn" x="48" y="-1290.57">
+  <object id="89" name="Spawn" type="PlayerSpawn" x="-253.594" y="-1307.3">
    <point/>
   </object>
   <object id="91" type="Hitbox" x="-1439.08" y="1248">
@@ -182,213 +182,213 @@
   </object>
   <object id="191" type="AirDashNode" x="-1284.63" y="2211.56">
    <properties>
-    <property name="angle_range" type="float" value="0.25"/>
+    <property name="angle_range" type="float" value="0"/>
     <property name="other" type="object" value="192"/>
    </properties>
    <point/>
   </object>
   <object id="192" type="AirDashNodeDirection" x="-1214.41" y="2071.11">
    <properties>
-    <property name="angle_range" type="float" value="0.25"/>
+    <property name="angle_range" type="float" value="0"/>
    </properties>
    <point/>
   </object>
   <object id="193" type="AirDashNode" x="-1214.41" y="2071.11">
    <properties>
-    <property name="angle_range" type="float" value="0.25"/>
+    <property name="angle_range" type="float" value="0"/>
     <property name="other" type="object" value="194"/>
    </properties>
    <point/>
   </object>
   <object id="194" type="AirDashNodeDirection" x="-1027.15" y="2071.11">
    <properties>
-    <property name="angle_range" type="float" value="0.25"/>
+    <property name="angle_range" type="float" value="0"/>
    </properties>
    <point/>
   </object>
   <object id="195" type="AirDashNode" x="-769.667" y="2352">
    <properties>
-    <property name="angle_range" type="float" value="0.25"/>
+    <property name="angle_range" type="float" value="0"/>
     <property name="other" type="object" value="196"/>
    </properties>
    <point/>
   </object>
   <object id="196" type="AirDashNodeDirection" x="-676.037" y="2071.11">
    <properties>
-    <property name="angle_range" type="float" value="0.25"/>
+    <property name="angle_range" type="float" value="0"/>
    </properties>
    <point/>
   </object>
   <object id="197" type="AirDashNode" x="-863.297" y="2071.11">
    <properties>
-    <property name="angle_range" type="float" value="0.25"/>
+    <property name="angle_range" type="float" value="0"/>
     <property name="other" type="object" value="198"/>
    </properties>
    <point/>
   </object>
   <object id="198" type="AirDashNodeDirection" x="-769.667" y="2352">
    <properties>
-    <property name="angle_range" type="float" value="0.25"/>
+    <property name="angle_range" type="float" value="0"/>
    </properties>
    <point/>
   </object>
   <object id="199" type="AirDashNode" x="-1027.15" y="2071.11">
    <properties>
-    <property name="angle_range" type="float" value="0.25"/>
+    <property name="angle_range" type="float" value="0"/>
     <property name="other" type="object" value="200"/>
    </properties>
    <point/>
   </object>
   <object id="200" type="AirDashNodeDirection" x="-956.926" y="2211.56">
    <properties>
-    <property name="angle_range" type="float" value="0.25"/>
+    <property name="angle_range" type="float" value="0"/>
    </properties>
    <point/>
   </object>
   <object id="201" type="AirDashNode" x="-1027.15" y="2352">
    <properties>
-    <property name="angle_range" type="float" value="0.25"/>
+    <property name="angle_range" type="float" value="0"/>
     <property name="other" type="object" value="202"/>
    </properties>
    <point/>
   </object>
   <object id="202" type="AirDashNodeDirection" x="-1214.41" y="2352">
    <properties>
-    <property name="angle_range" type="float" value="0.25"/>
+    <property name="angle_range" type="float" value="0"/>
    </properties>
    <point/>
   </object>
   <object id="203" type="AirDashNode" x="-1214.41" y="2352">
    <properties>
-    <property name="angle_range" type="float" value="0.25"/>
+    <property name="angle_range" type="float" value="0"/>
     <property name="other" type="object" value="204"/>
    </properties>
    <point/>
   </object>
   <object id="204" type="AirDashNodeDirection" x="-1284.63" y="2211.56">
    <properties>
-    <property name="angle_range" type="float" value="0.25"/>
+    <property name="angle_range" type="float" value="0"/>
    </properties>
    <point/>
   </object>
   <object id="205" type="AirDashNode" x="-559" y="2352">
    <properties>
-    <property name="angle_range" type="float" value="0.25"/>
+    <property name="angle_range" type="float" value="0"/>
     <property name="other" type="object" value="206"/>
    </properties>
    <point/>
   </object>
   <object id="206" type="AirDashNodeDirection" x="-465.371" y="2071.11">
    <properties>
-    <property name="angle_range" type="float" value="0.25"/>
+    <property name="angle_range" type="float" value="0"/>
    </properties>
    <point/>
   </object>
   <object id="207" type="AirDashNode" x="-676.037" y="2071.11">
    <properties>
-    <property name="angle_range" type="float" value="0.25"/>
+    <property name="angle_range" type="float" value="0"/>
     <property name="other" type="object" value="208"/>
    </properties>
    <point/>
   </object>
   <object id="208" type="AirDashNodeDirection" x="-559" y="2352">
    <properties>
-    <property name="angle_range" type="float" value="0.25"/>
+    <property name="angle_range" type="float" value="0"/>
    </properties>
    <point/>
   </object>
   <object id="219" type="AirDashNode" x="-956.926" y="2211.56">
    <properties>
-    <property name="angle_range" type="float" value="0.25"/>
+    <property name="angle_range" type="float" value="0"/>
     <property name="other" type="object" value="220"/>
    </properties>
    <point/>
   </object>
   <object id="220" type="AirDashNodeDirection" x="-1027.15" y="2352">
    <properties>
-    <property name="angle_range" type="float" value="0.25"/>
+    <property name="angle_range" type="float" value="0"/>
    </properties>
    <point/>
   </object>
   <object id="223" type="AirDashNode" x="-348.334" y="2211.56">
    <properties>
-    <property name="angle_range" type="float" value="0.25"/>
+    <property name="angle_range" type="float" value="0"/>
     <property name="other" type="object" value="224"/>
    </properties>
    <point/>
   </object>
   <object id="224" type="AirDashNodeDirection" x="-278.111" y="2071.11">
    <properties>
-    <property name="angle_range" type="float" value="0.25"/>
+    <property name="angle_range" type="float" value="0"/>
    </properties>
    <point/>
   </object>
   <object id="225" type="AirDashNode" x="-278.111" y="2071.11">
    <properties>
-    <property name="angle_range" type="float" value="0.25"/>
+    <property name="angle_range" type="float" value="0"/>
     <property name="other" type="object" value="226"/>
    </properties>
    <point/>
   </object>
   <object id="226" type="AirDashNodeDirection" x="-90.8519" y="2071.11">
    <properties>
-    <property name="angle_range" type="float" value="0.25"/>
+    <property name="angle_range" type="float" value="0"/>
    </properties>
    <point/>
   </object>
   <object id="227" type="AirDashNode" x="-90.8519" y="2071.11">
    <properties>
-    <property name="angle_range" type="float" value="0.25"/>
+    <property name="angle_range" type="float" value="0"/>
     <property name="other" type="object" value="228"/>
    </properties>
    <point/>
   </object>
   <object id="228" type="AirDashNodeDirection" x="-20.6296" y="2211.56">
    <properties>
-    <property name="angle_range" type="float" value="0.25"/>
+    <property name="angle_range" type="float" value="0"/>
    </properties>
    <point/>
   </object>
   <object id="229" type="AirDashNode" x="-90.8519" y="2352">
    <properties>
-    <property name="angle_range" type="float" value="0.25"/>
+    <property name="angle_range" type="float" value="0"/>
     <property name="other" type="object" value="230"/>
    </properties>
    <point/>
   </object>
   <object id="230" type="AirDashNodeDirection" x="-278.111" y="2352">
    <properties>
-    <property name="angle_range" type="float" value="0.25"/>
+    <property name="angle_range" type="float" value="0"/>
    </properties>
    <point/>
   </object>
   <object id="231" type="AirDashNode" x="-278.111" y="2352">
    <properties>
-    <property name="angle_range" type="float" value="0.25"/>
+    <property name="angle_range" type="float" value="0"/>
     <property name="other" type="object" value="232"/>
    </properties>
    <point/>
   </object>
   <object id="232" type="AirDashNodeDirection" x="-348.334" y="2211.56">
    <properties>
-    <property name="angle_range" type="float" value="0.25"/>
+    <property name="angle_range" type="float" value="0"/>
    </properties>
    <point/>
   </object>
   <object id="233" type="AirDashNode" x="-20.6296" y="2211.56">
    <properties>
-    <property name="angle_range" type="float" value="0.25"/>
+    <property name="angle_range" type="float" value="0"/>
     <property name="other" type="object" value="234"/>
    </properties>
    <point/>
   </object>
   <object id="234" type="AirDashNodeDirection" x="-90.8519" y="2352">
    <properties>
-    <property name="angle_range" type="float" value="0.25"/>
+    <property name="angle_range" type="float" value="0"/>
    </properties>
    <point/>
   </object>
-  <object id="240" type="Wall" x="-1488" y="2416">
+  <object id="240" type="Wall" x="-1488" y="2416" visible="0">
    <polygon points="0,0 0,-688 1648,-688 1648,544 0,544"/>
   </object>
   <object id="241" type="CameraFit" x="-1408" y="1808" width="1504" height="816" visible="0"/>
@@ -462,8 +462,11 @@
    <point/>
   </object>
   <object id="291" type="Goal" x="803.529" y="-1517.35" width="437.966" height="103.362"/>
-  <object id="292" name="TimeAttack" type="TimeAttackTriggerNPC" x="169.298" y="-1296">
+  <object id="292" name="TimeAttack" type="TimeAttackTriggerNPC" x="1125.53" y="-1284.97">
    <point/>
+  </object>
+  <object id="297" type="BouncePad" x="144" y="-1456" width="224" height="224">
+   <ellipse/>
   </object>
  </objectgroup>
  <objectgroup id="6" name="front"/>
