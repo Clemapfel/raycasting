@@ -716,8 +716,6 @@ function ow.ResultScreenScene:enter(player_x, player_y, player_vx, player_vy, sc
     self._option_blocked_selection_graph:set_selected_node(self._option_first_blocked_node)
     self._option_unblocked_selection_graph:set_selected_node(self._option_first_unblocked_node)
     self:_unpause()
-
-    self._input:activate()
 end
 
 --- @brief
@@ -1168,7 +1166,6 @@ end
 --- @brief
 function ow.ResultScreenScene:draw()
     if not self:get_is_active() then return end
-
     local fraction = self._screenshot_fraction_animation:get_value()
     love.graphics.setColor(1, 1, 1, fraction)
 

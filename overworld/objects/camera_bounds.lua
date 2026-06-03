@@ -10,8 +10,8 @@ local schema = {
 }
 
 local shape_types = {
-    ow.AxisAlignedRectangle,
-    ow.Polygon
+    ow.ShapeType.AXIS_ALIGNED_RECTANGLE,
+    ow.ShapeType.POLYGON
 }
 
 --- @brief

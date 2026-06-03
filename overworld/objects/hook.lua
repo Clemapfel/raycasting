@@ -57,7 +57,7 @@ function ow.Hook:instantiate(object, stage, scene)
     self._body:add_tag("point_light_source")
     self._body:set_user_data(self)
 
-    if object:has_property("hue") ~= nil then
+    if object:get_has_property("hue") then
         self._hue = object:get_number("hue", true)
     else
         self._hue = stage.hook_current_hue_step

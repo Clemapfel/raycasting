@@ -102,20 +102,16 @@ vec4 effect(vec4 color, sampler2D img, vec2 uv, vec2 _) {
     float angle = slow_angle(centered.x, centered.y); // [0,1)
     float slice_f = angle * float(n);
 
-    // Get current and next slice indices
     float current_slice = floor(slice_f);
     float next_slice = mod(current_slice + 1.0, float(n));
 
-    // Calculate blend factor (how far we are between current and next slice)
     float blend_factor = fract(slice_f);
 
-    // Define three hues (as offsets in [0,1)), spaced evenly on the color wheel
     float offset = 1.0 / 3.0;
     float hue_a = fract(hue + 0.0 * offset);
     float hue_b = fract(hue + 1.0 * offset);
     float hue_c = fract(hue + 2.0 * offset);
 
-    // Cycle hues based on slice index
     float current_hue;
     float next_hue;
     float current_mod = mod(current_slice, 3.0);
@@ -144,13 +140,15 @@ vec4 effect(vec4 color, sampler2D img, vec2 uv, vec2 _) {
 
     float local_blend = (blend_factor - blend_start) / blend_width;
 
-
     float shine = (sin(distance(uv, vec2(0.5)) * 20.0 + elapsed + current_hue * 2.0 * float(n)) + 1.0) / 2.0;
     const float l = 0.8;
     const float c = 1.0;
 
+    const float l_difference = 0.38;
+    const float c_difference = 0.1;
+
     vec3 current_rgb = lch_to_rgb(vec3(l, c, hue));
-    vec3 next_rgb    = lch_to_rgb(vec3(l - 0.2, c - 0.07, fract(hue)));
+    vec3 next_rgb = lch_to_rgb(vec3(l - l_difference, c - c_difference, fract(hue)));
 
     vec3 col;
     if (blend_factor < blend_start) {
@@ -164,7 +162,7 @@ vec4 effect(vec4 color, sampler2D img, vec2 uv, vec2 _) {
     float vignette = 1.0 - smoothstep(0.0, 1.0 - 0.8, gaussian(open_fraction * distance(uv, vec2(0.5)) * 2.0, 1.0));
     col = mix(col, player_color.rgb - vignette, open_fraction);
 
-    return ((brightness_scale - 1.0) * 0.5 + 1.0) * color * vec4(col, circle);
+    return color * vec4(col, circle);
 }
 
 #endif // PIXEL

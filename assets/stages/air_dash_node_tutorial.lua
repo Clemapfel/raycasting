@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 298,
+  nextobjectid = 302,
   properties = {
     ["background_id"] = "\"nebula\""
   },
@@ -1507,16 +1507,21 @@ return {
           properties = {}
         },
         {
-          id = 297,
+          id = 299,
           name = "",
-          type = "BouncePad",
-          shape = "ellipse",
-          x = 144,
+          type = "KillPlane",
+          shape = "polygon",
+          x = 208,
           y = -1456,
-          width = 224,
-          height = 224,
+          width = 0,
+          height = 0,
           rotation = 0,
           visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = -208, y = 176 },
+            { x = 176, y = 128 }
+          },
           properties = {}
         }
       }

@@ -179,6 +179,7 @@ function love.errorhandler(message, depth)
             1
         )
 
+        --[[
         local offset = 0.5
         for offsets in range(
             { -offset,  offset },
@@ -195,6 +196,7 @@ function love.errorhandler(message, depth)
             )
             love.graphics.translate(-offset_x, -offset_y)
         end
+        ]]
 
         love.graphics.setColor(1, 1, 1, 1)
         love.graphics.printf(

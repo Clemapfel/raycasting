@@ -7,6 +7,7 @@ ow.CoinParticleTextureAtlas = meta.class("CoinParticleTextureAtlas")
 function ow.CoinParticleTextureAtlas:instantiate(hues)
     meta.assert(hues, "Table")
 
+    if #hues == 0 then table.insert(hues, 0) end
     table.sort(hues)
 
     self._canvas_scale = 2

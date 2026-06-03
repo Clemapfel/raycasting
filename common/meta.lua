@@ -54,7 +54,12 @@ local _type_to_typename = {}
 
 --- @brief
 function meta.get_typename(type)
-    return type[_object_metatable_index].__typename
+    local out = _type_to_typename[type]
+    if out == nil then
+        rt.error("In meta.get_typename: object `", meta.typeof(type), "` is not a Type")
+    end
+
+    return out
 end
 
 --- @brief

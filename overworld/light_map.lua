@@ -8,7 +8,7 @@ rt.settings.overworld.light_map = {
     start_n_segment_lights = 256,
     max_n_segment_lights = 512,
 
-    start_n_point_lights_per_tile = 32,
+    start_n_point_lights_per_tile = 256,--32,
     max_n_point_lights_per_tile = 256,
 
     start_n_segment_lights_per_tile = 16,
@@ -366,6 +366,50 @@ do
         set(tile_data, tile_offset + 1 + n_point_lights_per_tile + 1 + count, light_source_index - 1, tile_data_n_elements)
     end
 
+    local band, bxor = bit.band, bit.bxor
+
+    local _hash_segment = function(x1, y1, x2, y2, color_r, color_g, color_b, color_a)
+        x1 = math.floor(x1 + 0.5)
+        y1 = math.floor(y1 + 0.5)
+        x2 = math.floor(x2 + 0.5)
+        y2 = math.floor(y2 + 0.5)
+
+        if x1 > x2 or (x1 == x2 and y1 > y2) then
+            x1, x2 = x2, x1
+            y1, y2 = y2, y1
+        end
+
+        local h = 2166136261
+        h = band(bxor(h, x1)      * 16777619, 0xFFFFFFFF)
+        h = band(bxor(h, y1)      * 16777619, 0xFFFFFFFF)
+        h = band(bxor(h, x2)      * 16777619, 0xFFFFFFFF)
+        h = band(bxor(h, y2)      * 16777619, 0xFFFFFFFF)
+        h = band(bxor(h, color_r) * 16777619, 0xFFFFFFFF)
+        h = band(bxor(h, color_g) * 16777619, 0xFFFFFFFF)
+        h = band(bxor(h, color_b) * 16777619, 0xFFFFFFFF)
+        h = band(bxor(h, color_a) * 16777619, 0xFFFFFFFF)
+        return h
+    end
+
+    local _hash_point = function(x, y, radius, color_r, color_g, color_b, color_a)
+        x      = math.floor(x + 0.5)
+        y      = math.floor(y + 0.5)
+        radius = math.floor(radius + 0.5)
+
+        local h = 2166136261
+        h = band(bxor(h, x)       * 16777619, 0xFFFFFFFF)
+        h = band(bxor(h, y)       * 16777619, 0xFFFFFFFF)
+        h = band(bxor(h, radius)  * 16777619, 0xFFFFFFFF)
+        h = band(bxor(h, color_r) * 16777619, 0xFFFFFFFF)
+        h = band(bxor(h, color_g) * 16777619, 0xFFFFFFFF)
+        h = band(bxor(h, color_b) * 16777619, 0xFFFFFFFF)
+        h = band(bxor(h, color_a) * 16777619, 0xFFFFFFFF)
+        return h
+    end
+
+    local _point_hashes = {}
+    local _segment_hashes = {}
+
     local add_point_light, get_point_light, add_segment_light, get_segment_light
     local light_functions_initialized = false
 
@@ -633,10 +677,17 @@ do
         local point_light_buffer_n_elements = self._point_light_buffer:get_n_elements()
         local segment_light_buffer_n_elements = self._segment_light_buffer:get_n_elements()
 
+        table.clear(_point_hashes)
+        table.clear(_segment_hashes)
+
         stage:collect_point_lights(function(x, y, radius, color_r, color_g, color_b, color_a)
             if DEBUG then
                 meta.assert(x, "Number", y, "Number", radius, "Number", color_r, "Number", color_g, "Number", color_b, "Number", color_a, "Number")
             end
+
+            local hash = _hash_point(x, y, radius, color_r, color_g, color_b, color_a)
+            if _point_hashes[hash] == true then return end
+            _point_hashes[hash] = true
 
             if color_a > 0 and contains_point(x, y, radius) then
                 point_light_i, n_point_lights = add_point_light(point_light_buffer_data, n_point_lights, max_n_point_lights, point_light_i, point_light_buffer_n_elements, world_to_screen_transform, final_scale, x, y, radius, color_r, color_g, color_b, color_a)
@@ -647,6 +698,10 @@ do
             if DEBUG then
                 meta.assert(x1, "Number", y1, "Number", x2, "Number", y2, "Number", color_r, "Number", color_g, "Number", color_b, "Number", color_a, "Number")
             end
+
+            local hash = _hash_segment(x1, y1, x2, y2, color_r, color_g, color_b, color_a)
+            if _point_hashes[hash] == true then return end
+            _point_hashes[hash] = true
 
             if color_a > 0 and contains_segment(x1, y1, x2, y2) then
                 segment_light_i, n_segment_lights = add_segment_light(segment_light_buffer_data, n_segment_lights, max_n_segment_lights, segment_light_i, segment_light_buffer_n_elements, world_to_screen_transform, x1, y1, x2, y2, color_r, color_g, color_b, color_a)

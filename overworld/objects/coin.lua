@@ -42,6 +42,7 @@ function ow.Coin:instantiate(object, stage, scene)
     if stage.coin_texture_atlas == nil then
         -- per stage atlas
         local n_coins = rt.GameState:get_stage_n_coins(stage:get_id())
+
         local hues = {}
         for i = 1, n_coins do
             table.insert(hues, ow.Coin.index_to_hue(i, n_coins))

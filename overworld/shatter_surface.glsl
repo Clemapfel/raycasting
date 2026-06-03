@@ -111,7 +111,7 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 vertex_position
     float threshold_b = 0.5 + 0.5 * threshold_eps + 0.02 * (draw_bloom ? 1.0 : 1.0);
     pattern_outline = smoothstep(threshold_a - threshold_eps, threshold_a + threshold_eps, pattern_outline) -
         smoothstep(threshold_b - threshold_eps, threshold_b + threshold_eps, pattern_outline);
-    pattern_outline -= (1.0 - color.a);
+    //pattern_outline -= (1.0 - color.a);
 
     float pattern_fill = checkerboard((5.0 * uv) + 0.2 * noise);
     pattern_fill = smoothstep(0.5 - threshold_eps, 0.5 + threshold_eps, pattern_fill);

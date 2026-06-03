@@ -36,7 +36,7 @@ local _instance_draw_shader = rt.Shader("overworld/objects/kill_plane_instanced_
 local _background_shader = rt.Shader("overworld/objects/kill_plane_background.glsl")
 
 function ow.KillPlane:instantiate(object, stage, scene)
-    object:valid_schema(schema, ow.ShapeType.NOT_A_POINT)
+    object:validate_schema(schema, ow.ShapeType.NOT_A_POINT)
 
     self._scene = scene
     self._stage = stage
@@ -134,7 +134,6 @@ function ow.KillPlane:instantiate(object, stage, scene)
         add(center_x + up_x * aa_radius, center_y + up_y * aa_radius, 0)
         add(center_x + right_x * aa_radius, center_y + right_y * aa_radius, 0)
         add(center_x + left_x * aa_radius, center_y + left_y * aa_radius, 0)
-
 
         self._instance_mesh = rt.Mesh(data, rt.MeshDrawMode.TRIANGLES, rt.VertexFormat2D, rt.GraphicsBufferUsage.STATIC)
         self._instance_mesh:set_vertex_map(

@@ -588,6 +588,17 @@ function table.serialize(t, disallowed_types)
     return _serialize(t, true, set)
 end
 
+-- table.clear, fallback implementations for non-luajit
+pcall(require, "table.clear")
+if not table.clear then
+    function table.clear(t)
+        for key in pairs(t) do
+            t[key] = nil
+        end
+        return t
+    end
+end
+
 --- @brief
 function dbg(...)
     for _, x in pairs({...}) do

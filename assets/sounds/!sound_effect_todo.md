@@ -69,6 +69,116 @@ bubble_pop
 bubble_respawn
     filter-sweep that is synched with bubble opacity
 
+## BubbleField
+
+bubble_field_enter 
+    water-like splash sound
+
+bubble_field_effect
+    high-attenuation filter on everything
+
+bubble_field_exit
+    water-like splash
+
+## Checkpoint
+
+checkpoint_cut
+    applause, yay crowd noise
+
+checkpoint_fireworks
+    fireworks exploding and fizzing out
+
+checkpoint_rope
+    when rope hits floor or other object
+
+checkpoint_lightning
+    sound of thunder through vocoder
+
+## Coin
+
+coin_buzz
+    ambient effect, sound of neon lights
+    positional audio helps identify location
+    buzzing stops once collected
+
+coin_collected
+    mario-like coin effect
+    
+## DeceleratorSurface
+
+decelerator_surface_extend
+    squelching noise that stops when arm connects with player
+
+decelerator_surface_retract
+    sad, dissapointed fade out
+    like a wooden board creaking in reverse
+
+decelerator_surface_effect
+    high-attenuation filter similar to bubble field, but with
+    menacing rhythmic rumbling sound to indicate danger
+
+## Fireflies
+
+fireflies_collect
+    sparkly collection noise, rising in pitch, happy
+
+no sustained noise, fireflies do not buzz
+
+## Goal
+
+goal_approach
+    sound that increases as player gets closer to goal
+    like a crowd going "oooooo" increasing in intensity
+    as a runner reaches the finish line
+
+goal_shatter
+    noise of glass breaking
+    synched with white flash
+
+goal_effect
+    tape-slowdown effect on music
+    mute on all sound effects
+    synched with background going black
+
+## Hook
+
+hook_hook
+    click, like a gun going into battery
+
+hook_unhook
+    soft click, like the shutter of a camera opening
+
+## KillPlane
+
+kill_plane_align
+    like glass shards being moved around
+    increases in entropy as player gets farther away from boundy
+
+kill_plane_contact
+    like a bottle exploding when the fluid inside is frozen
+
+## MovableHitbox
+
+movable_hitbox_change_direction
+    like giant boulder starting to be pushed
+
+movable_hitbox_sustain
+    like the sound of an elevator at target velocity
+
+## NPC
+
+
+
+
+# Result Screen Scene
+
+# Player
+
+player_squish
+
+
+
+
 
 
 

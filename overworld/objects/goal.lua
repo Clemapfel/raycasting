@@ -5,13 +5,13 @@ require "common.label"
 require "common.timed_animation_sequence"
 
 
+local lengthen = 2
 rt.settings.overworld.goal = {
-    result_screen_delay = 0.5,
     outline_width = 6,
 
     flash_animation_duration = 20 / 60, -- seconds
-    time_dilation_animation_duration = 2,
-    fade_to_black_duration = 2.5,
+    time_dilation_animation_duration = 2 * lengthen,
+    fade_to_black_duration = 2.5 * lengthen,
 
     n_particles = 256
 }

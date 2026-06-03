@@ -1,7 +1,7 @@
 require "common.delaunay_triangulation"
 
 rt.settings.voronoi_tesselation = {
-    seed_density = 1 / 350, -- #seeds per px^2
+    seed_density = 1 / 225, -- #seeds per px^2
     randomization = 1 -- unitless
 }
 
@@ -84,7 +84,9 @@ function rt.VoronoiTesselation:generate_seeds(
 
     love.math.setRandomSeed(0)
 
-    for t_raw = 0, t_easing(1), 1 / n_particles do
+    dbg(n_particles)
+    for particle_i = 1, n_particles do
+        local t_raw = (particle_i - 1) / n_particles
         local t = t_easing(t_raw)
         local distance = radius * math.sqrt(t)
         local angle = t_raw * n_particles * golden_angle

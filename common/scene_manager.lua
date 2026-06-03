@@ -241,6 +241,7 @@ function rt.SceneManager:update(delta)
             self._current_scene:enter(table.unpack(self._current_scene_varargs))
             self._current_scene._is_active = true
             self._current_scene:signal_emit("enter")
+            self._current_scene:draw() -- to prevent black frame
         end
         self._current_scene:update(delta)
         self._current_scene:signal_emit("update", delta)

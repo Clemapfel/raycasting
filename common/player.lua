@@ -61,7 +61,7 @@ do
 
         accelerator_acceleration_duration = 20 / 60,
         accelerator_max_velocity_factor = 3.5 / 2,
-        accelerator_magnet_force = 2000, -- per second
+        accelerator_magnet_force = 3000, -- per second
 
         allow_instant_turn_around_in_air = false,
         air_instant_turn_around_decay = 0.9,
@@ -530,7 +530,7 @@ function rt.Player:_connect_input()
     end)
 
     DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
-        if which == "l" then self:kill() end
+        if which == "l" then self:kill() elseif which == "^" then self._hue = 0 end
     end)
 end
 

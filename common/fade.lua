@@ -70,6 +70,7 @@ end
 --- @brief
 function rt.Fade:reset()
     self._elapsed = 0
+    self._value = 0
     self._signal_emitted = false
     self._queue_emit = false
     self._started = false
@@ -120,7 +121,7 @@ end
 
 --- @brief
 function rt.Fade:draw()
-    if self._value == 0 then return end
+    if self._value == 0 or self._elapsed == 0 then return end
 
     if self._started == true then
         love.graphics.push()

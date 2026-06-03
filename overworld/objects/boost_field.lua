@@ -163,6 +163,9 @@ function ow.BoostField:instantiate(object, stage, scene)
     self._axis_x, self._axis_y = math.normalize(self._axis_x, self._axis_y)
     rt.assert(math.magnitude(self._axis_x, self._axis_y) > 0, "In ow.BoostField.instantiate: magnitude of axis of object `", object:get_id(), "` in stage `", self._stage:get_id(), "` cannot be 0")
 
+    self._is_visible = object:get_boolean("is_visible")
+    if self._is_visible == nil then self._is_visible = true end
+
     if not self._is_visible then return end
 
     local hue = object:get_property("hue")

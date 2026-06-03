@@ -54,7 +54,7 @@ vec4 effect(vec4 color, sampler2D tex, vec2 texture_coords, vec2 screen_coords) 
     if (use_color_override == TRUE)
         return outline_color;
     else
-        return vec4(vec4(vec3(mix(0.0, 1.0, opacity)), 1.0) * color);
+        return vec4(vec3(opacity), smoothstep(0.0, 1.0, opacity)) * color;
 }
 
 #endif

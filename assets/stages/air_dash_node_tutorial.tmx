@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="298">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="302">
  <editorsettings>
   <export target="air_dash_node_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -465,8 +465,8 @@
   <object id="292" name="TimeAttack" type="TimeAttackTriggerNPC" x="1125.53" y="-1284.97">
    <point/>
   </object>
-  <object id="297" type="BouncePad" x="144" y="-1456" width="224" height="224">
-   <ellipse/>
+  <object id="299" type="KillPlane" x="208" y="-1456">
+   <polygon points="0,0 -208,176 176,128"/>
   </object>
  </objectgroup>
  <objectgroup id="6" name="front"/>

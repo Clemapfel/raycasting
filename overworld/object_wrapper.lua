@@ -673,7 +673,14 @@ function ow.ObjectWrapper:validate_schema(schema, ...)
     else
         shapes = select(1, ...)
     end
+
     rt.assert(#shapes > 0, "In ow.ObjectWrapper: no shape types specified alongside schema")
+
+    for shape in values(shapes) do
+        if not meta.is_enum_value(shape, ow.ShapeType) then
+            rt.error("In ow.ObjectWrapper.validate_schema: shape `", shape, "`, is not a value of enum ow.ShapeType")
+        end
+    end
 
     if DEBUG == nil then return end
 

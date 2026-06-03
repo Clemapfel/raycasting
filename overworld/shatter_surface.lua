@@ -39,12 +39,15 @@ function ow.ShatterSurface:instantiate(scene, world, x, y, width, height, angle)
 
     do
         local mesh_x, mesh_y = -0.5 * width, -0.5 * height
-        self._pre_shatter_mesh = self._generate_mesh({
+        local contour = {
             mesh_x, mesh_y,
             mesh_x + width, mesh_y,
             mesh_x + width, mesh_y + height,
             mesh_x, mesh_y + height
-        }, mesh_x, mesh_y, mesh_x + width, mesh_y + height)
+        }
+
+        self._pre_shatter_mesh = self._generate_mesh(contour, mesh_x, mesh_y, mesh_x + width, mesh_y + height)
+        self._contour = rt.contour.close(contour)
     end
 
     self._offset_x, self._offset_y = 0, 0
@@ -155,6 +158,7 @@ function ow.ShatterSurface:shatter(origin_x, origin_y, velocity_x, velocity_y)
             part.body:set_restitution(1)
 
             part.mesh = self._generate_mesh(part.vertices, -0.5 * w - part.x, -0.5 * h - part.y, 0.5 * w - part.x, 0.5 * h - part.y)
+            part.contour = rt.contour.close(table.deepcopy(part.vertices))
         end
 
         self._is_done = true
@@ -182,7 +186,11 @@ end
 
 --- @brief
 function ow.ShatterSurface:draw()
-     love.graphics.setColor(rt.lcha_to_rgba(0.8, 1, rt.GameState:get_player():get_hue() , 1))
+    local color = { rt.lcha_to_rgba(0.8, 1, rt.GameState:get_player():get_hue() , 1) }
+
+    love.graphics.setLineStyle("smooth")
+    love.graphics.setLineWidth(1.5)
+
     _shader:bind()
     _shader:send("elapsed", rt.SceneManager:get_elapsed())
     _shader:send("flash", self._flash)
@@ -198,6 +206,7 @@ function ow.ShatterSurface:draw()
     _shader:send("bounds", { self._bounds:unpack() })
 
     if not self._is_done then
+        love.graphics.setColor(color)
         love.graphics.push()
         love.graphics.translate(self._offset_x, self._offset_y)
         love.graphics.rotate(self._rotation)
@@ -214,6 +223,24 @@ function ow.ShatterSurface:draw()
         end
     end
     _shader:unbind()
+
+    if not self._is_done then
+        love.graphics.setColor(color)
+        love.graphics.push()
+        love.graphics.translate(self._offset_x, self._offset_y)
+        love.graphics.rotate(self._rotation)
+        love.graphics.line(self._contour)
+        love.graphics.pop()
+    else
+        for part in values(self._parts) do
+            part.color:bind()
+            love.graphics.push()
+            love.graphics.translate(part.x, part.y)
+            love.graphics.rotate(part.body:get_rotation())
+            love.graphics.line(part.contour)
+            love.graphics.pop()
+        end
+    end
 
     if self._tesselation ~= nil then
         love.graphics.circle("fill", self._tesselation_origin_x, self._tesselation_origin_y, 10)
@@ -261,141 +288,30 @@ function ow.ShatterSurface:reset()
     self:instantiate(self._scene, self._world, self._bounds:unpack())
 end
 
+local _triangulator = nil
+
 --- @brief
 function ow.ShatterSurface._generate_mesh(contour, min_x, min_y, max_x, max_y)
-    local rim_thickness = rt.settings.overworld.shatter_surface.rim_thickness
-    contour = table.deepcopy(contour)
-
-    local n_vertices = #contour / 2
-
-    -- Build inward offset lines per edge (clockwise polygon assumed).
-    -- For edge k: v_k -> v_next, inward normal = -turn_left(tangent)
-    local edges = {}
-    for k = 1, n_vertices do
-        local next_k = math.wrap(k + 1, n_vertices)
-
-        local i1 = 2 * k - 1
-        local i2 = 2 * next_k - 1
-
-        local x1, y1 = contour[i1], contour[i1 + 1]
-        local x2, y2 = contour[i2], contour[i2 + 1]
-
-        local tx, ty = math.normalize(x2 - x1, y2 - y1)
-        local nx, ny = math.turn_left(tx, ty)       -- outward for CW
-        nx, ny = -nx, -ny                           -- inward for CW
-
-        local ox, oy = nx * rim_thickness, ny * rim_thickness
-        local px, py = x1 + ox, y1 + oy
-        local qx, qy = x2 + ox, y2 + oy
-
-        edges[k] = { px = px, py = py, dx = qx - px, dy = qy - py }
+    if _triangulator == nil then
+        _triangulator = rt.DelaunayTriangulation(contour)
     end
 
-    local function cross(ax, ay, bx, by) return ax * by - ay * bx end
+    _triangulator:triangulate(contour)
 
-    -- Compute inset polygon as intersections of adjacent inward-offset edges
-    local inset = {}
-    for k = 1, n_vertices do
-        local prev_k = math.wrap(k - 1, n_vertices)
-        local e_prev = edges[prev_k]
-        local e_curr = edges[k]
-
-        local ppx, ppy, prx, pry = e_prev.px, e_prev.py, e_prev.dx, e_prev.dy
-        local qpx, qpy, qrx, qry = e_curr.px, e_curr.py, e_curr.dx, e_curr.dy
-
-        local rxs = cross(prx, pry, qrx, qry)
-        local ix, iy
-        if math.abs(rxs) < 1e-6 then
-            -- Fallback: parallel edges (degenerate). Offset current vertex along current inward normal.
-            local i1 = 2 * k - 1
-            local vx, vy = contour[i1], contour[i1 + 1]
-            local next_k = math.wrap(k + 1, n_vertices)
-            local j1 = 2 * next_k - 1
-            local tx, ty = math.normalize(contour[j1] - vx, contour[j1 + 1] - vy)
-            local nx, ny = math.turn_left(tx, ty); nx, ny = -nx, -ny
-            ix, iy = vx + nx * rim_thickness, vy + ny * rim_thickness
-        else
-            local qmpx, qmpy = qpx - ppx, qpy - ppy
-            local t = cross(qmpx, qmpy, qrx, qry) / rxs
-            ix, iy = ppx + prx * t, ppy + pry * t
-        end
-
-        table.insert(inset, ix)
-        table.insert(inset, iy)
+    local data, indices = {}, {}
+    for i = 1, #contour, 2 do
+        local x, y = contour[i], contour[i+1]
+        table.insert(data, { x, y, 0, 0, 1, 1, 1, 1 })
     end
 
-    local xy_to_uv = function(x, y, u, v)
-        return (x - min_x) / (max_x - min_x),
-        (y - min_y) / (max_y - min_y)
-    end
-
-    -- Mesh data: first, the fill region is the inset polygon (no overlap with rim)
-    local mesh_data = {}
-    for i = 1, #inset, 2 do
-        local x, y = inset[i], inset[i + 1]
-        -- position (x,y), tex (0,0), color (white)
-        local u, v = xy_to_uv(x, y)
-        table.insert(mesh_data, { x, y, u, v, 1, 1, 1, 1 })
-    end
-
-    -- Triangulate the inset polygon (convex) for the fill
-    local vertex_map = rt.DelaunayTriangulation(inset):get_triangle_vertex_map()
-
-    -- Attribute shorthands for rim vertices (keep as in original)
-    local rim_inner = function(x, y) -- on original boundary
-        local u, v = xy_to_uv(x, y)
-        return u, v, 1, 1, 1, 0
-    end
-
-    local rim_outer = function(x, y)  -- on inset boundary
-        local u, v = xy_to_uv(x, y)
-        return u, v, 1, 1, 1, 1
-    end
-
-    -- Build rim quads per edge using ORIGINAL boundary and INSET boundary
-    -- For edge k: v_k -> v_next, inset: w_k -> w_next
-    -- Append 4 vertices per edge:
-    --   base+1: original v_k           (rim_inner)
-    --   base+2: inset w_k              (rim_outer)
-    --   base+3: original v_next        (rim_inner)
-    --   base+4: inset w_next           (rim_outer)
-    -- Triangles: (base+1, base+2, base+3) and (base+3, base+2, base+4)
-    -- This tiles the annulus without gaps/overlaps; no extra corner fill needed.
-    local base_start = #mesh_data
-    for k = 1, n_vertices do
-        local next_k = math.wrap(k + 1, n_vertices)
-
-        local i1 = 2 * k - 1
-        local j1 = 2 * next_k - 1
-
-        local x1, y1 = contour[i1], contour[i1 + 1]
-        local x2, y2 = contour[j1], contour[j1 + 1]
-
-        local ix1, iy1 = inset[i1], inset[i1 + 1]
-        local ix2, iy2 = inset[j1], inset[j1 + 1]
-
-        table.insert(mesh_data, { x1, y1, rim_inner(x1, y1) })
-        table.insert(mesh_data, { ix1, iy1, rim_outer(ix1, iy1) })
-        table.insert(mesh_data, { x2, y2, rim_inner(x2, y2) })
-        table.insert(mesh_data, { ix2, iy2, rim_outer(ix2, iy2) })
-
-        local base = base_start + (k - 1) * 4
-        for j in range(
-            base + 1, base + 2, base + 3, -- tri 1
-            base + 3, base + 2, base + 4  -- tri 2
-        ) do
-            table.insert(vertex_map, j)
-        end
-    end
-
-    -- Build mesh
     local mesh = rt.Mesh(
-        mesh_data,
+        data,
         rt.MeshDrawMode.TRIANGLES,
         mesh_format,
         rt.GraphicsBufferUsage.STATIC
     )
-    mesh:set_vertex_map(vertex_map)
+    mesh:set_vertex_map(_triangulator:get_triangle_vertex_map())
+
     return mesh
 end
 

@@ -53,7 +53,7 @@ local _offset_index = 1
 
 --- @brief
 function ow.BubbleField:instantiate(object, stage, scene)
-    object:validate_schema(schema, ow.NOT_A_POINT)
+    object:validate_schema(schema, ow.ShapeType.NOT_A_POINT)
     self._scene = scene
     self._stage = stage
 
