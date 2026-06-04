@@ -100,7 +100,6 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
 
     self._body:set_collides_with(rt.settings.player.player_outer_body_collision_group)
     self._body:set_collision_group(rt.settings.overworld.hitbox.collision_group)
-    -- sic, not center body
 
     -- detect point order by using point offset by normal
     self._sidedness = _get_side(

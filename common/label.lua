@@ -632,8 +632,8 @@ function rt.Label:_parse(raw)
             style = _font_style_to_mono_font_style[style]
         end
 
-        local color_r, color_g, color_b = _rt_color_unpack(rt.Palette[glyph_settings.color])
-        local outline_color_r, outline_color_g, outline_color_b = _rt_color_unpack(rt.Palette[glyph_settings.outline_color])
+        local color_r, color_g, color_b = rt.Palette[glyph_settings.color]:unpack()
+        local outline_color_r, outline_color_g, outline_color_b = rt.Palette[glyph_settings.outline_color]:unpack()
 
         local emotion = rt.AnimaleseEmotion.NORMAL
         for key in range(

@@ -4,6 +4,7 @@ local postfix = "</normal>"
 return {
     animalese_test = {
         {
+            speaker = "test",
             gender = rt.Gender.MALE,
             next = 2,
             "<sad><color=blue>My dude, check this out.</sad></color>."

@@ -18,8 +18,8 @@ rt.settings.frame = {
         )
     end)(),
 
-    knocked_out_base_color = rt.Palette.RED_8,
-    dead_base_color = rt.Palette.BLACK,
+    bloom_strength = 0.25,
+    default_color = rt.Palette.GRAY_4
 }
 
 --- @class rt.Frame
@@ -33,11 +33,11 @@ function rt.Frame:instantiate()
 
         _aabb = rt.AABB(0, 0, 1, 1),
 
-        _color = rt.Palette.FOREGROUND,
+        _color = rt.settings.frame.default_color,
         _stencil_color = rt.Palette.BACKGROUND,
         _stencil_color_override = nil,
 
-        _frame_color = rt.Palette.FOREGROUND,
+        _frame_color = rt.settings.frame.default_color,
         _outline_color = rt.Palette.BASE_OUTLINE,
 
         _thickness = rt.settings.frame.thickness,
@@ -46,58 +46,76 @@ function rt.Frame:instantiate()
     })
 end
 
-function rt.Frame:_update_draw()
-    local x, y, w, h = self._bounds:unpack()
-    local stencil_r, stencil_g, stencil_b, stencil_a = rt.color_unpack(self._stencil_color_override or self._stencil_color)
-    local frame_r, frame_g, frame_b, frame_a = rt.color_unpack(self._frame_color)
-    local outline_r, outline_g, outline_b, outline_a = rt.color_unpack(self._outline_color)
-
-    local opacity = self._opacity
-    local thickness = self._thickness * rt.get_pixel_scale() + ternary(self._selection_state == rt.SelectionState.ACTIVE, 2, 0)
-    local corner_radius = self._corner_radius
-
-    self.draw = function(self, draw_frame)
-        love.graphics.setLineWidth(thickness + 2)
-        love.graphics.setLineStyle("smooth")
-        love.graphics.setColor(stencil_r, stencil_g, stencil_b, opacity * stencil_a)
-
-        love.graphics.rectangle(
-            "fill",
-            x, y, w, h,
-            corner_radius, corner_radius
-        )
-
-        love.graphics.setColor(outline_r, outline_g, outline_b, opacity)
-        love.graphics.rectangle(
-            "line",
-            x, y, w, h,
-            corner_radius, corner_radius
-        )
-
-        if draw_frame == nil or draw_frame == true then
-            love.graphics.setLineWidth(thickness)
-            love.graphics.setColor(frame_r, frame_g, frame_b, opacity)
-            love.graphics.rectangle(
-                "line",
-                x, y, w, h,
-                corner_radius, corner_radius
-            )
-        end
-    end
-
-    self.draw_bloom = function(self, strength)
-        if strength == nil then strength = 1 end
-        love.graphics.setLineStyle("smooth")
-        love.graphics.setLineWidth(thickness)
-        love.graphics.setColor(frame_r * strength, frame_g + strength, frame_b + strength, opacity)
-        love.graphics.rectangle(
-            "line",
-            x, y, w, h,
-            corner_radius, corner_radius
-        )
-    end
+--- @brief
+function rt.Frame:_get_effective_thickness()
+    return self._thickness * rt.get_pixel_scale() + ternary(
+        self._selection_state == rt.SelectionState.ACTIVE,
+        2,
+        0
+    )
 end
 
+--- @brief
+function rt.Frame:draw()
+    local x, y, w, h = self._bounds:unpack()
+    local stencil_r, stencil_g, stencil_b, stencil_a = (self._stencil_color_override or self._stencil_color):unpack()
+    local frame_r, frame_g, frame_b = self._frame_color:unpack()
+    local outline_r, outline_g, outline_b = self._outline_color:unpack()
+
+    local opacity = self._opacity
+    local thickness = self:_get_effective_thickness()
+    local corner_radius = self._corner_radius
+
+    love.graphics.setLineWidth(thickness + 2)
+    love.graphics.setLineStyle("smooth")
+    love.graphics.setColor(stencil_r, stencil_g, stencil_b, opacity * stencil_a)
+
+    love.graphics.rectangle(
+        "fill",
+        x, y, w, h,
+        corner_radius, corner_radius
+    )
+
+    love.graphics.setColor(outline_r, outline_g, outline_b, opacity)
+    love.graphics.rectangle(
+        "line",
+        x, y, w, h,
+        corner_radius, corner_radius
+    )
+
+    love.graphics.setLineWidth(thickness)
+    love.graphics.setColor(frame_r, frame_g, frame_b, opacity)
+    love.graphics.rectangle(
+        "line",
+        x, y, w, h,
+        corner_radius, corner_radius
+    )
+end
+
+--- @brief
+function rt.Frame:draw_bloom()
+    local x, y, w, h = self._bounds:unpack()
+    local frame_r, frame_g, frame_b = self._frame_color:unpack()
+
+    local strength = rt.settings.frame.bloom_strength
+
+    love.graphics.setLineStyle("smooth")
+    love.graphics.setLineWidth(self:_get_effective_thickness())
+    love.graphics.setColor(
+        frame_r * strength,
+        frame_g * strength,
+        frame_b * strength,
+        self._opacity
+    )
+
+    love.graphics.rectangle(
+        "line",
+        x, y, w, h,
+        self._corner_radius, self._corner_radius
+    )
+end
+
+--- @brief
 function rt.Frame:bind_stencil()
     local stencil_value = rt.graphics.get_stencil_value()
     rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW)
@@ -128,23 +146,23 @@ end
 --- @override
 function rt.Frame:size_allocate(x, y, w, h)
     self._aabb = rt.AABB(x, y, w, h)
-    self:_update_draw()
 end
 
 --- @brief
 function rt.Frame:set_color(color, g, b, a)
     if meta.is_number(color) then
         color = rt.RGBA(color, g, b, a)
+    else
+        meta.assert(color, rt.RGBA)
     end
+
     self._frame_color = color
-    self:_update_draw()
 end
 
 --- @brief
 function rt.Frame:set_base_color(color, g, b, a)
     if meta.is_number(color) then color = rt.RGBA(color, g, b, a) end
     self._stencil_color_override = color
-    self:_update_draw()
 end
 
 --- @brief
@@ -157,8 +175,6 @@ function rt.Frame:set_thickness(thickness)
     if self._thickness ~= thickness then
         self._thickness = thickness
     end
-
-    self:_update_draw()
 end
 
 --- @brief
@@ -173,7 +189,6 @@ function rt.Frame:set_corner_radius(radius)
         return
     end
     self._corner_radius = radius
-    self:_update_draw()
 end
 
 --- @brief
@@ -197,7 +212,6 @@ end
 --- @override
 function rt.Frame:set_opacity(alpha)
     self._opacity = alpha
-    self:_update_draw()
 end
 
 --- @brief
@@ -216,15 +230,11 @@ function rt.Frame:set_selection_state(selection_state)
         self._frame_color = self._color
         self._opacity = 0.5
     end
-    self:_update_draw()
 end
 
 --- @brief
 function rt.Frame:set_use_bloom(b)
-    if self._use_bloom ~= b then
-        self._use_bloom = true
-        self:_update_draw()
-    end
+    self._use_bloom = b
 end
 
 --- @brief

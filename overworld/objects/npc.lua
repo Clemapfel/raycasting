@@ -75,24 +75,18 @@ function ow.NPC:instantiate(object, stage, scene)
         px, py
     ) < self._sensor_radius
 
-    -- dialog
-    local dialog_id = object:get_string("dialog_id", false)
-    if dialog_id then
-        self._interact_dialog_emitter = ow.DialogEmitter(
-            self._scene,
-            dialog_id,
-            self -- target
-        )
+    self._dialog_emitter = ow.DialogEmitter(
+        self._scene,
+        object:get_string("dialog_id", true),
+        self -- target
+    )
 
-        self._input = rt.InputSubscriber()
-        self._input:signal_connect("pressed", function(_, which)
-            if self._sensor_active and which == rt.InputAction.INTERACT then
-                self._interact_dialog_emitter:present()
-            end
-        end)
-    else
-        self._interact_dialog_emitter = nil
-    end
+    self._input = rt.InputSubscriber()
+    self._input:signal_connect("pressed", function(_, which)
+        if self._sensor_active and which == rt.InputAction.INTERACT then
+            self._dialog_emitter:present()
+        end
+    end)
 end
 
 --- @brief
@@ -118,15 +112,24 @@ function ow.NPC:update(delta)
     self._dilation_motion:update(delta)
     self._graphics_body:set_dilation(self._dilation_motion:get_value())
 
-    if self._interact_dialog_emitter ~= nil then
+    if self._dialog_emitter ~= nil then
         if sensor_was_active == false and self._sensor_active == true then
             self._scene:set_control_indicator_type(ow.ControlIndicatorType.INTERACT)
         elseif sensor_was_active == true and self._sensor_active == false then
             self._scene:set_control_indicator_type(ow.ControlIndicatorType.NONE)
         end
 
-        self._interact_dialog_emitter:update(delta)
+        self._dialog_emitter:update(delta)
     end
+end
+
+local base_priority = 0
+
+--- @brief
+function ow.NPC:get_render_priority()
+    local priorities = { self._dialog_emitter:get_render_priority() }
+    table.insert(priorities, base_priority)
+    return table.unpack(priorities)
 end
 
 do
@@ -134,7 +137,10 @@ do
 
     --- @brief
     function ow.NPC:draw(priority)
-        if exclude_from_drawing == true or not self._stage:get_is_body_visible(self._camera_body) then return end
+        if exclude_from_drawing == true
+            or not self._stage:get_is_body_visible(self._camera_body) then
+            return
+        end
 
         exclude_from_drawing = true -- prevent loop
         local bounds = self._graphics_body:get_bounds()
@@ -171,10 +177,17 @@ do
         end
 
         self._focus_indicator:draw()
+        self._dialog_emitter:draw(priority)
+    end
 
-        if self._interact_dialog_emitter ~= nil then
-            self._interact_dialog_emitter:draw()
+    --- @brief
+    function ow.NPC:draw_bloom()
+        if exclude_from_drawing == true
+            or not self._stage:get_is_body_visible(self._camera_body) then
+            return
         end
+
+        self._focus_indicator:draw_bloom()
     end
 end
 

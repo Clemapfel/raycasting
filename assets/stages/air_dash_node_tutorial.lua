@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 302,
+  nextobjectid = 307,
   properties = {
     ["background_id"] = "\"nebula\""
   },
@@ -1507,21 +1507,61 @@ return {
           properties = {}
         },
         {
-          id = 299,
+          id = 303,
           name = "",
-          type = "KillPlane",
-          shape = "polygon",
-          x = 208,
-          y = -1456,
+          type = "Portal",
+          shape = "point",
+          x = 112,
+          y = -1248,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
-          polygon = {
-            { x = 0, y = 0 },
-            { x = -208, y = 176 },
-            { x = 176, y = 128 }
-          },
+          properties = {
+            ["other"] = { id = 304 },
+            ["target"] = { id = 305 }
+          }
+        },
+        {
+          id = 304,
+          name = "",
+          type = "PortalNode",
+          shape = "point",
+          x = 240,
+          y = -1248,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 305,
+          name = "",
+          type = "Portal",
+          shape = "point",
+          x = 528,
+          y = -1248,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["other"] = { id = 306 },
+            ["target"] = { id = 303 }
+          }
+        },
+        {
+          id = 306,
+          name = "",
+          type = "PortalNode",
+          shape = "point",
+          x = 656,
+          y = -1248,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
           properties = {}
         }
       }

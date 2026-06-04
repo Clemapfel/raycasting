@@ -2848,6 +2848,34 @@ function rt.Player:get_past_position_path(distance)
     return self._position_history_path
 end
 
+--- @return Number, Number, Number, Number position_x, position_y, velocity_x, velocity_y
+function rt.Player:get_past_velocity(distance)
+    if self._position_history_path_needs_update == true then
+        self._position_history_path:create_from_and_reparameterize(self._position_history)
+        self._position_history_path_needs_update = nil
+    end
+
+    local history = self._velocity_history
+    if #history == 0 then
+        return 0, 0, 0, 0
+    end
+
+    local path_length = self._position_history_path:get_length()
+    local t = (path_length == 0 or distance > path_length) and 1 or distance / path_length
+    local pos_x, pos_y = self._position_history_path:at(t)
+
+    local sum_x, sum_y, count = 0, 0, 0
+    local n_points = math.floor(t * (#history / 2 - 1))
+    for i = n_points * 2 + 1, #history, 2 do
+        sum_x = sum_x + history[i]
+        sum_y = sum_y + history[i + 1]
+        count = count + 1
+    end
+
+    return sum_x / count, sum_y / count
+end
+
+
 --- @brief
 function rt.Player:get_idle_elapsed()
     return self._idle_elapsed

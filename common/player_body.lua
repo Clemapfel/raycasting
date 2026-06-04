@@ -1276,6 +1276,14 @@ function rt.PlayerBody:draw_bloom()
     local w, h = self._body_texture:get_size()
     local texture_scale = rt.settings.player_body.texture_scale
 
+
+    local stencil_value = rt.graphics.get_stencil_value()
+    rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW)
+    for body in values(self._body_stencil_bodies) do
+        body:draw(true) -- mask only
+    end
+    rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.TEST, rt.StencilCompareMode.NOT_EQUAL)
+
     self:_apply_squish()
     love.graphics.translate(self._position_x - 0.5 * w, self._position_y - 0.5 * w)
     love.graphics.translate(0.5 * w, 0.5 * h)
@@ -1291,6 +1299,9 @@ function rt.PlayerBody:draw_bloom()
     love.graphics.setLineStyle("smooth")
     self._core_color:bind()
     love.graphics.line(self._core_vertices)
+
+    rt.graphics.set_stencil_mode(nil)
+
     love.graphics.pop()
 end
 

@@ -114,17 +114,6 @@ function rt.LCHA:bind()
 end
 
 --- @brief
-function rt.color_unpack(color)
-    if meta.typeof(color) == "RGBA" then
-        return color.r, color.g, color.b, color.a
-    elseif meta.typeof(color) == "HSVA" then
-        return color.h, color.s, color.v. color.a
-    else
-        rt.error("In rt.color_unpack: unknown color format `", meta.typeof(color), "`")
-    end
-end
-
---- @brief
 function rt.rgba_to_hsva(r, g, b, a)
     -- cf. https://github.com/Clemapfel/mousetrap/blob/main/src/color.cpp#L112
     local h, s, v

@@ -16,7 +16,6 @@ accelerator_surface_contact_end
 accelerator_surface_particle_lifetime
     gaussian ramp with that decays in volume with particle lifetime
 
-
 ## AirDashNode
 
 air_dash_node_current_start
@@ -165,10 +164,62 @@ movable_hitbox_change_direction
 movable_hitbox_sustain
     like the sound of an elevator at target velocity
 
+movable_hitbox_activated
+    
+
 ## NPC
 
+dialog_npc_dilate
+    heavily vocoded sound of leather straps, increase in pitch    
+
+dialog_npc_contract
+    same as dilate but decrease in pitch
+
+## DialogBox
+
+dialog_box_reveal
+    swoosh when dialog box comes into frame
+
+dialog_box_hide
+    swoosh when dialog box leaves
+
+dialog_box_advance
+    small bleep when advance is triggered
+
+dialog_box_non_voiced
+    played every letter, pitch randomly jumps around scale
+
+## DialogFocusIndicator
+
+dialog_focus_indicator_become_active
+    subtle click, low highs
+
+dialog_focus_indicator_become_inactive
+    subtle click, lowers in pitch
+
+## OneWayPlatform
+
+one_way_platform_pass ?
+    sound effect when player passes velocity protection body
+
+## OverworldPath
+
+when unpause is emitted while pointing to a movable object
+    switch on type of object
+
+overworld_path_unpause_movable_hitbox
+    like a stone door opening in indiana jones
+
+overworld_path_unpause_generic
+    swoosh, usable for non-solid targets
+
+## Portal
 
 
+
+
+
+    
 
 # Result Screen Scene
 

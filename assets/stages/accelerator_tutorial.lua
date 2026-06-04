@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 646,
+  nextobjectid = 652,
   properties = {
     ["background_id"] = "\"test\""
   },
@@ -236,8 +236,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = -1549.37,
-          y = 1135.85,
+          x = -2948.93,
+          y = 151.778,
           width = 0,
           height = 0,
           rotation = 0,
@@ -886,6 +886,80 @@ return {
             { x = 400, y = 0 }
           },
           properties = {}
+        },
+        {
+          id = 646,
+          name = "",
+          type = "NPC",
+          shape = "point",
+          x = -2656,
+          y = 160,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["dialog_id"] = "animalese_test"
+          }
+        },
+        {
+          id = 647,
+          name = "",
+          type = "Path",
+          shape = "point",
+          x = -2336,
+          y = 80,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["is_paused"] = true,
+            ["next"] = { id = 648 },
+            ["target"] = { id = 649 }
+          }
+        },
+        {
+          id = 648,
+          name = "",
+          type = "PathNode",
+          shape = "point",
+          x = -2336,
+          y = -336,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 649,
+          name = "",
+          type = "MovableHitbox",
+          shape = "rectangle",
+          x = -2512,
+          y = -240,
+          width = 464,
+          height = 224,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 650,
+          name = "",
+          type = "OverlapTrigger",
+          shape = "rectangle",
+          x = -2880,
+          y = 16,
+          width = 304,
+          height = 208,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["signal"] = "unpause",
+            ["target"] = { id = 647 }
+          }
         }
       }
     },

@@ -131,14 +131,13 @@ function ow.DialogBox:instantiate(id)
         _choice_frame_y = 0,
 
         _text_stencil = rt.AABB(0, 0, 1, 1),
+        _color = rt.Palette.FOREGROUND,
 
         _font = rt.settings.font.default,
         _max_n_lines = rt.settings.overworld.dialog_box.n_lines,
 
         _is_first_update = true,
     })
-
-    self._frame:set_is_animated(true)
 end
 
 local _node_type_text = "text"
@@ -890,7 +889,7 @@ do
             love.graphics.setLineWidth(self._advance_indicator_outline_w + 1)
             love.graphics.line(self._advance_indicator_outline)
 
-            rt.Palette.FOREGROUND:bind()
+            self._color:bind()
             love.graphics.setLineWidth(self._advance_indicator_outline_w)
             love.graphics.line(self._advance_indicator_outline)
         end
@@ -1077,4 +1076,13 @@ end
 --- @brief
 function ow.DialogBox:get_is_last_node()
     return self._active_node == nil or self._active_node.next == nil
+end
+
+--- @brief
+function ow.DialogBox:set_color(color)
+    self._color = color
+
+    self._frame:set_color(color)
+    self._speaker_frame:set_color(color)
+    self._portrait_frame:set_color(color)
 end
