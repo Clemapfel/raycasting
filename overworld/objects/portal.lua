@@ -16,9 +16,11 @@ rt.settings.overworld.portal = {
     },
 
     min_velocity_magnitude = 500, -- px/s, when exiting portal
+    max_velocity_magnitude = rt.settings.player.downwards_force / 2,
+
     impulse_max_scale = 1.2,
     one_way_light_animation_duration = 1.15, -- seconds
-    velocity_angle_min_threshold = math.degrees_to_radians(15)
+    velocity_angle_min_threshold = math.degrees_to_radians(15),
 }
 
 --- @class ow.Portal
@@ -62,34 +64,6 @@ local _t_offset = 5
 local _stride = _t_offset + 1
 local _particle_i_to_data_offset = function(particle_i)
     return (particle_i - 1) * _stride + 1
-end
-
--- check if directed vector points towards or away from line
-local function velocity_towards_line(ax, ay, bx, by, vx, vy, is_grounded)
-    local dx, dy = math.normalize(ax - bx, ay - by)
-    local left_x, left_y = math.turn_left(dx, dy)
-    local proj = math.dot(vx, vy, left_x, left_y)
-
-    -- normalize velocity to get accurate angle calculation
-    local vx_norm, vy_norm = math.normalize(vx, vy)
-    local dot_parallel = math.abs(math.dot(vx_norm, vy_norm, dx, dy))
-
-    -- check if angle is shallower than 15 degrees
-    local threshold = math.cos(rt.settings.overworld.portal.velocity_angle_min_threshold)
-    if not is_grounded
-        and dot_parallel > threshold
-    then
-        return nil
-    end
-
-    local eps = 1e-5
-    if proj < -eps then
-        return _LEFT
-    elseif proj > eps then
-        return _RIGHT
-    else
-        return nil  -- parallel case
-    end
 end
 
 --- @brief
@@ -162,6 +136,7 @@ function ow.Portal:instantiate(object, stage, scene)
     self._ax, self._ay, self._bx, self._by = nil, nil, nil, nil
     self._offset_x, self._offset_y = 0, 0
     self._is_dead_end = false -- if true, player cannot enter portal
+    self._last_player_x, self._last_player_y = nil, nil
 
     self._color = nil -- synched with partner in "initialized"
 
@@ -239,35 +214,26 @@ function ow.Portal:instantiate(object, stage, scene)
         self._is_disabled = false
 
         if not self._is_dead_end then
-            -- sensor that triggers teleportation sequence
+            -- sensor for light
             local segment_w = rt.settings.player.radius * rt.settings.player.bubble_radius_factor * 0.5
+            self._segment_sensor_width = segment_w
             self._segment_sensor = b2.Body(
                 self._world,
                 object:get_physics_body_type(),
                 self._offset_x, self._offset_y,
-                b2.Polygon(
-                    self._ax, self._ay,
-                    self._ax + self._normal_x * segment_w, self._ay + self._normal_y * segment_w ,
-                    self._bx + self._normal_x * segment_w, self._by + self._normal_y * segment_w,
-                    self._bx, self._by
-                )
+                b2.Segment(self._ax, self._ay, self._bx, self._by)
             )
 
-            self._segment_sensor:set_use_continuous_collision(true)
-            self._segment_sensor:set_collides_with(rt.settings.player.bounce_collision_group)
-            self._segment_sensor:set_collision_group(rt.settings.player.bounce_collision_group)
-            self._segment_sensor:add_tag("unjumpable", "slippery")
+            self._segment_sensor:set_collides_with(0x0)
+            self._segment_sensor:set_collision_group(0x0)
             self._segment_sensor:add_tag("segment_light_source")
             self._segment_sensor:set_user_data(self)
-            self.get_positions = function(self)
-                return self._ax, self._ay, self._bx, self._by
-            end
 
-            self.get_color = function(self)
-                return self._color
-            end
-
-            self._segment_sensor:set_is_sensor(true)
+            self._sensor_aabb = rt.AABB(
+                self._ax + self._normal_x * segment_w, self._ay + self._normal_y * segment_w ,
+                self._bx + self._normal_x * segment_w, self._by + self._normal_y * segment_w,
+                self._bx, self._by
+            )
         end
 
         -- area sensor, used to detect if player exited area so portal can reset
@@ -338,117 +304,35 @@ function ow.Portal:instantiate(object, stage, scene)
         self._transition_stencil:add_tag("hitbox", "stencil", "core_stencil", "body_stencil")
         self:_set_stencil_enabled(false)
 
-        if not self._is_dead_end then
-            -- start teleportation sequence
-            self._segment_sensor:signal_connect("collision_start", function(self_body, other_body, nx, ny, contact_x, contact_y)
-                -- get t in 0, 1 of closest point on line to px, py
-                local function t_on_line(x1, y1, x2, y2, px, py)
-                    local segment_vec_x = x2 - x1
-                    local segment_vec_y = y2 - y1
-                    local point_vec_x = px - x1
-                    local point_vec_y = py - y1
+        -- setup tether, wait for first update since both portals need to have been fully initialized
+        self._world:signal_connect("step", function(_)
+            if not self._stage:get_is_initialized() then return end -- wait for normal map to be done
 
-                    local t = math.dot(point_vec_x, point_vec_y, segment_vec_x, segment_vec_y) /
-                        math.dot(segment_vec_x, segment_vec_y, segment_vec_x, segment_vec_y)
+            if self._has_tether == nil and not self._is_dead_end then
+                local other = self._target
 
-                    return 1 - math.clamp(t, 0, 1), math.mix2(x1, y1, x2, y2, t)
+                self._has_tether = true
+                other._has_tether = false
+
+                local from_x, from_y = self._offset_x, self._offset_y
+                local to_x, to_y = other._offset_x, other._offset_y
+
+                self._tether = ow.Tether():tether(
+                    from_x, from_y,
+                    to_x, to_y
+                )
+
+                -- fully relax tether
+                local elapsed = 2
+                local step = rt.SceneManager:get_timestep()
+                while elapsed > step do
+                    self._tether:update(step)
+                    elapsed = elapsed - step
                 end
+            end
 
-                if not self._is_disabled then
-                    local player = self._scene:get_player()
-                    local offset_x, offset_y = self._offset_x, self._offset_y
-                    local ax, ay = self._ax + offset_x, self._ay + offset_y
-                    local bx, by = self._bx + offset_x, self._by + offset_y
-
-                    local player_vx, player_vy = player:get_physics_body():get_velocity() -- use sim velocity
-
-                    -- if player moves towards portal on the correct side
-                    if self._direction == velocity_towards_line(
-                        ax, ay, bx, by,
-                        player_vx, player_vy,
-                        player:get_is_grounded()
-                    ) then -- use sim velocity
-                        do -- compute closest point
-                            local ab_x = bx - ax
-                            local ab_y = by - ay
-                            local ap_x, ap_y = player:get_position()
-                            ap_x = ap_x - ax
-                            ap_y = ap_y - ay
-
-                            local ab_length_squared = math.dot(ab_x, ab_y, ab_x, ab_y)
-                            if ab_length_squared == 0 then
-                                contact_x, contact_y = ax, ay
-                            else
-                                local t = math.clamp(math.dot(ap_x, ap_y, ab_x, ab_y) / ab_length_squared, 0, 1)
-                                contact_x = ax + t * ab_x
-                                contact_y = ay + t * ab_y
-                            end
-                        end
-
-                        -- find where to contract particles to on this portal
-                        self._entry_t = t_on_line(ax, ay, bx, by, contact_x, contact_y)
-
-                        -- on target, always choose center
-                        self._target._entry_t = 0.5
-
-                        -- animation tied to player velocity magnitude
-                        self._pulse_elapsed = 0
-                        self._collapse_active = true
-
-                        self._transition_active = true
-                        self._queue_trail_invisible = true
-
-                        if self._target._is_dead_end then
-                            self._target._one_way_light_animation:reset()
-                        end
-
-                        self:_set_stencil_enabled(true)
-                        self._target:_set_stencil_enabled(true)
-
-                        self._transition_elapsed = 0
-                        self._transition_speed = math.max(
-                            rt.settings.overworld.portal.transition_speed_factor * math.magnitude(player_vx, player_vy),
-                            rt.settings.overworld.portal.transition_min_speed
-                        )
-                        self._transition_velocity_x, self._transition_velocity_y = player_vx, player_vy
-
-                        -- disable player
-                        self:_set_player_disabled(true)
-                    end
-                end
-            end)
-
-            -- setup tether, wait for first update since both portals need to have been fully initialized
-            self._world:signal_connect("step", function(_)
-                if not self._stage:get_is_initialized() then return end -- wait for normal map to be done
-
-                if self._has_tether == nil and not self._is_dead_end then
-                    local other = self._target
-
-                    self._has_tether = true
-                    other._has_tether = false
-
-                    local from_x, from_y = self._offset_x, self._offset_y
-                    local to_x, to_y = other._offset_x, other._offset_y
-
-                    self._tether = ow.Tether():tether(
-                        from_x, from_y,
-                        to_x, to_y
-                    )
-
-                    -- fully relax tether
-                    local elapsed = 2
-                    local step = rt.SceneManager:get_timestep()
-                    while elapsed > step do
-                        self._tether:update(step)
-                        elapsed = elapsed - step
-                    end
-                end
-
-                return meta.DISCONNECT_SIGNAL
-            end)
-
-        end -- is one way
+            return meta.DISCONNECT_SIGNAL
+        end)
 
         -- particles
         local settings = rt.settings.overworld.portal.particle
@@ -562,12 +446,156 @@ local function _clamp_point_to_line(ax, ay, bx, by, normal_x, normal_y, x, y)
     return x, y
 end
 
+-- get t in 0, 1 of closest point on line to px, py
+local function t_on_line(x1, y1, x2, y2, px, py)
+    local segment_vec_x = x2 - x1
+    local segment_vec_y = y2 - y1
+    local point_vec_x = px - x1
+    local point_vec_y = py - y1
+
+    local t = math.dot(point_vec_x, point_vec_y, segment_vec_x, segment_vec_y) /
+        math.dot(segment_vec_x, segment_vec_y, segment_vec_x, segment_vec_y)
+
+    t = math.clamp(t, 0, 1)
+
+    return 1 - t --, math.mix2(x1, y1, x2, y2, t)
+end
+
+-- check if directed vector points towards or away from line
+local function velocity_towards_line(ax, ay, bx, by, vx, vy, is_grounded)
+    local dx, dy = math.normalize(ax - bx, ay - by)
+    local left_x, left_y = math.turn_left(dx, dy)
+    local proj = math.dot(vx, vy, left_x, left_y)
+
+    -- normalize velocity to get accurate angle calculation
+    local vx_norm, vy_norm = math.normalize(vx, vy)
+    local dot_parallel = math.abs(math.dot(vx_norm, vy_norm, dx, dy))
+
+    -- check if angle is shallower than 15 degrees
+    local threshold = math.cos(rt.settings.overworld.portal.velocity_angle_min_threshold)
+    if not is_grounded
+        and dot_parallel > threshold
+    then
+        return nil
+    end
+
+    local eps = 1e-5
+    if proj < -eps then
+        return _LEFT
+    elseif proj > eps then
+        return _RIGHT
+    else
+        return nil  -- parallel case
+    end
+end
+
+-- circle cast against line segment
+local function circle_cast(x1, y1, x2, y2, start_x, start_y, end_x, end_y, r)
+    if math.ray_intersection(x1, y1, x2 - x1, y2 - y1, start_x, start_y, end_x - start_x, end_y - start_y) then
+        return true
+    end
+
+    return math.distance_to_line_segment(x1, y1, start_x, start_y, end_x, end_y) <= r or
+        math.distance_to_line_segment(x2, y2, start_x, start_y, end_x, end_y) <= r or
+        math.distance_to_line_segment(start_x, start_y, x1, y1, x2, y2) <= r or
+        math.distance_to_line_segment(end_x, end_y, x1, y1, x2, y2) <= r
+end
+
+--- @brief
+function ow.Portal:_check_should_teleport()
+    if self._is_dead_end or self._is_disabled then return false end
+
+    local player = self._scene:get_player()
+    local px, py = player:get_position()
+    local r = player:get_radius()
+
+    if self._last_player_x == nil or self._last_player_y == nil then
+        self._last_player_x, self._last_player_y = px, py
+    end
+
+    if self._last_player_vx == nil or self._last_player_vy == nil then
+        self._last_player_vx, self._last_player_vy = player:get_velocity()
+    end
+
+    local ax, ay = self._ax + self._offset_x, self._ay + self._offset_y
+    local bx, by = self._bx + self._offset_x, self._by + self._offset_y
+
+    local dx, dy = bx - ax, by - ay
+    local dist = math.magnitude(dx, dy)
+
+    if dist > 0 then -- contract by r
+        local ox, oy = (dx / dist) * r, (dy / dist) * r
+        ax, ay = ax + ox, ay + oy
+        bx, by = bx - ox, by - oy
+    end
+
+    local last = self._last_player_overlap
+
+    -- circle cast along step between frames to protect against tunneling
+    local current = circle_cast(
+        ax, ay, bx, by,
+        self._last_player_x, self._last_player_y,
+        px, py, player:get_radius()
+    )
+
+    if current ~= last and current == true then
+        local player_vx, player_vy = player:get_velocity()
+
+        local sign = velocity_towards_line(
+            ax, ay, bx, by,
+            player_vx, player_vy,
+            player:get_is_grounded()
+        )
+
+        if sign ~= self._direction then return end
+
+        local t = t_on_line(
+            ax, ay, bx, by, px, py
+        )
+
+        self._entry_t = t
+        self._target._entry_t = 0.5  -- on target, always choose center
+
+        -- animation tied to player velocity magnitude
+        self._pulse_elapsed = 0
+        self._collapse_active = true
+
+        self._transition_active = true
+        self._queue_trail_invisible = true
+
+        if self._target._is_dead_end then
+            self._target._one_way_light_animation:reset()
+        end
+
+        self:_set_stencil_enabled(true)
+        self._target:_set_stencil_enabled(true)
+
+        local transition_vx, transition_vy = player:get_past_velocity(rt.settings.player.radius)
+
+        self._transition_elapsed = 0
+        self._transition_speed = math.max(
+            rt.settings.overworld.portal.transition_speed_factor * math.magnitude(transition_vx, transition_vy),
+            rt.settings.overworld.portal.transition_min_speed
+        )
+        self._transition_velocity_x, self._transition_velocity_y = transition_vx, transition_vy
+
+        -- disable player
+        self:_set_player_disabled(true)
+    end
+
+    self._last_player_x, self._last_player_y = px, py
+    self._last_player_vx, self._last_player_vy = player:get_velocity()
+    self._last_player_overlap = current
+end
+
 --- @brief
 function ow.Portal:update(delta)
     local target = self._target
     if not self._is_dead_end and self._object:get_physics_body_type() ~= b2.BodyType.STATIC then
         self._offset_x, self._offset_y = self._area_sensor:get_position()
     end
+
+    if not self._transition_active and not self._stage:get_is_body_visible(self._area_sensor) then return end
 
     local player = self._scene:get_player()
 
@@ -652,6 +680,8 @@ function ow.Portal:update(delta)
                 self._is_disabled = false
                 self:_set_stencil_enabled(false)
             end
+        else
+            self:_check_should_teleport()
         end
 
         if self._stage:get_is_body_visible(self._area_sensor) == false then return end
@@ -739,9 +769,10 @@ function ow.Portal:_teleport()
     local new_x, new_y = target._offset_x, target._offset_y
 
     -- exit velocity scales with entry
-    local magnitude = math.max(
+    local magnitude = math.clamp(
         math.magnitude(self._transition_velocity_x, self._transition_velocity_y),
-        rt.settings.overworld.portal.min_velocity_magnitude
+        rt.settings.overworld.portal.min_velocity_magnitude,
+        rt.settings.overworld.portal.max_velocity_magnitude
     )
 
     local player_vx, player_vy = target._normal_x * magnitude, target._normal_y * magnitude
@@ -952,6 +983,8 @@ function ow.Portal:reset()
     if self._transition_stencil ~= nil then
         self:_set_stencil_enabled(false)
     end
+
+    self._last_player_x, self._last_player_y = nil, nil
 
     self._pulse_elapsed = math.huge
     self._pulse_value = 0
