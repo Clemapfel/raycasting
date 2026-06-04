@@ -42,99 +42,65 @@ end
 --- @brief
 function rt.AABB:intersects(x1, y1, x2, y2)
     local x, y, w, h = self:unpack()
-    local right = x + w
-    local bottom = y + h
 
-    -- early out: check if either endpoint is inside AABB
-    if (x1 >= x and x1 <= right and y1 >= y and y1 <= bottom)
-        or (x2 >= x and x2 <= right and y2 >= y and y2 <= bottom)
-    then
-        return true
-    end
-
-    -- early out: check if segment is entirely outside AABB
-    if (x1 < x and x2 < x)
-        or (x1 > right and x2 > right)
-        or (y1 < y and y2 < y)
-        or (y1 > bottom and y2 > bottom)
-    then
+    -- 1. Protect against NaN (Not-a-Number) values.
+    -- In Lua, checking if a variable does not equal itself is the fastest way to check for NaN.
+    if x1 ~= x1 or x2 ~= x2 or y1 ~= y1 or y2 ~= y2 or
+        x ~= x or y ~= y or w ~= w or h ~= h then
         return false
     end
 
-    local dx = x2 - x1
-    local dy = y2 - y1
+    local maxX = x + w
+    local maxY = y + h
 
-    local min_t = 0.0
-    local max_t = 1.0
+    -- 2. Infinity Clamping: To prevent intermediate math operations from evaluating
+    -- to NaN (inf - inf) or overflowing a 64-bit float, we clamp massive coordinates
+    -- to a safe upper bound (1e140). This preserves the mathematical slope/topology
+    -- of infinite lines while guaranteeing stable SAT arithmetic.
+    local huge = 3.4028234663852886e+38
+    if x1 > huge then x1 = huge elseif x1 < -huge then x1 = -huge end
+    if x2 > huge then x2 = huge elseif x2 < -huge then x2 = -huge end
+    if y1 > huge then y1 = huge elseif y1 < -huge then y1 = -huge end
+    if y2 > huge then y2 = huge elseif y2 < -huge then y2 = -huge end
 
-    -- x slab
-    if dx ~= 0 then
-        local tx1 = (x - x1) / dx
-        local tx2 = (right - x1) / dx
+    if x > huge then x = huge elseif x < -huge then x = -huge end
+    if maxX > huge then maxX = huge elseif maxX < -huge then maxX = -huge end
+    if y > huge then y = huge elseif y < -huge then y = -huge end
+    if maxY > huge then maxY = huge elseif maxY < -huge then maxY = -huge end
 
-        -- infinities
-        if dx > 0 then
-            -- moving right: tx1 is entry, tx2 is exit
-            if tx1 ~= -math.huge then
-                min_t = math.max(min_t, tx1)
-            end
-            if tx2 ~= math.huge then
-                max_t = math.min(max_t, tx2)
-            end
-        else
-            -- moving left: tx2 is entry, tx1 is exit
-            if tx2 ~= -math.huge then
-                min_t = math.max(min_t, tx2)
-            end
-            if tx1 ~= math.huge then
-                max_t = math.min(max_t, tx1)
-            end
-        end
+    -- Recompute safe dimensions in case the AABB itself was initialized with math.huge
+    w = maxX - x
+    h = maxY - y
 
-        if min_t > max_t then
-            return false
-        end
-    else
-        -- dx == 0: segment is vertical, check if x is within bounds
-        if x1 < x or x1 > right then
-            return false
-        end
-    end
+    -- 3. Early Out: X-Axis Bounding Box overlap test
+    -- Standard ternary logic (`cond and A or B`) avoids the overhead of math.min/math.max function calls.
+    local lMinX = x1 < x2 and x1 or x2
+    local lMaxX = x1 > x2 and x1 or x2
+    if lMaxX < x or lMinX > maxX then return false end
 
-    -- y slab
-    if dy ~= 0 then
-        local ty1 = (y - y1) / dy
-        local ty2 = (bottom - y1) / dy
+    -- 4. Early Out: Y-Axis Bounding Box overlap test
+    local lMinY = y1 < y2 and y1 or y2
+    local lMaxY = y1 > y2 and y1 or y2
+    if lMaxY < y or lMinY > maxY then return false end
 
-        if dy > 0 then
-            if ty1 ~= -math.huge then
-                min_t = math.max(min_t, ty1)
-            end
+    -- 5. Exact Separation Test (SAT) on the Line's Normal
+    -- Since we've already proven the line's bounding box overlaps the AABB's bounding box,
+    -- we only need to test if the AABB intersects the infinite line extending from the segment.
+    local vx = x2 - x1
+    local vy = y2 - y1
 
-            if ty2 ~= math.huge then
-                max_t = math.min(max_t, ty2)
-            end
-        else
-            if ty2 ~= -math.huge then
-                min_t = math.max(min_t, ty2)
-            end
+    -- We multiply standard center-distance variables by 2 to completely avoid floating division.
+    local tx = x1 + x2 - x - maxX
+    local ty = y1 + y2 - y - maxY
 
-            if ty1 ~= math.huge then
-                max_t = math.min(max_t, ty1)
-            end
-        end
+    local cross = tx * vy - ty * vx
+    if cross < 0 then cross = -cross end
 
-        if min_t > max_t then
-            return false
-        end
-    else
-        -- dy == 0: segment is horizontal, check if y is within bounds
-        if y1 < y or y1 > bottom then
-            return false
-        end
-    end
+    local abs_vx = vx < 0 and -vx or vx
+    local abs_vy = vy < 0 and -vy or vy
 
-    return true
+    -- Check if the projected distance of the AABB exceeds the projected distance of the line center
+    return cross <= (w * abs_vy + h * abs_vx)
 end
 
 --- @brief check if aabb overlaps another aabb
