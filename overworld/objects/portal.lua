@@ -163,7 +163,7 @@ function ow.Portal:instantiate(object, stage, scene)
     self._offset_x, self._offset_y = 0, 0
     self._is_dead_end = false -- if true, player cannot enter portal
 
-    self._color = nil -- synched in initialize
+    self._color = nil -- synched with partner in "initialized"
 
     stage:signal_connect("initialized", function()
         do -- read segment position, move to origin
