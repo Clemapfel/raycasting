@@ -1,6 +1,6 @@
 import {GLWidget} from "../common/gl_widget.ts";
 import {BlendMode, StencilMode} from "../common/gl_context.ts";
-import {Mesh, MeshDrawMode, MeshEllipse, MeshRectangle, MeshLine } from "../common/mesh.ts";
+import {Mesh, MeshDrawMode, MeshEllipse, MeshRectangle, MeshLine, LineJoin, radius_to_n_vertices} from "../common/mesh.ts";
 import {
     DEFAULT_FLOAT_PRECISION,
     DEFAULT_FRAGMENT_OUT_NAME,
@@ -17,9 +17,13 @@ import {LCHA, RGBA} from "../common/color.ts";
 import {Time} from "../common/time.ts";
 import "../common/math.ts";
 import {MeshVertexFormat} from "../common/mesh_vertex_format.ts";
-import {Vec2} from "../common/vector.ts";
+import {Vec2, Vec2Array} from "../common/vector.ts";
 
 const glass_svg_path = "/orb.svg"
+
+const line_width = 5;
+const line_margin = 3;
+const line_angle = 0;
 
 const n_particles = 128 + 64;
 const n_sub_steps = 3;
@@ -260,10 +264,13 @@ export class Orb extends GLWidget  {
     private particle_mesh_index_data : Uint16Array;
 
     private circle_mesh? : Mesh;
-    private line_mesh? : Mesh;
     private glass_mesh? : Mesh;
     private glass_mesh_shader? : Shader;
     private glass_mesh_cursor_position = new Vec2(0);
+    
+    private line_end? : Mesh;
+    private line? : Mesh;
+    private line_arc? : Mesh;
 
     private orb_radius : number = 0;
     private orb_center_x : number = 0;
@@ -277,12 +284,6 @@ export class Orb extends GLWidget  {
     protected override draw() {
         if (this.was_freed
             || this.canvas === undefined
-            || this.canvas_mesh === undefined
-            || this.circle_mesh === undefined  // not yet resized
-            || this.particle_mesh === undefined
-            || this.glass_mesh === undefined
-            || this.glass_mesh_shader === undefined
-            || this.line_mesh === undefined
         ) return;
 
         if (this.particle_mesh_texture === undefined) {
@@ -320,9 +321,9 @@ export class Orb extends GLWidget  {
 
         this.context.setColor(0, 0, 0, 1)
         this.default_shader.bind()
-        this.glass_mesh.draw();
+        this.glass_mesh?.draw();
         this.default_shader.unbind()
-        
+
         const value = 0x1
         this.context.setStencilMode(StencilMode.DRAW, value);
         this.circle_mesh!.draw();
@@ -335,20 +336,25 @@ export class Orb extends GLWidget  {
         this.canvas_threshold_shader.setUniform(DEFAULT_SCREEN_SIZE_NAME, this.getSize());
         this.canvas_threshold_shader.setUniform("threshold", threshold);
         this.canvas_threshold_shader.setUniform("eps", eps);
-        this.canvas_mesh.draw();
+        this.canvas_mesh?.draw();
         this.canvas_threshold_shader!.unbind();
 
         this.context.setStencilMode(StencilMode.NONE);
 
         this.context.setColor(1, 1, 1, 1)
-        this.glass_mesh_shader.bind()
+        this.glass_mesh_shader?.bind()
         //this.glass_mesh_shader.setUniform("cursor_position", this.glass_mesh_cursor_position)
-        this.glass_mesh.draw();
-        this.glass_mesh_shader.unbind()
+        this.glass_mesh?.draw();
+        this.glass_mesh_shader?.unbind();
 
-        this.default_shader.bind()
-        this.line_mesh.draw()
-        this.default_shader.unbind()
+        this.default_shader.bind();
+        //this.line_top_end?.draw();
+        //this.line_bottom_end?.draw();
+        //this.line_left_end?.draw();
+        this.line_end?.draw();
+        this.line?.draw();
+        this.line_arc?.draw();
+        this.default_shader.unbind();
     }
 
     private delta_accumulator : number = 0;
@@ -424,47 +430,75 @@ export class Orb extends GLWidget  {
         if (this.canvas !== undefined) this.canvas.free();
         if (this.canvas_mesh !== undefined) this.canvas_mesh.free();
 
+        const size = this.getSize();
+        this.orb_radius = Math.min(size.x, size.y) / 2 - 2 * (line_width + line_margin);
+        this.orb_center_x = this.orb_radius;
+        this.orb_center_y = size.y * 0.5;
+
         this.particle_mesh_vertex_data = new Float32Array(n_particles * mesh_vertex_data_stride);
         this.particle_mesh_index_data = new Uint16Array(n_particles * index_data_stride);
 
         this.particle_data = new Float64Array(n_particles * particle_stride);
         this.collision_lambdas = new Float64Array(n_particles * n_particles);
 
-        this.canvas = new RenderTexture(this.context, width, height, TextureFormat.R32F);
+        this.canvas = new RenderTexture(this.context, this.orb_radius * 2, this.orb_radius * 2, TextureFormat.R32F);
         this.canvas_mesh = MeshRectangle(this.context, 0, 0, width, height);
 
-        const size = this.getSize();
-        this.orb_radius = Math.min(size.x, size.y) / 2;
+        // init line mesh
 
-        this.orb_center_x = this.orb_radius;
-        this.orb_center_y = size.y * 0.5;
+        const line_origin_radius = this.orb_radius + 0.5 * line_width + line_margin;
+        const line_origin_left = new Vec2(
+            this.orb_center_x + Math.cos(line_angle) * line_origin_radius,
+            this.orb_center_y + Math.sin(line_angle) * line_origin_radius
+        );
+
+        const line_origin_right = new Vec2(
+            width - line_width - line_margin,
+            line_origin_left.y
+        );
+
+        this.line_end = MeshEllipse(this.context,
+            line_origin_right.x,
+            line_origin_right.y,
+            line_width / 2,
+            line_width / 2
+        );
+
+        this.line = MeshRectangle(this.context,
+            line_origin_left.x, line_origin_left.y - 0.5 * line_width,
+            line_origin_right.x - line_origin_left.x, line_width
+        )
+
+        {
+            const n_vertices = 10 * radius_to_n_vertices(this.orb_radius, this.orb_radius) / 2;
+            const radius = this.orb_radius + line_margin + line_width;
+
+            const tau = 2 * Math.PI;
+            const sweep_start = line_angle - 0.25 * tau;
+            const sweep_end   = line_angle + 0.25 * tau;
+            const sweep_step  = 1 / n_vertices * 0.5 * tau;
+
+            let vertices: Vec2[] = [];
+            for (let angle = Math.min(sweep_start, sweep_end); angle <= Math.max(sweep_start, sweep_end); angle += sweep_step) {
+                vertices.push(new Vec2(
+                    this.orb_center_x + Math.cos(angle) * radius,
+                    this.orb_center_y + Math.sin(angle) * radius
+                ));
+            }
+
+            this.line_arc = MeshLine(this.context,
+                vertices,
+                line_width,
+                LineJoin.NONE
+            )
+        }
+
+        // init orb mesh
 
         this.circle_mesh = MeshEllipse(this.context,
             this.orb_center_x, this.orb_center_y,
             this.orb_radius, this.orb_radius
         );
-
-        const line_width = this.orb_radius * ring_width_factor
-        const margin = 5;
-
-        const line_start = new Vec2(
-            this.orb_center_x + this.orb_radius + line_width,
-            this.orb_center_y
-        )
-
-        const line_end = new Vec2(
-            this.orb_center_x + 600,
-            this.orb_center_y
-        )
-
-        this.line_mesh = MeshLine(
-            this.context,
-            [ line_start, line_end ],
-            line_width,
-            true // add_end_cap
-        );
-
-        console.log(line_start, line_end)
 
         {
             const n_outer_vertices = this.circle_mesh.getVertexCount();

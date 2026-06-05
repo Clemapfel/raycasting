@@ -232,7 +232,7 @@ export function MeshRectangle(
 }
 
 /** **/
-function radius_to_n_vertices(rx: number, ry: number = rx): number {
+export function radius_to_n_vertices(rx: number, ry: number = rx): number {
     // cf. https://github.com/love2d/love/blob/5670df13b6980afd025cd7e7d442a24499bf86a7/src/modules/graphics/Graphics.cpp#L2419C1-L2423C2
     return Math.max(8, Math.floor(Math.sqrt(((rx + ry) / 2) * 20.0)));
 }
@@ -401,12 +401,19 @@ export function MeshRing(
     );
 }
 
+export enum LineJoin {
+    NONE,
+    MITER,
+    BEVEL
+}
+
 export function MeshLine(
     context: GLContext,
     points: Vec2[],
     thickness: number,
-    add_end_cap: boolean = false,
-    color: RGBA = default_color
+    line_join: LineJoin = LineJoin.BEVEL,
+    color: RGBA = default_color,
+    add_circular_endcaps: boolean = true
 ): Mesh {
     if (points.length < 2) {
         throw new Error("MeshLine requires at least 2 points");
@@ -415,165 +422,191 @@ export function MeshLine(
     const vertices: number[] = [];
     const indices: number[] = [];
 
-    const r = color.r;
-    const g = color.g;
-    const b = color.b;
-    const a = color.a;
+    const { r, g, b, a } = color;
 
-    // Helper to add a vertex and return its index
-    function addVertex(v: Vec2, uv: Vec2): number {
-        vertices.push(v.x, v.y, uv.x, uv.y, r, g, b, a);
-        return (vertices.length / 8) - 1;
+    const halfwidth = thickness / 2.0;
+    const LINES_PARALLEL_EPS = 0.05;
+
+    // Flat parallel arrays instead of Vec2[] — zero per-entry allocation
+    const anchorX: number[] = [];
+    const anchorY: number[] = [];
+    const normalX: number[] = [];
+    const normalY: number[] = [];
+
+    const pushAN = (ax: number, ay: number, nx: number, ny: number) => {
+        anchorX.push(ax); anchorY.push(ay);
+        normalX.push(nx); normalY.push(ny);
+    };
+
+    // Scalar segment state (replaces segment Vec2 + segmentNormal Vec2)
+    let sx = points[1].x - points[0].x;
+    let sy = points[1].y - points[0].y;
+    let segLen = Math.sqrt(sx * sx + sy * sy);
+
+    // turn_right(-sy, sx), normalize, scale — inline getNormal
+    const invLen0 = segLen > Math.EPS ? halfwidth / segLen : 0;
+    let snx = -sy * invLen0;
+    let sny =  sx * invLen0;
+
+    // Takes scalars: no point clones needed at call sites
+    const renderEdge = (pAx: number, pAy: number, pBx: number, pBy: number) => {
+        const nsx = pBx - pAx;
+        const nsy = pBy - pAy;
+        const nsLen = Math.sqrt(nsx * nsx + nsy * nsy);
+
+        if (line_join === LineJoin.NONE) {
+            pushAN(pAx, pAy,  snx,  sny);
+            pushAN(pAx, pAy, -snx, -sny);
+
+            sx = nsx; sy = nsy; segLen = nsLen;
+            const inv = segLen > Math.EPS ? halfwidth / segLen : 0;
+            snx = -sy * inv;
+            sny =  sx * inv;
+
+            pushAN(pAx, pAy,  snx,  sny);
+            pushAN(pAx, pAy, -snx, -sny);
+            return;
+        }
+
+        if (nsLen <= Math.EPS) return;
+
+        // inline getNormal for new segment
+        const inv = halfwidth / nsLen;
+        const nsnx = -nsy * inv;
+        const nsny =  nsx * inv;
+
+        // 2D cross & dot, all scalar
+        const det = sx * nsy - sy * nsx;
+        const isParallel = Math.abs(det) < LINES_PARALLEL_EPS * segLen * nsLen;
+        const dotProduct = sx * nsx + sy * nsy;
+
+        if (line_join === LineJoin.MITER) {
+            if (isParallel) {
+                pushAN(pAx, pAy,  snx,  sny);
+                pushAN(pAx, pAy, -snx, -sny);
+                if (dotProduct < 0) {
+                    pushAN(pAx, pAy, -snx, -sny);
+                    pushAN(pAx, pAy,  snx,  sny);
+                }
+            } else {
+                // Cramer's rule — nDiff.cross(newSegment) / det
+                const ndx = nsnx - snx;
+                const ndy = nsny - sny;
+                const lambda = (ndx * nsy - ndy * nsx) / det;
+                const dx = snx + sx * lambda;
+                const dy = sny + sy * lambda;
+                pushAN(pAx, pAy,  dx,  dy);
+                pushAN(pAx, pAy, -dx, -dy);
+            }
+        } else if (line_join === LineJoin.BEVEL) {
+            if (isParallel) {
+                pushAN(pAx, pAy,  snx,  sny);
+                pushAN(pAx, pAy, -snx, -sny);
+                if (dotProduct < 0) {
+                    pushAN(pAx, pAy, -snx, -sny);
+                    pushAN(pAx, pAy,  snx,  sny);
+                }
+            } else {
+                const ndx = nsnx - snx;
+                const ndy = nsny - sny;
+                const lambda = (ndx * nsy - ndy * nsx) / det;
+                const dx = snx + sx * lambda;
+                const dy = sny + sy * lambda;
+
+                if (det > 0) {
+                    // 'Left' turn — miter corner on top
+                    pushAN(pAx, pAy,   dx,    dy);
+                    pushAN(pAx, pAy,  -snx,  -sny);
+                    pushAN(pAx, pAy,   dx,    dy);
+                    pushAN(pAx, pAy,  -nsnx, -nsny);
+                } else {
+                    // 'Right' turn — miter corner on bottom
+                    pushAN(pAx, pAy,  snx,  sny);
+                    pushAN(pAx, pAy, -dx,  -dy);
+                    pushAN(pAx, pAy,  nsnx, nsny);
+                    pushAN(pAx, pAy, -dx,  -dy);
+                }
+            }
+        }
+
+        sx = nsx; sy = nsy; segLen = nsLen;
+        snx = nsnx; sny = nsny;
+    };
+
+    for (let i = 0; i + 1 < points.length; i++) {
+        renderEdge(points[i].x, points[i].y, points[i + 1].x, points[i + 1].y);
     }
 
-    let current_S_L_index = -1;
-    let current_S_R_index = -1;
+    // Virtual closing point extends in the final segment direction
+    const last = points[points.length - 1];
+    renderEdge(last.x, last.y, last.x + sx, last.y + sy);
 
-    const half_t = thickness / 2;
+    const vertex_count = anchorX.length;
 
-    for (let i = 0; i < points.length; i++) {
-        const P = points[i];
+    const addVertex = (x: number, y: number): number => {
+        const idx = vertices.length / 8;
+        vertices.push(x, y, 0.0, 0.0, r, g, b, a);
+        return idx;
+    };
 
-        if (i === 0) {
-            // First point: just setup the initial segment start
-            const D = points[1].subtract(points[0]).normalize();
-            const N = D.turn_left();
-            const S_L = P.add(N.multiply(half_t));
-            const S_R = P.subtract(N.multiply(half_t));
+    for (let i = 0; i < vertex_count; i++) {
+        addVertex(anchorX[i] + normalX[i], anchorY[i] + normalY[i]);
+    }
 
-            current_S_L_index = addVertex(S_L, new Vec2(0, 0));
-            current_S_R_index = addVertex(S_R, new Vec2(1, 0));
-
-            // Start Cap
-            if (add_end_cap) {
-                const start_angle = N.angle();
-                const center_idx = addVertex(P, new Vec2(0.5, 0));
-                let prev_idx = current_S_L_index;
-
-                // Determine segments based on thickness, min 8
-                const num_segs = Math.max(8, Math.floor(Math.sqrt(half_t * 20.0)));
-                for (let j = 1; j <= num_segs; j++) {
-                    const t = j / num_segs;
-                    // Sweep CCW from Left (N) to Right (-N) around the back
-                    const angle = start_angle + t * Math.PI;
-                    const v_dir = new Vec2(Math.cos(angle), Math.sin(angle));
-                    const pt = P.add(v_dir.multiply(half_t));
-
-                    const pt_idx = (j === num_segs) ? current_S_R_index : addVertex(pt, new Vec2(0, 0));
-                    indices.push(center_idx, prev_idx, pt_idx); // CCW
-                    prev_idx = pt_idx;
-                }
-            }
-        } else if (i === points.length - 1) {
-            // Last point: close out the final segment
-            const D = points[i].subtract(points[i - 1]).normalize();
-            const N = D.turn_left();
-            const E_L = P.add(N.multiply(half_t));
-            const E_R = P.subtract(N.multiply(half_t));
-
-            const E_L_index = addVertex(E_L, new Vec2(0, 1));
-            const E_R_index = addVertex(E_R, new Vec2(1, 1));
-
-            // Final segment quad
-            indices.push(current_S_L_index, current_S_R_index, E_R_index);
-            indices.push(current_S_L_index, E_R_index, E_L_index);
-
-            // End Cap
-            if (add_end_cap) {
-                const start_angle = N.angle() + Math.PI; // Start from Right (-N)
-                const center_idx = addVertex(P, new Vec2(0.5, 1));
-                let prev_idx = E_R_index;
-
-                const num_segs = Math.max(8, Math.floor(Math.sqrt(half_t * 20.0)));
-                for (let j = 1; j <= num_segs; j++) {
-                    const t = j / num_segs;
-                    // Sweep CCW from Right (-N) to Left (N) around the front
-                    const angle = start_angle + t * Math.PI;
-                    const v_dir = new Vec2(Math.cos(angle), Math.sin(angle));
-                    const pt = P.add(v_dir.multiply(half_t));
-
-                    const pt_idx = (j === num_segs) ? E_L_index : addVertex(pt, new Vec2(0, 1));
-                    indices.push(center_idx, prev_idx, pt_idx); // CCW
-                    prev_idx = pt_idx;
-                }
-            }
+    for (let i = 0; i < vertex_count - 2; i++) {
+        if (i % 2 === 0) {
+            indices.push(i, i + 1, i + 2);
         } else {
-            // Joint processing
-            const D_in = points[i].subtract(points[i - 1]).normalize();
-            const D_out = points[i + 1].subtract(points[i]).normalize();
-            const N_in = D_in.turn_left();
-            const N_out = D_out.turn_left();
+            indices.push(i + 1, i, i + 2);
+        }
+    }
 
-            const cross = D_in.cross(D_out);
-            const dot = D_in.dot(D_out);
+    if (add_circular_endcaps && halfwidth > Math.EPS) {
+        const CAP_SEGMENTS = 16;
 
-            // Collinear forward path (no bevel needed)
-            if (Math.abs(cross) < Math.EPS && dot > 0) {
-                const L = P.add(N_in.multiply(half_t));
-                const R = P.subtract(N_in.multiply(half_t));
-                const L_idx = addVertex(L, new Vec2(0, 0.5));
-                const R_idx = addVertex(R, new Vec2(1, 0.5));
+        // Start cap — atan2 on stored scalars, no Vec2.angle() needed
+        const scx = points[0].x;
+        const scy = points[0].y;
+        const startAngle = Math.atan2(normalY[0], normalX[0]);
+        const centerStartIdx = addVertex(scx, scy);
 
-                indices.push(current_S_L_index, current_S_R_index, R_idx);
-                indices.push(current_S_L_index, R_idx, L_idx);
-
-                current_S_L_index = L_idx;
-                current_S_R_index = R_idx;
+        let prevIdx = 0;
+        for (let i = 1; i <= CAP_SEGMENTS; i++) {
+            let currentIdx: number;
+            if (i === CAP_SEGMENTS) {
+                currentIdx = 1;
             } else {
-                // Determine joint angles and miter point
-                const T = D_in.add(D_out).normalize();
-                const M = T.turn_left(); // Miter direction
-
-                let miter_dot = M.dot(N_in);
-                // Prevent division by zero for exactly 180 degree turns
-                if (Math.abs(miter_dot) < Math.EPS) miter_dot = Math.EPS;
-
-                // Limit the miter length to prevent extreme spikes on sharp turns
-                const m_len = Math.min(1.0 / miter_dot, 10.0);
-                const V_miter = M.multiply(m_len * half_t);
-
-                if (cross > 0) {
-                    // LEFT TURN (Inner side is Left, Outer side is Right)
-                    const V_inner = P.add(V_miter);
-                    const V_outer_in = P.subtract(N_in.multiply(half_t));
-                    const V_outer_out = P.subtract(N_out.multiply(half_t));
-
-                    const inner_idx = addVertex(V_inner, new Vec2(0, 0.5));
-                    const outer_in_idx = addVertex(V_outer_in, new Vec2(1, 0.5));
-                    const outer_out_idx = addVertex(V_outer_out, new Vec2(1, 0.5));
-
-                    // Quad for incoming segment (i - 1)
-                    indices.push(current_S_L_index, current_S_R_index, outer_in_idx);
-                    indices.push(current_S_L_index, outer_in_idx, inner_idx);
-
-                    // Corner Bevel Triangle (CCW)
-                    indices.push(inner_idx, outer_in_idx, outer_out_idx);
-
-                    // Setup left and right indices for outgoing segment (i)
-                    current_S_L_index = inner_idx;
-                    current_S_R_index = outer_out_idx;
-                } else {
-                    // RIGHT TURN (Inner side is Right, Outer side is Left)
-                    const V_inner = P.subtract(V_miter);
-                    const V_outer_in = P.add(N_in.multiply(half_t));
-                    const V_outer_out = P.add(N_out.multiply(half_t));
-
-                    const inner_idx = addVertex(V_inner, new Vec2(1, 0.5));
-                    const outer_in_idx = addVertex(V_outer_in, new Vec2(0, 0.5));
-                    const outer_out_idx = addVertex(V_outer_out, new Vec2(0, 0.5));
-
-                    // Quad for incoming segment (i - 1)
-                    indices.push(current_S_L_index, current_S_R_index, inner_idx);
-                    indices.push(current_S_L_index, inner_idx, outer_in_idx);
-
-                    // Corner Bevel Triangle (CCW)
-                    indices.push(inner_idx, outer_out_idx, outer_in_idx);
-
-                    // Setup left and right indices for outgoing segment (i)
-                    current_S_L_index = outer_out_idx;
-                    current_S_R_index = inner_idx;
-                }
+                const angle = startAngle + (i / CAP_SEGMENTS) * Math.PI;
+                currentIdx = addVertex(
+                    scx + Math.cos(angle) * halfwidth,
+                    scy + Math.sin(angle) * halfwidth
+                );
             }
+            indices.push(centerStartIdx, prevIdx, currentIdx);
+            prevIdx = currentIdx;
+        }
+
+        // End cap
+        const ecx = last.x;
+        const ecy = last.y;
+        const endAngle = Math.atan2(normalY[normalY.length - 2], normalX[normalX.length - 2]);
+        const centerEndIdx = addVertex(ecx, ecy);
+        const endStartAngle = endAngle - Math.PI;
+
+        let prevIdxEnd = vertex_count - 1;
+        for (let i = 1; i <= CAP_SEGMENTS; i++) {
+            let currentIdx: number;
+            if (i === CAP_SEGMENTS) {
+                currentIdx = vertex_count - 2;
+            } else {
+                const angle = endStartAngle + (i / CAP_SEGMENTS) * Math.PI;
+                currentIdx = addVertex(
+                    ecx + Math.cos(angle) * halfwidth,
+                    ecy + Math.sin(angle) * halfwidth
+                );
+            }
+            indices.push(centerEndIdx, prevIdxEnd, currentIdx);
+            prevIdxEnd = currentIdx;
         }
     }
 

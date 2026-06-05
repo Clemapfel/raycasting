@@ -546,3 +546,30 @@ export class Vec4 {
         return target;
     }
 }
+
+/** **/
+export function Vec2Array(...xy : number[]) : Vec2[] {
+    let out : Vec2[] = [];
+    for (let i = 0; i < xy.length; i += 2)
+        out.push(new Vec2(xy[i + 0], xy[i + 1]))
+
+    return out
+}
+
+/** **/
+export function Vec3Array(...xyz : number[]) : Vec3[] {
+    let out : Vec3[] = [];
+    for (let i = 0; i < xyz.length; i += 3)
+        out.push(new Vec3(xyz[i + 0], xyz[i + 1], xyz[i + 2]))
+
+    return out
+}
+
+/** **/
+export function Vec4Array(...xyzw : number[]) : Vec4[] {
+    let out : Vec4[] = [];
+    for (let i = 0; i < xyzw.length; i += 4)
+        out.push(new Vec4(xyzw[i + 0], xyzw[i + 1], xyzw[i + 2], xyzw[i + 3]))
+
+    return out
+}
