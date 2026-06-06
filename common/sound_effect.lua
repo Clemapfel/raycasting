@@ -12,12 +12,13 @@ rt.SoundEffectType = meta.enum("SoundEffectType", {
 })
 
 --- @enum rt.SoundEffectWaveform
-rt.SoundEffectWaveform = meta.enum("SoundEffectWaveform", {
+rt.SoundEffectWaveform = {
     SINE = "sine",
     SQUARE = "square",
     SAWTOOTH = "sawtooth",
     TRIANGLE = "triangle"
-})
+}
+rt.SoundEffectWaveform = meta.enum("SoundEffectWaveform", rt.SoundEffectWaveform)
 
 --- @class rt.SoundEffect
 --- @see https://nrgcore.com/docs/manual/en-us/effects_extension_guide.pdf

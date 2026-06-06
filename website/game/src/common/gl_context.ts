@@ -1,5 +1,7 @@
 import { RGBA } from "./color.ts";
 import { Vec2 } from "./vector.ts";
+import { RenderTexture } from "./texture.ts";
+import { Shader } from "./shader.ts";
 
 const makeDebugContext: typeof import("webgl-debug").makeDebugContext = await import("webgl-debug")
     // safe import, if package is missing, becomes noop
@@ -25,10 +27,44 @@ export enum StencilMode {
     NONE // disable stencil
 }
 
+const max_stack_depth = 512;
+
+/** **/
+export enum PushTarget {
+    ALL = 0x0,
+    COLOR = 0x1 << 0,
+    BLEND_MODE = 0x1 << 1,
+    STENCIL_MODE = 0x1 << 2,
+    RENDER_TARGET = 0x1 << 3,
+    SHADER = 0x1 << 4
+}
+
+/** **/
+interface PushNode {
+    color : RGBA | undefined,
+    blend_mode_rgb : BlendMode | undefined,
+    blend_mode_alpha : BlendMode | undefined,
+    stencil_mode : StencilMode | undefined,
+    stencil_value : number | undefined,
+    render_texture : RenderTexture | undefined,
+    shader : Shader | undefined
+}
+
 /** **/
 export class GLContext {
     public gl : WebGL2RenderingContext | null;
     public default_texture : WebGLTexture | undefined = undefined;
+
+    // state
+    private blend_mode_rgb : BlendMode = BlendMode.ALPHA;
+    private blend_mode_alpha : BlendMode = BlendMode.ALPHA;
+    private stencil_mode : StencilMode = StencilMode.NONE;
+    private stencil_value : number = 0x0;
+    private color : RGBA = new RGBA(1, 1, 1, 1);
+    private render_texture? : RenderTexture = undefined;
+    private shader? : Shader = undefined;
+
+    private stack : PushNode[] = [];
 
     constructor(canvas: HTMLCanvasElement) {
         this.gl = canvas.getContext("webgl2", {
@@ -49,14 +85,23 @@ export class GLContext {
             return null;
     }
 
-    // state
-    private color : RGBA = new RGBA(1, 1, 1, 1);
-
-    public setColor(r, g, b, a) : void {
-        this.color.r = r;
-        this.color.g = g;
-        this.color.b = b;
-        this.color.a = a;
+    public setColor(r : RGBA);
+    public setColor(r : number, g? : number, b? : number, a? : number)
+    public setColor(r_or_rgba : number | RGBA, g? : number, b? : number, a? : number) : void {
+        if (r_or_rgba instanceof RGBA) {
+            ({
+                r: this.color.r,
+                g: this.color.g,
+                b: this.color.b,
+                a: this.color.a
+            } = r_or_rgba as RGBA);
+        } else {
+            const r : number = r_or_rgba;
+            this.color.r = r;
+            this.color.g = g ?? r;
+            this.color.b = b ?? g ?? r;
+            this.color.a = a ?? 1;
+        }
     }
 
     public getColor() : RGBA {
@@ -135,6 +180,9 @@ export class GLContext {
 
         gl.blendEquationSeparate(equation_rgb, equation_a)
         gl.blendFuncSeparate(source_factor_rgb, destination_factor_rgb, source_factor_a, destination_factor_a)
+
+        this.blend_mode_rgb = rgb;
+        this.blend_mode_alpha = alpha;
     }
 
     /** **/
@@ -165,5 +213,130 @@ export class GLContext {
             default:
                 throw new Error(`In GLContext.setStencilMode: unhandled mode ${mode}`);
         }
+
+        this.stencil_mode = mode;
+        this.stencil_value = value;
+    }
+
+    /** **/
+    public push() : void;
+    public push(...push_targets : PushTarget[]) : void;
+    public push(...push_targets : PushTarget[]) : void {
+        if (this.stack.length + 1 > max_stack_depth)
+            throw Error("In GLContext.push: maximum stack depth reached. More pushes than pops?")
+
+        let node: PushNode;
+        if (push_targets.length == 0 || (push_targets.includes(PushTarget.ALL))) {
+            // push everything
+            node = {
+                color: this.color.clone(),
+                blend_mode_rgb: this.blend_mode_rgb,
+                blend_mode_alpha: this.blend_mode_alpha,
+                stencil_mode: this.stencil_mode,
+                stencil_value: this.stencil_value,
+                render_texture: this.render_texture,
+                shader: this.shader
+            }
+        }
+        else {
+            // push specified
+            node = {
+                color: undefined,
+                blend_mode_rgb: undefined,
+                blend_mode_alpha: undefined,
+                stencil_mode: undefined,
+                stencil_value: undefined,
+                render_texture: undefined,
+                shader: undefined
+            };
+
+            for (let i = 0; i < push_targets.length; i++) {
+                const target = push_targets[i];
+                switch (target) {
+                    case PushTarget.COLOR:
+                        node.color = this.color.clone();
+                        break;
+                    case PushTarget.BLEND_MODE:
+                        node.blend_mode_rgb = this.blend_mode_rgb;
+                        node.blend_mode_alpha = this.blend_mode_alpha;
+                        break;
+                    case PushTarget.STENCIL_MODE:
+                        node.stencil_mode = this.stencil_mode;
+                        node.stencil_value = this.stencil_value;
+                        break;
+                    case PushTarget.RENDER_TARGET:
+                        node.render_texture = this.render_texture;
+                        break;
+                    case PushTarget.SHADER:
+                        node.shader = this.shader;
+                        break;
+                    case PushTarget.ALL:
+                        // unreachable
+                        break;
+                    default:
+                        throw Error(`In GLContext.push: unhandled push target ${target}`)
+                }
+            }
+        }
+
+        this.stack.push(node);
+    }
+
+    /** **/
+    public pop() : void {
+        if (this.stack.length == 0)
+            throw Error("In GLContext: minimum stack depth reached, more pops than pushes?")
+
+        const node = this.stack.pop()!;
+
+        if (node.color !== undefined)
+            this.setColor(node.color);
+
+        if (node.blend_mode_rgb !== undefined || node.blend_mode_alpha !== undefined)
+            this.setBlendmode(
+                node.blend_mode_rgb ?? BlendMode.ALPHA,
+                node.blend_mode_alpha
+            );
+
+        if (node.stencil_mode !== undefined || node.stencil_value !== undefined)
+            this.setStencilMode(
+                node.stencil_mode ?? StencilMode.NONE,
+                node.stencil_value
+            );
+
+        if (node.render_texture !== undefined)
+            node.render_texture.bind()
+
+        if (node.shader !== undefined)
+            node.shader.bind()
+    }
+
+    /** **/
+    public save(...push_targets: PushTarget[]): Disposable {
+        this.push(...push_targets);
+        return {
+            [Symbol.dispose]: () => this.pop()
+        };
+    }
+
+    /** @internal */
+    public _notify_render_texture_bound(texture? : RenderTexture) {
+        this.render_texture = texture;
+
+        if (this.gl !== null && texture === undefined) {
+            // restore back buffer
+            this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+        }
+    }
+
+    /** @internal */
+    public _notify_shader_bound(shader? : Shader) {
+        this.shader = shader;
+    }
+
+    /** @internal */
+    public _notify_size_changed(width : number, height : number) {
+        if (this.gl !== null)
+            this.gl.viewport(0, 0, width, height);
     }
 }

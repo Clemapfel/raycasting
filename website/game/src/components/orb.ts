@@ -1,7 +1,16 @@
 import {GLWidget} from "../common/gl_widget.ts";
-import {BlendMode, StencilMode} from "../common/gl_context.ts";
-import {Mesh, MeshDrawMode, MeshEllipse, MeshRectangle, MeshLine, LineJoin, radius_to_n_vertices} from "../common/mesh.ts";
+import { BlendMode, PushTarget, StencilMode } from "../common/gl_context.ts";
 import {
+    LineJoin,
+    Mesh, MeshCircle,
+    MeshDrawMode,
+    MeshEllipse,
+    MeshLine,
+    MeshRectangle,
+    radius_to_n_vertices
+} from "../common/mesh.ts";
+import {
+    DEFAULT_COLOR_NAME,
     DEFAULT_FLOAT_PRECISION,
     DEFAULT_FRAGMENT_OUT_NAME,
     DEFAULT_RGBA_NAME,
@@ -19,10 +28,8 @@ import "../common/math.ts";
 import {MeshVertexFormat} from "../common/mesh_vertex_format.ts";
 import {Vec2, Vec2Array} from "../common/vector.ts";
 
-const glass_svg_path = "/orb.svg"
-
-const line_width = 5;
-const line_margin = 3;
+const line_width_factor = 5 / 100;
+const line_margin_factor = 1 / 100;
 const line_angle = 0;
 
 const n_particles = 128 + 64;
@@ -33,6 +40,7 @@ const max_n_steps = 4;
 const gravity = 3000;
 const gravity_dxy = new Vec2(0, -1).normalize();
 const swirl_strength = gravity * 0.25;
+const swirl_reference_height = 120;
 const collision_compliance = 0.0001;
 const orb_compliance = 0.0001;
 const damping = 0.95;
@@ -41,11 +49,11 @@ const agitation_duration = 3;
 
 const texture_scale = 5.5;
 const threshold = 0.1;
-const eps = 0.005;
+const eps = 0.05;
 const blend_strength = 1;
 
-const min_radius = 8;
-const max_radius = 8;
+const min_radius = 6;
+const max_radius = 6;
 const reference_height = 300;
 const min_radius_frequency = 0.0;
 const max_radius_frequency = 0.0;
@@ -175,6 +183,7 @@ const glass_mesh_shader_source = `${DEFAULT_SHADER_VERSION}
     
     uniform sampler2D ${DEFAULT_TEXTURE_UNIFORM_NAME};
     uniform vec2 ${DEFAULT_SCREEN_SIZE_NAME};
+    uniform vec4 ${DEFAULT_COLOR_NAME};
     
     in vec2 ${DEFAULT_UV_NAME};
     in vec4 ${DEFAULT_RGBA_NAME};
@@ -224,9 +233,9 @@ const glass_mesh_shader_source = `${DEFAULT_SHADER_VERSION}
 
         float fresnel_edge = dot(surface_normal, vec3(0.0, 0.0, 1.0));
         float limb_darkness = pow(1.0 - fresnel_edge, 2.0) * smoothstep(0.0, 0.5, distance_from_center);
-        vec4 limb_outline = vec4(1.0, 0.0, 1.0, limb_darkness);
+        vec4 limb_outline = vec4(0.0, 0.0, 0.0, limb_darkness);
         
-        ${DEFAULT_FRAGMENT_OUT_NAME} = mix(
+        ${DEFAULT_FRAGMENT_OUT_NAME} = ${DEFAULT_COLOR_NAME} * mix(
             vec4(body_color * static_highlight_color + player_highlight_color), 
             limb_outline, 
             limb_outline.a
@@ -249,13 +258,13 @@ interface EnforceOrbResult {
 }
 
 export class Orb extends GLWidget  {
-    private default_shader : Shader;
-    private particle_mesh : Mesh;
+    private default_shader? : Shader;
+    private particle_mesh? : Mesh;
     private particle_mesh_texture? : RenderTexture;
 
-    private canvas? : RenderTexture;
-    private canvas_mesh? : Mesh;
-    private canvas_threshold_shader : Shader;
+    private particle_canvas? : RenderTexture;
+    private particle_canvas_mesh? : Mesh;
+    private canvas_threshold_shader? : Shader;
 
     private is_initialized : boolean = false;
     private particle_data : Float64Array;
@@ -263,11 +272,16 @@ export class Orb extends GLWidget  {
     private particle_mesh_vertex_data : Float32Array;
     private particle_mesh_index_data : Uint16Array;
 
-    private circle_mesh? : Mesh;
+    private stencil_mesh? : Mesh;
+    private glass_backing_mesh? : Mesh;
     private glass_mesh? : Mesh;
     private glass_mesh_shader? : Shader;
     private glass_mesh_cursor_position = new Vec2(0);
-    
+
+    private glass_backing_color : RGBA = new RGBA(0.5, 0.5, 0.5, 1);
+    private line_color : RGBA = new RGBA(1, 1, 1, 1);
+    private fluid_color : RGBA = new RGBA(1, 1, 1, 1);
+
     private line_end? : Mesh;
     private line? : Mesh;
     private line_arc? : Mesh;
@@ -283,12 +297,16 @@ export class Orb extends GLWidget  {
 
     protected override draw() {
         if (this.was_freed
-            || this.canvas === undefined
+            || this.particle_canvas === undefined
         ) return;
 
         if (this.particle_mesh_texture === undefined) {
             const mesh = MeshRectangle(this.context, 0, 0, particle_texture_resolution, particle_texture_resolution);
-            const shader = new Shader(this.context, particle_texture_shader_source, undefined, MeshVertexFormat.XY_UV_RGBA);
+            const shader = new Shader(this.context,
+                particle_texture_shader_source,
+                undefined,  // default vertex source
+                MeshVertexFormat.XY_UV_RGBA
+            );
 
             this.particle_mesh_texture = new RenderTexture(this.context,
                 particle_texture_resolution,
@@ -298,7 +316,7 @@ export class Orb extends GLWidget  {
 
             this.particle_mesh_texture.bind()
             shader.bind();
-            shader.setUniform(DEFAULT_SCREEN_SIZE_NAME, new Vec2(particle_texture_resolution, particle_texture_resolution))
+            shader.setUniform(DEFAULT_SCREEN_SIZE_NAME, this.particle_mesh_texture.getSize())
             mesh.draw();
             shader.unbind();
             this.particle_mesh_texture.unbind();
@@ -307,54 +325,70 @@ export class Orb extends GLWidget  {
             shader.free()
         }
 
-        this.canvas.bind()
-        this.context.clear(0, 0, 0, 0);
-        this.context.setColor(1, 1, 1, 1)
-        this.context.setBlendmode(BlendMode.ADD, BlendMode.ALPHA)
+        {   // draw raw data to particle canvas
+            using context = this.context.save();
 
-        this.default_shader.bind();
-        this.default_shader.setUniform(DEFAULT_TEXTURE_UNIFORM_NAME, this.particle_mesh_texture);
-        this.particle_mesh!.draw();
-        this.default_shader.unbind();
+            this.particle_canvas.bind();
+            this.context.clear(0, 0, 0, 0);
+            this.context.setColor(1, 1, 1, 1);
+            this.context.setBlendmode(BlendMode.ADD, BlendMode.ALPHA);
 
-        this.canvas.unbind();
+            this.default_shader?.bind();
+            this.default_shader?.setUniform(DEFAULT_TEXTURE_UNIFORM_NAME, this.particle_mesh_texture);
+            this.default_shader?.setUniform(DEFAULT_SCREEN_SIZE_NAME, this.particle_canvas.getSize());
+            this.particle_mesh?.draw();
+            this.default_shader?.unbind();
 
-        this.context.setColor(0, 0, 0, 1)
-        this.default_shader.bind()
-        this.glass_mesh?.draw();
-        this.default_shader.unbind()
+            this.particle_canvas.unbind()
+        }
 
-        const value = 0x1
-        this.context.setStencilMode(StencilMode.DRAW, value);
-        this.circle_mesh!.draw();
-        this.context.setStencilMode(StencilMode.TEST, value);
+        {   // glass background
+            using context = this.context.save(PushTarget.COLOR);
 
-        const alpha = 0.2;
-        this.context.setColor(alpha, alpha, alpha, 1)
-        this.canvas_threshold_shader.bind();
-        this.canvas_threshold_shader.setUniform(DEFAULT_TEXTURE_UNIFORM_NAME, this.canvas);
-        this.canvas_threshold_shader.setUniform(DEFAULT_SCREEN_SIZE_NAME, this.getSize());
-        this.canvas_threshold_shader.setUniform("threshold", threshold);
-        this.canvas_threshold_shader.setUniform("eps", eps);
-        this.canvas_mesh?.draw();
-        this.canvas_threshold_shader!.unbind();
+            this.context.setColor(this.glass_backing_color);
+            this.glass_backing_mesh?.draw();
+        }
 
-        this.context.setStencilMode(StencilMode.NONE);
+        {   // stencil circle, then draw post-fx particles
+            using context = this.context.save();
 
-        this.context.setColor(1, 1, 1, 1)
-        this.glass_mesh_shader?.bind()
-        //this.glass_mesh_shader.setUniform("cursor_position", this.glass_mesh_cursor_position)
-        this.glass_mesh?.draw();
-        this.glass_mesh_shader?.unbind();
+            const value = 0x1
+            this.context.setStencilMode(StencilMode.DRAW, value);
+            this.stencil_mesh?.draw();
+            this.context.setStencilMode(StencilMode.TEST, value);
 
-        this.default_shader.bind();
-        //this.line_top_end?.draw();
-        //this.line_bottom_end?.draw();
-        //this.line_left_end?.draw();
-        this.line_end?.draw();
-        this.line?.draw();
-        this.line_arc?.draw();
-        this.default_shader.unbind();
+            this.context.setColor(this.fluid_color);
+            this.canvas_threshold_shader?.bind();
+            this.canvas_threshold_shader?.setUniform(DEFAULT_TEXTURE_UNIFORM_NAME, this.particle_canvas);
+            this.canvas_threshold_shader?.setUniform("threshold", threshold);
+            this.canvas_threshold_shader?.setUniform("eps", eps);
+            this.particle_canvas_mesh?.draw();
+            this.canvas_threshold_shader?.unbind();
+
+            //this.context.setStencilMode(StencilMode.NONE);
+        }
+
+        {   // draw glass mesh on top of thresholded
+            using context = this.context.save()
+
+            const t = 0.5
+            this.context.setColor(t, t, t, t); // additive blending
+            this.context.setBlendmode(BlendMode.ADD, BlendMode.ALPHA);
+            this.glass_mesh_shader?.bind();
+            this.glass_mesh?.draw();
+            this.glass_mesh_shader?.unbind();
+        }
+
+        {   // draw line
+            using context = this.context.save()
+
+            this.context.setColor(this.line_color);
+            this.default_shader?.bind();
+            this.line_end?.draw();
+            this.line?.draw();
+            this.line_arc?.draw();
+            this.default_shader?.unbind();
+        }
     }
 
     private delta_accumulator : number = 0;
@@ -427,13 +461,17 @@ export class Orb extends GLWidget  {
     }
 
     protected override reformat(width: number, height: number) {
-        if (this.canvas !== undefined) this.canvas.free();
-        if (this.canvas_mesh !== undefined) this.canvas_mesh.free();
+        if (this.particle_canvas !== undefined) this.particle_canvas.free();
+        if (this.particle_canvas_mesh !== undefined) this.particle_canvas_mesh.free();
 
-        const size = this.getSize();
-        this.orb_radius = Math.min(size.x, size.y) / 2 - 2 * (line_width + line_margin);
-        this.orb_center_x = this.orb_radius;
-        this.orb_center_y = size.y * 0.5;
+        const widget_size = this.getSize();
+
+        const line_width = line_width_factor * widget_size.y;
+        const line_margin = line_margin_factor * widget_size.y;
+
+        this.orb_radius = Math.min(widget_size.x, widget_size.y) / 2 - 2 * line_width - 4 * line_margin;
+        this.orb_center_x = this.orb_radius + line_width + 2 * line_margin;
+        this.orb_center_y = widget_size.y * 0.5;
 
         this.particle_mesh_vertex_data = new Float32Array(n_particles * mesh_vertex_data_stride);
         this.particle_mesh_index_data = new Uint16Array(n_particles * index_data_stride);
@@ -441,8 +479,12 @@ export class Orb extends GLWidget  {
         this.particle_data = new Float64Array(n_particles * particle_stride);
         this.collision_lambdas = new Float64Array(n_particles * n_particles);
 
-        this.canvas = new RenderTexture(this.context, this.orb_radius * 2, this.orb_radius * 2, TextureFormat.R32F);
-        this.canvas_mesh = MeshRectangle(this.context, 0, 0, width, height);
+        this.particle_canvas = new RenderTexture(this.context, height, height, TextureFormat.R32F);
+        this.particle_canvas_mesh = MeshRectangle(this.context,
+            0, 0,
+            this.particle_canvas.getWidth(),
+            this.particle_canvas.getHeight()
+        );
 
         // init line mesh
 
@@ -457,17 +499,22 @@ export class Orb extends GLWidget  {
             line_origin_left.y
         );
 
+        this.line = MeshLine(this.context,
+            [ line_origin_left, line_origin_right ],
+            line_width,
+            LineJoin.NONE,
+            undefined, // default color
+            false // no end caps
+        )
+
         this.line_end = MeshEllipse(this.context,
             line_origin_right.x,
             line_origin_right.y,
             line_width / 2,
-            line_width / 2
+            line_width / 2,
+            undefined, // default color
+            false // no anti-aliasing
         );
-
-        this.line = MeshRectangle(this.context,
-            line_origin_left.x, line_origin_left.y - 0.5 * line_width,
-            line_origin_right.x - line_origin_left.x, line_width
-        )
 
         {
             const n_vertices = 10 * radius_to_n_vertices(this.orb_radius, this.orb_radius) / 2;
@@ -495,13 +542,15 @@ export class Orb extends GLWidget  {
 
         // init orb mesh
 
-        this.circle_mesh = MeshEllipse(this.context,
+        this.stencil_mesh = MeshEllipse(this.context,
             this.orb_center_x, this.orb_center_y,
-            this.orb_radius, this.orb_radius
+            this.orb_radius, this.orb_radius,
+            new RGBA(1, 1, 1, 1),
+            false // no anti-aliasing rim
         );
 
         {
-            const n_outer_vertices = this.circle_mesh.getVertexCount();
+            const n_outer_vertices = radius_to_n_vertices(this.orb_radius, this.orb_radius)
             const mesh_format = MeshVertexFormat.XY_UV;
             const glass_mesh_data = new Float32Array((1 + n_outer_vertices) * (2 + 2 + 4));
             let idx = 0;
@@ -551,6 +600,11 @@ export class Orb extends GLWidget  {
             this.glass_mesh_cursor_position.assign(0, 0);
         }
 
+        this.glass_backing_mesh = MeshCircle(this.context,
+            this.orb_center_x, this.orb_center_y,
+            this.orb_radius
+        )
+
         // reinitialize simulation
 
         const golden_angle = Math.PI * (3 - Math.sqrt(5));
@@ -560,6 +614,9 @@ export class Orb extends GLWidget  {
         const min_radius_fraction = min_radius / reference_height;
         const max_radius_fraction = max_radius / reference_height;
 
+        const center_x = 0.5 * this.particle_canvas.getHeight();
+        const center_y = 0.5 * this.particle_canvas.getWidth();
+
         let index_data_i = 0;
         for (let particle_i = 0; particle_i < n_particles; ++particle_i) {
             const particle_data_i = particle_i * particle_stride;
@@ -568,8 +625,8 @@ export class Orb extends GLWidget  {
             const distance = this.orb_radius * Math.sqrt(t);
             const angle = particle_i * golden_angle;
 
-            const position_x = this.orb_center_x + distance * Math.cos(angle);
-            const position_y = this.orb_center_y + distance * Math.sin(angle);
+            const position_x = center_x + distance * Math.cos(angle);
+            const position_y = center_y + distance * Math.sin(angle);
             const mass_t = this.mass_distribution(t);
 
             lcha.h = t
@@ -631,8 +688,8 @@ export class Orb extends GLWidget  {
             this.particle_mesh,
             this.default_shader,
             this.particle_mesh_texture,
-            this.canvas,
-            this.canvas_mesh,
+            this.particle_canvas,
+            this.particle_canvas_mesh,
             this.canvas_threshold_shader
         ]) {
             if (object !== undefined)
@@ -868,7 +925,9 @@ export class Orb extends GLWidget  {
         } as EnforceOrbResult;
 
         const current_gravity = gravity * Math.min(1, this.agitation_elapsed / agitation_duration)
+        const swirl_multiplier = this.particle_canvas!.getHeight() / swirl_reference_height;
 
+        console.log(swirl_multiplier);
         for (let sub_step = 0; sub_step < n_sub_steps; ++sub_step) {
 
             // pre solve
@@ -900,8 +959,8 @@ export class Orb extends GLWidget  {
                     dxy.turn_right(orthogonal_dxy);
 
                 let strength = this.swirl_easing(1 - Math.min(1, this.distance(x, y, orb_xy.x, orb_xy.y ) / this.orb_radius));
-                velocity_x += orthogonal_dxy.x * strength * swirl_strength * delta;
-                velocity_y += orthogonal_dxy.y * strength * swirl_strength * delta;
+                velocity_x += orthogonal_dxy.x * strength * swirl_multiplier * swirl_strength * delta;
+                velocity_y += orthogonal_dxy.y * strength * swirl_multiplier * swirl_strength * delta;
 
                 data[i + velocity_x_offset] = velocity_x;
                 data[i + velocity_y_offset] = velocity_y;

@@ -80,7 +80,7 @@ do
 
     local function validate(scope, nodes)
         local function throw(...)
-            rt.error("In rt.Dialog: for dialog `", scope, "`: ", ...)
+            rt.critical("In rt.Dialog: for dialog `", scope, "`: ", ...)
         end
 
         local function warn(...)

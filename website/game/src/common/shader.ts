@@ -286,6 +286,8 @@ export class Shader {
         if (!this.context.isValid() || this.program === null) return;
         const { gl } = this.context;
 
+        this.context._notify_shader_bound(this);
+
         gl.useProgram(this.program);
 
         // bind 1x1 white default texture so the default shader does not return vec4(0)
@@ -304,7 +306,7 @@ export class Shader {
             gl.uniform2f(screen_size_location, gl.canvas.width, gl.canvas.height)
 
         // set color
-        const color_location = gl.getUniformLocation(this.program, DEFAULT_COLOR_NAME);
+            const color_location = gl.getUniformLocation(this.program, DEFAULT_COLOR_NAME);
         if (color_location !== null) {
             const color = this.context.getColor();
             gl.uniform4f(color_location, color.r, color.g, color.b, color.a)
@@ -333,6 +335,8 @@ export class Shader {
     public unbind() {
         if (!this.context.isValid() || this.program === null) return;
         const { gl } = this.context;
+
+        this.context._notify_shader_bound(undefined);
 
         gl.useProgram(null);
         gl.bindTexture(gl.TEXTURE_2D, null);

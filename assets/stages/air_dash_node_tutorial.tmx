@@ -462,27 +462,10 @@
    <point/>
   </object>
   <object id="291" type="Goal" x="803.529" y="-1517.35" width="437.966" height="103.362"/>
-  <object id="292" name="TimeAttack" type="TimeAttackTriggerNPC" x="1125.53" y="-1284.97">
-   <point/>
-  </object>
-  <object id="303" type="Portal" x="112" y="-1248">
+  <object id="292" name="NPC" type="NPC" x="-120.819" y="-1320.9">
    <properties>
-    <property name="other" type="object" value="304"/>
-    <property name="target" type="object" value="305"/>
+    <property name="dialog_id" value="animalese_test"/>
    </properties>
-   <point/>
-  </object>
-  <object id="304" type="PortalNode" x="240" y="-1248">
-   <point/>
-  </object>
-  <object id="305" type="Portal" x="528" y="-1248">
-   <properties>
-    <property name="other" type="object" value="306"/>
-    <property name="target" type="object" value="303"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="306" type="PortalNode" x="656" y="-1248">
    <point/>
   </object>
  </objectgroup>

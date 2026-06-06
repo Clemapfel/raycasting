@@ -242,49 +242,87 @@ export function MeshEllipse(
     context: GLContext,
     center_x: number,
     center_y: number,
-    x_radius: number,
-    y_radius: number = x_radius,
-    color : RGBA = default_color
+    rx: number,
+    ry: number,
+    color: RGBA = default_color,
+    add_anti_aliasing: boolean = true
 ): Mesh {
-    const n_outer_vertices = radius_to_n_vertices(x_radius, y_radius);
-    const vertex_data = new Float32Array((1 + n_outer_vertices + 1) * (2 + 2 + 4));
-    const index_data = new Uint16Array((n_outer_vertices + 1) * 3)
-    const { r, g, b, a } = default_color;
+    const rim_width = add_anti_aliasing ? 2 : 0;
+    const outer_rx = rx + rim_width;
+    const outer_ry = ry + rim_width;
+    const n_vertices = radius_to_n_vertices(outer_rx, outer_ry);
+    const { r, g, b, a } = color;
 
-    let idx = 0;
+    const vertex_data = new Float32Array((1 + (n_vertices + 1) * (add_anti_aliasing ? 2 : 1)) * 8);
+    const index_data = new Uint16Array(n_vertices * (add_anti_aliasing ? 9 : 3));
 
-    vertex_data[idx++] = center_x;
-    vertex_data[idx++] = center_y;
-    vertex_data[idx++] = 0.5; // u
-    vertex_data[idx++] = 0.5; // v
-    vertex_data[idx++] = r;
-    vertex_data[idx++] = g;
-    vertex_data[idx++] = b;
-    vertex_data[idx++] = a;
+    let v_idx = 0;
+    vertex_data[v_idx++] = center_x;
+    vertex_data[v_idx++] = center_y;
+    vertex_data[v_idx++] = 0.5;
+    vertex_data[v_idx++] = 0.5;
+    vertex_data[v_idx++] = r;
+    vertex_data[v_idx++] = g;
+    vertex_data[v_idx++] = b;
+    vertex_data[v_idx++] = a;
 
-    for (let i = 0; i <= n_outer_vertices; ++i) {
-        const angle = i / n_outer_vertices * 2 * Math.PI;
-        vertex_data[idx++] = center_x + x_radius * Math.cos(angle);
-        vertex_data[idx++] = center_y + y_radius * Math.sin(angle);
-        vertex_data[idx++] = 0.5 + Math.cos(angle) / 2;
-        vertex_data[idx++] = 0.5 + Math.sin(angle) / 2;
-        vertex_data[idx++] = r;
-        vertex_data[idx++] = g;
-        vertex_data[idx++] = b;
-        vertex_data[idx++] = a;
+    const uv_x_inner = 0.5 * (rx / outer_rx);
+    const uv_y_inner = 0.5 * (ry / outer_ry);
+
+    for (let i = 0; i <= n_vertices; i++) {
+        const angle = (i / n_vertices) * 2 * Math.PI;
+        const cos = Math.cos(angle);
+        const sin = Math.sin(angle);
+        vertex_data[v_idx++] = center_x + cos * rx;
+        vertex_data[v_idx++] = center_y + sin * ry;
+        vertex_data[v_idx++] = 0.5 + cos * uv_x_inner;
+        vertex_data[v_idx++] = 0.5 + sin * uv_y_inner;
+        vertex_data[v_idx++] = r;
+        vertex_data[v_idx++] = g;
+        vertex_data[v_idx++] = b;
+        vertex_data[v_idx++] = a;
     }
 
-    idx = 0;
-
-    for (let outer_i = 1; outer_i <= n_outer_vertices; outer_i++) {
-        index_data[idx++] = 0;
-        index_data[idx++] = outer_i - 1;
-        index_data[idx++] = outer_i;
+    if (add_anti_aliasing) {
+        for (let i = 0; i <= n_vertices; i++) {
+            const angle = (i / n_vertices) * 2 * Math.PI;
+            const cos = Math.cos(angle);
+            const sin = Math.sin(angle);
+            vertex_data[v_idx++] = center_x + cos * outer_rx;
+            vertex_data[v_idx++] = center_y + sin * outer_ry;
+            vertex_data[v_idx++] = 0.5 + cos * 0.5;
+            vertex_data[v_idx++] = 0.5 + sin * 0.5;
+            vertex_data[v_idx++] = r;
+            vertex_data[v_idx++] = g;
+            vertex_data[v_idx++] = b;
+            vertex_data[v_idx++] = 0;
+        }
     }
 
-    index_data[idx++] = n_outer_vertices;
-    index_data[idx++] = 0;
-    index_data[idx++] = 1;
+    let i_idx = 0;
+    for (let i = 0; i < n_vertices; i++) {
+        index_data[i_idx++] = 0;
+        index_data[i_idx++] = 1 + i;
+        index_data[i_idx++] = 1 + i + 1;
+    }
+
+    if (add_anti_aliasing) {
+        const outer_offset = 1 + (n_vertices + 1);
+        for (let i = 0; i < n_vertices; i++) {
+            const i_curr = 1 + i;
+            const i_next = i_curr + 1;
+            const o_curr = outer_offset + i;
+            const o_next = o_curr + 1;
+
+            index_data[i_idx++] = i_curr;
+            index_data[i_idx++] = o_curr;
+            index_data[i_idx++] = o_next;
+
+            index_data[i_idx++] = i_curr;
+            index_data[i_idx++] = o_next;
+            index_data[i_idx++] = i_next;
+        }
+    }
 
     return new Mesh(
         context,
@@ -300,7 +338,8 @@ export function MeshCircle(
     center_x: number,
     center_y: number,
     radius: number,
-    color : RGBA = default_color
+    color : RGBA = default_color,
+    add_anti_aliasing : boolean = true
 ) {
     return MeshEllipse(context, center_x, center_y, radius, radius, color)
 }

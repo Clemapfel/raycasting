@@ -956,6 +956,8 @@ do
     function ow.DialogBox:draw_base()
         if not self:get_is_realized() then return end
 
+        love.graphics.clear()
+
         _draw_frame(self, MODE_FRAME)
         _draw_portrait(self, MODE_FRAME)
         _draw_speaker(self, MODE_FRAME)

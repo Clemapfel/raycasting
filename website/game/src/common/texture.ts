@@ -410,6 +410,8 @@ export class RenderTexture extends Texture {
         if (!this.context.isValid()) return;
         const { gl } = this.context;
 
+        this.context._notify_render_texture_bound(this);
+
         if (this.msaa === 0)
             gl.bindFramebuffer(gl.FRAMEBUFFER, this.resolve_framebuffer);
         else
@@ -421,6 +423,8 @@ export class RenderTexture extends Texture {
     public unbind(): void {
         if (!this.context.isValid()) return;
         const { gl } = this.context;
+
+        this.context._notify_render_texture_bound(undefined);
 
         if (this.msaa === 0) {
             gl.bindFramebuffer(gl.FRAMEBUFFER, null);

@@ -1495,74 +1495,18 @@ return {
         },
         {
           id = 292,
-          name = "TimeAttack",
-          type = "TimeAttackTriggerNPC",
+          name = "NPC",
+          type = "NPC",
           shape = "point",
-          x = 1125.53,
-          y = -1284.97,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 303,
-          name = "",
-          type = "Portal",
-          shape = "point",
-          x = 112,
-          y = -1248,
+          x = -120.819,
+          y = -1320.9,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
           properties = {
-            ["other"] = { id = 304 },
-            ["target"] = { id = 305 }
+            ["dialog_id"] = "animalese_test"
           }
-        },
-        {
-          id = 304,
-          name = "",
-          type = "PortalNode",
-          shape = "point",
-          x = 240,
-          y = -1248,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 305,
-          name = "",
-          type = "Portal",
-          shape = "point",
-          x = 528,
-          y = -1248,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["other"] = { id = 306 },
-            ["target"] = { id = 303 }
-          }
-        },
-        {
-          id = 306,
-          name = "",
-          type = "PortalNode",
-          shape = "point",
-          x = 656,
-          y = -1248,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
         }
       }
     },

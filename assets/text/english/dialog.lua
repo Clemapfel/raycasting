@@ -3,57 +3,58 @@ local postfix = "</normal>"
 
 return {
     animalese_test = {
+
         {
-            speaker = "test",
-            gender = rt.Gender.MALE,
-            next = 2,
-            "<sad><color=blue>My dude, check this out.</sad></color>."
-        },
-        {
-            gender = rt.Gender.MALE,
+            speaker = "Animalese Test",
+            gender = rt.Gender.FEMALE,
             next = 3,
-            "<sad><color=blue>Y'know how this is a male voice all deep and stuff</color></sad>. I like mei much better, but just now, <i>I found out how to</i>-"
+            "What do you think of my <wave><rainbow><b>animalese</b></rainbow></wave> implementation?",
         },
+
         {
-            gender = rt.Gender.MALE,
+            speaker = "Animalese Test",
+            gender = rt.Gender.FEMALE,
             next = nil,
-            "<rainbow><happy>Pitch it up and it sounds so fucking stupid, he whips out his mickey mouse voice for this in a way so captivating, I might actually put it in the game.</happy></rainbow>"
-        }--[[,
-        {
-            gender = rt.Gender.FEMALE,
-            next = nil
+            "You can actually hear it pronounce the words like this: <wave>|phoneme.</wave> <shake>|phoneme.</shake>"
         },
+
         {
+            speaker = "Animalese Test",
             gender = rt.Gender.FEMALE,
-            next = 2,
-            "Do you have any advice on how to improve my <rainbow><wave>animalese</wave></rainbow> implementation?",
+            next = 6,
+            "It supports multiple intonations, <color=yellow><happy>like this, it sounds way different now.</happy></color>",
+            "<color=blue><sad>I'm unhappy with how it sounds though.</sad></color>"
         },
+
         {
-            gender = rt.Gender.FEMALE,
-            next = 3,
-            "<sad><color=BLUE>I'm unhappy with how it sounds overall, even though you can swap intonations</color></sad>|<happy><color=YELLOW><b> like this, it sounds way different now</b></color></happy>|<sad><color=BLUE> but overall it doesn't feel like animal crossing.</color></sad>"
-        },
-        {
-            gender = rt.Gender.FEMALE,
-            next = 4,
-            "<bashful><color=PINK>This is another intonation, it is called <shake><b>`bashful`</b></shake> by the developers of the vocoder</bashful>, <color=red><angry>but idk if it sounds very <wave>flirty</wave> at all. This angry one does sound <s>tsundere</s> approriate at least.</color></angry>",
-        },
-        {
+            speaker = "Animalese Test (Male)",
             gender = rt.Gender.MALE,
             next = 5,
-            "<happy><color=yellow>This is a <b>male</b> voice now. </happy></color><sad><color=blue>It sounds way different but I don't like it very much.</sad></color>, it's a little bit too deep",
+            "This now uses a male voice. <angry><color=red>I think the main issue is that the AI announciates each syllable as if it was the start or end of a sentence.</color></angry>",
+            "<sad><color=blue>It causes the syllable to feel disconnected instead of flowing into each other like actual speech.</color></sad>"
         },
+
         {
-            gender = rt.Gender.MALE,
+            speaker = "Animalese Test",
+            gender = rt.Gender.FEMALE,
             next = 6,
-            "<angry><color=red>Do you have any advice on how to improve my animalese?</angry></color>"
+            "<color=pink><bashful>Another issue I noticed is that the text scroll is uneven, since it has to wait for each syllable to be done playing.</color></bashful>",
         },
+
         {
-            gender = rt.Gender.MALE,
+            speaker = "Animalese Test",
+            gender = rt.Gender.FEMALE,
+            next = 7,
+            "<color=red><angry>How can I improve my animalese?</angry></color>"
+        },
+
+        {
+            speaker = "Clem",
+            gender = rt.Gender.FEMALE,
             next = nil,
-            "<happy><wave><color=YELLOW><b>Thank you~</b></color></wave></happy>"
+            "<color=yellow><happy>Thank you</happy></color>"
         }
-         ]]
+
     },
 
     time_attack_trigger_npc = {
