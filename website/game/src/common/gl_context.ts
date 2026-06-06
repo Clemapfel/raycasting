@@ -432,6 +432,8 @@ export class GLContext {
         return this.shader_texture_unit_allocator.allocate(native);
     }
 
+    TODO: safe freed
+
     /** @internal */
     public _notify_shader_bound(shader : Shader) {
         this.shader_stack.push(shader);

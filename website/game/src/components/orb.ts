@@ -340,7 +340,6 @@ export class Orb extends GLWidget  {
             this.particle_mesh_shader.setUniform(DEFAULT_TEXTURE_NAME, this.particle_mesh_texture);
             this.particle_mesh.draw();
             this.particle_mesh_shader.unbind();
-
             this.particle_canvas.unbind()
             this.context.pop()
         }

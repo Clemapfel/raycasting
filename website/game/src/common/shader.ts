@@ -117,6 +117,7 @@ export class Shader {
     private context : GLContext;
     private uniform_cache : Map<string, { location: WebGLUniformLocation, type: number }> = new Map();
 
+    private uniform_id_to_warning_printed : Map<string, boolean> = new Map<string, boolean>();
     private texture_bound : boolean = false;
     private color_bound : boolean = false;
     private screen_size_bound : boolean = false;
@@ -246,29 +247,21 @@ export class Shader {
         const { gl } = this.context;
 
         const info = this.uniform_cache.get(id);
-        if (!info) {
+        if (!info && this.uniform_id_to_warning_printed.get(id) !== true) {
             console.warn(`In Shader.setUniform: no uniform with id \"${id}\" present`);
+            this.uniform_id_to_warning_printed.set(id, true);
             return;
         }
 
         gl.useProgram(this.program);
 
-        const { location, type } = info;
+        const { location, type } = info!;
 
         if (typeof value === "number") {
             if (type == gl.UNSIGNED_INT)
                 gl.uniform1ui(location, value);
             else
                 gl.uniform1f(location, value);
-        }
-        else if (value instanceof Transform) {
-            gl.uniformMatrix4fv(location, false, value.getData());
-        }
-        else if (value instanceof Texture) {
-            const index = this.context.getTextureUnit(value);
-            gl.activeTexture(gl.TEXTURE0 + index);
-            gl.bindTexture(gl.TEXTURE_2D, value.getNative());
-            gl.uniform1i(location, index);
         }
         else if (value instanceof RGBA)
             gl.uniform4f(location, value.r, value.g, value.b, value.a);
@@ -278,20 +271,32 @@ export class Shader {
             gl.uniform3f(location, value.x, value.y, value.z);
         else if (value instanceof Vec4)
             gl.uniform4f(location, value.x, value.y, value.z, value.w);
-        else if (!value)
-            throw new Error(`In Shader.setUniform: value for uniform ${id} is ${value}`)
-        else
+        else if (value instanceof Transform) {
+            gl.uniformMatrix4fv(location, false, value.getData());
+        }
+        else if (value instanceof Texture) {
+            const index = this.context.getTextureUnit(value);
+            gl.activeTexture(gl.TEXTURE0 + index);
+            gl.bindTexture(gl.TEXTURE_2D, value.getNative());
+            gl.uniform1i(location, index);
+        }
+        else if (value !== undefined)
             throw new Error(`In Shader.setUniform: for uniform ${id}: unhandled argument type ${typeof value}`);
 
-        // store whether the default uniforms were set, if not, context will set them
+        // allow resetting bound state with undefined
+
         if (id == DEFAULT_SCREEN_SIZE_NAME)
-            this.screen_size_bound = true;
+            this.screen_size_bound = value !== undefined;
         else if (id === DEFAULT_COLOR_NAME)
-            this.color_bound = true;
+            this.color_bound = value !== undefined;
         else if (id == DEFAULT_TEXTURE_NAME)
-            this.texture_bound = true;
+            this.texture_bound = value !== undefined;
         else if (id == DEFAULT_TRANSFORM_NAME)
-            this.transform_bound = true;
+            this.transform_bound = value !== undefined;
+        else if (this.uniform_id_to_warning_printed.get(id) !== true) {
+            console.warn(`In Shader.setUniform: trying to set uniform \"${id}\" to undefined. The uniform will not be updated`);
+            this.uniform_id_to_warning_printed.set(id, true);
+        }
     }
 
     /** @internal */
@@ -323,7 +328,11 @@ export class Shader {
     public free() {
         if (!this.context.isValid()) return;
         const { gl } = this.context;
-        if (this.program) gl.deleteProgram(this.program);
+
+        if (this.program !== null) {
+            gl.deleteProgram(this.program);
+            this.program = null;
+        }
     }
 
     /** **/
