@@ -2,6 +2,8 @@ import { RGBA } from "./color.ts";
 import { Vec2 } from "./vector.ts";
 import { RenderTexture } from "./texture.ts";
 import { Shader } from "./shader.ts";
+import { Deque } from "./deque.ts";
+import type { Render } from "astro:content";
 
 const makeDebugContext: typeof import("webgl-debug").makeDebugContext = await import("webgl-debug")
     // safe import, if package is missing, becomes noop
@@ -34,9 +36,7 @@ export enum PushTarget {
     ALL = 0x0,
     COLOR = 0x1 << 0,
     BLEND_MODE = 0x1 << 1,
-    STENCIL_MODE = 0x1 << 2,
-    RENDER_TARGET = 0x1 << 3,
-    SHADER = 0x1 << 4
+    STENCIL_MODE = 0x1 << 2
 }
 
 /** **/
@@ -45,9 +45,7 @@ interface PushNode {
     blend_mode_rgb : BlendMode | undefined,
     blend_mode_alpha : BlendMode | undefined,
     stencil_mode : StencilMode | undefined,
-    stencil_value : number | undefined,
-    render_texture : RenderTexture | null | undefined,
-    shader : Shader | null | undefined
+    stencil_value : number | undefined
 }
 
 /** **/
@@ -61,10 +59,9 @@ export class GLContext {
     private stencil_mode : StencilMode = StencilMode.NONE;
     private stencil_value : number = 0x0;
     private color : RGBA = new RGBA(1, 1, 1, 1);
-    private render_texture? : RenderTexture = undefined;
-    private shader? : Shader = undefined;
-
-    private stack : PushNode[] = [];
+    private push_stack : Deque<PushNode> = new Deque<PushNode>();
+    private render_texture_stack : Deque<RenderTexture> = new Deque<RenderTexture>();
+    private shader_stack : Deque<Shader> = new Deque<Shader>();
 
     constructor(canvas: HTMLCanvasElement) {
         this.gl = canvas.getContext("webgl2", {
@@ -233,8 +230,10 @@ export class GLContext {
     public push() : void;
     public push(...push_targets : PushTarget[]) : void;
     public push(...push_targets : PushTarget[]) : void {
-        if (this.stack.length + 1 > max_stack_depth)
+        if (this.push_stack.length + 1 > max_stack_depth)
             throw Error("In GLContext.push: maximum stack depth reached. More pushes than pops?")
+
+        const current_render_texture = (this.render_texture_stack.length == 0 ? null : this.render_texture_stack.peek()) ?? null
 
         let node: PushNode;
         if (push_targets.length == 0 || (push_targets.includes(PushTarget.ALL))) {
@@ -244,9 +243,7 @@ export class GLContext {
                 blend_mode_rgb: this.blend_mode_rgb,
                 blend_mode_alpha: this.blend_mode_alpha,
                 stencil_mode: this.stencil_mode,
-                stencil_value: this.stencil_value,
-                render_texture: this.render_texture ?? null,
-                shader: this.shader ?? null
+                stencil_value: this.stencil_value
             }
         }
         else {
@@ -256,9 +253,7 @@ export class GLContext {
                 blend_mode_rgb: undefined,
                 blend_mode_alpha: undefined,
                 stencil_mode: undefined,
-                stencil_value: undefined,
-                render_texture: undefined,
-                shader: undefined
+                stencil_value: undefined
             };
 
             for (let i = 0; i < push_targets.length; i++) {
@@ -275,12 +270,6 @@ export class GLContext {
                         node.stencil_mode = this.stencil_mode;
                         node.stencil_value = this.stencil_value;
                         break;
-                    case PushTarget.RENDER_TARGET:
-                        node.render_texture = this.render_texture ?? null;
-                        break;
-                    case PushTarget.SHADER:
-                        node.shader = this.shader ?? null;
-                        break;
                     case PushTarget.ALL:
                         // unreachable
                         break;
@@ -290,15 +279,15 @@ export class GLContext {
             }
         }
 
-        this.stack.push(node);
+        this.push_stack.push(node);
     }
 
     /** **/
     public pop() : void {
-        if (this.stack.length == 0)
+        if (this.push_stack.length == 0)
             throw Error("In GLContext: minimum stack depth reached, more pops than pushes?")
 
-        const node = this.stack.pop()!;
+        const node = this.push_stack.pop()!;
 
         if (node.color !== undefined)
             this.setColor(node.color);
@@ -314,47 +303,82 @@ export class GLContext {
                 node.stencil_mode ?? StencilMode.NONE,
                 node.stencil_value
             );
-
-        if (node.render_texture !== undefined) {
-            if (node.render_texture === null) {
-                if (this.render_texture !== undefined)
-                    this.render_texture.unbind();
-            } else {
-                node.render_texture.bind();
-            }
-        }
-
-        if (node.shader !== undefined) {
-            if (node.shader === null) {
-                if (this.shader !== undefined)
-                    this.shader.unbind();
-            } else {
-                node.shader.bind();
-            }
-        }
     }
 
     /** **/
-    public save(...push_targets: PushTarget[]): Disposable {
+    public with(...push_targets: PushTarget[]): Disposable {
         this.push(...push_targets);
         return {
             [Symbol.dispose]: () => this.pop()
         };
     }
 
-    /** @internal */
-    public _notify_render_texture_bound(texture? : RenderTexture) {
-        this.render_texture = texture;
+    /** **/
+    private _set_render_texture(texture : RenderTexture) {
+        if (this.gl === null) return;
 
-        if (this.gl !== null && texture === undefined) {
-            // restore back buffer
-            this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+        const gl = this.gl;
+        gl.bindFramebuffer(gl.FRAMEBUFFER, texture.getFrameBuffer());
+        gl.viewport(0, 0, texture.getWidth(), texture.getHeight());
+    }
+
+    /** @internal */
+    public _notify_render_texture_bound(texture : RenderTexture) {
+        this.render_texture_stack.push(texture);
+        this._set_render_texture(texture);
+    }
+
+    /** @internal */
+    public _notify_render_texture_unbound(texture: RenderTexture) {
+        if (this.gl === null) return;
+
+        const current = this.render_texture_stack.peek();
+
+        if (current !== texture)
+            throw new Error("In RenderTexture.unbind: texture is not currently bound");
+
+        this.render_texture_stack.pop();
+        current.flush(); // blit MSAA buffer to draw buffer
+
+        const gl = this.gl;
+        const previous = this.render_texture_stack.peek();
+        if (previous !== undefined) {
+            this._set_render_texture(previous);
+        } else {
+            // bind backbuffer
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+            gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
         }
     }
 
     /** @internal */
-    public _notify_shader_bound(shader? : Shader) {
-        this.shader = shader;
+    public _notify_shader_bound(shader : Shader) {
+        this.shader_stack.push(shader);
+
+        if (this.gl !== null)
+            shader._make_current(this.gl);
+    }
+
+    /** @internal */
+    public _notify_shader_unbound(shader : Shader) {
+        if (this.gl === null) return;
+        const current = this.shader_stack.peek();
+
+        if (current !== shader)
+            throw new Error("In Shader.unbind: shader is not currently bound");
+
+        this.shader_stack.pop();
+
+        const gl = this.gl;
+        const previous = this.shader_stack.peek();
+        if (previous !== undefined) {
+            // bind previous shader
+            previous._make_current(gl);
+        } else {
+            // unbind shaders
+            gl.useProgram(null);
+            gl.bindTexture(gl.TEXTURE_2D, null);
+        }
     }
 
     /** @internal */

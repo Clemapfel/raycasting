@@ -268,7 +268,7 @@ export class Texture {
     }
 
     /** **/
-    public getNative(): WebGLTexture {
+    public getNative(): WebGLTexture | null {
         return this.native;
     }
 
@@ -406,48 +406,51 @@ export class RenderTexture extends Texture {
         }
     }
 
-    public bind(): void {
-        if (!this.context.isValid()) return;
-        const { gl } = this.context;
-
-        this.context._notify_render_texture_bound(this);
-
+    public getFrameBuffer() : WebGLFramebuffer | null {
         if (this.msaa === 0)
-            gl.bindFramebuffer(gl.FRAMEBUFFER, this.resolve_framebuffer);
+            return this.resolve_framebuffer;
         else
-            gl.bindFramebuffer(gl.FRAMEBUFFER, this.multisample_framebuffer);
+            return this.multisample_framebuffer;
+    }
 
-        gl.viewport(0, 0, this.getWidth(), this.getHeight());
+    public bind(): void {
+        this.context._notify_render_texture_bound(this);
     }
 
     public unbind(): void {
+        this.context._notify_render_texture_unbound(this);
+    }
+
+    /** move msaa data into regular framebuffer **/
+    public flush() : void {
         if (!this.context.isValid()) return;
         const { gl } = this.context;
 
-        this.context._notify_render_texture_bound(undefined);
+        if (this.msaa !== 0) {
+            const width = this.getWidth();
+            const height = this.getHeight();
 
-        if (this.msaa === 0) {
-            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-            return;
+            gl.bindFramebuffer(gl.READ_FRAMEBUFFER, this.multisample_framebuffer);
+            gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, this.resolve_framebuffer);
+
+            gl.blitFramebuffer(
+                0, 0, width, height,
+                0, 0, width, height,
+                gl.COLOR_BUFFER_BIT,
+                gl.NEAREST
+            );
+
+            gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
+            gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
         }
+    }
 
-        const width = this.getWidth();
-        const height = this.getHeight();
-
-        gl.bindFramebuffer(gl.READ_FRAMEBUFFER, this.multisample_framebuffer);
-        gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, this.resolve_framebuffer);
-
-        gl.blitFramebuffer(
-            0, 0, width, height,
-            0, 0, width, height,
-            gl.COLOR_BUFFER_BIT,
-            gl.NEAREST
-        );
-
-        gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
-        gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
-
-        gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+    /** **/
+    public with(): Disposable {
+        this.bind();
+        return {
+            [Symbol.dispose]: () => this.unbind()
+        };
     }
 
     public override free(): void {

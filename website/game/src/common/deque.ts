@@ -1,5 +1,5 @@
 /** **/
-class Deque<T> {
+export class Deque<T> {
     private items: T[] = [];
 
     /** **/
@@ -13,7 +13,7 @@ class Deque<T> {
     }
 
     /** **/
-    public peek(item : T) : T | undefined {
+    public peek() : T | undefined {
         return this.getBack();
     }
 

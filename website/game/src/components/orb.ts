@@ -326,7 +326,7 @@ export class Orb extends GLWidget  {
         }
 
         {   // draw raw data to particle canvas
-            using context = this.context.save();
+            using context_raii = this.context.with();
 
             this.particle_canvas.bind();
             this.context.clear(0, 0, 0, 0);
@@ -343,14 +343,14 @@ export class Orb extends GLWidget  {
         }
 
         {   // glass background
-            using context = this.context.save(PushTarget.COLOR);
+            using context = this.context.with(PushTarget.COLOR);
 
             this.context.setColor(this.glass_backing_color);
             this.glass_backing_mesh?.draw();
         }
 
         {   // stencil circle, then draw post-fx particles
-            using context = this.context.save();
+            using context = this.context.with();
 
             const value = 0x1
             this.context.setStencilMode(StencilMode.DRAW, value);
@@ -369,7 +369,7 @@ export class Orb extends GLWidget  {
         }
 
         {   // draw glass mesh on top of thresholded
-            using context = this.context.save()
+            using context = this.context.with()
 
             const t = 0.5
             this.context.setColor(t, t, t, t); // additive blending
@@ -380,7 +380,7 @@ export class Orb extends GLWidget  {
         }
 
         {   // draw line
-            using context = this.context.save()
+            using context = this.context.with()
 
             this.context.setColor(this.line_color);
             this.default_shader?.bind();
@@ -927,7 +927,6 @@ export class Orb extends GLWidget  {
         const current_gravity = gravity * Math.min(1, this.agitation_elapsed / agitation_duration)
         const swirl_multiplier = this.particle_canvas!.getHeight() / swirl_reference_height;
 
-        console.log(swirl_multiplier);
         for (let sub_step = 0; sub_step < n_sub_steps; ++sub_step) {
 
             // pre solve

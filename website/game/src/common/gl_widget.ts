@@ -54,8 +54,8 @@ export abstract class GLWidget extends HTMLElement {
                     height = entry.devicePixelContentBoxSize[0].blockSize;
                 } else {
                     const dpr = window.devicePixelRatio;
-                    width = entry.contentRect.width * dpr;
-                    height = entry.contentRect.height * dpr;
+                    width = Math.ceil(entry.contentRect.width * dpr);
+                    height = Math.ceil(entry.contentRect.height * dpr);
                 }
 
                 this.native_canvas.width = width;

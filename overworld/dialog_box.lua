@@ -627,7 +627,10 @@ function ow.DialogBox:update(delta)
         local continue = true
         if node.gender ~= rt.AnimaleseGender.NONE then
             for _, event in ipairs(node.event_map) do
-                if event.time <= node.elapsed and rt.Animalese:get_is_done(event.id) == false then
+                if event.time <= node.elapsed
+                    and event.is_beat == true
+                    and rt.Animalese:get_is_done(event.id) == false
+                then
                     continue = false
                     break
                 end

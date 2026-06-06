@@ -111,17 +111,20 @@ const mesh_format_to_default_shader_source : Record<MeshVertexFormat, DefaultSha
 class TextureUnitAllocator {
     private context : GLContext;
     private list : List<WebGLTexture> = new List<WebGLTexture>();
+    private max_units : number = 0;
 
     constructor(context : GLContext) {
         this.context = context;
+        if (this.context.isValid()) {
+            this.max_units = this.context.gl!.getParameter(this.context.gl!.MAX_TEXTURE_IMAGE_UNITS);
+        }
     }
 
     public getTextureUnit(texture: WebGLTexture): number {
         if (!this.context.isValid()) return 0x0;
-        const { gl } = this.context;
 
         if (!this.list.has(texture)) {
-            if (this.list.length >= gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS))
+            if (this.list.length >= this.max_units)
                 this.list.popBack();
         }
         else {
@@ -140,6 +143,7 @@ export class Shader {
     private program : WebGLShader | null = null;
     private context : GLContext;
     private was_transform_bound : boolean = false;
+    private uniform_cache : Map<string, { location: WebGLUniformLocation, type: number }> = new Map();
 
     // static lru queue for texture unit allocation
     static context_to_texture_unit_allocator : Map<GLContext, TextureUnitAllocator> = new Map<GLContext, TextureUnitAllocator>();
@@ -208,8 +212,6 @@ export class Shader {
         if (!this.context.isValid()) return;
 
         const { gl } = this.context;
-
-        const first_compile = this.program == undefined;
         const old_program = this.program;
 
         let vertex_shader: WebGLShader | null = null;
@@ -262,6 +264,19 @@ export class Shader {
             }
 
             this.program = new_program;
+            this.uniform_cache.clear();
+
+            const n_uniforms = gl.getProgramParameter(this.program, gl.ACTIVE_UNIFORMS) as number;
+            for (let i = 0; i < n_uniforms; i++) {
+                const info = gl.getActiveUniform(this.program, i);
+                if (info === null) continue;
+
+                const name = info.name.replace(/\[0\]$/, "");
+                const location = gl.getUniformLocation(this.program, name);
+
+                if (location !== null)
+                    this.uniform_cache.set(name, { location, type: info.type });
+            }
 
             this.setUniform(
                 DEFAULT_TRANSFORM_NAME,
@@ -281,12 +296,9 @@ export class Shader {
         }
     }
 
-    /** **/
-    public bind() {
-        if (!this.context.isValid() || this.program === null) return;
-        const { gl } = this.context;
-
-        this.context._notify_shader_bound(this);
+    /** @internal **/
+    public _make_current(gl : WebGL2RenderingContext) {
+        if (this.program === null) return;
 
         gl.useProgram(this.program);
 
@@ -306,7 +318,7 @@ export class Shader {
             gl.uniform2f(screen_size_location, gl.canvas.width, gl.canvas.height)
 
         // set color
-            const color_location = gl.getUniformLocation(this.program, DEFAULT_COLOR_NAME);
+        const color_location = gl.getUniformLocation(this.program, DEFAULT_COLOR_NAME);
         if (color_location !== null) {
             const color = this.context.getColor();
             gl.uniform4f(color_location, color.r, color.g, color.b, color.a)
@@ -332,14 +344,19 @@ export class Shader {
     }
 
     /** **/
+    public bind() {
+        if (!this.context.isValid() || this.program === null) return;
+        const { gl } = this.context;
+
+        this.context._notify_shader_bound(this);
+    }
+
+    /** **/
     public unbind() {
         if (!this.context.isValid() || this.program === null) return;
         const { gl } = this.context;
 
-        this.context._notify_shader_bound(undefined);
-
-        gl.useProgram(null);
-        gl.bindTexture(gl.TEXTURE_2D, null);
+        this.context._notify_shader_unbound(this);
     }
 
     /** **/
@@ -347,32 +364,21 @@ export class Shader {
         if (!this.context.isValid() || this.program === null) return;
         const { gl } = this.context;
 
-        const program_before = gl.getParameter(gl.CURRENT_PROGRAM);
-        gl.useProgram(this.program);
-
-        const location = gl.getUniformLocation(this.program, id);
-        if (location === null) {
+        const info = this.uniform_cache.get(id);
+        if (!info) {
             console.warn(`In Shader.setUniform: no uniform with id \"${id}\" present`);
             return;
         }
 
+        gl.useProgram(this.program);
+
+        const { location, type } = info;
+
         if (typeof value === "number") {
-            const indices = gl.getUniformIndices(this.program, [id]);
-            if (indices === null) {
-                console.warn(`In Shader.setUniform: unable to get uniform indices for uniform with id \"${id}\"`)
-                return;
-            }
-
-            const info = gl.getActiveUniform(this.program, indices[0]);
-            if (info === null) {
-                console.warn(`In Shader.setUniform: unable to get uniform infor for uniform with id \"${id}\"`)
-                return;
-            }
-
-            if (info.type == gl.UNSIGNED_INT)
-                gl.uniform1ui(location, value as number);
+            if (type == gl.UNSIGNED_INT)
+                gl.uniform1ui(location, value);
             else
-                gl.uniform1f(location, value as number);
+                gl.uniform1f(location, value);
         }
         else if (value instanceof Transform) {
             gl.uniformMatrix4fv(location, false, value.getData());
@@ -396,16 +402,11 @@ export class Shader {
             throw new Error(`In Shader.setUniform: value for uniform ${id} is ${value}`)
         else
             throw new Error(`In Shader.setUniform: for uniform ${id}: unhandled argument type ${typeof value}`);
-
-        gl.useProgram(program_before);
     }
 
     /** **/
     public hasUniform(id : string) : boolean {
-        if (!this.context.isValid()) return false;
-        const { gl } = this.context;
-
-        return gl.getUniformLocation(this.program!, id) !== null
+        return this.uniform_cache.has(id);
     }
 
     /** **/
