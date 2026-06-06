@@ -46,8 +46,8 @@ interface PushNode {
     blend_mode_alpha : BlendMode | undefined,
     stencil_mode : StencilMode | undefined,
     stencil_value : number | undefined,
-    render_texture : RenderTexture | undefined,
-    shader : Shader | undefined
+    render_texture : RenderTexture | null | undefined,
+    shader : Shader | null | undefined
 }
 
 /** **/
@@ -135,10 +135,21 @@ export class GLContext {
         if (!this.isValid()) return;
         const gl = this.gl;
 
+        const is_stencil_draw = this.stencil_mode === StencilMode.DRAW;
+        if (is_stencil_draw) {
+            gl.colorMask(true, true, true, true);
+            gl.depthMask(true);
+        }
+
         gl.clearColor(r, g, b, a);
         gl.clearDepth(1.0);
         gl.clearStencil(0);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
+
+        if (is_stencil_draw) {
+            gl.colorMask(false, false, false, false);
+            gl.depthMask(false);
+        }
     }
 
     /** **/
@@ -234,8 +245,8 @@ export class GLContext {
                 blend_mode_alpha: this.blend_mode_alpha,
                 stencil_mode: this.stencil_mode,
                 stencil_value: this.stencil_value,
-                render_texture: this.render_texture,
-                shader: this.shader
+                render_texture: this.render_texture ?? null,
+                shader: this.shader ?? null
             }
         }
         else {
@@ -265,10 +276,10 @@ export class GLContext {
                         node.stencil_value = this.stencil_value;
                         break;
                     case PushTarget.RENDER_TARGET:
-                        node.render_texture = this.render_texture;
+                        node.render_texture = this.render_texture ?? null;
                         break;
                     case PushTarget.SHADER:
-                        node.shader = this.shader;
+                        node.shader = this.shader ?? null;
                         break;
                     case PushTarget.ALL:
                         // unreachable
@@ -304,11 +315,23 @@ export class GLContext {
                 node.stencil_value
             );
 
-        if (node.render_texture !== undefined)
-            node.render_texture.bind()
+        if (node.render_texture !== undefined) {
+            if (node.render_texture === null) {
+                if (this.render_texture !== undefined)
+                    this.render_texture.unbind();
+            } else {
+                node.render_texture.bind();
+            }
+        }
 
-        if (node.shader !== undefined)
-            node.shader.bind()
+        if (node.shader !== undefined) {
+            if (node.shader === null) {
+                if (this.shader !== undefined)
+                    this.shader.unbind();
+            } else {
+                node.shader.bind();
+            }
+        }
     }
 
     /** **/
