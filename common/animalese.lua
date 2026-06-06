@@ -310,6 +310,8 @@ do
         end
     end
 
+    local omit = ""
+
     local english_consonant_to_japanese_prefix = {
         [English.B] = "B",
         [English.D] = "D",
@@ -397,11 +399,6 @@ do
             while i <= n do
                 local current = phonemes[i + 0]
                 local next = phonemes[i + 1]
-
-                if is_consonant(current) and i ~= 1 then
-                    i = i + 1
-                    goto continue
-                end
 
                 if is_consonant(current) then
                     if is_vowel(next) then
@@ -996,8 +993,8 @@ end
 local _mod_to_pronounciation = {
     [1] = rt.AnimalesePronounciation.NORMAL,
     [2] = rt.AnimalesePronounciation.LONG,
-    [3] = rt.AnimalesePronounciation.LONG,
-    [4] = rt.AnimalesePronounciation.NORMAL
+    [3] = rt.AnimalesePronounciation.NORMAL_QUESTION,
+    [4] = rt.AnimalesePronounciation.LONG_QUESTION
 }
 
 local _delay_sound_effect = nil
@@ -1010,23 +1007,34 @@ function rt.Animalese:update(delta)
         -- first pass: flip-flop so consecutive copies get different prononuciations
         local signs = {}
         local question_marks = {}
+
+        -- initialize
+        local last_entry_was_beat = true
         for i, queue_entry in ipairs(self._queue) do
             if queue_entry.is_beat ~= true then
-                local sign = signs[queue_entry.phoneme]
-                if sign == nil then
-                    sign = 0
-                else
-                    sign = sign + 1
+                local pronounciation_entry = queue_entry.entry[queue_entry.pronounciation]
+                if pronounciation_entry.is_initialized == false then
+                    self:_initialize_entry(pronounciation_entry, queue_entry.gender, queue_entry.emotion)
                 end
 
-                signs[queue_entry.phoneme] = sign
-                queue_entry.pronounciation = _mod_to_pronounciation[sign % 4 + 1]
+                if last_entry_was_beat then
+                    queue_entry.section_i = 1
+                else
+                    queue_entry.section_i = math.min(
+                        rt.random.integer(2, #pronounciation_entry.sections),
+                        #pronounciation_entry.sections
+                    )
+                end
 
-            elseif queue_entry.phoneme == rt.AnimalesePhoneme.QUESTION_MARK then
-                table.insert(question_marks, i)
+                queue_entry.duration = pronounciation_entry.sections[queue_entry.section_i].duration
+
+                local next_entry = self._queue[i + 1]
+                if not queue_entry.is_beat and next_entry and not next_entry.is_beat then
+                    queue_entry.duration = math.max(0, queue_entry.duration - rt.settings.animalese.word_overlap)
+                end
             end
 
-            queue_entry.pitch = 1 + rt.random.number(-pitch_variance, pitch_variance) -- reset pitch
+            last_entry_was_beat = queue_entry.is_beat
         end
 
         -- update pitch, mark words before ? as questions
