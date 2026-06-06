@@ -258,7 +258,7 @@ interface EnforceOrbResult {
 }
 
 export class Orb extends GLWidget  {
-    private default_shader? : Shader;
+    private particle_mesh_shader? : Shader;
     private particle_mesh? : Mesh;
     private particle_mesh_texture? : RenderTexture;
 
@@ -316,7 +316,6 @@ export class Orb extends GLWidget  {
 
             this.particle_mesh_texture.bind()
             shader.bind();
-            shader.setUniform(DEFAULT_SCREEN_SIZE_NAME, this.particle_mesh_texture.getSize())
             mesh.draw();
             shader.unbind();
             this.particle_mesh_texture.unbind();
@@ -325,28 +324,32 @@ export class Orb extends GLWidget  {
             shader.free()
         }
 
-        {   // draw raw data to particle canvas
-            using context_raii = this.context.with();
+        if (this.particle_mesh_shader !== undefined && this.particle_mesh !== undefined) {
+            this.context.push(
+                PushTarget.BLEND_MODE,
+                PushTarget.COLOR
+            )
 
             this.particle_canvas.bind();
+
             this.context.clear(0, 0, 0, 0);
             this.context.setColor(1, 1, 1, 1);
             this.context.setBlendmode(BlendMode.ADD, BlendMode.ALPHA);
 
-            this.default_shader?.bind();
-            this.default_shader?.setUniform(DEFAULT_TEXTURE_NAME, this.particle_mesh_texture);
-            this.default_shader?.setUniform(DEFAULT_SCREEN_SIZE_NAME, this.particle_canvas.getSize());
-            this.particle_mesh?.draw();
-            this.default_shader?.unbind();
+            this.particle_mesh_shader.bind();
+            this.particle_mesh_shader.setUniform(DEFAULT_TEXTURE_NAME, this.particle_mesh_texture);
+            this.particle_mesh.draw();
+            this.particle_mesh_shader.unbind();
 
             this.particle_canvas.unbind()
+            this.context.pop()
         }
 
-        {   // glass background
-            using context = this.context.with(PushTarget.COLOR);
-
+        if (this.glass_backing_mesh !== undefined) {   // glass background
+            this.context.push(PushTarget.COLOR)
             this.context.setColor(this.glass_backing_color);
-            this.glass_backing_mesh?.draw();
+            this.glass_backing_mesh.draw();
+            this.context.pop()
         }
 
         {   // stencil circle, then draw post-fx particles
@@ -434,7 +437,7 @@ export class Orb extends GLWidget  {
     }
 
     protected override async realize() {
-        this.default_shader = new Shader(this.context,
+        this.particle_mesh_shader = new Shader(this.context,
             undefined,
             undefined,
             MeshVertexFormat.XY_UV_RGBA
@@ -684,7 +687,7 @@ export class Orb extends GLWidget  {
     protected override unrealize() {
         for (const object of [
             this.particle_mesh,
-            this.default_shader,
+            this.particle_mesh_shader,
             this.particle_mesh_texture,
             this.particle_canvas,
             this.particle_canvas_mesh,

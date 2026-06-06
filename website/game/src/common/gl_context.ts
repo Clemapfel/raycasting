@@ -403,7 +403,15 @@ export class GLContext {
 
         const size_location = shader.getUniformLocation(DEFAULT_SCREEN_SIZE_NAME);
         if (!flags.screen_size_bound && size_location !== undefined) {
-            gl.uniform2f(size_location, gl.canvas.width, gl.canvas.height)
+            const top = this.render_texture_stack.peek();
+            if (top === undefined) {
+                // use backbuffer dimension
+                gl.uniform2f(size_location, gl.canvas.width, gl.canvas.height)
+            }
+            else {
+                // use bound render target dimension
+                gl.uniform2f(size_location, top.getWidth(), top.getHeight());
+            }
         }
 
         const color_location = shader.getUniformLocation(DEFAULT_COLOR_NAME);
