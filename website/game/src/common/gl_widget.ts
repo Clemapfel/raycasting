@@ -46,27 +46,33 @@ export abstract class GLWidget extends HTMLElement {
 
         this.resize_observer = new ResizeObserver(entries => {
             for (const entry of entries) {
-                let width = 0;
-                let height = 0;
+                let physical_width = 0;
+                let physical_height = 0;
 
-                if (entry.devicePixelContentBoxSize) {
-                    width = entry.devicePixelContentBoxSize[0].inlineSize;
-                    height = entry.devicePixelContentBoxSize[0].blockSize;
+                if (entry.devicePixelContentBoxSize && entry.devicePixelContentBoxSize.length > 0) {
+                    physical_width = entry.devicePixelContentBoxSize[0].inlineSize;
+                    physical_height = entry.devicePixelContentBoxSize[0].blockSize;
                 } else {
-                    const dpr = window.devicePixelRatio;
-                    width = Math.ceil(entry.contentRect.width * dpr);
-                    height = Math.ceil(entry.contentRect.height * dpr);
+                    const dpr = window.devicePixelRatio || 1;
+                    physical_width = Math.round(entry.contentRect.width * dpr);
+                    physical_height = Math.round(entry.contentRect.height * dpr);
                 }
 
-                this.native_canvas.width = width;
-                this.native_canvas.height = height;
+                if (this.native_canvas.width === physical_width &&
+                    this.native_canvas.height === physical_height) {
+                    continue;
+                }
 
-                if (this.context && this.context.isValid())
-                    this.context._notify_size_changed(width, height);
+                this.native_canvas.width = physical_width;
+                this.native_canvas.height = physical_height;
 
-                this.size.x = width;
-                this.size.y = height;
-                this.reformat(width, height);
+                if (this.context && this.context.isValid()) {
+                    this.context._notify_size_changed(physical_width, physical_height);
+                }
+
+                this.size.x = physical_width;
+                this.size.y = physical_height;
+                this.reformat(physical_width, physical_height);
                 this.draw();
             }
         });
@@ -148,10 +154,12 @@ export abstract class GLWidget extends HTMLElement {
 
     private to_local_position(event: MouseEvent): { x: number; y: number } {
         const rect = this.native_canvas.getBoundingClientRect();
-        const dpr = window.devicePixelRatio ?? 1;
+        const scale_x = this.native_canvas.width / rect.width;
+        const scale_y = this.native_canvas.height / rect.height;
+
         return {
-            x: (event.clientX - rect.left) * dpr,
-            y: (event.clientY - rect.top) * dpr,
+            x: (event.clientX - rect.left) * scale_x,
+            y: (event.clientY - rect.top) * scale_y,
         };
     }
 

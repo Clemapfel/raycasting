@@ -1,6 +1,5 @@
 import type { GLContext } from "./gl_context.ts";
 import { MeshVertexFormat, MESH_VERTEX_FORMAT_TO_N_COMPONENTS } from "./mesh_vertex_format.ts";
-import { Shader, DEFAULT_TEXTURE_UNIFORM_NAME } from "./shader.ts";
 import { RGBA } from "./color.ts";
 import { Vec2 } from "./vector.ts";
 
@@ -29,8 +28,6 @@ export class Mesh {
     private draw_mode: number;
     private format: MeshVertexFormat;
     private n_vertices: number = 0;
-
-    static context_to_default_shader = new Map<GLContext, Shader>();
 
     constructor(
         context: GLContext,
@@ -62,19 +59,6 @@ export class Mesh {
         else
             this.draw_mode = gl.TRIANGLES;
 
-        // add event listeners for static member if not already present
-        if (!Mesh.context_to_default_shader.has(this.context)) {
-            Mesh.context_to_default_shader.set(this.context, new Shader(this.context));
-
-            gl.canvas.addEventListener("webglcontextlost", () => {
-                Mesh.context_to_default_shader.delete(this.context);
-            })
-
-            gl.canvas.addEventListener("webglcontextrestored", () => {
-                Mesh.context_to_default_shader.set(this.context, new Shader(this.context));
-            });
-        }
-
         this.replaceData(vertex_buffer, index_buffer);
     }
 
@@ -82,19 +66,12 @@ export class Mesh {
         if (!this.context.isValid() || this.vertex_array_object === undefined) return;
         const { gl } = this.context;
 
-        const default_shader = gl.getParameter(gl.CURRENT_PROGRAM) === null
-            ? Mesh.context_to_default_shader.get(this.context)
-            : undefined;
-
-        if (default_shader !== undefined) default_shader.bind();
-
-        if (gl.getParameter(gl.CURRENT_PROGRAM) === null) throw new Error("trace point");
+        // notify context so it knows which default shader to use
+        this.context._notify_current_mesh_format(this.format);
 
         gl.bindVertexArray(this.vertex_array_object);
         gl.drawElements(this.draw_mode, this.index_buffer.length, gl.UNSIGNED_SHORT, 0);
         gl.bindVertexArray(null);
-
-        if (default_shader !== undefined) default_shader.unbind();
     }
 
     public replaceData(vertex_buffer: Float32Array, index_buffer?: Uint16Array) {

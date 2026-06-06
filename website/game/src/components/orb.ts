@@ -17,7 +17,7 @@ import {
     DEFAULT_SCREEN_POS_NAME,
     DEFAULT_SCREEN_SIZE_NAME,
     DEFAULT_SHADER_VERSION,
-    DEFAULT_TEXTURE_UNIFORM_NAME,
+    DEFAULT_TEXTURE_NAME,
     DEFAULT_UV_NAME,
     Shader
 } from "../common/shader.ts";
@@ -112,7 +112,7 @@ const particle_texture_shader_source = `${DEFAULT_SHADER_VERSION}
 const canvas_threshold_shader_source = `${DEFAULT_SHADER_VERSION}
     ${DEFAULT_FLOAT_PRECISION}
 
-    uniform sampler2D ${DEFAULT_TEXTURE_UNIFORM_NAME};
+    uniform sampler2D ${DEFAULT_TEXTURE_NAME};
     uniform vec2 ${DEFAULT_SCREEN_SIZE_NAME};
     uniform float eps;
     uniform float threshold;
@@ -126,7 +126,7 @@ const canvas_threshold_shader_source = `${DEFAULT_SHADER_VERSION}
     void main() {
         vec2 pixel_size = 1.0 / ${DEFAULT_SCREEN_SIZE_NAME};
 
-        vec4 data = texture(${DEFAULT_TEXTURE_UNIFORM_NAME}, ${DEFAULT_UV_NAME});
+        vec4 data = texture(${DEFAULT_TEXTURE_NAME}, ${DEFAULT_UV_NAME});
         
         float value = smoothstep(
             threshold - eps,
@@ -136,14 +136,14 @@ const canvas_threshold_shader_source = `${DEFAULT_SHADER_VERSION}
 
         vec4 center = vec4(value) * ${DEFAULT_RGBA_NAME};
 
-        float tl = texture(${DEFAULT_TEXTURE_UNIFORM_NAME}, ${DEFAULT_UV_NAME} + vec2(-1.0, -1.0) * pixel_size).r;
-        float tm = texture(${DEFAULT_TEXTURE_UNIFORM_NAME}, ${DEFAULT_UV_NAME} + vec2( 0.0, -1.0) * pixel_size).r;
-        float tr = texture(${DEFAULT_TEXTURE_UNIFORM_NAME}, ${DEFAULT_UV_NAME} + vec2( 1.0, -1.0) * pixel_size).r;
-        float ml = texture(${DEFAULT_TEXTURE_UNIFORM_NAME}, ${DEFAULT_UV_NAME} + vec2(-1.0,  0.0) * pixel_size).r;
-        float mr = texture(${DEFAULT_TEXTURE_UNIFORM_NAME}, ${DEFAULT_UV_NAME} + vec2( 1.0,  0.0) * pixel_size).r;
-        float bl = texture(${DEFAULT_TEXTURE_UNIFORM_NAME}, ${DEFAULT_UV_NAME} + vec2(-1.0,  1.0) * pixel_size).r;
-        float bm = texture(${DEFAULT_TEXTURE_UNIFORM_NAME}, ${DEFAULT_UV_NAME} + vec2( 0.0,  1.0) * pixel_size).r;
-        float br = texture(${DEFAULT_TEXTURE_UNIFORM_NAME}, ${DEFAULT_UV_NAME} + vec2( 1.0,  1.0) * pixel_size).r;
+        float tl = texture(${DEFAULT_TEXTURE_NAME}, ${DEFAULT_UV_NAME} + vec2(-1.0, -1.0) * pixel_size).r;
+        float tm = texture(${DEFAULT_TEXTURE_NAME}, ${DEFAULT_UV_NAME} + vec2( 0.0, -1.0) * pixel_size).r;
+        float tr = texture(${DEFAULT_TEXTURE_NAME}, ${DEFAULT_UV_NAME} + vec2( 1.0, -1.0) * pixel_size).r;
+        float ml = texture(${DEFAULT_TEXTURE_NAME}, ${DEFAULT_UV_NAME} + vec2(-1.0,  0.0) * pixel_size).r;
+        float mr = texture(${DEFAULT_TEXTURE_NAME}, ${DEFAULT_UV_NAME} + vec2( 1.0,  0.0) * pixel_size).r;
+        float bl = texture(${DEFAULT_TEXTURE_NAME}, ${DEFAULT_UV_NAME} + vec2(-1.0,  1.0) * pixel_size).r;
+        float bm = texture(${DEFAULT_TEXTURE_NAME}, ${DEFAULT_UV_NAME} + vec2( 0.0,  1.0) * pixel_size).r;
+        float br = texture(${DEFAULT_TEXTURE_NAME}, ${DEFAULT_UV_NAME} + vec2( 1.0,  1.0) * pixel_size).r;
 
         float gradient_x = -tl + tr - 2.0 * ml + 2.0 * mr - bl + br;
         float gradient_y = -tl - 2.0 * tm - tr + bl + 2.0 * bm + br;
@@ -181,7 +181,7 @@ const glass_mesh_shader_source = `${DEFAULT_SHADER_VERSION}
     
     uniform vec2 cursor_position;
     
-    uniform sampler2D ${DEFAULT_TEXTURE_UNIFORM_NAME};
+    uniform sampler2D ${DEFAULT_TEXTURE_NAME};
     uniform vec2 ${DEFAULT_SCREEN_SIZE_NAME};
     uniform vec4 ${DEFAULT_COLOR_NAME};
     
@@ -334,7 +334,7 @@ export class Orb extends GLWidget  {
             this.context.setBlendmode(BlendMode.ADD, BlendMode.ALPHA);
 
             this.default_shader?.bind();
-            this.default_shader?.setUniform(DEFAULT_TEXTURE_UNIFORM_NAME, this.particle_mesh_texture);
+            this.default_shader?.setUniform(DEFAULT_TEXTURE_NAME, this.particle_mesh_texture);
             this.default_shader?.setUniform(DEFAULT_SCREEN_SIZE_NAME, this.particle_canvas.getSize());
             this.particle_mesh?.draw();
             this.default_shader?.unbind();
@@ -359,13 +359,13 @@ export class Orb extends GLWidget  {
 
             this.context.setColor(this.fluid_color);
             this.canvas_threshold_shader?.bind();
-            this.canvas_threshold_shader?.setUniform(DEFAULT_TEXTURE_UNIFORM_NAME, this.particle_canvas);
+            this.canvas_threshold_shader?.setUniform(DEFAULT_TEXTURE_NAME, this.particle_canvas);
             this.canvas_threshold_shader?.setUniform("threshold", threshold);
             this.canvas_threshold_shader?.setUniform("eps", eps);
             this.particle_canvas_mesh?.draw();
             this.canvas_threshold_shader?.unbind();
 
-            //this.context.setStencilMode(StencilMode.NONE);
+            this.context.setStencilMode(StencilMode.NONE);
         }
 
         {   // draw glass mesh on top of thresholded
@@ -383,11 +383,9 @@ export class Orb extends GLWidget  {
             using context = this.context.with()
 
             this.context.setColor(this.line_color);
-            this.default_shader?.bind();
             this.line_end?.draw();
             this.line?.draw();
             this.line_arc?.draw();
-            this.default_shader?.unbind();
         }
     }
 

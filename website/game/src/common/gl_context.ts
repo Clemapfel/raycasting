@@ -1,32 +1,34 @@
-import { RGBA } from "./color.ts";
-import { Vec2 } from "./vector.ts";
-import { RenderTexture } from "./texture.ts";
-import { Shader } from "./shader.ts";
-import { Deque } from "./deque.ts";
-import type { Render } from "astro:content";
+// @/website/game/src/common/gl_context.ts
 
-const makeDebugContext: typeof import("webgl-debug").makeDebugContext = await import("webgl-debug")
-    // safe import, if package is missing, becomes noop
-    .then(m => m.makeDebugContext)
-    .catch(() => (context: WebGL2RenderingContext) => context
-);
+import { RGBA } from "./color.ts";
+import { RenderTexture, Texture } from "./texture.ts";
+import {
+    DEFAULT_COLOR_NAME,
+    DEFAULT_SCREEN_SIZE_NAME,
+    DEFAULT_TEXTURE_NAME,
+    DEFAULT_TRANSFORM_NAME,
+    Shader
+} from "./shader.ts";
+import { Deque } from "./deque.ts";
+import { Transform } from "./transform.ts";
+import { MeshVertexFormat } from "./mesh_vertex_format.ts";
 
 /** **/
 export enum BlendMode {
     NONE,
-    ALPHA, // standard alpha blending
-    PREMULTIPLIED_ALPHA, // premultiplied alpha blending
-    ADD, // src + dst
-    SUBTRACT, // src - dst
-    REVERSE_SUBTRACT, // dst - src
-    MULTIPLY // src * dst
+    ALPHA,
+    PREMULTIPLIED_ALPHA,
+    ADD,
+    SUBTRACT,
+    REVERSE_SUBTRACT,
+    MULTIPLY
 }
 
 /** **/
 export enum StencilMode {
-    DRAW, // draw to stencil buffer, do not draw to back buffer
-    TEST, // test against stencil buffer
-    NONE // disable stencil
+    DRAW,
+    TEST,
+    NONE
 }
 
 const max_stack_depth = 512;
@@ -36,7 +38,8 @@ export enum PushTarget {
     ALL = 0x0,
     COLOR = 0x1 << 0,
     BLEND_MODE = 0x1 << 1,
-    STENCIL_MODE = 0x1 << 2
+    STENCIL_MODE = 0x1 << 2,
+    TRANSFORM = 0x1 << 3
 }
 
 /** **/
@@ -45,23 +48,49 @@ interface PushNode {
     blend_mode_rgb : BlendMode | undefined,
     blend_mode_alpha : BlendMode | undefined,
     stencil_mode : StencilMode | undefined,
-    stencil_value : number | undefined
+    stencil_value : number | undefined,
+    transform : Transform | undefined
+}
+
+/** **/
+class TextureUnitAllocator {
+    private slots: (WebGLTexture | null)[];
+    private cursor: number = 0;
+
+    constructor(max_units: number) {
+        // unit 0 is reserved for the default white texture in set_shader
+        this.slots = new Array(Math.max(1, max_units - 1)).fill(null);
+    }
+
+    public allocate(texture: WebGLTexture): number {
+        for (let i = 0; i < this.slots.length; i++) {
+            if (this.slots[i] === texture) return i + 1;
+        }
+        const index = this.cursor;
+        this.slots[index] = texture;
+        this.cursor = (this.cursor + 1) % this.slots.length;
+        return index + 1;
+    }
 }
 
 /** **/
 export class GLContext {
     public gl : WebGL2RenderingContext | null;
-    public default_texture : WebGLTexture | undefined = undefined;
 
-    // state
+    private push_stack : Deque<PushNode> = new Deque<PushNode>();
+
     private blend_mode_rgb : BlendMode = BlendMode.ALPHA;
     private blend_mode_alpha : BlendMode = BlendMode.ALPHA;
     private stencil_mode : StencilMode = StencilMode.NONE;
     private stencil_value : number = 0x0;
     private color : RGBA = new RGBA(1, 1, 1, 1);
-    private push_stack : Deque<PushNode> = new Deque<PushNode>();
+    private transform : Transform = new Transform().asIdentity();
+
     private render_texture_stack : Deque<RenderTexture> = new Deque<RenderTexture>();
     private shader_stack : Deque<Shader> = new Deque<Shader>();
+    private shader_default_texture : WebGLTexture;
+    private shader_texture_unit_allocator : TextureUnitAllocator;
+    private mesh_vertex_format_to_default_shader : Map<MeshVertexFormat, Shader> = new Map<MeshVertexFormat, Shader>();
 
     constructor(canvas: HTMLCanvasElement) {
         this.gl = canvas.getContext("webgl2", {
@@ -72,31 +101,54 @@ export class GLContext {
             stencil: true,
             desynchronized: true
         });
+
+        if (this.gl !== null) {
+            const gl = this.gl;
+            const texture = gl.createTexture();
+
+            if (texture === null)
+                throw new Error("In GLContext: unable to create default texture");
+
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+            gl.texImage2D(gl.TEXTURE_2D, 0,
+                gl.RGBA8, 1, 1, 0,
+                gl.RGBA, gl.UNSIGNED_BYTE,
+                new Uint8Array([255, 255, 255, 255])
+            );
+
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+            gl.bindTexture(gl.TEXTURE_2D, null);
+
+            // shader default texture
+            this.shader_default_texture = texture;
+
+            // shader texture unit allocate
+            this.shader_texture_unit_allocator = new TextureUnitAllocator(
+                gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS)
+            );
+        }
     }
 
     /** **/
     public getCanvas() : HTMLCanvasElement | OffscreenCanvas | null {
-        if (this.gl !== null)
-            return this.gl.canvas;
-        else
-            return null;
+        return this.gl ? this.gl.canvas : null;
     }
 
     public setColor(r : RGBA);
     public setColor(r : number, g? : number, b? : number, a? : number)
     public setColor(r_or_rgba : number | RGBA, g? : number, b? : number, a? : number) : void {
         if (r_or_rgba instanceof RGBA) {
-            ({
-                r: this.color.r,
-                g: this.color.g,
-                b: this.color.b,
-                a: this.color.a
-            } = r_or_rgba as RGBA);
+            this.color.r = r_or_rgba.r;
+            this.color.g = r_or_rgba.g;
+            this.color.b = r_or_rgba.b;
+            this.color.a = r_or_rgba.a;
         } else {
-            const r : number = r_or_rgba;
-            this.color.r = r;
-            this.color.g = g ?? r;
-            this.color.b = b ?? g ?? r;
+            this.color.r = r_or_rgba;
+            this.color.g = g ?? r_or_rgba;
+            this.color.b = b ?? (g ?? r_or_rgba);
             this.color.a = a ?? 1;
         }
     }
@@ -105,13 +157,6 @@ export class GLContext {
         return this.color.clone();
     }
 
-    /**
-     * if valid, narrows itself to native context
-     *
-     * @example
-     * if (!this.context.isValid()) return;
-     * const { gl } = this.context; // gl: WebGL2RenderingContext
-     */
     public isValid(): this is { gl: WebGL2RenderingContext } {
         return this.gl !== null;
     }
@@ -173,6 +218,11 @@ export class GLContext {
     }
 
     /** **/
+    public setTransform(transform : Transform) {
+        this.transform = transform;
+    }
+
+    /** **/
     public setBlendmode(rgb : BlendMode, alpha : BlendMode = BlendMode.ALPHA) : void {
         const gl = this.gl;
         if (gl === null) return;
@@ -231,51 +281,37 @@ export class GLContext {
     public push(...push_targets : PushTarget[]) : void;
     public push(...push_targets : PushTarget[]) : void {
         if (this.push_stack.length + 1 > max_stack_depth)
-            throw Error("In GLContext.push: maximum stack depth reached. More pushes than pops?")
+            throw Error("In GLContext.push: maximum stack depth reached")
 
-        const current_render_texture = (this.render_texture_stack.length == 0 ? null : this.render_texture_stack.peek()) ?? null
+        let node: PushNode = {
+            color: undefined,
+            blend_mode_rgb: undefined,
+            blend_mode_alpha: undefined,
+            stencil_mode: undefined,
+            stencil_value: undefined,
+            transform: undefined
+        };
 
-        let node: PushNode;
-        if (push_targets.length == 0 || (push_targets.includes(PushTarget.ALL))) {
-            // push everything
-            node = {
-                color: this.color.clone(),
-                blend_mode_rgb: this.blend_mode_rgb,
-                blend_mode_alpha: this.blend_mode_alpha,
-                stencil_mode: this.stencil_mode,
-                stencil_value: this.stencil_value
-            }
-        }
-        else {
-            // push specified
-            node = {
-                color: undefined,
-                blend_mode_rgb: undefined,
-                blend_mode_alpha: undefined,
-                stencil_mode: undefined,
-                stencil_value: undefined
-            };
+        const targets = (push_targets.length == 0 || push_targets.includes(PushTarget.ALL))
+            ? [PushTarget.COLOR, PushTarget.BLEND_MODE, PushTarget.STENCIL_MODE, PushTarget.TRANSFORM]
+            : push_targets;
 
-            for (let i = 0; i < push_targets.length; i++) {
-                const target = push_targets[i];
-                switch (target) {
-                    case PushTarget.COLOR:
-                        node.color = this.color.clone();
-                        break;
-                    case PushTarget.BLEND_MODE:
-                        node.blend_mode_rgb = this.blend_mode_rgb;
-                        node.blend_mode_alpha = this.blend_mode_alpha;
-                        break;
-                    case PushTarget.STENCIL_MODE:
-                        node.stencil_mode = this.stencil_mode;
-                        node.stencil_value = this.stencil_value;
-                        break;
-                    case PushTarget.ALL:
-                        // unreachable
-                        break;
-                    default:
-                        throw Error(`In GLContext.push: unhandled push target ${target}`)
-                }
+        for (const target of targets) {
+            switch (target) {
+                case PushTarget.COLOR:
+                    node.color = this.color.clone();
+                    break;
+                case PushTarget.BLEND_MODE:
+                    node.blend_mode_rgb = this.blend_mode_rgb;
+                    node.blend_mode_alpha = this.blend_mode_alpha;
+                    break;
+                case PushTarget.STENCIL_MODE:
+                    node.stencil_mode = this.stencil_mode;
+                    node.stencil_value = this.stencil_value;
+                    break;
+                case PushTarget.TRANSFORM:
+                    node.transform = this.transform.clone();
+                    break;
             }
         }
 
@@ -285,24 +321,21 @@ export class GLContext {
     /** **/
     public pop() : void {
         if (this.push_stack.length == 0)
-            throw Error("In GLContext: minimum stack depth reached, more pops than pushes?")
+            throw Error("In GLContext.pop: minimum stack depth reached")
 
         const node = this.push_stack.pop()!;
 
         if (node.color !== undefined)
             this.setColor(node.color);
 
-        if (node.blend_mode_rgb !== undefined || node.blend_mode_alpha !== undefined)
-            this.setBlendmode(
-                node.blend_mode_rgb ?? BlendMode.ALPHA,
-                node.blend_mode_alpha
-            );
+        if (node.blend_mode_rgb !== undefined)
+            this.setBlendmode(node.blend_mode_rgb, node.blend_mode_alpha);
 
-        if (node.stencil_mode !== undefined || node.stencil_value !== undefined)
-            this.setStencilMode(
-                node.stencil_mode ?? StencilMode.NONE,
-                node.stencil_value
-            );
+        if (node.stencil_mode !== undefined)
+            this.setStencilMode(node.stencil_mode, node.stencil_value);
+
+        if (node.transform !== undefined)
+            this.setTransform(node.transform);
     }
 
     /** **/
@@ -314,7 +347,7 @@ export class GLContext {
     }
 
     /** **/
-    private _set_render_texture(texture : RenderTexture) {
+    private set_render_texture(texture : RenderTexture) {
         if (this.gl === null) return;
 
         const gl = this.gl;
@@ -325,59 +358,91 @@ export class GLContext {
     /** @internal */
     public _notify_render_texture_bound(texture : RenderTexture) {
         this.render_texture_stack.push(texture);
-        this._set_render_texture(texture);
+        this.set_render_texture(texture);
     }
 
     /** @internal */
     public _notify_render_texture_unbound(texture: RenderTexture) {
         if (this.gl === null) return;
 
-        const current = this.render_texture_stack.peek();
-
-        if (current !== texture)
+        if (this.render_texture_stack.peek() !== texture)
             throw new Error("In RenderTexture.unbind: texture is not currently bound");
 
         this.render_texture_stack.pop();
-        current.flush(); // blit MSAA buffer to draw buffer
+        texture.flush();
 
-        const gl = this.gl;
         const previous = this.render_texture_stack.peek();
         if (previous !== undefined) {
-            this._set_render_texture(previous);
+            this.set_render_texture(previous);
         } else {
-            // bind backbuffer
+            // bind framebuffer
+            const gl = this.gl;
             gl.bindFramebuffer(gl.FRAMEBUFFER, null);
             gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
         }
     }
 
+    /** **/
+    private set_shader(shader : Shader) {
+        if (this.gl === null) return;
+        const gl = this.gl;
+
+        const native = shader.getNative();
+        if (native === null) return;
+
+        gl.useProgram(native);
+
+        const flags = shader._get_are_defaults_bound();
+
+        const texture_location = shader.getUniformLocation(DEFAULT_TEXTURE_NAME)
+        if (!flags.texture_bound && texture_location !== undefined) {
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, this.shader_default_texture);
+            gl.uniform1i(texture_location, 0);
+        }
+
+        const size_location = shader.getUniformLocation(DEFAULT_SCREEN_SIZE_NAME);
+        if (!flags.screen_size_bound && size_location !== undefined) {
+            gl.uniform2f(size_location, gl.canvas.width, gl.canvas.height)
+        }
+
+        const color_location = shader.getUniformLocation(DEFAULT_COLOR_NAME);
+        if (!flags.color_bound && color_location !== undefined) {
+            gl.uniform4f(color_location, this.color.r, this.color.g, this.color.b, this.color.a)
+        }
+
+        const transform_location = shader.getUniformLocation(DEFAULT_TRANSFORM_NAME)
+        if (!flags.transform_bound && transform_location !== undefined) {
+            gl.uniformMatrix4fv(transform_location, false, this.transform.getData())
+        }
+    }
+
+    /** */
+    public getTextureUnit(texture : Texture) : number {
+        const native = texture.getNative();
+        if (this.gl === null || native === null) return -1;
+        return this.shader_texture_unit_allocator.allocate(native);
+    }
+
     /** @internal */
     public _notify_shader_bound(shader : Shader) {
         this.shader_stack.push(shader);
-
-        if (this.gl !== null)
-            shader._make_current(this.gl);
+        this.set_shader(shader);
     }
 
     /** @internal */
     public _notify_shader_unbound(shader : Shader) {
         if (this.gl === null) return;
-        const current = this.shader_stack.peek();
-
-        if (current !== shader)
+        if (this.shader_stack.peek() !== shader)
             throw new Error("In Shader.unbind: shader is not currently bound");
 
         this.shader_stack.pop();
 
-        const gl = this.gl;
         const previous = this.shader_stack.peek();
         if (previous !== undefined) {
-            // bind previous shader
-            previous._make_current(gl);
+            this.set_shader(previous)
         } else {
-            // unbind shaders
-            gl.useProgram(null);
-            gl.bindTexture(gl.TEXTURE_2D, null);
+            // noop, default shader set in _notify_curren_mesh_format
         }
     }
 
@@ -385,5 +450,24 @@ export class GLContext {
     public _notify_size_changed(width : number, height : number) {
         if (this.gl !== null)
             this.gl.viewport(0, 0, width, height);
+    }
+
+    /** @internal */
+    public _notify_current_mesh_format(format : MeshVertexFormat) {
+        if (this.gl === null) return;
+
+        // if no shader active, use default shader
+        if (this.shader_stack.isEmpty()) {
+            if (!this.mesh_vertex_format_to_default_shader.has(format)) {
+                this.mesh_vertex_format_to_default_shader.set(format, new Shader(
+                    this,
+                    undefined,
+                    undefined,
+                    format
+                ));
+            }
+
+            this.set_shader(this.mesh_vertex_format_to_default_shader.get(format)!);
+        }
     }
 }
