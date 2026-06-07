@@ -3,6 +3,13 @@ export class Deque<T> {
     private items: T[] = [];
 
     /** **/
+    public *[Symbol.iterator](): Iterator<T> {
+        for (const item_element of this.items) {
+            yield item_element;
+        }
+    }
+
+    /** **/
     public pop() : T | undefined {
         return this.popBack();
     }

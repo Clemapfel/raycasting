@@ -1,4 +1,5 @@
-class LinkedListNode<T> {
+/** **/
+export class LinkedListNode<T> {
     public value: T;
     public next: LinkedListNode<T> | undefined;
     public previous: LinkedListNode<T> | undefined;
@@ -10,15 +11,27 @@ class LinkedListNode<T> {
     }
 }
 
+/** **/
 export class List<T> {
     private front : LinkedListNode<T> | undefined;
     private back : LinkedListNode<T> | undefined;
     private count : number = 0;
 
+    /** **/
     get length() : number {
         return this.count;
     }
 
+    /** **/
+    public *[Symbol.iterator](): Iterator<LinkedListNode<T>> {
+        let current_node = this.front;
+        while (current_node !== undefined) {
+            yield current_node;
+            current_node = current_node.next;
+        }
+    }
+
+    /** **/
     public has(value: T) {
         let current = this.front;
         while (current !== undefined) {
@@ -31,32 +44,43 @@ export class List<T> {
         return false;
     }
 
-    public remove(value: T): boolean {
-        let node = this.front;
-        while (node !== undefined) {
-            if (node.value == value)
-                break;
+    /** **/
+    public remove(value: T): boolean;
+    public remove(node: LinkedListNode<T>): boolean;
+    public remove(input_target: T | LinkedListNode<T>): boolean {
+        let node_to_remove: LinkedListNode<T> | undefined = undefined;
 
-            node = node.next;
+        if (input_target instanceof LinkedListNode) {
+            node_to_remove = input_target;
+        } else {
+            let current_node = this.front;
+            while (current_node !== undefined) {
+                if (current_node.value == input_target) {
+                    node_to_remove = current_node;
+                    break;
+                }
+                current_node = current_node.next;
+            }
         }
 
-        if (node === undefined || node.value !== value)
+        if (node_to_remove === undefined)
             return false;
 
-        if (node.previous !== undefined)
-            node.previous.next = node.next;
+        if (node_to_remove.previous !== undefined)
+            node_to_remove.previous.next = node_to_remove.next;
         else
-            this.front = node.next;
+            this.front = node_to_remove.next;
 
-        if (node.next !== undefined)
-            node.next.previous = node.previous;
+        if (node_to_remove.next !== undefined)
+            node_to_remove.next.previous = node_to_remove.previous;
         else
-            this.back = node.previous;
+            this.back = node_to_remove.previous;
 
         this.count -= 1;
         return true;
     }
 
+    /** **/
     public getPosition(value : T) {
         let current = this.front;
         let position = 0;
@@ -71,11 +95,13 @@ export class List<T> {
         return undefined;
     }
 
+    /** **/
     public getFront() : T | undefined {
         if (this.front === undefined) return undefined;
         return this.front.value;
     }
 
+    /** **/
     public popFront() : T | undefined {
         if (this.front === undefined) return undefined;
 
@@ -90,6 +116,7 @@ export class List<T> {
         return value;
     }
 
+    /** **/
     public pushFront(value: T) : void {
         const node = new LinkedListNode(value);
         node.next = this.front;
@@ -102,11 +129,13 @@ export class List<T> {
         this.count += 1;
     }
 
+    /** **/
     public getBack() : T | undefined {
         if (this.back === undefined) return undefined;
         return this.back.value;
     }
 
+    /** **/
     public popBack() : T | undefined {
         if (this.back === undefined) return undefined;
 
@@ -121,6 +150,7 @@ export class List<T> {
         return value;
     }
 
+    /** **/
     public pushBack(value: T) : void {
         const node = new LinkedListNode(value);
         node.previous = this.back;
