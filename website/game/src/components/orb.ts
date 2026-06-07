@@ -1,4 +1,4 @@
-import {GLWidget} from "../common/gl_widget.ts";
+import { GLWidget } from "../common/gl_widget.ts";
 import { BlendMode, PushTarget, StencilMode } from "../common/gl_context.ts";
 import {
     LineJoin,
@@ -21,12 +21,12 @@ import {
     DEFAULT_UV_NAME,
     Shader
 } from "../common/shader.ts";
-import {RenderTexture, TextureFormat} from "../common/texture.ts";
-import {LCHA, RGBA} from "../common/color.ts";
-import {Time} from "../common/time.ts";
+import { RenderTexture, TextureFormat } from "../common/texture.ts";
+import { LCHA, RGBA } from "../common/color.ts";
+import { Time} from "../common/time.ts";
 import "../common/math.ts";
-import {MeshVertexFormat} from "../common/mesh_vertex_format.ts";
-import {Vec2, Vec2Array} from "../common/vector.ts";
+import { MeshVertexFormat } from "../common/mesh_vertex_format.ts";
+import { Vec2, Vec2Array } from "../common/vector.ts";
 
 const line_width_factor = 5 / 100;
 const line_margin_factor = 1 / 100;

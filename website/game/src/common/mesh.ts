@@ -1,4 +1,5 @@
-import type { GLContext } from "./gl_context.ts";
+import { GLContext } from "./gl_context.ts";
+import { GLResource } from "./gl_resource.ts";
 import { MeshVertexFormat, MESH_VERTEX_FORMAT_TO_N_COMPONENTS } from "./mesh_vertex_format.ts";
 import { RGBA } from "./color.ts";
 import { Vec2 } from "./vector.ts";
@@ -15,9 +16,7 @@ export enum MeshDrawMode {
 
 const initialized_contexts = new Set<GLContext>();
 
-export class Mesh {
-    private context: GLContext;
-
+export class Mesh extends GLResource {
     private vertex_buffer: Float32Array;
     private vertex_buffer_object: WebGLBuffer | null = null;
     private vertex_array_object: WebGLVertexArrayObject | null = null;
@@ -36,11 +35,13 @@ export class Mesh {
         draw_mode: MeshDrawMode = MeshDrawMode.TRIANGLE_FAN,
         format: MeshVertexFormat = MeshVertexFormat.XY_UV_RGBA
     ) {
+        super(context);
+
         this.context = context;
         this.format = format;
 
-        if (!this.context.isValid()) return;
-        const { gl } = this.context;
+        const gl = this.context.getNative();
+        if (!this.context.isValid() || gl === null) return;
 
         if (draw_mode == MeshDrawMode.POINTS)
             this.draw_mode = gl.POINTS;
@@ -60,11 +61,15 @@ export class Mesh {
             this.draw_mode = gl.TRIANGLES;
 
         this.replaceData(vertex_buffer, index_buffer);
+        this.context._notify_resource_allocated(this);
     }
 
     public draw() {
-        if (!this.context.isValid() || this.vertex_array_object === undefined) return;
-        const { gl } = this.context;
+        const gl = this.context.getNative();
+        if (!this.context.isValid()
+            || gl === null
+            || this.vertex_array_object === undefined
+        ) return;
 
         // notify context so it knows which default shader to use
         this.context._notify_current_mesh_format(this.format);
@@ -75,8 +80,8 @@ export class Mesh {
     }
 
     public replaceData(vertex_buffer: Float32Array, index_buffer?: Uint16Array) {
-        if (!this.context.isValid()) return;
-        const { gl } = this.context;
+        const gl = this.context.getNative();
+        if (!this.context.isValid() || gl === null) return;
 
         try {
 
@@ -156,18 +161,19 @@ export class Mesh {
         }
     }
 
-    public free() {
-        if (!this.context.isValid()) return;
-        const { gl } = this.context;
+    public override free() {
+        super.free();
 
-        if (this.vertex_array_object !== null) gl.deleteVertexArray(this.vertex_array_object);
+        const gl = this.context.getNative();
+        if (this.getIsFreed() || this.context.isValid() || gl === null) return;
+
         if (this.vertex_buffer_object !== null) gl.deleteBuffer(this.vertex_buffer_object);
         if (this.index_buffer_object !== null) gl.deleteBuffer(this.index_buffer_object);
+        if (this.vertex_array_object !== null) gl.deleteVertexArray(this.vertex_array_object);
 
-        this.vertex_array_object = null;
         this.vertex_buffer_object = null;
         this.index_buffer_object = null;
-        this.n_vertices = 0;
+        this.vertex_array_object = null;
     }
 
     public getVertexCount() {

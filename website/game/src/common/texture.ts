@@ -1,4 +1,5 @@
-import type { GLContext } from "./gl_context.ts";
+import { GLContext } from "./gl_context.ts";
+import { GLResource } from "./gl_resource.ts";
 import { Vec2 } from "./vector.ts";
 
 /** **/
@@ -130,12 +131,11 @@ const resolve_texture_format = (gl: WebGL2RenderingContext, format: TextureForma
 }
 
 /** **/
-export class Texture {
+export class Texture extends GLResource {
     private width: number = 0;
     private height: number = 0;
 
     protected native: WebGLTexture;
-    protected context: GLContext;
     protected format_info: FormatInfo;
 
     /** **/
@@ -146,13 +146,17 @@ export class Texture {
 
     // ctor
     constructor(context: GLContext, image_or_width: HTMLImageElement | number, height?: number, format?: TextureFormat) {
-        this.context = context;
+        super(context);
+
         if (!this.context.isValid()) {
             this.native = null as unknown as WebGLTexture;
             this.format_info = {} as FormatInfo;
             return;
         }
-        const { gl } = this.context;
+        const gl = this.context.getNative();
+        if (gl === null) return;
+
+        this.context._notify_resource_allocated(this);
 
         const texture = gl.createTexture();
         if (texture === null)
@@ -196,8 +200,9 @@ export class Texture {
     /** **/
     public setFilterMode(filter_min: TextureFilterMode, filter_mag?: TextureFilterMode, anisotropy?: boolean): void {
         if (filter_mag === undefined) filter_mag = filter_min;
-        if (!this.context.isValid()) return;
-        const { gl } = this.context;
+
+        const gl = this.context.getNative();
+        if (gl === null) return;
 
         const ext_anisotropic = gl.getExtension("EXT_texture_filter_anisotropic");
         if (ext_anisotropic === null) anisotropy = false;
@@ -238,8 +243,8 @@ export class Texture {
     /** **/
     public setWrapMode(wrap_s: TextureWrapMode, wrap_t?: TextureWrapMode): void {
         if (wrap_t === undefined) wrap_t = wrap_s;
-        if (!this.context.isValid()) return;
-        const { gl } = this.context;
+        const gl = this.context.getNative();
+        if (gl === null) return;
 
         const to_native = (mode: TextureWrapMode) => {
             if (mode == TextureWrapMode.REPEAT)
@@ -259,12 +264,16 @@ export class Texture {
     }
 
     /** **/
-    public free(): void {
-        if (!this.context.isValid()) return;
-        const { gl } = this.context;
+    public override free(): void {
+        super.free();
 
-        if (this.native !== null)
+        const gl = this.context.getNative();
+        if (this.getIsFreed() || gl === null) return;
+
+        if (this.native !== null) {
             gl.deleteTexture(this.native);
+            this.native = null as unknown as WebGLTexture;
+        }
     }
 
     /** **/
@@ -307,12 +316,11 @@ export class RenderTexture extends Texture {
     ) {
         super(context, width, height, format);
 
-        if (!this.context.isValid()) {
+        const gl = this.context.getNative();
+        if (gl === null) {
             this.msaa = 0;
             return;
         }
-
-        const { gl } = this.context;
 
         width = Math.max(1, Math.floor(width));
         height = Math.max(1, Math.floor(height));
@@ -423,8 +431,8 @@ export class RenderTexture extends Texture {
 
     /** move msaa data into regular framebuffer **/
     public flush() : void {
-        if (!this.context.isValid()) return;
-        const { gl } = this.context;
+        const gl = this.context.getNative();
+        if (gl === null) return;
 
         if (this.msaa !== 0) {
             const width = this.getWidth();
@@ -453,10 +461,20 @@ export class RenderTexture extends Texture {
         };
     }
 
+    /** **/
     public override free(): void {
-        if (!this.context.isValid()) return;
+        const gl = this.context.getNative();
+        if (this.getIsFreed() || gl === null) return;
 
-        const { gl } = this.context;
+        if (this.resolve_framebuffer !== null) {
+            gl.deleteFramebuffer(this.resolve_framebuffer);
+            this.resolve_framebuffer = null;
+        }
+
+        if (this.multisample_framebuffer !== null) {
+            gl.deleteFramebuffer(this.multisample_framebuffer);
+            this.multisample_framebuffer = null;
+        }
 
         if (this.color_renderbuffer !== null) {
             gl.deleteRenderbuffer(this.color_renderbuffer);
@@ -466,16 +484,6 @@ export class RenderTexture extends Texture {
         if (this.depth_renderbuffer !== null) {
             gl.deleteRenderbuffer(this.depth_renderbuffer);
             this.depth_renderbuffer = null;
-        }
-
-        if (this.multisample_framebuffer !== null) {
-            gl.deleteFramebuffer(this.multisample_framebuffer);
-            this.multisample_framebuffer = null;
-        }
-
-        if (this.resolve_framebuffer !== null) {
-            gl.deleteFramebuffer(this.resolve_framebuffer);
-            this.resolve_framebuffer = null;
         }
 
         super.free();

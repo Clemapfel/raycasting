@@ -2,6 +2,7 @@
 
 import { RGBA } from "./color.ts";
 import { RenderTexture, Texture } from "./texture.ts";
+import { GLResource } from "./gl_resource.ts";
 import {
     DEFAULT_COLOR_NAME,
     DEFAULT_SCREEN_SIZE_NAME,
@@ -12,6 +13,7 @@ import {
 import { Deque } from "./deque.ts";
 import { Transform } from "./transform.ts";
 import { MeshVertexFormat } from "./mesh_vertex_format.ts";
+import { LinkedListNode, List } from "./linked_list.ts";
 
 /** **/
 export enum BlendMode {
@@ -53,7 +55,7 @@ interface PushNode {
 }
 
 /** **/
-class TextureUnitAllocator {
+class TextureUnitManager {
     private slots: (WebGLTexture | null)[];
     private cursor: number = 0;
 
@@ -62,10 +64,10 @@ class TextureUnitAllocator {
         this.slots = new Array(Math.max(1, max_units - 1)).fill(null);
     }
 
-    public allocate(texture: WebGLTexture): number {
-        for (let i = 0; i < this.slots.length; i++) {
+    public getUnit(texture: WebGLTexture): number {
+        for (let i = 0; i < this.slots.length; i++)
             if (this.slots[i] === texture) return i + 1;
-        }
+
         const index = this.cursor;
         this.slots[index] = texture;
         this.cursor = (this.cursor + 1) % this.slots.length;
@@ -75,9 +77,9 @@ class TextureUnitAllocator {
 
 /** **/
 export class GLContext {
-    public gl : WebGL2RenderingContext | null;
-
+    private gl : WebGL2RenderingContext | null;
     private push_stack : Deque<PushNode> = new Deque<PushNode>();
+    private is_allocated : boolean = false;
 
     private blend_mode_rgb : BlendMode = BlendMode.ALPHA;
     private blend_mode_alpha : BlendMode = BlendMode.ALPHA;
@@ -89,8 +91,10 @@ export class GLContext {
     private render_texture_stack : Deque<RenderTexture> = new Deque<RenderTexture>();
     private shader_stack : Deque<Shader> = new Deque<Shader>();
     private shader_default_texture : WebGLTexture;
-    private shader_texture_unit_allocator : TextureUnitAllocator;
+    private shader_texture_unit_allocator : TextureUnitManager;
     private mesh_vertex_format_to_default_shader : Map<MeshVertexFormat, Shader> = new Map<MeshVertexFormat, Shader>();
+
+    private resources : List<WeakRef<GLResource>> = new List<WeakRef<GLResource>>();
 
     constructor(canvas: HTMLCanvasElement) {
         this.gl = canvas.getContext("webgl2", {
@@ -102,39 +106,58 @@ export class GLContext {
             desynchronized: true
         });
 
-        if (this.gl !== null) {
-            const gl = this.gl;
-            const texture = gl.createTexture();
+        if (!this.isValid() || this.gl === null) return;
+        
+        this.is_allocated = true;
 
-            if (texture === null)
-                throw new Error("In GLContext: unable to create default texture");
+        canvas.addEventListener('webglcontextlost', (e) => {
+            // on context lost, deallocate all resources
+            e.preventDefault();
+            this.deallocate();
+        }, false);
 
-            gl.bindTexture(gl.TEXTURE_2D, texture);
-            gl.texImage2D(gl.TEXTURE_2D, 0,
-                gl.RGBA8, 1, 1, 0,
-                gl.RGBA, gl.UNSIGNED_BYTE,
-                new Uint8Array([255, 255, 255, 255])
-            );
+        canvas.addEventListener('webglcontextrestored', () => {
+            // on context regained, reallocate
+            this.reallocate();
+        }, false);
 
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-            gl.bindTexture(gl.TEXTURE_2D, null);
+        const gl = this.gl!;
+        const texture = gl.createTexture();
 
-            // shader default texture
-            this.shader_default_texture = texture;
+        if (texture === null)
+            throw new Error("In GLContext: unable to create default texture");
 
-            // shader texture unit allocate
-            this.shader_texture_unit_allocator = new TextureUnitAllocator(
-                gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS)
-            );
-        }
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texImage2D(gl.TEXTURE_2D, 0,
+            gl.RGBA8, 1, 1, 0,
+            gl.RGBA, gl.UNSIGNED_BYTE,
+            new Uint8Array([255, 255, 255, 255])
+        );
+
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        gl.bindTexture(gl.TEXTURE_2D, null);
+
+        // shader default texture
+        this.shader_default_texture = texture;
+
+        // shader texture unit allocate
+        this.shader_texture_unit_allocator = new TextureUnitManager(
+            gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS)
+        );
+    }
+
+    /** **/
+    public getNative() : WebGL2RenderingContext | null {
+        return this.gl;
     }
 
     /** **/
     public getCanvas() : HTMLCanvasElement | OffscreenCanvas | null {
-        return this.gl ? this.gl.canvas : null;
+        if (!this.isValid() || this.gl === null) return null;
+        return this.gl!.canvas;
     }
 
     public setColor(r : RGBA);
@@ -157,14 +180,16 @@ export class GLContext {
         return this.color.clone();
     }
 
-    public isValid(): this is { gl: WebGL2RenderingContext } {
+    public isValid() {
+        // keep this method, isValid() could represent a more
+        // complex state separate from this.gl later on
         return this.gl !== null;
     }
 
     /** **/
     public free() : void {
-        const gl = this.gl;
-        if (gl === null) return;
+        if (!this.isValid() || this.gl === null) return;
+        const gl = this.gl!;
 
         const ext = gl.getExtension("WEBGL_lose_context");
         if (ext !== null) ext.loseContext();
@@ -174,8 +199,8 @@ export class GLContext {
 
     /** **/
     public clear(r: number = 0, g: number = 0, b: number = 0, a: number = 1): void {
-        if (!this.isValid()) return;
-        const gl = this.gl;
+        if (!this.isValid() || this.gl === null) return;
+        const gl = this.gl!
 
         const is_stencil_draw = this.stencil_mode === StencilMode.DRAW;
         if (is_stencil_draw) {
@@ -196,8 +221,10 @@ export class GLContext {
 
     /** **/
     private getBlendParams(mode: BlendMode) : [GLenum, GLenum, GLenum] {
-        const gl = this.gl;
-        if (gl === null) throw new Error("In GLContext.getBlendParams: context is invalid");
+        if (!this.isValid() || this.gl === null)
+            throw new Error("In GLContext.getBlendParams: context is invalid");
+
+        const gl = this.gl!;
 
         switch (mode) {
             case BlendMode.ALPHA:
@@ -219,13 +246,15 @@ export class GLContext {
 
     /** **/
     public setTransform(transform : Transform) {
+        if (!this.isValid() || this.gl === null) return;
+
         this.transform = transform;
     }
 
     /** **/
     public setBlendmode(rgb : BlendMode, alpha : BlendMode = BlendMode.ALPHA) : void {
-        const gl = this.gl;
-        if (gl === null) return;
+        if (!this.isValid() || this.gl === null) return;
+        const gl = this.gl!;
 
         if (rgb == BlendMode.NONE && alpha == BlendMode.NONE) {
             gl.disable(gl.BLEND)
@@ -245,8 +274,8 @@ export class GLContext {
 
     /** **/
     public setStencilMode(mode : StencilMode, value : number = 1) : void {
-        const gl = this.gl;
-        if (gl === null) return;
+        if (!this.isValid() || this.gl === null) return;
+        const gl = this.gl!;
 
         switch (mode) {
             case StencilMode.DRAW:
@@ -280,6 +309,8 @@ export class GLContext {
     public push() : void;
     public push(...push_targets : PushTarget[]) : void;
     public push(...push_targets : PushTarget[]) : void {
+        if (!this.isValid() || this.gl === null) return;
+
         if (this.push_stack.length + 1 > max_stack_depth)
             throw Error("In GLContext.push: maximum stack depth reached")
 
@@ -320,6 +351,8 @@ export class GLContext {
 
     /** **/
     public pop() : void {
+        if (!this.isValid() || this.gl === null) return;
+
         if (this.push_stack.length == 0)
             throw Error("In GLContext.pop: minimum stack depth reached")
 
@@ -348,35 +381,37 @@ export class GLContext {
 
     /** **/
     private set_render_texture(texture : RenderTexture) {
-        if (this.gl === null) return;
+        if (!this.isValid() || this.gl === null) return;
 
-        const gl = this.gl;
+        const gl = this.gl!;
         gl.bindFramebuffer(gl.FRAMEBUFFER, texture.getFrameBuffer());
         gl.viewport(0, 0, texture.getWidth(), texture.getHeight());
     }
 
     /** @internal */
     public _notify_render_texture_bound(texture : RenderTexture) {
+        if (!this.isValid() || this.gl === null) return;
+
         this.render_texture_stack.push(texture);
         this.set_render_texture(texture);
     }
 
     /** @internal */
     public _notify_render_texture_unbound(texture: RenderTexture) {
-        if (this.gl === null) return;
+        if (!this.isValid() || this.gl === null) return;
+        const gl = this.gl!;
 
         if (this.render_texture_stack.peek() !== texture)
             throw new Error("In RenderTexture.unbind: texture is not currently bound");
 
         this.render_texture_stack.pop();
-        texture.flush();
+        texture.flush(); // blit msaa buffer to drawing buffer
 
         const previous = this.render_texture_stack.peek();
         if (previous !== undefined) {
             this.set_render_texture(previous);
         } else {
             // bind framebuffer
-            const gl = this.gl;
             gl.bindFramebuffer(gl.FRAMEBUFFER, null);
             gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
         }
@@ -384,8 +419,8 @@ export class GLContext {
 
     /** **/
     private set_shader(shader : Shader) {
-        if (this.gl === null) return;
-        const gl = this.gl;
+        if (!this.isValid() || this.gl === null) return;
+        const gl = this.gl!;
 
         const native = shader.getNative();
         if (native === null) return;
@@ -428,21 +463,22 @@ export class GLContext {
     /** */
     public getTextureUnit(texture : Texture) : number {
         const native = texture.getNative();
-        if (this.gl === null || native === null) return -1;
-        return this.shader_texture_unit_allocator.allocate(native);
+        if (!this.isValid() || this.gl === null || native === null) return -1;
+        return this.shader_texture_unit_allocator.getUnit(native);
     }
-
-    TODO: safe freed
 
     /** @internal */
     public _notify_shader_bound(shader : Shader) {
+        if (!this.isValid() || this.gl === null) return;
+
         this.shader_stack.push(shader);
         this.set_shader(shader);
     }
 
     /** @internal */
     public _notify_shader_unbound(shader : Shader) {
-        if (this.gl === null) return;
+        if (!this.isValid() || this.gl === null) return;
+
         if (this.shader_stack.peek() !== shader)
             throw new Error("In Shader.unbind: shader is not currently bound");
 
@@ -458,13 +494,14 @@ export class GLContext {
 
     /** @internal */
     public _notify_size_changed(width : number, height : number) {
-        if (this.gl !== null)
-            this.gl.viewport(0, 0, width, height);
+        if (!this.isValid() || this.gl === null) return;
+
+        this.gl!.viewport(0, 0, width, height);
     }
 
     /** @internal */
     public _notify_current_mesh_format(format : MeshVertexFormat) {
-        if (this.gl === null) return;
+        if (!this.isValid() || this.gl === null) return;
 
         // if no shader active, use default shader
         if (this.shader_stack.isEmpty()) {
@@ -479,5 +516,48 @@ export class GLContext {
 
             this.set_shader(this.mesh_vertex_format_to_default_shader.get(format)!);
         }
+    }
+
+    /** @internal */
+    public _notify_resource_allocated(object : GLResource) {
+        if (!this.isValid() || this.gl === null) return;
+
+        this.resources.pushBack(new WeakRef(object))
+    }
+
+    /** reallocate all resources after context is regained **/
+    private reallocate() {
+        let to_remove : LinkedListNode<WeakRef<GLResource>>[] = [];
+        for (const node of this.resources) {
+            if (node.value.deref() === undefined)
+                to_remove.push(node);
+        }
+
+        for (const node of to_remove)
+            this.resources.remove(node);
+        
+        for (const node of this.resources) {
+            node.value.deref()!.allocate();
+        }
+        
+        this.is_allocated = true;
+    }
+
+    /** deallocate all resources when context is lost **/
+    private deallocate() {
+        let to_remove : LinkedListNode<WeakRef<GLResource>>[] = [];
+        for (const node of this.resources) {
+            if (node.value.deref() === undefined)
+                to_remove.push(node);
+        }
+
+        for (const node of to_remove)
+            this.resources.remove(node);
+
+        for (const node of this.resources) {
+            node.value.deref()!.deallocate();
+        }
+        
+        this.is_allocated = false;
     }
 }

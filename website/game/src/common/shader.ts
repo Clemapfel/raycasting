@@ -1,6 +1,7 @@
 // @/website/game/src/common/shader.ts
 
-import type { GLContext } from "./gl_context.ts";
+import { GLContext } from "./gl_context.ts";
+import { GLResource } from "./gl_resource.ts";
 import { Vec2, Vec3, Vec4 } from "./vector.ts";
 import { Transform } from "./transform.ts";
 import { RGBA } from "./color.ts";
@@ -110,11 +111,10 @@ const mesh_format_to_default_shader_source : Record<MeshVertexFormat, DefaultSha
 })() as Record<MeshVertexFormat, DefaultShaderSource>;
 
 /** **/
-export class Shader {
+export class Shader extends GLResource {
     private fragment_shader_source : string;
     private vertex_shader_source : string;
     private program : WebGLShader | null = null;
-    private context : GLContext;
     private uniform_cache : Map<string, { location: WebGLUniformLocation, type: number }> = new Map();
 
     private uniform_id_to_warning_printed : Map<string, boolean> = new Map<string, boolean>();
@@ -130,6 +130,9 @@ export class Shader {
         vertex_shader_source? : string,
         mesh_format : MeshVertexFormat = MeshVertexFormat.XY_UV_RGBA
     ) {
+        super(context);
+        if (!this.context.isValid() || this.context.getNative() === null) return;
+
         if (!(mesh_format in mesh_format_to_default_shader_source))
             throw new Error(`In Mesh: unsupported mesh format ${mesh_format}`);
 
@@ -137,19 +140,17 @@ export class Shader {
         if (fragment_shader_source == undefined) fragment_shader_source = default_entry.fragment;
         if (vertex_shader_source == undefined) vertex_shader_source = default_entry.vertex;
 
-        this.context = context;
-
-        if (!this.context.isValid()) return;
         this.fragment_shader_source = fragment_shader_source;
         this.vertex_shader_source = vertex_shader_source;
         this.recompile();
+        this.context._notify_resource_allocated(this);
     }
 
     /** **/
     private recompile(): void {
-        if (!this.context.isValid()) return;
+        const gl = this.context.getNative();
+        if (!this.context.isValid() || gl === null) return;
 
-        const { gl } = this.context;
         const old_program = this.program;
 
         let vertex_shader: WebGLShader | null = null;
@@ -243,8 +244,8 @@ export class Shader {
 
     /** **/
     public setUniform(id: string, value: number | Vec2 | Vec3 | Vec4 | RGBA | Transform | Texture | undefined) {
-        if (!this.context.isValid() || this.program === null) return;
-        const { gl } = this.context;
+        const gl = this.context.getNative();
+        if (!this.context.isValid() || gl === null) return;
 
         const info = this.uniform_cache.get(id);
         if (!info && this.uniform_id_to_warning_printed.get(id) !== true) {
@@ -316,18 +317,28 @@ export class Shader {
 
     /** **/
     public getUniformLocation(id : string) : WebGLUniformLocation | undefined {
-        return this.uniform_cache.get(id)?.location;
+        if (!this.context.isValid())
+            return -1;
+        else
+            return this.uniform_cache.get(id)?.location;
     }
 
     /** **/
     public hasUniform(id : string) : boolean {
+        if (!this.context.isValid()) return false;
+
         return this.uniform_cache.has(id);
     }
 
     /** **/
-    public free() {
-        if (!this.context.isValid()) return;
-        const { gl } = this.context;
+    public override free() {
+        super.free();
+
+        const gl = this.context.getNative();
+        if (this.getIsFreed()
+            || !this.context.isValid()
+            || gl === null
+        ) return;
 
         if (this.program !== null) {
             gl.deleteProgram(this.program);
