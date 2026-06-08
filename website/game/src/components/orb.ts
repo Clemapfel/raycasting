@@ -30,7 +30,7 @@ import { Vec2, Vec2Array } from "../common/vector.ts";
 
 const line_width_factor = 5 / 100;
 const line_margin_factor = 1 / 100;
-const line_angle = 0;
+const line_angle = 0.75 * 0.125 * Math.PI;
 
 const n_particles = 128 + 64;
 const n_sub_steps = 3;
@@ -320,8 +320,8 @@ export class Orb extends GLWidget  {
             shader.unbind();
             this.particle_mesh_texture.unbind();
 
-            mesh.free();
-            shader.free()
+            mesh.deallocate();
+            shader.deallocate()
         }
 
         if (this.particle_mesh_shader !== undefined && this.particle_mesh !== undefined) {
@@ -461,8 +461,8 @@ export class Orb extends GLWidget  {
     }
 
     protected override reformat(width: number, height: number) {
-        if (this.particle_canvas !== undefined) this.particle_canvas.free();
-        if (this.particle_canvas_mesh !== undefined) this.particle_canvas_mesh.free();
+        if (this.particle_canvas !== undefined) this.particle_canvas.deallocate();
+        if (this.particle_canvas_mesh !== undefined) this.particle_canvas_mesh.deallocate();
 
         const widget_size = this.getSize();
 
@@ -659,7 +659,7 @@ export class Orb extends GLWidget  {
         }
 
         if (this.particle_mesh !== undefined)
-            this.particle_mesh.free()
+            this.particle_mesh.deallocate()
 
         // triangulation, does not change between frames
         for (let particle_i = 0; particle_i < n_particles; ++particle_i) {
@@ -693,7 +693,7 @@ export class Orb extends GLWidget  {
             this.canvas_threshold_shader
         ]) {
             if (object !== undefined)
-                object.free();
+                object.deallocate();
         }
 
         this.was_freed = true;
@@ -710,38 +710,20 @@ export class Orb extends GLWidget  {
     private update_mesh_data() {
         if (this.particle_mesh === undefined) return;
 
+        const data = this.particle_mesh_vertex_data;
         let mesh_data_i = 0;
         for (let particle_i = 0; particle_i < n_particles; ++particle_i) {
             const particle_data_i = particle_i * particle_stride;
-
-            let px = this.particle_data[particle_data_i + x_offset];
-            let py = this.particle_data[particle_data_i + y_offset];
-            const vx = this.particle_data[particle_data_i + velocity_x_offset];
-            const vy = this.particle_data[particle_data_i + velocity_y_offset];
+            const radius = texture_scale * this.particle_data[particle_data_i + radius_offset];
+            const px = this.particle_data[particle_data_i + x_offset] + this.particle_data[particle_data_i + velocity_x_offset] * this.delta_accumulator;
+            const py = this.particle_data[particle_data_i + y_offset] + this.particle_data[particle_data_i + velocity_y_offset] * this.delta_accumulator;
             const r = this.particle_data[particle_data_i + r_offset] * blend_strength;
             const g = this.particle_data[particle_data_i + g_offset] * blend_strength;
             const b = this.particle_data[particle_data_i + b_offset] * blend_strength;
-            const a = this.particle_data[particle_data_i + a_offset] * 1;
+            const a = this.particle_data[particle_data_i + a_offset];
 
-            const radius = texture_scale * this.particle_data[particle_data_i + radius_offset];
-
-            px = px + vx * this.delta_accumulator;
-            py = py + vy * this.delta_accumulator;
-
-            const top_left_x = px - radius
-            const top_left_y = py - radius;
-            const top_right_x = px + radius
-            const top_right_y = py - radius;
-            const bottom_right_x = px + radius;
-            const bottom_right_y = py + radius;
-            const bottom_left_x = px - radius;
-            const bottom_left_y = py + radius;
-
-            const data = this.particle_mesh_vertex_data
-
-            let offset = 0;
-            data[mesh_data_i++] = top_left_x;
-            data[mesh_data_i++] = top_left_y;
+            data[mesh_data_i++] = px - radius;
+            data[mesh_data_i++] = py - radius;
             data[mesh_data_i++] = 0;
             data[mesh_data_i++] = 0;
             data[mesh_data_i++] = r;
@@ -749,8 +731,8 @@ export class Orb extends GLWidget  {
             data[mesh_data_i++] = b;
             data[mesh_data_i++] = a;
 
-            data[mesh_data_i++] = top_right_x;
-            data[mesh_data_i++] = top_right_y;
+            data[mesh_data_i++] = px + radius;
+            data[mesh_data_i++] = py - radius;
             data[mesh_data_i++] = 1;
             data[mesh_data_i++] = 0;
             data[mesh_data_i++] = r;
@@ -758,8 +740,8 @@ export class Orb extends GLWidget  {
             data[mesh_data_i++] = b;
             data[mesh_data_i++] = a;
 
-            data[mesh_data_i++] = bottom_right_x;
-            data[mesh_data_i++] = bottom_right_y;
+            data[mesh_data_i++] = px + radius;
+            data[mesh_data_i++] = py + radius;
             data[mesh_data_i++] = 1;
             data[mesh_data_i++] = 1;
             data[mesh_data_i++] = r;
@@ -767,8 +749,8 @@ export class Orb extends GLWidget  {
             data[mesh_data_i++] = b;
             data[mesh_data_i++] = a;
 
-            data[mesh_data_i++] = bottom_left_x;
-            data[mesh_data_i++] = bottom_left_y;
+            data[mesh_data_i++] = px - radius;
+            data[mesh_data_i++] = py + radius;
             data[mesh_data_i++] = 0;
             data[mesh_data_i++] = 1;
             data[mesh_data_i++] = r;
@@ -777,7 +759,7 @@ export class Orb extends GLWidget  {
             data[mesh_data_i++] = a;
         }
 
-        this.particle_mesh.replaceData(this.particle_mesh_vertex_data);
+        this.particle_mesh.replaceData(data);
     }
 
     private swirl_easing(t: number) {

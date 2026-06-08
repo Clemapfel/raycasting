@@ -78,12 +78,12 @@ const mesh_format_to_default_shader_source : Record<MeshVertexFormat, DefaultSha
                     vec4 position = ${DEFAULT_TRANSFORM_NAME} * vec4(vertex_position, 0.0, 1.0);                    
                     ${DEFAULT_SCREEN_POS_NAME} = position.xy;
                     
-                    position.xy = (position.xy / ${DEFAULT_SCREEN_SIZE_NAME}) * 2.0 - 1.0;
+                    position.xy = (position.xy / ${DEFAULT_SCREEN_SIZE_NAME}) * 2.0 - position.w;
                     position.y *= -1.0;
                     
                     gl_Position = position;
                 }
-                `
+               `
             ,
 
             // fragment invariable for now
@@ -142,8 +142,9 @@ export class Shader extends GLResource {
 
         this.fragment_shader_source = fragment_shader_source;
         this.vertex_shader_source = vertex_shader_source;
-        this.recompile();
-        this.context._notify_resource_allocated(this);
+
+        this.allocate();
+        this.context._notify_resources_added(this);
     }
 
     /** **/
@@ -232,20 +233,20 @@ export class Shader extends GLResource {
 
     /** **/
     public bind() {
-        if (!this.context.isValid() || this.program === null) return;
+        if (!this.context.isValid() || this.program === null || !this.getIsAllocated()) return;
         this.context._notify_shader_bound(this);
     }
 
     /** **/
     public unbind() {
-        if (!this.context.isValid() || this.program === null) return;
+        if (!this.context.isValid() || this.program === null || !this.getIsAllocated()) return;
         this.context._notify_shader_unbound(this);
     }
 
     /** **/
     public setUniform(id: string, value: number | Vec2 | Vec3 | Vec4 | RGBA | Transform | Texture | undefined) {
         const gl = this.context.getNative();
-        if (!this.context.isValid() || gl === null) return;
+        if (!this.context.isValid() || gl === null || this.program === null || !this.getIsAllocated()) return;
 
         const info = this.uniform_cache.get(id);
         if (!info && this.uniform_id_to_warning_printed.get(id) !== true) {
@@ -294,10 +295,8 @@ export class Shader extends GLResource {
             this.texture_bound = value !== undefined;
         else if (id == DEFAULT_TRANSFORM_NAME)
             this.transform_bound = value !== undefined;
-        else if (this.uniform_id_to_warning_printed.get(id) !== true) {
-            console.warn(`In Shader.setUniform: trying to set uniform \"${id}\" to undefined. The uniform will not be updated`);
-            this.uniform_id_to_warning_printed.set(id, true);
-        }
+        else if (value === undefined)
+            throw Error(`In Shader.setUniform: trying to set uniform \"${id}\" to undefined`)
     }
 
     /** @internal */
@@ -331,21 +330,24 @@ export class Shader extends GLResource {
     }
 
     /** **/
-    public override free() {
-        super.free();
-
-        const gl = this.context.getNative();
-        if (this.getIsFreed()
-            || !this.context.isValid()
-            || gl === null
-        ) return;
-
-        if (this.program !== null) {
-            gl.deleteProgram(this.program);
-            this.program = null;
-        }
+    public override allocate() {
+        this.recompile();
+        super.allocate();
     }
 
+    /** **/
+    public override deallocate() {
+        const gl = this.context.getNative();
+        if (this.context.isValid()
+            && gl !== null
+            && this.program !== null
+        ) {
+            gl.deleteProgram(this.program);
+        }
+
+        this.program = null;
+        super.deallocate();
+    }
     /** **/
     public getNative() : WebGLShader | null {
         return this.program;

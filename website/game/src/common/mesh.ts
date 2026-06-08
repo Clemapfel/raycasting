@@ -4,6 +4,7 @@ import { MeshVertexFormat, MESH_VERTEX_FORMAT_TO_N_COMPONENTS } from "./mesh_ver
 import { RGBA } from "./color.ts";
 import { Vec2 } from "./vector.ts";
 
+/** **/
 export enum MeshDrawMode {
     POINTS,
     LINES,
@@ -14,20 +15,21 @@ export enum MeshDrawMode {
     TRIANGLE_FAN
 }
 
-const initialized_contexts = new Set<GLContext>();
-
+/** **/
 export class Mesh extends GLResource {
     private vertex_buffer: Float32Array;
     private vertex_buffer_object: WebGLBuffer | null = null;
     private vertex_array_object: WebGLVertexArrayObject | null = null;
 
-    private index_buffer: Uint16Array;
+    private index_buffer: Uint16Array | undefined;
     private index_buffer_object: WebGLBuffer | null = null;
 
-    private draw_mode: number;
+    private draw_mode: number = 0;
+    private draw_mode_enum: MeshDrawMode; // store enum for reallocation
     private format: MeshVertexFormat;
     private n_vertices: number = 0;
 
+    /** **/
     constructor(
         context: GLContext,
         vertex_buffer: Float32Array,
@@ -37,83 +39,100 @@ export class Mesh extends GLResource {
     ) {
         super(context);
 
-        this.context = context;
         this.format = format;
+        this.draw_mode_enum = draw_mode;
+        this.vertex_buffer = vertex_buffer;
+        this.index_buffer = index_buffer;
 
-        const gl = this.context.getNative();
-        if (!this.context.isValid() || gl === null) return;
-
-        if (draw_mode == MeshDrawMode.POINTS)
-            this.draw_mode = gl.POINTS;
-        else if (draw_mode == MeshDrawMode.LINES)
-            this.draw_mode = gl.LINES;
-        else if (draw_mode == MeshDrawMode.LINE_LOOP)
-            this.draw_mode = gl.LINE_LOOP;
-        else if (draw_mode == MeshDrawMode.LINE_STRIP)
-            this.draw_mode = gl.LINE_STRIP;
-        else if (draw_mode == MeshDrawMode.TRIANGLES)
-            this.draw_mode = gl.TRIANGLES;
-        else if (draw_mode == MeshDrawMode.TRIANGLE_STRIP)
-            this.draw_mode = gl.TRIANGLE_STRIP;
-        else if (draw_mode == MeshDrawMode.TRIANGLE_FAN)
-            this.draw_mode = gl.TRIANGLE_FAN;
-        else
-            this.draw_mode = gl.TRIANGLES;
-
-        this.replaceData(vertex_buffer, index_buffer);
-        this.context._notify_resource_allocated(this);
+        // Fix: Call this class's allocate to ensure WebGL resources are created
+        this.allocate();
+        this.context._notify_resources_added(this);
     }
 
+    /** **/
     public draw() {
         const gl = this.context.getNative();
         if (!this.context.isValid()
             || gl === null
-            || this.vertex_array_object === undefined
+            || !this.getIsAllocated()
+            || this.vertex_array_object === null
+            || this.index_buffer === undefined
         ) return;
 
         // notify context so it knows which default shader to use
         this.context._notify_current_mesh_format(this.format);
 
         gl.bindVertexArray(this.vertex_array_object);
-        gl.drawElements(this.draw_mode, this.index_buffer.length, gl.UNSIGNED_SHORT, 0);
+        gl.drawElements(this.draw_mode,
+            this.index_buffer.length,
+            gl.UNSIGNED_SHORT,
+            0
+        );
         gl.bindVertexArray(null);
     }
 
+    /** **/
     public replaceData(vertex_buffer: Float32Array, index_buffer?: Uint16Array) {
+        this.vertex_buffer = vertex_buffer;
+        this.index_buffer = index_buffer ?? this.index_buffer; // use already existing buffer
+
+        if (this.getIsAllocated())
+            this.deallocate();
+
+        this.allocate();
+    }
+
+    /** **/
+    public override allocate() {
         const gl = this.context.getNative();
         if (!this.context.isValid() || gl === null) return;
 
-        try {
+        // resolve draw mode inside allocate so it is robust to context loss
+        const modes = {
+            [MeshDrawMode.POINTS]: gl.POINTS,
+            [MeshDrawMode.LINES]: gl.LINES,
+            [MeshDrawMode.LINE_LOOP]: gl.LINE_LOOP,
+            [MeshDrawMode.LINE_STRIP]: gl.LINE_STRIP,
+            [MeshDrawMode.TRIANGLES]: gl.TRIANGLES,
+            [MeshDrawMode.TRIANGLE_STRIP]: gl.TRIANGLE_STRIP,
+            [MeshDrawMode.TRIANGLE_FAN]: gl.TRIANGLE_FAN
+        };
+        this.draw_mode = modes[this.draw_mode_enum] ?? gl.TRIANGLES;
 
+        const vertex_buffer = this.vertex_buffer;
+        let index_buffer = this.index_buffer;
+
+        try {
             const n_components = MESH_VERTEX_FORMAT_TO_N_COMPONENTS[this.format];
 
             if (vertex_buffer.length === 0 || vertex_buffer.length % n_components !== 0)
                 throw new Error(`In Mesh: vertex buffer length is not a multiple of ${n_components} for the given format`);
 
-            const n_vertices_before: number | undefined = this.n_vertices;
             const n_vertices = vertex_buffer.length / n_components;
 
             if (index_buffer === undefined) {
-                if (n_vertices_before !== n_vertices || this.index_buffer === undefined) {
-                    this.index_buffer = new Uint16Array(n_vertices);
-                    for (let i = 0; i < n_vertices; i++) this.index_buffer[i] = i;
-                }
-
-                index_buffer = this.index_buffer;
+                index_buffer = new Uint16Array(n_vertices);
+                for (let i = 0; i < n_vertices; i++)
+                    index_buffer[i] = i;
             }
 
-            this.free(); // safe noop not yet allocated
+            if (this.getIsAllocated())
+                this.deallocate();
 
             this.vertex_buffer = vertex_buffer;
             this.index_buffer = index_buffer;
             this.n_vertices = n_vertices;
 
             const vao = gl.createVertexArray();
-            if (vao === null) throw new Error("In Mesh.replaceData: unable to create vertex array object");
+            if (vao === null)
+                throw new Error("In Mesh.allocate: unable to create vertex array object");
+
             this.vertex_array_object = vao;
 
             const vbo = gl.createBuffer();
-            if (vbo === null) throw new Error("In Mesh.replaceData: unable to create vertex buffer object");
+            if (vbo === null)
+                throw new Error("In Mesh.allocate: unable to create vertex buffer object");
+
             this.vertex_buffer_object = vbo;
 
             gl.bindVertexArray(this.vertex_array_object);
@@ -129,8 +148,6 @@ export class Mesh extends GLResource {
             if (this.format === MeshVertexFormat.XY_UV_RGBA || this.format === MeshVertexFormat.XY_UV) {
                 gl.enableVertexAttribArray(1);
                 gl.vertexAttribPointer(1, 2, gl.FLOAT, false, stride, 2 * bytes);
-            } else {
-                gl.disableVertexAttribArray(1);
             }
 
             if (this.format === MeshVertexFormat.XY_UV_RGBA) {
@@ -139,19 +156,21 @@ export class Mesh extends GLResource {
             } else if (this.format === MeshVertexFormat.XY_RGBA) {
                 gl.enableVertexAttribArray(2);
                 gl.vertexAttribPointer(2, 4, gl.FLOAT, false, stride, 2 * bytes);
-            } else {
-                gl.disableVertexAttribArray(2);
             }
 
             const ibo = gl.createBuffer();
-            if (ibo === null) throw new Error("In Mesh.replaceData: unable to create index buffer object");
+            if (ibo === null)
+                throw new Error("In Mesh.allocate: unable to create index buffer object");
+
             this.index_buffer_object = ibo;
 
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.index_buffer_object);
             gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, this.index_buffer, gl.STATIC_DRAW);
+
+            super.allocate();
         }
         catch (error) {
-            this.free();
+            this.deallocate();
             throw error;
         }
         finally {
@@ -159,25 +178,6 @@ export class Mesh extends GLResource {
             gl.bindBuffer(gl.ARRAY_BUFFER, null);
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
         }
-    }
-
-    public override free() {
-        super.free();
-
-        const gl = this.context.getNative();
-        if (this.getIsFreed() || this.context.isValid() || gl === null) return;
-
-        if (this.vertex_buffer_object !== null) gl.deleteBuffer(this.vertex_buffer_object);
-        if (this.index_buffer_object !== null) gl.deleteBuffer(this.index_buffer_object);
-        if (this.vertex_array_object !== null) gl.deleteVertexArray(this.vertex_array_object);
-
-        this.vertex_buffer_object = null;
-        this.index_buffer_object = null;
-        this.vertex_array_object = null;
-    }
-
-    public getVertexCount() {
-        return this.n_vertices;
     }
 }
 
@@ -192,23 +192,19 @@ export function MeshRectangle(
     height: number = 1,
     color : RGBA = default_color
 ): Mesh {
-    const { r, g, b, a } = default_color;
-    const vertices = new Float32Array([
-        x,         y,          0, 0,  r, g, b, a,
-        x + width, y,          1, 0,  r, g, b, a,
-        x + width, y + height, 1, 1,  r, g, b, a,
-        x,         y + height, 0, 1,  r, g, b, a
-    ]);
-
-    const indices = new Uint16Array([
-        0, 1, 2,
-        0, 2, 3
-    ])
-
+    const { r, g, b, a } = color;
     return new Mesh(
         context,
-        vertices,
-        indices,
+        new Float32Array([
+            x,         y,          0, 0,  r, g, b, a,
+            x + width, y,          1, 0,  r, g, b, a,
+            x + width, y + height, 1, 1,  r, g, b, a,
+            x,         y + height, 0, 1,  r, g, b, a
+        ]),
+        new Uint16Array([
+            0, 1, 2,
+            0, 2, 3
+        ]),
         MeshDrawMode.TRIANGLES,
         MeshVertexFormat.XY_UV_RGBA
     );
@@ -608,7 +604,6 @@ export function MeshLine(
             prevIdx = currentIdx;
         }
 
-        // End cap
         const ecx = last.x;
         const ecy = last.y;
         const endAngle = Math.atan2(normalY[normalY.length - 2], normalX[normalX.length - 2]);

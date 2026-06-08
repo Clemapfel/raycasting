@@ -119,7 +119,7 @@ void main() {
     float noise = dirac(smoothstep(0.0, 1.0 - 0.3, sparse_worley_noise(vec3(world_position, time / 5.0), 0.25)));
     float background_noise = gradient_noise(vec3(world_position / 12.0, time / 4.0));
 
-    vec3 surface_texture = noise * lch_to_rgb(vec3(0.8, 1., background_noise + mix(0.2, 0.3, noise))) * (1. - clamp(background_noise, 0., 1.));
+    vec3 surface_texture = 0.8 * noise * lch_to_rgb(vec3(0.8, 1., background_noise + mix(0.2, 0.3, noise))) * (1. - clamp(background_noise, 0., 1.));
 
     rt_FragColor = black + vec4(surface_texture, 1.);
 }

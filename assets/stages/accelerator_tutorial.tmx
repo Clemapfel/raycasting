@@ -140,30 +140,6 @@
   <object id="643" type="BouncePad" x="-3632" y="1344">
    <polygon points="96,0 96,-32 400,-32 400,0"/>
   </object>
-  <object id="646" type="NPC" x="-2656" y="160">
-   <properties>
-    <property name="dialog_id" value="animalese_test"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="647" type="Path" x="-2336" y="80">
-   <properties>
-    <property name="is_paused" type="bool" value="true"/>
-    <property name="next" type="object" value="648"/>
-    <property name="target" type="object" value="649"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="648" type="PathNode" x="-2336" y="-336">
-   <point/>
-  </object>
-  <object id="649" type="MovableHitbox" x="-2512" y="-240" width="464" height="224"/>
-  <object id="650" type="OverlapTrigger" x="-2880" y="16" width="304" height="208">
-   <properties>
-    <property name="signal" value="unpause"/>
-    <property name="target" type="object" value="647"/>
-   </properties>
-  </object>
  </objectgroup>
  <objectgroup id="2" name="front">
   <object id="554" type="OneWayPlatform" x="-3152" y="1008">

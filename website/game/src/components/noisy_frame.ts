@@ -17,7 +17,7 @@ const noise_speed : number = 1 / 3; // multiplies seconds
 const default_background_overhang : number = 2; // px
 const default_outline_width : number = 4;
 const default_border_radius : number = 8;
-const default_background_color : RGBA = new RGBA(0, 0, 0, 1);
+const background_opacity = 0.98;
 
 export class NoisyFrame extends GLWidget {
     // cache
@@ -36,7 +36,8 @@ export class NoisyFrame extends GLWidget {
         const outline_width = style.outlineWidth ? parseFloat(style.outlineWidth) : default_outline_width;
         const margin = style.margin ? parseFloat(style.margin) : 0;
         const border_radius = style.borderRadius ? parseFloat(style.borderRadius) : default_border_radius;
-        const background_color = parseRGBA(DEFAULT_COLOR_BACKGROUND);
+        let background_color = parseRGBA(DEFAULT_COLOR_BACKGROUND);
+        background_color.a = background_opacity;
 
         this.reinitialize_mesh(
             margin, margin,
@@ -89,11 +90,6 @@ export class NoisyFrame extends GLWidget {
 
         this.mesh.replaceData(vertex_buffer, this.index_buffer);
          */
-    }
-
-    protected override unrealize() {
-        if (this.mesh !== undefined)
-            this.mesh.free();
     }
 
     // ### internal ###
@@ -334,8 +330,8 @@ export class NoisyFrame extends GLWidget {
         const background_r = background_color.r;
         const background_g = background_color.g;
         const background_b = background_color.b;
+        const background_a = background_color.a;
 
-        // center vertex
         const center_vertex_index = this.n_contour_vertices;
         vertex_buffer[vertex_data_offset++] = x + 0.5 * width;
         vertex_buffer[vertex_data_offset++] = y + 0.5 * height;
@@ -344,7 +340,7 @@ export class NoisyFrame extends GLWidget {
         vertex_buffer[vertex_data_offset++] = background_r;
         vertex_buffer[vertex_data_offset++] = background_g;
         vertex_buffer[vertex_data_offset++] = background_b;
-        vertex_buffer[vertex_data_offset++] = alpha;
+        vertex_buffer[vertex_data_offset++] = background_a;
 
         const background_start_i = center_vertex_index + 1;
 
@@ -372,7 +368,7 @@ export class NoisyFrame extends GLWidget {
             vertex_buffer[vertex_data_offset++] = background_r;
             vertex_buffer[vertex_data_offset++] = background_g;
             vertex_buffer[vertex_data_offset++] = background_b;
-            vertex_buffer[vertex_data_offset++] = alpha;
+            vertex_buffer[vertex_data_offset++] = background_a;
 
             const offset = 0; // inserted before background tris
             index_buffer[offset + background_index_offset++] = center_vertex_index;
@@ -380,7 +376,7 @@ export class NoisyFrame extends GLWidget {
             index_buffer[offset + background_index_offset++] = background_start_i + ((i + 1) % point_count);
         }
 
-        if (this.mesh !== undefined) this.mesh.free();
+        if (this.mesh !== undefined) this.mesh.deallocate();
         this.mesh = new Mesh(this.context, vertex_buffer, index_buffer, MeshDrawMode.TRIANGLES);
     }
 }

@@ -7,6 +7,23 @@ export abstract class GLWidget extends HTMLElement {
     private native_canvas : HTMLCanvasElement;
     private delta : Time = new Time();
 
+    private static visibility_changed_listeners : Set<WeakRef<GLWidget>> = new Set<WeakRef<GLWidget>>();
+    private static handle_visibility_change = () => {
+        if (document.visibilityState === 'visible') {
+            let to_remove : WeakRef<GLWidget>[] = [];
+            for (const ref of GLWidget.visibility_changed_listeners) {
+                const widget_maybe = ref.deref();
+                if (widget_maybe === undefined)
+                    to_remove.push(ref);
+                else if (widget_maybe!.getIsRealized())
+                    widget_maybe!.draw();
+            }
+
+            for (const ref of to_remove)
+                GLWidget.visibility_changed_listeners.delete(ref);
+        }
+    };
+
     protected async realize() : Promise<void> {}
     protected unrealize() : void {}
     protected draw() : void {}
@@ -25,7 +42,7 @@ export abstract class GLWidget extends HTMLElement {
     protected onFocusGained(event: FocusEvent) : void {}
     protected onFocusLost(event: FocusEvent) : void {}
 
-    public isRealized() : boolean {
+    public getIsRealized() : boolean {
         return this.is_realized;
     }
 
@@ -46,34 +63,41 @@ export abstract class GLWidget extends HTMLElement {
 
         this.resize_observer = new ResizeObserver(entries => {
             for (const entry of entries) {
-                let physical_width = 0;
-                let physical_height = 0;
+                let w, h;
 
-                if (entry.devicePixelContentBoxSize && entry.devicePixelContentBoxSize.length > 0) {
-                    physical_width = entry.devicePixelContentBoxSize[0].inlineSize;
-                    physical_height = entry.devicePixelContentBoxSize[0].blockSize;
+                // force aspect ratio, otherwise the gl canvas elements can appear stretched
+                const aspect_ratio = this.native_canvas.clientHeight / this.native_canvas.clientWidth;
+
+                if (entry.devicePixelContentBoxSize) {
+                    w = entry.devicePixelContentBoxSize[0].inlineSize;
+                } else if (entry.contentBoxSize) {
+                    const size = Array.isArray(entry.contentBoxSize)
+                        ? entry.contentBoxSize[0]
+                        : entry.contentBoxSize;
+                    w = Math.round(size.inlineSize * devicePixelRatio);
                 } else {
-                    const dpr = window.devicePixelRatio || 1;
-                    physical_width = Math.round(entry.contentRect.width * dpr);
-                    physical_height = Math.round(entry.contentRect.height * dpr);
+                    w = Math.round(entry.contentRect.width * devicePixelRatio);
                 }
 
-                if (this.native_canvas.width === physical_width &&
-                    this.native_canvas.height === physical_height) {
-                    continue;
+                h = Math.round(w * aspect_ratio)
+
+                if (this.native_canvas.width !== w || this.native_canvas.height !== h) {
+                    this.native_canvas.width = w;
+                    this.native_canvas.height = h;
+
+                    if (this.context && this.context.isValid()) {
+                        this.context._notify_size_changed(w, h);
+                    }
+
+                    this.size.x = w;
+                    this.size.y = h;
+
+                    if (this.is_realized)
+                        this.reformat(w, h);
                 }
 
-                this.native_canvas.width = physical_width;
-                this.native_canvas.height = physical_height;
-
-                if (this.context && this.context.isValid()) {
-                    this.context._notify_size_changed(physical_width, physical_height);
-                }
-
-                this.size.x = physical_width;
-                this.size.y = physical_height;
-                this.reformat(physical_width, physical_height);
-                this.draw();
+                if (this.is_realized)
+                    this.draw();
             }
         });
 
@@ -130,20 +154,24 @@ export abstract class GLWidget extends HTMLElement {
         await this.realize(); // yield to browser
         this.is_realized = true;
         this.frame_identifier = requestAnimationFrame(this.on_request_animation_frame);
+
+        GLWidget.visibility_changed_listeners.add(new WeakRef<GLWidget>(this));
     }
 
     public disconnectedCallback() {
         this.resize_observer.disconnect();
-        if (this.frame_identifier !== undefined) {
+        if (this.frame_identifier !== undefined)
             cancelAnimationFrame(this.frame_identifier);
-        }
-        if (this.is_realized) {
+
+        if (this.is_realized)
             this.unrealize();
-        }
+
+        GLWidget.visibility_changed_listeners.delete(new WeakRef<GLWidget>(this));
     }
 
     private on_request_animation_frame = (timestamp: DOMHighResTimeStamp) => {
         if (!this.is_realized) return;
+
         const delta = this.last_timestamp === undefined ? 0 : (timestamp - this.last_timestamp);
         this.last_timestamp = timestamp;
         this.delta.from(delta, TimeUnit.MILLISECONDS);

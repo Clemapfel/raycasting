@@ -5,11 +5,12 @@ import { Shader, DEFAULT_TRANSFORM_NAME } from "../common/shader.ts";
 import { Time } from "../common/time.ts";
 
 const default_elapsed_name = "elapsed";
+const default_screen_size_name = "screen_size;"
 
 export class ShaderCanvas extends GLWidget {
     private shader_program? : Shader;
     private quad? : Mesh;
-    private elapsed : Time = new Time(Math.random());
+    private elapsed : Time = new Time(0);
 
     protected override async realize() {
         const source_code = this.getAttribute("fragment-shader-source");
@@ -18,15 +19,10 @@ export class ShaderCanvas extends GLWidget {
 
         this.shader_program = new Shader(this.context, source_code);
     }
-    
-    protected override unrealize() : void {
-        if (this.shader_program !== undefined) 
-            this.shader_program.free();
-    }
 
     protected override reformat(width: number, height: number): void {
-        if (this.quad !== undefined) 
-            this.quad.free();
+        if (this.quad !== undefined)
+            this.quad.deallocate();
 
         this.quad = new Mesh(
             this.context,
@@ -47,9 +43,9 @@ export class ShaderCanvas extends GLWidget {
     }
 
     protected override draw(): void {
-        if (this.shader_program === undefined || this.quad === undefined) return;
+        if (!this.getIsRealized() ||this.shader_program === undefined || this.quad === undefined) return;
 
-        if (this.shader_program.hasUniform(default_elapsed_name))
+        if (this.shader_program.hasUniform(default_elapsed_name) && this !== undefined && this.elapsed !== undefined && this.elapsed.asSeconds() !== undefined)
             this.shader_program.setUniform(default_elapsed_name, this.elapsed.asSeconds());
 
         this.shader_program.bind();

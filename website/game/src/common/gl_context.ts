@@ -183,7 +183,12 @@ export class GLContext {
     public isValid() {
         // keep this method, isValid() could represent a more
         // complex state separate from this.gl later on
-        return this.gl !== null;
+
+        const result = this.gl !== null && !this.gl.isContextLost();
+        if (!result)
+            throw Error("Trying to use GLContext, but it is invalid");
+
+        return result;
     }
 
     /** **/
@@ -198,7 +203,7 @@ export class GLContext {
     }
 
     /** **/
-    public clear(r: number = 0, g: number = 0, b: number = 0, a: number = 1): void {
+    public clear(r: number = 0, g: number = 0, b: number = 0, a: number = 0): void {
         if (!this.isValid() || this.gl === null) return;
         const gl = this.gl!
 
@@ -439,14 +444,11 @@ export class GLContext {
         const size_location = shader.getUniformLocation(DEFAULT_SCREEN_SIZE_NAME);
         if (!flags.screen_size_bound && size_location !== undefined) {
             const top = this.render_texture_stack.peek();
-            if (top === undefined) {
-                // use backbuffer dimension
-                gl.uniform2f(size_location, gl.canvas.width, gl.canvas.height)
-            }
-            else {
-                // use bound render target dimension
-                gl.uniform2f(size_location, top.getWidth(), top.getHeight());
-            }
+            gl.uniform2f(
+                size_location,
+                top ? top.getWidth() : gl.drawingBufferWidth,
+                top ? top.getHeight() : gl.drawingBufferHeight
+            );
         }
 
         const color_location = shader.getUniformLocation(DEFAULT_COLOR_NAME);
@@ -519,7 +521,7 @@ export class GLContext {
     }
 
     /** @internal */
-    public _notify_resource_allocated(object : GLResource) {
+    public _notify_resources_added(object : GLResource) {
         if (!this.isValid() || this.gl === null) return;
 
         this.resources.pushBack(new WeakRef(object))
@@ -527,37 +529,35 @@ export class GLContext {
 
     /** reallocate all resources after context is regained **/
     private reallocate() {
-        let to_remove : LinkedListNode<WeakRef<GLResource>>[] = [];
+        let to_remove: LinkedListNode<WeakRef<GLResource>>[] = [];
         for (const node of this.resources) {
-            if (node.value.deref() === undefined)
+            const resource = node.value.deref();
+            if (resource !== undefined && !resource.getIsAllocated())
+                resource.allocate();
+            else
                 to_remove.push(node);
         }
 
         for (const node of to_remove)
             this.resources.remove(node);
-        
-        for (const node of this.resources) {
-            node.value.deref()!.allocate();
-        }
-        
+
         this.is_allocated = true;
     }
 
     /** deallocate all resources when context is lost **/
     private deallocate() {
-        let to_remove : LinkedListNode<WeakRef<GLResource>>[] = [];
+        let to_remove: LinkedListNode<WeakRef<GLResource>>[] = [];
         for (const node of this.resources) {
-            if (node.value.deref() === undefined)
+            const resource = node.value.deref();
+            if (resource !== undefined && resource.getIsAllocated())
+                resource.deallocate();
+            else
                 to_remove.push(node);
         }
 
         for (const node of to_remove)
             this.resources.remove(node);
 
-        for (const node of this.resources) {
-            node.value.deref()!.deallocate();
-        }
-        
         this.is_allocated = false;
     }
 }
