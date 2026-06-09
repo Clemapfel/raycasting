@@ -206,6 +206,7 @@ function rt.VoronoiTesselation:tesselate()
         point_cells[index] = {}
     end
 
+    -- compute circumcenter of each delaunay triangle and assign it to the three neighboring seed cells
     for triangle_index = 1, #self._tri_indices, 3 do
         local i1 = self._tri_indices[triangle_index]
         local i2 = self._tri_indices[triangle_index + 1]
@@ -258,6 +259,7 @@ function rt.VoronoiTesselation:tesselate()
             clear(vertex_indices)
             clear(angles)
 
+            -- compute angle of each circumcenter relative to the seed, then sort to form a convex polygon
             for vertex_i = 1, n_vertices do
                 vertex_indices[vertex_i] = vertex_i
                 angles[vertex_i] = math.fast_angle(
@@ -268,6 +270,7 @@ function rt.VoronoiTesselation:tesselate()
 
             table.sort(vertex_indices, comparator)
 
+            -- emit deduplicated polygon vertices in sorted order
             local polygon = {}
             local output_index = 1
             local last_x, last_y
@@ -292,6 +295,7 @@ function rt.VoronoiTesselation:tesselate()
                         local v = math.dot2(relative_x, relative_y, basis_v_x, basis_v_y) / basis_v_length_squared
 
                         if u < 0 - clip_eps or u > 1 + clip_eps or v < 0 - clip_eps or v > 1 + clip_eps then
+                            -- cell extends outside the rotated rectangle
                             needs_clipping = true
                         end
                     end
