@@ -94,7 +94,7 @@ float get_surface_height(vec2 p, float time) {
     vec2 uv = p;
     vec2 uv_raw = p;
 
-    const float scale = 2.0;
+    const float scale = 2.0 ;
     float gradient_noise_scale = 3.0 * scale;
     float worley_noise_scale = 1.5 * scale;
 

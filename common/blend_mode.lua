@@ -49,7 +49,6 @@ function rt.graphics.set_blend_mode(blend_mode_rgb, blend_mode_alpha)
     local rgb_operation, rgb_source_factor, rgb_destination_factor
     local alpha_operation, alpha_source_factor, alpha_destination_factor
 
-    -- Map RGB blend mode
     if blend_mode_rgb == rt.BlendMode.NONE then
         rgb_operation = rt.BlendOperation.ADD
         rgb_source_factor = rt.BlendFactor.ZERO
@@ -83,7 +82,6 @@ function rt.graphics.set_blend_mode(blend_mode_rgb, blend_mode_alpha)
         return
     end
 
-    -- Map Alpha blend mode
     if blend_mode_alpha == rt.BlendMode.NONE then
         alpha_operation = rt.BlendOperation.ADD
         alpha_source_factor = rt.BlendFactor.ZERO

@@ -1,40 +1,23 @@
 if rt == nil then rt = {} end
 if rt.contour == nil then rt.contour = {} end
 
--- Distribute circles of different radii over a polygon defined by triangles
--- using an initial triangular lattice and Lloyd relaxation to equalize density.
---
--- polygon_tris: array of triangles, each as 6 numbers {ax,ay,bx,by,cx,cy}
--- circle_i_to_radius: array of radii; length defines number of circles
---
--- Returns:
---   centers: flat array [x1,y1,x2,y2,...] length = 2 * #circle_i_to_radius
---
--- Structural optimizations:
--- - O(1) triangle sampling via Walker alias method + precomputed bases (a, ab, ac).
--- - Spatial hash grid for accelerated nearest-center search in Lloyd iterations.
--- - Reuse buffers across iterations to reduce allocations.
 function rt.contour.distribute_circles(polygon_tris, circle_i_to_radius)
     local N = #circle_i_to_radius
     if N == 0 then return {} end
     if polygon_tris == nil or #polygon_tris == 0 then return {} end
 
-    -- Local aliases for performance and fallback RNG
     local sqrt, abs, max, min, floor = math.sqrt, math.abs, math.max, math.min, math.floor
     local random = (love and love.math and love.math.random) or math.random
     local distance, cross, mix = math.distance, math.cross, math.mix
     local EPS = math.eps or 1e-9
     local SQRT3 = sqrt(3.0)
 
-    -- Precompute triangle stats and global bbox
     local tri_count = #polygon_tris
     local tri_areas = {}
     local total_area = 0.0
     local minx, miny = 1/0, 1/0
     local maxx, maxy = -1/0, -1/0
 
-    -- For faster barycentric sampling: store triangle bases: a, ab, ac per tri
-    -- Layout: [ax,ay, abx,aby, acx,acy] per triangle
     local tri_basis = {}
     tri_basis[6 * tri_count] = nil
 
@@ -69,22 +52,19 @@ function rt.contour.distribute_circles(polygon_tris, circle_i_to_radius)
         return {}
     end
 
-    -- Build Walker alias table for O(1) triangle sampling
-    -- prob[i] in [0,1], alias[i] in [1..tri_count]
     local prob = {}
     local alias = {}
     prob[tri_count] = nil
     alias[tri_count] = nil
 
     do
-        -- Normalize areas
         local scaled = {}
         scaled[tri_count] = nil
         local inv_total = 1.0 / total_area
         for i = 1, tri_count do
             scaled[i] = tri_areas[i] * inv_total * tri_count
         end
-        -- Worklists
+
         local small, large = {}, {}
         for i = 1, tri_count do
             if scaled[i] < 1.0 then
@@ -117,9 +97,7 @@ function rt.contour.distribute_circles(polygon_tris, circle_i_to_radius)
         end
     end
 
-    -- O(1) sample of a triangle index
     local function sample_triangle_index()
-        -- random() in [0,1), scale by tri_count
         local r = random() * tri_count
         local k = floor(r) + 1
         local frac = r - floor(r)
@@ -130,12 +108,8 @@ function rt.contour.distribute_circles(polygon_tris, circle_i_to_radius)
         end
     end
 
-    -- Uniform sample inside polygon by:
-    -- 1) Choose triangle with alias sampler
-    -- 2) Barycentric sample inside chosen triangle using bases
     local function sample_point_in_polygon()
         local tri_index = sample_triangle_index()
-        -- Barycentric fold
         local u = random()
         local v = random()
         if (u + v) > 1.0 then
@@ -170,9 +144,6 @@ function rt.contour.distribute_circles(polygon_tris, circle_i_to_radius)
         return not (has_neg and has_pos)
     end
 
-    -- For lattice inclusion, accelerate "point in polygon (triangulation)" by
-    -- checking each triangle's bbox and doing the triangle test.
-    -- This is kept simple since this step runs once, while Lloyd runs multiple times.
     local tri_bbox = {}
     tri_bbox[4 * tri_count] = nil
     do
@@ -208,7 +179,6 @@ function rt.contour.distribute_circles(polygon_tris, circle_i_to_radius)
         return false
     end
 
-    -- Build lattice points within expanded bbox, filter by polygon inclusion
     local candidates = {}
     local row = 0
     local y = miny - h
@@ -228,7 +198,6 @@ function rt.contour.distribute_circles(polygon_tris, circle_i_to_radius)
         y = y + h
     end
 
-    -- Top up if not enough lattice points (use uniform sampling inside polygon)
     local need = N - floor(#candidates / 2)
     if need > 0 then
         for _ = 1, need do
@@ -238,7 +207,6 @@ function rt.contour.distribute_circles(polygon_tris, circle_i_to_radius)
         end
     end
 
-    -- Shuffle candidates (Fisher-Yates on pairs)
     local cand_pairs = floor(#candidates / 2)
     for i = cand_pairs, 2, -1 do
         local j = 1 + floor(random() * i)
@@ -257,28 +225,24 @@ function rt.contour.distribute_circles(polygon_tris, circle_i_to_radius)
         centers[ci+1] = candidates[si+1]
     end
 
-    -- Lloyd parameters (iterations kept modest; acceleration is structural)
     local n_lloyd_iterations = 4
     local alpha = 0.5
     local radii = circle_i_to_radius
     local tiny = EPS
 
-    -- Preallocate working buffers for reuse
     local sums = {}
     local counts = {}
     sums[2 * N] = nil
     counts[N] = nil
 
-    -- Spatial grid to accelerate nearest-center queries
-    -- Use lattice spacing 'a' as grid cell size
     local cell = a
     if cell < EPS then cell = 1.0 end
     local inv_cell = 1.0 / cell
     local grid_w = max(1, floor((maxx - minx) * inv_cell) + 1)
     local grid_h = max(1, floor((maxy - miny) * inv_cell) + 1)
     local grid_size = grid_w * grid_h
-    local grid = {}          -- grid[cell_idx] = array of center indices
-    local center_cell_ix = {} -- per-center cached cell index (for rebuilding)
+    local grid = {}
+    local center_cell_ix = {}
 
     local function cell_index(ix, iy)
         return iy * grid_w + ix + 1
@@ -292,7 +256,6 @@ function rt.contour.distribute_circles(polygon_tris, circle_i_to_radius)
 
     local function rebuild_grid()
         for i = 1, grid_size do grid[i] = nil end
-        -- Populate grid
         for i = 1, N do
             local ci = (i - 1) * 2 + 1
             local x = centers[ci]
@@ -311,7 +274,6 @@ function rt.contour.distribute_circles(polygon_tris, circle_i_to_radius)
     end
 
     local function nearest_center_scaled(sx, sy)
-        -- Query around sample's cell, expanding rings until at least one candidate is found.
         local ix = clampi(floor((sx - minx) * inv_cell), 0, grid_w - 1)
         local iy = clampi(floor((sy - miny) * inv_cell), 0, grid_h - 1)
 
@@ -355,7 +317,6 @@ function rt.contour.distribute_circles(polygon_tris, circle_i_to_radius)
             r = r + 1
         end
 
-        -- Fallback (should be rare): if no buckets found (empty grid), do a linear scan
         if best_i == nil then
             best_i = 1
             local ci = 1
@@ -375,13 +336,11 @@ function rt.contour.distribute_circles(polygon_tris, circle_i_to_radius)
     end
 
     local function lloyd_iteration()
-        -- Zero buffers
         for i = 1, 2 * N do sums[i] = 0.0 end
         for i = 1, N do counts[i] = 0 end
 
         rebuild_grid()
 
-        -- Monte Carlo samples proportional to N
         local M = min(max(12 * N, 400), 12000)
 
         for _ = 1, M do
@@ -394,7 +353,6 @@ function rt.contour.distribute_circles(polygon_tris, circle_i_to_radius)
             counts[best_i] = counts[best_i] + 1
         end
 
-        -- Update centers to centroids (with mixing)
         for i = 1, N do
             local c = counts[i]
             local ci = (i - 1) * 2 + 1
@@ -406,7 +364,6 @@ function rt.contour.distribute_circles(polygon_tris, circle_i_to_radius)
                 centers[ci] = mix(ox, meanx, alpha)
                 centers[ci + 1] = mix(oy, meany, alpha)
             else
-                -- Rare: re-seed to a random valid point
                 local rx, ry = sample_point_in_polygon()
                 centers[ci] = rx
                 centers[ci + 1] = ry

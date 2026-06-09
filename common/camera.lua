@@ -168,14 +168,12 @@ function rt.Camera:constrain(x, y)
     local extent_x = hw * cos_a + hh * sin_a
     local extent_y = hw * sin_a + hh * cos_a
 
-    -- 4. Apply constraints across all registered bounds
     for bounds in keys(self._bounds) do
-        -- Clamp X
         local min_x = bounds.x + extent_x
         local max_x = bounds.x + bounds.width - extent_x
 
         if max_x < min_x then
-            x = bounds.x + bounds.width / 2 -- Center if screen is wider than bounds
+            x = bounds.x + bounds.width / 2
         else
             x = math.clamp(x, min_x, max_x)
         end
@@ -185,7 +183,7 @@ function rt.Camera:constrain(x, y)
         local max_y = bounds.y + bounds.height - extent_y
 
         if max_y < min_y then
-            y = bounds.y + bounds.height / 2 -- Center if screen is taller than bounds
+            y = bounds.y + bounds.height / 2
         else
             y = math.clamp(y, min_y, max_y)
         end
@@ -320,7 +318,6 @@ function rt.Camera:update(delta)
     t:scale(self._current_scale, self._current_scale, 1)
     t:scale(rt.get_pixel_scale())
     t:rotate_z(self._current_angle)
-    -- Snap to integer pixels only at draw time to avoid blur; this also matches our conservative _constrain().
     t:translate(-_floor(self._current_x), -_floor(self._current_y), 0)
 
     self._world_bounds_needs_update = true

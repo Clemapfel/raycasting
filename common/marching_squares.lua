@@ -5,7 +5,7 @@ require "common.common"
 --- @param flat_points table (flat array)
 --- @param closed boolean (true if the contours are closed, false if open)
 --- @return table (flat array with collinear points removed)
-function dissolve_colinear_points(flat_points, closed)
+local function dissolve_colinear_points(flat_points, closed)
     local function is_colinear(ax, ay, bx, by, cx, cy)
         local cross_product = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax)
         return math.abs(cross_product) < 1e-6
