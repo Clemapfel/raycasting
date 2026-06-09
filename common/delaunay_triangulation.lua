@@ -1,6 +1,7 @@
 require "common.meta"
 
 --- @class rt.DelaunayTriangulation
+--- @see https://github.com/mapbox/delaunator
 rt.DelaunayTriangulation = meta.class("DelaunayTriangulation")
 
 --- @brief
