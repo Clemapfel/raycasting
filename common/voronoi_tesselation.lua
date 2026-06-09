@@ -84,7 +84,6 @@ function rt.VoronoiTesselation:generate_seeds(
 
     love.math.setRandomSeed(0)
 
-    dbg(n_particles)
     for particle_i = 1, n_particles do
         local t_raw = (particle_i - 1) / n_particles
         local t = t_easing(t_raw)
@@ -187,7 +186,7 @@ function rt.VoronoiTesselation:tesselate()
 
     self._tris = {}
     self._polygons = {}
-    self._polygon_to_needs_clipping = {} -- Restored tracking table
+    self._polygon_to_needs_clipping = {}
 
     local point_eps = 1
     local determinant_eps = 1e-6
@@ -196,7 +195,7 @@ function rt.VoronoiTesselation:tesselate()
     local seeds = self._seeds
     local top_left_x, top_left_y, top_right_x, top_right_y, bottom_right_x, bottom_right_y, bottom_left_x, bottom_left_y = table.unpack(self._rect)
 
-    -- Transform basis to check if cell vertices are inside the bounding box
+    -- transform basis to check if cell vertices are inside the bounding box
     local basis_u_x, basis_u_y = math.subtract2(top_right_x, top_right_y, top_left_x, top_left_y)
     local basis_v_x, basis_v_y = math.subtract2(bottom_left_x, bottom_left_y, top_left_x, top_left_y)
     local basis_u_length_squared = math.dot2(basis_u_x, basis_u_y, basis_u_x, basis_u_y)
