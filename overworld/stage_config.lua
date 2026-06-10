@@ -30,7 +30,9 @@ function ow.StageConfig:instantiate(stage_id)
 
     self._id = stage_id
 
-    self._config = bd.load(self._path)
+    local content = bd.read_file(self._path)
+    self._config = bd.load_string(content)
+    self._hash = string.sha256(content)
 
     local _get = function(x, key)
         local out = x[key]
@@ -396,6 +398,11 @@ end
 --- @brief
 function ow.StageConfig:get_id()
     return self._id
+end
+
+--- @brief
+function ow.StageConfig:get_hash()
+    return self._hash
 end
 
 --- @brief

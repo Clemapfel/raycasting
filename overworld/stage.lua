@@ -93,12 +93,14 @@ function ow.Stage:instantiate(scene, id)
     -- TODO
     self._input = rt.InputSubscriber()
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
-        if which == "r" then
+        if which == rt.KeyboardKey.R then
             self._player_recorder:record()
-        elseif which == "t" then
+        elseif which == rt.KeyboardKey.T then
             self._player_recorder:play()
-        elseif which == "ö" then
-            self._player_recorder:export("test.csv")
+        elseif which == rt.KeyboardKey.E then
+            local encoded = self._player_recorder:encode()
+            dbg(encoded)
+            self._player_recorder:decode(encoded)
         end
     end)
     -- TODO
@@ -851,4 +853,9 @@ end
 --- @brief
 function ow.Stage:get_is_frozen()
     return self._world:get_is_frozen()
+end
+
+--- @brief
+function ow.Stage:get_config_hash()
+    return self._config:get_hash()
 end

@@ -629,23 +629,17 @@ function bd.load(path, should_sandbox, fenv)
         rt.error("In bd.load: error when running file at `", path, "`: ", config_or_error)
         return nil
     end
-    
+
     return config_or_error
 end
 
---- @brief
-function bd.load(path, should_sandbox, fenv)
+function bd.load_string(source, should_sandbox, fenv)
     if should_sandbox == nil then should_sandbox = true end
-    meta.assert(path, "String", should_sandbox, "Boolean")
+    meta.assert(source, "String", should_sandbox, "Boolean")
 
-    local load_success, chunk_or_error, love_error = pcall(love.filesystem.load, path)
+    local load_success, chunk_or_error = pcall(loadstring or load, source)
     if not load_success then
-        rt.error("In bd.load: error when parsing file at `", path, "`: ", chunk_or_error)
-        return nil
-    end
-
-    if love_error ~= nil then
-        rt.error("In bd.load: error when loading file at `", path, "`: ", love_error)
+        rt.error("In bd.load_string: error when parsing source string: ", chunk_or_error)
         return nil
     end
 
@@ -666,7 +660,7 @@ function bd.load(path, should_sandbox, fenv)
 
     local chunk_success, config_or_error = pcall(chunk)
     if not chunk_success then
-        rt.error("In bd.load: error when running file at `", path, "`: ", config_or_error)
+        rt.error("In bd.load_string: error when running source string: ", chunk_or_error)
         return nil
     end
 

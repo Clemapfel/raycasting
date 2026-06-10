@@ -1,6 +1,8 @@
 require "common.player"
 require "common.input_manager"
 require "common.path"
+require "common.version"
+require "common.byte_data"
 
 require "overworld.player_recorder_body"
 
@@ -9,7 +11,9 @@ rt.settings.overworld.player_recorder = {
     correction_threshold = 1 / 3 * rt.settings.player.radius, -- pixels
 
     path_directory = "assets/paths",
-    path_directory_alias = "paths"
+    path_directory_alias = "paths",
+    signature = "THIS_IS_VIRUS_ENJOY_BEING_PWNED",
+    fps = 120
 }
 
 --- @class ow.PlayerRecorder
@@ -29,9 +33,10 @@ function ow.PlayerRecorder:instantiate(stage, scene, x, y, is_collidable)
     self._player = scene:get_player()
 
     -- recording
-    self._position_data = {}
-    self._is_bubble_data = {}
+    self._last_x, self._last_y = nil, nil
+    self._nodes = {} -- recorded player path
     self._path_duration = 0
+    self._path_time_step = 1 / rt.settings.overworld.player_recorder.fps
 
     -- playback
     self._path_elapsed = 0
@@ -51,10 +56,19 @@ end
 function ow.PlayerRecorder:_snapshot(step)
     local px, py = self._player:get_physics_body():get_position()
 
-    table.insert(self._position_data, px)
-    table.insert(self._position_data, py)
-    table.insert(self._is_bubble_data, self._player:get_is_bubble())
+    if self._player:get_is_disabled() then
+        px, py = self._last_x or px, self._last_y or py
+    end
+
+    table.insert(self._nodes, {
+        x = px,
+        y = py,
+        is_bubble = self._player:get_is_bubble()
+    })
     self._path_duration = self._path_duration + step
+
+    self._last_x = px
+    self._last_y = py
 end
 
 --- @brief
@@ -62,22 +76,48 @@ function ow.PlayerRecorder:record()
     if self._state == _STATE_RECORDING then return end
     self._state = _STATE_RECORDING
 
+    self._last_x, self._last_y = self._player:get_physics_body():get_position()
+
     self._path_duration = 0
-    self._position_data = {}
-    self._is_bubble_data = {}
+    self._nodes = {}
     self._recording_elapsed = 0
     self._path = nil
     self._body:get_physics_body():set_is_enabled(false)
+end
+
+local generate_signature = function()
+    local out = string.reverse(
+        string.sha256(rt.settings.overworld.player_recorder.signature)
+    )
+
+    local hex_chars = "0123456789abcdef"
+    out = out:gsub(".", function(c, i) end)
+
+    local chars = {}
+    for i = 1, #out do
+        local c = out:sub(i, i)
+        local pos = hex_chars:find(c, 1, true)
+        local new_pos = ((pos - 1 + i) % 16) + 1
+        chars[i] = hex_chars:sub(new_pos, new_pos)
+    end
+
+    return table.concat(chars)
 end
 
 --- @brief
 function ow.PlayerRecorder:play()
     self._state = _STATE_PLAYBACK
 
+    local data = {}
+    for _, node in ipairs(self._nodes) do
+        table.insert(data, node.x)
+        table.insert(data, node.y)
+    end
+
     if self._path == nil then
-        self._path = rt.Path(self._position_data)
+        self._path = rt.Path(data)
     else
-        self._path:create_from(self._position_data)
+        self._path:create_from(data)
     end
 
     self._path_elapsed = 0
@@ -87,7 +127,7 @@ end
 
 --- @brief
 function ow.PlayerRecorder:update(delta)
-    local step = rt.SceneManager:get_timestep() * rt.settings.overworld.player_recorder.delta_time_step_factor
+    local step = self._path_time_step * rt.settings.overworld.player_recorder.delta_time_step_factor
 
     if self._state == _STATE_IDLE then return end
     -- noop
@@ -118,7 +158,7 @@ function ow.PlayerRecorder:update(delta)
         )
 
         -- find closest two bubble samples, interpolate based on elapsed time
-        local n = #self._is_bubble_data
+        local n = #self._nodes
         if n > 0 then
             -- Convert elapsed time to sample index (floating point)
             local sample_f = self._path_elapsed / step
@@ -132,8 +172,8 @@ function ow.PlayerRecorder:update(delta)
             local alpha = sample_f - (i0 - 1)
             alpha = math.clamp(alpha, 0, 1)
 
-            local b0 = self._is_bubble_data[i0]
-            local b1 = self._is_bubble_data[i1]
+            local b0 = self._nodes[i0].is_bubble
+            local b1 = self._nodes[i1].is_bubble
 
             local is_bubble
             if b0 == b1 then
@@ -181,112 +221,224 @@ do -- mount paths folder
     )
 end
 
-local _value_separator = " "
-local _line_separator = "\n"
-
-local _string_to_boolean = function(str)
-    if str == "1" then
-        return true
-    elseif str == "0" then
-        return false
-    else
-        rt.error("In ow.PlayerRecorder.import_from_string: string contains `", str, "` for boolean field, which is not `0` or `1`")
-        return
-    end
-end
-
-local _string_to_number = function(str)
-    local success, number_or_error = pcall(tonumber, str)
-    if not success or number_or_error == nil then
-        rt.error("In ow.PlayerRecorder.import_from_string: string contains `", str, "` which is not a number")
-        return
-    else
-        return number_or_error
-    end
-end
-
-local _number_to_string = function(number)
-    return string.format("%.3f", number)
-end
-
-local _boolean_to_string = function(b)
-    return ternary(b, "1", "0")
-end
-
---- @brief
-function ow.PlayerRecorder:export_to_string()
-    local points = self._path:get_points()
-    rt.assert(#self._is_bubble_data == #points / 2)
-
-    local to_concat = {}
-    local bubble_i = 1
-    for i = 1, #points, 2 do
-        local x = _number_to_string(points[i+0])
-        local y = _number_to_string(points[i+1])
-        local is_bubble = _boolean_to_string(self._is_bubble_data[bubble_i])
-
-        table.insert(to_concat,
-            table.concat({ x, y, is_bubble }, _value_separator)
-        )
-        bubble_i = bubble_i + 1
+do
+    local n_digits_after_decimal = 2
+    local float_to_int32 = function(t)
+        local result = math.floor(t * 10 ^ n_digits_after_decimal)
+        if result < -1 * (2 ^ 32) or result > 2 ^ 31 -1 then
+            rt.error("In PlayerRecorder: unable to represent coordinate `", t, "` as an int32")
+        end
+        return result
     end
 
-    table.insert(to_concat, tostring(self._path_duration))
-    return table.concat(to_concat, _line_separator)
-end
+    local int32_to_float = function(t)
+        return t / 10 ^ n_digits_after_decimal
+    end
 
---- @brief
-function ow.PlayerRecorder:import_from_string(to_import_from, origin_x, origin_y, interpolate, loop)
-    local separated = { string.split(to_import_from, "\n") }
-    local duration = _string_to_number(separated[#separated]) -- validate duration too
-    if duration == nil then return end
+    -- data formats
+    local header_format, node_format = {}, {}
 
-    -- last number is path duration
-    table.remove(separated, #separated)
+    local FLOAT64 = rt.ByteDataFormat.FLOAT64
+    local FLOAT32 = rt.ByteDataFormat.FLOAT32
+    local INT32 = rt.ByteDataFormat.INT32
+    local UINT32 = rt.ByteDataFormat.UINT32
+    local INT16 = rt.ByteDataFormat.INT16
+    local UINT16 = rt.ByteDataFormat.UINT16
+    local INT8 = rt.ByteDataFormat.INT8
+    local UINT8 = rt.ByteDataFormat.UINT8
+    local STRING = "STRING"
 
-    local points, bubble_data = {}, {}
-    for line_i, line in ipairs(separated) do
-        local parts = { string.split(line, _value_separator) }
+    local functions = rt.ByteData._format_to_getter_setter
+    local formats = rt.ByteDataFormat
 
-        if #parts ~= 3 then
-            rt.error("In ow.PlayerRecorder.import_from_string: line ", line_i,
-                " has ", #parts, " values instead of 3")
+    local type_to_setter = {
+        [FLOAT64] = functions[formats.FLOAT64].set,
+        [FLOAT32] = functions[formats.FLOAT32].set,
+        [INT32] = functions[formats.INT32].set,
+        [UINT32] = functions[formats.UINT32].set,
+        [INT16] = functions[formats.INT16].set,
+        [UINT16] = functions[formats.UINT16].set,
+        [INT8] = functions[formats.INT8].set,
+        [UINT8] = functions[formats.UINT8].set,
+        [STRING] = "setString"
+    }
+
+    local type_to_getter = {
+        [FLOAT64] = functions[formats.FLOAT64].get,
+        [FLOAT32] = functions[formats.FLOAT32].get,
+        [INT32] = functions[formats.INT32].get,
+        [UINT32] = functions[formats.UINT32].get,
+        [INT16] = functions[formats.INT16].get,
+        [UINT16] = functions[formats.UINT16].get,
+        [INT8] = functions[formats.INT8].get,
+        [UINT8] = functions[formats.UINT8].get,
+        [STRING] = "getString"
+    }
+
+    local add = function(format, id, type, n_bytes)
+        if format.size == nil then format.size = 0 end
+        format[id] = {
+            offset = format.size,
+            id = id,
+            type = type,
+            setter = type_to_setter[type],
+            getter = type_to_getter[type],
+            length = n_bytes or 0 -- Store exact byte length for strings
+        }
+
+        n_bytes = n_bytes or rt.ByteData.format_to_n_bytes(type)
+        format.size = format.size + n_bytes
+    end
+
+    local GAME_VERSION_MAJOR = "GAME_VERSION_MAJOR"
+    local GAME_VERSION_MINOR = "GAME_VERSION_MINOR"
+    local FPS = "FPS"
+    local DURATION = "DURATION"
+    local TIME = "TIME"
+    local N_NODES = "N_NODES"
+    local LEVEL_SHA256 = "LEVEL_SHA256"
+    local LEVEL_ID = "LEVEL_NAME"
+    local SIGNATURE = "SIGNATURE"
+
+    local X_POSITION = "X_POSITION"
+    local Y_POSITION = "Y_POSITION"
+    local IS_BUBBLE  = "IS_BUBBLE"
+
+    -- header format
+    add(header_format, GAME_VERSION_MAJOR, UINT16)
+    add(header_format, GAME_VERSION_MINOR, UINT16)
+    add(header_format, DURATION, FLOAT64)
+    add(header_format, FPS, UINT32) -- path sampled at 1 / FPS
+    add(header_format, TIME, UINT32) -- os.time stamp
+    add(header_format, N_NODES, UINT32)
+    add(header_format, LEVEL_ID, STRING, 64) -- padded level id
+    add(header_format, LEVEL_SHA256, STRING, 64) -- sha256 hash
+    add(header_format, SIGNATURE, STRING, 64)
+
+    -- node format
+    add(node_format, X_POSITION, INT32) -- (int32_t) floor(t * 10e2)
+    add(node_format, Y_POSITION, INT32)
+
+    add(node_format, IS_BUBBLE, UINT8) -- 0x0 or 0x1
+
+    --- @brief
+    function ow.PlayerRecorder:encode()
+        local size = header_format.size + #self._nodes * node_format.size -- number of bytes
+        local data = love.data.newByteData(size)
+
+        local set = function(format, id, value, offset)
+            local entry = format[id]
+            assert(entry ~= nil)
+            if entry.type == STRING then
+                data[entry.setter](data,
+                    value,
+                    entry.offset + (offset or 0)
+                )
+            else
+                data[entry.setter](data,
+                    entry.offset + (offset or 0),
+                    value
+                )
+            end
+        end
+
+        -- write header
+        local major, minor = rt.get_version()
+        set(header_format, GAME_VERSION_MAJOR, major)
+        set(header_format, GAME_VERSION_MINOR, minor)
+        set(header_format, DURATION, self._path_duration or 0) -- ADDED
+        set(header_format, FPS, math.floor(1 / rt.SceneManager:get_timestep()))
+        set(header_format, TIME, os.time())
+        set(header_format, N_NODES, #self._nodes)
+
+        local hash = self._stage:get_config_hash()
+        assert(#hash == 64, #hash, hash)
+        set(header_format, LEVEL_SHA256, hash)
+        set(header_format, LEVEL_ID, string.sha256(self._stage:get_id()))
+
+        local signed = generate_signature()
+        set(header_format, SIGNATURE, signed)
+
+        -- encode nodes
+
+        local node_offset = header_format.size
+        for _, node in ipairs(self._nodes) do
+            set(node_format, X_POSITION, float_to_int32(node.x), node_offset)
+            set(node_format, Y_POSITION, float_to_int32(node.y), node_offset)
+            set(node_format, IS_BUBBLE, ternary(node.is_bubble, 0x1, 0x0), node_offset)
+
+            node_offset = node_offset + node_format.size
+        end
+
+        return data:getString()
+    end
+
+    --- @brief
+    function ow.PlayerRecorder:decode(encoded)
+        local data = love.data.newByteData(encoded)
+
+        local get = function(format, id, offset)
+            local entry = format[id]
+            assert(entry ~= nil)
+
+            if entry.type == STRING then
+                return data[entry.getter](data,
+                    entry.offset + (offset or 0),
+                    entry.length
+                )
+            else
+                return data[entry.getter](data,
+                    entry.offset + (offset or 0)
+                )
+            end
+        end
+
+        local major, minor = rt.get_version()
+        local encoded_major = get(header_format, GAME_VERSION_MAJOR)
+        local encoded_minor = get(header_format, GAME_VERSION_MINOR)
+        if encoded_major ~= major or encoded_minor ~= minor then
+            rt.warning("In ow.PlayereRecorder.decode: encoded path has version `", encoded_major, ".", encoded_minor, "`, but game is version `", major, ".", minor, "`")
+        end
+
+        self._path_duration = get(header_format, DURATION)
+        self._path_time_step = 1 / get(header_format, FPS)
+
+        local encoded_signature = get(header_format, SIGNATURE)
+        if encoded_signature ~= generate_signature() then
+            rt.fatal("In ow.PlayerRecorded.decode: encoded path has invalid signature")
+        end
+
+        local encoded_level_id = get(header_format, LEVEL_ID)
+        if string.sha256(self._stage:get_id()) ~= encoded_level_id then
+            rt.fatal("In ow.PlayerRecorded.decode: encoded path has a level id that is different from the current id")
+        end
+        
+        local encoded_level_hash = get(header_format, LEVEL_SHA256)
+        if self._stage:get_config_hash() ~= encoded_level_hash then
+            rt.critical("In ow.PlayerRecorder.decode: encoded path uses a different version of the level than is currently active")
+        end
+
+        self._nodes = {}
+
+        local n_nodes = get(header_format, N_NODES)
+        if n_nodes <= 0 then
             return
         end
 
-        local x, y, is_bubble = parts[1], parts[2], parts[3]
+        local node_offset = header_format.size
 
-        x = _string_to_number(x)
-        y = _string_to_number(y)
-        is_bubble = _string_to_boolean(is_bubble)
 
-        table.insert(points, x)
-        table.insert(points, y)
-        table.insert(bubble_data, is_bubble)
-    end
-
-    -- translate to new origin
-    if origin_x ~= nil or origin_y ~= nil then
-        meta.assert_typeof(origin_x, "Number", 2)
-        meta.assert_typeof(origin_y, "Number", 3)
-
-        local start_x, start_y = points[1], points[2]
-        for i = 1, #points, 2 do
-            local x, y = points[i+0], points[i+1]
-            points[i+0] = x - start_x + origin_x
-            points[i+1] = y - start_y + origin_y
+        for i = 1, n_nodes do
+            self._nodes[i] = {
+                x = int32_to_float(get(node_format, X_POSITION)),
+                y = int32_to_float(get(node_format, Y_POSITION)),
+                is_bubble = get(node_format, IS_BUBBLE) == 0x1
+            }
+            node_offset = node_offset + node_format.size
         end
-    end
 
-    if self._path == nil then
-        self._path = rt.Path(points)
-    else
-        self._path:create_from(points)
+        self._path_elapsed = 0
     end
-
-    self._path_elapsed = 0
-    self._path_duration = duration
-    self._is_bubble_data = bubble_data
 end
 
 --- @brief

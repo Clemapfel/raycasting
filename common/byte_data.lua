@@ -27,10 +27,14 @@ rt.ByteData.format_to_n_bytes = function(format)
         return 4
     elseif format == rt.ByteDataFormat.INT64 or format == rt.ByteDataFormat.UINT64 or format == rt.ByteDataFormat.FLOAT64 then
         return 8
+    elseif format == rt.ByteDataFormat.UNKNOWN then
+        return 0
+    else
+        rt.error("In rt.ByteData.format_to_n_bytes: unhandled format `", format, "`")
     end
 end
 
-local _format_to_getter_setter = {
+rt.ByteData._format_to_getter_setter = {
     [rt.ByteDataFormat.UNKNOWN] = { get = "getUInt8", set = "setUInt8" },
     [rt.ByteDataFormat.INT8]    = { get = "getInt8",   set = "setInt8"   },
     [rt.ByteDataFormat.INT16]   = { get = "getInt16",  set = "setInt16"  },
@@ -65,7 +69,7 @@ function rt.ByteData:cast(format)
     self._stride = rt.ByteData.format_to_n_bytes(format)
 
     if ffi == nil then
-        local entry = _format_to_getter_setter[self._format]
+        local entry = rt.ByteData._format_to_getter_setter[self._format]
         self._getter = self._native[entry.get]
         self._setter = self._native[entry.set]
 
