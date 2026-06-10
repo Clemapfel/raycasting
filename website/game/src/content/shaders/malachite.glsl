@@ -15,7 +15,7 @@ float gradient_noise(vec3 p) {
 
     vec3 u = v * v * v * (v * (v * 6.0 - 15.0) + 10.0);
 
-    return mix( mix( mix( dot( -1.0 + 2.0 * random_3d(i + vec3(0.0,0.0,0.0)), v - vec3(0.0,0.0,0.0)),
+    float result = mix( mix( mix( dot( -1.0 + 2.0 * random_3d(i + vec3(0.0,0.0,0.0)), v - vec3(0.0,0.0,0.0)),
     dot( -1.0 + 2.0 * random_3d(i + vec3(1.0,0.0,0.0)), v - vec3(1.0,0.0,0.0)), u.x),
     mix( dot( -1.0 + 2.0 * random_3d(i + vec3(0.0,1.0,0.0)), v - vec3(0.0,1.0,0.0)),
     dot( -1.0 + 2.0 * random_3d(i + vec3(1.0,1.0,0.0)), v - vec3(1.0,1.0,0.0)), u.x), u.y),
@@ -23,6 +23,8 @@ float gradient_noise(vec3 p) {
     dot( -1.0 + 2.0 * random_3d(i + vec3(1.0,0.0,1.0)), v - vec3(1.0,0.0,1.0)), u.x),
     mix( dot( -1.0 + 2.0 * random_3d(i + vec3(0.0,1.0,1.0)), v - vec3(0.0,1.0,1.0)),
     dot( -1.0 + 2.0 * random_3d(i + vec3(1.0,1.0,1.0)), v - vec3(1.0,1.0,1.0)), u.x), u.y), u.z );
+
+    return (result + 1.0) * 0.5;
 }
 
 float worley_noise(vec3 p) {
@@ -85,83 +87,45 @@ in vec2 rt_VertexPosition;
 out vec4 rt_FragColor;
 
 uniform float elapsed;
-#define PI 3.1415926535897932384626433832795
-
-// ... [Keep your random_3d, gradient_noise, worley_noise, lch_to_rgb functions exactly as they are] ...
-
-// 1. Encapsulate the height generation into a dedicated function
-float get_surface_height(vec2 p, float time) {
-    vec2 uv = p;
-    vec2 uv_raw = p;
-
-    const float scale = 2.0 ;
-    float gradient_noise_scale = 3.0 * scale;
-    float worley_noise_scale = 1.5 * scale;
-
-    float lacunarity = 1.0;
-
-    for (int i = 0; i < 1; ++i) {
-        vec2 offset = vec2(
-            lacunarity * gradient_noise(vec3(gradient_noise_scale * uv.xy, time)),
-            lacunarity * gradient_noise(vec3(-gradient_noise_scale * uv.y, time, gradient_noise_scale * uv.x))
-        );
-
-        uv.xy += offset;
-
-        lacunarity = lacunarity / 4.0;
-        worley_noise_scale *= 1.2;
-    }
-
-    float value = distance(uv.xy, uv_raw.xy);
-    value *= worley_noise(vec3(worley_noise_scale * uv.xy, value));
-
-    return value;
-}
 
 const vec4 black = vec4(0.043137, 0.043137, 0.062745, 1.0);
+
+#define USE_WORLEY_NOISE 1 // 0 or 1
 
 void main() {
     vec2 uv = rt_TextureCoords;
     uv.x *= rt_ScreenSize.x / rt_ScreenSize.y;
+    uv *= 0.8;
+    float time = elapsed / 13.0;
 
-    float time = elapsed / 20.0;
+    #if USE_WORLEY_NOISE == 1
+    const float noise_scale = 8.0;
+    float noise_x = worley_noise(vec3(noise_scale * uv.xy, time / 3.0));
+    #else
+    const float noise_scale = 10.0;
+    float noise_x = gradient_noise(vec3(noise_scale * uv.xy, time / 3.0));
+    #endif
 
-    // 1. Evaluate the height at the current point (this is your original value)
-    float value = get_surface_height(uv, time);
+    uv.xy += vec2(noise_x, -noise_x);
 
-    // 2. Compute the gradient numerically using a small epsilon offset
-    vec2 e = vec2(1.0 / rt_ScreenSize.x, 0);
-    float hx = get_surface_height(uv + e.xy, time);
-    float hy = get_surface_height(uv + e.yx, time);
+    const float cell_size = 0.3;
+    vec2 cell_id = floor(uv / cell_size);
+    float hue = fract(sin(dot(cell_id, normalize(vec2(127.1, 311.7))) + time / 80000.0) * 43758.5453123);
 
-    // Partial derivatives: (dh/dx, dh/dy)
-    vec2 grad = vec2(hx - value, hy - value) / e.x;
+    vec2 q = mod(uv, cell_size);
+    vec2 d = min(q, cell_size - q);
+    float gradient = 1.0 - min(d.x, d.y) / (cell_size * 0.5);
 
-    // 3. Construct the mathematically robust 3D normal
-    // Increase normal_strength to flatten the appearance, decrease to accentuate bumps.
-    float normal_strength = 1.0;
-    vec3 normal = normalize(vec3(-grad.x, -grad.y, normal_strength));
+    const float threshold = 0.88;
+    float eps = fwidth(gradient);
+    float value = smoothstep(threshold - eps, threshold + eps, gradient);
 
-    float gnoise = gradient_noise(vec3(4.0 * uv.xy, time));
-    float angle = 2.0 * 3.14159 + elapsed * 2.0;
-    vec3 light_dir = normalize(vec3(cos(angle), sin(angle), 1.0));
-    float lambertian = max(0.0, dot(light_dir, normal));
+    vec3 color = lch_to_rgb(vec3(0.8, 1.0, hue));
 
-    float specular = pow(lambertian, 32.0);
-    vec3 color_a = lch_to_rgb(vec3(0.8, lambertian, gnoise));
-    vec3 color_b = lch_to_rgb(vec3(0.8, 1.0, 1.0 - gnoise));
-    vec3 color = mix(color_a, color_b, lambertian);
+    vec3 bloom = 0.2 * color * vec3(smoothstep(0.79, 1.0, gradient));
+    color.r = max(color.r * value, max(black.r, bloom.r));
+    color.g = max(color.g * value, max(black.g, bloom.g));
+    color.b = max(color.b * value, max(black.b, bloom.b));
 
-    vec4 result = vec4(mix(
-        vec3(specular * mix(0.2, 1.0, value)),
-        color * vec3(smoothstep(0.0, 0.24, value) * mix(0.7, 1.0, lambertian)),
-        0.7
-    ), 1.0);
-
-    rt_FragColor = vec4(
-        max(black.r, result.r),
-        max(black.g, result.g),
-        max(black.b, result.b),
-        result.a
-    );
+    rt_FragColor = vec4(color, 1.0);
 }
