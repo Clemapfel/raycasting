@@ -140,6 +140,7 @@ export abstract class GLWidget extends HTMLElement {
     private frame_identifier? : number;
     private last_timestamp? : DOMHighResTimeStamp = performance.now();
 
+    /** @internal */
     public async connectedCallback() {
         const internal_canvas = this.querySelector("canvas");
         if (internal_canvas === null) {
@@ -158,6 +159,7 @@ export abstract class GLWidget extends HTMLElement {
         GLWidget.visibility_changed_listeners.add(new WeakRef<GLWidget>(this));
     }
 
+    /** @internal */
     public disconnectedCallback() {
         this.resize_observer.disconnect();
         if (this.frame_identifier !== undefined)
