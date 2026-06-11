@@ -5,10 +5,6 @@ require "common.translation"
 require "common.timed_animation"
 
 rt.settings.menu.stage_grade_label = {
-    --font_path = "assets/fonts/RubikSprayPaint/RubikSprayPaint-Regular.ttf",
-    --font_path = "assets/fonts/Bowlby_One_SC/Bowlby_One",
-    --font_id = "RubikSprayPaint",
-
     font_path = "assets/fonts/RoundsBlack/RoundsBlack-Regular.otf",
     pulse_duration = 2, -- seconds
 }
