@@ -338,7 +338,6 @@ function mn.MenuScene:size_allocate(x, y, width, height)
         title_screen.title_label_no_sdf = love.graphics.newTextBatch(font:get_native(font_size, rt.FontStyle.REGULAR, false), title)
         title_screen.title_label_sdf = love.graphics.newTextBatch(font:get_native(font_size, rt.FontStyle.REGULAR, true), title)
 
-
         local title_w, title_h = font:measure(font_size, title)
 
         title_screen.title_x = math.floor(0 - 0.5 * title_w)
@@ -728,7 +727,7 @@ function mn.MenuScene:update(delta)
         local stage_select = self._stage_select
 
         local w = love.graphics.getWidth()
-        local x_offset = offset_fraction * stage_select.player_alignment
+        local x_offset = offset_fraction * stage_select.player_alignment / rt.get_pixel_scale()
 
         if self._state == mn.MenuSceneState.EXITING then
             self._camera:move_to(self._exit_x, self._exit_y)
@@ -863,6 +862,7 @@ function mn.MenuScene:draw()
         -- title text
         love.graphics.push("all")
 
+        self._camera:set_use_pixel_scale(false)
         self._camera:bind()
 
         -- menu
@@ -879,7 +879,6 @@ function mn.MenuScene:draw()
         _title_shader_sdf:bind()
         _title_shader_sdf:send("elapsed", self._shader_elapsed)
         _title_shader_sdf:send("black", _black)
-        _title_shader_sdf:send("screen_to_world_transform", transform)
         love.graphics.setColor(1, 1, 1, 1)
         love.graphics.draw(title_screen.title_label_sdf, title_screen.title_x, title_screen.title_y)
         _title_shader_sdf:unbind()
@@ -889,11 +888,13 @@ function mn.MenuScene:draw()
         _title_shader_no_sdf:send("hue", self._player:get_hue())
         _title_shader_no_sdf:send("black", _black)
         _title_shader_no_sdf:send("screen_to_world_transform", transform)
+        _title_shader_no_sdf:send("pixel_scale", rt.get_pixel_scale())
         _title_shader_no_sdf:send("lch_texture", _lch_texture)
         love.graphics.setColor(1, 1, 1, 1)
         love.graphics.draw(title_screen.title_label_no_sdf, title_screen.title_x, title_screen.title_y)
         _title_shader_no_sdf:unbind()
 
+        self._camera:set_use_pixel_scale(true)
         self._player:draw()
         self._camera:unbind()
 
@@ -902,6 +903,7 @@ function mn.MenuScene:draw()
             bloom:bind()
             love.graphics.clear(0, 0, 0, 0)
 
+            self._camera:set_use_pixel_scale(true)
             self._camera:bind()
             self._player:draw_bloom()
             self._camera:unbind()
@@ -918,6 +920,7 @@ function mn.MenuScene:draw()
             bloom:composite()
         end
 
+        self._camera:set_use_pixel_scale(false)
         self._camera:bind()
         title_screen.control_indicator:draw()
         self._camera:unbind()
@@ -934,6 +937,7 @@ function mn.MenuScene:draw()
         local camera_bounds = self._camera:get_world_bounds()
         stage_select.coin_particle_swarm:set_offset(camera_bounds.x, camera_bounds.y)
 
+        self._camera:set_use_pixel_scale(true)
         self._camera:bind()
         stage_select.coin_particle_swarm:draw_below_player()
         self._player:draw()
@@ -947,6 +951,7 @@ function mn.MenuScene:draw()
             bloom:bind()
             love.graphics.clear(0, 0, 0, 0)
 
+            self._camera:set_use_pixel_scale(true)
             self._camera:bind()
             self._player:draw_bloom()
             self._camera:unbind()

@@ -7,9 +7,9 @@ require "common.timed_animation"
 rt.settings.menu.stage_grade_label = {
     --font_path = "assets/fonts/RubikSprayPaint/RubikSprayPaint-Regular.ttf",
     --font_path = "assets/fonts/Bowlby_One_SC/Bowlby_One",
-    font_id = "RubikSprayPaint",
-    --font_id = "RubikSprayPaint"
+    --font_id = "RubikSprayPaint",
 
+    font_path = "assets/fonts/RoundsBlack/RoundsBlack-Regular.otf",
     pulse_duration = 2, -- seconds
 }
 
@@ -41,8 +41,7 @@ function mn.StageGradeLabel:instantiate(grade, size)
     self._opacity = 1
 
     if _font == nil then
-        local id = rt.settings.menu.stage_grade_label.font_id
-        _font = rt.Font("assets/fonts/" .. id .. "/" .. id .. "-Regular.ttf")
+        _font = rt.Font( rt.settings.menu.stage_grade_label.font_path)
     end
 
     self._shine_animation = rt.TimedAnimation(

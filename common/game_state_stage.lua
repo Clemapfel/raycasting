@@ -410,10 +410,10 @@ function rt.GameState:get_stage_grades(id)
             rt.StageGrade.C,
             rt.StageGrade.F
         }
-        return rt.StageGrade.S, rt.StageGrade.S, rt.StageGrade.S, ({ rt.StageGrade.S,
+        return rt.random.choose(grades), rt.random.choose(grades), rt.random.choose(grades), ({ rt.StageGrade.S,
                                                                     rt.StageGrade.A,
                                                                     rt.StageGrade.B
-        })[self:get_stage_index(id) % 3 + 1]--, rt.random.choose(grades), rt.random.choose(grades), rt.random.choose(grades)
+        })[self:get_stage_index(id) % 3 + 1]
     end
 
     local time, flow = self:get_stage_best_time(id), self:get_stage_best_flow_percentage(id)

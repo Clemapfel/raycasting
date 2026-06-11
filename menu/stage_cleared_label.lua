@@ -5,8 +5,7 @@ local _STATE_HUNDRED_PERCENTED = 0
 local _STATE_CLEARED = 1
 local _STATE_NOT_CLEARED = 2
 
-local _font_id = "RubikSprayPaint"
-local _font = rt.Font("assets/fonts/" .. _font_id .. "/" .. _font_id .. "-Regular.ttf")
+local _font = nil
 local _font_size = rt.FontSize.LARGE
 local _angle = math.degrees_to_radians(15)
 
@@ -14,6 +13,11 @@ local _angle = math.degrees_to_radians(15)
 function mn.StageClearedLabel:instantiate(stage_id)
     meta.assert(stage_id, "String")
     self._stage_id = stage_id
+
+    if _font == nil then
+        require "menu.stage_grade_label"
+        _font = rt.Font(rt.settings.menu.stage_grade_label.font_path)
+    end
 
     local cleared_prefix, cleared_postfix = "<o><color=GRAY_3>", "</color></o>"
     local hundred_prefix, hundred_postfix = "<b><o><wave><rainbow>", "</wave></rainbow></o></b>"

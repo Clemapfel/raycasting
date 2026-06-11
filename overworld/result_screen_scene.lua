@@ -1180,8 +1180,6 @@ function ow.ResultScreenScene:draw()
     self._screenshot_mesh:draw()
     _screenshot_shader:unbind()
 
-    if true then return end
-
     love.graphics.push()
 
     self._camera:bind()

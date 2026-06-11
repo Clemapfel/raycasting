@@ -85,12 +85,14 @@ float gaussian(float x, float ramp)
     return exp(((-4.0 * PI) / 3.0) * (ramp * x) * (ramp * x));
 }
 
+uniform float pixel_scale;
+
 vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 vertex_position) {
-    vec2 seed = to_world_position(vertex_position) / love_ScreenSize.xy * 140.0;
-    vec2 seed_magnitude = 3.5 * 1.0 / love_ScreenSize.xy;
+    vec2 seed = to_world_position(vertex_position) / 5.2 / pixel_scale;
+    const float seed_magnitude = 0.003;
     texture_coords += vec2(
-        gradient_noise(vec3(seed, elapsed)) * seed_magnitude.x,
-        gradient_noise(vec3(-seed.yx, elapsed)) * seed_magnitude.y
+        seed_magnitude * gradient_noise(vec3(seed, elapsed)),
+        seed_magnitude * gradient_noise(vec3(-seed.yx, elapsed))
     );
 
     // Sobel kernels
