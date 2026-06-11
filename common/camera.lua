@@ -67,13 +67,15 @@ function rt.Camera:instantiate()
         _shake_impulse_offset_y = 0,
 
         _world_bounds = rt.AABB(0, 0, 0, 0),
-        _world_bounds_needs_update = true,
 
         _is_enabled = true,
-        _transform = rt.Transform()
+        _use_pixel_scale = true,
+        _transform = rt.Transform(),
+
+        _is_bound = false
     })
 
-    self:_update_bounds()
+    self:_update_transform()
     self:set_shake_frequency(1)
 end
 
@@ -103,51 +105,16 @@ function rt.Camera:bind()
             _clamp(self._shake_offset_y + self._shake_impulse_offset_y)
         )
     end
+
+    self._is_bound = true
 end
 
 --- @brief
 function rt.Camera:unbind()
     love.graphics.pop()
+
+    self._is_bound = false
 end
-
---- @brief [internal]
-function rt.Camera:constrain(x, y)
-    if self._apply_bounds ~= true then return x, y end
-
-    local total_scale = self._current_scale * rt.get_pixel_scale()
-    local half_width = (love.graphics.getWidth() / 2) / total_scale
-    local half_height = (love.graphics.getHeight() / 2) / total_scale
-
-    local angle = self._current_angle
-    local cos_a = math.abs(math.cos(angle))
-    local sin_a = math.abs(math.sin(angle))
-
-    local extent_x = half_width * cos_a + half_height * sin_a
-    local extent_y = half_width * sin_a + half_height * cos_a
-
-    for bounds in keys(self._bounds) do
-        local min_x = bounds.x + extent_x
-        x = math.max(x, min_x)
-    end
-
-    for bounds in keys(self._bounds) do
-        local max_x = bounds.x + bounds.width - extent_x
-        x = math.min(x, max_x)
-    end
-
-    for bounds in keys(self._bounds) do
-        local min_y = bounds.y + extent_y
-        y = math.max(y, min_y)
-    end
-
-    for bounds in keys(self._bounds) do
-        local max_y = bounds.y + bounds.width - extent_y
-        y = math.min(y, max_y)
-    end
-
-    return x, y
-end
-
 
 --- @brief [internal]
 function rt.Camera:constrain(x, y)
@@ -207,8 +174,6 @@ end
 
 --- @brief
 function rt.Camera:update(delta)
-    local screen_w, screen_h = love.graphics.getDimensions()
-
     do -- scale
         -- work in log space, where relative scales are equidistant regardless of value
         local scale_eps = math.eps
@@ -312,15 +277,7 @@ function rt.Camera:update(delta)
         end
     end
 
-    -- update transform
-    local t = self._transform:reset()
-    t:translate(_floor(0.5 * screen_w), _floor(0.5 * screen_h), 0)
-    t:scale(self._current_scale, self._current_scale, 1)
-    t:scale(rt.get_pixel_scale())
-    t:rotate_z(self._current_angle)
-    t:translate(-_floor(self._current_x), -_floor(self._current_y), 0)
-
-    self._world_bounds_needs_update = true
+    self:_update_transform()
 end
 
 --- @brief
@@ -330,7 +287,7 @@ function rt.Camera:reset()
     self._current_angle = 0
     self._current_scale = 1
 
-    self._world_bounds_needs_update = true
+    self:_update_transform()
 end
 
 --- @brief
@@ -340,10 +297,10 @@ end
 
 --- @brief
 function rt.Camera:set_rotation(r)
-    if self._is_enabled ~= true then return end
-
-    self._current_angle = r
-    self._world_bounds_needs_update = true
+    if self._current_angle ~= r then
+        self._current_angle = r
+        self:_update_transform()
+    end
 end
 
 --- @brief
@@ -370,7 +327,7 @@ function rt.Camera:set_position(x, y, override_bounds)
     self._current_x = x
     self._current_y = y
 
-    self._world_bounds_needs_update = true
+    self:_update_transform()
 end
 
 --- @brief
@@ -411,7 +368,7 @@ function rt.Camera:set_scale(s, override_bounds)
         self._target_x, self._target_y = self:constrain(self._target_x, self._target_y)
     end
 
-    self._world_bounds_needs_update = true
+    self:_update_transform()
 end
 
 --- @brief
@@ -446,14 +403,14 @@ end
 function rt.Camera:add_bounds(bounds)
     meta.assert(bounds, rt.AABB)
     self._bounds[bounds] = true
-    self._world_bounds_needs_update = true
+    self:_update_transform()
 end
 
 --- @brief
 function rt.Camera:remove_bounds(bounds)
     meta.assert(bounds, rt.AABB)
-    self._world_bounds_needs_update = self._bounds[bounds] ~= nil
     self._bounds[bounds] = nil
+    self:_update_transform()
 end
 
 --- @brief
@@ -498,7 +455,10 @@ end
 
 --- @brief
 function rt.Camera:set_apply_bounds(b)
-    self._apply_bounds = b
+    if b ~= self._apply_bounds then
+        self._apply_bounds = b
+        self:set_position(self:constraint(self:get_position()))
+    end
 end
 
 --- @brief
@@ -520,7 +480,6 @@ end
 
 --- @brief
 function rt.Camera:get_world_bounds()
-    if self._world_bounds_needs_update then self:_update_bounds() end
     return self._world_bounds:clone()
 end
 
@@ -630,8 +589,6 @@ function rt.Camera:_update_bounds()
         max_x - min_x,
         max_y - min_y
     )
-
-    self._world_bounds_needs_update = false
 end
 
 --- @brief
@@ -667,4 +624,35 @@ end
 --- @brief
 function rt.Camera:get_is_enabled()
     return self._is_enabled
+end
+
+--- @brief
+function rt.Camera:set_use_pixel_scale(b)
+    if self._use_pixel_scale ~= b then
+        self._use_pixel_scale = b
+        self:_update_transform()
+    end
+end
+
+--- @brief
+function rt.Camera:_update_transform()
+    local t = self._transform:reset()
+
+    local screen_w, screen_h = love.graphics.getDimensions()
+    t:translate(_floor(0.5 * screen_w), _floor(0.5 * screen_h), 0)
+    t:scale(self._current_scale, self._current_scale, 1)
+
+    if self._use_pixel_scale then
+        t:scale(rt.get_pixel_scale())
+    end
+
+    t:rotate_z(self._current_angle)
+    t:translate(-_floor(self._current_x), -_floor(self._current_y), 0)
+
+    self:_update_bounds()
+
+    if self._is_bound then
+        self:unbind()
+        self:bind()
+    end
 end

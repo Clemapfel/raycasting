@@ -33,9 +33,9 @@ function rt.PlayerTrail:instantiate(radius)
 
     -- boom geometry
     do
-        local x_radius = 1.9 * radius -- width
+        local x_radius = 2.1 * radius -- width
         local y_radius = 2 * radius   -- stretch
-        local y_offset = y_radius - radius * 1.2 -- to account for body
+        local y_offset = y_radius - 1.6 * radius -- to account for body
 
         local _boom_shape = function(x)
             return math.sqrt(1 - x^2)
