@@ -90,7 +90,7 @@ uniform float elapsed;
 
 const vec4 black = vec4(0.043137, 0.043137, 0.062745, 1.0);
 
-#define USE_WORLEY_NOISE 1 // 0 or 1
+#define USE_WORLEY_NOISE 0 // 0 or 1
 
 void main() {
     vec2 uv = rt_TextureCoords;
