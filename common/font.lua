@@ -199,6 +199,6 @@ rt.settings.font.default = rt.Font(
 )
 
 rt.settings.font.title_font = rt.Font(
-    "assets/fonts/Baloo2/Baloo2-SemiBold.ttf",
-    "assets/fonts/Baloo2/Baloo2-Bold.ttf"
+    "assets/fonts/Baloo2/Baloo2-Bold.ttf",
+    "assets/fonts/Baloo2/Baloo2-ExtraBold.ttf"
 )

@@ -16,8 +16,9 @@ meta.add_signal(mn.StageGradeLabel, "pulse_done")
 local _font
 local _atlas = {}
 
-local _shader_no_sdf = rt.Shader("menu/stage_grade_label.glsl", { MODE = 0 })
-local _shader_sdf = rt.Shader("menu/stage_grade_label.glsl", { MODE = 1 })
+local use_shader_derivatives = love.graphics.getSupported().shaderderivatives
+local _shader_no_sdf = rt.Shader("menu/stage_grade_label.glsl", { MODE = 0, USE_SHADER_DERIVATIVES = use_shader_derivatives })
+local _shader_sdf = rt.Shader("menu/stage_grade_label.glsl", { MODE = 1, USE_SHADER_DERIVATIVES = use_shader_derivatives })
 local _lch_texture = rt.LCHTexture(1, 1, 256)
 
 --- @brief

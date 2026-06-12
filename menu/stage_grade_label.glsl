@@ -37,7 +37,13 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 vertex_position
     float dist = texture(img, texture_coords).a;
     const float thickness = 1.0 - 0.8;
     const float threshold = 0.3;
+
+    #ifdef USE_SHADER_DERIVATIVES
+    float eps = fwidth(dist);
+    #else
     const float eps = 0.08;
+    #endif
+
     float alpha = smoothstep(threshold - eps, threshold + eps, dist);
     return vec4(white.rgb, white.a * alpha * opacity);
 }

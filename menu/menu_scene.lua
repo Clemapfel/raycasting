@@ -24,8 +24,6 @@ rt.settings.menu_scene = {
 
     title_screen = {
         title_font_path = "assets/fonts/RubikSprayPaint/RubikSprayPaint-Regular.ttf",
-        menu_font_path_regular = "assets/fonts/Baloo2/Baloo2-Medium.ttf",
-        menu_font_path_bold = "assets/fonts/Baloo2/Baloo2-ExtraBold.ttf",
         player_velocity = 100, -- when reflecting
         player_offset_magnitude = 0.05 * 2 * math.pi, -- when holding left / right
         falling_fraction_threshold = 2000, -- how long it takes to transition to stage select
@@ -89,11 +87,7 @@ function mn.MenuScene:instantiate(state)
         local title_screen = {}
         self._title_screen = title_screen
 
-        title_screen.menu_font = rt.Font(
-            rt.settings.menu_scene.title_screen.menu_font_path_regular,
-            rt.settings.menu_scene.title_screen.menu_font_path_bold
-        )
-
+        title_screen.menu_font = rt.settings.font.title_font
         title_screen.menu_font:set_line_spacing(0.75)
 
         title_screen.control_indicator = rt.ControlIndicator(

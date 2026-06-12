@@ -410,7 +410,7 @@ function rt.GameState:get_stage_grades(id)
             rt.StageGrade.C,
             rt.StageGrade.F
         }
-        return rt.random.choose(grades), rt.random.choose(grades), rt.random.choose(grades), ({ rt.StageGrade.S,
+        return rt.StageGrade.A, rt.StageGrade.B, rt.StageGrade.S, ({ rt.StageGrade.S,
                                                                     rt.StageGrade.A,
                                                                     rt.StageGrade.B
         })[self:get_stage_index(id) % 3 + 1]
