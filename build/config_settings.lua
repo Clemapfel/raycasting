@@ -1,4 +1,4 @@
-local BOOLEAN_TYPE = "Boolean"
+local BOOLEAN_TYPE = mt.Boolean
 local BOOLEAN = function(default)
     return {
         type = BOOLEAN_TYPE,

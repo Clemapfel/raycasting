@@ -332,7 +332,7 @@ end
 
 --- @brief
 function rt.Camera:move_to(x, y, override_bounds)
-    meta.assert(x, "Number", y, "Number")
+    meta.assert(x, mt.Number, y, mt.Number)
     if self._is_enabled ~= true then return end
 
     if override_bounds ~= true then
@@ -457,7 +457,7 @@ end
 function rt.Camera:set_apply_bounds(b)
     if b ~= self._apply_bounds then
         self._apply_bounds = b
-        self:set_position(self:constraint(self:get_position()))
+        self:set_position(self:constrain(self:get_position()))
     end
 end
 

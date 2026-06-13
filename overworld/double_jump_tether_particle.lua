@@ -126,13 +126,13 @@ end
 
 --- @brief
 function ow.DoubleJumpTetherParticle:set_brightness_offset(t)
-    meta.assert(t, "Number")
+    meta.assert(t, mt.Number)
     self._brightness_offset = t
 end
 
 --- @brief
 function ow.DoubleJumpTetherParticle:set_scale_offset(t)
-    meta.assert(t, "Number")
+    meta.assert(t, mt.Number)
     self._scale_offset = t
 end
 

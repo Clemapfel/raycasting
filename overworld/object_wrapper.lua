@@ -17,14 +17,13 @@ ow.ObjectType = {
 }
 ow.ObjectType = meta.enum("ObjectType", ow.ObjectType)
 
-
 --- @enum ow.PropertyType
 ow.PropertyType = {
-    NUMBER = "Number",
-    STRING = "String",
+    NUMBER = mt.Number,
+    STRING = mt.String,
     OBJECT = "Object",
     INTEGER = "Integer",
-    BOOLEAN = "Boolean"
+    BOOLEAN = mt.Boolean
 }
 ow.PropertyType = meta.enum("PropertyType", ow.PropertyType)
 
@@ -68,7 +67,7 @@ end
 
 --- @brief
 function ow.ObjectWrapper:instantiate(type, id)
-    meta.assert(type, "String", id, "Number")
+    meta.assert(type, mt.String, id, mt.Number)
     local class = nil
     if type ~= "" then class = type end
     meta.install(self, {

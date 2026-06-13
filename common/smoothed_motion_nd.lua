@@ -102,7 +102,7 @@ end
 
 --- @brief
 function rt.SmoothedMotionND:update(delta)
-    meta.assert(delta, "Number")
+    meta.assert(delta, mt.Number)
 
     local target_id = self._target_dimension
 

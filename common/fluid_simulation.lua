@@ -116,11 +116,11 @@ function rt.FluidSimulation:add(x, y, radius, color, config)
     color = color or config.color
 
     meta.assert(
-        x, "Number",
-        y, "Number",
-        radius, "Number",
+        x, mt.Number,
+        y, mt.Number,
+        radius, mt.Number,
         color, rt.RGBA,
-        config, "Table"
+        config, mt.Table
     )
 
     config.batch_radius = radius
@@ -171,7 +171,7 @@ end
 --- @param batch_id number id of the batch to remove, acquired from rt.FluidSimulation.add
 --- @return nil
 function rt.FluidSimulation:remove(batch_id)
-    meta.assert(batch_id, "Number")
+    meta.assert(batch_id, mt.Number)
 
     local batch = self._batch_id_to_batch[batch_id]
     if batch == nil then
@@ -203,10 +203,10 @@ function rt.FluidSimulation:update(delta, step_delta, n_substeps, n_collision_st
     if n_collision_steps == nil then n_collision_steps = 3 end
 
     meta.assert(
-        delta, "Number",
-        step_delta, "Number",
-        n_substeps, "Number",
-        n_collision_steps, "Number"
+        delta, mt.Number,
+        step_delta, mt.Number,
+        n_substeps, mt.Number,
+        n_collision_steps, mt.Number
     )
 
     -- catch floats instead of ints
@@ -255,13 +255,13 @@ end
 --- @param config table table of properties, see the readme for a list of valid properties
 function rt.FluidSimulation:set_config(batch_id, config)
     if config == nil then config = self._default_config end
-    meta.assert(batch_id, "Number", config, "Table")
+    meta.assert(batch_id, mt.Number, config, mt.Table)
     self:_load_config(batch_id, config)
 end
 
 --- @brief
 function rt.FluidSimulation:get_config(batch_id)
-    meta.assert(batch_id, "Number")
+    meta.assert(batch_id, mt.Number)
 
     local batch = self._batch_id_to_batch[batch_id]
     if batch == nil then
@@ -277,7 +277,7 @@ end
 --- @param x number x coordinate, in px
 --- @param y number y coordinate, in px
 function rt.FluidSimulation:set_target_position(batch_id, x, y)
-    meta.assert(batch_id, "Number", x, "Number", y, "Number")
+    meta.assert(batch_id, mt.Number, x, mt.Number, y, mt.Number)
 
     local batch = self._batch_id_to_batch[batch_id]
     if batch == nil then
@@ -292,7 +292,7 @@ end
 --- @brief get the target position a batch should move to
 --- @return number, number
 function rt.FluidSimulation:get_target_position(batch_id)
-    meta.assert(batch_id, "Number")
+    meta.assert(batch_id, mt.Number)
 
     local batch = self._batch_id_to_batch[batch_id]
     if batch == nil then
@@ -305,7 +305,7 @@ end
 
 --- @brief get average of all particle positions of a batch
 function rt.FluidSimulation:get_position(batch_id)
-    meta.assert(batch_id, "Number")
+    meta.assert(batch_id, mt.Number)
 
     local batch = self._batch_id_to_batch[batch_id]
     if batch == nil then
@@ -901,7 +901,7 @@ do
     -- parameter to type and bounds for error handling
     local _valid_config_keys = {
         damping = {
-            type = "Number",
+            type = mt.Number,
             min = 0,
             max = 1
         },
@@ -915,90 +915,90 @@ do
         },
 
         outline_thickness = {
-            type = "Number",
+            type = mt.Number,
             min = 0
         },
 
         collision_strength = {
-            type = "Number",
+            type = mt.Number,
             min = 0,
             max = 1
         },
 
         collision_overlap_factor = {
-            type = "Number",
+            type = mt.Number,
             min = 0,
             max = nil
         },
 
         cohesion_strength = {
-            type = "Number",
+            type = mt.Number,
             min = 0,
             max = 1
         },
 
         cohesion_interaction_distance_factor = {
-            type = "Number",
+            type = mt.Number,
             min = 0,
             max = nil
         },
 
         follow_strength = {
-            type = "Number",
+            type = mt.Number,
             min = 0,
             max = 1
         },
 
         min_radius = {
-            type = "Number",
+            type = mt.Number,
             min = 0,
             max = nil
         },
 
         max_radius = {
-            type = "Number",
+            type = mt.Number,
             min = 0,
             max = nil
         },
 
         min_mass = {
-            type = "Number",
+            type = mt.Number,
             min = 0,
             max = nil
         },
 
         max_mass = {
-            type = "Number",
+            type = mt.Number,
             min = 0,
             max = nil
         },
 
         batch_radius = {
-            type = "Number",
+            type = mt.Number,
             min = 0,
             max = nil
         },
 
         motion_blur = {
-            type = "Number",
+            type = mt.Number,
             min = 0,
             max = 1
         },
 
         texture_scale = {
-            type = "Number",
+            type = mt.Number,
             min = 1,
             max = nil
         },
 
         highlight_strength = {
-            type = "Number",
+            type = mt.Number,
             min = 0,
             max = nil
         },
 
         shadow_strength = {
-            type = "Number",
+            type = mt.Number,
             min = 0,
             max = nil
         }
@@ -1040,7 +1040,7 @@ do
                 if entry.type ~= nil and meta.typeof(value) ~= entry.type then
                     error("wrong type for config key `", key, "`, expected `", entry.type, "`, got `", meta.typeof(value), "`")
                     return
-                elseif entry.type ~= nil and entry.type == "Number" and math.is_nan(value) then
+                elseif entry.type ~= nil and entry.type == mt.Number and math.is_nan(value) then
                     warning("config key `", key, "` is NaN, it will be ignored")
                     goto ignore
                 elseif entry.min ~= nil and value < entry.min then
@@ -2326,11 +2326,11 @@ function rt.FluidSimulation:add(x, y, radius, color, config)
     color = color or config.color
 
     meta.assert(
-        x, "Number",
-        y, "Number",
-        radius, "Number",
+        x, mt.Number,
+        y, mt.Number,
+        radius, mt.Number,
         color, rt.RGBA,
-        config, "Table"
+        config, mt.Table
     )
 
     config.batch_radius = radius
@@ -2379,7 +2379,7 @@ end
 --- @param batch_id number id of the batch to remove, acquired from rt.FluidSimulation.add
 --- @return nil
 function rt.FluidSimulation:remove(batch_id)
-    meta.assert(batch_id, "Number")
+    meta.assert(batch_id, mt.Number)
 
     local batch = self._batch_id_to_batch[batch_id]
     if batch == nil then
@@ -2411,10 +2411,10 @@ function rt.FluidSimulation:update(delta, step_delta, n_substeps, n_collision_st
     if n_collision_steps == nil then n_collision_steps = 3 end
 
     meta.assert(
-        delta, "Number",
-        step_delta, "Number",
-        n_substeps, "Number",
-        n_collision_steps, "Number"
+        delta, mt.Number,
+        step_delta, mt.Number,
+        n_substeps, mt.Number,
+        n_collision_steps, mt.Number
     )
 
     -- catch floats instead of ints
@@ -2463,13 +2463,13 @@ end
 --- @param config table table of properties, see the readme for a list of valid properties
 function rt.FluidSimulation:set_config(batch_id, config)
     if config == nil then config = self._default_config end
-    meta.assert(batch_id, "Number", config, "Table")
+    meta.assert(batch_id, mt.Number, config, mt.Table)
     self:_load_config(batch_id, config)
 end
 
 --- @brief
 function rt.FluidSimulation:get_config(batch_id)
-    meta.assert(batch_id, "Number")
+    meta.assert(batch_id, mt.Number)
 
     local batch = self._batch_id_to_batch[batch_id]
     if batch == nil then
@@ -2485,7 +2485,7 @@ end
 --- @param x number x coordinate, in px
 --- @param y number y coordinate, in px
 function rt.FluidSimulation:set_target_position(batch_id, x, y)
-    meta.assert(batch_id, "Number", x, "Number", y, "Number")
+    meta.assert(batch_id, mt.Number, x, mt.Number, y, mt.Number)
 
     local batch = self._batch_id_to_batch[batch_id]
     if batch == nil then
@@ -2500,7 +2500,7 @@ end
 --- @brief get the target position a batch should move to
 --- @return number, number
 function rt.FluidSimulation:get_target_position(batch_id)
-    meta.assert(batch_id, "Number")
+    meta.assert(batch_id, mt.Number)
 
     local batch = self._batch_id_to_batch[batch_id]
     if batch == nil then
@@ -2513,7 +2513,7 @@ end
 
 --- @brief get average of all particle positions of a batch
 function rt.FluidSimulation:get_position(batch_id)
-    meta.assert(batch_id, "Number")
+    meta.assert(batch_id, mt.Number)
 
     local batch = self._batch_id_to_batch[batch_id]
     if batch == nil then
@@ -3112,7 +3112,7 @@ do
     -- parameter to type and bounds for error handling
     local _valid_config_keys = {
         damping = {
-            type = "Number",
+            type = mt.Number,
             min = 0,
             max = 1
         },
@@ -3126,90 +3126,90 @@ do
         },
 
         outline_thickness = {
-            type = "Number",
+            type = mt.Number,
             min = 0
         },
 
         collision_strength = {
-            type = "Number",
+            type = mt.Number,
             min = 0,
             max = 1
         },
 
         collision_overlap_factor = {
-            type = "Number",
+            type = mt.Number,
             min = 0,
             max = nil
         },
 
         cohesion_strength = {
-            type = "Number",
+            type = mt.Number,
             min = 0,
             max = 1
         },
 
         cohesion_interaction_distance_factor = {
-            type = "Number",
+            type = mt.Number,
             min = 0,
             max = nil
         },
 
         follow_strength = {
-            type = "Number",
+            type = mt.Number,
             min = 0,
             max = 1
         },
 
         min_radius = {
-            type = "Number",
+            type = mt.Number,
             min = 0,
             max = nil
         },
 
         max_radius = {
-            type = "Number",
+            type = mt.Number,
             min = 0,
             max = nil
         },
 
         min_mass = {
-            type = "Number",
+            type = mt.Number,
             min = 0,
             max = nil
         },
 
         max_mass = {
-            type = "Number",
+            type = mt.Number,
             min = 0,
             max = nil
         },
 
         batch_radius = {
-            type = "Number",
+            type = mt.Number,
             min = 0,
             max = nil
         },
 
         motion_blur = {
-            type = "Number",
+            type = mt.Number,
             min = 0,
             max = 1
         },
 
         texture_scale = {
-            type = "Number",
+            type = mt.Number,
             min = 1,
             max = nil
         },
 
         highlight_strength = {
-            type = "Number",
+            type = mt.Number,
             min = 0,
             max = nil
         },
 
         shadow_strength = {
-            type = "Number",
+            type = mt.Number,
             min = 0,
             max = nil
         }
@@ -3249,7 +3249,7 @@ do
                 if entry.type ~= nil and meta.typeof(value) ~= entry.type then
                     error("wrong type for config key `", key, "`, expected `", entry.type, "`, got `", meta.typeof(value), "`")
                     return
-                elseif entry.type ~= nil and entry.type == "Number" and math.is_nan(value) then
+                elseif entry.type ~= nil and entry.type == mt.Number and math.is_nan(value) then
                     warning("config key `", key, "` is NaN, it will be ignored")
                     goto ignore
                 elseif entry.min ~= nil and value < entry.min then

@@ -145,7 +145,7 @@ end
 
 --- @brief
 function rt.GameState:get_stage_best_time(id)
-    meta.assert(id, "String")
+    meta.assert(id, mt.String)
     if _debug_output then return rt.random.number(1, 100) end
 
     self:_initialize_stage()
@@ -160,7 +160,7 @@ end
 
 --- @brief
 function rt.GameState:set_stage_best_time(id, seconds)
-    meta.assert(id, "String", seconds, "Number")
+    meta.assert(id, mt.String, seconds, mt.Number)
     local _ = self:_get_stage(id, "get_stage_best_time")
 
     if seconds < 0 then
@@ -177,7 +177,7 @@ end
 
 --- @brief
 function rt.GameState:get_stage_best_flow_percentage(id)
-    meta.assert(id, "String")
+    meta.assert(id, mt.String)
     if _debug_output then return rt.random.number(0, 1) end
     local _ = self:_get_stage(id, "get_stage_best_flow_percentage")
 
@@ -191,7 +191,7 @@ end
 
 --- @brief
 function rt.GameState:set_stage_best_flow_percentage(id, fraction)
-    meta.assert(id, "String", fraction, "Number")
+    meta.assert(id, mt.String, fraction, mt.Number)
     local _ = self:_get_stage(id, "set_stage_best_flow_percentage")
 
     if fraction < 0 or fraction > 1 then
@@ -208,7 +208,7 @@ end
 
 --- @brief
 function rt.GameState:get_stage_is_coin_collected(stage_id, coin_i)
-    meta.assert(stage_id, "String", coin_i, "Number")
+    meta.assert(stage_id, mt.String, coin_i, mt.Number)
     if _debug_output then return coin_i == 3 end
     local stage = self:_get_stage(stage_id, "get_stage_is_coin_collected")
     if coin_i > stage.n_coins then
@@ -223,7 +223,7 @@ end
 --- @brief
 function rt.GameState:set_stage_is_coin_collected(stage_id, coin_i, collected)
     if collected == nil then collected = true end
-    meta.assert(stage_id, "String", coin_i, "Number", collected, "Boolean")
+    meta.assert(stage_id, mt.String, coin_i, mt.Number, collected, mt.Boolean)
     local stage = self:_get_stage(stage_id, "set_stage_is_coin_collected")
     if coin_i > stage.n_coins then
         rt.error("In rt.GameState.set_stage_is_coin_collected: coin index `", coin_i, "` is out of bounds, stage `", stage_id, "` only has ", stage.n_coins, " coins")
@@ -244,7 +244,7 @@ end
 
 --- @brief
 function rt.GameState:get_stage_n_coins_collected(id)
-    meta.assert(id, "String")
+    meta.assert(id, mt.String)
     local stage = self:_get_stage(id, "get_stage_n_coins_collected")
     if stage == nil then return 0 end
 
@@ -263,14 +263,14 @@ end
 
 --- @brief
 function rt.GameState:get_stage_n_coins(id)
-    meta.assert(id, "String")
+    meta.assert(id, mt.String)
     local stage = self:_get_stage(id, "get_stage_n_coins")
     return stage.n_coins
 end
 
 --- @brief
 function rt.GameState:get_stage_was_cleared(id)
-    meta.assert(id, "String")
+    meta.assert(id, mt.String)
     if _debug_output then return true end
     local _ = self:_get_stage(id, "get_stage_was_cleared")
 
@@ -284,7 +284,7 @@ end
 
 --- @brief
 function rt.GameState:set_stage_was_cleared(id, b)
-    meta.assert(id, "String")
+    meta.assert(id, mt.String)
     if _debug_output then return true end
     local _ = self:_get_stage(id, "set_stage_was_cleared")
 
@@ -298,7 +298,7 @@ end
 
 --- @brief
 function rt.GameState:get_stage_is_hundred_percented(id)
-    meta.assert(id, "String")
+    meta.assert(id, mt.String)
     if _debug_output then return true end
     local _ = self:_get_stage(id, "get_stage_is_hundred_percented")
 
@@ -337,7 +337,7 @@ end
 
 --- @brief Convert time to grade (faster time = better grade)
 function rt.GameState:time_to_time_grade(time, target_time)
-    meta.assert(time, "Number", target_time, "Number")
+    meta.assert(time, mt.Number, target_time, mt.Number)
     local time_fraction = time / target_time
     local time_thresholds = rt.settings.game_state.stage.grade_time_thresholds
 
@@ -358,7 +358,7 @@ end
 
 --- @brief Convert flow percentage to grade (higher flow = better grade)
 function rt.GameState:flow_to_flow_grade(flow)
-    meta.assert(flow, "Number")
+    meta.assert(flow, mt.Number)
     local flow_thresholds = rt.settings.game_state.stage.grade_flow_thresholds
 
     for grade in range(
@@ -378,7 +378,7 @@ end
 
 --- @brief Convert coins collected to grade (fewer coins missing = better grade)
 function rt.GameState:n_coins_to_coin_grade(n_coins, max_n_coins)
-    meta.assert(n_coins, "Number", max_n_coins, "Number")
+    meta.assert(n_coins, mt.Number, max_n_coins, mt.Number)
     local coin_thresholds = rt.settings.game_state.stage.coin_thresholds
     local n_coins_missing = max_n_coins - n_coins
 
@@ -483,9 +483,9 @@ end
 
 --- @brief
 function rt.GameState:stage_update_splits(stage_id, times)
-    meta.assert(stage_id, "String")
+    meta.assert(stage_id, mt.String)
     for i = 1, #times do
-        meta.assert_typeof(times[i], "Number", i+1)
+        meta.assert_typeof(times[i], mt.Number, i+1)
     end
 
     self:_initialize_stage()
@@ -522,7 +522,7 @@ end
 function rt.GameState:stage_get_splits_best_segments(stage_id)
     self:_initialize_stage()
 
-    meta.assert(stage_id, "String")
+    meta.assert(stage_id, mt.String)
     local entry = self:_get_stage(stage_id, "stage_get_splits")
 
     if entry ~= nil then
@@ -537,7 +537,7 @@ end
 function rt.GameState:stage_get_splits_best_run(stage_id)
     self:_initialize_stage()
 
-    meta.assert(stage_id, "String")
+    meta.assert(stage_id, mt.String)
     local entry = self:_get_stage(stage_id, "stage_get_splits")
 
     if entry ~= nil then
@@ -553,7 +553,7 @@ function rt.GameState:stage_get_is_time_attack_mode_allowed(stage_id)
 
     if _debug_output then return true end
 
-    meta.assert(stage_id, "String")
+    meta.assert(stage_id, mt.String)
     local results = self._state.stage_results[stage_id]
     if results == nil then
         return false
@@ -566,7 +566,7 @@ end
 function rt.GameState:stage_get_config(stage_id)
     self:_initialize_stage()
 
-    meta.assert(stage_id, "String")
+    meta.assert(stage_id, mt.String)
     local entry = self:_get_stage(stage_id, "stage_get_config")
 
     if entry ~= nil then
@@ -580,7 +580,7 @@ end
 function rt.GameState:stage_get_background_id(stage_id)
     self:_initialize_stage()
 
-    meta.assert(stage_id, "String")
+    meta.assert(stage_id, mt.String)
     local entry = self:_get_stage(stage_id, "stage_get_config")
 
     if entry ~= nil then

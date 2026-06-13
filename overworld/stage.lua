@@ -39,7 +39,7 @@ meta.add_signals(ow.Stage,
 
 --- @brief
 function ow.Stage:instantiate(scene, id)
-    meta.assert(scene, "OverworldScene", id, "String")
+    meta.assert(scene, ow.OverworldScene, id, mt.String)
 
     local config = rt.GameState:stage_get_config(id)
 
@@ -760,7 +760,7 @@ end
 
 --- @brief
 function ow.Stage:apply_camera_bounds(x, y, should_snap)
-    meta.assert(x, "Number", y, "Number")
+    meta.assert(x, mt.Number, y, mt.Number)
     local camera = self._scene:get_camera()
     camera:clear_bounds()
 

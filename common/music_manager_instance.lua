@@ -97,13 +97,13 @@ function rt.MusicManagerInstance:instantiate()
                     return out
                 end
 
-                local id = get("id", "String")
+                local id = get("id", mt.String)
                 if id ~= nil then
                     entry.id = id
                 end
 
-                local loop = get("loop", "Table")
-                local unit = get("unit", "String")
+                local loop = get("loop", mt.Table)
+                local unit = get("unit", mt.String)
                 if loop ~= nil then
                     if #loop ~= 2 then
                         rt.error("In rt.MusicManagerInstance: config at `", lua,  "` has entry `loop`, but it is not a table with 2 numerical entries")

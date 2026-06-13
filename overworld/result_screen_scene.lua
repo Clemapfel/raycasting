@@ -321,9 +321,9 @@ end
 
 --- @brief
 function ow.ResultScreenScene:_spawn_fireworks(instance, x, y, hue)
-    meta.assert_typeof(x, "Number", 2)
-    meta.assert_typeof(y, "Number", 3)
-    meta.assert_typeof(hue, "Number", 4)
+    meta.assert_typeof(x, mt.Number, 2)
+    meta.assert_typeof(y, mt.Number, 3)
+    meta.assert_typeof(hue, mt.Number, 4)
 
     local settings = rt.settings.overworld.result_screen_scene
     local batch_state = "result_screen_scene_n_batches"
@@ -564,9 +564,9 @@ function ow.ResultScreenScene:enter(player_x, player_y, player_vx, player_vy, sc
         rt.SceneManager:get_bloom():set_bloom_strength(rt.settings.overworld.result_screen_scene.bloom_strength)
     end
 
-    meta.assert_typeof(player_x, "Number", 1)
-    meta.assert_typeof(player_x, "Number", 2)
-    meta.assert_typeof(config, "Table", 4)
+    meta.assert_typeof(player_x, mt.Number, 1)
+    meta.assert_typeof(player_x, mt.Number, 2)
+    meta.assert_typeof(config, mt.Table, 4)
 
     self._screenshot = screenshot
     self._screenshot_mesh:set_texture(screenshot)

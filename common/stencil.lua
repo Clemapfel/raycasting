@@ -73,7 +73,7 @@ function rt.graphics.set_stencil_mode(value, mode, draw_or_compare_mode)
         return
     end
 
-    meta.assert(value, "Number")
+    meta.assert(value, mt.Number)
     if draw_or_compare_mode ~= nil then
         if mode == rt.StencilMode.TEST then
             meta.assert_enum_value(draw_or_compare_mode, rt.StencilCompareMode)

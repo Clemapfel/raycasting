@@ -4,7 +4,7 @@ meta.add_signals(rt.TimedAnimationSequence, "done", "animation_changed")
 
 function rt.TimedAnimationSequence:instantiate(...)
     for i = 1, select('#', ...) do
-        meta.assert_typeof(select(i, ...), "TimedAnimation", i)
+        meta.assert_typeof(select(i, ...), rt.TimedAnimation, i)
     end
 
     local animations = {...}
@@ -36,16 +36,16 @@ rt.AnimationChain = function(...)
     local i = 1
     while i < n do
         local duration = select(i + 0, ...)
-        meta.assert_typeof(duration, "Number", i + 0)
+        meta.assert_typeof(duration, mt.Number, i + 0)
 
         local min = select(i + 1, ...)
-        meta.assert_typeof(min, "Number", i + 1)
+        meta.assert_typeof(min, mt.Number, i + 1)
 
         local max = select(i + 2, ...)
-        meta.assert_typeof(max, "Number", i + 2)
+        meta.assert_typeof(max, mt.Number, i + 2)
 
         local f = select(i + 3, ...)
-        meta.assert_typeof(f, "Function", i + 3)
+        meta.assert_typeof(f, mt.Function, i + 3)
 
         table.insert(animations, rt.TimedAnimation(duration, min, max, f))
 

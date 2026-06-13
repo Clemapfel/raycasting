@@ -57,11 +57,11 @@ function rt.VoronoiTesselation:generate_seeds(
     origin_x, origin_y, tl_x, tl_y, tr_x, tr_y, br_x, br_y, bl_x, bl_y
 )
     meta.assert(
-        origin_x, "Number", origin_y, "Number",
-        tl_x, "Number", tl_y, "Number",
-        tr_x, "Number", tr_y, "Number",
-        br_x, "Number", br_y, "Number",
-        bl_x, "Number", bl_y, "Number"
+        origin_x, mt.Number, origin_y, mt.Number,
+        tl_x, mt.Number, tl_y, mt.Number,
+        tr_x, mt.Number, tr_y, mt.Number,
+        br_x, mt.Number, br_y, mt.Number,
+        bl_x, mt.Number, bl_y, mt.Number
     )
 
     local radius = math.sqrt(math.max(

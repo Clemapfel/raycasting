@@ -14,7 +14,7 @@ local _static_instances = meta.make_weak({})
 
 --- @brief
 function ow.Raycast:instantiate(world)
-    meta.assert(world, "PhysicsWorld")
+    meta.assert(world, b2.World)
 
     if _particle_texture == nil then
         _particle_texture = rt.Texture("assets/sprites/laser_particle.png")

@@ -120,7 +120,7 @@ end
 
 --- @brief
 function rt.GameState:set_is_bloom_enabled(b)
-    meta.assert(b, "Boolean")
+    meta.assert(b, mt.Boolean)
     bd.get_config().is_bloom_enabled = b
 end
 
@@ -131,7 +131,7 @@ end
 
 --- @brief
 function rt.GameState:set_is_hdr_enabled(b)
-    meta.assert(b, "Boolean")
+    meta.assert(b, mt.Boolean)
     bd.get_config().is_hdr_enabled = b
 end
 
@@ -143,7 +143,7 @@ end
 
 --- @brief
 function rt.GameState:set_is_dynamic_lighting_enabled(b)
-    meta.assert(b, "Boolean")
+    meta.assert(b, mt.Boolean)
     bd.get_config().is_dynamic_lighting_enabled = b
     if b == false and rt.SceneManager ~= nil and rt.SceneManager:get_light_map() ~= nil then
         rt.SceneManager:get_light_map():clear()
@@ -157,7 +157,7 @@ end
 
 --- @brief
 function rt.GameState:set_are_reflections_enabled(b)
-    meta.assert(b, "Boolean")
+    meta.assert(b, mt.Boolean)
     bd.get_config().are_reflections_enabled = b
 end
 
@@ -168,13 +168,13 @@ end
 
 --- @brief
 function rt.GameState:set_is_background_animated(b)
-    meta.assert(b, "Boolean")
+    meta.assert(b, mt.Boolean)
     bd.get_config().is_background_animated = b
 end
 
 --- @brief
 function rt.GameState:set_is_fullscreen(b)
-    meta.assert(b, "Boolean")
+    meta.assert(b, mt.Boolean)
     bd.get_config().is_fullscreen = b
     love.window.setFullscreen(b)
 end
@@ -186,7 +186,7 @@ end
 
 --- @brief
 function rt.GameState:set_sound_effect_level(level)
-    meta.assert(level, "Number")
+    meta.assert(level, mt.Number)
     bd.get_config().sound_effect_level = math.clamp(level, 0, 1)
 end
 
@@ -197,7 +197,7 @@ end
 
 --- @brief
 function rt.GameState:set_music_level(level)
-    meta.assert(level, "Number")
+    meta.assert(level, mt.Number)
     bd.get_config().music_level = math.clamp(level, 0, 1)
 end
 
@@ -208,7 +208,7 @@ end
 
 --- @brief
 function rt.GameState:set_text_speed(fraction)
-    meta.assert(fraction, "Number")
+    meta.assert(fraction, mt.Number)
     bd.get_config().text_speed = fraction -- no clamp
 end
 
@@ -219,7 +219,7 @@ end
 
 --- @brief
 function rt.GameState:set_joystick_deadzone(fraction)
-    meta.assert(fraction, "Number")
+    meta.assert(fraction, mt.Number)
     bd.get_config().joystick_deadzone = math.clamp(fraction, 0, 0.5) -- not 1, or controller would deadlock
 end
 
@@ -230,7 +230,7 @@ end
 
 --- @brief
 function rt.GameState:set_trigger_deadzone(fraction)
-    meta.assert(fraction, "Number")
+    meta.assert(fraction, mt.Number)
     bd.get_config().trigger_deadzone = math.clamp(fraction, 0, 0.5)
 end
 
@@ -262,7 +262,7 @@ end
 --- @brief
 --- @param t Number fraction, in 0, 1
 function rt.GameState:set_double_press_threshold(t)
-    meta.assert(t, "Number")
+    meta.assert(t, mt.Number)
     bd.get_config().double_press_threshold = t
 end
 
@@ -273,13 +273,13 @@ end
 
 --- @brief
 function rt.GameState:set_is_input_buffering_enabled(is_enabled)
-    meta.assert(is_enabled, "Boolean")
+    meta.assert(is_enabled, mt.Boolean)
     bd.get_config().is_input_buffering_enabled = is_enabled
 end
 
 --- @brief
 function rt.GameState:set_is_color_blind_mode_enabled(enabled)
-    meta.assert(enabled, "Boolean")
+    meta.assert(enabled, mt.Boolean)
     bd.get_config().is_color_blind_mode_enabled = enabled
 end
 
@@ -300,7 +300,7 @@ end
 
 --- @brief
 function rt.GameState:set_controller_vibration_strength(t)
-    meta.assert(t, "Number")
+    meta.assert(t, mt.Number)
     t = math.clamp(t, 0, 1)
     bd.get_config().controller_vibration_strength = t
 end
@@ -312,7 +312,7 @@ end
 
 --- @brief
 function rt.GameState:set_draw_debug_information(b)
-    meta.assert(b, "Boolean")
+    meta.assert(b, mt.Boolean)
     bd.get_config().draw_debug_information = b
 end
 
@@ -323,7 +323,7 @@ end
 
 --- @brief
 function rt.GameState:set_draw_speedrun_splits(b)
-    meta.assert(b, "Boolean")
+    meta.assert(b, mt.Boolean)
     bd.get_config().draw_speedrun_splits = b
 end
 
@@ -554,8 +554,8 @@ end
 --- @param ... Union<rt.KeyboardKey, rt.ControllerButton>
 function rt.GameState:set_input_binding(input_action_to_keyboard_key, input_action_to_controller_button)
     meta.assert(
-        input_action_to_keyboard_key, "Table",
-        input_action_to_controller_button, "Table"
+        input_action_to_keyboard_key, mt.Table,
+        input_action_to_controller_button, mt.Table
     )
 
     local keyboard_before = table.deepcopy(self._input_action_to_keyboard_key)

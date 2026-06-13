@@ -104,7 +104,7 @@ function ow.CheckpointParticles:set_bounds(aabb_or_x, y, width, height)
     local aabb
     if meta.is_number(aabb_or_x) then
         local x = aabb_or_x
-        meta.assert(x, "Number", y, "Number", width, "Number", height, "Number")
+        meta.assert(x, mt.Number, y, mt.Number, width, mt.Number, height, mt.Number)
         self._bounds:reformat(x, y, width, height)
     else
         aabb = aabb_or_x

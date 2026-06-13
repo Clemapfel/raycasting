@@ -8,7 +8,7 @@ function rt.SmoothedMotion2D:instantiate(position_x, position_y, speed, is_linea
     if speed == nil then speed = 1 end
     if is_linear == nil then is_linear = false end
 
-    meta.assert(position_x, "Number", position_y,  "Number", speed, "Number", is_linear, "Boolean")
+    meta.assert(position_x, mt.Number, position_y,  mt.Number, speed, mt.Number, is_linear, mt.Boolean)
     self._speed = speed
     self._current_position_x = position_x
     self._current_position_y = position_y

@@ -102,12 +102,12 @@ local _history_count = 120
 local _active_timings = {}
 
 function debugger.push(id)
-    meta.assert(id, "String")
+    meta.assert(id, mt.String)
     _active_timings[id] = love.timer.getTime()
 end
 
 function debugger.pop(id, show_instant_time)
-    meta.assert(id, "String")
+    meta.assert(id, mt.String)
 
     local start_time = _active_timings[id]
     if start_time == nil then return end

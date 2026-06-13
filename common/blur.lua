@@ -77,7 +77,7 @@ end
 
 --- @brief
 function rt.Blur:set_blur_strength(strength)
-    meta.assert(strength, "Number")
+    meta.assert(strength, mt.Number)
     local before = self._blur_strength
     self._blur_strength = math.max(strength, 0)
     if before ~= strength then

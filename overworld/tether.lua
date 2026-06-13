@@ -49,7 +49,7 @@ end
 
 --- @brief
 function ow.Tether:tether(attachment_x, attachment_y, target_x, target_y)
-    meta.assert(attachment_x, "Number", attachment_y, "Number")
+    meta.assert(attachment_x, mt.Number, attachment_y, mt.Number)
 
     local settings = rt.settings.overworld.tether
     local length = math.distance(attachment_x, attachment_y, target_x, target_y) * settings.length_overshoot

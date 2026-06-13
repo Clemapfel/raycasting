@@ -44,7 +44,7 @@ function ow.FluidProjectiles:add(x, y, n_particles, radius)
     if n_particles == nil then n_particles = rt.settings.fluid_projectiles.n_particles end
     if radius == nil then radius = rt.settings.fluid_projectiles.radius end
 
-    meta.assert(x, "Number", y, "Number", n_particles, "Number", radius, "Number")
+    meta.assert(x, mt.Number, y, mt.Number, n_particles, mt.Number, radius, mt.Number)
 
     if self._radius_to_particle_texture[radius] == nil then
         local padding = 3 -- px

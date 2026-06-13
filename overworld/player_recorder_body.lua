@@ -327,7 +327,7 @@ end
 
 --- @brief
 function ow.PlayerRecorderBody:set_is_bubble(is_bubble)
-    meta.assert(is_bubble, "Boolean")
+    meta.assert(is_bubble, mt.Boolean)
     self._is_bubble = is_bubble
 
     self._bubble_body:set_is_enabled(false)

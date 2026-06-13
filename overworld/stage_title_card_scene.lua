@@ -104,7 +104,7 @@ function ow.StageTitleCardScene:_initialize()
 
     local mesh_data = {}
     local _push_vertex = function(x, y)
-        meta.assert(x, "Number", y, "Number")
+        meta.assert(x, mt.Number, y, mt.Number)
         table.insert(mesh_data, {
             x, y, 0, 0, 1, 1, 1, 1
         })
@@ -275,7 +275,7 @@ end
 
 --- @brief
 function ow.StageTitleCardScene:enter(stage_id)
-    meta.assert(stage_id, "String")
+    meta.assert(stage_id, mt.String)
     self._stage_id = stage_id
     self._stage_index = rt.GameState:get_stage_index(stage_id)
     self._input:activate()

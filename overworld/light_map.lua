@@ -115,10 +115,10 @@ function ow.LightMap:_reinitialize(
     new_n_segment_lights_per_tile
 )
     meta.assert(
-        new_n_point_lights, "Number",
-        new_n_segment_lights, "Number",
-        new_n_point_lights_per_tile, "Number",
-        new_n_segment_lights_per_tile, "Number"
+        new_n_point_lights, mt.Number,
+        new_n_segment_lights, mt.Number,
+        new_n_point_lights_per_tile, mt.Number,
+        new_n_segment_lights_per_tile, mt.Number
     )
 
     local was_reinitialized = false
@@ -682,7 +682,7 @@ do
 
         stage:collect_point_lights(function(x, y, radius, color_r, color_g, color_b, color_a)
             if DEBUG then
-                meta.assert(x, "Number", y, "Number", radius, "Number", color_r, "Number", color_g, "Number", color_b, "Number", color_a, "Number")
+                meta.assert(x, mt.Number, y, mt.Number, radius, mt.Number, color_r, mt.Number, color_g, mt.Number, color_b, mt.Number, color_a, mt.Number)
             end
 
             local hash = _hash_point(x, y, radius, color_r, color_g, color_b, color_a)
@@ -696,7 +696,7 @@ do
 
         stage:collect_segment_lights(function(x1, y1, x2, y2, color_r, color_g, color_b, color_a)
             if DEBUG then
-                meta.assert(x1, "Number", y1, "Number", x2, "Number", y2, "Number", color_r, "Number", color_g, "Number", color_b, "Number", color_a, "Number")
+                meta.assert(x1, mt.Number, y1, mt.Number, x2, mt.Number, y2, mt.Number, color_r, mt.Number, color_g, mt.Number, color_b, mt.Number, color_a, mt.Number)
             end
 
             local hash = _hash_segment(x1, y1, x2, y2, color_r, color_g, color_b, color_a)

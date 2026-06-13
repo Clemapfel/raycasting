@@ -19,7 +19,7 @@ end
 
 --- @brief
 function rt.MusicManagerPlayback:instantiate(path)
-    meta.assert(path, "String")
+    meta.assert(path, mt.String)
     self:create_from(path)
 end
 

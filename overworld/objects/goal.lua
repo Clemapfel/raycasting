@@ -146,7 +146,7 @@ function ow.Goal:instantiate(object, stage, scene)
         local offset = rt.settings.overworld.goal.outline_width / 2 -- for pixel perfect hitbox accuracy
 
         local function create_mesh(min_x, min_y, max_x, max_y, radius)
-            meta.assert(min_x, "Number", min_y, "Number", max_x, "Number", max_y, "Number")
+            meta.assert(min_x, mt.Number, min_y, mt.Number, max_x, mt.Number, max_y, mt.Number)
             if min_x > max_x then min_x, max_x = max_x, min_x end
             if min_y > max_y then min_y, max_y = max_y, min_y end
 

@@ -26,7 +26,7 @@ function mn.OptionButton:instantiate(...)
     end
 
     for i, value in ipairs(options) do
-        meta.assert_typeof(value, "String", i)
+        meta.assert_typeof(value, mt.String, i)
     end
 
     meta.install(self, {
@@ -253,7 +253,7 @@ function mn.OptionButton:set_option(i_or_text)
         self._current_item_i = i
         self:_emit_selection()
     else
-        meta.assert(i_or_text, "String")
+        meta.assert(i_or_text, mt.String)
         local text = i_or_text
         local new_i = self._item_label_to_item_i[text]
         if new_i == nil then

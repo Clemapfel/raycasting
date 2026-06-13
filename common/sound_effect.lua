@@ -26,7 +26,7 @@ rt.SoundEffect = meta.class("SoundEffect")
 
 --- @brief
 function rt.SoundEffect:instantiate(native_id)
-    meta.assert(native_id, "String")
+    meta.assert(native_id, mt.String)
     self._native = native_id
 end
 
@@ -106,7 +106,7 @@ do
     local _current_id = 0
     local _atlas = {}
     _new_effect = function(prefix, config)
-        meta.assert(prefix, "String", config, "Table")
+        meta.assert(prefix, mt.String, config, mt.Table)
         if config.volume == nil then config.volume = 1 end
         local hash = _hash_config(config)
         local native_id = _atlas[hash]
@@ -138,7 +138,7 @@ do
     --- @class rt.ChorusSoundEffect
     function rt.ChorusSoundEffect(config)
         if config == nil then config = {} end
-        meta.assert(config, "Table")
+        meta.assert(config, mt.Table)
         config = _validate_config("rt.ChorusSoundEffect", config, _spec)
 
         if config.lfo_phase_difference ~= nil then
@@ -185,7 +185,7 @@ do
     --- @class rt.DistortionSoundEffect
     function rt.DistortionSoundEffect(config)
         if config == nil then config = {} end
-        meta.assert(config, "Table")
+        meta.assert(config, mt.Table)
         config = _validate_config("rt.DistortionSoundEffect", config, _spec)
 
         if config.fuzziness ~= nil then
@@ -233,7 +233,7 @@ do
     --- @class rt.DelaySoundEffect
     function rt.DelaySoundEffect(config)
         if config == nil then config = {} end
-        meta.assert(config, "Table")
+        meta.assert(config, mt.Table)
         config = _validate_config("rt.DelaySoundEffect", config, _spec)
 
         if config.delay ~= nil then
@@ -280,7 +280,7 @@ do
     --- @class rt.FlangerSoundEffect
     function rt.FlangerSoundEffect(config)
         if config == nil then config = {} end
-        meta.assert(config, "Table")
+        meta.assert(config, mt.Table)
         config = _validate_config("rt.FlangerSoundEffect", config, _spec)
 
         if config.lfo_phase_difference ~= nil then
@@ -325,7 +325,7 @@ do
     --- @class rt.RingModulatorSoundEffect
     function rt.RingModulatorSoundEffect(config)
         if config == nil then config = {} end
-        meta.assert(config, "Table")
+        meta.assert(config, mt.Table)
         config = _validate_config("rt.RingModulatorSoundEffect", config, _spec)
 
         -- frequency already in Hz
@@ -352,7 +352,7 @@ do
     --- @class rt.CompressionSoundEffect
     function rt.CompressionSoundEffect(config)
         if config == nil then config = {} end
-        meta.assert(config, "Table")
+        meta.assert(config, mt.Table)
         config = _validate_config("rt.CompressionSoundEffect", config, _spec)
 
         return _new_effect("compressor", {
@@ -389,7 +389,7 @@ do
     --- @class rt.EqualizerSoundEffect
     function rt.EqualizerSoundEffect(config)
         if config == nil then config = {} end
-        meta.assert(config, "Table")
+        meta.assert(config, mt.Table)
         config = _validate_config("rt.EqualizerSoundEffect", config, _spec)
 
         if config.low_gain ~= nil then
@@ -474,7 +474,7 @@ do
     --- @class rt.ReverbSoundEffect
     function rt.ReverbSoundEffect(config)
         if config == nil then config = {} end
-        meta.assert(config, "Table")
+        meta.assert(config, mt.Table)
         config = _validate_config("rt.ReverbSoundEffect", config, _spec)
 
         -- coloration already in [0, 1]

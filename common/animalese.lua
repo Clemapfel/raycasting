@@ -97,7 +97,7 @@ function rt.Animalese:_tokens_to_english_phonemes(tokens)
     local success, results_or_error = pcall(function(tokens)
         if meta.is_string(tokens) then tokens = { tokens } end
         for i, token in ipairs(tokens) do
-            meta.assert_typeof(token, "String", i)
+            meta.assert_typeof(token, mt.String, i)
         end
 
         bd.create_file(in_file, table.concat(tokens, "\n"), true)
@@ -343,7 +343,7 @@ do
 
     --- @brief
     function rt.Animalese:_english_phonemes_to_animalese_phonemes(phonemes)
-        meta.assert(phonemes, "Table")
+        meta.assert(phonemes, mt.Table)
 
         if table.is_empty(phonemes) then
             return { rt.AnimalesePhoneme.BEAT }
@@ -471,7 +471,7 @@ function rt.Animalese:translate(texts, update_precomputed)
     if update_precomputed == nil then update_precomputed = true end
 
     for i, text in ipairs(texts) do
-        meta.assert_typeof(text, "String", i)
+        meta.assert_typeof(text, mt.String, i)
     end
 
     -- conver to tokens
@@ -956,7 +956,7 @@ function rt.Animalese:talk(text, gender, emotion)
     if gender == nil then gender = rt.AnimaleseGender.FEMALE end
     if emotion == nil then emotion = rt.AnimaleseEmotion.NORMAL end
 
-    meta.assert_typeof(text, "String", 1)
+    meta.assert_typeof(text, mt.String, 1)
     meta.assert_enum_value(gender, rt.AnimaleseGender, 2)
     meta.assert_enum_value(emotion, rt.AnimaleseEmotion, 3)
 

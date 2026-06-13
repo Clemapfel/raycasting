@@ -403,7 +403,7 @@ end
 
 --- @brief
 function ow.OverworldScene:set_stage(stage_id, show_title_card)
-    meta.assert(stage_id, "String")
+    meta.assert(stage_id, mt.String)
 
     local background_id = rt.GameState:stage_get_background_id(stage_id);
     if self._background == nil or self._background:get_id() ~= background_id then

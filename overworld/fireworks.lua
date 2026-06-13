@@ -84,7 +84,7 @@ function ow.Fireworks:spawn(n_particles, start_x, start_y, end_x, end_y, hue_min
     if hue_min == nil then hue_min = 0 end
     if hue_max == nil then hue_max = 1 end
 
-    meta.assert(n_particles, "Number", start_x, "Number", start_y, "Number", end_x, "Number", end_y, "Number", hue_min, "Number", hue_max, "Number")
+    meta.assert(n_particles, mt.Number, start_x, mt.Number, start_y, mt.Number, end_x, mt.Number, end_y, mt.Number, hue_min, mt.Number, hue_max, mt.Number)
 
     local data_mesh_data = {}
     local data = {}

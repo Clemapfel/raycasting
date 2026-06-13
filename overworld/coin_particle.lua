@@ -153,7 +153,7 @@ end
 
 --- @brief
 function ow.CoinParticle:set_hue(hue)
-    meta.assert(hue, "Number")
+    meta.assert(hue, mt.Number)
     self._hue = hue
     self._color = { rt.lcha_to_rgba(0.8, 1, hue, 1) }
     self._outline_color = table.deepcopy(self._color)

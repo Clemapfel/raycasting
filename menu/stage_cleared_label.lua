@@ -11,7 +11,7 @@ local _angle = math.degrees_to_radians(15)
 
 --- @brief
 function mn.StageClearedLabel:instantiate(stage_id)
-    meta.assert(stage_id, "String")
+    meta.assert(stage_id, mt.String)
     self._stage_id = stage_id
 
     if _font == nil then

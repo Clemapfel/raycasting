@@ -71,11 +71,11 @@ do
     end
 
     local valid_keys_to_type = {
-        [settings.speaker_key] = "String",
+        [settings.speaker_key] = mt.String,
         [settings.speaker_orientation_key] = rt.DialogSpeakerOrientation,
         [settings.gender_key] = rt.AnimaleseGender,
-        [settings.state_key] = "Table",
-        [settings.dialog_choice_key] = "Table"
+        [settings.state_key] = mt.Table,
+        [settings.dialog_choice_key] = mt.Table
     }
 
     local function validate(scope, nodes)

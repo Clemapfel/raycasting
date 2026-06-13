@@ -11,7 +11,7 @@ function ow.CheckpointPlatform:instantiate(x1, y1, x2, y2, radius)
     self._color = { rt.lcha_to_rgba(0.8, 1, 0, 1) }
     self._impulse = rt.ImpulseSubscriber()
 
-    meta.assert(x1, "Number", y1, "Number", x2, "Number", y2, "Number")
+    meta.assert(x1, mt.Number, y1, mt.Number, x2, mt.Number, y2, mt.Number)
 
     local inner_thickness = 0.25 * radius
     local outer_thickness = radius

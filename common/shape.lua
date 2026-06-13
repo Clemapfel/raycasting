@@ -12,7 +12,7 @@ function rt.Shape:set_color(color_or_r, g, b, a)
     if meta.isa(color_or_r, rt.Color) then
         self._color = { color_or_r:unpack() }
     else
-        meta.assert(color_or_r, "Number", g, "Number", b, "Number")
+        meta.assert(color_or_r, mt.Number, g, mt.Number, b, mt.Number)
         self._color = { color_or_r, g, b, a or 1 }
     end
 end

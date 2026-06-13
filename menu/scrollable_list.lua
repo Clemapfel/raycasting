@@ -240,7 +240,7 @@ end
 
 --- @brief
 function mn.ScrollableList:set_selected_item(i)
-    meta.assert(i, "Number")
+    meta.assert(i, mt.Number)
     if self._selected_item_i > self._n_items then return end
 
     local before = self._items[self._selected_item_i]

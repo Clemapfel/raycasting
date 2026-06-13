@@ -2607,7 +2607,7 @@ end
 function rt.Player:teleport_to(x, y, relax_body)
     if relax_body == nil then relax_body = true end
 
-    meta.assert(x, "Number", y, "Number")
+    meta.assert(x, mt.Number, y, mt.Number)
     if self._body ~= nil and self._bubble_body ~= nil then
         if not self._is_bubble then
             self._body:set_is_enabled(false)
@@ -2707,7 +2707,7 @@ function rt.Player:get_physics_body(is_bubble)
     elseif is_bubble == false then
         return self._body
     else
-        meta.assert(is_bubble, "Boolean")
+        meta.assert(is_bubble, mt.Boolean)
     end
 end
 
@@ -2757,7 +2757,7 @@ end
 
 --- @brief
 function rt.Player:set_velocity(x, y)
-    meta.assert(x, "Number", y, "Number")
+    meta.assert(x, mt.Number, y, mt.Number)
 
     if self._is_bubble and self._bubble_body ~= nil then
         self._bubble_body:set_velocity(x, y)
@@ -2799,7 +2799,7 @@ end
 
 --- @brief
 function rt.Player:set_trail_is_visible(b)
-    meta.assert(b, "Boolean")
+    meta.assert(b, mt.Boolean)
     self._trail:set_is_visible(b)
 end
 
@@ -3668,7 +3668,7 @@ end
 --- @brief
 --- @return Number id
 function rt.Player:add_gravity_multiplier_source(factor)
-    meta.assert(factor, "Number")
+    meta.assert(factor, mt.Number)
 
     local id = self._gravity_multiplier_id
     self._gravity_multiplier_id = self._gravity_multiplier_id + 1

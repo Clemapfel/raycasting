@@ -85,7 +85,7 @@ require "common.filesystem"
 
 --- @brief
 function bd.compile(source_file_path, destination_file_path)
-    meta.assert(source_file_path, "String", destination_file_path, "String")
+    meta.assert(source_file_path, mt.String, destination_file_path, mt.String)
 
     source_file_path = bd.normalize_path(source_file_path)
     destination_file_path = bd.normalize_path(destination_file_path)

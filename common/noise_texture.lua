@@ -24,7 +24,7 @@ rt.NoiseType = meta.enum("NoiseType", rt.NoiseType)
 
 --- @brief
 function rt.NoiseTexture:instantiate(size_x, size_y, size_z, ...)
-    meta.assert_typeof(size_x, "Number", size_y, "Number", size_z, "Number")
+    meta.assert_typeof(size_x, mt.Number, size_y, mt.Number, size_z, mt.Number)
 
     local types  = { rt.NoiseType.GRADIENT, rt.NoiseType.GRADIENT, rt.NoiseType.GRADIENT, rt.NoiseType.GRADIENT }
     local scales = { 1, 1, 1, 1 }
@@ -34,7 +34,7 @@ function rt.NoiseTexture:instantiate(size_x, size_y, size_z, ...)
         local noise_type = select(i, ...)
         local scale = select(i + 1, ...)
         meta.assert_enum_value(noise_type, rt.NoiseType, 3 + i)
-        meta.assert_typeof(scale, "Number", 3 + i + 1)
+        meta.assert_typeof(scale, mt.Number, 3 + i + 1)
         n_components = n_components + 1
         types[n_components]  = noise_type
         scales[n_components] = scale

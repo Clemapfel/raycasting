@@ -50,11 +50,11 @@ function ow.RevealParticleEffect:emit(ax, ay, bx, by, side)
     if side == nil then side = 1 end
 
     meta.assert(
-        ax, "Number",
-        ay, "Number",
-        bx, "Number",
-        by, "Number",
-        side, "Number" -- -1, or 1, winding order
+        ax, mt.Number,
+        ay, mt.Number,
+        bx, mt.Number,
+        by, mt.Number,
+        side, mt.Number -- -1, or 1, winding order
     )
 
     local settings = rt.settings.overworld.reveal_particle_effect

@@ -76,7 +76,7 @@ local _not_squished = 0
 
 --- @brief
 function rt.PlayerBody:instantiate(position_x, position_y)
-    meta.assert(position_x, "Number", position_y, "Number")
+    meta.assert(position_x, mt.Number, position_y, mt.Number)
     self._position_x = position_x
     self._position_y = position_y
     self._relative_velocity_x = 0
@@ -1223,7 +1223,7 @@ function rt.PlayerBody:draw_core()
 end
 --- @brief
 function rt.PlayerBody:set_position(x, y)
-    meta.assert(x, "Number", y, "Number")
+    meta.assert(x, mt.Number, y, mt.Number)
     self._position_x = x
     self._position_y = y
 end

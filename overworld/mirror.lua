@@ -24,7 +24,7 @@ function ow.Mirror:instantiate(
 
     meta.assert(
         scene, "OverworldScene",
-        draw_mirror_mask_callback, "Function"
+        draw_mirror_mask_callback, mt.Function
     )
 
     meta.install(self, {
@@ -154,7 +154,7 @@ end
 
 --- @brief
 function ow.Mirror:create_contour(mirror_contours, occluding_contours, contour_test)
-    meta.assert(mirror_contours, "Table", mirror_contours, "Table")
+    meta.assert(mirror_contours, mt.Table, mirror_contours, mt.Table)
 
     local mirror_segments, occluding_segments = {}, {}
 

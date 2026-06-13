@@ -29,13 +29,13 @@ end
 
 --- @brief
 function bd.exists(path)
-    meta.assert(path, "String")
+    meta.assert(path, mt.String)
     return love.filesystem.getInfo(path) ~= nil
 end
 
 --- @brief
 function bd.get_file_type(path)
-    meta.assert(path, "String")
+    meta.assert(path, mt.String)
     local info = love.filesystem.getInfo(path)
     if info == nil then return nil end
     return info.type
@@ -43,7 +43,7 @@ end
 
 --- @brief
 function bd.is_directory(path)
-    meta.assert(path, "String")
+    meta.assert(path, mt.String)
     local info = love.filesystem.getInfo(path)
     if info == nil then return false end
     return info.type == bd.FileType.DIRECTORY
@@ -52,7 +52,7 @@ end
 --- @brief
 function bd.is_file(path)
     if path == nil then return false end
-    meta.assert(path, "String")
+    meta.assert(path, mt.String)
 
     local info = love.filesystem.getInfo(path)
     if info == nil then return false end
@@ -61,7 +61,7 @@ end
 
 --- @brief
 function bd.create_directory(path)
-    meta.assert(path, "String")
+    meta.assert(path, mt.String)
 
     local success = love.filesystem.createDirectory(path)
     if not success then
@@ -105,7 +105,7 @@ function bd.join_path(...)
     local table_i = 1
     for i = 1, n do
         local part = select(i, ...)
-        meta.assert_typeof(part, "String", i)
+        meta.assert_typeof(part, mt.String, i)
         if part and part ~= "" then
             part = string.gsub(tostring(part), "[\\/]*$", "") -- remove trailing slashes
             to_concatenate[table_i] = part
@@ -143,7 +143,7 @@ end
 
 --- @brief
 function bd.get_directory_prefix(file_path)
-    meta.assert(file_path, "String")
+    meta.assert(file_path, mt.String)
     return string.match(file_path, "^(.*[\\/])[^\\/]*$")
 end
 
@@ -174,7 +174,7 @@ do
 
     --- @brief
     function bd.mount_path(path, mount_point)
-        meta.assert(path, "String")
+        meta.assert(path, mt.String)
         path = bd.normalize_path(path)
 
         if not _path_exists_raw(path) then
@@ -210,7 +210,7 @@ do
 
     --- @brief
     function bd.unmount_path(path)
-        meta.assert(path, "String")
+        meta.assert(path, mt.String)
         path = bd.normalize_path(path)
 
         local mount_point
@@ -244,7 +244,7 @@ end
 --- @brief create a file from string
 function bd.create_file(path, content, should_overwrite)
     if should_overwrite == nil then should_overwrite = true end
-    meta.assert(path, "String", content, "String", should_overwrite, "Boolean")
+    meta.assert(path, mt.String, content, mt.String, should_overwrite, mt.Boolean)
 
     path = bd.normalize_path(path)
 
@@ -283,7 +283,7 @@ end
 
 --- @brief
 function bd.read_file(path)
-    meta.assert(path, "String")
+    meta.assert(path, mt.String)
 
     path = bd.normalize_path(path)
 
@@ -305,7 +305,7 @@ end
 
 --- @brief
 function bd.iterate_lines(path)
-    meta.assert(path, "String")
+    meta.assert(path, mt.String)
     path = bd.normalize_path(path)
     if not bd.exists(path) then
         return nil
@@ -329,7 +329,7 @@ end
 
 --- @brief
 function bd.write_file(path, content, overwrite_ok)
-    meta.assert(path, "String", content, "String")
+    meta.assert(path, mt.String, content, mt.String)
 
     path = bd.normalize_path(path)
 
@@ -355,7 +355,7 @@ end
 
 --- @brief overwrite an existing file with string
 function bd.overwrite_file(path, content)
-    meta.assert(path, "String", content, "String")
+    meta.assert(path, mt.String, content, mt.String)
 
     path = bd.normalize_path(path)
 
@@ -375,7 +375,7 @@ end
 
 --- @brief append string to an existing file
 function bd.append_to_file(path, content)
-    meta.assert(path, "String", content, "String")
+    meta.assert(path, mt.String, content, mt.String)
 
     path = bd.normalize_path(path)
 
@@ -401,7 +401,7 @@ function bd.append_to_file(path, content)
 end
 
 function bd.copy_file(source_file_path, destination_file_path)
-    meta.assert(source_file_path, "String", destination_file_path, "String")
+    meta.assert(source_file_path, mt.String, destination_file_path, mt.String)
 
     source_file_path = bd.normalize_path(source_file_path)
     destination_file_path = bd.normalize_path(destination_file_path)
@@ -436,7 +436,7 @@ end
 
 --- @brief remove a single file
 function bd.remove_file(file_path)
-    meta.assert(file_path, "String")
+    meta.assert(file_path, mt.String)
 
     file_path = bd.normalize_path(file_path)
 
@@ -456,7 +456,7 @@ end
 
 --- @brief recursively copy a directory and all its contents
 function bd.copy_directory(source_directory_path, destination_directory_path)
-    meta.assert(source_directory_path, "String", destination_directory_path, "String")
+    meta.assert(source_directory_path, mt.String, destination_directory_path, mt.String)
 
     source_directory_path = bd.normalize_path(source_directory_path)
     destination_directory_path = bd.normalize_path(destination_directory_path)
@@ -492,7 +492,7 @@ end
 
 --- @brief recursively remove a directory and all its contents
 function bd.remove_directory(directory_path)
-    meta.assert(directory_path, "String")
+    meta.assert(directory_path, mt.String)
 
     directory_path = bd.normalize_path(directory_path)
 
@@ -523,7 +523,7 @@ end
 
 --- @brief
 function bd.copy(source_path, destination_path)
-    meta.assert(source_path, "String", destination_path, "String")
+    meta.assert(source_path, mt.String, destination_path, mt.String)
     if bd.is_directory(source_path) then
         bd.copy_directory(source_path, destination_path)
     elseif bd.is_file(source_path) then
@@ -535,7 +535,7 @@ end
 
 --- @brief
 function bd.remove(source_path)
-    meta.assert(source_path, "String")
+    meta.assert(source_path, mt.String)
     if bd.is_directory(source_path) then
         bd.remove_directory(source_path)
     elseif bd.is_file(source_path) then
@@ -547,7 +547,7 @@ end
 
 --- @brief
 function bd.move_directory(source_path, destination_path)
-    meta.assert(source_path, "String", destination_path, "String")
+    meta.assert(source_path, mt.String, destination_path, mt.String)
     source_path = bd.normalize_path(source_path)
     destination_path = bd.normalize_path(destination_path)
 
@@ -561,7 +561,7 @@ end
 
 --- @brief
 function bd.move_file(source_path, destination_path)
-    meta.assert(source_path, "String", destination_path, "String")
+    meta.assert(source_path, mt.String, destination_path, mt.String)
     source_path = bd.normalize_path(source_path)
     destination_path = bd.normalize_path(destination_path)
 
@@ -575,7 +575,7 @@ end
 
 --- @brief
 function bd.move(source_path, destination_path)
-    meta.assert(source_path, "String", destination_path, "String")
+    meta.assert(source_path, mt.String, destination_path, mt.String)
 
     source_path = bd.normalize_path(source_path)
     destination_path = bd.normalize_path(destination_path)
@@ -596,7 +596,7 @@ end
 --- @brief
 function bd.load(path, should_sandbox, fenv)
     if should_sandbox == nil then should_sandbox = true end
-    meta.assert(path, "String", should_sandbox, "Boolean")
+    meta.assert(path, mt.String, should_sandbox, mt.Boolean)
 
     local load_success, chunk_or_error, love_error = pcall(love.filesystem.load, path)
     if not load_success then
@@ -635,7 +635,7 @@ end
 
 function bd.load_string(source, should_sandbox, fenv)
     if should_sandbox == nil then should_sandbox = true end
-    meta.assert(source, "String", should_sandbox, "Boolean")
+    meta.assert(source, mt.String, should_sandbox, mt.Boolean)
 
     local load_success, chunk_or_error = pcall(loadstring or load, source)
     if not load_success then
@@ -701,7 +701,7 @@ do
     --- @param path String
     --- @param f Function (directory, filename) -> nil
     function bd.apply_recursively(path, f)
-        meta.assert(path, "String", f, "Function")
+        meta.assert(path, mt.String, f, mt.Function)
 
         local type = bd.get_file_type(path)
         if type == bd.FileType.DIRECTORY then
@@ -715,7 +715,7 @@ end
 
 --- @brief apply function to full paths of all items in directory (non-recursive)
 function bd.apply(path, f)
-    meta.assert(path, "String", f, "Function")
+    meta.assert(path, mt.String, f, mt.Function)
 
     if not bd.exists(path) then
         return

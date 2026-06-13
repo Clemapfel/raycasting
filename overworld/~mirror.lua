@@ -20,10 +20,10 @@ function ow.Mirror:instantiate(
 )
     meta.assert(
         scene, "ow.Scene",
-        get_mirror_segments_callback, "Function",
-        get_occluding_segments_callback, "Function",
-        draw_mirror_mask_callback, "Function",
-        draw_occluding_mask_callback, "Function"
+        get_mirror_segments_callback, mt.Function,
+        get_occluding_segments_callback, mt.Function,
+        draw_mirror_mask_callback, mt.Function,
+        draw_occluding_mask_callback, mt.Function
     )
 
     meta.install(self, {

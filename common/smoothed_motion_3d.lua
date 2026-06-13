@@ -7,7 +7,7 @@ function rt.SmoothedMotion3D:instantiate(position_x, position_y, position_z, spe
     if position_y == nil then position_y = position_x end
     if position_z == nil then position_z = position_y end
     if speed == nil then speed = 1 end
-    meta.assert(position_x, "Number", position_y,  "Number", speed, "Number")
+    meta.assert(position_x, mt.Number, position_y,  mt.Number, speed, mt.Number)
     meta.install(self, {
         _speed = speed,
         _current_position_x = position_x,

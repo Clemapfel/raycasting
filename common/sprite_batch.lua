@@ -73,17 +73,17 @@ function rt.SpriteBatch:add(x, y, w, h, tx, ty, tw, th, flip_horizontally, flip_
     if angle == nil then angle = 0 end
 
     meta.assert(
-        x, "Number",
-        y, "Number",
-        w, "Number",
-        h, "Number",
-        tx, "Number",
-        ty, "Number",
-        tw, "Number",
-        th, "Number",
-        flip_horizontally, "Boolean",
-        flip_vertically, "Boolean",
-        angle, "Number"
+        x, mt.Number,
+        y, mt.Number,
+        w, mt.Number,
+        h, mt.Number,
+        tx, mt.Number,
+        ty, mt.Number,
+        tw, mt.Number,
+        th, mt.Number,
+        flip_horizontally, mt.Boolean,
+        flip_vertically, mt.Boolean,
+        angle, mt.Number
     )
 
     table.insert(self._data, self._params_to_data(
@@ -107,17 +107,17 @@ function rt.SpriteBatch:set(i, x, y, w, h, tx, ty, tw, th, flip_horizontally, fl
     if angle == nil then angle = 0 end
 
     meta.assert(
-        x, "Number",
-        y, "Number",
-        w, "Number",
-        h, "Number",
-        tx, "Number",
-        ty, "Number",
-        tw, "Number",
-        th, "Number",
-        flip_horizontally, "Boolean",
-        flip_vertically, "Boolean",
-        angle, "Number"
+        x, mt.Number,
+        y, mt.Number,
+        w, mt.Number,
+        h, mt.Number,
+        tx, mt.Number,
+        ty, mt.Number,
+        tw, mt.Number,
+        th, mt.Number,
+        flip_horizontally, mt.Boolean,
+        flip_vertically, mt.Boolean,
+        angle, mt.Number
     )
 
     if i > self._current_i then

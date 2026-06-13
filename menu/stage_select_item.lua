@@ -31,7 +31,7 @@ end
 
 --- @brief
 function mn.StageSelectItem:instantiate(stage_id)
-    meta.assert(stage_id, "String")
+    meta.assert(stage_id, mt.String)
     self._id = stage_id
     self._hrule_callbacks = {}
 

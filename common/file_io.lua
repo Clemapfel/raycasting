@@ -147,7 +147,7 @@ function rt.FileIO:write(path, content, allow_overwrite, allow_create_directory)
         rt.error("In rt.FileIO: trying to write to `", path, "`, but file writer thread was already shut down")
         return nil
     end
-    meta.assert(path, "String", content, "String")
+    meta.assert(path, mt.String, content, mt.String)
 
     local future, id = self:_new_future()
     self._main_to_worker:push({
@@ -168,7 +168,7 @@ function rt.FileIO:read(path)
         rt.error("In rt.FileIO: trying to read `", path, "`, but file writer thread was already shut down")
         return nil
     end
-    meta.assert(path, "String")
+    meta.assert(path, mt.String)
 
     local future, id = self:_new_future()
     self._main_to_worker:push({

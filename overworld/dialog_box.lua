@@ -65,7 +65,7 @@ local _animalese
 
 --- @brief
 function ow.DialogBox:instantiate(id)
-    meta.assert(id, "String")
+    meta.assert(id, mt.String)
     self._id = id
     self._config = rt.Dialog[id]
 
@@ -1056,7 +1056,7 @@ end
 --- @brief
 --- @param render_callback Function (width, height) -> nil
 function ow.DialogBox:register_speaker_frame(speaker_id, render_callback)
-    meta.assert(speaker_id, "String", render_callback, "Function")
+    meta.assert(speaker_id, mt.String, render_callback, mt.Function)
 
     local seen = false
     for node in values(self._id_to_node) do

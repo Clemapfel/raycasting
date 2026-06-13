@@ -417,9 +417,9 @@ end
 --- @brief
 function rt.SoundManager:stop(id, handler_id)
     if handler_id == nil then
-        meta.assert(id, "String")
+        meta.assert(id, mt.String)
     else
-        meta.assert(id, "String", handler_id, "Number")
+        meta.assert(id, mt.String, handler_id, mt.Number)
     end
 
     local entry = self:_get_entry(id, "play")
@@ -455,7 +455,7 @@ function rt.SoundManager:set_volume(id, handler_id, volume, use_smoothing)
         return
     else
         if use_smoothing == nil then use_smoothing = true end
-        meta.assert(id, "String", handler_id, "Number", volume, "Number", use_smoothing, "Boolean")
+        meta.assert(id, mt.String, handler_id, mt.Number, volume, mt.Number, use_smoothing, mt.Boolean)
     end
 
     local entry = self:_get_entry(id, "set_volume")
@@ -485,7 +485,7 @@ function rt.SoundManager:set_pitch(id, handler_id, pitch, use_smoothing)
         return
     else
         if use_smoothing == nil then use_smoothing = true end
-        meta.assert(id, "String", handler_id, "Number", pitch, "Number", use_smoothing, "Boolean")
+        meta.assert(id, mt.String, handler_id, mt.Number, pitch, mt.Number, use_smoothing, mt.Boolean)
     end
 
     local entry = self:_get_entry(id, "set_pitch")
@@ -542,9 +542,9 @@ end
 --- @brief
 function rt.SoundManager:stop(id, handler_id, fade_out_duration)
     if handler_id == nil then
-        meta.assert(id, "String")
+        meta.assert(id, mt.String)
     else
-        meta.assert(id, "String", handler_id, "Number")
+        meta.assert(id, mt.String, handler_id, mt.Number)
     end
 
     if fade_out_duration == nil then fade_out_duration = rt.settings.sound_manager.source_stop_decay_duration end

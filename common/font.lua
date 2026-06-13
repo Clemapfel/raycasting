@@ -55,10 +55,10 @@ function rt.Font:instantiate(
     if mono_bold_italic_path == nil then mono_bold_italic_path = mono_italic_path end
 
     meta.assert(
-        regular_path, "String",
-        bold_path, "String",
-        italic_path, "String",
-        bold_italic_path, "String"
+        regular_path, mt.String,
+        bold_path, mt.String,
+        italic_path, mt.String,
+        bold_italic_path, mt.String
     )
 
     self._font_style_to_path = {
@@ -123,7 +123,7 @@ function rt.Font:get_native(size, style, sdf)
     meta.assert_enum_value(style, rt.FontStyle, 2)
 
     if sdf == nil then sdf = false end
-    meta.assert_typeof(sdf, "Boolean", 3)
+    meta.assert_typeof(sdf, mt.Boolean, 3)
 
     local actual_size = self:get_actual_size(size)
     local path = self._font_style_to_path[style]
@@ -165,7 +165,7 @@ end
 --- @brief
 function rt.Font:measure(font_size, str)
     meta.assert_enum_value(font_size, rt.FontSize, 1)
-    meta.assert_typeof(str, "String", 2)
+    meta.assert_typeof(str, mt.String, 2)
     local native = self:get_native(font_size)
     return native:getWidth(str), native:getHeight()
 end

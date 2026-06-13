@@ -2430,7 +2430,7 @@ end
 function rt.Player:teleport_to(x, y, relax_body)
     if relax_body == nil then relax_body = true end
 
-    meta.assert(x, "Number", y, "Number")
+    meta.assert(x, mt.Number, y, mt.Number)
 
     local is_bubble = self:get_is_bubble()
 
@@ -2517,7 +2517,7 @@ end
 
 --- @brief
 function rt.Player:set_velocity(x, y)
-    meta.assert(x, "Number", y, "Number")
+    meta.assert(x, mt.Number, y, mt.Number)
 
     if self:get_is_bubble() and self._bubble_body ~= nil then
         self._bubble_body:set_velocity(x, y)
@@ -3095,52 +3095,52 @@ end
 
 for tuple in range(
 --- @alias request_is_visible fun(id: Object, is_visible: Boolean)
-    { "is_visible", { { "is_visible", "Boolean" } } },
+    { "is_visible", { { "is_visible", mt.Boolean } } },
 
 --- @alias request_is_frozen fun(id: Object, is_frozen: Boolean)
-    { "is_frozen", { { "is_frozen", "Boolean" } } },
+    { "is_frozen", { { "is_frozen", mt.Boolean } } },
 
 --- @alias request_is_disabled fun(id: Object, is_disabled: Boolean)
-    { "is_disabled", { { "is_disabled", "Boolean" } } },
+    { "is_disabled", { { "is_disabled", mt.Boolean } } },
 
 --- @alias request_is_movement_disabled fun(id: Object, is_disabled: Boolean)
-    { "is_movement_disabled", { { "is_disabled", "Boolean" } } },
+    { "is_movement_disabled", { { "is_disabled", mt.Boolean } } },
 
 --- @alias request_is_jump_disabled fun(id: Object, is_disabled: Boolean)
-    { "is_jump_disabled", { { "is_disabled", "Boolean" } } },
+    { "is_jump_disabled", { { "is_disabled", mt.Boolean } } },
 
 --- @alias request_is_double_jump_disabled fun(id: Object, is_disabled: Boolean)
-    { "is_double_jump_disabled", { { "is_disabled", "Boolean" } } },
+    { "is_double_jump_disabled", { { "is_disabled", mt.Boolean } } },
 
 --- @alias request_is_jump_allowed_override fun(id: Object, is_allowed: Boolean)
-    { "is_jump_allowed_override", { { "is_allowed", "Boolean" } } },
+    { "is_jump_allowed_override", { { "is_allowed", mt.Boolean } } },
     
 --- @alias request_is_omnidirectional_movement_allowed = fun(id: Object, is_allowed: Boolean)
-    { "is_omnidirectional_movement_allowed", { { "is_allowed", "Boolean" } } },
+    { "is_omnidirectional_movement_allowed", { { "is_allowed", mt.Boolean } } },
 
 --- @alias request_is_trail_visible fun(id: Object, is_visible: Boolean)
-    { "is_trail_visible", { { "is_visible", "Boolean" } } },
+    { "is_trail_visible", { { "is_visible", mt.Boolean } } },
 
 --- @alias request_is_flow_frozen fun(id: Object, is_frozen: Boolean)
-    { "is_flow_frozen", { { "is_frozen", "Boolean" } } },
+    { "is_flow_frozen", { { "is_frozen", mt.Boolean } } },
 
 --- @alias request_is_idle_timer_frozen fun(id: Object, is_frozen: Boolean)
-    { "is_idle_timer_frozen", { { "is_frozen", "Boolean" } } },
+    { "is_idle_timer_frozen", { { "is_frozen", mt.Boolean } } },
 
 --- @alias request_opacity fun(id: Object, opacity: Number)
-    { "opacity", { { "opacity", "Number" } } },
+    { "opacity", { { "opacity", mt.Number } } },
 
 --- @alias request_time_dilation fun(id: Object, factor: Number)
-    { "time_dilation", { { "dilation", "Number" } } },
+    { "time_dilation", { { "dilation", mt.Number } } },
 
 --- @alias request_gravity_multiplier fun(id: Object, factor: Number)
-    { "gravity_multiplier", { { "multiplier", "Number" } } },
+    { "gravity_multiplier", { { "multiplier", mt.Number } } },
 
 --- @alias request_gravity_direction fun(id: Object, dx: Number, dy: Number)
-    { "gravity_direction", { { "dx", "Number" }, { "dy", "Number" } } },
+    { "gravity_direction", { { "dx", mt.Number }, { "dy", mt.Number } } },
 
 --- @alias request_force fun(id: Object, dx: Number, dy: Number)
-    { "force", { { "dx", "Number" }, { "dy", "Number" } } }
+    { "force", { { "dx", mt.Number }, { "dy", mt.Number } } }
 ) do
     local which, args_table = table.unpack(tuple)
     rt.Player["request_" .. which] = function(self, id, ...)
@@ -3498,10 +3498,10 @@ function rt.Player:request_damping(id, up, right, down, left)
         requests[id] = nil
         return id
     else
-        if up ~= nil then meta.assert_typeof(up, "Number", 2) end
-        if right ~= nil then meta.assert_typeof(up, "Number", 3) end
-        if down ~= nil then meta.assert_typeof(up, "Number", 4) end
-        if left ~= nil then meta.assert_typeof(up, "Number", 5) end
+        if up ~= nil then meta.assert_typeof(up, mt.Number, 2) end
+        if right ~= nil then meta.assert_typeof(up, mt.Number, 3) end
+        if down ~= nil then meta.assert_typeof(up, mt.Number, 4) end
+        if left ~= nil then meta.assert_typeof(up, mt.Number, 5) end
 
         local entry = requests[id]
         if entry == nil then
@@ -3541,7 +3541,7 @@ function rt.Player:bounce(direction_x, direction_y, magnitude)
         )
     end
 
-    meta.assert(direction_x, "Number", direction_y, "Number", magnitude, "Number")
+    meta.assert(direction_x, mt.Number, direction_y, mt.Number, magnitude, mt.Number)
 
     -- keep direction non-normalized
 

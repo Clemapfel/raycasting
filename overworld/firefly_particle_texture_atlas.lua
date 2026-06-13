@@ -5,7 +5,7 @@ ow.FireflyParticleTextureAtlas = meta.class("FireflyParticleTextureAtlas")
 
 --- @brief
 function ow.FireflyParticleTextureAtlas:instantiate(hues, radii)
-    meta.assert(hues, "Table", radii, "Table")
+    meta.assert(hues, mt.Table, radii, mt.Table)
 
     self._hues, self._radii = hues, radii
 
@@ -91,7 +91,7 @@ end
 
 --- @brief
 function ow.FireflyParticleTextureAtlas:draw(hue, radius, x, y, scale)
-    if DEBUG then meta.assert(hue, "Number", radius, "Number", x, "Number", y, "Number") end
+    if DEBUG then meta.assert(hue, mt.Number, radius, mt.Number, x, mt.Number, y, mt.Number) end
     scale = scale or 1
     scale = scale * (1 / self._canvas_scale)
 

@@ -107,10 +107,10 @@ function rt.Label:instantiate(text, font_size, font, use_caching)
     if use_caching == nil then use_caching = true end
 
     meta.assert(
-        text, "String",
+        text, mt.String,
         font, rt.Font,
         font_size, rt.FontSize,
-        use_caching, "Boolean"
+        use_caching, mt.Boolean
     )
 
     meta.install(self, {
@@ -346,7 +346,7 @@ end
 
 --- @brief
 function rt.Label:set_opacity(alpha)
-    meta.assert(alpha, "Number")
+    meta.assert(alpha, mt.Number)
     self._opacity = alpha
 end
 
@@ -1548,10 +1548,10 @@ end
 --- @brief
 function rt.Glyph:set_color(r_or_rgba, g, b, a)
     if g ~= nil then
-        meta.assert(r_or_rgba, "Number", g, "Number", b, "Number", a, "Number")
+        meta.assert(r_or_rgba, mt.Number, g, mt.Number, b, mt.Number, a, mt.Number)
         self._native.color = { r_or_rgba, g, b, a }
     else
-        meta.assert(r_or_rgba, "Table")
+        meta.assert(r_or_rgba, mt.Table)
         self._native.color = r_or_rgba
     end
 end

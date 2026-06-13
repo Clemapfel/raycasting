@@ -189,7 +189,7 @@ end
 
 --- @brief
 function ow.FlowGraph:get_fraction(x, y)
-    meta.assert(x, "Number", y, "Number")
+    meta.assert(x, mt.Number, y, mt.Number)
     local min_distance, min_entry, closest_x, closest_y = math.huge, nil, nil, nil, nil
     for i = 1, self._n_entries do
         local entry = self._entries[i]

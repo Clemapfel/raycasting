@@ -42,7 +42,7 @@ function rt.ControlIndicator:instantiate(...)
     local i = 1
     for button_text in values(layout) do
         meta.assert_enum_value(button_text[1], rt.ControlIndicatorButton, i)
-        meta.assert_typeof(button_text[2], "String", i)
+        meta.assert_typeof(button_text[2], mt.String, i)
         i = i + 1
     end
 

@@ -23,11 +23,11 @@ function rt.Sprite:instantiate(path, n_columns, n_rows, border_x, border_y)
     if border_y == nil then border_y = border_x end
 
     meta.assert(
-        path, "String",
-        n_columns, "Number",
-        n_rows, "Number",
-        border_x, "Number",
-        border_y, "Number"
+        path, mt.String,
+        n_columns, mt.Number,
+        n_rows, mt.Number,
+        border_x, mt.Number,
+        border_y, mt.Number
     )
 
     local image = rt.Sprite._path_to_spritesheet[path]

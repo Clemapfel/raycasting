@@ -13,7 +13,7 @@ function rt.TimedAnimation:instantiate(duration, start_value, end_value, interpo
     if start_value == nil then start_value = 0 end
     if end_value == nil then end_value = 1 end
     if interpolation_function == nil then interpolation_function = rt.InterpolationFunctions.LINEAR end
-    meta.assert(duration, "Number", start_value, "Number", end_value, "Number", interpolation_function, "Function")
+    meta.assert(duration, mt.Number, start_value, mt.Number, end_value, mt.Number, interpolation_function, mt.Function)
     meta.install(self, {
         _lower = start_value,
         _upper = end_value,

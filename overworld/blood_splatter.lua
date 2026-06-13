@@ -230,7 +230,7 @@ end
 
 --- @brief
 function ow.BloodSplatter:create_contour(contours)
-    meta.assert(contours, "Table")
+    meta.assert(contours, mt.Table)
 
     self._world = love.physics.newWorld(0, 0)
     self._edges = {}

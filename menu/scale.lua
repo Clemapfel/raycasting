@@ -8,7 +8,7 @@ mn.Scale = meta.class("MenuScale", rt.Widget)
 function mn.Scale:instantiate(min, max, n_steps, initial_value)
     if n_steps == nil then n_steps = max - min end
     if initial_value == nil then initial_value = min + 0.5 * (max - min) end
-    meta.assert(min, "Number", max, "Number", n_steps, "Number", initial_value, "Number")
+    meta.assert(min, mt.Number, max, mt.Number, n_steps, mt.Number, initial_value, mt.Number)
 
     meta.install(self, {
         _rail_center = rt.Rectangle(0, 0, 1, 1),

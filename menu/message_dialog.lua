@@ -35,7 +35,7 @@ meta.add_signal(mn.MessageDialog,
 --- @param option1 vararg
 --- @signal selection (mn.MessageDialog, Unsigned) -> nil
 function mn.MessageDialog:instantiate(message, submessage, option1, ...)
-    meta.assert(message, "String", submessage, "String")
+    meta.assert(message, mt.String, submessage, mt.String)
     meta.assert_enum_value(option1, mn.MessageDialogOption, 3)
 
     local default_option = 1
@@ -274,7 +274,7 @@ end
 --- @brief
 function mn.MessageDialog:set_message(message, submessage, justify)
     if submessage == nil then submessage = self._submessage end
-    meta.assert(message, "String", submessage, "String")
+    meta.assert(message, mt.String, submessage, mt.String)
     if justify ~= nil then self._message_label:set_justify_mode(justify) end
     self._message_label:set_text(message)
 
@@ -290,7 +290,7 @@ end
 
 --- @brief
 function mn.MessageDialog:set_submessage(submessage, justify)
-    meta.assert(submessage, "String")
+    meta.assert(submessage, mt.String)
     if justify ~= nil then self._submessage_label:set_justify_mode(justify) end
     self._submessage_label:set_text(submessage)
     if self._is_realized then

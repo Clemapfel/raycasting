@@ -91,12 +91,12 @@ function rt.MusicManager:instantiate()
                     return out
                 end
 
-                local id = get("id", "String")
+                local id = get("id", mt.String)
                 if id ~= nil then
                     entry.id = id
                 end
 
-                local loop = get("loop", "Table")
+                local loop = get("loop", mt.Table)
                 if loop ~= nil then
                     if #loop ~= 2 then
                         rt.error("In rt.MusicManager: config at `", lua,  "` has entry `loop`, but it is not a table with 2 numerical entries")

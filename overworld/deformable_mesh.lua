@@ -274,7 +274,7 @@ local function _line_circle_collision(origin_x, origin_y, dx, dy, circle_x, circ
 end
 
 function ow.DeformableMesh:step(delta, outer_x, outer_y, outer_r)
-    meta.assert(delta, "Number", outer_x, "Number", outer_y, "Number", outer_r, "Number")
+    meta.assert(delta, mt.Number, outer_x, mt.Number, outer_y, mt.Number, outer_r, mt.Number)
 
     require "common.debugger"
     local settings = rt.settings.overworld.deformable_mesh

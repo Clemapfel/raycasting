@@ -580,7 +580,7 @@ end
 --- @brief decimate path using Ramer-Douglas-Peucker algorithm
 --- @param epsilon Number maximum perpendicular distance threshold
 function rt.Path:decimate(epsilon)
-    meta.assert(epsilon, "Number")
+    meta.assert(epsilon, mt.Number)
 
     if self._n_points < 4 then
         return self

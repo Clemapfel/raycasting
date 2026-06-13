@@ -60,7 +60,7 @@ function rt.InputManager:vibrate(left, right, duration, attack, decay)
     if attack == nil then attack = default_attack / duration end
     if decay == nil then decay = default_attack / duration end
 
-    meta.assert(left, "Number", right, "Number", duration, "Number", attack, "Number", decay, "Number")
+    meta.assert(left, mt.Number, right, mt.Number, duration, mt.Number, attack, mt.Number, decay, mt.Number)
 
     if duration < 0 then
         rt.critical("In rt.InputManager.vibrate: duration `", duration, "` is negative")

@@ -43,7 +43,7 @@ local _atlas = {}
 --- @param draw_mask_callback Function () -> nil
 function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback)
     id = tostring(id)
-    meta.assert(id, "String", get_triangles_callback, "Function", draw_mask_callback, "Function")
+    meta.assert(id, mt.String, get_triangles_callback, mt.Function, draw_mask_callback, mt.Function)
 
     self._start_time = love.timer.getTime()
 
@@ -91,7 +91,7 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
         local tris = {}
 
         local input_triangles = self._get_triangles_callback()
-        if not meta.typeof(input_triangles, "Table") then
+        if not meta.typeof(input_triangles, mt.Table) then
             rt.error("In ow.NormalMap: `get_triangles_callback` does not return a tables of arrays")
         end
 

@@ -5,7 +5,7 @@ ow.CoinParticleTextureAtlas = meta.class("CoinParticleTextureAtlas")
 
 --- @brief
 function ow.CoinParticleTextureAtlas:instantiate(hues)
-    meta.assert(hues, "Table")
+    meta.assert(hues, mt.Table)
 
     if #hues == 0 then table.insert(hues, 0) end
     table.sort(hues)
@@ -81,7 +81,7 @@ end
 
 --- @brief
 function ow.CoinParticleTextureAtlas:draw(hue, x, y, scale)
-    if DEBUG then meta.assert(hue, "Number", x, "Number", y, "Number") end
+    if DEBUG then meta.assert(hue, mt.Number, x, mt.Number, y, mt.Number) end
     scale = scale or 1
     scale = scale * (1 / self._canvas_scale)
 
@@ -107,7 +107,7 @@ end
 
 --- @brief
 function ow.CoinParticleTextureAtlas:draw_bloom(hue, x, y, scale)
-    if DEBUG then meta.assert(hue, "Number", x, "Number", y, "Number") end
+    if DEBUG then meta.assert(hue, mt.Number, x, mt.Number, y, mt.Number) end
     scale = scale or 1
     scale = scale * (1 / self._canvas_scale)
 

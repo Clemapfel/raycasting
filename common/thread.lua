@@ -9,7 +9,7 @@ rt.Thread.SHUTDOWN_MESSAGE = "shutdown"
 
 --- @brief
 function rt.Thread:instantiate(path, _)
-    meta.assert(path, "String", _, "Nil")
+    meta.assert(path, mt.String, _, mt.Nil)
     self._native = love.thread.newThread(path)
     self._path = path
     rt.ThreadManager:_notify_thread_added(self)

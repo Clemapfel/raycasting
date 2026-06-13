@@ -441,10 +441,10 @@ end
 -- @brief
 function ow.BouncePad:_spawn_particles(x, y, normal_x, normal_y, n_particles, hue)
     meta.assert(
-        x, "Number", y, "Number",
-        normal_x, "Number", normal_y, "Number",
-        n_particles, "Number",
-        hue, "Number"
+        x, mt.Number, y, mt.Number,
+        normal_x, mt.Number, normal_y, mt.Number,
+        n_particles, mt.Number,
+        hue, mt.Number
     )
 
     local batch = {}

@@ -51,8 +51,8 @@ function b2.Body:instantiate(world, type, x, y, shape, ...)
     meta.assert(
         world, b2.World,
         type, b2.BodyType,
-        x, "Number",
-        y, "Number"
+        x, mt.Number,
+        y, mt.Number
     )
 
     meta.install(self, {
@@ -79,7 +79,7 @@ function b2.Body:instantiate(world, type, x, y, shape, ...)
     self._native:setSleepingAllowed(true)
 
     local shapes
-    if meta.typeof(shape) == "Table" then
+    if meta.typeof(shape) == mt.Table then
         shapes = shape
     else
         shapes = { shape, ... }
@@ -318,7 +318,7 @@ end
 
 --- @brief
 function b2.Body:set_is_rotation_fixed(b)
-    meta.assert(b, "Boolean")
+    meta.assert(b, mt.Boolean)
     self._native:setFixedRotation(b)
 end
 

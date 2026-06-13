@@ -26,7 +26,7 @@ local _STATE_PLAYBACK = "playback"
 --- @brief
 function ow.PlayerRecorder:instantiate(stage, scene, x, y, is_collidable)
     if is_collidable == nil then is_collidable = false end
-    meta.assert(stage, ow.Stage, scene, ow.OverworldScene, x, "Number", y, "Number", is_collidable, "Boolean")
+    meta.assert(stage, ow.Stage, scene, ow.OverworldScene, x, mt.Number, y, mt.Number, is_collidable, mt.Boolean)
 
     self._stage = stage
     self._scene = scene

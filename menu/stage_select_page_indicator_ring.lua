@@ -44,7 +44,7 @@ local _lch_texture = rt.LCHTexture(1, 1, 256)
 
 --- @brief
 function mn.StageSelectPageIndicatorRing:instantiate(radius, thickness)
-    meta.assert(radius, "Number", thickness, "Number")
+    meta.assert(radius, mt.Number, thickness, mt.Number)
 
     thickness = math.max(thickness, 1)
     self._thickness = thickness

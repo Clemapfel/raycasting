@@ -28,7 +28,7 @@ local _shader = rt.Shader("overworld/shatter_surface.glsl")
 
 --- @brief
 function ow.ShatterSurface:instantiate(scene, world, x, y, width, height, angle)
-    meta.assert(world, "PhysicsWorld")
+    meta.assert(world, b2.World)
 
     self._scene = scene
     self._world = world

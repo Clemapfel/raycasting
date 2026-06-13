@@ -39,9 +39,9 @@ function rt.LCHTexture:instantiate(n_lightness_steps, n_chroma_steps, n_hue_step
     end
 
     meta.assert(
-        n_lightness_steps, "Number",
-        n_chroma_steps, "Number",
-        n_hue_steps, "Number"
+        n_lightness_steps, mt.Number,
+        n_chroma_steps, mt.Number,
+        n_hue_steps, mt.Number
     )
 
     local max_steps = love.graphics.getSystemLimits().texturesize - 1
