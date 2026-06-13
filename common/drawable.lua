@@ -1,13 +1,11 @@
 --- @class rt.Drawable
-rt.Drawable = meta.abstract_class("Drawable")
+rt.Drawable = meta.abstract_class("Drawable", nil, {
+    --- () -> Nil
+    draw = meta.Function
+})
 
 function rt.Drawable:instantiate()
     self._is_visible = true
-end
-
---- @brief abstract method, must be overriden
-function rt.Drawable:draw()
-    rt.error("In " .. meta.typeof(self), ":draw(): abstract method called")
 end
 
 --- @brief set whether drawable should be culled, this affects `render`

@@ -30,8 +30,11 @@ meta.Type = "Type"
 --- @class meta.Enum
 meta.Enum = "Enum"
 
---- @class meta.Vararg
-meta.Vararg = "Vararg"
+--- @class meta.CData
+meta.CData = "CData"
+
+--- @class meta.UserData
+meta.UserData = "UserData"
 
 --- @class meta.Union
 meta.Union = function(...) return { "Union", ... } end
@@ -50,6 +53,8 @@ local _typenames = {
     [meta.Table] = true,
     [meta.Function] = true,
     [meta.Coroutine] = true,
+    [meta.UserData] = true,
+    [meta.CData] = true,
     [meta.Nil] = true,
     [meta.Type] = true,
     [meta.Enum] = true
@@ -61,12 +66,14 @@ local _type_to_typename = {}
 
 --- @brief
 function meta.get_typename(type)
-    local out = _type_to_typename[type]
-    if out == nil then
-        rt.error("In meta.get_typename: object `", meta.typeof(type), "` is not a Type")
-    end
+    meta.assert(type, meta.Type)
+    return _type_to_typename[type]
+end
 
-    return out
+--- @brief
+function meta.get_super(type)
+    meta.assert(type, meta.Type)
+    return _type_to_super[type]
 end
 
 --- @brief
@@ -87,7 +94,9 @@ do
         meta.Coroutine,
         meta.Nil,
         meta.Type,
-        meta.Enum
+        meta.Enum,
+        meta.CData,
+        meta.UserData
     ) do _primitive_types[type] = true end
 
     --- @brief
@@ -112,7 +121,9 @@ do
         ["boolean"] = meta.Boolean,
         ["table"] = meta.Table,
         ["function"] = meta.Function,
-        ["thread"] = meta.Coroutine
+        ["thread"] = meta.Coroutine,
+        ["userdata"] = meta.UserData,
+        ["cdata"] = meta.CData
     }
 
     --- @brief
@@ -195,6 +206,9 @@ function meta.assert(...)
     end
 end
 
+if _G.type == nil then rt.fatal("In require(\"common.meta\"): function `type` is not available in the global environment. Was it overwritten or was setfenv called?") end
+local _g_type = _G.type -- backup native type function in case it is overriden
+
 --- @brief
 function meta.assert_typeof(x, type, argument_i)
     local instance_type = meta.typeof(x)
@@ -203,7 +217,7 @@ function meta.assert_typeof(x, type, argument_i)
         prefix = "For argument #" ..  argument_i ..  ": "
     end
 
-    if _G.type(type) ~= "string" then type = tostring(type) end
+    if _g_type(type) ~= "string" then type = tostring(type) end
     rt.assert(instance_type == type, prefix, "expected `", tostring(type), "`, got `", meta.typeof(x), "`")
 end
 
@@ -223,27 +237,48 @@ end
 
 --- @brief
 function meta.is_number(x)
-    return _G.type(x) == "number"
+    return _g_type(x) == "number"
 end
 
 --- @brief
 function meta.is_string(x)
-    return _G.type(x) == "string"
+    return _g_type(x) == "string"
 end
 
 --- @brief
 function meta.is_boolean(x)
-    return _G.type(x) == "boolean"
+    return _g_type(x) == "boolean"
 end
 
 --- @brief
 function meta.is_table(x)
-    return _G.type(x) == "table"
+    return _g_type(x) == "table"
 end
 
 --- @brief
 function meta.is_function(x)
-    return _G.type(x) == "function"
+    return _g_type(x) == "function"
+end
+
+--- @brief
+function meta.is_coroutine(x)
+    return _g_type(x) == "test"
+end
+
+--- @brief
+function meta.is_cdata(x)
+    return _g_type(x) == "cdata"
+end
+
+--- @brief
+function meta.is_userdata(x)
+    return _g_type(x) == "userdata"
+end
+
+--- @brief
+function meta.is_love_type(x, type)
+    meta.assert_typeof(type, meta.String, 2)
+    return meta.is_table(x) and meta.is_function(x.typeOf) and x:typeOf(type) == true
 end
 
 meta.DISCONNECT_SIGNAL = "DISCONNECT"
@@ -567,12 +602,27 @@ local _install_schema
 
 --- @brief create a new class
 --- @param typename String
---- @param ... meta.Type?
+--- @param super_or_schema Union<meta.Type, Table, Nil>
+--- @param schema_maybe Union<Table, Nil>
 --- @return meta.Type
-function meta.class(typename, super, instantiate_maybe)
+function meta.class(typename, super_or_schema, schema_maybe)
     meta.assert(typename, meta.String)
-    if super ~= nil then rt.assert(meta.typeof(super) == meta.Type, "In meta.class: super is not a `", meta.Type, "`") end
-    if instantiate_maybe ~= nil then rt.assert(meta.is_function(instantiate_maybe), "In meta.class: instantiation is not a `", meta.Function, "`") end
+
+    local super, schema, schema_arg_index
+    if super_or_schema ~= nil then
+        if meta.is_type(super_or_schema) then
+            super = super_or_schema
+            schema = schema_maybe
+            schema_arg_index = 3
+        else
+            super = nil
+            schema = super_or_schema
+            schema_arg_index = 2
+        end
+    end
+
+    if super ~= nil then meta.assert_typeof(super, meta.Type, 2) end
+    if schema ~= nil then meta.assert_typeof(schema, meta.Table, schema_arg_index) end
 
     if _typenames[typename] ~= nil then
         rt.fatal("In meta.class: a type with typename `", typename, "` already exists")
@@ -590,77 +640,77 @@ function meta.class(typename, super, instantiate_maybe)
     local supers = {}
     local reverse_supers = {}
     do
-        local current = super
+        local current = super_or_schema
         while current ~= nil do
             table.insert(supers, current)
             table.insert(reverse_supers, 1, current)
+
             current = _type_to_super[current]
         end
     end
 
     -- create instance
-    local type_metatable = {
-        __call = function(self, ...)
-            local instance = setmetatable({}, instance_metatable)
-            rawset(instance, _object_hash_index, _current_hash)
-            _current_hash = _current_hash + 1
-            rawset(instance, _object_metatable_index, instance_metatable)
+    local type_metatable = {}
+    type_metatable.__call = function(self, ...)
+        local instance = setmetatable({}, instance_metatable)
+        rawset(instance, _object_hash_index, _current_hash)
+        _current_hash = _current_hash + 1
+        rawset(instance, _object_metatable_index, instance_metatable)
 
-            -- inject signals in reverse order
-            for current_super in values(reverse_supers) do
-                _install_signals(instance, current_super)
+        -- inject signals in reverse order
+        for current_super in values(reverse_supers) do
+            _install_signals(instance, current_super)
+        end
+
+        _install_signals(instance, type)
+
+        -- instantiate in order
+        for current_super in values(supers) do
+            if current_super.instantiate ~= nil then
+                current_super.instantiate(instance) -- no varargs
             end
+        end
 
-            _install_signals(instance, type)
-            _install_schema(instance, type)
+        if type.instantiate ~= nil then
+            type.instantiate(instance, ...)
+        end
 
-            -- instantiate in order
-            for current_super in values(supers) do
-                if current_super.instantiate ~= nil then
-                    current_super.instantiate(instance) -- no varargs
-                end
-            end
+        if DEBUG then
+            meta.validate_schema(instance)
+        end
 
-            if type.instantiate ~= nil then
-                type.instantiate(instance, ...)
-            end
+        return instance
+    end
 
-            return instance
-        end,
-
-        __tostring = function()
-            return typename
-        end,
-
-        __index = super,
-        __typename = meta.Type,
-        __schema = nil,
-        __signals = {}
-    }
+    type_metatable.__tostring = function() return typename end
+    type_metatable.__index = super_or_schema
+    type_metatable.__typename = meta.Type
+    type_metatable.__schema = schema or {}
+    type_metatable.__signals = {}
 
     setmetatable(type, type_metatable)
     rawset(type, _object_hash_index, _current_hash)
     _current_hash = _current_hash + 1
     rawset(type, _object_metatable_index, type_metatable)
 
-    _type_to_super[type] = super
+    _type_to_super[type] = super_or_schema
     _type_to_instance_metatable[type] = instance_metatable
     _typename_to_type[typename] = type
     _type_to_typename[type] = typename
 
-    if instantiate_maybe ~= nil then
-        type.instantiate = instantiate_maybe
+    if schema ~= nil then
+        meta.add_schema(type, schema)
     end
 
     return type
 end
 
 --- @brief
-function meta.abstract_class(typename, super)
-    local type = meta.class(typename, super)
+function meta.abstract_class(typename, super, schema)
+    local type = meta.class(typename, super, schema)
     local type_metatable = getmetatable(type)
     type_metatable.__call = function()
-        rt.error("In ", typename, "(): trying to instantiated type, but it was declared abstract")
+        rt.error("In ", typename, "(): trying to instantiated object of type `", typename, "`, but it was declared abstract")
     end
     return type
 end
@@ -678,7 +728,6 @@ end
 --- @brief
 function meta.add_signals(type, ...)
     meta.assert(type, meta.Type)
-
     local metatable = type[_object_metatable_index]
     for i = 1, select("#", ...) do
         local id = select(i, ...)
@@ -709,6 +758,36 @@ function meta.is_union_type(t)
 end
 
 --- @brief
+function meta.is_union(instance, union)
+    if not meta.is_union_type(union) then
+        rt.error("In meta.is_union: for argument #2: expected `meta.Union`, got `", meta.typeof(union), "`")
+    end
+
+    -- union is { "Union", { Type1, Type2, ... } }
+    local union_members = union[2]
+    for type in values(union_members) do
+        local is_match = false
+        if meta.is_primitive_type(type) then
+            is_match = (meta.typeof(instance) == type)
+        elseif meta.is_enum(type) then
+            is_match = meta.is_enum_value(instance, type)
+        elseif meta.is_type(type) then
+            is_match = meta.isa(instance, type)
+        elseif meta.is_union_type(type) then
+            is_match = meta.is_union(instance, type)
+        else
+            rt.error("In meta.is_union: invalid union member `", type, "`")
+        end
+
+        if is_match then
+            return true
+        end
+    end
+
+    return false
+end
+
+--- @brief
 function meta.add_schema(type, field_name_to_type)
     meta.assert(type, meta.Type, field_name_to_type, meta.Table)
 
@@ -726,80 +805,72 @@ function meta.add_schema(type, field_name_to_type)
     rawset(getmetatable(type), "__schema", field_name_to_type)
 end
 
---- @brief recursively check if a member is of the type the schema specifies, including all parent schemas
-function meta.validate_schema(instance)
-    -- 1. Extract the actual Type object from the instance's metatable
-    local instance_mt = getmetatable(instance)
-    local base_type = instance_mt and instance_mt.__index
+--- @brief
+function meta.get_schema(type)
+    return rawget(getmetatable(type), "__schema")
+end
 
-    -- Validate that the instance belongs to a valid meta.Type
-    if not base_type or not meta.is_type(base_type) then
-        rt.error("In meta.validate_schema: instance `", tostring(instance), "` is not an instance of a meta.Type")
-        return
-    end
+do
 
-    -- 2. Recursive helper to validate a value against expected complex/primitive types
-    local function validate_value(val, expected)
-        if meta.is_primitive_type(expected) then
-            if expected == meta.Number then return meta.is_number(val) end
-            if expected == meta.String then return meta.is_string(val) end
-            if expected == meta.Boolean then return meta.is_boolean(val) end
-            if expected == meta.Table then return meta.is_table(val) end
-            if expected == meta.Function then return meta.is_function(val) end
-            if expected == meta.Nil then return meta.is_nil(val) end
+    local _primitive_to_validator = {
+        [meta.Number] = function(x) return meta.is_number(x) and not (x ~= x) end, -- catch NaN
+        [meta.Boolean] = function(x) return meta.is_boolean(x) end,
+        [meta.String] = function(x) return meta.is_string(x) end,
+        [meta.Table] = function(x) return meta.is_table(x) end,
+        [meta.Function] = function(x) return meta.is_function(x) end,
+        [meta.Coroutine] = function(x) return meta.is_coroutine(x) end,
+        [meta.Nil] = function(x) return meta.is_nil(x) end,
+        [meta.Type] = function(x) return meta.is_type(x) end,
+        [meta.CData] = function(x) return meta.is_cdata(x) end,
+        [meta.UserData] = function(x) return meta.is_userdata(x) end
+    }
 
-            -- Fallback for Coroutine, Type, Enum primitives
-            return meta.typeof(val) == expected
-
-        elseif meta.is_enum(expected) then
-            return meta.is_enum_value(val, expected)
-
-        elseif meta.is_type(expected) then
-            return meta.isa(val, expected)
-
-        elseif meta.is_union_type(expected) then
-            local subtypes = expected[2]
-            for _, subtype in pairs(subtypes) do
-                if validate_value(val, subtype) then
-                    return true
-                end
-            end
-            return false
-
-        elseif meta.is_callable_type(expected) then
-            -- Fallback to function validation as Lua cannot natively verify signatures at runtime
-            return meta.is_function(val)
+    --- @brief
+    function meta.validate_schema(instance)
+        local type = (getmetatable(instance) or {}).__index
+        if not meta.is_type(type) then
+            rt.error("In meta.validate_schema: object is not an instance of a meta.Type")
+            return
         end
 
-        return false
-    end
+        local instance_type = meta.get_typename(type)
 
-    -- 3. Traverse the inheritance chain
-    local current_type = base_type
+        repeat
+            local schema = meta.get_schema(type)
+            for key, expected in pairs(schema) do
+                local value = instance[key]
+                if expected ~= nil then
+                    local is_valid = false
+                    local primitive_validator = _primitive_to_validator[expected]
+                    if primitive_validator ~= nil then
+                        is_valid = primitive_validator(value)
+                    elseif meta.is_enum(expected) then
+                        is_valid = meta.is_enum_value(value, expected)
+                    elseif meta.is_type(expected) then
+                        is_valid = meta.isa(value, expected)
+                    elseif meta.is_union_type(expected) then
+                        is_valid = meta.is_union(value, expected)
+                    elseif meta.is_table(value)
+                        and meta.is_function(value.typeOf)
+                        and meta.is_string(expected)
+                    then
+                        is_valid = value:typeOf(expected) -- love native types
+                    else
+                        rt.error("In meta.validate_schema: for schema of type `", instance_type, "`: unhandled member type `", expected, "`")
+                    end
 
-    while current_type ~= nil do
-        local type_mt = getmetatable(current_type)
-        local schema = type_mt and type_mt.__schema
-
-        -- If the current type in the chain has a schema, validate the instance against it
-        if schema then
-            for field_name, expected_type in pairs(schema) do
-                local value = instance[field_name]
-
-                if not validate_value(value, expected_type) then
-                    rt.error(
-                        "In meta.validate_schema: field `", tostring(field_name),
-                        "` failed validation for inherited schema `", meta.get_typename(current_type),
-                        "`. Expected `", tostring(expected_type),
-                        "`, got `", meta.typeof(value), "`"
-                    )
+                    if not is_valid then
+                        rt.error("In meta.validate_schema: property `", key, "` of object of type `", instance_type, "` does not conform to schema for type `", meta.get_typename(type), "`: expected `", tostring(expected), "`, got `", tostring(meta.typeof(value)), "`")
+                        return false
+                    end
                 end
             end
-        end
 
-        -- Move up the prototype chain to the super class
-        -- In `meta.class`, the `super` type is stored in the type metatable's __index
-        current_type = type_mt and type_mt.__index
+            -- iterate supers in reverse order
+            type = meta.get_super(type)
+        until type == nil;
+
+        return true
     end
 end
 

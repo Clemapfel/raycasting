@@ -3,12 +3,19 @@ require "common.widget"
 --- @class rt.Scene
 --- @signal update (Scene) -> nil
 --- @signal resize (Scene, x, y, width, height) -> nil
-rt.Scene = meta.abstract_class("Scene", rt.Widget)
+rt.Scene = meta.abstract_class("Scene", rt.Widget, {
+    --- (...) -> Nil
+    enter = meta.Function,
 
---- @brief
-function rt.Scene:instantiate()
-    self._is_active = false -- set by SceneManager
-end
+    --- (x : Number, y : Number, w : Number, h : Number) -> Nil
+    size_allocate = meta.Function,
+
+    --- () -> Nil
+    draw = meta.Function,
+
+    --- (delta : Number) -> Nil
+    update = meta.Function
+})
 
 meta.add_signals(rt.Scene,
     "update",
@@ -18,8 +25,8 @@ meta.add_signals(rt.Scene,
 )
 
 --- @brief
-function rt.Scene:enter(...)
-    rt.error("In ",  meta.typeof(self),  ".enter: abstract method called")
+function rt.Scene:instantiate()
+    self._is_active = false -- set by SceneManager
 end
 
 --- @brief
@@ -37,22 +44,3 @@ function rt.Scene:realize()
     -- noop
 end
 
---- @override
-function rt.Scene:size_allocate(x, y, width, height)
-    rt.error("In ",  meta.typeof(self),  ".size_allocate: abstract method called")
-end
-
---- @override
-function rt.Scene:draw()
-    rt.error("In ",  meta.typeof(self),  ".draw: abstract method called")
-end
-
---- @override
-function rt.Scene:update(delta)
-    rt.error("In ",  meta.typeof(self),  ".update: abstract method called")
-end
-
---- @override
-function rt.Scene:reload()
-    rt.error("In ",  meta.typeof(self),  ".reload: abstract method called")
-end

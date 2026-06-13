@@ -1,4 +1,11 @@
-rt.Color = meta.abstract_class("Color")
+--- @class rt.Color
+rt.Color = meta.abstract_class("Color", nil, {
+    --- () -> ...
+    unpack = meta.Function,
+
+    --- () -> rt.Color
+    clone = meta.Function,
+})
 
 --- @class RGBA
 rt.RGBA = meta.class("RGBA", rt.Color)

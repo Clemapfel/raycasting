@@ -5,7 +5,7 @@ rt.settings.player_trail = {
 }
 
 --- @class rt.PlayerTrail
-rt.PlayerTrail = meta.class("PlayerTrail", rt.Drawable)
+rt.PlayerTrail = meta.class("PlayerTrail")
 
 local _glow_shader = rt.Shader("common/player_trail_glow.glsl")
 

@@ -9,14 +9,17 @@ local _line_a = 1
 --- @param y Number
 --- @param width Number
 --- @param height Number
-b2.Rectangle = meta.class("PhysicsRectangle", b2.Shape, function(self, x, y, width, height)
+b2.Rectangle = meta.class("PhysicsRectangle", b2.Shape)
+
+--- @brief
+function b2.Rectangle:instantiate(x, y, width, height)
     meta.install(self, {
         _x = x,
         _y = y,
         _width = width,
         _height = height
     })
-end)
+end
 
 --- @brief
 function b2.Rectangle:draw(mask_only)
@@ -57,7 +60,10 @@ end
 --- @param x Number
 --- @param y Number
 --- @param radius Number
-b2.Circle = meta.class("PhysicsCircle", b2.Shape, function(self, x, y, radius)
+b2.Circle = meta.class("PhysicsCircle", b2.Shape)
+
+--- @brief
+function b2.Circle:instantiate(x, y, radius)
     if y == nil and radius == nil then
         -- when called b2.Circle(radius)
         radius = x
@@ -70,7 +76,7 @@ b2.Circle = meta.class("PhysicsCircle", b2.Shape, function(self, x, y, radius)
         _y = y,
         _radius = radius
     })
-end)
+end
 
 --- @brief
 function b2.Circle:get_radius()
@@ -108,13 +114,16 @@ end
 
 --- @class b2.Polygon
 --- @param vertices Table<Number>
-b2.Polygon = meta.class("PhysicsPolygon", b2.Shape,function(self, vertices, ...)
+b2.Polygon = meta.class("PhysicsPolygon", b2.Shape)
+
+--- @brief
+function b2.Polygon:instantiate(vertices, ...)
     if meta.is_number(vertices) then
         vertices = {vertices, ...}
     end
 
     self._vertices = vertices
-end)
+end
 
 --- @brief
 function b2.Polygon:draw(mask_only)
@@ -152,13 +161,16 @@ end
 
 --- @class b2.Segment
 --- @param vertices Table<Number>
-b2.Segment = meta.class("PhysicsSegment", b2.Shape,function(self, vertices, ...)
+b2.Segment = meta.class("PhysicsSegment", b2.Shape)
+
+--- @brief
+function b2.Segment:instantiate(vertices, ...)
     if meta.is_number(vertices) then
         vertices = {vertices, ...}
     end
     self._vertices = vertices
     self._is_one_sided = false
-end)
+end
 
 --- @brief
 function b2.Segment:set_is_one_sided(b)

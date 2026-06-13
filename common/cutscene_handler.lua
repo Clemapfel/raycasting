@@ -1,16 +1,11 @@
 require "common.cutscene_actor"
+require "common.cutscene_future"
 
 --- @class rt.CutsceneHandler
 rt.CutsceneHandler = meta.class("CutsceneHandler")
 
---- @class rt.CutsceneHandler.Future
-rt.CutsceneHandler.Future = meta.class("CutsceneHandlerFuture")
-
 --- @brief
 function rt.CutsceneHandler:instantiate(script_id)
-    self._name_to_actor = {} -- Table<String, rt.CutsceneActor>
-
-
 end
 
 --- @brief
@@ -27,4 +22,3 @@ function rt.CutsceneHandler:add_actor(actor)
 end
 
 --- @brief
-function rt.CutsceneActor:
