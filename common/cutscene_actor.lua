@@ -37,3 +37,6 @@ rt.CutsceneActor = meta.abstract_class("CutsceneActor", nil, {
     draw = meta.Function
 })
 
+--- @class rt.CutscenActor.Debug
+rt.CutsceneActor.Debug = meta.class("CutsceneActorDebug")
+

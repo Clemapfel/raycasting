@@ -96,21 +96,23 @@ void main() {
     vec2 uv = rt_TextureCoords;
     uv.x *= rt_ScreenSize.x / rt_ScreenSize.y;
     uv *= 0.8;
-    float time = elapsed / 13.0;
+    float time = 5.0 *  elapsed / 13.0;
 
-    #if USE_WORLEY_NOISE == 1
-    const float noise_scale = 8.0;
-    float noise_x = worley_noise(vec3(noise_scale * uv.xy, time / 3.0));
-    #else
-    const float noise_scale = 10.0;
-    float noise_x = gradient_noise(vec3(noise_scale * uv.xy, time / 3.0));
-    #endif
+    //#if USE_WORLEY_NOISE == 1
+    const float worley_noise_scale = 10.0;
+    float wnoise = worley_noise(vec3(worley_noise_scale * uv.xy, time / 3.0));
+    //#else
+    const float gradient_noise_scale = 16.0;
+    float gnoise = gradient_noise(vec3(gradient_noise_scale * uv.xy, time / 3.0));
+    //#endif
+
+    float noise_x = gnoise; //mix(wnoise, gnoise, (sin(elapsed) + 1.0) / 2.0);
 
     uv.xy += vec2(noise_x, -noise_x);
 
     const float cell_size = 0.3;
     vec2 cell_id = floor(uv / cell_size);
-    float hue = fract(sin(dot(cell_id, normalize(vec2(127.1, 311.7))) + time / 80000.0) * 43758.5453123);
+    float hue = fract(sin(dot(cell_id, normalize(vec2(127.1, 311.7))) + 2.0 * time / 80000.0) * 43758.5453123);
 
     vec2 q = mod(uv, cell_size);
     vec2 d = min(q, cell_size - q);
@@ -122,7 +124,7 @@ void main() {
 
     vec3 color = lch_to_rgb(vec3(0.8, 1.0, hue));
 
-    vec3 bloom = 0.2 * color * vec3(smoothstep(0.79, 1.0, gradient));
+    vec3 bloom = 0.2 * color * vec3(smoothstep(0.79, 1.0, gnoise));
     color.r = max(color.r * value, max(black.r, bloom.r));
     color.g = max(color.g * value, max(black.g, bloom.g));
     color.b = max(color.b * value, max(black.b, bloom.b));

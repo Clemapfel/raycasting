@@ -447,7 +447,6 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
         }
 
         self:signal_emit("done")
-
     end)
 end
 

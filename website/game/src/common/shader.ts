@@ -244,7 +244,7 @@ export class Shader extends GLResource {
     }
 
     /** **/
-    public setUniform(id: string, value: number | Vec2 | Vec3 | Vec4 | RGBA | Transform | Texture | undefined) {
+    public setUniform(id: string, value: number | boolean | Vec2 | Vec3 | Vec4 | RGBA | Transform | Texture | undefined) {
         const gl = this.context.getNative();
         if (!this.context.isValid() || gl === null || this.program === null || !this.getIsAllocated()) return;
 
@@ -264,6 +264,9 @@ export class Shader extends GLResource {
                 gl.uniform1ui(location, value);
             else
                 gl.uniform1f(location, value);
+        }
+        else if (typeof value == "boolean") {
+            gl.uniform1ui(location, value ? 0x1 : 0x0);
         }
         else if (value instanceof RGBA)
             gl.uniform4f(location, value.r, value.g, value.b, value.a);

@@ -631,6 +631,8 @@ function meta.class(typename, super_or_schema, schema_maybe)
 
     -- instance metatable
     local type = {}
+
+
     local instance_metatable = {
         __index = type,
         __typename = typename,

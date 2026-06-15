@@ -139,7 +139,7 @@ void main() {
     vec2 uv = rt_VertexPosition / rt_ScreenSize;
     uv.x *= rt_ScreenSize.x / rt_ScreenSize.y;
 
-    float time = 0.5 * elapsed;
+    float time = 2.0 * 0.5 * elapsed;
 
     const float scale = 1.4;
     vec2 offset = 20.0 / rt_ScreenSize;
