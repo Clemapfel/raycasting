@@ -16,7 +16,13 @@ export class ShaderCanvas extends GLWidget {
     private elapsed : Time = new Time(0);
 
     private cursor_position : Vec2 = new Vec2();
-    private cursor_visible : boolean = false;
+    private cursor_visible : boolean = true;
+
+    private on_global_mouse_move = (event: MouseEvent) => {
+        const { x, y } = super.to_local_position(event);
+        this.cursor_position.x = x;
+        this.cursor_position.y = y;
+    };
 
     protected override async realize() {
         const source_code = this.getAttribute("fragment-shader-source");
@@ -28,6 +34,12 @@ export class ShaderCanvas extends GLWidget {
         this.cursor_visible = true;
         this.cursor_position.x = 0.5 * this.getWidth();
         this.cursor_position.y = 0.5 * this.getHeight();
+
+        window.addEventListener("mousemove", this.on_global_mouse_move);
+    }
+
+    protected override unrealize() {
+        window.removeEventListener("mousemove", this.on_global_mouse_move);
     }
 
     protected override reformat(width: number, height: number): void {
@@ -48,23 +60,9 @@ export class ShaderCanvas extends GLWidget {
         )
     }
 
-    protected override onMouseMoved(x: number, y: number, event: MouseEvent) {
-        this.cursor_position.x = x;
-        this.cursor_position.y = y;
-    }
-
-    protected override onMouseEnter(event: MouseEvent) {
-        this.cursor_visible = true;
-    }
-
-    protected override onMouseLeave(event: MouseEvent) {
-        this.cursor_visible = false;
-    }
-
     protected override update(delta: Time): void {
         this.elapsed.add(delta);
     }
-
 
     protected override draw(): void {
         if (!this.getIsRealized() ||this.shader_program === undefined || this.quad === undefined) return;
@@ -73,7 +71,7 @@ export class ShaderCanvas extends GLWidget {
             this.shader_program.setUniform(default_elapsed_name, this.elapsed.asSeconds());
 
         if (this.shader_program.hasUniform(default_cursor_position_name))
-                this.shader_program.setUniform(default_cursor_position_name, this.cursor_position);
+            this.shader_program.setUniform(default_cursor_position_name, this.cursor_position);
 
         if (this.shader_program.hasUniform(default_cursor_is_visible_name))
             this.shader_program.setUniform(default_cursor_is_visible_name, this.cursor_visible)

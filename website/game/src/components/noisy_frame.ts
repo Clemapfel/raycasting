@@ -18,7 +18,6 @@ const default_background_overhang : number = 2; // px
 const default_outline_width : number = 4;
 const default_border_radius : number = 8;
 const background_opacity = 0.98;
-
 export class NoisyFrame extends GLWidget {
     // cache
     private mesh? : Mesh

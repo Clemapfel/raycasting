@@ -182,7 +182,7 @@ export abstract class GLWidget extends HTMLElement {
         this.frame_identifier = requestAnimationFrame(this.on_request_animation_frame);
     }
 
-    private to_local_position(event: MouseEvent): { x: number; y: number } {
+    protected to_local_position(event: MouseEvent): { x: number; y: number } {
         const rect = this.native_canvas.getBoundingClientRect();
         const scale_x = this.native_canvas.width / rect.width;
         const scale_y = this.native_canvas.height / rect.height;

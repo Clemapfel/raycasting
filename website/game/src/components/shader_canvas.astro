@@ -39,6 +39,7 @@ if (!fragment_shader) {
         height: 100%;
         z-index: -9999;
         background: rgba(0, 0, 0, 1) !important;
+        pointer-events: none;
     }
 
     .shader-canvas-canvas {
@@ -47,6 +48,7 @@ if (!fragment_shader) {
         left: 0;
         width: var(--shader-canvas-width);
         height: var(--shader-canvas-height);
+        pointer-events: none; /* manually connected in shader_canvas.ts */
     }
 </style>
 

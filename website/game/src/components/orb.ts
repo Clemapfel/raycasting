@@ -19,11 +19,12 @@ import {
     DEFAULT_SHADER_VERSION,
     DEFAULT_TEXTURE_NAME,
     DEFAULT_UV_NAME,
+    DEFAULT_TRANSFORM_NAME,
     Shader
 } from "../common/shader.ts";
 import { RenderTexture, TextureFormat } from "../common/texture.ts";
 import { LCHA, RGBA } from "../common/color.ts";
-import { Time} from "../common/time.ts";
+import { Time } from "../common/time.ts";
 import "../common/math.ts";
 import { MeshVertexFormat } from "../common/mesh_vertex_format.ts";
 import { Vec2, Vec2Array } from "../common/vector.ts";
@@ -32,15 +33,16 @@ const line_width_factor = 5 / 100;
 const line_margin_factor = 1 / 100;
 const line_angle = 0.75 * 0.125 * Math.PI;
 
-const n_particles = 128 + 64;
+const n_particles = 32; //128 + 64;
 const n_sub_steps = 3;
 const n_constraint_iterations = 2;
 const step_delta = 1 / 60;
 const max_n_steps = 4;
 const gravity = 3000;
 const gravity_dxy = new Vec2(0, -1).normalize();
-const swirl_strength = gravity * 0.25;
+const swirl_strength = gravity * 0.15;
 const swirl_reference_height = 120;
+const swirl_hue_strength = 1 / 0.5;
 const collision_compliance = 0.0001;
 const orb_compliance = 0.0001;
 const damping = 0.95;
@@ -50,10 +52,10 @@ const agitation_duration = 3;
 const texture_scale = 5.5;
 const threshold = 0.1;
 const eps = 0.05;
-const blend_strength = 1;
+const blend_strength = 1.0;
 
-const min_radius = 6;
-const max_radius = 6;
+const min_radius = 10;
+const max_radius = 10;
 const reference_height = 300;
 const min_radius_frequency = 0.0;
 const max_radius_frequency = 0.0;
@@ -77,10 +79,11 @@ const r_offset = 12;
 const g_offset = 13;
 const b_offset = 14;
 const a_offset = 15;
+const hue_offset = 16
 
 const mesh_vertex_data_stride = 4 * (2 + 2 + 4); // four vertices (xy uv rgba)
 const index_data_stride = 6; // two tris
-const particle_stride = a_offset + 1;
+const particle_stride = hue_offset + 1;
 
 const particle_texture_resolution = 256;
 const particle_texture_shader_source = `${DEFAULT_SHADER_VERSION}
@@ -88,9 +91,14 @@ const particle_texture_shader_source = `${DEFAULT_SHADER_VERSION}
 
     const float PI = 3.1415926535897932384626433832795;
 
-    float gaussian(float x, float ramp)
+    float butterworth(float x)
     {
-        return exp(((-4.0 * PI) / 3.0) * (ramp * x) * (ramp * x));
+        return 1.0 / (1.0 + pow(2.0 * x, 12.0));
+    }
+    
+    float gaussian(float x)
+    {
+        return exp(-4.0 * x * x);
     }
 
     in vec2 ${DEFAULT_UV_NAME};
@@ -100,12 +108,9 @@ const particle_texture_shader_source = `${DEFAULT_SHADER_VERSION}
     out vec4 ${DEFAULT_FRAGMENT_OUT_NAME};
 
     void main() {
-        ${DEFAULT_FRAGMENT_OUT_NAME} = vec4(gaussian(
-            2.5 * (distance(${DEFAULT_UV_NAME}, vec2(0.5))),
-            1.0            
-        ));
-        
-        //${DEFAULT_FRAGMENT_OUT_NAME} = vec4(1.0 - 2.0 * (distance(${DEFAULT_UV_NAME}, vec2(0.5))));
+        ${DEFAULT_FRAGMENT_OUT_NAME} = vec4(vec3(1.0), gaussian(
+            2.0 * (distance(${DEFAULT_UV_NAME}, vec2(0.5)))
+        ));        
     }
 `
 
@@ -131,19 +136,19 @@ const canvas_threshold_shader_source = `${DEFAULT_SHADER_VERSION}
         float value = smoothstep(
             threshold - eps,
             threshold + eps,
-            data.r
+            data.a
         );
 
-        vec4 center = vec4(value) * ${DEFAULT_RGBA_NAME};
+        vec4 center = vec4(data.rgb, value) * ${DEFAULT_RGBA_NAME};
 
-        float tl = texture(${DEFAULT_TEXTURE_NAME}, ${DEFAULT_UV_NAME} + vec2(-1.0, -1.0) * pixel_size).r;
-        float tm = texture(${DEFAULT_TEXTURE_NAME}, ${DEFAULT_UV_NAME} + vec2( 0.0, -1.0) * pixel_size).r;
-        float tr = texture(${DEFAULT_TEXTURE_NAME}, ${DEFAULT_UV_NAME} + vec2( 1.0, -1.0) * pixel_size).r;
-        float ml = texture(${DEFAULT_TEXTURE_NAME}, ${DEFAULT_UV_NAME} + vec2(-1.0,  0.0) * pixel_size).r;
-        float mr = texture(${DEFAULT_TEXTURE_NAME}, ${DEFAULT_UV_NAME} + vec2( 1.0,  0.0) * pixel_size).r;
-        float bl = texture(${DEFAULT_TEXTURE_NAME}, ${DEFAULT_UV_NAME} + vec2(-1.0,  1.0) * pixel_size).r;
-        float bm = texture(${DEFAULT_TEXTURE_NAME}, ${DEFAULT_UV_NAME} + vec2( 0.0,  1.0) * pixel_size).r;
-        float br = texture(${DEFAULT_TEXTURE_NAME}, ${DEFAULT_UV_NAME} + vec2( 1.0,  1.0) * pixel_size).r;
+        float tl = texture(${DEFAULT_TEXTURE_NAME}, ${DEFAULT_UV_NAME} + vec2(-1.0, -1.0) * pixel_size).a;
+        float tm = texture(${DEFAULT_TEXTURE_NAME}, ${DEFAULT_UV_NAME} + vec2( 0.0, -1.0) * pixel_size).a;
+        float tr = texture(${DEFAULT_TEXTURE_NAME}, ${DEFAULT_UV_NAME} + vec2( 1.0, -1.0) * pixel_size).a;
+        float ml = texture(${DEFAULT_TEXTURE_NAME}, ${DEFAULT_UV_NAME} + vec2(-1.0,  0.0) * pixel_size).a;
+        float mr = texture(${DEFAULT_TEXTURE_NAME}, ${DEFAULT_UV_NAME} + vec2( 1.0,  0.0) * pixel_size).a;
+        float bl = texture(${DEFAULT_TEXTURE_NAME}, ${DEFAULT_UV_NAME} + vec2(-1.0,  1.0) * pixel_size).a;
+        float bm = texture(${DEFAULT_TEXTURE_NAME}, ${DEFAULT_UV_NAME} + vec2( 0.0,  1.0) * pixel_size).a;
+        float br = texture(${DEFAULT_TEXTURE_NAME}, ${DEFAULT_UV_NAME} + vec2( 1.0,  1.0) * pixel_size).a;
 
         float gradient_x = -tl + tr - 2.0 * ml + 2.0 * mr - bl + br;
         float gradient_y = -tl - 2.0 * tm - tr + bl + 2.0 * bm + br;
@@ -164,9 +169,7 @@ const canvas_threshold_shader_source = `${DEFAULT_SHADER_VERSION}
         float shadow = dot(surface_normal, shadow_light_direction);
         shadow = smoothstep(0.0, 1.0, clamp(shadow * shadow_strength, 0.0, 1.0));
         
-        float alpha = smoothstep(threshold - eps, threshold + eps, center.r);
-
-        ${DEFAULT_FRAGMENT_OUT_NAME} = vec4(center.rgb - shadow + specular, alpha);
+        ${DEFAULT_FRAGMENT_OUT_NAME} = vec4(center.rgb - shadow + specular, center.a);
     }
     `;
 
@@ -293,6 +296,8 @@ export class Orb extends GLWidget  {
     private is_paused : Boolean = false;
     private was_freed : Boolean = false;
 
+    private hue_color : LCHA = new LCHA(0.8, 1, 0, 1);
+
     private agitation_elapsed : number = Infinity;
 
     protected override draw() {
@@ -333,8 +338,7 @@ export class Orb extends GLWidget  {
             this.particle_canvas.bind();
 
             this.context.clear(0, 0, 0, 0);
-            this.context.setColor(1, 1, 1, 1);
-            this.context.setBlendmode(BlendMode.ADD, BlendMode.ALPHA);
+            this.context.setBlendmode(BlendMode.ALPHA, BlendMode.ADD);
 
             this.particle_mesh_shader.bind();
             this.particle_mesh_shader.setUniform(DEFAULT_TEXTURE_NAME, this.particle_mesh_texture);
@@ -348,7 +352,7 @@ export class Orb extends GLWidget  {
             this.context.push(PushTarget.COLOR)
             this.context.setColor(this.glass_backing_color);
             this.glass_backing_mesh.draw();
-            this.context.pop()
+            this.context.pop();
         }
 
         {   // stencil circle, then draw post-fx particles
@@ -359,13 +363,12 @@ export class Orb extends GLWidget  {
             this.stencil_mesh?.draw();
             this.context.setStencilMode(StencilMode.TEST, value);
 
-            this.context.setColor(this.fluid_color);
-            this.canvas_threshold_shader?.bind();
-            this.canvas_threshold_shader?.setUniform(DEFAULT_TEXTURE_NAME, this.particle_canvas);
-            this.canvas_threshold_shader?.setUniform("threshold", threshold);
-            this.canvas_threshold_shader?.setUniform("eps", eps);
-            this.particle_canvas_mesh?.draw();
-            this.canvas_threshold_shader?.unbind();
+            this.canvas_threshold_shader!.bind();
+            this.canvas_threshold_shader!.setUniform(DEFAULT_TEXTURE_NAME, this.particle_canvas);
+            this.canvas_threshold_shader!.setUniform("threshold", threshold);
+            this.canvas_threshold_shader!.setUniform("eps", eps);
+            this.particle_canvas_mesh!.draw();
+            this.canvas_threshold_shader!.unbind();
 
             this.context.setStencilMode(StencilMode.NONE);
         }
@@ -376,18 +379,18 @@ export class Orb extends GLWidget  {
             const t = 0.5
             this.context.setColor(t, t, t, t); // additive blending
             this.context.setBlendmode(BlendMode.ADD, BlendMode.ALPHA);
-            this.glass_mesh_shader?.bind();
-            this.glass_mesh?.draw();
-            this.glass_mesh_shader?.unbind();
+            this.glass_mesh_shader!.bind();
+            this.glass_mesh!.draw();
+            this.glass_mesh_shader!.unbind();
         }
 
         {   // draw line
             using context = this.context.with()
 
             this.context.setColor(this.line_color);
-            this.line_end?.draw();
-            this.line?.draw();
-            this.line_arc?.draw();
+            this.line_end!.draw();
+            this.line!.draw();
+            this.line_arc!.draw();
         }
     }
 
@@ -479,7 +482,7 @@ export class Orb extends GLWidget  {
         this.particle_data = new Float64Array(n_particles * particle_stride);
         this.collision_lambdas = new Float64Array(n_particles * n_particles);
 
-        this.particle_canvas = new RenderTexture(this.context, height, height, TextureFormat.R32F);
+        this.particle_canvas = new RenderTexture(this.context, height, height, TextureFormat.RGBA8);
         this.particle_canvas_mesh = MeshRectangle(this.context,
             0, 0,
             this.particle_canvas.getWidth(),
@@ -656,6 +659,7 @@ export class Orb extends GLWidget  {
             this.particle_data[particle_data_i + g_offset] = rgba.g;
             this.particle_data[particle_data_i + b_offset] = rgba.b;
             this.particle_data[particle_data_i + a_offset] = 1;
+            this.particle_data[particle_data_i + hue_offset] = particle_i / n_particles;
         }
 
         if (this.particle_mesh !== undefined)
@@ -717,10 +721,10 @@ export class Orb extends GLWidget  {
             const radius = texture_scale * this.particle_data[particle_data_i + radius_offset];
             const px = this.particle_data[particle_data_i + x_offset] + this.particle_data[particle_data_i + velocity_x_offset] * this.delta_accumulator;
             const py = this.particle_data[particle_data_i + y_offset] + this.particle_data[particle_data_i + velocity_y_offset] * this.delta_accumulator;
-            const r = this.particle_data[particle_data_i + r_offset] * blend_strength;
-            const g = this.particle_data[particle_data_i + g_offset] * blend_strength;
-            const b = this.particle_data[particle_data_i + b_offset] * blend_strength;
-            const a = this.particle_data[particle_data_i + a_offset];
+            const r = this.particle_data[particle_data_i + r_offset];
+            const g = this.particle_data[particle_data_i + g_offset];
+            const b = this.particle_data[particle_data_i + b_offset];
+            const a = this.particle_data[particle_data_i + a_offset] * blend_strength;
 
             data[mesh_data_i++] = px - radius;
             data[mesh_data_i++] = py - radius;
@@ -906,8 +910,11 @@ export class Orb extends GLWidget  {
             lambda : 0
         } as EnforceOrbResult;
 
-        const current_gravity = gravity * Math.min(1, this.agitation_elapsed / agitation_duration)
+        const agitation_t = Math.min(1, this.agitation_elapsed / agitation_duration);
+        const current_gravity = gravity * agitation_t
         const swirl_multiplier = this.particle_canvas!.getHeight() / swirl_reference_height;
+
+        this.hue_color.h = Math.fract(this.hue_color.h + swirl_hue_strength * delta * (this.agitation_elapsed <= agitation_duration ? 1.0  - agitation_t : 0));
 
         for (let sub_step = 0; sub_step < n_sub_steps; ++sub_step) {
 
@@ -1030,6 +1037,10 @@ export class Orb extends GLWidget  {
                 }
             }
 
+            // pre-allocate colors
+            const lch_color_swap = this.hue_color.clone();
+            const rgb_color_swap = new RGBA();
+
             // post solve
             for (let particle_i = 0; particle_i < n_particles; particle_i++) {
                 const i = particle_i * particle_stride
@@ -1038,6 +1049,13 @@ export class Orb extends GLWidget  {
 
                 data[i + velocity_x_offset] = (x - data[i + previous_x_offset]) / sub_delta;
                 data[i + velocity_y_offset] = (y - data[i + previous_y_offset]) / sub_delta;
+
+                // update color
+                lch_color_swap.h = Math.fract(this.hue_color.h + data[i + hue_offset]);
+                lch_color_swap.asRGBA(rgb_color_swap);
+                data[i + r_offset] = rgb_color_swap.r;
+                data[i + g_offset] = rgb_color_swap.g;
+                data[i + b_offset] = rgb_color_swap.b;
             }
         }
     }

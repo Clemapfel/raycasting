@@ -123,7 +123,7 @@ void main() {
     vec2 uv = rt_TextureCoords;
     uv.x *= rt_ScreenSize.x / rt_ScreenSize.y;
 
-    float time = 2.0 * elapsed / 20.0;
+    float time = elapsed / 20.0;
 
     vec2 frag_pos = rt_TextureCoords;
     frag_pos.x *= rt_ScreenSize.x / rt_ScreenSize.y;
@@ -146,11 +146,6 @@ void main() {
     vec3 normal = normalize(vec3(-grad.x, -grad.y, normal_strength));
 
     float gnoise = gradient_noise(vec3(4.0 * uv.xy, time));
-
-    // Normalize fragment and cursor positions to [0,1] UV space, aspect-corrected
-
-
-    // Light direction from cursor to fragment, with a fixed Z lift
     vec3 light_dir = normalize(vec3(-to_light, 0.3));
 
     value = smoothstep(0.0, 0.41, value + mix(0.0, 0.03, falloff));

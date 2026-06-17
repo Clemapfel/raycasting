@@ -18,6 +18,7 @@ import { LinkedListNode, List } from "./linked_list.ts";
 /** **/
 export enum BlendMode {
     NONE,
+    REPLACE,
     ALPHA,
     PREMULTIPLIED_ALPHA,
     ADD,
@@ -244,6 +245,10 @@ export class GLContext {
                 return [gl.FUNC_REVERSE_SUBTRACT, gl.ONE, gl.ONE];
             case BlendMode.MULTIPLY:
                 return [gl.FUNC_ADD, gl.DST_COLOR, gl.ZERO];
+            case BlendMode.NONE:
+                return [gl.FUNC_ADD, gl.ZERO, gl.ONE];
+            case BlendMode.REPLACE:
+                return [gl.FUNC_ADD, gl.ONE, gl.ZERO];
             default:
                 throw new Error(`In GlContext.getBlendParam: unhandled blend mode: ${mode}`);
         }
@@ -260,11 +265,6 @@ export class GLContext {
     public setBlendmode(rgb : BlendMode, alpha : BlendMode = BlendMode.ALPHA) : void {
         if (!this.isValid() || this.gl === null) return;
         const gl = this.gl!;
-
-        if (rgb == BlendMode.NONE && alpha == BlendMode.NONE) {
-            gl.disable(gl.BLEND)
-            return
-        }
 
         gl.enable(gl.BLEND)
         const [equation_rgb, source_factor_rgb, destination_factor_rgb] = this.getBlendParams(rgb);
