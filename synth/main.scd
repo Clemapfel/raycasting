@@ -1,5 +1,4 @@
 var server = Server.default;
-var test;
 
 /*
  * include paths in the same folder
@@ -16,8 +15,6 @@ var include = { arg ...paths;
 	}
 };
 
-
-
 // start the server if run from sclang directly
 if (server.serverRunning.not) {
 	//Server.supernova;
@@ -25,11 +22,22 @@ if (server.serverRunning.not) {
 };
 
 server.doWhenBooted({
-	include.value(
-		"midi"
-	);
 
-	"===============================".postln;
+	var f;
+
+	MIDIClient.init;
+	MIDIIn.connectAll;
+
+	f = MIDIFunc.new({ arg ...args;
+		[args].postln;
+	});
+
+
+	//"midi.scd".loadRelative;
+
+	~midi_connect_bend.value({ arg t; "bend: %".format(t).postln; });
+	~midi_connect_note_on.value({ arg note; "on: %".format(note).postln; });
+	~midi_connect_note_off.value({ arg note; "off: %".format(note).postln; });
 
 	~in_prefix  = "C:/Users/cleme/Workspace/raycasting/jtalk/export/mei/angry/";
 	~out_prefix = "C:/Users/cleme/Workspace/raycasting/synth/export";
