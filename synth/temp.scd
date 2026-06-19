@@ -1,8 +1,4 @@
-var server = Server.default;/*Server(\nrt,
-    options: ServerOptions.new
-	   .numOutputBusChannels_(2)
-       .numInputBusChannels_(2)
-);*/
+var server = Server.default;
 
 if (server.serverRunning.not) {
     //Server.supernova;
@@ -15,15 +11,46 @@ if (server.serverRunning.not) {
 
 ~in_prefix = "C:/Users/cleme/Workspace/raycasting/jtalk/export/mei/angry/";
 ~out_prefix  = "C:/Users/cleme/Workspace/raycasting/synth/export";
-~do_export = false;
-
-server.dumpOSC(1);
 
 server.doWhenBooted({
+
 	var process, process_name, score, call_signature,
 	    filename, in_file, buffer
 	;
 
+	MIDIClient.init;
+	MIDIIn.connectAll;
+
+	MIDIFunc.noteOff({ arg vel, n, chan, src;
+		"Off : %".format(n).postln;
+	});
+
+	MIDIFunc.noteOn({ arg vel, n, chan, src;
+		"On  : %".format(n).postln;
+	});
+
+	MIDIFunc.cc({ arg val, num, chan, src;
+		"CC  : % val: %".format(num, val).postln;
+	});
+
+	MIDIFunc.bend({ arg val, chan, src;
+		"Bend: % chan: %".format(val, chan).postln;
+	});
+
+	MIDIFunc.touch({ arg val, chan, src;
+		"Touch chan: % val: %".format(chan, val).postln;
+	});
+
+	MIDIFunc.polytouch({ arg val, n, chan, src;
+		"Poly: % note: %".format(val, n).postln;
+	});
+
+	MIDIFunc.program({ arg val, chan, src;
+		"Prog: % chan: %".format(val, chan).postln;
+	});
+})
+
+	/*
 	filename = "A_long.wav";
 	in_file = ~in_prefix +/+ filename;
 
@@ -49,28 +76,7 @@ server.doWhenBooted({
     ];
 
 	process.play(Server.default, call_signature);
-
-
-	score = Score.new();
-
-	// https://doc.sccode.org/Reference/Server-Command-Reference.html
-
-	// allocate buffer
-	score.add(0.0, [\b_allocRead, 0,
-		in_file,  // filename
-		0,  // start frame index
-		0   // number of frames to read
-	]);
-
-	// wait for buffer to load
-	score.add(0.0, [\sync]);
-
-	// allocate synth def
-	score.add(0.0, [\d_recv, process]);
-	score.add(0.0, [\d_]
-
-	// init file names and output folder
-
+	+/
 
 	/*
 	if (~do_export) {
