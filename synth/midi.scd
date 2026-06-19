@@ -498,9 +498,9 @@ if (true || MIDIClient.initialized.not) {
 		    slider, slider_value, is_slider
 		;
 
-		if (x.notNil && id.notNil && channel.notNil && source.notNil) {
-			"default: % % % %".format(x, id, channel, source).postln;
+		"default: % % % %".format(x, id, channel, source).postln;
 
+		if (x.notNil && id.notNil && channel.notNil && source.notNil) {
 			if (~midi_is_midi_id_valid_note.value(id)) {
 				// handled in noteOn, noteOff
 			};
@@ -551,7 +551,7 @@ if (true || MIDIClient.initialized.not) {
 		\touch,     // aftertouch
 		\polytouch, // polyphonic aftertouch
 		\bend,      // pitch bend
-		\program,   // program change (patch selection)
+		// \program,   // program change (patch selection)
 		\sysrt,     // system real time messages
 		\sysex,     // manufacturer-specific system message
 		// \mtcQF,     // midi time code quarter frame
