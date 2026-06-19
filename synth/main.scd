@@ -25,24 +25,26 @@ server.doWhenBooted({
 
 	var f;
 
-	MIDIClient.init;
-	MIDIIn.connectAll;
+	"midi.scd".loadRelative;
 
-	f = MIDIFunc.new({ arg ...args;
-		[args].postln;
-	});
+	~midi_connect_note_pressed.value({ arg note; "note pressed: %".format(note).postln; });
+	~midi_connect_note_pressed.value({ arg note; "note released: %".format(note).postln; });
 
-
-	//"midi.scd".loadRelative;
+	~midi_connect_pad_released.value({ arg pad; "pad pressed: %".format(pad).postln; });
+	~midi_connect_pad_pressed.value({ arg pad; "pad released: %".format(pad).postln; });
 
 	~midi_connect_bend.value({ arg t; "bend: %".format(t).postln; });
-	~midi_connect_note_on.value({ arg note; "on: %".format(note).postln; });
-	~midi_connect_note_off.value({ arg note; "off: %".format(note).postln; });
 
+	~midi_connect_slider.value({ arg slider_id, slider_value; "slider: % %".format(slider_id, slider_value).postln; });
+
+	~midi_connect_raw.value({ arg id, value; "raw: % %".format(id, value); });
+
+	~midi_connect_tick.value({ arg ...args; args.postln; });
+
+	/*
 	~in_prefix  = "C:/Users/cleme/Workspace/raycasting/jtalk/export/mei/angry/";
 	~out_prefix = "C:/Users/cleme/Workspace/raycasting/synth/export";
 
-	/*
 	filename = "A_long.wav";
 	in_file = ~in_prefix +/+ filename;
 
