@@ -1,108 +1,63 @@
 var server = Server.default;
+var fader_handler, note_handler;
 
-/*
- * include paths in the same folder
- * Usage:
- *     include("foo.scd", "bar.sc").value()
- */
-var include = { arg ...paths;
-	paths.do { arg path;
-		path = path ++ ".scd";
-		if (File.exists(path).not) {
-			Error("In include: file at % does not exist".format(path.standardizePath()));
-		};
-		path.loadRelative;
-	}
-};
+server.options.memSize = 65536;
 
-// start the server if run from sclang directly
 if (server.serverRunning.not) {
-	//Server.supernova;
-	server.boot;
+    server.boot;
 };
 
-server.doWhenBooted({
+server.waitForBoot({
+    var path = thisProcess.nowExecutingPath;
+    var dir = if(path.notNil) { path.dirname } { "" };
+    var buffer = Buffer.read(server, dir +/+ "test.mp3");
 
-	var f;
+    var bend_bus = Bus.control(server, 1);
+    bend_bus.set(1.0);
 
-	"midi.scd".loadRelative;
+    MIDIMapping.init;
 
-	~midi_connect_note_pressed.value({ arg note; "note pressed: %".format(note).postln; });
-	~midi_connect_note_pressed.value({ arg note; "note released: %".format(note).postln; });
+    server.sync;
 
-	~midi_connect_pad_released.value({ arg pad; "pad pressed: %".format(pad).postln; });
-	~midi_connect_pad_pressed.value({ arg pad; "pad released: %".format(pad).postln; });
+    SynthDef(\meow, { arg out = 0, bufnum = 0, pitch = 440, bend = 1.0;
+        var reference_pitch = 440;
 
-	~midi_connect_bend.value({ arg t; "bend: %".format(t).postln; });
-
-	~midi_connect_slider.value({ arg slider_id, slider_value; "slider: % %".format(slider_id, slider_value).postln; });
-
-	~midi_connect_raw.value({ arg id, value; "raw: % %".format(id, value); });
-
-	~midi_connect_tick.value({ arg ...args; args.postln; });
-
-	/*
-	~in_prefix  = "C:/Users/cleme/Workspace/raycasting/jtalk/export/mei/angry/";
-	~out_prefix = "C:/Users/cleme/Workspace/raycasting/synth/export";
-
-	filename = "A_long.wav";
-	in_file = ~in_prefix +/+ filename;
-
-	buffer = Buffer.read(server, in_file);
-
-	process_name = \Process;
-	process = SynthDef(process_name, { arg out, buffer_id;
-        var player_buffer = PlayBuf.ar(
-            1, // n channels
-            buffer_id,
-            BufRateScale.kr(buffer_id),
-            doneAction: Done.freeSelf
+        var source = PlayBuf.ar(2, bufnum,
+            loop: 1,
+            doneAction: 2
         );
 
-        var pan = Pan2.ar(player_buffer, 0);
-		var lpf = RLPF.ar(pan, 800.0);
-        Out.ar(out, lpf);
+        var shifted = PitchShift.ar(source, 0.2, (pitch / reference_pitch) * bend);
+        Out.ar(out, shifted);
+    }).add;
+
+    note_handler = MIDIMapping.connect_note_pressed({ arg note_id, hertz;
+        Synth(\meow, [
+            \bufnum, buffer,
+            \pitch, hertz,
+            \bend, bend_bus.asMap
+        ]);
     });
 
-	call_signature = [
-        \out, 0,
-        \buffer_id, buffer
-    ];
+    fader_handler = MIDIMapping.connect_bend({ arg id, t;
+        var current_bend = t.linlin(-1, 1, 0.5, 2.0);
+        bend_bus.set(current_bend);
+    });
 
-	process.play(Server.default, call_signature);
-	if (~do_export) {
-
-		var in_file, out_file,
-		    in_path, out_path
-		;
-
-		in_path = (~in_prefix +/+ filename).standardizePath();
-		out_path = (~out_prefix +/+ filename).standardizePath();
-
-		if (File.exists(~out_prefix).not) {
-			if (File.mkdir(~out_prefix).not) {
-				Error("Unable to create directory at %".format(~out_prefix));
+	MIDIMapping.connect_pad_pressed({ arg id;
+		if (id == \PAD_01) {
+		server.record();
+		} {
+			if (id == \PAD_02) {
+				server.stopRecording();
 			};
 		};
+	});
 
-		in_file = SoundFile.new();
-		if (in_file.openRead(in_path).not) {
-			Error("Unable to open file at % for reading".format(in_path));
-		};
+	server.sync;
 
-		out_file = SoundFile.new();
-		if (out_file.openWrite(out_path).not) {
-			Error("Unable to open file at % for writing".format(in_path));
-		};
-
-
-
-		out_file.close;
-		in_file.close;
-
-		if (File.exists(out_path)) {
-			("succesfully wrote file to %").format(out_path).postln;
-		};
-	}
+	/*
+	MIDIMapping.disconnect_note_pressed(note_handler);
+	MIDIMapping.disconnect_fader(fader_handler);
 	*/
 });
