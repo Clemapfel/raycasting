@@ -52,7 +52,7 @@ uniform vec4 black;
 vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 vertex_position) {
     float dist = texture(img, texture_coords).a;
     const float thickness = 1.0 - 0.1;
-    return vec4(smoothstep(0.0, 1.0 - thickness, dist)) * black;
+    return color * vec4(smoothstep(0.0, 1.0 - thickness, dist)) * black;
 }
 
 #elif MODE == MODE_NO_SDF
@@ -95,7 +95,6 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 vertex_position
         seed_magnitude * gradient_noise(vec3(-seed.yx, elapsed))
     );
 
-    // Sobel kernels
     const mat3 sobel_x = mat3(
         -1.0,  0.0,  1.0,
         -2.0,  0.0,  2.0,
@@ -107,11 +106,9 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 vertex_position
         1.0,  2.0,  1.0
     );
 
-    // Texture coordinate offsets
     ivec2 tex_size = textureSize(img, 0);
     vec2 texel_size = vec2(1.0) / vec2(tex_size.x, tex_size.y);
 
-    // Sample the image at the 3x3 neighborhood
     float s00 = Texel(img, clamped_coords(texture_coords, vec2(-1.0, -1.0), texel_size)).a;
     float s01 = Texel(img, clamped_coords(texture_coords, vec2( 0.0, -1.0), texel_size)).a;
     float s02 = Texel(img, clamped_coords(texture_coords, vec2( 1.0, -1.0), texel_size)).a;
@@ -122,7 +119,6 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 vertex_position
     float s21 = Texel(img, clamped_coords(texture_coords, vec2( 0.0,  1.0), texel_size)).a;
     float s22 = Texel(img, clamped_coords(texture_coords, vec2( 1.0,  1.0), texel_size)).a;
 
-    // Apply Sobel kernels
     float gx = sobel_x[0][0] * s00 + sobel_x[0][1] * s01 + sobel_x[0][2] * s02 +
     sobel_x[1][0] * s10 + sobel_x[1][1] * s11 + sobel_x[1][2] * s12 +
     sobel_x[2][0] * s20 + sobel_x[2][1] * s21 + sobel_x[2][2] * s22;
@@ -131,8 +127,8 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 vertex_position
     sobel_y[1][0] * s10 + sobel_y[1][1] * s11 + sobel_y[1][2] * s12 +
     sobel_y[2][0] * s20 + sobel_y[2][1] * s21 + sobel_y[2][2] * s22;
 
-    float edge_threshold_low = 0.0;  // Lower threshold for smoothstep
-    float edge_threshold_high = 1.5; // Higher threshold for smoothstep
+    float edge_threshold_low = 0.0;
+    float edge_threshold_high = 1.5;
 
     float magnitude = length(vec2(gx, gy));
     magnitude = smoothstep(edge_threshold_low, edge_threshold_high, magnitude);
@@ -147,7 +143,7 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 vertex_position
     float noise = gradient_noise(vec3(uv * 15.0, elapsed / 2.0));
 
     vec3 hue = lch_to_rgb(vec3(0.8, 1.0, fract(hue + noise)));
-    return vec4(hue, magnitude);
+    return color * vec4(hue, magnitude);
 }
 
 #endif // MODE_NO_SDF

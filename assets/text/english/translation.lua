@@ -132,7 +132,7 @@ return {
     -- title screen / stage select
     menu_scene = {
         title_screen = {
-            title = "Chroma Drift",
+            title = "Chroma Void",
             control_indicator_select = "Select",
             control_indicator_move = "Move",
             control_indicator_exit = "Quit",

@@ -44,7 +44,7 @@ love.load = function(args)
     end
 
     require "overworld.overworld_scene"
-    --rt.SceneManager:push(ow.OverworldScene, "air_dash_node_tutorial", false)
+    rt.SceneManager:push(ow.OverworldScene, "air_dash_node_tutorial", ow.StageEntryMode.TITLE_CARD)
 
     require "menu.keybinding_scene"
     --rt.SceneManager:push(mn.KeybindingScene)
@@ -56,51 +56,10 @@ love.load = function(args)
     --rt.SceneManager:push(mn.MenuScene, false)
 end
 
-local properties = {}
-local property_name_to_is_private = {
-    pecan = true
-}
-local instance = setmetatable({}, {
-    __index = function(self, key)
-        return properties[key]
-    end,
-
-    __newindex = function(self, key, value)
-        if property_name_to_is_private[key] == true then
-error("do not access privates")
-        else
-            properties[key] = value
-        end
-    end
-})
-
-instance.walnut = 1 -- works
-instance.pecan = 2 -- error
-
-local t = { 1, 2, nil, 3 }
-local other = {}
-for _, i in ipairs(t) do
-    if other[i] == 2 then
-
-    end
-end
-
-require "common.cutscene"
-local cutscene = rt.Cutscene(function()
-    print("a")
-    sleep(1)
-    print("b")
-    sleep(1)
-    barrier()
-    print("c")
-end)
-
 love.update = function(delta)
     if rt.SceneManager ~= nil then
         rt.SceneManager:update(delta)
     end
-
-    cutscene:update(delta)
 end
 
 love.draw = function()
@@ -116,15 +75,3 @@ love.resize = function(width, height)
         rt.SceneManager:resize(width, height)
     end
 end
-
-
-local co = coroutine.create(function()
-    coroutine.yield(1, 2, 3)
-    return 4, 5, 6
-end)
-
-while coroutine.status(co) ~= "dead" do
-    dbg(coroutine.resume(co))
-end
-
-coroutine.resume(co)

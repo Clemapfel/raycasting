@@ -159,7 +159,7 @@ function rt.Fade:get_is_started()
 end
 
 --- @brief
-function rt.Fade:get_is_visible()
+function rt.Fade:get_is_active()
     return self._value > 0
 end
 

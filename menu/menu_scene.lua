@@ -50,9 +50,16 @@ mn.MenuSceneState = meta.enum("MenuSceneState", {
     EXITING = "EXITING"
 })
 
-local _title_shader_no_sdf = rt.Shader("menu/menu_scene_label.glsl", { MODE = 0 })
-local _title_shader_sdf = rt.Shader("menu/menu_scene_label.glsl", { MODE = 1 })
+local _title_shader_no_sdf = rt.Shader("menu/menu_scene_title_label.glsl", { MODE = 0 })
+local _title_shader_sdf = rt.Shader("menu/menu_scene_title_label.glsl", { MODE = 1 })
 local _lch_texture = rt.LCHTexture(1, 1, 256)
+
+DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
+    if which == rt.KeyboardKey.R then
+        _title_shader_no_sdf:recompile()
+        _title_shader_sdf:recompile()
+    end
+end)
 
 -- @brief
 function mn.MenuScene:instantiate(state)
@@ -869,6 +876,8 @@ function mn.MenuScene:draw()
         end
 
         local transform = self._camera:get_transform():inverse()
+
+        love.graphics.setColor(1, 1, 1, 1)
 
         _title_shader_sdf:bind()
         _title_shader_sdf:send("elapsed", self._shader_elapsed)

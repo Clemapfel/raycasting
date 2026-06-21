@@ -5,7 +5,6 @@ rt.settings.overworld.time_attack_start_countdown = {
     attack_duration = 0.25,
     decay_duration = 0.15,
     hold_duration = 1,
-    font_id = "RubikSprayPaint",
     min_scale = 0.2,
     max_scale = 1
 }
@@ -17,8 +16,8 @@ meta.add_signals(ow.TimeAttackStartCountdown,
 )
 
 local _font = nil
-local _shader_no_sdf = rt.Shader("menu/stage_grade_label.glsl", { MODE = 0 })
-local _shader_sdf = rt.Shader("menu/stage_grade_label.glsl", { MODE = 1 })
+local _shader_no_sdf = rt.Shader("menu/menu_scene_title_label.glsl", { MODE = 0 })
+local _shader_sdf = rt.Shader("menu/menu_scene_title_label.glsl", { MODE = 1 })
 local _lch_texture = rt.LCHTexture(1, 1, 256)
 
 --- @brief
@@ -27,8 +26,8 @@ function ow.TimeAttackStartCountdown:instantiate(scene, stage)
     self._was_done = false
 
     if _font == nil then
-        local id = rt.settings.overworld.time_attack_start_countdown.font_id
-        _font = rt.Font("assets/fonts/" .. id .. "/" .. id .. "-Regular.ttf")
+        require "menu.menu_scene"
+        _font = rt.Font(rt.settings.menu_scene.title_screen.title_font_path)
     end
 
     self._ready_entry = nil -- cf. size_allocate
@@ -250,21 +249,20 @@ function ow.TimeAttackStartCountdown:draw()
             love.graphics.scale(scale)
             love.graphics.translate(offset_x, offset_y)
 
-            _shader_sdf:bind()
-            _shader_sdf:send("white", { rt.Palette.WHITE:unpack() })
-            _shader_sdf:send("opacity", opacity)
-            love.graphics.draw(entry.sdf_label,
-                entry.sdf_x, entry.sdf_y)
-            _shader_sdf:unbind()
+            love.graphics.setColor(1, 1, 1, opacity)
 
-            entry.color:bind()
+            _shader_sdf:bind()
+            _shader_sdf:send("elapsed", rt.SceneManager:get_elapsed())
+            _shader_sdf:send("black", rt.Palette.BLACK)
+            love.graphics.draw(entry.sdf_label, entry.sdf_x, entry.sdf_y)
+            _shader_sdf:unbind()
+            
             _shader_no_sdf:bind()
-            _shader_no_sdf:send("opacity", opacity)
-            _shader_no_sdf:send("elapsed", rt.SceneManager:get_elapsed() + elapsed_offset) -- prevent synching of shader
-            _shader_no_sdf:send("use_highlight", true)
-            _shader_no_sdf:send("use_rainbow", false)
+            _shader_no_sdf:send("elapsed", rt.SceneManager:get_elapsed())
+            _shader_no_sdf:send("black", rt.Palette.BLACK)
+            _shader_no_sdf:send("screen_to_world_transform", rt.Transform()) -- drawn without camera bound
+            _shader_no_sdf:send("pixel_scale", rt.get_pixel_scale())
             _shader_no_sdf:send("lch_texture", _lch_texture)
-            _shader_no_sdf:send("fraction", entry.shimmer_animation:get_value())
             love.graphics.draw(entry.no_sdf_label, entry.no_sdf_x, entry.no_sdf_y)
             _shader_no_sdf:unbind()
 

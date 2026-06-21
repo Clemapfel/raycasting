@@ -8,6 +8,7 @@ if (server.serverRunning.not) {
 };
 
 server.waitForBoot({
+	var mapping;
     var path = thisProcess.nowExecutingPath;
     var dir = if(path.notNil) { path.dirname } { "" };
     var buffer = Buffer.read(server, dir +/+ "test.mp3");
@@ -15,7 +16,7 @@ server.waitForBoot({
     var bend_bus = Bus.control(server, 1);
     bend_bus.set(1.0);
 
-    MIDIMapping.init;
+	mapping = MIDIMapping.new;
 
     server.sync;
 
@@ -56,8 +57,5 @@ server.waitForBoot({
 
 	server.sync;
 
-	/*
-	MIDIMapping.disconnect_note_pressed(note_handler);
-	MIDIMapping.disconnect_fader(fader_handler);
-	*/
+	MIDIMapping.free;
 });

@@ -93,8 +93,12 @@ function rt.Shader:send(name, value, ...)
 
     local args = { value, ... }
     for i, x in ipairs(args) do
-        if meta.is_table(x) and x.get_native ~= nil then
-            args[i] = x:get_native()
+        if meta.is_table(x) then
+            if x.get_native ~= nil then
+                args[i] = x:get_native()
+            elseif meta.is_function(x.unpack) then
+                args[i] = { x:unpack() }
+            end
         end
     end
 
