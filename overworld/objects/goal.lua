@@ -224,7 +224,7 @@ function ow.Goal:instantiate(object, stage, scene)
         self._body:signal_connect("collision_start", function(_, other, nx, ny, x, y, x2, y2)
             if self._is_shattered == false then
                 self._is_shattered = true
-                self._scene:stop_timer()
+                self._scene:stop_timer() -- measures sub-frame precision
 
                 local px, py = self._scene:get_player():get_position()
                 local gx, gy = self._body:get_position()

@@ -4,7 +4,7 @@ require "common.matrix"
 
 rt.settings.menu.coin_particle_swarm = {
     n_sub_steps = 1,
-    collision_compliance = 0, --0.05,
+    collision_compliance = 0.05,
     follow_compliance = 0.4,
     collision_radius_offset = 2, -- pc
     damping = 2,

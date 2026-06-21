@@ -9,6 +9,7 @@ rt.settings.fade = {
 
 --- @class rt.Fade
 rt.Fade = meta.class("Fade")
+meta.add_signal(rt.Fade, "hidden", "done")
 
 local _default_shader = rt.Shader("common/fade_default.glsl")
 local _lch_texture = rt.LCHTexture(1, 1, 256)
@@ -35,8 +36,10 @@ function rt.Fade:instantiate(duration, shader_path)
         _direction = 0,
         _has_attack = true,
         _has_decay = true,
-        _signal_emitted = true,
-        _queue_emit = false,
+        _hidden_emitted = true,
+        _queue_hidden_emit = false,
+        _done_emitted = true,
+        _queue_done_emit = false,
         _started = false,
         _r = r,
         _g = g,
@@ -44,8 +47,6 @@ function rt.Fade:instantiate(duration, shader_path)
         _a = a
     })
 end
-
-meta.add_signal(rt.Fade, "hidden")
 
 --- @brief
 --- @param has_attack Boolean if false, skips starting ramp
@@ -56,7 +57,13 @@ function rt.Fade:start(has_attack, has_decay)
     self._elapsed = 0
     self._has_attack = has_attack
     self._has_decay = has_decay
-    self._signal_emitted = false
+
+    self._hidden_emitted = false
+    self._queue_hidden_emit = false
+
+    self._done_emitted = false
+    self._queue_done_emit = false
+
     self._started = true
     self:update(0)
 end
@@ -65,14 +72,19 @@ end
 function rt.Fade:skip()
     self._elapsed = math.huge
     self._value = 0
+    self._started = false
+    self._queue_hidden_emit = false
+    self._queue_done_emit = false
 end
 
 --- @brief
 function rt.Fade:reset()
     self._elapsed = 0
     self._value = 0
-    self._signal_emitted = false
-    self._queue_emit = false
+    self._hidden_emitted = false
+    self._queue_hidden_emit = false
+    self._done_emitted = false
+    self._queue_done_emit = false
     self._started = false
 end
 
@@ -103,19 +115,30 @@ function rt.Fade:update(delta)
     local fraction = self._elapsed / self._duration
     self._value, self._direction = _envelope(fraction, self._has_attack, self._has_decay)
 
-    if self._signal_emitted == false and fraction > 0.5 then
+    if self._hidden_emitted == false and fraction > 0.5 then
         self._value = 1
-        self._queue_emit = true -- wait until draw
+        self._queue_hidden_emit = true
+    end
+
+    if self._done_emitted == false and fraction >= 1 then
+        self._value = 0
+        self._queue_done_emit = true
     end
 
     if self._started then
         self._elapsed = self._elapsed + delta
     end
 
-    if self._queue_emit then
+    if self._queue_hidden_emit then
         self:signal_emit("hidden")
-        self._signal_emitted = true
-        self._queue_emit = false
+        self._hidden_emitted = true
+        self._queue_hidden_emit = false
+    end
+
+    if self._queue_done_emit then
+        self:signal_emit("done")
+        self._done_emitted = true
+        self._queue_done_emit = false
     end
 end
 
@@ -146,11 +169,6 @@ function rt.Fade:draw()
         self._shader:unbind()
         love.graphics.pop()
     end
-end
-
---- @brief
-function rt.Fade:get_is_active()
-    return self._signal_emitted == false
 end
 
 --- @brief

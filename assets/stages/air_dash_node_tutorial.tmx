@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="307">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="308">
  <editorsettings>
   <export target="air_dash_node_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -462,11 +462,14 @@
    <point/>
   </object>
   <object id="291" type="Goal" x="803.529" y="-1517.35" width="437.966" height="103.362"/>
-  <object id="292" name="NPC" type="NPC" x="-120.819" y="-1320.9">
+  <object id="292" name="NPC" type="NPC" x="575.086" y="-1347.19">
    <properties>
     <property name="dialog_id" value="animalese_test"/>
    </properties>
    <point/>
+  </object>
+  <object id="307" type="KillPlane" x="-48" y="-1248">
+   <polygon points="0,0 16,-160 224,-160 160,16"/>
   </object>
  </objectgroup>
  <objectgroup id="6" name="front"/>

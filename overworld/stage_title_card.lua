@@ -8,7 +8,7 @@ rt.settings.overworld.stage_title_card = {
 
 --- @class ow.StageTitleCard
 ow.StageTitleCard = meta.class("StageTitleCard", rt.Widget)
-meta.add_signal(ow.StageTitleCard, "done")
+meta.add_signal(ow.StageTitleCard, "hidden", "done")
 
 local _STATE_IDLE = 0
 local _STATE_ATTACK = 1
@@ -35,7 +35,6 @@ function ow.StageTitleCard:instantiate(title, duration)
         _state = _STATE_IDLE,
 
         _title = title,
-        _signal_emitted = true,
         _label = rt.Label(
             _prefix .. title .. _postfix,
             rt.FontSize.HUGE, font
@@ -106,8 +105,15 @@ function ow.StageTitleCard:reset()
     self._label:set_opacity(0)
 end
 
+function ow.StageTitleCard:get_is_active()
+    return self._state ~= _STATE_IDLE
+end
+
 --- @brief
 function ow.StageTitleCard:update(delta)
+
+    local before = self._state
+
     local value
     if self._state == _STATE_IDLE then
         value = 0
@@ -118,9 +124,16 @@ function ow.StageTitleCard:update(delta)
     elseif self._state == _STATE_DECAY then
         value = _decay(self._fade_out_elapsed / self._fade_out_duration)
         self._fade_out_elapsed = self._fade_out_elapsed + delta
-        if self._fade_out_elapsed >= self._fade_out_duration then self._state = _STATE_IDLE end
+        if self._fade_out_elapsed >= self._fade_out_duration then
+            self:signal_emit("done")
+            self._state = _STATE_IDLE
+        end
     elseif self._state == _STATE_SUSTAIN then
         value = 1
+    end
+
+    if before == _STATE_ATTACK and (self._state == _STATE_SUSTAIN or self._state == _STATE_DECAY) then
+        self:signal_emit("hidden")
     end
 
     self._label:update(delta)
@@ -130,4 +143,9 @@ end
 --- @brief
 function ow.StageTitleCard:draw()
     self._label:draw()
+end
+
+--- @brief
+function ow.StageTitleCard:draw_bloom()
+    -- noop
 end

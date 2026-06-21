@@ -57,6 +57,10 @@ local function _parse_stage_entry(entry, i, path_prefix, existing_path)
         target_time = math.huge
     end
 
+    require "overworld.objects.coin"
+    require "overworld.objects.checkpoint"
+    require "overworld.objects.goal"
+
     local config = ow.StageConfig(id)
     local n_coins, n_checkpoints = 0, 0
     for layer_i = 1, config:get_n_layers() do
@@ -210,6 +214,7 @@ end
 function rt.GameState:get_stage_is_coin_collected(stage_id, coin_i)
     meta.assert(stage_id, mt.String, coin_i, mt.Number)
     if _debug_output then return coin_i == 3 end
+
     local stage = self:_get_stage(stage_id, "get_stage_is_coin_collected")
     if coin_i > stage.n_coins then
         rt.error("In rt.GameState.get_stage_is_coin_collected: coin index `", coin_i, "` is out of bounds, stage `", stage_id, "` only has ", stage.n_coins, " coins")

@@ -188,3 +188,14 @@ end
 function rt.Bloom:get_height()
     return self._textures[1]:get_height()
 end
+
+--- @brief
+function rt.Bloom:reset()
+    love.graphics.push("all")
+    for texture in values(self._textures) do
+        texture:bind()
+        love.graphics.clear(0, 0, 0, 0)
+        texture:unbind()
+    end
+    love.graphics.pop()
+end

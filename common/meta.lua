@@ -545,7 +545,7 @@ local _signal_emit = function(instance, id, ...)
         instance:signal_disconnect_all(id)
     else
         for callback_id in values(_delayed_emit_buffer) do
-            instance:signal_disconnect(id, callback_id)
+            instance:signal_try_disconnect(id, callback_id)
         end
     end
 end

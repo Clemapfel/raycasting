@@ -21,7 +21,9 @@ local _shader_sdf = rt.Shader("menu/menu_scene_title_label.glsl", { MODE = 1 })
 local _lch_texture = rt.LCHTexture(1, 1, 256)
 
 --- @brief
-function ow.TimeAttackStartCountdown:instantiate(scene, stage)
+function ow.TimeAttackStartCountdown:instantiate(scene)
+    self._scene = scene
+
     self._is_active = false
     self._was_done = false
 
@@ -182,7 +184,6 @@ end
 function ow.TimeAttackStartCountdown:update(delta)
     if not self._is_active then return end
 
-    local is_done = true
     for entry in range(
         self._ready_entry,
         self._set_entry,
@@ -194,11 +195,15 @@ function ow.TimeAttackStartCountdown:update(delta)
             entry.scale_animation
         ) do
             animation:update(delta)
-            if animation:get_is_done() ~= true then
-                is_done = false
-            end
         end
     end
+
+    local is_done = self._ready_entry.opacity_animation:get_is_done()
+        and self._ready_entry.shimmer_animation:get_is_done()
+        and self._ready_entry.scale_animation:get_is_done()
+        and self._set_entry.opacity_animation:get_is_done()
+        and self._set_entry.shimmer_animation:get_is_done()
+        and self._set_entry.scale_animation:get_is_done()
 
     if self._was_done == false and is_done == true then
         self:signal_emit("done")
@@ -209,9 +214,6 @@ end
 
 --- @brief
 function ow.TimeAttackStartCountdown:start()
-    _shader_sdf:recompile() -- TODO
-    _shader_no_sdf:recompile()
-
     for entry in range(
         self._ready_entry,
         self._set_entry,
@@ -227,6 +229,7 @@ function ow.TimeAttackStartCountdown:start()
     end
 
     self._is_active = true
+    self._was_done = false
 end
 
 --- @brief
@@ -260,7 +263,7 @@ function ow.TimeAttackStartCountdown:draw()
             _shader_no_sdf:bind()
             _shader_no_sdf:send("elapsed", rt.SceneManager:get_elapsed())
             _shader_no_sdf:send("black", rt.Palette.BLACK)
-            _shader_no_sdf:send("screen_to_world_transform", rt.Transform()) -- drawn without camera bound
+            _shader_no_sdf:send("screen_to_world_transform", self._scene:get_camera():get_transform():inverse()) -- drawn without camera bound
             _shader_no_sdf:send("pixel_scale", rt.get_pixel_scale())
             _shader_no_sdf:send("lch_texture", _lch_texture)
             love.graphics.draw(entry.no_sdf_label, entry.no_sdf_x, entry.no_sdf_y)
@@ -276,4 +279,10 @@ end
 --- @brief
 function ow.TimeAttackStartCountdown:get_is_active()
     return self._is_active
+end
+
+--- @brief
+function ow.TimeAttackStartCountdown:skip()
+    self._is_active = false
+    self._was_done = false
 end

@@ -119,8 +119,8 @@ return {
 
         control_indicator_accelerator_surface_hold = "(hold direction) accelerate",
 
-        debug_information_time_paused = "paused",
-        debug_information_frames = "cycles",
+
+        debug_information_no_coins = "(none)",
 
         enter_time_attack_dialog_message = "Enter Time Attack Mode?",
         enter_time_attack_dialog_submessage = "Your current progress will be lost. Checkpoints no longer save your progress, dying immediately restarts the stage, your time is tracked and displayed, and your exact path through the stage is recorded such that it can be compared with other runs of the same stage.",

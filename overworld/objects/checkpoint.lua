@@ -308,6 +308,7 @@ function ow.Checkpoint:spawn(also_kill, play_animation)
     local type = self._type
     if is_first_spawn then
         self:_set_state(_STATE_STAGE_ENTRY)
+        self._stage:set_is_first_spawn(false)
     else
         if also_kill then
             self._explosion_visible = play_animation
@@ -614,7 +615,6 @@ function ow.Checkpoint:update(delta)
         -- ray fades out after player has spawned
         self._scene:set_blur(0)
 
-
         player:request_opacity(self, nil)
     end
 end
@@ -781,4 +781,9 @@ function ow.Checkpoint:collect_segment_lights(callback)
             r, g, b, self._ray_fade_out_fraction
         )
     end
+end
+
+--- @brief
+function ow.Checkpoint:get_position()
+    return self._bottom_x, self._bottom_y
 end

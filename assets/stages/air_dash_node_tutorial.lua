@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 307,
+  nextobjectid = 308,
   properties = {
     ["background_id"] = "\"nebula\""
   },
@@ -1498,8 +1498,8 @@ return {
           name = "NPC",
           type = "NPC",
           shape = "point",
-          x = -120.819,
-          y = -1320.9,
+          x = 575.086,
+          y = -1347.19,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1507,6 +1507,25 @@ return {
           properties = {
             ["dialog_id"] = "animalese_test"
           }
+        },
+        {
+          id = 307,
+          name = "",
+          type = "KillPlane",
+          shape = "polygon",
+          x = -48,
+          y = -1248,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 16, y = -160 },
+            { x = 224, y = -160 },
+            { x = 160, y = 16 }
+          },
+          properties = {}
         }
       }
     },

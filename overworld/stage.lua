@@ -79,7 +79,7 @@ function ow.Stage:instantiate(scene, id)
         _flow_fraction = 0,
 
         _active_checkpoint = nil,
-        _player_spawn_ref = nil,
+        _player_spawn_checkpoint = nil,
 
         _visible_bodies = {},
         _light_sources = {},
@@ -399,7 +399,7 @@ function ow.Stage:instantiate(scene, id)
         local n_spawns = 0
         for checkpoint in keys(self._checkpoints) do
             if checkpoint:get_type() == ow.CheckpointType.PLAYER_SPAWN then
-                self._player_spawn_ref = checkpoint
+                self._player_spawn_checkpoint = checkpoint
                 n_spawns = n_spawns + 1
             end
         end
@@ -587,7 +587,15 @@ end
 
 --- @brief
 function ow.Stage:set_active_checkpoint(checkpoint)
-    self._active_checkpoint = checkpoint or self._player_spawn_ref
+    self._active_checkpoint = checkpoint or self._player_spawn_checkpoint
+    if checkpoint == nil then
+        self._is_first_spawn = true
+    end
+end
+
+--- @brief
+function ow.Stage:set_is_first_spawn(b)
+    self._is_first_spawn = b
 end
 
 --- @brief
@@ -858,4 +866,9 @@ end
 --- @brief
 function ow.Stage:get_config_hash()
     return self._config:get_hash()
+end
+
+--- @brief
+function ow.Stage:get_spawn_location()
+    return self._player_spawn_checkpoint:get_position()
 end

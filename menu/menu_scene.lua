@@ -321,6 +321,7 @@ function mn.MenuScene:_create_from_state()
     local stage_select = self._stage_select
     stage_select.item_frame:create_from_state()
     stage_select.page_indicator:create_from_state()
+    stage_select.coin_particle_swarm:create_from_state()
 end
 
 --- @brief
@@ -511,6 +512,10 @@ function mn.MenuScene:exit()
 
     for sound_id, handler_id in pairs(self._active_sounds) do
         rt.SoundManager:stop(sound_id, handler_id)
+    end
+
+    if rt.GameState:get_is_bloom_enabled() then
+        rt.SceneManager:get_bloom():reset()
     end
 end
 
