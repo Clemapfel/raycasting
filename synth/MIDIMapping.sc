@@ -164,7 +164,7 @@ Notes {
 		]);
 
 		// cf. https://en.wikipedia.org/wiki/Piano_key_frequencies
-		pitch = Dictionary.newFrom([
+		pitch = Dictionary.new();
 			\C0, 16.3516, \Cs0, 17.3239, \D0, 18.3540,
 			\Ds0, 19.4454, \E0, 20.6017, \F0, 21.8268,
 			\Fs0, 23.1247, \G0, 24.4997, \Gs0, 25.9565,
@@ -231,11 +231,34 @@ Notes {
         ^this.all.includes(x)
     }
 
+	*isValidMidi { arg midi_id, note_range = (12 .. 120);
+		^midi_id.inclusivelyBetween(
+			note_range.at(0),
+			note_range.at(note_range.size - 1)
+		);
+	}
+
     *isEqual { arg a, b;
         var a_mapped = this.identities.get(a);
         var b_mapped = this.identities.get(b);
         ^(a == b || a == b_mapped || b == a_mapped || a_mapped == b_mapped)
     }
+
+	*midiToNote { arg midi_id, note_range = (12 .. 120);
+		if (this.isValidMidi(midi_id, note_range).not) {
+			Error("In Notes.midiToNote: midi id % is out of range".format(midi_id)).throw;
+		};
+
+		^this.order[midi_id - note_range.at(0)];
+	}
+
+	*midiToPitch { arg midi_id, note_range = (12 .. 120);
+		if (this.isValidMidi(midi_id, note_range).not) {
+			Error("In Notes.midiToNote: midi id % is out of range".format(midi_id)).throw;
+		};
+
+		^midi_id.midicps;
+	}
 }
 
 Pads {
@@ -331,6 +354,7 @@ Faders {
     }
 }
 
+/*
 MIDIMapping {
     classvar <>pad_ranges, <>fader_ranges, <>note_ranges, <>raw_ranges;
 
@@ -843,3 +867,4 @@ MIDIMapping {
         ^raw_ranges.any({ arg range; raw.inclusivelyBetween(range[0], range[1]) });
     }
 }
+*/
