@@ -1,52 +1,96 @@
 var server, pwd, file_path;
+var cc_spec, bend_spec, sliders, id_to_bus, id_to_spec, id_to_midi_def;
 
 server = Server.default;
 server.options.memSize = 1024 * 1024;
 
+sliders = Pseq.new((110 .. 117)).asStream;
+cc_spec = ControlSpec(0, 2**7, \lin);
+bend_spec = ControlSpec(0, 2**14, \lin);
+id_to_bus = IdentityDictionary.new;
+id_to_spec = IdentityDictionary.new;
+id_to_midi_def = IdentityDictionary.new;
+
+~register_cc = { arg id, min_value, max_value, easing;
+    var slider, midi_def_id;
+
+	slider = sliders.next;
+
+    midi_def_id = id; // capture
+    id_to_bus.put(midi_def_id, Bus.control(server, 1));
+    id_to_spec.put(midi_def_id, ControlSpec(min_value, max_value, easing ?? \lin));
+    id_to_midi_def.put(
+        midi_def_id,
+        MIDIdef.cc(midi_def_id, { arg value, num, channel, source;
+            "% : %".format(
+                midi_def_id,
+                id_to_spec.at(midi_def_id).map(cc_spec.unmap(value))
+            ).postln;
+            id_to_bus.at(midi_def_id).set(cc_spec.unmap(value));
+        }, slider)
+    );
+};
+
+~get_cc = { arg id;
+	id_to_spec.at(id).map(In.kr(id_to_bus.at(id)))
+};
+
+
 pwd = thisProcess.nowExecutingPath.dirname;
-file_path = (pwd +/+ "../jtalk/export/mei/angry/SHA_q.wav").standardizePath;
+file_path = (pwd +/+ "../jtalk/export/mei/angry/SHEI_q.wav").standardizePath;
 
 server.waitForBoot({
 	var filter_def, filter_playback,
 	    file_config,
-	    buffer,
-	    cc_spec,
-	    frequency_bus, frequency_midi_def, frequency_spec,
-	    bandwidth_bus, bandwidth_midi_def, bandwidth_spec
+	    buffer
 	;
 
 	file_config = SoundFile.openRead(file_path);
 
 	buffer = Buffer.read(server, file_path);
 
-	MIDIClient.init;
-	MIDIIn.connectAll;
-
-	cc_spec = ControlSpec(0, 2**7 + 1, \lin);
-
-	frequency_bus = Bus.control(server, 1);
-	frequency_midi_def = MIDIdef.cc(\frequency, { arg value, id, channel, source;
-		frequency_bus.set(cc_spec.unmap(value));
-    });
-
-	bandwidth_bus = Bus.control(server, 1);
-	bandwidth_midi_def = MIDIdef.cc(\bandwidth, { arg value, id, channel, source;
-		bandwidth_bus.set(cc_spec.unmap(value));
-	});
-
-	frequency_spec = ControlSpec(20, 20000, \exp);
-	bandwidth_spec = ControlSpec(0.01, 100, \exp);  // bandwidth Q
+	~register_cc.(\frequency, 20, 24000, \exp);
+	~register_cc.(\bandwidth, 0, 10);
+	~register_cc.(\db, -100, 0);
+	~register_cc.(\resonance, 0, 2);
 
 	filter_def = SynthDef(\filter, { arg out, bufnum;
 		var signal = PlayBuf.ar(file_config.numChannels, bufnum, loop: 1);
-		signal = BPeakEQ.ar(signal,
-			frequency_spec.map(In.kr(frequency_bus)),
-			bandwidth_spec.map(In.kr(bandwidth_bus)).reciprocal
+
+		/*
+		signal = BPeakEQ.ar(
+			in: signal,
+			freq: ~get_cc.(\frequency),
+			rq: ~get_cc.(\bandwidth),
+			db: ~get_cc.(\db)
 		);
+		*/
+
+		/*
+		signal = BBandStop.ar(
+			in: signal,
+			freq: ~get_cc.(\frequency),
+			bw: ~get_cc.(\bandwidth)
+		);
+		*/
+
+		signal = RLPF.ar(
+			signal,
+			freq: ~get_cc.(\frequency),
+			rq: ~get_cc.(\resonance)
+		);
+
 		Out.ar(out, signal.dup);
 	}).add;
 
-	frequency_bus.setSynchronous(0.5);
+	// main
+
+	MIDIClient.init;
+	MIDIIn.connectAll;
+
+	id_to_bus.at(\frequency).setSynchronous(0.5);
+	id_to_bus.at(\bandwidth).setSynchronous(0.5);
+	id_to_bus.at(\resonance).setSynchronous(0.5);
 
 	server.sync;
 
@@ -55,9 +99,10 @@ server.waitForBoot({
 	]);
 
 	CmdPeriod.doOnce({
-		frequency_bus.free;
+		id_to_bus.do({ arg key; id_to_bus.at(key).free; });
+		id_to_midi_def.do({ arg key; id_to_midi_def.at(key).free; });
+		id_to_spec.do({ arg key; id_to_spec.at(key).free; });
 		filter_playback.free;
-		frequency_midi_def.free;
 	});
 });
 
