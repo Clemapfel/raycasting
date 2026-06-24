@@ -617,11 +617,17 @@ function rt.GameState:save()
     state[settings.save_keyboard_binding_prefix] = self._input_action_to_keyboard_key
     state[settings.save_controller_binding_prefix] = self._input_action_to_controller_button
 
-    rt.assert(table.is_serializable(state), "In rt.GameState.save: state is not fully serializable")
+    rt.assert(
+        table.is_serializable(state),
+        "In rt.GameState.save: state is not fully serializable"
+    )
 
     local serialized = "return " .. table.serialize(state)
+
     local success, result = pcall(bd.load_string, serialized)
-    rt.assert(success == true and meta.is_table(result), "In rt.GameState.save: serialization is not valid lua code")
+    rt.assert(success == true and meta.is_table(result),
+        "In rt.GameState.save: serialization is not valid lua code"
+    )
 
     -- find latest save id
     local max_save_id = 0

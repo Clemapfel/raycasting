@@ -8,8 +8,6 @@ rt.CutsceneFutureResult = {
 }
 rt.CutsceneFutureResult = meta.enum("CutsceneFutureResult", rt.CutsceneFutureResult)
 
-local _noop_update = function() return rt.CutsceneFutureResult.EXIT end
-local _noop_exit = function() end
 
 --- @brief
 --- @param on_update (Number) -> rt.CutsceneFutureResult
@@ -26,22 +24,11 @@ function rt.CutsceneFuture:instantiate(cutscene, on_update, on_exit)
     self._is_done = false
     self._result = nil
 
-    self._cutscene:_notify_future_added(self)
 end
 
 --- @brief
-function rt.CutsceneFuture:update(delta)
-    if self._is_done then return end
+function rt.CutsceneFuture:step(delta)
 
-    local result = self._on_update(delta)
-    if not meta.is_boolean(result) then
-        rt.error("In rt.CutsceneFuture: callback does return a value of enum `rt.CutsceneFutureResult`")
-    end
-
-    if result == rt.CutsceneFutureResult.EXIT and self._is_done == false then
-        self._result = self._on_exit()
-        self._is_done = true
-    end
 end
 
 --- @brief

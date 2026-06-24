@@ -47,7 +47,7 @@
   </object>
  </objectgroup>
  <objectgroup id="2" name="main">
-  <object id="89" name="Spawn" type="PlayerSpawn" x="-253.594" y="-1307.3">
+  <object id="89" name="Spawn" type="PlayerSpawn" x="491.087" y="-1284.67">
    <point/>
   </object>
   <object id="91" type="Hitbox" x="-1439.08" y="1248">

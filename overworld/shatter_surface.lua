@@ -1,7 +1,7 @@
 require "common.voronoi_tesselation"
 require "common.path"
 require "common.graphics_buffer"
-require "common.coroutine"
+require "common.routine"
 
 rt.settings.overworld.shatter_surface = {
     -- physics sim
@@ -90,7 +90,7 @@ function ow.ShatterSurface:shatter(origin_x, origin_y, velocity_x, velocity_y)
     self._is_shattered = true
 
     local start = love.timer.getTime()
-    self._callback = rt.Coroutine(function()
+    self._callback = rt.Routine(function(routine)
         local tesselation = rt.VoronoiTesselation()
         -- Generate seeds in axis-aligned local space
         tesselation:generate_seeds(origin_x, origin_y,
@@ -100,13 +100,13 @@ function ow.ShatterSurface:shatter(origin_x, origin_y, velocity_x, velocity_y)
             -0.5 * w,  0.5 * h
         )
 
-        coroutine.yield()
+        routine.yield()
 
         for polygon in values(tesselation:tesselate()) do
             table.insert(self._parts, { vertices = polygon })
         end
 
-        coroutine.yield()
+        routine.yield()
 
         local min_mass, max_mass, max_distance = math.huge, -math.huge, -math.huge
         for part in values(self._parts) do
@@ -170,7 +170,7 @@ function ow.ShatterSurface:update(delta)
     if not self._is_shattered then return end
 
     -- distribute load over multiple frames
-    if self._callback ~= nil and not self._callback:get_is_done() then
+    if self._callback ~= nil and self._callback:get_status() ~= rt.RoutineStatus.DONE then
         self._callback:resume()
         return
     end

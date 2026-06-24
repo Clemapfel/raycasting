@@ -23,61 +23,27 @@ function rt.Cutscene:instantiate(script_or_script_id)
 end
 
 --- @brief
-function rt.Cutscene:_notify_future_added(future)
-    local id = self._current_future_id
-    self._future_id_to_future[id] = future
-    self._current_future_id = self._current_future_id + 1
-end
-
---- @brief
 function rt.Cutscene:_init_environment(env)
     if env == nil then env = {} end
 
-    local cutscene = self
-    local yield = coroutine.yield
-    local throw = function(scope, arg_i, expected, got)
-        rt.error("In rt.Cutscene.", scope, ": for argument #1: expected argument of type `", meta.get_typename(expected), "`, got `", meta.typeof(got), "`")
-    end
-
     --- @brief wait for a set of futures to finish
-    env.await = function(future)
-        if not meta.isa(future, rt.CutsceneFuture) then
-            throw("await", 1, rt.CutsceneFuture, future)
-        end
+    env.await = function(...)
 
-        while not future:get_is_done() do
-            yield()
-        end
-
-        return future:get_result()
     end
 
     --- @brief wait for all futures to finish
     env.barrier = function(...)
-        meta.assert(select(1, ...), mt.Nil)
-        for _, future in pairs(self._future_id_to_future) do
-            while not future:get_is_done() do
-                yield()
-            end
-        end
+
+    end
+
+    --- @brief wait until
+    env.condition = function(...)
+
     end
 
     --- @brief
     env.sleep = function(duration, ...)
-        meta.assert(duration, mt.Number, select(1, ...), mt.Nil)
-        local elapsed = 0
-        return rt.CutsceneFuture(
-            cutscene,
-            -- on update
-            function(delta)
-                elapsed = elapsed + delta
-                if elapsed > duration then
-                    return rt.CutsceneFutureResult.EXIT
-                else
-                    return rt.CutsceneFutureResult.CONTINUE
-                end
-            end
-        )
+
     end
 
     --- @brief
