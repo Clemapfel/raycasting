@@ -87,7 +87,7 @@ function ow.NormalMap:instantiate(stage)
         love.graphics.pop()
     end
 
-    self._callback = coroutine.create(function()
+    self._callback = rt.Routine(function(routine)
         -- collect tris of shapes to be normal mapped
         local tris = {}
         for tri in values(ow.Hitbox:get_tris(true, true)) do -- both
@@ -391,12 +391,10 @@ end
 --- @brief
 function ow.NormalMap:update(delta)
     -- distribute workload over multiple frames
-    if not self._is_done and coroutine.status(self._callback) ~= "dead" then
-        local success, error_maybe = coroutine.resume(self._callback)
-        if error_maybe ~= nil then
-            rt.critical("In ow.NormalMap: ", error_maybe)
-            self._is_done = true
-        end
+    if not self._is_done
+        and self._callback:get_status() ~= rt.RoutineStatus.DONE
+    then
+        self._callback:resume()
     end
 end
 

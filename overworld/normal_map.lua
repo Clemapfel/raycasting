@@ -75,16 +75,17 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
     self._is_done = false
 
     local last = love.timer.getTime()
-    local savepoint = function()
-        if (love.timer.getTime() - last) / (1 / 60) > 0.01 then
-            coroutine.yield()
-            last = love.timer.getTime()
-        end
-    end
 
-    self._callback = coroutine.create(function()
+    self._callback = rt.Routine(function(routine)
         if _is_disabled then
             assert(false, "NormalMap was intentionally disabled")
+        end
+
+        local savepoint = function()
+            if (love.timer.getTime() - last) / (1 / 60) > 0.01 then
+                routine.yield()
+                last = love.timer.getTime()
+            end
         end
 
         -- collect tris of shapes to be normal mapped
@@ -453,15 +454,10 @@ end
 --- @brief
 function ow.NormalMap:update(delta)
     -- distribute workload over multiple frames
-    if not self._is_done and coroutine.status(self._callback) ~= "dead" then
-        local success, error_maybe = coroutine.resume(self._callback)
-        if error_maybe ~= nil then
-            if _is_disabled then
-                rt.critical("In ow.NormalMap: ", error_maybe)
-            else
-                rt.error("In ow.NormalMap: ", error_maybe)
-            end
+    if not self._is_done and self._callback:get_status() ~= rt.RoutineStatus.DONE then
+        self._callback:resume()
 
+        if self._callback:get_status() == rt.RoutineStatus.DONE then
             self._is_done = true
             self:signal_emit("done")
         end

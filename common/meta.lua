@@ -598,7 +598,11 @@ local function _install_signals(instance, type)
     end
 end
 
-local _install_schema
+local _default_instantiate = function(self, ...)
+    if meta.is_table(select(1, ...)) then
+        meta.install(self, select(1, ...))
+    end
+end
 
 --- @brief create a new class
 --- @param typename String
@@ -631,7 +635,6 @@ function meta.class(typename, super_or_schema, schema_maybe)
 
     -- instance metatable
     local type = {}
-
 
     local instance_metatable = {
         __index = type,
@@ -703,6 +706,9 @@ function meta.class(typename, super_or_schema, schema_maybe)
     if schema ~= nil then
         meta.add_schema(type, schema)
     end
+
+    -- default instantiate
+    type.instantiate = _default_instantiate
 
     return type
 end

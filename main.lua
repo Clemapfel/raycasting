@@ -8,6 +8,44 @@ require "common.input_manager"
 
 require "common.routine"
 
+-- condition
+local is_hung = false
+local routine = rt.Routine(function(routine)
+    local condition = rt.Routine.Condition(
+        function() return is_hung end
+    )
+
+    condition:await()
+end)
+
+local other = rt.Routine(function(routine)
+    while is_hung == false do
+        is_hung = rt.random.toss_coin(0.01)
+        rt.Routine.Timer(0.005):await()
+    end
+end)
+
+-- future
+local routine = rt.Routine(function(routine)
+    local give = rt.Routine.Future({
+        on_start = function(self)
+            self.value = 0
+            return rt.Routine.FutureResult.IS_DONE
+        end,
+
+        on_update = function(self, delta)
+            self.value = self.value + math.random()
+            return self.value > 200
+        end,
+
+        on_return = function(self)
+            return self.value
+        end
+    }):await()
+
+    dbg("was given: ", give)
+end)
+
 love.load = function(args)
     local w, h = love.graphics.getDimensions()
 
@@ -62,6 +100,9 @@ love.update = function(delta)
     if rt.SceneManager ~= nil then
         rt.SceneManager:update(delta)
     end
+
+    routine:resume()
+    other:resume()
 end
 
 love.draw = function()
