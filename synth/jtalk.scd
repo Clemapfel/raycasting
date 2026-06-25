@@ -1,166 +1,140 @@
-var server_options, server, pwd;
+var before = Date.new.rawSeconds;
+var server_options, server, import_prefix, genders, emotions, to_iterate;
 
 server_options = ServerOptions.new;
 server_options.threads = 12;
-server_options.memSize = 1024 * 1024;
-server_options.numOutputBusChannels = 2;
+server_options.memSize = 1024 * 1024; // gb
+server_options.numOutputBusChannels = 1;
 server_options.numInputBusChannels = 2;
 
-server = Server(\nrt, options: server_options);
+fork {
 
-pwd = thisProcess.nowExecutingPath.dirname;
+~export_prefix = thisProcess.nowExecutingPath.dirname +/+ "export";
+~import_prefix = thisProcess.nowExecutingPath.dirname +/+ ".." +/+ "jtalk" +/+ "export";
+~genders = [ "mei" ]; //, "takumi" ];
+~emotions = [ "normal" ]; //, "happy", "angry", "sad", "bashful" ];
 
-["meow.wav", "aaaa.wav"].do({ arg filename; fork {
+~wait_to_finish_condition = Condition.new();
 
-	var file_path, file_config, filter_def, synth, score, score_offset, buffer, output_path, condition;
-
-	file_path = pwd +/+ filename;
-
-	// read config for file metadata
-	file_config = SoundFile.new;
-	file_config.openRead(file_path);
-
-	// declare buffer
-	buffer = Buffer.new(server,
-		file_config.numFrames,
-		file_config.numChannels
-	);
-
-	// delcare filter
-	filter_def = SynthDef(\filter, {
-		arg out, bufnum;
-		Out.ar(out, HPF.ar(PlayBuf.ar(file_config.numChannels, bufnum), 440).dup);
-	});
-
-	// start score assembly
-	score = Score.new;
-
-	// register synth with server
-	score.add([ 0.0,
-		['/d_recv', filter_def.asBytes]
-	]);
-
-	// allocate buffer
-	score.add([ 0.0,
-		buffer.allocReadMsg(file_path)
-	]);
-
-	// create synth without instancin on server
-	synth = Synth.basicNew(\filter, server);
-
-	// create synth on server
-	score.add([ 0.0,
-		synth.newMsg(args: [bufnum: buffer.bufnum])
-	]);
-
-
-	output_path = (pwd +/+ "export" +/+ filename).standardizePath;
-	if (File.exists(output_path)) {
-		File.delete(output_path);
+~process_all = {
+    if (File.exists(~export_prefix).not) {
+        File.mkdir(~export_prefix);
 	};
 
-	condition = Condition.new();
+	~genders.do({ arg gender;
+		var gender_dir = PathName.new(~export_prefix +/+ gender);
 
-	score.recordNRT(
-		outputFilePath: output_path,
-		headerFormat: file_config.headerFormat,
-		sampleFormat: file_config.sampleFormat,
-		options: server.options,
-		duration: file_config.duration, // does not actually affect time to finish
-		action: {
-			if (File.exists(output_path)) {
-				"Wrote %".format(output_path).postln;
-			} {
-				"Failed to write %".format(output_path).postln;
+		if (gender_dir.isFolder.not) {
+			File.mkdir(gender_dir.fullPath);
+		};
+
+		~emotions.do({ arg emotion;
+			var emotion_dir = PathName.new(~export_prefix +/+ gender +/+ emotion);
+			var path = PathName.new(~import_prefix +/+ gender +/+ emotion);
+
+			if (emotion_dir.isFolder.not) {
+				File.mkdir(emotion_dir.fullPath);
 			};
 
-			condition.unhang;
-		}
-	);
+			if (path.isFolder) {
+				path.files.do({ arg file;
+					if (file.isFile) {
+						~process.(file.fileName, gender, emotion);
+					};
+				});
+			};
+		});
+	});
 
-	// wait for rendering to finish, then free resources
-	condition.hang;
-	synth.free
-	buffer.free;
+	~wait_to_finish_condition.unhang;
+};
 
-	}
-});
 
-server.remove;
+~process = { arg filename, gender, emotion;
 
-/*
-var server, server_options, filter_def_id, filter_def, pwd, eps;
+	var import_path, export_path, file_config, buffer, filter_def, filter, score, condition;
 
-server_options = ServerOptions.new;
-server_options.threads = 12;
-server_options.memSize = 2 * 1024 * 1024; // 2GB
-server_options.numOutputBusChannels = 2;
-server_options.numInputBusChannels = 0;
+	import_path = PathName.new(~import_prefix +/+ gender +/+ emotion +/+ filename);
+	export_path = PathName.new(~export_prefix +/+ gender +/+ emotion +/+ filename);
 
-server = Server(\nrt, options: server_options);
-eps = 0.001;
-
-pwd = thisProcess.nowExecutingPath.dirname;
-
-["meow.wav", "aaaa.wav"].do({ arg filename;
-	var file_path, file_config, buffer, score, score_offset, synth, condition, osc_path, output_path;
-
-	file_path = pwd +/+ filename;
-
-	// read config for file metadata
-	file_config = SoundFile.new;
-	file_config.openRead(file_path);
-
-	buffer = Buffer.new(server,
-		file_config.numFrames,
-		file_config.numChannels
-	);
-
-	score_offset = Pseq.new(Array.series(100, 0, eps)).asStream;
-
-	score = Score.new;
-
-	// register synth with server
-	score.add([score_offset.next, ['/d_recv', SynthDef(\filter, {
-		arg out, bufnum;
-		Out.ar(out, HPF.ar(PlayBuf.ar(2, bufnum), 440).dup);
-	}).asBytes]]);
-
-	// allocate buffer
-	score.add([score_offset.next, [buffer.allocReadMsg(file_path)]]);
-
-	// create synth without instancin on server
-	score.add([score_offset.next, [(synth = Synth.basicNew(\filter, server)).newMsg(args: [bufnum: buffer.bufnum])]]);
-	score.add([score_offset.next, [synth.freeMsg]]);
-
-	// render
-	osc_path = PathName.tmp +/+ UniqueID.next ++ ".osc";
-	output_path = (pwd +/+ "export" +/+ filename).standardizePath;
-
-	if (File.exists(output_path)) {
-		File.delete(output_path);
+	if (export_path.isFile) {
+		File.delete(export_path);
 	};
 
-	score.recordNRT(
-		oscFilePath: osc_path,
-		outputFilePath: output_path,
-		headerFormat: file_config.headerFormat,
-		sampleFormat: file_config.sampleFormat,
-		options: server.options,
-		duration: nil,
-		action: {
-			if (File.exists(output_path)) {
-			    "Wrote %".format(output_path).postln;
-			} {
-				"Failed to write %".format(output_path).postln;
-			}
+	if (import_path.isFile) {
+			server = Server(("rt_" ++ UniqueID.next).asSymbol, options: server_options);
+
+		// read config for file metadata
+		file_config = SoundFile.new;
+		file_config.openRead(import_path.fullPath);
+
+		// declare buffer
+		buffer = Buffer.new(server,
+			file_config.numFrames,
+			file_config.numChannels
+		);
+
+	    // declare filter
+	    filter_def = SynthDef(\filter, {
+	        arg out, bufnum;
+	        Out.ar(out, HPF.ar(PlayBuf.ar(file_config.numChannels, bufnum), 440));
+        });
+
+		// start score assembly
+		score = Score.new;
+
+		// register synth with server
+		score.add([ 0.0,
+			['/d_recv', filter_def.asBytes]
+		]);
+
+		// allocate buffer
+		score.add([ 0.0,
+			buffer.allocReadMsg(import_path.fullPath)
+		]);
+
+		// create synth without instancin on server
+		filter = Synth.basicNew(\filter, server);
+
+		// create synth on server
+		score.add([ 0.0,
+			filter.newMsg(args: [bufnum: buffer.bufnum])
+		]);
+
+		fork {
+			condition = Condition.new();
+
+				/*
+			score.recordNRT(
+				outputFilePath: export_path,
+				headerFormat: file_config.headerFormat,
+				sampleFormat: file_config.sampleFormat,
+				options: server.options,
+				duration: file_config.duration, // does not actually affect time to finish
+				action: {
+					if (File.exists(output_path)) {
+						"Wrote %".format(output_path).postln;
+					} {
+						"Failed to write %".format(output_path).postln;
+					};
+
+					condition.unhang;
+				}
+			);
+			*/
+
+			// wait for rendering to finish, then free resources
+			condition.hang;
+			filter.free;
+			buffer.free;
+
+			export_path.postln;
 		}
-	);
+	};
+};
 
-	// cleanup
-	File.delete(osc_path);
-	file_config.free;
-});
-
-//exit(0);
-*/
+~process_all.();
+~wait_to_finish_condition.hang;
+~server.free;
+"done, took % seconds".format(Date.new.rawSeconds - before).postln;
+}

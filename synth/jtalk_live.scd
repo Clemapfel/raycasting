@@ -52,7 +52,8 @@ server.waitForBoot({
 	~register_cc.(\frequency, 20, 24000, \exp);
 	~register_cc.(\bandwidth, 0, 10);
 	~register_cc.(\db, -100, 0);
-	~register_cc.(\resonance, 0, 2);
+	~register_cc.(\resonance, 0, 1, \sin);
+	~register_cc.(\volume, 0, 1);
 
 	filter_def = SynthDef(\filter, { arg out, bufnum;
 		var signal = PlayBuf.ar(file_config.numChannels, bufnum, loop: 1);
@@ -72,12 +73,20 @@ server.waitForBoot({
 			freq: ~get_cc.(\frequency),
 			bw: ~get_cc.(\bandwidth)
 		);
-		*/
 
 		signal = RLPF.ar(
 			signal,
 			freq: ~get_cc.(\frequency),
 			rq: ~get_cc.(\resonance)
+		);
+
+		*/
+
+		signal = MoogFF.ar(signal,
+			freq: ~get_cc.(\frequency),//,
+			gain: ~get_cc.(\resonance)
+			//rq: ~get_cc.(\resonance),
+			//db: ~get_cc.(\db)
 		);
 
 		Out.ar(out, signal.dup);
