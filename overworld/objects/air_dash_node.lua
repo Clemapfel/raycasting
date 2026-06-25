@@ -783,35 +783,32 @@ function ow.AirDashNode:check_player_overlap(px, py, pr)
 
     if math.distance(px, py, x, y) <= pr then
         result = true
-        goto return_result
-    end -- if ovelapping core particle
+    else -- if ovelapping core particle
+        if span == 0 then
+            -- circle line overlap
+            local dx, dy = math.cos(mid), math.sin(mid)
+            pr = pr * rt.settings.overworld.air_dash_node.line_collision_player_radius_factor
+            result = math.distance(px, py, x, y) <= (pr + r) and line_overlap(
+                px, py, pr,
+                x - dx, y - dy,
+                x + dx, y + dy
+            )
+        else
+            -- circle circle overlap
+            local circle_overlap = math.distance(px, py, x, y) <= (pr + r)
+            if self._angle_range >= 0.5 * math.pi then return circle_overlap end
 
-    if span == 0 then
-        -- circle line overlap
-        local dx, dy = math.cos(mid), math.sin(mid)
-        pr = pr * rt.settings.overworld.air_dash_node.line_collision_player_radius_factor
-        result = math.distance(px, py, x, y) <= (pr + r) and line_overlap(
-            px, py, pr,
-            x - dx, y - dy,
-            x + dx, y + dy
-        )
-        goto return_result
-    else
-        -- circle circle overlap
-        local circle_overlap = math.distance(px, py, x, y) <= (pr + r)
-        if self._angle_range >= 0.5 * math.pi then return circle_overlap end
+            local bowtie = bowtie_overlap(
+                x, y, r,
+                mid, span,
+                px, py, pr
+            )
 
-        local bowtie = bowtie_overlap(
-            x, y, r,
-            mid, span,
-            px, py, pr
-        )
-
-        -- circle bowtie overlap
-        result = circle_overlap and bowtie
+            -- circle bowtie overlap
+            result = circle_overlap and bowtie
+        end
     end
 
-    ::return_result::
     self._last_overlap_result = result
     return result
 end

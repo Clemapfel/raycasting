@@ -493,6 +493,8 @@ function ow.FireflyManager:update(delta)
 
         if is_in_bounds(x, y) then table.insert(self._visible_data_is, i) end
 
+        local continue_to_next_particle = false
+
         -- find target
         local target_x, target_y
         if state == STATE_FOLLOWING then
@@ -520,74 +522,75 @@ function ow.FireflyManager:update(delta)
                 and x <= bounds_x + bounds_w
                 and y <= bounds_y + bounds_h
             ) then
-                goto next_particle
+                continue_to_next_particle = true
             end
         end
 
-        -- hover
-        if data[i + _should_move_in_place_offset] == TRUE then
-            local hover_elapsed = data[i + _hover_elapsed_offset]
-            data[i + _hover_elapsed_offset] = hover_elapsed + delta
-            local hover_x, hover_y = _hover_offset_path:at(
-                math.fract(
-                    hover_elapsed / data[i + _hover_cycle_duration_offset]
-                        + data[i + _hover_offset_t_offset]
+        if not continue_to_next_particle then
+
+            -- hover
+            if data[i + _should_move_in_place_offset] == TRUE then
+                local hover_elapsed = data[i + _hover_elapsed_offset]
+                data[i + _hover_elapsed_offset] = hover_elapsed + delta
+                local hover_x, hover_y = _hover_offset_path:at(
+                    math.fract(
+                        hover_elapsed / data[i + _hover_cycle_duration_offset]
+                            + data[i + _hover_offset_t_offset]
+                    )
                 )
-            )
 
-            target_x = target_x + hover_x
-            target_y = target_y + hover_y
-        end
+                target_x = target_x + hover_x
+                target_y = target_y + hover_y
+            end
 
-        do
-            local distance_x = target_x - x
-            local distance_y = target_y - y
+            do
+                local distance_x = target_x - x
+                local distance_y = target_y - y
 
-            local dx, dy = math.normalize(distance_x, distance_y)
-            local distance = math.magnitude(distance_x, distance_y)
+                local dx, dy = math.normalize(distance_x, distance_y)
+                local distance = math.magnitude(distance_x, distance_y)
 
-            local eased_speed = speed_multiplier * distance_easing(distance) * data[i + _speed_offset]
-            eased_speed = math.min(eased_speed, data[i + _speed_offset] * max_velocity)
+                local eased_speed = speed_multiplier * distance_easing(distance) * data[i + _speed_offset]
+                eased_speed = math.min(eased_speed, data[i + _speed_offset] * max_velocity)
 
-            x = x + dx * eased_speed * delta
-            y = y + dy * eased_speed * delta
-        end
+                x = x + dx * eased_speed * delta
+                y = y + dy * eased_speed * delta
+            end
 
-        -- resolve player overlap
-        if state == STATE_FOLLOWING then
-            local dx = x - px
-            local dy = y - py
-            local distance = math.magnitude(dx, dy)
+            -- resolve player overlap
+            if state == STATE_FOLLOWING then
+                local dx = x - px
+                local dy = y - py
+                local distance = math.magnitude(dx, dy)
 
-            local min_distance = player_radius + core_radius_factor * data[i + _radius_offset] * 2
-            if distance < min_distance and distance > math.eps then
-                local nx, ny = math.normalize(dx, dy)
-                local push = min_distance - distance
+                local min_distance = player_radius + core_radius_factor * data[i + _radius_offset] * 2
+                if distance < min_distance and distance > math.eps then
+                    local nx, ny = math.normalize(dx, dy)
+                    local push = min_distance - distance
 
-                x = x + push
-                y = y + push
+                    x = x + push
+                    y = y + push
 
-                local repel_intensity = data[i + _repel_intensity_offset]
-                data[i + _repel_target_x_offset] = nx * repel_intensity
-                data[i + _repel_target_y_offset] = ny * repel_intensity
+                    local repel_intensity = data[i + _repel_intensity_offset]
+                    data[i + _repel_target_x_offset] = nx * repel_intensity
+                    data[i + _repel_target_y_offset] = ny * repel_intensity
+                end
+            end
+
+            data[i + _x_offset] = x
+            data[i + _y_offset] = y
+
+            do -- glow
+                local glow_elapsed = data[i + _glow_elapsed_offset]
+                data[i + _glow_elapsed_offset] = glow_elapsed + delta
+                data[i + _glow_value_offset] = _glow_noise_path:at(
+                    math.fract(
+                        glow_elapsed / data[i + _glow_cycle_duration_offset]
+                            + data[i + _glow_offset_t_offset]
+                    )
+                )
             end
         end
-
-        data[i + _x_offset] = x
-        data[i + _y_offset] = y
-
-        do -- glow
-            local glow_elapsed = data[i + _glow_elapsed_offset]
-            data[i + _glow_elapsed_offset] = glow_elapsed + delta
-            data[i + _glow_value_offset] = _glow_noise_path:at(
-                math.fract(
-                    glow_elapsed / data[i + _glow_cycle_duration_offset]
-                    + data[i + _glow_offset_t_offset]
-                )
-            )
-        end
-
-        ::next_particle::
     end
     
     table.sort(self._visible_data_is)

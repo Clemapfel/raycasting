@@ -674,39 +674,44 @@ love.run = function()
 
         -- ### UPDATE ###
 
+        local skip_update = false
         if was_active == false and is_active == true then
             state._update_accumulator = 0
             state._sound_manager_accumulator = 0
-            goto skip_update
+            skip_update = true
             -- skip on window gaining focus, since `delta` can be very large in that case
         end
 
-        state._update_accumulator = state._update_accumulator + delta
+        if not skip_update then
+            state._update_accumulator = state._update_accumulator + delta
 
-        if state._update_use_fixed_timestep then
-            local n_steps = 0
-            local step = 1 / state._update_fixed_fps
+            if state._update_use_fixed_timestep then
+                local n_steps = 0
+                local step = 1 / state._update_fixed_fps
 
-            local before = love.timer.getTime() -- sic, time whole while loop
-            while state._update_accumulator >= step do
+                local before = love.timer.getTime() -- sic, time whole while loop
+                while state._update_accumulator >= step do
 
-                if love.update then love.update(step) end
+                    if love.update then love.update(step) end
 
-                state._update_accumulator = state._update_accumulator - step
-                n_steps = n_steps + 1
-                if n_steps > rt.settings.scene_manager.max_n_steps_per_frame then
-                    state._update_accumulator = 0
-                    break
+                    state._update_accumulator = state._update_accumulator - step
+                    n_steps = n_steps + 1
+                    if n_steps > rt.settings.scene_manager.max_n_steps_per_frame then
+                        state._update_accumulator = 0
+                        break
+                    end
                 end
+                state:_notify_update_duration(love.timer.getTime() - before)
+            else
+                local before = love.timer.getTime()
+                if love.update then love.update(delta) end
+                state:_notify_update_duration(love.timer.getTime() - before)
             end
-            state:_notify_update_duration(love.timer.getTime() - before)
-        else
-            local before = love.timer.getTime()
-            if love.update then love.update(delta) end
-            state:_notify_update_duration(love.timer.getTime() - before)
-        end
 
-        rt.InputManager:_notify_end_of_frame()
+            rt.InputManager:_notify_end_of_frame()
+
+            state._last_update_timestamp = love.timer.getTime()
+        end
 
         -- ### SOUND ###
 
@@ -722,9 +727,6 @@ love.run = function()
             rt.SoundManager:update(delta)
         end
 
-        state._last_update_timestamp = love.timer.getTime()
-
-        ::skip_update::
         was_active = is_active
 
         -- ### DRAW ###

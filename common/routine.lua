@@ -49,18 +49,13 @@ function rt.Routine:instantiate(...)
     end)
 
     self._last_resume_timestamp = nil
-    self._future_id = 0
-    self._future_id_to_future = {}
+    self._futures = meta.make_weak({}) -- ordered
 end
 
 --- @brief
-function rt.Routine:_notify_future_added(future)
-    meta.assert(future, rt.RoutineFuture)
-
-    local id = self._future_id
-    self._future_id = self._future_id + 1
-    self._future_id_to_future[id] = future
-    return id
+function rt.Routine._notify_future_added(future)
+    meta.assert(future, rt.Routine.Future)
+    table.insert(self._futures, future)
 end
 
 --- @brief
@@ -71,7 +66,7 @@ function rt.Routine:_save_resume(routine, ...)
 
     local now = love.timer.getTime()
     local delta = now - self._last_resume_timestamp
-    for future in values(self._future_id_to_future) do
+    for future in values(self._futures) do
         future:step(delta)
     end
     self._last_resume_timestamp = now
@@ -109,13 +104,13 @@ end
 --- @brief
 function rt.Routine:barrier(...)
     if select("#", ...) == 0 then
-        for future in values(self._future_id_to_future) do
+        for future in values(self._futures) do
             future:await()
         end
     else
         for i = 1, select("#", ...) do
             local future = select(i, ...)
-            meta.assert_typeof(future, rt.RoutineFuture, i)
+            meta.assert_typeof(future, rt.Routine.Future, i)
             future:await()
         end
     end

@@ -205,31 +205,35 @@ function ow.KillPlane:instantiate(object, stage, scene)
         local noise_offset = meta.hash(self) * math.pi
 
         local n_instances = 0
-        for column_i = 1, n_columns do
-            for row_i = 1, n_rows do
-                local local_x = aabb.x + (column_i - 1) * cell_size + 0.5 * x_overhang + 0.5 * cell_size
-                local local_y = aabb.y + (row_i - 1) * cell_size + 0.5 * y_overhang + 0.5 * cell_size
+        do
+            local should_break = false
+            for column_i = 1, n_columns do
+                for row_i = 1, n_rows do
+                    local local_x = aabb.x + (column_i - 1) * cell_size + 0.5 * x_overhang + 0.5 * cell_size
+                    local local_y = aabb.y + (row_i - 1) * cell_size + 0.5 * y_overhang + 0.5 * cell_size
 
-                if self._body:test_point(local_x + start_x, local_y + start_y)
-                    and rt.random.noise(noise_offset + local_x, noise_offset + local_y) > noise_cutoff
-                then
-                    local angle = rt.random.number(0, 2 * math.pi)
-                    local offset = rt.random.number(-0.25 * cell_size, 0.25 * cell_size)
-                    add(
-                        local_x + offset * math.cos(angle),
-                        local_y + offset * math.sin(angle)
-                    )
+                    if self._body:test_point(local_x + start_x, local_y + start_y)
+                        and rt.random.noise(noise_offset + local_x, noise_offset + local_y) > noise_cutoff
+                    then
+                        local angle = rt.random.number(0, 2 * math.pi)
+                        local offset = rt.random.number(-0.25 * cell_size, 0.25 * cell_size)
+                        add(
+                            local_x + offset * math.cos(angle),
+                            local_y + offset * math.sin(angle)
+                        )
 
-                    n_instances = n_instances + 1
-                    if n_instances > 10000 then
-                        rt.critical("In ow.KillPlane: instance count of kill plane `", object:get_id(), "` exceeded limit. Consider resizing the object")
-                        goto no_more_particles
+                        n_instances = n_instances + 1
+                        if n_instances > 10000 then
+                            rt.critical("In ow.KillPlane: instance count of kill plane `", object:get_id(), "` exceeded limit. Consider resizing the object")
+                            should_break = true
+                            break
+                        end
                     end
                 end
+
+                if should_break then break end
             end
         end
-
-        ::no_more_particles::
 
         if #data_mesh_data == 0 then
             self._is_visible = false

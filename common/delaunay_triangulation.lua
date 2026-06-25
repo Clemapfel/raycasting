@@ -338,65 +338,66 @@ function rt.DelaunayTriangulation:_legalize(a)
         local a0 = a - (a % 3)
         ar = a0 + (a + 2) % 3
 
+        local should_continue = false
         if b == -1 then
             if i == 0 then break end
             i = i - 1
             a = self._edge_buffer[i]
-            goto continue
+            should_continue = true
         end
 
-        local b0 = b - (b % 3)
-        local al = a0 + ((a + 1) % 3)
-        local bl = b0 + ((b + 2) % 3)
+        if not should_continue then
+            local b0 = b - (b % 3)
+            local al = a0 + ((a + 1) % 3)
+            local bl = b0 + ((b + 2) % 3)
 
-        local p0 = triangles[ar]
-        local pr = triangles[a]
-        local pl = triangles[al]
-        local p1 = triangles[bl]
+            local p0 = triangles[ar]
+            local pr = triangles[a]
+            local pl = triangles[al]
+            local p1 = triangles[bl]
 
-        local illegal = _is_point_in_circumcircle(
-            coords[2 * p0 + 1], coords[2 * p0 + 2],
-            coords[2 * pr + 1], coords[2 * pr + 2],
-            coords[2 * pl + 1], coords[2 * pl + 2],
-            coords[2 * p1 + 1], coords[2 * p1 + 2]
-        )
+            local illegal = _is_point_in_circumcircle(
+                coords[2 * p0 + 1], coords[2 * p0 + 2],
+                coords[2 * pr + 1], coords[2 * pr + 2],
+                coords[2 * pl + 1], coords[2 * pl + 2],
+                coords[2 * p1 + 1], coords[2 * p1 + 2]
+            )
 
-        if illegal then
-            triangles[a] = p1
-            triangles[b] = p0
+            if illegal then
+                triangles[a] = p1
+                triangles[b] = p0
 
-            local hbl = half_edges[bl]
+                local hbl = half_edges[bl]
 
-            if hbl == -1 then
-                local e = self._hull_start
-                repeat
-                    if self._hull_tri[e] == bl then
-                        self._hull_tri[e] = a
-                        break
-                    end
-                    e = self._hull_previous[e]
-                until e == self._hull_start
-            end
+                if hbl == -1 then
+                    local e = self._hull_start
+                    repeat
+                        if self._hull_tri[e] == bl then
+                            self._hull_tri[e] = a
+                            break
+                        end
+                        e = self._hull_previous[e]
+                    until e == self._hull_start
+                end
 
-            self:_link(a, hbl)
-            self:_link(b, half_edges[ar])
-            self:_link(ar, bl)
+                self:_link(a, hbl)
+                self:_link(b, half_edges[ar])
+                self:_link(ar, bl)
 
-            local br = b0 + ((b + 1) % 3)
+                local br = b0 + ((b + 1) % 3)
 
-            if (i < _sizeof(self._edge_buffer)) then
-                self._edge_buffer[i] = br
-                i = i + 1
+                if (i < _sizeof(self._edge_buffer)) then
+                    self._edge_buffer[i] = br
+                    i = i + 1
+                else
+                    break
+                end
             else
-                break
+                if i == 0 then break end
+                i = i - 1
+                a = self._edge_buffer[i]
             end
-        else
-            if i == 0 then break end
-            i = i - 1
-            a = self._edge_buffer[i]
         end
-
-        ::continue::
     end
 
     return ar
@@ -567,88 +568,99 @@ function rt.DelaunayTriangulation:update()
             local y = coords[2 * i + 2]
 
             -- skip near-duplicate points
-            if k > 0 and math.abs(x - xp) <= EPSILON and math.abs(y - yp) <= EPSILON then goto continue end
+            local is_duplicate = false
+            is_duplicate = k > 0
+                and math.abs(x - xp) <= EPSILON
+                and math.abs(y - yp) <= EPSILON
 
-            xp = x
-            yp = y
+            if not is_duplicate then
+                xp = x
+                yp = y
 
-            -- skip seed triangle points
-            if (i == i0 or i == i1 or i == i2) then goto continue end
+                -- skip seed triangle points
+                local is_seed = false
+                is_seed = i == i0
+                    or i == i1
+                    or i == i2
 
-            -- find a visible edge on the convex hull using edge hash
-            local start = 0
-            local key = self:_hash(x, y)
-            for j = 0, self._hashSize - 1 do
-                start = hull_hash[(key + j) % self._hashSize]
-                if start ~= -1 and start ~= hull_next[start] then break end
-            end
-
-            start = hull_previous[start]
-            local e, q = start, nil
-            while true do
-                q = hull_next[e]
-                if not (_get_signed_area(x, y, coords[2 * e + 1], coords[2 * e + 2], coords[2 * q + 1], coords[2 * q + 2]) >= 0) then
-                    break
-                end
-                e = q
-                if e == start then
-                    e = -1
-                    break
-                end
-            end
-
-            if e == -1 then goto continue end -- likely a near-duplicate point, skip it
-
-            -- add the first triangle from the point
-            local t = self:_add_triangle(e, i, hull_next[e], -1, -1, hull_triangles[e])
-
-            -- recursively flip triangles from the point until they satisfy the Delaunay condition
-            hull_triangles[i] = self:_legalize(t + 2)
-            hull_triangles[e] = t -- keep track of boundary triangles on the hull
-            hull_size = hull_size + 1
-
-            -- walk forward through the hull, adding more triangles and flipping recursively
-            local vertex_i = hull_next[e]
-            while true do
-                q = hull_next[vertex_i]
-                if not (_get_signed_area(x, y, coords[2 * vertex_i + 1], coords[2 * vertex_i + 2], coords[2 * q + 1], coords[2 * q + 2]) < 0) then
-                    break
-                end
-                t = self:_add_triangle(vertex_i, i, q, hull_triangles[i], -1, hull_triangles[vertex_i])
-                hull_triangles[i] = self:_legalize(t + 2)
-                hull_next[vertex_i] = vertex_i -- mark as removed
-                hull_size = hull_size - 1
-                vertex_i = q
-            end
-
-            -- walk backward from the other side, adding more triangles and flipping
-            if e == start then
-                while true do
-                    q = hull_previous[e]
-                    if not (_get_signed_area(x, y, coords[2 * q + 1], coords[2 * q + 2], coords[2 * e + 1], coords[2 * e + 2]) < 0) then
-                        break
+                if not is_seed then
+                    -- find a visible edge on the convex hull using edge hash
+                    local start = 0
+                    local key = self:_hash(x, y)
+                    for j = 0, self._hashSize - 1 do
+                        start = hull_hash[(key + j) % self._hashSize]
+                        if start ~= -1 and start ~= hull_next[start] then break end
                     end
-                    t = self:_add_triangle(q, i, e, -1, hull_triangles[e], hull_triangles[q])
-                    self:_legalize(t + 2)
-                    hull_triangles[q] = t
-                    hull_next[e] = e -- mark as removed
-                    hull_size = hull_size - 1
-                    e = q
+
+                    start = hull_previous[start]
+                    local e, q = start, nil
+                    while true do
+                        q = hull_next[e]
+                        if not (_get_signed_area(x, y, coords[2 * e + 1], coords[2 * e + 2], coords[2 * q + 1], coords[2 * q + 2]) >= 0) then
+                            break
+                        end
+                        e = q
+                        if e == start then
+                            e = -1
+                            break
+                        end
+                    end
+
+                    local is_near_duplicate = e == -1
+
+                    if not is_near_duplicate then
+
+                        -- add the first triangle from the point
+                        local t = self:_add_triangle(e, i, hull_next[e], -1, -1, hull_triangles[e])
+
+                        -- recursively flip triangles from the point until they satisfy the Delaunay condition
+                        hull_triangles[i] = self:_legalize(t + 2)
+                        hull_triangles[e] = t -- keep track of boundary triangles on the hull
+                        hull_size = hull_size + 1
+
+                        -- walk forward through the hull, adding more triangles and flipping recursively
+                        local vertex_i = hull_next[e]
+                        while true do
+                            q = hull_next[vertex_i]
+                            if not (_get_signed_area(x, y, coords[2 * vertex_i + 1], coords[2 * vertex_i + 2], coords[2 * q + 1], coords[2 * q + 2]) < 0) then
+                                break
+                            end
+                            t = self:_add_triangle(vertex_i, i, q, hull_triangles[i], -1, hull_triangles[vertex_i])
+                            hull_triangles[i] = self:_legalize(t + 2)
+                            hull_next[vertex_i] = vertex_i -- mark as removed
+                            hull_size = hull_size - 1
+                            vertex_i = q
+                        end
+
+                        -- walk backward from the other side, adding more triangles and flipping
+                        if e == start then
+                            while true do
+                                q = hull_previous[e]
+                                if not (_get_signed_area(x, y, coords[2 * q + 1], coords[2 * q + 2], coords[2 * e + 1], coords[2 * e + 2]) < 0) then
+                                    break
+                                end
+                                t = self:_add_triangle(q, i, e, -1, hull_triangles[e], hull_triangles[q])
+                                self:_legalize(t + 2)
+                                hull_triangles[q] = t
+                                hull_next[e] = e -- mark as removed
+                                hull_size = hull_size - 1
+                                e = q
+                            end
+                        end
+
+                        -- update the hull indices
+                        hull_previous[i] = e
+                        self._hull_start = e
+                        hull_previous[vertex_i] = i
+                        hull_next[e] = i
+                        hull_next[i] = vertex_i
+
+                        -- save the two new edges in the hash table
+                        hull_hash[self:_hash(x, y)] = i
+                        hull_hash[self:_hash(coords[2 * e +1], coords[2 * e + 2])] = e
+                    end
                 end
             end
-
-            -- update the hull indices
-            hull_previous[i] = e
-            self._hull_start = e
-            hull_previous[vertex_i] = i
-            hull_next[e] = i
-            hull_next[i] = vertex_i
-
-            -- save the two new edges in the hash table
-            hull_hash[self:_hash(x, y)] = i
-            hull_hash[self:_hash(coords[2 * e +1], coords[2 * e + 2])] = e
-
-            ::continue::
         end
 
         self._hull = _new_array(hull_size)

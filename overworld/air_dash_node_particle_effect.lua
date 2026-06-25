@@ -259,47 +259,49 @@ function ow.AirDashNodeParticleEffect:_update_batch(batch, delta)
     local data = batch.particle_data
     for particle_i = 1, batch.start_n_particles do
         local i = _particle_i_to_data_offset(particle_i)
-        if data[i + _is_stale_offset] == TRUE then goto continue end
+        if data[i + _is_stale_offset] ~= TRUE then
 
-        local lifetime = data[i + _lifetime_offset]
-        local lifetime_elapsed = data[i + _lifetime_elapsed_offset] + delta
-        local lifetime_t = math.min(1, lifetime_elapsed / lifetime)
-        data[i + _lifetime_elapsed_offset] = lifetime_elapsed
+            local lifetime = data[i + _lifetime_offset]
+            local lifetime_elapsed = data[i + _lifetime_elapsed_offset] + delta
+            local lifetime_t = math.min(1, lifetime_elapsed / lifetime)
+            data[i + _lifetime_elapsed_offset] = lifetime_elapsed
 
-        local alpha = math.clamp((lifetime - lifetime_elapsed) / settings.opacity_fade_duration, 0, 1)
-        data[i + _color_a_offset] = alpha
+            local alpha = math.clamp((lifetime - lifetime_elapsed) / settings.opacity_fade_duration, 0, 1)
+            data[i + _color_a_offset] = alpha
 
-        if lifetime_t >= 1 then
-            data[i + _is_stale_offset] = TRUE
-            batch.current_n_particles = batch.current_n_particles - 1
-            _n_particles = _n_particles - 1
-            goto continue
+            local is_stale = false
+            if lifetime_t >= 1 then
+                data[i + _is_stale_offset] = TRUE
+                batch.current_n_particles = batch.current_n_particles - 1
+                _n_particles = _n_particles - 1
+                is_stale = true
+            end
+
+            if not is_stale then
+                --data[i + _radius_factor_offset] = 1 + rt.InterpolationFunctions.SINUSOID_EASE_IN(lifetime_t)
+
+                local air_resistance = air_resistance_easing(lifetime_t)
+                local acceleration = data[i + _acceleration_offset]
+                data[i + _acceleration_offset] = acceleration
+
+                local vx = data[i + _velocity_x_offset]
+                local vy = data[i + _velocity_y_offset]
+
+                data[i + _position_x_offset] = data[i + _position_x_offset] + vx * acceleration * delta * air_resistance
+                data[i + _position_y_offset] = data[i + _position_y_offset] + vy * acceleration * delta * air_resistance
+
+                local hue = data[i + _hue_offset] + data[i + _hue_velocity_direction_offset] * data[i + _hue_velocity_offset] * delta
+                hue = hue - math.floor(hue)
+                data[i + _hue_offset] = hue
+
+                local r, g, b = rt.lcha_to_rgba(0.8, 1, hue, 1)
+                data[i + _color_r_offset] = r
+                data[i + _color_g_offset] = g
+                data[i + _color_b_offset] = b
+
+                n_updated = n_updated + 1
+            end
         end
-
-        --data[i + _radius_factor_offset] = 1 + rt.InterpolationFunctions.SINUSOID_EASE_IN(lifetime_t)
-
-        local air_resistance = air_resistance_easing(lifetime_t)
-        local acceleration = data[i + _acceleration_offset]
-        data[i + _acceleration_offset] = acceleration
-
-        local vx = data[i + _velocity_x_offset]
-        local vy = data[i + _velocity_y_offset]
-
-        data[i + _position_x_offset] = data[i + _position_x_offset] + vx * acceleration * delta * air_resistance
-        data[i + _position_y_offset] = data[i + _position_y_offset] + vy * acceleration * delta * air_resistance
-
-        local hue = data[i + _hue_offset] + data[i + _hue_velocity_direction_offset] * data[i + _hue_velocity_offset] * delta
-        hue = hue - math.floor(hue)
-        data[i + _hue_offset] = hue
-
-        local r, g, b = rt.lcha_to_rgba(0.8, 1, hue, 1)
-        data[i + _color_r_offset] = r
-        data[i + _color_g_offset] = g
-        data[i + _color_b_offset] = b
-
-        n_updated = n_updated + 1
-
-        ::continue::
     end
 
     return n_updated == 0

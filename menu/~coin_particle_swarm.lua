@@ -373,30 +373,38 @@ function mn.CoinParticleSwarm:instantiate()
     love.graphics.reset()
     self._texture_atlas:bind()
 
-    local hue_i = 1
-    for row_i = 1, n_rows do
-        for col_i = 1, n_columns do
-            if hue_i > #hues then goto exit end
+    do
+        local hue_i = 1
+        local should_break = false
+        for row_i = 1, n_rows do
+            for col_i = 1, n_columns do
+                if hue_i > #hues then
+                    should_break = true
+                    break
+                end
 
-            local hue = hues[hue_i]
-            particle:set_hue(hue)
-            particle:set_elapsed(rt.random.number(0, 60 * 60))
+                local hue = hues[hue_i]
+                particle:set_hue(hue)
+                particle:set_elapsed(rt.random.number(0, 60 * 60))
 
-            local quad_x = (col_i - 1) * quad_w
-            local quad_y = (row_i - 1) * quad_h
+                local quad_x = (col_i - 1) * quad_w
+                local quad_y = (row_i - 1) * quad_h
 
-            local particle_x = quad_x + 0.5 * quad_w
-            local particle_y = quad_y + 0.5 * quad_h
+                local particle_x = quad_x + 0.5 * quad_w
+                local particle_y = quad_y + 0.5 * quad_h
 
-            particle:draw(particle_x, particle_y)
-            particle:draw_bloom(particle_x, particle_y)
+                particle:draw(particle_x, particle_y)
+                particle:draw_bloom(particle_x, particle_y)
 
-            self._hue_to_quad[hue] = love.graphics.newQuad(
-                quad_x, quad_y, quad_w, quad_h,
-                self._texture_atlas:get_native()
-            )
+                self._hue_to_quad[hue] = love.graphics.newQuad(
+                    quad_x, quad_y, quad_w, quad_h,
+                    self._texture_atlas:get_native()
+                )
 
-            hue_i = hue_i + 1
+                hue_i = hue_i + 1
+            end
+
+            if should_break then break end
         end
     end
 

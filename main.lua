@@ -5,7 +5,6 @@ require "common.scene_manager"
 require "common.music_manager"
 require "common.sound_manager"
 require "common.input_manager"
-
 require "common.routine"
 
 -- condition
@@ -101,8 +100,8 @@ love.update = function(delta)
         rt.SceneManager:update(delta)
     end
 
-    routine:resume()
-    other:resume()
+    --routine:resume()
+    --other:resume()
 end
 
 love.draw = function()

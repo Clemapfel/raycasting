@@ -109,52 +109,51 @@ function ow.BloodSplatter:add(x, y, radius, color_r, color_g, color_b, opacity, 
 
     for shape in values(self._world:getShapesInArea(x - r, y - r, x + r, y + r)) do
         local data = shape:getUserData()
-        if data == nil then goto continue end
 
-        -- check for line-circle overlap
-        local x1, y1, x2, y2 = table.unpack(data.line)
-        local ix1, iy1, ix2, iy2 = _clip_segment_in_circle(
-            x1, y1, x2, y2,
-            x, y, r
-        )
+        if data ~= nil then
+            -- check for line-circle overlap
+            local x1, y1, x2, y2 = table.unpack(data.line)
+            local ix1, iy1, ix2, iy2 = _clip_segment_in_circle(
+                x1, y1, x2, y2,
+                x, y, r
+            )
 
-        if ix1 == nil then goto continue end
+            if ix1 ~= nil then
+                local dx, dy = x2 - x1, y2 - y1
+                local length = math.magnitude(dx, dy)
+                if length > math.eps then
+                    -- project clipped points onto the original segment to get fraction
+                    local t1 = math.dot(ix1 - x1, iy1 - y1, dx, dy) / (length * length)
+                    local t2 = math.dot(ix2 - x1, iy2 - y1, dx, dy) / (length * length)
 
-        local dx, dy = x2 - x1, y2 - y1
-        local length = math.magnitude(dx, dy)
+                    -- ensure left < right
+                    local left_fraction = math.min(t1, t2)
+                    local right_fraction = math.max(t1, t2)
 
-        if length < math.eps then goto continue end
+                    left_fraction = math.clamp(left_fraction, 0, 1)
+                    right_fraction = math.clamp(right_fraction , 0, 1)
 
-        -- project clipped points onto the original segment to get fraction
-        local t1 = math.dot(ix1 - x1, iy1 - y1, dx, dy) / (length * length)
-        local t2 = math.dot(ix2 - x1, iy2 - y1, dx, dy) / (length * length)
+                    -- color all subdivisions in this interval
+                    local color = rt.RGBA(color_r, color_g, color_b, opacity)
+                    local hue = select(1, rt.rgba_to_hsva(color_r, color_g, color_b, opacity))
 
-        -- ensure left < right
-        local left_fraction = math.min(t1, t2)
-        local right_fraction = math.max(t1, t2)
+                    for division in values(data.subdivisions) do
+                        if division.left_fraction <= right_fraction and division.right_fraction >= left_fraction then
+                            if allow_override or not division.is_active then
+                                division.color = color
+                                division.hue = hue
+                                if not division.is_active then
+                                    self._active_divisions[division] = true
+                                    division.is_active = true
+                                end
 
-        left_fraction = math.clamp(left_fraction, 0, 1)
-        right_fraction = math.clamp(right_fraction , 0, 1)
-
-        -- color all subdivisions in this interval
-        local color = rt.RGBA(color_r, color_g, color_b, opacity)
-        local hue = select(1, rt.rgba_to_hsva(color_r, color_g, color_b, opacity))
-        for division in values(data.subdivisions) do
-            if division.left_fraction <= right_fraction and division.right_fraction >= left_fraction then
-                if allow_override or not division.is_active then
-                    division.color = color
-                    division.hue = hue
-                    if not division.is_active then
-                        self._active_divisions[division] = true
-                        division.is_active = true
+                                was_added = true
+                            end
+                        end
                     end
-
-                    was_added = true
                 end
-            end
-        end
-
-        ::continue::
+            end -- x1 ~= nil
+        end -- data ~= nil
     end
 
     return was_added

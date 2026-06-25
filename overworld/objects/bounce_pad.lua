@@ -161,105 +161,104 @@ function ow.BouncePad:instantiate(object, stage, scene)
         )
     end)
 
-    if object:get_boolean("is_visible") == false then goto skip_graphics end
+    if object:get_boolean("is_visible") ~= false then
 
-    local contour = object:create_contour()
+        local contour = object:create_contour()
 
-    -- contour
-    self._contour = rt.contour.round(
-        contour,
-        rt.settings.overworld.bounce_pad.corner_radius,
-        16
-    )
+        -- contour
+        self._contour = rt.contour.round(
+            contour,
+            rt.settings.overworld.bounce_pad.corner_radius,
+            16
+        )
 
-    local center_x, center_y = object:get_centroid()
-    for i = 1, #self._contour, 2 do
-        self._contour[i+0] = self._contour[i+0] - center_x
-        self._contour[i+1] = self._contour[i+1] - center_y
-    end
-    rt.contour.close(self._contour)
-
-    -- lights
-    self._body:add_tag("point_light_source")
-    self._body:set_user_data(self)
-
-    self._segment_lights = {}
-    self._point_lights = {}
-    if object:get_type() == ow.ObjectType.POLYGON then
-        local raw_contour = object:create_contour()
-        for i = 1, #raw_contour - 2, 2 do
-            local x1, y1 = raw_contour[i+0], raw_contour[i+1]
-            local x2, y2 = raw_contour[math.wrap(i+2, #raw_contour)], raw_contour[math.wrap(i+3, #raw_contour)]
-            table.insert(self._segment_lights, { x1, y1, x2, y2 })
+        local center_x, center_y = object:get_centroid()
+        for i = 1, #self._contour, 2 do
+            self._contour[i+0] = self._contour[i+0] - center_x
+            self._contour[i+1] = self._contour[i+1] - center_y
         end
-    elseif object:get_type() == ow.ObjectType.ELLIPSE then
-        table.insert(self._point_lights, {
-            object.center_x, object.center_y,
-            math.max(object.x_radius, object.y_radius)
-        })
+        rt.contour.close(self._contour)
+
+        -- lights
+        self._body:add_tag("point_light_source")
+        self._body:set_user_data(self)
+
+        self._segment_lights = {}
+        self._point_lights = {}
+        if object:get_type() == ow.ObjectType.POLYGON then
+            local raw_contour = object:create_contour()
+            for i = 1, #raw_contour - 2, 2 do
+                local x1, y1 = raw_contour[i+0], raw_contour[i+1]
+                local x2, y2 = raw_contour[math.wrap(i+2, #raw_contour)], raw_contour[math.wrap(i+3, #raw_contour)]
+                table.insert(self._segment_lights, { x1, y1, x2, y2 })
+            end
+        elseif object:get_type() == ow.ObjectType.ELLIPSE then
+            table.insert(self._point_lights, {
+                object.center_x, object.center_y,
+                math.max(object.x_radius, object.y_radius)
+            })
+        end
+
+        local shape_mesh_format = {
+            { location = rt.VertexAttributeLocation.POSITION, name = rt.VertexAttribute.POSITION, format = "floatvec2" },
+        }
+
+        local offset_mesh_format = {
+            { location = 3, name = "axis_offset", format = "floatvec3" }, -- xy axis, z offset (absolute)
+        }
+
+        local shape_mesh_data = {}
+        local offset_mesh_data = {}
+        for i = 1, #self._contour, 2 do
+            local x, y = self._contour[i+0], self._contour[i+1]
+            table.insert(shape_mesh_data, {
+                [_x_index] = x,
+                [_y_index] = y
+            })
+
+            table.insert(offset_mesh_data, {
+                [_axis_x_index] = 0,
+                [_axis_y_index] = 1,
+                [_offset_index] = 0
+            })
+        end
+
+        self._shape_mesh_data = shape_mesh_data
+        self._shape_mesh = rt.Mesh(
+            shape_mesh_data,
+            rt.MeshDrawMode.TRIANGLES,
+            shape_mesh_format,
+            rt.GraphicsBufferUsage.STATIC
+        )
+
+        local triangulation = rt.DelaunayTriangulation(self._contour, self._contour):get_triangle_vertex_map()
+        self._shape_mesh:set_vertex_map(triangulation)
+
+        self._offset_mesh_data = offset_mesh_data
+        self._offset_mesh = rt.Mesh(
+            offset_mesh_data,
+            rt.MeshDrawMode.POINTS,
+            offset_mesh_format,
+            rt.GraphicsBufferUsage.STREAM
+        )
+
+        self._shape_mesh:attach_attribute(self._offset_mesh, "axis_offset", "pervertex")
+
+        self._draw_contour = {}
+        for i = 1, #self._contour, 2 do
+            local x, y = self._contour[i+0], self._contour[i+1]
+            table.insert(self._draw_contour, x)
+            table.insert(self._draw_contour, y)
+        end
+
+
+        do
+            local centroid_x, centroid_y = object:get_centroid()
+            local mass_x, mass_y = self._body:get_position()
+            self._draw_offset_x = centroid_x - mass_x
+            self._draw_offset_y = centroid_y - mass_y
+        end
     end
-
-    local shape_mesh_format = {
-        { location = rt.VertexAttributeLocation.POSITION, name = rt.VertexAttribute.POSITION, format = "floatvec2" },
-    }
-
-    local offset_mesh_format = {
-        { location = 3, name = "axis_offset", format = "floatvec3" }, -- xy axis, z offset (absolute)
-    }
-
-    local shape_mesh_data = {}
-    local offset_mesh_data = {}
-    for i = 1, #self._contour, 2 do
-        local x, y = self._contour[i+0], self._contour[i+1]
-        table.insert(shape_mesh_data, {
-            [_x_index] = x,
-            [_y_index] = y
-        })
-
-        table.insert(offset_mesh_data, {
-            [_axis_x_index] = 0,
-            [_axis_y_index] = 1,
-            [_offset_index] = 0
-        })
-    end
-
-    self._shape_mesh_data = shape_mesh_data
-    self._shape_mesh = rt.Mesh(
-        shape_mesh_data,
-        rt.MeshDrawMode.TRIANGLES,
-        shape_mesh_format,
-        rt.GraphicsBufferUsage.STATIC
-    )
-
-    local triangulation = rt.DelaunayTriangulation(self._contour, self._contour):get_triangle_vertex_map()
-    self._shape_mesh:set_vertex_map(triangulation)
-
-    self._offset_mesh_data = offset_mesh_data
-    self._offset_mesh = rt.Mesh(
-        offset_mesh_data,
-        rt.MeshDrawMode.POINTS,
-        offset_mesh_format,
-        rt.GraphicsBufferUsage.STREAM
-    )
-
-    self._shape_mesh:attach_attribute(self._offset_mesh, "axis_offset", "pervertex")
-
-    self._draw_contour = {}
-    for i = 1, #self._contour, 2 do
-        local x, y = self._contour[i+0], self._contour[i+1]
-        table.insert(self._draw_contour, x)
-        table.insert(self._draw_contour, y)
-    end
-
-
-    do
-        local centroid_x, centroid_y = object:get_centroid()
-        local mass_x, mass_y = self._body:get_position()
-        self._draw_offset_x = centroid_x - mass_x
-        self._draw_offset_y = centroid_y - mass_y
-    end
-
-    ::skip_graphics::
 end
 
 do

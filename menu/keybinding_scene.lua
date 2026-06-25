@@ -117,58 +117,57 @@ function mn.KeybindingScene:instantiate()
 
     local scene = self
     for input_action in values(input_action_order) do
-        if not rt.GameState:get_has_input_binding(input_action) then goto continue end
-        local text = rt.Translation.input_action_to_string(input_action)
+        if rt.GameState:get_has_input_binding(input_action) then
+            local text = rt.Translation.input_action_to_string(input_action)
 
-        local info = input_action_to_verbose_info[input_action]
-        assert(text ~= nil, input_action)
-        assert(info ~= nil, input_action)
+            local info = input_action_to_verbose_info[input_action]
+            assert(text ~= nil, input_action)
+            assert(info ~= nil, input_action)
 
-        local item = mn.KeybindingScene.Item({
-            prefix = rt.Label(prefix_prefix .. text .. prefix_postfix),
-            input_action = input_action,
-            keyboard_indicator = rt.KeybindingIndicator(),
-            keyboard_key = nil,
-            controller_indicator = rt.KeybindingIndicator(),
-            controller_button = nil,
-            spacer = rt.Rectangle(),
-            spacer_outline = rt.Rectangle(),
-            info = info,
-        })
+            local item = mn.KeybindingScene.Item({
+                prefix = rt.Label(prefix_prefix .. text .. prefix_postfix),
+                input_action = input_action,
+                keyboard_indicator = rt.KeybindingIndicator(),
+                keyboard_key = nil,
+                controller_indicator = rt.KeybindingIndicator(),
+                controller_button = nil,
+                spacer = rt.Rectangle(),
+                spacer_outline = rt.Rectangle(),
+                info = info,
+            })
 
-        item.spacer_outline:set_color(rt.Palette.BLACK)
-        item.spacer:set_color(rt.Palette.FOREGROUND)
-        for space in range(item.spacer, item.spacer_outline) do
-            item.spacer:set_corner_radius(2)
-        end
-
-        item.set_selection_state = function(self, state)
-            if state == rt.SelectionState.ACTIVE then
-                scene._verbose_info:show(item.info)
+            item.spacer_outline:set_color(rt.Palette.BLACK)
+            item.spacer:set_color(rt.Palette.FOREGROUND)
+            for space in range(item.spacer, item.spacer_outline) do
+                item.spacer:set_corner_radius(2)
             end
-        end
 
-        item.set_keyboard_indicator = function(self, key)
-            if key == nil then
-                self.keyboard_indicator:create_as_label(_ellipses)
-            else
-                self.keyboard_indicator:create_from_keyboard_key(key)
-                self.keyboard_key = key
+            item.set_selection_state = function(self, state)
+                if state == rt.SelectionState.ACTIVE then
+                    scene._verbose_info:show(item.info)
+                end
             end
-        end
 
-        item.set_controller_indicator = function(self, button)
-            if button == nil then
-                self.controller_indicator:create_as_label(_ellipses)
-            else
-                self.controller_indicator:create_from_gamepad_button(button)
-                self.controller_button = button
+            item.set_keyboard_indicator = function(self, key)
+                if key == nil then
+                    self.keyboard_indicator:create_as_label(_ellipses)
+                else
+                    self.keyboard_indicator:create_from_keyboard_key(key)
+                    self.keyboard_key = key
+                end
             end
+
+            item.set_controller_indicator = function(self, button)
+                if button == nil then
+                    self.controller_indicator:create_as_label(_ellipses)
+                else
+                    self.controller_indicator:create_from_gamepad_button(button)
+                    self.controller_button = button
+                end
+            end
+
+            self._list:add_item(item)
         end
-
-        self._list:add_item(item)
-
-        ::continue::
     end
 
     self:_update_all_indicators()

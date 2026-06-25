@@ -193,45 +193,42 @@ function rt.PlayerParticles:_update_batch(batch, delta)
 
         if particle[_lifetime_elapsed] > particle[_lifetime] then
             table.insert(to_remove, 1, particle_i)
-            goto continue
+        else
+            local mass = particle[_mass]
+            local vx, vy = particle[_velocity_x], particle[_velocity_y]
+
+            local dx, dy = math.normalize(vx, vy)
+            local acceleration = particle[_acceleration]
+            vx = vx + (mass * gravity_x + dx * acceleration) * delta
+            vy = vy + (mass * gravity_y + dy * acceleration) * delta
+
+            local angle = rt.random.noise(px * turbulence_scale, px * turbulence_scale) * 2 * math.pi
+            local noise_x = math.cos(angle)
+            local noise_y = math.sin(angle)
+
+            local turbulence_x = noise_x * turbulence_strength * delta
+            local turbulence_y = noise_y * turbulence_strength * delta
+
+            vx = vx + turbulence_x * acceleration
+            vy = vy + turbulence_y * acceleration
+
+            px = px + vx * delta
+            py = py + vy * delta
+
+            particle[_position_x] = px
+            particle[_position_y] = py
+            particle[_velocity_x] = vx
+            particle[_velocity_y] = vy
+
+            particle[_hue] = math.fract(particle[_hue] + particle[_hue_velocity_direction] * particle[_hue_velocity] * delta)
+            local r, g, b, a = rt.lcha_to_rgba(0.8, 1, particle[_hue], 1)
+
+            particle[_color_r] = r
+            particle[_color_g] = g
+            particle[_color_b] = b
+
+            n_updated = n_updated + 1
         end
-
-        local mass = particle[_mass]
-        local vx, vy = particle[_velocity_x], particle[_velocity_y]
-
-        local dx, dy = math.normalize(vx, vy)
-        local acceleration = particle[_acceleration]
-        vx = vx + (mass * gravity_x + dx * acceleration) * delta
-        vy = vy + (mass * gravity_y + dy * acceleration) * delta
-
-        local angle = rt.random.noise(px * turbulence_scale, px * turbulence_scale) * 2 * math.pi
-        local noise_x = math.cos(angle)
-        local noise_y = math.sin(angle)
-
-        local turbulence_x = noise_x * turbulence_strength * delta
-        local turbulence_y = noise_y * turbulence_strength * delta
-
-        vx = vx + turbulence_x * acceleration
-        vy = vy + turbulence_y * acceleration
-
-        px = px + vx * delta
-        py = py + vy * delta
-
-        particle[_position_x] = px
-        particle[_position_y] = py
-        particle[_velocity_x] = vx
-        particle[_velocity_y] = vy
-
-        particle[_hue] = math.fract(particle[_hue] + particle[_hue_velocity_direction] * particle[_hue_velocity] * delta)
-        local r, g, b, a = rt.lcha_to_rgba(0.8, 1, particle[_hue], 1)
-
-        particle[_color_r] = r
-        particle[_color_g] = g
-        particle[_color_b] = b
-
-        n_updated = n_updated + 1
-
-        ::continue::
     end
 
     for i in values(to_remove) do

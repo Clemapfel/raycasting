@@ -624,76 +624,75 @@ function ow.DialogBox:update(delta)
             self._is_first_update = false
         end
 
-        local continue = true
+        local should_skip = false
         if node.gender ~= rt.AnimaleseGender.NONE then
             for _, event in ipairs(node.event_map) do
                 if event.time <= node.elapsed
                     and event.is_beat == true
                     and rt.Animalese:get_is_done(event.id) == false
                 then
-                    continue = false
+                    should_skip = true
                     break
                 end
             end
         end
 
-        if continue ~= true then goto skip end
+        if not should_skip then
 
-        node.elapsed = node.elapsed + delta
+            node.elapsed = node.elapsed + delta
 
-        local n_lines_visible = 0
-        local at_least_one_label_not_done = false
+            local n_lines_visible = 0
+            local at_least_one_label_not_done = false
 
-        local init_label = function(label)
-            if label.dialog_box_elapsed == nil then label.dialog_box_elapsed = 0 end
-            if label.dialog_box_is_done == nil then label.dialog_box_is_done = false end
-        end
-
-        for label in values(node.labels) do
-            -- inject local per-label values
-            init_label(label)
-
-            if label.dialog_box_is_done == true then
-                n_lines_visible = n_lines_visible + label:get_n_lines()
-            else
-                label.dialog_box_elapsed = label.dialog_box_elapsed + delta
-                local is_done, new_n_lines, _ = label:update_n_visible_characters_from_elapsed(
-                    label.dialog_box_elapsed, rt.settings.label.scroll_speed * rt.settings.animalese.scroll_speed_factor
-                )
-                n_lines_visible = n_lines_visible + new_n_lines
-                label.dialog_box_is_done = is_done
+            local init_label = function(label)
+                if label.dialog_box_elapsed == nil then label.dialog_box_elapsed = 0 end
+                if label.dialog_box_is_done == nil then label.dialog_box_is_done = false end
             end
 
-            if label.dialog_box_is_done == false then
-                at_least_one_label_not_done = true
-                break
-            end
-        end
+            for label in values(node.labels) do
+                -- inject local per-label values
+                init_label(label)
 
-        node.is_done = ternary(node.duration == 0, true, (node.elapsed / node.duration) >= 1)
-        if node.is_done and node.type == _node_type_choice then
-            for labels in range(node.choice_labels, node.highlighted_choice_labels) do
-                for label in values(labels) do
-                    init_label(label)
+                if label.dialog_box_is_done == true then
+                    n_lines_visible = n_lines_visible + label:get_n_lines()
+                else
                     label.dialog_box_elapsed = label.dialog_box_elapsed + delta
-                    label:update_n_visible_characters_from_elapsed(label.dialog_box_elapsed)
+                    local is_done, new_n_lines, _ = label:update_n_visible_characters_from_elapsed(
+                        label.dialog_box_elapsed, rt.settings.label.scroll_speed * rt.settings.animalese.scroll_speed_factor
+                    )
+                    n_lines_visible = n_lines_visible + new_n_lines
+                    label.dialog_box_is_done = is_done
+                end
+
+                if label.dialog_box_is_done == false then
+                    at_least_one_label_not_done = true
+                    break
                 end
             end
+
+            node.is_done = ternary(node.duration == 0, true, (node.elapsed / node.duration) >= 1)
+            if node.is_done and node.type == _node_type_choice then
+                for labels in range(node.choice_labels, node.highlighted_choice_labels) do
+                    for label in values(labels) do
+                        init_label(label)
+                        label.dialog_box_elapsed = label.dialog_box_elapsed + delta
+                        label:update_n_visible_characters_from_elapsed(label.dialog_box_elapsed)
+                    end
+                end
+            end
+
+            self:_update_node_offset_from_n_lines_visible(n_lines_visible)
+
+            if self._should_emit_advance == true then
+                self:signal_emit("advance")
+                self._should_emit_advance = false
+            end
+
+            self._is_waiting_for_advance = not at_least_one_label_not_done
+            if self._is_waiting_for_advance and self._should_auto_advance then
+                self:_advance()
+            end
         end
-
-        self:_update_node_offset_from_n_lines_visible(n_lines_visible)
-
-        if self._should_emit_advance == true then
-            self:signal_emit("advance")
-            self._should_emit_advance = false
-        end
-
-        self._is_waiting_for_advance = not at_least_one_label_not_done
-        if self._is_waiting_for_advance and self._should_auto_advance then
-            self:_advance()
-        end
-
-        ::skip::
     end
 
     local control_state_after = self:get_control_state()

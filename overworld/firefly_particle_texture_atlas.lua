@@ -48,8 +48,12 @@ function ow.FireflyParticleTextureAtlas:instantiate(hues, radii)
 
     local index = 1
     for row_index = 1, n_rows do
+        local should_break = false
         for column_index = 1, n_columns do
-            if index > n_total then goto exit end
+            if index <= n_total then
+                should_break = true
+                break
+            end
 
             local hue_index = ((index - 1) % n_hues) + 1
             local radius_index = math.floor((index - 1) / n_hues) + 1
@@ -78,9 +82,9 @@ function ow.FireflyParticleTextureAtlas:instantiate(hues, radii)
 
             index = index + 1
         end
-    end
 
-    ::exit::
+        if should_break then break end
+    end
 
     canvas:unbind()
     love.graphics.pop()

@@ -1,6 +1,8 @@
 if table.unpack == nil then table.unpack = unpack end
 assert(table.unpack ~= nil)
 
+require "common.compat"
+
 local _noop = function() return nil end
 
 local _keys_iterator = function(t, k)
@@ -35,7 +37,6 @@ function range(...)
     if select("#", ...) == 0 then return _noop end
     return _range_iterator, {1, ...}
 end
-
 
 --- @brief ternary
 --- @param condition boolean
@@ -368,7 +369,6 @@ function string.split(str, sep)
     return table.unpack(out)
 end
 
-
 --- @brief check if pattern occurrs in string
 --- @param str string
 --- @param pattern string
@@ -586,17 +586,6 @@ function table.serialize(t, disallowed_types)
     end
 
     return _serialize(t, true, set)
-end
-
--- table.clear, fallback implementations for non-luajit
-pcall(require, "table.clear")
-if not table.clear then
-    function table.clear(t)
-        for key in pairs(t) do
-            t[key] = nil
-        end
-        return t
-    end
 end
 
 --- @brief

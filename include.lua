@@ -14,7 +14,6 @@ do
     end
 end
 
-
 utf8 = require "utf8"
 bit = require "bit"
 
@@ -34,6 +33,7 @@ require "common.meta"
 --- @alias Integer number
 --- @alias Radians number
 --- @alias Degrees number
+--- @alias Union table
 
 if false then love = {} end
 

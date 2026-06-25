@@ -327,46 +327,48 @@ function rt.PlayerTrail:update(delta)
                         current_entry.dx, current_entry.dy
                     )
 
+                    local should_continue = false
+
                     if segment_length_squared < min_segment_length then
                         joints[i] = nil
-                        goto continue
+                        should_continue = true
                     end
 
-                    local width = width_easing(joint_opacity[i])
+                    if not should_continue then
+                        local width = width_easing(joint_opacity[i])
+                        local current_left_x, current_left_y
+                        local current_right_x, current_right_y
 
-                    local current_left_x, current_left_y
-                    local current_right_x, current_right_y
+                        if previous_entry ~= nil and next_entry ~= nil then
+                            current_left_x, current_left_y = miter(
+                                current_entry.ax, current_entry.ay,
+                                previous_entry.left_x, previous_entry.left_y,
+                                next_entry.left_x, next_entry.left_y,
+                                width
+                            )
 
-                    if previous_entry ~= nil and next_entry ~= nil then
-                        current_left_x, current_left_y = miter(
-                            current_entry.ax, current_entry.ay,
-                            previous_entry.left_x, previous_entry.left_y,
-                            next_entry.left_x, next_entry.left_y,
-                            width
-                        )
+                            current_right_x, current_right_y = miter(
+                                current_entry.ax, current_entry.ay,
+                                previous_entry.right_x, previous_entry.right_y,
+                                next_entry.right_x, next_entry.right_y,
+                                width
+                            )
+                        else
+                            current_left_x = current_entry.ax + current_entry.left_x * width
+                            current_left_y = current_entry.ay + current_entry.left_y * width
+                            current_right_x = current_entry.ax + current_entry.right_x * width
+                            current_right_y = current_entry.ay + current_entry.right_y * width
+                        end
 
-                        current_right_x, current_right_y = miter(
-                            current_entry.ax, current_entry.ay,
-                            previous_entry.right_x, previous_entry.right_y,
-                            next_entry.right_x, next_entry.right_y,
-                            width
-                        )
-                    else
-                        current_left_x = current_entry.ax + current_entry.left_x * width
-                        current_left_y = current_entry.ay + current_entry.left_y * width
-                        current_right_x = current_entry.ax + current_entry.right_x * width
-                        current_right_y = current_entry.ay + current_entry.right_y * width
+                        joints[i] = {
+                            left_x = current_left_x,
+                            left_y = current_left_y,
+                            right_x = current_right_x,
+                            right_y = current_right_y,
+                            opacity = joint_opacity[i]
+                        }
+
                     end
-
-                    joints[i] = {
-                        left_x = current_left_x,
-                        left_y = current_left_y,
-                        right_x = current_right_x,
-                        right_y = current_right_y,
-                        opacity = joint_opacity[i]
-                    }
-
-                    ::continue::
                 end
 
                 for i = 1, math.min(n, #self._mesh_data - 1) do

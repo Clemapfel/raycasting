@@ -324,66 +324,64 @@ function ow.Fireworks:update(delta)
 
                 if fraction >= 1 then
                     n_done_particles = n_done_particles + 1
-                    goto continue
-                end
+                else
 
-                local opacity = 1
-                local fade_out = _settings.particle_fade_out_duration
-                if batch.elapsed > lifetime - fade_out then
-                    opacity = (lifetime - batch.elapsed) / fade_out
-                end
-                data[i + _color_a_offset] = opacity
-
-                local radius = 1 - fraction
-                data[i + _radius_offset] = radius
-
-                local burn_factor = _settings.mass_easing(1 - fraction)
-                local velocity_burn_factor = math.mix(burn_rate, 1, burn_factor)
-                local mass_factor = math.mix(0.2, 1, burn_factor)
-
-                local vx = data[i + _velocity_x_offset] * (velocity_burn_factor * air_resistance ^ delta)
-                local vy = data[i + _velocity_y_offset] * (velocity_burn_factor * air_resistance ^ delta)
-                local vz = data[i + _velocity_z_offset] * (velocity_burn_factor * air_resistance ^ delta)
-
-                vy = vy + mass_factor * gravity * delta
-
-                local px = data[i + _position_x_offset] + vx * delta
-                local py = data[i + _position_y_offset] + vy * delta
-                local pz = data[i + _position_z_offset] + vz * delta
-
-                if self._player ~= nil then
-                    if math.distance(px, py, player_x, player_y) < (player_r + radius) then
-                        local delta_x, delta_y = math.normalize(px - player_x, py - player_y)
-                        px = player_x + delta_x * (player_r + radius)
-                        py = player_y + delta_y * (player_r + radius)
-                        vx = delta_x * math.abs(vx) * restitution
-                        vy = delta_y * math.abs(vy) * restitution
+                    local opacity = 1
+                    local fade_out = _settings.particle_fade_out_duration
+                    if batch.elapsed > lifetime - fade_out then
+                        opacity = (lifetime - batch.elapsed) / fade_out
                     end
+                    data[i + _color_a_offset] = opacity
+
+                    local radius = 1 - fraction
+                    data[i + _radius_offset] = radius
+
+                    local burn_factor = _settings.mass_easing(1 - fraction)
+                    local velocity_burn_factor = math.mix(burn_rate, 1, burn_factor)
+                    local mass_factor = math.mix(0.2, 1, burn_factor)
+
+                    local vx = data[i + _velocity_x_offset] * (velocity_burn_factor * air_resistance ^ delta)
+                    local vy = data[i + _velocity_y_offset] * (velocity_burn_factor * air_resistance ^ delta)
+                    local vz = data[i + _velocity_z_offset] * (velocity_burn_factor * air_resistance ^ delta)
+
+                    vy = vy + mass_factor * gravity * delta
+
+                    local px = data[i + _position_x_offset] + vx * delta
+                    local py = data[i + _position_y_offset] + vy * delta
+                    local pz = data[i + _position_z_offset] + vz * delta
+
+                    if self._player ~= nil then
+                        if math.distance(px, py, player_x, player_y) < (player_r + radius) then
+                            local delta_x, delta_y = math.normalize(px - player_x, py - player_y)
+                            px = player_x + delta_x * (player_r + radius)
+                            py = player_y + delta_y * (player_r + radius)
+                            vx = delta_x * math.abs(vx) * restitution
+                            vy = delta_y * math.abs(vy) * restitution
+                        end
+                    end
+
+                    data[i + _velocity_x_offset] = vx
+                    data[i + _velocity_y_offset] = vy
+                    data[i + _velocity_z_offset] = vz
+
+                    data[i + _position_x_offset] = px
+                    data[i + _position_y_offset] = py
+                    data[i + _position_z_offset] = pz
+
+                    if opacity > 0 then is_done = false end
+
+                    -- update data mesh
+
+                    local data_mesh_data_data = batch.data_mesh_data[particle_i]
+                    data_mesh_data_data[1] = px
+                    data_mesh_data_data[2] = py
+                    data_mesh_data_data[3] = px
+                    data_mesh_data_data[4] = radius
+                    data_mesh_data_data[5] = data[i + _color_r_offset]
+                    data_mesh_data_data[6] = data[i + _color_g_offset]
+                    data_mesh_data_data[7] = data[i + _color_b_offset]
+                    data_mesh_data_data[8] = data[i + _color_a_offset]
                 end
-
-                data[i + _velocity_x_offset] = vx
-                data[i + _velocity_y_offset] = vy
-                data[i + _velocity_z_offset] = vz
-
-                data[i + _position_x_offset] = px
-                data[i + _position_y_offset] = py
-                data[i + _position_z_offset] = pz
-
-                if opacity > 0 then is_done = false end
-
-                -- update data mesh
-
-                local data_mesh_data_data = batch.data_mesh_data[particle_i]
-                data_mesh_data_data[1] = px
-                data_mesh_data_data[2] = py
-                data_mesh_data_data[3] = px
-                data_mesh_data_data[4] = radius
-                data_mesh_data_data[5] = data[i + _color_r_offset]
-                data_mesh_data_data[6] = data[i + _color_g_offset]
-                data_mesh_data_data[7] = data[i + _color_b_offset]
-                data_mesh_data_data[8] = data[i + _color_a_offset]
-
-                ::continue::
             end
 
             if is_done then

@@ -44,7 +44,7 @@ function rt.Routine.Future:instantiate(
     self._return_value = nil -- set once
 
     self._state = _STATE_IDLE
-    self._id = rt.Routine._notify_future_added(self)
+    rt.Routine._notify_future_added(self)
 end
 
 local _assert_is_result = function(scope, result)

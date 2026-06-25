@@ -284,7 +284,7 @@ end
 meta.DISCONNECT_SIGNAL = "DISCONNECT"
 
 -- signals
-local _signal_connect = function(instance, id, callback)
+local _signal_connect = function(instance, id, ...)
     local component = instance[_object_signal_component_index]
     local entry = component[id]
     if entry == nil then
@@ -293,14 +293,9 @@ local _signal_connect = function(instance, id, callback)
     end
 
     local callback_id = entry.current_callback_id
-    local wrapped = function(...)
-        local res = callback(...)
-        return callback_id, res
-    end
-
     entry.current_callback_id = entry.current_callback_id + 1
-    entry.callback_id_to_callback[callback_id] = wrapped
-    table.insert(entry.callbacks_in_order, wrapped)
+    entry.callback_id_to_callback[callback_id] = select(1, ...)
+    table.insert(entry.callbacks_in_order, select(1, ...))
     return callback_id
 end
 
@@ -367,22 +362,6 @@ local _signal_try_disconnect = function(instance, id, callback_id)
     end
 end
 
-local _signal_list_handler_ids = function(instance, id)
-    local component = instance[_object_signal_component_index]
-    if component == nil then
-        rt.error("In ", meta.typeof(instance), ".signal_list_handler_id: object `", meta.typeof(instance), "` does not have any signals")
-        return
-    end
-
-    local entry = component[id]
-    if entry == nil then
-        rt.error("In ", meta.typeof(instance), ".signal_list_handler_id: no signal with id `", id, "`")
-        return
-    end
-
-    return { table.unpack(entry.callbacks_in_order) }
-end
-
 local _signal_disconnect_all = function(instance, id)
     local component = instance[_object_signal_component_index]
     if component == nil then
@@ -397,6 +376,9 @@ local _signal_disconnect_all = function(instance, id)
             entry.callbacks_in_order = setmetatable({}, {
                 __mode = "kv"
             })
+            entry.callback_to_callback_id = setmetatable({}, {
+                __mode = "kv"
+            })
         end
     else
         local entry = component[id]
@@ -407,6 +389,9 @@ local _signal_disconnect_all = function(instance, id)
 
         entry.callback_id_to_callback = {}
         entry.callbacks_in_order = setmetatable({}, {
+            __mode = "kv"
+        })
+        entry.callback_to_callback_id = setmetatable({}, {
             __mode = "kv"
         })
     end
@@ -533,9 +518,9 @@ local _signal_emit = function(instance, id, ...)
     instance.signal_disconnect = _signal_disconnect_override
 
     for i, callback in ipairs(entry.callbacks_in_order) do
-        local callback_id, res = callback(instance, ...)
+        local res = callback(instance, ...)
         if res == meta.DISCONNECT_SIGNAL then
-            instance:signal_disconnect(id, callback_id)
+            instance:signal_disconnect(id, entry.callback_to_callback_id[callback])
         end
     end
 
@@ -592,6 +577,10 @@ local function _install_signals(instance, type)
             current_callback_id = 0,
             callback_id_to_callback = {},
             callbacks_in_order = setmetatable({}, {
+                __mode = "kv"
+            }),
+
+            callback_to_callback_id = setmetatable({}, {
                 __mode = "kv"
             })
         }
@@ -947,23 +936,23 @@ function meta.install(instance, values)
     return instance
 end
 
---- @return boolean
+--- @return Boolean
 function meta.is_enum_value(x, enum)
     return getmetatable(enum).__value_to_is_present[x] == true
 end
 
---- @return string
+--- @return String
 function meta.get_enum_name(enum)
     return getmetatable(enum).__tostring()
 end
 
---- @return number
+--- @return Number
 function meta.hash(instance)
     if instance == nil then return nil end
     return rawget(instance, _object_hash_index) or -1
 end
 
---- @return table
+--- @return Table
 function meta.instances(enum)
     local out = _enum_to_instances[enum]
     if out == nil then

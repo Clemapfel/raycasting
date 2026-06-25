@@ -290,11 +290,11 @@ function rt.html_code_to_color(code)
     end
 
     function hex_component_to_int(left, right)
-
         return left * 16 + right
     end
 
     local error_reason = ""
+    local error_occurred = false
 
     local as_hex = {}
     if string.sub(code, 1, 1) ~= '#' then
@@ -304,32 +304,37 @@ function rt.html_code_to_color(code)
         local to_push = hex_char_to_int(string.sub(code, i, i))
         if to_push == -1 then
             error_reason = "character `" .. string.sub(code, i, i) .. "` is not a valid hexadecimal digit"
-            goto error
+            error_occurred = true
+            break
         end
+
         table.insert(as_hex, to_push)
     end
 
-    if #as_hex == 6 then
-        return rt.RGBA(
-            hex_component_to_int(as_hex[1], as_hex[2]) / 255.0,
-            hex_component_to_int(as_hex[3], as_hex[4]) / 255.0,
-            hex_component_to_int(as_hex[5], as_hex[6]) / 255.0,
-            1
-        )
-    elseif #as_hex == 8 then
-        return rt.RGBA(
-            hex_component_to_int(as_hex[1], as_hex[2]) / 255.0,
-            hex_component_to_int(as_hex[3], as_hex[4]) / 255.0,
-            hex_component_to_int(as_hex[5], as_hex[6]) / 255.0,
-            hex_component_to_int(as_hex[7], as_hex[8]) / 255.0
-        )
-    else
-        error_reason = "more than 6 or 8 digits specified"
-        goto error
+    if not error_occurred then
+        if #as_hex == 6 then
+            return rt.RGBA(
+                hex_component_to_int(as_hex[1], as_hex[2]) / 255.0,
+                hex_component_to_int(as_hex[3], as_hex[4]) / 255.0,
+                hex_component_to_int(as_hex[5], as_hex[6]) / 255.0,
+                1
+            )
+        elseif #as_hex == 8 then
+            return rt.RGBA(
+                hex_component_to_int(as_hex[1], as_hex[2]) / 255.0,
+                hex_component_to_int(as_hex[3], as_hex[4]) / 255.0,
+                hex_component_to_int(as_hex[5], as_hex[6]) / 255.0,
+                hex_component_to_int(as_hex[7], as_hex[8]) / 255.0
+            )
+        else
+            error_reason = "more than 6 or 8 digits specified"
+            error_occurred = true
+        end
     end
 
-    ::error::
-    rt.error("In rt.html_code_to_rgba: `", code, "` is not a valid hexadecimal color identifier. Reason: ", error_reason)
+    if error_occurred then
+        rt.error("In rt.html_code_to_rgba: `", code, "` is not a valid hexadecimal color identifier. Reason: ", error_reason)
+    end
 end
 
 --- @brief

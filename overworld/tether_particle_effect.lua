@@ -224,44 +224,42 @@ function ow.TetherParticleEffect:_update_batch(batch, delta)
 
         if lifetime_elapsed > lifetime then
             table.insert(to_remove, 1, particle_i)
-            goto continue
+        else
+
+            local mass = data[i + _mass_offset]
+            local acceleration = data[i + _acceleration_offset]
+
+            local dx, dy = math.normalize(vx, vy)
+            vx = vx + (mass * gravity_x + dx * acceleration) * delta
+            vy = vy + (mass * gravity_y + dy * acceleration) * delta
+
+            local angle = rt.random.noise(px * turbulence_scale, px * turbulence_scale) * 2 * math.pi
+            local noise_x = math.cos(angle)
+            local noise_y = math.sin(angle)
+
+            local t = turbulence_strength * delta * acceleration
+            vx = vx + noise_x * t
+            vy = vy + noise_y * t
+
+            px = px + vx * delta
+            py = py + vy * delta
+
+            data[i + _position_x_offset] = px
+            data[i + _position_y_offset] = py
+            data[i + _velocity_x_offset] = vx
+            data[i + _velocity_y_offset] = vy
+
+            local hue = data[i + _hue_offset] + data[i + _hue_velocity_direction_offset] * data[i + _hue_velocity_offset] * delta
+            hue = hue - math.floor(hue)
+            data[i + _hue_offset] = hue
+
+            local r, g, b = rt.lcha_to_rgba(0.8, 1, hue, 1)
+            data[i + _color_r_offset] = r
+            data[i + _color_g_offset] = g
+            data[i + _color_b_offset] = b
+
+            n_updated = n_updated + 1
         end
-
-        local mass = data[i + _mass_offset]
-        local acceleration = data[i + _acceleration_offset]
-
-        local dx, dy = math.normalize(vx, vy)
-        vx = vx + (mass * gravity_x + dx * acceleration) * delta
-        vy = vy + (mass * gravity_y + dy * acceleration) * delta
-
-        local angle = rt.random.noise(px * turbulence_scale, px * turbulence_scale) * 2 * math.pi
-        local noise_x = math.cos(angle)
-        local noise_y = math.sin(angle)
-
-        local t = turbulence_strength * delta * acceleration
-        vx = vx + noise_x * t
-        vy = vy + noise_y * t
-
-        px = px + vx * delta
-        py = py + vy * delta
-
-        data[i + _position_x_offset] = px
-        data[i + _position_y_offset] = py
-        data[i + _velocity_x_offset] = vx
-        data[i + _velocity_y_offset] = vy
-
-        local hue = data[i + _hue_offset] + data[i + _hue_velocity_direction_offset] * data[i + _hue_velocity_offset] * delta
-        hue = hue - math.floor(hue)
-        data[i + _hue_offset] = hue
-
-        local r, g, b = rt.lcha_to_rgba(0.8, 1, hue, 1)
-        data[i + _color_r_offset] = r
-        data[i + _color_g_offset] = g
-        data[i + _color_b_offset] = b
-
-        n_updated = n_updated + 1
-
-        ::continue::
     end
 
     for i in values(to_remove) do

@@ -224,128 +224,132 @@ function ow.CheckpointParticles:_update_batch(batch, delta)
     local n_disabled = 0
 
     for particle_i, p in ipairs(batch.particles) do
+        local is_disabled = false
         if p[_is_disabled] == true then
             n_disabled = n_disabled + 1
-            goto continue
+            is_disabled = true
         end
 
-        -- integrate position
-        p[_velocity_x] = p[_damping] * (p[_velocity_x] + (gravity_dx * gravity * delta))
-        p[_velocity_y] = p[_damping] * (p[_velocity_y] + (gravity_dy * gravity * delta))
+        if not is_disabled then
+            -- integrate position
+            p[_velocity_x] = p[_damping] * (p[_velocity_x] + (gravity_dx * gravity * delta))
+            p[_velocity_y] = p[_damping] * (p[_velocity_y] + (gravity_dy * gravity * delta))
 
-        p[_position_x] = p[_position_x] + p[_velocity_x] * delta
-        p[_position_y] = p[_position_y] + p[_velocity_y] * delta
+            p[_position_x] = p[_position_x] + p[_velocity_x] * delta
+            p[_position_y] = p[_position_y] + p[_velocity_y] * delta
 
-        p[_lifetime_elapsed] = p[_lifetime_elapsed] + delta
-        local lifetime_t = p[_lifetime_elapsed] / p[_lifetime]
+            p[_lifetime_elapsed] = p[_lifetime_elapsed] + delta
+            local lifetime_t = p[_lifetime_elapsed] / p[_lifetime]
 
-        -- update color
-        if p[_lifetime] ~= math.huge then
-            p[_color_a] = opacity_easing(1 - math.min(1, lifetime_t))
-        else
-            p[_color_a] = 1
-        end
+            -- update color
+            if p[_lifetime] ~= math.huge then
+                p[_color_a] = opacity_easing(1 - math.min(1, lifetime_t))
+            else
+                p[_color_a] = 1
+            end
 
-        if lifetime_t >= 1 then
-            p[_is_disabled] = true
-            n_disabled = n_disabled + 1
-            goto continue
-        end
+            if lifetime_t >= 1 then
+                p[_is_disabled] = true
+                n_disabled = n_disabled + 1
+                is_disabled = true
+            end
 
-        -- update angle
-        local angle = math.angle(p[_velocity_x], p[_velocity_y])
-        p[_arc_min] = angle - arc_offset
-        p[_arc_max] = angle + arc_offset
+            if not is_disabled then
 
-        -- append to path
-        local path, left, right = p[_path], p[_path_left_normals], p[_path_right_normals]
+            -- update angle
+            local angle = math.angle(p[_velocity_x], p[_velocity_y])
+            p[_arc_min] = angle - arc_offset
+            p[_arc_max] = angle + arc_offset
 
-        local removed_length = math.distance(path[1], path[2], path[3], path[4])
-        table.remove(path, 1)
-        table.remove(path, 1)
-        table.insert(path, p[_position_x])
-        table.insert(path, p[_position_y])
+            -- append to path
+            local path, left, right = p[_path], p[_path_left_normals], p[_path_right_normals]
 
-        local added_length = math.distance(path[#path-3], path[#path-2], path[#path-1], path[#path-0])
-        p[_path_length] = p[_path_length] - removed_length + added_length
+            local removed_length = math.distance(path[1], path[2], path[3], path[4])
+            table.remove(path, 1)
+            table.remove(path, 1)
+            table.insert(path, p[_position_x])
+            table.insert(path, p[_position_y])
 
-        -- append new normals
-        local path_dx = path[#path-3] - path[#path-1]
-        local path_dy = path[#path-2] - path[#path-0]
-        path_dx, path_dy = math.normalize(path_dx, path_dy)
+            local added_length = math.distance(path[#path-3], path[#path-2], path[#path-1], path[#path-0])
+            p[_path_length] = p[_path_length] - removed_length + added_length
 
-        table.remove(left, 1)
-        table.remove(left, 1)
-        local left_dx, left_dy = math.turn_left(path_dx, path_dy)
-        table.insert(left, left_dx)
-        table.insert(left, left_dy)
+            -- append new normals
+            local path_dx = path[#path-3] - path[#path-1]
+            local path_dy = path[#path-2] - path[#path-0]
+            path_dx, path_dy = math.normalize(path_dx, path_dy)
 
-        table.remove(right, 1)
-        table.remove(right, 1)
-        local right_dx, right_dy = math.turn_right(path_dx, path_dy)
-        table.insert(right, right_dx)
-        table.insert(right, right_dy)
+            table.remove(left, 1)
+            table.remove(left, 1)
+            local left_dx, left_dy = math.turn_left(path_dx, path_dy)
+            table.insert(left, left_dx)
+            table.insert(left, left_dy)
 
-        local radius = p[_radius]
-        local path_t = math.min(1, p[_path_length] / (2 * radius))
+            table.remove(right, 1)
+            table.remove(right, 1)
+            local right_dx, right_dy = math.turn_right(path_dx, path_dy)
+            table.insert(right, right_dx)
+            table.insert(right, right_dy)
 
-        do
-            local polygon = p[_polygon]
-            local threshold = radius
-            local use_fallback = p[_path_length] <= threshold
+            local radius = p[_radius]
+            local path_t = math.min(1, p[_path_length] / (2 * radius))
 
-            local n_nodes = #path / 2
+                do
+                    local polygon = p[_polygon]
+                    local threshold = radius
+                    local use_fallback = p[_path_length] <= threshold
 
-            local fallback_px, fallback_py, fallback_dx, fallback_dy
-            if use_fallback then
-                fallback_px, fallback_py = p[_position_x], p[_position_y]
-                fallback_dx, fallback_dy = math.flip(math.normalize(p[_velocity_x], p[_velocity_y]))
-                if fallback_dx == 0 and fallback_dy == 0 then
-                    fallback_dx, fallback_dy = -gravity_dx, -gravity_dy
+                    local n_nodes = #path / 2
+
+                    local fallback_px, fallback_py, fallback_dx, fallback_dy
+                    if use_fallback then
+                        fallback_px, fallback_py = p[_position_x], p[_position_y]
+                        fallback_dx, fallback_dy = math.flip(math.normalize(p[_velocity_x], p[_velocity_y]))
+                        if fallback_dx == 0 and fallback_dy == 0 then
+                            fallback_dx, fallback_dy = -gravity_dx, -gravity_dy
+                        end
+                    end
+
+                    local function get_node(i)
+                        if use_fallback then
+                            local particle_i = math.floor(i / 2) + 1  -- 1-based node index from flat index
+                            local t = radius * (1 - (particle_i - 1) / n_nodes)
+                            return fallback_px + fallback_dx * t,
+                            fallback_py + fallback_dy * t
+                        else
+                            return path[i], path[i + 1]
+                        end
+                    end
+
+                    if use_fallback then path_t = 0 end
+
+                    local node_i = 1
+                    local easing_i = 0
+                    for i = #left - 1, 1, -2 do
+                        local x, y = get_node(i)
+
+                        local width = tail_easing(math.min(1, easing_i / n_nodes), path_t) * radius
+                        easing_i = easing_i + 1
+
+                        polygon[node_i+0] = x + left[i+0] * width
+                        polygon[node_i+1] = y + left[i+1] * width
+                        node_i = node_i + 2
+                    end
+
+                    easing_i = easing_i - 1
+
+                    for i = 1, #right, 2 do
+                        local x, y = get_node(i)
+
+                        local width = tail_easing(math.min(1, easing_i / n_nodes), path_t) * radius
+                        easing_i = easing_i - 1
+
+                        polygon[node_i+0] = x + right[i+0] * width
+                        polygon[node_i+1] = y + right[i+1] * width
+                        node_i = node_i + 2
+                    end
                 end
             end
-
-            local function get_node(i)
-                if use_fallback then
-                    local particle_i = math.floor(i / 2) + 1  -- 1-based node index from flat index
-                    local t = radius * (1 - (particle_i - 1) / n_nodes)
-                    return fallback_px + fallback_dx * t,
-                    fallback_py + fallback_dy * t
-                else
-                    return path[i], path[i + 1]
-                end
-            end
-
-            if use_fallback then path_t = 0 end
-
-            local node_i = 1
-            local easing_i = 0
-            for i = #left - 1, 1, -2 do
-                local x, y = get_node(i)
-
-                local width = tail_easing(math.min(1, easing_i / n_nodes), path_t) * radius
-                easing_i = easing_i + 1
-
-                polygon[node_i+0] = x + left[i+0] * width
-                polygon[node_i+1] = y + left[i+1] * width
-                node_i = node_i + 2
-            end
-
-            easing_i = easing_i - 1
-
-            for i = 1, #right, 2 do
-                local x, y = get_node(i)
-
-                local width = tail_easing(math.min(1, easing_i / n_nodes), path_t) * radius
-                easing_i = easing_i - 1
-
-                polygon[node_i+0] = x + right[i+0] * width
-                polygon[node_i+1] = y + right[i+1] * width
-                node_i = node_i + 2
-            end
         end
-
-        ::continue::
     end
 
     return n_disabled >= #batch.particles

@@ -838,154 +838,153 @@ do -- step helpers
             -- Gauss-Seidel style iterations over constraints
             for __ = 1, n_constraint_iterations do
                 for arm in values(self._arms) do
-                    if arm.slot_i == nil then goto next_arm end
+                    if arm.slot_i ~= nil then
 
-                    local slot = self._slots[arm.slot_i]
-                    local is_extending = arm.is_extending
-                    local segment_length = (self._arm_length + self._arm_length_extension) / arm.n_segments
-                    local start_i, end_i = arm.start_i, arm.end_i
-                    local anchor_x, anchor_y = slot.anchor_x, slot.anchor_y
+                        local slot = self._slots[arm.slot_i]
+                        local is_extending = arm.is_extending
+                        local segment_length = (self._arm_length + self._arm_length_extension) / arm.n_segments
+                        local start_i, end_i = arm.start_i, arm.end_i
+                        local anchor_x, anchor_y = slot.anchor_x, slot.anchor_y
 
-                    do
-                        local retraction_sum = 0
-                        local target_start_i, target_end_i, target_x, target_y, alpha
-                        if is_extending then
-                            alpha = extend_alpha
-                            target_start_i = start_i + 1
-                            target_end_i = end_i
-                            target_x, target_y = slot.target_x, slot.target_y
-                        else
-                            alpha = retract_alpha
-                            target_start_i = start_i + 1 -- first is anchor
-                            target_end_i = end_i
-                            target_x, target_y = slot.anchor_x, slot.anchor_y
-                        end
+                        do
+                            local retraction_sum = 0
+                            local target_start_i, target_end_i, target_x, target_y, alpha
+                            if is_extending then
+                                alpha = extend_alpha
+                                target_start_i = start_i + 1
+                                target_end_i = end_i
+                                target_x, target_y = slot.target_x, slot.target_y
+                            else
+                                alpha = retract_alpha
+                                target_start_i = start_i + 1 -- first is anchor
+                                target_end_i = end_i
+                                target_x, target_y = slot.anchor_x, slot.anchor_y
+                            end
 
-                        -- end node target
-                        for node_i = target_start_i, target_end_i do
-                            local i = _particle_i_to_data_offset(node_i)
-                            local x, y = data[i + _x_offset], data[i + _y_offset]
-                            local correction_x, correction_y, lambda_new = _enforce_anchor(
-                                x, y,
-                                target_x, target_y,
-                                data[i + _inverse_mass_offset],
-                                alpha,
-                                data[i + _target_lambda_offset]
-                            )
+                            -- end node target
+                            for node_i = target_start_i, target_end_i do
+                                local i = _particle_i_to_data_offset(node_i)
+                                local x, y = data[i + _x_offset], data[i + _y_offset]
+                                local correction_x, correction_y, lambda_new = _enforce_anchor(
+                                    x, y,
+                                    target_x, target_y,
+                                    data[i + _inverse_mass_offset],
+                                    alpha,
+                                    data[i + _target_lambda_offset]
+                                )
 
-                            local new_x = x + correction_x
-                            local new_y = y + correction_y
-                            data[i + _x_offset] = new_x
-                            data[i + _y_offset] = new_y
-                            data[i + _target_lambda_offset] = lambda_new
-                        end
+                                local new_x = x + correction_x
+                                local new_y = y + correction_y
+                                data[i + _x_offset] = new_x
+                                data[i + _y_offset] = new_y
+                                data[i + _target_lambda_offset] = lambda_new
+                            end
 
-                        -- if retracting, check if fully done, if yes, free and add to buffer
-                        if not is_extending and #self._slots > #self._arms then
-                            local i = _particle_i_to_data_offset(end_i)
-                            if math.distance(
-                                data[i + _x_offset],
-                                data[i + _y_offset],
-                                anchor_x,
-                                anchor_y
-                            ) < settings.retract_threshold then
-                                self:_remove_from_slot(arm.slot_i)
+                            -- if retracting, check if fully done, if yes, free and add to buffer
+                            if not is_extending and #self._slots > #self._arms then
+                                local i = _particle_i_to_data_offset(end_i)
+                                if math.distance(
+                                    data[i + _x_offset],
+                                    data[i + _y_offset],
+                                    anchor_x,
+                                    anchor_y
+                                ) < settings.retract_threshold then
+                                    self:_remove_from_slot(arm.slot_i)
+                                end
                             end
                         end
-                    end
 
-                    -- segment distance constraints
-                    for node_i = start_i, end_i - 1 do
-                        local a_i = _particle_i_to_data_offset(node_i + 0)
-                        local b_i = _particle_i_to_data_offset(node_i + 1)
-
-                        local ax, ay = data[a_i + _x_offset], data[a_i + _y_offset]
-                        local bx, by = data[b_i + _x_offset], data[b_i + _y_offset]
-
-                        local inverse_mass_a = data[a_i + _inverse_mass_offset]
-                        local inverse_mass_b = data[b_i + _inverse_mass_offset]
-
-                        local correction_ax, correction_ay, correction_bx, correction_by, lambda_new = _enforce_distance(
-                            ax, ay, bx, by,
-                            inverse_mass_a, inverse_mass_b,
-                            segment_length,
-                            distance_alpha,
-                            data[a_i + _distance_lambda_offset]
-                        )
-
-                        data[a_i + _x_offset] = ax + correction_ax
-                        data[a_i + _y_offset] = ay + correction_ay
-                        data[b_i + _x_offset] = bx + correction_bx
-                        data[b_i + _y_offset] = by + correction_by
-                        data[a_i + _distance_lambda_offset] = lambda_new
-                    end
-
-                    if is_extending then
-                        -- bending constraints (XPBD)
-                        for node_i = start_i, end_i - 2 do
+                        -- segment distance constraints
+                        for node_i = start_i, end_i - 1 do
                             local a_i = _particle_i_to_data_offset(node_i + 0)
                             local b_i = _particle_i_to_data_offset(node_i + 1)
-                            local c_i = _particle_i_to_data_offset(node_i + 2)
 
                             local ax, ay = data[a_i + _x_offset], data[a_i + _y_offset]
                             local bx, by = data[b_i + _x_offset], data[b_i + _y_offset]
-                            local particle_c_x, particle_c_y = data[c_i + _x_offset], data[c_i + _y_offset]
 
                             local inverse_mass_a = data[a_i + _inverse_mass_offset]
                             local inverse_mass_b = data[b_i + _inverse_mass_offset]
-                            local inverse_mass_c = data[c_i + _inverse_mass_offset]
 
-                            local segment_length_ab = segment_length
-                            local segment_length_bc = segment_length
-                            local target_length = segment_length_ab + segment_length_bc
-
-                            local correction_ax, correction_ay, _, _, correction_cxx, correction_cxy, lambda_new = _enforce_bending(
-                                ax, ay, bx, by, particle_c_x, particle_c_y,
-                                inverse_mass_a, inverse_mass_b, inverse_mass_c,
-                                target_length,
-                                bending_alpha,
-                                data[a_i + _bending_lambda_offset]
+                            local correction_ax, correction_ay, correction_bx, correction_by, lambda_new = _enforce_distance(
+                                ax, ay, bx, by,
+                                inverse_mass_a, inverse_mass_b,
+                                segment_length,
+                                distance_alpha,
+                                data[a_i + _distance_lambda_offset]
                             )
 
                             data[a_i + _x_offset] = ax + correction_ax
                             data[a_i + _y_offset] = ay + correction_ay
-                            data[c_i + _x_offset] = particle_c_x + correction_cxx
-                            data[c_i + _y_offset] = particle_c_y + correction_cxy
-                            data[a_i + _bending_lambda_offset] = lambda_new
+                            data[b_i + _x_offset] = bx + correction_bx
+                            data[b_i + _y_offset] = by + correction_by
+                            data[a_i + _distance_lambda_offset] = lambda_new
+                        end
+
+                        if is_extending then
+                            -- bending constraints (XPBD)
+                            for node_i = start_i, end_i - 2 do
+                                local a_i = _particle_i_to_data_offset(node_i + 0)
+                                local b_i = _particle_i_to_data_offset(node_i + 1)
+                                local c_i = _particle_i_to_data_offset(node_i + 2)
+
+                                local ax, ay = data[a_i + _x_offset], data[a_i + _y_offset]
+                                local bx, by = data[b_i + _x_offset], data[b_i + _y_offset]
+                                local particle_c_x, particle_c_y = data[c_i + _x_offset], data[c_i + _y_offset]
+
+                                local inverse_mass_a = data[a_i + _inverse_mass_offset]
+                                local inverse_mass_b = data[b_i + _inverse_mass_offset]
+                                local inverse_mass_c = data[c_i + _inverse_mass_offset]
+
+                                local segment_length_ab = segment_length
+                                local segment_length_bc = segment_length
+                                local target_length = segment_length_ab + segment_length_bc
+
+                                local correction_ax, correction_ay, _, _, correction_cxx, correction_cxy, lambda_new = _enforce_bending(
+                                    ax, ay, bx, by, particle_c_x, particle_c_y,
+                                    inverse_mass_a, inverse_mass_b, inverse_mass_c,
+                                    target_length,
+                                    bending_alpha,
+                                    data[a_i + _bending_lambda_offset]
+                                )
+
+                                data[a_i + _x_offset] = ax + correction_ax
+                                data[a_i + _y_offset] = ay + correction_ay
+                                data[c_i + _x_offset] = particle_c_x + correction_cxx
+                                data[c_i + _y_offset] = particle_c_y + correction_cxy
+                                data[a_i + _bending_lambda_offset] = lambda_new
+                            end
+                        end
+
+                        for node_i = arm.start_i, arm.end_i, 1 do
+                            local i = _particle_i_to_data_offset(node_i)
+                            local x, y = data[i + _x_offset], data[i + _y_offset]
+
+                            -- If your particles have their own radius, add it to player_r here.
+                            local min_dist = player_r
+
+                            local correction_x, correction_y, lambda_new = _enforce_sphere_collision(
+                                x, y,
+                                player_x, player_y,
+                                min_dist,
+                                data[i + _inverse_mass_offset],
+                                collision_alpha,
+                                data[i + _collision_lambda_offset]
+                            )
+
+                            -- Apply position correction
+                            data[i + _x_offset] = x + correction_x
+                            data[i + _y_offset] = y + correction_y
+
+                            -- Store updated lambda
+                            data[i + _collision_lambda_offset] = lambda_new
+                        end
+
+                        do -- pin anchor
+                            local i = _particle_i_to_data_offset(start_i)
+                            data[i + _x_offset] = anchor_x
+                            data[i + _y_offset] = anchor_y
                         end
                     end
-
-                    for node_i = arm.start_i, arm.end_i, 1 do
-                        local i = _particle_i_to_data_offset(node_i)
-                        local x, y = data[i + _x_offset], data[i + _y_offset]
-
-                        -- If your particles have their own radius, add it to player_r here.
-                        local min_dist = player_r
-
-                        local correction_x, correction_y, lambda_new = _enforce_sphere_collision(
-                            x, y,
-                            player_x, player_y,
-                            min_dist,
-                            data[i + _inverse_mass_offset],
-                            collision_alpha,
-                            data[i + _collision_lambda_offset]
-                        )
-
-                        -- Apply position correction
-                        data[i + _x_offset] = x + correction_x
-                        data[i + _y_offset] = y + correction_y
-
-                        -- Store updated lambda
-                        data[i + _collision_lambda_offset] = lambda_new
-                    end
-
-                    do -- pin anchor
-                        local i = _particle_i_to_data_offset(start_i)
-                        data[i + _x_offset] = anchor_x
-                        data[i + _y_offset] = anchor_y
-                    end
-
-                    ::next_arm::
                 end
             end
 

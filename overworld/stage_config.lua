@@ -277,26 +277,32 @@ function ow.StageConfig:instantiate(stage_id)
                         end
 
                         while true do
+                            local should_break = false
                             for col_offset = 0, height do
                                 local current_x, current_y = x + width, y + col_offset
                                 if is_solid_matrix:get(current_x, current_y) ~= true then
-                                    goto done
+                                    should_break = true
+                                    break
                                 end
                             end
+
+                            if should_break then break end
                             width = width + 1
                         end
-                        ::done::
                     else
                         while true do
+                            local should_break = false
                             for row_offset = 0, width do
                                 local current_x, current_y = x + row_offset, y + height
                                 if is_solid_matrix:get(current_x, current_y) ~= true then
-                                    goto done
+                                    should_break = true
+                                    break
                                 end
                             end
+
+                            if should_break then break end
                             height = height + 1
                         end
-                        ::done::
                     end
 
                     for i = 0, height - 1 do

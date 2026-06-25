@@ -86,13 +86,7 @@ function table.stable_sort(array, comparator)
         return array
     end
 
-    if table.clear then
-        table.clear(_buffer)
-    else
-        for index = 1, #_buffer do
-            _buffer[index] = nil
-        end
-    end
+    table.clear(_buffer)
 
     local source = array
     local destination = _buffer

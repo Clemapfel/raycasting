@@ -705,11 +705,12 @@ function rt.Label:_parse(raw)
 
     local n_characters = utf8.len(raw)
     while i <= n_characters do
+        local skip = false
         if s == _syntax.ESCAPE_CHARACTER then
             step(1)
             _insert(current_word, s)
             step(1)
-            goto skip;
+            skip = true
         elseif s == " " then
             push_glyph()
             push_beat(_syntax.SPACE)
@@ -853,8 +854,8 @@ function rt.Label:_parse(raw)
         else
             _insert(current_word, s)
         end
-        step(1)
-        ::skip::
+
+        if not skip then step(1) end
     end
     push_glyph()
 

@@ -36,8 +36,12 @@ function ow.CoinParticleTextureAtlas:instantiate(hues)
 
     local hue_index = 1
     for row_index = 1, n_rows do
+        local should_break = false
         for column_index = 1, n_columns do
-            if hue_index > #hues then goto exit end
+            if hue_index > #hues then
+                should_break = true
+                break
+            end
 
             local hue = hues[hue_index]
             particle:set_hue(hue)
@@ -67,9 +71,9 @@ function ow.CoinParticleTextureAtlas:instantiate(hues)
 
             hue_index = hue_index + 1
         end
-    end
 
-    ::exit::
+        if should_break then break end
+    end
 
     canvas:unbind()
     love.graphics.pop()

@@ -968,121 +968,123 @@ local function _parse_single_object_group(object_group, group_offset_x, group_of
     local object_id_to_wrapper = {}
 
     for object in values(object_group.objects) do
-        if _get(object, "shape") == "text" then goto continue end -- skip "text" objects
+        if _get(object, "shape") ~= "text" then  -- skip "text" objects
 
-        local wrapper = ow.ObjectWrapper(_get(object, "type"), _get(object, "id"))
-        wrapper.name = _get(object, "name")
+            local wrapper = ow.ObjectWrapper(_get(object, "type"), _get(object, "id"))
+            wrapper.name = _get(object, "name")
 
-        wrapper.to_replace = {}
-        for key, value in pairs(_get(object, "properties")) do
-            if meta.is_table(value) then -- object property, evaluated on second pass
-                wrapper.to_replace[key] = _get(value, "id")
-            else
-                wrapper.properties[key] = value
+            wrapper.to_replace = {}
+            for key, value in pairs(_get(object, "properties")) do
+                if meta.is_table(value) then -- object property, evaluated on second pass
+                    wrapper.to_replace[key] = _get(value, "id")
+                else
+                    wrapper.properties[key] = value
+                end
             end
-        end
 
-        wrapper.rotation = math.rad(_get(object, "rotation"))
+            wrapper.rotation = math.rad(_get(object, "rotation"))
+            local skip_wrapper = false
 
-        if object.gid ~= nil then
-            rt.assert(object.shape == "rectangle", "In ow._parse_object_group (", scope, "): object has gid, but is not a rectangle")
+            if object.gid ~= nil then
+                rt.assert(object.shape == "rectangle", "In ow._parse_object_group (", scope, "): object has gid, but is not a rectangle")
 
-            local true_gid, flip_horizontally, flip_vertically = _decode_gid(object.gid)
-            local x, y = _get(object, "x"), _get(object, "y")
-            local width, height = _get(object, "width"), _get(object, "height")
-
-            wrapper:_as_sprite(
-                true_gid,
-                x + group_offset_x,
-                y - height + group_offset_y, -- position
-                width, height, -- size
-                x + group_offset_x, y + group_offset_y,
-                flip_horizontally, flip_vertically, -- flip
-                0.5 * width, 0.5 * height -- flip origin
-            )
-
-            if wrapper.class == nil then wrapper.class = "Sprite" end
-        else
-            local shape_type = _get(object, "shape")
-            if shape_type == "rectangle" then
+                local true_gid, flip_horizontally, flip_vertically = _decode_gid(object.gid)
                 local x, y = _get(object, "x"), _get(object, "y")
                 local width, height = _get(object, "width"), _get(object, "height")
 
-                wrapper:_as_rectangle(
-                    x + group_offset_x, y + group_offset_y, -- top left
+                wrapper:_as_sprite(
+                    true_gid,
+                    x + group_offset_x,
+                    y - height + group_offset_y, -- position
                     width, height, -- size
-                    x + group_offset_x, y + group_offset_y
+                    x + group_offset_x, y + group_offset_y,
+                    flip_horizontally, flip_vertically, -- flip
+                    0.5 * width, 0.5 * height -- flip origin
                 )
 
-            elseif shape_type == "ellipse" then
-                local x = _get(object, "x") + group_offset_x
-                local y = _get(object, "y") + group_offset_y
-                local width = _get(object, "width")
-                local height = _get(object, "height")
+                if wrapper.class == nil then wrapper.class = "Sprite" end
+            else
+                local shape_type = _get(object, "shape")
+                if shape_type == "rectangle" then
+                    local x, y = _get(object, "x"), _get(object, "y")
+                    local width, height = _get(object, "width"), _get(object, "height")
 
-                wrapper:_as_ellipse(
-                    x, -- top left
-                    y,
-                    x + 0.5 * width,   -- center
-                    y + 0.5 * height,
-                    0.5 * width, -- radii
-                    0.5 * height,
-                    x, y
-                )
+                    wrapper:_as_rectangle(
+                        x + group_offset_x, y + group_offset_y, -- top left
+                        width, height, -- size
+                        x + group_offset_x, y + group_offset_y
+                    )
 
-            elseif shape_type == "polygon" then
-                local vertices = {}
-                local offset_x, offset_y = _get(object, "x"), _get(object, "y")
+                elseif shape_type == "ellipse" then
+                    local x = _get(object, "x") + group_offset_x
+                    local y = _get(object, "y") + group_offset_y
+                    local width = _get(object, "width")
+                    local height = _get(object, "height")
 
-                local min_x, min_y = math.huge, math.huge
+                    wrapper:_as_ellipse(
+                        x, -- top left
+                        y,
+                        x + 0.5 * width,   -- center
+                        y + 0.5 * height,
+                        0.5 * width, -- radii
+                        0.5 * height,
+                        x, y
+                    )
 
-                for vertex in values(_get(object, "polygon")) do
-                    local vx, vy = _get(vertex, "x"), _get(vertex, "y")
-                    vx = vx + offset_x + group_offset_x
-                    vy = vy + offset_y + group_offset_y
-                    table.insert(vertices, vx)
-                    table.insert(vertices, vy)
+                elseif shape_type == "polygon" then
+                    local vertices = {}
+                    local offset_x, offset_y = _get(object, "x"), _get(object, "y")
+
+                    local min_x, min_y = math.huge, math.huge
+
+                    for vertex in values(_get(object, "polygon")) do
+                        local vx, vy = _get(vertex, "x"), _get(vertex, "y")
+                        vx = vx + offset_x + group_offset_x
+                        vy = vy + offset_y + group_offset_y
+                        table.insert(vertices, vx)
+                        table.insert(vertices, vy)
+                    end
+
+                    wrapper:_as_polygon(
+                        vertices,
+                        _decompose_polygon(vertices),
+                        offset_x + group_offset_x,
+                        offset_y + group_offset_y
+                    )
+
+                    local origin_x, origin_y = _get(object, "x"), _get(object, "y")
+                    wrapper.rotation_origin_x = origin_x
+                    wrapper.rotation_origin_y = origin_y
+                    wrapper.flip_origin_x = origin_x
+                    wrapper.flip_origin_y = origin_y
+
+                elseif shape_type == "point" then
+                    local x, y = _get(object, "x"), _get(object, "y")
+
+                    wrapper:_as_point(
+                        x + group_offset_x,
+                        y + group_offset_y,
+                        x + group_offset_x,
+                        y + group_offset_y
+                    )
                 end
 
-                wrapper:_as_polygon(
-                    vertices,
-                    _decompose_polygon(vertices),
-                    offset_x + group_offset_x,
-                    offset_y + group_offset_y
-                )
-
-                local origin_x, origin_y = _get(object, "x"), _get(object, "y")
-                wrapper.rotation_origin_x = origin_x
-                wrapper.rotation_origin_y = origin_y
-                wrapper.flip_origin_x = origin_x
-                wrapper.flip_origin_y = origin_y
-
-            elseif shape_type == "point" then
-                local x, y = _get(object, "x"), _get(object, "y")
-
-                wrapper:_as_point(
-                    x + group_offset_x,
-                    y + group_offset_y,
-                    x + group_offset_x,
-                    y + group_offset_y
-                )
+                if wrapper.class == nil or wrapper.class == "" then
+                    if wrapper.type == ow.ObjectType.POINT then
+                        -- skip points, as they have no volume
+                        skip_wrapper = true
+                    else
+                        rt.warning("In ", scope, ": object `", wrapper.id, "` has no class, assuming `Hitbox`")
+                        wrapper.class = "Hitbox"
+                    end
+                end
             end
 
-            if wrapper.class == nil or wrapper.class == "" then
-                if wrapper.type == ow.ObjectType.POINT then
-                    -- skip points, as they have no volume
-                    goto continue
-                else
-                    rt.warning("In ", scope, ": object `", wrapper.id, "` has no class, assuming `Hitbox`")
-                    wrapper.class = "Hitbox"
-                end
+            if not skip_wrapper then
+                table.insert(objects, wrapper)
+                object_id_to_wrapper[wrapper.id] = wrapper
             end
         end
-
-        table.insert(objects, wrapper)
-        object_id_to_wrapper[wrapper.id] = wrapper
-
-        ::continue::
     end
 
     for object in values(objects) do
