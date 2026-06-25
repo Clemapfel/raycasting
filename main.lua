@@ -34,15 +34,16 @@ local routine = rt.Routine(function(routine)
 
         on_update = function(self, delta)
             self.value = self.value + math.random()
+            dbg(self.value)
             return self.value > 200
         end,
 
         on_return = function(self)
             return self.value
         end
-    }):await()
+    })
 
-    dbg("was given: ", give)
+    dbg("was given: ", give:await())
 end)
 
 love.load = function(args)
@@ -100,7 +101,7 @@ love.update = function(delta)
         rt.SceneManager:update(delta)
     end
 
-    --routine:resume()
+    routine:resume()
     --other:resume()
 end
 

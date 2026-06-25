@@ -43,8 +43,8 @@ function rt.Routine.Future:instantiate(
     self._on_return = callbacks.on_return
     self._return_value = nil -- set once
 
+    self._last_timestamp = nil -- set on first _step
     self._state = _STATE_IDLE
-    rt.Routine._notify_future_added(self)
 end
 
 local _assert_is_result = function(scope, result)
@@ -56,8 +56,14 @@ local _assert_is_result = function(scope, result)
 end
 
 --- @brief
-function rt.Routine.Future:step(delta)
+function rt.Routine.Future:_step()
     if self._state == _STATE_DONE then return end
+
+    if self._last_timestamp == nil then self._last_timestamp = love.timer.getTime() end
+
+    local now = love.timer.getTime()
+    local delta = love.timer.getTime() - self._last_timestamp
+    self._last_timestamp = now
 
     if self._state == _STATE_IDLE then
         self._state = _STATE_START
@@ -95,6 +101,7 @@ end
 --- @brief
 function rt.Routine.Future:await()
     while self._state ~= _STATE_DONE do
+        self:_step()
         rt.Routine.yield()
     end
 

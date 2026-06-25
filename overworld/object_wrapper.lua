@@ -629,6 +629,7 @@ function ow.ObjectWrapper:get_string(id, assert_exists)
         end
         return nil
     end
+
     if meta.is_table(out) then
         rt.error("In ow.ObjectWrapper: when trying to access property `", id, "` of object `", self.id, "`: expected `String`, got `Table`")
         return nil

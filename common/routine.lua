@@ -11,12 +11,13 @@ rt.RoutineStatus = {
 }
 rt.RoutineStatus = meta.enum("RoutineStatus", rt.RoutineStatus)
 
+-- override error handler, this is necessary to bubble
+-- up traceback when error is thrown mid-routine
 local coroutine_depth = 0
 local error = _G.error
 local traceback = debug.traceback
 
 _G.error = function(...)
-    -- forward traceback during error
     if coroutine_depth > 0 then
         error(table.concat({ ... }) .. traceback())
     else
@@ -42,35 +43,15 @@ function rt.Routine:instantiate(...)
         if n <= 1 then
             select(1, ...)(self)
         else
-            select(1, ...)(self, select(-1 * (n - 1), ...))
+            select(1, ...)(self, select(-1 * (n - 1), ...)) -- every vararg except first
         end
         self._status = rt.RoutineStatus.DONE
         coroutine_depth = coroutine_depth - 1
     end)
-
-    self._last_resume_timestamp = nil
-    self._futures = meta.make_weak({}) -- ordered
-end
-
---- @brief
-function rt.Routine._notify_future_added(future)
-    meta.assert(future, rt.Routine.Future)
-    table.insert(self._futures, future)
 end
 
 --- @brief
 function rt.Routine:_save_resume(routine, ...)
-    if self._last_resume_timestamp == nil then
-        self._last_resume_timestamp = love.timer.getTime()
-    end
-
-    local now = love.timer.getTime()
-    local delta = now - self._last_resume_timestamp
-    for future in values(self._futures) do
-        future:step(delta)
-    end
-    self._last_resume_timestamp = now
-
     if _G._coroutine.status(routine) ~= "dead" then
         local result = { _G._coroutine.resume(routine, ...) }
         if result[1] ~= true then
@@ -103,16 +84,10 @@ end
 
 --- @brief
 function rt.Routine:barrier(...)
-    if select("#", ...) == 0 then
-        for future in values(self._futures) do
-            future:await()
-        end
-    else
-        for i = 1, select("#", ...) do
-            local future = select(i, ...)
-            meta.assert_typeof(future, rt.Routine.Future, i)
-            future:await()
-        end
+    for i = 1, select("#", ...) do
+        local future = select(i, ...)
+        meta.assert_typeof(future, rt.Routine.Future, i)
+        future:await()
     end
 end
 
