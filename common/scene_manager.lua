@@ -230,6 +230,7 @@ function rt.SceneManager:update(delta)
 
     self._elapsed = self._elapsed + delta
 
+    rt.RoutineManager:step()
     rt.GameState:update(delta)
     rt.InputManager:update(delta)
     rt.Animalese:update(delta)

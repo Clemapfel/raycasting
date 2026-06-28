@@ -62,9 +62,10 @@ function rt.Routine.Future:_step()
     if self._last_timestamp == nil then self._last_timestamp = love.timer.getTime() end
 
     local now = love.timer.getTime()
-    local delta = love.timer.getTime() - self._last_timestamp
+    local delta = now - self._last_timestamp
     self._last_timestamp = now
 
+    -- fall-through intended, all states should be able to be resolved in 1 step
     if self._state == _STATE_IDLE then
         self._state = _STATE_START
     end
@@ -102,7 +103,7 @@ end
 function rt.Routine.Future:await()
     while self._state ~= _STATE_DONE do
         self:_step()
-        rt.Routine.yield()
+        rt.RoutineManager:yield()
     end
 
     return self._return_value
@@ -144,5 +145,3 @@ rt.Routine.Condition = function(condition_callback)
 
     return self
 end
-
-

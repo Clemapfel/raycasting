@@ -7,6 +7,7 @@ require "common.sound_manager"
 require "common.input_manager"
 require "common.routine"
 
+--[[
 -- condition
 local is_hung = false
 local routine = rt.Routine(function(routine)
@@ -45,6 +46,20 @@ local routine = rt.Routine(function(routine)
 
     dbg("was given: ", give:await())
 end)
+]]
+
+local n = 0
+local outer = rt.Routine(function()
+    local inner = rt.Routine(function()
+        println(n)
+        n = n + 1
+    end):resume() -- line 53
+end)
+
+outer:start()
+outer:restart()
+outer:restart()
+outer:restart()
 
 love.load = function(args)
     local w, h = love.graphics.getDimensions()
@@ -100,9 +115,6 @@ love.update = function(delta)
     if rt.SceneManager ~= nil then
         rt.SceneManager:update(delta)
     end
-
-    routine:resume()
-    --other:resume()
 end
 
 love.draw = function()

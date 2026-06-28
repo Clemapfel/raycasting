@@ -182,8 +182,6 @@ function rt.VoronoiTesselation:tesselate()
     self._triangulation = rt.DelaunayTriangulation(self._seeds)
     self._tri_indices = self._triangulation:get_triangle_vertex_map()
 
-    coroutine.yield()
-
     self._tris = {}
     self._polygons = {}
     self._polygon_to_needs_clipping = {}
@@ -319,8 +317,6 @@ function rt.VoronoiTesselation:tesselate()
             end
         end
     end
-
-    coroutine.yield()
 
     local to_remove = {}
 

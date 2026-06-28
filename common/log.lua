@@ -43,12 +43,6 @@ local _fatal_format = {
     bold = true
 }
 
-local _throw = function(message, depth)
-    _G.error_depth = depth
-    _G.error(message)
-end
-
-
 local _to_tag = {
     black         = "\027[30m",
     red           = "\027[31m",
@@ -235,7 +229,7 @@ function log.error(...)
     end
 
     if should_print == true then
-        _throw(message, 1)
+        error(message, 1)
     end
 end
 
@@ -259,7 +253,7 @@ function log.fatal(...)
     end
 
     if should_print == true then
-        _throw(message, 1)
+        error(message, 1)
     end
 end
 

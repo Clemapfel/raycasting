@@ -83,7 +83,7 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
 
         local savepoint = function()
             if (love.timer.getTime() - last) / (1 / 60) > 0.01 then
-                routine.yield()
+                routine:yield()
                 last = love.timer.getTime()
             end
         end
@@ -448,20 +448,7 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
         }
 
         self:signal_emit("done")
-    end)
-end
-
---- @brief
-function ow.NormalMap:update(delta)
-    -- distribute workload over multiple frames
-    if not self._is_done and self._callback:get_status() ~= rt.RoutineStatus.DONE then
-        self._callback:resume()
-
-        if self._callback:get_status() == rt.RoutineStatus.DONE then
-            self._is_done = true
-            self:signal_emit("done")
-        end
-    end
+    end):set_should_resume_automatically(true)
 end
 
 local _chunk_eps = function(chunk)
