@@ -757,7 +757,6 @@ do
 
         local n_rows = math.ceil(width / tile_size)
         local n_columns = math.ceil(height / tile_size)
-        max_range = (max_range * camera:get_final_scale()) ^ 2
 
         local tile_i_to_n_point_lights = {}
         local tile_i_to_n_segment_lights = {}

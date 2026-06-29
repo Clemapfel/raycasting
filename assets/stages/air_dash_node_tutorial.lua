@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 308,
+  nextobjectid = 309,
   properties = {
     ["background_id"] = "\"nebula\""
   },
@@ -555,7 +555,10 @@ return {
             { x = 1024, y = 784 },
             { x = 1584, y = 784 },
             { x = 1584, y = -96 },
-            { x = 0, y = -96 }
+            { x = 382.767, y = -96 },
+            { x = 352, y = -368 },
+            { x = 448, y = -592 },
+            { x = 16, y = -592 }
           },
           properties = {}
         },
@@ -1485,9 +1488,9 @@ return {
           name = "",
           type = "Goal",
           shape = "rectangle",
-          x = 803.529,
+          x = 1144.56,
           y = -1517.35,
-          width = 437.966,
+          width = 96.9349,
           height = 103.362,
           rotation = 0,
           visible = true,
@@ -1506,6 +1509,21 @@ return {
           visible = true,
           properties = {
             ["dialog_id"] = "animalese_test"
+          }
+        },
+        {
+          id = 308,
+          name = "",
+          type = "Fireflies",
+          shape = "point",
+          x = 240,
+          y = -1520,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["count"] = 3
           }
         }
       }

@@ -830,7 +830,7 @@ function ow.Stage:collect_segment_lights(callback)
 
     table.sort(instances, _instance_sort_function)
 
-    instance_to_counts = {}
+    local instance_to_counts = {}
     for instance in values(instances) do
         if not meta.is_function(instance.collect_segment_lights) then
             rt.error("In ow.Stage.collect_segment_lights: instance of type `", meta.typeof(instance), "` is marked as segment light source, but does not implement `collect_segment_lights`")

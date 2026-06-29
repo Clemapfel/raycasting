@@ -312,6 +312,13 @@ function ow.BloodSplatter:collect_segment_lights(bounds, callback)
 
     local hue_threshold = rt.settings.overworld.blood_splatter.hue_difference_threshold
     local x, y, w, h = bounds:unpack()
+
+    local padding = rt.settings.overworld.light_map.light_range
+    x = x - padding
+    y = y - padding
+    w = w + 2 * padding
+    h = h + 2 * padding
+
     x = x - self._offset_x
     y = y - self._offset_y
     for shape in values(self._world:getShapesInArea(

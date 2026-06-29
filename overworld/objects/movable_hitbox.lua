@@ -120,17 +120,9 @@ end
 local dt = math.eps * 10e2
 
 function ow.MovableHitbox:update(delta)
-    if self._normal_map:get_is_done() == false then
-        self._normal_map:update(delta) -- finish loading coroutine
-    end
-
     local is_visible = self._stage:get_is_body_visible(self._body)
 
     if is_visible then
-        if self._normal_map:get_is_done() then
-            self._normal_map:update()
-        end
-
         if self._mirror ~= nil then
             self._mirror:update(delta)
         else
