@@ -35,6 +35,7 @@ function orb.generate_particle_texture()
     particle_shader:bind()
     love.graphics.rectangle("fill", 0, 0, size_x, size_y)
     texture:unbind()
+    particle_shader:unbind()
 
     require "common.filesystem"
     local image = texture:download()

@@ -30,6 +30,8 @@ function rt.ComputeShader:instantiate(filename, defines)
             })
         end
     end
+
+    self._uniform_error_send = {}
 end
 
 --- @brief set uniform
@@ -50,7 +52,10 @@ function rt.ComputeShader:send(name, value, ...)
     if self._native:hasUniform(name) then
         self._native:send(name, table.unpack(args))
     else
-        rt.critical("In rt.ComputeShader: shader at `", self._filename, "` does not have uniform `" .. name .. "`")
+        if self._uniform_error_send[name] ~= true then
+            rt.critical("In rt.ComputeShader: shader at `", self._filename, "` does not have uniform `" .. name .. "`")
+            self._uniform_error_send[name] = true
+        end
     end
 end
 
@@ -110,4 +115,6 @@ function rt.ComputeShader:recompile()
     else
         self._native = shader
     end
+
+    self._uniform_error_send = {}
 end

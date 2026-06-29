@@ -56,7 +56,7 @@ end
 
 --- @brief resume or start a coroutine. Does nothing if routine has already exit
 --- @param routine rt.Routine
---- @param varag any forwarded to routine invocation
+--- @param varag any forwarded to routine:yield
 function rt.RoutineManager:resume(routine, ...)
     if routine ~= nil then
         meta.assert_typeof(routine, rt.Routine, 1)
@@ -66,7 +66,7 @@ function rt.RoutineManager:resume(routine, ...)
     if _G._coroutine.status(native) ~= "dead" then
         _coroutine_depth = _coroutine_depth + 1
         _G.error = _forward_error
-        ;(function(success, ...) -- ; sic, necessary
+        ;(function(success, ...) -- ; sic, necessary too keep anonymous invocation
             _coroutine_depth = _coroutine_depth - 1
             if _coroutine_depth <= 0 then
                 _G.error = _error

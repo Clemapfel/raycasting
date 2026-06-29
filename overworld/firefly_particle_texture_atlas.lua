@@ -3,14 +3,36 @@ require "overworld.firefly_particle"
 --- @class FireflyParticleTextureAtlas
 ow.FireflyParticleTextureAtlas = meta.class("FireflyParticleTextureAtlas")
 
+local _hue_step = 1 / 32
+local _radius_step = 1
+
 --- @brief
 function ow.FireflyParticleTextureAtlas:instantiate(hues, radii)
     meta.assert(hues, mt.Table, radii, mt.Table)
 
     self._hues, self._radii = hues, radii
 
-    table.sort(hues)
-    table.sort(radii)
+    local process = function(to_process, step, min_value)
+        for i, r in ipairs(to_process) do
+            to_process[i] = math.max(min_value or 0, math.floor(r / step) * step)
+        end
+
+        table.sort(to_process)
+
+        local deduped = {}
+        local previous = nil
+        for _, v in ipairs(to_process) do
+            if v ~= previous then
+                table.insert(deduped, v)
+                previous = v
+            end
+        end
+
+        return deduped
+    end
+
+    process(radii, _hue_step)
+    process(hues, _radius_step, 1)
 
     self._canvas_scale = 2.5
     local max_radius = self._canvas_scale * radii[#radii]
@@ -98,6 +120,9 @@ function ow.FireflyParticleTextureAtlas:draw(hue, radius, x, y, scale)
     if DEBUG then meta.assert(hue, mt.Number, radius, mt.Number, x, mt.Number, y, mt.Number) end
     scale = scale or 1
     scale = scale * (1 / self._canvas_scale)
+
+    hue = math.floor(hue * _hue_step) / _hue_step
+    radius = math.floor(radius * _radius_step) / _radius_step
 
     local native = self._texture_atlas:get_native()
     local quad = self._hue_to_radius_to_quad[hue][radius]

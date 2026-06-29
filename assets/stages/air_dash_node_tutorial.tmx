@@ -468,9 +468,6 @@
    </properties>
    <point/>
   </object>
-  <object id="307" type="KillPlane" x="-48" y="-1248">
-   <polygon points="0,0 16,-160 224,-160 160,16"/>
-  </object>
  </objectgroup>
  <objectgroup id="6" name="front"/>
  <layer id="4" name="noop" width="32" height="32">

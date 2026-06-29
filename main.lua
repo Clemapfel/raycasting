@@ -46,7 +46,6 @@ local routine = rt.Routine(function(routine)
 
     dbg("was given: ", give:await())
 end)
-]]
 
 local n = 0
 local outer = rt.Routine(function()
@@ -60,6 +59,7 @@ outer:start()
 outer:restart()
 outer:restart()
 outer:restart()
+]]
 
 love.load = function(args)
     local w, h = love.graphics.getDimensions()
@@ -99,7 +99,7 @@ love.load = function(args)
     end
 
     require "overworld.overworld_scene"
-    rt.SceneManager:push(ow.OverworldScene, "air_dash_node_tutorial", ow.StageEntryMode.TITLE_CARD)
+    rt.SceneManager:push(ow.OverworldScene, "air_dash_node_tutorial", ow.StageEntryMode.INSTANT)
 
     require "menu.keybinding_scene"
     --rt.SceneManager:push(mn.KeybindingScene)

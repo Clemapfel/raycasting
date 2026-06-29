@@ -12,12 +12,6 @@ vec4 effect(vec4 color, sampler2D tex, vec2 texture_coords, vec2 screen_coords) 
 }
 ]])
 
-local _feature_to_define = {
-    ["shaderderivatives"] = "RT_SHADER_DERIVATIVES",
-    ["glsl4"] = "RT_GLSL4",
-    ["glsl3"] = "RT_GLSL3"
-}
-
 --- @brief
 function rt.Shader:instantiate(filename, defines)
     meta.install(self, {
@@ -25,10 +19,9 @@ function rt.Shader:instantiate(filename, defines)
         _filename = filename,
         _defines = defines,
         _before = nil,
-        _is_disabled = false
+        _is_disabled = false,
+        _uniform_to_warning_printed = {}
     })
-
-    self:compile() -- TODO
 end
 
 --- @brief
@@ -38,11 +31,6 @@ function rt.Shader:compile()
     end
 
     if self._defines == nil then self._defines = {} end
-
-    local supported = love.graphics.getSupported()
-    for feature, define in pairs(_feature_to_define) do
-        self._defines[feature] = ternary(supported[feature], define, nil)
-    end
 
     if DEBUG then
         local valid, message = love.graphics.validateShader(true, self._filename, {
@@ -94,7 +82,7 @@ function rt.Shader:send(name, value, ...)
     local args = { value, ... }
     for i, x in ipairs(args) do
         if meta.is_table(x) then
-            if x.get_native ~= nil then
+            if meta.is_function(x.get_native) then
                 args[i] = x:get_native()
             elseif meta.is_function(x.unpack) then
                 args[i] = { x:unpack() }
@@ -105,11 +93,10 @@ function rt.Shader:send(name, value, ...)
     if self._native:hasUniform(name) then
         self._native:send(name, table.unpack(args))
     else
-        if self._uniform_to_warning_printed == nil then self._uniform_to_warning_printed = {} end
-        if self._uniform_to_warning_printed[name] == true then return end
-
-        rt.warning("In rt.Shader: shader at `", self._filename, "` does not have uniform `", name, "`")
-        self._uniform_to_warning_printed[name] = true
+        if self._uniform_to_warning_printed[name] ~= true then
+            rt.critical("In rt.Shader: shader at `", self._filename, "` does not have uniform `", name, "`")
+            self._uniform_to_warning_printed[name] = true
+        end
     end
 end
 
@@ -156,6 +143,8 @@ function rt.Shader:recompile()
     else
         rt.critical("In rt.Shader.recompile: for shader at `", self._filename, "`:\n", native)
     end
+
+    self._uniform_to_warning_printed = {}
 end
 
 --- @brief

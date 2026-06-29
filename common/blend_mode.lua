@@ -1,7 +1,7 @@
 if rt.graphics == nil then rt.graphics = {} end
 
 --- @enum rt.BlendMode
-rt.BlendMode = meta.enum("BlendMode", {
+rt.BlendMode = {
     NONE = -1,
     NORMAL = 0,
     ADD = 1,
@@ -9,7 +9,8 @@ rt.BlendMode = meta.enum("BlendMode", {
     MULTIPLY = 3,
     MIN = 4,
     MAX = 5
-})
+}
+rt.BlendMode = meta.enum("BlendMode", rt.BlendMode)
 
 --- @enum rt.BlendOperation
 rt.BlendOperation = meta.enum("BlendOperation", {

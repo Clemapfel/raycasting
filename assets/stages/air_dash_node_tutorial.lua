@@ -1507,25 +1507,6 @@ return {
           properties = {
             ["dialog_id"] = "animalese_test"
           }
-        },
-        {
-          id = 307,
-          name = "",
-          type = "KillPlane",
-          shape = "polygon",
-          x = -48,
-          y = -1248,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = 0 },
-            { x = 16, y = -160 },
-            { x = 224, y = -160 },
-            { x = 160, y = 16 }
-          },
-          properties = {}
         }
       }
     },

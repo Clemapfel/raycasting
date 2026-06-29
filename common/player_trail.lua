@@ -73,6 +73,7 @@ function rt.PlayerTrail:instantiate(radius)
         local height = width
 
         love.graphics.push("all")
+
         love.graphics.reset()
         self._glow_texture = rt.RenderTexture(width, height)
         self._glow_texture:bind()
@@ -83,6 +84,7 @@ function rt.PlayerTrail:instantiate(radius)
         love.graphics.rectangle("fill", 0, 0, width, height)
         _glow_shader:unbind()
         love.graphics.pop()
+
         self._glow_texture:unbind()
 
         love.graphics.pop()

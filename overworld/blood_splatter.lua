@@ -3,7 +3,7 @@ require "common.contour"
 rt.settings.overworld.blood_splatter = {
     line_width = 3.5,
     subdivision_length = rt.settings.player.radius / 2,
-    hue_difference_threshold = 1 / 12
+    hue_difference_threshold = 1 / 8
 }
 
 -- @class ow.BloodSplatter

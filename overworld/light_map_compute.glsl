@@ -162,6 +162,10 @@ layout(LIGHT_DIRECTION_TEXTURE_FORMAT) uniform writeonly image2D light_direction
 layout(MASK_TEXTURE_FORMAT) uniform readonly image2D mask_texture;
 // r: masked
 
+uniform bool compute_composite;
+layout(COMPOSITE_TEXTURE_FORMAT) uniform writeonly image2D composite_texture;
+// r: intensity
+
 #ifndef LIGHT_RANGE
 #error "LIGHT_RANGE undefined"
 #endif
@@ -183,20 +187,35 @@ float gaussian(float x) {
     return exp(-(x * x));
 }
 
-vec4 compute_light(vec4 light_color, float distance_squared) {
+vec4 compute_light(vec4 light_color, float distance) {
     const float third = 1.0 / 3.0;
     const float inverse_light_range = 1.0 / float(LIGHT_RANGE);
 
-    float dist = sqrt(distance_squared);
-    float attenuation = clamp(gaussian(dist * inverse_light_range), 0.0, 1.0);
+    float attenuation = clamp(gaussian(distance * inverse_light_range), 0.0, 1.0);
     light_color.rgb *= light_color.a;
     return light_color * (attenuation * third);
+}
+
+float compute_composite_intensity(float distance) {
+    const float inverse_light_range = 1.0 / float(LIGHT_RANGE);
+    return clamp(gaussian(distance * inverse_light_range), 0.0, 1.0);
 }
 
 vec4 tonemap(vec4 color) {
     vec3 hdr = color.rgb * INTENSITY;
     vec3 mapped = hdr / (hdr + vec3(1.0));
     return vec4(clamp(mapped, 0.0, 1.0), color.a);
+}
+
+float butterworth(float x) {
+    const float order = 1.8;
+    const float center = 1.0 - 7.0 / 8.0;
+    return 1.0 / sqrt(1.0 + pow(x / center, 2.0 * order));
+}
+
+float tonemap_composite(float alpha) {
+    float value = clamp(alpha / (alpha + 1.0), 0.0, 1.0);
+    return 1.0 - butterworth(value);
 }
 
 // ### MAIN ###
@@ -248,12 +267,6 @@ void computemain() {
 
     if (any(greaterThanEqual(position, image_size))) return;
 
-    if (imageLoad(mask_texture, position).r == 0) {
-        imageStore(light_intensity_texture, position, vec4(1, 1, 1, 0));
-        imageStore(light_direction_texture, position, vec4(0, 0, 1, 1));
-        return;
-    }
-
     // light rgba
     vec4 point_color = vec4(0.0);
     vec4 segment_color = vec4(0.0);
@@ -264,22 +277,28 @@ void computemain() {
 
     const float inv_height = 1.0 / LIGHT_Z_HEIGHT;
 
+    float point_composite = 0.0;
+    float segment_composite = 0.0;
+
     // accumulate point lights
     for (int i = 0; i < n_point_lights; ++i) {
         PointLight light = shared_point_lights[i];
 
         vec2 closest = closest_point_on_disk(vec2(position), light.position, light.radius);
         vec2 direction = closest - vec2(position);
-        float dist_squared = dot(direction, direction);
+        float distance = length(direction);
 
         // color
-        vec4 light_contribution = compute_light(light.color, dist_squared);
+        vec4 light_contribution = compute_light(light.color, distance);
         point_color += light_contribution;
 
         // direction
         float luminance = dot(light_contribution.rgb, luma_coefficients);
         light_direction += luminance * (direction * inv_height);
         light_direction_weight += luminance;
+
+        // composite
+        point_composite += compute_composite_intensity(distance);
     }
 
     // accumulate segment lights
@@ -288,20 +307,35 @@ void computemain() {
 
         vec2 closest_xy = closest_point_on_segment(vec2(position), light.segment);
         vec2 direction = closest_xy - vec2(position);
-        float dist_squared = dot(direction, direction);
+        float distance = length(direction);
 
-        vec4 light_contrib = compute_light(light.color, dist_squared);
+        vec4 light_contrib = compute_light(light.color, distance);
         segment_color += light_contrib;
 
         float luminance = dot(light_contrib.rgb, luma_coefficients);
         light_direction += luminance * (direction * inv_height);
         light_direction_weight += luminance;
+
+        segment_composite += compute_composite_intensity(distance);
     }
 
-    // export rgba
-    imageStore(light_intensity_texture, position, tonemap(point_color + segment_color));
+    if (imageLoad(mask_texture, position).r > 0) {
+        vec4 mapped = tonemap(point_color + segment_color);
 
-    // export mean direction
-    light_direction = (light_direction_weight > 0.0) ? (light_direction / light_direction_weight) : vec2(0.0);
-    imageStore(light_direction_texture, position, vec4(light_direction, 1.0, 1.0));
+        // export rgba
+        imageStore(light_intensity_texture, position, mapped);
+
+        // export mean direction
+        light_direction = (light_direction_weight > 0.0) ? (light_direction / light_direction_weight) : vec2(0.0);
+        imageStore(light_direction_texture, position, vec4(light_direction, 1.0, 1.0));
+    }
+    else {
+        imageStore(light_intensity_texture, position, vec4(1, 1, 1, 0));
+        imageStore(light_direction_texture, position, vec4(0, 0, 1, 1));
+    }
+
+    if (compute_composite) {
+        float composite = tonemap_composite(point_composite + segment_composite);
+        imageStore(composite_texture, position, vec4(composite, 1, 1, 1));
+    }
 }

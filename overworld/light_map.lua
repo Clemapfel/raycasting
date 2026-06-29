@@ -24,6 +24,7 @@ rt.settings.overworld.light_map = {
     intensity_texture_format = rt.TextureFormat.RGBA8,
     direction_texture_format = rt.TextureFormat.RG16F,
     mask_texture_format = rt.TextureFormat.R8,
+    composite_texture_format = rt.TextureFormat.R16F,
 
     min_resize_interval_duration = 60 / 60
 }
@@ -32,6 +33,14 @@ local _use_byte_data = ffi == nil
 
 --- @class ow.LightMap
 ow.LightMap = meta.class("LightMap")
+
+local _composite_shader = rt.Shader("overworld/light_map_composite.glsl")
+
+DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
+    if which == rt.KeyboardKey.Q then
+        _composite_shader:recompile()
+    end
+end)
 
 --- @brief
 function ow.LightMap:instantiate(width, height)
@@ -59,18 +68,27 @@ function ow.LightMap:instantiate(width, height)
         true
     )
 
+    self._composite_texture = rt.RenderTexture(
+        width, height,
+        0,
+        settings.composite_texture_format,
+        true
+    )
+
     self._work_group_size_x = settings.work_group_size_x
     self._work_group_size_y = settings.work_group_size_y
 
     self._dispatch_x = math.ceil(width / self._work_group_size_x)
     self._dispatch_y = math.ceil(height / self._work_group_size_y)
 
+    self._compute_composite_texture = true
 
     local to_glsl = rt.graphics.texture_format_to_glsl_identifier
     self._shader_defines = {
         LIGHT_INTENSITY_TEXTURE_FORMAT = to_glsl(settings.intensity_texture_format),
         LIGHT_DIRECTION_TEXTURE_FORMAT = to_glsl(settings.direction_texture_format),
         MASK_TEXTURE_FORMAT = to_glsl(settings.mask_texture_format),
+        COMPOSITE_TEXTURE_FORMAT = to_glsl(settings.composite_texture_format),
         TILE_SIZE = self._tile_size,
         LIGHT_RANGE = settings.light_range,
         INTENSITY = settings.intensity,
@@ -210,6 +228,7 @@ end
 
 --- @brief
 function ow.LightMap:bind_mask()
+    love.graphics.push()
     self._mask_texture:bind()
     love.graphics.clear(0, 0, 0, 0)
 end
@@ -217,6 +236,7 @@ end
 --- @brief
 function ow.LightMap:unbind_mask()
     self._mask_texture:unbind()
+    love.graphics.pop()
 end
 
 --- @brief
@@ -225,6 +245,8 @@ function ow.LightMap:clear()
     love.graphics.clear(0, 0, 0, 0)
     self._mask_texture:unbind()
 end
+
+local _light_map_guard = nil
 
 do
     local max, min = math.max, math.min
@@ -663,8 +685,19 @@ do
 
         -- early broad-phase rejection
         local bounds_x, bounds_y, bounds_width, bounds_height = stage:get_scene():get_camera():get_world_bounds():unpack()
+
+        local max_range = settings.light_range_threshold
+        local padding = max_range / 2
+        bounds_x = bounds_x - padding
+        bounds_y = bounds_y - padding
+        bounds_width = bounds_width + 2 * padding
+        bounds_height = bounds_height + 2 * padding
+
         local contains_point = function(x, y, r)
-            return x >= bounds_x - r and x <= bounds_x + bounds_width + r and y >= bounds_y - r and y <= bounds_y + bounds_height + r
+            return x >= bounds_x - r
+                and x <= bounds_x + bounds_width + r
+                and y >= bounds_y - r
+                and y <= bounds_y + bounds_height + r
         end
 
         local contains_segment = function(ax, ay, bx, by)
@@ -700,8 +733,8 @@ do
             end
 
             local hash = _hash_segment(x1, y1, x2, y2, color_r, color_g, color_b, color_a)
-            if _point_hashes[hash] == true then return end
-            _point_hashes[hash] = true
+            if _segment_hashes[hash] == true then return end -- note: was incorrectly using _point_hashes here
+            _segment_hashes[hash] = true
 
             if color_a > 0 and contains_segment(x1, y1, x2, y2) then
                 segment_light_i, n_segment_lights = add_segment_light(segment_light_buffer_data, n_segment_lights, max_n_segment_lights, segment_light_i, segment_light_buffer_n_elements, world_to_screen_transform, x1, y1, x2, y2, color_r, color_g, color_b, color_a)
@@ -724,7 +757,6 @@ do
 
         local n_rows = math.ceil(width / tile_size)
         local n_columns = math.ceil(height / tile_size)
-        local max_range = settings.light_range_threshold
         max_range = (max_range * camera:get_final_scale()) ^ 2
 
         local tile_i_to_n_point_lights = {}
@@ -802,12 +834,13 @@ do
         shader:send("light_intensity_texture", self._light_intensity_texture)
         shader:send("light_direction_texture", self._light_direction_texture)
         shader:send("mask_texture", self._mask_texture)
+        shader:send("composite_texture", self._composite_texture)
+        shader:send("compute_composite", self._compute_composite_texture)
         shader:dispatch(self._dispatch_x, self._dispatch_y)
 
         -- resize logic
 
         do
-
             -- measure usage above buffer
             local n_segment_lights_per_tile = 0
             local n_point_lights_per_tile = 0
@@ -935,7 +968,26 @@ do
 end
 
 --- @brief
-function ow.LightMap:draw()
+function ow.LightMap:composite(strength)
+    if strength == nil then strength = 1 end
+    meta.assert(strength, mt.Number)
+
+    strength = 1;
+
+    love.graphics.push("all")
+    love.graphics.origin()
+
+    rt.graphics.set_blend_mode(rt.BlendMode.MULTIPLY, rt.BlendMode.MULTIPLY)
+
+    _composite_shader:bind()
+    _composite_shader:send("light_intensity_texture", self._light_intensity_texture)
+    _composite_shader:send("light_direction_texture", self._light_direction_texture)
+    _composite_shader:send("mask_texture", self._mask_texture)
+    _composite_shader:send("composite_texture", self._composite_texture)
+    love.graphics.rectangle("fill", 0, 0, love.graphics.getDimensions())
+    _composite_shader:unbind()
+
+    love.graphics.pop()
 end
 
 --- @brief
