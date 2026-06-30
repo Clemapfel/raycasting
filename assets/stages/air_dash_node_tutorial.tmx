@@ -15,7 +15,7 @@
    <properties>
     <property name="type" value="spheres"/>
    </properties>
-   <polygon points="-1936,784 1168,768 1168,-1600 -1760,-1584"/>
+   <polygon points="-1936,784 1168,768 1168,-1600 -967.617,-794.688"/>
   </object>
  </objectgroup>
  <objectgroup id="7" name="back">

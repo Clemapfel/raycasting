@@ -27,7 +27,7 @@ rt.settings.overworld.light_map = {
     composite_texture_format = rt.TextureFormat.R16F,
 
     min_resize_interval_duration = 60 / 60,
-    default_composite_strength = 1.0, -- [0, 1]
+    default_composite_strength = 0.7, -- [0, 1]
 }
 
 local _use_byte_data = ffi == nil

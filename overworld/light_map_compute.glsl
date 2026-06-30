@@ -341,18 +341,14 @@ void computemain() {
         light_direction = (light_direction_weight > 0.0) ? (light_direction / light_direction_weight) : vec2(0.0);
         imageStore(light_direction_texture, position, vec4(light_direction, 1.0, 1.0));
     }
-    else {
-        imageStore(light_intensity_texture, position, vec4(1, 1, 1, 0));
-        imageStore(light_direction_texture, position, vec4(0, 0, 1, 1));
-    }
 
     if (should_compute_composite) {
         vec4 bloom = imageLoad(bloom_texture, position + ivec2(bloom_padding.x, bloom_padding.y));
-        //float bloom_luminocity = dot(bloom.rgb, vec3(0.2126, 0.7152, 0.0722));
+        float bloom_luminocity = dot(bloom.rgb, luma_coefficients);
         float composite = tonemap_composite(
             point_composite
             + segment_composite
-            + max(max(bloom.r, bloom.g), bloom.b)
+            + bloom_luminocity
         );
         imageStore(composite_texture, position, vec4(composite, 1, 1, 1));
     }

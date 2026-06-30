@@ -22,7 +22,7 @@ rt.settings.overworld.normal_map = {
 ow.NormalMap = meta.class("NormalMap")
 meta.add_signal(ow.NormalMap, "done")
 
-local _is_disabled = false -- TODO
+local _is_disabled = true -- TODO
 
 local _mask_texture_format = rt.TextureFormat.R8  -- used to store alpha of walls
 local _jfa_texture_format = rt.TextureFormat.RGBA32F -- used during JFA
@@ -77,9 +77,7 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
     local last = love.timer.getTime()
 
     self._callback = rt.Routine(function(routine)
-        if _is_disabled then
-            assert(false, "NormalMap was intentionally disabled")
-        end
+        if _is_disabled then return end
 
         local savepoint = function()
             if (love.timer.getTime() - last) / (1 / 60) > 0.01 then
@@ -354,9 +352,12 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
         local render_atlas_n_rows = math.ceil(math.sqrt(n_chunks))
         local render_atlas_n_columns = math.ceil(math.sqrt(n_chunks))
 
+        local atlas_border = 2 -- transparent px border around each tile
+        local atlas_tile_size = chunk_size + 2 * atlas_border -- tile slot size in atlas
+
         self._texture_atlas = rt.RenderTexture(
-            render_atlas_n_rows * chunk_size,
-            render_atlas_n_columns * chunk_size,
+            render_atlas_n_rows * atlas_tile_size,
+            render_atlas_n_columns * atlas_tile_size,
             0,
             _normal_map_texture_format,
             true
@@ -365,10 +366,18 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
         for i, chunk in ipairs(self._non_empty_chunks) do
             local col = (i - 1) % render_atlas_n_columns
             local row = math.floor((i - 1) / render_atlas_n_columns)
-            local x = col * chunk_size
-            local y = row * chunk_size
 
-            chunk.quad = { x, y, chunk_size, chunk_size }
+            local slot_x = col * atlas_tile_size
+            local slot_y = row * atlas_tile_size
+
+            chunk.quad = {
+                slot_x + atlas_border,
+                slot_y + atlas_border,
+                chunk_size,
+                chunk_size
+            }
+
+            chunk.slot_quad = { slot_x, slot_y, atlas_tile_size, atlas_tile_size }
         end
 
         local dispatch_size_x, dispatch_size_y = math.ceil(chunk_size + 2 * padding) / size_x,
@@ -418,13 +427,12 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
                 savepoint()
             end
 
-            -- export final result
             _export_shader:send("final_layer", current_layer)
             _export_shader:send("mask_texture", mask)
             _export_shader:send("jfa_texture_array", jfa_texture)
             _export_shader:send("export_texture", self._texture_atlas)
-            _export_shader:send("export_texture_quad", { self._quad:getViewport() })
-            _export_shader:send("texture_atlas_quad", chunk.quad)
+            _export_shader:send("export_texture_quad", { self._quad:getViewport() }) -- exclude border
+            _export_shader:send("texture_atlas_quad", chunk.quad)  -- interior only; border stays transparent
             _export_shader:send("max_distance", rt.settings.overworld.normal_map.max_distance)
             _export_shader:dispatch(dispatch_size_x, dispatch_size_y)
 
@@ -443,6 +451,7 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
             chunks = self._chunks,
             chunk_size = self._chunk_size,
             chunk_padding = self._chunk_padding,
+            atlas_border = atlas_border,
             bounds = self._bounds,
             texture_atlas = self._texture_atlas
         }

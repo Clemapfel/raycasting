@@ -688,34 +688,6 @@ function ow.OverworldScene:draw()
         return
     end
 
-    -- update bloom
-    if rt.GameState:get_is_bloom_enabled() then
-        local bloom = rt.SceneManager:get_bloom()
-        bloom:bind()
-        love.graphics.clear(0, 0, 0, 0)
-        self._camera:bind()
-
-        if self._player_is_visible then
-            self._player:draw_bloom()
-        end
-
-        if self._state ~= _STATE_TITLE_CARD then
-            self._stage:draw_bloom()
-        end
-
-        self._camera:unbind()
-
-        if self._title_card:get_is_active() then
-            self._title_card:draw_bloom()
-        end
-
-        if self._countdown:get_is_active() then
-            self._countdown:draw_bloom()
-        end
-
-        bloom:unbind()
-    end
-
     local draw_below = function()
         love.graphics.push()
         love.graphics.origin()
@@ -746,15 +718,11 @@ function ow.OverworldScene:draw()
         self._camera:unbind()
 
         if rt.GameState:get_is_dynamic_lighting_enabled() then
-            rt.SceneManager:get_light_map():composite(
-                rt.settings.overworld_scene.light_map_strength
-            )
+            rt.SceneManager:get_light_map():composite()
         end
 
         if rt.GameState:get_is_bloom_enabled() then
-            rt.SceneManager:get_bloom():composite(
-                rt.settings.overworld_scene.bloom_composite_strength
-            )
+            rt.SceneManager:get_bloom():composite()
         end
 
         self._camera:bind()
@@ -806,6 +774,33 @@ function ow.OverworldScene:draw()
     end
 
     -- draw
+    if rt.GameState:get_is_bloom_enabled() then
+        local bloom = rt.SceneManager:get_bloom()
+        bloom:bind()
+        love.graphics.clear(0, 0, 0, 0)
+        self._camera:bind()
+
+        if self._player_is_visible then
+            self._player:draw_bloom()
+        end
+
+        if self._state ~= _STATE_TITLE_CARD then
+            self._stage:draw_bloom()
+        end
+
+        self._camera:unbind()
+
+        if self._title_card:get_is_active() then
+            self._title_card:draw_bloom()
+        end
+
+        if self._countdown:get_is_active() then
+            self._countdown:draw_bloom()
+        end
+
+        bloom:unbind()
+    end
+
     local blur_value = self._blur_motion:get_value()
     local use_blur = blur_value > 0.01 and self._screenshot_active ~= true
     if use_blur then
