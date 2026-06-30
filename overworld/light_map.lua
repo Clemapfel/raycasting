@@ -1006,9 +1006,11 @@ function ow.LightMap:composite(strength)
     rt.graphics.set_blend_mode(rt.BlendMode.MULTIPLY, rt.BlendMode.MULTIPLY)
 
     _composite_shader:bind()
+    --[[
     _composite_shader:send("light_intensity_texture", self._light_intensity_texture)
     _composite_shader:send("light_direction_texture", self._light_direction_texture)
     _composite_shader:send("mask_texture", self._mask_texture)
+    ]]
     _composite_shader:send("composite_texture", self._composite_texture)
     _composite_shader:send("strength", strength)
     love.graphics.rectangle("fill", 0, 0, love.graphics.getDimensions())

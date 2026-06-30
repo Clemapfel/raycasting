@@ -6,7 +6,6 @@
 
 uniform vec2 texel_size;
 uniform float bloom_strength;
-//uniform sampler2D current_mip;
 
 #if KERNEL_SIZE == 3
 
@@ -70,7 +69,7 @@ vec4 effect(vec4 _, sampler2D img, vec2 texture_coords, vec2 frag_position) {
     vec2 uv = texture_coords;
 
     vec4 color = vec4(0.0);
-    for (int i = 0; i < KERNEL_SIZE; i++) {
+    for (int i = 0; i < kernel.length(); i++) {
         color += texture(img, uv + offsets[i] * texel_size) * kernel[i];
     }
 

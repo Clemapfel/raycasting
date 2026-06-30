@@ -303,19 +303,6 @@ function rt.SceneManager:draw(...)
     if use_hdr then
         self._hdr:unbind()
         self._hdr:draw()
-
-        --[[
-        if self._current_scene ~= nil then
-            self._current_scene:draw(...)
-        end
-
-        local value = 243
-        rt.graphics.set_stencil_mode(value, rt.StencilMode.DRAW)
-        love.graphics.rectangle("fill", 0, 0, 0.5 * love.graphics.getWidth(), love.graphics.getHeight())
-        rt.graphics.set_stencil_mode(value, rt.StencilMode.TEST, rt.StencilCompareMode.EQUAL)
-        self._hdr:draw()
-        rt.graphics.set_stencil_mode(nil)
-        ]]
     end
 
     if self._is_cursor_visible then
@@ -331,9 +318,12 @@ function rt.SceneManager:resize(width, height)
     self._height = height
 
     if rt.GameState:get_is_hdr_enabled() then
-        if self._hdr == nil then
+        if self._hdr == nil
+            or self._hdr:get_msaa() ~= rt.GameState:get_msaa_quality()
+        then
             self._hdr = rt.HDR()
         end
+
         self._hdr:reinitialize(width, height)
     end
 

@@ -61,16 +61,17 @@ vec2(-3,  3), vec2(-2,  3), vec2(-1,  3), vec2(0,  3), vec2(1,  3), vec2(2,  3),
 );
 
 #else
-#error "unsupported KERNEL_SIZE, expected 3, 5, 7"
+#error "unsupported KERNEL_SIZE, expected 3, 5, 7, 11, or 13"
 #endif
 
 vec4 effect(vec4 vertex_color, sampler2D img, vec2 texture_coords, vec2 frag_position) {
     vec2 uv = texture_coords;
 
     vec4 color = vec4(0.0);
-    for (int i = 0; i < KERNEL_SIZE; i++) {
+    for (int i = 0; i < kernel.length(); i++) {
         color += texture(img, uv + offsets[i] * texel_size) * kernel[i];
     }
+
     return color;
 }
 

@@ -55,3 +55,8 @@ end
 function rt.HDR:get_native()
     return self._texture:get_native()
 end
+
+--- @brief
+function rt.HDR:get_msaa()
+    return self._texture:get_msaa()
+end

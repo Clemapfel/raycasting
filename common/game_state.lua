@@ -135,7 +135,6 @@ function rt.GameState:set_is_hdr_enabled(b)
     bd.get_config().is_hdr_enabled = b
 end
 
-
 --- @brief
 function rt.GameState:get_is_dynamic_lighting_enabled()
     return bd.get_config().is_dynamic_lighting_enabled

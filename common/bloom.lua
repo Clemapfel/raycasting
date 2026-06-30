@@ -1,7 +1,7 @@
 rt.settings.bloom = {
     default_blur_strength = 1.45,
     default_composite_strength = 0.1,
-    msaa = 0,
+    msaa = 2,
     texture_format = rt.TextureFormat.RG11B10F,
 }
 
@@ -49,50 +49,6 @@ function rt.Bloom:instantiate(width, height, padding)
     self._update_needed = true
 end
 
---- @brief
-function rt.Bloom:_apply_bloom()
-    local n_levels = #self._textures
-
-    love.graphics.push("all")
-    love.graphics.origin()
-
-    -- downsample
-    love.graphics.setShader(_downsample_shader:get_native())
-    for level = 2, n_levels do
-        local source = self._textures[level - 1] -- Table<love.Canvas>
-        local destination = self._textures[level]
-        local mesh = self._meshes[level]:get_native()
-
-        _downsample_shader:send("texel_size", { 1 / destination:get_width(), 1 / destination:get_height()})
-
-        love.graphics.setCanvas(destination:get_native())
-        love.graphics.clear(0, 0, 0, 0)
-
-        mesh:setTexture(source:get_native())
-        love.graphics.draw(mesh)
-    end
-
-    -- upsample
-    love.graphics.setShader(_upsample_shader:get_native())
-    love.graphics.setBlendMode("add", "premultiplied")
-
-    for level = n_levels, 2, -1 do
-        local source = self._textures[level]
-        local destination = self._textures[level - 1]
-        local mesh = self._meshes[level - 1]:get_native()
-
-        _upsample_shader:send("texel_size", { 1 / destination:get_width(), 1 / destination:get_height()})
-        _upsample_shader:send("bloom_strength", self._bloom_strength)
-
-        love.graphics.setCanvas(destination:get_native())
-
-        mesh:setTexture(source:get_native())
-        love.graphics.draw(mesh)
-    end
-
-    love.graphics.pop()
-end
-
 local _before
 local lg = love.graphics
 
@@ -138,6 +94,56 @@ end
 --- @brief
 function rt.Bloom:get_bloom_strength(strength)
     return self._bloom_strength
+end
+
+function rt.Bloom:_apply_bloom()
+    local n_levels = #self._textures
+
+    love.graphics.push("all")
+    love.graphics.origin()
+
+    -- downsample
+    _downsample_shader:bind()
+    for level = 2, n_levels do
+        local source = self._textures[level - 1] -- Table<love.Canvas>
+        local destination = self._textures[level]
+        local mesh = self._meshes[level]
+
+        _downsample_shader:send("texel_size", { 1 / destination:get_width(), 1 / destination:get_height()})
+
+        destination:bind()
+        love.graphics.clear(0, 0, 0, 0)
+
+        mesh:set_texture(source)
+        mesh:draw()
+
+        destination:unbind()
+    end
+
+    _downsample_shader:unbind()
+
+    -- upsample
+    _upsample_shader:bind()
+    _upsample_shader:send("bloom_strength", self._bloom_strength)
+    love.graphics.setBlendMode("add", "premultiplied")
+
+    for level = n_levels, 2, -1 do
+        local source = self._textures[level]
+        local destination = self._textures[level - 1]
+        local mesh = self._meshes[level - 1]
+
+        _upsample_shader:send("texel_size", { 1 / destination:get_width(), 1 / destination:get_height()})
+
+        destination:bind()
+
+        mesh:set_texture(source)
+        mesh:draw()
+
+        destination:unbind()
+    end
+    _upsample_shader:unbind()
+
+    love.graphics.pop()
 end
 
 --- @brief
