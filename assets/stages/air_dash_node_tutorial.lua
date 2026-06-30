@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 309,
+  nextobjectid = 312,
   properties = {
     ["background_id"] = "\"nebula\""
   },
@@ -52,7 +52,29 @@ return {
       parallaxx = 1,
       parallaxy = 1,
       properties = {},
-      objects = {}
+      objects = {
+        {
+          id = 160,
+          name = "",
+          type = "Wall",
+          shape = "polygon",
+          x = 1408,
+          y = -736,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = -1936, y = 784 },
+            { x = 1168, y = 768 },
+            { x = 1168, y = -1600 },
+            { x = -1760, y = -1584 }
+          },
+          properties = {
+            ["type"] = "spheres"
+          }
+        }
+      }
     },
     {
       type = "objectgroup",
@@ -115,27 +137,6 @@ return {
           }
         },
         {
-          id = 160,
-          name = "",
-          type = "Wall",
-          shape = "polygon",
-          x = 1408,
-          y = -736,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = 768 },
-            { x = 1168, y = 768 },
-            { x = 1168, y = -1600 },
-            { x = 0, y = -1600 }
-          },
-          properties = {
-            ["type"] = "spheres"
-          }
-        },
-        {
           id = 162,
           name = "",
           type = "OneWayPlatform",
@@ -189,6 +190,53 @@ return {
           height = 0,
           rotation = 0,
           visible = true,
+          properties = {}
+        },
+        {
+          id = 309,
+          name = "",
+          type = "OneWayPlatform",
+          shape = "point",
+          x = 208,
+          y = -1360,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["other"] = { id = 310 }
+          }
+        },
+        {
+          id = 310,
+          name = "",
+          type = "OneWayPlatformNode",
+          shape = "point",
+          x = 304,
+          y = -1360,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 311,
+          name = "AcceleratorSurface",
+          type = "AcceleratorSurface",
+          shape = "polygon",
+          x = 704,
+          y = -1248,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 0, y = -416 },
+            { x = 48, y = -416 },
+            { x = 48, y = 0 }
+          },
           properties = {}
         }
       }
@@ -556,8 +604,8 @@ return {
             { x = 1584, y = 784 },
             { x = 1584, y = -96 },
             { x = 382.767, y = -96 },
-            { x = 352, y = -368 },
-            { x = 448, y = -592 },
+            { x = 384, y = -336 },
+            { x = 384, y = -592 },
             { x = 16, y = -592 }
           },
           properties = {}

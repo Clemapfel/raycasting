@@ -463,7 +463,8 @@ function ow.FireflyManager:update(delta)
         return math.sqrt(x)
     end
 
-    local padding = rt.settings.overworld.firefly_manager.max_radius_factor * rt.settings.overworld.fireflies.radius
+    require "overworld.light_map"
+    local padding = rt.settings.overworld.light_map.light_range * 2
     local bounds_x, bounds_y, bounds_w, bounds_h = self._scene:get_camera():get_world_bounds():unpack()
     bounds_x = bounds_x - padding
     bounds_y = bounds_y - padding
@@ -627,6 +628,32 @@ function ow.FireflyManager:draw()
 
     rt.graphics.set_blend_mode(rt.BlendMode.ADD, rt.BlendMode.NORMAL)
     rt.Palette.TRUE_WHITE:bind()
+
+    local atlas = self._stage.firefly_particle_texture_atlas
+    for _, i in ipairs(self._visible_data_is) do
+        local alpha = data[i + _glow_value_offset] * composition_opacity
+        love.graphics.setColor(1, 1, 1, 1)
+        atlas:draw(
+            data[i + _hue_offset],
+            data[i + _radius_offset],
+            data[i + _x_offset],
+            data[i + _y_offset]
+        )
+    end
+
+    love.graphics.pop()
+end
+
+--- @brief
+function ow.FireflyManager:draw_bloom()
+    love.graphics.push("all")
+
+    local data = self._data
+    rt.graphics.set_blend_mode(rt.BlendMode.NORMAL, rt.BlendMode.NORMAL)
+    love.graphics.setLineWidth(2)
+    love.graphics.setLineStyle("smooth")
+    local core_radius = rt.settings.overworld.firefly_particle.core_radius_factor
+    local composition_opacity = rt.settings.overworld.firefly_manager.composition_opacity
 
     local atlas = self._stage.firefly_particle_texture_atlas
     for _, i in ipairs(self._visible_data_is) do

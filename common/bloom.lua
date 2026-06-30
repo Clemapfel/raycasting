@@ -1,5 +1,5 @@
 rt.settings.bloom = {
-    default_blur_strength = 1.2,
+    default_blur_strength = 1.45,
     default_composite_strength = 0.1,
     msaa = 0,
     texture_format = rt.TextureFormat.RG11B10F,
@@ -8,8 +8,9 @@ rt.settings.bloom = {
 --- @class rt.Bloom
 rt.Bloom = meta.class("Bloom")
 
-local _downsample_shader = rt.Shader("common/bloom_downsample.glsl")
-local _upsample_shader = rt.Shader("common/bloom_upsample.glsl")
+local _kernel_size = 5
+local _downsample_shader = rt.Shader("common/bloom_downsample.glsl", { KERNEL_SIZE = _kernel_size })
+local _upsample_shader = rt.Shader("common/bloom_upsample.glsl", { KERNEL_SIZE = _kernel_size })
 local _tonemap_shader = rt.Shader("common/bloom_tone_map.glsl")
 
 --- @brief
@@ -27,9 +28,14 @@ function rt.Bloom:instantiate(width, height, padding)
         local level = 1
         while (w > 8 or h > 8) do
             local mesh = rt.MeshRectangle(0, 0, w, h)
-            local texture = rt.RenderTexture(w, h, rt.settings.bloom.msaa, rt.settings.bloom.texture_format)
+            local texture = rt.RenderTexture(w, h,
+                rt.settings.bloom.msaa,
+                rt.settings.bloom.texture_format,
+                level == 1 -- allow computewrite
+            )
+
             mesh:set_texture(texture)
-            texture:set_wrap_mode(rt.TextureWrapMode.CLAMP)
+            texture:set_wrap_mode(rt.TextureWrapMode.ZERO)
             texture:set_scale_mode(rt.TextureScaleMode.LINEAR, rt.TextureScaleMode.LINEAR)
             table.insert(self._textures, texture)
             table.insert(self._meshes, mesh)
@@ -49,7 +55,12 @@ local lg = love.graphics
 --- @brief
 function rt.Bloom:_bind_padding()
     -- why is this not necessary?
-    --love.graphics.translate(-self._padding, -self._padding)
+    --love.graphics.translate(self._padding, self._padding)
+end
+
+--- @brief
+function rt.Bloom:get_padding()
+    return 0, 0 --self._padding, self._padding
 end
 
 --- @brief
@@ -67,6 +78,14 @@ function rt.Bloom:unbind()
 end
 
 --- @brief
+function rt.Bloom:flush()
+    if self._update_needed then
+        self:_apply_bloom()
+        self._update_needed = false
+    end
+end
+
+--- @brief
 function rt.Bloom:set_bloom_strength(strength)
     self._bloom_strength = math.max(strength, 0)
     self._update_needed = true
@@ -78,7 +97,6 @@ function rt.Bloom:get_bloom_strength(strength)
 end
 
 function rt.Bloom:_apply_bloom()
-    local lg = love.graphics
     local n_levels = #self._textures
 
     love.graphics.push("all")
@@ -86,7 +104,7 @@ function rt.Bloom:_apply_bloom()
 
     -- downsample
     for level = 2, n_levels do
-        local source = self._textures[level - 1]
+        local source = self._textures[level - 1] -- Table<love.Canvas>
         local destination = self._textures[level]
         local mesh = self._meshes[level]
 
@@ -118,15 +136,14 @@ function rt.Bloom:_apply_bloom()
 
         destination:bind()
 
-        if level - 1 > 1 then
-            love.graphics.clear(0, 0, 0, 0)
-        end
+        love.graphics.setBlendMode("add", "premultiplied")
 
         mesh:set_texture(source)
         mesh:draw()
 
-        destination:unbind()
+        love.graphics.setBlendMode("alpha")
 
+        destination:unbind()
         _upsample_shader:unbind()
     end
 
@@ -149,10 +166,7 @@ end
 
 --- @brief
 function rt.Bloom:draw_internal()
-    if self._update_needed then
-        self:_apply_bloom()
-        self._update_needed = false
-    end
+    self:flush()
 
     if rt.GameState:get_is_hdr_enabled() then
         love.graphics.draw(self._textures[1]:get_native())
@@ -161,6 +175,11 @@ function rt.Bloom:draw_internal()
         love.graphics.draw(self._textures[1]:get_native())
         _tonemap_shader:unbind()
     end
+end
+
+--- @brief
+function rt.Bloom:get_texture()
+    return self._textures[1]
 end
 
 --- @brief

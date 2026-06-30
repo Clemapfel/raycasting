@@ -196,16 +196,18 @@ function ow.Goal:instantiate(object, stage, scene)
             local x, y, width, height = self._bounds:unpack()
             x, y = -0.5 * width, -0.5 * height
 
-            self._outline_mesh = create_mesh(
-                x, y,
-                x + width, y + height ,
-                rt.settings.overworld.checkpoint_rope.radius
-            )
-
             local tlx, tly = math.rotate(x, y, self._rotation)
             local trx, try = math.rotate(x + width, y, self._rotation)
             local brx, bry = math.rotate(x + width, y + height, self._rotation)
             local blx, bly = math.rotate(x, y + height, self._rotation)
+
+            self._outline = {
+                tlx, tly,
+                trx, try,
+                brx, bry,
+                blx, bly,
+                tlx, tly
+            }
 
             self._path = rt.Path(
                 tlx, tly, trx, try, brx, bry, blx, bly, tlx, tly
@@ -402,13 +404,8 @@ function ow.Goal:draw(priority)
         if self._is_shattered == false then
             love.graphics.push()
             love.graphics.rotate(self._rotation)
-            _outline_shader:bind()
-            _outline_shader:send("elapsed", rt.SceneManager:get_elapsed())
-            _outline_shader:send("color", { self._color:unpack() })
-            _outline_shader:send("brightness_scale", brightness_scale)
-            _outline_shader:send("bloom_active", false)
-            self._outline_mesh:draw()
-            _outline_shader:unbind()
+            love.graphics.setLineWidth(2)
+            love.graphics.line(self._outline)
             love.graphics.pop()
 
             -- dont draw time until result screen for suspense
@@ -442,14 +439,15 @@ function ow.Goal:draw_bloom()
     if not self._stage:get_is_body_visible(self._body) then return end
 
     if self._is_shattered == false then
+        self._color:bind()
+
         self._shatter_surface:draw_bloom()
 
-        _outline_shader:bind()
-        _outline_shader:send("elapsed", rt.SceneManager:get_elapsed())
-        _outline_shader:send("color", { self._color:unpack() })
-        _outline_shader:send("bloom_active", false)
-        self._outline_mesh:draw()
-        _outline_shader:unbind()
+        love.graphics.push()
+        love.graphics.rotate(self._rotation)
+        love.graphics.setLineWidth(2)
+        love.graphics.line(self._outline)
+        love.graphics.pop()
     end
 end
 

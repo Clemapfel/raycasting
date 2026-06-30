@@ -16,7 +16,7 @@ rt.settings.overworld.accelerator_surface = {
     },
 
     outline_width = 2,
-    bloom_intensity = 0.25,
+    bloom_intensity = 1.0,
     point_light_particle_radius = 1,
     point_light_particle_alpha = 0.25
 }
@@ -423,9 +423,7 @@ end
 
 --- @brief
 function ow.AcceleratorSurface:draw_bloom()
-    if not self._is_visible
-        or not self._stage:get_is_body_visible(self._body)
-    then return end
+    if not self._stage:get_is_body_visible(self._body) then return end
 
     love.graphics.push()
     local offset_x, offset_y = self._body:get_position()

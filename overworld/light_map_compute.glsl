@@ -153,6 +153,14 @@ int get_segment_light_index(int tile_offset, int i) {
 #error "MASK_TEXTURE_FORMAT undefined"
 #endif
 
+#ifndef BLOOM_TEXTURE_FORMAT
+#error "BLOOM_TEXTURE_FORMAT undefined"
+#endif
+
+#ifndef COMPOSITE_TEXTURE_FORMAT
+#error "COMPOSITE_TEXTURE_FORMAT undefined"
+#endif
+
 layout(LIGHT_INTENSITY_TEXTURE_FORMAT) uniform writeonly image2D light_intensity_texture;
 // rgb: light color, a: intensity
 
@@ -162,7 +170,11 @@ layout(LIGHT_DIRECTION_TEXTURE_FORMAT) uniform writeonly image2D light_direction
 layout(MASK_TEXTURE_FORMAT) uniform readonly image2D mask_texture;
 // r: masked
 
-uniform bool compute_composite;
+uniform vec2 bloom_padding;
+layout(BLOOM_TEXTURE_FORMAT) uniform readonly image2D bloom_texture;
+// rgb: color, a: unused
+
+uniform bool should_compute_composite;
 layout(COMPOSITE_TEXTURE_FORMAT) uniform writeonly image2D composite_texture;
 // r: intensity
 
@@ -197,7 +209,7 @@ vec4 compute_light(vec4 light_color, float distance) {
 }
 
 float compute_composite_intensity(float distance) {
-    const float inverse_light_range = 1.0 / float(LIGHT_RANGE);
+    const float inverse_light_range = 1.0 / float(LIGHT_RANGE * 2);
     return clamp(gaussian(distance * inverse_light_range), 0.0, 1.0);
 }
 
@@ -334,8 +346,14 @@ void computemain() {
         imageStore(light_direction_texture, position, vec4(0, 0, 1, 1));
     }
 
-    if (compute_composite) {
-        float composite = tonemap_composite(point_composite + segment_composite);
+    if (should_compute_composite) {
+        vec4 bloom = imageLoad(bloom_texture, position + ivec2(bloom_padding.x, bloom_padding.y));
+        //float bloom_luminocity = dot(bloom.rgb, vec3(0.2126, 0.7152, 0.0722));
+        float composite = tonemap_composite(
+            point_composite
+            + segment_composite
+            + max(max(bloom.r, bloom.g), bloom.b)
+        );
         imageStore(composite_texture, position, vec4(composite, 1, 1, 1));
     }
 }

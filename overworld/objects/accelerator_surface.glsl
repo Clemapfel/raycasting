@@ -250,8 +250,8 @@ vec4 effect(vec4 color, sampler2D tex, vec2 texture_coords, vec2 screen_coords) 
     float shadow_attenuation = gaussian(dist, shadow_attenuation_sigma);
 
     float noise = gradient_noise(vec3(world_pos * noise_scale, elapsed * time_scale));
-    return 0.9 * texture(tex, texture_coords) * vec4(
-        lch_to_rgb(vec3(0.8, 1.0, noise * 2.0)) - shadow_attenuation, // darken around player to stand out from outline better
+    return color * vec4(
+        lch_to_rgb(vec3(0.6, 1.0, noise * 2.0)) - shadow_attenuation, // darken around player to stand out from outline better
         1.0
     );
 }

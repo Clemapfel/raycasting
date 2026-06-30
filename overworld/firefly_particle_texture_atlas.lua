@@ -6,14 +6,18 @@ ow.FireflyParticleTextureAtlas = meta.class("FireflyParticleTextureAtlas")
 local _hue_step = 1 / 32
 local _radius_step = 1
 
+function _round(r, step)
+    local inv = 1 / step;
+    return math.round(r * inv) / inv;
+end
+
 --- @brief
 function ow.FireflyParticleTextureAtlas:instantiate(hues, radii)
     meta.assert(hues, mt.Table, radii, mt.Table)
 
     local process = function(to_process, step, min_value)
-        local n_digits = 4
         for i, r in ipairs(to_process) do
-            to_process[i] = math.max(min_value or 0, math.floor(r / step) * step)
+            to_process[i] = math.max(min_value or 0, _round(r, step))
         end
 
         table.sort(to_process)
@@ -30,11 +34,8 @@ function ow.FireflyParticleTextureAtlas:instantiate(hues, radii)
         return deduped
     end
 
-    hues = process(radii, _hue_step)
-    radii = process(hues, _radius_step, 1)
-
-    for i = 1, #hues do hues[i] = hues[i] / 10e5 end
-
+    hues = process(hues, _hue_step)
+    radii = process(radii, _radius_step)
     self._hues, self._radii = hues, radii
 
     self._canvas_scale = 2.5
@@ -61,8 +62,8 @@ function ow.FireflyParticleTextureAtlas:instantiate(hues, radii)
     local canvas_height = quad_height * n_rows
 
     local canvas = rt.RenderTexture(
-        canvas_width,
-        canvas_height,
+        math.max(1, canvas_width),
+        math.max(1, canvas_height),
         rt.GameState:get_msaa_quality()
     )
     canvas:set_scale_mode(rt.TextureScaleMode.LINEAR)
@@ -75,7 +76,7 @@ function ow.FireflyParticleTextureAtlas:instantiate(hues, radii)
     for row_index = 1, n_rows do
         local should_break = false
         for column_index = 1, n_columns do
-            if index <= n_total then
+            if index > n_total then
                 should_break = true
                 break
             end
@@ -124,8 +125,8 @@ function ow.FireflyParticleTextureAtlas:draw(hue, radius, x, y, scale)
     scale = scale or 1
     scale = scale * (1 / self._canvas_scale)
 
-    hue = math.floor(hue / _hue_step) * _hue_step
-    radius = math.floor(radius / _radius_step) * _radius_step
+    hue = _round(hue, _hue_step)
+    radius = _round(radius, _radius_step)
 
     local native = self._texture_atlas:get_native()
     local quad = self._hue_to_radius_to_quad[hue][radius]

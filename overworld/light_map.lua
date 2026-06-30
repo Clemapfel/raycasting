@@ -26,7 +26,8 @@ rt.settings.overworld.light_map = {
     mask_texture_format = rt.TextureFormat.R8,
     composite_texture_format = rt.TextureFormat.R16F,
 
-    min_resize_interval_duration = 60 / 60
+    min_resize_interval_duration = 60 / 60,
+    default_composite_strength = 1.0, -- [0, 1]
 }
 
 local _use_byte_data = ffi == nil
@@ -75,13 +76,29 @@ function ow.LightMap:instantiate(width, height)
         true
     )
 
+    -- dummy texture for use if real bloom texture is not available
+    require "common.bloom"
+    self._bloom_dummy_texture = rt.RenderTexture(
+        1, 1, 
+        0, 
+        rt.settings.bloom.texture_format,
+        true
+    )
+
+    do
+        love.graphics.push("all")
+        self._bloom_dummy_texture:bind()
+        love.graphics.clear(0, 0, 0, 0)
+        self._bloom_dummy_texture:unbind()
+    end
+    
     self._work_group_size_x = settings.work_group_size_x
     self._work_group_size_y = settings.work_group_size_y
 
     self._dispatch_x = math.ceil(width / self._work_group_size_x)
     self._dispatch_y = math.ceil(height / self._work_group_size_y)
 
-    self._compute_composite_texture = true
+    self._should_compute_composite = true
 
     local to_glsl = rt.graphics.texture_format_to_glsl_identifier
     self._shader_defines = {
@@ -89,6 +106,7 @@ function ow.LightMap:instantiate(width, height)
         LIGHT_DIRECTION_TEXTURE_FORMAT = to_glsl(settings.direction_texture_format),
         MASK_TEXTURE_FORMAT = to_glsl(settings.mask_texture_format),
         COMPOSITE_TEXTURE_FORMAT = to_glsl(settings.composite_texture_format),
+        BLOOM_TEXTURE_FORMAT = to_glsl(rt.settings.bloom.texture_format),
         TILE_SIZE = self._tile_size,
         LIGHT_RANGE = settings.light_range,
         INTENSITY = settings.intensity,
@@ -834,11 +852,21 @@ do
         shader:send("light_direction_texture", self._light_direction_texture)
         shader:send("mask_texture", self._mask_texture)
         shader:send("composite_texture", self._composite_texture)
-        shader:send("compute_composite", self._compute_composite_texture)
+        shader:send("should_compute_composite", self._should_compute_composite)
+
+        if self._should_compute_composite and rt.GameState:get_is_bloom_enabled() then
+            local bloom = rt.SceneManager:get_bloom()
+            bloom:flush() -- noop if already done
+            shader:send("bloom_padding", { bloom:get_padding() })
+            shader:send("bloom_texture", bloom:get_texture())
+        else
+            shader:send("bloom_texture", self._bloom_dummy_texture)
+            shader:send("bloom_padding", { 0, 0 })
+        end
+        
         shader:dispatch(self._dispatch_x, self._dispatch_y)
 
         -- resize logic
-
         do
             -- measure usage above buffer
             local n_segment_lights_per_tile = 0
@@ -966,12 +994,11 @@ do
     end
 end
 
+
 --- @brief
 function ow.LightMap:composite(strength)
-    if strength == nil then strength = 1 end
+    if strength == nil then strength = rt.settings.overworld.light_map.default_composite_strength end
     meta.assert(strength, mt.Number)
-
-    strength = 1;
 
     love.graphics.push("all")
     love.graphics.origin()
@@ -983,6 +1010,7 @@ function ow.LightMap:composite(strength)
     _composite_shader:send("light_direction_texture", self._light_direction_texture)
     _composite_shader:send("mask_texture", self._mask_texture)
     _composite_shader:send("composite_texture", self._composite_texture)
+    _composite_shader:send("strength", strength)
     love.graphics.rectangle("fill", 0, 0, love.graphics.getDimensions())
     _composite_shader:unbind()
 

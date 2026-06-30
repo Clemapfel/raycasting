@@ -17,7 +17,7 @@ require "menu.message_dialog"
 
 rt.settings.overworld_scene = {
     bloom_blur_strength = 1.5, -- > 0
-    bloom_composite_strength = 0.2, -- [0, 1]
+    bloom_composite_strength = 0.08, -- [0, 1]
     light_map_strength = 1.0,
     title_card_min_duration = 3, -- seconds
 
@@ -716,7 +716,6 @@ function ow.OverworldScene:draw()
         bloom:unbind()
     end
 
-
     local draw_below = function()
         love.graphics.push()
         love.graphics.origin()
@@ -746,6 +745,12 @@ function ow.OverworldScene:draw()
         self._stage:draw_above_player()
         self._camera:unbind()
 
+        if rt.GameState:get_is_dynamic_lighting_enabled() then
+            rt.SceneManager:get_light_map():composite(
+                rt.settings.overworld_scene.light_map_strength
+            )
+        end
+
         if rt.GameState:get_is_bloom_enabled() then
             rt.SceneManager:get_bloom():composite(
                 rt.settings.overworld_scene.bloom_composite_strength
@@ -753,13 +758,6 @@ function ow.OverworldScene:draw()
         end
 
         self._camera:bind()
-
-
-        if rt.GameState:get_is_dynamic_lighting_enabled() then
-            rt.SceneManager:get_light_map():composite(
-                rt.settings.overworld_scene.light_map_strength
-            )
-        end
 
         self._stage:draw_above_bloom()
 

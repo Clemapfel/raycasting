@@ -44,6 +44,10 @@ function ow.Fireflies:instantiate(object, stage, scene)
             stage.firefly_manager:draw()
         end
 
+        self.draw_bloom = function(self)
+            stage.firefly_manager:draw_bloom()
+        end
+
         self.get_render_priority = function(self)
             return math.huge
         end
