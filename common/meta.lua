@@ -201,7 +201,7 @@ function meta.assert(...)
         end
 
         if not is_valid then
-            rt.error("In meta.assert: for argument #", i, ", expected value of type `", typename, "`, got `", meta.typeof(instance))
+            rt.error("In meta.assert: for argument #", i, ", expected value of type `", typename, "`, got `", meta.typeof(instance), "`")
         end
     end
 end

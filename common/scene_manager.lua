@@ -35,6 +35,9 @@ end
 
 --- @brief
 function rt.SceneManager:instantiate()
+    require "common.game_state"
+    local width, height = rt.GameState:get_internal_resolution()
+
     meta.install(self, {
         _scene_type_to_scene = {},
         _current_scene = nil,
@@ -43,8 +46,8 @@ function rt.SceneManager:instantiate()
         _schedule_enter = false,
 
         _scene_stack = {}, -- Stack<SceneType>
-        _width = love.graphics.getWidth(),
-        _height = love.graphics.getHeight(),
+        _width = width,
+        _height = height,
         _fade = rt.Fade(),
         _should_use_fade = false,
         _use_fixed_timestep = false,
@@ -220,6 +223,12 @@ end
 
 --- @brief
 function rt.SceneManager:update(delta)
+    -- check if resize is necessary
+    local width, height = rt.GameState:get_internal_resolution()
+    if self._width ~= width or self._height ~= height then
+        self:resize(width, height)
+    end
+
     if self._restart_active == true then
         if rt.ThreadManager:get_is_shutdown() then
             self._restart_active = false
@@ -251,10 +260,10 @@ end
 
 --- @brief
 function rt.SceneManager:draw(...)
-    local use_hdr = rt.GameState:get_is_hdr_enabled()
-    
-    if use_hdr then
-        if self._hdr == nil then self._hdr = rt.HDR() end
+    local use_upscaler = rt.GameState:get_is_hdr_enabled()
+        or rt.GameState:get_internal_resolution_scaling() ~= rt.InternalResolutionScaling.NONE
+
+    if use_upscaler then
         self._hdr:bind()
         love.graphics.clear(0, 0, 0, 0)
     end
@@ -297,10 +306,7 @@ function rt.SceneManager:draw(...)
         self._fade:draw()
     end
 
-    local width = love.graphics.getWidth()
-    local height = love.graphics.getHeight()
-
-    if use_hdr then
+    if use_upscaler then
         self._hdr:unbind()
         self._hdr:draw()
     end
@@ -312,19 +318,48 @@ end
 
 --- @brief
 function rt.SceneManager:resize(width, height)
-    rt.assert(type(width) == "number" and type(height) == "number")
+    meta.assert(width, mt.Number, height, mt.Number)
 
     self._width = width
     self._height = height
 
-    if rt.GameState:get_is_hdr_enabled() then
-        if self._hdr == nil
-            or self._hdr:get_msaa() ~= rt.GameState:get_msaa_quality()
-        then
-            self._hdr = rt.HDR()
-        end
+    if self._scene ~= nil then
+        self:_reformat_scene(self._scene)
+    end
 
-        self._hdr:reinitialize(width, height)
+    if self._bloom == nil
+        or self._bloom:get_width() ~= self._width
+        or self._bloom:get_height() ~= self._heigth
+    then
+        require "overworld.stage"
+        self._bloom = rt.Bloom(
+            self._width,
+            self._height,
+            rt.settings.overworld.stage.visible_area_padding
+        )
+    end
+
+    if self._light_map == nil
+        or self._light_map:get_width() ~= self._width
+        or self._light_map:get_height() ~= self._height
+    then
+        require "overworld.light_map"
+        self._light_map = ow.LightMap(
+            self._width,
+            self._height
+        )
+    end
+
+    if self._hdr == nil
+        or self._hdr:get_width() ~= self._width
+        or self._hdr:get_height() ~= self._height
+        or self._hdr:get_msaa() ~= rt.GameState:get_msaa_quality()
+    then
+        if self._hdr == nil then
+            self._hdr = rt.HDR(self._width, self._height)
+        else
+            self._hdr:reinitialize(self._width, self._height)
+        end
     end
 
     rt.settings.margin_unit = 10 * rt.get_pixel_scale()
@@ -337,20 +372,6 @@ function rt.SceneManager:resize(width, height)
             scene._scene_manager_current_width = self._width
             scene._scene_manager_current_height = self._height
         end
-    end
-
-    local reallocate_bloom = false
-    if self._bloom == nil then
-        reallocate_bloom = true
-    else
-        local w, h = self._bloom:get_size()
-        if w ~= self._width or h ~= self._height then
-            reallocate_bloom = true
-        end
-    end
-
-    if reallocate_bloom then
-        self:_reallocate_bloom()
     end
 
     local reallocate_light_map = false
@@ -427,6 +448,21 @@ function rt.SceneManager:get_frame_interpolation()
     else
         return 1
     end
+end
+
+--- @brief
+function rt.SceneManager:get_width()
+    return self._width
+end
+
+--- @brief
+function rt.SceneManager:get_height()
+    return self._height
+end
+
+--- @brief
+function rt.SceneManager:get_size()
+    return self._width, self._height
 end
 
 --- @brief
@@ -541,16 +577,6 @@ function rt.SceneManager:_draw_performance_metrics()
 end
 
 --- @brief
-function rt.SceneManager:_reallocate_bloom()
-    require "overworld.stage"
-    self._bloom = rt.Bloom(
-        self._width,
-        self._height,
-        rt.settings.overworld.stage.visible_area_padding
-    )
-end
-
---- @brief
 function rt.SceneManager:get_bloom()
     if rt.GameState:get_is_bloom_enabled() then
         if self._bloom == nil then
@@ -560,15 +586,6 @@ function rt.SceneManager:get_bloom()
     else
         return nil
     end
-end
-
---- @brief
-function rt.SceneManager:_reallocate_light_map()
-    require "overworld.light_map"
-    self._light_map = ow.LightMap(
-        self._width,
-        self._height
-    )
 end
 
 --- @brief

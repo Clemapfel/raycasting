@@ -3,7 +3,6 @@ require "common.msaa_quality"
 require "common.vsync_mode"
 require "common.input_action"
 require "common.random"
-require "common.scene_manager"
 require "common.player_sprint_mode"
 require "common.player"
 
@@ -144,9 +143,6 @@ end
 function rt.GameState:set_is_dynamic_lighting_enabled(b)
     meta.assert(b, mt.Boolean)
     bd.get_config().is_dynamic_lighting_enabled = b
-    if b == false and rt.SceneManager ~= nil and rt.SceneManager:get_light_map() ~= nil then
-        rt.SceneManager:get_light_map():clear()
-    end
 end
 
 --- @brief
@@ -181,6 +177,27 @@ end
 --- @brief
 function rt.GameState:get_is_fullscreen()
     return love.window.getFullscreen()
+end
+
+--- @brief
+function rt.GameState:get_internal_resolution_scaling()
+    return bd.get_config().internal_resolution_scaling
+end
+
+--- @brief
+function rt.GameState:set_internal_resolution_scaling(scaling)
+    require "common.internal_resolution"
+    meta.assert(scaling, rt.InternalResolutionScaling)
+    bd.get_config().internal_resolution_scaling = scaling
+end
+
+--- @brief
+function rt.GameState:get_internal_resolution()
+    require "common.internal_resolution"
+    return rt.graphics.resolution_to_internal_resolution(
+        love.graphics.getWidth(), love.graphics.getHeight(),
+        self:get_internal_resolution_scaling()
+    )
 end
 
 --- @brief

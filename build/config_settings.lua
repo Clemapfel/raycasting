@@ -44,13 +44,16 @@ do
     require "common.msaa_quality"
     require "common.player_sprint_mode"
     require "common.language"
+    require "common.internal_resolution"
 
     bd.config.entries = {
         -- should window initialize in fullscreen mode
         is_fullscreen = BOOLEAN(false),
 
         -- full screen type
-        fullscreen_type = ENUM("desktop", "desktop", "exclusive"),
+        fullscreen_type = ENUM("desktop",
+            "desktop", "exclusive"
+        ),
 
         -- should window have title bar
         is_borderless = BOOLEAN(true),
@@ -65,6 +68,19 @@ do
         window_height = INTEGER_RANGE(
             height,
             0, math.huge
+        ),
+
+        -- scaling magnitude
+        internal_resolution_scaling = ENUM(rt.InternalResolutionScaling.NONE,
+            rt.InternalResolutionScaling.NONE,
+            rt.InternalResolutionScaling.HALF,
+            rt.InternalResolutionScaling.QUARTER
+        ),
+
+        -- scaling filter mode
+        internal_resolution_scaling_mode = ENUM(rt.InternalResolutionScalingMode.LINEAR,
+            rt.InternalResolutionScalingMode.LINEAR,
+            rt.InternalResolutionScalingMode.NEAREST
         ),
 
         -- if window can be resized
@@ -208,13 +224,27 @@ bd.config.validate_settings_entry = function(key, value)
     elseif entry.type == ENUM_TYPE then
         local as_number = to_number(value)
         local as_string = tostring(value)
+        local as_boolean = to_boolean(value)
 
         local is_valid = false
         for _, enum_value in ipairs(entry.values) do
-            if value == enum_value or as_number == enum_value or as_string == enum_value then
+            if value == enum_value
+                or as_number == enum_value
+                or as_string == enum_value
+                or as_boolean == enum_value
+            then
                 is_valid = true
-                break
             end
+
+            if type(entry.default) == "string" then
+                value = as_string
+            elseif type(entry.default) == "number" then
+                value = as_number
+            elseif type(entry.default) == "boolean" then
+                value = as_boolean
+            end
+
+            if is_valid == true then break end
         end
 
         if not is_valid then

@@ -124,7 +124,7 @@ end
 
 local _append_frame_index = function(to_print)
     if rt ~= nil and rt.SceneManager ~= nil then
-        table.insert(to_print, log._printstyled("[" .. rt.SceneManager:get_frame_index() .. "]", _frame_index_format))
+        table.insert(to_print, log._printstyled("[" .. (rt.SceneManager:get_frame_index() or -1) .. "]", _frame_index_format))
     end
 end
 

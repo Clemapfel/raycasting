@@ -1035,6 +1035,16 @@ function ow.LightMap:get_size()
 end
 
 --- @brief
+function ow.LightMap:get_width()
+    return self._light_intensity_texture:get_width()
+end
+
+--- @brief
+function ow.LightMap:get_height()
+    return self._light_intensity_texture:get_height()
+end
+
+--- @brief
 function ow.LightMap:clear()
     self._light_intensity_texture:bind()
     love.graphics.clear(0, 0, 0, 0)
