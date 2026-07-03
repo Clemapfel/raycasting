@@ -33,7 +33,7 @@ function mn.Scrollbar:realize()
     self._cursor_outline:set_line_width(self._outline_width)
 
     for shape in range(self._base, self._base_outline, self._cursor, self._cursor_outline) do
-        shape:set_corner_radius(rt.settings.scrollbar.corner_radius)
+        shape:set_corner_radius(rt.settings.scrollbar.corner_radius / rt.SceneManager:get_downscaling_factor())
     end
     self._is_realized = true
 end
@@ -63,11 +63,11 @@ end
 
 --- @brief
 function mn.Scrollbar:size_allocate(x, y, w, h)
-    local t = math.floor(self._outline_width / 2)
+    local t = math.floor(self._outline_width / 2 / rt.SceneManager:get_downscaling_factor())
     self._base:reformat(x, y, w, h)
     self._base_outline:reformat(x + t, y + t, w - 2 * t, h - 2 * t)
 
-    local cursor_h = math.max(self._page_size / self._n_pages * h, rt.settings.margin_unit / 2)
+    local cursor_h = math.max(self._page_size / self._n_pages * h, rt.SceneManager:get_margin_unit() / 2)
     local cursor_y = y + (self._page_index - 1) / self._n_pages * h
 
     self._cursor:reformat(x, cursor_y, w, cursor_h)

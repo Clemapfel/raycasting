@@ -158,8 +158,8 @@ function mn.StageSelectItemframe:size_allocate(x, y, width, height)
     self._center_x, self._center_y = 0.5 * width, 0.5 * height
     self._page_size = height
 
-    local min_particle_r = rt.settings.menu.stage_select_item_frame.min_particle_radius * rt.get_pixel_scale()
-    local max_particle_r = rt.settings.menu.stage_select_item_frame.max_particle_radius * rt.get_pixel_scale()
+    local min_particle_r = rt.settings.menu.stage_select_item_frame.min_particle_radius * rt.SceneManager:get_pixel_scale()
+    local max_particle_r = rt.settings.menu.stage_select_item_frame.max_particle_radius * rt.SceneManager:get_pixel_scale()
     local coverage = rt.settings.menu.stage_select_item_frame.coverage
 
     -- mask is rectangle with gradient edge
@@ -182,7 +182,7 @@ function mn.StageSelectItemframe:size_allocate(x, y, width, height)
     local initial_mode = transition and _MODE_EXPAND or _MODE_HOLD
     self._is_transitioning = transition
 
-    local outer_offset, inner_offset = max_particle_r, math.max(max_particle_r, 4 * rt.settings.margin_unit)
+    local outer_offset, inner_offset = max_particle_r, math.max(max_particle_r, 4 * rt.SceneManager:get_margin_unit())
 
     local padding = 10
     local canvas_w, canvas_h = self._bounds.width + 2 * outer_offset + 2 * padding, love.graphics.getHeight()
@@ -410,10 +410,10 @@ function mn.StageSelectItemframe:update(delta)
     self._hue = math.mix(lower_i / self._n_pages, higher_i / self._n_pages, math.fract(t))
     if self._hue < 0 then self._hue = 0 end
 
-    local noise_range = rt.settings.menu.stage_select_item_frame.noise_magnitude * rt.get_pixel_scale()
+    local noise_range = rt.settings.menu.stage_select_item_frame.noise_magnitude * rt.SceneManager:get_pixel_scale()
 
     local update_noise_offset = function(particle)
-        local velocity = particle[_noise_velocity] * rt.get_pixel_scale()
+        local velocity = particle[_noise_velocity] * rt.SceneManager:get_pixel_scale()
         particle[_noise_position_x] = particle[_noise_position_x] + delta * velocity
         particle[_noise_position_y] = particle[_noise_position_y] + delta * velocity
 
@@ -430,7 +430,7 @@ function mn.StageSelectItemframe:update(delta)
         page.decoration:update(delta)
         page.decoration:set_opacity(value)
 
-        local hold_velocity = rt.settings.menu.stage_select_item_frame.hold_velocity * rt.get_pixel_scale()
+        local hold_velocity = rt.settings.menu.stage_select_item_frame.hold_velocity * rt.SceneManager:get_pixel_scale()
 
         if page.mode == _MODE_HOLD then
             for i = 1, page.n_particles do
@@ -481,7 +481,7 @@ function mn.StageSelectItemframe:update(delta)
                 mean_distance = mean_distance + math.magnitude(dx, dy)
             end
 
-            if mean_distance / page.n_particles <= rt.settings.menu.stage_select_item_frame.mode_transition_distance_threshold * rt.get_pixel_scale() then
+            if mean_distance / page.n_particles <= rt.settings.menu.stage_select_item_frame.mode_transition_distance_threshold * rt.SceneManager:get_pixel_scale() then
                 if page.mode == _MODE_EXPAND then
                     page.mode = _MODE_HOLD
                     page.decoration_opacity_motion:set_target_value(1)
@@ -673,6 +673,6 @@ function mn.StageSelectItemframe:measure()
         max_h = math.max(max_h, h)
     end
 
-    local frame = rt.settings.menu.stage_select_item_frame.max_particle_radius * rt.get_pixel_scale()
+    local frame = rt.settings.menu.stage_select_item_frame.max_particle_radius * rt.SceneManager:get_pixel_scale()
     return max_w + 2 * frame, max_h + 2 * frame
 end

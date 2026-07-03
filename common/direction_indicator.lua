@@ -3,7 +3,7 @@ require "common.blend_mode"
 require "common.direction"
 
 rt.settings.direction_indicator = {
-    min_line_width = rt.settings.margin_unit,
+    min_line_width = rt.SceneManager:get_margin_unit(),
     arrow_offset = 0 -- thickness factor
 }
 

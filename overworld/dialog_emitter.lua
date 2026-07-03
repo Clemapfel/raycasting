@@ -165,9 +165,9 @@ end
 
 --- @brief
 function ow.DialogEmitter:size_allocate(x, y, width, height)
-    local x_margin = 10 * rt.settings.margin_unit
+    local x_margin = 10 * rt.SceneManager:get_margin_unit()
     local y_margin = select(2, self._scene:get_control_indicator(ow.ControlIndicatorType.DIALOG_SELECT_OPTION):measure())
-    y_margin = y_margin - rt.settings.margin_unit
+    y_margin = y_margin - rt.SceneManager:get_margin_unit()
 
     local dialog_box_y = y + y_margin
     local dialog_box_h = height - 2 * y_margin

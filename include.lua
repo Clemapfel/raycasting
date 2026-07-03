@@ -88,11 +88,7 @@ end
 require "common.log"
 
 rt.settings = meta.make_auto_extend({
-    margin_unit = 10,
     native_height = 600
 }, true)
 
-function rt.get_pixel_scale()
-    return love.graphics.getHeight() / rt.settings.native_height
-end
 

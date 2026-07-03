@@ -307,7 +307,7 @@ end
 --- @brief
 function mn.KeybindingScene:size_allocate(x, y, width, height)
 
-    local m = rt.settings.margin_unit
+    local m = rt.SceneManager:get_margin_unit()
     local outer_margin = 2 * m
     local item_outer_margin = 2 * m
 
@@ -387,14 +387,14 @@ function mn.KeybindingScene:size_allocate(x, y, width, height)
             self.spacer:reformat(
                 spacer_x,
                 y + m,
-                rt.settings.keybinding_scene.spacer_width * rt.get_pixel_scale(),
+                rt.settings.keybinding_scene.spacer_width * rt.SceneManager:get_pixel_scale(),
                 height - 2 * m
             )
 
             self.spacer_outline:reformat(
                 spacer_x,
                 y + m,
-                rt.settings.keybinding_scene.spacer_width * rt.get_pixel_scale() + 2,
+                rt.settings.keybinding_scene.spacer_width * rt.SceneManager:get_pixel_scale() + 2,
                 height - 2 * m
             )
         end

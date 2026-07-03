@@ -57,7 +57,7 @@ function mn.StageSelectPageIndicatorRing:instantiate(radius, thickness)
     local min_velocity, max_velocity = settings.min_velocity, settings.max_velocity
 
     local max_offset = rt.settings.menu.stage_select_page_indicator_ring.max_noise_offset * thickness
-    local padding = (max_offset + 2 * max_radius) + rt.get_pixel_scale() * 20
+    local padding = (max_offset + 2 * max_radius) + rt.SceneManager:get_pixel_scale() * 20
     self._canvas = rt.RenderTexture(2 * radius + 2 * padding, 2 * radius + 2 * padding)
     self._canvas_padding = padding
     self._canvas_needs_update = true
@@ -138,7 +138,7 @@ function mn.StageSelectPageIndicatorRing:update(delta)
     local elapsed = rt.SceneManager:get_elapsed()
     local max_radius = rt.settings.menu.stage_select_page_indicator_ring.max_radius * self._thickness
 
-    local linear_velocity = rt.settings.menu.stage_select_page_indicator_ring.linear_velocity * rt.get_pixel_scale()
+    local linear_velocity = rt.settings.menu.stage_select_page_indicator_ring.linear_velocity * rt.SceneManager:get_pixel_scale()
     local angular_velocity = linear_velocity / radius
     for i = 1, self._n_particles do
         local particle = self._particles[i]

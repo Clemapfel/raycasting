@@ -120,7 +120,7 @@ end
 function rt.Camera:constrain(x, y)
     if self._apply_bounds ~= true then return x, y end
 
-    local total_scale = self._current_scale * rt.get_pixel_scale()
+    local total_scale = self._current_scale * rt.SceneManager:get_pixel_scale()
 
     local hw = (rt.SceneManager:get_width() / 2) / total_scale
     local hh = (rt.SceneManager:get_height() / 2) / total_scale
@@ -643,7 +643,7 @@ function rt.Camera:_update_transform()
     t:scale(1 / rt.SceneManager:get_downscaling_factor())
 
     if self._use_pixel_scale then
-        t:scale(rt.get_pixel_scale())
+        t:scale(rt.SceneManager:get_pixel_scale())
     end
 
     t:rotate_z(self._current_angle)

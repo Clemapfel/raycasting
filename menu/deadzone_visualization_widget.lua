@@ -30,7 +30,7 @@ end
 function mn.DeadzoneVisualizationWidget:size_allocate(x, y, width, height)
     local center_x, center_y = x + 0.5 * width, y + 0.5 * height
     local deadzone = self._last_deadzone
-    local outer_r = (math.min(width, height) - 4 * rt.settings.margin_unit) / 2
+    local outer_r = (math.min(width, height) - 4 * rt.SceneManager:get_margin_unit()) / 2
     self._inner_shape:reformat(center_x, center_y, deadzone * outer_r)
     self._inner_shape_outline:reformat(center_x, center_y, deadzone * outer_r)
 

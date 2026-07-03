@@ -43,7 +43,7 @@ function mn.MSAAVisualizationWidget:size_allocate(x, y, width, height)
         shape:set_corner_radius(rt.settings.frame.corner_radius)
     end
 
-    self._line:set_line_width(5 * rt.get_pixel_scale())
+    self._line:set_line_width(5 * rt.SceneManager:get_pixel_scale())
 
     local rx, ry = 0.3 * w, 0.3 * h
     self._line_radius_x = rx

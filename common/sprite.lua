@@ -110,7 +110,7 @@ function rt.Sprite:draw(x, y, angle, scale_x, scale_y, origin_x, origin_y)
 
     local quad = self._frame_data[self._current_frame].quad
 
-    local scale = rt.get_pixel_scale()
+    local scale = rt.SceneManager:get_pixel_scale()
     local frame_w, frame_h = self._frame_width * scale, self._frame_height * scale
 
     -- flip around center
@@ -364,7 +364,7 @@ end
 
 --- @brief get frame dimension, in px
 function rt.Sprite:get_size()
-    local scale = rt.get_pixel_scale()
+    local scale = rt.SceneManager:get_pixel_scale()
     return self._frame_width * scale, self._frame_height * scale
 end
 

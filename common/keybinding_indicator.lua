@@ -1283,7 +1283,7 @@ function rt.KeybindingIndicator:create_as_four_keys(up_text, right_text, bottom_
         local bottom_center_x, bottom_center_y = center_x, center_y
         local left_center_x, left_center_y = center_x - 2 * rect_r, center_y
 
-        local label_offset = 0.5 * line_width * rt.get_pixel_scale()
+        local label_offset = 0.5 * line_width * rt.SceneManager:get_pixel_scale()
 
         local top_base = _Rectangle(top_center_x - rect_r, top_center_y - rect_r, 2 * rect_r, 2 * rect_r)
         local top_outline = _Rectangle(top_center_x - rect_r, top_center_y - rect_r, 2 * rect_r, 2 * rect_r)

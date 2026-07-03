@@ -273,7 +273,7 @@ function rt.SceneManager:draw(...)
     if self._composition_overlay_visible then
         local width = love.graphics.getWidth()
         local height = love.graphics.getHeight()
-        local m = 2 * rt.settings.margin_unit
+        local m = 2 * rt.SceneManager:get_margin_unit()
 
         -- thirds
         love.graphics.setColor(1, 1, 1, 0.75)
@@ -358,8 +358,6 @@ function rt.SceneManager:resize(_)
             self._hdr:reinitialize(self._width, self._height)
         end
     end
-
-    rt.settings.margin_unit = 10 * rt.get_pixel_scale()
 
     local scene = self._current_scene
     if scene ~= nil then
@@ -460,6 +458,16 @@ end
 --- @brief
 function rt.SceneManager:get_size()
     return self._width, self._height
+end
+
+--- @brief
+function rt.SceneManager:get_pixel_scale()
+    return love.graphics.getHeight() / rt.settings.native_height / self:get_downscaling_factor()
+end
+
+--- @brief
+function rt.SceneManager:get_margin_unit()
+    return 10 / self:get_downscaling_factor()
 end
 
 --- @brief

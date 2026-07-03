@@ -327,7 +327,7 @@ end
 --- @brief
 function mn.MenuScene:size_allocate(x, y, width, height)
     self._bounds = rt.AABB(x, y, width, height)
-    local m = rt.settings.margin_unit
+    local m = rt.SceneManager:get_margin_unit()
     local outer_margin = 3 * m
 
     self._background:reformat(x, y, width, height)
@@ -429,7 +429,7 @@ function mn.MenuScene:size_allocate(x, y, width, height)
 
         -- page indicator
         local current_x = x + width - outer_margin
-        local page_indicator_w = 30 * rt.get_pixel_scale()
+        local page_indicator_w = 30 * rt.SceneManager:get_pixel_scale()
         local page_indicator_m = math.max(3 * outer_margin, outer_margin + control_h + m)
         local page_indicator_h = height
         stage_select.page_indicator:reformat(
@@ -733,7 +733,7 @@ function mn.MenuScene:update(delta)
         local stage_select = self._stage_select
 
         local w = love.graphics.getWidth()
-        local x_offset = offset_fraction * stage_select.player_alignment / rt.get_pixel_scale()
+        local x_offset = offset_fraction * stage_select.player_alignment / rt.SceneManager:get_pixel_scale()
 
         if self._state == mn.MenuSceneState.EXITING then
             self._camera:move_to(self._exit_x, self._exit_y)
@@ -896,7 +896,7 @@ function mn.MenuScene:draw()
         _title_shader_no_sdf:send("hue", self._player:get_hue())
         _title_shader_no_sdf:send("black", _black)
         _title_shader_no_sdf:send("screen_to_world_transform", transform)
-        _title_shader_no_sdf:send("pixel_scale", rt.get_pixel_scale())
+        _title_shader_no_sdf:send("pixel_scale", rt.SceneManager:get_pixel_scale())
         _title_shader_no_sdf:send("lch_texture", _lch_texture)
         love.graphics.setColor(1, 1, 1, 1)
         love.graphics.draw(title_screen.title_label_no_sdf, title_screen.title_x, title_screen.title_y)

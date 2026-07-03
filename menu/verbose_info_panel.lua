@@ -113,9 +113,9 @@ function mn.VerboseInfoPanel:size_allocate(x, y, width, height)
     local frame_thickness = self._frame:get_thickness()
     self._frame:reformat(x + frame_thickness, y + frame_thickness, width - 2 * frame_thickness, height - 2 * frame_thickness)
 
-    local m = rt.settings.margin_unit
+    local m = rt.SceneManager:get_margin_unit()
 
-    local thickness = rt.settings.margin_unit
+    local thickness = rt.SceneManager:get_margin_unit()
     local arrow_width = 6 * m
     local angle = (2 * math.pi) / 3
 

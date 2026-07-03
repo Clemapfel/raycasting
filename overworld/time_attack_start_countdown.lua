@@ -264,7 +264,7 @@ function ow.TimeAttackStartCountdown:draw()
             _shader_no_sdf:send("elapsed", rt.SceneManager:get_elapsed())
             _shader_no_sdf:send("black", rt.Palette.BLACK)
             _shader_no_sdf:send("screen_to_world_transform", self._scene:get_camera():get_transform():inverse()) -- drawn without camera bound
-            _shader_no_sdf:send("pixel_scale", rt.get_pixel_scale())
+            _shader_no_sdf:send("pixel_scale", rt.SceneManager:get_pixel_scale())
             _shader_no_sdf:send("lch_texture", _lch_texture)
             love.graphics.draw(entry.no_sdf_label, entry.no_sdf_x, entry.no_sdf_y)
             _shader_no_sdf:unbind()

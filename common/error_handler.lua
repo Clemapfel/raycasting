@@ -124,8 +124,8 @@ function love.errorhandler(message, depth)
     love.graphics.present()
 
     local pixel_scale = 1
-    if rt ~= nil and rt.get_pixel_scale ~= nil then
-        pixel_scale = _safe_call(rt.get_pixel_scale) or pixel_scale
+    if rt ~= nil and rt.SceneManager:get_pixel_scale() ~= nil then
+        pixel_scale = _safe_call(rt.SceneManager:get_pixel_scale()) or pixel_scale
     end
 
     local prefix_message = "An Error has occurred and the Application was unable to recover."

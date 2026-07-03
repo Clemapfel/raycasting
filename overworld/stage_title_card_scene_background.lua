@@ -15,7 +15,7 @@ local _scale = 9
 local _scale_direction = 10 -- radius change
 local _scale_speed = 11 -- radius change speed
 
-local _max_size = rt.get_pixel_scale() * 30
+local _max_size = rt.SceneManager:get_pixel_scale() * 30
 local _min_scale, _max_scale = 0.5, 4
 local _max_scale_speed = 0.5 -- fraction per second
 local _n_particles = 800
@@ -29,7 +29,7 @@ function ow.StageTitleCardSceneBackground:instantiate(n_particles)
 end
 
 function ow.StageTitleCardSceneBackground:realize()
-    local canvas_w = rt.get_pixel_scale() * _max_size + padding
+    local canvas_w = rt.SceneManager:get_pixel_scale() * _max_size + padding
 
     -- draw circle to texture
     self._particle_texture = rt.RenderTexture(canvas_w, canvas_w, 4)
@@ -151,7 +151,7 @@ function ow.StageTitleCardSceneBackground:draw()
     rt.graphics.set_blend_mode(rt.BlendMode.ADD)
     --love.graphics.setBlendMode("add", "premultiplied")
     _draw_shader:bind()
-    _draw_shader:send("radius", _max_size * rt.get_pixel_scale())
+    _draw_shader:send("radius", _max_size * rt.SceneManager:get_pixel_scale())
     _draw_shader:send("min_scale", _min_scale)
     _draw_shader:send("max_scale", _max_scale)
     local t = _n_particles / 2000

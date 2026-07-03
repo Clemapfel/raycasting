@@ -172,7 +172,7 @@ end
 function mn.PauseMenu:size_allocate(x, y, width, height)
     self._background:reformat(x, y, width, height)
 
-    local outer_margin = 0 --rt.settings.margin_unit
+    local outer_margin = 0 --rt.SceneManager:get_margin_unit()
     local control_w, control_h = self._control_indicator:measure()
     self._control_indicator:reformat(
         x + width - outer_margin - control_w,
@@ -180,7 +180,7 @@ function mn.PauseMenu:size_allocate(x, y, width, height)
         control_w, control_h
     )
 
-    local m = rt.settings.margin_unit
+    local m = rt.SceneManager:get_margin_unit()
     local max_w, max_h, height_sum = -math.huge, -math.huge, 0
     for element in values(self._elements) do
         element.width, element.height = element.selected_label:measure()

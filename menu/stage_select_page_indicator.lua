@@ -32,7 +32,7 @@ function mn.StageSelectPageIndicator:instantiate()
 
     self._stencil = rt.AABB()
 
-    self._motion = rt.SmoothedMotion1D(0, 2 * rt.get_pixel_scale())
+    self._motion = rt.SmoothedMotion1D(0, 2 * rt.SceneManager:get_pixel_scale())
     self._ring = nil -- mn.StageSelectPageIndicatorRing
     self._scroll_offset = 0 -- for scrolling
     self._total_item_height = 0
@@ -106,11 +106,11 @@ end
 --- @brief
 function mn.StageSelectPageIndicator:size_allocate(x, y, width, height)
     local radius = width / 2
-    local m = rt.settings.margin_unit
+    local m = rt.SceneManager:get_margin_unit()
 
     self._radius = radius
     self._selection_x = x + 0.5 * width
-    self._selection_radius = radius + 2 * rt.get_pixel_scale()
+    self._selection_radius = radius + 2 * rt.SceneManager:get_pixel_scale()
 
     local current_x, current_y = x + 0.5 * width, y + 0.5 * radius
 
@@ -127,7 +127,7 @@ function mn.StageSelectPageIndicator:size_allocate(x, y, width, height)
     local tri_h = 2 * radius
     current_y = current_y + tri_h + m
 
-    local padding = self._selection_radius - self._radius + 2.5 * rt.get_pixel_scale()
+    local padding = self._selection_radius - self._radius + 2.5 * rt.SceneManager:get_pixel_scale()
     self._stencil:reformat(
         x - padding, y + 2 * radius,
         width + 2 * padding, height - 4 * radius
@@ -166,7 +166,7 @@ function mn.StageSelectPageIndicator:size_allocate(x, y, width, height)
     do
         local n_outer_vertices = 16
         local step = (2 * math.pi) / n_outer_vertices
-        for i = 1, n_outer_vertices * rt.get_pixel_scale() do
+        for i = 1, n_outer_vertices * rt.SceneManager:get_pixel_scale() do
             table.insert(self._notification_outline, notification_x + math.cos((i - 1) * step) * notification_radius)
             table.insert(self._notification_outline, notification_y + math.sin((i - 1) * step) * notification_radius)
         end
@@ -177,7 +177,7 @@ function mn.StageSelectPageIndicator:size_allocate(x, y, width, height)
     self:set_selected_page(self._selected_page_i)
     self._motion:skip()
     self._circle_mapping_upgrade_needed = true
-    self._ring = mn.StageSelectPageIndicatorRing(self._selection_radius, math.floor(2.5 * rt.get_pixel_scale()))
+    self._ring = mn.StageSelectPageIndicatorRing(self._selection_radius, math.floor(2.5 * rt.SceneManager:get_pixel_scale()))
 
     self._y_offset = 0.5 * height - 0.5 * (bottom_y - y)
 end

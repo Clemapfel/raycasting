@@ -33,7 +33,7 @@ do
     function ow.DialogFocusIndicator:_draw(is_bloom, x, y)
         require "common.cursor"
         local radius = self:get_radius()
-        y = y - rt.settings.margin_unit - 0.5 * radius
+        y = y - rt.SceneManager:get_margin_unit() - 0.5 * radius
 
         local top_left_x = x + radius * _focus_indicator_top_left_x
         local top_left_y = y + radius * _focus_indicator_top_left_y

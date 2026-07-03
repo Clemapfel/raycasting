@@ -32,8 +32,8 @@ end
 
 --- @brief
 function mn.ScrollIndicator._generate_body(center_x, center_y, angle, width, thickness)
-    if thickness == nil then thickness = rt.settings.margin_unit end
-    if width == nil then width = 6 * rt.settings.margin_unit end
+    if thickness == nil then thickness = rt.SceneManager:get_margin_unit() end
+    if width == nil then width = 6 * rt.SceneManager:get_margin_unit() end
     if angle == nil then angle = (2 * math.pi) / 3 end
     angle = math.pi - angle
 
@@ -76,7 +76,7 @@ end
 
 --- @brief
 function mn.ScrollIndicator._generate_outline(center_x, center_y, angle, width, thickness)
-    if thickness == nil then thickness = rt.settings.margin_unit end
+    if thickness == nil then thickness = rt.SceneManager:get_margin_unit() end
     if width == nil then width = 6 * rt.sett.margin_unit end
     if angle == nil then angle =  (2 * math.pi) / 3 end
     angle = math.pi - angle

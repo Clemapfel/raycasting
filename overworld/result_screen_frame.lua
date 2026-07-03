@@ -238,7 +238,7 @@ function ow.ResultScreenFrame:_update_mesh_paths()
         n_outer_vertices = n
     end
 
-    n_outer_vertices = n_outer_vertices * math.ceil(rt.get_pixel_scale())
+    n_outer_vertices = n_outer_vertices * math.ceil(rt.SceneManager:get_pixel_scale())
     n_outer_vertices = n_outer_vertices + 1 -- +1 for duplicate last tr
 
     local vertex_i_to_weight_entry = {}
@@ -518,7 +518,7 @@ function ow.ResultScreenFrame:update(delta)
     self._mesh:replace_data(self._mesh_data)
 
     local particle_radius = rt.settings.overworld.result_screen_frame.particle_radius
-    local noise_range = rt.settings.overworld.result_screen_frame.noise_magnitude * rt.get_pixel_scale()
+    local noise_range = rt.settings.overworld.result_screen_frame.noise_magnitude * rt.SceneManager:get_pixel_scale()
 
     for particle in values(self._particles) do
         local home_x, home_y = self._vertex_i_to_path[particle[_vertex_i]]:at(t)
@@ -528,7 +528,7 @@ function ow.ResultScreenFrame:update(delta)
         particle[_x] = home_x + noise_range * 0.5
         particle[_y] = home_y + noise_range * 0.5
 
-        local noise_velocity = particle[_noise_velocity] * rt.get_pixel_scale()
+        local noise_velocity = particle[_noise_velocity] * rt.SceneManager:get_pixel_scale()
         particle[_noise_position_x] = particle[_noise_position_x] + delta * noise_velocity
         particle[_noise_position_y] = particle[_noise_position_y] + delta * noise_velocity
 

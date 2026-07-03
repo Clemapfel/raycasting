@@ -45,7 +45,7 @@ end
 
 --- @brief
 function mn.ScrollableList:size_allocate(x, y, width, height)
-    local m = rt.settings.margin_unit
+    local m = rt.SceneManager:get_margin_unit()
     local outer_margin = 2 * m
     local item_y_padding = m
     local item_y_margin = 0.5 * m
@@ -57,7 +57,7 @@ function mn.ScrollableList:size_allocate(x, y, width, height)
         max_widget_h = math.max(max_widget_h, item_h)
     end
 
-    local scrollbar_w = rt.settings.settings_scene.scrollbar_width_factor * rt.settings.margin_unit
+    local scrollbar_w = rt.settings.settings_scene.scrollbar_width_factor * rt.SceneManager:get_margin_unit()
     self._scrollbar:reformat(
         x + width - scrollbar_w,
         y,
@@ -235,7 +235,7 @@ end
 
 --- @brief
 function mn.ScrollableList:get_scrollbar_width()
-    return 2 + rt.settings.settings_scene.scrollbar_width_factor * rt.settings.margin_unit + rt.settings.margin_unit
+    return 2 + rt.settings.settings_scene.scrollbar_width_factor * rt.SceneManager:get_margin_unit() + rt.SceneManager:get_margin_unit()
 end
 
 --- @brief

@@ -810,7 +810,7 @@ end
 
 --- @brief
 function mn.SettingsScene:size_allocate(x, y, width, height)
-    local m = rt.settings.margin_unit
+    local m = rt.SceneManager:get_margin_unit()
     local outer_margin = 2 * m
     local item_outer_margin = 2 * m
     local item_inner_margin = 4 * m
@@ -858,7 +858,6 @@ function mn.SettingsScene:size_allocate(x, y, width, height)
         local item = self._list:get_item(i)
         item.size_allocate = function(self, x, y, width, height)
             local prefix_w, prefix_h = self.prefix:measure()
-
             self.prefix:reformat(
                 x + item_outer_margin,
                 y + 0.5 * height - 0.5 * prefix_h,

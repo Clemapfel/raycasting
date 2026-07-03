@@ -471,7 +471,7 @@ function ow.OverworldScene:size_allocate(x, y, width, height)
         self._blur = rt.Blur(width, height)
     end
 
-    local m = rt.settings.margin_unit
+    local m = rt.SceneManager:get_margin_unit()
     do
         local max_h = -math.huge
         for indicator in values(self._control_indicator_type_to_control_indicator) do
@@ -885,7 +885,7 @@ function ow.OverworldScene:get_debug_information()
     }, " | ")
 
     --[[
-    local m = 2 * rt.settings.margin_unit
+    local m = 2 * rt.SceneManager:get_margin_unit()
     local r = rt.settings.player_input_smoothing.radius
     self._player:get_input_smoothing():draw(r + m, love.graphics.getHeight() - (r + m), r)
     ]]

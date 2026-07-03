@@ -371,7 +371,7 @@ local _focus_indicator_top_right_y = math.sin(angle_offset + 4 * math.pi / 3 - s
 function ow.NPC:_draw_focus_indicator(x, y)
     require "common.cursor"
     local radius = rt.settings.cursor.radius * 2
-    y = y - rt.settings.margin_unit - 0.5 * radius
+    y = y - rt.SceneManager:get_margin_unit() - 0.5 * radius
 
     local top_left_x = x + radius * _focus_indicator_top_left_x
     local top_left_y = y + radius * _focus_indicator_top_left_y

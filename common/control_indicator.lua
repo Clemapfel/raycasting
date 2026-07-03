@@ -180,7 +180,7 @@ end
 
 --- @brief
 function rt.ControlIndicator:_get_margin()
-    local m = rt.settings.margin_unit
+    local m = rt.SceneManager:get_margin_unit()
     local outer_xm = self._use_frame and 2 * m or 2 * m
     local outer_ym = self._use_frame and m or m
     local inner_m = 0.5 * m

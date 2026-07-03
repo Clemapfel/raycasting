@@ -89,7 +89,7 @@ end
 
 --- @override
 function mn.OptionButton:size_allocate(x, y, width, height)
-    local m = rt.settings.margin_unit
+    local m = rt.SceneManager:get_margin_unit()
 
     local max_w, max_h = -math.huge, -math.huge
     for item in values(self._items) do
@@ -113,7 +113,7 @@ function mn.OptionButton:size_allocate(x, y, width, height)
     local label_start_x = x + indicator_r + m
     local label_y = y + 0.5 * height - 0.5 * max_h
     local tile_w = width - 2 * m - 2 * indicator_r
-    local padding = 5 * rt.get_pixel_scale()
+    local padding = 5 * rt.SceneManager:get_pixel_scale()
 
     local current_x = label_start_x
     for item in values(self._items) do

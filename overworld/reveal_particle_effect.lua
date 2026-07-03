@@ -85,7 +85,7 @@ function ow.RevealParticleEffect:emit(ax, ay, bx, by, side)
         if self._total_n_particles < settings.max_n_particles then
             local t = (i - 1) / n_particles
             local x, y = math.mix2(ax, ay, bx, by, t)
-            local magnitude = rt.random.number(settings.min_impulse, settings.max_impulse) * rt.get_pixel_scale()
+            local magnitude = rt.random.number(settings.min_impulse, settings.max_impulse) * rt.SceneManager:get_pixel_scale()
             local mass = rt.random.number(settings.min_mass, settings.max_mass)
             local hue = rt.random.number(0, 1)
             local r, g, b, _ = rt.lcha_to_rgba(0.8, 1, hue, 1)
@@ -126,7 +126,7 @@ function ow.RevealParticleEffect:update(delta)
         return rt.random.noise(x, y) * 2 - 1
     end
 
-    local gravity = rt.settings.overworld.reveal_particle_effect.gravity * rt.get_pixel_scale()
+    local gravity = rt.settings.overworld.reveal_particle_effect.gravity * rt.SceneManager:get_pixel_scale()
 
     local batch_to_remove = {}
     for batch_i, batch in ipairs(self._batches) do
@@ -160,7 +160,7 @@ end
 
 --- @brief
 function ow.RevealParticleEffect:draw()
-    local radius = rt.settings.overworld.reveal_particle_effect.radius * rt.get_pixel_scale()
+    local radius = rt.settings.overworld.reveal_particle_effect.radius * rt.SceneManager:get_pixel_scale()
     local line_width = 2
 
     love.graphics.push("all")
@@ -174,7 +174,7 @@ function ow.RevealParticleEffect:draw()
         for particle in values(batch.particles) do
             love.graphics.push()
             love.graphics.translate(particle[_x], particle[_y])
-            love.graphics.scale(rt.get_pixel_scale(), rt.get_pixel_scale())
+            love.graphics.scale(rt.SceneManager:get_pixel_scale(), rt.SceneManager:get_pixel_scale())
 
             rt.Palette.BLACK:bind()
             love.graphics.line(particle[_segments])
@@ -188,7 +188,7 @@ function ow.RevealParticleEffect:draw()
         for particle in values(batch.particles) do
             love.graphics.push()
             love.graphics.translate(particle[_x], particle[_y])
-            love.graphics.scale(rt.get_pixel_scale(), rt.get_pixel_scale())
+            love.graphics.scale(rt.SceneManager:get_pixel_scale(), rt.SceneManager:get_pixel_scale())
 
             love.graphics.setColor(particle[_color_r], particle[_color_g], particle[_color_b])
             love.graphics.line(particle[_segments])

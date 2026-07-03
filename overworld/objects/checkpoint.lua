@@ -557,7 +557,7 @@ function ow.Checkpoint:update(delta)
                     self._time_label:measure()
                 )
 
-                local padding = 10 * rt.get_pixel_scale()
+                local padding = 10 * rt.SceneManager:get_pixel_scale()
                 label_bounds.x = label_bounds.x - padding
                 label_bounds.y = label_bounds.y - padding
                 label_bounds.width = label_bounds.width + 2 * padding

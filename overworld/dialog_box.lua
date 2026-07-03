@@ -204,7 +204,7 @@ function ow.DialogBox:realize()
             node.speaker:reformat(
                 0,
                 0,
-                label_w + 2 * rt.settings.margin_unit,
+                label_w + 2 * rt.SceneManager:get_margin_unit(),
                 math.huge
             )
         end
@@ -351,7 +351,7 @@ end
 
 --- @brief
 function ow.DialogBox:_set_active_node(node)
-    local m = rt.settings.margin_unit
+    local m = rt.SceneManager:get_margin_unit()
     local before = self._active_node
 
     if node == nil then
@@ -435,7 +435,7 @@ function ow.DialogBox:size_allocate(x, y, width, height)
     local line_height = self._font:get_line_height(rt.FontSize.REGULAR)
     self._line_height = line_height
 
-    local m = rt.settings.margin_unit
+    local m = rt.SceneManager:get_margin_unit()
     local outer_margin = 2 * m
 
     local frame_w = width - 2 * outer_margin
@@ -453,7 +453,7 @@ function ow.DialogBox:size_allocate(x, y, width, height)
 
     -- speaker frame reformated in _set_active_node
 
-    local sprite_scale = rt.get_pixel_scale()
+    local sprite_scale = rt.SceneManager:get_pixel_scale()
     local portrait_w = rt.settings.overworld.dialog_box.portrait_resolution_w * sprite_scale + 2 * thickness
     local portrait_h = rt.settings.overworld.dialog_box.portrait_resolution_h * sprite_scale + 2 * thickness
 

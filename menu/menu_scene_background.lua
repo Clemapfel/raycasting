@@ -71,7 +71,7 @@ function mn.MenuSceneBackground:instantiate(scene)
     self._elapsed = 0
 
     do -- particle texture
-        local canvas_w = rt.get_pixel_scale() * (rt.settings.menu.menu_scene_background.radius + 5) -- padding
+        local canvas_w = rt.SceneManager:get_pixel_scale() * (rt.settings.menu.menu_scene_background.radius + 5) -- padding
         self._particle_texture = rt.RenderTexture(canvas_w, canvas_w, 0, _texture_format)
         love.graphics.push("all")
         love.graphics.reset()
@@ -102,7 +102,7 @@ function mn.MenuSceneBackground:size_allocate(x, y, width, height)
     self._data_mesh_data = {}
 
     local settings = rt.settings.menu.menu_scene_background
-    self._radius = settings.radius * rt.get_pixel_scale()
+    self._radius = settings.radius * rt.SceneManager:get_pixel_scale()
 
     if self._canvas == nil or self._canvas:get_width() ~= width or self._canvas:get_height() ~= height then
         self._canvas = rt.RenderTexture(width, height, 0, _texture_format)

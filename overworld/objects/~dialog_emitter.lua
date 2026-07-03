@@ -122,8 +122,8 @@ function ow.DialogEmitter:_reformat_dialog_box()
     if self._bounds == nil or not bounds:equals(self._bounds) then
         self._bounds = bounds
         local x, y, w, h = self._bounds:unpack()
-        local x_margin = 10 * rt.settings.margin_unit
-        local y_margin = 3 * rt.settings.margin_unit
+        local x_margin = 10 * rt.SceneManager:get_margin_unit()
+        local y_margin = 3 * rt.SceneManager:get_margin_unit()
         y_margin = math.max(
             y_margin,
             select(2, self._scene:get_control_indicator(ow.ControlIndicatorType.DIALOG):measure())

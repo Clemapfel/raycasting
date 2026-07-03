@@ -418,7 +418,7 @@ function ow.ResultScreenScene:size_allocate(x, y, width, height)
         self._grade_label_w, self._grade_label_h = max_w, max_h
     end
 
-    local m = rt.settings.margin_unit
+    local m = rt.SceneManager:get_margin_unit()
     do -- physics world
         local bx, by = 0, 0
         local bounds_x, bounds_y = x, y
@@ -725,7 +725,7 @@ function ow.ResultScreenScene:_initialize_coin_indicators()
         self._coin_indicators = {}
 
         require "overworld.objects.coin"
-        local radius = 1.5 * rt.settings.overworld.coin.radius * rt.get_pixel_scale()
+        local radius = 1.5 * rt.settings.overworld.coin.radius * rt.SceneManager:get_pixel_scale()
         for i = 1, self._max_n_coins do
             local coin = ow.CoinParticle(radius)
             coin:set_hue(ow.Coin.index_to_hue(i, self._max_n_coins))
@@ -752,7 +752,7 @@ end
 --- @brief
 function ow.ResultScreenScene:_reformat_frame()
     local x, y, width, height = self:get_bounds():unpack()
-    local m = rt.settings.margin_unit
+    local m = rt.SceneManager:get_margin_unit()
 
     do
         local max_w, max_h = -math.huge, -math.huge
@@ -878,7 +878,7 @@ function ow.ResultScreenScene:_reformat_frame()
         local row_height = 2 * radius + spacing
         local row_y = math.max(indicator_y + (indicator_height - (n_rows * row_height - spacing)) / 2, indicator_y)
 
-        local fill_radius = radius - 2 * rt.settings.overworld.result_screen_scene.coin_indicator_line_width * rt.get_pixel_scale()
+        local fill_radius = radius - 2 * rt.settings.overworld.result_screen_scene.coin_indicator_line_width * rt.SceneManager:get_pixel_scale()
         fill_radius = fill_radius * 2 / 3
 
         coin_bottom_y = row_y + n_rows * row_height
@@ -935,7 +935,7 @@ end
 
 --- @brief
 function ow.ResultScreenScene:_spawn_coin(x, y)
-    local radius = rt.settings.overworld.coin.radius * rt.get_pixel_scale()
+    local radius = rt.settings.overworld.coin.radius * rt.SceneManager:get_pixel_scale()
     local coin_shape = b2.Circle(0, 0, radius)
     local min_x, max_x = self._bounds.x, self._bounds.x + self._bounds.width
     local min_y, max_y = self._bounds.y, self._bounds.y + self._bounds.height

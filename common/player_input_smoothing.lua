@@ -642,7 +642,7 @@ function rt.PlayerInputSmoothing:draw(center_x, center_y)
 
 
     love.graphics.push("all")
-    local margin = math.max((small_radius + line_width) / 2, 2 * rt.settings.margin_unit)
+    local margin = math.max((small_radius + line_width) / 2, 2 * rt.SceneManager:get_margin_unit())
 
     love.graphics.setLineWidth(line_width)
     love.graphics.setLineStyle("rough")

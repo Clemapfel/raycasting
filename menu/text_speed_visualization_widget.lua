@@ -20,7 +20,7 @@ end
 
 --- @brief
 function mn.TextSpeedVisualizationWidget:size_allocate(x, y, width, height)
-    local m = 2 * rt.settings.margin_unit
+    local m = 2 * rt.SceneManager:get_margin_unit()
     self._label:reformat(0, 0, width, height)
     local w, h = self._label:measure()
     self._label:reformat(x, y, width, height)

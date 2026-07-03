@@ -275,7 +275,7 @@ function mn.StageSelectDebrisEmitter:update(delta)
         end
 
         particle.to_draw = {}
-        local radius = math.mix(min_radius, max_radius, particle.radius) * rt.get_pixel_scale()
+        local radius = math.mix(min_radius, max_radius, particle.radius) * rt.SceneManager:get_pixel_scale()
         for i = 1, #particle.edges do
             local edge = particle.edges[i]
             local a = points[edge[1]]
@@ -310,7 +310,7 @@ function mn.StageSelectDebrisEmitter:draw_below_player()
     love.graphics.push()
     love.graphics.translate(self._offset_x, self._offset_y)
     love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.setLineWidth(1.5 * rt.get_pixel_scale())
+    love.graphics.setLineWidth(1.5 * rt.SceneManager:get_pixel_scale())
     love.graphics.setLineJoin("none")
 
     love.graphics.setBlendMode("add", "premultiplied")
@@ -394,7 +394,7 @@ end
 function mn.StageSelectDebrisEmitter:set_player_position(x, y)
     love.graphics.push()
     self._hitbox_x, self._hitbox_y = x, y
-    self._hitbox_radius = rt.settings.player.radius * rt.get_pixel_scale()
+    self._hitbox_radius = rt.settings.player.radius * rt.SceneManager:get_pixel_scale()
     love.graphics.pop()
 end
 

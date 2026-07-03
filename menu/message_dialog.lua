@@ -114,7 +114,7 @@ end
 
 --- @override
 function mn.MessageDialog:size_allocate(x, y, width, height)
-    local m = rt.settings.margin_unit
+    local m = rt.SceneManager:get_margin_unit()
     local outer_xm = 4 * m
     local outer_ym = 2 * m
     local button_margin = m

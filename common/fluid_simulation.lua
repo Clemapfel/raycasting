@@ -62,7 +62,7 @@ function rt.FluidSimulation:instantiate()
 
     -- render texture config
     self._canvas_msaa = 4 -- msaa for render textures
-    self._particle_texture_radius = 40 * rt.get_pixel_scale()
+    self._particle_texture_radius = 40 * rt.SceneManager:get_pixel_scale()
     self._particle_texture_padding = 3 -- px
     self._particle_texture_resolution_factor = 4 -- fraction
 
@@ -2266,7 +2266,7 @@ function rt.FluidSimulation:instantiate()
 
     -- render texture config
     self._canvas_msaa = 4 -- msaa for render textures
-    self._particle_texture_radius = 40 * rt.get_pixel_scale()
+    self._particle_texture_radius = 40 * rt.SceneManager:get_pixel_scale()
     self._particle_texture_padding = 3 -- px
     self._particle_texture_resolution_factor = 4 -- fraction
 

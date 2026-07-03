@@ -93,7 +93,7 @@ function mn.VerboseInfoPanel.Item._colon()
 end
 
 function mn.VerboseInfoPanel.Item._get_margin()
-    local m = rt.settings.margin_unit
+    local m = rt.SceneManager:get_margin_unit()
     return m, 2 * m, m
 end
 

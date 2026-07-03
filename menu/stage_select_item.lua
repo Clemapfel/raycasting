@@ -124,7 +124,7 @@ end
 --- @brief
 function mn.StageSelectItem:size_allocate(x, y, width, height)
     self._hrules = {}
-    local m = rt.settings.margin_unit
+    local m = rt.SceneManager:get_margin_unit()
     local hrule_height = 2
 
     local outer_margin = 2 * m
@@ -135,7 +135,7 @@ function mn.StageSelectItem:size_allocate(x, y, width, height)
     self._title_label:reformat(x + 0.5 * width - 0.5 * title_w, current_y, math.huge, math.huge)
     current_y = current_y + title_h + m
 
-    local preview_w = 280 * rt.get_pixel_scale()
+    local preview_w = 280 * rt.SceneManager:get_pixel_scale()
     local preview_h = preview_w / (16 / 9)
     local preview_x = x + 0.5 * width - 0.5 * preview_w
     local preview_y = current_y
@@ -149,7 +149,7 @@ function mn.StageSelectItem:size_allocate(x, y, width, height)
     local hrule_width = preview_w
     self._hrule_callbacks = {
         function()
-            love.graphics.setLineWidth(hrule_height * rt.get_pixel_scale())
+            love.graphics.setLineWidth(hrule_height * rt.SceneManager:get_pixel_scale())
             love.graphics.setLineJoin("none")
         end
     }

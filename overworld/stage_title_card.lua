@@ -69,7 +69,7 @@ end
 
 --- @brief
 function ow.StageTitleCard:size_allocate(x, y, width, height)
-    local outer_margin = 4 * rt.settings.margin_unit
+    local outer_margin = 4 * rt.SceneManager:get_margin_unit()
     self._label:reformat(0, 0, width, height)
     local label_w, label_h = self._label:measure()
     self._label:reformat(

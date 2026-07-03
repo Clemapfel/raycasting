@@ -48,11 +48,11 @@ end
 
 --- @brief
 function rt.Frame:_get_effective_thickness()
-    return (self._thickness * rt.get_pixel_scale() + ternary(
+    return math.max(1, (self._thickness * rt.SceneManager:get_pixel_scale() + ternary(
         self._selection_state == rt.SelectionState.ACTIVE,
         2,
         0
-    )) / rt.SceneManager:get_downscaling_factor()
+    )) / rt.SceneManager:get_downscaling_factor())
 end
 
 --- @brief
@@ -64,9 +64,9 @@ function rt.Frame:draw()
 
     local opacity = self._opacity
     local thickness = self:_get_effective_thickness()
-    local corner_radius = self._corner_radius
+    local corner_radius = self._corner_radius / rt.SceneManager:get_downscaling_factor()
 
-    love.graphics.setLineWidth(thickness + 2 * rt.SceneManager:get_downscaling_factor())
+    love.graphics.setLineWidth(thickness + math.max(1, 2 / rt.SceneManager:get_downscaling_factor()))
     love.graphics.setLineStyle("smooth")
     love.graphics.setColor(stencil_r, stencil_g, stencil_b, opacity * stencil_a)
 
@@ -121,7 +121,7 @@ function rt.Frame:bind_stencil()
     rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW)
     local x, y, w, h = self._bounds:unpack()
     local corner_radius = self._corner_radius
-    local thickness = self._thickness * rt.get_pixel_scale()
+    local thickness = self._thickness * rt.SceneManager:get_pixel_scale()
     love.graphics.rectangle(
         "fill",
         x + thickness, y + thickness, w - 2 * thickness, h - 2 * thickness,
