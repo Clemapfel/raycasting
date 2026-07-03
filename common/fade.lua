@@ -165,7 +165,7 @@ function rt.Fade:draw()
         end
 
         love.graphics.setColor(self._r, self._g, self._b, self._a)
-        love.graphics.rectangle("fill", 0, 0, love.graphics.getDimensions())
+        love.graphics.rectangle("fill", 0, 0, rt.SceneManager:get_size())
         self._shader:unbind()
         love.graphics.pop()
     end

@@ -559,7 +559,7 @@ function ow.DialogBox:_try_initialize_bloom()
     then
         local padding = math.max(
             area_min_x,
-            love.graphics.getWidth() - area_max_x
+            rt.SceneManager:get_width() - area_max_x
         )
         self._bloom = rt.Bloom(bloom_w, bloom_h, padding)
         self._bloom:set_bloom_strength(rt.settings.overworld.dialog_box.bloom_blur_strength)

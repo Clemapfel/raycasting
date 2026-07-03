@@ -120,14 +120,11 @@ end
 function rt.Camera:constrain(x, y)
     if self._apply_bounds ~= true then return x, y end
 
-    -- 1. Calculate the total scale applied to the viewport
     local total_scale = self._current_scale * rt.get_pixel_scale()
 
-    -- 2. Determine world-space half-dimensions of the screen
-    local hw = (love.graphics.getWidth() / 2) / total_scale
-    local hh = (love.graphics.getHeight() / 2) / total_scale
+    local hw = (rt.SceneManager:get_width() / 2) / total_scale
+    local hh = (rt.SceneManager:get_height() / 2) / total_scale
 
-    -- 3. Account for rotation: find the bounding box of the rotated viewport
     local angle = self._current_angle
     local cos_a = math.abs(math.cos(angle))
     local sin_a = math.abs(math.sin(angle))
@@ -310,7 +307,7 @@ end
 
 --- @brief
 function rt.Camera:get_size()
-    local w, h = love.graphics.getDimensions()
+    local w, h = rt.SceneManager:get_size()
     return w * self._current_scale, h * self._current_scale
 end
 
@@ -354,7 +351,7 @@ end
 
 --- @brief
 function rt.Camera:get_scale_delta()
-    return (love.graphics.getHeight() / rt.settings.native_height)
+    return (rt.SceneManager:get_height() / rt.settings.native_height)
 end
 
 --- @brief
@@ -381,8 +378,8 @@ function rt.Camera:fit_to(bounds, center_x, center_y)
     meta.assert(bounds, rt.AABB)
     if self._is_enabled ~= true then return end
 
-    local screen_w, screen_h = love.graphics.getDimensions()
-    local pixel_scale = self:get_scale_delta()
+    local screen_w, screen_h = rt.SceneManager:get_size()
+    local pixel_scale = self:get_final_scale()
 
     local bw = math.max(math.eps, bounds.width)
     local bh = math.max(math.eps, bounds.height)
@@ -541,7 +538,7 @@ end
 
 --- @brief
 function rt.Camera:get_offset()
-    local w, h = love.graphics.getDimensions()
+    local w, h = rt.SceneManager:get_size()
     local x_offset = -_floor(self._current_x + 0.5 * w)
     local y_offset = -_floor(self._current_y + 0.5 * h)
 
@@ -555,7 +552,7 @@ end
 
 --- @brief
 function rt.Camera:_update_bounds()
-    local w, h = love.graphics.getDimensions()
+    local w, h = rt.SceneManager:get_size()
     local screen_corners = {
         0, 0,
         w, 0,
@@ -638,9 +635,12 @@ end
 function rt.Camera:_update_transform()
     local t = self._transform:reset()
 
-    local screen_w, screen_h = love.graphics.getDimensions()
+    local screen_w, screen_h = rt.SceneManager:get_size()
     t:translate(_floor(0.5 * screen_w), _floor(0.5 * screen_h), 0)
     t:scale(self._current_scale, self._current_scale, 1)
+
+    -- compensate for global resolution scaling
+    t:scale(1 / rt.SceneManager:get_downscaling_factor())
 
     if self._use_pixel_scale then
         t:scale(rt.get_pixel_scale())

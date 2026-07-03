@@ -311,7 +311,7 @@ do
             self._bounce_velocity = self._bounce_velocity * damping
             self._bounce_position = self._bounce_position + self._bounce_velocity * delta
 
-            if math.abs(self._bounce_position - before) * offset < 1 / love.graphics.getWidth() then -- more than 1 px change
+            if math.abs(self._bounce_position - before) * offset < 1 / rt.SceneManager:get_width() then -- more than 1 px change
                 self._bounce_position = 0
                 self._bounce_velocity = 0
                 self._is_bouncing = false

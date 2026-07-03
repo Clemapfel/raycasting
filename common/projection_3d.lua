@@ -28,7 +28,7 @@ end
 --- @brief
 function rt.Projection3D:_update_projections()
     local near, far = rt.settings.render_texture_3d.near_plane, rt.settings.render_texture_3d.far_plane
-    local width, height = love.graphics.getDimensions()
+    local width, height = rt.SceneManager:get_size()
 
     self._projection_perspective = rt.Transform():as_perspective_projection(
         math.pi * self._fov,

@@ -1013,7 +1013,7 @@ function ow.LightMap:composite(strength)
     ]]
     _composite_shader:send("composite_texture", self._composite_texture)
     _composite_shader:send("strength", strength)
-    love.graphics.rectangle("fill", 0, 0, love.graphics.getDimensions())
+    love.graphics.rectangle("fill", 0, 0, rt.SceneManager:get_size())
     _composite_shader:unbind()
 
     love.graphics.pop()

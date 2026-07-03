@@ -1,6 +1,8 @@
 DEBUG = true -- overriden by build script
 
 function love.conf(settings)
+    require "include"
+    require "common.error_handler"
     require "build.config"
     local config = bd.get_config()
 
@@ -72,6 +74,5 @@ function love.conf(settings)
 
     settings.vsync = 0
 end
-
 
 

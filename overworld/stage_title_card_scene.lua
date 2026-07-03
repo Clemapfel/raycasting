@@ -122,7 +122,7 @@ function ow.StageTitleCardScene:_initialize()
     self._camera_anchor_x, self._camera_anchor_y = math.mix2(min_x, min_y, max_x, max_y, 0.5)
     self._camera:set_position(self._camera_anchor_x, self._camera_anchor_y)
 
-    local screen_w, screen_h = love.graphics.getDimensions()
+    local screen_w, screen_h = rt.SceneManager:get_size()
     local outer_margin = 10 * rt.settings.margin_unit
     self._camera:set_scale(math.min(
         screen_w / (camera_bounds.width + 2 * outer_margin),

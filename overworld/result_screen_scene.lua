@@ -720,8 +720,8 @@ end
 
 --- @brief
 function ow.ResultScreenScene:_initialize_coin_indicators()
-    if #self._coin_indicators == 0 or self._last_window_height ~= love.graphics.getHeight() then
-        self._last_window_height = love.graphics.getHeight()
+    if #self._coin_indicators == 0 or self._last_window_height ~= rt.SceneManager:get_height() then
+        self._last_window_height = rt.SceneManager:get_height()
         self._coin_indicators = {}
 
         require "overworld.objects.coin"

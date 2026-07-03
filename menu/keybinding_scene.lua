@@ -306,6 +306,7 @@ end
 
 --- @brief
 function mn.KeybindingScene:size_allocate(x, y, width, height)
+
     local m = rt.settings.margin_unit
     local outer_margin = 2 * m
     local item_outer_margin = 2 * m

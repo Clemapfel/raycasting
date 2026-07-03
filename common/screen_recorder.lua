@@ -197,7 +197,7 @@ end
 
 --- @brief
 function rt.ScreenRecorder:_try_initialize()
-    local width, height = love.graphics.getDimensions()
+    local width, height = rt.SceneManager:get_size()
 
     if self._texture == nil
         or self._texture:get_width() ~= width

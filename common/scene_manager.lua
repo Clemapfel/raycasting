@@ -36,7 +36,7 @@ end
 --- @brief
 function rt.SceneManager:instantiate()
     require "common.game_state"
-    local width, height = rt.GameState:get_internal_resolution()
+    self._width, self._height = rt.GameState:get_internal_resolution()
 
     meta.install(self, {
         _scene_type_to_scene = {},
@@ -46,8 +46,6 @@ function rt.SceneManager:instantiate()
         _schedule_enter = false,
 
         _scene_stack = {}, -- Stack<SceneType>
-        _width = width,
-        _height = height,
         _fade = rt.Fade(),
         _should_use_fade = false,
         _use_fixed_timestep = false,
@@ -317,11 +315,10 @@ function rt.SceneManager:draw(...)
 end
 
 --- @brief
-function rt.SceneManager:resize(width, height)
-    meta.assert(width, mt.Number, height, mt.Number)
+function rt.SceneManager:resize(_)
+    meta.assert(_, mt.Nil)
 
-    self._width = width
-    self._height = height
+    self._width, self._height = rt.GameState:get_internal_resolution()
 
     if self._scene ~= nil then
         self:_reformat_scene(self._scene)
@@ -466,6 +463,11 @@ function rt.SceneManager:get_size()
 end
 
 --- @brief
+function rt.SceneManager:get_downscaling_factor()
+    return love.graphics.getHeight() / self._height
+end
+
+--- @brief
 function rt.SceneManager:_notify_update_duration(duration)
     table.insert(self._update_samples, {
         timestamp = love.timer.getTime(),
@@ -498,7 +500,7 @@ end
 local _default_font = love.graphics.getFont()
 
 --- @brief
-function rt.SceneManager:_draw_performance_metrics()
+function rt.SceneManager:draw_debug_information()
     local threshold = love.timer.getTime() - rt.settings.scene_manager.performance_metrics_interval
 
     local update_samples = function(t)
@@ -561,7 +563,7 @@ function rt.SceneManager:_draw_performance_metrics()
         return str
     end
 
-    local str = table.concat({
+    local right = table.concat({
         format(math.round(fps_mean)), " fps \u{00B1} " .. format(math.round(fps_variance)) .. " | ",
         format(to_percent(update_mean)), " (", format(to_percent(update_max)), ") % | ",
         format(to_percent(draw_mean)), " (", format(to_percent(draw_max)), ") % | ",
@@ -570,10 +572,16 @@ function rt.SceneManager:_draw_performance_metrics()
     })
 
     love.graphics.setFont(_default_font)
-    local str_width = _default_font:getWidth(str)
+    local str_width = _default_font:getWidth(right)
 
+    local margin = 5
     love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.printf(str, love.graphics.getWidth() - str_width - 5, 5, math.huge)
+    love.graphics.printf(right, love.graphics.getWidth() - str_width - margin, margin, math.huge)
+
+    if self._current_scene ~= nil then
+        local left = self._current_scene:get_debug_information() or ""
+        love.graphics.printf(left, margin, margin, math.huge)
+    end
 end
 
 --- @brief
@@ -778,8 +786,8 @@ love.run = function()
         end
 
         if rt.GameState:get_draw_debug_information() then
-            love.graphics.origin()
-            rt.SceneManager:_draw_performance_metrics()
+            love.graphics.reset()
+            rt.SceneManager:draw_debug_information()
         end
 
         if drawn then
@@ -792,7 +800,5 @@ love.run = function()
         love.timer.sleep(1 / 1000)
     end
 end
-
-require "common.error_handler"
 
 return rt.SceneManager

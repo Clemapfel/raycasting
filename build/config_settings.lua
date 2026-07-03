@@ -74,7 +74,8 @@ do
         internal_resolution_scaling = ENUM(rt.InternalResolutionScaling.NONE,
             rt.InternalResolutionScaling.NONE,
             rt.InternalResolutionScaling.HALF,
-            rt.InternalResolutionScaling.QUARTER
+            rt.InternalResolutionScaling.QUARTER,
+            rt.InternalResolutionScaling.EIGHTH
         ),
 
         -- scaling filter mode
@@ -179,7 +180,7 @@ end
 --- @brief check if a config entry has the correct format
 bd.config.validate_settings_entry = function(key, value)
     local throw = function(...)
-        rt.critical("In bd.config.validate_settings_entry: ", ...)
+        rt.fatal("In bd.config.validate_settings_entry: ", ...)
     end
 
     value = string.match(tostring(value), '^"(.-)"$') or value -- strip `"`

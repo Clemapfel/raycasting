@@ -26,6 +26,10 @@ local _GRAY_7 = rt.Palette.GRAY_8
 local _TRUE_WHITE = rt.Palette.TRUE_WHITE
 local _WHITE = rt.Palette.WHITE
 
+local _set_line_width = function(thickness)
+    love.graphics.setLineWidth(math.max(1, thickness / rt.SceneManager:get_downscaling_factor()))
+end
+
 --- @brief
 function rt.KeybindingIndicator:instantiate()
     meta.install(self, {
@@ -106,7 +110,7 @@ local _Rectangle = function(x, y, width, height)
         
         draw = function(self, opacity)
             if self.is_outline then
-                love.graphics.setLineWidth(self.line_width)
+                _set_line_width(self.line_width)
             end
             
             local r, g, b, a = self.color:unpack()
@@ -132,7 +136,7 @@ local _Ellipse = function(x, y, x_radius, y_radius)
 
         draw = function(self, opacity)
             if self.is_outline then
-                love.graphics.setLineWidth(self.line_width)
+                _set_line_width(self.line_width)
             end
 
             local r, g, b, a = self.color:unpack()
@@ -155,7 +159,7 @@ local _Polygon = function(first, ...)
 
         draw = function(self, opacity)
             if self.is_outline then
-                love.graphics.setLineWidth(self.line_width)
+                _set_line_width(self.line_width)
             end
 
             local r, g, b, a = self.color:unpack()
@@ -175,7 +179,7 @@ local _Line = function(first, ...)
         color = _WHITE,
 
         draw = function(self, opacity)
-            love.graphics.setLineWidth(self.line_width)
+            _set_line_width(self.line_width)
             local r, g, b, a = self.color:unpack()
             love.graphics.setColor(r, g, b, a * opacity)
             love.graphics.line(self.vertices)

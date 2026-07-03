@@ -44,3 +44,13 @@ function rt.Scene:realize()
     -- noop
 end
 
+--- @brief
+function rt.Scene:get_debug_information()
+    return ""
+end
+
+--- @brief
+function rt.Scene:get_allow_downscaling()
+    return false
+end
+

@@ -1,5 +1,6 @@
-require "build.config"
 require "include"
+require "common.error_handler"
+require "build.config"
 require "common.game_state"
 require "common.scene_manager"
 require "common.music_manager"
@@ -99,10 +100,10 @@ love.load = function(args)
     end
 
     require "overworld.overworld_scene"
-    rt.SceneManager:push(ow.OverworldScene, "air_dash_node_tutorial", ow.StageEntryMode.INSTANT)
+    --rt.SceneManager:push(ow.OverworldScene, "air_dash_node_tutorial", ow.StageEntryMode.INSTANT)
 
     require "menu.keybinding_scene"
-    --rt.SceneManager:push(mn.KeybindingScene)
+    rt.SceneManager:push(mn.KeybindingScene)
 
     require "menu.settings_scene"
     --rt.SceneManager:push(mn.SettingsScene)
@@ -127,6 +128,6 @@ end
 
 love.resize = function(width, height)
     if rt.SceneManager ~= nil then
-        rt.SceneManager:resize(width, height)
+        rt.SceneManager:resize()
     end
 end

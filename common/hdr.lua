@@ -16,6 +16,16 @@ function rt.HDR:instantiate(...)
 end
 
 --- @brief
+function rt.HDR:_init_mesh(width, height)
+    self._mesh_width, self._mesh_height = width, height
+    self._mesh = rt.MeshRectangle(
+        0, 0,
+        self._mesh_width, self._mesh_height
+    )
+    self._mesh:set_texture(self._texture)
+end
+
+--- @brief
 function rt.HDR:reinitialize(width, height)
     meta.assert(width, mt.Number, height, mt.Number)
 
@@ -30,14 +40,7 @@ function rt.HDR:reinitialize(width, height)
             rt.settings.hdr.texture_format
         )
 
-        self._mesh = rt.MeshRectangle(
-            0, 0,
-            love.graphics.getWidth(), love.graphics.getHeight()
-        )
-
-        self._mesh:set_texture(self._texture)
-        self._mesh_width = love.graphics.getWidth()
-        self._mesh_height = love.graphics.getHeight()
+        self:_init_mesh(love.graphics.getDimensions())
     end
 end
 
@@ -57,14 +60,7 @@ function rt.HDR:draw()
         or self._mesh_width ~= love.graphics.getWidth()
         or self._mesh_height ~= love.graphics.getHeight()
     then
-        self._mesh = rt.MeshRectangle(
-            0, 0,
-            love.graphics.getWidth(), love.graphics.getHeight()
-        )
-
-        self._mesh:set_texture(self._texture)
-        self._mesh_width = love.graphics.getWidth()
-        self._mesh_height = love.graphics.getHeight()
+        self:_init_mesh()
     end
 
     local use_hdr = rt.GameState:get_is_hdr_enabled()

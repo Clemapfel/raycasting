@@ -149,7 +149,7 @@ function rt.Label:instantiate(text, font_size, font, use_caching)
         _width = 0,
         _height = 0,
         _first_wrap = true,
-        _last_window_height = love.graphics.getHeight(),
+        _last_window_height = rt.SceneManager:get_height(),
 
         _total_beats = 0,
     })
@@ -261,7 +261,7 @@ end
 
 --- @brief
 function rt.Label:_check_for_rescale()
-    local current_window_height = love.graphics.getHeight()
+    local current_window_height = rt.SceneManager:get_height()
     if self._last_window_height ~= current_window_height then
         self._last_window_height = current_window_height
         self:_parse(self._raw)
@@ -1527,7 +1527,7 @@ function rt.Glyph:instantiate(text, properties)
     self._elapsed = 0
     self._font = font
     self._use_caching = true -- use textbatch until first text change
-    self._last_window_height = love.graphics.getHeight()
+    self._last_window_height = rt.SceneManager:get_height()
 
     self._config = {
         text, font, font_size, style, is_mono,
@@ -1578,8 +1578,8 @@ end
 
 --- @brief
 function rt.Glyph:size_allocate(x, y, width, height)
-    if love.graphics.getHeight() ~= self._last_window_height then
-        self._last_window_height = love.graphics.getHeight()
+    if rt.SceneManager:get_height() ~= self._last_window_height then
+        self._last_window_height = rt.SceneManager:get_height()
         self._native = rt.Label._glyph_new(table.unpack(self._config))
     end
 

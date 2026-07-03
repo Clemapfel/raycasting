@@ -2,7 +2,8 @@
 rt.InternalResolutionScaling = {
     NONE = 1,
     HALF = 2,
-    QUARTER = 4
+    QUARTER = 4,
+    EIGHTH = 8
 }
 rt.InternalResolutionScaling = meta.enum("InternalResolution", rt.InternalResolutionScaling)
 
@@ -187,8 +188,7 @@ do
     end
 
     --- @brief
-    function rt.graphics.internal_resolution_list_valid()
-        local window_w, window_h = love.window.getDesktopDimensions()
+    function rt.graphics.internal_resolution_list_valid(window_w, window_h)
 
         local to_check
         local aspect = window_w / window_h
@@ -231,12 +231,11 @@ do
     function rt.graphics.resolution_to_internal_resolution(resolution_x, resolution_y, scale_factor)
         meta.assert(resolution_x, mt.Number, resolution_y, mt.Number, scale_factor, rt.InternalResolutionScaling)
 
-        local valid = rt.graphics.internal_resolution_list_valid()
+        local valid = rt.graphics.internal_resolution_list_valid(resolution_x, resolution_y)
         if #valid == 0 then return resolution_x, resolution_y end
 
         local none_x, none_y = resolution_x, resolution_y
-        local half_x, half_y
-        local quarter_x, quarter_y
+        local half_x, half_y, quarter_x, quarter_y, eighth_x, eighth_y
 
         if valid[2] ~= nil then
             half_x, half_y = valid[2][1], valid[2][2]
@@ -250,12 +249,22 @@ do
             quarter_x, quarter_y = half_x, half_y
         end
 
+        if valid[4] ~= nil then
+            eighth_x, eighth_y = valid[4][1], valid[4][2]
+        else
+            eighth_x, eighth_y = quarter_x, quarter_y
+        end
+
         if scale_factor == rt.InternalResolutionScaling.NONE then
             return resolution_x, resolution_y
         elseif scale_factor == rt.InternalResolutionScaling.HALF then
             return half_x, half_y
         elseif scale_factor == rt.InternalResolutionScaling.QUARTER then
             return quarter_x, quarter_y
+        elseif scale_factor == rt.InternalResolutionScaling.EIGHTH then
+            return eighth_x, eighth_y
+        else
+            rt.fatal("unreachable")
         end
     end
 end

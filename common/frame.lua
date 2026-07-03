@@ -48,11 +48,11 @@ end
 
 --- @brief
 function rt.Frame:_get_effective_thickness()
-    return self._thickness * rt.get_pixel_scale() + ternary(
+    return (self._thickness * rt.get_pixel_scale() + ternary(
         self._selection_state == rt.SelectionState.ACTIVE,
         2,
         0
-    )
+    )) / rt.SceneManager:get_downscaling_factor()
 end
 
 --- @brief
@@ -66,7 +66,7 @@ function rt.Frame:draw()
     local thickness = self:_get_effective_thickness()
     local corner_radius = self._corner_radius
 
-    love.graphics.setLineWidth(thickness + 2)
+    love.graphics.setLineWidth(thickness + 2 * rt.SceneManager:get_downscaling_factor())
     love.graphics.setLineStyle("smooth")
     love.graphics.setColor(stencil_r, stencil_g, stencil_b, opacity * stencil_a)
 
@@ -194,19 +194,6 @@ end
 --- @brief
 function rt.Frame:get_corner_radius()
     return self._corner_radius
-end
-
---- @override rt.Widget.measure
-function rt.Frame:measure()
-    if meta.is_widget(self._child) then
-        local w, h = self._child:measure()
-        w = math.max(w, select(1, self:get_minimum_size()))
-        h = math.max(h, select(2, self:get_minimum_size()))
-        return w + self._thickness * rt.graphics.get_pixel_scale() * 2,
-            h + self._thickness * rt.graphics.get_pixel_scale() * 2
-    else
-        return rt.Widget.measure(self)
-    end
 end
 
 --- @override

@@ -845,17 +845,11 @@ function ow.OverworldScene:draw()
     if self._time_attack_mode_exit_dialog:get_is_active() then
         self._time_attack_mode_exit_dialog:draw()
     end
-
-    if rt.GameState:get_draw_debug_information()
-        and rt.SceneManager:get_screen_recorder():get_is_recording() == false
-    then
-        self:_draw_debug_information()
-    end
 end
 
 --- @brief
-function ow.OverworldScene:_draw_debug_information()
-    if self._hide_debug_information == true then return end
+function ow.OverworldScene:get_debug_information()
+    if self._hide_debug_information == true then return "" end
 
     local collected = {}
     for i = 1, self._stage:get_n_coins() do
@@ -884,18 +878,17 @@ function ow.OverworldScene:_draw_debug_information()
     local line_height = font:getHeight()
     love.graphics.setColor(1, 1, 1, 1 - self._fade:get_value())
 
-    love.graphics.push()
-    love.graphics.printf(table.concat({
+    return table.concat({
         collectibles,
         flow,
         time
-    }, " | "), 10, 5, math.huge)
+    }, " | ")
 
-    love.graphics.pop()
-
+    --[[
     local m = 2 * rt.settings.margin_unit
     local r = rt.settings.player_input_smoothing.radius
     self._player:get_input_smoothing():draw(r + m, love.graphics.getHeight() - (r + m), r)
+    ]]
 end
 
 --- @brief
