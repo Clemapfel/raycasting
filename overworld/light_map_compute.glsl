@@ -192,6 +192,7 @@ float gaussian(float x) {
 }
 
 uniform float light_range;
+uniform float darkness_range;
 
 vec4 compute_light(vec4 light_color, float distance) {
     const float third = 1.0 / 3.0;
@@ -203,7 +204,7 @@ vec4 compute_light(vec4 light_color, float distance) {
 }
 
 float compute_composite_intensity(float distance) {
-    const float inverse_light_range = 1.0 / float(light_range * 2);
+    const float inverse_light_range = 1.0 / float(darkness_range);
     return clamp(gaussian(distance * inverse_light_range), 0.0, 1.0);
 }
 

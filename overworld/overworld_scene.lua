@@ -385,7 +385,7 @@ function ow.OverworldScene:enter(stage_id, entry_mode)
 
     self._input:activate()
     rt.SceneManager:set_use_fixed_timestep(true)
-    rt.SceneManager:set_is_cursor_visible(false)
+    rt.SceneManager:set_is_cursor_visible(true)
 end
 
 --- @brief

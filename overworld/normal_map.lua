@@ -498,6 +498,7 @@ function ow.NormalMap:_new_quad(chunk)
         local u, v = x / atlas_w, y / atlas_h
         local uw, vh = w / atlas_w, h / atlas_h
 
+        -- inset texture coords to prevent seam when drawn
         local border_u = -0.5 * border / atlas_w
         local border_v = -0.5 * border / atlas_h
         u = u - border_u
@@ -532,7 +533,7 @@ function ow.NormalMap:draw_light(
 
     local x, y, w, h = camera:get_world_bounds():unpack()
 
-    local eps = 0 --_chunk_eps(chunk_size)
+    local eps = _chunk_eps(chunk_size)
     local camera_left = x - self._offset_x - bounds.x - eps
     local camera_right = x - self._offset_x + w - bounds.x + eps
     local camera_top = y - self._offset_y - bounds.y - eps

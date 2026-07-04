@@ -153,7 +153,7 @@ end
 --- @brief
 function rt.Cursor:draw()
     love.graphics.push("all")
-    love.graphics.reset()
+    love.graphics.origin()
 
     local x, y = love.mouse.getPosition()
     local scale = love.window.getDPIScale()

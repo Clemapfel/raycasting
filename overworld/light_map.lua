@@ -19,6 +19,8 @@ rt.settings.overworld.light_map = {
     light_range = 64, -- px
     light_range_threshold = 256,
     light_z_height = 512 + 128, -- px, smaller values = more dramatic normal falloff
+    darkness_range = 128,
+    darkness_range_threshold = 256 * 2,
     intensity = 1,
     intensity_texture_format = rt.TextureFormat.RGBA8,
     direction_texture_format = rt.TextureFormat.RG16F,
@@ -711,8 +713,9 @@ do
         -- early broad-phase rejection
         local bounds_x, bounds_y, bounds_width, bounds_height = stage:get_scene():get_camera():get_world_bounds():unpack()
 
-        local max_range = settings.light_range_threshold ^ 2
-        local padding = max_range * 2
+        local max_threshold = math.max(settings.darkness_range_threshold, settings.light_range_threshold)
+
+        local padding = max_threshold * 2
         bounds_x = bounds_x - padding
         bounds_y = bounds_y - padding
         bounds_width = bounds_width + 2 * padding
@@ -789,7 +792,7 @@ do
         for point_i = 1, current_n_point_lights do
             local x, y, radius, _, _, _, opacity = get_point_light(point_light_buffer_data, point_i, point_light_buffer_n_elements)
 
-            local effective_radius = math.sqrt(max_range ^ 2 + radius ^ 2)
+            local effective_radius = max_threshold + radius
             local first_row = math.max(1, math.floor((x - effective_radius) / tile_size) + 1)
             local last_row = math.min(n_rows, math.floor((x + effective_radius) / tile_size) + 1)
             local first_column = math.max(1, math.floor((y - effective_radius) / tile_size) + 1)
@@ -801,7 +804,7 @@ do
                     local tile_y = (column_i - 1) * tile_size
 
                     local distance = distance_between_square_and_point(tile_x, tile_y, tile_size, x, y)
-                    if distance < max_range + radius ^ 2 then
+                    if distance < effective_radius ^ 2 then
                         local tile_i = xy_to_tile_index(width, tile_size, tile_x, tile_y)
                         add_point_light_to_tile(tile_data_buffer_data, tile_data_stride, tile_data_n_elements, max_n_point_lights_per_tile, tile_i, point_i)
 
@@ -821,7 +824,7 @@ do
             local x1, y1, x2, y2, _, _, _, opacity = get_segment_light(segment_light_buffer_data, segment_i, segment_light_buffer_n_elements)
 
             -- only check cells in aabb of segment
-            local effective_radius = max_range -- math.sqrt(max_range^2)
+            local effective_radius = max_threshold
             local first_row = math.max(1, math.floor((math.min(x1, x2) - effective_radius) / tile_size) + 1)
             local last_row = math.min(n_rows, math.floor((math.max(x1, x2) + effective_radius) / tile_size) + 1)
             local first_column = math.max(1, math.floor((math.min(y1, y2) - effective_radius) / tile_size) + 1)
@@ -833,7 +836,7 @@ do
                     local tile_y = (column_i - 1) * tile_size
 
                     local distance = distance_between_square_and_segment(tile_x, tile_y, tile_size, x1, y1, x2, y2)
-                    if distance < max_range then
+                    if distance < effective_radius ^ 2 then
                         local tile_i = xy_to_tile_index(width, tile_size, tile_x, tile_y)
                         add_segment_light_to_tile(tile_data_buffer_data, tile_data_stride, tile_data_n_elements, max_n_point_lights_per_tile, max_n_segment_lights_per_tile, tile_i, segment_i)
 
@@ -860,7 +863,7 @@ do
         shader:send("composite_texture", self._composite_texture)
         shader:send("should_compute_composite", self._should_compute_composite)
         shader:send("light_range", settings.light_range * camera:get_final_scale())
-
+        shader:send("darkness_range", settings.darkness_range * camera:get_final_scale())
         if self._should_compute_composite and rt.GameState:get_is_bloom_enabled() then
             local bloom = rt.SceneManager:get_bloom()
             bloom:flush() -- noop if already done

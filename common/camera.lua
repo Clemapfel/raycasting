@@ -351,7 +351,7 @@ end
 
 --- @brief
 function rt.Camera:get_scale_delta()
-    return (rt.SceneManager:get_height() / rt.settings.native_height)
+    return rt.SceneManager:get_height() / rt.settings.native_height
 end
 
 --- @brief
