@@ -81,7 +81,7 @@ end
 
 --- @brief
 function rt.RenderTexture:replace_data(image)
-    meta.assert_typeof(image, rt.Image, 1)
+    meta.assert(image, rt.Image)
     self._native:replacePixels(image:get_native())
 end
 

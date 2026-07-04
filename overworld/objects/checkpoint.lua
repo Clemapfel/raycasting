@@ -74,8 +74,10 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
         _x = object.x,
         _y = object.y,
 
-        _top_x = math.huge,
-        _top_y = math.huge,
+        _top_x = object.x,
+        _top_y = object.y,
+        _bottom_x = object.x,
+        _bottom_y = object.y,
 
         _color = { 1, 1, 1, 1 },
         _camera_offset = { 0, 0 },
@@ -117,7 +119,9 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
 
         -- only for midway
         _particles = ow.CheckpointParticles(),
-        _rope = nil -- ow.CheckpointRope, only if midpoint
+        _rope = nil, -- ow.CheckpointRope, only if midpoint
+
+        _initialized = false
     })
 
     self._is_invisible = object:get_boolean("is_invisible", false)
@@ -275,6 +279,8 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
             self._body:set_user_data(self)
         end
 
+        self._initialized = true
+
         return meta.DISCONNECT_SIGNAL
     end)
 end
@@ -285,7 +291,6 @@ function ow.Checkpoint:_restore_coins()
         self._stage:set_coin_is_collected(coin_i, self._coin_savestate[coin_i] == true)
     end
 end
-
 
 --- @brief
 function ow.Checkpoint:spawn(also_kill, play_animation)

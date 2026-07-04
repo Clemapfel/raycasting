@@ -105,7 +105,7 @@ function bd.join_path(...)
     local table_i = 1
     for i = 1, n do
         local part = select(i, ...)
-        meta.assert_typeof(part, mt.String, i)
+        meta.assert_argument_type(part, mt.String, i)
         if part and part ~= "" then
             part = string.gsub(tostring(part), "[\\/]*$", "") -- remove trailing slashes
             to_concatenate[table_i] = part

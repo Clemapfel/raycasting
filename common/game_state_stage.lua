@@ -488,9 +488,9 @@ end
 
 --- @brief
 function rt.GameState:stage_update_splits(stage_id, times)
-    meta.assert(stage_id, mt.String)
+    meta.assert_argument_type(stage_id, mt.String, 1)
     for i = 1, #times do
-        meta.assert_typeof(times[i], mt.Number, i+1)
+        meta.assert_argument_type(times[i], mt.Number, i+1)
     end
 
     self:_initialize_stage()

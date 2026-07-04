@@ -117,13 +117,14 @@ end
 
 --- @brief
 function rt.Font:get_native(size, style, sdf)
-    meta.assert_enum_value(size, rt.FontSize, 1)
+    meta.assert(
+        size, rt.FontSize,
+        style, mt.Optional(rt.FontStyle),
+        sdf, mt.Optional(mt.Boolean)
+    )
 
     if style == nil then style = rt.FontStyle.REGULAR end
-    meta.assert_enum_value(style, rt.FontStyle, 2)
-
     if sdf == nil then sdf = false end
-    meta.assert_typeof(sdf, mt.Boolean, 3)
 
     local actual_size = self:get_actual_size(size)
     local path = self._font_style_to_path[style]
@@ -164,15 +165,15 @@ end
 
 --- @brief
 function rt.Font:measure(font_size, str)
-    meta.assert_enum_value(font_size, rt.FontSize, 1)
-    meta.assert_typeof(str, mt.String, 2)
+    meta.assert(font_size, rt.FontSize, str, mt.String)
+
     local native = self:get_native(font_size)
     return native:getWidth(str), native:getHeight()
 end
 
 --- @brief
 function rt.Font:get_line_height(font_size)
-    meta.assert_enum_value(font_size, rt.FontSize, 1)
+    meta.assert(font_size, rt.FontSize)
     return self:get_native(font_size):getHeight()
 end
 

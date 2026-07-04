@@ -16,13 +16,16 @@ local _lch_texture = rt.LCHTexture(1, 1, 256)
 
 --- @brief
 function rt.Fade:instantiate(duration, shader_path)
+    meta.assert(
+        duration, mt.Optional(mt.Number),
+        shader_path, mt.Optional(mt.String)
+    )
+
     duration = duration or rt.settings.fade.default_duration
-    meta.assert_typeof(duration, mt.Number, 1)
 
     local r, g, b, a = rt.Palette.TRUE_BLACK:unpack()
 
     if shader_path ~= nil then
-        meta.assert_typeof(shader_path, mt.String, 2)
         self._shader = rt.Shader(shader_path)
         self._shader:compile()
     else

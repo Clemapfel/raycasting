@@ -80,6 +80,7 @@ function rt.Camera:instantiate()
 end
 
 local _floor = function(x)
+    if x == nil then print(debug.traceback()) end
     return math.floor(x)
 end
 
@@ -118,6 +119,8 @@ end
 
 --- @brief [internal]
 function rt.Camera:constrain(x, y)
+    meta.assert(x, mt.Number, y, mt.Number)
+
     if self._apply_bounds ~= true then return x, y end
 
     local total_scale = self._current_scale * rt.SceneManager:get_pixel_scale()
@@ -171,6 +174,8 @@ end
 
 --- @brief
 function rt.Camera:update(delta)
+    meta.assert(delta, mt.Number)
+
     do -- scale
         -- work in log space, where relative scales are equidistant regardless of value
         local scale_eps = math.eps
@@ -313,6 +318,12 @@ end
 
 --- @brief
 function rt.Camera:set_position(x, y, override_bounds)
+    meta.assert(
+        x, mt.Number,
+        y, mt.Number,
+        override_bounds, meta.Union(mt.Boolean, mt.Nil)
+    )
+
     if self._is_enabled ~= true then return end
 
     if override_bounds ~= true then
@@ -330,6 +341,7 @@ end
 --- @brief
 function rt.Camera:move_to(x, y, override_bounds)
     meta.assert(x, mt.Number, y, mt.Number)
+
     if self._is_enabled ~= true then return end
 
     if override_bounds ~= true then
@@ -356,6 +368,8 @@ end
 
 --- @brief
 function rt.Camera:set_scale(s, override_bounds)
+    meta.assert(s, mt.Boolean, override_bounds, mt.Optional(mt.Boolean))
+
     if self._is_enabled ~= true then return end
 
     self._current_scale = s
@@ -375,7 +389,8 @@ function rt.Camera:scale_to(s)
 end
 
 function rt.Camera:fit_to(bounds, center_x, center_y)
-    meta.assert(bounds, rt.AABB)
+    meta.assert(bounds, rt.AABB, center_x, mt.Optional(mt.Number), center_y, mt.Optional(mt.Number))
+
     if self._is_enabled ~= true then return end
 
     local screen_w, screen_h = rt.SceneManager:get_size()
@@ -445,13 +460,15 @@ function rt.Camera:set_bounds(bounds_or_table, ...)
 
     self:reset_bounds()
     for i, bound in ipairs(bounds) do
-        meta.assert_typeof(bound, rt.AABB, i)
+        meta.assert_argument_type(bound, rt.AABB, i)
         self._bounds[bound] = true
     end
 end
 
 --- @brief
 function rt.Camera:set_apply_bounds(b)
+    meta.assert(b, mt.Boolean)
+
     if b ~= self._apply_bounds then
         self._apply_bounds = b
         self:set_position(self:constrain(self:get_position()))
@@ -465,12 +482,14 @@ end
 
 --- @brief
 function rt.Camera:screen_xy_to_world_xy(screen_x, screen_y)
+    meta.assert(screen_x, mt.Number, screen_y, mt.Number)
     local x, y, _ = self._transform:inverse_transform_point(screen_x, screen_y, 0)
     return x, y
 end
 
 --- @brief
 function rt.Camera:world_xy_to_screen_xy(world_x, world_y)
+    meta.assert(world_x, mt.Number, world_x, mt.Number)
     local x, y, _ = self._transform:transform_point(world_x, world_y, 0)
     return x, y
 end
@@ -483,6 +502,8 @@ end
 --- @brief
 --- @param intensity Number in [0, 1]
 function rt.Camera:set_is_shaking(b)
+    meta.assert(b, mt.Boolean)
+
     self._is_shaking = b
     if b == false then
         self._shake_offset_x = 0
@@ -492,21 +513,26 @@ end
 
 --- @brief
 function rt.Camera:set_shake_intensity(i)
+    meta.assert(i, mt.Number)
     self._shake_intensity = math.clamp(i, 0, 1)
 end
 
 --- @brief
 function rt.Camera:set_shake_intensity_in_pixels(n)
+    meta.assert(n, mt.Number)
     self:set_shake_intensity(n / rt.settings.camera.shake_max_offset)
 end
 
 --- @brief
 function rt.Camera:set_shake_frequency(i)
+    meta.assert(i, mt.Number)
     self._shake_frequency = math.clamp(i, 0, 1)
 end
 
 --- @brief
 function rt.Camera:shake(intensity, duration)
+    meta.assert(intensity, mt.Number, duration, mt.Optional(duration))
+
     local settings = rt.settings.camera.shake_impulse
 
     duration = duration or settings.default_duration
@@ -605,6 +631,7 @@ end
 
 --- @brief
 function rt.Camera:set_speed(fraction)
+    meta.assert(fraction, mt.Number)
     self._speed = fraction or 1
 end
 
@@ -615,6 +642,7 @@ end
 
 --- @brief
 function rt.Camera:set_is_enabled(b)
+    meta.assert(b, mt.Boolean)
     self._is_enabled = b
 end
 
@@ -625,6 +653,8 @@ end
 
 --- @brief
 function rt.Camera:set_use_pixel_scale(b)
+    meta.assert(b, mt.Boolean)
+
     if self._use_pixel_scale ~= b then
         self._use_pixel_scale = b
         self:_update_transform()

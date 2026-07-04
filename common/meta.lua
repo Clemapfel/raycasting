@@ -40,7 +40,37 @@ meta.UserData = "UserData"
 meta.Object = "Object"
 
 --- @class meta.Union
-meta.Union = function(...) return { "Union", ... } end
+meta.Union = function(...)
+    if select("#", ...) == 0 then
+        rt.error("In meta.Union: called with 0 arguments, but a type cannot be the empty Union")
+    end
+
+    for i = 1, select("#", ...) do
+        if select(i, ...) == nil then
+            rt.error("In meta.Union: argument #", i, " is `nil`")
+        end
+    end
+
+    return { ... }
+end
+
+--- @class meta.Optional
+meta.Optional = function(...)
+    if select("#", ...) == 0 then
+        rt.error("In meta.Optional: called with 0 arguments, but a type cannot be an empty Optional")
+    end
+
+    for i = 1, select("#", ...) do
+        if select(i, ...) == nil then
+            rt.error("In meta.Optional: argument #", i, " is `nil`")
+        end
+    end
+
+    return meta.Union(mt.Nil, ...)
+end
+
+--- @class
+meta.Any = "*"
 
 if _G.type == nil then error("In require(\"common.meta\"): function `type` is not available in the global environment. Was it overwritten or was setfenv called?") end
 local _get_native_type = _G.type
@@ -52,7 +82,7 @@ local _object_hash_index = _object_metatable_index + 1
 local _object_signal_component_index = _object_hash_index + 1
 
 local _instantiate_name = "instantiate"
-local _typenames = {}
+meta._typenames = {}
 for type in range(
     meta.Number,
     meta.Boolean,
@@ -66,9 +96,11 @@ for type in range(
     meta.Object,
     meta.CData,
     meta.UserData,
-    meta.Union
+    meta.Any,
+    "Union",
+    "Optional"
 ) do
-    _typenames[type] = true
+    meta._typenames[type] = true
 end
 
 local _type_to_super = {}
@@ -80,6 +112,31 @@ local _type_to_typename = {}
 function meta.get_typename(type)
     meta.assert(type, meta.Type)
     return _type_to_typename[type]
+end
+
+--- @brief
+function meta.get_union_typename(union)
+    if not meta.is_union(union) then
+        rt.error("In meta.get_union_typename: expected `Union`, got `", meta.typeof(union), "`")
+    end
+
+    local result = { }
+    for x in values(union) do
+        local to_insert
+        if meta.is_type(x) then
+            to_insert = meta.get_typename(x)
+        elseif meta.is_enum(x) then
+            to_insert = meta.get_enum_name(x)
+        elseif meta.is_union(x) then
+            to_insert = meta.get_union_typename(x)
+        else
+            to_insert = x
+        end
+
+        table.insert(result, to_insert)
+    end
+
+    return "Union<" .. table.concat(result, ", ") .. ">"
 end
 
 --- @brief
@@ -143,28 +200,6 @@ do
             end
         end
     end
-end
-
---- @brief
-function meta.isa(x, type)
-    local super
-    do
-        local metatable = getmetatable(x)
-        if metatable == nil then return false end
-        super = metatable.__index
-    end
-
-    while super ~= nil do
-        if super == type then return true end
-        local metatable = getmetatable(super)
-        if metatable == nil then return false end
-        super = metatable.__index
-    end
-
-    return false
-end
-
-do
 
     --- @brief
     function meta.is_nil(x)
@@ -203,7 +238,7 @@ do
 
     --- @brief
     function meta.is_coroutine(x)
-        return _get_native_type(x) == "test"
+        return _get_native_type(x) == "thread"
     end
 
     --- @brief
@@ -217,79 +252,176 @@ do
     end
 
     --- @brief
+    function meta.is_union(x)
+        if _get_native_type(x) ~= "table" then return false end
+        for type in values(x) do
+            if not (meta.is_string(type)
+                or meta.is_type(type)
+                or meta.is_enum(type)
+                or meta.is_union(type)
+            ) then
+                return false
+            end
+        end
+
+        return true
+    end
+
+    --- @brief
+    function meta.is_type_instance(x, type)
+        local super
+        do
+            local metatable = getmetatable(x)
+            if metatable == nil then return false end
+            super = metatable.__index
+        end
+
+        while super ~= nil do
+            if super == type then return true end
+            local metatable = getmetatable(super)
+            if metatable == nil then return false end
+            super = metatable.__index
+        end
+
+        return false
+    end
+
+    --- @brief
+    function meta.is_union_instance(x, type)
+        for option in values(type) do
+            if meta.isa(x, option) then return true end
+        end
+
+        return false
+    end
+
+    --- @brief
+    function meta.isa(x, type)
+        if x == nil and type == mt.Nil then
+            return true
+        elseif meta.is_string(type) then
+            local is = meta.typeof(x) == type
+            if is == false then
+                -- check love objects
+                if meta.is_userdata(x) and meta.is_function(x.typeOf) then
+                    is = x:typeOf(type)
+                end
+            end
+            return is
+        elseif meta.is_type(type) then
+            return meta.is_type_instance(x, type)
+        elseif meta.is_enum(type) then
+            return meta.is_enum_value(x, type)
+        elseif meta.is_union(type) then
+            return meta.is_union_instance(x, type)
+        else
+            rt.error("In meta.isa: for argument #2: expected `String`, `Type`, `Enum`, or `Union`, got `", meta.typeof(type), "`")
+            return false
+        end
+    end
+
+    --- @brief
     function meta.is_love_type(x, type)
-        meta.assert_typeof(type, meta.String, 2)
+        require "love.love"
+        meta.assert_argument_type(type, meta.String, 2)
         return meta.is_table(x) and meta.is_function(x.typeOf) and x:typeOf(type) == true
     end
 
     local _type_to_validator = {
-        [meta.Number] = meta.is_number,
-        [meta.Boolean] = meta.is_boolean,
-        [meta.String] = meta.is_string,
-        [meta.Table] = meta.is_table,
-        [meta.Function] = meta.is_function,
-        [meta.Coroutine] = meta.is_coroutine,
-        [meta.Nil] = meta.is_nil,
-        [meta.Type] = meta.is_type,
-        [meta.Enum] = meta.is_enum,
-        [meta.Object] = meta.is_object,
-        [meta.CData] = meta.is_cdata,
-        [mtea.UserData] = meta.is_userdata
+        [meta.Number] = function(x) return meta.is_number, meta.Number end,
+        [meta.Boolean] = function(x) return meta.is_boolean, meta.Boolean end,
+        [meta.String] = function(x) return meta.is_string, meta.String end,
+        [meta.Table] =  function(x) return meta.is_table, meta.Table end,
+        [meta.Function] = function(x) return meta.is_function, meta.Function end,
+        [meta.Coroutine] = function(x) return meta.is_coroutine, meta.Coroutine end,
+        [meta.Nil] = function(x) return meta.is_nil, meta.Nil end,
+        [meta.Object] = function(x) return meta.is_object, meta.Object end,
+        [meta.CData] = function(x) return meta.is_cdata, meta.CData end,
+        [meta.UserData] = function(x) return meta.is_userdata, meta.UserData end,
+        [meta.Type] = function(x) return meta.is_type, meta.Type end,
+        [meta.Enum] = function(x) return meta.is_enum, meta.Enum end,
+        [meta.Union] = function(x) return meta.is_union, meta.get_union_typename(x) end,
+        [meta.Optional] = function(x) return meta.is_union, meta.get_union_typename(x) end
     }
 
-    --- @brief
-    function meta.assert(...)
-        require "common.log"
-        local n = select("#", ...)
-        rt.assert(n % 2 == 0)
+    local function _assert_typeof(scope, instance, type, i)
+        local is_valid, typename, error = true, nil, nil
+        if type == meta.Any and instance ~= nil then return true end
 
-        local _assert_message = function(argument_i, expected, got)
-            return string.paste(
-                "In meta.assert: assert failed for for argument #", argument_i,
-                ": expected argument of type `", expected,
-                "`, got `", got, "`"
-            )
-        end
+        if _type_to_validator[type] ~= nil then
+            is_valid, typename = _type_to_validator[type](instance)
+        elseif meta.is_type(type) then
+            is_valid = meta.is_type_instance(instance, type)
+            if is_valid == false then
+                typename = meta.get_typename(type)
+            end
+        elseif meta.is_enum(type) then
+            is_valid = meta.is_enum_value(instance, type)
+            if is_valid == false then
+                typename = meta.get_enum_name(type)
+            end
+        elseif meta.is_union(type) then
+            is_valid = meta.is_union_instance(instance, type)
+            if is_valid == false then
+                typename = meta.get_union_typename(type)
+            end
+        elseif meta.is_string(type) then
+            is_valid = meta.typeof(instance) == type
+            typename = type
 
-        for i = 1, n, 2 do
-            local instance = select(i+0, ...)
-            local type = select(i+1, ...)
-
-            local is_valid, typename = true, nil
-            local validator = _type_to_validator[type]
-            if validator ~= nil then
-                is_valid, typename = validator(instance)
-            elseif meta.is_string(type) then
-                is_valid = meta.typeof(instance) == type
+            if is_valid == false then -- try love typeOf
+                is_valid = meta.is_love_type(instance, type)
                 typename = type
-            else
-                rt.error("In meta.assert: wrong arguments for `meta.assert`: argument #", i + 1, ", expected ", meta.Type, ", ", meta.Enum, " or ", meta.String, " got `", meta.typeof(type))
-                is_valid = true
             end
-
-            if not is_valid then
-                rt.error("In meta.assert: for argument #", i, ", expected value of type `", typename, "`, got `", meta.typeof(instance), "`")
-            end
+        else
+            return false, string.paste("In ", scope, ": wrong arguments for `", scope, "`: argument #", i + 1, ", expected `", meta.Type, "`, `", meta.Enum, "` or `", meta.String, "` got `", meta.typeof(type), "`")
         end
+
+        if not is_valid then
+            error = string.paste("In meta.assert: for argument #", i, ", expected value of type `", typename, "`, got `", meta.typeof(instance), "`")
+        end
+
+        return is_valid, error
     end
 
-    --- @brief
-    function meta.assert_typeof(x, type, argument_i)
-        local instance_type = meta.typeof(x)
-        local prefix = ""
-        if argument_i ~= nil then
-            prefix = "For argument #" ..  argument_i ..  ": "
+    if DEBUG then
+        --- @brief
+        function meta.assert(...)
+            local argument_i = 1
+            for i = 1, select("#", ...), 2 do
+                local instance, type =
+                    select(i+0, ...),
+                    select(i+1, ...)
+
+                local is_valid, error = _assert_typeof(
+                    "meta.assert",
+                    instance, type,
+                    argument_i
+                )
+
+                if not is_valid then
+                    rt.error(error)
+                end
+
+                argument_i = argument_i + 1
+            end
         end
 
-        if _get_native_type(type) ~= "string" then type = tostring(type) end
-        rt.assert(instance_type == type, prefix, "expected `", tostring(type), "`, got `", meta.typeof(x), "`")
+        --- @brief
+        function meta.assert_argument_type(x, type, argument_i)
+            local is_valid, error = _assert_typeof("meta.assert_argument_type", x, type, argument_i)
+            if not is_valid then rt.error(error) end
+        end
+    else
+        -- optimize to noop in release mode
+        function meta.assert() end
+        function meta.assert_argument_type() end
     end
 end
 
 --- @brief
 function meta.assert_enum_value(x, enum, argument_i)
-    meta.assert(enum, mt.Enum)
-    if argument_i ~= nil then meta.assert_typeof(argument_i, mt.Number) end
+    meta.assert(x, mt.Any, enum, mt.Enum, argument_i, mt.Optional(mt.Number))
 
     local prefix = ""
     if argument_i ~= nil then
@@ -298,6 +430,7 @@ function meta.assert_enum_value(x, enum, argument_i)
     rt.assert(meta.is_enum_value(x, enum), prefix, "expected value of enum `", _type_to_typename[enum], "`, got `", tostring(x), "`")
 end
 
+-- global signal to disconnect signal after emission
 meta.DISCONNECT_SIGNAL = "DISCONNECT"
 
 do
@@ -312,7 +445,7 @@ do
         entry.callback_id_to_callback[callback_id] = nil
 
         for i, other in ipairs(entry.callback_ids_in_order) do
-            if other == callback then
+            if other == callback_id then
                 table.remove(entry.callback_ids_in_order, i)
                 break
             end
@@ -321,8 +454,7 @@ do
 
     -- signals
     local _signal_list_handler_ids = function(instance, id)
-        meta.assert_typeof(instance, mt.Object, 1)
-        meta.assert_typeof(id, mt.String, 2)
+        meta.assert(instance, mt.Object, id, mt.String)
 
         local component, entry
         component = instance[_object_signal_component_index]
@@ -340,7 +472,7 @@ do
     end
 
     local _signal_list_signals = function(instance)
-        meta.assert_typeof(instance, mt.Object, 1)
+        meta.assert(instance, mt.Object)
 
         local component = instance[_object_signal_component_index]
         if component == nil then return {} end
@@ -354,10 +486,7 @@ do
 
     local _signal_connect = function(instance, id, ...)
         local callback = select(1, ...)
-
-        meta.assert_typeof(instance, mt.Object, 1)
-        meta.assert_typeof(id, mt.String, 2)
-        meta.assert_typeof(callback, mt.Function, 3)
+        meta.assert(instance, mt.Object, id, mt.String, callback, mt.Function)
 
         local component = instance[_object_signal_component_index]
         local entry = component[id]
@@ -370,16 +499,16 @@ do
         _signal_callback_id = _signal_callback_id + 1
 
         entry.callback_id_to_callback[callback_id] = callback
-        table.insert(entry.callbacks_ids_in_order, callback_id)
+        table.insert(entry.callback_ids_in_order, callback_id)
         return callback_id
     end
 
     local _signal_disconnect = function(instance, id, callback_id)
-        meta.assert_typeof(instance, mt.Object, 1)
-        meta.assert_typeof(id, mt.String, 2)
-        if callback_id ~= nil then
-            meta.assert_typeof(callback_id, mt.Number, 3)
-        end
+        meta.assert(
+            instance, mt.Object,
+            id, mt.String,
+            callback_id, mt.Optional(mt.Number)
+        )
 
         local component, entry
         component = instance[_object_signal_component_index]
@@ -407,9 +536,11 @@ do
     end
 
     local _signal_try_disconnect = function(instance, id, callback_id)
-        meta.assert_typeof(instance, mt.Object, 1)
-        meta.assert_typeof(id, mt.String, 2)
-        meta.assert_typeof(callback_id, mt.Number, 3)
+        meta.assert(
+            instance, mt.Object,
+            id, mt.String,
+            callback_id, mt.Number
+        )
 
         local component = instance[_object_signal_component_index]
         if component == nil then
@@ -436,8 +567,7 @@ do
     end
 
     local _signal_disconnect_all = function(instance, id)
-        meta.assert_typeof(instance, mt.Object, 1)
-        meta.assert_typeof(id, mt.String, 2)
+        meta.assert(instance, mt.Object, id, mt.Optional(mt.String))
 
         local component = instance[_object_signal_component_index]
         if component == nil then
@@ -463,9 +593,7 @@ do
     end
 
     local _signal_set_is_blocked = function(instance, id, b)
-        meta.assert_typeof(instance, mt.Object, 1)
-        meta.assert_typeof(id, mt.String, 2)
-        meta.assert_typeof(b, mt.Boolean, 3)
+        meta.assert(instance, mt.Object, id, mt.String, b, mt.Boolean)
 
         local component, entry
         component = instance[_object_signal_component_index]
@@ -482,8 +610,7 @@ do
     end
 
     local _signal_get_is_blocked = function(instance, id)
-        meta.assert_typeof(instance, mt.Object, 1)
-        meta.assert_typeof(id, mt.String, 2)
+        meta.assert(instance, mt.Object, id, mt.String)
 
         local component, entry
         component = instance[_object_signal_component_index]
@@ -498,8 +625,7 @@ do
     end
 
     local _signal_has_signal = function(instance, id)
-        meta.assert_typeof(instance, mt.Object, 1)
-        meta.assert_typeof(id, mt.String, 2)
+        meta.assert(instance, mt.Object, id, mt.String)
 
         local component = instance[_object_signal_component_index]
         if component == nil then
@@ -509,8 +635,7 @@ do
     end
 
     local _signal_emit = function(instance, id, ...)
-        meta.assert_typeof(instance, mt.Object, 1)
-        meta.assert_typeof(id, mt.String, 2)
+        meta.assert(instance, mt.Object, id, mt.String)
 
         local component, entry
         component = instance[_object_signal_component_index]
@@ -524,12 +649,12 @@ do
         if entry.is_blocked then return end
 
         local callback_ids = {} -- deep copy since signals could be disconnect during emission
-        for _, callback in ipairs(entry.callbacks_in_order) do
-            table.insert(callback_ids)
+        for _, callback_id in ipairs(entry.callback_ids_in_order) do
+            table.insert(callback_ids, callback_id)
         end
 
         local to_remove_callback_ids = {}
-        for callback_id in ipairs(callback_ids) do
+        for _, callback_id in ipairs(callback_ids) do
             local callback = entry.callback_id_to_callback[callback_id]
             if callback ~= nil then
                 if callback(instance, ...) == meta.DISCONNECT_SIGNAL then
@@ -543,8 +668,7 @@ do
     end
 
     local _signal_try_emit = function(instance, id, ...)
-        meta.assert_typeof(instance, mt.Object, 1)
-        meta.assert_typeof(id, mt.String, 2)
+        meta.assert(instance, mt.Object, id, mt.String)
 
         local component, entry
         component = instance[_object_signal_component_index]
@@ -557,12 +681,12 @@ do
         if entry.is_blocked then return false end
 
         local callback_ids = {}
-        for _, callback in ipairs(entry.callbacks_in_order) do
-            table.insert(callback_ids)
+        for _, callback_id in ipairs(entry.callback_ids_in_order) do
+            table.insert(callback_ids, callback_id)
         end
 
         local to_remove_callback_ids = {}
-        for callback_id in ipairs(callback_ids) do
+        for _, callback_id in ipairs(callback_ids) do
             local callback = entry.callback_id_to_callback[callback_id]
             if callback ~= nil then
                 local success, result_maybe = pcall(callback, instance, ...)
@@ -605,9 +729,8 @@ do
 
             component[signal_id] = {
                 is_blocked = false,
-                callback_id_to_callback = {},
-                callbacks_in_order = meta.make_weak({}),
-                callback_to_callback_id = meta.make_weak({})
+                callback_id_to_callback = {}, -- Table<Function>
+                callback_ids_in_order = {} -- Table<Integer>
             }
         end
     end
@@ -620,32 +743,15 @@ do
 
     --- @brief create a new class
     --- @param typename String
-    --- @param super_or_schema Union<meta.Type, Table, Nil>
     --- @param schema_maybe Union<Table, Nil>
     --- @return meta.Type
-    function meta.class(typename, super_or_schema, schema_maybe)
-        meta.assert(typename, meta.String)
+    function meta.class(typename, super, _)
+        meta.assert(typename, mt.String, super, mt.Optional(mt.Type), _, mt.Nil)
 
-        local super, schema, schema_arg_index
-        if super_or_schema ~= nil then
-            if meta.is_type(super_or_schema) then
-                super = super_or_schema
-                schema = schema_maybe
-                schema_arg_index = 3
-            else
-                super = nil
-                schema = super_or_schema
-                schema_arg_index = 2
-            end
-        end
-
-        if super ~= nil then meta.assert_typeof(super, meta.Type, 2) end
-        if schema ~= nil then meta.assert_typeof(schema, meta.Table, schema_arg_index) end
-
-        if _typenames[typename] ~= nil then
+        if meta._typenames[typename] ~= nil then
             rt.fatal("In meta.class: a type with typename `", typename, "` already exists")
         end
-        _typenames[typename] = true
+        meta._typenames[typename] = true
 
         -- instance metatable
         local type = {}
@@ -659,7 +765,7 @@ do
         local supers = {}
         local reverse_supers = {}
         do
-            local current = super_or_schema
+            local current = super
             while current ~= nil do
                 table.insert(supers, current)
                 table.insert(reverse_supers, 1, current)
@@ -694,17 +800,12 @@ do
                 type.instantiate(instance, ...)
             end
 
-            if DEBUG then
-                meta.validate_schema(instance)
-            end
-
             return instance
         end
 
         type_metatable.__tostring = function() return typename end
-        type_metatable.__index = super_or_schema
+        type_metatable.__index = super
         type_metatable.__typename = meta.Type
-        type_metatable.__schema = schema or {}
         type_metatable.__signals = {}
 
         setmetatable(type, type_metatable)
@@ -712,14 +813,10 @@ do
         _current_hash = _current_hash + 1
         rawset(type, _object_metatable_index, type_metatable)
 
-        _type_to_super[type] = super_or_schema
+        _type_to_super[type] = super
         _type_to_instance_metatable[type] = instance_metatable
         _typename_to_type[typename] = type
         _type_to_typename[type] = typename
-
-        if schema ~= nil then
-            meta.add_schema(type, schema)
-        end
 
         -- default instantiate
         type.instantiate = _default_instantiate
@@ -759,143 +856,6 @@ function meta.add_signals(type, ...)
     end
 end
 meta.add_signal = meta.add_signals
-
---- @brief
-function meta.is_union_type(t)
-    return _get_native_type(t) == "table"
-        and t[1] == "Union"
-        and meta.is_table(t[2])
-        and (function()
-            for _, member in ipairs(t[2]) do
-                if not (
-                    meta.is_primitive_type(member)
-                    or meta.is_type(member)
-                    or meta.is_enum(member)
-                    or meta.is_union_type(member)
-                ) then
-                    return false
-                end
-            end
-            return true
-        end)()
-end
-
---- @brief
-function meta.is_union(instance, union)
-    if not meta.is_union_type(union) then
-        rt.error("In meta.is_union: for argument #2: expected `meta.Union`, got `", meta.typeof(union), "`")
-    end
-
-    -- union is { "Union", { Type1, Type2, ... } }
-    local union_members = union[2]
-    for type in values(union_members) do
-        local is_match = false
-        if meta.is_primitive_type(type) then
-            is_match = (meta.typeof(instance) == type)
-        elseif meta.is_enum(type) then
-            is_match = meta.is_enum_value(instance, type)
-        elseif meta.is_type(type) then
-            is_match = meta.isa(instance, type)
-        elseif meta.is_union_type(type) then
-            is_match = meta.is_union(instance, type)
-        else
-            rt.error("In meta.is_union: invalid union member `", type, "`")
-        end
-
-        if is_match then
-            return true
-        end
-    end
-
-    return false
-end
-
---- @brief
-function meta.add_schema(type, field_name_to_type)
-    meta.assert(type, meta.Type, field_name_to_type, meta.Table)
-
-    -- verify schema
-    for key, value in pairs(field_name_to_type) do
-        if not (meta.is_primitive_type(value)
-            or meta.is_enum(value)
-            or meta.is_type(value)
-            or meta.is_union_type(value)
-        ) then
-            rt.error("In meta.add_schema: unrecognized field type `", value, "`")
-        end
-    end
-
-    rawset(getmetatable(type), "__schema", field_name_to_type)
-end
-
---- @brief
-function meta.get_schema(type)
-    return rawget(getmetatable(type), "__schema")
-end
-
-do
-
-    local _primitive_to_validator = {
-        [meta.Number] = function(x) return meta.is_number(x) and not (x ~= x) end, -- catch NaN
-        [meta.Boolean] = function(x) return meta.is_boolean(x) end,
-        [meta.String] = function(x) return meta.is_string(x) end,
-        [meta.Table] = function(x) return meta.is_table(x) end,
-        [meta.Function] = function(x) return meta.is_function(x) end,
-        [meta.Coroutine] = function(x) return meta.is_coroutine(x) end,
-        [meta.Nil] = function(x) return meta.is_nil(x) end,
-        [meta.Type] = function(x) return meta.is_type(x) end,
-        [meta.CData] = function(x) return meta.is_cdata(x) end,
-        [meta.UserData] = function(x) return meta.is_userdata(x) end
-    }
-
-    --- @brief
-    function meta.validate_schema(instance)
-        local type = (getmetatable(instance) or {}).__index
-        if not meta.is_type(type) then
-            rt.error("In meta.validate_schema: object is not an instance of a meta.Type")
-            return
-        end
-
-        local instance_type = meta.get_typename(type)
-
-        repeat
-            local schema = meta.get_schema(type)
-            for key, expected in pairs(schema) do
-                local value = instance[key]
-                if expected ~= nil then
-                    local is_valid = false
-                    local primitive_validator = _primitive_to_validator[expected]
-                    if primitive_validator ~= nil then
-                        is_valid = primitive_validator(value)
-                    elseif meta.is_enum(expected) then
-                        is_valid = meta.is_enum_value(value, expected)
-                    elseif meta.is_type(expected) then
-                        is_valid = meta.isa(value, expected)
-                    elseif meta.is_union_type(expected) then
-                        is_valid = meta.is_union(value, expected)
-                    elseif meta.is_table(value)
-                        and meta.is_function(value.typeOf)
-                        and meta.is_string(expected)
-                    then
-                        is_valid = value:typeOf(expected) -- love native types
-                    else
-                        rt.error("In meta.validate_schema: for schema of type `", instance_type, "`: unhandled member type `", expected, "`")
-                    end
-
-                    if not is_valid then
-                        rt.error("In meta.validate_schema: property `", key, "` of object of type `", instance_type, "` does not conform to schema for type `", meta.get_typename(type), "`: expected `", tostring(expected), "`, got `", tostring(meta.typeof(value)), "`")
-                        return false
-                    end
-                end
-            end
-
-            -- iterate supers in reverse order
-            type = meta.get_super(type)
-        until type == nil;
-
-        return true
-    end
-end
 
 --- @brief
 function meta.destroy(instance)

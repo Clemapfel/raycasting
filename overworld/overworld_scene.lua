@@ -393,11 +393,17 @@ function ow.OverworldScene:exit()
     self._input:deactivate()
 
     if rt.GameState:get_is_dynamic_lighting_enabled() then
-        rt.SceneManager:get_light_map():reset()
+        local map = rt.SceneManager:get_light_map()
+        if map ~= nil then
+            map:reset()
+        end
     end
 
     if rt.GameState:get_is_bloom_enabled() then
-        rt.SceneManager:get_bloom():reset()
+        local bloom = rt.SceneManager:get_bloom()
+        if bloom ~= nil then
+            bloom:reset()
+        end
     end
 end
 

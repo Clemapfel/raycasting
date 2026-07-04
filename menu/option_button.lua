@@ -26,7 +26,7 @@ function mn.OptionButton:instantiate(...)
     end
 
     for i, value in ipairs(options) do
-        meta.assert_typeof(value, mt.String, i)
+        meta.assert_argument_type(value, mt.String, i)
     end
 
     meta.install(self, {

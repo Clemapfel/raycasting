@@ -595,7 +595,12 @@ end
 function rt.SceneManager:get_bloom()
     if rt.GameState:get_is_bloom_enabled() then
         if self._bloom == nil then
-            self:_reallocate_bloom()
+            require "overworld.stage"
+            self._bloom = rt.Bloom(
+                self._width,
+                self._height,
+                rt.settings.overworld.stage.visible_area_padding
+            )
         end
         return self._bloom
     else
@@ -606,7 +611,11 @@ end
 --- @brief
 function rt.SceneManager:get_light_map()
     if self._light_map == nil then
-        self:_reallocate_light_map()
+        require "overworld.light_map"
+        self._light_map = ow.LightMap(
+            self._width,
+            self._height
+        )
     end
     return self._light_map
 end

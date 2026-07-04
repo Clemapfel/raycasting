@@ -21,7 +21,7 @@ end
 
 --- @brief
 function rt.SpriteBatch:instantiate(texture)
-   rt.assert(meta.isa(texture, rt.Texture), "In rt.SpriteBatch: expected `Texture`, got `" .. meta.typeof(texture) .. "`")
+    rt.assert(meta.isa(texture, rt.Texture), "In rt.SpriteBatch: expected `Texture`, got `" .. meta.typeof(texture) .. "`")
     texture:set_wrap_mode(rt.TextureWrapMode.REPEAT)
 
     if rt.settings.sprite_batch.use_subpixel_filtering then

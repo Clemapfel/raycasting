@@ -3172,7 +3172,7 @@ for tuple in range(
             for arg_i = 1, #args_table do
                 local arg = select(arg_i, ...)
                 local arg_name, arg_type = table.unpack(args_table[arg_i])
-                meta.assert_typeof(arg, arg_type, arg_i + 1)
+                meta.assert_argument_type(arg, arg_type, arg_i + 1)
                 entry[arg_name] = arg
             end
 
@@ -3486,6 +3486,14 @@ end
 
 --- @brief
 function rt.Player:request_damping(id, up, right, down, left)
+    meta.assert(
+        id, mt.Any,
+        up, mt.Optional(mt.Number),
+        right, mt.Optional(mt.Number),
+        down, mt.Optional(mt.Number),
+        left, mt.Optional(mt.Number)
+    )
+
     local requests = self._damping_requests
     local should_remove = up == nil and right == nil and down == nil and left == nil
 
@@ -3498,11 +3506,6 @@ function rt.Player:request_damping(id, up, right, down, left)
         requests[id] = nil
         return id
     else
-        if up ~= nil then meta.assert_typeof(up, mt.Number, 2) end
-        if right ~= nil then meta.assert_typeof(up, mt.Number, 3) end
-        if down ~= nil then meta.assert_typeof(up, mt.Number, 4) end
-        if left ~= nil then meta.assert_typeof(up, mt.Number, 5) end
-
         local entry = requests[id]
         if entry == nil then
             entry = {}

@@ -49,8 +49,9 @@ local _try_call = function(f, ...)
         return (table.unpack or unpack)(result)
     end
 end
+
 function love.errorhandler(message, depth)
-    local traceback = debug.traceback("Error in " .. message, 2)
+    local traceback = debug.traceback("Error in " .. message)
     traceback = _safe_call(string.gsub, traceback, "\n[^\n]+$", "")
 
     _safe_call(io.stdout.write, io.stdout, traceback)

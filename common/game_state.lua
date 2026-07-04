@@ -703,7 +703,7 @@ function rt.GameState:load_save()
                 end
 
                 for v in values(assigned) do
-                    if not meta.assert_typeof(v, enum) then
+                    if not meta.is_enum_value(v, enum) then
                         is_valid = false
                         break
                     end

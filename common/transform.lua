@@ -49,6 +49,12 @@ end
 
 --- @brief
 function rt.Transform:translate(...)
+    meta.assert(
+        select(1, ...), meta.Number,
+        select(2, ...), meta.Number,
+        select(3, ...), meta.Optional(meta.Number)
+    )
+
     if select("#", ...) == 2 then
         self._native:translate(select(1, ...), select(2, ...))
     else

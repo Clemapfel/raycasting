@@ -18,12 +18,6 @@ local _STATE_END = 3
 local _STATE_DONE = 4
 
 rt.Routine.Future.Callbacks = meta.class("RoutineFutureCallbacks")
-meta.add_schema(rt.Routine.Future.Callbacks, {
-    on_start = mt.Function,
-    on_end = mt.Function,
-    on_update = mt.Function,
-    on_return = mt.Function
-})
 
 --- @brief
 function rt.Routine.Future:instantiate(

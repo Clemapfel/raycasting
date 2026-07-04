@@ -9,6 +9,14 @@ rt.MeshDrawMode = {
 }
 rt.MeshDrawMode = meta.enum("MeshDrawMode", rt.MeshDrawMode)
 
+--- @enum rt.MeshDrawMode
+rt.MeshDrawMode = meta.enum("MeshDrawMode", {
+    TRIANGLE_FAN = "fan",
+    TRIANGLE_STRIP = "strip",
+    TRIANGLES = "triangles",
+    POINTS = "points"
+})
+
 --- @enum rt.MeshAttributeAttachmentMode
 rt.MeshAttributeAttachmentMode = {
     PER_VERTEX = "pervertex",
@@ -47,12 +55,19 @@ rt.VertexFormat = rt.VertexFormat2D
 --- @class rt.Mesh
 rt.Mesh = meta.class("Mesh", rt.Drawable)
 
---- @brief create a new mesh for raw vertex data
---- @param data Table<Table<Number>>?
---- @param draw_mode rt.MeshDrawMode?
+--- @brief create a new mesh from raw vertex data
+--- @param data Union<Table<Table<Number>>, love.Mesh> data or already allocated love mesh
+--- @param draw_mode rt.MeshDrawMode
 --- @param format Table<Table<Number>>?
 --- @param usage rt.GraphicsBufferUsage?
 function rt.Mesh:instantiate(data_or_native, draw_mode, format, usage)
+    mt.assert(
+        data_or_native, mt.Union(mt.Table, mt.UserData),
+        draw_mode, mt.Optional(rt.MeshDrawMode),
+        format, mt.Optional(mt.Table),
+        usage, mt.Optional(rt.GraphicsBufferUsage)
+    )
+
     if meta.is_function(data_or_native.typeOf) and data_or_native:typeOf("Mesh") then
         self._native = data_or_native
     else
@@ -75,6 +90,13 @@ end
 
 --- @class rt.MeshRectangle
 rt.MeshRectangle = function(x, y, width, height)
+    meta.assert(
+        x, mt.Optional(mt.Number),
+        y, mt.Optional(mt.Number),
+        width, mt.Optional(mt.Number),
+        height, mt.Optional(mt.Number)
+    )
+
     if x == nil then x = 0 end
     if y == nil then y = 0 end
     if width == nil then width = 1 end
@@ -112,6 +134,14 @@ rt.Mesh.radius_to_n_vertices = _radius_to_n_vertices
 
 --- @class rt.MeshCircle
 rt.MeshCircle = function(center_x, center_y, x_radius, y_radius, n_outer_vertices)
+    meta.assert(
+        center_x, mt.Number,
+        center_y, mt.Number,
+        x_radius, mt.Number,
+        y_radius, mt.Optional(mt.Number),
+        n_outer_vertices, mt.Optional(mt.Number)
+    )
+
     y_radius = y_radius or x_radius
     n_outer_vertices = n_outer_vertices or _radius_to_n_vertices(x_radius, y_radius)
 
@@ -165,6 +195,17 @@ rt.MeshRectangle3D = function(
     width, height,
     normal_x, normal_y, normal_z
 )
+    meta.assert(
+        center_x, mt.Optional(mt.Number),
+        center_y, mt.Optional(mt.Number),
+        center_z, mt.Optional(mt.Number),
+        width, mt.Optional(mt.Number),
+        height, mt.Optional(mt.Number),
+        normal_x, mt.Optional(mt.Number),
+        normal_y, mt.Optional(mt.Number),
+        normal_z, mt.Optional(mt.Number)
+    )
+
     if center_x == nil then center_x = 0 end
     if center_y == nil then center_y = 0 end
     if center_z == nil then center_z = 0 end
@@ -241,6 +282,17 @@ end
 
 --- @class rt.MeshRing
 rt.MeshRing = function(center_x, center_y, inner_radius, outer_radius, fill_center, n_outer_vertices, inner_color, outer_color)
+   meta.assert(
+       center_x, mt.Number,
+       center_y, mt.Number,
+       inner_radius, mt.Number,
+       outer_radius, mt.Number,
+       fill_center, mt.Optional(mt.Boolean),
+       n_outer_vertices, mt.Optional(mt.Number),
+       inner_color, mt.Optional(rt.RGBA),
+       outer_color, mt.Optional(rt.RGBA)
+   )
+
     n_outer_vertices = n_outer_vertices or _radius_to_n_vertices(outer_radius, outer_radius)
     fill_center = fill_center == nil and true or fill_center
 
@@ -248,13 +300,11 @@ rt.MeshRing = function(center_x, center_y, inner_radius, outer_radius, fill_cent
 
     local inner_r, inner_g, inner_b, inner_a = 1, 1, 1, 1
     if meta.isa(inner_color, rt.RGBA) then
-        meta.assert_typeof(inner_color, rt.RGBA, 6)
         inner_r, inner_g, inner_b, inner_a = inner_color:unpack()
     end
 
     local outer_r, outer_g, outer_b, outer_a = 1, 1, 1, 1
     if meta.isa(outer_color, rt.RGBA) then
-        meta.assert_typeof(inner_color, rt.RGBA, 7)
         outer_r, outer_g, outer_b, outer_a = outer_color:unpack()
     end
 
@@ -346,6 +396,14 @@ end
 
 --- @class rt.MeshLine
 rt.MeshLine = function(x1, y1, x2, y2, thickness)
+    meta.assert(
+        x1, mt.Number,
+        y1, mt.Number,
+        x2, mt.Number,
+        y2, mt.Number,
+        thickness, mt.Optional(mt.Number)
+    )
+
     if thickness == nil then thickness = 1 end
 
     local dx, dy = x2 - x1, y2 - y1
@@ -454,6 +512,15 @@ end
 
 --- @class rt.MeshSphere
 function rt.MeshSphere(center_x, center_y, center_z, radius, n_rings, n_segments_per_ring)
+    meta.assert(
+        center_x, mt.Number,
+        center_y, mt.Number,
+        center_z, mt.Number,
+        radius, mt.Number,
+        n_rings, mt.Number,
+        n_segments_per_ring, mt.Number
+    )
+
     local data = {}
     local indices = {}
 
