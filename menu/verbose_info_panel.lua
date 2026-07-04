@@ -17,6 +17,7 @@ mn.VerboseInfoObject = {
     MSAA_WIDGET = "msaa_visualization_widget",
     BLOOM = "bloom",
     HDR = "hdr",
+    RESOLUTION_DOWNSCALING = "downscaling",
     DYNAMIC_LIGHTING = "dynamic_lighting",
     REFLECTIONS = "reflections",
     BACKGROUND_ANIMATION = "background_animation",

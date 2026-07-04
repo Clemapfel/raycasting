@@ -50,7 +50,7 @@ local _try_call = function(f, ...)
     end
 end
 function love.errorhandler(message, depth)
-    local traceback = _safe_call(debug.traceback, "Error in " .. message, 3)
+    local traceback = debug.traceback("Error in " .. message, 2)
     traceback = _safe_call(string.gsub, traceback, "\n[^\n]+$", "")
 
     _safe_call(io.stdout.write, io.stdout, traceback)

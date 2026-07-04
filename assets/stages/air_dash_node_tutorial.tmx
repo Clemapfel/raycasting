@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="312">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="313">
  <editorsettings>
   <export target="air_dash_node_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -14,6 +14,12 @@
   <object id="160" type="Wall" x="1408" y="-736">
    <properties>
     <property name="type" value="spheres"/>
+   </properties>
+   <polygon points="-1936,784 1168,768 1168,-1600 -967.617,-794.688"/>
+  </object>
+  <object id="312" type="DarknessArea" x="1408" y="-736">
+   <properties>
+    <property name="strength" type="float" value="0.25"/>
    </properties>
    <polygon points="-1936,784 1168,768 1168,-1600 -967.617,-794.688"/>
   </object>
@@ -153,7 +159,7 @@
    <ellipse/>
   </object>
   <object id="119" x="-176" y="-1152">
-   <polygon points="0,0 1024,0 1024,784 1584,784 1584,-96 382.767,-96 384,-336 384,-592 16,-592"/>
+   <polygon points="0,0 1024,0 1024,784 1584,784 1584,-96 384,-96 384,-592 0,-592"/>
   </object>
   <object id="143" type="SlipperyHitbox" x="1008" y="-352">
    <polygon points="0,16 288,160 400,160 448,16 448,-16 448,-224 896,-352 928,-352 928,-384 448,-384 448,-990.694 896,-1088 928,-1088 928,-1120 448,-1120 448,-1984 400,-1984 400,-16 -160,-16 -160,-800 -192,-800 -192,16"/>

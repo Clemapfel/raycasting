@@ -1029,7 +1029,7 @@ function rt.Label:_apply_wrapping()
 
             if glyph.is_underlined or glyph.is_strikethrough then
                 local font = glyph.font
-                local underline_y = font:getBaseline() + 0.5 * font:getHeight() + font:getDescent() + 4 -- experimentally determined
+                local underline_y = font:getBaseline() + 0.5 * font:getHeight() + font:getDescent() + 4 / rt.SceneManager:get_downscaling_factor() -- experimentally determined
                 local strikethrough_y = font:getBaseline()
 
                 if glyph.is_underlined then

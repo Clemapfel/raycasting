@@ -72,7 +72,10 @@ function ow.Stage:instantiate(scene, id)
         _camera_bounds = meta.make_weak({}), -- Table<ow.CameraBounds>
         _checkpoints = meta.make_weak({}), -- Table<ow.Checkpoint, Number>
         _blood_splatter = ow.BloodSplatter(scene),
-        _mirror = nil, -- ow.Mirror
+        _mirror = nil, -- ow.Mirror,
+
+        _light_mask_bodies = {},
+        _darkness_mask_bodies = {},
 
         _flow_graph_nodes = {},
         _flow_graph = nil, -- ow.FlowGraph
@@ -487,10 +490,12 @@ function ow.Stage:update(delta)
         local camera = self._scene:get_camera()
         local bounds = camera:get_world_bounds()
 
-        local padding = rt.settings.overworld.stage.visible_area_padding
+        local padding = rt.settings.overworld.light_map.light_range * 2
 
         self._visible_bodies = {}
+
         local light_mask_bodies = {}
+        local darkness_mask_bodies = {}
 
         for body in values(self._world:query_aabb(
             bounds.x - padding, bounds.y - padding,
@@ -500,29 +505,54 @@ function ow.Stage:update(delta)
             if body:has_tag("use_lighting") then
                 table.insert(light_mask_bodies, body)
             end
+
+            if body:has_tag("use_darkness") then
+                table.insert(darkness_mask_bodies, body)
+            end
         end
 
         local light_map = rt.SceneManager:get_light_map()
 
         love.graphics.push("all")
         love.graphics.reset()
-        light_map:bind_mask()
         love.graphics.setColor(1, 1, 1, 1)
-        self._scene:get_camera():bind()
-        for body in values(light_mask_bodies) do
-            body:draw(true) -- mask only
+
+        local draw_masks = function(masks, tag, getter)
+            for body in values(masks) do
+                local userdata = body:get_user_data()
+                if userdata ~= nil and meta.is_function(userdata[getter]) then
+                    local strength = userdata[getter](userdata)
+                    if not meta.is_number(strength) then
+                        rt.error("In ow.Stage.draw: object of type `", meta.typeof(userdata), "` has `", tag, "` set, but `", getter, "` does not return a number, instead returning `", meta.typeof(strength), "`")
+                    end
+                    love.graphics.setColor(strength, strength, strength, strength)
+                else
+                    love.graphics.setColor(1, 1, 1, 1)
+                end
+                body:draw(true) -- mask only
+            end
         end
+
+        light_map:bind_mask()
+        self._scene:get_camera():bind()
+        draw_masks(light_mask_bodies, "use_lighting", "get_light_strength")
         self._scene:get_camera():unbind()
         light_map:unbind_mask()
-        love.graphics.pop()
 
-        light_map:update(self)
+        light_map:bind_composite_mask()
+        self._scene:get_camera():bind()
+        draw_masks(light_mask_bodies, "use_darkness", "get_darkness_strength")
+        self._scene:get_camera():unbind()
+        light_map:unbind_composite_mask()
+
+        love.graphics.pop()
+        self._light_mask_bodies = light_mask_bodies
+        self._darkness_mask_bodies = darkness_mask_bodies
     end
 
     for object in values(self._to_update) do
         object:update(delta)
     end
-
 
     if self._flow_graph ~= nil then
         --self._flow_fraction = self._flow_graph:update_player_position(self._scene:get_player():get_position())
@@ -760,6 +790,8 @@ function ow.Stage:reset()
     end
 
     rt.SceneManager:get_light_map():clear()
+    self._light_map_bodies = {}
+    self._darkness_mask_bodies = {}
 
     self:signal_emit("reset")
 end
@@ -869,4 +901,14 @@ end
 --- @brief
 function ow.Stage:get_spawn_location()
     return self._player_spawn_checkpoint:get_position()
+end
+
+--- @brief
+function ow.Stage:get_should_draw_darkness()
+    return #self._darkness_mask_bodies > 0
+end
+
+--- @brief
+function ow.Stage:get_should_draw_light()
+    return #self._light_mask_bodies > 0
 end

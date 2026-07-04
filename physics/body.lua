@@ -297,10 +297,16 @@ function b2.Body:add_tag(tag, ...)
     end
 end
 
+b2.Body.add_tags = b2.Body.add_tag
+
 --- @brief
-function b2.Body:remove_tag(tag)
-    self._tags[tag] = nil
+function b2.Body:remove_tag(tag, ...)
+    for i = 1, select("#", ...) do
+        self._tags[select(i, ...)] = nil
+    end
 end
+
+b2.Body.remove_tags = b2.Body.remove_tag
 
 --- @brief
 function b2.Body:has_tag(tag)

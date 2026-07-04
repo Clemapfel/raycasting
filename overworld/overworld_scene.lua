@@ -376,14 +376,16 @@ end
 
 --- @brief
 function ow.OverworldScene:enter(stage_id, entry_mode)
-    if entry_mode == nil then entry_mode = ow.StageEntryMode.INSTANT end
-    meta.assert(stage_id, "String", entry_mode, ow.StageEntryMode)
+    if not self:get_is_active() then
+        if entry_mode == nil then entry_mode = ow.StageEntryMode.INSTANT end
+        meta.assert(stage_id, "String", entry_mode, ow.StageEntryMode)
+
+        self:set_stage(stage_id, entry_mode)
+    end
 
     self._input:activate()
     rt.SceneManager:set_use_fixed_timestep(true)
     rt.SceneManager:set_is_cursor_visible(false)
-
-    self:set_stage(stage_id, entry_mode)
 end
 
 --- @brief
@@ -642,7 +644,7 @@ function ow.OverworldScene:update(delta)
         self._background:notify_camera_changed(self._camera)
         self._background:update(delta)
 
-        self:_update_camera()
+        self:_update_camera(delta)
 
         self._screenshot_needs_update = true
         self._player_canvas_needs_update = true
@@ -717,7 +719,9 @@ function ow.OverworldScene:draw()
         self._stage:draw_above_player()
         self._camera:unbind()
 
-        if rt.GameState:get_is_dynamic_lighting_enabled() then
+        if rt.GameState:get_is_dynamic_lighting_enabled()
+            and self._stage:get_should_draw_darkness()
+        then
             rt.SceneManager:get_light_map():composite()
         end
 
@@ -773,7 +777,12 @@ function ow.OverworldScene:draw()
         end
     end
 
-    -- draw
+    -- update light map
+    if self._stage ~= nil and (self._stage:get_should_draw_light() or self._stage:get_should_draw_darkness()) then
+        rt.SceneManager:get_light_map():update(self._stage)
+    end
+
+    -- update bloom
     if rt.GameState:get_is_bloom_enabled() then
         local bloom = rt.SceneManager:get_bloom()
         bloom:bind()

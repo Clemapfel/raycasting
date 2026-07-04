@@ -26,7 +26,6 @@ meta.add_signals(rt.Scene,
 
 --- @brief
 function rt.Scene:instantiate()
-    self._is_active = false -- set by SceneManager
 end
 
 --- @brief
@@ -36,7 +35,7 @@ end
 
 --- @brief
 function rt.Scene:get_is_active()
-    return self._is_active
+    rt.SceneManager:get_scene_is_active(self)
 end
 
 --- @override

@@ -164,7 +164,6 @@ function rt.SceneManager:_set_scene(add_to_stack, scene_type, ...)
 
         if previous_scene ~= nil then
             previous_scene:exit()
-            previous_scene._is_active = false
             previous_scene:signal_emit("exit")
 
             if rt.GameState:get_is_bloom_enabled() then
@@ -224,7 +223,7 @@ function rt.SceneManager:update(delta)
     -- check if resize is necessary
     local width, height = rt.GameState:get_internal_resolution()
     if self._width ~= width or self._height ~= height then
-        self:resize(width, height)
+        self:resize()
     end
 
     if self._restart_active == true then
@@ -243,11 +242,11 @@ function rt.SceneManager:update(delta)
     rt.Animalese:update(delta)
 
     self._fade:update(delta)
+
     if self._current_scene ~= nil then
         if self._schedule_enter then
             self._schedule_enter = false
             self._current_scene:enter(table.unpack(self._current_scene_varargs))
-            self._current_scene._is_active = true
             self._current_scene:signal_emit("enter")
             self._current_scene:draw() -- to prevent black frame
         end
@@ -462,7 +461,7 @@ end
 
 --- @brief
 function rt.SceneManager:get_pixel_scale()
-    return love.graphics.getHeight() / rt.settings.native_height / self:get_downscaling_factor()
+    return love.graphics.getHeight() / rt.settings.native_height
 end
 
 --- @brief
@@ -588,7 +587,7 @@ function rt.SceneManager:draw_debug_information()
 
     if self._current_scene ~= nil then
         local left = self._current_scene:get_debug_information() or ""
-        love.graphics.printf(left, margin, margin, math.huge)
+        love.graphics.printf(left, margin * 2, margin, math.huge)
     end
 end
 
@@ -643,6 +642,17 @@ end
 --- @brief
 function rt.SceneManager:get_cursor_type()
     return self._cursor:get_type()
+end
+
+--- @brief check whether scene is on scene stack
+function rt.SceneManager:get_scene_is_active(scene)
+    for other in values(self._scene_stack) do
+        if other == scene then
+            return true
+        end
+    end
+
+    return false
 end
 
 rt.SceneManager = meta.as_singleton(rt.SceneManager)

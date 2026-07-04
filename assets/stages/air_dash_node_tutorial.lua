@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 312,
+  nextobjectid = 313,
   properties = {
     ["background_id"] = "\"nebula\""
   },
@@ -72,6 +72,27 @@ return {
           },
           properties = {
             ["type"] = "spheres"
+          }
+        },
+        {
+          id = 312,
+          name = "",
+          type = "DarknessArea",
+          shape = "polygon",
+          x = 1408,
+          y = -736,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = -1936, y = 784 },
+            { x = 1168, y = 768 },
+            { x = 1168, y = -1600 },
+            { x = -967.617, y = -794.688 }
+          },
+          properties = {
+            ["strength"] = 0.25
           }
         }
       }
@@ -603,10 +624,9 @@ return {
             { x = 1024, y = 784 },
             { x = 1584, y = 784 },
             { x = 1584, y = -96 },
-            { x = 382.767, y = -96 },
-            { x = 384, y = -336 },
+            { x = 384, y = -96 },
             { x = 384, y = -592 },
-            { x = 16, y = -592 }
+            { x = 0, y = -592 }
           },
           properties = {}
         },

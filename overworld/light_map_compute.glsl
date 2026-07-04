@@ -10,10 +10,6 @@
 #error "WORK_GROUP_SIZE_Z undefined"
 #endif
 
-#ifndef LIGHT_RANGE
-#error "LIGHT_RANGE undefined"
-#endif
-
 /// ### POINT LIGHTS ###
 
 #ifndef MAX_N_POINT_LIGHTS
@@ -178,10 +174,6 @@ uniform bool should_compute_composite;
 layout(COMPOSITE_TEXTURE_FORMAT) uniform writeonly image2D composite_texture;
 // r: intensity
 
-#ifndef LIGHT_RANGE
-#error "LIGHT_RANGE undefined"
-#endif
-
 // tonemap multiplie
 #ifndef INTENSITY
 #error "INTENSITY undefined"
@@ -199,9 +191,11 @@ float gaussian(float x) {
     return exp(-(x * x));
 }
 
+uniform float light_range;
+
 vec4 compute_light(vec4 light_color, float distance) {
     const float third = 1.0 / 3.0;
-    const float inverse_light_range = 1.0 / float(LIGHT_RANGE);
+    const float inverse_light_range = 1.0 / float(light_range);
 
     float attenuation = clamp(gaussian(distance * inverse_light_range), 0.0, 1.0);
     light_color.rgb *= light_color.a;
@@ -209,7 +203,7 @@ vec4 compute_light(vec4 light_color, float distance) {
 }
 
 float compute_composite_intensity(float distance) {
-    const float inverse_light_range = 1.0 / float(LIGHT_RANGE * 2);
+    const float inverse_light_range = 1.0 / float(light_range * 2);
     return clamp(gaussian(distance * inverse_light_range), 0.0, 1.0);
 }
 

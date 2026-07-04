@@ -197,6 +197,9 @@ return {
         hdr_title = "HDR (High Dynamic Range)",
         hdr_description = "Use a larger range of colors for rendering, which can result in better video output on certain monitors, at worse performance",
 
+        downscaling_title = "Resolution Downscaling",
+        downscaling_description = "Reduces image quality, increases performance. Especially effective for large, high-resolution monitors",
+
         dynamic_lighting_title = "Dynamic Lighting",
         dynamic_lighting_description = "Render lighting computed in real-time on level geometry",
 
@@ -318,6 +321,12 @@ return {
         hdr_prefix = "HDR",
         hdr_on = "On",
         hdr_off = "Off",
+
+        downscaling_prefix = "Resolution Downscaling",
+        downscaling_off = "Off",
+        downscaling_half = "2x",
+        downscaling_quarter = "4x",
+        downscaling_eighth = "8x",
 
         dynamic_lighting_prefix = "Dynamic Lighting",
         dynamic_lighting_on = "On",

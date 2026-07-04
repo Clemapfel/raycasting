@@ -23,6 +23,7 @@ local SettingsItem = {
     MSAA = "msaa",
     BLOOM = "bloom",
     HDR = "hdr",
+    DOWNSCALING = "downscaling",
     DYNAMIC_LIGHTING = "dynamic_lighting",
     REFLECTIONS = "reflections",
     BACKGROUND_ANIMATION = "background_animation",
@@ -63,11 +64,12 @@ rt.settings.settings_scene = {
         SettingsItem.INPUT_BUFFERING,
 
         SettingsItem.MSAA,
-        SettingsItem.DYNAMIC_LIGHTING,
         SettingsItem.BLOOM,
         SettingsItem.HDR,
+        SettingsItem.DYNAMIC_LIGHTING,
         SettingsItem.REFLECTIONS,
-        SettingsItem.BACKGROUND_ANIMATION,
+        SettingsItem.DOWNSCALING,
+        --SettingsItem.BACKGROUND_ANIMATION,
 
         SettingsItem.SPEEDRUN_SPLITS,
         SettingsItem.DEBUG_PRINT
@@ -353,6 +355,37 @@ function mn.SettingsScene:instantiate()
 
         item:signal_connect("reset", function(_)
             hdr_button:set_option(hdr_to_label[defaults.is_hdr_enabled])
+        end)
+    end
+
+    init_functions[SettingsItem.DOWNSCALING] = function() -- internal resolution
+        local downscaling_to_label = {
+            [rt.InternalResolutionScaling.NONE] = translation.downscaling_off,
+            [rt.InternalResolutionScaling.HALF] = translation.downscaling_half,
+            [rt.InternalResolutionScaling.QUARTER] = translation.downscaling_quarter,
+            [rt.InternalResolutionScaling.EIGHTH] = translation.downscaling_eighth,
+        }
+        local label_to_downscaling = reverse(downscaling_to_label)
+
+        local downscaling_button = mn.OptionButton({
+            downscaling_to_label[rt.InternalResolutionScaling.NONE],
+            downscaling_to_label[rt.InternalResolutionScaling.HALF],
+            downscaling_to_label[rt.InternalResolutionScaling.QUARTER],
+            downscaling_to_label[rt.InternalResolutionScaling.EIGHTH]
+        })
+
+        downscaling_button:set_option(downscaling_to_label[rt.GameState:get_internal_resolution_scaling()])
+        downscaling_button:signal_connect("selection", function(_, label)
+            rt.GameState:set_internal_resolution_scaling(label_to_downscaling[label])
+        end)
+
+        local item = add_item(
+            translation.downscaling_prefix, downscaling_button,
+            mn.VerboseInfoObject.RESOLUTION_DOWNSCALING
+        )
+
+        item:signal_connect("reset", function(_)
+            downscaling_button:set_option(downscaling_to_label[defaults.internal_resolution_scaling])
         end)
     end
 
