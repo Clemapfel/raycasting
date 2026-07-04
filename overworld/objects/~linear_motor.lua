@@ -32,7 +32,7 @@ function ow.LinearMotor:instantiate(object, stage, scene)
         })
 
         self._target:set_type(b2.BodyType.KINEMATIC)
-        self._target:add_tag("no_blood")
+        self._target:add_tag(b2.Tag.NO_BLOOD)
         self._anchor:set_is_sensor(true)
 
         local anchor_x, anchor_y = self._anchor:get_center_of_mass()

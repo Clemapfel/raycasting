@@ -56,7 +56,7 @@ function ow.KillPlane:instantiate(object, stage, scene)
 
     self._is_blocked = false
     self._body:signal_connect("collision_start", function(_, other_body)
-        if other_body:has_tag("player") then
+        if other_body:has_tag(b2.Tag.PLAYER) then
             local player = self._scene:get_player()
             if self._is_blocked == true
                 or player:get_is_disabled()
@@ -80,7 +80,7 @@ function ow.KillPlane:instantiate(object, stage, scene)
     self._contour = rt.contour.close(object:create_contour(true))  -- translate to origin
 
     -- lights
-    self._body:add_tag("point_light_source", "segment_light_source")
+    self._body:add_tag(b2.Tag.POINT_LIGHT_SOURCE, b2.Tag.SEGMENT_LIGHT_SOURCE)
     self._body:set_user_data(self)
 
     local start_x, start_y = self._body:get_position()

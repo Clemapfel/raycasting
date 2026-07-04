@@ -429,30 +429,6 @@ local _signal_get_is_blocked = function(instance, id)
     return entry.is_blocked
 end
 
-local _signal_block_all = function(instance)
-    local component = instance[_object_signal_component_index]
-    if component == nil then
-        rt.error("In ", meta.typeof(instance), ".signal_block_all: object `", meta.typeof(instance), "` does not have any signals")
-        return
-    end
-
-    for entry in values(component) do
-        entry.is_blocked = true
-    end
-end
-
-local _signal_unblock_all = function(instance)
-    local component = instance[_object_signal_component_index]
-    if component == nil then
-        rt.error("In ", meta.typeof(instance), ".signal_unblock_all: object `", meta.typeof(instance), "` does not have any signals")
-        return
-    end
-
-    for entry in values(component) do
-        entry.is_blocked = true
-    end
-end
-
 local _signal_has_signal = function(instance, id)
     local component = instance[_object_signal_component_index]
     if component == nil then
@@ -565,8 +541,6 @@ local function _install_signals(instance, type)
             instance.signal_disconnect_all = _signal_disconnect_all
             instance.signal_set_is_blocked = _signal_set_is_blocked
             instance.signal_get_is_blocked = _signal_get_is_blocked
-            instance.signal_block_all = _signal_block_all
-            instance.signal_unblock_all = _signal_unblock_all
             instance.signal_has_signal = _signal_has_signal
             instance.signal_list_handler_ids = _signal_list_handler_ids
             instance.signal_list_signals = _signal_list_signals

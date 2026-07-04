@@ -141,7 +141,14 @@ function ow.ShatterSurface:shatter(origin_x, origin_y, velocity_x, velocity_y)
             local wx, wy = math.rotate(part.x, part.y, self._rotation)
             part.body = b2.Body(self._world, b2.BodyType.DYNAMIC, wx + self._offset_x, wy + self._offset_y, b2.Polygon(part.vertices))
             part.body:set_rotation(self._rotation)
-            part.body:add_tag("stencil", "unjumpable", "unwalkable", "slippery", "point_light_source")
+            part.body:add_tag(
+                b2.Tag.STENCIL,
+                b2.Tag.UNJUMABLE,
+                b2.Tag.UNWALKABLE,
+                b2.Tag.SLIPPERY,
+                b2.Tag.POINT_LIGHT_SOURCE
+            )
+
             part.body:set_user_data(part)
             part.collect_point_lights = function(_, callback)
                 local bx, by = part.body:get_position()

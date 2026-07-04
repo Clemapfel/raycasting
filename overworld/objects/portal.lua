@@ -226,7 +226,7 @@ function ow.Portal:instantiate(object, stage, scene)
 
             self._segment_sensor:set_collides_with(0x0)
             self._segment_sensor:set_collision_group(0x0)
-            self._segment_sensor:add_tag("segment_light_source")
+            self._segment_sensor:add_tag(b2.Tag.SEGMENT_LIGHT_SOURCE)
             self._segment_sensor:set_user_data(self)
 
             self._sensor_aabb = rt.AABB(
@@ -301,7 +301,12 @@ function ow.Portal:instantiate(object, stage, scene)
         self._transition_stencil_radius = stencil_r
         self._transition_stencil:set_collides_with(0x0)
         self._transition_stencil:set_collision_group(rt.settings.player.ghost_collision_group)
-        self._transition_stencil:add_tag("hitbox", "stencil", "core_stencil", "body_stencil")
+        self._transition_stencil:add_tag(
+            b2.Tag.HITBOX,
+            b2.Tag.STENCIL,
+            b2.Tag.CORE_STENCIL,
+            b2.Tag.BODY_STENCIL
+        )
         self:_set_stencil_enabled(false)
 
         -- setup tether, wait for first update since both portals need to have been fully initialized

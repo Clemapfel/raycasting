@@ -54,7 +54,7 @@ function ow.Hook:instantiate(object, stage, scene)
         b2.Circle(0, 0, self._radius + 0.5 * rt.settings.player.radius)
     )
 
-    self._body:add_tag("point_light_source")
+    self._body:add_tag(b2.Tag.POINT_LIGHT_SOURCE)
     self._body:set_user_data(self)
 
     if object:get_has_property("hue") then
@@ -80,7 +80,7 @@ function ow.Hook:instantiate(object, stage, scene)
 
     self._body:set_is_sensor(true)
     self._body:set_collides_with(rt.settings.player.player_collision_group)
-    self._body:add_tag("slippery")
+    self._body:add_tag(b2.Tag.SLIPPERY)
 
     self._body:signal_connect("collision_start", function(_)
         self:_hook()

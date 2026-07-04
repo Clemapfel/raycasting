@@ -94,7 +94,7 @@ function ow.BouncePad:instantiate(object, stage, scene)
     self._rotation_origin_y = object.rotation_origin_y
 
     -- collision
-    self._body:add_tag("slippery", "no_blood", "unjumpable", "stencil")
+    self._body:add_tag(b2.Tag.SLIPPERY, b2.Tag.NO_BLOOD, b2.Tag.UNJUMABLE, b2.Tag.STENCIL)
     self._body:set_user_data(self)
 
     local bounce_group = rt.settings.player.bounce_collision_group
@@ -109,7 +109,7 @@ function ow.BouncePad:instantiate(object, stage, scene)
 
     self._body:signal_connect("collision_start", function(_, other_body, nx, ny, cx, cy)
         local other = other_body:get_user_data()
-        if other == nil or not other_body:has_tag("player") then return end
+        if other == nil or not other_body:has_tag(b2.Tag.PLAYER) then return end
 
         local restitution
         if meta.is_function(other.bounce) then
@@ -120,7 +120,7 @@ function ow.BouncePad:instantiate(object, stage, scene)
 
         if cx == nil or cy == nil or restitution == 0 then return end
 
-        if other_body:has_tag("player") then
+        if other_body:has_tag(b2.Tag.PLAYER) then
             self._scene:get_camera():shake(math.min(1, restitution))
         end
 
@@ -180,7 +180,7 @@ function ow.BouncePad:instantiate(object, stage, scene)
         rt.contour.close(self._contour)
 
         -- lights
-        self._body:add_tag("point_light_source")
+        self._body:add_tag(b2.Tag.POINT_LIGHT_SOURCE)
         self._body:set_user_data(self)
 
         self._segment_lights = {}

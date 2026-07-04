@@ -4,14 +4,14 @@ ow.FakeHitbox = meta.class("FakeHitbox")
 --- @class ow.SlipperyFakeHitbox
 --- @types Polygon, Rectangle, Ellipse
 ow.SlipperyFakeHitbox = function(object, stage, scene)
-    object.properties["slippery"] = true
+    object.properties[b2.Tag.SLIPPERY] = true
     return ow.FakeHitbox(object, stage, scene)
 end
 
 --- @class ow.StickyFakeHitbox
 --- @types Polygon, Rectangle, Ellipse
 ow.StickyFakeHitbox = function(object, stage, scene)
-    object.properties["slippery"] = false
+    object.properties[b2.Tag.SLIPPERY] = false
     return ow.FakeHitbox(object, stage, scene)
 end
 
@@ -44,7 +44,7 @@ function ow.FakeHitbox:instantiate(object, stage, scene)
         function() self._mesh:draw() end -- draw mask
     )
 
-    self._is_slippery = object:get_boolean("slippery")
+    self._is_slippery = object:get_boolean(b2.Tag.SLIPPERY)
     if self._is_slippery == nil then self._is_slippery = false end
 
     if self._is_slippery then

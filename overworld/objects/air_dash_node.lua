@@ -177,7 +177,7 @@ function ow.AirDashNode:instantiate(object, stage, scene)
 
     self._body:set_collides_with(0x0)
     self._body:set_collision_group(0x0)
-    self._body:add_tag("point_light_source", "segment_light_source")
+    self._body:add_tag(b2.Tag.POINT_LIGHT_SOURCE, b2.Tag.SEGMENT_LIGHT_SOURCE)
     self._body:set_user_data(self)
 
     self._velocity = object:get_number("velocity", false) or 1

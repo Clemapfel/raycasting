@@ -113,7 +113,7 @@ function ow.NPC:instantiate(object, stage, scene)
         if not self._is_dynamic then
             local body = self._graphics_body:get_physics_body()
             body:signal_connect("collision_start", function(_, other_body, nx, ny, cx, cy)
-                if not other_body:has_tag("player") then return end
+                if not other_body:has_tag(b2.Tag.PLAYER) then return end
 
                 local player = self._scene:get_player()
                 local px, py = player:get_position()

@@ -16,7 +16,7 @@ ow.MovableHitbox = meta.class("MovableHitbox", ow.MovableObject)
 --- @class ow.SlipperyMovableHitbox
 --- @types Polygon, Rectangle, Ellipse
 ow.SlipperyMovableHitbox = function(object, stage, scene)
-    object.properties["slippery"] = true
+    object.properties[b2.Tag.SLIPPERY] = true
     return ow.MovableHitbox(object, stage, scene)
 end
 
@@ -46,21 +46,21 @@ function ow.MovableHitbox:instantiate(object, stage, scene)
 
     -- match tags from ow.Hitbox
     for property in range(
-        "slippery",
+        b2.Tag.SLIPPERY,
         "sticky",
-        "unjumpable",
-        "unwalkable"
+        b2.Tag.UNJUMABLE,
+        b2.Tag.UNWALKABLE
     ) do
         if object:get_boolean(property) then
             self._body:add_tag(property)
         end
     end
 
-    if self._body:has_tag("slippery") then
-        self._body:add_tag("no_blood")
+    if self._body:has_tag(b2.Tag.SLIPPERY) then
+        self._body:add_tag(b2.Tag.NO_BLOOD)
     end
-    self._body:add_tag("hitbox", "stencil")
-    self._body:add_tag("use_lighting")
+    self._body:add_tag(b2.Tag.HITBOX, b2.Tag.STENCIL)
+    self._body:add_tag(b2.Tag.USE_LIGHTING)
 
     local mesh, tris = object:create_mesh(true) -- translate to origin
     self._mesh = mesh
@@ -74,7 +74,7 @@ function ow.MovableHitbox:instantiate(object, stage, scene)
         function() self._mesh:draw() end -- draw mask
     )
 
-    self._is_slippery = object:get_boolean("slippery")
+    self._is_slippery = object:get_boolean(b2.Tag.SLIPPERY)
     if self._is_slippery == nil then self._is_slippery = false end
 
     if self._is_slippery then
@@ -100,7 +100,7 @@ function ow.MovableHitbox:instantiate(object, stage, scene)
 
     -- lighting
     if self._blood_splatter ~= nil then
-        self._body:add_tag("segment_light_source")
+        self._body:add_tag(b2.Tag.SEGMENT_LIGHT_SOURCE)
         self._body:set_user_data(self)
         self.collect_segment_lights = function(self, callback)
             local camera = self._scene:get_camera()

@@ -89,7 +89,7 @@ function ow.CheckpointRope:_init_bodies()
 
         --[[
         -- dummy instance for light source
-        body:add_tag("segment_light_source")
+        body:add_tag(b2.Tag.SEGMENT_LIGHT_SOURCE)
         local instance = {
             get_segment_light_sources = function()
                 local angle = body:get_rotation()

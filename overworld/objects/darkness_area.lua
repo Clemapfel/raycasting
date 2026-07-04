@@ -10,7 +10,7 @@ function ow.DarknessArea:instantiate(object, stage, scene)
     object:validate_schema(schema, ow.ShapeType.NOT_A_POINT)
 
     local body = object:create_physics_body(stage:get_physics_world(), b2.BodyType.KINEMATIC)
-    body:add_tags("use_darkness", "use_lighting")
+    body:add_tags(b2.Tag.USE_DARKNESS, b2.Tag.USE_LIGHTING)
     body:set_collision_group(0x0)
     self._body = body
 

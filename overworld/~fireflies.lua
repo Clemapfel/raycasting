@@ -164,7 +164,7 @@ function ow.Fireflies:instantiate(object, stage, scene)
     self._body:set_collision_group(rt.settings.player.bounce_collision_group)
 
     self._body:signal_connect("collision_start", function(_, other_body)
-        if other_body:has_tag("player") then
+        if other_body:has_tag(b2.Tag.PLAYER) then
             local player = self._scene:get_player()
             local x, y = self._body:get_position()
             for entry in values(self._fly_entries) do

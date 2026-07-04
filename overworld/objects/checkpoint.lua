@@ -162,7 +162,7 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
                 )
             )
 
-            self._spawn_barrier:add_tag("stencil", "hitbox")
+            self._spawn_barrier:add_tag(b2.Tag.STENCIL, b2.Tag.HITBOX)
             self._spawn_barrier:set_is_enabled(false)
 
             self._spawn_barrier_segment = {
@@ -271,7 +271,7 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
         end
 
         if not self._is_invisible then
-            self._body:add_tag("point_light_source", "segment_light_source")
+            self._body:add_tag(b2.Tag.POINT_LIGHT_SOURCE, b2.Tag.SEGMENT_LIGHT_SOURCE)
             self._body:set_user_data(self)
         end
 

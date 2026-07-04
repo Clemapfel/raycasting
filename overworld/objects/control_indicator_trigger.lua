@@ -46,7 +46,7 @@ function ow.ControlIndicatorTrigger:instantiate(object, stage, scene)
     ))
     
     body:signal_connect("collision_start", function(_, other_body)
-        if other_body:has_tag("player") then
+        if other_body:has_tag(b2.Tag.PLAYER) then
             self._scene:set_control_indicator_type(self._type, self._should_emit_particles)
         end
     end)

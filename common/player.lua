@@ -2179,7 +2179,7 @@ function rt.Player:move_to_world(world)
         body:set_is_enabled(false)
         body:set_user_data(self)
         body:set_use_continuous_collision(true)
-        body:add_tag("player")
+        body:add_tag(b2.Tag.PLAYER)
         body:set_is_rotation_fixed(true)
         body:set_collision_group(inner_group)
         body:set_collides_with(inner_mask)
@@ -2219,7 +2219,7 @@ function rt.Player:move_to_world(world)
         body:set_use_continuous_collision(true)
         body:set_user_data(self)
         body:set_use_interpolation(true)
-        body:add_tag("player_outer_body")
+        body:add_tag(b2.Tag.PLAYER_OUTER_BODY)
     end
 
     for angle = 0, 2 * math.pi, step do
@@ -2257,7 +2257,7 @@ function rt.Player:move_to_world(world)
     )
 
     initialize_inner_body(self._bubble_body, true)
-    self._bubble_body:add_tag("player_bubble")
+    self._bubble_body:add_tag(b2.Tag.PLAYER_BUBBLE)
 
     local bubble_bounce_shape = love.physics.newCircleShape(self._bubble_body:get_native(), x, y, self._radius * settings.bubble_radius_factor * 0.8)
     bubble_bounce_shape:setFilterData(bounce_group, bounce_group, 0)
@@ -2280,7 +2280,7 @@ function rt.Player:move_to_world(world)
 
         local body = b2.Body(self._world, b2.BodyType.DYNAMIC, cx, cy, bubble_outer_body_shape)
         initialize_outer_body(body, true)
-        body:add_tag("player_bubble")
+        body:add_tag(b2.Tag.PLAYER_BUBBLE)
         body:set_mass(0.001) -- experimentally determined for best bubble deformation
 
         local joint = b2.Spring(self._bubble_body, body, x, y, cx, cy)

@@ -448,7 +448,7 @@ function ow.ResultScreenScene:size_allocate(x, y, width, height)
         ) do
             local body = b2.Body(self._world, b2.BodyType.STATIC, 0, 0, shape)
             body:signal_connect("collision_start", function(self_body, other_body, normal_x, normal_y, collision_x, collision_y)
-                if other_body:has_tag("player") then
+                if other_body:has_tag(b2.Tag.PLAYER) then
                     local current_vx, current_vy = self._player_velocity_x, self._player_velocity_y
                     self._player_velocity_x, self._player_velocity_y = math.reflect(
                         current_vx, current_vy,
@@ -955,7 +955,7 @@ function ow.ResultScreenScene:_spawn_coin(x, y)
             local px, py = entry.body:get_position()
             self:_spawn_fireworks(entry.body, px, py, entry.coin:get_hue())
 
-            if other_body:has_tag("player") then
+            if other_body:has_tag(b2.Tag.PLAYER) then
                 self._player_velocity_x, self._player_velocity_y = math.reflect(
                     self._player_velocity_x, self._player_velocity_y,
                     -normal_x, -normal_y

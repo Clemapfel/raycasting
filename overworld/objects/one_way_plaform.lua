@@ -92,8 +92,8 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
     body_shape:set_is_one_sided(true)
 
     self._body = b2.Body(world, body_type, centroid_x, centroid_y, body_shape)
-    self._body:add_tag("stencil", "hitbox")
-    self._body:add_tag("segment_light_source")
+    self._body:add_tag(b2.Tag.STENCIL, b2.Tag.HITBOX)
+    self._body:add_tag(b2.Tag.SEGMENT_LIGHT_SOURCE)
     self._body:set_user_data(self)
 
     self._body:set_use_continuous_collision(true)
@@ -125,7 +125,7 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
 
     self._stencil_body:set_collides_with(0x0)
     self._stencil_body:set_collision_group(0x0)
-    self._stencil_body:add_tag("stencil")
+    self._stencil_body:add_tag(b2.Tag.STENCIL)
 
     -- add wide solid body on opposite site to prevent tunneling at high velocities
     self._update_range = rt.settings.player.max_velocity * rt.SceneManager:get_timestep() * 4

@@ -49,7 +49,7 @@ function ow.DoubleJumpTether:instantiate(object, stage, scene)
     self._body:set_collides_with(rt.settings.player.bounce_collision_group)
     self._body:set_collision_group(rt.settings.player.bounce_collision_group)
 
-    self._body:add_tag("point_light_source", "segment_light_source")
+    self._body:add_tag(b2.Tag.POINT_LIGHT_SOURCE, b2.Tag.SEGMENT_LIGHT_SOURCE)
     self._body:set_user_data(self)
 
     self._was_consumed = false

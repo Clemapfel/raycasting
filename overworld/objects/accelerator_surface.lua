@@ -160,11 +160,11 @@ function ow.AcceleratorSurface:instantiate(object, stage, scene)
     )
 
     self._body:add_tag(
-        "use_friction",
-        "stencil",
-        "slippery",
-        "hitbox",
-        "point_light_source"
+        b2.Tag.USE_FRICTION,
+        b2.Tag.STENCIL,
+        b2.Tag.SLIPPERY,
+        b2.Tag.HITBOX,
+        b2.Tag.POINT_LIGHT_SOURCE
     )
 
     self._body:set_friction(object:get_number("friction") or -1)

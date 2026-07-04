@@ -87,7 +87,7 @@ function ow.StageTitleCardScene:_initialize()
     local min_x, min_y, max_x, max_y = math.huge, math.huge, -math.huge, -math.huge
     for object in values(objects) do
         local body = object:create_physics_body(self._world, b2.BodyType.STATIC)
-        body:add_tag("stencil")
+        body:add_tag(b2.Tag.STENCIL)
 
         local aabb = body:compute_aabb()
         min_x = math.min(min_x, aabb.x)

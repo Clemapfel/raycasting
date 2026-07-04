@@ -30,7 +30,7 @@ function ow.KillPlane:instantiate(object, stage, scene)
 
     self._is_blocked = false
     self._body:signal_connect("collision_start", function(_, other_body)
-        if other_body:has_tag("player") then
+        if other_body:has_tag(b2.Tag.PLAYER) then
             if self._is_blocked == true then return end
             -- TODO: self._scene:get_player():kill(self._should_explode)
             self._is_blocked = true

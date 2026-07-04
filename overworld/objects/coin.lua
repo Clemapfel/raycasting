@@ -117,7 +117,7 @@ function ow.Coin:instantiate(object, stage, scene)
     self._body:set_collision_group(rt.settings.player.bounce_collision_group)
 
     self._body:signal_connect("collision_start", function(self_body, player_body)
-        if not player_body:has_tag("player") then return end
+        if not player_body:has_tag(b2.Tag.PLAYER) then return end
 
         if self._is_collected then return end
         rt.SoundManager:play(rt.settings.overworld.coin.sound_id)
@@ -137,7 +137,7 @@ function ow.Coin:instantiate(object, stage, scene)
     self._light_source_proxy:set_collides_with(0x0)
     self._light_source_proxy:set_collision_group(0x0)
     self._light_source_proxy:set_collision_disabled(true)
-    self._light_source_proxy:add_tag("point_light_source")
+    self._light_source_proxy:add_tag(b2.Tag.POINT_LIGHT_SOURCE)
     self._light_source_proxy:set_user_data(self)
 
     if _pulse_mesh == nil then

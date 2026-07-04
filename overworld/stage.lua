@@ -190,7 +190,7 @@ function ow.Stage:instantiate(scene, id)
             for wrapper in values(object_wrappers) do
                 if wrapper.class == nil then
                     rt.warning("In ow.Stage.instantiate: object `", wrapper.id, "` of stage `", self._config:get_id(), "` has no class, assuming `Hitbox`")
-                    wrapper.class = "Hitbox"
+                    wrapper.class = meta.get_typename(ow.Hitbox)
                 end
 
                 local Type = ow[wrapper.class]
@@ -502,11 +502,11 @@ function ow.Stage:update(delta)
             bounds.width + 2 * padding, bounds.height + 2 * padding
         )) do
             self._visible_bodies[body] = true
-            if body:has_tag("use_lighting") then
+            if body:has_tag(b2.Tag.USE_LIGHTING) then
                 table.insert(light_mask_bodies, body)
             end
 
-            if body:has_tag("use_darkness") then
+            if body:has_tag(b2.Tag.USE_DARKNESS) then
                 table.insert(darkness_mask_bodies, body)
             end
         end
@@ -535,13 +535,13 @@ function ow.Stage:update(delta)
 
         light_map:bind_mask()
         self._scene:get_camera():bind()
-        draw_masks(light_mask_bodies, "use_lighting", "get_light_strength")
+        draw_masks(light_mask_bodies, b2.Tag.USE_LIGHTING, "get_light_strength")
         self._scene:get_camera():unbind()
         light_map:unbind_mask()
 
         light_map:bind_composite_mask()
         self._scene:get_camera():bind()
-        draw_masks(light_mask_bodies, "use_darkness", "get_darkness_strength")
+        draw_masks(light_mask_bodies, b2.Tag.USE_DARKNESS, "get_darkness_strength")
         self._scene:get_camera():unbind()
         light_map:unbind_composite_mask()
 
@@ -822,7 +822,7 @@ function ow.Stage:collect_point_lights(callback)
 
     local instances = {}
     for body in keys(self._visible_bodies) do
-        if body:has_tag("point_light_source") then
+        if body:has_tag(b2.Tag.POINT_LIGHT_SOURCE) then
             local instance = body:get_user_data()
             if instance == nil then
                 rt.error("In ow.Stage.collect_point_lights: body `", meta.hash(body), "` is marked as point light source, but body userdata is not set")
@@ -850,7 +850,7 @@ end
 function ow.Stage:collect_segment_lights(callback)
     local instances = {}
     for body in keys(self._visible_bodies) do
-        if body:has_tag("segment_light_source") then
+        if body:has_tag(b2.Tag.SEGMENT_LIGHT_SOURCE) then
             local instance = body:get_user_data()
             if instance == nil then
                 rt.error("In ow.Stage.collect_segment_lights: body `", meta.hash(body), "` is marked as segment light source, but body userdata is not set")

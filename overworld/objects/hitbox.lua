@@ -15,14 +15,14 @@ ow.Hitbox = meta.class("Hitbox")
 --- @class ow.SlipperyHitbox
 --- @types Polygon, Rectangle, Ellipse
 ow.SlipperyHitbox = function(object, stage, scene)
-    object.properties["slippery"] = true
+    object.properties[b2.Tag.SLIPPERY] = true
     return ow.Hitbox(object, stage, scene)
 end
 
 --- @class ow.SlipperyHitbox
 --- @types Polygon, Rectangle, Ellipse
 ow.StickyHitbox = function(object, stage, scene)
-    object.properties["slippery"] = false
+    object.properties[b2.Tag.SLIPPERY] = false
     return ow.Hitbox(object, stage, scene)
 end
 
@@ -56,26 +56,26 @@ function ow.Hitbox:instantiate(object, stage, scene)
     self._body = object:create_physics_body(stage:get_physics_world())
 
     for property in range(
-        "slippery",
+        b2.Tag.SLIPPERY,
         "sticky",
-        "unjumpable",
-        "unwalkable"
+        b2.Tag.UNJUMABLE,
+        b2.Tag.UNWALKABLE
     ) do
         if object:get_boolean(property) then
             self._body:add_tag(property)
         end
     end
 
-    if self._body:has_tag("slippery") then
-        self._body:add_tag("no_blood")
+    if self._body:has_tag(b2.Tag.SLIPPERY) then
+        self._body:add_tag(b2.Tag.NO_BLOOD)
     end
 
-    self._body:add_tag("hitbox", "stencil", "use_lighting")
+    self._body:add_tag(b2.Tag.HITBOX, b2.Tag.STENCIL, b2.Tag.USE_LIGHTING)
 
     local friction = object:get_number("friction")
 
     if friction == nil then
-        if self._body:has_tag("slippery") then
+        if self._body:has_tag(b2.Tag.SLIPPERY) then
             friction = 0
         else
             friction = 0
@@ -92,7 +92,7 @@ function ow.Hitbox:instantiate(object, stage, scene)
     self._contour = contour
     self._stage = stage
 
-    if self._body:has_tag("slippery") then
+    if self._body:has_tag(b2.Tag.SLIPPERY) then
         for tri in values(tris) do
             table.insert(ow.Hitbox._slippery_mesh_tris, tri)
             table.insert(ow.Hitbox._slippery_collision_tris, tri)

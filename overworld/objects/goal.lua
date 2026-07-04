@@ -253,7 +253,7 @@ function ow.Goal:instantiate(object, stage, scene)
         end)
 
         do
-            self._body:add_tag("segment_light_source")
+            self._body:add_tag(b2.Tag.SEGMENT_LIGHT_SOURCE)
             self._body:set_user_data(self)
 
             local offset = 0

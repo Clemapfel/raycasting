@@ -41,6 +41,26 @@ b2.CollisionGroup = {
 }
 b2.CollisionGroup = meta.enum("CollisionGroup", b2.CollisionGroup)
 
+--- @enum b2.Tag
+b2.Tag = {
+    PLAYER = "player",
+    PLAYER_OUTER_BODY = "player_outer_body",
+    PLAYER_BUBBLE = "player_bubble",
+    STENCIL = "stencil",
+    CORE_STENCIL = "core_stencil",
+    BODY_STENCIL = "body_stencil",
+    UNJUMPABLE = "unjumpable",
+    UNWALKABLE = "unwalkable",
+    SEGMENT_LIGHT_SOURCE = "segment_ligth_source",
+    POINT_LIGHT_SOURCE = "point_light_source",
+    SLIPPERY = "slippery",
+    NO_BLOOD = "no_blood",
+    HITBOX = "hitbox",
+    USE_DARKNESS = "use_darkness",
+    USE_LIGHTING = "use_lighting",
+    USE_FRICTION = "use_friction"
+}
+
 --- @brief
 --- @param world b2.World
 --- @param x Number

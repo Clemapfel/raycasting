@@ -172,7 +172,7 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
             self._spawn_barrier:set_collision_group(
                 rt.settings.player.ghost_collision_group
             )
-            self._spawn_barrier:add_tag("stencil", "hitbox")
+            self._spawn_barrier:add_tag(b2.Tag.STENCIL, b2.Tag.HITBOX)
 
         elseif self._type == ow.CheckpointType.MIDWAY then
             self._fireworks = ow.Fireworks(self._scene:get_player())

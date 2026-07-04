@@ -123,8 +123,8 @@ function ow.PlayerRecorderBody:initialize(x, y, body_type, is_collidable)
         body:set_mass(rt.settings.overworld.player_recorder_body.mass)
 
         body:set_user_data(self)
-        body:add_tag("point_light_source")
-        body:add_tag("stencil", "core_stencil")
+        body:add_tag(b2.Tag.POINT_LIGHT_SOURCE)
+        body:add_tag(b2.Tag.STENCIL, b2.Tag.CORE_STENCIL)
     end
 
     self._graphics_body:set_use_contour(self._is_bubble)
@@ -164,7 +164,7 @@ function ow.PlayerRecorderBody:update(delta)
         )
 
         for stencil in values(bodies) do
-            if stencil:has_tag("stencil") and not stencil:get_is_sensor() then
+            if stencil:has_tag(b2.Tag.STENCIL) and not stencil:get_is_sensor() then
                 table.insert(stencils, stencil)
             end
         end

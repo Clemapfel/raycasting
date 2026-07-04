@@ -23,7 +23,7 @@ function ow.DeceleratorSurface:instantiate(object, stage, scene)
 
     local world = stage:get_physics_world()
     self._body = object:create_physics_body(world)
-    self._body:add_tag("stencil", "unjumpable", "unwalkable", "segment_light_source")
+    self._body:add_tag(b2.Tag.STENCIL, b2.Tag.UNJUMABLE, b2.Tag.UNWALKABLE, b2.Tag.SEGMENT_LIGHT_SOURCE)
     self._body:set_user_data(self)
     self._body:set_is_sensor(true)
 

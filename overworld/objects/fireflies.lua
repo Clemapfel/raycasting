@@ -85,7 +85,7 @@ function ow.Fireflies:instantiate(object, stage, scene)
     self._body:set_collision_group(rt.settings.player.bounce_collision_group)
 
     self._body:signal_connect("collision_start", function(_, other_body)
-        if other_body:has_tag("player") then
+        if other_body:has_tag(b2.Tag.PLAYER) then
             self._stage.firefly_manager:notify_collected_by_player(self._id)
         end
     end)

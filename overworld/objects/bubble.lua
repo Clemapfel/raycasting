@@ -71,11 +71,11 @@ function ow.Bubble:instantiate(object, stage, scene)
     -- physics
 
     self._body = object:create_physics_body(stage:get_physics_world())
-    self._body:add_tag("slippery", "no_blood", "unjumpable")
+    self._body:add_tag(b2.Tag.SLIPPERY, b2.Tag.NO_BLOOD, b2.Tag.UNJUMABLE)
     self._body:signal_connect("collision_start", function(_, other_body, nx, ny, cx, cy)
         if self._is_destroyed
             or cx == nil or cy == nil -- player is sensor
-            or not other_body:has_tag("player")
+            or not other_body:has_tag(b2.Tag.PLAYER)
         then
             return
         end
@@ -97,7 +97,7 @@ function ow.Bubble:instantiate(object, stage, scene)
     self._body:set_collides_with(bounce_group)
     self._body:set_collision_group(bounce_group)
 
-    self._body:add_tag("point_light_source")
+    self._body:add_tag(b2.Tag.POINT_LIGHT_SOURCE)
     self._body:set_user_data(self)
 
     self._stage:signal_connect("respawn", function()
