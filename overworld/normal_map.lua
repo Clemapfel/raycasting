@@ -16,13 +16,14 @@ rt.settings.overworld.normal_map = {
     shadow_strength = 0.15,
 
     yield_savepoint_fraction = 0.004,
-    n_post_process_passes = 2
+    n_post_process_passes = 2,
+    quad_border = 1.0, -- px
 }
 
 ow.NormalMap = meta.class("NormalMap")
 meta.add_signal(ow.NormalMap, "done")
 
-local _is_disabled = true -- TODO
+local _is_disabled = false -- TODO
 
 local _mask_texture_format = rt.TextureFormat.R8  -- used to store alpha of walls
 local _jfa_texture_format = rt.TextureFormat.RGBA32F -- used during JFA
@@ -127,7 +128,7 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
             if size <= chunk_size then
                 is_single_chunk = true
                 chunk_size = math.ceil(size / 16) * 16
-                chunk_padding = chunk_size / 2
+                chunk_padding = chunk_size / 2 -- always an integer
             end
         end
 
@@ -243,9 +244,9 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
             local tri_max_y = math.max(y1, y2, y3)
 
             local start_xi = math.floor((tri_min_x - min_x) / chunk_size)
-            local end_xi = math.floor((tri_max_x - min_x) / chunk_size)
+            local end_xi = math.ceil((tri_max_x - min_x) / chunk_size)
             local start_yi = math.floor((tri_min_y - min_y) / chunk_size)
-            local end_yi = math.floor((tri_max_y - min_y) / chunk_size)
+            local end_yi = math.ceil((tri_max_y - min_y) / chunk_size)
 
             do -- expand search range slightly to account for float precision on chunk boundary
                 local epsilon = 1
@@ -352,7 +353,7 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
         local render_atlas_n_rows = math.ceil(math.sqrt(n_chunks))
         local render_atlas_n_columns = math.ceil(math.sqrt(n_chunks))
 
-        local atlas_border = 2 -- transparent px border around each tile
+        local atlas_border = rt.settings.overworld.normal_map.quad_border -- transparent px border around each tile
         local atlas_tile_size = chunk_size + 2 * atlas_border -- tile slot size in atlas
 
         self._texture_atlas = rt.RenderTexture(
@@ -377,7 +378,11 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
                 chunk_size
             }
 
-            chunk.slot_quad = { slot_x, slot_y, atlas_tile_size, atlas_tile_size }
+            chunk.slot_quad = {
+                slot_x, slot_y,
+                atlas_tile_size,
+                atlas_tile_size
+            }
         end
 
         local dispatch_size_x, dispatch_size_y = math.ceil(chunk_size + 2 * padding) / size_x,
@@ -432,7 +437,7 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
             _export_shader:send("jfa_texture_array", jfa_texture)
             _export_shader:send("export_texture", self._texture_atlas)
             _export_shader:send("export_texture_quad", { self._quad:getViewport() }) -- exclude border
-            _export_shader:send("texture_atlas_quad", chunk.quad)  -- interior only; border stays transparent
+            _export_shader:send("texture_atlas_quad", chunk.quad) -- interior only
             _export_shader:send("max_distance", rt.settings.overworld.normal_map.max_distance)
             _export_shader:dispatch(dispatch_size_x, dispatch_size_y)
 
@@ -464,6 +469,53 @@ local _chunk_eps = function(chunk)
     return chunk / 32
 end
 
+local _use_mesh = false
+
+function ow.NormalMap:_new_quad(chunk)
+    local border = rt.settings.overworld.normal_map.quad_border
+    local atlas_w, atlas_h = self._texture_atlas:get_size()
+    local quad = chunk.quad
+
+    if not _use_mesh then
+        local x, y, w, h = table.unpack(quad)
+        local px_border = 0.5 * border
+
+        local qx = x + px_border
+        local qy = y + px_border
+        local qw = w - 2 * px_border
+        local qh = h - 2 * px_border
+
+        -- scale quad to prevent seam when drawn
+        chunk.quad_scale_x = 1 + border / w
+        chunk.quad_scale_y = 1 + border / h
+        return love.graphics.newQuad(qx, qy, qw, qh, atlas_w, atlas_h)
+    else
+        local x, y, w, h = table.unpack(quad)
+
+        local px, py = 0, 0
+        local pw, ph = w, h
+
+        local u, v = x / atlas_w, y / atlas_h
+        local uw, vh = w / atlas_w, h / atlas_h
+
+        local border_u = -0.5 * border / atlas_w
+        local border_v = -0.5 * border / atlas_h
+        u = u - border_u
+        v = v - border_v
+        uw = uw + 2 * border_u
+        vh = vh + 2 * border_v
+
+        local mesh = love.graphics.newMesh({
+            { px,      py,      u,      v,      1, 1, 1, 1 },
+            { px + pw, py,      u + uw, v,      1, 1, 1, 1 },
+            { px + pw, py + ph, u + uw, v + vh, 1, 1, 1, 1 },
+            { px,      py + ph, u,      v + vh, 1, 1, 1, 1 }
+        }, "fan", "static")
+        mesh:setTexture(self._texture_atlas:get_native())
+        return mesh
+    end
+end
+
 function ow.NormalMap:draw_light(
     camera
 )
@@ -480,7 +532,7 @@ function ow.NormalMap:draw_light(
 
     local x, y, w, h = camera:get_world_bounds():unpack()
 
-    local eps = _chunk_eps(chunk_size)
+    local eps = 0 --_chunk_eps(chunk_size)
     local camera_left = x - self._offset_x - bounds.x - eps
     local camera_right = x - self._offset_x + w - bounds.x + eps
     local camera_top = y - self._offset_y - bounds.y - eps
@@ -492,13 +544,13 @@ function ow.NormalMap:draw_light(
     local max_chunk_y = math.ceil(camera_bottom / chunk_size)
 
     love.graphics.push("all")
+    love.graphics.setBlendMode("add", "premultiplied")
 
     local light_map = rt.SceneManager:get_light_map()
     _draw_light_shader:send("light_intensity", light_map:get_light_intensity())
     _draw_light_shader:send("light_direction", light_map:get_light_direction())
     _draw_light_shader:bind()
 
-    love.graphics.setBlendMode("add", "premultiplied")
     love.graphics.setColor(1, 1, 1, 1)
 
     local native = self._texture_atlas:get_native()
@@ -510,16 +562,21 @@ function ow.NormalMap:draw_light(
                 local chunk = column[chunk_y]
                 if chunk ~= nil and chunk.is_initialized then
                     if chunk.draw_quad == nil then
-                        chunk.draw_quad = love.graphics.newQuad(
-                            chunk.quad[1], chunk.quad[2], chunk.quad[3], chunk.quad[4],
-                            self._texture_atlas:get_size()
-                        )
+                        chunk.draw_quad = self:_new_quad(chunk)
                     end
 
                     local cell_x = bounds.x + chunk_x * chunk_size + self._offset_x
                     local cell_y = bounds.y + chunk_y * chunk_size + self._offset_y
 
-                    love.graphics.draw(native, chunk.draw_quad, cell_x, cell_y)
+                    if chunk.draw_quad:typeOf("Quad") then
+                        love.graphics.draw(native, chunk.draw_quad,
+                            cell_x, cell_y,
+                            0,
+                            chunk.quad_scale_x, chunk.quad_scale_y
+                        )
+                    else
+                        love.graphics.draw(chunk.draw_quad, cell_x, cell_y)
+                    end
                 end
             end
         end
@@ -540,28 +597,6 @@ function ow.NormalMap:draw_shadow(camera)
     local chunk_size = self._chunk_size
     local bounds = self._bounds
 
-    local draw_chunk = function(chunk, chunk_x, chunk_y)
-        if shader_bound == false then
-            rt.graphics.set_blend_mode(rt.BlendMode.SUBTRACT, rt.BlendMode.NORMAL)
-            local value = rt.settings.overworld.normal_map.shadow_strength
-            love.graphics.setColor(value, value, value, value)
-            _draw_shadow_shader:bind()
-            shader_bound = true
-        end
-
-        if chunk.draw_quad == nil then
-            chunk.draw_quad = love.graphics.newQuad(
-                chunk.quad[1], chunk.quad[2], chunk.quad[3], chunk.quad[4],
-                self._texture_atlas:get_size()
-            )
-        end
-
-        love.graphics.draw(self._texture_atlas:get_native(), chunk.draw_quad,
-            bounds.x + chunk_x * chunk_size + self._offset_x,
-            bounds.y + chunk_y * chunk_size + self._offset_y
-        )
-    end
-
     local x, y, w, h = camera:get_world_bounds():unpack()
 
     local eps = _chunk_eps(chunk_size)
@@ -575,22 +610,42 @@ function ow.NormalMap:draw_shadow(camera)
     local min_chunk_y = math.floor(camera_top / chunk_size)
     local max_chunk_y = math.ceil(camera_bottom / chunk_size)
 
+    love.graphics.push("all")
+    rt.graphics.set_blend_mode(rt.BlendMode.SUBTRACT, rt.BlendMode.NORMAL)
+    local value = rt.settings.overworld.normal_map.shadow_strength
+    love.graphics.setColor(value, value, value, value)
+    _draw_shadow_shader:bind()
+
     for chunk_x = min_chunk_x, max_chunk_x do
         local column = self._chunks[chunk_x]
         if column ~= nil then
             for chunk_y = min_chunk_y, max_chunk_y do
                 local chunk = column[chunk_y]
                 if chunk ~= nil and chunk.is_initialized then
-                    draw_chunk(chunk, chunk_x, chunk_y)
+                    if chunk.draw_quad == nil then
+                        chunk.draw_quad = self:_new_quad(chunk)
+                    end
+
+                    if not _use_mesh then
+                        love.graphics.draw(self._texture_atlas:get_native(), chunk.draw_quad,
+                            bounds.x + chunk_x * chunk_size + self._offset_x,
+                            bounds.y + chunk_y * chunk_size + self._offset_y,
+                            0,
+                            chunk.quad_scale_x, chunk.quad_scale_y
+                        )
+                    else
+                        love.graphics.draw(chunk.draw_quad,
+                            bounds.x + chunk_x * chunk_size + self._offset_x,
+                            bounds.y + chunk_y * chunk_size + self._offset_y
+                        )
+                    end
                 end
             end
         end
     end
 
-    if shader_bound then
-        _draw_shadow_shader:unbind()
-        love.graphics.setBlendMode("alpha")
-    end
+    _draw_shadow_shader:unbind()
+    love.graphics.pop()
 
     --[[
     if self.dbg then
