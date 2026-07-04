@@ -94,7 +94,7 @@ function ow.BouncePad:instantiate(object, stage, scene)
     self._rotation_origin_y = object.rotation_origin_y
 
     -- collision
-    self._body:add_tag(b2.Tag.SLIPPERY, b2.Tag.NO_BLOOD, b2.Tag.UNJUMABLE, b2.Tag.STENCIL)
+    self._body:add_tag(b2.Tag.SLIPPERY, b2.Tag.NO_BLOOD, b2.Tag.UNJUMPABLE, b2.Tag.STENCIL)
     self._body:set_user_data(self)
 
     local bounce_group = rt.settings.player.bounce_collision_group

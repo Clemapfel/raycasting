@@ -62,62 +62,6 @@ outer:restart()
 outer:restart()
 ]]
 
-local _create_signal_component = function(type, ...)
-    local internal = {
-        instance_to_entry = {},
-        valid_signals = { ... }
-    }
-
-    local component = {
-        has_signal = function(self)
-
-        end,
-
-        list_signals = function(self)
-
-        end
-    }
-
-    for signal_i = 1, select("#", ...) do
-        local signal_name = select(signal_i, ...)
-        component[signal_name] = {
-            emit = function(self, ...)
-
-            end,
-
-            connect = function(self, closure)
-
-            end,
-
-            disconnect = function(self, id)
-
-            end,
-
-            try_disconnect = function(self, id)
-
-            end,
-
-            disconnect_all = function(self)
-
-            end,
-
-            set_is_blocked = function(self, is_blocked)
-
-            end,
-
-            get_is_blocked = function(self)
-
-            end,
-
-            list_handler_ids = function(self)
-
-            end,
-
-            is_valid_handler_id = function(self, handler_id)  end
-        }
-    end
-end
-
 love.load = function(args)
     local w, h = love.graphics.getDimensions()
 

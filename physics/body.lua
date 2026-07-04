@@ -54,12 +54,15 @@ b2.Tag = {
     SEGMENT_LIGHT_SOURCE = "segment_ligth_source",
     POINT_LIGHT_SOURCE = "point_light_source",
     SLIPPERY = "slippery",
+    STICKY = "sticky",
     NO_BLOOD = "no_blood",
     HITBOX = "hitbox",
     USE_DARKNESS = "use_darkness",
     USE_LIGHTING = "use_lighting",
     USE_FRICTION = "use_friction"
 }
+
+b2.Tag = meta.enum("Tag", b2.Tag)
 
 --- @brief
 --- @param world b2.World

@@ -57,8 +57,8 @@ function ow.Hitbox:instantiate(object, stage, scene)
 
     for property in range(
         b2.Tag.SLIPPERY,
-        "sticky",
-        b2.Tag.UNJUMABLE,
+        b2.Tag.STICKY,
+        b2.Tag.UNJUMPABLE,
         b2.Tag.UNWALKABLE
     ) do
         if object:get_boolean(property) then

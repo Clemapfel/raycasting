@@ -36,8 +36,14 @@ meta.CData = "CData"
 --- @class meta.UserData
 meta.UserData = "UserData"
 
+--- @class meta.Object
+meta.Object = "Object"
+
 --- @class meta.Union
 meta.Union = function(...) return { "Union", ... } end
+
+if _G.type == nil then error("In require(\"common.meta\"): function `type` is not available in the global environment. Was it overwritten or was setfenv called?") end
+local _get_native_type = _G.type
 
 local _current_hash = 0
 
@@ -46,19 +52,25 @@ local _object_hash_index = _object_metatable_index + 1
 local _object_signal_component_index = _object_hash_index + 1
 
 local _instantiate_name = "instantiate"
-local _typenames = {
-    [meta.Number] = true,
-    [meta.Boolean] = true,
-    [meta.String] = true,
-    [meta.Table] = true,
-    [meta.Function] = true,
-    [meta.Coroutine] = true,
-    [meta.UserData] = true,
-    [meta.CData] = true,
-    [meta.Nil] = true,
-    [meta.Type] = true,
-    [meta.Enum] = true
-}
+local _typenames = {}
+for type in range(
+    meta.Number,
+    meta.Boolean,
+    meta.String,
+    meta.Table,
+    meta.Function,
+    meta.Coroutine,
+    meta.Nil,
+    meta.Type,
+    meta.Enum,
+    meta.Object,
+    meta.CData,
+    meta.UserData,
+    meta.Union
+) do
+    _typenames[type] = true
+end
+
 local _type_to_super = {}
 local _type_to_instance_metatable = {}
 local _typename_to_type = {}
@@ -78,42 +90,27 @@ end
 
 --- @brief
 function meta.is_type(x)
-    if type(x) ~= "table" then return false end
+    if _get_native_type(x) ~= "table" then return false end
     local mt = getmetatable(x)
     return mt ~= nil and mt.__typename == meta.Type
 end
 
-do
-    local _primitive_types = {}
-    for type in range(
-        meta.Number,
-        meta.Boolean,
-        meta.String,
-        meta.Table,
-        meta.Function,
-        meta.Coroutine,
-        meta.Nil,
-        meta.Type,
-        meta.Enum,
-        meta.CData,
-        meta.UserData
-    ) do _primitive_types[type] = true end
-
-    --- @brief
-    function meta.is_primitive_type(x)
-        return _primitive_types[x] == true
-    end
+--- @brief
+function meta.is_object(x)
+    if _get_native_type(x) ~= "table" then return end
+    local metatable = getmetatable(x)
+    if metatable == nil then return false end
+    return metatable == rawget(x, _object_metatable_index) and meta.is_string(metatable.__typename)
 end
 
 --- @brief
 function meta.is_enum(x)
-    if type(x) ~= "table" then return false end
+    if _get_native_type(x) ~= "table" then return false end
     local mt = getmetatable(x)
     return mt ~= nil and mt.__typename == meta.Enum
 end
 
 do
-
     local _native_type_to_type = {
         ["nil"] = meta.Nil,
         ["number"] = meta.Number,
@@ -128,14 +125,14 @@ do
 
     --- @brief
     function meta.typeof(instance)
-        if type(instance) ~= "table" then
-            local mapped = _native_type_to_type[type(instance)]
+        if _get_native_type(instance) ~= "table" then
+            local mapped = _native_type_to_type[_get_native_type(instance)]
             if mapped == nil then return "Unknown" else return mapped end
         end
 
         local metatable = getmetatable(instance)
-        if type(metatable) ~= "table" then
-            local mapped = _native_type_to_type[type(instance)]
+        if _get_native_type(metatable) ~= "table" then
+            local mapped = _native_type_to_type[_get_native_type(instance)]
             if mapped == nil then return "Unknown" else return mapped end
         else
             local typename = metatable.__typename
@@ -167,62 +164,133 @@ function meta.isa(x, type)
     return false
 end
 
---- @brief
-function meta.assert(...)
-    require "common.log"
-    local n = select("#", ...)
-    rt.assert(n % 2 == 0)
+do
 
-    local _assert_message = function(argument_i, expected, got)
-        return string.paste(
-            "In meta.assert: assert failed for for argument #", argument_i,
-            ": expected argument of type `", expected,
-            "`, got `", got, "`"
-        )
+    --- @brief
+    function meta.is_nil(x)
+        return x == nil
     end
 
-    for i = 1, n, 2 do
-        local instance = select(i+0, ...)
-        local type = select(i+1, ...)
+    --- @brief
+    function meta.is_number(x)
+        return _get_native_type(x) == "number"
+    end
 
-        local is_valid, typename = true, nil
-        if meta.is_string(type) then
-            is_valid = meta.typeof(instance) == type
-            typename = type
-        elseif meta.is_enum(type) then
-            is_valid = meta.is_enum_value(instance, type)
-            typename = meta.get_enum_name(type)
-        elseif meta.is_type(type) then
-            is_valid = meta.isa(instance, type)
-            typename = meta.get_typename(type)
-        else
-            rt.error("In meta.assert: wrong arguments for `meta.assert`: argument #", i + 1, ", expected ", meta.Type, ", ", meta.Enum, " or ", meta.String, " got `", meta.typeof(type))
-            is_valid = true
+    --- @brief
+    function meta.is_integer(x)
+        return meta.is_number(x) and x % 1 == 0
+    end
+
+    --- @brief
+    function meta.is_string(x)
+        return _get_native_type(x) == "string"
+    end
+
+    --- @brief
+    function meta.is_boolean(x)
+        return _get_native_type(x) == "boolean"
+    end
+
+    --- @brief
+    function meta.is_table(x)
+        return _get_native_type(x) == "table"
+    end
+
+    --- @brief
+    function meta.is_function(x)
+        return _get_native_type(x) == "function"
+    end
+
+    --- @brief
+    function meta.is_coroutine(x)
+        return _get_native_type(x) == "test"
+    end
+
+    --- @brief
+    function meta.is_cdata(x)
+        return _get_native_type(x) == "cdata"
+    end
+
+    --- @brief
+    function meta.is_userdata(x)
+        return _get_native_type(x) == "userdata"
+    end
+
+    --- @brief
+    function meta.is_love_type(x, type)
+        meta.assert_typeof(type, meta.String, 2)
+        return meta.is_table(x) and meta.is_function(x.typeOf) and x:typeOf(type) == true
+    end
+
+    local _type_to_validator = {
+        [meta.Number] = meta.is_number,
+        [meta.Boolean] = meta.is_boolean,
+        [meta.String] = meta.is_string,
+        [meta.Table] = meta.is_table,
+        [meta.Function] = meta.is_function,
+        [meta.Coroutine] = meta.is_coroutine,
+        [meta.Nil] = meta.is_nil,
+        [meta.Type] = meta.is_type,
+        [meta.Enum] = meta.is_enum,
+        [meta.Object] = meta.is_object,
+        [meta.CData] = meta.is_cdata,
+        [mtea.UserData] = meta.is_userdata
+    }
+
+    --- @brief
+    function meta.assert(...)
+        require "common.log"
+        local n = select("#", ...)
+        rt.assert(n % 2 == 0)
+
+        local _assert_message = function(argument_i, expected, got)
+            return string.paste(
+                "In meta.assert: assert failed for for argument #", argument_i,
+                ": expected argument of type `", expected,
+                "`, got `", got, "`"
+            )
         end
 
-        if not is_valid then
-            rt.error("In meta.assert: for argument #", i, ", expected value of type `", typename, "`, got `", meta.typeof(instance), "`")
+        for i = 1, n, 2 do
+            local instance = select(i+0, ...)
+            local type = select(i+1, ...)
+
+            local is_valid, typename = true, nil
+            local validator = _type_to_validator[type]
+            if validator ~= nil then
+                is_valid, typename = validator(instance)
+            elseif meta.is_string(type) then
+                is_valid = meta.typeof(instance) == type
+                typename = type
+            else
+                rt.error("In meta.assert: wrong arguments for `meta.assert`: argument #", i + 1, ", expected ", meta.Type, ", ", meta.Enum, " or ", meta.String, " got `", meta.typeof(type))
+                is_valid = true
+            end
+
+            if not is_valid then
+                rt.error("In meta.assert: for argument #", i, ", expected value of type `", typename, "`, got `", meta.typeof(instance), "`")
+            end
         end
     end
-end
 
-if _G.type == nil then rt.fatal("In require(\"common.meta\"): function `type` is not available in the global environment. Was it overwritten or was setfenv called?") end
-local _g_type = _G.type -- backup native type function in case it is overriden
+    --- @brief
+    function meta.assert_typeof(x, type, argument_i)
+        local instance_type = meta.typeof(x)
+        local prefix = ""
+        if argument_i ~= nil then
+            prefix = "For argument #" ..  argument_i ..  ": "
+        end
 
---- @brief
-function meta.assert_typeof(x, type, argument_i)
-    local instance_type = meta.typeof(x)
-    local prefix = ""
-    if argument_i ~= nil then
-        prefix = "For argument #" ..  argument_i ..  ": "
+        if _get_native_type(type) ~= "string" then type = tostring(type) end
+        rt.assert(instance_type == type, prefix, "expected `", tostring(type), "`, got `", meta.typeof(x), "`")
     end
-
-    if _g_type(type) ~= "string" then type = tostring(type) end
-    rt.assert(instance_type == type, prefix, "expected `", tostring(type), "`, got `", meta.typeof(x), "`")
 end
 
 --- @brief
 function meta.assert_enum_value(x, enum, argument_i)
+    meta.assert(enum, mt.Enum)
+    if argument_i ~= nil then meta.assert_typeof(argument_i, mt.Number) end
+
     local prefix = ""
     if argument_i ~= nil then
         prefix = "For argument #" .. argument_i .. ": "
@@ -230,450 +298,434 @@ function meta.assert_enum_value(x, enum, argument_i)
     rt.assert(meta.is_enum_value(x, enum), prefix, "expected value of enum `", _type_to_typename[enum], "`, got `", tostring(x), "`")
 end
 
---- @brief
-function meta.is_nil(x)
-    return x == nil
-end
-
---- @brief
-function meta.is_number(x)
-    return _g_type(x) == "number"
-end
-
---- @brief
-function meta.is_string(x)
-    return _g_type(x) == "string"
-end
-
---- @brief
-function meta.is_boolean(x)
-    return _g_type(x) == "boolean"
-end
-
---- @brief
-function meta.is_table(x)
-    return _g_type(x) == "table"
-end
-
---- @brief
-function meta.is_function(x)
-    return _g_type(x) == "function"
-end
-
---- @brief
-function meta.is_coroutine(x)
-    return _g_type(x) == "test"
-end
-
---- @brief
-function meta.is_cdata(x)
-    return _g_type(x) == "cdata"
-end
-
---- @brief
-function meta.is_userdata(x)
-    return _g_type(x) == "userdata"
-end
-
---- @brief
-function meta.is_love_type(x, type)
-    meta.assert_typeof(type, meta.String, 2)
-    return meta.is_table(x) and meta.is_function(x.typeOf) and x:typeOf(type) == true
-end
-
 meta.DISCONNECT_SIGNAL = "DISCONNECT"
 
--- signals
-local _signal_connect = function(instance, id, ...)
-    local component = instance[_object_signal_component_index]
-    local entry = component[id]
-    if entry == nil then
-        rt.error("In ", meta.typeof(instance), ".signal_connect: no signal with id `", id, "`")
-        return
+do
+    -- signal aux
+    local _signal_callback_id = 0
+    local _throw_no_signal = function(scope, instance, signal)
+        rt.error("In ", meta.typeof(instance), ".", scope, ": no signal with id `", signal, "`")
     end
 
-    local callback_id = entry.current_callback_id
-    entry.current_callback_id = entry.current_callback_id + 1
-    entry.callback_id_to_callback[callback_id] = select(1, ...)
-    table.insert(entry.callbacks_in_order, select(1, ...))
-    return callback_id
-end
-
-local _signal_disconnect = function(instance, id, callback_id)
-    local component = instance[_object_signal_component_index]
-    if component == nil then
-        rt.error("In ", meta.typeof(instance), ".signal_disconnect: object `", meta.typeof(instance), "` does not have any signals")
-        return
-    end
-
-    local entry = component[id]
-    if entry == nil then
-        rt.error("In ", meta.typeof(instance), ".signal_disconnect: no signal with id `", id, "`")
-        return
-    end
-
-    if callback_id == nil then
-        instance:signal_disconnect_all(id)
-    else
+    local _disconnect_callback = function(entry, callback_id)
         local callback = entry.callback_id_to_callback[callback_id]
-        if callback == nil then
-            rt.error("In ", meta.typeof(instance), ".signal_disconnect: no callback with id `", tostring(callback_id), "` connected to signal `", id, "`")
-            return
-        end
         entry.callback_id_to_callback[callback_id] = nil
-        for i, other in ipairs(entry.callbacks_in_order) do
+
+        for i, other in ipairs(entry.callback_ids_in_order) do
             if other == callback then
-                table.remove(entry.callbacks_in_order, i)
+                table.remove(entry.callback_ids_in_order, i)
                 break
             end
         end
     end
-end
 
-local _signal_try_disconnect = function(instance, id, callback_id)
-    local component = instance[_object_signal_component_index]
-    if component == nil then
-        return false
+    -- signals
+    local _signal_list_handler_ids = function(instance, id)
+        meta.assert_typeof(instance, mt.Object, 1)
+        meta.assert_typeof(id, mt.String, 2)
+
+        local component, entry
+        component = instance[_object_signal_component_index]
+        if component ~= nil then entry = component[id] end
+
+        if component == nil or entry == nil then
+            _throw_no_signal("signal_list_handler_ids", instance, id)
+        end
+
+        local out = {}
+        for callback_id in keys(entry.callback_id_to_callback) do
+            table.insert(out, callback_id)
+        end
+        return out
     end
 
-    local entry = component[id]
-    if entry == nil then
-        return false
+    local _signal_list_signals = function(instance)
+        meta.assert_typeof(instance, mt.Object, 1)
+
+        local component = instance[_object_signal_component_index]
+        if component == nil then return {} end
+
+        local out = {}
+        for id in keys(component) do
+            table.insert(out, id)
+        end
+        return out
     end
 
-    if callback_id == nil then
-        instance:signal_disconnect_all(id)
-        return true
-    else
-        local callback = entry.callback_id_to_callback[callback_id]
-        if callback == nil then
+    local _signal_connect = function(instance, id, ...)
+        local callback = select(1, ...)
+
+        meta.assert_typeof(instance, mt.Object, 1)
+        meta.assert_typeof(id, mt.String, 2)
+        meta.assert_typeof(callback, mt.Function, 3)
+
+        local component = instance[_object_signal_component_index]
+        local entry = component[id]
+        if entry == nil then
+            _throw_no_signal("signal_connect", instance, id)
+            return
+        end
+
+        local callback_id = _signal_callback_id
+        _signal_callback_id = _signal_callback_id + 1
+
+        entry.callback_id_to_callback[callback_id] = callback
+        table.insert(entry.callbacks_ids_in_order, callback_id)
+        return callback_id
+    end
+
+    local _signal_disconnect = function(instance, id, callback_id)
+        meta.assert_typeof(instance, mt.Object, 1)
+        meta.assert_typeof(id, mt.String, 2)
+        if callback_id ~= nil then
+            meta.assert_typeof(callback_id, mt.Number, 3)
+        end
+
+        local component, entry
+        component = instance[_object_signal_component_index]
+
+        if component ~= nil then
+            entry = component[id]
+        end
+
+        if component == nil or entry == nil then
+            _throw_no_signal("signal_disconnect", instance, id)
+            return
+        end
+
+        if callback_id == nil then
+            instance:signal_disconnect_all(id)
+        else
+            local callback = entry.callback_id_to_callback[callback_id]
+            if callback == nil then
+                rt.error("In ", meta.typeof(instance), ".signal_disconnect: no callback with id `", tostring(callback_id), "` connected to signal `", id, "`")
+                return
+            end
+
+            _disconnect_callback(entry, callback_id)
+        end
+    end
+
+    local _signal_try_disconnect = function(instance, id, callback_id)
+        meta.assert_typeof(instance, mt.Object, 1)
+        meta.assert_typeof(id, mt.String, 2)
+        meta.assert_typeof(callback_id, mt.Number, 3)
+
+        local component = instance[_object_signal_component_index]
+        if component == nil then
             return false
         end
 
-        entry.callback_id_to_callback[callback_id] = nil
-        for i, other in ipairs(entry.callbacks_in_order) do
-            if other == callback then
-                table.remove(entry.callbacks_in_order, i)
-                break
-            end
-        end
-
-        return true
-    end
-end
-
-local _signal_disconnect_all = function(instance, id)
-    local component = instance[_object_signal_component_index]
-    if component == nil then
-        rt.error("In ", meta.typeof(instance), ".signal_disconnect_all: object `", meta.typeof(instance), "` does not have any signals")
-        return
-    end
-
-    if id == nil then
-        -- clear all
-        for entry in values(component) do
-            entry.callback_id_to_callback = {}
-            entry.callbacks_in_order = setmetatable({}, {
-                __mode = "kv"
-            })
-            entry.callback_to_callback_id = setmetatable({}, {
-                __mode = "kv"
-            })
-        end
-    else
         local entry = component[id]
         if entry == nil then
-            rt.error("In ", meta.typeof(instance), ".signal_disconnect_all: no signal with id `", id, "`")
+            return false
+        end
+
+        if callback_id == nil then
+            instance:signal_disconnect_all(id)
+            return true
+        else
+            local callback = entry.callback_id_to_callback[callback_id]
+            if callback == nil then
+                return false
+            end
+
+            _disconnect_callback(entry, callback_id)
+            return true
+        end
+    end
+
+    local _signal_disconnect_all = function(instance, id)
+        meta.assert_typeof(instance, mt.Object, 1)
+        meta.assert_typeof(id, mt.String, 2)
+
+        local component = instance[_object_signal_component_index]
+        if component == nil then
+            rt.error("In ", meta.typeof(instance), ".signal_disconnect_all: object `", meta.typeof(instance), "` does not have any signals")
             return
         end
 
-        entry.callback_id_to_callback = {}
-        entry.callbacks_in_order = setmetatable({}, {
-            __mode = "kv"
-        })
-        entry.callback_to_callback_id = setmetatable({}, {
-            __mode = "kv"
-        })
-    end
-end
+        if id == nil then
+            for signal in values(_signal_list_signals(instance)) do
+                _signal_disconnect(instance, signal, nil) -- all callbacks
+            end
+        else
+            local entry = component[id]
+            if entry == nil then
+                _throw_no_signal("signal_disconnect_all", instance, id)
+                return
+            end
 
-local _signal_set_is_blocked = function(instance, id, b)
-    local component = instance[_object_signal_component_index]
-    if component == nil then
-        rt.error("In ", meta.typeof(instance), ".signal_set_is_blocked: object `", meta.typeof(instance), "` does not have any signals")
-        return
-    end
-
-    local entry = component[id]
-    if entry == nil then
-        rt.error("In ", meta.typeof(instance), ".signal_set_is_blocked: no signal with id `", id, "`")
-        return
-    end
-
-    entry.is_blocked = b
-end
-
-local _signal_get_is_blocked = function(instance, id)
-    local component = instance[_object_signal_component_index]
-    if component == nil then
-        rt.error("In ", meta.typeof(instance), ".signal_get_is_blocked: object `", meta.typeof(instance), "` does not have any signals")
-        return
-    end
-
-    local entry = component[id]
-    if entry == nil then
-        rt.error("In ", meta.typeof(instance), ".signal_get_is_blocked: no signal with id `", id, "`")
-        return
-    end
-
-    return entry.is_blocked
-end
-
-local _signal_has_signal = function(instance, id)
-    local component = instance[_object_signal_component_index]
-    if component == nil then
-        rt.error("In ", meta.typeof(instance), ".signal_has_signal: object `", meta.typeof(instance), "` does not have any signals")
-        return
-    end
-
-    return component[id] ~= nil
-end
-
-local _signal_list_handler_ids = function(instance, id)
-    local component = instance[_object_signal_component_index]
-    if component == nil then
-        rt.error("In ", meta.typeof(instance), ".signal_list_handler_ids: object `", meta.typeof(instance), "` does not have any signals")
-        return
-    end
-
-    local entry = component[id]
-    if entry == nil then
-        rt.error("In ", meta.typeof(instance), ".signal_list_handler_ids: no signal with id `", id, "`")
-        return
-    end
-
-    local out = {}
-    for callback_id in keys(entry.callback_id_to_callback) do
-        table.insert(out, callback_id)
-    end
-    return out
-end
-
-local _signal_list_signals = function(instance)
-    local component = instance[_object_signal_component_index]
-    if component == nil then return {} end
-
-    local out = {}
-    for id in keys(component) do
-        table.insert(out, id)
-    end
-    return out
-end
-
-local _signal_emit = function(instance, id, ...)
-    local component = instance[_object_signal_component_index]
-    local entry = component[id]
-    if entry == nil then
-        rt.error("In ", meta.typeof(instance), ".signal_emit: no signal with id `", id, "`")
-        return
-    end
-
-    if entry.is_blocked then return end
-
-    -- delay disconnection to after emission is done, otherwise
-    -- table.remove will mess up iteration of entry.callbacks_in_order during
-    local _delayed_emit_buffer = {}
-    local _should_disconnect_all = false
-    local _signal_disconnect_override = function(instance, id, callback_id)
-        if callback_id == nil then
-            _should_disconnect_all = true
-        end
-        table.insert(_delayed_emit_buffer, callback_id)
-    end
-
-    instance.signal_disconnect = _signal_disconnect_override
-
-    for i, callback in ipairs(entry.callbacks_in_order) do
-        local res = callback(instance, ...)
-        if res == meta.DISCONNECT_SIGNAL then
-            instance:signal_disconnect(id, entry.callback_to_callback_id[callback])
+            for callback_id in keys(entry.callback_id_to_callback) do
+                _disconnect_callback(entry, callback_id)
+            end
         end
     end
 
-    instance.signal_disconnect = _signal_disconnect
+    local _signal_set_is_blocked = function(instance, id, b)
+        meta.assert_typeof(instance, mt.Object, 1)
+        meta.assert_typeof(id, mt.String, 2)
+        meta.assert_typeof(b, mt.Boolean, 3)
 
-    if _should_disconnect_all == true then
-        instance:signal_disconnect_all(id)
-    else
-        for callback_id in values(_delayed_emit_buffer) do
-            instance:signal_try_disconnect(id, callback_id)
+        local component, entry
+        component = instance[_object_signal_component_index]
+        if component ~= nil then
+            entry = component[id]
         end
-    end
-end
 
-local _signal_try_emit = function(instance, id, ...)
-    local component = instance[_object_signal_component_index]
-    if component == nil then return false end
+        if component == nil or entry == nil then
+            _throw_no_signal("signal_set_is_blocked", instance, id)
+            return
+        end
 
-    local entry = component[id]
-    if entry == nil then return false end
-
-    local emitted = false
-    for callback in values(entry.callbacks_in_order) do
-        callback(instance, ...)
-        emitted = true
+        entry.is_blocked = b
     end
 
-    return emitted
-end
+    local _signal_get_is_blocked = function(instance, id)
+        meta.assert_typeof(instance, mt.Object, 1)
+        meta.assert_typeof(id, mt.String, 2)
 
-local function _install_signals(instance, type)
-    for id in values(type[_object_metatable_index].__signals) do
+        local component, entry
+        component = instance[_object_signal_component_index]
+        if component ~= nil then entry = component[id] end
+
+        if component == nil or entry == nil then
+            _throw_no_signal("signal_set_is_blocked", instance, id)
+            return false
+        end
+
+        return entry.is_blocked
+    end
+
+    local _signal_has_signal = function(instance, id)
+        meta.assert_typeof(instance, mt.Object, 1)
+        meta.assert_typeof(id, mt.String, 2)
+
         local component = instance[_object_signal_component_index]
         if component == nil then
-            component = {}
-            instance[_object_signal_component_index] = component
-            instance.signal_emit = _signal_emit
-            instance.signal_try_emit = _signal_try_emit
-            instance.signal_connect = _signal_connect
-            instance.signal_disconnect = _signal_disconnect
-            instance.signal_try_disconnect = _signal_try_disconnect
-            instance.signal_disconnect_all = _signal_disconnect_all
-            instance.signal_set_is_blocked = _signal_set_is_blocked
-            instance.signal_get_is_blocked = _signal_get_is_blocked
-            instance.signal_has_signal = _signal_has_signal
-            instance.signal_list_handler_ids = _signal_list_handler_ids
-            instance.signal_list_signals = _signal_list_signals
+            return false
+        end
+        return component[id] ~= nil
+    end
+
+    local _signal_emit = function(instance, id, ...)
+        meta.assert_typeof(instance, mt.Object, 1)
+        meta.assert_typeof(id, mt.String, 2)
+
+        local component, entry
+        component = instance[_object_signal_component_index]
+        if component ~= nil then entry = component[id] end
+
+        if component == nil or entry == nil then
+            _throw_no_signal("signal_emit", instance, id)
+            return
         end
 
-        component[id] = {
-            is_blocked = false,
-            current_callback_id = 0,
-            callback_id_to_callback = {},
-            callbacks_in_order = setmetatable({}, {
-                __mode = "kv"
-            }),
+        if entry.is_blocked then return end
 
-            callback_to_callback_id = setmetatable({}, {
-                __mode = "kv"
-            })
-        }
-    end
-end
+        local callback_ids = {} -- deep copy since signals could be disconnect during emission
+        for _, callback in ipairs(entry.callbacks_in_order) do
+            table.insert(callback_ids)
+        end
 
-local _default_instantiate = function(self, ...)
-    if meta.is_table(select(1, ...)) then
-        meta.install(self, select(1, ...))
-    end
-end
-
---- @brief create a new class
---- @param typename String
---- @param super_or_schema Union<meta.Type, Table, Nil>
---- @param schema_maybe Union<Table, Nil>
---- @return meta.Type
-function meta.class(typename, super_or_schema, schema_maybe)
-    meta.assert(typename, meta.String)
-
-    local super, schema, schema_arg_index
-    if super_or_schema ~= nil then
-        if meta.is_type(super_or_schema) then
-            super = super_or_schema
-            schema = schema_maybe
-            schema_arg_index = 3
-        else
-            super = nil
-            schema = super_or_schema
-            schema_arg_index = 2
+        local to_remove_callback_ids = {}
+        for callback_id in ipairs(callback_ids) do
+            local callback = entry.callback_id_to_callback[callback_id]
+            if callback ~= nil then
+                if callback(instance, ...) == meta.DISCONNECT_SIGNAL then
+                    instance:signal_disconnect(id, callback_id)
+                end
+            else
+                -- disconnected during emission
+                _disconnect_callback(entry, callback_id)
+            end
         end
     end
 
-    if super ~= nil then meta.assert_typeof(super, meta.Type, 2) end
-    if schema ~= nil then meta.assert_typeof(schema, meta.Table, schema_arg_index) end
+    local _signal_try_emit = function(instance, id, ...)
+        meta.assert_typeof(instance, mt.Object, 1)
+        meta.assert_typeof(id, mt.String, 2)
 
-    if _typenames[typename] ~= nil then
-        rt.fatal("In meta.class: a type with typename `", typename, "` already exists")
-    end
-    _typenames[typename] = true
+        local component, entry
+        component = instance[_object_signal_component_index]
+        if component ~= nil then entry = component[id] end
 
-    -- instance metatable
-    local type = {}
+        if component == nil or entry == nil then
+            return false
+        end
 
-    local instance_metatable = {
-        __index = type,
-        __typename = typename,
-        __default_index = type
-    }
+        if entry.is_blocked then return false end
 
-    local supers = {}
-    local reverse_supers = {}
-    do
-        local current = super_or_schema
-        while current ~= nil do
-            table.insert(supers, current)
-            table.insert(reverse_supers, 1, current)
+        local callback_ids = {}
+        for _, callback in ipairs(entry.callbacks_in_order) do
+            table.insert(callback_ids)
+        end
 
-            current = _type_to_super[current]
+        local to_remove_callback_ids = {}
+        for callback_id in ipairs(callback_ids) do
+            local callback = entry.callback_id_to_callback[callback_id]
+            if callback ~= nil then
+                local success, result_maybe = pcall(callback, instance, ...)
+                if success then
+                    if result_maybe == meta.DISCONNECT_SIGNAL then
+                        instance:signal_disconnect(id, callback_id)
+                    end
+                else
+                    return false
+                end
+            else
+                -- disconnected during emission
+                _disconnect_callback(entry, callback_id)
+            end
         end
     end
 
-    -- create instance
-    local type_metatable = {}
-    type_metatable.__call = function(self, ...)
-        local instance = setmetatable({}, instance_metatable)
-        rawset(instance, _object_hash_index, _current_hash)
-        _current_hash = _current_hash + 1
-        rawset(instance, _object_metatable_index, instance_metatable)
+    local function _install_signals(instance, type)
+        local signals = type[_object_metatable_index].__signals
+        if #signals == 0 then return end
 
-        -- inject signals in reverse order
-        for current_super in values(reverse_supers) do
-            _install_signals(instance, current_super)
+        type.signal_emit = _signal_emit
+        type.signal_try_emit = _signal_try_emit
+        type.signal_connect = _signal_connect
+        type.signal_disconnect = _signal_disconnect
+        type.signal_try_disconnect = _signal_try_disconnect
+        type.signal_disconnect_all = _signal_disconnect_all
+        type.signal_set_is_blocked = _signal_set_is_blocked
+        type.signal_get_is_blocked = _signal_get_is_blocked
+        type.signal_has_signal = _signal_has_signal
+        type.signal_list_handler_ids = _signal_list_handler_ids
+        type.signal_list_signals = _signal_list_signals
+
+        for signal_id in values(signals) do
+            local component = instance[_object_signal_component_index]
+            if component == nil then
+                component = {}
+                instance[_object_signal_component_index] = component
+            end
+
+            component[signal_id] = {
+                is_blocked = false,
+                callback_id_to_callback = {},
+                callbacks_in_order = meta.make_weak({}),
+                callback_to_callback_id = meta.make_weak({})
+            }
         end
+    end
 
-        _install_signals(instance, type)
+    local _default_instantiate = function(self, ...)
+        if meta.is_table(select(1, ...)) then
+            meta.install(self, select(1, ...))
+        end
+    end
 
-        -- instantiate in order
-        for current_super in values(supers) do
-            if current_super.instantiate ~= nil then
-                current_super.instantiate(instance) -- no varargs
+    --- @brief create a new class
+    --- @param typename String
+    --- @param super_or_schema Union<meta.Type, Table, Nil>
+    --- @param schema_maybe Union<Table, Nil>
+    --- @return meta.Type
+    function meta.class(typename, super_or_schema, schema_maybe)
+        meta.assert(typename, meta.String)
+
+        local super, schema, schema_arg_index
+        if super_or_schema ~= nil then
+            if meta.is_type(super_or_schema) then
+                super = super_or_schema
+                schema = schema_maybe
+                schema_arg_index = 3
+            else
+                super = nil
+                schema = super_or_schema
+                schema_arg_index = 2
             end
         end
 
-        if type.instantiate ~= nil then
-            type.instantiate(instance, ...)
+        if super ~= nil then meta.assert_typeof(super, meta.Type, 2) end
+        if schema ~= nil then meta.assert_typeof(schema, meta.Table, schema_arg_index) end
+
+        if _typenames[typename] ~= nil then
+            rt.fatal("In meta.class: a type with typename `", typename, "` already exists")
+        end
+        _typenames[typename] = true
+
+        -- instance metatable
+        local type = {}
+
+        local instance_metatable = {
+            __index = type,
+            __typename = typename,
+            __default_index = type
+        }
+
+        local supers = {}
+        local reverse_supers = {}
+        do
+            local current = super_or_schema
+            while current ~= nil do
+                table.insert(supers, current)
+                table.insert(reverse_supers, 1, current)
+
+                current = _type_to_super[current]
+            end
         end
 
-        if DEBUG then
-            meta.validate_schema(instance)
+        -- create instance
+        local type_metatable = {}
+        type_metatable.__call = function(self, ...)
+            local instance = setmetatable({}, instance_metatable)
+            rawset(instance, _object_hash_index, _current_hash)
+            _current_hash = _current_hash + 1
+            rawset(instance, _object_metatable_index, instance_metatable)
+
+            -- inject signals in reverse order
+            for current_super in values(reverse_supers) do
+                _install_signals(instance, current_super)
+            end
+
+            _install_signals(instance, type)
+
+            -- instantiate in order
+            for current_super in values(supers) do
+                if current_super.instantiate ~= nil then
+                    current_super.instantiate(instance) -- no varargs
+                end
+            end
+
+            if type.instantiate ~= nil then
+                type.instantiate(instance, ...)
+            end
+
+            if DEBUG then
+                meta.validate_schema(instance)
+            end
+
+            return instance
         end
 
-        return instance
+        type_metatable.__tostring = function() return typename end
+        type_metatable.__index = super_or_schema
+        type_metatable.__typename = meta.Type
+        type_metatable.__schema = schema or {}
+        type_metatable.__signals = {}
+
+        setmetatable(type, type_metatable)
+        rawset(type, _object_hash_index, _current_hash)
+        _current_hash = _current_hash + 1
+        rawset(type, _object_metatable_index, type_metatable)
+
+        _type_to_super[type] = super_or_schema
+        _type_to_instance_metatable[type] = instance_metatable
+        _typename_to_type[typename] = type
+        _type_to_typename[type] = typename
+
+        if schema ~= nil then
+            meta.add_schema(type, schema)
+        end
+
+        -- default instantiate
+        type.instantiate = _default_instantiate
+
+        return type
     end
-
-    type_metatable.__tostring = function() return typename end
-    type_metatable.__index = super_or_schema
-    type_metatable.__typename = meta.Type
-    type_metatable.__schema = schema or {}
-    type_metatable.__signals = {}
-
-    setmetatable(type, type_metatable)
-    rawset(type, _object_hash_index, _current_hash)
-    _current_hash = _current_hash + 1
-    rawset(type, _object_metatable_index, type_metatable)
-
-    _type_to_super[type] = super_or_schema
-    _type_to_instance_metatable[type] = instance_metatable
-    _typename_to_type[typename] = type
-    _type_to_typename[type] = typename
-
-    if schema ~= nil then
-        meta.add_schema(type, schema)
-    end
-
-    -- default instantiate
-    type.instantiate = _default_instantiate
-
-    return type
 end
 
 --- @brief
@@ -710,7 +762,7 @@ meta.add_signal = meta.add_signals
 
 --- @brief
 function meta.is_union_type(t)
-    return type(t) == "table"
+    return _get_native_type(t) == "table"
         and t[1] == "Union"
         and meta.is_table(t[2])
         and (function()
