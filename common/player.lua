@@ -369,7 +369,7 @@ function rt.Player:instantiate()
     self:_connect_input()
 end
 
---- @brief
+--- @brief [internal]
 function rt.Player:_connect_input()
     self._input:signal_connect("pressed", function(_, which, count)
         if which == rt.InputAction.JUMP then

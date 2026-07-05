@@ -12,15 +12,40 @@ import_prefix = thisProcess.nowExecutingPath.dirname +/+ ".." +/+ "jtalk" +/+ "e
 genders = [ "mei" ]; //, "takumi" ];
 emotions = [ "normal" ]; //, "happy", "angry", "sad", "bashful" ];
 
-// 1. Build and save the SynthDef globally ONCE.
-// NRT servers read SynthDefs from the synthdefs/ directory.
-SynthDef(\jtalk_filter, { arg out=0, bufnum;
-    var sig = PlayBuf.ar(1, bufnum); // Assuming mono input based on your original bus channel setup
-    Out.ar(out, HPF.ar(sig, 440));
+SynthDef(\filter, { arg out, bufnum;
+	var signal, chain, low, high, composite;
+	var base_amplitude, composite_amplitude;
+
+	signal = PlayBuf.ar(
+		1,
+		bufnum,
+		rate: BufRateScale.kr(bufnum),
+		loop: 0,
+		doneAction: Done.freeSelf
+	);
+
+	chain = FFT(LocalBuf(1024), signal);
+	chain = PV_MagSmooth(chain, 0.35);
+	signal = IFFT(chain);
+
+	low = RLPF.ar(signal, 440, 0.4); //~get_cc.(\freq), ~get_cc.(\eq));
+	high = BPF.ar(signal, 9500, 0.5);//~get_cc.(\bpfreq), ~get_cc.(\bpbw));
+
+
+	composite = Mix([low, high, signal] * Vec3.new(
+		1.0, // base resonance
+		0.0, // fricatives
+		0.4  // original signal
+	).normalize.asArray);
+
+	// correct amplitude
+	base_amplitude = Amplitude.ar(signal);
+	composite_amplitude = Amplitude.ar(signal);
+	composite = composite * (base_amplitude / composite_amplitude.max(0.001));
+
+	Out.ar(out, composite.dup);
 }).writeDefFile;
 
-
-// 2. Discovery Phase: Collect all jobs synchronously
 if (File.exists(export_prefix).not) { File.mkdir(export_prefix); };
 
 genders.do({ arg gender;
@@ -37,8 +62,8 @@ genders.do({ arg gender;
             in_path.files.do({ arg file;
                 if (file.isFile) {
                     files_to_process.add((
-                        in: file.fullPath,
-                        out: emotion_dir +/+ file.fileName
+                        in: file.fullPath.standardizePath,
+						out: (emotion_dir +/+ file.fileName).standardizePath
                     ));
                 };
             });
@@ -48,25 +73,22 @@ genders.do({ arg gender;
 
 "Found % files to process. Starting render pool...".format(files_to_process.size).postln;
 
-// 3. Render Phase: Controlled Worker Pool
 fork {
     files_to_process.do({ arg job;
 
-        // This halts the loop if 12 jobs are currently running
         semaphore.wait;
-c
+
         fork {
             var file_config = SoundFile.new;
             var score;
 
-            if (file_config.openRead(job.in)) {
+            if (completed_count < 5 && file_config.openRead(job.in)) {
                 // Keep options scoped to the NRT instance
                 server_options = ServerOptions.new;
                 server_options.numOutputBusChannels = 1;
                 server_options.numInputBusChannels = 1;
-                // Drastically reduced memSize: a simple HPF NRT needs minimal memory.
-                // 1024*1024 per thread will crash your RAM on large batches.
                 server_options.memSize = 8192;
+				server_options.verbosity = -1; // mute console output
 
                 score = Score.new;
 
@@ -85,11 +107,8 @@ c
                         file_config.close;
                         completed_count = completed_count + 1;
 
-                        if (completed_count % 100 == 0) {
-                            "Processed % / % files...".format(completed_count, files_to_process.size).postln;
-                        };
+                        "Processed % / % files...".format(completed_count, files_to_process.size).postln;
 
-                        // Signal the semaphore to release the slot for the next file
                         semaphore.signal;
 
                         if (completed_count == files_to_process.size) {

@@ -85,15 +85,15 @@ genders = [ "mei" ]; //, "takumi" ];
 emotions = [ "normal", "happy", "angry", "sad", "bashful" ];
 phonemes = [
     // stops
-     "BA", "BAI", "BI", "DA", "GA", "GAU", "KA", "KE", "KI", "PA", "PEI", "PUU", "TA", "TAI", "TE",
+    // "BA", "BAI", "BI", "DA", "GA", "GAU", "KA", "KE", "KI", "PA", "PEI", "PUU", "TA", "TAI", "TE",
     // labiodental fricatives
-    "FA", "FAU", "FI", "FOU", "FUU", "VAI", "VE", "VI", "VUU",
+    //"FA", "FAU", "FI", "FOU", "FUU", "VAI", "VE", "VI", "VUU",
     // alveolar fricatives
-    "SA", "SAU", "SEI", "SO", "ZA", "ZAU", "ZE", "ZEI",
+    //"SA", "SAU", "SEI", "SO", "ZA", "ZAU", "ZE", "ZEI",
     // postalveolar fricatives
     "SHA", "SHE", "SHI", "SHUU",
     // glottal fricatives
-    "HA", "HEI",
+    //"HA", "HEI",
     // affricates / nasals
     //"JA", "JII", "MA", "N", "NOU", "RA",
     // glides
@@ -128,71 +128,61 @@ server.waitForBoot({
     file_config = SoundFile.openRead(sample_path);
     if(file_config.notNil) { file_config.close };
 
-    ~register_cc.(\freq, 10, 1000, \lin);
-	~register_cc.(\eq, 0.08, 0.12, \lin);
-	~register_cc.(\bpfreq, 0, 48000 / 2 - 1, \lin);
-	~register_cc.(\bpbw, 0, 3, \lin);
-	~register_cc.(\bprq, 0, 1, \lin);
+    ~register_cc.(\slider1, 10, 16000, \lin);
+	~register_cc.(\slider2, 0.08, 0.12, \lin);
+	~register_cc.(\slider3, 0, 48000 / 2 - 1, \lin);
+	~register_cc.(\slider4, 0, 3, \lin);
+	~register_cc.(\slider5, 0, 1.5, \lin);
+	~register_cc.(\knob1, 0, 0.4, \lin, knobs.next);
+	~register_cc.(\knob2, 0, 1, \lin, knobs.next);
+	~register_cc.(\knob3, 0, 1, \lin, knobs.next);
 
-	~register_cc.(\mix1, 0, 1, \lin, 116);
-	~register_cc.(\mix2, 0, 1, \lin, knobs.next);
-	~register_cc.(\mix3, 0, 1, \lin, knobs.next);
-
-	~set_cc.(\freq, 440 * 0.5);
-	~set_cc.(\eq, 0.3);
-
-	~set_cc.(\bpfreq, 15000);
-	~set_cc.(\bpbw, 0.5);
-	~set_cc.(\bprq, 2.0);
-
-	~set_cc.(\mix1, 1);
-	~set_cc.(\mix2, 1);
-	~set_cc.(\mix3, 1);
+	~set_cc.(\slider1, 440);
+	~set_cc.(\slider2, 0.3);
+	~set_cc.(\slider3, 9500);
+	~set_cc.(\slider4, 0.5);
+	~set_cc.(\slider5, 2.0);
+	~set_cc.(\knob1, 1);
+	~set_cc.(\knob2, 1);
+	~set_cc.(\knob3, 1);
 
     filter_def = SynthDef(\filter, { arg out, bufnum;
-		var signal, low, high, filteredMix;
-		var origAmp, filtAmp, makeupGain, finalSignal;
+		var signal, chain, low, high, composite;
+		var base_amplitude, composite_amplitude;
+		var onset, debug, gain;
 
-		// Original Signal
 		signal = PlayBuf.ar(
-			file_config.numChannels,
+			1,
 			bufnum,
 			rate: BufRateScale.kr(bufnum),
 			loop: 0,
 			doneAction: Done.freeSelf
 		);
+		chain = FFT(LocalBuf(1024), signal);
 
-		// 1. Isolate the Base
-		low = RLPF.ar(signal, ~get_cc.(\freq), ~get_cc.(\eq));
+		onset = Onsets.kr(chain, odftype: \rcomplex, threshold: 0.55);
+		onset = Lag.kr(Decay2.kr(onset, attackTime: 0.01, decayTime: 0.2));
 
-		// 2. Isolate the Fricatives
-		// I removed the empty HPF wrapper. A BPF with high Q is usually enough for fricatives,
-		// but if you truly want to chain them, you'd do HPF.ar(BPF.ar(...), cutoffFreq).
-		high = BPF.ar(signal, ~get_cc.(\bpfreq), ~get_cc.(\bpbw), ~get_cc.(\bprq).reciprocal);
+		debug = SinOsc.ar(onset.linlin(0, 1, 220, 880), 0.0, mul: onset) * 0.25;
 
-		// Mix the filtered elements (removed the original signal since its normalize factor was 0)
-		filteredMix = Mix([low, high] * [1.0, 1.0].normalize);
+		chain = PV_MagSmooth(chain, 0.35);
+		signal = IFFT(chain);
 
-		// --- The DSP Magic: Amplitude Matching ---
+		low = RLPF.ar(signal, 440, 0.4);
 
-		// Track the RMS envelope of both signals.
-		// Attack and release times are set to 0.01 and 0.1 (good defaults for voice).
-		origAmp = Amplitude.kr(signal, attackTime: 0.2, releaseTime: 0.1);
-		filtAmp = Amplitude.kr(filteredMix, attackTime: 0.2, releaseTime: 0.1);
+		high = BPF.ar(signal, 9500, 0.5);
 
-		// Calculate how much gain we need to add back.
-		// .max(0.001) prevents the Synth from blowing up (dividing by zero) during silences.
-		makeupGain = origAmp / filtAmp.max(0.0005);
+		composite = LinXFade2.ar(signal, low, onset * 2 - 1);
 
-		// Apply the dynamic makeup gain to the filtered mix
-		finalSignal = filteredMix * makeupGain;
+		/*
+		base_amplitude = Amplitude.ar(signal);
+		composite_amplitude = Amplitude.ar(composite);
+		composite = composite * (base_amplitude / composite_amplitude.max(0.001));
+		*/
 
-		// Safety net: AGC can sometimes cause brief volume spikes on sudden transients.
-		// A Limiter catches these before they hit your speakers.
-		finalSignal = Limiter.ar(finalSignal, level: 1.0, dur: 0.01);
-
-		Out.ar(out, finalSignal.dup);
+		Out.ar(out, (composite).dup);
 	}).add;
+
     // main
 
     MIDIClient.init;
