@@ -149,7 +149,7 @@ server.waitForBoot({
     filter_def = SynthDef(\filter, { arg out, bufnum;
 		var signal, chain, low, high, composite;
 		var base_amplitude, composite_amplitude;
-		var onset, debug, gain;
+		var onset, debug, gain, bias;
 
 		signal = PlayBuf.ar(
 			1,
@@ -161,9 +161,9 @@ server.waitForBoot({
 		chain = FFT(LocalBuf(1024), signal);
 
 		onset = Onsets.kr(chain, odftype: \rcomplex, threshold: 0.55);
-		onset = Lag.kr(Decay2.kr(onset, attackTime: 0.01, decayTime: 0.2));
+		onset = Decay2.kr(onset, attackTime: 0.02, decayTime: 0.3);
 
-		debug = SinOsc.ar(onset.linlin(0, 1, 220, 880), 0.0, mul: onset) * 0.25;
+		debug = SinOsc.ar(onset.linlin(0, 1, 220, 880), 0.0, mul: onset);
 
 		chain = PV_MagSmooth(chain, 0.35);
 		signal = IFFT(chain);
@@ -172,7 +172,8 @@ server.waitForBoot({
 
 		high = BPF.ar(signal, 9500, 0.5);
 
-		composite = LinXFade2.ar(signal, low, onset * 2 - 1);
+		bias = 0.25;
+		composite = LinXFade2.ar(signal, low, onset.linlin(0, 1, -1, 1 - bias));
 
 		/*
 		base_amplitude = Amplitude.ar(signal);
@@ -180,7 +181,7 @@ server.waitForBoot({
 		composite = composite * (base_amplitude / composite_amplitude.max(0.001));
 		*/
 
-		Out.ar(out, (composite).dup);
+		Out.ar(out, (composite + 0.05 * debug).dup);
 	}).add;
 
     // main
