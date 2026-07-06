@@ -1,82 +1,9 @@
-var server;
-var cc_spec, bend_spec, sliders, knobs, bends, id_to_bus, id_to_spec, id_to_midi_def;
-var volume_bus;
+var server, midi;
 var paths, import_prefix, genders, emotions, phonemes, postfixes;
 
 server = Server.default;
 server.volume = 1.0;
 server.options.memSize = 1024 * 1024;
-
-volume_bus = Bus.new(server, 1);
-volume_bus.setSynchronous(1.0);
-
-sliders = Pseq.new((110 .. 110 + 8 - 1)).asStream;
-knobs = Pseq.new((102 .. 102 + 8 - 1)).asStream;
-cc_spec = ControlSpec(0, 2**7, \lin);
-
-bends = Pseq.new((0 .. 15)).asStream;
-bend_spec = ControlSpec(0, 2**14, \lin);
-
-id_to_bus = IdentityDictionary.new;
-id_to_spec = IdentityDictionary.new;
-id_to_midi_def = IdentityDictionary.new;
-
-~register_cc = { arg id, min_value, max_value, easing, slider;
-    var midi_def_id, bus;
-
-    slider = slider ?? sliders.next;
-    bus = Bus.control(server, 1);
-    midi_def_id = id; // capture
-    id_to_bus.put(midi_def_id, bus);
-    id_to_spec.put(midi_def_id, ControlSpec(min_value, max_value, easing ?? \lin));
-    id_to_midi_def.put(
-        midi_def_id,
-        MIDIdef.cc(midi_def_id, { arg value, num, channel, source;
-            "% : %".format(
-                midi_def_id,
-                id_to_spec.at(midi_def_id).map(cc_spec.unmap(value))
-            ).postln;
-            id_to_bus.at(midi_def_id).set(cc_spec.unmap(value));
-        }, slider)
-    );
-};
-
-~get_cc = { arg id;
-    id_to_spec.at(id).map(In.kr(id_to_bus.at(id)))
-};
-
-~get_cc_raw = { arg id;
-    id_to_spec.at(id).map(id_to_bus.at(id))
-};
-
-~set_cc = { arg id, value;
-    id_to_bus.at(id).setSynchronous(id_to_spec.at(id).unmap(value));
-    "% : %".format(id, value).postln;
-};
-
-~register_bend = { arg id, min_value, max_value, easing;
-    var bend, midi_def_id;
-    bend = bends.next;
-    midi_def_id = id;
-    id_to_bus.put(midi_def_id, Bus.control(server, 1));
-    id_to_spec.put(midi_def_id, ControlSpec(min_value, max_value, easing ?? \lin));
-    id_to_midi_def.put(
-        midi_def_id,
-        MIDIdef.bend(midi_def_id, { arg value, channel, source;
-            "% : %".format(
-                midi_def_id,
-                id_to_spec.at(midi_def_id).map(bend_spec.unmap(value))
-            ).postln;
-            id_to_bus.at(midi_def_id).set(bend_spec.unmap(value));
-        }, bend)
-    );
-};
-~get_bend = { arg id;
-    id_to_spec.at(id).map(In.kr(id_to_bus.at(id)))
-};
-~set_bend = { arg id, value;
-    id_to_bus.at(id).setSynchronous(value);
-};
 
 // generate paths
 paths = List.new();
@@ -123,28 +50,9 @@ server.waitForBoot({
     var filter_def, play_routine;
     var file_config, sample_path;
 
-    // Grab configuration from the first file to set up the SynthDef accurately
-    sample_path = paths.first;
-    file_config = SoundFile.openRead(sample_path);
-    if(file_config.notNil) { file_config.close };
+	var midi = MIDIInterface.new(server);
 
-    ~register_cc.(\slider1, 10, 16000, \lin);
-	~register_cc.(\slider2, 0.08, 0.12, \lin);
-	~register_cc.(\slider3, 0, 48000 / 2 - 1, \lin);
-	~register_cc.(\slider4, 0, 3, \lin);
-	~register_cc.(\slider5, 0, 1.5, \lin);
-	~register_cc.(\knob1, 0, 0.4, \lin, knobs.next);
-	~register_cc.(\knob2, 0, 1, \lin, knobs.next);
-	~register_cc.(\knob3, 0, 1, \lin, knobs.next);
-
-	~set_cc.(\slider1, 440);
-	~set_cc.(\slider2, 0.3);
-	~set_cc.(\slider3, 9500);
-	~set_cc.(\slider4, 0.5);
-	~set_cc.(\slider5, 2.0);
-	~set_cc.(\knob1, 1);
-	~set_cc.(\knob2, 1);
-	~set_cc.(\knob3, 1);
+	midi.register_cc(\freq, 20, 16000);
 
     filter_def = SynthDef(\filter, { arg out, bufnum;
 		var signal, chain, low, high, composite;
@@ -161,7 +69,7 @@ server.waitForBoot({
 		chain = FFT(LocalBuf(1024), signal);
 
 		onset = Onsets.kr(chain, odftype: \rcomplex, threshold: 0.55);
-		onset = Decay2.kr(onset, attackTime: 0.02, decayTime: 0.3);
+		onset = Decay2.kr(onset, attackTime: 0.02, decayTime: 0.2);
 
 		debug = SinOsc.ar(onset.linlin(0, 1, 220, 880), 0.0, mul: onset);
 
@@ -170,24 +78,13 @@ server.waitForBoot({
 
 		low = RLPF.ar(signal, 440, 0.4);
 
-		high = BPF.ar(signal, 9500, 0.5);
-
-		bias = 0.25;
+		bias = 0;
 		composite = LinXFade2.ar(signal, low, onset.linlin(0, 1, -1, 1 - bias));
 
-		/*
-		base_amplitude = Amplitude.ar(signal);
-		composite_amplitude = Amplitude.ar(composite);
-		composite = composite * (base_amplitude / composite_amplitude.max(0.001));
-		*/
-
-		Out.ar(out, (composite + 0.05 * debug).dup);
+		Out.ar(out, (composite + debug).dup);
 	}).add;
 
     // main
-
-    MIDIClient.init;
-    MIDIIn.connectAll;
 
     play_routine = Routine({
         loop {
@@ -204,17 +101,8 @@ server.waitForBoot({
         }
     }).play;
 
-    CmdPeriod.doOnce({
-		"-----------------------------".postln;
-		id_to_bus.keysValuesDo({ arg key, bus;
-        var value = bus.getSynchronous;
-        var spec = id_to_spec.at(key);
-        var mapped = spec.notNil.if({ spec.map(value) }, { value });
-        "% : % (raw: %)".format(key, mapped, value).postln;
-    });
-
-    id_to_bus.do({ arg bus; bus.free; });
-    id_to_midi_def.keysValuesDo({ arg key, def; def.free; });
-    play_routine.stop;
-});
+	CmdPeriod.doOnce({
+		midi.free;
+		play_routine.stop;
+	});
 });

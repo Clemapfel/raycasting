@@ -1,125 +1,217 @@
-var server = Server.default;
-var recorder;
+var server;
+var cc_spec, bend_spec, sliders, knobs, bends, id_to_bus, id_to_spec, id_to_midi_def;
+var volume_bus;
+var paths, import_prefix, genders, emotions, phonemes, postfixes;
 
-// midi mapping
-var sliders = Pseq.new((110 .. 117)).asStream;
-var knobs = Pseq.new((102 .. 109)).asStream;
-var pads = Pseq.new([3, 4, 5, 6]).asStream;
-var notes = (12 .. 120);
+server = Server.default;
+server.volume = 1.0;
+server.options.memSize = 1024 * 1024;
 
-var volume_knob_id = sliders.next;
-var max_volume = 1.0;
+sliders = Pseq.new((110 .. 110 + 8 - 1)).asStream;
+knobs = Pseq.new((102 .. 102 + 8 - 1)).asStream;
 
-var record_pad_id = pads.next;
+cc_spec = ControlSpec(0, 2**7, \lin);
+bends = Pseq.new((0 .. 15)).asStream;
+bend_spec = ControlSpec(0, 2**14, \lin);
 
-// server
-server.options.memSize = 2**18;
-server.options.blockSize = 128;
+id_to_bus = IdentityDictionary.new;
+id_to_spec = IdentityDictionary.new;
+id_to_midi_def = IdentityDictionary.new;
 
-// recorder
-thisProcess.platform.recordingsDir = "C:/Users/cleme/Workspace/raycasting/synth/export";
-recorder = Recorder.new(server);
-recorder.recHeaderFormat = "wav";
-recorder.filePrefix = "recording_" ++ Date.localtime.format("%H_%M_%S_%d_%m_%Y_");
+~register_cc = { arg id, min_value, max_value, easing, slider;
+    var midi_def_id, bus;
 
-if (server.serverRunning.not) {
-    server.boot;
-} {
-    server.reboot;
+    slider = slider ?? sliders.next;
+    bus = Bus.control(server, 1);
+    midi_def_id = id; // capture
+    id_to_bus.put(midi_def_id, bus);
+    id_to_spec.put(midi_def_id, ControlSpec(min_value, max_value, easing ?? \lin));
+    id_to_midi_def.put(
+        midi_def_id,
+        MIDIdef.cc(midi_def_id, { arg value, num, channel, source;
+            "% : %".format(
+                midi_def_id,
+                id_to_spec.at(midi_def_id).map(cc_spec.unmap(value))
+            ).postln;
+            id_to_bus.at(midi_def_id).set(cc_spec.unmap(value));
+        }, slider)
+    );
 };
 
-MIDIClient.init;
-MIDIIn.connectAll;
+~get_cc = { arg id;
+    id_to_spec.at(id).map(In.kr(id_to_bus.at(id)))
+};
+
+~get_cc_raw = { arg id;
+    id_to_spec.at(id).map(id_to_bus.at(id))
+};
+
+~set_cc = { arg id, value;
+    id_to_bus.at(id).setSynchronous(id_to_spec.at(id).unmap(value));
+    "% : %".format(id, value).postln;
+};
+
+~register_bend = { arg id, min_value, max_value, easing;
+    var bend, midi_def_id;
+    bend = bends.next;
+    midi_def_id = id;
+    id_to_bus.put(midi_def_id, Bus.control(server, 1));
+    id_to_spec.put(midi_def_id, ControlSpec(min_value, max_value, easing ?? \lin));
+    id_to_midi_def.put(
+        midi_def_id,
+        MIDIdef.bend(midi_def_id, { arg value, channel, source;
+            "% : %".format(
+                midi_def_id,
+                id_to_spec.at(midi_def_id).map(bend_spec.unmap(value))
+            ).postln;
+            id_to_bus.at(midi_def_id).set(bend_spec.unmap(value));
+        }, bend)
+    );
+};
+~get_bend = { arg id;
+    id_to_spec.at(id).map(In.kr(id_to_bus.at(id)))
+};
+~set_bend = { arg id, value;
+    id_to_bus.at(id).setSynchronous(value);
+};
+
+// generate paths
+paths = List.new();
+import_prefix = thisProcess.nowExecutingPath.dirname +/+ ".." +/+ "jtalk" +/+ "export";
+genders = [ "mei" ]; //, "takumi" ];
+emotions = [ "normal", "happy", "angry", "sad", "bashful" ];
+phonemes = [
+    // stops
+    // "BA", "BAI", "BI", "DA", "GA", "GAU", "KA", "KE", "KI", "PA", "PEI", "PUU", "TA", "TAI", "TE",
+    // labiodental fricatives
+    //"FA", "FAU", "FI", "FOU", "FUU", "VAI", "VE", "VI", "VUU",
+    // alveolar fricatives
+    //"SA", "SAU", "SEI", "SO", "ZA", "ZAU", "ZE", "ZEI",
+    // postalveolar fricatives
+    "SHA", "SHE", "SHI", "SHUU",
+    // glottal fricatives
+    //"HA", "HEI",
+    // affricates / nasals
+    //"JA", "JII", "MA", "N", "NOU", "RA",
+    // glides
+    //"WEI", "WII", "WOI", "WU", "YA", "YAU",
+];
+
+postfixes = [ "", "_q", "_long", "_long_q" ];
+
+genders.do({ arg gender;
+    emotions.do({ arg emotion;
+        phonemes.do({ arg phoneme;
+            postfixes.do({ arg postfix;
+                var path;
+                path = import_prefix +/+ gender +/+ emotion +/+ (phoneme ++ postfix ++ ".wav");
+
+				if (File.exists(path)) {
+					paths.add(path);
+                };
+            });
+        });
+    });
+});
+
+thisThread.randSeed = Date.new.rawSeconds;
 
 server.waitForBoot({
-    var active_notes = Array.newClear(128);
+    var filter_def, play_routine;
+    var file_config, sample_path;
 
-    // Load the meow buffer from the directory where this script is saved
-    var meow_path = thisProcess.nowExecutingPath.dirname +/+ "meow.wav";
-    var meow_buffer = Buffer.read(server, meow_path);
+    // Grab configuration from the first file to set up the SynthDef accurately
+    sample_path = paths.first;
+    file_config = SoundFile.openRead(sample_path);
+    if(file_config.notNil) { file_config.close };
 
-    // record start / end
-    var record_start_midi_def = MIDIdef.cc(\record_on, { arg value, id, channel, source;
-        if (value > 0 && recorder.isRecording.not) {
-            server.prepareForRecord;
-            recorder.record;
-        };
+    ~register_cc.(\slider1, 10, 16000, \lin);
+	~register_cc.(\slider2, 0.08, 0.12, \lin);
+	~register_cc.(\slider3, 0, 48000 / 2 - 1, \lin);
+	~register_cc.(\slider4, 0, 3, \lin);
+	~register_cc.(\slider5, 0, 1.5, \lin);
+	~register_cc.(\knob1, 0, 0.4, \lin, knobs.next);
+	~register_cc.(\knob2, 0, 1, \lin, knobs.next);
+	~register_cc.(\knob3, 0, 1, \lin, knobs.next);
 
-        if (value == 0 && recorder.isRecording) {
-            recorder.stopRecording;
-        };
-    }, record_pad_id);
+	~set_cc.(\slider1, 440);
+	~set_cc.(\slider2, 0.3);
+	~set_cc.(\slider3, 9500);
+	~set_cc.(\slider4, 0.5);
+	~set_cc.(\slider5, 2.0);
+	~set_cc.(\knob1, 1);
+	~set_cc.(\knob2, 1);
+	~set_cc.(\knob3, 1);
 
-    // volume slider (Global control)
-    var volume_bus = Bus.control(server, 1);
-    var volume_midi_def = MIDIdef.cc(\volume_handler, { arg value, id, channel, source;
-        volume_bus.set(value.linlin(0, 2**7, 0, max_volume));
-    }, volume_knob_id);
+    filter_def = SynthDef(\filter, { arg out, bufnum;
+		var signal, chain, low, high, composite;
+		var base_amplitude, composite_amplitude;
+		var onset, debug, gain, bias;
 
-    // midi bend (Global control)
-    var bend_bus = Bus.control(server, 1);
-    var bend_midi_def = MIDIdef.bend(\bend_handler, { arg value, channel, source;
-        bend_bus.set(value.linlin(0, 2**14, -1, 1));
+		signal = PlayBuf.ar(
+			1,
+			bufnum,
+			rate: BufRateScale.kr(bufnum),
+			loop: 0,
+			doneAction: Done.freeSelf
+		);
+		chain = FFT(LocalBuf(1024), signal);
+
+		onset = Onsets.kr(chain, odftype: \rcomplex, threshold: 0.55);
+		onset = Decay2.kr(onset, attackTime: 0.02, decayTime: 0.3);
+
+		debug = SinOsc.ar(onset.linlin(0, 1, 220, 880), 0.0, mul: onset);
+
+		chain = PV_MagSmooth(chain, 0.35);
+		signal = IFFT(chain);
+
+		low = RLPF.ar(signal, 440, 0.4);
+
+		high = BPF.ar(signal, 9500, 0.5);
+
+		bias = 0.25;
+		composite = LinXFade2.ar(signal, low, onset.linlin(0, 1, -1, 1 - bias));
+
+		/*
+		base_amplitude = Amplitude.ar(signal);
+		composite_amplitude = Amplitude.ar(composite);
+		composite = composite * (base_amplitude / composite_amplitude.max(0.001));
+		*/
+
+		Out.ar(out, (composite + 0.05 * debug).dup);
+	}).add;
+
+    // main
+
+    MIDIClient.init;
+    MIDIIn.connectAll;
+
+    play_routine = Routine({
+        loop {
+            var current_path = paths.choose;
+            var buffer = Buffer.read(server, current_path);
+
+            server.sync;
+            Synth(\filter, [\out, 0, \bufnum, buffer.bufnum]);
+
+            "Playing %".format(PathName.new(current_path).fileName).postln;
+
+			buffer.duration.wait;
+            buffer.free;
+        }
+    }).play;
+
+    CmdPeriod.doOnce({
+		"-----------------------------".postln;
+		id_to_bus.keysValuesDo({ arg key, bus;
+        var value = bus.getSynchronous;
+        var spec = id_to_spec.at(key);
+        var mapped = spec.notNil.if({ spec.map(value) }, { value });
+        "% : % (raw: %)".format(key, mapped, value).postln;
     });
 
-    // synth
-    var pitch_synth_def_id = \pitch_synth_def;
-    var pitch_synth_def = SynthDef(pitch_synth_def_id, {
-        arg out = 0, frequency = 440, gate = 1, attack = 0.000, decay = 0.05, bufnum;
-
-        var bend, volume, envelope, pitch_ratio;
-        var sine_signal, meow_signal, final_signal;
-
-        bend = In.kr(bend_bus.index, bend_bus.numChannels);
-        bend = Lag2.kr(bend.linlin(-1, 1, 0, 1));
-
-        frequency = bend.linlin(0, 1, 0.5, 1.5) * frequency;
-        pitch_ratio = frequency / 880; // reference pitch
-
-        volume = Lag2.kr(In.kr(volume_bus.index, volume_bus.numChannels));
-        envelope = EnvGen.kr(Env.asr(attack, 1.0, decay), gate, doneAction: Done.freeSelf);
-
-        sine_signal = SinOsc.ar(frequency,
-			0, // phase
-			volume
-		);
-        meow_signal = PlayBuf.ar(2, bufnum, BufRateScale.kr(bufnum), loop: 0);
-        meow_signal = PitchShift.ar(meow_signal,
-			0.1,    // window size
-			pitch_ratio,
-			0.0,   // pitch dispersion
-			0.004  // time dispersion
-		);
-
-		final_signal = (blend(sine_signal, meow_signal, 0.75)) * volume * envelope;
-        Out.ar(out, [final_signal, final_signal]); // dupe for stereo out
-    }).add;
-
-
-    var note_on_midi_def = MIDIdef.noteOn(\note_on, { arg value, id, channel, source;
-        if(active_notes[id].notNil) {
-            active_notes[id].set(\gate, 0);
-        };
-
-        active_notes[id] = Synth(pitch_synth_def_id, [
-            \frequency, id.midicps, // convert midi to hz
-            \gate, 1,
-            \bufnum, meow_buffer.bufnum
-        ]);
-    }, notes);
-
-    var note_off_midi_def = MIDIdef.noteOff(\note_off, { arg value, id, channel, source;
-        if(active_notes[id].notNil) {
-            active_notes[id].set(\gate, 0);
-            active_notes[id] = nil;
-        };
-    }, notes);
-
-	   server.sync;
-
-    // main setup
-    volume_bus.setSynchronous(0.05);
-    bend_bus.setSynchronous(0.0);
-
-
+    id_to_bus.do({ arg bus; bus.free; });
+    id_to_midi_def.keysValuesDo({ arg key, def; def.free; });
+    play_routine.stop;
+});
 });
