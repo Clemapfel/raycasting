@@ -52,21 +52,69 @@ function rt.Shader:compile()
         self._is_disabled = true
     else
         self._native = shader
-        rt.settings.shader.precompilation_queue[self._native] = self._native
+        rt.settings.shader.precompilation_queue[self] = self
+    end
+end
+
+do
+    local _render_textures, _draw_callbacks
+
+    --- @brief force compilation of the shader program gpu-side, necessary on vulkan
+    function rt.Shader:precompile()
+        if _render_textures == nil then
+            _render_textures = {}
+            for format in range(
+                rt.TextureFormat.R8,
+                rt.TextureFormat.RGB565,
+                rt.TextureFormat.RGBA8
+            ) do
+                table.insert(_render_textures,
+                    love.graphics.newCanvas(1, 1, {
+                        format = format
+                    })
+                )
+            end
+        end
+
+        if _draw_callbacks == nil then
+            local mesh = love.graphics.newMesh({
+                { 0, 0, 0, 0, 1, 1, 1, 1 },
+                { 1, 0, 1, 0, 1, 1, 1, 1 },
+                { 1, 1, 1, 1, 1, 1, 1, 1 },
+                { 0, 1, 0, 1, 1, 1, 1, 1 }
+            }, "fan", "static")
+
+            local texture = love.graphics.newImage(love.image.newImageData(1, 1))
+            mesh:setTexture(texture)
+
+            _draw_callbacks = {
+                function() love.graphics.draw(mesh) end,
+                function() love.graphics.polygon("fill", { 0, 0, 1, 0, 1, 1, 0, 1 }) end,
+                function() love.graphics.draw(texture) end
+            }
+        end
+
+        love.graphics.push("all")
+        love.graphics.reset()
+        for canvas in values(_render_textures) do
+            love.graphics.setCanvas({ canvas, stencil = true, depth = true })
+            for callback in values(_draw_callbacks) do
+                love.graphics.setShader(self._native)
+                callback()
+                love.graphics.setShader(nil)
+            end
+        end
+        love.graphics.pop() -- all
     end
 end
 
 --- @brief flush all shaders, prevents shader compilation stutter on vulkan
 function rt.Shader:precompile_all()
     love.graphics.push("all")
-    local texture = love.graphics.newCanvas(1, 1)
-    love.graphics.setCanvas(texture)
-    for native in values(rt.settings.shader.precompilation_queue) do
-        love.graphics.setShader(native)
-        love.graphics.rectangle("fill", 0, 0, 1, 1)
-        love.graphics.setShader(nil)
+
+    for shader in values(rt.Shader.precompilation_queue) do
+        shader:precompile()
     end
-    love.graphics.pop("all")
 
     rt.settings.shader.precompilation_queue = meta.make_weak({})
 end
