@@ -12,19 +12,19 @@ genders = [ "mei" ]; //, "takumi" ];
 emotions = [ "normal", "happy", "angry", "sad", "bashful" ];
 phonemes = [
     // stops
-    // "BA", "BAI", "BI", "DA", "GA", "GAU", "KA", "KE", "KI", "PA", "PEI", "PUU", "TA", "TAI", "TE",
+     "BA", "BAI", "BI", "DA", "GA", "GAU", "KA", "KE", "KI", "PA", "PEI", "PUU", "TA", "TAI", "TE",
     // labiodental fricatives
-    //"FA", "FAU", "FI", "FOU", "FUU", "VAI", "VE", "VI", "VUU",
+    "FA", "FAU", "FI", "FOU", "FUU", "VAI", "VE", "VI", "VUU",
     // alveolar fricatives
-    //"SA", "SAU", "SEI", "SO", "ZA", "ZAU", "ZE", "ZEI",
+    "SA", "SAU", "SEI", "SO", "ZA", "ZAU", "ZE", "ZEI",
     // postalveolar fricatives
     "SHA", "SHE", "SHI", "SHUU",
     // glottal fricatives
-    //"HA", "HEI",
+    "HA", "HEI",
     // affricates / nasals
-    //"JA", "JII", "MA", "N", "NOU", "RA",
+    "JA", "JII", "MA", "N", "NOU", "RA",
     // glides
-    //"WEI", "WII", "WOI", "WU", "YA", "YAU",
+    "WEI", "WII", "WOI", "WU", "YA", "YAU",
 ];
 
 postfixes = [ "", "_q", "_long", "_long_q" ];
@@ -52,7 +52,10 @@ server.waitForBoot({
 
 	var midi = MIDIInterface.new(server);
 
-	midi.register_cc(\freq, 20, 16000);
+	midi.register_cc(\freq, 20, 4000, slider: midi.knobs.next);
+	midi.register_cc(\db, -30, 0, slider: midi.sliders.next);
+
+	midi.set_cc(\freq, 1800);
 
     filter_def = SynthDef(\filter, { arg out, bufnum;
 		var signal, chain, low, high, composite;
@@ -66,22 +69,29 @@ server.waitForBoot({
 			loop: 0,
 			doneAction: Done.freeSelf
 		);
+
+		Out.ar(signal);
+
+		/*
 		chain = FFT(LocalBuf(1024), signal);
 
-		onset = Onsets.kr(chain, odftype: \rcomplex, threshold: 0.55);
-		onset = Decay2.kr(onset, attackTime: 0.02, decayTime: 0.2);
+		onset = Decay2.kr(Onsets.kr((SpecCentroid.kr(chain) / (48000 / 2 / 2)).clip(0, 1),
+			threshold: 0.55, odftype: \rcomplex),
+			attackTime: 0.05
+		);
 
 		debug = SinOsc.ar(onset.linlin(0, 1, 220, 880), 0.0, mul: onset);
 
 		chain = PV_MagSmooth(chain, 0.35);
 		signal = IFFT(chain);
 
-		low = RLPF.ar(signal, 440, 0.4);
+		low = BHiShelf.ar(signal, midi.get_cc(\freq), 0.5);
 
 		bias = 0;
 		composite = LinXFade2.ar(signal, low, onset.linlin(0, 1, -1, 1 - bias));
 
-		Out.ar(out, (composite + debug).dup);
+		Out.ar(out, (composite).dup);
+		*/
 	}).add;
 
     // main
@@ -89,9 +99,10 @@ server.waitForBoot({
     play_routine = Routine({
         loop {
             var current_path = paths.choose;
-            var buffer = Buffer.read(server, current_path);
+			var buffer = Buffer.read(server, current_path);
 
             server.sync;
+
             Synth(\filter, [\out, 0, \bufnum, buffer.bufnum]);
 
             "Playing %".format(PathName.new(current_path).fileName).postln;
