@@ -16,11 +16,11 @@ phonemes = [
     // labiodental fricatives
     //"FA", "FAU", "FI", "FOU", "FUU", "VAI", "VE", "VI", "VUU",
     // alveolar fricatives
-    "SA", "SAU", "SEI", "SO", "ZA", "ZAU", "ZE", "ZEI",
+    //"SA", "SAU", "SEI", "SO", "ZA", "ZAU", "ZE", "ZEI",
     // postalveolar fricatives
     "SHA", "SHE", "SHI", "SHUU",
 
-	"KA", "KEI", "KO",
+	//"KA", "KEI", "KO",
 
 	//"PA", "PAI", "PEI", "PU", "POU",
     // glottal fricatives
@@ -56,11 +56,11 @@ server.waitForBoot({
 
 	var midi = MIDIInterface.new(server);
 
-	midi.register_cc(\mix, -1, 1);
-	midi.register_cc(\freq, 0, 40);
-	midi.register_cc(\normal, -1, 1);
+	midi.register_cc(\freq, 0, 12000);
+	midi.register_cc(\2, -1, 1);
 
-	midi.set_cc(\freq, 1800);
+
+	midi.set_cc(\freq, 8000);
 
 	filter_def = SynthDef(\filter, { arg out=0, bufnum;
 		var signal = PlayBuf.ar(
@@ -70,24 +70,24 @@ server.waitForBoot({
 			loop: 0
 		);
 
-		var debug;
+		var freq = midi.get_cc(\freq);
+		var composite;
 
-		var chain = FFT(LocalBuf(1024), signal);
-		var cutoff = 0.08;
-		var high_chain = PV_BrickWall(chain, -1 * (1 - cutoff));
-		var low_chain = PV_BrickWall(chain, cutoff);
+		var n = 2.pow(12);
+		var esses = FFT(LocalBuf(n), signal, wintype: 1);
+		var rest = FFT(LocalBuf(n), signal, wintype: 1);
+		var w = (freq / (48000 / 2));
 
-		var fricative_mul = -0.5;
-		var onset = Onsets.kr(chain, threshold: 0.7, relaxtime: 0.5);
+		// isolate esses
+		esses = PV_Cutoff(esses, w);
+		rest = PV_MagMinus(rest, esses);
 
-		var fricative = onset;
-		fricative = Decay2.kr(fricative, attackTime: 0.01, decayTime: 0.43);
-		signal = XFade2.ar(IFFT(low_chain), IFFT(high_chain), fricative);
-		signal = SinOsc.ar(220, mul: fricative);
-		//signal = signal + RLPF.ar(signal, rq: 0.18);
+		composite = IFFT(rest);
 
-		Out.ar(out, signal.dup);
+		Out.ar(out, XFade2.ar(composite, signal, midi.get_cc(\2)).dup);
 	}).add;
+
+
 
     // main
 
@@ -99,13 +99,15 @@ server.waitForBoot({
 
             server.sync;
 
+			5.do({
             synth = Synth(\filter, [\out, 0, \bufnum, buffer.bufnum]);
 
             "Playing %".format(PathName.new(current_path).fileName).postln;
 
 			(buffer.duration * 1.25).wait;
+							synth.free;
+			});
 
-			synth.free;
             buffer.free;
         }
     }).play;
