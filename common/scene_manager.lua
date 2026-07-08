@@ -84,7 +84,7 @@ function rt.SceneManager:instantiate()
         _sound_manager_fixed_fps = 240,
         _sound_manager_accumulator = 0,
 
-        _composition_overlay_visible = false
+        _composition_overlay_visible = false,
     })
 
     self:set_use_fixed_timestep(self._update_use_fixed_timestep)
@@ -122,7 +122,7 @@ end
 function rt.SceneManager:_reformat_scene(scene)
     -- resize first time or if necessary
     local current_w, current_h = scene._scene_manager_current_width, scene._scene_manager_current_height
-    if current_w ~= self._width or current_h ~= self._height then
+    if current_w == nil or current_w ~= self._width or current_h == nil or current_h ~= self._height then
         scene:reformat(0, 0, self._width, self._height)
         scene._scene_manager_current_width = self._width
         scene._scene_manager_current_height = self._height
@@ -319,8 +319,8 @@ function rt.SceneManager:resize(_)
 
     self._width, self._height = rt.GameState:get_internal_resolution()
 
-    if self._scene ~= nil then
-        self:_reformat_scene(self._scene)
+    if self._current_scene ~= nil then
+        self:_reformat_scene(self._current_scene)
     end
 
     if self._bloom == nil
@@ -466,7 +466,7 @@ end
 
 --- @brief
 function rt.SceneManager:get_margin_unit()
-    return 10 / self:get_downscaling_factor()
+    return 10  / self:get_downscaling_factor()
 end
 
 --- @brief

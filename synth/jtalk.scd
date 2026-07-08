@@ -7,43 +7,37 @@ var semaphore = Semaphore(max_concurrent_jobs);
 var wait_to_finish_condition = Condition.new;
 var completed_count = 0;
 
+var fft_size = 2.pow(12);
+
 export_prefix = thisProcess.nowExecutingPath.dirname +/+ "export";
 import_prefix = thisProcess.nowExecutingPath.dirname +/+ ".." +/+ "jtalk" +/+ "export";
 genders = [ "mei" ]; //, "takumi" ];
 emotions = [ "normal" ]; //, "happy", "angry", "sad", "bashful" ];
 
-SynthDef(\filter, { arg out, bufnum;
-	var signal, chain, low, high, composite;
-	var base_amplitude, composite_amplitude;
-
-	signal = PlayBuf.ar(
+SynthDef(\filter, { arg out=0, bufnum;
+	var signal = PlayBuf.ar(
 		1,
 		bufnum,
 		rate: BufRateScale.kr(bufnum),
-		loop: 0,
-		doneAction: Done.freeSelf
+		loop: 0
 	);
 
-	chain = FFT(LocalBuf(1024), signal);
-	chain = PV_MagSmooth(chain, 0.35);
-	signal = IFFT(chain);
+	var pitch = Pitch.kr(signal, median: 25);
+	var freq = 8000;
+	var composite;
 
-	low = RLPF.ar(signal, 440, 0.4); //~get_cc.(\freq), ~get_cc.(\eq));
-	high = BPF.ar(signal, 9500, 0.5);//~get_cc.(\bpfreq), ~get_cc.(\bpbw));
+	var esses = FFT(LocalBuf(fft_size), signal, wintype: 1);
+	var rest = FFT(LocalBuf(fft_size), signal, wintype: 1);
+	var w = (freq / (48000 / 2));
 
+	// isolate esses
+	esses = PV_Cutoff(esses, w);
+	rest = PV_MagMinus(rest, esses);
 
-	composite = Mix([low, high, signal] * Vec3.new(
-		1.0, // base resonance
-		0.0, // fricatives
-		0.4  // original signal
-	).normalize.asArray);
+	composite = IFFT(PV_MagSmooth(rest, factor: 0.1));
+	composite = BPeakEQ.ar(composite, freq: pitch, rq: 0.95, db: 5);
 
-	// correct amplitude
-	base_amplitude = Amplitude.ar(signal);
-	composite_amplitude = Amplitude.ar(signal);
-	composite = composite * (base_amplitude / composite_amplitude.max(0.001));
-
-	Out.ar(out, composite.dup);
+	Out.ar(out, composite);
 }).writeDefFile;
 
 if (File.exists(export_prefix).not) { File.mkdir(export_prefix); };
@@ -79,50 +73,45 @@ fork {
         semaphore.wait;
 
         fork {
-            var file_config = SoundFile.new;
-            var score;
+			var file_config = SoundFile.new;
+			var score;
+			var fft_latency = fft_size / file_config.sampleRate;
 
-            if (completed_count < 5 && file_config.openRead(job.in)) {
-                // Keep options scoped to the NRT instance
-                server_options = ServerOptions.new;
-                server_options.numOutputBusChannels = 1;
-                server_options.numInputBusChannels = 1;
-                server_options.memSize = 8192;
-				server_options.verbosity = -1; // mute console output
+			if (completed_count < 5 && file_config.openRead(job.in)) {
+				server_options = ServerOptions.new;
+				server_options.numOutputBusChannels = 1;
+				server_options.numInputBusChannels = 1;
+				server_options.memSize = 8192;
+				server_options.verbosity = -1;
 
-                score = Score.new;
+				score = Score.new;
+				score.add([ 0.0, [\b_allocRead, 0, job.in] ]);
+				score.add([ 0.0, [\s_new, \filter, 1000, 0, 0, \bufnum, 0] ]);
 
-                // Construct the score using basic OSC messaging
-                score.add([ 0.0, [\b_allocRead, 0, job.in] ]);
-                score.add([ 0.0, [\s_new, \jtalk_filter, 1000, 0, 0, \bufnum, 0] ]);
-                score.add([ file_config.duration, [\c_set, 0, 0] ]); // Dummy command to pad the end duration
-
-                score.recordNRT(
-                    outputFilePath: job.out,
-                    headerFormat: file_config.headerFormat,
-                    sampleFormat: file_config.sampleFormat,
-                    options: server_options,
-                    duration: file_config.duration,
-                    action: {
-                        file_config.close;
-                        completed_count = completed_count + 1;
-
-                        "Processed % / % files...".format(completed_count, files_to_process.size).postln;
-
-                        semaphore.signal;
-
-                        if (completed_count == files_to_process.size) {
-                            wait_to_finish_condition.unhang;
-                        };
-                    }
-                );
-            } {
-                "Failed to read metadata for %".format(job.in).postln;
-                completed_count = completed_count + 1;
-                semaphore.signal; // Ensure slot releases even on failure
-                if (completed_count == files_to_process.size) { wait_to_finish_condition.unhang; };
-            };
-        };
+				score.recordNRT(
+					outputFilePath: job.out,
+					headerFormat: file_config.headerFormat,
+					sampleFormat: file_config.sampleFormat,
+					options: server_options,
+					duration: file_config.duration + fft_latency,
+					action: {
+						file_config.close;
+						completed_count = completed_count + 1;
+						"Processed % / % files".format(completed_count, files_to_process.size).postln;
+						semaphore.signal;
+						if (completed_count == files_to_process.size) {
+							wait_to_finish_condition.unhang;
+						};
+					}
+				);
+			} {
+				completed_count = completed_count + 1;
+				semaphore.signal;
+				if (completed_count == files_to_process.size) {
+					wait_to_finish_condition.unhang;
+				};
+			};
+		};
     });
 
     if (files_to_process.size > 0) {

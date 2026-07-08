@@ -1191,7 +1191,7 @@ function rt.KeybindingIndicator:create_as_two_horizontal_keys(left_text, right_t
 
         local line_width = 2
         local center_x, center_y = 0.5 * width, 0.5 * height
-        local rect_r = (0.5 * width - 4 * line_width) / 2
+        local rect_r = math.max(1, (0.5 * width - 4 * line_width) / 2)
         local spacer = 0
 
         local right_center_x, right_center_y = center_x + rect_r + spacer, center_y
@@ -1276,7 +1276,7 @@ function rt.KeybindingIndicator:create_as_four_keys(up_text, right_text, bottom_
         end
 
         local line_width = 2
-        local rect_r = ((width / 3) - line_width) / 2
+        local rect_r = math.max(1, ((width / 3) - line_width) / 2)
         local center_x, center_y = 0.5 * width, 0.5 * height + rect_r
         local top_center_x, top_center_y = center_x, center_y - 2 * rect_r
         local right_center_x, right_center_y = center_x + 2 * rect_r, center_y

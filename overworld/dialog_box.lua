@@ -1,4 +1,5 @@
 require "common.font"
+require "common.font"
 require "common.label"
 require "common.frame"
 require "common.mesh"
@@ -437,7 +438,6 @@ function ow.DialogBox:size_allocate(x, y, width, height)
 
     local m = rt.SceneManager:get_margin_unit()
     local outer_margin = 2 * m
-
     local frame_w = width - 2 * outer_margin
     local frame_h = self._max_n_lines * self._line_height + 2 * m
     local frame_x = x + outer_margin
@@ -592,7 +592,6 @@ end
 --- @brief
 function ow.DialogBox:update(delta)
     if not self._is_started then return end
-
     local control_state_before = self:get_control_state()
 
     if self._is_waiting_for_advance then
@@ -638,7 +637,6 @@ function ow.DialogBox:update(delta)
         end
 
         if not should_skip then
-
             node.elapsed = node.elapsed + delta
 
             local n_lines_visible = 0

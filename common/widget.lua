@@ -49,10 +49,23 @@ function rt.Widget:reformat(x, y, width, height)
         x, y, width, height = x:unpack()
     end
 
+    if width == math.huge then width = self._bounds.width end
+    if height == math.huge then height = self._bounds.height end
+
     if x ~= nil then self._bounds.x = _round(x) end
     if y ~= nil then self._bounds.y = _round(y) end
-    if width ~= nil then self._bounds.width = _round(width) end
-    if height ~= nil then self._bounds.height = _round(height) end
+
+    if width ~= nil then
+        self._bounds.width = _round(width)
+        rt.assert(self._bounds.width >= 0, "in rt.Widget.reformat: width cannot be negative")
+    end
+
+    if height ~= nil then
+        self._bounds.height = _round(height)
+        rt.assert(self._bounds.height >= 0, "in rt.Widget.reformat: height cannot be negative")
+    end
+
+    rt.assert(not math.is_nan(x) and not math.is_nan(y) and not math.is_nan(width) and not math.is_nan(height), "In rt.Widget.reformat: bounds cannot be NaN")
 
     self:size_allocate(self._bounds.x, self._bounds.y, self._bounds.width, self._bounds.height)
 end

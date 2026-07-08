@@ -1,6 +1,7 @@
 MIDIInterface {
     var <server;
 	var <bends;
+	var <pads;
     var <cc_spec;
 	var <bend_spec;
     var <id_to_bus, <id_to_spec, <id_to_midi_def;
@@ -17,6 +18,7 @@ MIDIInterface {
         sliders = Pseq((110 .. 117), inf).asStream;
         knobs = Pseq((102 .. 109), inf).asStream;
         bends = Pseq((0 .. 15), inf).asStream;
+		pads = Pseq([3, 4, 5, 6]).asStream;
 
         cc_spec = ControlSpec(0, 2**7, \lin);
 		bend_spec = ControlSpec(0, 2**14, \lin);
@@ -27,6 +29,12 @@ MIDIInterface {
 
 		MIDIClient.init;
 		MIDIIn.connectAll;
+
+		/*
+		MIDIFunc.cc({ arg value, num, channel, source;
+			num.postln;
+		});
+		*/
     }
 
     register_cc { arg id, lower = 0, upper = 1, easing = \lin, slider;

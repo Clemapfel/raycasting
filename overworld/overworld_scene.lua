@@ -490,6 +490,7 @@ function ow.OverworldScene:size_allocate(x, y, width, height)
                 y + height - control_h - down_m,
                 control_w, control_h
             )
+
             max_h = math.max(max_h, control_h)
         end
         self._control_indicator_max_offset = 2 * max_h

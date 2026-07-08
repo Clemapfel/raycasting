@@ -1,52 +1,53 @@
 var server, midi;
 var paths, import_prefix, genders, emotions, phonemes, postfixes;
 
+var qitch_buffer;
+var fft_buffer_size = 4096;
+var sample_rate = 48000;
+
 server = Server.default;
+server.options.sampleRate = sample_rate;
 server.volume = 1.0;
 server.options.memSize = 1024 * 1024;
 
-// generate paths
-paths = List.new();
-import_prefix = thisProcess.nowExecutingPath.dirname +/+ ".." +/+ "jtalk" +/+ "export";
-genders = [ "mei" ]; //, "takumi" ];
-emotions = [ "normal", "happy", "angry", "sad", "bashful" ];
-phonemes = [
-    // stops
-    //BA", "BAI", "BI", "DA", "GA", "GAU", "KA", "KE", "KI", "PA", "PEI", "PUU", "TA", "TAI", "TE",
-    // labiodental fricatives
-    //"FA", "FAU", "FI", "FOU", "FUU", "VAI", "VE", "VI", "VUU",
-    // alveolar fricatives
-    //"SA", "SAU", "SEI", "SO", "ZA", "ZAU", "ZE", "ZEI",
-    // postalveolar fricatives
-    "SHA", "SHE", "SHI", "SHUU",
+qitch_buffer = Buffer.read(server, (Platform.systemExtensionDir +/+ "SC3plugins/PitchDetection/extraqitchfiles/QspeckernN" ++ fft_buffer_size ++ "SR" ++ sample_rate ++ ".wav").standardizePath);
 
-	//"KA", "KEI", "KO",
+~collectFilesToProcess = { arg genders, emotions;
+	var export_prefix = thisProcess.nowExecutingPath.dirname +/+ "export";
+	var import_prefix = thisProcess.nowExecutingPath.dirname +/+ ".." +/+ "jtalk" +/+ "export";
 
-	//"PA", "PAI", "PEI", "PU", "POU",
-    // glottal fricatives
-    //"HA", "HEI",
-    // affricates / nasals
-    //"JA", "JII", "MA", "N", "NOU", "RA",
-    // glides
-    //"WEI", "WII", "WOI", "WU", "YA", "YAU",
-];
+	var files = List.new;
 
-postfixes = [ "", "_q", "_long", "_long_q" ];
+	genders.do({ arg gender;
+		var gender_dir = export_prefix +/+ gender;
+		if (File.exists(gender_dir).not) { File.mkdir(gender_dir); };
 
-genders.do({ arg gender;
-    emotions.do({ arg emotion;
-        phonemes.do({ arg phoneme;
-            postfixes.do({ arg postfix;
-                var path;
-                path = import_prefix +/+ gender +/+ emotion +/+ (phoneme ++ postfix ++ ".wav");
+		emotions.do({ arg emotion;
+			var emotion_dir = gender_dir +/+ emotion;
+			var in_path = PathName.new(import_prefix +/+ gender +/+ emotion);
 
-				if (File.exists(path)) {
-					paths.add(path);
-                };
-            });
-        });
-    });
-});
+			if (File.exists(emotion_dir).not) { File.mkdir(emotion_dir); };
+
+			if (in_path.isFolder) {
+				in_path.files.do({ arg file;
+					if (file.isFile) {
+						files.add((
+							in: file.fullPath.standardizePath,
+							out: (emotion_dir +/+ file.fileName).standardizePath
+						));
+					};
+				});
+			};
+		});
+	});
+
+	files;
+};
+
+paths = ~collectFilesToProcess.(
+	[ "mei" ], //, "takumi" ];
+	[ "normal" ] //, "happy", "angry", "sad", "bashful" ];
+);
 
 thisThread.randSeed = Date.new.rawSeconds;
 
@@ -55,12 +56,15 @@ server.waitForBoot({
     var file_config, sample_path;
 
 	var midi = MIDIInterface.new(server);
+	var message_name = '/pos';
 
 	midi.register_cc(\freq, 0, 12000);
-	midi.register_cc(\2, -1, 1);
+	midi.register_cc(\2, -1, 1, slider: midi.pads.next);
 
+	midi.set_cc(\freq, 5000);
+	midi.set_cc(\2, -1);
 
-	midi.set_cc(\freq, 8000);
+	// https://www.youtube.com/watch?v=_NED_v716U4
 
 	filter_def = SynthDef(\filter, { arg out=0, bufnum;
 		var signal = PlayBuf.ar(
@@ -71,43 +75,30 @@ server.waitForBoot({
 		);
 
 		var freq = midi.get_cc(\freq);
-		var composite;
+		var pitch = Pitch.kr(signal, median: 30);
 
-		var n = 2.pow(12);
-		var esses = FFT(LocalBuf(n), signal, wintype: 1);
-		var rest = FFT(LocalBuf(n), signal, wintype: 1);
-		var w = (freq / (48000 / 2));
 
-		// isolate esses
-		esses = PV_Cutoff(esses, w);
-		rest = PV_MagMinus(rest, esses);
+		signal = BPeakEQ.ar(signal, freq: pitch, rq: 0.95, db: 0);
 
-		composite = IFFT(rest);
-
-		Out.ar(out, XFade2.ar(composite, signal, midi.get_cc(\2)).dup);
+		Out.ar(out, signal.dup);
 	}).add;
-
-
 
     // main
 
     play_routine = Routine({
         loop {
-            var current_path = paths.choose;
+            var current_path = paths.choose.in;
 			var buffer = Buffer.read(server, current_path);
             var synth;
 
             server.sync;
 
-			5.do({
             synth = Synth(\filter, [\out, 0, \bufnum, buffer.bufnum]);
 
             "Playing %".format(PathName.new(current_path).fileName).postln;
-
 			(buffer.duration * 1.25).wait;
-							synth.free;
-			});
 
+            synth.free;
             buffer.free;
         }
     }).play;

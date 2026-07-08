@@ -190,6 +190,10 @@ function math.is_nan(x)
     return x ~= x
 end
 
+function math.is_inf(x)
+    return math.abs(x) == math.huge
+end
+
 --- @brief
 function math.mix_angles(angle_a, angle_b, ratio)
     angle_a = math.normalize_angle(angle_a)

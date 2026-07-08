@@ -76,7 +76,6 @@ function ow.DialogEmitter:instantiate(scene, id, target)
 
     self._dialog_box:realize()
     self:reformat(self._scene:get_bounds():unpack())
-
     self._scene:signal_connect("resize", function(_, x, y, width, height)
         self:reformat(x, y, width, height)
     end)

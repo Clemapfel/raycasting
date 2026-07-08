@@ -223,9 +223,9 @@ function rt.ControlIndicator:size_allocate(x, y, width, height)
 
     self._final_height = height
     self._final_width = current_x - x
+
     self._is_allocated = true
     self._frame:reformat(x, y, self._final_width, self._final_height)
-
     self:set_opacity(self._opacity)
 end
 
@@ -250,8 +250,11 @@ function rt.ControlIndicator:measure()
         end
     end
 
+    max_h = math.max(max_h, 1)
+
     local indicator_size = _indicator_factor * max_h + 2 * outer_ym
     local width = width_sum + n_indicators * indicator_size
+
     return width, indicator_size
 end
 
