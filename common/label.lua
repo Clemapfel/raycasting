@@ -274,6 +274,7 @@ end
 --- @override
 function rt.Label:size_allocate(x, y, width, height)
     self:_check_for_rescale()
+
     x = math.floor(x)
     y = math.floor(y)
     self:_apply_wrapping(width)
@@ -1088,7 +1089,7 @@ function rt.Label:_apply_wrapping()
     end
     _insert(row_widths, glyph_x)
 
-    if max_w == math.huge then
+    if math.is_inf(max_w) then
         max_w = self._width
     end
 
@@ -1098,7 +1099,7 @@ function rt.Label:_apply_wrapping()
         glyph.justify_right_offset = (max_w - row_widths[glyph.row_index])
     end
 
-    self._width = max_x - min_x
+    self._width = math.max(0, max_x - min_x)
     self._height = line_height * row_i
     self._n_lines = row_i
 
