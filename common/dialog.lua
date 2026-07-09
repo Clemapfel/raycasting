@@ -74,8 +74,7 @@ do
         [settings.speaker_key] = mt.String,
         [settings.speaker_orientation_key] = rt.DialogSpeakerOrientation,
         [settings.gender_key] = rt.AnimaleseGender,
-        [settings.state_key] = mt.Table,
-        [settings.dialog_choice_key] = mt.Table
+        [settings.state_key] = mt.Table
     }
 
     local function validate(scope, nodes)
@@ -89,27 +88,37 @@ do
 
         local node_to_is_reachable = {}
 
+        -- first node is always [1]
+        if nodes[1] == nil then
+            throw("node at index 1 is not assigned")
+        else
+            node_to_is_reachable[1] = true
+        end
+
         for node_key, node in pairs(nodes) do
             local consecutive_numbers = {}
+
             for key, value in pairs(node) do
                 if meta.is_number(key) then
+                    -- line of dialog
                     table.insert(consecutive_numbers, key)
                 elseif key == settings.next_key then
+                    -- next node
+                    if not (meta.is_number(key) or meta.is_string(key)) then
+                        throw("node key `", key, "` is not a number of string")
+                    end
+
                     local next_node = nodes[value]
                     if next_node == nil then
                         throw("next value `", value, "` does not point to another valid node")
+                    else
+                        node_to_is_reachable[value] = true
                     end
-
-                    node_to_is_reachable[next_node] = true
                 elseif key == settings.dialog_choice_key then
+                    -- dialog choice
                     local node_choices = value
-                    for i = 1, table.sizeof(node_choices) do
-                        if node_choices[i] == nil then
-                            throw("choices in node `", node_key, "` are not a consecutive list of tables")
-                        end
-                    end
-
                     for choice_key, choice_node in pairs(node_choices) do
+                        -- choice key is always a number
                         if not meta.is_number(choice_key) then
                             throw("choices in node `", node_key, "` can only be indexed with numbers, got `", choice_key, "`")
                         end
@@ -120,38 +129,42 @@ do
 
                         for k, v in keys(choice_node) do
                             if k == settings.next_key then
+                                -- next: next node
                                 if nodes[v] == nil then
                                     throw("choices in node `", node_key, "` has next key `", choice_node[settings.next_key], "`, which does not point to a valid node")
+                                else
+                                    node_to_is_reachable[v] = true
                                 end
-
-                                node_to_is_reachable[nodes[v]] = true
                             elseif not meta.is_number(k) or k ~= 1 then
+                                -- [1]: choice text
                                 throw("choices in node `", node_key, "` can only have single line of dialog, which has to be located at [1]")
                             end
                         end
                     end
                 else
+                    -- other keys
                     local expected_type = valid_keys_to_type[key]
                     if expected_type == nil then
                         throw("invalid key `", key, "`")
                     end
 
-                    if meta.is_enum(type) then
-                        if not meta.is_enum_value(value, type) then
-                            throw("for key `", key, "`, expected value of enum `", meta.get_enum_name(type), "`, got `", meta.typeof(value), "`")
+                    if meta.is_enum(expected_type) then
+                        if not meta.is_enum_value(value, expected_type) then
+                            throw("for key `", key, "`, expected value of enum `", meta.get_enum_name(expected_type), "`, got `", meta.typeof(value), "`")
                         end
-                    elseif meta.is_type(type) then
-                        if not meta.isa(value, type) then
-                            throw("for key `", key, "`, expected value of type `", meta.get_typename(type), "`, got `", meta.typeof(value), "`")
+                    elseif meta.is_type(expected_type) then
+                        if not meta.isa(value, expected_type) then
+                            throw("for key `", key, "`, expected value of type `", meta.get_typename(expected_type), "`, got `", meta.typeof(value), "`")
                         end
                     else
-                        if not meta.typeof(value) == type then
-                            throw("for key `", key, "`, expected value of type `", type, "`, got `", meta.typeof(value), "`")
+                        if not meta.typeof(value) == expected_type then
+                            throw("for key `", key, "`, expected value of type `", expected_type, "`, got `", meta.typeof(value), "`")
                         end
                     end
                 end
             end
 
+            -- check that lines within a node are at 1, 2, ...
             table.sort(consecutive_numbers)
             if not consecutive_numbers[1] == 1 then
                 throw("list of lines does not start at 1")
@@ -164,11 +177,11 @@ do
                     throw("list of lines is not a consecutive list of numbers, key `", last - 1, "` is unassigned")
                 end
             end
+        end
 
-            for node_key, node in pairs(nodes) do
-                if node_to_is_reachable[node] ~= true then
-                    warn("node `", node_key, "` is not reachable")
-                end
+        for node_key, node in pairs(nodes) do
+            if node_to_is_reachable[node_key] ~= true then
+                warn("node `", node_key, "` is not reachable")
             end
         end
     end

@@ -7,7 +7,8 @@ require "common.smoothed_motion_3d"
 require "common.thread"
 
 rt.settings.sound_manager = {
-    config_directory = "assets/sounds",
+    assets_directory = "assets/sounds",
+
     default_equalization_alpha = 0.1,
     source_inactive_lifetime_threshold = 30, -- seconds
     enable_volume_equalization = true,
@@ -26,24 +27,6 @@ rt.settings.sound_manager = {
 --- @class rt.SoundManager
 --- @signals sound_done (rt.SoundManager, SoundID : String, HandlerID : Number) -> nil
 rt.SoundManager = meta.class("SoundManager")
-
-local _is_config_file = function(path)
-    return string.match(path, "%.lua$") ~= nil
-end
-
-local _is_sound_file = function(filename)
-    local extension = string.match(filename, "%.([^%.]+)$") -- extract everything after . before end
-    if extension then
-        extension = string.lower(extension)
-        return extension == "mp3"
-            or extension == "wav"
-            or extension == "ogg"
-            or extension == "oga"
-            or extension == "ogv"
-            or extension == "flac"
-    end
-    return false
-end
 
 local _settings = rt.settings.sound_manager
 
@@ -79,13 +62,123 @@ function rt.SoundManager:instantiate()
         equalization_alpha = _settings.default_equalization_alpha
     }
 
-    local get_entry = function(id)
-        local entry = self._id_to_entry[id]
-        if entry == nil then
-            entry = {
+    self._preallocate_routines = {}
+    self._id_to_entry = {}
+    self._stop_entries = {}
+
+    do -- generate entries
+        local _is_sound_file = function(filename)
+            local extension = bd.get_file_extension(filename)
+            if extension ~= nil then
+                extension = string.lower(extension)
+                return extension == "mp3"
+                    or extension == "wav"
+                    or extension == "ogg"
+                    or extension == "oga"
+                    or extension == "ogv"
+                    or extension == "flac"
+            end
+            return false
+        end
+
+        local prefix = rt.settings.sound_manager.assets_directory
+        if string.last(prefix) ~= "/" then prefix = prefix .. "/" end
+
+        local id_to_path = {}
+        bd.apply_recursively(prefix, function(filepath, filename)
+            if _is_sound_file(filename) then
+                local id = string.replace(filepath, prefix, "")
+                id = string.replace(id, "%." .. bd.get_file_extension(filename), "")
+                id = string.replace(id, "/", ".")
+                id_to_path[id] = filepath
+            end
+        end)
+
+        -- allow indexing like `rt.SoundManager.overworld.foo.effect.play()`, instead of `rt.SoundManager:play("overworld.foo.effect.play")
+
+        local ids = {}
+        local leaves = {}
+        for id, path in pairs(id_to_path) do
+            local split = { string.split(id, ".") }
+            local current = ids
+            for i = 1, #split do
+                local key = split[i]
+                if i == #split then
+                    -- leaf
+                    local leaf = {}
+
+                    leaf.play = function(self, ...)
+                        rt.assert(self == leaf, "In rt.SoundManager." .. id .. ".play: play called without instance, use `bar.foo:play()` instead of `bar.foo.play()` ")
+                        rt.SoundManager:play(id, ...)
+                    end
+
+                    leaf.stop = function(self, ...)
+                        rt.assert(self == leaf, "In rt.SoundManager." .. id .. ".stop: play called without instance, use `bar.foo:stop()` instead of `bar.foo.stop()` ")
+                        rt.SoundManager:stop(id, ...)
+                    end
+
+                    leaf.id = id
+                    leaf.path = path
+
+                    current[key] = leaf
+                    table.insert(leaves, leaf)
+                else
+                    if current[key] == nil then
+                        current[key] = {}
+                        local to_write = {}
+                        for j = 1, i do table.insert(to_write, split[j]) end
+                        setmetatable(current[key], { id = table.concat(to_write, ".") })
+                    end
+                    current = current[key]
+                end
+            end
+        end
+
+        -- make intermediate nodes immutable
+        local function make_id_table(t, seen)
+            if meta.is_table(t) then
+                local metatable = getmetatable(t)
+                if metatable ~= nil then
+                    metatable.__index = function(self, key)
+                        rt.error("In rt.SoundManager: no sound with id `", metatable.id .. "." .. key, "`")
+                    end
+
+                    metatable.__newindex = function(self, key)
+                        rt.fatal("In rt.SoundManager.", metatable.id, ": trying to assign key `", key, "`, but this object is immutable")
+                    end
+                end
+
+                for v in values(t) do
+                    make_id_table(v, seen)
+                end
+            end
+
+            return t
+        end
+
+        -- make leaves immutable
+        for leaf in values(leaves) do
+            setmetatable(leaf, {
+            __index = function(self, key)
+                rt.error("In rt.SoundManager.", self.id, ": key `", key, "` does not exist")
+            end,
+
+            __newindex = function(self, key, new)
+                rt.fatal("In rt.SoundManager.", self.id, ": trying to assign key `", key, "`, but this object is immutable")
+            end
+            })
+        end
+
+        for key, value in pairs(make_id_table(ids, {})) do
+            rt.assert(rt.SoundManager[key] == nil, "In rt.SoundManager.instantiate: sound root folder name `", key, "` is invalid, it conflicts with an existing method of `rt.SoundManager`")
+            rt.SoundManager[key] = value
+        end
+
+        self._id_to_entry = {} -- Table<String, String>, indexable like `self._id_to_entry["overworld.foo.effect"]`
+        for id, path in pairs(id_to_path) do
+            self._id_to_entry[id] = {
                 id = id,
-                config_path = nil, -- String
-                sound_path = nil,  -- String
+                sound_path = path,  -- String
                 sound_data = nil, -- love.SoundData
                 duration = nil, -- seconds
                 handler_id_to_active_sources = {}, -- Table<Number, love.Source>
@@ -97,34 +190,7 @@ function rt.SoundManager:instantiate()
                 equalizer_entry_rms = 0,
                 equalizer_volume = 1
             }
-            self._id_to_entry[id] = entry
         end
-        return entry
-    end
-
-    bd.apply(rt.settings.sound_manager.config_directory, function(filepath, filename)
-        if _is_sound_file(filename) then
-            get_entry(bd.get_file_name(filename, false)).sound_path = filepath
-        elseif _is_config_file(filename) then
-            get_entry(bd.get_file_name(filename, false)).config_path = filepath
-        else
-            -- noop
-        end
-    end)
-
-    self._stop_entries = {}
-
-    -- check for unmatched configs
-    local to_remove = {}
-    for id, entry in pairs(self._id_to_entry) do
-        if entry.config_path ~= nil and entry.sound_path == nil then
-            rt.critical("In rt.SoundManager: found config file at `", entry.config_path,  "` but no matching sound file with that id `", bd.get_file_name(entry.config_path, false),  "`")
-            table.insert(to_remove, id)
-        end
-    end
-
-    for id in values(to_remove) do
-        self._id_to_entry[id] = nil
     end
 end
 
@@ -202,18 +268,6 @@ function rt.SoundManager:_get_entry(id, scope)
     end
 end
 
-local preallocate_message_types = {}
-local preallocate_threads = {}
-local preallocate_worker_to_main
-
-for message in range(
-    "load",
-    "load_success",
-    "load_failure"
-) do
-    preallocate_message_types[message] = message
-end
-
 --- @brief preallocate sound data for entries
 function rt.SoundManager:preallocate(id, ...)
     local ids
@@ -223,69 +277,29 @@ function rt.SoundManager:preallocate(id, ...)
         ids = { id, ... }
     end
 
-    -- use threading for preallocation, loading sound data and processing is "embarassingly parallel"
-    local n_workers = math.ceil(love.system.getProcessorCount() / 2)
-    if n_workers > 1 and #ids > 16 then
-        if preallocate_worker_to_main == nil then
-            preallocate_worker_to_main = love.thread.newChannel()
-        end
+    for i = 1, #ids do
+        meta.assert_argument_type(ids[i], mt.String, i)
+    end
 
-        -- spin up threads
-        while #preallocate_threads < n_workers do
-            local entry = {
-                thread = rt.Thread("common/sound_manager_preallocate_worker.lua"),
-                main_to_worker = rt.Channel()
-            }
-
-            table.insert(preallocate_threads, entry)
-            entry.thread:start(
-                entry.main_to_worker,
-                preallocate_worker_to_main:get_native(),
-                preallocate_message_types:get_native()
-            )
-        end
-
-        -- round robin
-        local thread_i = 1
-        for entry_id in values(ids) do
-            local entry = self:_get_entry(entry_id, "preallocate")
-            local current_thread_i = math.wrap(thread_i, #preallocate_threads)
-            local thread_entry = preallocate_threads[current_thread_i]
-            thread_entry.main_to_worker:push({
-                type = preallocate_message_types.load,
-                id = entry_id,
-                path = entry.sound_path
-            })
-
-            thread_i = thread_i + 1
-        end
-
-        -- wait for all threads to finish
-        local n_messages_received = 0
-        while n_messages_received < #ids do
-            local message = preallocate_worker_to_main:demand()
-            if message.type == preallocate_message_types.load_success then
-                local entry = self._id_to_entry[message.id]
-                entry.sound_data = message.data
-                self:_process_entry(entry)
-            elseif message.type == preallocate_message_types.load_failure then
-                rt.critical("In rt.SoundManager.preallocate: ",  message.error)
-            else
-                rt.error("In rt.SoundManager:preallocate: unhandled main-side message `", tostring(message.type),  "`")
-            end
-
-            n_messages_received = n_messages_received + 1
-        end
-    else
+    table.insert(self._preallocate_routines, rt.Routine(function()
         for entry_id in values(ids) do
             local entry = self:_get_entry(entry_id, "preallocate")
             if entry.sound_data == nil then
                 entry.sound_data = _import_audio(entry.sound_path)
-                if entry.sound_data == nil then return false end
+                if entry.sound_data == nil then
+                    return
+                else
+                    self._active_entries[entry] = true
+                end
             end
             self:_process_entry(entry)
         end
-    end
+    end))
+end
+
+--- @brief
+function rt.SoundManager:get_is_done()
+    return #self._preallocate_routines == 0
 end
 
 --- @brief
@@ -335,6 +349,8 @@ end
 --- @return Number handler id
 function rt.SoundManager:play(id, config)
     if id == nil then return end -- rt.SoundIDs defaults to nil if id is missing
+
+    meta.assert(id, mt.String, config, mt.Optional(mt.Table))
 
     if config == nil then config = {} end
     local position_specified = config.position_x ~= nil or config.position_y ~= nil
@@ -415,48 +431,9 @@ function rt.SoundManager:play(id, config)
 end
 
 --- @brief
-function rt.SoundManager:stop(id, handler_id)
-    if handler_id == nil then
-        meta.assert(id, mt.String)
-    else
-        meta.assert(id, mt.String, handler_id, mt.Number)
-    end
-
-    local entry = self:_get_entry(id, "play")
-
-    local to_stop = {}
-    local add = function(entry, handler_id)
-        table.insert(to_stop, {
-            entry = entry,
-            handler_id = handler_id,
-            elapsed = 0
-        })
-    end
-
-    if handler_id == nil then
-        for current_id, source in pairs(entry.handler_id_to_active_sources) do
-            add(entry, current_id)
-        end
-    else
-        local source = entry.handler_id_to_active_sources[handler_id]
-        if source ~= nil then
-            add(entry, handler_id)
-        end
-    end
-
-    for stop_entry in values(to_stop) do
-        table.insert(self._stop_entries, stop_entry)
-    end
-end
-
---- @brief
 function rt.SoundManager:set_volume(id, handler_id, volume, use_smoothing)
-    if id == nil then
-        return
-    else
-        if use_smoothing == nil then use_smoothing = true end
-        meta.assert(id, mt.String, handler_id, mt.Number, volume, mt.Number, use_smoothing, mt.Boolean)
-    end
+    if use_smoothing == nil then use_smoothing = true end
+    meta.assert(id, mt.String, handler_id, mt.Number, volume, mt.Number, use_smoothing, mt.Boolean)
 
     local entry = self:_get_entry(id, "set_volume")
     if entry == nil then return end
@@ -481,12 +458,8 @@ end
 
 --- @brief
 function rt.SoundManager:set_pitch(id, handler_id, pitch, use_smoothing)
-    if id == nil then
-        return
-    else
-        if use_smoothing == nil then use_smoothing = true end
-        meta.assert(id, mt.String, handler_id, mt.Number, pitch, mt.Number, use_smoothing, mt.Boolean)
-    end
+    if use_smoothing == nil then use_smoothing = true end
+    meta.assert(id, mt.String, handler_id, mt.Number, pitch, mt.Number, use_smoothing, mt.Boolean)
 
     local entry = self:_get_entry(id, "set_pitch")
     if entry == nil then return end
@@ -511,6 +484,8 @@ local _reference_filter = nil
 
 --- @brief
 function rt.SoundManager:set_filter(id, handler_id, t)
+    meta.assert(id, mt.String, handler_id, mt.Number, t, mt.Number)
+
     local entry = self:_get_entry(id, "set_filter")
     if entry == nil then return end
 
@@ -541,15 +516,11 @@ end
 
 --- @brief
 function rt.SoundManager:stop(id, handler_id, fade_out_duration)
-    if handler_id == nil then
-        meta.assert(id, mt.String)
-    else
-        meta.assert(id, mt.String, handler_id, mt.Number)
-    end
+    meta.assert(id, mt.String, handler_id, mt.Optional(mt.Number))
 
     if fade_out_duration == nil then fade_out_duration = rt.settings.sound_manager.source_stop_decay_duration end
 
-    local entry = self:_get_entry(id, "play")
+    local entry = self:_get_entry(id, "stop")
     if entry == nil then return end
 
     local to_stop = {}
@@ -580,6 +551,8 @@ end
 
 --- @brief
 function rt.SoundManager:list_active_handler_ids(sound_id)
+    meta.assert(sound_id, mt.String)
+
     local entry = self:_get_entry(sound_id, "list_handler_ids")
     local out = {}
     if entry ~= nil then
@@ -598,6 +571,8 @@ local _step = 1 / 60
 
 --- @brief
 function rt.SoundManager:update(delta)
+    meta.assert(delta, mt.Number)
+
     do -- fade out
         local easing = function(t)
             return rt.InterpolationFunctions.SINUSOID_EASE_OUT(1 - math.clamp(t, 0, 1))
@@ -691,6 +666,10 @@ function rt.SoundManager:update(delta)
                     end
                 end
             end
+
+            for to_mark in values(to_mark_inactive) do
+                self._active_entries[to_mark] = nil
+            end
         end
 
         do -- deallocate
@@ -725,9 +704,25 @@ function rt.SoundManager:update(delta)
                 self._active_entries[entry] = nil
             end
         end
+
+        do -- routines
+            local to_remove = {}
+            for i, routine in ipairs(self._preallocate_routines) do
+                if routine:get_is_done() then
+                    table.insert(to_remove, 1, i)
+                else
+                    routine:resume()
+                end
+            end
+
+            for _, i in ipairs(to_remove) do
+                table.remove(self._preallocate_routines, i)
+            end
+        end
     end
 end
 
+--- @brief
 function rt.SoundManager:reset()
     for entry in pairs(self._active_entries) do
         for _, source in pairs(entry.handler_id_to_active_sources) do

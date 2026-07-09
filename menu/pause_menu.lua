@@ -78,6 +78,8 @@ function mn.PauseMenu:instantiate(scene)
     end)
 
     self._joystick_gesture:signal_connect("pressed", function(_, which)
+        if not self._underlying_scene:get_is_active() then return end
+
         self._selection_graph:handle_button(which)
     end)
 
@@ -172,7 +174,7 @@ end
 function mn.PauseMenu:size_allocate(x, y, width, height)
     self._background:reformat(x, y, width, height)
 
-    local outer_margin = 0 --rt.SceneManager:get_margin_unit()
+    local outer_margin = rt.SceneManager:get_margin_unit()
     local control_w, control_h = self._control_indicator:measure()
     self._control_indicator:reformat(
         x + width - outer_margin - control_w,

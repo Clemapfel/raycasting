@@ -12,7 +12,7 @@ rt.settings.menu.message_dialog = {
 --- @enum mn.MessageDialogOption
 mn.MessageDialogOption = {
     ACCEPT = rt.Translation.message_dialog.option_accept or "ACCEPT",
-    CANCEL = rt.Translation.message_dialog.option.cancel or "CANCEL"
+    CANCEL = rt.Translation.message_dialog.option_cancel or "CANCEL"
 }
 mn.MessageDialogOption = meta.enum("MessageDialogOption", mn.MessageDialogOption)
 
@@ -218,10 +218,6 @@ function mn.MessageDialog:_update_selected_item()
             item.frame:set_selection_state(next)
         end
     end
-
-    if changed == true then
-        rt.SoundManager:play(rt.SoundIDs.menu.message_dialog.select_button)
-    end
 end
 
 --- @brief
@@ -246,8 +242,6 @@ function mn.MessageDialog:handle_button(which)
         local success = self:signal_try_emit("selection", self._options[self._selected_item_i])
         if not success then
             self:close() -- default button behavior
-        else
-            rt.SoundManager:play(rt.SoundIDs.menu.message_dialog.selection)
         end
     end
 end

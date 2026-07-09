@@ -8,12 +8,9 @@ rt.Widget = meta.class("Widget", rt.Drawable)
 
 --- @return rt.Widget
 function rt.Widget:instantiate()
-    meta.install(self, {
-        _is_realized = false,
-        _bounds = rt.AABB(0, 0, 1, 1),
-        _selection_state = nil,
-        _opacity = 1
-    })
+    self._is_realized = false
+    self._bounds = rt.AABB(0, 0, 1, 1)
+    self._selection_state = nil
 end
 
 --- @brief
@@ -23,7 +20,8 @@ end
 
 --- @brief
 function rt.Widget:size_allocate(x, y, width, height)
-    --rt.error("In Widget.size_allocate: abstract method called")
+    meta.assert(x, rt.Number, y, mt.Number, width, mt.Number, height, mt.Number)
+    rt.error("In Widget.size_allocate: abstract method called")
 end
 
 --- @brief
@@ -32,40 +30,42 @@ function rt.Widget:draw()
 end
 
 --- @brief
-function rt.Widget:draw_bounds()
-    love.graphics.rectangle("line", self._bounds:unpack())
+function rt.Widget:update(delta)
+    -- noop
 end
 
 --- @brief
-function rt.Widget:update(delta)
-    -- noop
+function rt.Widget:draw_bounds()
+    love.graphics.rectangle("line", self._bounds:unpack())
 end
 
 local _round = function(x) return x end
 
 --- @brief
 function rt.Widget:reformat(x, y, width, height)
-    if y == nil and meta.typeof(x) == "AABB" then
+    if meta.isa(x, rt.AABB) then
+        meta.assert(x, rt.AABB, y, mt.Nil, width, mt.Nil, height, mt.Nil)
         x, y, width, height = x:unpack()
+    else
+        local current_x, current_y, current_w, current_h = self._bounds:unpack()
+        if x == nil then x = current_x end
+        if y == nil then y = current_y end
+        if width == nil then width = current_w end
+        if height == nil then height = current_h end
+
+        meta.assert(x, mt.Number, y, mt.Number, width, mt.Number, height, mt.Number)
     end
 
     if width == math.huge then width = self._bounds.width end
     if height == math.huge then height = self._bounds.height end
 
-    if x ~= nil then self._bounds.x = _round(x) end
-    if y ~= nil then self._bounds.y = _round(y) end
+    self._bounds.x = _round(x)
+    self._bounds.y = _round(y)
+    self._bounds.width = _round(width)
+    self._bounds.height = _round(height)
 
-    if width ~= nil then
-        self._bounds.width = _round(width)
-        rt.assert(self._bounds.width >= 0, "in rt.Widget.reformat: width cannot be negative")
-    end
-
-    if height ~= nil then
-        self._bounds.height = _round(height)
-        rt.assert(self._bounds.height >= 0, "in rt.Widget.reformat: height cannot be negative")
-    end
-
-    rt.assert(not math.is_nan(x) and not math.is_nan(y) and not math.is_nan(width) and not math.is_nan(height), "In rt.Widget.reformat: bounds cannot be NaN")
+    rt.assert(self._bounds.width >= 0, "in rt.Widget.reformat: width cannot be negative")
+    rt.assert(self._bounds.height >= 0, "in rt.Widget.reformat: height cannot be negative")
 
     self:size_allocate(self._bounds.x, self._bounds.y, self._bounds.width, self._bounds.height)
 end
@@ -108,6 +108,6 @@ end
 
 --- @brief
 function rt.Widget:set_selection_state(state)
-    rt.assert(meta.is_enum_value(state, rt.SelectionState), "In `", meta.typeof(self), "`.set_selection_state: for argument #1: expected `SelectionState`, got `", meta.typeof(state), "`")
+    meta.assert(state, rt.SelectionState)
     self._selection_state = state
 end

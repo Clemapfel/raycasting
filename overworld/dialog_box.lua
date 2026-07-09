@@ -20,9 +20,6 @@ rt.settings.overworld.dialog_box = {
     portrait_resolution_h = 80,
     n_lines = 3,
 
-    menu_move_sound_id = "menu_move",
-    menu_confirm_sound_id = "menu_confirm",
-
     config_location = "overworld/dialog",
 
     advance_button = rt.InputAction.INTERACT,
@@ -718,8 +715,6 @@ end
 function ow.DialogBox:_advance()
     if self._active_node == nil or self._active_node.type ~= _node_type_text then return false end
 
-    local sound_id = rt.settings.overworld.dialog_box.menu_confirm_sound_id
-
     -- skip to end of current node, unless node is voice
     if self._active_node ~= nil and self._active_node.gender == rt.AnimaleseGender.NONE then
         self._active_node.n_advance_triggers = self._active_node.n_advance_triggers + 1
@@ -740,9 +735,6 @@ function ow.DialogBox:_advance()
     if self._is_waiting_for_advance then
         local before = self._active_node
         self:_set_active_node(self._active_node.next)
-        if self._active_node ~= before then
-            rt.SoundManager:play(sound_id)
-        end
     end
 
     return true
@@ -756,18 +748,14 @@ function ow.DialogBox:handle_button_pressed(which)
         if self._active_choice_node ~= nil
             and self._active_node.is_done == true
         then
-            local move_sound_id = rt.settings.overworld.dialog_box.menu_move_sound_id
-            local confirm_sound_id = rt.settings.overworld.dialog_box.menu_confirm_sound_id
             local node = self._active_choice_node
             if which == rt.InputAction.UP then
                 if node.highlighted_answer_i > 1 then
                     node.highlighted_answer_i = node.highlighted_answer_i - 1
-                    rt.SoundManager:play(move_sound_id)
                 end
             elseif which == rt.InputAction.DOWN then
                 if node.highlighted_answer_i < node.n_answers then
                     node.highlighted_answer_i = node.highlighted_answer_i + 1
-                    rt.SoundManager:play(move_sound_id)
                 end
             elseif which == rt.InputAction.INTERACT then
                 local choice_node = self._active_choice_node

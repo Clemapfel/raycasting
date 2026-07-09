@@ -208,7 +208,7 @@ do
 
     --- @brief
     function meta.is_number(x)
-        return _get_native_type(x) == "number"
+        return _get_native_type(x) == "number" and not math.is_nan(x)
     end
 
     --- @brief
@@ -346,10 +346,12 @@ do
 
     local function _assert_typeof(scope, instance, type, i)
         local is_valid, typename, error = true, nil, nil
-        if type == meta.Any and instance ~= nil then return true end
+        if type == meta.Any and instance ~= nil then return true, "" end
 
         if _type_to_validator[type] ~= nil then
-            is_valid, typename = _type_to_validator[type](instance)
+            local validator
+            validator, typename = _type_to_validator[type](instance)
+            is_valid = validator(instance) == true
         elseif meta.is_type(type) then
             is_valid = meta.is_type_instance(instance, type)
             if is_valid == false then
@@ -381,6 +383,9 @@ do
             error = string.paste("In meta.assert: for argument #", i, ", expected value of type `", typename, "`, got `", meta.typeof(instance), "`")
         end
 
+        if error == nil then error = "" end
+
+        assert(meta.is_boolean(is_valid))
         return is_valid, error
     end
 
@@ -410,7 +415,7 @@ do
         --- @brief
         function meta.assert_argument_type(x, type, argument_i)
             local is_valid, error = _assert_typeof("meta.assert_argument_type", x, type, argument_i)
-            if not is_valid then rt.error(error) end
+            if is_valid ~= true then rt.error(error) end
         end
     else
         -- optimize to noop in release mode
@@ -826,8 +831,8 @@ do
 end
 
 --- @brief
-function meta.abstract_class(typename, super, schema)
-    local type = meta.class(typename, super, schema)
+function meta.abstract_class(typename, super)
+    local type = meta.class(typename, super)
     local type_metatable = getmetatable(type)
     type_metatable.__call = function()
         rt.error("In ", typename, "(): trying to instantiated object of type `", typename, "`, but it was declared abstract")

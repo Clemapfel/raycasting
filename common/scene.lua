@@ -23,7 +23,7 @@ end
 
 --- @brief
 function rt.Scene:get_is_active()
-    rt.SceneManager:get_scene_is_active(self)
+    return rt.SceneManager:scene_get_is_active(self)
 end
 
 --- @override

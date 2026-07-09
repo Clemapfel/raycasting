@@ -160,6 +160,20 @@ function bd.get_file_name(file_path, include_extension)
     return string.match(filename, "^(.+)%.[^%.]+$") or filename
 end
 
+--- @brief
+--- @param file_path String
+function bd.get_file_extension(file_path)
+    meta.assert(file_path, mt.String)
+
+    local filename = string.match(file_path, "([^/\\]+)$")
+    if filename == nil then return "" end
+
+    local ext = string.match(filename, "^.+%.([^%.]+)$")
+    if ext == nil then return "" end
+
+    return ext
+end
+
 do
     local function _path_exists_raw(path)
         if bd.get_operating_system() == bd.OperatingSystem.WINDOWS then

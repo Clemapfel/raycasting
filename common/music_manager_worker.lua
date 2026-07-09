@@ -44,6 +44,10 @@ local message_id_to_callback = {
 
     [messages.reset] = function(message)
         manager:stop()
+    end,
+
+    [messages.preallocate] = function(message)
+        manager:preallocate(message.ids)
     end
 }
 

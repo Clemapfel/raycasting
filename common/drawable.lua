@@ -1,11 +1,14 @@
 --- @class rt.Drawable
-rt.Drawable = meta.abstract_class("Drawable", nil, {
-    --- () -> Nil
-    draw = meta.Function
-})
+rt.Drawable = meta.abstract_class("Drawable")
 
+--- @brief
 function rt.Drawable:instantiate()
     self._is_visible = true
+end
+
+--- @brief
+function rt.Drawable:draw()
+    rt.error("In ", meta.typeof(self), ".draw: abstract function called")
 end
 
 --- @brief set whether drawable should be culled, this affects `render`

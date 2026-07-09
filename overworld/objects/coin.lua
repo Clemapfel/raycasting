@@ -120,7 +120,6 @@ function ow.Coin:instantiate(object, stage, scene)
         if not player_body:has_tag(b2.Tag.PLAYER) then return end
 
         if self._is_collected then return end
-        rt.SoundManager:play(rt.settings.overworld.coin.sound_id)
         self:set_is_collected(true)
         self._pulse_opacity_animation:reset()
         self._pulse_active = true

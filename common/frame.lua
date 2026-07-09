@@ -32,6 +32,7 @@ function rt.Frame:instantiate()
         _child_valid = false,
 
         _aabb = rt.AABB(0, 0, 1, 1),
+        _opacity = 1,
 
         _color = rt.settings.frame.default_color,
         _stencil_color = rt.Palette.BACKGROUND,

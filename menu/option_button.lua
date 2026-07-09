@@ -58,9 +58,6 @@ end
 --- @brief
 function mn.OptionButton:_emit_selection()
     local success = self:signal_try_emit("selection", self._options[self._current_item_i])
-    if success then
-        rt.SoundManager:play(rt.SoundIDs.menu.option_button.selection)
-    end
 end
 
 --- @override

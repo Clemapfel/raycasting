@@ -480,7 +480,12 @@ end
 
 --- @brief
 function ow.Stage:update(delta)
-    if self._normal_map_done and self._is_initialized and self._signal_done_emitted == false then
+    if self._normal_map:get_is_done()
+        and rt.SoundManager:get_is_done()
+        and rt.MusicManager:get_is_done()
+        and self._is_initialized
+        and self._signal_done_emitted == false
+    then
         self:signal_emit("loading_done")
         self._signal_done_emitted = true
     end

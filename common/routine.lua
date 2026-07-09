@@ -25,6 +25,7 @@ end
 
 --- @brief
 function rt.Routine:set_should_resume_automatically(b)
+    if b == nil then b = true end
     meta.assert(b, mt.Boolean)
     self._should_resume_automatically = b
     return self

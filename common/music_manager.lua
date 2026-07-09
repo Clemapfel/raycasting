@@ -10,6 +10,7 @@ rt.MusicManager = meta.class("MusicManager")
 local _messages = {}
 for message_id in range(
     "instantiate",
+    "preallocate",
     "play",
     "pause",
     "unpause",
@@ -57,8 +58,9 @@ end
 
 --- @brief
 function rt.MusicManager:play(id, restart)
-    if id == nil then return end -- default for rt.MusicIDs
     if restart == nil then restart = false end
+    meta.assert(id, mt.String, restart, mt.Boolean)
+
     self._main_to_worker:push({
         message_id = _messages.play,
         id = id,
@@ -89,6 +91,8 @@ end
 
 --- @brief
 function rt.MusicManager:set_volume(v)
+    meta.assert(v, mt.Number)
+
     v = math.clamp(v, 0, 1)
     self._volume = v
     self._main_to_worker:push({
@@ -102,10 +106,34 @@ function rt.MusicManager:get_volume()
     return self._volume
 end
 
+--- @brief
 function rt.MusicManager:reset()
     self._main_to_worker:push({
         message_id = _messages.reset
     })
+end
+
+--- @brief
+function rt.MusicManager:preallocate(ids, ...)
+    if not meta.is_string(ids) then
+        ids = { ids, ... }
+        for i = 1, #ids do
+            meta.assert_argument_type(ids[i], mt.String)
+        end
+    else
+        meta.assert_argument_type(ids, mt.Table)
+        meta.assert_argument_type(select(1, ...), mt.Nil)
+    end
+
+    self._main_to_worker:push({
+        message_id = _messages.preallocate,
+        ids = ids
+    })
+end
+
+--- @brief
+function rt.MusicManager:get_is_done()
+    return #self._preallocate_routines == 0
 end
 
 rt.MusicManager = meta.as_singleton(rt.MusicManager)

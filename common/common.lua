@@ -485,11 +485,8 @@ local function _serialize_inner(buffer, object, n_indent_tabs, seen, comment_out
 
                     if k_unserializable or v_unserializable or k_cyclic or v_cyclic then
                         if comment_out then
-                            local reason = "unserializable"
-                            if k_cyclic or v_cyclic then reason = "cyclic reference" end
-
                             _serialize_insert(buffer, _serialize_get_indent(n_indent_tabs),
-                                "--[[ [\"", _safe_comment_str(key), "\"] = ", _safe_comment_str(value), " (", reason, ") ]],\n")
+                                "--[[ [\"", _safe_comment_str(key), "\"] = ", _safe_comment_str(value), " ]],\n")
                         end
                     else
                         _serialize_insert(buffer, _serialize_get_indent(n_indent_tabs), "[")

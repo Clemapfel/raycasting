@@ -46,7 +46,7 @@ local function _import_audio(sound_path)
     local bit_depth = data:getBitDepth()
 
     if sample_count == 0 then
-        return true
+        return nil
     end
 
     local is_mono = channel_count == 1
@@ -83,6 +83,7 @@ local function _import_audio(sound_path)
 
         if bit_depth == 8 then -- uint8_t
             enveloped_sample = math.floor(((enveloped_sample + 1) / 2) * 2^8) / 2^8
+            enveloped_sample = math.mix(-1, 1, enveloped_sample)
         elseif bit_depth == 16 then -- int16_t
             enveloped_sample = math.round(enveloped_sample * 2^16) / 2^16
         end

@@ -137,7 +137,6 @@ function mn.Scale:move_right()
         self._value = self._value + self._step
         self:_quantize_value()
         self:_emit_value_changed()
-        rt.SoundManager:play(rt.SoundIDs.menu.scale.tick)
         self:reformat()
         return true
     else
@@ -156,7 +155,6 @@ function mn.Scale:move_left()
         self._value = self._value - self._step
         self:_quantize_value()
         self:_emit_value_changed()
-        rt.SoundManager:play(rt.SoundIDs.menu.scale.tick)
         self:reformat()
         return true
     else

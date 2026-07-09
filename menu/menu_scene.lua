@@ -87,8 +87,6 @@ function mn.MenuScene:instantiate(state)
     self._shader_fraction = 0
     self._background = mn.MenuSceneBackground(self)
 
-    self._active_sounds = {}
-
     do -- title screen
         local translation = rt.Translation.menu_scene.title_screen
         local title_screen = {}
@@ -177,7 +175,6 @@ function mn.MenuScene:instantiate(state)
             if which == rt.InputAction.CONFIRM then
                 local item = title_screen.menu_items[title_screen.selected_item_i]
                 item.activate()
-                rt.SoundManager:play(rt.SoundIDs.menu_scene.title_screen.confirm)
             elseif which == rt.InputAction.UP then
                 if title_screen.selected_item_i > 1 then
                     offset = -1
@@ -189,7 +186,6 @@ function mn.MenuScene:instantiate(state)
             end
 
             if offset ~= nil then
-                rt.SoundManager:play(rt.SoundIDs.menu_scene.title_screen.selection)
                 title_screen.selected_item_i = title_screen.selected_item_i + offset
                 while title_screen.selected_item_i == title_screen.skip_selected_item_i
                     and title_screen.selected_item_i >= 1
@@ -281,14 +277,6 @@ function mn.MenuScene:instantiate(state)
             rt.ControlIndicatorButton.BACK, translation.control_indicator_back,
             rt.ControlIndicatorButton.UP_DOWN, translation.control_indicator_select
         )
-
-        stage_select.debris_emitter:signal_connect("collision", function(_, x, y)
-            local id = rt.SoundIDs.menu_scene.stage_select.debris_collision
-            rt.SoundManager:play(id, {
-                position_x = x,
-                position_y = y
-            })
-        end)
     end
 end
 
@@ -382,7 +370,6 @@ function mn.MenuScene:size_allocate(x, y, width, height)
                 body:signal_connect("collision_start", function(self_body, other_body, normal_x, normal_y)
                     local current_vx, current_vy = self._player_velocity_x, self._player_velocity_y
                     self._player_velocity_x, self._player_velocity_y = math.reflect(current_vx, current_vy, normal_x, normal_y)
-                    rt.SoundManager:play(rt.SoundIDs.menu_scene.title_screen.player_reflected)
                 end)
                 body:set_is_sensor(true)
                 body:signal_set_is_blocked("collision_start", true)
@@ -510,10 +497,6 @@ function mn.MenuScene:exit()
     self._title_screen.input:deactivate()
     self._stage_select.input:deactivate()
 
-    for sound_id, handler_id in pairs(self._active_sounds) do
-        rt.SoundManager:stop(sound_id, handler_id)
-    end
-
     if rt.GameState:get_is_bloom_enabled() then
         rt.SceneManager:get_bloom():reset()
     end
@@ -534,43 +517,6 @@ function mn.MenuScene:_set_state(next)
     if should_shake then
         self._camera:set_shake_intensity_in_pixels(1)
         self._camera:set_shake_frequency(0) -- modified in update
-    end
-
-    do -- sound effects
-        local neon_buzz_id = rt.SoundIDs.menu_scene.title_screen.neon_buzz
-        if self._active_sounds[neon_buzz_id] == nil then -- always play, position handles muting
-            self._active_sounds[neon_buzz_id] = rt.SoundManager:play(neon_buzz_id, {
-                position_x = 0,
-                position_y = 0,
-                should_loop = true
-            })
-        end
-
-        local wind_rush_id = rt.SoundIDs.menu_scene.stage_select.wind_rush
-        if self._active_sounds[wind_rush_id] == nil then
-            self._active_sounds[wind_rush_id] = rt.SoundManager:play(wind_rush_id, {
-                should_loop = true
-            })
-        end
-
-        if next == mn.MenuSceneState.TITLE_SCREEN then
-            rt.SoundManager:set_volume(wind_rush_id, self._active_sounds[wind_rush_id], 0)
-        else
-            rt.SoundManager:set_volume(wind_rush_id, self._active_sounds[wind_rush_id], 1)
-        end
-
-        local debris_continuous_id = rt.SoundIDs.menu_scene.stage_select.debris_continuous
-        if self._active_sounds[debris_continuous_id] == nil then
-            self._active_sounds[debris_continuous_id] = rt.SoundManager:play(debris_continuous_id, {
-                should_loop = true
-            })
-        end
-
-        if next == mn.MenuSceneState.TITLE_SCREEN then
-            rt.SoundManager:set_volume(debris_continuous_id, self._active_sounds[debris_continuous_id], 0)
-        else
-            rt.SoundManager:set_volume(debris_continuous_id, self._active_sounds[debris_continuous_id], 1)
-        end
     end
 
     if next == mn.MenuSceneState.TITLE_SCREEN then
@@ -636,8 +582,6 @@ function mn.MenuScene:update(delta)
             end)
         end
     end
-
-    rt.SoundManager:set_player_position(self._camera:get_position())
 
     if self._input_blocked then self._input_blocked = false end
     -- keep input subscribers from firing on the same frame they are activated

@@ -8,6 +8,12 @@ require "common.sound_manager"
 require "common.input_manager"
 require "common.routine"
 
+rt.SoundManager:preallocate(
+    "overworld.dialog_box.untick",
+    "overworld.dialog_box.confirm"
+)
+
+dbg(rt.SoundManager:get_is_done())
 
 --[[
 -- condition

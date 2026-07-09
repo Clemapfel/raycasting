@@ -142,6 +142,15 @@ function rt.SceneManager:preallocate(scene_type, ...)
 end
 
 --- @brief
+function rt.SceneManager:_push_to_stack()
+    table.insert(self._scene_stack, {
+        type = self._current_scene_type,
+        varargs = self._current_scene_varargs,
+        instance = self._current_scene
+    })
+end
+
+--- @brief
 function rt.SceneManager:_set_scene(add_to_stack, scene_type, ...)
     local use_fade = self._should_use_fade
     self:preallocate(scene_type, ...)
@@ -149,11 +158,13 @@ function rt.SceneManager:_set_scene(add_to_stack, scene_type, ...)
     local varargs = { ... }
     local on_scene_changed = function()
         local scene = self._scene_type_to_scene[scene_type]
-        if add_to_stack == true and self._current_scene ~= nil then
-            table.insert(self._scene_stack, 1, {
-                self._current_scene_type,
-                table.unpack(self._current_scene_varargs)
-            })
+
+        if add_to_stack == false then
+            while #self._scene_stack > 0 do
+                table.remove(self._scene_stack)
+            end
+        elseif self._current_scene ~= nil then
+            self:_push_to_stack()
         end
 
         local previous_scene = self._current_scene
@@ -166,16 +177,18 @@ function rt.SceneManager:_set_scene(add_to_stack, scene_type, ...)
             previous_scene:exit()
             previous_scene:signal_emit("exit")
 
-            if rt.GameState:get_is_bloom_enabled() then
-                local bloom = self:get_bloom()
-                bloom:bind()
-                love.graphics.clear(0, 0, 0, 0)
-                bloom:unbind()
+            if self:get_bloom() ~= nil then
+                self:get_bloom():reset()
+            end
+
+            if self:get_light_map() ~= nil then
+                self:get_light_map():reset()
             end
         end
 
+        rt.InputManager:flush()
         self:_reformat_scene(self._current_scene)
-        self._schedule_enter = true -- delay enter until next frame to avoid same-frame inputs
+        self._schedule_enter = true
     end
 
     if self._current_scene == nil or use_fade == false then -- don't fade at start of game
@@ -248,6 +261,7 @@ function rt.SceneManager:update(delta)
             self._schedule_enter = false
             self._current_scene:enter(table.unpack(self._current_scene_varargs))
             self._current_scene:signal_emit("enter")
+            self:_push_to_stack() -- after enter, before everything else
             self._current_scene:draw() -- to prevent black frame
         end
         self._current_scene:update(delta)
@@ -654,9 +668,9 @@ function rt.SceneManager:get_cursor_type()
 end
 
 --- @brief check whether scene is on scene stack
-function rt.SceneManager:get_scene_is_active(scene)
+function rt.SceneManager:scene_get_is_active(scene)
     for other in values(self._scene_stack) do
-        if other == scene then
+        if other.instance == scene then
             return true
         end
     end

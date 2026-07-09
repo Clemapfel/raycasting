@@ -612,9 +612,9 @@ end
 
 --- @brief
 function ow.OverworldScene:update(delta)
-    if self._stage ~= nil
-        and self._stage:get_is_initialized() ~= true
-    then
+    if self._stage == nil then return end
+
+    if self._stage:get_is_initialized() ~= true then
         -- wait for stage loading to finish
         self._title_card:update(delta)
         self._fade:update(delta)
@@ -865,7 +865,7 @@ end
 
 --- @brief
 function ow.OverworldScene:get_debug_information()
-    if self._hide_debug_information == true then return "" end
+    if self._hide_debug_information == true or self._stage == nil then return "" end
 
     local collected = {}
     for i = 1, self._stage:get_n_coins() do

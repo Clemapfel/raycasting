@@ -771,10 +771,8 @@ function mn.SettingsScene:instantiate()
             handle_right_pressed()
         elseif which == rt.InputAction.RESET then
             local item = self._list:get_selected_item()
-            rt.SoundManager:play(rt.SoundIDs.settings_scene.reset)
             item:signal_emit("reset")
         elseif which == rt.InputAction.BACK then
-            rt.SoundManager:play(rt.SoundIDs.settings_scene.save)
             rt.SceneManager:pop()
         elseif which == rt.InputAction.SPECIAL then
             self._background_only = true
