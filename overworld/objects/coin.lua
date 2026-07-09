@@ -1,4 +1,3 @@
-require "common.sound_manager"
 require "common.timed_animation"
 require "overworld.coin_particle"
 require "overworld.movable_object"
