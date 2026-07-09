@@ -15,13 +15,6 @@ rt.settings.sound_manager = {
     source_stop_decay_duration = 20 / 60, -- seconds
 
     throw_id_error_only_once = false,
-
-    -- distance modeling
-    z_offset = -1,
-    distance_model = "inverse",
-    rolloff = 2,
-    scale = 1 / 2000, -- panning, lower is less panning
-    distance_scale = 1 / 100 -- attenuation, lower is less attenuation
 }
 
 --- @class rt.SoundManager
@@ -41,17 +34,17 @@ function rt.SoundManager:instantiate()
     -- positional audio
     self._listener_x = 0
     self._listener_y = 0
-    self._velocity_x = 0
-    self._velocity_y = 0
 
-    self._position_motion = rt.SmoothedMotion3D(0, 0, 0)
     love.audio.setPosition(0, 0, 0)
     love.audio.setVelocity(0, 0, 0)
-    love.audio.setDistanceModel(_settings.distance_model)
+    love.audio.setDistanceModel("inverse") -- non-clamped: attenuation can reach 0 for far-away sources
     love.audio.setOrientation(
-        0, 0, 1, -- forward
-        0, 1, 0 -- up
-    )
+        0, 0, 1,
+        0, -1, 0
+    ) -- automatically flips x and y to aligned with y-down, x-left coordinate system
+
+    self._reference_distance = 1500 -- in px, adjust to increase attenuation
+    self._z_height = -1500 -- in px, adjust to modify singularity in panning if source is close to listener
 
     -- volume equalization
     self._volume = rt.GameState:get_sound_effect_level()
@@ -109,12 +102,12 @@ function rt.SoundManager:instantiate()
 
                     leaf.play = function(self, ...)
                         rt.assert(self == leaf, "In rt.SoundManager." .. id .. ".play: play called without instance, use `bar.foo:play()` instead of `bar.foo.play()` ")
-                        rt.SoundManager:play(id, ...)
+                        return rt.SoundManager:play(id, ...)
                     end
 
                     leaf.stop = function(self, ...)
                         rt.assert(self == leaf, "In rt.SoundManager." .. id .. ".stop: play called without instance, use `bar.foo:stop()` instead of `bar.foo.stop()` ")
-                        rt.SoundManager:stop(id, ...)
+                        return rt.SoundManager:stop(id, ...)
                     end
 
                     leaf.id = id
@@ -312,26 +305,17 @@ function rt.SoundManager:deallocate()
     end
 end
 
--- game xy to OpenAL xyz
-local _map_coordinates = function(x, y)
-    local dist = math.magnitude(x, y)
-    local scale = rt.settings.sound_manager.scale
-    x = x * scale
-    y = y * scale
-    return x, y, dist * rt.settings.sound_manager.distance_scale
+--- @brief
+function rt.SoundManager:_map_coordinates(x, y)
+    -- no mapping needed, face/up transform and reference distance automatically scale and flip coords
+    return x, y, 0
 end
 
 --- @brief
 function rt.SoundManager:set_player_position(position_x, position_y)
     self._listener_x, self._listener_y = position_x, position_y
-    local x, y, z = _map_coordinates(self._listener_x, self._listener_y)
-    self._position_motion:set_target_position(x, y, z)
-end
-
---- @brief
-function rt.SoundManager:set_player_velocity(velocity_x, velocity_y)
-    self._velocity_x, self._velocity_y = velocity_x, velocity_y
-    love.audio.setVelocity(_map_coordinates(velocity_x, velocity_y))
+    local x, y, z = self:_map_coordinates(self._listener_x, self._listener_y)
+    love.audio.setPosition(x, y, z + self._z_height)
 end
 
 local _config_valid_keys = {} -- Set<String, Boolean>
@@ -343,6 +327,20 @@ for key in range(
     "should_loop"
 ) do
     _config_valid_keys[key] = true
+end
+
+--- @brief
+function rt.SoundManager:_set_source_position(source, position_x, position_y)
+    if position_x ~= nil and position_y ~= nil then
+        -- static position in world
+        local x, y, z = self:_map_coordinates(position_x, position_y)
+        source:setPosition(x, y, z)
+        source:setRelative(false)
+    else
+        -- always 0 distance away from player
+        source:setPosition(0, 0, 0)
+        source:setRelative(true)
+    end
 end
 
 --- @brief
@@ -398,20 +396,14 @@ function rt.SoundManager:play(id, config)
     entry.handler_id_to_pitch_motion[config.handler_id] = nil
     entry.handler_id_to_effects[config.handler_id] = {}
 
-    if position_specified then
-        -- static position in world
-        local x, y, z = _map_coordinates(config.position_x, config.position_y)
-        source:setPosition(x, y, z + rt.settings.sound_manager.z_offset)
-        source:setRelative(false)
-    else
-        -- always 0 distance away from player
-        source:setPosition(0, 0, 0)
-        source:setRelative(true)
-    end
+    self:_set_source_position(source, config.position_x, config.position_y)
 
     source:setPitch(config.pitch)
-    source:setRolloff(rt.settings.sound_manager.rolloff)
-    source:setAttenuationDistances(1, math.huge)
+    source:setRolloff(1)
+    source:setAttenuationDistances(
+        self._reference_distance,
+        self._reference_distance
+    )
     source:setVelocity(0, 0, 0)
     source:setVolume(entry.equalizer_volume * self._volume)
     source:setLooping(config.should_loop)
@@ -465,7 +457,8 @@ function rt.SoundManager:set_pitch(id, handler_id, pitch, use_smoothing)
     if entry == nil then return end
 
     if entry.handler_id_to_active_sources[handler_id] == nil then
-        rt.warning("In rt.SoundManager.set_pitch: sound `", id, "` has no active source with handler id `", handler_id, "`")
+        rt.critical("In rt.SoundManager.set_pitch: sound `", id, "` has no active source with handler id `", handler_id, "`")
+        return
     else
         local motion =  entry.handler_id_to_pitch_motion[handler_id]
         if motion == nil then
@@ -492,7 +485,10 @@ function rt.SoundManager:set_filter(id, handler_id, t)
     t = math.clamp(t, 0, 1)
 
     local source = entry.handler_id_to_active_sources[handler_id]
-    if source == nil then return end
+    if source == nil then
+        rt.critical("In rt.SoundManager.set_pitch: sound `", id, "` has no active source with handler id `", handler_id, "`")
+        return
+    end
 
     if _reference_filter == nil then
         _reference_filter = "reference_bandpass"
@@ -512,6 +508,22 @@ function rt.SoundManager:set_filter(id, handler_id, t)
         lowgain = t,
         highgain = 1 - t
     })
+end
+
+--- @brief
+function rt.SoundManager:set_position(id, handler_id, position_x, position_y)
+    meta.assert(handler_id, mt.Number, position_x, mt.Optional(mt.Number), position_y,mt.Optional(mt.Number))
+
+    local entry = self:_get_entry(id, "set_filter")
+    if entry == nil then return end
+
+    local source = entry.handler_id_to_active_sources[handler_id]
+    if source == nil then
+        rt.critical("In rt.SoundManager.set_pitch: sound `", id, "` has no active source with handler id `", handler_id, "`")
+        return
+    end
+
+    self:_set_source_position(source, position_x, position_y)
 end
 
 --- @brief
@@ -626,8 +638,6 @@ function rt.SoundManager:update(delta)
             end
         end
     end
-
-    love.audio.setPosition(self._position_motion:update(delta))
 
     _elapsed = _elapsed + delta
     while _elapsed >= _step do

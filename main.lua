@@ -8,13 +8,6 @@ require "common.sound_manager"
 require "common.input_manager"
 require "common.routine"
 
-rt.SoundManager:preallocate(
-    "overworld.dialog_box.untick",
-    "overworld.dialog_box.confirm"
-)
-
-dbg(rt.SoundManager:get_is_done())
-
 --[[
 -- condition
 local is_hung = false
@@ -69,6 +62,8 @@ outer:restart()
 outer:restart()
 ]]
 
+local sound_handler
+
 love.load = function(args)
     local w, h = love.graphics.getDimensions()
 
@@ -107,7 +102,7 @@ love.load = function(args)
     end
 
     require "overworld.overworld_scene"
-    rt.SceneManager:push(ow.OverworldScene, "air_dash_node_tutorial", ow.StageEntryMode.INSTANT)
+    --rt.SceneManager:push(ow.OverworldScene, "air_dash_node_tutorial", ow.StageEntryMode.INSTANT)
 
     require "menu.keybinding_scene"
     --rt.SceneManager:push(mn.KeybindingScene)
@@ -117,12 +112,25 @@ love.load = function(args)
 
     require "menu.menu_scene"
     --rt.SceneManager:push(mn.MenuScene, false)
+
+    local center_x, center_y = 0.5 * love.graphics.getWidth(), 0.5 * love.graphics.getHeight()
+    rt.SoundManager:set_player_position(center_x, center_y)
+    sound_handler = rt.SoundManager:play("debug.debug", {
+        should_loop = true,
+        position_x = center_x,
+        position_y = center_y
+    })
+    rt.SceneManager:set_is_cursor_visible(true)
 end
 
 love.update = function(delta)
     if rt.SceneManager ~= nil then
         rt.SceneManager:update(delta)
     end
+
+    rt.SoundManager:set_position("debug.debug", sound_handler,
+        love.mouse.getPosition()
+    )
 end
 
 love.draw = function()
@@ -131,6 +139,9 @@ love.draw = function()
     if rt.SceneManager ~= nil then
         rt.SceneManager:draw()
     end
+
+    love.graphics.setColor(0.5, 0.5, 0.5, 0.5)
+    love.graphics.circle("fill", love.graphics.getWidth() * 0.5, love.graphics.getHeight() * 0.5, rt.SoundManager._reference_distance / 2)
 end
 
 love.resize = function(width, height)
