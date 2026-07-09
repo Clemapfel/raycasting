@@ -1,5 +1,7 @@
-local log = {}
-log._message_hook = function(message)
+if rt == nil then rt = {} end
+if rt.Log == nil then rt.Log = {} end
+
+rt.Log._message_hook = function(message)
     -- noop
     return true
 end
@@ -72,7 +74,7 @@ local _to_tag = {
 }
 
 --- @brief [internal]
-log._printstyled = function(message, config)
+rt.Log._printstyled = function(message, config)
     if config == nil then
         return message
     end
@@ -109,7 +111,7 @@ local _to_string = function(x)
 end
 
 local _should_print_current_line = true
-function log.set_print_current_line(b)
+function rt.Log.set_print_current_line(b)
     _should_print_current_line = b
 end
 
@@ -124,18 +126,18 @@ end
 
 local _append_frame_index = function(to_print)
     if rt ~= nil and rt.SceneManager ~= nil then
-        table.insert(to_print, log._printstyled("[" .. (rt.SceneManager:get_frame_index() or -1) .. "]", _frame_index_format))
+        table.insert(to_print, rt.Log._printstyled("[" .. (rt.SceneManager:get_frame_index() or -1) .. "]", _frame_index_format))
     end
 end
 
 
 --- @brief
-function log.message(...)
+function rt.Log.message(...)
     local to_print = {}
 
-    table.insert(to_print, log._printstyled(_prefix_label, _prefix_format))
+    table.insert(to_print, rt.Log._printstyled(_prefix_label, _prefix_format))
     _append_frame_index(to_print)
-    table.insert(to_print, log._printstyled(_message_prefix, _message_format))
+    table.insert(to_print, rt.Log._printstyled(_message_prefix, _message_format))
     _append_current_line(to_print)
 
     for i = 1, select("#", ...) do
@@ -146,8 +148,8 @@ function log.message(...)
 
     local message = table.concat(to_print)
     local should_print = true
-    if log._message_hook ~= nil then
-        should_print = log._message_hook(message)
+    if rt.Log._message_hook ~= nil then
+        should_print = rt.Log._message_hook(message)
     end
 
     if should_print == true then
@@ -157,12 +159,12 @@ function log.message(...)
 end
 
 --- @brief
-function log.warning(...)
+function rt.Log.warning(...)
     local to_print = {}
 
-    table.insert(to_print, log._printstyled(_prefix_label, _prefix_format))
+    table.insert(to_print, rt.Log._printstyled(_prefix_label, _prefix_format))
     _append_frame_index(to_print)
-    table.insert(to_print, log._printstyled(_warning_prefix, _warning_format))
+    table.insert(to_print, rt.Log._printstyled(_warning_prefix, _warning_format))
     _append_current_line(to_print)
 
     for i = 1, select("#", ...) do
@@ -172,8 +174,8 @@ function log.warning(...)
 
     local message = table.concat(to_print)
     local should_print = true
-    if log._message_hook ~= nil then
-        should_print = log._message_hook(message)
+    if rt.Log._message_hook ~= nil then
+        should_print = rt.Log._message_hook(message)
     end
 
     if should_print == true then
@@ -183,12 +185,12 @@ function log.warning(...)
 end
 
 --- @brief
-function log.critical(...)
+function rt.Log.critical(...)
     local to_print = {}
 
-    table.insert(to_print, log._printstyled(_prefix_label, _prefix_format))
+    table.insert(to_print, rt.Log._printstyled(_prefix_label, _prefix_format))
     _append_frame_index(to_print)
-    table.insert(to_print, log._printstyled(_critical_prefix, _critical_format))
+    table.insert(to_print, rt.Log._printstyled(_critical_prefix, _critical_format))
     _append_current_line(to_print)
 
     for i = 1, select("#", ...) do
@@ -198,8 +200,8 @@ function log.critical(...)
 
     local message = table.concat(to_print)
     local should_print = true
-    if log._message_hook ~= nil then
-        should_print = log._message_hook(message)
+    if rt.Log._message_hook ~= nil then
+        should_print = rt.Log._message_hook(message)
     end
 
     if should_print == true then
@@ -209,12 +211,12 @@ function log.critical(...)
 end
 
 --- @brief
-function log.error(...)
+function rt.Log.error(...)
     local to_print = {}
 
-    table.insert(to_print, log._printstyled(_prefix_label, _prefix_format))
+    table.insert(to_print, rt.Log._printstyled(_prefix_label, _prefix_format))
     _append_frame_index(to_print)
-    table.insert(to_print, log._printstyled(_fatal_prefix, _fatal_format)) -- sic, error does not support tty pretty printing
+    table.insert(to_print, rt.Log._printstyled(_fatal_prefix, _fatal_format)) -- sic, error does not support tty pretty printing
     table.insert(to_print, " ")
 
     for i = 1, select("#", ...) do
@@ -224,8 +226,8 @@ function log.error(...)
 
     local message = table.concat(to_print)
     local should_print = true
-    if log._message_hook ~= nil then
-        should_print = log._message_hook(message)
+    if rt.Log._message_hook ~= nil then
+        should_print = rt.Log._message_hook(message)
     end
 
     if should_print == true then
@@ -234,11 +236,11 @@ function log.error(...)
 end
 
 --- @brief
-function log.fatal(...)
+function rt.Log.fatal(...)
     local to_print = {}
 
-    table.insert(to_print, log._printstyled(_prefix_label, _prefix_format))
-    table.insert(to_print, log._printstyled(_error_prefix, _fatal_format))
+    table.insert(to_print, rt.Log._printstyled(_prefix_label, _prefix_format))
+    table.insert(to_print, rt.Log._printstyled(_error_prefix, _fatal_format))
     table.insert(to_print, " ")
 
     for i = 1, select("#", ...) do
@@ -248,8 +250,8 @@ function log.fatal(...)
 
     local message = table.concat(to_print)
     local should_print = true
-    if log._message_hook ~= nil then
-        should_print = log._message_hook(message)
+    if rt.Log._message_hook ~= nil then
+        should_print = rt.Log._message_hook(message)
     end
 
     if should_print == true then
@@ -258,12 +260,12 @@ function log.fatal(...)
 end
 
 --- @brief
-function log.assert(condition, ...)
+function rt.Log.assert(condition, ...)
     if condition ~= true then
         local to_print = {}
 
-        table.insert(to_print, log._printstyled(_prefix_label, _prefix_format))
-        table.insert(to_print, log._printstyled(_error_prefix, nil)) -- sic, error does not support tty pretty printing
+        table.insert(to_print, rt.Log._printstyled(_prefix_label, _prefix_format))
+        table.insert(to_print, rt.Log._printstyled(_error_prefix, nil)) -- sic, error does not support tty pretty printing
         table.insert(to_print, " ")
 
         for i = 1, select("#", ...) do
@@ -273,8 +275,8 @@ function log.assert(condition, ...)
 
         local message = table.concat(to_print)
         local should_print = true
-        if log._message_hook ~= nil then
-            should_print = log._message_hook(message)
+        if rt.Log._message_hook ~= nil then
+            should_print = rt.Log._message_hook(message)
         end
 
         if should_print == true then
@@ -284,23 +286,22 @@ function log.assert(condition, ...)
 end
 
 --- @brief
-function log.setMessageHook(hook)
+function rt.Log.set_message_hook(hook)
     if hook ~= nil then
-        _G.assert(type(hook) == "function", "In log.setMessageHook: expected `function`, got `" .. type(hook) .. "`")
+        _G.assert(type(hook) == "function", "In rt.Log.setMessageHook: expected `function`, got `" .. type(hook) .. "`")
     end
-    log._message_hook = hook
+    rt.Log._message_hook = hook
 end
 
 if rt == nil then rt = {} end
-rt.format_styled = log._printstyled
-rt.log = log.message
-rt.warning = log.warning
-rt.critical = log.critical
-rt.error = log.error
-rt.fatal = log.fatal
-rt.assert = log.assert
+rt.log = rt.Log.message
+rt.warning = rt.Log.warning
+rt.critical = rt.Log.critical
+rt.error = rt.Log.error
+rt.fatal = rt.Log.fatal
+rt.assert = rt.Log.assert
 
 io.stdout:setvbuf("no")
 
-return log
+return rt.Log
 
