@@ -1,17 +1,16 @@
-require "common.sound_source"
+require "table.clear"
+require "love.audio"
+
+require "include"
 require "common.sound_effect"
 require "common.filesystem"
-require "table.clear"
-require "common.sound_ids"
-require "common.smoothed_motion_3d"
-require "common.thread"
+require "common.sound_effect"
 
 rt.settings.sound_manager = {
     assets_directory = "assets/sounds",
 
     default_equalization_alpha = 0.1,
     source_inactive_lifetime_threshold = 30, -- seconds
-    enable_volume_equalization = true,
     source_stop_decay_duration = 20 / 60, -- seconds
 
     throw_id_error_only_once = false,
@@ -23,10 +22,20 @@ rt.SoundManager = meta.class("SoundManager")
 
 local _settings = rt.settings.sound_manager
 
+local MessageType = {}
+for id in range(
+    "SHUTDOWN",
+    "SHUTDOWN_RESPONSE",
+    "DEBUG"
+) do
+    MessageType[id] = id
+end
+
 --- @brief
 function rt.SoundManager:instantiate()
     self._id_to_entry = {}
     self._current_handler_id = 1
+    self._handler_id_to_sound_id = {}
 
     self._id_to_n_active_sources = {} -- Table<String, Number>
     self._active_entries = {} -- Set<Entry>
@@ -47,7 +56,7 @@ function rt.SoundManager:instantiate()
     self._z_height = -1500 -- in px, adjust to modify singularity in panning if source is close to listener
 
     -- volume equalization
-    self._volume = rt.GameState:get_sound_effect_level()
+    self._volume = 1.0
     self._equalizer = {
         average_root_mean_square = nil,
         target_root_mean_square = nil,
@@ -152,13 +161,13 @@ function rt.SoundManager:instantiate()
         -- make leaves immutable
         for leaf in values(leaves) do
             setmetatable(leaf, {
-            __index = function(self, key)
-                rt.error("In rt.SoundManager.", self.id, ": key `", key, "` does not exist")
-            end,
+                __index = function(self, key)
+                    rt.error("In rt.SoundManager.", self.id, ": key `", key, "` does not exist")
+                end,
 
-            __newindex = function(self, key, new)
-                rt.fatal("In rt.SoundManager.", self.id, ": trying to assign key `", key, "`, but this object is immutable")
-            end
+                __newindex = function(self, key, new)
+                    rt.fatal("In rt.SoundManager.", self.id, ": trying to assign key `", key, "`, but this object is immutable")
+                end
             })
         end
 
@@ -177,7 +186,6 @@ function rt.SoundManager:instantiate()
                 handler_id_to_active_sources = {}, -- Table<Number, love.Source>
                 handler_id_to_volume_motion = {}, -- Table<Number, rt.SmoothedMotion1D>
                 handler_id_to_pitch_motion = {}, -- Table<Number, rt.SmoothedMotion1D>
-                handler_id_to_effects = {}, -- Table<Number, Table<rt.SoundEffect>>
                 inactive_source_to_timestamp = {}, -- Table<love.Source, Number>
                 was_processed = false,
                 equalizer_entry_rms = 0,
@@ -185,9 +193,129 @@ function rt.SoundManager:instantiate()
             }
         end
     end
+
+    --[[
+    self._worker = rt.Thread("common/sound_manager_worker.lua")
+    self._main_to_worker = rt.Channel()
+    self._worker_to_main = rt.Channel()
+
+    self._worker:signal_connect("shutdown", function()
+        self._main_to_worker:push({
+            type = MessageType.SHUTDOWN
+        })
+    end)
+
+    self._main_to_worker:push({
+        type = MessageType.DEBUG,
+        source = love.audio.newSource(self.debug.debug.path, "static")
+    })
+
+    if not rt.ThreadManager:get_is_shutdown_active() then
+        self._worker:start(
+            self._main_to_worker:get_native(),
+            self._worker_to_main:get_native(),
+            MessageType
+        )
+    end
+    ]]
 end
 
-local _import_audio = require "common.sound_manager_import_audio"
+--- @brief
+function rt.SoundManager:_import_audio(sound_path)
+    local _attack = 5 / 60 -- seconds
+    local _decay = 5 / 60 -- seconds
+
+    local _envelope = function(sample_i, n_samples, sample_rate)
+        -- convert sample index to time in seconds
+        local t = sample_i / sample_rate
+        local total_duration = n_samples / sample_rate
+
+        -- calculate phase durations
+        local attack_samples = _attack * sample_rate
+        local decay_samples = _decay * sample_rate
+
+        -- attack
+        if sample_i <= attack_samples then
+            local normalized_pos = sample_i / attack_samples
+            return 0.5 * (1 - math.cos(math.pi * normalized_pos))
+        end
+
+        -- decay
+        local decay_start = n_samples - decay_samples
+        if sample_i >= decay_start then
+            local normalized_pos = (sample_i - decay_start) / decay_samples
+            return 0.5 * (1 + math.cos(math.pi * normalized_pos))
+        end
+
+        -- sustain
+        return 1.0
+    end
+
+    local success, data_or_error = pcall(love.sound.newSoundData, sound_path)
+    if not success then
+        rt.critical("In rt.SoundManager.play: when trying to play sound at `", sound_path,  "`: ",  data_or_error)
+        return nil
+    end
+
+    local data = data_or_error
+
+    local sample_count = data:getSampleCount()
+    local sample_rate = data:getSampleRate()
+    local channel_count = data:getChannelCount()
+    local bit_depth = data:getBitDepth()
+
+    if sample_count == 0 then
+        return nil
+    end
+
+    local is_mono = channel_count == 1
+
+    local mono_sound_data
+    if not is_mono then
+        mono_sound_data = love.sound.newSoundData(
+            sample_count,
+            sample_rate,
+            bit_depth,
+            1
+        )
+    else
+        mono_sound_data = data
+    end
+
+    for i = 0, sample_count - 1 do
+        local sample
+
+        -- get sample, convert to mono if necessary
+        if not is_mono then
+            -- mean of all channels
+            local sample_sum = 0
+            for channel = 1, channel_count do
+                sample_sum = sample_sum + data:getSample(i, channel)
+            end
+            sample = sample_sum / channel_count
+        else
+            sample = data:getSample(i, 1)
+        end
+
+        -- apply envelope
+        local enveloped_sample = sample * _envelope(i, sample_count, sample_rate)
+
+        if bit_depth == 8 then -- uint8_t
+            enveloped_sample = math.floor(((enveloped_sample + 1) / 2) * 2^8) / 2^8
+            enveloped_sample = math.mix(-1, 1, enveloped_sample)
+        elseif bit_depth == 16 then -- int16_t
+            enveloped_sample = math.round(enveloped_sample * 2^16) / 2^16
+        end
+
+        mono_sound_data:setSample(i, 1, enveloped_sample)
+    end
+
+    if not is_mono then
+        data:release()
+    end
+
+    return mono_sound_data
+end
 
 --- @brief
 function rt.SoundManager:_process_entry(entry)
@@ -313,6 +441,8 @@ end
 
 --- @brief
 function rt.SoundManager:set_player_position(position_x, position_y)
+    meta.assert(position_x, mt.Number, position_y, mt.Number)
+
     self._listener_x, self._listener_y = position_x, position_y
     local x, y, z = self:_map_coordinates(self._listener_x, self._listener_y)
     love.audio.setPosition(x, y, z + self._z_height)
@@ -368,19 +498,20 @@ function rt.SoundManager:play(id, config)
     local entry = self:_get_entry(id, "play")
 
     config.handler_id = self._current_handler_id
+    self._handler_id_to_sound_id[config.handler_id] = id
     self._current_handler_id = self._current_handler_id + 1
 
     if entry == nil then return config.handler_id end
 
     if entry.sound_data == nil then
-        entry.sound_data = _import_audio(entry.sound_path)
+        entry.sound_data = self:_import_audio(entry.sound_path)
         if entry.sound_data == nil then return end
     end
 
     self:_process_entry(entry)
 
     -- update rms volume on play
-    entry.equalizer_volume = self._equalizer.average_root_mean_square / entry.equalizer_entry_rms
+    entry.equalizer_volume = self._equalizer.average_root_mean_square / math.max(0.01, entry.equalizer_entry_rms)
     entry.equalizer_volume = math.clamp(entry.equalizer_volume, 0.05, 3)
 
     -- check if inactive source available
@@ -394,7 +525,6 @@ function rt.SoundManager:play(id, config)
     entry.handler_id_to_active_sources[config.handler_id] = source
     entry.handler_id_to_volume_motion[config.handler_id] = nil
     entry.handler_id_to_pitch_motion[config.handler_id] = nil
-    entry.handler_id_to_effects[config.handler_id] = {}
 
     self:_set_source_position(source, config.position_x, config.position_y)
 
@@ -423,9 +553,35 @@ function rt.SoundManager:play(id, config)
 end
 
 --- @brief
-function rt.SoundManager:set_volume(id, handler_id, volume, use_smoothing)
+function rt.SoundManager:set_global_volume(value)
+    meta.assert(value, mt.Number)
+    self._volume = value
+
+    for entry in keys(self._active_entries) do
+        for handler_id, source in pairs(entry.handler_id_to_active_sources) do
+            if source ~= nil then
+                local motion_value = 1
+                do
+                    local motion = entry.handler_id_to_volume_motion[handler_id]
+                    if motion ~= nil then motion_value = motion:get_value() end
+                end
+
+                source:setVolume(motion_value * self._volume)
+            end
+        end
+    end
+end
+
+--- @brief
+function rt.SoundManager:set_volume(handler_id, volume, use_smoothing)
     if use_smoothing == nil then use_smoothing = true end
-    meta.assert(id, mt.String, handler_id, mt.Number, volume, mt.Number, use_smoothing, mt.Boolean)
+    meta.assert(handler_id, mt.Number, volume, mt.Number, use_smoothing, mt.Boolean)
+
+    local id = self._handler_id_to_sound_id[handler_id]
+    if id == nil then
+        rt.critical("In rt.SoundManager.set_volume: sound `", id, "` has no active source with handler id `", handler_id, "`")
+        return
+    end
 
     local entry = self:_get_entry(id, "set_volume")
     if entry == nil then return end
@@ -449,35 +605,46 @@ function rt.SoundManager:set_volume(id, handler_id, volume, use_smoothing)
 end
 
 --- @brief
-function rt.SoundManager:set_pitch(id, handler_id, pitch, use_smoothing)
+function rt.SoundManager:set_pitch(handler_id, pitch, use_smoothing)
     if use_smoothing == nil then use_smoothing = true end
-    meta.assert(id, mt.String, handler_id, mt.Number, pitch, mt.Number, use_smoothing, mt.Boolean)
+    meta.assert(handler_id, mt.Number, pitch, mt.Number, use_smoothing, mt.Boolean)
+
+    local id = self._handler_id_to_sound_id[handler_id]
+    if id == nil then
+        rt.critical("In rt.SoundManager.set_pitch: sound `", id, "` has no active source with handler id `", handler_id, "`")
+        return
+    end
 
     local entry = self:_get_entry(id, "set_pitch")
     if entry == nil then return end
 
     if entry.handler_id_to_active_sources[handler_id] == nil then
-        rt.critical("In rt.SoundManager.set_pitch: sound `", id, "` has no active source with handler id `", handler_id, "`")
         return
-    else
-        local motion =  entry.handler_id_to_pitch_motion[handler_id]
-        if motion == nil then
-            motion = rt.SmoothedMotion1D(1)
-            entry.handler_id_to_pitch_motion[handler_id] = motion
-        end
+    end
 
-        motion:set_target_value(pitch)
-        if use_smoothing == false then
-            motion:set_current_value(pitch)
-        end
+    local motion =  entry.handler_id_to_pitch_motion[handler_id]
+    if motion == nil then
+        motion = rt.SmoothedMotion1D(1)
+        entry.handler_id_to_pitch_motion[handler_id] = motion
+    end
+
+    motion:set_target_value(pitch)
+    if use_smoothing == false then
+        motion:set_current_value(pitch)
     end
 end
 
 local _reference_filter = nil
 
 --- @brief
-function rt.SoundManager:set_filter(id, handler_id, t)
-    meta.assert(id, mt.String, handler_id, mt.Number, t, mt.Number)
+function rt.SoundManager:set_filter(handler_id, t)
+    meta.assert(handler_id, mt.Number, t, mt.Number)
+
+    local id = self._handler_id_to_sound_id[handler_id]
+    if id == nil then
+        rt.critical("In rt.SoundManager.set_filter: sound `", id, "` has no active source with handler id `", handler_id, "`")
+        return
+    end
 
     local entry = self:_get_entry(id, "set_filter")
     if entry == nil then return end
@@ -485,10 +652,7 @@ function rt.SoundManager:set_filter(id, handler_id, t)
     t = math.clamp(t, 0, 1)
 
     local source = entry.handler_id_to_active_sources[handler_id]
-    if source == nil then
-        rt.critical("In rt.SoundManager.set_pitch: sound `", id, "` has no active source with handler id `", handler_id, "`")
-        return
-    end
+    if source == nil then return end
 
     if _reference_filter == nil then
         _reference_filter = "reference_bandpass"
@@ -511,24 +675,82 @@ function rt.SoundManager:set_filter(id, handler_id, t)
 end
 
 --- @brief
-function rt.SoundManager:set_position(id, handler_id, position_x, position_y)
-    meta.assert(handler_id, mt.Number, position_x, mt.Optional(mt.Number), position_y,mt.Optional(mt.Number))
+function rt.SoundManager:set_effect(handler_id, effect)
+    meta.assert(handler_id, mt.Number, effect, rt.SoundEffect)
+
+    local id = self._handler_id_to_sound_id[handler_id]
+    if id == nil then
+        rt.critical("In rt.SoundManager.set_effect: sound `", id, "` has no active source with handler id `", handler_id, "`")
+        return
+    end
 
     local entry = self:_get_entry(id, "set_filter")
     if entry == nil then return end
 
     local source = entry.handler_id_to_active_sources[handler_id]
-    if source == nil then
-        rt.critical("In rt.SoundManager.set_pitch: sound `", id, "` has no active source with handler id `", handler_id, "`")
+    if source == nil then return end
+
+    source:setEffect(effect:get_native(), true) -- enable
+end
+
+--- @brief
+function rt.SoundManager:remove_effect(handler_id, effect)
+    meta.assert(handler_id, mt.Number, effect, rt.SoundEffect)
+
+    local id = self._handler_id_to_sound_id[handler_id]
+    if id == nil then
+        rt.critical("In rt.SoundManager.remove_effect: sound `", id, "` has no active source with handler id `", handler_id, "`")
         return
     end
+
+    local entry = self:_get_entry(id, "set_filter")
+    if entry == nil then return end
+
+    local source = entry.handler_id_to_active_sources[handler_id]
+    if source == nil then return end
+
+    source:setEffect(effect:get_native(), false) -- disable
+end
+--- @brief
+function rt.SoundManager:get_handler_ids(sound_id)
+    local entry = self:_get_entry(sound_id, "get_handler_ids")
+    if entry == nil then return {} end
+
+    local result = {}
+    for handler_id in keys(entry.handler_id_to_active_sources) do
+        table.insert(result, handler_id)
+    end
+    return result
+end
+
+--- @brief
+function rt.SoundManager:set_position(handler_id, position_x, position_y)
+    meta.assert(handler_id, mt.Number, position_x, mt.Optional(mt.Number), position_y,mt.Optional(mt.Number))
+
+    local id = self._handler_id_to_sound_id[handler_id]
+    if id == nil then
+        rt.critical("In rt.SoundManager.set_position: sound `", id, "` has no active source with handler id `", handler_id, "`")
+        return
+    end
+
+    local entry = self:_get_entry(id, "set_filter")
+    if entry == nil then return end
+
+    local source = entry.handler_id_to_active_sources[handler_id]
+    if source == nil then return end
 
     self:_set_source_position(source, position_x, position_y)
 end
 
 --- @brief
-function rt.SoundManager:stop(id, handler_id, fade_out_duration)
-    meta.assert(id, mt.String, handler_id, mt.Optional(mt.Number))
+function rt.SoundManager:stop(handler_id, fade_out_duration)
+    meta.assert(handler_id, mt.Optional(mt.Number))
+
+    local id = self._handler_id_to_sound_id[handler_id]
+    if id == nil then
+        rt.critical("In rt.SoundManager.stop: sound `", id, "` has no active source with handler id `", handler_id, "`")
+        return
+    end
 
     if fade_out_duration == nil then fade_out_duration = rt.settings.sound_manager.source_stop_decay_duration end
 
@@ -575,6 +797,11 @@ function rt.SoundManager:list_active_handler_ids(sound_id)
     return out
 end
 
+--- @brief
+function rt.SoundManager:has_handler_id(handler_id)
+    return self._handler_id_to_sound_id[handler_id] ~= nil
+end
+
 -- sound manager is run at very high refresh rate for
 -- smooth fading, but deallocation only needs to
 -- check rarely, run it at 60 fps
@@ -590,7 +817,7 @@ function rt.SoundManager:update(delta)
             return rt.InterpolationFunctions.SINUSOID_EASE_OUT(1 - math.clamp(t, 0, 1))
         end
 
-        do -- pitch
+        do -- pitch & volume
             for entry in keys(self._active_entries) do
                 for handler_id, motion in pairs(entry.handler_id_to_pitch_motion) do
                     local source = entry.handler_id_to_active_sources[handler_id]
@@ -602,7 +829,7 @@ function rt.SoundManager:update(delta)
                 for handler_id, motion in pairs(entry.handler_id_to_volume_motion) do
                     local source = entry.handler_id_to_active_sources[handler_id]
                     if source ~= nil then
-                        source:setVolume(motion:update(delta))
+                        source:setVolume(motion:update(delta) * self._volume)
                     end
                 end
             end
@@ -619,9 +846,9 @@ function rt.SoundManager:update(delta)
                 if source ~= nil then
                     local motion = entry.handler_id_to_volume_motion[handler_id]
                     if motion == nil then
-                        source:setVolume(t)
+                        source:setVolume(t * self._volume)
                     else
-                        source:setVolume(t * motion:get_value())
+                        source:setVolume(t * motion:get_value() * self._volume)
                     end
                 end
 
@@ -665,7 +892,8 @@ function rt.SoundManager:update(delta)
                     entry.handler_id_to_active_sources[handler_id] = nil
                     entry.handler_id_to_volume_motion[handler_id] = nil
                     entry.handler_id_to_pitch_motion[handler_id] = nil
-                    entry.handler_id_to_effects[handler_id] = {}
+                    self._handler_id_to_sound_id[handler_id] = nil
+
                     entry.inactive_source_to_timestamp[source] = love.timer.getTime()
 
                     local current = self._id_to_n_active_sources[entry.id]
@@ -746,10 +974,10 @@ function rt.SoundManager:reset()
             entry.sound_data:release()
             entry.sound_data = nil
         end
+
         entry.handler_id_to_active_sources = {}
         entry.handler_id_to_volume_motion = {}
         entry.handler_id_to_pitch_motion = {}
-        entry.handler_id_to_effects = {}
         entry.inactive_source_to_timestamp = {}
         entry.was_processed = false
     end

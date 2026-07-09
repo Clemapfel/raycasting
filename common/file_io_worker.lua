@@ -42,7 +42,6 @@ local success, error_maybe = pcall(function()
             message = main_to_worker:demand()
         end
 
-        local message = main_to_worker:demand()
         if message.type == MessageType.WRITE then
             local success, error_maybe = pcall(
                 write_file,

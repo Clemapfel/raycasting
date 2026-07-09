@@ -113,6 +113,7 @@ love.load = function(args)
     require "menu.menu_scene"
     --rt.SceneManager:push(mn.MenuScene, false)
 
+
     local center_x, center_y = 0.5 * love.graphics.getWidth(), 0.5 * love.graphics.getHeight()
     rt.SoundManager:set_player_position(center_x, center_y)
     sound_handler = rt.SoundManager:play("debug.debug", {
@@ -121,6 +122,8 @@ love.load = function(args)
         position_y = center_y
     })
     rt.SceneManager:set_is_cursor_visible(true)
+
+    rt.SoundManager:set_effect(sound_handler, rt.ChorusSoundEffect())
 end
 
 love.update = function(delta)
@@ -128,7 +131,7 @@ love.update = function(delta)
         rt.SceneManager:update(delta)
     end
 
-    rt.SoundManager:set_position("debug.debug", sound_handler,
+    rt.SoundManager:set_position(sound_handler,
         love.mouse.getPosition()
     )
 end
@@ -139,9 +142,6 @@ love.draw = function()
     if rt.SceneManager ~= nil then
         rt.SceneManager:draw()
     end
-
-    love.graphics.setColor(0.5, 0.5, 0.5, 0.5)
-    love.graphics.circle("fill", love.graphics.getWidth() * 0.5, love.graphics.getHeight() * 0.5, rt.SoundManager._reference_distance / 2)
 end
 
 love.resize = function(width, height)

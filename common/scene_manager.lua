@@ -79,11 +79,6 @@ function rt.SceneManager:instantiate()
         _draw_start = love.timer.getTime(),
 
         _draw_interpolation_time = 0,
-
-        _sound_manager_use_fixed_timestep = true,
-        _sound_manager_fixed_fps = 240,
-        _sound_manager_accumulator = 0,
-
         _composition_overlay_visible = false,
     })
 
@@ -734,7 +729,6 @@ love.run = function()
         local skip_update = false
         if was_active == false and is_active == true then
             state._update_accumulator = 0
-            state._sound_manager_accumulator = 0
             skip_update = true
             -- skip on window gaining focus, since `delta` can be very large in that case
         end
@@ -772,17 +766,7 @@ love.run = function()
 
         -- ### SOUND ###
 
-        state._sound_manager_accumulator = state._sound_manager_accumulator + delta
-
-        if state._sound_manager_use_fixed_timestep then
-            local step = 1 / state._sound_manager_fixed_fps
-            while state._sound_manager_accumulator >= step do
-                rt.SoundManager:update(step)
-                state._sound_manager_accumulator = state._sound_manager_accumulator - step
-            end
-        else
-            rt.SoundManager:update(delta)
-        end
+        rt.SoundManager:update(delta)
 
         was_active = is_active
 
