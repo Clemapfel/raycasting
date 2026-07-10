@@ -1,8 +1,8 @@
-require "table.clear"
 require "love.audio"
+require "love.sound"
+require "love.timer"
 
 require "include"
-require "common.sound_effect"
 require "common.filesystem"
 require "common.sound_effect"
 require "common.smoothed_motion_1d"
@@ -20,8 +20,10 @@ rt.settings.sound_manager = {
 }
 
 --- @class rt.SoundManager
---- @signals sound_done (rt.SoundManager, SoundID : String, HandlerID : Number) -> nil
 rt.SoundManager = meta.class("SoundManager")
+meta.add_signals(rt.SoundManager,
+    "sound_done" -- (rt.SoundManager, sound_id, handler_id)
+)
 
 --- @brief
 function rt.SoundManager:instantiate()
@@ -853,7 +855,10 @@ function rt.SoundManager:update(delta)
                 end
 
                 if stop_entry.elapsed > stop_entry.duration then
-                    if source ~= nil then source:stop() end
+                    if source ~= nil then
+                        source:stop()
+                    end
+
                     table.insert(to_remove, i)
                 end
 
@@ -876,6 +881,7 @@ function rt.SoundManager:update(delta)
                 for handler_id, source in pairs(entry.handler_id_to_active_sources) do
                     if not source:isPlaying() then
                         -- reset
+                        self:signal_emit("sound_done", entry.id, handler_id)
                         source:stop()
                         source:setVolume(0)
                         source:setFilter(nil)
@@ -894,7 +900,6 @@ function rt.SoundManager:update(delta)
                     --self._handler_id_to_sound_id[handler_id] = nil
 
                     entry.inactive_source_to_timestamp[source] = love.timer.getTime()
-
                     local current = self._id_to_n_active_sources[entry.id]
                     self._id_to_n_active_sources[entry.id] = current - 1
                 end

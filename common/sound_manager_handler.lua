@@ -4,6 +4,9 @@ require "common.sound_effect"
 
 --- @class rt.SoundManagerHandler
 rt.SoundManagerHandler = meta.class("SoundManagerHandler")
+meta.add_signals(rt.SoundManagerHandler, -- same as rt.SoundManager
+    "sound_done" -- (rt.SoundManager, sound_id, handler_id)
+)
 
 local MessageType = {}
 for id in range(
@@ -11,6 +14,7 @@ for id in range(
     "SHUTDOWN_RESPONSE",
     "ERROR",
     "NOTIFY_STATE",
+    "SIGNAL_EMIT",
     "PREALLOCATE",
     "DEALLOCATE",
     "SET_PLAYER_POSITION",
@@ -46,6 +50,11 @@ NOTIFY_STATE: worker -> main
     type : MessageType
     sound_id_to_active_handlers : Table<String, Table<Number>>
     preallocate_done : Boolean
+
+SIGNAL_EMIT: worker -> main
+    type : MessageType
+    signal : String
+    args : Table<Any>
 
 PREALLOCATE: main -> worker
     type : MessageType
@@ -178,6 +187,7 @@ function rt.SoundManagerHandler:set_position(handler_id, position_x, position_y)
 
     self._main_to_worker:push({
         type = MessageType.SET_POSITION,
+        handler_id = handler_id,
         position_x = position_x, -- can be nil
         position_y = position_y
     })
@@ -312,6 +322,8 @@ function rt.SoundManagerHandler:update(delta)
         elseif message.type == MessageType.NOTIFY_STATE then
             self._sound_id_to_active_handlers = message.sound_id_to_active_handlers
             self._preallocate_done = message.preallocate_done
+        elseif message.type == MessageType.SIGNAL_EMIT then
+            self:signal_emit(message.signal, table.unpack(message.args))
         elseif message.type == MessageType.SHUTDOWN_RESPONSE then
             if message.success == false then
                 rt.error(message.error, message.traceback)

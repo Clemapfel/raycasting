@@ -1,6 +1,3 @@
-require "love.audio"
-require "love.sound"
-require "love.timer"
 require "common.sound_manager_instance"
 
 rt.SoundManager = meta.as_singleton(rt.SoundManager)
@@ -99,6 +96,17 @@ local success, error_maybe = pcall(function()
             fatal = false
         })
     end)
+
+    -- forward signals
+    for signal in values(rt.SoundManager:signal_list_signals()) do
+        rt.SoundManager:signal_connect(signal, function(_, ...)
+            worker_to_main:push({
+                type = MessageType.SIGNAL_EMIT,
+                signal = signal,
+                args = { ... }
+            })
+        end)
+    end
 
     local shutdown_active = false
 

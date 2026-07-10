@@ -863,6 +863,28 @@ end
 meta.add_signal = meta.add_signals
 
 --- @brief
+function meta.list_signals(type)
+    meta.assert(type, mt.Type)
+
+    local seen = {} -- possible duplicated in super chain
+    local out = {}
+
+    local current = type
+    while current ~= nil do
+        local signals = current[_object_metatable_index].__signals
+        for _, signal_id in ipairs(signals) do
+            if not seen[signal_id] then
+                seen[signal_id] = true
+                table.insert(out, signal_id)
+            end
+        end
+        current = _type_to_super[current]
+    end
+
+    return out
+end
+
+--- @brief
 function meta.destroy(instance)
     if meta.is_table(instance) then
         if meta.is_function(instance.signal_disconnect_all) then

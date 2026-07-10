@@ -116,10 +116,10 @@ love.load = function(args)
     local center_x, center_y = 0.5 * love.graphics.getWidth(), 0.5 * love.graphics.getHeight()
     rt.SoundManager:set_player_position(center_x, center_y)
     sound_handler = rt.SoundManager:play("debug.debug", {
-        should_loop = true,
         position_x = center_x,
         position_y = center_y
     })
+
     rt.SceneManager:set_is_cursor_visible(true)
 end
 
