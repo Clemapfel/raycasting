@@ -10,14 +10,6 @@ local message_type_to_handler = {
         rt.SoundManager:shutdown()
     end,
 
-    [MessageType.PREALLOCATE] = function(message)
-        rt.SoundManager:preallocate(message.ids)
-    end,
-
-    [MessageType.DEALLOCATE] = function(message)
-        rt.SoundManager:deallocate()
-    end,
-
     [MessageType.SET_PLAYER_POSITION] = function(message)
         rt.SoundManager:set_player_position(
             message.position_x, message.position_y
@@ -71,8 +63,14 @@ local message_type_to_handler = {
         )
     end,
 
-    [MessageType.SET_EFFECT] = function(message)
-        rt.SoundManager:set_effect_native(
+    [MessageType.REMOVE_FILTER] = function(message)
+        rt.SoundManager:remove_filter(
+            message.handler_id
+        )
+    end,
+
+    [MessageType.ADD_EFFECT] = function(message)
+        rt.SoundManager:add_effect_native(
             message.handler_id,
             message.native
         )
@@ -159,15 +157,14 @@ local success, error_maybe = pcall(function()
         -- update
         local delta = love.timer.getTime() - last_update
         safe_call(rt.SoundManager.update, rt.SoundManager, delta)
-        local sound_id_to_active_handlers, preallocate_done = safe_call(
+        local sound_id_to_active_handlers = safe_call(
             rt.SoundManager._get_state, rt.SoundManager
         )
         last_update = love.timer.getTime()
 
         worker_to_main:push({
             type = MessageType.NOTIFY_STATE,
-            sound_id_to_active_handlers = sound_id_to_active_handlers,
-            preallocate_done = preallocate_done
+            sound_id_to_active_handlers = sound_id_to_active_handlers
         })
 
         love.timer.sleep(step)

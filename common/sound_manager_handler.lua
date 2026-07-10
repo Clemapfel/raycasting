@@ -16,7 +16,6 @@ for id in range(
     "NOTIFY_STATE",
     "SIGNAL_EMIT",
     "PREALLOCATE",
-    "DEALLOCATE",
     "SET_PLAYER_POSITION",
     "SET_POSITION",
     "PLAY",
@@ -25,7 +24,8 @@ for id in range(
     "SET_VOLUME",
     "SET_PITCH",
     "SET_FILTER",
-    "SET_EFFECT",
+    "REMOVE_FILTER",
+    "ADD_EFFECT",
     "REMOVE_EFFECT"
 ) do
     MessageType[id] = id
@@ -49,19 +49,11 @@ ERROR: worker -> main
 NOTIFY_STATE: worker -> main
     type : MessageType
     sound_id_to_active_handlers : Table<String, Table<Number>>
-    preallocate_done : Boolean
 
 SIGNAL_EMIT: worker -> main
     type : MessageType
     signal : String
     args : Table<Any>
-
-PREALLOCATE: main -> worker
-    type : MessageType
-    ids  : Table<String>
-
-DEALLOCATE: main -> worker
-    type : MessageType
 
 SET_PLAYER_POSITION: main -> worker
     type : MessageType
@@ -105,7 +97,11 @@ SET_FILTER: main -> worker
     handler_id : Number
     t : Number
 
-SET_EFFECT: main -> worker
+REMOVE_FILTER: main -> worker
+    type : MessageType
+    handler_id : Number
+
+ADD_EFFECT: main -> worker
     type : MessageType
     handler_id : Number
     native : Object -- native handle from rt.SoundEffect:get_native()
@@ -118,7 +114,6 @@ REMOVE_EFFECT: main -> worker
 
 --- @brief
 function rt.SoundManagerHandler:instantiate()
-    self._preallocate_done = true
     self._sound_id_to_active_handlers = {}
     self._current_handler_id = 1
 
@@ -127,7 +122,9 @@ function rt.SoundManagerHandler:instantiate()
     self._worker_to_main = rt.Channel()
 
     self._worker:signal_connect("shutdown", function()
-        self:shutdown()
+        self._main_to_worker:push({
+            type = MessageType.SHUTDOWN
+        })
     end)
 
     if not rt.ThreadManager:get_is_shutdown_active() then
@@ -137,37 +134,6 @@ function rt.SoundManagerHandler:instantiate()
             MessageType
         )
     end
-end
-
---- @brief preallocate sound data for entries
-function rt.SoundManagerHandler:preallocate(id, ...)
-    local ids
-    if meta.is_table(id) then
-        ids = id
-    else
-        ids = { id, ... }
-    end
-
-    for i = 1, #ids do
-        meta.assert_argument_type(ids[i], mt.String, i)
-    end
-
-    self._main_to_worker:push({
-        type = MessageType.PREALLOCATE,
-        ids = ids
-    })
-end
-
---- @brief
-function rt.SoundManagerHandler:get_is_done()
-    return self._preallocate_done
-end
-
---- @brief
-function rt.SoundManagerHandler:deallocate()
-    self._main_to_worker:push({
-        type = MessageType.DEALLOCATE
-    })
 end
 
 --- @brief
@@ -267,11 +233,21 @@ function rt.SoundManagerHandler:set_filter(handler_id, t)
 end
 
 --- @brief
-function rt.SoundManagerHandler:set_effect(handler_id, effect)
+function rt.SoundManagerHandler:remove_filter(handler_id)
+    meta.assert(handler_id, mt.Number)
+
+    self._main_to_worker:push({
+        type = MessageType.REMOVE_FILTER,
+        handler_id = handler_id
+    })
+end
+
+--- @brief
+function rt.SoundManagerHandler:add_effect(handler_id, effect)
     meta.assert(handler_id, mt.Number, effect, rt.SoundEffect)
 
     self._main_to_worker:push({
-        type = MessageType.SET_EFFECT,
+        type = MessageType.ADD_EFFECT,
         native = effect:get_native()
     })
 end
@@ -310,7 +286,7 @@ function rt.SoundManagerHandler:has_handler_id(handler_id)
 end
 
 --- @brief
-function rt.SoundManagerHandler:update(delta)
+function rt.SoundManagerHandler:update(_)
     while self._worker_to_main:get_n_messages() > 0 do
         local message = self._worker_to_main:pop()
         if message.type == MessageType.ERROR then
@@ -321,7 +297,6 @@ function rt.SoundManagerHandler:update(delta)
             end
         elseif message.type == MessageType.NOTIFY_STATE then
             self._sound_id_to_active_handlers = message.sound_id_to_active_handlers
-            self._preallocate_done = message.preallocate_done
         elseif message.type == MessageType.SIGNAL_EMIT then
             self:signal_emit(message.signal, table.unpack(message.args))
         elseif message.type == MessageType.SHUTDOWN_RESPONSE then
@@ -329,7 +304,7 @@ function rt.SoundManagerHandler:update(delta)
                 rt.error(message.error, message.traceback)
             end
         else
-            rt.error("In rt.SoundManagerHandler: unhandled message type `", message.type, "`")
+            rt.error("In rt.SoundManagerHandler.update: unhandled message type `", message.type, "`")
         end
     end
 end

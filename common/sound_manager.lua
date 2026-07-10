@@ -10,3 +10,7 @@ else
     -- run at vsync rate in main
     rt.SoundManager = meta.as_singleton(rt.SoundManager)
 end
+
+if rt.GameState ~= nil then
+    rt.SoundManager:set_global_volume(rt.GameState:get_sound_effect_leve())
+end

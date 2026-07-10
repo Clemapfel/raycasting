@@ -58,18 +58,14 @@ function rt.SoundManager:instantiate()
         equalization_alpha = rt.settings.sound_manager.default_equalization_alpha
     }
 
-    self._preallocate_routines = {}
     self._id_to_entry = {}
     self._stop_entries = {}
 
     do -- generate entries
-        local prefix = rt.settings.sound_manager.assets_directory
+        local prefix = bd.normalize_path(rt.settings.sound_manager.assets_directory)
         if string.last(prefix) ~= "/" then prefix = prefix .. "/" end
 
-        local id_to_path = bd.generate_resource_ids(
-            prefix,
-            bd.is_sound_file
-        )
+        local id_to_path = bd.generate_resource_ids(prefix, bd.is_sound_file)
 
         if false then
         -- allow indexing like `rt.SoundManager.overworld.foo.effect.play()`, instead of `rt.SoundManager:play("overworld.foo.effect.play")
@@ -332,50 +328,6 @@ function rt.SoundManager:_get_entry(scope, id)
     end
 end
 
---- @brief preallocate sound data for entries
-function rt.SoundManager:preallocate(id, ...)
-    local ids
-    if meta.is_table(id) then
-        ids = id
-    else
-        ids = { id, ... }
-    end
-
-    for i = 1, #ids do
-        meta.assert_argument_type(ids[i], mt.String, i)
-    end
-
-    table.insert(self._preallocate_routines, rt.Routine(function()
-        for entry_id in values(ids) do
-            local entry = self:_get_entry("preallocate", entry_id)
-            if entry.sound_data == nil then
-                entry.sound_data = _import_audio(entry.sound_path)
-                if entry.sound_data == nil then
-                    return
-                else
-                    self._active_entries[entry] = true
-                end
-            end
-            self:_process_entry(entry)
-        end
-    end))
-end
-
---- @brief
-function rt.SoundManager:get_is_done()
-    return #self._preallocate_routines == 0
-end
-
---- @brief
-function rt.SoundManager:deallocate()
-    -- mark all for deallocation in next update
-    for entry in keys(self._active_entries) do
-        for source in keys(entry.inactive_source_to_timestamp) do
-            entry.inactive_source_to_timestamp[source] = -math.huge
-        end
-    end
-end
-
 --- @brief
 function rt.SoundManager:_map_coordinates(x, y)
     -- no mapping needed, face/up transform and reference distance automatically scale and flip coords
@@ -624,27 +576,46 @@ function rt.SoundManager:set_filter(handler_id, t)
     source:setFilter({
         type = "bandpass",
         highgain = t,
-        lowgain = 1  -t
+        lowgain = 1 - t
     })
 end
 
 --- @brief
-function rt.SoundManager:set_effect(handler_id, effect)
-    meta.assert(handler_id, mt.Number, effect, rt.SoundEffect)
-    self:set_effect_native(handler_id, effect:get_native())
-end
-
---- @brief
-function rt.SoundManager:set_effect_native(handler_id, native)
-    meta.assert(handler_id, mt.Number, effect, mt.String)
+function rt.SoundManager:remove_filter(handler_id)
+    meta.assert(handler_id, mt.Number)
 
     local id = self._handler_id_to_sound_id[handler_id]
     if id == nil then
-        _throw_handler_id_not_present("set_effect", id, handler_id)
+        _throw_handler_id_not_present("set_filter", id, handler_id)
         return
     end
 
-    local entry = self:_get_entry("set_effect", id)
+    local entry = self:_get_entry("set_filter", id)
+    if entry == nil then return end
+
+    local source = entry.handler_id_to_active_sources[handler_id]
+    if source == nil then return end
+
+    source:setFilter(nil)
+end
+
+--- @brief
+function rt.SoundManager:add_effect(handler_id, effect)
+    meta.assert(handler_id, mt.Number, effect, rt.SoundEffect)
+    self:add_effect_native(handler_id, effect:get_native())
+end
+
+--- @brief
+function rt.SoundManager:add_effect_native(handler_id, native)
+    meta.assert(handler_id, mt.Number, native, mt.String)
+
+    local id = self._handler_id_to_sound_id[handler_id]
+    if id == nil then
+        _throw_handler_id_not_present("add_effect", id, handler_id)
+        return
+    end
+
+    local entry = self:_get_entry("add_effect", id)
     if entry == nil then return end
 
     local source = entry.handler_id_to_active_sources[handler_id]
@@ -794,7 +765,7 @@ function rt.SoundManager:_get_state()
         end
     end
 
-    return sound_id_to_active_handlers, self:get_is_done()
+    return sound_id_to_active_handlers
 end
 
 -- sound manager is run at very high refresh rate for
@@ -936,21 +907,6 @@ function rt.SoundManager:update(delta)
 
             for entry in values(to_make_inactive) do
                 self._active_entries[entry] = nil
-            end
-        end
-
-        do -- routines
-            local to_remove = {}
-            for i, routine in ipairs(self._preallocate_routines) do
-                if routine:get_is_done() then
-                    table.insert(to_remove, 1, i)
-                else
-                    routine:resume()
-                end
-            end
-
-            for _, i in ipairs(to_remove) do
-                table.remove(self._preallocate_routines, i)
             end
         end
     end
