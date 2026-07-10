@@ -7,5 +7,6 @@ if false then
     -- which is important for smooth audio effects
     rt.SoundManager = meta.as_singleton(rt.SoundManagerHandler)
 else
+    -- run at vsync rate in main
     rt.SoundManager = meta.as_singleton(rt.SoundManager)
 end

@@ -748,3 +748,63 @@ function bd.apply(path, f)
         f(path)
     end
 end
+
+--- @brief
+function bd.is_sound_file(filename)
+    meta.assert(filename, mt.String)
+    local extension = bd.get_file_extension(filename)
+    if extension ~= nil then
+        extension = string.lower(extension)
+        return extension == "mp3"
+            or extension == "wav"
+            or extension == "ogg"
+            or extension == "oga"
+            or extension == "ogv"
+            or extension == "flac"
+    end
+    return false
+end
+
+--- @brief
+function bd.is_image_file(filename)
+    meta.assert(filename, mt.String)
+    local extension = bd.get_file_extension(filename)
+    if extension ~= nil then
+        extension = string.lower(extension)
+        if extension == "png"
+            or extension == "jpg"
+            or extension == "jpeg"
+            or extension == "bmp"
+            or extension == "tga"
+            or extension == "hdr"
+            or extension == "pic"
+            or extension == "exr"
+        then
+            return true
+        end
+    end
+
+    return false
+end
+
+do
+    local _always = function() return true end
+
+    --- @brief
+    function bd.generate_resource_ids(prefix, file_extension_checker)
+        if file_extension_checker == nil then file_extension_checker = _always end
+        meta.assert(prefix, mt.String, file_extension_checker, mt.Function)
+
+        local id_to_path = {}
+        bd.apply_recursively(prefix, function(filepath, filename)
+            if file_extension_checker(filename) then
+                local id = string.replace(filepath, prefix, "")
+                id = string.replace(id, "%." .. bd.get_file_extension(filename), "")
+                id = string.replace(id, "/", ".")
+                id_to_path[id] = filepath
+            end
+        end)
+
+        return id_to_path
+    end
+end

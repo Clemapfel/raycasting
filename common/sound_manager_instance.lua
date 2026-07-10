@@ -61,33 +61,15 @@ function rt.SoundManager:instantiate()
     self._stop_entries = {}
 
     do -- generate entries
-        local _is_sound_file = function(filename)
-            local extension = bd.get_file_extension(filename)
-            if extension ~= nil then
-                extension = string.lower(extension)
-                return extension == "mp3"
-                    or extension == "wav"
-                    or extension == "ogg"
-                    or extension == "oga"
-                    or extension == "ogv"
-                    or extension == "flac"
-            end
-            return false
-        end
-
         local prefix = rt.settings.sound_manager.assets_directory
         if string.last(prefix) ~= "/" then prefix = prefix .. "/" end
 
-        local id_to_path = {}
-        bd.apply_recursively(prefix, function(filepath, filename)
-            if _is_sound_file(filename) then
-                local id = string.replace(filepath, prefix, "")
-                id = string.replace(id, "%." .. bd.get_file_extension(filename), "")
-                id = string.replace(id, "/", ".")
-                id_to_path[id] = filepath
-            end
-        end)
+        local id_to_path = bd.generate_resource_ids(
+            prefix,
+            bd.is_sound_file
+        )
 
+        if false then
         -- allow indexing like `rt.SoundManager.overworld.foo.effect.play()`, instead of `rt.SoundManager:play("overworld.foo.effect.play")
 
         local ids = {}
@@ -167,6 +149,7 @@ function rt.SoundManager:instantiate()
             rt.assert(rt.SoundManager[key] == nil, "In rt.SoundManager.instantiate: sound root folder name `", key, "` is invalid, it conflicts with an existing method of `rt.SoundManager`")
             rt.SoundManager[key] = value
         end
+        end -- if false
 
         self._id_to_entry = {} -- Table<String, String>, indexable like `self._id_to_entry["overworld.foo.effect"]`
         for id, path in pairs(id_to_path) do

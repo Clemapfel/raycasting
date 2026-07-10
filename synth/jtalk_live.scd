@@ -67,21 +67,18 @@ server.waitForBoot({
 	// https://www.youtube.com/watch?v=_NED_v716U4
 
 	filter_def = SynthDef(\filter, { arg out=0, bufnum;
-		var signal = PlayBuf.ar(
-			1,
-			bufnum,
-			rate: BufRateScale.kr(bufnum),
-			loop: 0
-		);
+    var signal = PlayBuf.ar(
+        1,
+        bufnum,
+        rate: BufRateScale.kr(bufnum),
+        loop: 0
+    );
+    var freq = midi.get_cc(\freq);
+    var pitch = Pitch.kr(signal, median: 30);
 
-		var freq = midi.get_cc(\freq);
-		var pitch = Pitch.kr(signal, median: 30);
-
-
-		signal = BPeakEQ.ar(signal, freq: pitch, rq: 0.95, db: 0);
-
-		Out.ar(out, signal.dup);
-	}).add;
+    signal = BPeakEQ.ar(signal, freq: pitch, rq: 0.95, db: 0);
+    Out.ar(out, signal.dup);
+}).add;
 
     // main
 
