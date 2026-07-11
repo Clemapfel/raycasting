@@ -3,7 +3,7 @@ require "common.channel"
 require "common.sound_effect"
 
 --- @class rt.SoundManagerHandler
-rt.SoundManagerHandler = meta.class("SoundManagerHandler")
+rt.MusicManagerHandler = meta.class("SoundManagerHandler")
 
 local MessageType = {}
 for id in range(

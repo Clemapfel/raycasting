@@ -4,11 +4,10 @@ require "love.data"
 
 require "include"
 require "common.filesystem"
-require "common.smoothed_motion_nd"
 require "common.interpolation_functions"
 require "common.audio_time_unit"
 require "common.sound_effect"
-require "common.fader"
+require "common.cross_fader"
 
 rt.settings.music_manager = {
     assets_directory = "assets/music",
@@ -37,13 +36,20 @@ function rt.MusicManager:instantiate()
         end
     end
 
-    self._current_id = nil
-    self._current_source = nil -- love.QueueableSource
-    self._current_entry = nil
+    self._new_entry = function(self, id)
+        return {
+            id = nil, -- ID
+            source = nil, -- love.QueueableSource
+            data = nil, -- love.SoundData
+            sample_position = 0,
+            gain = 0,
+            loop_points = {} -- Table<Pair<Integer, Integer>>
+        }
+    end
 
-    self._next_id = nil
-    self._next_source = nil -- love.QueueableSource
-    self._next_entry = nil
+    self._queue = {} -- Table<ID>
+    self._current = self:_new_entry()
+    self._next = self:_new_entry()
 
     self._fader = rt.CrossFader()
     self._fader_motion = rt.SmoothedMotion1D(0)
@@ -181,14 +187,14 @@ function rt.MusicManager:update(delta)
     local pitch = self._pitch_motion:update(delta)
     local volume = self._volume_motion:update(delta)
 
-    local current_gain, next_gain = self._fader:get_gain(fader_t)
-    for source_gain in range(
-        { self._current_source, current_gain },
-        { self._next_source, next_gain }
-    ) do
-        local source, gain = table.unpack(source_gain)
+    local current, next = self._current, self._next
+    current.gain, next.gain = self._fader:get_gain(fader_t)
+
+    -- update source effects
+    for entry in range(self._current, self._next) do
+        local source = entry.source
         if source ~= nil then
-            source:setVolume(gain * volume)
+            source:setVolume(entry.gain * volume)
             source:setPitch(pitch)
             source:setFilter({
                 type = "bandpass",
@@ -197,4 +203,7 @@ function rt.MusicManager:update(delta)
             })
         end
     end
+
+    -- if fully faded out, make current
+    -- then queue next
 end
