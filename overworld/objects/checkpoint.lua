@@ -1,4 +1,3 @@
-require "common.sound_manager"
 require "overworld.checkpoint_particles"
 require "overworld.shatter_surface"
 require "overworld.objects.checkpoint_rope"

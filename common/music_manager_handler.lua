@@ -11,6 +11,7 @@ for id in range(
     "SHUTDOWN_RESPONSE",
     "ERROR",
     "SIGNAL_EMIT",
+    "NOTIFY_STATE",
     "PLAY",
     "STOP",
     "UNPAUSE",
@@ -18,6 +19,7 @@ for id in range(
     "ADD_EFFECT",
     "REMOVE_EFFECT",
     "SET_FILTER",
+    "SET_VOLUME",
     "REMOVE_FILTER",
     "SET_PITCH",
     "RESET"
@@ -45,14 +47,18 @@ SIGNAL_EMIT: worker -> main
     signal : String
     args : Table<Any>
 
+NOTIFY_STATE : main -> worker
+    type : MessageType
+    is_paused : Boolean
+
 PLAY: main -> worker
     type : MessageType
     id : String?
-    loop_id : Union<Number, String>
+    skip_fade : Union<Number, String>
 
 STOP: main -> worker
     type : MessageType
-    should_reset_playback : Boolean?
+    reset_to_loop_or_file : Boolean?
 
 UNPAUSE: main -> worker
     type : MessageType
@@ -89,7 +95,7 @@ RESET: main -> worker
 
 --- @brief
 function rt.MusicManagerHandler:instantiate()
-    self._worker = rt.Thread("common/sound_manager_worker.lua")
+    self._worker = rt.Thread("common/music_manager_worker.lua")
     self._main_to_worker = rt.Channel()
     self._worker_to_main = rt.Channel()
 
@@ -106,27 +112,32 @@ function rt.MusicManagerHandler:instantiate()
             MessageType
         )
     end
+
+    self._is_paused = false
 end
 
 --- @brief
-function rt.MusicManagerHandler:play(id, loop_id)
-    if loop_id == nil then loop_id = 1 end
-    meta.assert(id, mt.String, loop_id, mt.Union(mt.Number, mt.String))
+function rt.MusicManagerHandler:play(id, skip_fade)
+    if skip_fade == nil then skip_fade = false end
+    meta.assert(
+        id, mt.String,
+        skip_fade, mt.Boolean
+    )
 
     self._main_to_worker:push({
         type = MessageType.PLAY,
         id = id,
-        loop_id = loop_id
+        skip_fade = skip_fade
     })
 end
 
 --- @brief
-function rt.MusicManagerHandler:stop(should_reset_playback)
-    mt.assert(should_reset_playback, mt.Optional(mt.Boolean))
+function rt.MusicManagerHandler:stop(reset_to_loop_or_file)
+    mt.assert(reset_to_loop_or_file, mt.Optional(mt.Boolean))
 
     self._main_to_worker:push({
         type = MessageType.STOP,
-        should_reset_playback = should_reset_playback
+        reset_to_loop_or_file = reset_to_loop_or_file
     })
 end
 
@@ -174,6 +185,12 @@ function rt.MusicManagerHandler:set_filter(t)
     })
 end
 
+function rt.MusicManagerHandler:remove_filter()
+    self._main_to_worker:push({
+        type = MessageType.REMOVE_FILTER
+    })
+end
+
 --- @brief
 function rt.MusicManagerHandler:set_pitch(pitch)
     meta.assert(pitch, mt.Number)
@@ -202,6 +219,11 @@ function rt.MusicManagerHandler:reset()
 end
 
 --- @brief
+function rt.MusicManagerHandler:get_is_paused()
+    return self._is_paused
+end
+
+--- @brief
 function rt.MusicManagerHandler:update(_)
     while self._worker_to_main:get_n_messages() > 0 do
         local message = self._worker_to_main:pop()
@@ -213,6 +235,8 @@ function rt.MusicManagerHandler:update(_)
             end
         elseif message.type == MessageType.SIGNAL_EMIT then
             self:signal_emit(message.signal, table.unpack(message.args))
+        elseif message.type == MessageType.NOTIFY_STATE then
+            self._is_paused = message.is_paused
         elseif message.type == MessageType.SHUTDOWN_RESPONSE then
             if message.success == false then
                 rt.error(message.error, message.traceback)

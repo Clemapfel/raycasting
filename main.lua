@@ -66,9 +66,17 @@ DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
     if which == rt.KeyboardKey.ONE then
         rt.MusicManager:play("Bloodhail - 01 Choke 26")
     elseif which == rt.KeyboardKey.TWO then
-        rt.MusicManager:play("Bloodhail - 02 Bloodhail")
+        rt.MusicManager:play("Bloodhail - 02 Bloodhail", true)
     elseif which == rt.KeyboardKey.THREE then
         rt.MusicManager:play("Bloodhail - 03 Just Fine, Thanks")
+    elseif which == rt.KeyboardKey.RETURN then
+        if rt.MusicManager:get_is_paused() then
+            rt.MusicManager:unpause()
+        else
+            rt.MusicManager:pause()
+        end
+    elseif which == rt.KeyboardKey.SPACE then
+        rt.MusicManager:stop(true)
     end
 end)
 

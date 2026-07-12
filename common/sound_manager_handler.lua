@@ -15,7 +15,6 @@ for id in range(
     "ERROR",
     "NOTIFY_STATE",
     "SIGNAL_EMIT",
-    "PREALLOCATE",
     "SET_PLAYER_POSITION",
     "SET_POSITION",
     "PLAY",
@@ -248,7 +247,8 @@ function rt.SoundManagerHandler:add_effect(handler_id, effect)
 
     self._main_to_worker:push({
         type = MessageType.ADD_EFFECT,
-        native = effect:get_native()
+        native = effect:get_native(),
+        handler_id = handler_id
     })
 end
 
@@ -258,7 +258,8 @@ function rt.SoundManagerHandler:remove_effect(handler_id, effect)
 
     self._main_to_worker:push({
         type = MessageType.REMOVE_EFFECT,
-        native = effect:get_native()
+        native = effect:get_native(),
+        handler_id = handler_id
     })
 end
 

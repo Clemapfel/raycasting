@@ -6,10 +6,6 @@ assert(rt.SoundManager ~= nil)
 local main_to_worker, worker_to_main, MessageType = ...
 
 local message_type_to_handler = {
-    [MessageType.SHUTDOWN] = function(message)
-        rt.SoundManager:shutdown()
-    end,
-
     [MessageType.SET_PLAYER_POSITION] = function(message)
         rt.SoundManager:set_player_position(
             message.position_x, message.position_y
@@ -25,7 +21,8 @@ local message_type_to_handler = {
     [MessageType.PLAY] = function(message)
         rt.SoundManager:play(
             message.id,
-            message.config
+            message.config,
+            message.handler_id
         )
     end,
 

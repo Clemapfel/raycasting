@@ -3,6 +3,7 @@ require "love.sound"
 require "love.data"
 
 require "include"
+require "common.smoothed_motion_1d"
 require "common.filesystem"
 require "common.interpolation_functions"
 require "common.audio_time_unit"
@@ -11,15 +12,17 @@ require "common.cross_fader"
 
 rt.settings.music_manager = {
     assets_directory = "assets/music",
+    loop_config_path = "assets/music/.loops.lua",
     update_step = 1 / 240, -- seconds
     source_buffer_count = 8,
-    n_samples_per_chunk = 2^12,
-    silence_threshold = 0.1, -- gain, in [0, 1]
-    max_cache_size_mb = 50, -- mb
+    n_samples_per_chunk = 2^12, -- bits
+    silence_threshold = 0.01, -- gain, in [0, 1]
+    max_cache_size_mb = 150 -- mb
 }
 
 --- @class rt.MusicManager
 rt.MusicManager = meta.class("MusicManager")
+meta.add_signal(rt.MusicManager, "changed")
 
 local _FADER_A = -1
 local _FADER_B = 1
@@ -27,9 +30,15 @@ local _A = true
 local _B = false
 local _DEFAULT_LOOP_ID = 0
 
+local _MODE_NOOP = 0
+local _MODE_PAUSE = 1
+local _MODE_STOP = 2
+local _MODE_RESTART = 3
+
+-- priority based sound data caching
 local _cache = {} -- Table<Path, SoundData>
 local _cache_size_mb = 0
-local _cache_queue = {} -- Priority Queue, most recently used at back, oldest first
+local _cache_priority = {} -- Priority Queue, most recently used at back, oldest first
 
 --- @brief
 function rt.MusicManager:instantiate()
@@ -48,8 +57,7 @@ function rt.MusicManager:instantiate()
             n_samples = 0,
             gain = 0,
 
-            loops = {}, -- Table<Pair<Sample_i, Sample_i>>
-            loop_id = _DEFAULT_LOOP_ID,
+            loop = {}, -- Pair<Sample_i, Sample_i>
 
             n_channels = nil, -- 1 or 2
             bit_depth = nil, -- 8 or 16
@@ -58,7 +66,7 @@ function rt.MusicManager:instantiate()
         }
     end
 
-    self._queue = {} -- Table<ID>
+    self._queue = {} -- cf. `play`
     self._a = self:_new_entry()
     self._b = self:_new_entry()
     self._which = _A
@@ -80,49 +88,122 @@ function rt.MusicManager:instantiate()
     -- -1: -12 semitones, 0: no change, +1: +12 semitones
 
     self._volume_motion = rt.SmoothedMotion1D(1)
-    self._pause_motion = rt.SmoothedMotion1D(1)
+    self._pause_motion = rt.SmoothedMotion1D(1, 2) -- 2x speed
     -- 0: fully pause, 1: unpaused
+    
+    self._on_silence = nil -- Function, oneshot
+
+    -- load looping metadata
+    do
+        local path = rt.settings.music_manager.loop_config_path
+        local throw = function(...)
+            rt.error("In rt.MusicManager.instantiate: when trying to load file at `", path, "`:")
+        end
+
+        local config, valid = nil, false
+        if bd.is_file(path) then
+            config = bd.load(path, true)
+            if config ~= nil then
+                for id, loop in pairs(config) do
+                    if not meta.is_string(id) then
+                        throw("id `", id, "` is not a string")
+                    end
+
+                    if self._id_to_path[id] == nil then
+                        throw("id `", id, "` does not point to a valid path in `", rt.settings.music_manager.assets_directory, "`")
+                    end
+
+                    if not meta.is_table(loop) then
+                        throw("value for id `", id, "` is not a table")
+                    end
+
+                    if not (#loop == 2 and meta.is_integer(loop[1]) and meta.is_integer(loop[2])) then
+                        throw("value for id `", id, "` is not a pair of integers. Loop positions sample positions, not seconds, and there is only 1 loop region")
+                    end
+                end
+
+                valid = true
+            end
+        end
+
+        if not valid then
+            rt.critical("In rt.MusicManager: music loop metadata file at `", path, "` does not exist or does not return a table")
+        end
+
+        self._id_to_loop = config
+    end
 end
 
 --- @brief
-function rt.MusicManager:play(id, loop_id)
-    if loop_id == nil then loop_id = _DEFAULT_LOOP_ID end
-    meta.assert(id, mt.String, loop_id, mt.Union(mt.Number, mt.String))
+function rt.MusicManager:play(id, skip_fade)
+    if skip_fade == nil then skip_fade = false end
+    meta.assert(
+        id, mt.String,
+        skip_fade, mt.Boolean
+    )
 
-    table.insert(self._queue, {
+    -- sic, override queue
+    self._queue = {{
         id = id,
-        loop_id = loop_id
-    })
+        skip_fade = skip_fade
+    }}
 end
 
 --- @brief
-function rt.MusicManager:stop(should_reset_playback)
-    if should_reset_playback == nil then should_reset_playback = true end
-    meta.assert(should_reset_playback, mt.Boolean)
+function rt.MusicManager:stop(reset_to_loop_or_file)
+    if reset_to_loop_or_file == nil then reset_to_loop_or_file = true end
+    meta.assert(reset_to_loop_or_file, mt.Boolean)
+    if self._a.source == nil and self._b.source == nil then return end
 
+    self._pause_motion:set_target_value(0)
+    self._on_silence = function(entry)
+        -- reset entry
+        if reset_to_loop_or_file == true then
+            entry.sample_position = entry.loop[1]
+        else
+            entry.sample_position = 0
+        end
+
+        if entry.source ~= nil then
+            entry.source:stop()
+        end
+    end
 end
 
 --- @brief
 function rt.MusicManager:unpause()
-    self:play(ternary(self._which == _A, self._a.id, self._b.id), false)
+    if self._a.source == nil and self._b.source == nil then return end
+
+    if not self:get_is_paused() then return end
+    self._pause_motion:set_target_value(1)
 end
 
 --- @brief
 function rt.MusicManager:pause()
-    self:stop(false)
+    if self._a.source == nil and self._b.source == nil then return end
+
+    if self:get_is_paused() then return end
+   self._pause_motion:set_target_value(0)
+end
+
+--- @brief
+function rt.MusicManager:get_is_paused()
+    return self._pause_motion:get_target_value() == 0 or
+        (self._a.source == nil and self._b.source == nil )
 end
 
 --- @brief
 function rt.MusicManager:add_effect(effect)
     meta.assert(effect, rt.SoundEffect)
-
-    self._sound_effects[effect:get_native()] = true
-    self._sound_effects_need_update = true
+    self:add_effect_native(effect:get_native())
 end
 
 --- @brief
 function rt.MusicManager:add_effect_native(effect)
-    meta.assert(effect, rt.SoundEffect)
+    meta.assert(effect, mt.String)
+
+    self._sound_effects[effect] = true
+    self._sound_effects_need_update = true
 end
 
 --- @brief
@@ -195,9 +276,9 @@ function rt.MusicManager:_load_data(path)
 
     if data ~= nil then
         -- remove to bubble up to most recently used
-        for i, other in ipairs(_cache_queue) do
+        for i, other in ipairs(_cache_priority) do
             if other == path then
-                table.remove(_cache_queue, i)
+                table.remove(_cache_priority, i)
                 break
             end
         end
@@ -216,17 +297,17 @@ function rt.MusicManager:_load_data(path)
     end
 
     if data ~= nil then
-        table.insert(_cache_queue, path)
+        table.insert(_cache_priority, path)
     end
 
     while _cache_size_mb > rt.settings.music_manager.max_cache_size_mb do
-        local oldest = _cache_queue[1]
+        local oldest = _cache_priority[1]
         if oldest == nil then break end
 
         local old_data = _cache[oldest]
 
-        _cache_queue[oldest] = nil -- free cache ref, MusicManager may keep it next to the source
-        table.remove(_cache_queue, 1)
+        _cache[oldest] = nil -- free cache ref, MusicManager may keep it next to the source
+        table.remove(_cache_priority, 1)
         _cache_size_mb = _cache_size_mb - _get_data_size_mb(old_data)
     end
 
@@ -234,6 +315,19 @@ function rt.MusicManager:_load_data(path)
 end
 
 --- @brief
+function rt.MusicManager:_apply_state(entry)
+    if entry.source == nil then return end
+    entry.source:setVolume(entry.gain * self._volume_motion:get_value() * self._pause_motion:get_value())
+    entry.source:setPitch(self._pitch_motion:get_value())
+
+    local filter_t = self._filter_motion:get_value()
+    entry.source:setFilter({
+        type = "bandpass",
+        highgain = filter_t,
+        lowgain = 1 - filter_t
+    })
+end
+
 function rt.MusicManager:update(delta)
     meta.assert(delta, mt.Number)
 
@@ -249,32 +343,25 @@ function rt.MusicManager:update(delta)
 
     self._a.gain, self._b.gain = self._fader:get_gain(fader_t)
 
-    local current, next
+    local current, next, fader_current, fader_next
     if self._which == _A then
         current, next = self._a, self._b
+        fader_current, fader_next = _FADER_A, _FADER_B
     else
         current, next = self._b, self._a
+        fader_current, fader_next = _FADER_B, _FADER_A
     end
 
     -- update source effects
     for entry in range(current, next) do
-        local source = entry.source
-        if source ~= nil then
-            source:setVolume(entry.gain * volume * pause)
-            source:setPitch(pitch)
-            source:setFilter({
-                type = "bandpass",
-                highgain = filter_t,
-                lowgain = 1 - filter_t
-            })
-        end
+        self:_apply_state(entry)
     end
 
     -- queue next entry
     if #self._queue > 0 and math.abs(fader_t) > (1 - silence_threshold) then
         local id = self._queue[1].id
-        local loop_id = self._queue[1].loop_id
         local path = self._id_to_path[id]
+        local skip_fade = next.source == nil or self._queue[1].skip_fade == true
 
         if path == nil then
             rt.error("In MusicManager: when trying to queue file with id `", id, "`: no such resource ID exists")
@@ -283,7 +370,6 @@ function rt.MusicManager:update(delta)
             if data ~= nil then
                 if next.source ~= nil then
                     next.source:stop()
-                    next.source = nil
                 end
 
                 if next.data ~= nil then
@@ -309,7 +395,7 @@ function rt.MusicManager:update(delta)
                     next.bit_depth = bit_depth
                     next.sample_rate = sample_rate
 
-                    next.n_samples = data:getSampleCount()
+                    next.n_samples = data:getSampleCount() * data:getChannelCount()
                     next.sample_type = ternary(next.bit_depth == 8, "uint8_t", "int16_t")
                     next.source = love.audio.newQueueableSource(
                         next.sample_rate,
@@ -317,107 +403,85 @@ function rt.MusicManager:update(delta)
                         next.n_channels,
                         rt.settings.music_manager.source_buffer_count
                     )
-                    next.source:play()
                 end
 
                 -- default loop id: full track
-                local loops = { [0] = { 0, next.n_samples} }
-                -- TODO: load loop points from config
-
-                if loops[loop_id] == nil then
-                    rt.error("In rt.MusicManager: track with id `", id, "` does not have a loop point `", loop_id, "`")
-                    loop_id = _DEFAULT_LOOP_ID
+                local loop = self._id_to_loop[id]
+                if loop == nil then
+                    loop = { 0, next.n_samples}
                 end
 
-                next.loops = loops
-                next.loop_id = loop_id
-                next.sample_position = next.loops[next.loop_id][1]
-                next.n_samples = next.data:getSampleCount()
+                next.loop = loop
+                next.sample_position = next.loop[1]
+
+                self:_apply_state(next)
             end
         end
 
-        if self._which == _A then
-            self._fader_motion:set_target_value(_FADER_B) -- fade toward B, which now holds the "next" track
-        else
-            self._fader_motion:set_target_value(_FADER_A) -- fade toward A, which now holds the "next" track
+        self._fader_motion:set_target_value(fader_next)
+
+        if skip_fade then
+            self._fader_motion:set_value(self._fader_motion:get_target_value())
         end
 
         self._which = not self._which
-        table.remove(self._queue, 1)
 
-        return
+        table.remove(self._queue, 1)
+        if _skip_next_delta then return end
     end
 
-    -- queue chunks
+
     local n_samples_per_chunk = rt.settings.music_manager.n_samples_per_chunk
     for entry in range(current, next) do
-        local n_samples_to_n_bytes = function(n_samples)
-            return n_samples * (entry.bit_depth / 8) -- bit depth is uint8_t or int16_t
-        end
-
         local source, data = entry.source, entry.data
-        local n_samples_to_n_bytes = function(n_samples)
-            return n_samples * (entry.bit_depth / 8) -- bit depth is uint8_t or int16_t
-        end
 
-        local source, data = entry.source, entry.data
-        if entry.source ~= nil and entry.data ~= nil then
-            local chunk_n_samples = n_samples_per_chunk * entry.n_channels
-
-            for _ = 1, source:getFreeBufferCount() do
-                local loop = entry.loops[entry.loop_id]
-                local loop_start_samples = loop[1] -- 0-based
-                local loop_end_samples = loop[2] -- exclusive end
-
-                local was_queued = false
-
-                if entry.sample_position + chunk_n_samples > loop_end_samples then
-                    local remaining_samples = chunk_n_samples
-                    local position = entry.sample_position
-
-                    while remaining_samples > 0 do
-                        local to_queue_n = math.min(
-                            loop_end_samples - position, -- samples until end of loop
-                            remaining_samples
-                        )
-
-                        if to_queue_n > 0 then
-                            was_queued = source:queue(data,
-                                n_samples_to_n_bytes(position),
-                                n_samples_to_n_bytes(to_queue_n)
-                            )
-
-                            if not was_queued then break end
-                        end
-
-                        remaining_samples = remaining_samples - to_queue_n
-                        position = position + to_queue_n
-
-                        -- wrap back to loop start once we hit the loop end
-                        if position >= loop_end_samples then
-                            position = loop_start_samples
-                        end
-                    end
-
-                    entry.sample_position = position
-                else
-                    local chunk_start = n_samples_to_n_bytes(entry.sample_position)
-                    local chunk_size = n_samples_to_n_bytes(chunk_n_samples)
-
-                    was_queued = source:queue(data,
-                        chunk_start, -- offset in bytes
-                        chunk_size  -- size in bytes
-                    )
-
-                    if was_queued then
-                        entry.sample_position = entry.sample_position + chunk_n_samples
-                    end
-                end
-
-                if not was_queued then break end
+        if source ~= nil and data ~= nil then
+            local n_samples_to_n_bytes = function(n_samples)
+                return n_samples * (entry.bit_depth / 8)
             end
 
-            entry.source:play()
+            local chunk_n_samples = n_samples_per_chunk * entry.n_channels
+
+            local loop = entry.loop
+            local loop_start = math.max(0, loop[1])
+            local loop_end = math.min(entry.n_samples, loop[2])
+
+            local position = entry.sample_position
+
+            while source:getFreeBufferCount() > 0 do
+                if position >= loop_end then
+                    position = loop_start
+                end
+
+                local to_queue_n = math.min(chunk_n_samples, loop_end - position)
+                if to_queue_n <= 0 or not source:queue(data,
+                    n_samples_to_n_bytes(position),
+                    n_samples_to_n_bytes(to_queue_n)
+                ) then
+                    -- no buffers left
+                    break
+                end
+
+                position = position + to_queue_n
+            end
+
+            entry.sample_position = position
         end
     end
+
+    for entry in range(current, next) do
+        if entry.source ~= nil then
+            if pause > silence_threshold then
+                entry.source:play()
+                -- play needs to be called every update because of `Source:queue`
+            else
+                entry.source:pause()
+                if self._on_silence ~= nil then
+                    self._on_silence(entry)
+                end
+            end
+        end
+    end
+
+    self._on_silence = nil
 end

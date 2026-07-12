@@ -1,3 +1,4 @@
+require "love.timer"
 require "common.music_manager_instance"
 
 rt.MusicManager = meta.as_singleton(rt.MusicManager)
@@ -7,11 +8,11 @@ local main_to_worker, worker_to_main, MessageType = ...
 
 local message_type_to_handler = {
     [MessageType.PLAY] = function(message)
-        rt.MusicManager:play(message.id, message.loop_id)
+        rt.MusicManager:play(message.id, message.skip_fade)
     end,
 
     [MessageType.STOP] = function(message)
-        rt.MusicManager:stop(message.should_reset_playback)
+        rt.MusicManager:stop(message.reset_to_loop_or_file)
     end,
 
     [MessageType.UNPAUSE] = function(message)
@@ -23,11 +24,11 @@ local message_type_to_handler = {
     end,
 
     [MessageType.ADD_EFFECT] = function(message)
-        rt.MusicManager:add_effect(message.native)
+        rt.MusicManager:add_effect_native(message.native)
     end,
 
     [MessageType.REMOVE_EFFECT] = function(message)
-        rt.MusicManager:remove_effect(message.native)
+        rt.MusicManager:remove_effect_native(message.native)
     end,
 
     [MessageType.SET_FILTER] = function(message)
@@ -75,7 +76,7 @@ local success, error_maybe = pcall(function()
 
     local shutdown_active = false
 
-    local step = rt.settings.sound_manager.update_step
+    local step = rt.settings.music_manager.update_step
     local last_update = love.timer.getTime()
 
     local safe_call = function(f, ...)
@@ -125,6 +126,12 @@ local success, error_maybe = pcall(function()
         local delta = love.timer.getTime() - last_update
         safe_call(rt.MusicManager.update, rt.MusicManager, delta)
         last_update = love.timer.getTime()
+
+        worker_to_main:push({
+            type = MessageType.NOTIFY_STATE,
+            is_paused = rt.MusicManager:get_is_paused()
+        })
+
         love.timer.sleep(step)
     end
 end) -- pcall

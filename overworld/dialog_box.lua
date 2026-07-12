@@ -5,7 +5,6 @@ require "common.frame"
 require "common.mesh"
 require "common.sprite"
 require "common.stencil"
-require "common.sound_manager"
 require "common.dialog"
 require "common.animalese"
 

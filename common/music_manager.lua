@@ -1,7 +1,7 @@
 require "common.music_manager_handler"
 require "common.music_manager_instance"
 
-if false then
+if true then
     -- proxy manager, run real manager threaded
     -- allows for higher refresh rate than vsync
     -- also protects against frame dips causing
