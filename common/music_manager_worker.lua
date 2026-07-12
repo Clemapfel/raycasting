@@ -7,7 +7,7 @@ local main_to_worker, worker_to_main, MessageType = ...
 
 local message_type_to_handler = {
     [MessageType.PLAY] = function(message)
-        rt.MusicManager:play(message.id, message.restart_if_active)
+        rt.MusicManager:play(message.id, message.loop_id)
     end,
 
     [MessageType.STOP] = function(message)

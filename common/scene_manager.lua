@@ -767,6 +767,7 @@ love.run = function()
         -- ### SOUND ###
 
         rt.SoundManager:update(delta)
+        rt.MusicManager:update(delta)
 
         was_active = is_active
 

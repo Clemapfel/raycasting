@@ -8,62 +8,6 @@ require "common.sound_manager"
 require "common.input_manager"
 require "common.routine"
 
---[[
--- condition
-local is_hung = false
-local routine = rt.Routine(function(routine)
-    local condition = rt.Routine.Condition(
-        function() return is_hung end
-    )
-
-    condition:await()
-end)
-
-local other = rt.Routine(function(routine)
-    while is_hung == false do
-        is_hung = rt.random.toss_coin(0.01)
-        rt.Routine.Timer(0.005):await()
-    end
-end)
-
--- future
-local routine = rt.Routine(function(routine)
-    local give = rt.Routine.Future({
-        on_start = function(self)
-            self.value = 0
-            return rt.Routine.FutureResult.IS_DONE
-        end,
-
-        on_update = function(self, delta)
-            self.value = self.value + math.random()
-            dbg(self.value)
-            return self.value > 200
-        end,
-
-        on_return = function(self)
-            return self.value
-        end
-    })
-
-    dbg("was given: ", give:await())
-end)
-
-local n = 0
-local outer = rt.Routine(function()
-    local inner = rt.Routine(function()
-        println(n)
-        n = n + 1
-    end):resume() -- line 53
-end)
-
-outer:start()
-outer:restart()
-outer:restart()
-outer:restart()
-]]
-
-local sound_handler
-
 love.load = function(args)
     local w, h = love.graphics.getDimensions()
 
@@ -113,19 +57,18 @@ love.load = function(args)
     require "menu.menu_scene"
     --rt.SceneManager:push(mn.MenuScene, false)
 
-    local center_x, center_y = 0.5 * love.graphics.getWidth(), 0.5 * love.graphics.getHeight()
-    rt.SoundManager:set_player_position(center_x, center_y)
-    sound_handler = rt.SoundManager:play("debug.debug", {
-        position_x = center_x,
-        position_y = center_y
-    })
 
     rt.SceneManager:set_is_cursor_visible(true)
+
 end
 
-DEBUG_INPUT:signal_connect("pressed", function(_, which)
-    if which == rt.InputAction.JUMP then
-        rt.SoundManager:stop(sound_handler)
+DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
+    if which == rt.KeyboardKey.ONE then
+        rt.MusicManager:play("Bloodhail - 01 Choke 26")
+    elseif which == rt.KeyboardKey.TWO then
+        rt.MusicManager:play("Bloodhail - 02 Bloodhail")
+    elseif which == rt.KeyboardKey.THREE then
+        rt.MusicManager:play("Bloodhail - 03 Just Fine, Thanks")
     end
 end)
 
@@ -133,10 +76,6 @@ love.update = function(delta)
     if rt.SceneManager ~= nil then
         rt.SceneManager:update(delta)
     end
-
-    rt.SoundManager:set_position(sound_handler,
-        love.mouse.getPosition()
-    )
 end
 
 love.draw = function()

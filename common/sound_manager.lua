@@ -12,5 +12,5 @@ else
 end
 
 if rt.GameState ~= nil then
-    rt.SoundManager:set_global_volume(rt.GameState:get_sound_effect_leve())
+    rt.SoundManager:set_global_volume(rt.GameState:get_sound_effect_level())
 end

@@ -35,7 +35,6 @@ end
 function rt.CrossFader:get_gain(t)
     if t ~= nil then
         meta.assert(t, mt.Number)
-        t = math.clamp(t, 0, 1)
         self:set_fade(t)
     end
 

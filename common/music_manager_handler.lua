@@ -3,7 +3,7 @@ require "common.channel"
 require "common.sound_effect"
 
 --- @class rt.SoundManagerHandler
-rt.MusicManagerHandler = meta.class("SoundManagerHandler")
+rt.MusicManagerHandler = meta.class("MusicManagerHandler")
 
 local MessageType = {}
 for id in range(
@@ -48,7 +48,7 @@ SIGNAL_EMIT: worker -> main
 PLAY: main -> worker
     type : MessageType
     id : String?
-    restart_if_active : Boolean?
+    loop_id : Union<Number, String>
 
 STOP: main -> worker
     type : MessageType
@@ -109,13 +109,14 @@ function rt.MusicManagerHandler:instantiate()
 end
 
 --- @brief
-function rt.MusicManagerHandler:play(id, restart_if_active)
-    meta.assert(id, mt.Optional(mt.String), restart_if_active, mt.Option(mt.String))
+function rt.MusicManagerHandler:play(id, loop_id)
+    if loop_id == nil then loop_id = 1 end
+    meta.assert(id, mt.String, loop_id, mt.Union(mt.Number, mt.String))
 
     self._main_to_worker:push({
         type = MessageType.PLAY,
         id = id,
-        restart_if_active = restart_if_active
+        loop_id = loop_id
     })
 end
 
