@@ -693,6 +693,8 @@ love.quit = function()
     end
 end
 
+local _should_draw = true
+
 love.run = function()
     love.mouse.setVisible(false)
     love.mouse.setGrabbed(false)
@@ -743,7 +745,10 @@ love.run = function()
                 local before = love.timer.getTime() -- sic, time whole while loop
                 while state._update_accumulator >= step do
 
-                    if love.update then love.update(step) end
+                    if love.update then
+                        love.update(step)
+                        _should_draw = true
+                    end
 
                     state._update_accumulator = state._update_accumulator - step
                     n_steps = n_steps + 1
@@ -755,7 +760,10 @@ love.run = function()
                 state:_notify_update_duration(love.timer.getTime() - before)
             else
                 local before = love.timer.getTime()
-                if love.update then love.update(delta) end
+                if love.update then
+                    love.update(delta)
+                    _should_draw = true
+                end
                 state:_notify_update_duration(love.timer.getTime() - before)
             end
 
@@ -806,9 +814,11 @@ love.run = function()
             if drawn then
                 state._screen_recorder:draw() -- update main framebuffer
             end
-        else
+        elseif _should_draw then
             draw()
             drawn = true
+        else
+            dbg("skip")
         end
 
         if rt.GameState:get_draw_debug_information() then

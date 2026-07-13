@@ -16,9 +16,6 @@ require "menu.pause_menu"
 require "menu.message_dialog"
 
 rt.settings.overworld_scene = {
-    bloom_blur_strength = 1.5, -- > 0
-    bloom_composite_strength = 0.08, -- [0, 1]
-    light_map_strength = 1.0,
     title_card_min_duration = 3, -- seconds
 
     idle_threshold_duration = 5,
@@ -386,6 +383,8 @@ function ow.OverworldScene:enter(stage_id, entry_mode)
     self._input:activate()
     rt.SceneManager:set_use_fixed_timestep(true)
     rt.SceneManager:set_is_cursor_visible(true)
+
+    local bloom = rt.SceneManager:get_bloom()
 end
 
 --- @brief
@@ -691,6 +690,8 @@ function ow.OverworldScene:update(delta)
     end
 end
 
+local before = love.timer.getTime()
+
 --- @brief
 function ow.OverworldScene:draw()
     if self._stage == nil or self._stage:get_is_initialized() ~= true then
@@ -733,7 +734,8 @@ function ow.OverworldScene:draw()
         end
 
         if rt.GameState:get_is_bloom_enabled() then
-            rt.SceneManager:get_bloom():composite()
+            love.graphics.clear()
+            rt.SceneManager:get_bloom():composite(1.0)
         end
 
         self._camera:bind()
@@ -815,6 +817,7 @@ function ow.OverworldScene:draw()
         end
 
         bloom:unbind()
+        bloom:flush()
     end
 
     local blur_value = self._blur_motion:get_value()

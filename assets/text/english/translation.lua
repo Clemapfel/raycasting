@@ -37,15 +37,6 @@ return {
         })[grade]
     end,
 
-    -- error handler
-    error_handler = {
-        title = "Fatal Error",
-        message = "An error has occurred and the application was unable to recover.\n\nTo prevent issues like this in the future, please consider\n reviewing the log files and sending them to the developers.\n\nWhat would you like to do?",
-        open_log = "Open Log Files",
-        restart = "Restart",
-        exit = "Exit"
-    },
-
     -- pause menu
     pause_menu = {
         resume = "Resume",
@@ -186,28 +177,28 @@ return {
         end,
 
         fullscreen_title = "Fullscreen",
-        fullscreen_description = "If enabled, automatically resizes the window to cover the entire monitor",
+        fullscreen_description = "If enabled, automatically resizes to monitor resolution",
 
         msaa_title = "Multi-Sample Anti Aliasing (MSAA)",
-        msaa_description = "Reduces jagged lines and other artifacts, higher levels may decrease performance",
+        msaa_description = "Reduces jagged lines and other rendering artifacts.\n\n<b>Performance Impact</b>: moderate",
 
         bloom_title = "Bloom",
-        bloom_description = "If enabled, light souces will have a soft glow around them. Disabling this may improve performance",
+        bloom_description = "Draws a soft glow around all light sources.\n\n<b>Performance Impact</b>: high",
 
         hdr_title = "HDR (High Dynamic Range)",
-        hdr_description = "Use a larger range of colors for rendering, which can result in better video output on certain monitors, at worse performance",
+        hdr_description = "Uses a larger range of colors for rendering, which can result in better output on certain monitors.\n\n<b>Performance Impact</b>: low",
 
         downscaling_title = "Resolution Downscaling",
-        downscaling_description = "Reduces image quality, increases performance. Especially effective for large, high-resolution monitors",
+        downscaling_description = "Reduces image quality to increase performance.\n\n<b>Performance Impact</b>: very high",
 
         dynamic_lighting_title = "Dynamic Lighting",
-        dynamic_lighting_description = "Render lighting computed in real-time on level geometry",
+        dynamic_lighting_description = "Draws and computes lighting for certain objects in real time.\n\n<b>Performance Impact</b>: high",
 
         reflections_title = "Reflections",
-        reflections_description = "Render lights and player on reflective surface",
+        reflections_description = "Draw a mirror image of the player on certain reflective surfaces.\n\n<b>Performance Impact</b>: negligible",
 
         background_animation_title = "Animate Background",
-        background_animation_description = "Whether the stage and other backgrounds should animate",
+        background_animation_description = "If disabled, the background behind a stage will no longer be animated.\n\n<b>Performance Impact</b>: low",
 
         sound_effect_level_title = "Sound Effects",
         sound_effect_level_description = "Volume of non-music audio playback",
@@ -216,19 +207,19 @@ return {
         music_level_description = "Volume of music playback",
 
         shake_enabled_title = "Screen Shake",
-        shake_enabled_description = "If disabled, ",
+        shake_enabled_description = "If enabled, screen may shake during certain animations",
 
         controller_vibration_strength_title = "Controller Vibration",
-        controller_vibration_strength_description = "How strongly the controller should vibrate, or <mono>0</mono> for no vibration",
+        controller_vibration_strength_description = "How strongly the controller will vibrate",
 
         joystick_deadzone_title = "Deadzone",
-        joystick_deadzone_description = "How far the controllers joystick has to be moved away from the center before an input is registered",
+        joystick_deadzone_description = "How far the controller's joysticks have to be moved away from the center before an input is registered",
 
         input_buffering_enabled_title = "Input Buffering",
-        input_buffering_enabled_description = "If enabled, pressing jump slightly before touching the ground or a wall will instantly jump",
+        input_buffering_enabled_description = "If enabled, inputs pressed slightly bfeore or after they can be acted on are executed anyway",
 
         color_blind_mode_enabled_title = "Color Blind Mode",
-        color_blind_mode_enabled_description = "Adds various non-diagetic visual elements to objects that rely on the player being able to differentiate colors",
+        color_blind_mode_enabled_description = "Adds various non-diagetic visual elements to objects that rely on the player being able to differentiate colors.\n\n<b>Performance Impact</b>: none",
 
         draw_debug_info_enabled_title = "Draw Debug Information",
         draw_debug_info_enabled_description = "Whether to show various information at the top of the screen",
@@ -237,51 +228,50 @@ return {
         draw_speedrun_splits_enabled_description = "Show frame-perfect timestamps for when a checkpoint is reached or a level is completed. Useful for speedrunners, automatically accounts for lag and load time.",
 
         text_speed_title = "Text Speed",
-        text_speed_description = "How fast letters appear in dialog boxes",
-        text_speed_visualization_text = "this text is scrolling.\nthis text is scrolling.\nthis text is scrolling.",
+        text_speed_description = "How fast letters appear when displaying text during dialog",
+        text_speed_visualization_text = "This text is scrolling",
 
         double_press_threshold_title = "Double Press",
-        double_press_threshold_description = "Maximum amount of time that is allowed to elapsed for a double press to be recognized",
+        double_press_threshold_description = "Determines maximum amount of time between two presses allowed to still detect a double-press input",
 
         sprint_mode_title = "Sprint Mode",
-        sprint_mode_description = "Whether the player should walk by default and sprint when the sprint button is held, or sprint by default and walk if the sprint button is held.",
+        sprint_mode_description = "Determines the default movement state. In \"Sprint\", the player walks by default and sprints while the button is held. In \"Walk\", the player sprints by default and walks while the button is held.",
 
         input_action_up_title = "Up",
-        input_action_up_description = "TODO Up",
+        input_action_up_description = "Menu: scroll up. Player: move up",
 
         input_action_right_title = "Right",
-        input_action_right_description = "TODO Right",
+        input_action_right_description = "Menu: move right. Player: move right",
 
         input_action_down_title = "Down",
-        input_action_down_description = "TODO Down",
+        input_action_down_description = "Menu: scroll down. Player: duck, or accelerate downward while airborne",
 
         input_action_left_title = "Left",
-        input_action_left_description = "TODO Left",
+        input_action_left_description = "Menu: move left. Player: move left",
 
         input_action_jump_title = "Jump",
-        input_action_jump_description = "TODO Jump",
+        input_action_jump_description = "Player: jump",
 
         input_action_sprint_title = "Sprint",
-        input_action_sprint_description = "TODO Sprint",
+        input_action_sprint_description = "Player: enter sprint mode",
 
         input_action_interact_title = "Interact",
-        input_action_interact_description = "TODO Interact",
+        input_action_interact_description = "Player: interact with the nearest object or character",
 
         input_action_confirm_title = "Confirm",
-        input_action_confirm_description = "TODO Confirm",
+        input_action_confirm_description = "Menu: select current item",
 
         input_action_back_title = "Back / Undo",
-        input_action_back_description = "TODO Back",
+        input_action_back_description = "Menu: return to the previous page, or undo the last action",
 
         input_action_reset_title = "Reset",
-        input_action_reset_description = "TODO Reset",
+        input_action_reset_description = "Menu: restore the selected setting to its default value",
 
         input_action_pause_title = "Pause / Unpause",
-        input_action_pause_description = "TODO Pause",
+        input_action_pause_description = "Pause or resume gameplay",
 
         input_action_special_title = "Special",
-        input_action_special_description = "???",
-
+        input_action_special_description = "???"
     },
 
     -- settings screen
@@ -315,8 +305,12 @@ return {
         msaa_best = "8x",
 
         bloom_prefix = "Bloom",
-        bloom_on = "On",
         bloom_off = "Off",
+        bloom_lowest = "Lowest",
+        bloom_low = "Low",
+        bloom_normal = "Normal",
+        bloom_better = "Better",
+        bloom_best = "Best",
 
         hdr_prefix = "HDR",
         hdr_on = "On",
@@ -375,11 +369,11 @@ return {
     keybinding_scene = {
         heading = "Controls",
 
-        confirm_exit_message = "Are you sure you want to exit?",
-        confirm_exit_submessage = "TODO TODO",
+        confirm_exit_message = "Exit without saving?",
+        confirm_exit_submessage = "Any changes made to the keybindings will be lost.",
 
-        confirm_reset_to_default_message = "Are you sure you want to reset to default?",
-        confirm_reset_to_default_submessage = "TODO TODO",
+        confirm_reset_to_default_message = "Reset all keybindings to default?",
+        confirm_reset_to_default_submessage = "This will overwrite the current keybindings. Cannot be undone.",
 
         keybinding_invalid_message = "Keybinding Invalid",
 

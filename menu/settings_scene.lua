@@ -4,6 +4,7 @@ require "common.frame"
 require "common.game_state"
 require "common.control_indicator"
 require "common.lch_texture"
+require "common.bloom_quality"
 require "menu.verbose_info_panel"
 require "menu.scale"
 require "menu.option_button"
@@ -305,19 +306,27 @@ function mn.SettingsScene:instantiate()
 
     init_functions[SettingsItem.BLOOM] = function() -- bloom
         local bloom_to_label = {
-            [true] = translation.bloom_on,
-            [false] = translation.bloom_off
-        }
+            [rt.BloomQuality.OFF] = translation.bloom_off,
+            [rt.BloomQuality.LOWEST] = translation.bloom_lowest,
+            [rt.BloomQuality.LOW] = translation.bloom_low,
+            [rt.BloomQuality.NORMAL] = translation.bloom_normal,
+            [rt.BloomQuality.BETTER] = translation.bloom_better,
+            [rt.BloomQuality.BEST] = translation.bloom_best
+         }
         local label_to_bloom = reverse(bloom_to_label)
 
         local bloom_button = mn.OptionButton({
-            bloom_to_label[false],
-            bloom_to_label[true],
+            bloom_to_label[rt.BloomQuality.OFF],
+            bloom_to_label[rt.BloomQuality.LOWEST],
+            bloom_to_label[rt.BloomQuality.LOW],
+            bloom_to_label[rt.BloomQuality.NORMAL],
+            bloom_to_label[rt.BloomQuality.BETTER],
+            bloom_to_label[rt.BloomQuality.BEST]
         })
 
-        bloom_button:set_option(bloom_to_label[rt.GameState:get_is_bloom_enabled()])
+        bloom_button:set_option(bloom_to_label[rt.GameState:get_bloom_quality()])
         bloom_button:signal_connect("selection", function(_, label)
-            rt.GameState:set_is_bloom_enabled(label_to_bloom[label])
+            rt.GameState:set_bloom_quality(label_to_bloom[label])
         end)
 
         local item = add_item(
@@ -326,7 +335,7 @@ function mn.SettingsScene:instantiate()
         )
 
         item:signal_connect("reset", function(_)
-            bloom_button:set_option(bloom_to_label[defaults.is_bloom_enabled])
+            bloom_button:set_option(bloom_to_label[defaults.bloom_quality])
         end)
     end
 
@@ -892,7 +901,7 @@ function mn.SettingsScene:size_allocate(x, y, width, height)
             self.prefix:reformat(
                 x + item_outer_margin,
                 y + 0.5 * height - 0.5 * prefix_h,
-                math.huge, math.huge
+                width, height
             )
 
             local widget_h
@@ -929,14 +938,12 @@ function mn.SettingsScene:enter()
     rt.SceneManager:set_use_fixed_timestep(false)
     self._list:set_selected_item(1)
     rt.SceneManager:set_is_cursor_visible(false)
-    rt.MusicManager:play(rt.MusicIDs.settings_scene)
 end
 
 --- @brief
 function mn.SettingsScene:exit()
     self._input:deactivate()
     rt.SceneManager:set_is_cursor_visible(false)
-    rt.MusicManager:pause(rt.MusicIDs.settings_scene)
 end
 
 --- @brief

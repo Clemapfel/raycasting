@@ -159,6 +159,7 @@ end
 
 --- @brief
 function mn.OptionButton:update(delta)
+    meta.assert(delta, mt.Number)
     local target_offset = self._items[self._current_item_i].offset
 
     local offset = delta * rt.settings.menu.option_button.scroll_speed
@@ -240,6 +241,8 @@ end
 
 --- @brief
 function mn.OptionButton:set_option(i_or_text)
+    meta.assert(i_or_text, mt.Union(mt.Number, mt.String))
+
     if meta.is_number(i_or_text) then
         local i = i_or_text
         if i > self._n_items then

@@ -140,7 +140,7 @@ function mn.VerboseInfoPanel:size_allocate(x, y, width, height)
     self._total_height = 0
     for i = 1, self._n_items do
         local item = self._items[i]
-        item:reformat(current_x, current_y, width, math.huge)
+        item:reformat(current_x, current_y, width, height)
         local h = select(2, item:measure())
         item.height_above = height_above
         item.aabb = rt.AABB(current_x, current_y, width, h)

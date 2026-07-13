@@ -64,8 +64,8 @@ function rt.Widget:reformat(x, y, width, height)
     self._bounds.width = _round(width)
     self._bounds.height = _round(height)
 
-    rt.assert(self._bounds.width >= 0, "in rt.Widget.reformat: width cannot be negative")
-    rt.assert(self._bounds.height >= 0, "in rt.Widget.reformat: height cannot be negative")
+    rt.assert(self._bounds.width >= 0, "in rt.Widget.reformat: width is `", width, "`, but it cannot be negative")
+    rt.assert(self._bounds.height >= 0, "in rt.Widget.reformat: height is `", height, "`, but it cannot be negative")
 
     self:size_allocate(self._bounds.x, self._bounds.y, self._bounds.width, self._bounds.height)
 end

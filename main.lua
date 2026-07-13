@@ -52,7 +52,7 @@ love.load = function(args)
     --rt.SceneManager:push(mn.KeybindingScene)
 
     require "menu.settings_scene"
-    --rt.SceneManager:push(mn.SettingsScene)
+    rt.SceneManager:push(mn.SettingsScene)
 
     require "menu.menu_scene"
     --rt.SceneManager:push(mn.MenuScene, false)
@@ -62,27 +62,11 @@ love.load = function(args)
 
 end
 
-DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
-    if which == rt.KeyboardKey.ONE then
-        rt.MusicManager:play("Bloodhail - 01 Choke 26")
-    elseif which == rt.KeyboardKey.TWO then
-        rt.MusicManager:play("Bloodhail - 02 Bloodhail", true)
-    elseif which == rt.KeyboardKey.THREE then
-        rt.MusicManager:play("Bloodhail - 03 Just Fine, Thanks")
-    elseif which == rt.KeyboardKey.RETURN then
-        if rt.MusicManager:get_is_paused() then
-            rt.MusicManager:unpause()
-        else
-            rt.MusicManager:pause()
-        end
-    elseif which == rt.KeyboardKey.SPACE then
-        rt.MusicManager:stop(true)
-    end
-end)
-
 love.update = function(delta)
     if rt.SceneManager ~= nil then
+        debugger.push("update")
         rt.SceneManager:update(delta)
+        debugger.pop("update")
     end
 end
 
