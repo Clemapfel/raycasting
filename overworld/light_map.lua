@@ -867,11 +867,9 @@ do
         if self._should_compute_composite and rt.GameState:get_is_bloom_enabled() then
             local bloom = rt.SceneManager:get_bloom()
             bloom:flush() -- noop if already done
-            shader:send("bloom_padding", { bloom:get_padding() })
             shader:send("bloom_texture", bloom:get_texture())
         else
             shader:send("bloom_texture", self._bloom_dummy_texture)
-            shader:send("bloom_padding", { 0, 0 })
         end
 
         shader:dispatch(self._dispatch_x, self._dispatch_y)

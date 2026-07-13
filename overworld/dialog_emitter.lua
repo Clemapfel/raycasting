@@ -139,6 +139,8 @@ end
 
 --- @brief
 function ow.DialogEmitter:draw(priority)
+    if not self:get_is_active() then return end
+
     love.graphics.push()
     love.graphics.origin()
     love.graphics.translate(0, self._dialog_box_motion:get_value() * self._dialog_box_motion_max_offset)

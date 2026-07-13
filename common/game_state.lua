@@ -114,13 +114,18 @@ end
 
 --- @brief
 function rt.GameState:get_is_bloom_enabled()
-    return bd.get_config().is_bloom_enabled
+    return bd.get_config().bloom_quality ~= rt.BloomQuality.OFF
 end
 
 --- @brief
-function rt.GameState:set_is_bloom_enabled(b)
-    meta.assert(b, mt.Boolean)
-    bd.get_config().is_bloom_enabled = b
+function rt.GameState:get_bloom_quality()
+    return bd.get_config().bloom_quality
+end
+
+--- @brief
+function rt.GameState:set_bloom_quality(quality)
+    meta.assert(quality, rt.BloomQuality)
+    bd.get_config().bloom_quality = quality
 end
 
 --- @brief

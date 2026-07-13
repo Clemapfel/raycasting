@@ -23,10 +23,6 @@ function ow.BloodSplatter:instantiate(scene)
     })
 end
 
-function ow.BloodSplatter:set_bloom_factor(f)
-    self._bloom_factor = f
-end
-
 -- get part of segment that overlaps circle
 local function _clip_segment_in_circle(x1, y1, x2, y2, cx, cy, radius)
     local px1, py1 = x1 - cx, y1 - cy
@@ -185,10 +181,10 @@ function ow.BloodSplatter:draw()
     love.graphics.push()
     love.graphics.translate(self._offset_x, self._offset_y)
 
-    local t = 1 / 4 * self._bloom_factor -- experimentally determined to compensate best
+    local t = 0.25 -- experimentally ddetermined to compensate best
     local brightness_offset = math.mix(1, rt.settings.impulse_manager.max_brightness_factor, self._impulse:get_pulse())
-    love.graphics.setLineWidth(line_width)
 
+    self._visible_divisions = {}
     for shape in values(self._world:getShapesInArea(x, y, x + w, y + h)) do
         for division in values(shape:getUserData().subdivisions) do
             if division.is_active then
@@ -200,9 +196,42 @@ function ow.BloodSplatter:draw()
                     a
                 )
                 love.graphics.line(division.line)
+
+                table.insert(self._visible_divisions, division)
             end
         end
     end
+
+    love.graphics.pop()
+end
+
+--- @brief
+function ow.BloodSplatter:draw_bloom()
+    if self._world == nil then return end
+
+    local line_width = rt.settings.overworld.blood_splatter.line_width
+    love.graphics.setLineWidth(line_width)
+    love.graphics.setLineStyle("rough")
+    love.graphics.setLineJoin("bevel")
+
+    love.graphics.push()
+    love.graphics.translate(self._offset_x, self._offset_y)
+
+    local t = 0 -- experimentally determined to compensate best
+    local brightness_offset = math.mix(1, rt.settings.impulse_manager.max_brightness_factor, self._impulse:get_pulse())
+    love.graphics.setLineWidth(line_width)
+
+    for division in values(self._visible_divisions) do
+        local r, g, b, a = division.color:unpack()
+        love.graphics.setColor(
+            (r - t) * brightness_offset,
+            (g - t) * brightness_offset,
+            (b - t) * brightness_offset,
+            a
+        )
+        love.graphics.line(division.line)
+    end
+
 
     love.graphics.pop()
 end

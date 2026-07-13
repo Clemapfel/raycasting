@@ -42,6 +42,7 @@ do
     require "common.meta"
     require "common.vsync_mode"
     require "common.msaa_quality"
+    require "common.bloom_quality"
     require "common.player_sprint_mode"
     require "common.language"
     require "common.internal_resolution"
@@ -116,8 +117,15 @@ do
         -- apply hdr tonemapping as post processing
         is_hdr_enabled = BOOLEAN(true),
 
-        -- draw bloom
-        is_bloom_enabled = BOOLEAN(true),
+
+        -- bloom blur quality
+        bloom_quality = ENUM(rt.BloomQuality.NORMAL,
+            rt.BloomQuality.LOWEST,
+            rt.BloomQuality.LOW,
+            rt.BloomQuality.NORMAL,
+            rt.BloomQuality.BETTER,
+            rt.BloomQuality.BEST
+        ),
 
         -- apply lighting to normal map
         is_dynamic_lighting_enabled = BOOLEAN(true),
@@ -331,6 +339,14 @@ do -- load default config
     else
         bd.config.default_settings = bd.config.parse_settings_from_string(file_or_error)
         bd.config.settings = table.deepcopy(bd.config.default_settings)
+    end
+
+    for t in range(bd.config, bd.config.settings, bd.config.default_settings) do
+        setmetatable(t, {
+            __index = function(_, key)
+                rt.error("In bd.config: trying to access field `", key, "`, but it does not exist")
+            end
+        })
     end
 end
 

@@ -466,6 +466,8 @@ end
 
 --- @brief
 function ow.Stage:draw_bloom()
+    self._blood_splatter:draw_bloom()
+
     for object in values(self._bloom_objects) do
         object:draw_bloom()
     end
@@ -481,8 +483,6 @@ end
 --- @brief
 function ow.Stage:update(delta)
     if self._normal_map:get_is_done()
-        and rt.SoundManager:get_is_done()
-        and rt.MusicManager:get_is_done()
         and self._is_initialized
         and self._signal_done_emitted == false
     then
