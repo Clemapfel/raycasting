@@ -17,6 +17,7 @@ rt.settings.sound_manager = {
     source_stop_decay_duration = 20 / 60, -- seconds
 
     update_step = 1 / 240, -- seconds
+    max_cache_size_mb = 100, -- mb
 }
 
 --- @class rt.SoundManager
@@ -169,101 +170,144 @@ function rt.SoundManager:instantiate()
     end
 end
 
---- @brief
-function rt.SoundManager:_import_audio(sound_path)
-    local _attack = 5 / 60 -- seconds
-    local _decay = 5 / 60 -- seconds
+do
 
-    local _envelope = function(sample_i, n_samples, sample_rate)
-        -- convert sample index to time in seconds
-        local t = sample_i / sample_rate
-        local total_duration = n_samples / sample_rate
+    local _cache = {} -- Table<Path, SoundData>
+    local _cache_size_mb = 0
+    local _cache_priority = {} -- priority Queue, most recently used at back, oldest first
 
-        -- calculate phase durations
-        local attack_samples = _attack * sample_rate
-        local decay_samples = _decay * sample_rate
-
-        -- attack
-        if sample_i <= attack_samples then
-            local normalized_pos = sample_i / attack_samples
-            return 0.5 * (1 - math.cos(math.pi * normalized_pos))
-        end
-
-        -- decay
-        local decay_start = n_samples - decay_samples
-        if sample_i >= decay_start then
-            local normalized_pos = (sample_i - decay_start) / decay_samples
-            return 0.5 * (1 + math.cos(math.pi * normalized_pos))
-        end
-
-        -- sustain
-        return 1.0
+    local _skip_next_delta = false
+    local _get_data_size_mb = function(data)
+        return (data:getSampleCount() * data:getBitDepth() * data:getChannelCount()) / (8 * 1024^2)
     end
 
-    local success, data_or_error = pcall(love.sound.newSoundData, sound_path)
-    if not success then
-        rt.critical("In rt.SoundManager.play: when trying to play sound at `", sound_path,  "`: ",  data_or_error)
-        return nil
-    end
-
-    local data = data_or_error
-
-    local sample_count = data:getSampleCount()
-    local sample_rate = data:getSampleRate()
-    local channel_count = data:getChannelCount()
-    local bit_depth = data:getBitDepth()
-
-    if sample_count == 0 then
-        return nil
-    end
-
-    local is_mono = channel_count == 1
-
-    local mono_sound_data
-    if not is_mono then
-        mono_sound_data = love.sound.newSoundData(
-            sample_count,
-            sample_rate,
-            bit_depth,
-            1
-        )
-    else
-        mono_sound_data = data
-    end
-
-    for i = 0, sample_count - 1 do
-        local sample
-
-        -- get sample, convert to mono if necessary
-        if not is_mono then
-            -- mean of all channels
-            local sample_sum = 0
-            for channel = 1, channel_count do
-                sample_sum = sample_sum + data:getSample(i, channel)
+    --- @brief
+    function rt.SoundManager:_import_audio(sound_path)
+        -- check cache first
+        local cached = _cache[sound_path]
+        if cached ~= nil then
+            -- bubble up to most recently used
+            for i, other in ipairs(_cache_priority) do
+                if other == sound_path then
+                    table.remove(_cache_priority, i)
+                    break
+                end
             end
-            sample = sample_sum / channel_count
+
+            table.insert(_cache_priority, sound_path)
+            return cached
+        end
+
+        local _attack = 5 / 60 -- seconds
+        local _decay = 5 / 60 -- seconds
+
+        local _envelope = function(sample_i, n_samples, sample_rate)
+            -- convert sample index to time in seconds
+            local t = sample_i / sample_rate
+            local total_duration = n_samples / sample_rate
+
+            -- calculate phase durations
+            local attack_samples = _attack * sample_rate
+            local decay_samples = _decay * sample_rate
+
+            -- attack
+            if sample_i <= attack_samples then
+                local normalized_pos = sample_i / attack_samples
+                return 0.5 * (1 - math.cos(math.pi * normalized_pos))
+            end
+
+            -- decay
+            local decay_start = n_samples - decay_samples
+            if sample_i >= decay_start then
+                local normalized_pos = (sample_i - decay_start) / decay_samples
+                return 0.5 * (1 + math.cos(math.pi * normalized_pos))
+            end
+
+            -- sustain
+            return 1.0
+        end
+
+        local success, data_or_error = pcall(love.sound.newSoundData, sound_path)
+        if not success then
+            rt.critical("In rt.SoundManager.play: when trying to play sound at `", sound_path,  "`: ",  data_or_error)
+            return nil
+        end
+
+        local data = data_or_error
+
+        local sample_count = data:getSampleCount()
+        local sample_rate = data:getSampleRate()
+        local channel_count = data:getChannelCount()
+        local bit_depth = data:getBitDepth()
+
+        if sample_count == 0 then
+            return nil
+        end
+
+        local is_mono = channel_count == 1
+
+        local mono_sound_data
+        if not is_mono then
+            mono_sound_data = love.sound.newSoundData(
+                sample_count,
+                sample_rate,
+                bit_depth,
+                1
+            )
         else
-            sample = data:getSample(i, 1)
+            mono_sound_data = data
         end
 
-        -- apply envelope
-        local enveloped_sample = sample * _envelope(i, sample_count, sample_rate)
+        for i = 0, sample_count - 1 do
+            local sample
 
-        if bit_depth == 8 then -- uint8_t
-            enveloped_sample = math.floor(((enveloped_sample + 1) / 2) * 2^8) / 2^8
-            enveloped_sample = math.mix(-1, 1, enveloped_sample)
-        elseif bit_depth == 16 then -- int16_t
-            enveloped_sample = math.round(enveloped_sample * 2^16) / 2^16
+            -- get sample, convert to mono if necessary
+            if not is_mono then
+                -- mean of all channels
+                local sample_sum = 0
+                for channel = 1, channel_count do
+                    sample_sum = sample_sum + data:getSample(i, channel)
+                end
+                sample = sample_sum / channel_count
+            else
+                sample = data:getSample(i, 1)
+            end
+
+            -- apply envelope
+            local enveloped_sample = sample * _envelope(i, sample_count, sample_rate)
+
+            if bit_depth == 8 then -- uint8_t
+                enveloped_sample = math.floor(((enveloped_sample + 1) / 2) * 2^8) / 2^8
+                enveloped_sample = math.mix(-1, 1, enveloped_sample)
+            elseif bit_depth == 16 then -- int16_t
+                enveloped_sample = math.round(enveloped_sample * 2^16) / 2^16
+            end
+
+            mono_sound_data:setSample(i, 1, enveloped_sample)
         end
 
-        mono_sound_data:setSample(i, 1, enveloped_sample)
-    end
+        if not is_mono then
+            data:release()
+        end
 
-    if not is_mono then
-        data:release()
-    end
+        -- insert into cache
+        _cache[sound_path] = mono_sound_data
+        _cache_size_mb = _cache_size_mb + _get_data_size_mb(mono_sound_data)
+        table.insert(_cache_priority, sound_path)
 
-    return mono_sound_data
+        while _cache_size_mb > rt.settings.sound_manager.max_cache_size_mb do
+            local oldest = _cache_priority[1]
+            if oldest == nil then break end
+
+            local old_data = _cache[oldest]
+
+            _cache[oldest] = nil
+            table.remove(_cache_priority, 1)
+            _cache_size_mb = _cache_size_mb - _get_data_size_mb(old_data)
+        end
+
+        return mono_sound_data
+    end
 end
 
 --- @brief
