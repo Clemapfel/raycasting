@@ -307,7 +307,7 @@ function ow.OverworldScene:instantiate(state)
             self._camera:reset()
 
             rt.InputManager:flush()
-            self:enter(before_id, ow.StageEntryMode.INSTANT)
+            self:enter(before_id, ow.StageEntryMode.INSTANT, true) -- override
         elseif which == rt.KeyboardKey.I then
             self:_set_state(_STATE_TIME_ATTACK_COUNTDOWN)
         elseif which == rt.KeyboardKey.O then
@@ -372,8 +372,8 @@ function ow.OverworldScene:instantiate(state)
 end
 
 --- @brief
-function ow.OverworldScene:enter(stage_id, entry_mode)
-    if not self:get_is_active() then
+function ow.OverworldScene:enter(stage_id, entry_mode, should_reinitialize)
+    if not self:get_is_active() or should_reinitialize then
         if entry_mode == nil then entry_mode = ow.StageEntryMode.INSTANT end
         meta.assert(stage_id, "String", entry_mode, ow.StageEntryMode)
 
@@ -734,8 +734,7 @@ function ow.OverworldScene:draw()
         end
 
         if rt.GameState:get_is_bloom_enabled() then
-            love.graphics.clear()
-            rt.SceneManager:get_bloom():composite(1.0)
+            rt.SceneManager:get_bloom():composite()
         end
 
         self._camera:bind()

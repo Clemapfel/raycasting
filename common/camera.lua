@@ -531,11 +531,12 @@ end
 
 --- @brief
 function rt.Camera:shake(intensity, duration)
-    meta.assert(intensity, mt.Number, duration, mt.Optional(duration))
-
     local settings = rt.settings.camera.shake_impulse
+    if duration == nil then duration = settings.default_duration end
+    if intensity == nil then intensity = settings.default_intensity end
+    
+    meta.assert(intensity, mt.Number, duration, mt.Optional(mt.Number))
 
-    duration = duration or settings.default_duration
     local n_nodes = math.ceil(settings.frequency * duration)
 
     -- pre-generate random walk on unit circle with opposing directions

@@ -279,7 +279,7 @@ end
 
 --- @brief
 function mn.PauseMenu:_on_retry()
-    rt.SceneManager:get_current_scene():respawn()
+    self._underlying_scene:get_player():kill(true) -- explode
     self._underlying_scene:unpause()
 end
 

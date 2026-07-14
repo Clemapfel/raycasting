@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 313,
+  nextobjectid = 340,
   properties = {
     ["background_id"] = "\"nebula\""
   },
@@ -52,50 +52,7 @@ return {
       parallaxx = 1,
       parallaxy = 1,
       properties = {},
-      objects = {
-        {
-          id = 160,
-          name = "",
-          type = "Wall",
-          shape = "polygon",
-          x = 1408,
-          y = -736,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = -1936, y = 784 },
-            { x = 1168, y = 768 },
-            { x = 1168, y = -1600 },
-            { x = -967.617, y = -794.688 }
-          },
-          properties = {
-            ["type"] = "spheres"
-          }
-        },
-        {
-          id = 312,
-          name = "",
-          type = "DarknessArea",
-          shape = "polygon",
-          x = 1408,
-          y = -736,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = -1936, y = 784 },
-            { x = 1168, y = 768 },
-            { x = 1168, y = -1600 },
-            { x = -967.617, y = -794.688 }
-          },
-          properties = {
-            ["strength"] = 0.25
-          }
-        }
-      }
+      objects = {}
     },
     {
       type = "objectgroup",
@@ -162,7 +119,7 @@ return {
           name = "",
           type = "OneWayPlatform",
           shape = "point",
-          x = 1936,
+          x = 1904,
           y = -736,
           width = 0,
           height = 0,
@@ -190,7 +147,7 @@ return {
           name = "",
           type = "OneWayPlatform",
           shape = "point",
-          x = 1936,
+          x = 1904,
           y = -1472,
           width = 0,
           height = 0,
@@ -211,53 +168,6 @@ return {
           height = 0,
           rotation = 0,
           visible = true,
-          properties = {}
-        },
-        {
-          id = 309,
-          name = "",
-          type = "OneWayPlatform",
-          shape = "point",
-          x = 208,
-          y = -1360,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["other"] = { id = 310 }
-          }
-        },
-        {
-          id = 310,
-          name = "",
-          type = "OneWayPlatformNode",
-          shape = "point",
-          x = 304,
-          y = -1360,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 311,
-          name = "AcceleratorSurface",
-          type = "AcceleratorSurface",
-          shape = "polygon",
-          x = 704,
-          y = -1248,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = 0 },
-            { x = 0, y = -416 },
-            { x = 48, y = -416 },
-            { x = 48, y = 0 }
-          },
           properties = {}
         }
       }
@@ -281,8 +191,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = 491.087,
-          y = -1284.67,
+          x = 557.935,
+          y = -1357.26,
           width = 0,
           height = 0,
           rotation = 0,
@@ -537,8 +447,8 @@ return {
           rotation = 0,
           visible = true,
           polygon = {
-            { x = -16, y = 0 },
-            { x = -16, y = 352 },
+            { x = -32, y = 0 },
+            { x = -32, y = 352 },
             { x = 48, y = 352 },
             { x = 48, y = 0 }
           },
@@ -624,9 +534,7 @@ return {
             { x = 1024, y = 784 },
             { x = 1584, y = 784 },
             { x = 1584, y = -96 },
-            { x = 384, y = -96 },
-            { x = 384, y = -592 },
-            { x = 0, y = -592 }
+            { x = 0, y = -96 }
           },
           properties = {}
         },
@@ -647,18 +555,6 @@ return {
             { x = 400, y = 160 },
             { x = 448, y = 16 },
             { x = 448, y = -16 },
-            { x = 448, y = -224 },
-            { x = 896, y = -352 },
-            { x = 928, y = -352 },
-            { x = 928, y = -384 },
-            { x = 448, y = -384 },
-            { x = 448, y = -990.694 },
-            { x = 896, y = -1088 },
-            { x = 928, y = -1088 },
-            { x = 928, y = -1120 },
-            { x = 448, y = -1120 },
-            { x = 448, y = -1984 },
-            { x = 400, y = -1984 },
             { x = 400, y = -16 },
             { x = -160, y = -16 },
             { x = -160, y = -800 },
@@ -682,24 +578,10 @@ return {
             { x = 0, y = -16 },
             { x = 288, y = -160 },
             { x = 400, y = -160 },
-            { x = 448, y = -32 },
-            { x = 448, y = 16 },
-            { x = 1520, y = 16 },
-            { x = 1520, y = -592 },
-            { x = 1056, y = -688 },
-            { x = 1024, y = -688 },
-            { x = 1024, y = -720 },
-            { x = 1520, y = -720 },
-            { x = 1520, y = -1333.22 },
-            { x = 1056, y = -1424 },
-            { x = 1024, y = -1424 },
-            { x = 1024, y = -1456 },
-            { x = 1520, y = -1456 },
-            { x = 1520, y = -2320 },
-            { x = 1568, y = -2320 },
-            { x = 1568, y = 48 },
-            { x = 400, y = 48 },
-            { x = 400, y = 16 },
+            { x = 448, y = -16 },
+            { x = 1472, y = -16 },
+            { x = 1472, y = 16 },
+            { x = 384, y = 16 },
             { x = -272, y = 16 },
             { x = -512, y = -224 },
             { x = -544, y = -224 },
@@ -715,7 +597,7 @@ return {
           name = "",
           type = "AirDashNode",
           shape = "ellipse",
-          x = 1920,
+          x = 1904,
           y = -704,
           width = 128,
           height = 128,
@@ -731,7 +613,7 @@ return {
           name = "",
           type = "AirDashNode",
           shape = "ellipse",
-          x = 1696,
+          x = 1680,
           y = -384,
           width = 320,
           height = 320,
@@ -744,8 +626,8 @@ return {
           name = "",
           type = "AirDashNode",
           shape = "ellipse",
-          x = 2112,
-          y = -480,
+          x = 2080,
+          y = -512,
           width = 224,
           height = 224,
           rotation = 0,
@@ -787,548 +669,14 @@ return {
           rotation = 0,
           visible = true,
           polygon = {
-            { x = 0, y = 0 },
-            { x = 0, y = 32 },
+            { x = -32, y = 0 },
+            { x = -32, y = 32 },
             { x = 96, y = 32 },
             { x = 96, y = 0 }
           },
           properties = {
             ["axis_y"] = -1,
             ["render_priority"] = -1
-          }
-        },
-        {
-          id = 165,
-          name = "",
-          type = "CameraFit",
-          shape = "polygon",
-          x = 1823.87,
-          y = -3810.12,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = 16 },
-            { x = 0, y = 768 },
-            { x = 1152, y = 768 },
-            { x = 1152, y = 16 }
-          },
-          properties = {}
-        },
-        {
-          id = 178,
-          name = "",
-          type = "",
-          shape = "polygon",
-          x = -1700.47,
-          y = 2416,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = 0 },
-            { x = 2138.63, y = 0 },
-            { x = 2138.63, y = 64 },
-            { x = 0, y = 64 }
-          },
-          properties = {}
-        },
-        {
-          id = 191,
-          name = "",
-          type = "AirDashNode",
-          shape = "point",
-          x = -1284.63,
-          y = 2211.56,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["angle_range"] = 0,
-            ["other"] = { id = 192 }
-          }
-        },
-        {
-          id = 192,
-          name = "",
-          type = "AirDashNodeDirection",
-          shape = "point",
-          x = -1214.41,
-          y = 2071.11,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["angle_range"] = 0
-          }
-        },
-        {
-          id = 193,
-          name = "",
-          type = "AirDashNode",
-          shape = "point",
-          x = -1214.41,
-          y = 2071.11,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["angle_range"] = 0,
-            ["other"] = { id = 194 }
-          }
-        },
-        {
-          id = 194,
-          name = "",
-          type = "AirDashNodeDirection",
-          shape = "point",
-          x = -1027.15,
-          y = 2071.11,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["angle_range"] = 0
-          }
-        },
-        {
-          id = 195,
-          name = "",
-          type = "AirDashNode",
-          shape = "point",
-          x = -769.667,
-          y = 2352,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["angle_range"] = 0,
-            ["other"] = { id = 196 }
-          }
-        },
-        {
-          id = 196,
-          name = "",
-          type = "AirDashNodeDirection",
-          shape = "point",
-          x = -676.037,
-          y = 2071.11,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["angle_range"] = 0
-          }
-        },
-        {
-          id = 197,
-          name = "",
-          type = "AirDashNode",
-          shape = "point",
-          x = -863.297,
-          y = 2071.11,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["angle_range"] = 0,
-            ["other"] = { id = 198 }
-          }
-        },
-        {
-          id = 198,
-          name = "",
-          type = "AirDashNodeDirection",
-          shape = "point",
-          x = -769.667,
-          y = 2352,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["angle_range"] = 0
-          }
-        },
-        {
-          id = 199,
-          name = "",
-          type = "AirDashNode",
-          shape = "point",
-          x = -1027.15,
-          y = 2071.11,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["angle_range"] = 0,
-            ["other"] = { id = 200 }
-          }
-        },
-        {
-          id = 200,
-          name = "",
-          type = "AirDashNodeDirection",
-          shape = "point",
-          x = -956.926,
-          y = 2211.56,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["angle_range"] = 0
-          }
-        },
-        {
-          id = 201,
-          name = "",
-          type = "AirDashNode",
-          shape = "point",
-          x = -1027.15,
-          y = 2352,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["angle_range"] = 0,
-            ["other"] = { id = 202 }
-          }
-        },
-        {
-          id = 202,
-          name = "",
-          type = "AirDashNodeDirection",
-          shape = "point",
-          x = -1214.41,
-          y = 2352,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["angle_range"] = 0
-          }
-        },
-        {
-          id = 203,
-          name = "",
-          type = "AirDashNode",
-          shape = "point",
-          x = -1214.41,
-          y = 2352,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["angle_range"] = 0,
-            ["other"] = { id = 204 }
-          }
-        },
-        {
-          id = 204,
-          name = "",
-          type = "AirDashNodeDirection",
-          shape = "point",
-          x = -1284.63,
-          y = 2211.56,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["angle_range"] = 0
-          }
-        },
-        {
-          id = 205,
-          name = "",
-          type = "AirDashNode",
-          shape = "point",
-          x = -559,
-          y = 2352,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["angle_range"] = 0,
-            ["other"] = { id = 206 }
-          }
-        },
-        {
-          id = 206,
-          name = "",
-          type = "AirDashNodeDirection",
-          shape = "point",
-          x = -465.371,
-          y = 2071.11,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["angle_range"] = 0
-          }
-        },
-        {
-          id = 207,
-          name = "",
-          type = "AirDashNode",
-          shape = "point",
-          x = -676.037,
-          y = 2071.11,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["angle_range"] = 0,
-            ["other"] = { id = 208 }
-          }
-        },
-        {
-          id = 208,
-          name = "",
-          type = "AirDashNodeDirection",
-          shape = "point",
-          x = -559,
-          y = 2352,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["angle_range"] = 0
-          }
-        },
-        {
-          id = 219,
-          name = "",
-          type = "AirDashNode",
-          shape = "point",
-          x = -956.926,
-          y = 2211.56,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["angle_range"] = 0,
-            ["other"] = { id = 220 }
-          }
-        },
-        {
-          id = 220,
-          name = "",
-          type = "AirDashNodeDirection",
-          shape = "point",
-          x = -1027.15,
-          y = 2352,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["angle_range"] = 0
-          }
-        },
-        {
-          id = 223,
-          name = "",
-          type = "AirDashNode",
-          shape = "point",
-          x = -348.334,
-          y = 2211.56,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["angle_range"] = 0,
-            ["other"] = { id = 224 }
-          }
-        },
-        {
-          id = 224,
-          name = "",
-          type = "AirDashNodeDirection",
-          shape = "point",
-          x = -278.111,
-          y = 2071.11,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["angle_range"] = 0
-          }
-        },
-        {
-          id = 225,
-          name = "",
-          type = "AirDashNode",
-          shape = "point",
-          x = -278.111,
-          y = 2071.11,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["angle_range"] = 0,
-            ["other"] = { id = 226 }
-          }
-        },
-        {
-          id = 226,
-          name = "",
-          type = "AirDashNodeDirection",
-          shape = "point",
-          x = -90.8519,
-          y = 2071.11,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["angle_range"] = 0
-          }
-        },
-        {
-          id = 227,
-          name = "",
-          type = "AirDashNode",
-          shape = "point",
-          x = -90.8519,
-          y = 2071.11,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["angle_range"] = 0,
-            ["other"] = { id = 228 }
-          }
-        },
-        {
-          id = 228,
-          name = "",
-          type = "AirDashNodeDirection",
-          shape = "point",
-          x = -20.6296,
-          y = 2211.56,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["angle_range"] = 0
-          }
-        },
-        {
-          id = 229,
-          name = "",
-          type = "AirDashNode",
-          shape = "point",
-          x = -90.8519,
-          y = 2352,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["angle_range"] = 0,
-            ["other"] = { id = 230 }
-          }
-        },
-        {
-          id = 230,
-          name = "",
-          type = "AirDashNodeDirection",
-          shape = "point",
-          x = -278.111,
-          y = 2352,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["angle_range"] = 0
-          }
-        },
-        {
-          id = 231,
-          name = "",
-          type = "AirDashNode",
-          shape = "point",
-          x = -278.111,
-          y = 2352,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["angle_range"] = 0,
-            ["other"] = { id = 232 }
-          }
-        },
-        {
-          id = 232,
-          name = "",
-          type = "AirDashNodeDirection",
-          shape = "point",
-          x = -348.334,
-          y = 2211.56,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["angle_range"] = 0
-          }
-        },
-        {
-          id = 233,
-          name = "",
-          type = "AirDashNode",
-          shape = "point",
-          x = -20.6296,
-          y = 2211.56,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["angle_range"] = 0,
-            ["other"] = { id = 234 }
-          }
-        },
-        {
-          id = 234,
-          name = "",
-          type = "AirDashNodeDirection",
-          shape = "point",
-          x = -90.8519,
-          y = 2352,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["angle_range"] = 0
           }
         },
         {
@@ -1352,19 +700,6 @@ return {
           properties = {}
         },
         {
-          id = 241,
-          name = "",
-          type = "CameraFit",
-          shape = "rectangle",
-          x = -1408,
-          y = 1808,
-          width = 1504,
-          height = 816,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
           id = 245,
           name = "",
           type = "BoostField",
@@ -1376,59 +711,14 @@ return {
           rotation = 0,
           visible = true,
           polygon = {
-            { x = 0, y = 0 },
-            { x = 0, y = 32 },
+            { x = -32, y = 0 },
+            { x = -32, y = 32 },
             { x = 96, y = 32 },
             { x = 96, y = 0 }
           },
           properties = {
             ["axis_y"] = -1,
             ["render_priority"] = -1
-          }
-        },
-        {
-          id = 257,
-          name = "",
-          type = "AirDashNode",
-          shape = "ellipse",
-          x = 1924.95,
-          y = -1432.23,
-          width = 128,
-          height = 128,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 258,
-          name = "",
-          type = "AirDashNode",
-          shape = "ellipse",
-          x = 1700.95,
-          y = -1112.23,
-          width = 320,
-          height = 320,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["angle_range"] = 0.25,
-            ["direction"] = { id = 260 }
-          }
-        },
-        {
-          id = 259,
-          name = "",
-          type = "AirDashNode",
-          shape = "ellipse",
-          x = 2116.95,
-          y = -1208.23,
-          width = 224,
-          height = 224,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["angle_range"] = 0.25,
-            ["direction"] = { id = 261 }
           }
         },
         {
@@ -1509,90 +799,234 @@ return {
           }
         },
         {
-          id = 267,
+          id = 315,
+          name = "",
+          type = "SlipperyHitbox",
+          shape = "polygon",
+          x = 976,
+          y = 1456,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 1504, y = -2064 },
+            { x = 1104, y = -2160 },
+            { x = 1056, y = -2160 },
+            { x = 1056, y = -2192 },
+            { x = 1552, y = -2192 },
+            { x = 1552, y = -1456 },
+            { x = 1504, y = -1456 }
+          },
+          properties = {}
+        },
+        {
+          id = 317,
+          name = "",
+          type = "SlipperyHitbox",
+          shape = "polygon",
+          x = 976,
+          y = 720,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 1504, y = -2064 },
+            { x = 1104, y = -2160 },
+            { x = 1056, y = -2160 },
+            { x = 1056, y = -2192 },
+            { x = 1552, y = -2192 },
+            { x = 1552, y = -1456 },
+            { x = 1504, y = -1456 }
+          },
+          properties = {}
+        },
+        {
+          id = 318,
+          name = "",
+          type = "SlipperyHitbox",
+          shape = "polygon",
+          x = 976,
+          y = -16,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 1504, y = -2064 },
+            { x = 1104, y = -2160 },
+            { x = 1056, y = -2160 },
+            { x = 1056, y = -2192 },
+            { x = 1552, y = -2192 },
+            { x = 1552, y = -1456 },
+            { x = 1504, y = -1456 }
+          },
+          properties = {}
+        },
+        {
+          id = 319,
+          name = "",
+          type = "SlipperyHitbox",
+          shape = "polygon",
+          x = 2960,
+          y = 1456,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = -1504, y = -2064 },
+            { x = -1104, y = -2160 },
+            { x = -1056, y = -2160 },
+            { x = -1056, y = -2192 },
+            { x = -1552, y = -2192 },
+            { x = -1552, y = -1824 },
+            { x = -1504, y = -1824 }
+          },
+          properties = {}
+        },
+        {
+          id = 320,
+          name = "",
+          type = "SlipperyHitbox",
+          shape = "polygon",
+          x = 2960,
+          y = 720,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = -1504, y = -2064 },
+            { x = -1104, y = -2160 },
+            { x = -1056, y = -2160 },
+            { x = -1056, y = -2192 },
+            { x = -1552, y = -2192 },
+            { x = -1552, y = -1456 },
+            { x = -1504, y = -1456 }
+          },
+          properties = {}
+        },
+        {
+          id = 321,
+          name = "",
+          type = "SlipperyHitbox",
+          shape = "polygon",
+          x = 2960,
+          y = -16,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = -1504, y = -2064 },
+            { x = -1104, y = -2160 },
+            { x = -1056, y = -2160 },
+            { x = -1056, y = -2192 },
+            { x = -1552, y = -2192 },
+            { x = -1552, y = -1456 },
+            { x = -1504, y = -1456 }
+          },
+          properties = {}
+        },
+        {
+          id = 329,
           name = "",
           type = "AirDashNode",
-          shape = "point",
-          x = 1984,
-          y = -2256,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["other"] = { id = 269 }
-          }
-        },
-        {
-          id = 269,
-          name = "",
-          type = "AirDashNodeDirection",
-          shape = "point",
-          x = 1984,
-          y = -2480,
-          width = 0,
-          height = 0,
+          shape = "ellipse",
+          x = 1904,
+          y = -1440,
+          width = 128,
+          height = 128,
           rotation = 0,
           visible = true,
           properties = {}
         },
         {
-          id = 290,
-          name = "Race",
-          type = "TimeAttackTriggerNPC",
-          shape = "point",
-          x = -1014.27,
-          y = -1396.34,
+          id = 330,
+          name = "",
+          type = "AirDashNode",
+          shape = "ellipse",
+          x = 1680,
+          y = -1120,
+          width = 320,
+          height = 320,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["angle_range"] = 0.25,
+            ["direction"] = { id = 260 }
+          }
+        },
+        {
+          id = 331,
+          name = "",
+          type = "AirDashNode",
+          shape = "ellipse",
+          x = 2080,
+          y = -1248,
+          width = 224,
+          height = 224,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["angle_range"] = 0.25,
+            ["direction"] = { id = 261 }
+          }
+        },
+        {
+          id = 337,
+          name = "",
+          type = "",
+          shape = "ellipse",
+          x = 112,
+          y = -1072,
+          width = 208,
+          height = 208,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["x_axis"] = 1
+          }
+        },
+        {
+          id = 338,
+          name = "",
+          type = "Hitbox",
+          shape = "polygon",
+          x = 336,
+          y = -1264,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
-          properties = {
-            ["dialog_id"] = "animalese_test"
-          }
-        },
-        {
-          id = 291,
-          name = "",
-          type = "Goal",
-          shape = "rectangle",
-          x = 1144.56,
-          y = -1517.35,
-          width = 96.9349,
-          height = 103.362,
-          rotation = 0,
-          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 0, y = -720 },
+            { x = -176, y = -720 },
+            { x = -176, y = 0 }
+          },
           properties = {}
         },
         {
-          id = 292,
-          name = "NPC",
-          type = "NPC",
-          shape = "point",
-          x = 575.086,
-          y = -1347.19,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["dialog_id"] = "animalese_test"
-          }
-        },
-        {
-          id = 308,
+          id = 339,
           name = "",
-          type = "Fireflies",
-          shape = "point",
-          x = 240,
-          y = -1520,
+          type = "Hitbox",
+          shape = "polygon",
+          x = 80,
+          y = -1264,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
-          properties = {
-            ["count"] = 3
-          }
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 0, y = -720 },
+            { x = -176, y = -720 },
+            { x = -176, y = 0 }
+          },
+          properties = {}
         }
       }
     },

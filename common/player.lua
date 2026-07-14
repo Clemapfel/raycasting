@@ -425,6 +425,7 @@ function rt.Player:_connect_input()
             self._jump_button_is_down = false
             self._jump_button_is_down_elapsed = math.huge
 
+            self._wall_jump_elapsed = math.huge
             self._jump_elapsed = math.huge
         elseif which == rt.InputAction.SPRINT then
             self._sprint_button_is_down = false
@@ -867,7 +868,7 @@ function rt.Player:update(delta)
             and right_allowed
         then
             if self:jump() then
-                self._left_wall_jump_buffer_elapsed = math.huge
+                self._right_wall_jump_buffer_elapsed = math.huge
                 self._last_right_wall_timestamp = -math.huge
             end
         end
@@ -2607,7 +2608,11 @@ end
 
 --- @brief
 function rt.Player:_get_walljump_allowed()
-    if self:_get_jump_allowed() then return false, false end
+    if self:_get_jump_allowed()
+        or self._wall_jump_freeze_elapsed <= settings.wall_jump_freeze_duration
+    then
+        return false, false
+    end
 
     local magnitude = select(1, self._input_smoothing:get_magnitude())
     local eps = settings.input_smoothing_magnitude_eps

@@ -1077,6 +1077,11 @@ function rt.PlayerBody:_apply_squish()
         self._down_squish_origin_x, self._down_squish_origin_y
     )
 
+    apply(self._up_squish_motion,
+        self._up_squish_normal_x, self._up_squish_normal_y,
+        self._up_squish_origin_x, self._up_squish_origin_y
+    )
+
     apply(self._left_squish_motion,
         self._left_squish_normal_x, self._left_squish_normal_y,
         self._left_squish_origin_x, self._left_squish_origin_y
@@ -1085,11 +1090,6 @@ function rt.PlayerBody:_apply_squish()
     apply(self._right_squish_motion,
         self._right_squish_normal_x, self._right_squish_normal_y,
         self._right_squish_origin_x, self._right_squish_origin_y
-    )
-
-    apply(self._up_squish_motion,
-        self._up_squish_normal_x, self._up_squish_normal_y,
-        self._up_squish_origin_x, self._up_squish_origin_y
     )
 end
 
