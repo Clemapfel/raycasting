@@ -1,153 +1,189 @@
-# SuperCollider Pattern Reference
+# Patterns
 
-> **Note on Pattern Coverage**  
-> This document covers the majority of standard patterns found in SuperCollider’s core library. Some patterns listed here are either undocumented (`Peventmod`), not part of the core distribution (`Pprob`, chaotic maps like `PlinCong`, `Pquad`, etc.), or come from third‑party extensions. Where ambiguity exists, I have added clarifying notes.
+## Pbind
+valid keys: 
++ `instrument` name of the synthdef to trigger
++ `degree` music pitch, e.g. 440 for A4
++ `dur` duration of the note, where 1 is one beat
++ `stretch` note duration multiplier
++ `lag` note delay
++ `strum` takes array of keys, plays all of them at the same time
++ `legato`, `sustain`: target envelope gate, require Env.asr
++ `amp` volume, where 1 is the default volume
++ `out` output bus
 
----
-
-## List Iteration & Indexing
-*Traversing pre‑defined lists in structured, non‑random ways.*
-
-| Pattern | Common Description | Formula / Description |
-| :------ | :------------------ | :--------------------- |
-| `Pseq(list, repeats, offset)` | Outputs a sequence of values from a list, cycling through the list `repeats` times. | `x_n = L[(n + offset) mod |L|]`, for `n = 0 … repeats·|L| - 1` |
-| `Pser(list, repeats, offset)` | Outputs a fixed total number of individual values from a list (does not require full cycles). | Same as `Pseq` but `n = 0 … repeats - 1` (total item count fixed) |
-| `Pslide(list, repeats, len, step, start, wrapAtEnd)` | Creates a sliding window over the list. Each segment is a window of `len` items; the window moves by `step` each time. | Segment `k` = `L[(start + k·step) … (start + k·step + len - 1)] mod |L|` |
-| `Pwalk(list, stepPattern, directionPattern, startPos)` | Walks through a list using a step pattern and a direction pattern; direction reverses at list boundaries. | `i_n = i_{n-1} + dir_n · step_n` (index into `L`), `x_n = L[i_n]` |
-| `Pindex(listPat, indexPat, wrapAtEnd)` | Uses a stream of indices to look up values in a list. | `x_n = L[ i_n mod |L| ]`, where `i_n = next(indexPat)` |
-| `Pswitch(list, whichPat)` | Switches between different sub‑patterns. **Important:** `Pswitch` embeds the entire selected sub‑pattern before moving to the next index; for one‑value‑per‑index use `Pswitch1`. | `x_n = next( L[ next(whichPat) ] )` — each step picks a sub‑pattern and draws from it until exhausted. |
-
----
-
-## Interleaving & Bundling
-*Weaving together several distinct lists or patterns.*
-
-| Pattern | Common Description | Formula / Description |
-| :------ | :------------------ | :--------------------- |
-| `Place(list, repeats, offset)` | Interlaces elements from sub‑lists, cycling through sub‑lists and their internal elements. | Outputs items from sub‑arrays `L[n mod |L|]`, cycling one index deeper each full pass. |
-| `Ppatlace(list, repeats, offset)` | Interlaces values from a list of sub‑patterns in a round‑robin fashion. | `x_n = next( L[n mod |L|] )` — draws one value from each sub‑pattern sequentially. |
-| `Ptuple(list, repeats)` | Collects simultaneous values from multiple patterns into a single array/tuple. | `x_n = ( next(P1), …, next(Pk) )` — bundles concurrent values. |
+## Composition
+| Pattern | Signature | Description |
+| :--- | :--- | :--- |
+| [`Pbindf`](https://doc.sccode.org/Classes/Pbindf.html) | `Pbindf(pattern, * pairs)` | bind several value patterns to one existing event stream by binding keys to values |
+| [`Pchain`](https://doc.sccode.org/Classes/Pchain.html) | `Pchain(* patterns)` | pass values from stream to stream |
 
 ---
 
-## Repetition, Timing & Constraints
-*Controlling flow, duration, and how many times patterns play.*
-
-| Pattern | Common Description | Formula / Description |
-| :------ | :------------------ | :--------------------- |
-| `Pn(pattern, repeats)` | Repeats an entire sub‑pattern a specified number of times. | Concatenate `pattern`’s full output `repeats` times. |
-| `Pdup(n, pattern)` | Repeats each individual value from a pattern `n` times. | Each drawn value `v_k` is emitted `n` times: `x_{kn+i} = v_k` |
-| `Psubdivide(n, pattern)` | Repeats each value while dividing its value (often duration) by `n` to keep overall time constant. | `x_{kn+i} = v_k / n` (total duration per original item remains the same) |
-| `Pstep(levels, durs, repeats)` | Holds a value for a specified duration, then steps to the next. | Hold `levels[i]` constant for `durs[i]`, then advance to `i+1`. |
-| `Ptime(repeats)` | Outputs the elapsed time in beats since the pattern started. | `x_n = t_now - t_embed` (beats since stream began) |
-| `Pfin(count, pattern)` | Limits a pattern to a hard maximum number of items. | `x_n = next(pattern)` for `n = 0 … count-1`, then stop. |
-| `Pconst(sum, pattern, tolerance)` | Limits a value stream so the total sum hits a specific target exactly. | Emit until `Σ x_n ≥ sum - tolerance`; last value trimmed to make `Σ x_n = sum`. |
-| `Pfindur(dur, pattern, tolerance)` | Limits an event stream so its total *duration* (sum of `\dur` fields) hits a specific target. | Same as `Pconst`, but summing `dur` fields of events: `Σ dur_n = dur` exactly. |
-| `Psync(pattern, quant, maxdur, tolerance)` | Like `Pfindur` but can also round up the final event’s duration to a multiple of `quant` if the pattern ends early. | Trims at `maxdur` if needed; otherwise rounds last `dur` up to a multiple of `quant`. |
+## Time
+| Pattern | Signature | Description |
+| :--- | :--- | :--- |
+| [`Pseg`](https://doc.sccode.org/Classes/Pseg.html) | `Pseg(valPattern, durPattern, curvePattern, repeats: 1)` | timed embedding of values |
+| [`Pstep`](https://doc.sccode.org/Classes/Pstep.html) | `Pstep(levels, durs, repeats: 1)` | timed, sample-and-hold embedding of values |
+| [`PstepNadd`](https://doc.sccode.org/Classes/PstepNadd.html) | `PstepNadd(patternA, patternB)` | pattern that returns combinatoric sums |
+| [`PstepNfunc`](https://doc.sccode.org/Classes/PstepNfunc.html) | `PstepNfunc(func, patternList)` | combinatoric pattern |
+| [`Ptime`](https://doc.sccode.org/Classes/Ptime.html) | `Ptime(repeats: inf)` | returns time in beats from moment of embedding in stream |
 
 ---
 
-## Mathematical Operations & Combinatorics
-*Element‑wise or cross‑combined arithmetic and logic.*
-
-| Pattern | Common Description | Formula / Description |
-| :------ | :------------------ | :--------------------- |
-| `Punop(selector, pattern)` | Applies a unary math operator (e.g., `.abs`, `.midicps`) to every value. | `x_n = selector( next(pattern) )` |
-| `Pnaryop(selector, argList)` | Combines multiple pattern streams using an n‑ary operator. | `x_n = selector( next(P1), next(P2), … )` |
-| `Pmul(pattern, mul, repeats)` | Multiplies each value from a pattern by a constant or another pattern. If `mul` is a pattern, the multiplication happens element‑wise. | `x_n = next(pattern) * (next(mul) if mul is a pattern else mul)` |
-| `Pstep2add(list1, list2, repeats)` | Adds values from two lists at different stepping rates (combinatoric sums). | Produces sums `list1[i] + list2[j]` at stepped rates. |
-| `Pstep3add(list1, list2, list3, repeats)` | Adds values from three lists combinatorially. | `list1[i] + list2[j] + list3[k]` |
-| `PstepNfunc(lists, func, repeats)` | Combines multiple lists through a custom function combinatorially. | Feed combinations of `N` lists through an arbitrary function. |
-| `Pclutch(pattern, connected)` | Sample‑and‑hold: freezes the current value when `connected` becomes false. | `x_n = next(pattern)` if `connected_n` true, else `x_n = x_{n-1}`. |
-| `Pif(condition, iftrue, iffalse, default)` | Branches between two patterns based on a boolean condition stream. | Draws from `iftrue` when condition true, else from `iffalse`. |
+## Language Control
+| Pattern | Signature | Description |
+| :--- | :--- | :--- |
+| [`Pif`](https://doc.sccode.org/Classes/Pif.html) | `Pif(condition, ifTrue, ifFalse, default)` | Pattern-based conditional expression |
+| [`Pprotect`](https://doc.sccode.org/Classes/Pprotect.html) | `Pprotect(pattern, errorFunc)` | evaluate a function when an error occurred in the thread |
+| [`Pseed`](https://doc.sccode.org/Classes/Pseed.html) | `Pseed(seed, pattern)` | set the random seed in subpattern |
+| [`Pwhile`](https://doc.sccode.org/Classes/Pwhile.html) | `Pwhile(func, pattern)` | While a condition holds, repeatedly embed stream |
 
 ---
 
-## Continuous & Statistical Distributions
-*Procedural number generation via probability distributions or random walks.*
-
-| Pattern | Common Description | Formula / Description |
-| :------ | :------------------ | :--------------------- |
-| `Pwhite(lo, hi, length)` | Uniform random numbers. | `x_n ~ Uniform(lo, hi)` |
-| `Pexprand(lo, hi, length)` | Exponential distribution (good for pitch/freq). | `x_n = lo·(hi/lo)^u`, with `u ~ Uniform(0,1)` |
-| `Pbrown(lo, hi, step, length)` | Additive Brownian motion (random walk). | `x_n = clamp(x_{n-1} + δ, lo, hi)`, `δ ~ Uniform(-step, step)` |
-| `Pgbrown(lo, hi, step, length)` | Geometric Brownian motion (multiplicative). | `x_n = clamp(x_{n-1}·(1+δ), lo, hi)`, `δ ~ Uniform(-step, step)` |
-| `Pbeta(lo, hi, prob1, prob2, length)` | Beta‑distributed numbers (clustered). | `x_n = lo + (hi-lo)·B`, `B ~ Beta(α=prob1, β=prob2)` |
-| `Pcauchy(mean, spread, length)` | Cauchy distribution (central with rare outliers). | `x_n = mean + spread·tan(π(u-½))`, `u ~ Uniform(0,1)` |
-| `Pgauss(mean, dev, length)` | Gaussian (normal) distribution. | `x_n ~ N(mean, dev²)` |
-| `Phprand(lo, hi, length)` | Bias toward high end (max of two draws). | `x_n = max(u1, u2)`, `u1,u2 ~ Uniform(lo,hi)` |
-| `Plprand(lo, hi, length)` | Bias toward low end (min of two draws). | `x_n = min(u1, u2)` |
-| `Pmeanrand(lo, hi, length)` | Cluster around centre (average of two draws). | `x_n = (u1+u2)/2` |
-| `Ppoisson(mean, length)` | Poisson‑distributed integers. | `P(x_n = k) = mean^k e^{-mean} / k!` |
-| `Pprob(distribution, lo, hi, length, tableSize)` | *(Not a core pattern)* Custom probability table over `[lo,hi]`. | If available, draws from a user‑defined probability histogram. |
-
----
-
-## Discrete Random Selection
-*Random picks from a predefined finite set.*
-
-| Pattern | Common Description | Formula / Description |
-| :------ | :------------------ | :--------------------- |
-| `Prand(list, repeats)` | Random item from a list with replacement. | `x_n ~ Uniform(L)` i.i.d. |
-| `Pxrand(list, repeats)` | Random item, never repeats the same item twice in a row. | `x_n ~ Uniform(L)` subject to `x_n ≠ x_{n-1}` |
-| `Pshuf(list, repeats)` | Shuffles the list once and repeats that random order. | Pick one random permutation `π`; `x_n = π[n mod |L|]` |
-| `Pwrand(list, weights, repeats)` | Weighted random selection. | `P(x_n = L[i]) = w_i / Σw_j` |
+## List
+| Pattern | Signature | Description |
+| :--- | :--- | :--- |
+| [`Pboolnet`](https://doc.sccode.org/Classes/Pboolnet.html) | `Pboolnet(structure, repeats: 1)` | Boolean network pattern |
+| [`Pclump`](https://doc.sccode.org/Classes/Pclump.html) | `Pclump(n, pattern)` | A pattern that takes another pattern and groups its values into arrays. |
+| [`Pgeom`](https://doc.sccode.org/Classes/Pgeom.html) | `Pgeom(start, grow, length)` | geometric series pattern |
+| [`Place`](https://doc.sccode.org/Classes/Place.html) | `Place(list, repeats: 1)` | interlaced embedding of subarrays |
+| [`Ppatlace`](https://doc.sccode.org/Classes/Ppatlace.html) | `Ppatlace(list, repeats: 1)` | interlace streams |
+| [`Prand`](https://doc.sccode.org/Classes/Prand.html) | `Prand(list, repeats: 1)` | embed values randomly chosen from a list |
+| [`Pseq`](https://doc.sccode.org/Classes/Pseq.html) | `Pseq(list, repeats: 1, offset: 0)` | sequentially embed values in a list |
+| [`Pser`](https://doc.sccode.org/Classes/Pser.html) | `Pser(list, repeats: 1, offset: 0)` | sequentially embed values in a list |
+| [`Pseries`](https://doc.sccode.org/Classes/Pseries.html) | `Pseries(start: 0, step: 1, length: inf)` | arithmetic series pattern |
+| [`Pshuf`](https://doc.sccode.org/Classes/Pshuf.html) | `Pshuf(list, repeats: 1)` | sequentially embed values in a list in constant, but random order |
+| [`Pslide`](https://doc.sccode.org/Classes/Pslide.html) | `Pslide(list, repeats: 1, len: 3, step: 1, start: 0, wrapAtEnd: true)` | slide over a list of values and embed them |
+| [`Ptuple`](https://doc.sccode.org/Classes/Ptuple.html) | `Ptuple(list, repeats: 1)` | combine a list of streams to a stream of lists |
+| [`Pwalk`](https://doc.sccode.org/Classes/Pwalk.html) | `Pwalk(list, stepPattern, directionPattern, startPos: 0)` | A one-dimensional random walk over a list of values that are embedded |
+| [`Pwrand`](https://doc.sccode.org/Classes/Pwrand.html) | `Pwrand(list, weights, repeats: 1)` | embed values randomly chosen from a list |
+| [`Pxrand`](https://doc.sccode.org/Classes/Pxrand.html) | `Pxrand(list, repeats: 1)` | embed values randomly chosen from a list |
 
 ---
 
-## Deterministic Math & Chaotic Maps
-*Arithmetic sequences, recurrences, and chaotic attractors.*  
-**Note:** Many of these (chaotic maps) are not part of the core distribution; they may be found in extensions or contributed libraries.
-
-| Pattern | Common Description | Formula / Description |
-| :------ | :------------------ | :--------------------- |
-| `Pseries(start, step, length)` | Arithmetic progression. | `x_n = start + n·step` |
-| `Pgeom(start, grow, length)` | Geometric progression. | `x_n = start·growⁿ` |
-| `PlinCong(a, c, m, x0, length)` | Linear congruential generator (pseudo‑random). | `x_{n+1} = (a·x_n + c) mod m` |
-| `Pquad(a, b, c, x0, length)` | Quadratic map (chaotic). | `x_{n+1} = a·x_n² + b·x_n + c` |
-| `Pgbman(x0, y0, length)` | Gingerbreadman map (2D chaotic). | `x_{n+1} = 1 - y_n + |x_n|`, `y_{n+1} = x_n` |
-| `Phenon(a, b, x0, x1, length)` | Hénon map (2D chaotic). | `x_{n+1} = 1 - a·x_n² + b·x_{n-1}` |
-| `Platoo(a, b, c, d, x0, y0, length)` | Latoocarfian map (chaotic). | `x_{n+1} = sin(b·y_n) + c·sin(b·x_n)`<br>`y_{n+1} = sin(a·x_n) + d·sin(a·y_n)` |
-| `Pfhn(a, b, c, d, freq, dt, x0, y0, z0, length)` | FitzHugh‑Nagumo neuron model (chaotic voltage). | Iterates discretized FHN ODEs; returns chaotic voltage. |
-| `Plorenz(freq, dt, s, r, b, x0, y0, z0, length)` | Lorenz attractor (3D chaotic trajectory). | Iterates discretized Lorenz ODEs; returns trajectory values. |
-
----
-
-## Event Generation & Sound Sequencing
-*Building and playing musical events with SuperCollider synths.*
-
-| Pattern | Common Description | Formula / Description |
-| :------ | :------------------ | :--------------------- |
-| `Pbind(*pairs)` | Combines key‑value streams into an Event stream to trigger synths. | `e_n = { key1: next(P1), key2: next(P2), … }` |
-| `Pmono(instrumentName, *pairs)` | Plays a single continuous synth and modulates its arguments over time. | Reuses one synth, updating its controls instead of retriggering. |
-| `Pchain(patterns)` | Chains event patterns sequentially; earlier patterns’ keys override later ones. | Evaluates right‑to‑left, merging events: `e_n = e_n^(1) ∪ e_n^(2) ∪ …` |
-| `Pproto(makeFunc, pattern, cleanupFunc)` | Allocates server resources (buffers/buses) before playing, cleans up after. | Injects resources into events; calls cleanup on stop. |
-| `Pstandard(pattern)` | *(Undocumented / non‑core)* Purported to coerce arbitrary patterns into standard event streams. | Exact behaviour not officially defined. |
+## Repetition
+| Pattern | Signature | Description |
+| :--- | :--- | :--- |
+| [`Pclutch`](https://doc.sccode.org/Classes/Pclutch.html) | `Pclutch(pattern, connected)` | sample and hold a pattern |
+| [`Pconst`](https://doc.sccode.org/Classes/Pconst.html) | `Pconst(sum, pattern, tolerance: 0.001)` | constrain the sum of a value pattern |
+| [`Pdup`](https://doc.sccode.org/Classes/Pdup.html) | `Pdup(n, pattern)` | repeat input stream values |
+| [`PdurStutter`](https://doc.sccode.org/Classes/PdurStutter.html) | `PdurStutter(n, pattern)` | partition a value into n equal subdivisions |
+| [`Pfin`](https://doc.sccode.org/Classes/Pfin.html) | `Pfin(count, pattern)` | limit number of events embedded in a stream |
+| [`Pfindur`](https://doc.sccode.org/Classes/Pfindur.html) | `Pfindur(dur, pattern, tolerance: 0.001)` | limit total duration of events embedded in a stream |
+| [`Pfinval`](https://doc.sccode.org/Classes/Pfinval.html) | `Pfinval(count, pattern)` | limit number of items embedded in a stream |
+| [`Pgate`](https://doc.sccode.org/Classes/Pgate.html) | `Pgate(pattern, key)` | A gated stream that only advances when a particular event key is true. |
+| [`Pn`](https://doc.sccode.org/Classes/Pn.html) | `Pn(pattern, repeats: inf)` | repeatedly embed a pattern |
+| [`Pstutter`](https://doc.sccode.org/Classes/Pstutter.html) | `Pstutter(n, pattern)` | repeat input stream values |
+| [`Psubdivide`](https://doc.sccode.org/Classes/Psubdivide.html) | `Psubdivide(n, pattern)` | partition a value into n equal subdivisions |
+| [`Psync`](https://doc.sccode.org/Classes/Psync.html) | `Psync(pattern, quant, maxdur, tolerance: 0.001)` | synchronise and limit pattern duration |
 
 ---
 
-## Environments & Data Routing
-*Managing shared state, scoped namespaces, and dictionary lookups.*
-
-| Pattern | Common Description | Formula / Description |
-| :------ | :------------------ | :--------------------- |
-| `Pkey(key, default)` | Reads a key from the current event environment. | `x_n = e_n[key]` (from the input event) |
-| `Pget(key, default)` | Reads a variable from an enclosing `Plambda` environment. | `x_n = scope[key]` (from `Plambda`’s namespace) |
-| `Plet(key, pattern)` | Writes a value into a `Plambda` environment for later retrieval. | Writes `next(pattern)` into `scope[key]`. |
-| `Penvir(envir, pattern, inEvent)` | Evaluates a pattern inside a custom environment dictionary. | Resolves variables against `envir`. |
-| `Pdict(dict, repeats, keyPattern)` | Uses a key stream to look up sub‑patterns in a dictionary. | `x_n = next( dict[ next(keyPattern) ] )` |
-| `Pevent(pattern, event)` | Wraps a value stream, merging outputs into a prototype event. | Merges each output into the given `event` prototype. |
-| `Peventmod(pattern, function)` | *(Undocumented)* Passes every generated event through a modifying function. | `e_n = function(e_n)` — plausibly used for event transformation. |
+## Math
+| Pattern | Signature | Description |
+| :--- | :--- | :--- |
+| [`Padd`](https://doc.sccode.org/Classes/Padd.html) | `Padd(name, value, pattern)` | add to value of a key in event stream |
+| [`Paddp`](https://doc.sccode.org/Classes/Paddp.html) | `Paddp(name, value, pattern)` | add each value of a pattern to the value at a key in event stream |
+| [`Paddpre`](https://doc.sccode.org/Classes/Paddpre.html) | `Paddpre(name, value, pattern)` | event pattern that adds to existing value of one key |
+| [`Pavaroh`](https://doc.sccode.org/Classes/Pavaroh.html) | `Pavaroh(pattern, scale, stepsPerOctave: 12)` | applying ascending and descending scales to event stream |
+| [`Pbinop`](https://doc.sccode.org/Classes/Pbinop.html) | `Pbinop(operator, a, b, adicat)` | binary operator pattern |
+| [`PdegreeToKey`](https://doc.sccode.org/Classes/PdegreeToKey.html) | `PdegreeToKey(pattern, scale, stepsPerOctave: 12)` | index into a scale |
+| [`Pmul`](https://doc.sccode.org/Classes/Pmul.html) | `Pmul(name, value, pattern)` | multiply with value of a key in event stream |
+| [`Pmulp`](https://doc.sccode.org/Classes/Pmulp.html) | `Pmulp(name, value, pattern)` | multiply with each value of a pattern to value of a key in event stream |
+| [`Pmulpre`](https://doc.sccode.org/Classes/Pmulpre.html) | `Pmulpre(name, value, pattern)` | multiplies with value of a key in event stream, before it is passed up |
+| [`Pnaryop`](https://doc.sccode.org/Classes/Pnaryop.html) | `Pnaryop(operator, a, arglist)` | n-ary operator pattern |
+| [`Prorate`](https://doc.sccode.org/Classes/Prorate.html) | `Prorate(proportion, pattern)` | divide stream proportionally |
+| [`Punop`](https://doc.sccode.org/Classes/Punop.html) | `Punop(operator, a)` | unary operator pattern |
+| [`Pwrap`](https://doc.sccode.org/Classes/Pwrap.html) | `Pwrap(pattern, lo, hi)` | constrain the range of output values by wrapping |
 
 ---
 
-## Functional & Procedural Callbacks
-*Delegating generation logic to custom functions or routines.*
+## Random
+| Pattern | Signature | Description |
+| :--- | :--- | :--- |
+| [`Pbeta`](https://doc.sccode.org/Classes/Pbeta.html) | `Pbeta(lo: 0.0, hi: 1.0, prob1: 1.0, prob2: 1.0, length: inf)` | random values that follow a Eulerian Beta Distribution |
+| [`Pbrown`](https://doc.sccode.org/Classes/Pbrown.html) | `Pbrown(lo: 0.0, hi: 1.0, step: 0.1, length: inf)` | brownian motion pattern |
+| [`Pcauchy`](https://doc.sccode.org/Classes/Pcauchy.html) | `Pcauchy(mean: 0.0, spread: 1.0, length: inf)` | random values that follow a Cauchy Distribution |
+| [`Pexprand`](https://doc.sccode.org/Classes/Pexprand.html) | `Pexprand(lo: 0.0001, hi: 1.0, length: inf)` | random values that follow a Exponential Distribution |
+| [`Pgauss`](https://doc.sccode.org/Classes/Pgauss.html) | `Pgauss(mean: 0.0, dev: 1.0, length: inf)` | random values that follow a Gaussian Distribution |
+| [`Pgbrown`](https://doc.sccode.org/Classes/Pgbrown.html) | `Pgbrown(lo: 0.0, hi: 1.0, step: 0.1, length: inf)` | geometric brownian motion pattern |
+| [`Phprand`](https://doc.sccode.org/Classes/Phprand.html) | `Phprand(lo: 0.0, hi: 1.0, length: inf)` | random values that tend toward hi |
+| [`Plorenz`](https://doc.sccode.org/Classes/Plorenz.html) | `Plorenz(xi: 0.1, yi: 0, zi: 0, s: 10, r: 28, b: 2.666, h: 0.01, length: inf)` | lorenz 3D chaotic pattern |
+| [`Plprand`](https://doc.sccode.org/Classes/Plprand.html) | `Plprand(lo: 0.0, hi: 1.0, length: inf)` | random values that tend toward lo |
+| [`Pmeanrand`](https://doc.sccode.org/Classes/Pmeanrand.html) | `Pmeanrand(lo: 0.0, hi: 1.0, length: inf)` | random values that tend toward ((lo + hi) / 2) |
+| [`Ppoisson`](https://doc.sccode.org/Classes/Ppoisson.html) | `Ppoisson(mean: 1.0, length: inf)` | random values that follow a Poisson Distribution (positive integer values) |
+| [`Pprob`](https://doc.sccode.org/Classes/Pprob.html) | `Pprob(distribution, lo: 0.0, hi: 1.0, length: inf, tableSize: 200)` | random values with arbitrary probability distribution |
+| [`Pwhite`](https://doc.sccode.org/Classes/Pwhite.html) | `Pwhite(lo: 0.0, hi: 1.0, length: inf)` | random values with uniform distribution |
 
-| Pattern | Common Description | Formula / Description |
-| :------ | :------------------ | :--------------------- |
-| `Pfunc(nextFunc, resetFunc)` | Generates values by evaluating a custom function each step. | `x_n = nextFunc()`; stops if `nil` is returned. |
-| `Pfuncn(func, repeats)` | Calls a custom function a fixed number of times. | `x_n = func()` for `n = 0 … repeats-1`. |
-| `Prout(routineFunc)` | Generates values from a routine/coroutine that yields. | `x_n = nth value yielded by routineFunc`. |
-| `Plazy(func)` | Defers pattern creation until embed time, allowing dynamic structure. | Calls `func` to build a new pattern when played. |
-| `Ppatmod(pattern, modFunc)` | Passes the pattern object itself through a modifier function before streaming. | `modFunc(pattern)` is called before spawning the stream. |
+---
+
+## Filter
+| Pattern | Signature | Description |
+| :--- | :--- | :--- |
+| [`Pcollect`](https://doc.sccode.org/Classes/Pcollect.html) | `Pcollect(func, pattern)` | Apply a function to a pattern |
+| [`PfadeIn`](https://doc.sccode.org/Classes/PfadeIn.html) | `PfadeIn(pattern, fadeTime, holdTime, tolerance: 0.001)` | Fade an event pattern in |
+| [`PfadeOut`](https://doc.sccode.org/Classes/PfadeOut.html) | `PfadeOut(pattern, fadeTime, holdTime, tolerance: 0.001)` | Fade an event pattern out |
+| [`Ppatmod`](https://doc.sccode.org/Classes/Ppatmod.html) | `Ppatmod(pattern, func, repeats: 1)` | modify a given pattern before passing it into the stream |
+| [`Preject`](https://doc.sccode.org/Classes/Preject.html) | `Preject(func, pattern)` | Filters a source pattern by rejecting particular values. |
+| [`Pselect`](https://doc.sccode.org/Classes/Pselect.html) | `Pselect(func, pattern)` | Filters values returned by a source pattern. |
+| [`Pset`](https://doc.sccode.org/Classes/Pset.html) | `Pset(name, value, pattern)` | event pattern that sets values of one key |
+| [`Psetp`](https://doc.sccode.org/Classes/Psetp.html) | `Psetp(name, value, pattern)` | event pattern that sets values of one key |
+| [`Psetpre`](https://doc.sccode.org/Classes/Psetpre.html) | `Psetpre(name, value, pattern)` | set values of one key in an event before it is passed up |
+
+---
+
+## Function
+| Pattern | Signature | Description |
+| :--- | :--- | :--- |
+| [`Pfunc`](https://doc.sccode.org/Classes/Pfunc.html) | `Pfunc(nextFunc, resetFunc)` | Function pattern |
+| [`Pfuncn`](https://doc.sccode.org/Classes/Pfuncn.html) | `Pfuncn(func, repeats: 1)` | Function pattern of given length |
+| [`Plazy`](https://doc.sccode.org/Classes/Plazy.html) | `Plazy(func)` | instantiate new patterns from a function |
+| [`PlazyEnvir`](https://doc.sccode.org/Classes/PlazyEnvir.html) | `PlazyEnvir(func)` | instantiate new patterns from a function |
+| [`PlazyEnvirN`](https://doc.sccode.org/Classes/PlazyEnvirN.html) | `PlazyEnvirN(func)` | instantiate new patterns from a function and multichannel expand them |
+| [`Prout`](https://doc.sccode.org/Classes/Prout.html) | `Prout(routineFunc)` | routine pattern |
+
+---
+
+## Parallel
+| Pattern | Signature | Description |
+| :--- | :--- | :--- |
+| [`Pgpar`](https://doc.sccode.org/Classes/Pgpar.html) | `Pgpar(list, repeats: 1)` | embed event streams in parallel and put each in its own group |
+| [`Pgtpar`](https://doc.sccode.org/Classes/Pgtpar.html) | `Pgtpar(list, repeats: 1)` | embed event streams in parallel and put each in its own group, with time offset |
+| [`Ppar`](https://doc.sccode.org/Classes/Ppar.html) | `Ppar(list, repeats: 1)` | embed event streams in parallel |
+| [`Pspawn`](https://doc.sccode.org/Classes/Pspawn.html) | `Pspawn(pattern, spawnProtoEvent)` | Spawns sub-patterns based on parameters in an event pattern |
+| [`Pspawner`](https://doc.sccode.org/Classes/Pspawner.html) | `Pspawner(func)` | dynamic control of multiple event streams from a Routine |
+| [`Ptpar`](https://doc.sccode.org/Classes/Ptpar.html) | `Ptpar(list, repeats: 1)` | embed event streams in parallel, with time offset |
+
+---
+
+## Event
+| Pattern | Signature | Description |
+| :--- | :--- | :--- |
+| [`Pbind`](https://doc.sccode.org/Classes/Pbind.html) | `Pbind(* pairs)` | combine several value patterns to one event stream by binding keys to values |
+| [`Pmono`](https://doc.sccode.org/Classes/Pmono.html) | `Pmono(synthName, * pairs)` | monophonic event stream |
+| [`PmonoArtic`](https://doc.sccode.org/Classes/PmonoArtic.html) | `PmonoArtic(synthName, * pairs)` | partly monophonic event stream |
+
+---
+
+## Data Sharing
+| Pattern | Signature | Description |
+| :--- | :--- | :--- |
+| [`Penvir`](https://doc.sccode.org/Classes/Penvir.html) | `Penvir(envir, pattern, independent: true)` | use an environment when embedding the pattern in a stream |
+| [`Pfset`](https://doc.sccode.org/Classes/Pfset.html) | `Pfset(func, pattern)` | Insert an environment into the event prototype before evaluating the supplied pattern |
+| [`Pget`](https://doc.sccode.org/Classes/Pget.html) | `Pget(key, default, envir)` | Retrieve a value within the scope (namespace) of a Plambda |
+| [`Pkey`](https://doc.sccode.org/Classes/Pkey.html) | `Pkey(key, default)` | access a key in an event stream |
+| [`Plambda`](https://doc.sccode.org/Classes/Plambda.html) | `Plambda(pattern, envir)` | create a scope (namespace) for enclosed streams |
+| [`Plet`](https://doc.sccode.org/Classes/Plet.html) | `Plet(key, pattern, return)` | Define a value within the scope (namespace) of a Plambda |
+
+---
+
+## Server Control
+| Pattern | Signature | Description |
+| :--- | :--- | :--- |
+| [`Pbus`](https://doc.sccode.org/Classes/Pbus.html) | `Pbus(pattern, dur: 2.0, fadeTime: 0.02, numChannels: 2, rate: 'audio')` | isolate a pattern by restricting it to a bus |
+| [`Pfx`](https://doc.sccode.org/Classes/Pfx.html) | `Pfx(pattern, fxname, * pairs)` | add an effect synth to the synths of a given event stream |
+| [`Pfxb`](https://doc.sccode.org/Classes/Pfxb.html) | `Pfxb(pattern, fxname, * pairs)` | add an effect synth to the synths of a given event stream |
+| [`Pgroup`](https://doc.sccode.org/Classes/Pgroup.html) | `Pgroup(pattern)` | Starts a new Group and plays the pattern in this group |
+| [`PparGroup`](https://doc.sccode.org/Classes/PparGroup.html) | `PparGroup(pattern)` | Starts a new ParGroup and plays the pattern in this group |
+| [`Pproto`](https://doc.sccode.org/Classes/Pproto.html) | `Pproto(makeFunction, pattern, cleanupFunction)` | provide a proto event for an event stream |
