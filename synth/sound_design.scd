@@ -1,61 +1,56 @@
 var server = Server.default;
 var volume = Volume.new(server);
-
+var midi = MIDIInterface.new(server);
 ~transpose = { arg freq, n;
     (freq.cpsmidi + n).midicps;
 };
-
-volume.volume = -15; // db offset
+volume.volume = -20; // db offset
 
 server.waitForBoot({
-	var bubble_def = SynthDef(\bubble, { arg out = 0, base_freq = 400, end_freq = 800, sweep_duration = 0.04, amp = 1.0;
+    var bubble = SynthDef(\bubble, { arg out = 0, base_start, base_end, above_start, above_end, sweep_duration;
+        var attack = 0.05;
+        var delay = 0.1 * sweep_duration;
+        // single envelope, single EnvGen instance, sole doneAction owner
+        var env = Env.perc(
+            attackTime: sweep_duration * attack,
+            releaseTime: sweep_duration * (1 - attack)
+        );
+        var amplitude = EnvGen.ar(env, doneAction: 2);
 
-		var snap_env = EnvGen.ar(Env.perc(0.005, 0.015));
-		var snap = snap_env * BPF.ar(WhiteNoise.ar(1), end_freq);
+        var sweep_base = amplitude * SinOsc.ar(
+            freq: XLine.kr(base_start, base_end, dur: sweep_duration),
+            phase: Rand(0, 2pi)
+        );
 
-		var body_env = EnvGen.ar(Env.perc(0.001, sweep_duration));
-		var pitch = XLine.kr(base_freq, end_freq, sweep_duration);
-		var pitch_above = XLine.kr(1.2 * base_freq, 0.9 * end_freq, 0.8 * sweep_duration);
-		var body = SinOsc.ar(pitch, phase: Rand(0, 2 * pi));
-		var above = DelayN.ar(SinOsc.ar(pitch_above, phase: Rand(0, 2 * pi)), delaytime: 0.02);
+		var sweep_above = amplitude * Line.ar(0, 1, delay) *
+            SinOsc.ar(
+                freq: XLine.kr(above_start, above_end, dur: sweep_duration - delay),
+                phase: Rand(0, 2pi)
+            );
 
-		var signal = snap + body_env * (body + above);
-		var sentinel = EnvGen.ar(Env.cutoff(sweep_duration), doneAction: Done.freeSelf);
+		var noise = EnvGen.ar(Env.perc(0.001, 0.005)) * BPF.ar(
+            WhiteNoise.ar(1),
+            freq: 0.05 * XLine.kr(above_end, above_start, sweep_duration)
+        );
 
-		Out.ar(out, signal.dup);
-	}).add;
+        var signal = noise + sweep_above + sweep_base;
+        Out.ar(out, signal.dup);
+    }).add;
 
-	var clock = TempoClock.new(tempo: 2.5);
-	var offset = 5; // semitones of variance
-	var freq_start = 250;
-	var freq_end = 500;
-
-	// Calculate the exact boundaries using your transpose function
-	var min_start = ~transpose.(freq_start, offset * -1);
-	var max_start = ~transpose.(freq_start, offset);
-	var min_end = ~transpose.(freq_end, offset * -1);
-	var max_end = ~transpose.(freq_end, offset);
-
-	var scale = Scale.minor;
-	var root = 60; // MIDI root note (C4), adjust as needed
-	var degrees = scale.degrees;
+    var rep = inf;
+    var clock = TempoClock.new(tempo: 2);
+	var scale = Scale.chromatic;
 
 	var pattern = Pbind(
 		\instrument, \bubble,
-		\degree, Pshuf(degrees, inf),
-		\root, root,
-		\base_freq, Pfunc({ arg env;
-			(root + env[\degree]).midicps
-		}),
-
-		\end_freq, Pfunc({ arg env;
-			(root + env[\degree] - 8).midicps
-		}),
-
-		\sweep_duration, 0.5 * clock.beatDur
+		\key, Prand((scale.degrees + 60), inf), // random key in scale
+		\base_start,  Pfunc { |ev| (ev[\key] +  0).midicps }, // convert midi key to hertz
+		\base_end,    Pfunc { |ev| (ev[\key] + 12).midicps },
+		\above_start, Pfunc { |ev| (ev[\key] -  3).midicps },
+		\above_end,   Pfunc { |ev| (ev[\key] +  5).midicps },
+		\sweep_duration, 0.1
 	);
 
-
-	server.sync;
-	pattern.play(clock);
+    server.sync;
+    pattern.play(clock);
 });
