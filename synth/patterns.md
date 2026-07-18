@@ -158,11 +158,11 @@ valid keys:
 ---
 
 ## Event
-| Pattern | Signature | Description |
-| :--- | :--- | :--- |
+| Pattern | Signature | Description                                                                  |
+| :--- | :--- |:-----------------------------------------------------------------------------|
 | [`Pbind`](https://doc.sccode.org/Classes/Pbind.html) | `Pbind(* pairs)` | combine several value patterns to one event stream by binding keys to values |
-| [`Pmono`](https://doc.sccode.org/Classes/Pmono.html) | `Pmono(synthName, * pairs)` | monophonic event stream |
-| [`PmonoArtic`](https://doc.sccode.org/Classes/PmonoArtic.html) | `PmonoArtic(synthName, * pairs)` | partly monophonic event stream |
+| [`Pmono`](https://doc.sccode.org/Classes/Pmono.html) | `Pmono(synthName, * pairs)` | monophonic event stream                                                      |
+| [`PmonoArtic`](https://doc.sccode.org/Classes/PmonoArtic.html) | `PmonoArtic(synthName, * pairs)` | parstashingtly monophonic event stream                                       |
 
 ---
 
