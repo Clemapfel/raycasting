@@ -3,6 +3,7 @@ var volume = Volume.new(server);
 var midi = MIDIInterface.new(server);
 
 var prefix = thisProcess.nowExecutingPath.dirname;
+var renderer = Renderer.new;
 
 ~transpose = { arg freq, n;
     (freq.cpsmidi + n).midicps;
@@ -45,61 +46,28 @@ server.waitForBoot({
 
         var signal = noise + sweep_above + sweep_base;
         Out.ar(out, signal.dup);
-    });
+    }).add;
 
-    var clock = TempoClock.new(tempo: 2);
-	var scale = Scale.chromatic;
+    var scale = Scale.chromatic;
 
-	var pattern = Pbind(
-		\instrument, \bubble_pop,
-		\key, Pseq(scale.degrees + 60, 1),
-		\base_start,  Pfunc { |ev| (ev[\key] +  0).midicps }, // convert midi key to hertz
-		\base_end,    Pfunc { |ev| (ev[\key] + 12).midicps },
-		\above_start, Pfunc { |ev| (ev[\key] -  3).midicps },
-		\above_end,   Pfunc { |ev| (ev[\key] +  5).midicps },
-		\sweep_duration, 0.1
-	);
+	var clock = TempoClock.new(tempo: 20);
+    var pattern = Pbind(*[
+        instrument: \bubble_pop,
+		tempo: clock.tempo,
+        key: Pseq(scale.degrees + 60, 1),
+        base_start:  Pfunc { |ev| (ev[\key] +  0).midicps },
+        base_end:    Pfunc { |ev| (ev[\key] + 12).midicps },
+        above_start: Pfunc { |ev| (ev[\key] -  3).midicps },
+        above_end:   Pfunc { |ev| (ev[\key] +  5).midicps },
+        sweep_duration: 0.1
+	]);
 
-	var n_beats = 1;
-	var out_filename = "bubble_pop.wav";
-	var server_options;
-	var osc_file_name = PathName.tmp +/+ "bubble_score.osc";
-	var score;
-	var export_dir = (thisProcess.nowExecutingPath.dirname +/+ "export").standardizePath;
-	var out_path = (export_dir +/+ out_filename).standardizePath;
+    pattern.play();
 
-	// add manualy s_new id
-	pattern = Pbindf(pattern,
-		\id, Pseries(1000, 1)
-	);
-
-	score = pattern.asScore(n_beats);
-	score.add([0.0, ['/g_new', 1, 0, 0]]);
-	score.add([0.0, ['/d_recv', def.asBytes]]);
-	score.score.sort({ arg a, b; a[0] < b[0]; });
-
-	server_options = ServerOptions.new;
-	server_options.numOutputBusChannels = 1;
-	server_options.numInputBusChannels = 1;
-	server_options.memSize = 8192;
-	server_options.verbosity = 0;
-
-	if (File.exists(export_dir).not) { File.mkdir(export_dir) };
-
-	score.recordNRT(
-		outputFilePath: out_path,
-		headerFormat: "WAV",
-		sampleFormat: "int16",
-		oscFilePath: osc_file_name,
-		options: server_options,
-		duration: n_beats * TempoClock.beatDur,
-		action: {
-			File.delete(osc_file_name);
-			if (File.exists(out_path)) {
-				"Wrote file to `%`".format(out_path).postln;
-			} {
-				"Failed to write file to `%`".format(out_path).postln;
-			}
-		}
+    renderer.render(
+        def,
+        pattern,
+        "bubble_pop.wav",
+        duration: scale.degrees.size * clock.beatDur
 	);
 }
