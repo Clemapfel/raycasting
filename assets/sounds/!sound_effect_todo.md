@@ -62,7 +62,7 @@ bounce_pad_collision
 
 ## Bubble
 
-bubble_pop
+> bubble_pop
     "blub" sound starting on frame player collides with bubble
     
 bubble_respawn

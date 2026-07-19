@@ -76,6 +76,7 @@ fork {
 			var file_config = SoundFile.new;
 			var score;
 			var fft_latency = fft_size / file_config.sampleRate;
+			var osc_file_path;
 
 			if (completed_count < 5 && file_config.openRead(job.in)) {
 				server_options = ServerOptions.new;
@@ -88,14 +89,17 @@ fork {
 				score.add([ 0.0, [\b_allocRead, 0, job.in] ]);
 				score.add([ 0.0, [\s_new, \filter, 1000, 0, 0, \bufnum, 0] ]);
 
+				osc_file_path = PathName.tmp;
 				score.recordNRT(
 					outputFilePath: job.out,
 					headerFormat: file_config.headerFormat,
 					sampleFormat: file_config.sampleFormat,
+					oscFilePath: osc_file_path,
 					options: server_options,
 					duration: file_config.duration + fft_latency,
 					action: {
 						file_config.close;
+						File.delete(osc_file_path);
 						completed_count = completed_count + 1;
 						"Processed % / % files".format(completed_count, files_to_process.size).postln;
 						semaphore.signal;
