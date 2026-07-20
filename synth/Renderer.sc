@@ -51,12 +51,7 @@ Renderer {
             Error("In Renderer.render: when rendering `%` duration is infinite".format(filename)).throw;
         };
 
-        currentPath = thisProcess.nowExecutingPath;
-        if (currentPath.isNil) {
-            export_dir = (File.getcwd +/+ Renderer.exportPrefix).standardizePath;
-        } {
-            export_dir = (currentPath.dirname +/+ Renderer.exportPrefix).standardizePath;
-        };
+		export_dir = Renderer.getExportDir();
         if (File.exists(export_dir).not) { File.mkdir(export_dir) };
 
         osc_file = PathName.tmp +/+ UniqueID.next ++ ".osc";
@@ -81,6 +76,9 @@ Renderer {
         // allocate synthdef
         score.add([0.0, ['/d_load', synthdef_path.absolutePath]]);
         score.sort();
+
+		"In Renderer.render: rendering %...".format(filename).postln;
+
         score.recordNRT(
             outputFilePath: out_file,
             headerFormat: headerFormat,
@@ -91,7 +89,6 @@ Renderer {
             action: {
                 File.delete(osc_file);
                 File.delete(synthdef_path);
-
                 if (File.exists(out_file)) {
                     "In Renderer.render: Wrote file to `%`".format(out_file).postln;
                 } {
@@ -101,48 +98,85 @@ Renderer {
         );
     }
 
-	*measureDuration { arg pattern, maxEvents = 100000, initialTempo;
+	*getExportDir {
+		var export_dir;
+		var currentPath = thisProcess.nowExecutingPath;
+        if (currentPath.isNil) {
+            export_dir = (File.getcwd +/+ Renderer.exportPrefix).standardizePath;
+        } {
+            export_dir = (currentPath.dirname +/+ Renderer.exportPrefix).standardizePath;
+        };
+
+		^export_dir;
+	}
+
+	*measureDuration { arg pattern, maxEvents = 10000, initialTempo;
 		var stream = pattern.asStream;
 		var inEvent = Event.default;
 		var totalSecs = 0.0;
 		var count = 0;
-		// Fallback to the current global tempo (in beats per second) if none is provided
 		var currentTempo = initialTempo ?? { TempoClock.default.tempo };
 		var ev;
 
-		// Evaluate the stream until it ends, or until we hit the maxEvents safeguard
 		while {
 			ev = stream.next(inEvent.copy);
 			ev.notNil and: { count < maxEvents }
 		} {
 			var delta = 0;
 
-			// Handle Event patterns (e.g., Pbind)
 			if(ev.isKindOf(Event)) {
-				// If the event dictates a tempo change, update our tracker
+				// handle tempo changing mid-pattern
 				if(ev[\tempo].notNil) {
 					currentTempo = ev[\tempo];
 				};
-				// Calculate the beat delta (handles \dur, \stretch, \delta, etc.)
 				delta = ev.delta ?? 0;
 			} {
-				// Handle Value patterns (e.g., Pseq([1, 2, 3]))
 				if(ev.isNumber) {
 					delta = ev;
 				}
 			};
 
-			// Tempo in SC is beats-per-second. (Beats) / (Beats/Sec) = Seconds
 			totalSecs = totalSecs + (delta / currentTempo);
 			count = count + 1;
 		};
 
-		// Heuristic: If we hit our maximum event limit, the pattern is infinite
 		if(count >= maxEvents) {
 			^inf
 		};
 
 		^totalSecs;
+	}
+
+	*degreeToID { arg midiNote = 60, useSharps = false;
+		/*
+		var octave = midiNote.div(12) - 1; // 60 is C4
+		var pitchClass = midiNote % 12;
+		var noteData;
+
+		var sharpsMap = [
+			["C",  ""], ["C", "s"], ["D",  ""], ["D", "s"],
+			["E",  ""], ["F",  ""], ["F", "s"], ["G",  ""],
+			["G", "s"], ["A",  ""], ["A", "s"], ["B",  ""]
+		];
+
+		var flatsMap = [
+			["C",  ""], ["D", "b"], ["D",  ""], ["E", "b"],
+			["E",  ""], ["F",  ""], ["G", "b"], ["G",  ""],
+			["A", "b"], ["A",  ""], ["B", "b"], ["B",  ""]
+		];
+
+		useSharps.if({
+			noteData = sharpsMap[pitchClass];
+		}, {
+			noteData = flatsMap[pitchClass];
+		});
+
+		^noteData[0] ++ noteData[1] ++ octave.asString;
+		*/
+
+		var out = (midiNote - 60).asString;
+		while { out.size < 2 } { out = "0" ++ out; };
+		^out;
 	}
 
     *patternToScore { arg pattern, maxTime;
@@ -151,11 +185,11 @@ Renderer {
         var clock = TempoClock(TempoClock.default.tempo);
 
         proto = (
-            schedBundle: { |lag, offset, server ... bundle|
+            schedBundle: { arg lag, offset, server ... bundle;
                 var timeOffsetSecs = (offset ? 0) / clock.tempo;
                 bundleList = bundleList.add([time + timeOffsetSecs + (lag ? 0)] ++ bundle);
             },
-            schedBundleArray: { |lag, offset, server, bundle|
+            schedBundleArray: { arg lag, offset, server, bundle;
                 var timeOffsetSecs = (offset ? 0) / clock.tempo;
                 bundleList = bundleList.add([time + timeOffsetSecs + (lag ? 0)] ++ bundle);
             }
