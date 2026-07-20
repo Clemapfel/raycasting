@@ -1,26 +1,22 @@
 var server = Server.default;
 var volume = Volume.new(server);
 var midi = MIDIInterface.new(server);
-
 var prefix = thisProcess.nowExecutingPath.dirname;
-var renderer = Renderer.new;
+volume.volume = -40; // db offset
 
-~transpose = { arg freq, n;
-    (freq.cpsmidi + n).midicps;
-};
-volume.volume = -20; // db offset
+/* ####### IMPLEMENTATIONS ####### */
 
-~bubble_pop;
 
 server.waitForBoot({
 	~bubble_pop.();
 });
 
+/* ####### IMPLEMENTATIONS ####### */
+
+// overworld.bubble.pop
 ~bubble_pop = {
 	 var def = SynthDef(\bubble_pop, { arg out = 0, base_start, base_end, above_start, above_end, sweep_duration;
-        var attack = 0.05;
-        var delay = 0.1 * sweep_duration;
-
+		var attack = 0.05;
 		var env = Env.perc(
             attackTime: sweep_duration * attack,
             releaseTime: sweep_duration * (1 - attack)
@@ -32,6 +28,7 @@ server.waitForBoot({
             phase: Rand(0, 2pi)
         );
 
+		var delay = 0.1 * sweep_duration;
 		var sweep_above = amplitude * Line.ar(0, 1, delay) *
             SinOsc.ar(
                 freq: XLine.kr(above_start, above_end, dur: sweep_duration - delay),
@@ -48,26 +45,23 @@ server.waitForBoot({
         Out.ar(out, signal.dup);
     }).add;
 
+	var sweep_duration = 0.1;
     var scale = Scale.chromatic;
-
-	var clock = TempoClock.new(tempo: 20);
     var pattern = Pbind(*[
         instrument: \bubble_pop,
-		tempo: clock.tempo,
-        key: Pseq(scale.degrees + 60, 1),
-        base_start:  Pfunc { |ev| (ev[\key] +  0).midicps },
+		tempo: 3,
+        key: Pseq(scale.degrees + 60),
+        base_start:  Pfunc { |ev| (ev[\key] +  0).midicps }, // convert midi key to hertz
         base_end:    Pfunc { |ev| (ev[\key] + 12).midicps },
         above_start: Pfunc { |ev| (ev[\key] -  3).midicps },
         above_end:   Pfunc { |ev| (ev[\key] +  5).midicps },
-        sweep_duration: 0.1
+        sweep_duration: sweep_duration
 	]);
 
-    pattern.play();
-
-    renderer.render(
+    Renderer.render(
         def,
         pattern,
         "bubble_pop.wav",
-        duration: scale.degrees.size * clock.beatDur
+		duration: Renderer.measureDuration(pattern) + sweep_duration
 	);
 }
