@@ -20,116 +20,58 @@ server.waitForBoot({
 	*/
 
 	~bounce_pad.();
+
+	CmdPeriod.doOnce({
+		s.freeAll;
+	})
 });
 
 /* ####### IMPLEMENTATIONS ####### */
 
 ~bounce_pad = { arg filename;
-    var def = SynthDef(\bounce_pad, { arg out = 0, degree = 261.62, amp = 0.5;
-        var pitchSweep, pitchWobble, body, slapEnv, slap, signal;
+  var def = SynthDef(\bounce_pad, { arg out = 0, degree = 60, dur = 1.0;
+        var signal;
 
-		var besselRatios = [ // bessel frequency ratios
-			// n = 0
-			[1.0000, 2.2954, 3.5985, 4.9044, 6.2117, 7.5196],
-			// n = 1
-			[1.5933, 2.9173, 4.2298, 5.5406, 6.8482, 8.1571],
-			// n = 2
-			[2.1357, 3.4998, 4.8317, 6.1524, 7.4677, 8.7801],
-			// n = 3
-			[2.6531, 4.0592, 5.4127, 6.7460, 8.0688, 9.3903],
-			// n = 4
-			[3.1554, 4.6008, 5.9762, 7.3253, 8.6603, 9.9878],
-			// n = 5
-			[3.6474, 5.1310, 6.5297, 7.8926, 9.2395, 10.5747]
-		];
+        var decayDuration = dur;
+        var delayDuration = dur / 4;
 
-		var decayBase = 1.4;
-		var ratios = [
-			1.0
-			/*
-			besselRatios[0][0],
-			besselRatios[0][1],
-			//besselRatios[0][2],
-			//besselRatios[0][3],
-			//besselRatios[0][4],
+        var ratios = [
+            1.0,
+            2.sqrt,
+            3.sqrt,
+            5.sqrt,
+            7.sqrt,
+            9.sqrt
+        ];
 
-			besselRatios[1][0],
-		    besselRatios[1][1],
-			//besselRatios[1][2],
-		    //besselRatios[1][3],
-			//besselRatios[1][4],
+        var wobbleFreqWobble = SinOsc.kr(
+            EnvGen.kr(Env(
+                [0, 5, 12],
+                [delayDuration, decayDuration - delayDuration],
+                [\lin, \exp]
+            ))
+        );
 
-			besselRatios[2][0],
-			besselRatios[2][1],
-			//besselRatios[2][2],
-			//besselRatios[2][3],
-			//besselRatios[2][4],
+        var wobbleFreq = ((degree - 12).midicps) * wobbleFreqWobble.linlin(-1, 1, 0.5, 1);
+        var wobbleExcitation = DelayN.ar(Decay2.ar(Impulse.ar(0),
+			attackTime: 0.1, decayTime: decayDuration
+		), maxdelaytime: delayDuration, delaytime: delayDuration);
 
-			besselRatios[3][0],
-			besselRatios[3][1],
-			//besselRatios[3][2],
-		    //besselRatios[3][3],
-			//besselRatios[3][4],
-
-			//besselRatios[4][0],
-			//besselRatios[4][1],
-			//besselRatios[4][2],
-			//besselRatios[4][3],
-			//besselRatios[4][4],
-			*/
-		];
-
-		var duration = 0.7;
-
-		var amplitudes = ratios.collect({ |r| 1 / r; });
-		var decayduration = 0.7 * duration;
-		var decaytimes = ratios.collect({ |r| decayduration / (r ** 0.25); }); // decay duration
-
-		var freq = (degree - 18).midicps;
-
-        var excitation = LPF.ar(PinkNoise.ar, 4000) * EnvGen.ar(Env.perc(0.001, 0.005));
-
-		var pitchAttack = 0.05;
-		var pitchRelease = 0.2;
-
-		var wobble_duration = 0.8 * duration;
-		var bloop_duration = 0.3 * duration;
-		var wobble_freq, bloop_freq;
-		var wobble, bloop;
-
-		// pitch wobble
-		pitchWobble = SinOsc.kr(freq: 8 * (1 - XLine.kr(1, 0.05, pitchRelease)));
-
-		// pitch sweep: high -> low
-        pitchSweep = EnvGen.ar(Env([2, 1.0, 0.97], [pitchAttack, pitchRelease], \exp)) + pitchWobble;
-
-        body = Klank.ar(`[ // Ref
+        var wobble = DynKlank.ar(`[
             ratios,
-            amplitudes,
-            decaytimes
-        ], excitation, freqscale: freq * (1 + pitchWobble));
+            ratios.collect({ |r| 1 / r; }),
+            ratios.collect({ |r| decayDuration / (r ** 0.8); })
+        ], wobbleExcitation, freqscale: wobbleFreq);
 
-		// wobble
-		wobble_freq = (degree - 12).midicps;
-		wobble = SinOsc.ar(wobble_freq * (1 - pitchSweep)) * EnvGen.ar(
-			Env.perc(releaseTime: wobble_duration)
-		);
+        var ring = Ringz.ar(
+            EnvGen.ar(Env.perc(0.001)),
+			freq: (degree - 4).midicps,
+            decaytime: 0.6
+        );
 
-		// percussive bloop
-	    bloop_freq = (degree - 24).midicps;
-	    bloop = HPF.ar(Ringz.ar(
-			EnvGen.ar(Env.perc(attackTime: 0.02, releaseTime: bloop_duration)),
-			freq: bloop_freq * EnvGen.ar(Env.new([1, 0], [bloop_duration], curve: \welch)),
-			decaytime: bloop_duration
-		), freq: 200);
-
-		signal = body + (0.8 * wobble) + (0.25 * bloop);
-		signal = signal * amp;
-		signal.clip(20);
-
-        DetectSilence.ar(signal, 0.001, doneAction: Done.freeSelf);
-
+        signal = ring + wobble;
         Out.ar(out, signal.dup);
+        DetectSilence.ar(signal, 0.001, doneAction: Done.freeSelf);
     }).add;
 
     var pattern = Pbind(*[
@@ -137,7 +79,7 @@ server.waitForBoot({
         degree: Pn(Pseq([Pshuf(Scale.major.degrees + 60, 1), Rest(1)], 1), 3),
         dur: 1.25,
         amp: 1.0,
-		tempo: 3
+		tempo: 2
     ]);
 
     pattern.play;
