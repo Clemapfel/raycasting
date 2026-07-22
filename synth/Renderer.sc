@@ -17,11 +17,11 @@ Renderer {
         serverOptions.numOutputBusChannels = 1;
         serverOptions.numInputBusChannels = 1;
         serverOptions.memSize = 8192;
-        serverOptions.verbosity = -2;
+        serverOptions.verbosity = -1;
     }
 
-    *render { arg synthdef, pattern, filename, duration;
-        var export_dir, osc_file, out_file, score, eps, synthdef_path, currentPath;
+    *render { arg synthdef, pattern, duration, filename, doneAction;
+        var export_dir, osc_file, out_file, score, eps, synthdefPath, currentPath;
 
         if (filename.isKindOf(String).not) {
             Error("In Renderer.render: when rendering an unknown file: for argument #3: expected `String`, got `%`".format(filename.class)).throw;
@@ -35,16 +35,16 @@ Renderer {
             Error("In Renderer.render: when rendering `%`: for argument #2: expected `Pattern`, got `%`".format(filename, pattern.class)).throw;
         };
 
-        if (filename.endsWith(".wav").not) {
-            Error("In Renderer.render: when rendering `%`: for argument #3: expected string of the form `<filename>.wav`, got `%`".format(filename, filename)).throw;
-        };
-
-        if (duration.isNil) {
+		if (duration.isNil) {
             duration = this.measureDuration(pattern);
         } {
             if (duration.isKindOf(Number).not or: { duration <= 0 }) {
-                Error("In Renderer.render: when rendering `%`: for argument #4: expected a positive `Number` or `nil`, got `%`".format(filename, duration)).throw;
+                Error("In Renderer.render: when rendering `%`: for argument #3: expected a positive `Number` or `nil`, got `%`".format(filename, duration)).throw;
             };
+        };
+
+        if (filename.endsWith(".wav").not) {
+            Error("In Renderer.render: when rendering `%`: for argument #4: expected string of the form `<filename>.wav`, got `%`".format(filename, filename)).throw;
         };
 
         if (duration == inf) {
@@ -58,8 +58,10 @@ Renderer {
         out_file = export_dir +/+ filename;
 
         // write synthedef as file to disk, this allows usage of very large synthdefs
-        synthdef_path = PathName.tmp +/+ (SystemSynthDefs.generateTempName ++ ".scsyndef");
-        File.use(synthdef_path, "wb", { arg f; f.write(synthdef.asBytes) });
+        synthdefPath = PathName.tmp +/+ (SystemSynthDefs.generateTempName ++ ".scsyndef");
+
+		// write as bytes instead of writeDefFile to ensure path and naming
+        File.use(synthdefPath, "wb", { arg f; f.write(synthdef.asBytes) });
 
         // make sure pattern allocates s_new ids manually
         pattern = Pbindf(pattern, \id, Pseries(1000, 1));
@@ -74,7 +76,7 @@ Renderer {
         score.score.do({ arg e; e[0] = e[0] + eps; });
 
         // allocate synthdef
-        score.add([0.0, ['/d_load', synthdef_path.absolutePath]]);
+        score.add([0.0, ['/d_load', synthdefPath.absolutePath]]);
         score.sort();
 
 		"In Renderer.render: rendering %...".format(filename).postln;
@@ -88,12 +90,16 @@ Renderer {
             options: serverOptions,
             action: {
                 File.delete(osc_file);
-                File.delete(synthdef_path);
+				File.delete(synthdefPath);
                 if (File.exists(out_file)) {
                     "In Renderer.render: Wrote file to `%`".format(out_file).postln;
                 } {
                     "In Renderer.render: Failed to write file to `%`".format(out_file).postln;
-                }
+                };
+
+				if (doneAction.notNil) {
+					doneAction.value(out_file);
+				};
             }
         );
     }
@@ -177,6 +183,10 @@ Renderer {
 		var out = (midiNote - 60).asString;
 		while { out.size < 2 } { out = "0" ++ out; };
 		^out;
+	}
+
+	*tmpFileID {
+		^(".tmp_" ++ UniqueID.next ++ ".wav");
 	}
 
     *patternToScore { arg pattern, maxTime;
