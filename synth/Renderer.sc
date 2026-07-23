@@ -20,25 +20,26 @@ Renderer {
         serverOptions.verbosity = -1;
     }
 
+	*pr_assert { arg got, expected, scope, argIndex, optional = false;
+		if (optional and: { got.isNil }) { ^this };
+		if (got.isKindOf(expected).not) {
+			Error("In Renderer.%: wrong type for argument #%: expected `%`, got `%`".format(scope, argIndex, expected, got.class)).throw;
+		};
+	}
+
     *render { arg synthdef, pattern, duration, filename, doneAction;
         var export_dir, osc_file, out_file, score, eps, synthdefPath, currentPath;
 
-        if (filename.isKindOf(String).not) {
-            Error("In Renderer.render: when rendering an unknown file: for argument #3: expected `String`, got `%`".format(filename.class)).throw;
-        };
+		Renderer.pr_assert(synthdef, SynthDef, "render", 1);
+        Renderer.pr_assert(pattern, Pattern, "render", 2);
+		Renderer.pr_assert(duration, Number, "render", 3, optional: true);
+		Renderer.pr_assert(filename, String, "render", 4);
+		Renderer.pr_assert(doneAction, Function, "render", 5, optional: true);
 
-        if (synthdef.isKindOf(SynthDef).not) {
-            Error("In Renderer.render: when rendering `%`: for argument #1: expected `SynthDef`, got `%`".format(filename, synthdef.class)).throw;
-        };
-
-        if (pattern.isKindOf(Pattern).not) {
-            Error("In Renderer.render: when rendering `%`: for argument #2: expected `Pattern`, got `%`".format(filename, pattern.class)).throw;
-        };
-
-		if (duration.isNil) {
+        if (duration.isNil) {
             duration = this.measureDuration(pattern);
         } {
-            if (duration.isKindOf(Number).not or: { duration <= 0 }) {
+            if (duration <= 0) {
                 Error("In Renderer.render: when rendering `%`: for argument #3: expected a positive `Number` or `nil`, got `%`".format(filename, duration)).throw;
             };
         };
@@ -117,12 +118,18 @@ Renderer {
 	}
 
 	*measureDuration { arg pattern, maxEvents = 10000, initialTempo;
-		var stream = pattern.asStream;
-		var inEvent = Event.default;
+		var stream, inEvent = Event.default;
 		var totalSecs = 0.0;
 		var count = 0;
-		var currentTempo = initialTempo ?? { TempoClock.default.tempo };
+		var currentTempo;
 		var ev;
+
+		Renderer.pr_assert(pattern, Pattern, "measureDuration", 1);
+		Renderer.pr_assert(maxEvents, Integer, "measureDuration", 2);
+		Renderer.pr_assert(initialTempo, Number, "measureDuration", 3, optional: true);
+
+		stream = pattern.asStream;
+		currentTempo = initialTempo ?? { TempoClock.default.tempo };
 
 		while {
 			ev = stream.next(inEvent.copy);
@@ -154,7 +161,11 @@ Renderer {
 	}
 
 	*formatDuration { arg duration;
-		var result = duration.asTimeString;
+		var result;
+
+		Renderer.pr_assert(duration, Number, "formatDuration", 1);
+
+		result = duration.asTimeString;
 
 		^result;
 	}
@@ -186,7 +197,12 @@ Renderer {
 		^noteData[0] ++ noteData[1] ++ octave.asString;
 		*/
 
-		var out = (midiNote - 60).asString;
+		var out;
+
+		Renderer.pr_assert(midiNote, Integer, "degreeToID", 1);
+		Renderer.pr_assert(useSharps, Boolean, "degreeToID", 2);
+
+		out = (midiNote - 60).asString;
 		while { out.size < 2 } { out = "0" ++ out; };
 		^out;
 	}
@@ -198,7 +214,12 @@ Renderer {
     *patternToScore { arg pattern, maxTime;
         var time = 0, bundleList = [];
         var event, proto, stream, ev;
-        var clock = TempoClock(TempoClock.default.tempo);
+        var clock;
+
+        Renderer.pr_assert(pattern, Pattern, "patternToScore", 1);
+        Renderer.pr_assert(maxTime, Number, "patternToScore", 2);
+
+        clock = TempoClock(TempoClock.default.tempo);
 
         proto = (
             schedBundle: { arg lag, offset, server ... bundle;
@@ -235,4 +256,62 @@ Renderer {
         bundleList = bundleList.sort { |a, b| a[0] < b[0] };
         ^Score(bundleList);
     }
+
+	*allocBuffer { arg server, numFrames, numChannels, doneAction;
+		var buffer;
+
+		if (numFrames.isKindOf(Number)) { numFrames = numFrames.ceil.asInteger; };
+
+		Renderer.pr_assert(server, Server, "allocBuffer", 1);
+		Renderer.pr_assert(numFrames, Integer, "allocBuffer", 2);
+		Renderer.pr_assert(numChannels, Integer, "allocBuffer", 3);
+		Renderer.pr_assert(doneAction, Function, "allocBuffer", 4, optional: true);
+
+		^Buffer.alloc(server,
+			numFrames: numFrames,
+			numChannels: numChannels,
+			sampleRate: Renderer.sampleRate,
+			completionMessage: {
+				if (doneAction.notNil) {
+					doneAction.();
+				};
+			}
+		);
+	}
+
+	*readBuffer { arg server, filepath, doneAction;
+		var buffer;
+
+		Renderer.pr_assert(server, Server, "readBuffer", 1);
+		Renderer.pr_assert(filepath, String, "readBuffer", 2);
+		Renderer.pr_assert(doneAction, Function, "readBuffer", 3, optional: true);
+
+		^Buffer.read(server, filepath,
+			action: {
+				if (doneAction.notNil) {
+					doneAction.value();
+				};
+			}
+		);
+	}
+
+	*writeBuffer { arg buffer, filepath, leaveOpen, doneAction;
+		Renderer.pr_assert(buffer, Buffer, "writeBuffer", 1);
+		Renderer.pr_assert(filepath, String, "writeBuffer", 2);
+		Renderer.pr_assert(leaveOpen, Boolean, "writeBuffer", 3, optional: true);
+		Renderer.pr_assert(doneAction, Function, "writeBuffer", 4, optional: true);
+
+		buffer.write(filepath,
+			headerFormat: Renderer.headerFormat,
+			sampleFormat: Renderer.sampleFormat,
+			leaveOpen: leaveOpen,
+			completionMessage: {
+				if (doneAction.notNil) {
+					doneAction.value();
+				};
+			}
+		);
+
+		^buffer;
+	}
 }

@@ -19,7 +19,7 @@ server.waitForBoot({
 	});
 	*/
 
-	~bubble_unpop.("", degrees);
+	~bubble_unpop.("bubble_unpop.wav", degrees);
 
 	CmdPeriod.doOnce({
 		//s.freeAll;
@@ -139,73 +139,108 @@ server.waitForBoot({
 	);
 };
 
-// overworld.bubble.unpop
 ~bubble_unpop = { arg filename, degree = 60;
-    fork { // required to wait for NRT rendering to buffer to reverse
-		var unpop;
+	var forceRender = false;
+
+	fork {
 		var unpopDuration = 0.8;
-		var toReverse = SynthDef(\bubble_unpop_to_reverse, { arg out, degree;
-            var freq = degree.midicps;
-            var signal = EnvGen.ar(Env.perc(0.001, 0.005)) * SinOsc.ar(4 * freq);
 
-            signal = NHHall.ar(signal.distort.dup, stereo: 1, rt60: unpopDuration)[0];
+		// synth to be recorded, later reversed
+		var reverseDef = SynthDef(\bubble_unpop_to_reverse, { arg out = 0, degree = 60, bufnum;
+			var freq = degree.midicps;
+			var signal = EnvGen.ar(Env.perc(0.001, 0.005)) * SinOsc.ar(4 * freq);
 
-            signal = signal + DelayN.ar(
-                EnvGen.ar(Env.perc(0.001, 0.02)) * SinOsc.ar(),
-                unpopDuration, unpopDuration - 0.05
-            );
+			signal = NHHall.ar(signal.distort.dup, stereo: 1, rt60: unpopDuration)[0];
+			signal = signal + DelayN.ar(
+				EnvGen.ar(Env.perc(0.001, 0.02)) * SinOsc.ar(),
+				unpopDuration, unpopDuration - 0.05
+			);
 
-			Out.ar(out, signal);
-			DoneSentinel.duration(unpopDuration);
+			Out.ar(out, signal.dup);
+			RecordBuf.ar(signal, bufnum, loop: 0, doneAction: Done.freeSelf);
 		}).add;
 
-		var forceRender = true;
+		// reversing synth, actual output is this
+		var def, synth, recordDef, recordSynth, outPath, swap;
 
-		var reversePattern = Pbind(*[
-			instrument: \bubble_unpop_to_reverse,
-			degree: Pseq([degree].flatten, 1);
-		]);
+		var recordBuffer;
+		var recordBufferCondition = Condition.new;
+		var tmpPath = Renderer.getExportDir() +/+ ".bubble_unpop_tmp.wav";
 
-		var buffer;
-		var tmpName = ".tmp_bubble_unpop_to_reverse.wav";
-		var tmpPath = Renderer.getExportDir +/+ filename;
+		server.sync; // wait for synthdefs
 
-		var lock = Condition.new(false);
-		if (forceRender or: { File.exists(tmpPath).not}) {
-			Renderer.render(
-				toReverse,
-				reversePattern,
-				duration: unpopDuration,
-				filename: filename,
-				doneAction: { arg filepath;
-					buffer = Buffer.read(Server.default, tmpPath, action: {
-						//File.delete(filepath);
-						lock.test = true;
-						lock.signal;
-					});
-				}
+		// render to-be-reversed audio onto disk
+		if (forceRender or: { File.exists(tmpPath).not }) {
+
+			var playCondition = Condition.new;
+			var reverseSynth;
+
+			recordBuffer = Renderer.allocBuffer(server,
+				numFrames: unpopDuration * Renderer.sampleRate,
+				numChannels: 1
 			);
+
+			server.sync;
+
+			// play reverseDef into record buffer, inside the group
+			reverseSynth = Synth(reverseDef.name, [
+				bufnum: recordBuffer,
+				degree: degree
+			]).onFree({
+				playCondition.test = true;
+				playCondition.signal;
+			});
+
+			playCondition.wait;
+
+			// write for next time
+			Renderer.writeBuffer(recordBuffer, tmpPath, doneAction: {
+				recordBufferCondition.test = true;
+				recordBufferCondition.signal;
+			});
 		} {
-			buffer = Buffer.read(Server.default, tmpPath, action: {
-				lock.test = true;
-				lock.signal;
+			recordBuffer = Renderer.readBuffer(server, tmpPath, doneAction: {
+				recordBufferCondition.test = true;
+				recordBufferCondition.signal;
 			});
 		};
 
-		lock.wait;
+		recordBufferCondition.wait; // wait for recordBuffer to be filled
 
-		unpop = SynthDef(\bubble_unpop, { arg out, bufnum;
-			 var buf = PlayBuf.ar(2, bufnum,
-				rate: -1 * BufRateScale.kr(bufnum),
-				startPos: BufFrames.kr(bufnum) - 1,
+		def = SynthDef(\bubble_unpop, { arg out = 0, degree, inbufnum, outbufnum;
+			var buf = PlayBuf.ar(1, inbufnum,
+				rate: -1 * BufRateScale.kr(inbufnum),
+				startPos: BufFrames.kr(inbufnum) - 1,
 				loop: 0
 			);
 
-			Out.ar(out, buf);
-		});
+			var signal = buf;
+			Out.ar(out, signal.dup);
+			RecordBuf.ar(signal, outbufnum);
+			DoneSentinel.duration(unpopDuration);
+		}).add;
 
-		unpop.play;
-    };
+		swap = Renderer.allocBuffer(server,
+			recordBuffer.numFrames,
+			recordBuffer.numChannels
+		);
+
+		outPath = Renderer.getExportDir +/+ filename;
+
+		server.sync;
+
+		synth = Synth.new(def.name, [
+			inbufnum: recordBuffer,
+			outbufnum: swap,
+			degree: degree,
+		], server, 'addToTail');
+
+		synth.onFree({
+			Renderer.writeBuffer(swap, outPath, doneAction: {
+				"Wrote file to %".format(outPath);
+			});
+		});
+	};
 };
 
 true;
