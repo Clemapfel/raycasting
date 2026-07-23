@@ -4,8 +4,6 @@ var midi = MIDIInterface.new(server);
 var prefix = thisProcess.nowExecutingPath.dirname;
 var degrees = Scale.chromatic.degrees + 60;
 
-Quarks.gui;
-
 /* ####### MAIN ####### */
 
 volume.volume = 0; // db offset
@@ -24,7 +22,7 @@ server.waitForBoot({
 	~bubble_unpop.("", degrees);
 
 	CmdPeriod.doOnce({
-		s.freeAll;
+		//s.freeAll;
 	})
 });
 
@@ -66,7 +64,7 @@ server.waitForBoot({
         signal = ring + wobble;
         Out.ar(out, signal.dup);
 
-        DetectSilence.ar(signal, 0.001, doneAction: Done.freeSelf);
+		DoneSentinel.ar(signal);
     }).add;
 
 	var dur = 1.0;
@@ -145,13 +143,20 @@ server.waitForBoot({
 ~bubble_unpop = { arg filename, degree = 60;
     fork { // required to wait for NRT rendering to buffer to reverse
 		var unpop;
-		var reverseSweepDuration = 0.25;
+		var unpopDuration = 0.8;
 		var toReverse = SynthDef(\bubble_unpop_to_reverse, { arg out, degree;
-			var sweep = XLine.ar(2, 1, reverseSweepDuration);
-			var env = EnvGen.ar(Env.perc(0.01, reverseSweepDuration));
-			var signal = env * SinOsc.ar(degree.midicps * sweep);
-			signal = NHHall.ar(signal.dup, stereo: 1, rt60: 0.6)[0];
-			Out.ar(out, signal.dup);
+            var freq = degree.midicps;
+            var signal = EnvGen.ar(Env.perc(0.001, 0.005)) * SinOsc.ar(4 * freq);
+
+            signal = NHHall.ar(signal.distort.dup, stereo: 1, rt60: unpopDuration)[0];
+
+            signal = signal + DelayN.ar(
+                EnvGen.ar(Env.perc(0.001, 0.02)) * SinOsc.ar(),
+                unpopDuration, unpopDuration - 0.05
+            );
+
+			Out.ar(out, signal);
+			DoneSentinel.duration(unpopDuration);
 		}).add;
 
 		var forceRender = true;
@@ -162,18 +167,18 @@ server.waitForBoot({
 		]);
 
 		var buffer;
-		var filename = ".tmp_bubble_unpop_to_reverse.wav";
-		var filepath = Renderer.getExportDir +/+ filename;
+		var tmpName = ".tmp_bubble_unpop_to_reverse.wav";
+		var tmpPath = Renderer.getExportDir +/+ filename;
 
 		var lock = Condition.new(false);
-		if (forceRender or: { File.exists(filepath).not}) {
+		if (forceRender or: { File.exists(tmpPath).not}) {
 			Renderer.render(
 				toReverse,
 				reversePattern,
-				duration: 2 * reverseSweepDuration,
+				duration: unpopDuration,
 				filename: filename,
 				doneAction: { arg filepath;
-					buffer = Buffer.read(Server.default, filepath, action: {
+					buffer = Buffer.read(Server.default, tmpPath, action: {
 						//File.delete(filepath);
 						lock.test = true;
 						lock.signal;
@@ -181,7 +186,7 @@ server.waitForBoot({
 				}
 			);
 		} {
-			buffer = Buffer.read(Server.default, filepath, action: {
+			buffer = Buffer.read(Server.default, tmpPath, action: {
 				lock.test = true;
 				lock.signal;
 			});

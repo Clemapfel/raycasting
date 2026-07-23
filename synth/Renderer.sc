@@ -79,7 +79,7 @@ Renderer {
         score.add([0.0, ['/d_load', synthdefPath.absolutePath]]);
         score.sort();
 
-		"In Renderer.render: rendering %...".format(filename).postln;
+		"In Renderer.render: rendering % (%s)".format(filename, Renderer.formatDuration(duration)).postln;
 
         score.recordNRT(
             outputFilePath: out_file,
@@ -151,6 +151,12 @@ Renderer {
 		};
 
 		^totalSecs;
+	}
+
+	*formatDuration { arg duration;
+		var result = duration.asTimeString;
+
+		^result;
 	}
 
 	*degreeToID { arg midiNote = 60, useSharps = false;
