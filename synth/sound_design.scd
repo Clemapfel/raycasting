@@ -16,10 +16,12 @@ server.waitForBoot({
 	degrees.do({ arg degree;
 		~degree = degree;
 		~bubble_pop.("bubble_pop_%.wav".format(Renderer.degreeToID(degree)));
+		~bubble_unpop.("bubble_unpop_&.wav", degrees);
+
 	});
 	*/
 
-	~bubble_unpop.("bubble_unpop.wav", degrees);
+	~air_dash_node_dash.();
 
 	CmdPeriod.doOnce({
 		s.freeAll;
@@ -69,7 +71,7 @@ server.waitForBoot({
 
 	var dur = 1.0;
     var pattern = Pbind(*[
-        instrument: \bounce_pad,
+        instrument: def.name,
 		degree: Pseq([degree].flatten),
         dur: dur,
         amp: 1.0,
@@ -121,7 +123,7 @@ server.waitForBoot({
 	var sweep_duration = 0.1;
     var scale = Scale.chromatic;
     var pattern = Pbind(*[
-        instrument: \bubble_pop,
+        instrument: def.name,
 		tempo: 3,
 		degree: Pseq([degree].flatten),
         base_start:  Pfunc { |ev| (ev[\degree] +  0).midicps }, // convert midi key to hertz
@@ -139,6 +141,7 @@ server.waitForBoot({
 	);
 };
 
+// overworld.bubble.unpop
 ~bubble_unpop = { arg filename, degree = 60;
 	var forceRender = false;
 
@@ -278,6 +281,46 @@ server.waitForBoot({
 			});
 		});
 	};
+};
+
+// overworld.air_dash_node.dash
+~air_dash_node_dash = { arg filename, degree = 60;
+	var dashDef = SynthDef(\air_dash_node_dash_dash, { arg out, degree = 60, dur = 2;
+		var ramp = 0.2;
+		var dashDuration = dur - (2 * ramp);
+		var freqMul = 2;
+
+		var dashFreq = degree.midicps * EnvGen.ar(Env.new(
+			[1 / freqMul, freqMul, freqMul, 1 / freqMul],
+			[ramp, dashDuration, ramp],
+			\welch
+		));
+
+		var dashAmp = EnvGen.ar(Env.new(
+			[0, 1, 1, 0],
+			[ramp, dashDuration, ramp],
+			\lin
+		));
+
+		var signal = BPF.ar(
+			PinkNoise.ar(),
+			freq: dashFreq
+		) * dashAmp;
+
+		Out.ar(out, signal.dup);
+		DoneSentinel.ar(signal);
+	}).add;
+
+	var duration = 0.5;
+	var pattern;
+
+	server.sync;
+
+	pattern = Pbind(*[
+		instrument: dashDef,
+		dur: Pn(0.25, 1),
+		degree: 60
+	]).play;
 };
 
 true;
