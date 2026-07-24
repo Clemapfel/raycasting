@@ -289,7 +289,7 @@ Renderer {
 		^Buffer.read(server, filepath,
 			action: {
 				if (doneAction.notNil) {
-					doneAction.value();
+					doneAction.();
 				};
 			}
 		);
@@ -301,17 +301,27 @@ Renderer {
 		Renderer.pr_assert(leaveOpen, Boolean, "writeBuffer", 3, optional: true);
 		Renderer.pr_assert(doneAction, Function, "writeBuffer", 4, optional: true);
 
+		doneAction.class.postln;
+
 		buffer.write(filepath,
 			headerFormat: Renderer.headerFormat,
 			sampleFormat: Renderer.sampleFormat,
 			leaveOpen: leaveOpen,
 			completionMessage: {
 				if (doneAction.notNil) {
-					doneAction.value();
+					doneAction.();
 				};
 			}
 		);
 
 		^buffer;
+	}
+
+	*allocRecorder { arg server, duration, numChannels = 1, doneAction;
+		^Renderer.allocBuffer(server,
+			duration * Renderer.sampleRate,
+			numChannels,
+			doneAction
+		);
 	}
 }

@@ -240,9 +240,14 @@ server.waitForBoot({
 				[\hold, \exp]
 			)) * degree.midicps;
 
-			var pop = BPF.ar(FreeVerb.ar(
-				(EnvGen.ar(popAmp) * SinOsc.ar(popFreq).dup)
-			)[0], freq: popFreq, rq: 4);
+			var dry = EnvGen.ar(popAmp) * SinOsc.ar(popFreq).softclip;
+			var wet = FreeVerb.ar(dry.dup)[0];
+
+			var mix = 0.75;
+			var pop = BBandPass.ar((dry * mix) + (wet * (1 - mix)),
+				freq: popFreq * 3,
+				bw: 0.8
+			);
 
 			var signal = buf + pop;
 			Out.ar(out, signal.dup);
@@ -269,7 +274,7 @@ server.waitForBoot({
 
 		synth.onFree({
 			Renderer.writeBuffer(outBuffer, outPath, doneAction: {
-				"Wrote file to %".format(outPath);
+				"Wrote file to %".format(outPath).postln;
 			});
 		});
 	};
