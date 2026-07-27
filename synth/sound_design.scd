@@ -6,7 +6,7 @@ var degrees = Scale.chromatic.degrees + 60;
 
 /* ####### MAIN ####### */
 
-volume.volume = 0; // db offset
+volume.volume = -30 ; // db offset
 server.waitForBoot({
 	/*
 	// wipe export dir
@@ -21,10 +21,10 @@ server.waitForBoot({
 	});
 	*/
 
-	~air_dash_node_dash.();
+	~fireworks.();
 
 	CmdPeriod.doOnce({
-		s.freeAll;
+		server.freeAll;
 	})
 });
 
@@ -52,7 +52,7 @@ server.waitForBoot({
 		var ratios = [ 1, 2, 3, 5, 7, 9 ].sqrt;
         var wobble = DynKlank.ar(`[
             ratios,
-            ratios.collect({ |r| 1 / r; }),
+            ratios.collect({ |r| 1 / r; }).normalizeSum,
             ratios.collect({ |r| decayDuration / (r ** 0.8); })
         ], wobbleExcitation, freqscale: wobbleFreq);
 
@@ -285,42 +285,151 @@ server.waitForBoot({
 
 // overworld.air_dash_node.dash
 ~air_dash_node_dash = { arg filename, degree = 60;
-	var dashDef = SynthDef(\air_dash_node_dash_dash, { arg out, degree = 60, dur = 2;
-		var ramp = 0.2;
-		var dashDuration = dur - (2 * ramp);
-		var freqMul = 2;
+	var dashDef = SynthDef(\air_dash_node_dash_dash, { arg out, degree = 60, dur = 0.5;
+		var attack = 0.05;
+		var decay = 0.3;
+		var sustain = (dur - attack - decay);
 
-		var dashFreq = degree.midicps * EnvGen.ar(Env.new(
-			[1 / freqMul, freqMul, freqMul, 1 / freqMul],
-			[ramp, dashDuration, ramp],
-			\welch
-		));
+		var freqMul = 2;
+		var dashFreqEnv = EnvGen.ar(Env.new(
+			1 + [0, freqMul, freqMul, 0], // +1 for exp to not be NaN
+			[attack, sustain, decay],
+			[\exp, \exp]
+		)) - 1;
 
 		var dashAmp = EnvGen.ar(Env.new(
 			[0, 1, 1, 0],
-			[ramp, dashDuration, ramp],
-			\lin
+			[attack, sustain, decay],
+			[\welch, \lin]
 		));
 
-		var signal = BPF.ar(
-			PinkNoise.ar(),
-			freq: dashFreq
-		) * dashAmp;
+		var bassFreq = ((degree - (4 * 12 + 6)).midicps);
+		var harmonics = [1, 2, 4, 8];
+		var bass = RHPF.ar(DynKlank.ar(
+			`[
+				harmonics,
+				harmonics.collect({ |r| 1 / r });
+				harmonics.collect({ |r| 0.2; })
+			],
+			EnvGen.ar(Env.perc(0.001)),
+			freqscale: bassFreq * Line.ar(3 / 4, 1.25, 0.1)
+		) * EnvGen.ar(Env.asr(attack, dur / 2))
+		);
 
+		var freq = ((degree.midicps - 12) * dashFreqEnv).max(20);
+		var rq = 0.0;
+		var swooshDry = BPF.ar(WhiteNoise.ar(), freq: freq, rq: 0.1) * dashAmp;
+		var swooshWet = FreeVerb.ar(
+			swooshDry,
+			mix: 0.3,
+			room: 0.6
+		);
+		var swooshMix = 0.4; // dry : wet
+		var swoosh = ((swooshWet * (swooshMix)) + (swooshDry * (1 - swooshMix)));
+
+		var nonCrackleDuration = 0; //attack + sustain + decay;
+		var crackleAttack = 0.05;
+		var crackleDecay = 2.0;
+		var crackleEnv = EnvGen.ar(Env.new(
+			[0, 0, 1, 0],
+			[nonCrackleDuration, crackleAttack , crackleDecay ],
+			[\hold, \lin, \welch]
+		));
+
+		var crackle = Dust.ar(density: 50)
+		   + 0.24 * Crackle.ar(chaosParam: 2.0);
+
+		var signal = crackle; //bass + swoosh;
 		Out.ar(out, signal.dup);
 		DoneSentinel.ar(signal);
 	}).add;
 
-	var duration = 0.5;
 	var pattern;
 
 	server.sync;
-
 	pattern = Pbind(*[
 		instrument: dashDef,
-		dur: Pn(0.25, 1),
-		degree: 60
+		degree: Pn(60, 1), //Pshuf(60 +  Scale.major.degrees, 1),
+		dur: 0.3
 	]).play;
 };
 
-true;
+// fireworks
+~fireworks = {
+	// reference: https://www.youtube.com/watch?v=zbu-fVXP5nI
+
+	var initSize = 1200;
+	var def = SynthDef(\fireworks, { arg out, pitch = 440, amp = 1, shouldCrackle = 1;
+		var snapAttack = 0.001;
+		var snapHold = 0.2;
+		var snapDecay = 0.8;
+		var snapEnv = EnvGen.ar(Env.new(
+			[0, 1, 1, 0],
+			[snapAttack, snapHold, snapDecay],
+			[\welch, \hold, \lin]
+		));
+
+		var snapBW = 0.5;
+		var snap = snapEnv * WhiteNoise.ar();
+
+		var boomEnv = EnvGen.ar(Env.asr(attackTime: 0.02, releaseTime: 0.4));
+		var boom = HPF.ar(Ringz.ar(EnvGen.ar(Env.perc(0.1)), freq: (pitch / 4) + Crackle.ar(2)) * snapEnv, freq: 130);
+
+		var crackleAttack = 0.1;
+		var crackleDecay = 1.1;
+		var crackleEnv = EnvGen.ar(Env.new(
+			[0, 0, 1, 0],
+			[0.4, crackleAttack, crackleDecay]
+		));
+
+		var crackleTrig = EnvGen.ar(Env.perc(0.0001, 0.00001), gate: Dust.ar(400));
+		var crackleDecayTime = 0.01;
+
+		var crackleDry = Ringz.ar(crackleTrig, 4 * pitch, crackleDecayTime) +
+			Ringz.ar(crackleTrig, 2 * pitch, crackleDecayTime);
+
+		var crackleWet = FreeVerb.ar(crackleDry, room: 2.0);
+		var crackleMix = 0.4;
+		var crackle = ((crackleTrig * crackleMix) + (crackleWet * (1 - crackleMix))) * crackleEnv;
+
+		var signal = boom + snap + (shouldCrackle * crackle);
+		Out.ar(out, (amp * signal).dup);
+		DoneSentinel.ar(signal;)
+	}).add;
+
+	var numParticles = 80;
+	var minDelay = 1;
+	var maxDelay = 0.4;
+	var firstSize = 150;
+	var minSize = 200;
+	var maxSize = 300;
+
+	var pattern = Pbindf(Ptpar((numParticles + 1).collect({ |i|
+		(i == 0).if({
+			// initial big explosion
+			[0, Pbind(*[
+				pitch: Pn(firstSize, 1),
+				amp: 1,
+				shouldCrackle: 1
+			])]
+		}/*, {
+			// many tiny explosions
+			[ minDelay + maxDelay.rand, Pbind(*[
+				amp: 1 / numParticles.sqrt,
+				shouldCrackle: 1,
+				pitch: Pgauss(
+					mean: minSize + (0.5 * (maxSize - minSize)),
+					dev: (maxSize - minSize) / 4,
+					length: 1
+				).clip(minSize, maxSize)
+			])]
+		}*/)
+	}).flatten), *[
+		instrument: def.name
+	]);
+
+	server.sync;
+	pattern.play;
+};
+
+Date.getDate; // console output on execution
