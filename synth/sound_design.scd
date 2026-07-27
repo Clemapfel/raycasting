@@ -359,73 +359,99 @@ server.waitForBoot({
 	// reference: https://www.youtube.com/watch?v=zbu-fVXP5nI
 
 	var initSize = 1200;
-	var def = SynthDef(\fireworks, { arg out, pitch = 440, amp = 1, shouldCrackle = 1;
-		var snapAttack = 0.001;
-		var snapHold = 0.2;
-		var snapDecay = 0.8;
-		var snapEnv = EnvGen.ar(Env.new(
-			[0, 1, 1, 0],
-			[snapAttack, snapHold, snapDecay],
-			[\welch, \hold, \lin]
+	var def = SynthDef(\fireworks, { arg out, pitch = 440, amp = 1, shouldCrackle = 1, shouldRumble = 1;
+
+		var snapEnv = EnvGen.ar(Env.perc(0.01, 0.3));
+		var snapTrig = WhiteNoise.ar(1);
+		var snapPitch = pitch;
+		var snap = FreeVerb.ar(
+			Decay.ar(Mix.ar(
+				0.4 * RHPF.ar(snapTrig, snapPitch, rq: 1.5),
+				0.8 * BPF.ar(snapTrig, (snapPitch / 2).max(120), rq: 1.0),
+				1.0 * RLPF.ar(snapTrig, (snapPitch / 16).max(120), rq: 0.4)
+			)) * snapEnv,
+			room: 0.42,
+			damp: 0.2,
+			mix: 0.2
+		);
+
+		var boomEnv = EnvGen.ar(Env.new([0, 1, 0], [0.001, 2]));
+		var subPitch = EnvGen.ar(Env.new(
+			[1, 1 / 4, 1 / 16] * (pitch / 4),
+			[0.05, 1.5],
+			\exp
 		));
-
-		var snapBW = 0.5;
-		var snap = snapEnv * WhiteNoise.ar();
-
-		var boomEnv = EnvGen.ar(Env.asr(attackTime: 0.02, releaseTime: 0.4));
-		var boom = HPF.ar(Ringz.ar(EnvGen.ar(Env.perc(0.1)), freq: (pitch / 4) + Crackle.ar(2)) * snapEnv, freq: 130);
+		var sub = SinOsc.ar(subPitch) * boomEnv;
+		var rumble = LPF.ar(BrownNoise.ar(1), 200) * EnvGen.ar(Env.perc(0.02, 3.0, curve: -4));
+		var boom = shouldRumble * (sub + rumble);
 
 		var crackleAttack = 0.1;
-		var crackleDecay = 1.1;
+		var crackleDecay = 1.6;
+		var crackleDelay = 0.9;
 		var crackleEnv = EnvGen.ar(Env.new(
 			[0, 0, 1, 0],
-			[0.4, crackleAttack, crackleDecay]
+			[0.7, crackleAttack, crackleDecay]
 		));
 
-		var crackleTrig = EnvGen.ar(Env.perc(0.0001, 0.00001), gate: Dust.ar(400));
+		var crackleDry = EnvGen.ar(Env.perc(0.0001, 0.00001), gate: Dust.ar(400));
 		var crackleDecayTime = 0.01;
 
-		var crackleDry = Ringz.ar(crackleTrig, 4 * pitch, crackleDecayTime) +
-			Ringz.ar(crackleTrig, 2 * pitch, crackleDecayTime);
+		var crackleMix = 0.6;
+		var crackleWet = FreeVerb.ar(crackleDry, room: Line.ar(1.0, 0.2, 0.8), mix: 0.4);
+		var crackle = crackleEnv * Mix.ar([crackleMix * crackleDry, (1 - crackleMix) * crackleWet]);
 
-		var crackleWet = FreeVerb.ar(crackleDry, room: 2.0);
-		var crackleMix = 0.4;
-		var crackle = ((crackleTrig * crackleMix) + (crackleWet * (1 - crackleMix))) * crackleEnv;
+		var signalDry = boom + snap + crackle;
 
-		var signal = boom + snap + (shouldCrackle * crackle);
-		Out.ar(out, (amp * signal).dup);
-		DoneSentinel.ar(signal;)
+		var signalWet =  NHHall.ar(signalDry.dup, stereo: 1.0,
+			earlyDiffusion: 0.6
+		)[0];
+
+		var mix = 0.8;
+		Out.ar(out, Mix.ar([mix * signalDry, (1 - mix) * signalWet], amp).dup);
+		DoneSentinel.ar(signalWet);
 	}).add;
 
-	var numParticles = 80;
+	var numParticles = 20;
 	var minDelay = 1;
 	var maxDelay = 0.4;
-	var firstSize = 150;
-	var minSize = 200;
-	var maxSize = 300;
+	var firstPitch = 150;
+	var minPitch = 2000;
+	var maxPitch = 3000;
 
+	/*
 	var pattern = Pbindf(Ptpar((numParticles + 1).collect({ |i|
 		(i == 0).if({
 			// initial big explosion
 			[0, Pbind(*[
-				pitch: Pn(firstSize, 1),
+				pitch: Pwhite(0.8 * firstPitch, 1.2 * firstPitch, 1),
 				amp: 1,
-				shouldCrackle: 1
+				shouldCrackle: 1,
+				shouldRumble: 1,
 			])]
-		}/*, {
+		}, {
 			// many tiny explosions
 			[ minDelay + maxDelay.rand, Pbind(*[
 				amp: 1 / numParticles.sqrt,
-				shouldCrackle: 1,
+				shouldCrackle: 0,
+				shouldRumble: 0,
 				pitch: Pgauss(
-					mean: minSize + (0.5 * (maxSize - minSize)),
-					dev: (maxSize - minSize) / 4,
+					mean: minPitch + (0.5 * (maxPitch - minPitch)),
+					dev: (maxPitch - minPitch) / 4,
 					length: 1
-				).clip(minSize, maxSize)
+				).clip(minPitch, maxPitch)
 			])]
-		}*/)
+		})
 	}).flatten), *[
 		instrument: def.name
+	]);
+	*/
+
+	var pattern = Pbind(*[
+		instrument: def.name,
+		pitch: Pwhite(0.8 * firstPitch, 1.2 * firstPitch, 1),
+		amp: 1,
+		shouldCrackle: 1,
+		shouldRumble: 1,
 	]);
 
 	server.sync;
