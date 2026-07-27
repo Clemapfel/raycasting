@@ -56,7 +56,7 @@ function rt.GraphicsBuffer:get_native()
     return self._native
 end
 
-rt.DataFormat = {
+rt.GraphicsBufferDataFormat = {
     -- float scalars / vectors
     FLOAT = "float",
     FLOAT_VEC2 = "floatvec2",
@@ -115,106 +115,106 @@ rt.DataFormat = {
     BOOL_VEC3 = "boolvec3",
     BOOL_VEC4 = "boolvec4",
 }
-rt.DataFormat = meta.enum("DataFormat", rt.DataFormat)
+rt.GraphicsBufferDataFormat = meta.enum("DataFormat", rt.GraphicsBufferDataFormat)
 
 local _format_to_n_components = {
-    [rt.DataFormat.FLOAT] = 1,
-    [rt.DataFormat.FLOAT_VEC2] = 2,
-    [rt.DataFormat.FLOAT_VEC3] = 3,
-    [rt.DataFormat.FLOAT_VEC4] = 4,
+    [rt.GraphicsBufferDataFormat.FLOAT] = 1,
+    [rt.GraphicsBufferDataFormat.FLOAT_VEC2] = 2,
+    [rt.GraphicsBufferDataFormat.FLOAT_VEC3] = 3,
+    [rt.GraphicsBufferDataFormat.FLOAT_VEC4] = 4,
 
-    [rt.DataFormat.FLOAT_MAT2X2] = 4,
-    [rt.DataFormat.FLOAT_MAT2X3] = 6,
-    [rt.DataFormat.FLOAT_MAT2X4] = 8,
+    [rt.GraphicsBufferDataFormat.FLOAT_MAT2X2] = 4,
+    [rt.GraphicsBufferDataFormat.FLOAT_MAT2X3] = 6,
+    [rt.GraphicsBufferDataFormat.FLOAT_MAT2X4] = 8,
 
-    [rt.DataFormat.FLOAT_MAT3X2] = 6,
-    [rt.DataFormat.FLOAT_MAT3X3] = 9,
-    [rt.DataFormat.FLOAT_MAT3X4] = 12,
+    [rt.GraphicsBufferDataFormat.FLOAT_MAT3X2] = 6,
+    [rt.GraphicsBufferDataFormat.FLOAT_MAT3X3] = 9,
+    [rt.GraphicsBufferDataFormat.FLOAT_MAT3X4] = 12,
 
-    [rt.DataFormat.FLOAT_MAT4X2] = 8,
-    [rt.DataFormat.FLOAT_MAT4X3] = 12,
-    [rt.DataFormat.FLOAT_MAT4X4] = 16,
+    [rt.GraphicsBufferDataFormat.FLOAT_MAT4X2] = 8,
+    [rt.GraphicsBufferDataFormat.FLOAT_MAT4X3] = 12,
+    [rt.GraphicsBufferDataFormat.FLOAT_MAT4X4] = 16,
 
-    [rt.DataFormat.INT32] = 1,
-    [rt.DataFormat.INT32_VEC2] = 2,
-    [rt.DataFormat.INT32_VEC3] = 3,
-    [rt.DataFormat.INT32_VEC4] = 4,
+    [rt.GraphicsBufferDataFormat.INT32] = 1,
+    [rt.GraphicsBufferDataFormat.INT32_VEC2] = 2,
+    [rt.GraphicsBufferDataFormat.INT32_VEC3] = 3,
+    [rt.GraphicsBufferDataFormat.INT32_VEC4] = 4,
 
-    [rt.DataFormat.UINT32] = 1,
-    [rt.DataFormat.UINT32_VEC2] = 2,
-    [rt.DataFormat.UINT32_VEC3] = 3,
-    [rt.DataFormat.UINT32_VEC4] = 4,
+    [rt.GraphicsBufferDataFormat.UINT32] = 1,
+    [rt.GraphicsBufferDataFormat.UINT32_VEC2] = 2,
+    [rt.GraphicsBufferDataFormat.UINT32_VEC3] = 3,
+    [rt.GraphicsBufferDataFormat.UINT32_VEC4] = 4,
 
-    [rt.DataFormat.SNORM8_VEC4] = 4,
-    [rt.DataFormat.UNORM8_VEC4] = 4,
-    [rt.DataFormat.INT8_VEC4] = 4,
-    [rt.DataFormat.UINT8_VEC4] = 4,
+    [rt.GraphicsBufferDataFormat.SNORM8_VEC4] = 4,
+    [rt.GraphicsBufferDataFormat.UNORM8_VEC4] = 4,
+    [rt.GraphicsBufferDataFormat.INT8_VEC4] = 4,
+    [rt.GraphicsBufferDataFormat.UINT8_VEC4] = 4,
 
-    [rt.DataFormat.SNORM16_VEC2] = 2,
-    [rt.DataFormat.SNORM16_VEC4] = 4,
-    [rt.DataFormat.UNORM16_VEC2] = 2,
-    [rt.DataFormat.UNORM16_VEC4] = 4,
-    [rt.DataFormat.INT16_VEC2] = 2,
-    [rt.DataFormat.INT16_VEC4] = 4,
+    [rt.GraphicsBufferDataFormat.SNORM16_VEC2] = 2,
+    [rt.GraphicsBufferDataFormat.SNORM16_VEC4] = 4,
+    [rt.GraphicsBufferDataFormat.UNORM16_VEC2] = 2,
+    [rt.GraphicsBufferDataFormat.UNORM16_VEC4] = 4,
+    [rt.GraphicsBufferDataFormat.INT16_VEC2] = 2,
+    [rt.GraphicsBufferDataFormat.INT16_VEC4] = 4,
 
-    [rt.DataFormat.UINT16] = 1,
-    [rt.DataFormat.UINT16_VEC2] = 2,
-    [rt.DataFormat.UINT16_VEC4] = 4,
+    [rt.GraphicsBufferDataFormat.UINT16] = 1,
+    [rt.GraphicsBufferDataFormat.UINT16_VEC2] = 2,
+    [rt.GraphicsBufferDataFormat.UINT16_VEC4] = 4,
 
-    [rt.DataFormat.BOOL] = 1,
-    [rt.DataFormat.BOOL_VEC2] = 2,
-    [rt.DataFormat.BOOL_VEC3] = 3,
-    [rt.DataFormat.BOOL_VEC4] = 4,
+    [rt.GraphicsBufferDataFormat.BOOL] = 1,
+    [rt.GraphicsBufferDataFormat.BOOL_VEC2] = 2,
+    [rt.GraphicsBufferDataFormat.BOOL_VEC3] = 3,
+    [rt.GraphicsBufferDataFormat.BOOL_VEC4] = 4,
 }
 
 local _format_to_size = {
-    [rt.DataFormat.FLOAT] = 4,
-    [rt.DataFormat.FLOAT_VEC2] = 8,
-    [rt.DataFormat.FLOAT_VEC3] = 12,
-    [rt.DataFormat.FLOAT_VEC4] = 16,
+    [rt.GraphicsBufferDataFormat.FLOAT] = 4,
+    [rt.GraphicsBufferDataFormat.FLOAT_VEC2] = 8,
+    [rt.GraphicsBufferDataFormat.FLOAT_VEC3] = 12,
+    [rt.GraphicsBufferDataFormat.FLOAT_VEC4] = 16,
 
-    [rt.DataFormat.FLOAT_MAT2X2] = 16,
-    [rt.DataFormat.FLOAT_MAT2X3] = 24,
-    [rt.DataFormat.FLOAT_MAT2X4] = 32,
+    [rt.GraphicsBufferDataFormat.FLOAT_MAT2X2] = 16,
+    [rt.GraphicsBufferDataFormat.FLOAT_MAT2X3] = 24,
+    [rt.GraphicsBufferDataFormat.FLOAT_MAT2X4] = 32,
 
-    [rt.DataFormat.FLOAT_MAT3X2] = 24,
-    [rt.DataFormat.FLOAT_MAT3X3] = 36,
-    [rt.DataFormat.FLOAT_MAT3X4] = 48,
+    [rt.GraphicsBufferDataFormat.FLOAT_MAT3X2] = 24,
+    [rt.GraphicsBufferDataFormat.FLOAT_MAT3X3] = 36,
+    [rt.GraphicsBufferDataFormat.FLOAT_MAT3X4] = 48,
 
-    [rt.DataFormat.FLOAT_MAT4X2] = 32,
-    [rt.DataFormat.FLOAT_MAT4X3] = 48,
-    [rt.DataFormat.FLOAT_MAT4X4] = 64,
+    [rt.GraphicsBufferDataFormat.FLOAT_MAT4X2] = 32,
+    [rt.GraphicsBufferDataFormat.FLOAT_MAT4X3] = 48,
+    [rt.GraphicsBufferDataFormat.FLOAT_MAT4X4] = 64,
 
-    [rt.DataFormat.INT32] = 4,
-    [rt.DataFormat.INT32_VEC2] = 8,
-    [rt.DataFormat.INT32_VEC3] = 12,
-    [rt.DataFormat.INT32_VEC4] = 16,
+    [rt.GraphicsBufferDataFormat.INT32] = 4,
+    [rt.GraphicsBufferDataFormat.INT32_VEC2] = 8,
+    [rt.GraphicsBufferDataFormat.INT32_VEC3] = 12,
+    [rt.GraphicsBufferDataFormat.INT32_VEC4] = 16,
 
-    [rt.DataFormat.UINT32] = 4,
-    [rt.DataFormat.UINT32_VEC2] = 8,
-    [rt.DataFormat.UINT32_VEC3] = 12,
-    [rt.DataFormat.UINT32_VEC4] = 16,
+    [rt.GraphicsBufferDataFormat.UINT32] = 4,
+    [rt.GraphicsBufferDataFormat.UINT32_VEC2] = 8,
+    [rt.GraphicsBufferDataFormat.UINT32_VEC3] = 12,
+    [rt.GraphicsBufferDataFormat.UINT32_VEC4] = 16,
 
-    [rt.DataFormat.SNORM8_VEC4] = 4,
-    [rt.DataFormat.UNORM8_VEC4] = 4,
-    [rt.DataFormat.INT8_VEC4] = 4,
-    [rt.DataFormat.UINT8_VEC4] = 4,
+    [rt.GraphicsBufferDataFormat.SNORM8_VEC4] = 4,
+    [rt.GraphicsBufferDataFormat.UNORM8_VEC4] = 4,
+    [rt.GraphicsBufferDataFormat.INT8_VEC4] = 4,
+    [rt.GraphicsBufferDataFormat.UINT8_VEC4] = 4,
 
-    [rt.DataFormat.SNORM16_VEC2] = 4,
-    [rt.DataFormat.SNORM16_VEC4] = 8,
-    [rt.DataFormat.UNORM16_VEC2] = 4,
-    [rt.DataFormat.UNORM16_VEC4] = 8,
-    [rt.DataFormat.INT16_VEC2] = 4,
-    [rt.DataFormat.INT16_VEC4] = 8,
+    [rt.GraphicsBufferDataFormat.SNORM16_VEC2] = 4,
+    [rt.GraphicsBufferDataFormat.SNORM16_VEC4] = 8,
+    [rt.GraphicsBufferDataFormat.UNORM16_VEC2] = 4,
+    [rt.GraphicsBufferDataFormat.UNORM16_VEC4] = 8,
+    [rt.GraphicsBufferDataFormat.INT16_VEC2] = 4,
+    [rt.GraphicsBufferDataFormat.INT16_VEC4] = 8,
 
-    [rt.DataFormat.UINT16] = 2,
-    [rt.DataFormat.UINT16_VEC2] = 4,
-    [rt.DataFormat.UINT16_VEC4] = 8,
+    [rt.GraphicsBufferDataFormat.UINT16] = 2,
+    [rt.GraphicsBufferDataFormat.UINT16_VEC2] = 4,
+    [rt.GraphicsBufferDataFormat.UINT16_VEC4] = 8,
 
-    [rt.DataFormat.BOOL] = 1,
-    [rt.DataFormat.BOOL_VEC2] = 2,
-    [rt.DataFormat.BOOL_VEC3] = 3,
-    [rt.DataFormat.BOOL_VEC4] = 4,
+    [rt.GraphicsBufferDataFormat.BOOL] = 1,
+    [rt.GraphicsBufferDataFormat.BOOL_VEC2] = 2,
+    [rt.GraphicsBufferDataFormat.BOOL_VEC3] = 3,
+    [rt.GraphicsBufferDataFormat.BOOL_VEC4] = 4,
 }
 
 local _type_to_getter_setter = {
@@ -232,51 +232,51 @@ local _type_to_getter_setter = {
 }
 
 local _format_to_getter_setter = {
-    [rt.DataFormat.FLOAT] = _type_to_getter_setter.float,
-    [rt.DataFormat.FLOAT_VEC2] = _type_to_getter_setter.float,
-    [rt.DataFormat.FLOAT_VEC3] = _type_to_getter_setter.float,
-    [rt.DataFormat.FLOAT_VEC4] = _type_to_getter_setter.float,
+    [rt.GraphicsBufferDataFormat.FLOAT] = _type_to_getter_setter.float,
+    [rt.GraphicsBufferDataFormat.FLOAT_VEC2] = _type_to_getter_setter.float,
+    [rt.GraphicsBufferDataFormat.FLOAT_VEC3] = _type_to_getter_setter.float,
+    [rt.GraphicsBufferDataFormat.FLOAT_VEC4] = _type_to_getter_setter.float,
 
-    [rt.DataFormat.FLOAT_MAT2X2] = _type_to_getter_setter.float,
-    [rt.DataFormat.FLOAT_MAT2X3] = _type_to_getter_setter.float,
-    [rt.DataFormat.FLOAT_MAT2X4] = _type_to_getter_setter.float,
-    [rt.DataFormat.FLOAT_MAT3X2] = _type_to_getter_setter.float,
-    [rt.DataFormat.FLOAT_MAT3X3] = _type_to_getter_setter.float,
-    [rt.DataFormat.FLOAT_MAT3X4] = _type_to_getter_setter.float,
-    [rt.DataFormat.FLOAT_MAT4X2] = _type_to_getter_setter.float,
-    [rt.DataFormat.FLOAT_MAT4X3] = _type_to_getter_setter.float,
-    [rt.DataFormat.FLOAT_MAT4X4] = _type_to_getter_setter.float,
+    [rt.GraphicsBufferDataFormat.FLOAT_MAT2X2] = _type_to_getter_setter.float,
+    [rt.GraphicsBufferDataFormat.FLOAT_MAT2X3] = _type_to_getter_setter.float,
+    [rt.GraphicsBufferDataFormat.FLOAT_MAT2X4] = _type_to_getter_setter.float,
+    [rt.GraphicsBufferDataFormat.FLOAT_MAT3X2] = _type_to_getter_setter.float,
+    [rt.GraphicsBufferDataFormat.FLOAT_MAT3X3] = _type_to_getter_setter.float,
+    [rt.GraphicsBufferDataFormat.FLOAT_MAT3X4] = _type_to_getter_setter.float,
+    [rt.GraphicsBufferDataFormat.FLOAT_MAT4X2] = _type_to_getter_setter.float,
+    [rt.GraphicsBufferDataFormat.FLOAT_MAT4X3] = _type_to_getter_setter.float,
+    [rt.GraphicsBufferDataFormat.FLOAT_MAT4X4] = _type_to_getter_setter.float,
 
-    [rt.DataFormat.INT32] = _type_to_getter_setter.int32,
-    [rt.DataFormat.INT32_VEC2] = _type_to_getter_setter.int32,
-    [rt.DataFormat.INT32_VEC3] = _type_to_getter_setter.int32,
-    [rt.DataFormat.INT32_VEC4] = _type_to_getter_setter.int32,
+    [rt.GraphicsBufferDataFormat.INT32] = _type_to_getter_setter.int32,
+    [rt.GraphicsBufferDataFormat.INT32_VEC2] = _type_to_getter_setter.int32,
+    [rt.GraphicsBufferDataFormat.INT32_VEC3] = _type_to_getter_setter.int32,
+    [rt.GraphicsBufferDataFormat.INT32_VEC4] = _type_to_getter_setter.int32,
 
-    [rt.DataFormat.UINT32] = _type_to_getter_setter.uint32,
-    [rt.DataFormat.UINT32_VEC2] = _type_to_getter_setter.uint32,
-    [rt.DataFormat.UINT32_VEC3] = _type_to_getter_setter.uint32,
-    [rt.DataFormat.UINT32_VEC4] = _type_to_getter_setter.uint32,
+    [rt.GraphicsBufferDataFormat.UINT32] = _type_to_getter_setter.uint32,
+    [rt.GraphicsBufferDataFormat.UINT32_VEC2] = _type_to_getter_setter.uint32,
+    [rt.GraphicsBufferDataFormat.UINT32_VEC3] = _type_to_getter_setter.uint32,
+    [rt.GraphicsBufferDataFormat.UINT32_VEC4] = _type_to_getter_setter.uint32,
 
-    [rt.DataFormat.SNORM8_VEC4] = _type_to_getter_setter.int8,
-    [rt.DataFormat.UNORM8_VEC4] = _type_to_getter_setter.uint8,
-    [rt.DataFormat.INT8_VEC4]   = _type_to_getter_setter.int8,
-    [rt.DataFormat.UINT8_VEC4]  = _type_to_getter_setter.uint8,
+    [rt.GraphicsBufferDataFormat.SNORM8_VEC4] = _type_to_getter_setter.int8,
+    [rt.GraphicsBufferDataFormat.UNORM8_VEC4] = _type_to_getter_setter.uint8,
+    [rt.GraphicsBufferDataFormat.INT8_VEC4]   = _type_to_getter_setter.int8,
+    [rt.GraphicsBufferDataFormat.UINT8_VEC4]  = _type_to_getter_setter.uint8,
 
-    [rt.DataFormat.SNORM16_VEC2] = _type_to_getter_setter.int16,
-    [rt.DataFormat.SNORM16_VEC4] = _type_to_getter_setter.int16,
-    [rt.DataFormat.UNORM16_VEC2] = _type_to_getter_setter.uint16,
-    [rt.DataFormat.UNORM16_VEC4] = _type_to_getter_setter.uint16,
-    [rt.DataFormat.INT16_VEC2] = _type_to_getter_setter.int16,
-    [rt.DataFormat.INT16_VEC4] = _type_to_getter_setter.int16,
+    [rt.GraphicsBufferDataFormat.SNORM16_VEC2] = _type_to_getter_setter.int16,
+    [rt.GraphicsBufferDataFormat.SNORM16_VEC4] = _type_to_getter_setter.int16,
+    [rt.GraphicsBufferDataFormat.UNORM16_VEC2] = _type_to_getter_setter.uint16,
+    [rt.GraphicsBufferDataFormat.UNORM16_VEC4] = _type_to_getter_setter.uint16,
+    [rt.GraphicsBufferDataFormat.INT16_VEC2] = _type_to_getter_setter.int16,
+    [rt.GraphicsBufferDataFormat.INT16_VEC4] = _type_to_getter_setter.int16,
 
-    [rt.DataFormat.UINT16] = _type_to_getter_setter.uint16,
-    [rt.DataFormat.UINT16_VEC2] = _type_to_getter_setter.uint16,
-    [rt.DataFormat.UINT16_VEC4] = _type_to_getter_setter.uint16,
+    [rt.GraphicsBufferDataFormat.UINT16] = _type_to_getter_setter.uint16,
+    [rt.GraphicsBufferDataFormat.UINT16_VEC2] = _type_to_getter_setter.uint16,
+    [rt.GraphicsBufferDataFormat.UINT16_VEC4] = _type_to_getter_setter.uint16,
 
-    [rt.DataFormat.BOOL] = _type_to_getter_setter.bool,
-    [rt.DataFormat.BOOL_VEC2] = _type_to_getter_setter.bool,
-    [rt.DataFormat.BOOL_VEC3] = _type_to_getter_setter.bool,
-    [rt.DataFormat.BOOL_VEC4] = _type_to_getter_setter.bool,
+    [rt.GraphicsBufferDataFormat.BOOL] = _type_to_getter_setter.bool,
+    [rt.GraphicsBufferDataFormat.BOOL_VEC2] = _type_to_getter_setter.bool,
+    [rt.GraphicsBufferDataFormat.BOOL_VEC3] = _type_to_getter_setter.bool,
+    [rt.GraphicsBufferDataFormat.BOOL_VEC4] = _type_to_getter_setter.bool,
 }
 
 local _type_to_normalization_constant = {
@@ -288,15 +288,15 @@ local _type_to_normalization_constant = {
 }
 
 local _format_to_normalization_constant = {
-    [rt.DataFormat.SNORM8_VEC4] = _type_to_normalization_constant.snorm8,
-    [rt.DataFormat.UNORM8_VEC4] = _type_to_normalization_constant.unorm8,
-    [rt.DataFormat.SNORM16_VEC2] = _type_to_normalization_constant.snorm16,
-    [rt.DataFormat.SNORM16_VEC4] = _type_to_normalization_constant.snorm16,
-    [rt.DataFormat.UNORM16_VEC2] = _type_to_normalization_constant.unorm16,
-    [rt.DataFormat.UNORM16_VEC4] = _type_to_normalization_constant.unorm16,
+    [rt.GraphicsBufferDataFormat.SNORM8_VEC4] = _type_to_normalization_constant.snorm8,
+    [rt.GraphicsBufferDataFormat.UNORM8_VEC4] = _type_to_normalization_constant.unorm8,
+    [rt.GraphicsBufferDataFormat.SNORM16_VEC2] = _type_to_normalization_constant.snorm16,
+    [rt.GraphicsBufferDataFormat.SNORM16_VEC4] = _type_to_normalization_constant.snorm16,
+    [rt.GraphicsBufferDataFormat.UNORM16_VEC2] = _type_to_normalization_constant.unorm16,
+    [rt.GraphicsBufferDataFormat.UNORM16_VEC4] = _type_to_normalization_constant.unorm16,
 }
 
-for other in values(meta.instances(rt.DataFormat)) do
+for other in values(meta.instances(rt.GraphicsBufferDataFormat)) do
     if _format_to_normalization_constant[other] == nil then
         _format_to_normalization_constant[other] = _type_to_normalization_constant.other
     end
