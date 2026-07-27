@@ -266,33 +266,31 @@ function rt.rgba_to_lcha(r, g, b, a)
     return l / 100, c / 100, h / 360, a
 end
 
---- @brief
+local _hex_char_to_int = {
+    ["0"] = 0,
+    ["1"] = 1,
+    ["2"] = 2,
+    ["3"] = 3,
+    ["4"] = 4,
+    ["5"] = 5,
+    ["6"] = 6,
+    ["7"] = 7,
+    ["8"] = 8,
+    ["9"] = 9,
+    ["A"] = 10,
+    ["B"] = 11,
+    ["C"] = 12,
+    ["D"] = 13,
+    ["E"] = 14,
+    ["F"] = 15,
+}
+
+local function _hex_component_to_int(left, right)
+    return left * 16 + right
+end
+
+--- @brief convert hexadecimal html color tag such as "#00FF00", "00FF00" or "#00FF00FF00" to rgba
 function rt.html_code_to_color(code)
-    function hex_char_to_int(c)
-        c = string.upper(c)
-        if c == '0' then return 0
-        elseif c == '1' then return 1
-        elseif c == '2' then return 2
-        elseif c == '3' then return 3
-        elseif c == '4' then return 4
-        elseif c == '5' then return 5
-        elseif c == '6' then return 6
-        elseif c == '7' then return 7
-        elseif c == '8' then return 8
-        elseif c == '9' then return 9
-        elseif c == 'A' then return 10
-        elseif c == 'B' then return 11
-        elseif c == 'C' then return 12
-        elseif c == 'D' then return 13
-        elseif c == 'E' then return 14
-        elseif c == 'F' then return 15
-        else return -1 end
-    end
-
-    function hex_component_to_int(left, right)
-        return left * 16 + right
-    end
-
     local error_reason = ""
     local error_occurred = false
 
@@ -300,8 +298,9 @@ function rt.html_code_to_color(code)
     if string.sub(code, 1, 1) ~= '#' then
         code = "#" .. code
     end
+
     for i = 2, #code do
-        local to_push = hex_char_to_int(string.sub(code, i, i))
+        local to_push = _hex_char_to_int[string.upper(string.sub(code, i, i))]
         if to_push == -1 then
             error_reason = "character `" .. string.sub(code, i, i) .. "` is not a valid hexadecimal digit"
             error_occurred = true
@@ -314,27 +313,30 @@ function rt.html_code_to_color(code)
     if not error_occurred then
         if #as_hex == 6 then
             return rt.RGBA(
-                hex_component_to_int(as_hex[1], as_hex[2]) / 255.0,
-                hex_component_to_int(as_hex[3], as_hex[4]) / 255.0,
-                hex_component_to_int(as_hex[5], as_hex[6]) / 255.0,
+                _hex_component_to_int(as_hex[1], as_hex[2]) / 255.0,
+                _hex_component_to_int(as_hex[3], as_hex[4]) / 255.0,
+                _hex_component_to_int(as_hex[5], as_hex[6]) / 255.0,
                 1
             )
         elseif #as_hex == 8 then
             return rt.RGBA(
-                hex_component_to_int(as_hex[1], as_hex[2]) / 255.0,
-                hex_component_to_int(as_hex[3], as_hex[4]) / 255.0,
-                hex_component_to_int(as_hex[5], as_hex[6]) / 255.0,
-                hex_component_to_int(as_hex[7], as_hex[8]) / 255.0
+                _hex_component_to_int(as_hex[1], as_hex[2]) / 255.0,
+                _hex_component_to_int(as_hex[3], as_hex[4]) / 255.0,
+                _hex_component_to_int(as_hex[5], as_hex[6]) / 255.0,
+                _hex_component_to_int(as_hex[7], as_hex[8]) / 255.0
             )
         else
-            error_reason = "more than 6 or 8 digits specified"
+            error_reason = "string does not contain 6 or 8 hexadecimal digits"
             error_occurred = true
+            return rt.RGBA(0, 0, 0, 0)
         end
     end
 
     if error_occurred then
         rt.error("In rt.html_code_to_rgba: `", code, "` is not a valid hexadecimal color identifier. Reason: ", error_reason)
     end
+
+    return rt.RGBA(0, 0, 0, 0)
 end
 
 --- @brief

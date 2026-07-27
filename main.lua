@@ -8,52 +8,82 @@ require "common.sound_manager"
 require "common.input_manager"
 require "common.routine"
 
-rt.GameState:set_draw_debug_information(false)
-love.window.setMode(600, 300)
+love.load = function(args)
+    local w, h = love.graphics.getDimensions()
 
-local x, y, w, h = 0, 0, 300, 300
-local green   = function() return 0, 1, 0, 1 end
-local cyan    = function() return 0, 1, 1, 1 end
-local magenta = function() return 1, 0, 1, 1 end
-local yellow  = function() return 1, 1, 0, 1 end
-local center  = function() return 0.5, 0.75, 0.5, 1 end
-local white = function() return 1, 1, 1, 1  end
-local vertexData = {
-    --    x,       y,     u,   v,   r, g, b, a
-    { x + 0, y + 0,     0.25,   0.25,   white() },   -- #1
-    { x + w, y + 0,     0.75,   0.25,   white() },    -- #2
-    { x + w, y + h,     0.75,   0.75,   white() }, -- #3
-    { x + 0, y + h,     0.25,   0.75,   white() },  -- #4
-}
+    require "common.texture_format"
+    local texture = rt.TextureScaleMode
 
-local rectangle = love.graphics.newMesh(vertexData, "fan", "dynamic")
+    local result_screen = 1
+    local overworld = 2
+    local keybinding = 3
+    local settings = 4
+    local menu = 5
+
+    for to_preallocate in range(
+        -- result_screen
+        --, overworld
+        --, keybinding
+        --, settings
+        --, menu
+    ) do
+        if to_preallocate == 1 then
+            require "overworld.result_screen_scene"
+            rt.SceneManager:preallocate(ow.ResultScreenScene)
+        elseif to_preallocate == 2 then
+            require "overworld.overworld_scene"
+            rt.SceneManager:preallocate(ow.OverworldScene)
+        elseif to_preallocate == 3 then
+            require "menu.keybinding_scene"
+            rt.SceneManager:preallocate(mn.KeybindingScene)
+        elseif to_preallocate == 4 then
+            require "menu.settings_scene"
+            rt.SceneManager:preallocate(mn.SettingsScene)
+        elseif to_preallocate == 5 then
+            require "menu.menu_scene"
+            rt.SceneManager:preallocate(mn.MenuScene)
+        end
+    end
+
+    require "overworld.overworld_scene"
+    --rt.SceneManager:push(ow.OverworldScene, "air_dash_node_tutorial", ow.StageEntryMode.INSTANT)
+
+    require "menu.keybinding_scene"
+    --rt.SceneManager:push(mn.KeybindingScene)
+
+    require "menu.settings_scene"
+    rt.SceneManager:push(mn.SettingsScene)
+
+    require "menu.menu_scene"
+    --rt.SceneManager:push(mn.MenuScene, false)
 
 
-local left = rt.Texture("assets/sprites/why.png"):get_native()
-left:setFilter("nearest")
+    rt.SceneManager:set_is_cursor_visible(true)
 
-local right = rt.Texture("assets/sprites/why.png"):get_native()
-right:setFilter("linear")
+end
 
 love.update = function(delta)
-    local vertex = vertexData[5] -- center vertex
-    local maxOffset = 40
-    --vertex[1] = cx --+ maxOffset * ((love.math.perlinNoise(love.timer.getTime()) * 2) - 1)
-    --vertex[2] = cy --+ maxOffset * ((love.math.perlinNoise(-1 * love.timer.getTime()) * 2) - 1)
+    if rt.SceneManager ~= nil then
+        debugger.push("update")
+        rt.SceneManager:update(delta)
+        debugger.pop("update")
+    end
 
-    -- upload vertices
-    rectangle:setVertices(vertexData)
+    if love.keyboard.isDown("m") then
+        love.keypressed("space", "space")
+    end
 end
 
 love.draw = function()
-    love.graphics.clear()
-    love.graphics.setColor(1, 1, 1, 1)
-    rectangle:setTexture(left)
-    love.graphics.draw(rectangle)
+    love.graphics.clear(0.5, 0.5, 0.5, 1)
 
-    love.graphics.push()
-    love.graphics.translate(300, 0)
-    rectangle:setTexture(right)
-    love.graphics.draw(rectangle)
-    love.graphics.pop()
+    if rt.SceneManager ~= nil then
+        rt.SceneManager:draw()
+    end
+end
+
+love.resize = function(width, height)
+    if rt.SceneManager ~= nil then
+        rt.SceneManager:resize()
+    end
 end

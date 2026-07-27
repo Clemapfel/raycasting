@@ -51,56 +51,36 @@ end
 --- @param upper_bound number
 --- @return number
 function math.clamp(x, lower_bound, upper_bound)
-    if type(lower_bound) == "nil" then lower_bound = -math.huge end
-    if type(upper_bound) == "nil" then upper_bound = math.huge end
-
-    if x < lower_bound then
-        x = lower_bound
-    end
-
-    if x > upper_bound then
-        x = upper_bound
-    end
-
-    return x
+    if lower_bound == nil then lower_bound = -math.huge end
+    if upper_bound == nil then upper_bound = math.huge end
+    return math.min(math.max(x, lower_bound), upper_bound)
 end
 
 --- @brief
 function math.min2(x, y, min_x, min_y)
     if min_y == nil then min_y = min_x end
-    if x > min_x then x = min_x end
-    if y > min_y then y = min_y end
-    return x, y
+    return math.min(x, min_x), math.min(y, min_y)
 end
 
 --- @brief
 function math.min3(x, y, z, min_x, min_y, min_z)
     if min_y == nil then min_y = min_x end
     if min_z == nil then min_z = min_y end
-    if x > min_x then x = min_x end
-    if y > min_y then y = min_y end
-    if z > min_z then z = min_z end
-    return x, y
+    return math.min(x, min_x), math.min(y, min_y)
 end
 
 --- @brief
 function math.max2(x, y, max_x, max_y)
     if max_y == nil then max_y = max_x end
-    if x < max_x then x = max_x end
-    if y < max_y then y = max_y end
-    return x, y
+    return math.max(x, max_x), math.max(y, max_y)
 end
 
 --- @brief
 function math.max3(x, y, z, max_x, max_y, max_z)
     if max_y == nil then max_y = max_x end
     if max_z == nil then max_z = max_y end
-    if x < max_x then x = max_x end
-    if y < max_y then y = max_y end
-    if z < max_z then z = max_z end
-    return x, y
+    return math.max(x, max_x), math.max(y, max_y)
 end
-
 
 -- Calculate cosine similarity between two 2D vectors
 -- Takes 4 numbers: x1, y1, x2, y2 representing vector1(x1, y1) and vector2(x2, y2)
