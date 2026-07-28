@@ -3,7 +3,8 @@ require "common.matrix"
 
 rt.settings.menu.stage_preview = {
     spatial_hash_cell_size = 16,
-    outer_margin = 0
+    outer_margin = 0,
+    default_thumbnail_margin_factor = 0.05
 }
 
 --- @class mn.StagePreview
@@ -368,6 +369,133 @@ function mn.StagePreview:realize()
 end
 
 --- @brief
+function mn.StagePreview:realize()
+    local whitelist = {}
+    for type in range(
+        "Hitbox",
+        "SlipperyHitbox",
+        "AcceleratorSurface",
+        "BoostField",
+        "BubbleField",
+        "BouncePad",
+        "Bubble",
+        "DeceleratorSurface",
+        "AirDashNode",
+        "Hook",
+        "MovableHitbox",
+        "OneWayPlatform"
+    ) do
+        whitelist[type] = true
+    end
+
+    local thumbnail = nil
+    local thumbnail_was_set = false -- thumbnail manually specified using `StageThumbnail`
+
+    local candidates = {}
+    for layer_i = 1, self._config:get_n_layers() do
+        for wrapper in values(self._config:get_layer_object_wrappers(layer_i)) do
+            local class = wrapper:get_class()
+            if class == "StageThumbnail" then
+                if wrapper:get_type() == ow.ObjectType.RECTANGLE and wrapper.rotation == 0 then
+                    thumbnail = rt.AABB(
+                        wrapper.x, wrapper.y,
+                        wrapper.width, wrapper.height
+                    )
+                    thumbnail_was_set = true
+                end
+            elseif whitelist[class] == true then
+                table.insert(candidates, wrapper)
+            end
+        end
+    end
+
+    if thumbnail == nil then
+        local min_x, min_y = math.huge, math.huge
+        local max_x, max_y = -math.huge, -math.huge
+        local has_points = false
+
+        for candidate in values(candidates) do
+            local contour = candidate:create_contour()
+            for i = 1, #contour, 2 do
+                local x = contour[i+0]
+                local y = contour[i+1]
+
+                has_points = true
+                min_x = math.min(min_x, x)
+                max_x = math.max(max_x, x)
+                min_y = math.min(min_y, y)
+                max_y = math.max(max_y, y)
+            end
+        end
+
+        if not has_points then
+            min_x, min_y, max_x, max_y = 0, 0, 0, 0
+        end
+
+        thumbnail = rt.AABB(min_x, min_y, max_x - min_x, max_y - min_y)
+        thumbnail_was_set = false
+    else
+        local to_remove = {}
+        for candidate_i = 1, #candidates do
+            local contour = candidates[candidate_i]:create_contour()
+            local is_inside = false
+            for i = 1, #contour, 2 do
+                local x = contour[i+0]
+                local y = contour[i+1]
+
+                if thumbnail:contains(x, y) then
+                    is_inside = true
+                    break
+                end
+            end
+
+            if not is_inside then
+                table.insert(to_remove, 1, candidate_i)
+            end
+        end
+
+        for _, candidate_i in ipairs(to_remove) do
+            table.remove(candidates, candidate_i)
+        end
+    end
+
+    if not thumbnail_was_set then
+        local padding = thumbnail.width * rt.settings.menu.stage_preview.default_thumbnail_margin_factor
+        thumbnail.x = thumbnail.x - padding
+        thumbnail.y = thumbnail.y - padding
+        thumbnail.width = thumbnail.width + 2 * padding
+        thumbnail.height = thumbnail.height + 2 * padding
+    end
+
+    local round = function(x)
+        return x
+    end
+
+    self._tris = {}
+    for candidate in values(candidates) do
+        local success, candidate_tris = pcall(candidate.triangulate, candidate)
+        if success then
+            for tri in values(candidate_tris) do
+                local res = {}
+                for i = 1, #tri, 2 do
+                    local x = tri[i+0]
+                    local y = tri[i+1]
+
+                    -- project into thumbanil
+                    x = round((x - thumbnail.x) / thumbnail.width)
+                    y = round((y - thumbnail.y) / thumbnail.height)
+
+                    table.insert(res, x)
+                    table.insert(res, y)
+                end
+
+                table.insert(self._tris, res)
+            end
+        end
+    end
+end
+
+--- @brief
 function mn.StagePreview:size_allocate()
     -- noop, scale handles resizing
 end
@@ -376,6 +504,8 @@ end
 function mn.StagePreview:draw()
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.push("all")
+
+    love.graphics.setLineStyle("smooth")
 
     local m = rt.settings.menu.stage_preview.outer_margin
 
@@ -391,7 +521,6 @@ function mn.StagePreview:draw()
 
     love.graphics.setColor(0.5, 0.5, 0.5, 1)
     rt.Palette.GRAY:bind()
-    --love.graphics.rectangle("fill", self._bounds:unpack())
 
     love.graphics.translate(
         bounds_x + (bounds_w - scaled_w) * 0.5,
@@ -429,14 +558,9 @@ function mn.StagePreview:draw()
         rt.Palette.FOREGROUND:bind()
     end
 
-    bind_outline()
-    for contour in values(self._contours) do
-        love.graphics.line(contour)
-    end
-
-    bind_inside()
-    for contour in values(self._contours) do
-        love.graphics.line(contour)
+    love.graphics.setColor(1, 1, 1, 1)
+    for tri in values(self._tris) do
+        love.graphics.polygon("fill", tri)
     end
 
     love.graphics.pop()

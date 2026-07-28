@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 340,
+  nextobjectid = 342,
   properties = {
     ["background_id"] = "\"nebula\""
   },
@@ -1026,6 +1026,19 @@ return {
             { x = -176, y = -720 },
             { x = -176, y = 0 }
           },
+          properties = {}
+        },
+        {
+          id = 341,
+          name = "",
+          type = "StageThumbnail",
+          shape = "rectangle",
+          x = 1408,
+          y = -736,
+          width = 1120,
+          height = 736,
+          rotation = 0,
+          visible = true,
           properties = {}
         }
       }
