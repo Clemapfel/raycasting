@@ -42,7 +42,8 @@ function rt.Blur:instantiate(width, height, ...)
         _blur_applied = false,
         _blur_horizontally = true,
         _blur_vertically = true,
-        _is_bound = false
+        _is_bound = false,
+        _flush_manually = false
     })
 end
 
@@ -78,9 +79,10 @@ end
 --- @brief
 function rt.Blur:set_blur_strength(strength)
     meta.assert(strength, mt.Number)
-    local before = self._blur_strength
-    self._blur_strength = math.max(strength, 0)
-    if before ~= strength then
+    strength = math.ceil(math.max(strength, 0))
+
+    if self._blur_strength ~= strength then
+        self._blur_strength = strength
         self._blur_applied = false
     end
 end
@@ -91,8 +93,23 @@ function rt.Blur:get_blur_strength(strength)
 end
 
 --- @brief
-function rt.Blur:_apply_blur()
+function rt.Blur:set_flush_manually(b)
+    meta.assert(b, mt.Boolean)
+    self._flush_manually = b
+end
+
+--- @brief
+function rt.Blur:get_flush_manually()
+    return self._flush_manually
+end
+
+--- @brief
+function rt.Blur:flush()
     love.graphics.push("all")
+
+    -- We use local references for convenience
+    local a, b = self._texture_a, self._texture_b
+
     if self._blur_strength > 0 then
         love.graphics.push()
         love.graphics.origin()
@@ -125,16 +142,14 @@ function rt.Blur:_apply_blur()
         shader_a:send("texture_size", { self._texture_w, self._texture_h })
         shader_b:send("texture_size", { self._texture_w, self._texture_h })
 
-        local a, b = self._texture_a, self._texture_b
-
         for i = 1, n_passes do
             love.graphics.setShader(shader_a:get_native())
-            love.graphics.setCanvas(a)
-            love.graphics.draw(b)
-
-            love.graphics.setShader(shader_b:get_native())
             love.graphics.setCanvas(b)
             love.graphics.draw(a)
+
+            love.graphics.setShader(shader_b:get_native())
+            love.graphics.setCanvas(a)
+            love.graphics.draw(b)
         end
 
         love.graphics.setCanvas(nil)
@@ -150,8 +165,8 @@ function rt.Blur:draw(...)
     local before = love.graphics.getShader()
 
     love.graphics.push("all")
-    if self._blur_applied == false then
-        self:_apply_blur()
+    if self._blur_applied == false and self._flush_manually ~= true then
+        self:flush()
         self._blur_applied = true
     end
 
@@ -162,14 +177,13 @@ end
 
 --- @brief
 function rt.Blur:get_texture()
-    if self._blur_applied == false then
-        self:_apply_blur()
+    if self._blur_applied == false and self._flush_manually ~= true then
+        self:flush()
         self._blur_applied = true
     end
 
     return self._texture_a
 end
-
 
 --- @brief
 function rt.Blur:get_size()
