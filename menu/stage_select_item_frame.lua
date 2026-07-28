@@ -409,6 +409,14 @@ function mn.StageSelectItemframe:update(delta)
     self._hue = math.mix(lower_i / self._n_pages, higher_i / self._n_pages, math.fract(t))
     if self._hue < 0 then self._hue = 0 end
 
+    local color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, self._hue, 1))
+    for page_i in values(self:_get_active_pages()) do
+        local page = self._pages[page_i]
+        if meta.is_function(page.widget.set_color) then
+            page.widget:set_color(color)
+        end
+    end
+
     local noise_range = rt.settings.menu.stage_select_item_frame.noise_magnitude * rt.SceneManager:get_pixel_scale()
 
     local update_noise_offset = function(particle)

@@ -8,8 +8,6 @@ require "common.sound_manager"
 require "common.input_manager"
 require "common.routine"
 
---debugger.connect()
-
 love.load = function(args)
     local w, h = love.graphics.getDimensions()
 

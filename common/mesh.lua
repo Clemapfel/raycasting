@@ -80,7 +80,6 @@ function rt.Mesh:instantiate(data_or_native, draw_mode, format, usage)
     end
 
     meta.install(self, {
-
         _r = 1,
         _g = 1,
         _b = 1,

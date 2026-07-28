@@ -21,7 +21,7 @@ server.waitForBoot({
 	});
 	*/
 
-	~fireworks.();
+ ~air_dash_node_dash.("fireworks.wav");
 
 	CmdPeriod.doOnce({
 		server.freeAll;
@@ -339,7 +339,7 @@ server.waitForBoot({
 		var crackle = Dust.ar(density: 50)
 		   + 0.24 * Crackle.ar(chaosParam: 2.0);
 
-		var signal = crackle; //bass + swoosh;
+		var signal = bass + swoosh;
 		Out.ar(out, signal.dup);
 		DoneSentinel.ar(signal);
 	}).add;
@@ -349,18 +349,22 @@ server.waitForBoot({
 	server.sync;
 	pattern = Pbind(*[
 		instrument: dashDef,
-		degree: Pn(60, 1), //Pshuf(60 +  Scale.major.degrees, 1),
+		\degree, Ppatlace([
+			Pseq(60 + (Scale.major.degrees ++ [Scale.major.degrees.last + 1])),
+			Pseq(Rest() ! Scale.major.degrees.size, Scale.major.degrees.size + 1)
+		], inf),
 		dur: 0.3
 	]).play;
 };
 
 // fireworks
-~fireworks = {
+~fireworks = { arg filename, degree;
 	// reference: https://www.youtube.com/watch?v=zbu-fVXP5nI
 
 	var initSize = 1200;
 	var def = SynthDef(\fireworks, { arg out, pitch = 440, amp = 1, shouldCrackle = 1, shouldRumble = 1;
 
+		// initial snap
 		var snapEnv = EnvGen.ar(Env.perc(0.01, 0.3));
 		var snapTrig = WhiteNoise.ar(1);
 		var snapPitch = pitch;
@@ -418,7 +422,7 @@ server.waitForBoot({
 	var minPitch = 2000;
 	var maxPitch = 3000;
 
-	/*
+/*
 	var pattern = Pbindf(Ptpar((numParticles + 1).collect({ |i|
 		(i == 0).if({
 			// initial big explosion
@@ -453,6 +457,13 @@ server.waitForBoot({
 		shouldCrackle: 1,
 		shouldRumble: 1,
 	]);
+
+	Renderer.render(
+		def,
+		pattern,
+		duration: 3, // seconds
+		filename: "fireworks.wav"
+	);
 
 	server.sync;
 	pattern.play;

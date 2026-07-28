@@ -244,6 +244,7 @@ function mn.StageSelectDebrisEmitter:update(delta)
         end
 
         -- despawn if in foreground and when colliding with player
+        --[[
         if particle.radius > rt.settings.menu.stage_select_debris_emitter.player_collision_radius_threshold
             and _rectangle_circle_overlap(
             self._hitbox_x - self._offset_x, self._hitbox_y - self._offset_y - 0.5 - self._hitbox_radius, 2 * self._hitbox_radius, 0.25 * self._hitbox_radius,
@@ -259,6 +260,7 @@ function mn.StageSelectDebrisEmitter:update(delta)
             })
             self:signal_emit("collision", particle.x, particle.y)
         end
+        ]]
 
         local points = {}
 

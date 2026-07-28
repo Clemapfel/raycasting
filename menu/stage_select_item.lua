@@ -360,3 +360,8 @@ end
 function mn.StageSelectItem:get_stage_id()
     return self._id
 end
+
+--- @brief
+function mn.StageSelectItem:set_color(rgba)
+    self._stage_preview:set_color(rgba)
+end
