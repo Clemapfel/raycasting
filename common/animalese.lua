@@ -405,7 +405,7 @@ do
                         -- consonant-vowel: form syllable
                         local vowels = english_suffix_vowel_to_japanese_vowel[next]
                         if vowels == nil then
-                            rt.error("Unhandled vowel `", next, "`")
+                            rt.error("In rt.Animalese._english_phonemes_to_animalese_phonemes: vowel `", next, "`")
                         end
 
                         push(english_consonant_to_japanese_prefix[current] .. vowels[1])

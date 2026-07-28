@@ -554,7 +554,7 @@ do
                             -- consonant-vowel: form syllable
                             local vowels = english_suffix_vowel_to_japanese_vowel[next]
                             if vowels == nil then
-                                rt.error("Unhandled vowel `", next, "`")
+                                rt.error("In rt.Animalese.load_translation: unhandled vowel `", next, "`")
                             end
 
                             push(english_consonant_to_japanese_prefix[current] .. vowels[1])
@@ -569,20 +569,20 @@ do
                             end
                             i = i + 1
                         else
-                            rt.error("Unhandled case: `", current, "`, `", next, "`")
+                            rt.error("In rt.Animalese.load_translation: unhandled case: `", current, "`, `", next, "`")
                         end
                     elseif is_vowel(current) then
                         if is_vowel(next) or is_consonant(next) or is_stop(next) then
                             -- pure vowel
                             local vowels = english_pure_vowel_to_japanese_vowel[current]
                             if vowels == nil then
-                                rt.error("Unhandled vowel `", next, "`")
+                                rt.error("In rt.Animalese.load_translation: unhandled vowel `", next, "`")
                             end
 
                             for x in values(vowels) do push(x) end
                             i = i + 1
                         else
-                            rt.error("Unhandled case: `", current, "`, `", next, "`")
+                            rt.error("In rt.Animalese.load_translation: unhandled case: `", current, "`, `", next, "`")
                         end
                     elseif meta.is_enum_value(current, Japanese) then
                         push(current)

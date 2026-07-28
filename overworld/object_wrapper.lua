@@ -1076,6 +1076,7 @@ local function _parse_single_object_group(object_group, group_offset_x, group_of
                         skip_wrapper = true
                     else
                         rt.warning("In ", scope, ": object `", wrapper.id, "` has no class, assuming `Hitbox`")
+                        require "overworld.objects.hitbox"
                         wrapper.class = meta.get_typename(ow.Hitbox)
                     end
                 end

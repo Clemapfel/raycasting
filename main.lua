@@ -52,10 +52,10 @@ love.load = function(args)
     --rt.SceneManager:push(mn.KeybindingScene)
 
     require "menu.settings_scene"
-    rt.SceneManager:push(mn.SettingsScene)
+    --rt.SceneManager:push(mn.SettingsScene)
 
     require "menu.menu_scene"
-    --rt.SceneManager:push(mn.MenuScene, false)
+    rt.SceneManager:push(mn.MenuScene, false)
 
 
     rt.SceneManager:set_is_cursor_visible(true)

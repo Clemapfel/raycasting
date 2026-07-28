@@ -112,7 +112,7 @@ function rt.graphics.set_blend_mode(blend_mode_rgb, blend_mode_alpha)
         alpha_source_factor = rt.BlendFactor.ONE
         alpha_destination_factor = rt.BlendFactor.ONE
     else
-        rt.error("Invalid blend mode: ", blend_mode_alpha)
+        rt.error("In rt.graphics.set_blend_mode: invalid blend mode: ", blend_mode_alpha)
         return
     end
 
@@ -122,7 +122,5 @@ function rt.graphics.set_blend_mode(blend_mode_rgb, blend_mode_alpha)
             rgb_source_factor, alpha_source_factor,
             rgb_destination_factor, alpha_destination_factor
         )
-    else
-        rt.error("Failed to set blend mode due to invalid parameters.")
     end
 end

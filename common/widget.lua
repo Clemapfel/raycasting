@@ -20,8 +20,8 @@ end
 
 --- @brief
 function rt.Widget:size_allocate(x, y, width, height)
-    meta.assert(x, rt.Number, y, mt.Number, width, mt.Number, height, mt.Number)
-    rt.error("In Widget.size_allocate: abstract method called")
+    meta.assert(x, mt.Number, y, mt.Number, width, mt.Number, height, mt.Number)
+    rt.error("In ", meta.typeof(self), ".size_allocate: abstract method called")
 end
 
 --- @brief

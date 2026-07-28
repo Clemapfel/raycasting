@@ -138,11 +138,11 @@ function rt.FluidSimulation:add(x, y, radius, color, config)
     n_particles = math.min(n_particles, 256)
 
     if radius <= 0 then
-        rt.error( "In rt.FluidSimulation.add: white radius cannot be 0 or negative")
+        rt.error("In rt.FluidSimulation.add: white radius cannot be 0 or negative")
     end
 
     if n_particles <= 1 then
-        rt.error( "In rt.FluidSimulation.add: white particle count cannot be 1 or negative")
+        rt.error("In rt.FluidSimulation.add: white particle count cannot be 1 or negative")
     end
 
     local warn = function(which, egg_radius, particle_radius, n_particles)
@@ -265,7 +265,7 @@ function rt.FluidSimulation:get_config(batch_id)
 
     local batch = self._batch_id_to_batch[batch_id]
     if batch == nil then
-        rt.error( "In rt.FluidSimulation.get_target_position: no batch with id `", batch_id, "`")
+        rt.error("In rt.FluidSimulation.get_target_position: no batch with id `", batch_id, "`")
         return nil
     else
         return batch.config
@@ -296,7 +296,7 @@ function rt.FluidSimulation:get_target_position(batch_id)
 
     local batch = self._batch_id_to_batch[batch_id]
     if batch == nil then
-        rt.error( "In rt.FluidSimulation.get_target_position: no batch with id `", batch_id, "`")
+        rt.error("In rt.FluidSimulation.get_target_position: no batch with id `", batch_id, "`")
         return nil, nil
     else
         return batch.follow_x, batch.follow_y
@@ -309,7 +309,7 @@ function rt.FluidSimulation:get_position(batch_id)
 
     local batch = self._batch_id_to_batch[batch_id]
     if batch == nil then
-        rt.error( "In rt.FluidSimulation.get_target_position: no batch with id `", batch_id, "`")
+        rt.error("In rt.FluidSimulation.get_target_position: no batch with id `", batch_id, "`")
         return nil, nil
     else
         if batch.centroid_needs_update then
@@ -2346,11 +2346,11 @@ function rt.FluidSimulation:add(x, y, radius, color, config)
     ) -- (area of white) / (area of particle), where circular area = pi r^2
 
     if radius <= 0 then
-        rt.error( "In rt.FluidSimulation.add: white radius cannot be 0 or negative")
+        rt.error("In rt.FluidSimulation.add: white radius cannot be 0 or negative")
     end
 
     if n_particles <= 1 then
-        rt.error( "In rt.FluidSimulation.add: white particle count cannot be 1 or negative")
+        rt.error("In rt.FluidSimulation.add: white particle count cannot be 1 or negative")
     end
 
     local warn = function(which, egg_radius, particle_radius, n_particles)
@@ -2473,7 +2473,7 @@ function rt.FluidSimulation:get_config(batch_id)
 
     local batch = self._batch_id_to_batch[batch_id]
     if batch == nil then
-        rt.error( "In rt.FluidSimulation.get_target_position: no batch with id `", batch_id, "`")
+        rt.error("In rt.FluidSimulation.get_target_position: no batch with id `", batch_id, "`")
         return nil
     else
         return batch.config
@@ -2504,7 +2504,7 @@ function rt.FluidSimulation:get_target_position(batch_id)
 
     local batch = self._batch_id_to_batch[batch_id]
     if batch == nil then
-        rt.error( "In rt.FluidSimulation.get_target_position: no batch with id `", batch_id, "`")
+        rt.error("In rt.FluidSimulation.get_target_position: no batch with id `", batch_id, "`")
         return nil, nil
     else
         return batch.follow_x, batch.follow_y
@@ -2517,7 +2517,7 @@ function rt.FluidSimulation:get_position(batch_id)
 
     local batch = self._batch_id_to_batch[batch_id]
     if batch == nil then
-        rt.error( "In rt.FluidSimulation.get_target_position: no batch with id `", batch_id, "`")
+        rt.error("In rt.FluidSimulation.get_target_position: no batch with id `", batch_id, "`")
         return nil, nil
     else
         if batch.centroid_needs_update then

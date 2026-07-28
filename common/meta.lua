@@ -1016,7 +1016,7 @@ function meta.make_immutable(t)
         __index = function(_, key)
             local out = t[key]
             if out == nil then
-                rt.error("trying to access `", key, "` of `", tostring(t), "`, but this value does not exist")
+                rt.error("In meta.make_immutable: trying to access `", key, "` of `", tostring(t), "`, but this value does not exist")
                 return nil
             end
             return out
