@@ -393,6 +393,7 @@ function ow.ResultScreenScene:realize()
             option.unselected_label,
             option.blocked_label -- can be nil
         ) do
+            label:set_wrap_mode(rt.LabelWrapMode.SINGLE_LINE)
             label:realize()
         end
     end

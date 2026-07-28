@@ -86,7 +86,7 @@ rt.TextEffect = {
 }
 rt.TextEffect = meta.enum("TextEffect", rt.TextEffect)
 
----@enum rt.JustifyMode
+--- @enum rt.JustifyMode
 rt.JustifyMode = {
      LEFT = "LEFT",
      RIGHT = "RIGHT",
@@ -94,12 +94,20 @@ rt.JustifyMode = {
  }
 rt.JustifyMode = meta.enum("JustifyMode", rt.JustifyMode)
 
+--- @enum rt.LabelWrapMode
+rt.LabelWrapMode = {
+    MULTI_LINE = true,
+    SINGLE_LINE = false
+}
+rt.LabelWrapMode = meta.enum("LabelWrapMode", rt.LabelWrapMode)
+
 --- @class rt.Label
 rt.Label = meta.class("Label", rt.Widget)
 
 --- @class rt.Glyph
 rt.Glyph = meta.class("Glyph", rt.Widget)
 
+--- @brief
 function rt.Label:instantiate(text, font_size, font, use_caching)
     if text == nil then text = "" end
     if font == nil then font = rt.settings.font.default end
@@ -118,6 +126,7 @@ function rt.Label:instantiate(text, font_size, font, use_caching)
         _font = font,
         _font_size = font_size,
         _justify_mode = rt.JustifyMode.LEFT,
+        _format_mode = rt.LabelWrapMode.MULTI_LINE,
 
         _n_visible_characters = -1,
         _elapsed = 0,
@@ -236,15 +245,6 @@ function rt.Label:_get_line_width()
 end
 
 --- @brief
-function rt.Label:get_snapshot()
-    if self._use_caching then
-        return nil
-    else
-        return self._texture
-    end
-end
-
---- @brief
 function rt.Label:set_font_size(font_size)
     meta.assert_enum_value(font_size, rt.FontSize)
     self._font_size = font_size
@@ -265,7 +265,7 @@ function rt.Label:_check_for_rescale()
     if self._last_window_height ~= current_window_height then
         self._last_window_height = current_window_height
         self:_parse(self._raw)
-        self:_apply_wrapping()
+        self:_apply_wrapping(self._bounds.width)
         self:_update_texture()
         self:_update_n_visible_characters()
     end
@@ -292,6 +292,7 @@ end
 
 --- @override
 function rt.Label:update(delta)
+    meta.assert(delta, mt.Number)
     self._elapsed = self._elapsed + delta
 
     if self._use_animation then
@@ -301,11 +302,29 @@ end
 
 --- @brief
 function rt.Label:set_justify_mode(mode)
+    meta.assert(mode, rt.JustifyMode)
     self._justify_mode = mode
 end
 
 --- @brief
+function rt.Label:get_justify_mode()
+    return self._justify_mode
+end
+
+--- @brief
+function rt.Label:set_wrap_mode(mode)
+    meta.assert(mode, rt.LabelWrapMode)
+    self._format_mode = mode
+end
+
+--- @brief
+function rt.Label:get_format_mode()
+    return self._format_mode
+end
+
+--- @brief
 function rt.Label:set_text(text)
+    meta.assert(text, mt.String)
     if self._raw == text then return end
 
     self._raw = text
@@ -325,6 +344,7 @@ end
 
 --- @brief
 function rt.Label:set_n_visible_characters(n)
+    meta.assert(n, mt.Number)
     self._n_visible_characters = math.min(n, self._n_characters)
     self:_update_n_visible_characters()
     self:_update_texture()
@@ -941,7 +961,11 @@ function rt.Label:_glyph_set_n_visible_characters(glyph, n)
 end
 
 --- @brief [internal]
-function rt.Label:_apply_wrapping()
+function rt.Label:_apply_wrapping(width)
+    if self._format_mode == rt.LabelWrapMode.SINGLE_LINE then
+        width = math.huge
+    end
+
     local current_line_width = 0
     local max_line_w = 0
 
@@ -953,7 +977,7 @@ function rt.Label:_apply_wrapping()
     local line_height = bold_italic:getHeight()
 
     local glyph_x, glyph_y = 0, 0
-    local max_w = self._bounds.width
+    local max_w = width
     local row_i = 1
     local is_first_word = true
 
@@ -1148,6 +1172,7 @@ end
 function rt.Label:update_n_visible_characters_from_elapsed(elapsed, n_characters_per_second)
     if self:get_is_realized() ~= true then self:realize() end
     if n_characters_per_second == nil then n_characters_per_second = rt.settings.label.scroll_speed * rt.GameState:get_text_speed() end
+    meta.assert(elapsed, mt.Number, n_characters_per_second, mt.Number)
 
     local so_far = elapsed
     local step = 1 / n_characters_per_second
@@ -1197,6 +1222,7 @@ end
 function rt.Label:get_scroll_event_map(n_characters_per_second)
     if self:get_is_realized() ~= true then self:realize() end
     if n_characters_per_second == nil then n_characters_per_second = rt.settings.label.scroll_speed * rt.GameState:get_text_speed() end
+    meta.assert(n_characters_per_second, mt.Number)
 
     local step = 1 / n_characters_per_second
     local current_time = 0
@@ -1465,6 +1491,9 @@ end
 --- @brief
 function rt.Glyph:instantiate(text, properties)
     if properties == nil then properties = {} end
+    meta.assert(text, mt.String, properties, mt.Table)
+
+    self._justify_mode = rt.JustifyMode.LEFT
 
     local font = rt.settings.font.default
     local font_size = rt.FontSize.REGULAR
@@ -1561,6 +1590,11 @@ end
 --- @brief
 function rt.Glyph:set_justify_mode(justify_mode)
     self._justify_mode = justify_mode
+end
+
+--- @brief
+function rt.Glyph:get_justify_mode()
+    return self._justify_mode
 end
 
 --- @brief

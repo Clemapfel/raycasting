@@ -368,6 +368,11 @@ function mn.StagePreview:realize()
 end
 
 --- @brief
+function mn.StagePreview:size_allocate()
+    -- noop, scale handles resizing
+end
+
+--- @brief
 function mn.StagePreview:draw()
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.push("all")

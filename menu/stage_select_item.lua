@@ -69,6 +69,7 @@ function mn.StageSelectItem:create_from_state()
             self[member_name]:set_text(text)
         else
             self[member_name] = rt.Label(text, font_size, font)
+            self[member_name]:set_wrap_mode(rt.LabelWrapMode.SINGLE_LINE)
         end
     end
 
@@ -130,9 +131,9 @@ function mn.StageSelectItem:size_allocate(x, y, width, height)
     local outer_margin = 2 * m
     local current_x, current_y = x + outer_margin, y
 
-    self._title_label:reformat(0, 0, math.huge, math.huge)
+    self._title_label:reformat(0, 0)
     local title_w, title_h = self._title_label:measure()
-    self._title_label:reformat(x + 0.5 * width - 0.5 * title_w, current_y, math.huge, math.huge)
+    self._title_label:reformat(x + 0.5 * width - 0.5 * title_w, current_y)
     current_y = current_y + title_h + m
 
     local preview_w = 280 * rt.SceneManager:get_pixel_scale()
@@ -180,7 +181,6 @@ function mn.StageSelectItem:size_allocate(x, y, width, height)
     local function measure(...)
         local max_w, max_h = -math.huge, -math.huge
         for i = 1, select("#", ...) do
-            select(i, ...):reformat(-math.huge, -math.huge, math.huge, math.huge)
             local w, h = select(i, ...):measure()
             max_w = math.max(max_w, w)
             max_h = math.max(max_h, h)

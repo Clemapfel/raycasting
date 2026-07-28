@@ -167,6 +167,7 @@ function rt.ControlIndicator:create_from(layout)
         else
             label = rt.Label(prefix .. text .. postfix, rt.FontSize.REGULAR, font)
         end
+        label:set_wrap_mode(rt.LabelWrapMode.SINGLE_LINE)
         label:realize()
         table.insert(self._labels, label)
 
@@ -212,7 +213,7 @@ function rt.ControlIndicator:size_allocate(x, y, width, height)
         current_x = current_x + indicator_size + inner_m
 
         local label_w, label_h = label:measure()
-        label:reformat(current_x, y + 0.5 * height - 0.5 * label_h, math.huge)
+        label:reformat(current_x, y + 0.5 * height - 0.5 * label_h)
 
         if i == #self._labels then
             current_x = current_x + label_w + outer_xm

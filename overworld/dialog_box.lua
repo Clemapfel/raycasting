@@ -194,6 +194,7 @@ function ow.DialogBox:realize()
         node.speaker_id = speaker_id
         if speaker_id ~= nil then
             node.speaker = rt.Label(speaker_prefix .. speaker_id .. speaker_postfix)
+            node.speaker:set_wrap_mode(rt.LabelWrapMode.SINGLE_LINE)
             node.speaker:realize()
 
             local label_w, label_h = node.speaker:measure()
@@ -290,8 +291,10 @@ function ow.DialogBox:realize()
                 local label = rt.Label(choice_text)
                 local highlighted_label = rt.Label(selected_answer_prefix .. choice_text .. selected_answer_postfix)
 
-                label:realize()
-                highlighted_label:realize()
+                for which in range(label, highlighted_label) do
+                    which:realize()
+                    which:set_wrap_mode(rt.LabelWrapMode.SINGLE_LINE)
+                end
 
                 table.insert(node.choice_labels, label)
                 table.insert(node.highlighted_choice_labels, highlighted_label)

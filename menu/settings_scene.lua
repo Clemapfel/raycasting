@@ -132,6 +132,7 @@ function mn.SettingsScene:instantiate()
     self._item_stencil = rt.AABB()
 
     self._heading_label = rt.Label("<b><o>" .. translation.heading .. "</o></b>")
+    self._heading_label:set_wrap_mode(rt.LabelWrapMode.SINGLE_LINE)
     self._heading_label_frame = rt.Frame()
 
     self._list = mn.ScrollableList()
@@ -162,6 +163,8 @@ function mn.SettingsScene:instantiate()
             info = { ... },
             is_scale = meta.isa(widget, mn.Scale)
         })
+
+        item.prefix:set_wrap_mode(rt.LabelWrapMode.SINGLE_LINE)
 
         item.set_selection_state = function(_, state)
             if state == rt.SelectionState.ACTIVE then

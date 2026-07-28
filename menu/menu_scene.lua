@@ -54,13 +54,6 @@ local _title_shader_no_sdf = rt.Shader("menu/menu_scene_title_label.glsl", { MOD
 local _title_shader_sdf = rt.Shader("menu/menu_scene_title_label.glsl", { MODE = 1 })
 local _lch_texture = rt.LCHTexture(1, 1, 256)
 
-DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
-    if which == rt.KeyboardKey.R then
-        _title_shader_no_sdf:recompile()
-        _title_shader_sdf:recompile()
-    end
-end)
-
 -- @brief
 function mn.MenuScene:instantiate(state)
     self._input_blocked = true
@@ -129,6 +122,10 @@ function mn.MenuScene:instantiate(state)
                 unselected_label = rt.Label("<o>" .. text .. "</o>", rt.FontSize.LARGE, title_screen.menu_font),
                 selected_label = rt.Label("<o><rainbow><b><color=SELECTION>" .. text .. "</color></b></o></rainbow>", rt.FontSize.LARGE, title_screen.menu_font),
             }
+
+            for label in values(item) do
+                label:set_wrap_mode(rt.LabelWrapMode.SINGLE_LINE)
+            end
 
             title_screen.menu_items[item_i] = item
             title_screen.n_menu_items =  title_screen.n_menu_items + 1
@@ -383,8 +380,8 @@ function mn.MenuScene:size_allocate(x, y, width, height)
             local selected_w, selected_h = item.selected_label:measure()
             local unselected_w, unselected_h = item.unselected_label:measure()
 
-            item.selected_label:reformat(menu_center_x - 0.5 * selected_w, current_y, math.huge)
-            item.unselected_label:reformat(menu_center_x - 0.5 * unselected_w, current_y, math.huge)
+            item.selected_label:reformat(menu_center_x - 0.5 * selected_w, current_y)
+            item.unselected_label:reformat(menu_center_x - 0.5 * unselected_w, current_y)
             current_y = current_y + math.max(selected_h, unselected_h)
         end
 

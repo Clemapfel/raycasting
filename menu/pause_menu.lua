@@ -140,8 +140,10 @@ function mn.PauseMenu:instantiate(scene)
             height = 0,
         }
 
-        element.unselected_label:realize()
-        element.selected_label:realize()
+        for label in range(element.unselected_label, element.selected_label) do
+            label:realize()
+            label:set_wrap_mode(rt.LabelWrapMode.SINGLE_LINE)
+        end
 
         element.frame:set_base_color(1, 1, 1, 0)
         element.frame:set_thickness(rt.settings.menu.pause_menu.selection_frame_thickness)

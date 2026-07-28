@@ -39,35 +39,53 @@ function rt.Widget:draw_bounds()
     love.graphics.rectangle("line", self._bounds:unpack())
 end
 
-local _round = function(x) return x end
-
---- @brief
-function rt.Widget:reformat(x, y, width, height)
-    if meta.isa(x, rt.AABB) then
-        meta.assert(x, rt.AABB, y, mt.Nil, width, mt.Nil, height, mt.Nil)
-        x, y, width, height = x:unpack()
-    else
-        local current_x, current_y, current_w, current_h = self._bounds:unpack()
-        if x == nil then x = current_x end
-        if y == nil then y = current_y end
-        if width == nil then width = current_w end
-        if height == nil then height = current_h end
-
-        meta.assert(x, mt.Number, y, mt.Number, width, mt.Number, height, mt.Number)
+do
+    local _round = function(x) return x end
+    local _error_prefix = function(self)
+        return "In rt." .. meta.typeof(self) .. ".reformat: "
     end
 
-    if width == math.huge then width = self._bounds.width end
-    if height == math.huge then height = self._bounds.height end
+    --- @brief
+    function rt.Widget:reformat(x, y, width, height)
+        if meta.isa(x, rt.AABB) then
+            meta.assert(x, rt.AABB, y, mt.Nil, width, mt.Nil, height, mt.Nil)
+            x, y, width, height = x:unpack()
+        else
+            local current_x, current_y, current_w, current_h = self._bounds:unpack()
+            if x == nil then x = current_x end
+            if y == nil then y = current_y end
+            if width == nil then width = current_w end
+            if height == nil then height = current_h end
 
-    self._bounds.x = _round(x)
-    self._bounds.y = _round(y)
-    self._bounds.width = _round(width)
-    self._bounds.height = _round(height)
+            meta.assert(x, mt.Number, y, mt.Number, width, mt.Number, height, mt.Number)
+        end
 
-    rt.assert(self._bounds.width >= 0, "in rt.Widget.reformat: width is `", width, "`, but it cannot be negative")
-    rt.assert(self._bounds.height >= 0, "in rt.Widget.reformat: height is `", height, "`, but it cannot be negative")
+        if math.is_nan(x) then rt.error(_error_prefix(self), "`x` is NaN") end
+        if math.is_nan(y) then rt.error(_error_prefix(self), "`y` is NaN") end
 
-    self:size_allocate(self._bounds.x, self._bounds.y, self._bounds.width, self._bounds.height)
+        if math.is_nan(width) then
+            rt.error(_error_prefix(self), "`width` is NaN")
+        elseif math.is_inf(width) then
+            rt.error(_error_prefix(self), "width cannot be infinite")
+        elseif width < 0 then
+            rt.error(_error_prefix(self), "`width` is negative")
+        end
+
+        if math.is_nan(height) then
+            rt.error(_error_prefix(self), "`height` is NaN")
+        elseif math.is_inf(height) then
+            rt.error(_error_prefix(self), "height cannot be infinite")
+        elseif height < 0 then
+            rt.error(_error_prefix(self), "`height` is negative")
+        end
+
+        self._bounds.x = _round(x)
+        self._bounds.y = _round(y)
+        self._bounds.width = _round(width)
+        self._bounds.height = _round(height)
+
+        self:size_allocate(self._bounds.x, self._bounds.y, self._bounds.width, self._bounds.height)
+    end
 end
 
 --- @brief

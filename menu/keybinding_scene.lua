@@ -54,6 +54,7 @@ function mn.KeybindingScene:instantiate()
     )
 
     self._heading_label = rt.Label("<b>" .. translation.heading .. "</b>")
+    self._heading_label:set_wrap_mode(rt.LabelWrapMode.SINGLE_LINE)
     self._heading_label_frame = rt.Frame()
 
     self._confirm_exit_dialog = mn.MessageDialog(
@@ -135,6 +136,8 @@ function mn.KeybindingScene:instantiate()
                 spacer_outline = rt.Rectangle(),
                 info = info,
             })
+
+            item.prefix:set_wrap_mode(rt.LabelWrapMode.SINGLE_LINE)
 
             item.spacer_outline:set_color(rt.Palette.BLACK)
             item.spacer:set_color(rt.Palette.FOREGROUND)
@@ -352,8 +355,7 @@ function mn.KeybindingScene:size_allocate(x, y, width, height)
 
             self.prefix:reformat(
                 x + item_outer_margin,
-                y + 0.5 * height - 0.5 * prefix_h,
-                math.huge, math.huge
+                y + 0.5 * height - 0.5 * prefix_h
             )
 
             local widget_w, widget_h = height, height

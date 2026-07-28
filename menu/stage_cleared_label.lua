@@ -26,6 +26,10 @@ function mn.StageClearedLabel:instantiate(stage_id)
     self._cleared_label = rt.Label(cleared_prefix .. translation.cleared_label .. cleared_postfix, _font_size, _font)
     self._hundred_percent_label = rt.Label(hundred_prefix .. translation.hundred_percent_label .. hundred_postfix,_font_size, _font)
 
+    for label in range(self._cleared_label, self._hundred_percent_label) do
+        label:set_wrap_mode(rt.LabelWrapMode.SINGLE_LINE)
+    end
+
     if rt.GameState:get_stage_is_hundred_percented(stage_id) then
         self._state = _STATE_HUNDRED_PERCENTED
     elseif rt.GameState:get_stage_was_cleared(stage_id) then
@@ -71,11 +75,11 @@ end
 --- @brief
 function mn.StageClearedLabel:size_allocate(x, y, width, height)
     local cleared_w, cleared_h = self._cleared_label:measure()
-    self._cleared_label:reformat(-0.5 * cleared_w, -0.5 * cleared_h, math.huge, math.huge)
+    self._cleared_label:reformat(-0.5 * cleared_w, -0.5 * cleared_h)
     self._cleared_x, self._cleared_y = x + 0.5 * width, y + 0.5 * height
 
     local hundred_percent_w, hundred_percent_h = self._hundred_percent_label:measure()
-    self._hundred_percent_label:reformat(-0.5 * hundred_percent_w, -0.5 * hundred_percent_h, math.huge, math.huge)
+    self._hundred_percent_label:reformat(-0.5 * hundred_percent_w, -0.5 * hundred_percent_h)
     self._hundred_percent_x, self._hundred_percent_y = x + 0.5 * width, y + 0.5 * height
 end
 

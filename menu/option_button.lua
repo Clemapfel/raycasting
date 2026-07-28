@@ -73,6 +73,7 @@ function mn.OptionButton:realize()
             label = rt.Label("<o>" .. option .. "</o>"),
             offset = 0
         }
+        to_push.label:set_wrap_mode(rt.LabelWrapMode.SINGLE_LINE)
         to_push.label:realize()
         to_push.label:set_justify_mode(rt.JustifyMode.CENTER)
 

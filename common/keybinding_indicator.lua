@@ -11,6 +11,7 @@ rt.KeybindingIndicator = meta.class("KeybindingIndicator", rt.Widget)
 
 local _Label = function(text, font_size)
     local out = rt.Label("<mono>" .. text .. "</mono>", font_size or rt.settings.keybinding_indicator.font_size, rt.settings.keybinding_indicator.font)
+    out:set_wrap_mode(rt.LabelWrapMode.SINGLE_LINE)
     out.draw = function(self, opacity)
         self:set_opacity(opacity or 1)
         rt.Label.draw(self)
@@ -1146,7 +1147,8 @@ function rt.KeybindingIndicator:create_as_key(text, is_space)
         label:set_justify_mode(rt.JustifyMode.LEFT)
         label:realize()
         local label_w, label_h = label:measure()
-        label:reformat(0 + 0.5 * width - 0.5 * label_w, y + 0.5 * height - 0.5 * label_h - y_offset, math.huge, math.huge)
+        label:reformat(0 + 0.5 * width - 0.5 * label_w, y + 0.5 * height - 0.5 * label_h - y_offset)
+
         self._content = {
             outer,
             top_trapezoid,
