@@ -83,10 +83,7 @@ function mn.StageSelectItemframe:create_from_state()
     end
 end
 
-local _particle_mesh_format = {
-    { location = rt.VertexAttributeLocation.POSITION, name = rt.VertexAttribute.POSITION, format = "floatvec2" },
-    { location = rt.VertexAttributeLocation.COLOR, name = rt.VertexAttribute.COLOR, format = "floatvec4" },
-}
+local _particle_mesh_format = rt.VertexFormat2D -- xy uv rgba
 
 local _data_mesh_format = {
     { location = 3, name = "offset", format = "floatvec2" },
@@ -142,15 +139,17 @@ function mn.StageSelectItemframe:size_allocate(x, y, width, height)
     local particle_mesh_data
     do
         particle_mesh_data = {
-            { 0, 0, 1, 1, 1, 1 }
+            { 0, 0, 0, 0, 1, 1, 1, 1 }
         }
 
-        local step = (2 * math.pi) / 16
-        for angle = 0, 2 * math.pi + step, step  do
+        local n_vertices = 16
+        for i = 1, n_vertices + 1 do
+            local angle = (i - 1) * ((2 * math.pi) / n_vertices)
             table.insert(particle_mesh_data, {
                 math.cos(angle),
                 math.sin(angle),
-                0, 0, 0, 0
+                0, 0,
+                1, 1, 1, 0
             })
         end
     end
@@ -518,6 +517,7 @@ function mn.StageSelectItemframe:draw()
             local page = self._pages[page_i]
 
             love.graphics.setColor(1, 1, 1, 1)
+
             if page.mode == _MODE_HOLD then
                 page.static_mask:draw()
             else
@@ -525,7 +525,6 @@ function mn.StageSelectItemframe:draw()
             end
 
             _particle_shader:bind()
-            love.graphics.setColor(1, 1, 1, 1)
             page.particle_mesh:draw_instanced(page.n_particles)
             _particle_shader:unbind()
         end

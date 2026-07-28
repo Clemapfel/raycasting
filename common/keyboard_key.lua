@@ -517,7 +517,7 @@ function rt.keyboard_key_to_string(key)
         ["circumflex"] = "^",
         ["underscore"] = "_",
         ["grave_accent"] = "`",
-        ["up"]    = "\u{2191}", -- ↑
+        ["up"] = "\u{2191}", -- ↑
         ["down"]  = "\u{2193}", -- ↓
         ["right"] = "\u{2192}", -- →
         ["left"]  = "\u{2190}", -- ←

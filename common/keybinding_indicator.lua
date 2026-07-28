@@ -1194,7 +1194,7 @@ function rt.KeybindingIndicator:create_as_two_horizontal_keys(left_text, right_t
         local line_width = 2
         local center_x, center_y = 0.5 * width, 0.5 * height
         local rect_r = math.max(1, (0.5 * width - 4 * line_width) / 2)
-        local spacer = 0
+        local spacer = 0 -- space between keys
 
         local right_center_x, right_center_y = center_x + rect_r + spacer, center_y
         local left_center_x, left_center_y = center_x - rect_r - spacer, center_y
@@ -1203,13 +1203,13 @@ function rt.KeybindingIndicator:create_as_two_horizontal_keys(left_text, right_t
         local right_outline = _Rectangle(right_center_x - rect_r, right_center_y - rect_r, 2 * rect_r, 2 * rect_r)
         local right_outline_outline = _Rectangle(right_center_x - rect_r, right_center_y - rect_r, 2 * rect_r, 2 * rect_r)
         local right_label_w, right_label_h = right_label:measure()
-        right_label:reformat(right_center_x - rect_r, right_center_y - 0.5 * right_label_h, 2 * rect_r, 2 * rect_r)
+        right_label:reformat(right_center_x - 0.5 * rect_r, right_center_y - 0.5 * right_label_h, 2 * rect_r, 2 * rect_r)
 
         local left_base = _Rectangle(left_center_x - rect_r, left_center_y - rect_r, 2 * rect_r, 2 * rect_r)
         local left_outline = _Rectangle(left_center_x - rect_r, left_center_y - rect_r, 2 * rect_r, 2 * rect_r)
         local left_outline_outline = _Rectangle(left_center_x - rect_r, left_center_y - rect_r, 2 * rect_r, 2 * rect_r)
         local left_label_w, left_label_h = left_label:measure()
-        left_label:reformat(left_center_x - rect_r, left_center_y - 0.5 * left_label_h, 2 * rect_r, 2 * rect_r)
+        left_label:reformat(left_center_x - 0.5 * rect_r, left_center_y - 0.5 * left_label_h, 2 * rect_r, 2 * rect_r)
 
         local corner_radius = 0.05 * width
         for base in range(right_base, left_base) do
