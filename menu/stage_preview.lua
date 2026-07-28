@@ -199,7 +199,7 @@ function mn.StagePreview:size_allocate(x, y, width, height)
 
     love.graphics.push("all")
     self._canvas:bind()
-    love.graphics.clear(0, 0, 0,  1)
+    love.graphics.clear(0, 0, 0,  0)
 
     local stencil = rt.graphics.get_stencil_value()
     rt.graphics.set_stencil_mode(stencil, rt.StencilMode.DRAW)
