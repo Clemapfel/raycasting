@@ -199,7 +199,142 @@ end
 -- (x.3) initialize the graphics buffer
 
 if BUFFER_MODE == BUFFER_MODE_USE_VERTEX_BUFFER then
+    -- usage mesh as storage buffer
+    local perInstanceDataMesh = love.graphics.newMesh(
+        perInstanceFormat,
+        perInstanceData,
+        "points", -- draw mode unused
+        "stream"
+    )
 
+    -- attach the mesh to the draw mesh
+    for _, entry in pairs(perInstanceFormat) do
+        drawMesh:attachAttribute(entry.name, perInstanceDataMesh)
+    end
+
+    -- convert mesh to a buffer for love.update
+    perInstanceDataBuffer = perInstanceDataMesh:getVertexBuffer()
+elseif BUFFER_MODE == BUFFER_MODE_USE_STORAGE_BUFFER then
+    -- allocate the buffer directly
+    perInstanceDataBuffer = love.graphics.newBuffer(
+        perInstanceFormat, -- buffer format
+        perInstanceData    -- initial buffer data
+    )
+elseif BUFFER_MODE == BUFFER_MODE_USE_TEXEL_BUFFER then
+    -- see above
+    perInstanceDataBuffer = love.graphics.newBuffer(
+        perInstanceFormat,
+        perInstanceData
+    )
+end
+
+-- (x.4) initialize the shader
+
+if BUFFER_MODE == BUFFER_MODE_USE_VERTEX_BUFFER then
+    drawShader = love.graphics.newShader([[
+#ifdef VERTEX // vertex shader
+
+// instance mesh attributes
+layout (location = 0) in vec2 VertexPosition;      // attribute #1: x: position (px), y: position (px)
+layout (location = 1) in vec2 VertexTextureCoords; // attribute #2: x: u, y: v
+layout (location = 2) in vec4 VertexColor;         // attribute #3: rgba
+
+// data mesh attributes
+layout (location = 3) in vec2 InstanceOffset;  // attribute #1: x: offset (px), y: offset (px)
+layout (location = 4) in float InstanceScale;  // attribute #2: x: scale
+
+out vec2 FragmentTextureCoords; // final interpolated texture coordinates, for fragment shader
+out vec4 FragmentColor;         // final interpolated color, for fragment shader
+
+void vertexmain() { // custom vertex shader entry point
+
+    // compute position from custom vertex attributes
+    vec2 position = VertexPosition;
+    position.xy *= InstanceScale;
+    position.xy += InstanceOffset;
+
+    // set texture coords to default value
+    FragmentTextureCoords = VertexTextureCoords; // xy = uv
+
+    // set color to default value
+    FragmentColor = ConstantColor * VertexColor; // rgba
+
+    // set position
+    love_Position = TransformProjectionMatrix * vec4(position.xy, 0.0, 1.0);
+    // where `TransformProjectionMatrix` is a hardcoded global that holds the `love.graphics` Transform
+    // and `love_Position` is a hardcoded global variable that holds the position of a vertex, in px
+}
+
+#endif
+
+#ifdef PIXEL // fragment shader
+
+uniform sampler2D InstanceTexture; // texture of the instance mesh
+in vec2 FragmentTextureCoords;     // texture coords from vertex shader
+in vec4 FragmentColor;             // color from vertex shader
+
+out vec4 FinalColor; // final fragment color drawn to the screen at love_Position
+
+void pixelmain() { // custom fragment shader entry point
+
+    // default behavior of `effect`, implemented manually
+    FinalColor = FragmentColor * texture(InstanceTexture, FragmentTextureCoords);
+}
+
+#endif
+    ]])
+elseif BUFFER_MODE == BUFFER_MODE_USE_STORAGE_BUFFER then
+    if BUFFER_MODE == BUFFER_MODE_USE_VERTEX_BUFFER then
+        drawShader = love.graphics.newShader([[
+#ifdef VERTEX // vertex shader
+
+// instance mesh attributes
+layout (location = 0) in vec2 VertexPosition;
+layout (location = 1) in vec2 VertexTextureCoords; // attribute #2: x: u, y: v
+layout (location = 2) in vec4 VertexColor;         // attribute #3: rgba
+
+
+out vec2 FragmentTextureCoords; // final interpolated texture coordinates, for fragment shader
+out vec4 FragmentColor;         // final interpolated color, for fragment shader
+
+void vertexmain() { // custom vertex shader entry point
+
+    // compute position from custom vertex attributes
+    vec2 position = VertexPosition;
+    position.xy *= InstanceScale;
+    position.xy += InstanceOffset;
+
+    // set texture coords to default value
+    FragmentTextureCoords = VertexTextureCoords; // xy = uv
+
+    // set color to default value
+    FragmentColor = ConstantColor * VertexColor; // rgba
+
+    // set position
+    love_Position = TransformProjectionMatrix * vec4(position.xy, 0.0, 1.0);
+    // where `TransformProjectionMatrix` is a hardcoded global that holds the `love.graphics` Transform
+    // and `love_Position` is a hardcoded global variable that holds the position of a vertex, in px
+}
+
+#endif
+
+#ifdef PIXEL // fragment shader
+
+uniform sampler2D InstanceTexture; // texture of the instance mesh
+in vec2 FragmentTextureCoords;     // texture coords from vertex shader
+in vec4 FragmentColor;             // color from vertex shader
+
+out vec4 FinalColor; // final fragment color drawn to the screen at love_Position
+
+void pixelmain() { // custom fragment shader entry point
+
+    // default behavior of `effect`, implemented manually
+    FinalColor = FragmentColor * texture(InstanceTexture, FragmentTextureCoords);
+}
+
+#endif
+    ]])
+    end
 end
 
 -- (x.1) draw loop
@@ -218,16 +353,6 @@ love.draw = function()
     -- assign the storage / texel buffer if present
     if drawShader:hasUniform("perInstanceDataBuffer") then
         drawShader:send("perInstanceDataBuffer", perInstanceDataBuffer)
-    end
-
-    -- assign the vertex color
-    if drawShader:hasUniform("drawColor") then
-        drawShader:send("drawColor", love.graphics.getColor())
-    end
-
-    -- assign vertex shader transform
-    if drawShader:hasUniform("drawTransform") then
-        drawShader:send("drawTransform", love.graphics.getTransform())
     end
 
     -- draw `instanceCount` many copies of the mesh instanced
