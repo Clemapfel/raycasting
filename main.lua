@@ -17,13 +17,13 @@ ffi = require "ffi"
 local BUFFER_MODE_USE_VERTEX_BUFFER = "vertexbuffer"
 local BUFFER_MODE_USE_TEXEL_BUFFER = "texelbuffer"
 local BUFFER_MODE_USE_STORAGE_BUFFER = "storagebuffer"
-local BUFFER_MODE = BUFFER_MODE_USE_VERTEX_BUFFER
+local BUFFER_MODE = BUFFER_MODE_USE_TEXEL_BUFFER
 
 -- upload mode, decides whether to use lua tables, `ByteData` or ffi data to upload the instance data
 local DATA_MODE_USE_TABLES = "table"
 local DATA_MODE_USE_BYTE_DATA = "bytedata"
 local DATA_MODE_USE_FFI_DATA = "ffi"
-local DATA_MODE = DATA_MODE_USE_TABLES
+local DATA_MODE = DATA_MODE_USE_BYTE_DATA
 
 -- ### GLOBALS ###
 
@@ -31,314 +31,215 @@ local drawMeshFormat -- table, vertex attribute format of mesh that will be draw
 local drawMesh -- love.Mesh, actual mesh that will be the shape of the particles
 local drawShader -- love.Shader, custom shader that retrieves the per-instance data
 
-local instanceCount = 20000 -- number of draw instances
+local instanceCount = 2000 -- number of draw instances
 local perInstanceFormat -- table, vertex attribute format of data mesh
 local perInstanceData -- table of `love.ByteData`, CPU-side copy of per-instance data
 local perInstanceDataBuffer -- `love.GraphicsBuffer`, GPU-side copy of per-instance data
 
 --- ### INITIALIZATION ###
 
--- (x.0) declare vertex attribute format of draw mesh
+local generateIsVisible, generateOffset, generateScale
+local modifyIsVisible, modifyOffset, modifyScale
+love.load = function()
 
-drawMeshFormat = {
-    { -- instance mesh attribute #1: position
-        location = 0,            -- attribute #1 (0-based)
-        name = "VertexPosition", -- name
-        format = "floatvec2"     -- glsl format: vec2 (2 components)
-    },
+    -- (x.0) declare vertex attribute format of draw mesh
+    drawMeshFormat = {
+        { -- instance mesh attribute #1: position
+            location = 0,            -- attribute #1 (0-based)
+            name = "VertexPosition", -- name
+            format = "floatvec2"     -- glsl format: vec2 (2 components)
+        },
 
-    { -- instance mesh attribute #2: texture coordinates
-        location = 1,            -- attribute #2 (0-based)
-        name = "VertexTextureCoordinates",
-        format = "floatvec2"     -- glsl format: vec2 (2 components)
-    },
+        { -- instance mesh attribute #2: texture coordinates
+            location = 1,            -- attribute #2 (0-based)
+            name = "VertexTextureCoordinates",
+            format = "floatvec2"     -- glsl format: vec2 (2 components)
+        },
 
-    { -- instance mesh attribute #2: texture coordinates
-        location = 2,            -- attribute #3 (0-based)
-        name = "VertexColor",
-        format = "floatvec4"     -- glsl format: vec4 (2 components)
-    },
-}
+        { -- instance mesh attribute #2: texture coordinates
+            location = 2,            -- attribute #3 (0-based)
+            name = "VertexColor",
+            format = "floatvec4"     -- glsl format: vec4 (2 components)
+        },
+    }
 
--- (x.1) declare format of data buffer
+    -- (x.1) declare format of data buffer
 
-do
-    if BUFFER_MODE_USE_VERTEX_BUFFER then
-        -- if using mesh as a buffer, location needs to be appended to locations of drawMeshFormat
-        perInstanceFormat = {
-            {
-                location = 3,
-                name = "InstanceIsVisible",
-                format = "uint16"
-            },
+    do
+        if BUFFER_MODE == BUFFER_MODE_USE_VERTEX_BUFFER then
+            -- if using mesh as a buffer, location needs to be appended to locations of drawMeshFormat
+            perInstanceFormat = {
+                {
+                    location = 3,
+                    name = "InstanceIsVisible",
+                    format = "uint16"
+                },
 
-            {
-                location = 4,
-                name = "InstanceOffset",
-                format = "floatvec2"
-            },
+                {
+                    location = 4,
+                    name = "InstanceOffset",
+                    format = "floatvec2"
+                },
 
-            {
-                location = 2,
-                name = "InstanceScale",
-                format = "float"
-            },
-        }
-    elseif BUFFER_MODE_USE_STORAGE_BUFFER then
-        -- if using storage buffer, locations start at 0
-        perInstanceFormat = {
-            {
-                location = 0,
-                name = "InstanceIsVisible",
-                format = "uint16"
-            },
-
-            {
-                location = 1,
-                name = "InstanceOffset",
-                format = "floatvec2"
-            },
-
-            {
-                location = 2,
-                name = "InstanceScale",
-                format = "float"
+                {
+                    location = 5,
+                    name = "InstanceScale",
+                    format = "float"
+                }
             }
-        }
-    elseif BUFFER_MODE_USE_TEXEL_BUFFER then
-        -- if using texel buffer, all components need to have the same format
-        local format = "float"
-        perInstanceFormat = {
-            {
-                location = 0,
-                name = "InstanceIsVisible",
-                format = format
-            },
+        elseif BUFFER_MODE == BUFFER_MODE_USE_STORAGE_BUFFER then
+            -- if using storage buffer, locations start at 0
+            perInstanceFormat = {
+                {
+                    location = 0,
+                    name = "InstanceIsVisible",
+                    format = "uint16"
+                },
 
-            {
-                location = 1,
-                name = "InstanceIsVisibleX",
-                format = format
-            },
+                {
+                    location = 1,
+                    name = "InstanceOffset",
+                    format = "floatvec2"
+                },
 
-            {
-                location = 2,
-                name = "InstanceIsVisibleY",
-                format = format
-            },
-
-            {
-                location = 3,
-                name = "InstanceOffset",
-                format = format
+                {
+                    location = 2,
+                    name = "InstanceScale",
+                    format = "float"
+                }
             }
-        }
+        elseif BUFFER_MODE == BUFFER_MODE_USE_TEXEL_BUFFER then
+            -- if using texel buffer, all components need to have the same format
+            local format = "float"
+            perInstanceFormat = {
+                {
+                    location = 0,
+                    name = "InstanceIsVisible",
+                    format = "floatvec4"
+                }
+            }
+        end
     end
-end
 
--- (x.1) initialize draw mesh as circle
-do
-    local nVertices = 16
-    local drawMeshData = {}
-    for i = 1, nVertices + 1 do
-        local angle = (i - 1) / nVertices * (2 * math.pi)
-        table.insert(drawMeshData, {
-            math.cos(angle), -- Attribute #1: VertexPosition.x (x)
-            math.sin(angle), -- Attribute #1: VertexPosition.y (y)
-            math.cos(angle), -- Attribute #2: VertexTextureCoordinates.x (u)
-            math.sin(angle), -- Attribute #2: VertexTextureCoordinates.y (v)
-            1, -- Attribute #3: VertexColor.x (r)
-            1, -- Attribute #3: VertexColor.y (g)
-            1, -- Attribute #3: VertexColor.z (b)
-            1, -- Attribute #3: VertexColor.w (a)
+    -- (x.1) initialize draw mesh as circle
+    do
+        local nVertices = 16
+        local drawMeshData = {}
+        for i = 1, nVertices + 1 do
+            local angle = (i - 1) / nVertices * (2 * math.pi)
+            table.insert(drawMeshData, {
+                math.cos(angle), -- Attribute #1: VertexPosition.x (x)
+                math.sin(angle), -- Attribute #1: VertexPosition.y (y)
+                math.cos(angle), -- Attribute #2: VertexTextureCoordinates.x (u)
+                math.sin(angle), -- Attribute #2: VertexTextureCoordinates.y (v)
+                1, -- Attribute #3: VertexColor.x (r)
+                1, -- Attribute #3: VertexColor.y (g)
+                1, -- Attribute #3: VertexColor.z (b)
+                1, -- Attribute #3: VertexColor.w (a)
+            })
+        end
+        table.insert(drawMeshData, 1,  { 0, 0, 0, 0, 1, 1, 1, 1 }) -- add center vertex
+
+        drawMesh = love.graphics.newMesh(
+            drawMeshFormat, -- vertex attribute format
+            drawMeshData,   -- vertex data
+            "fan",   -- draw mode
+            "static" -- buffer usage
+        )
+
+        -- we use draw mode `fan` to correctly draw a filled circle
+        -- we use buffer usage `static`, since `drawMesh` will never change, only the per-instance data will
+    end
+
+    -- (x.2) initialize the data buffer with per instance data
+
+    perInstanceData = {}
+    for instanceIndex = 1, instanceCount do
+        local isVisible = generateIsVisible(instanceIndex) -- 1 uint16
+        local x, y = generateOffset(instanceIndex) -- 2 floats
+        local scale = generateScale(instanceIndex) -- 1 float
+        table.insert(perInstanceData, {
+            isVisible,
+            x, y,
+            scale
         })
     end
 
-    drawMesh = love.graphics.newMesh(
-        drawMeshFormat, -- vertex attribute format
-        drawMeshData,   -- vertex data
-        "fan",   -- draw mode
-        "static" -- buffer usage
-    )
+    if DATA_MODE == DATA_MODE_USE_TABLES then
+        -- noop, keep `perInstanceData` as a table
 
-    -- we use draw mode `fan` to correctly draw a filled circle
-    -- we use buffer usage `static`, since `drawMesh` will never change, only the per-instance data will
-end
+    elseif DATA_MODE == DATA_MODE_USE_BYTE_DATA then
+        -- instance size is `InstanceisVisible` + `InstanceOffset` + `InstanceScale`
+        local perInstanceSize
+        if BUFFER_MODE == BUFFER_MODE_USE_TEXEL_BUFFER  then
+            perInstanceSize = ffi.sizeof("float") + 2 * ffi.sizeof("float") + ffi.sizeof("float")
+        else
+            perInstanceSize = ffi.sizeof("uint16_t") + 2 * ffi.sizeof("float") + ffi.sizeof("float")
+        end
 
--- (x.2) initialize the data buffer with per instance data
+        -- data size is (number of instances) * (size per instance)
+        perInstanceData = love.data.newByteData(instanceCount * perInstanceSize)
 
-local generateIsVisible, generateOffset, generateScale -- functions, see below
+    elseif DATA_MODE == DATA_MODE_USE_FFI_DATA then
+        -- we need to allocate as `love.ByteData` anyway, even though we use ffi to modify it later
+        local perInstanceSize
+        if BUFFER_MODE == BUFFER_MODE_USE_TEXEL_BUFFER  then
+            perInstanceSize = ffi.sizeof("float") + 2 * ffi.sizeof("float") + ffi.sizeof("float")
+        else
+            perInstanceSize = ffi.sizeof("uint16_t") + 2 * ffi.sizeof("float") + ffi.sizeof("float")
+        end
 
-perInstanceData = {}
-for instanceIndex = 1, instanceCount do
-    local isVisible = generateIsVisible(instanceIndex) -- 1 uint16
-    local x, y = generateOffset(instanceIndex) -- 2 floats
-    local scale = generateScale(instanceIndex) -- 1 float
-    table.insert(perInstanceData, {
-        isVisible,
-        x, y,
-        scale
-    })
-end
-
-if DATA_MODE == DATA_MODE_USE_TABLES then
-    -- noop, keep `perInstanceData` as a table
-
-elseif DATA_MODE == DATA_MODE_USE_BYTE_DATA then
-    -- instance size is `InstanceisVisible` + `InstanceOffset` + `InstanceScale`
-    local perInstanceSize = ffi.sizeof("uint16_t") + 2 * ffi.sizeof("float") + ffi.sizeof("float")
-    -- data size is (number of instances) * (size per instance)
-    perInstanceData = love.data.newByteData(instanceCount * perInstanceSize)
-
-elseif DATA_MODE == DATA_MODE_USE_FFI_DATA then
-    -- we need to allocate as `love.ByteData` anyway, even though we use ffi to modify it later
-    local perInstanceSize = ffi.sizeof("uint16_t") + 2 * ffi.sizeof("float") + ffi.sizeof("float")
-    perInstanceData = love.data.newByteData(instanceCount * perInstanceSize)
-end
-
--- (x.3) initialize the graphics buffer
-
-if BUFFER_MODE == BUFFER_MODE_USE_VERTEX_BUFFER then
-    -- usage mesh as storage buffer
-    local perInstanceDataMesh = love.graphics.newMesh(
-        perInstanceFormat,
-        perInstanceData,
-        "points", -- draw mode unused
-        "stream"
-    )
-
-    -- attach the mesh to the draw mesh
-    for _, entry in pairs(perInstanceFormat) do
-        drawMesh:attachAttribute(entry.name, perInstanceDataMesh)
+        perInstanceData = love.data.newByteData(instanceCount * perInstanceSize)
     end
 
-    -- convert mesh to a buffer for love.update
-    perInstanceDataBuffer = perInstanceDataMesh:getVertexBuffer()
-elseif BUFFER_MODE == BUFFER_MODE_USE_STORAGE_BUFFER then
-    -- allocate the buffer directly
-    perInstanceDataBuffer = love.graphics.newBuffer(
-        perInstanceFormat, -- buffer format
-        perInstanceData    -- initial buffer data
-    )
-elseif BUFFER_MODE == BUFFER_MODE_USE_TEXEL_BUFFER then
-    -- see above
-    perInstanceDataBuffer = love.graphics.newBuffer(
-        perInstanceFormat,
-        perInstanceData
-    )
-end
+    -- (x.3) initialize the graphics buffer
 
--- (x.4) initialize the shader
-
-if BUFFER_MODE == BUFFER_MODE_USE_VERTEX_BUFFER then
-    drawShader = love.graphics.newShader([[
-#ifdef VERTEX // vertex shader
-
-// instance mesh attributes
-layout (location = 0) in vec2 VertexPosition;      // attribute #1: x: position (px), y: position (px)
-layout (location = 1) in vec2 VertexTextureCoords; // attribute #2: x: u, y: v
-layout (location = 2) in vec4 VertexColor;         // attribute #3: rgba
-
-// data mesh attributes
-layout (location = 3) in vec2 InstanceOffset;  // attribute #1: x: offset (px), y: offset (px)
-layout (location = 4) in float InstanceScale;  // attribute #2: x: scale
-
-out vec2 FragmentTextureCoords; // final interpolated texture coordinates, for fragment shader
-out vec4 FragmentColor;         // final interpolated color, for fragment shader
-
-void vertexmain() { // custom vertex shader entry point
-
-    // compute position from custom vertex attributes
-    vec2 position = VertexPosition;
-    position.xy *= InstanceScale;
-    position.xy += InstanceOffset;
-
-    // set texture coords to default value
-    FragmentTextureCoords = VertexTextureCoords; // xy = uv
-
-    // set color to default value
-    FragmentColor = ConstantColor * VertexColor; // rgba
-
-    // set position
-    love_Position = TransformProjectionMatrix * vec4(position.xy, 0.0, 1.0);
-    // where `TransformProjectionMatrix` is a hardcoded global that holds the `love.graphics` Transform
-    // and `love_Position` is a hardcoded global variable that holds the position of a vertex, in px
-}
-
-#endif
-
-#ifdef PIXEL // fragment shader
-
-uniform sampler2D InstanceTexture; // texture of the instance mesh
-in vec2 FragmentTextureCoords;     // texture coords from vertex shader
-in vec4 FragmentColor;             // color from vertex shader
-
-out vec4 FinalColor; // final fragment color drawn to the screen at love_Position
-
-void pixelmain() { // custom fragment shader entry point
-
-    // default behavior of `effect`, implemented manually
-    FinalColor = FragmentColor * texture(InstanceTexture, FragmentTextureCoords);
-}
-
-#endif
-    ]])
-elseif BUFFER_MODE == BUFFER_MODE_USE_STORAGE_BUFFER then
     if BUFFER_MODE == BUFFER_MODE_USE_VERTEX_BUFFER then
-        drawShader = love.graphics.newShader([[
-#ifdef VERTEX // vertex shader
+        -- usage mesh as storage buffer
+        local perInstanceDataMesh = love.graphics.newMesh(
+            perInstanceFormat,
+            perInstanceData,
+            "points", -- draw mode unused
+            "stream"
+        )
 
-// instance mesh attributes
-layout (location = 0) in vec2 VertexPosition;
-layout (location = 1) in vec2 VertexTextureCoords; // attribute #2: x: u, y: v
-layout (location = 2) in vec4 VertexColor;         // attribute #3: rgba
+        -- attach the mesh to the draw mesh
+        for _, entry in pairs(perInstanceFormat) do
+            drawMesh:attachAttribute(entry.name, perInstanceDataMesh, "perinstance")
+        end
 
-
-out vec2 FragmentTextureCoords; // final interpolated texture coordinates, for fragment shader
-out vec4 FragmentColor;         // final interpolated color, for fragment shader
-
-void vertexmain() { // custom vertex shader entry point
-
-    // compute position from custom vertex attributes
-    vec2 position = VertexPosition;
-    position.xy *= InstanceScale;
-    position.xy += InstanceOffset;
-
-    // set texture coords to default value
-    FragmentTextureCoords = VertexTextureCoords; // xy = uv
-
-    // set color to default value
-    FragmentColor = ConstantColor * VertexColor; // rgba
-
-    // set position
-    love_Position = TransformProjectionMatrix * vec4(position.xy, 0.0, 1.0);
-    // where `TransformProjectionMatrix` is a hardcoded global that holds the `love.graphics` Transform
-    // and `love_Position` is a hardcoded global variable that holds the position of a vertex, in px
-}
-
-#endif
-
-#ifdef PIXEL // fragment shader
-
-uniform sampler2D InstanceTexture; // texture of the instance mesh
-in vec2 FragmentTextureCoords;     // texture coords from vertex shader
-in vec4 FragmentColor;             // color from vertex shader
-
-out vec4 FinalColor; // final fragment color drawn to the screen at love_Position
-
-void pixelmain() { // custom fragment shader entry point
-
-    // default behavior of `effect`, implemented manually
-    FinalColor = FragmentColor * texture(InstanceTexture, FragmentTextureCoords);
-}
-
-#endif
-    ]])
+        -- convert mesh to a buffer for love.update
+        perInstanceDataBuffer = perInstanceDataMesh:getVertexBuffer()
+    elseif BUFFER_MODE == BUFFER_MODE_USE_STORAGE_BUFFER then
+        -- allocate the buffer directly
+        perInstanceDataBuffer = love.graphics.newBuffer(
+            perInstanceFormat, -- buffer format
+            perInstanceData,    -- initial buffer data
+            { shaderstorage = true } -- declare as storage buffer
+        )
+    elseif BUFFER_MODE == BUFFER_MODE_USE_TEXEL_BUFFER then
+        perInstanceDataBuffer = love.graphics.newBuffer(
+            perInstanceFormat,
+            perInstanceData,
+            { texel = true } -- declare as texel buffer
+        )
     end
-end
+
+    -- (x.4) initialize the shader
+
+    if BUFFER_MODE == BUFFER_MODE_USE_VERTEX_BUFFER then
+        drawShader = love.graphics.newShader("temp.glsl")
+    elseif BUFFER_MODE == BUFFER_MODE_USE_STORAGE_BUFFER then
+        drawShader = love.graphics.newShader("temp_storage.glsl")
+    elseif BUFFER_MODE == BUFFER_MODE_USE_TEXEL_BUFFER then
+        drawShader = love.graphics.newShader("temp_texel.glsl")
+    end
+end -- love.load
 
 -- (x.1) draw loop
 love.draw = function()
+    love.graphics.clear()
+
     -- store graphics state, including shader, color, etc.
     love.graphics.push("all")
 
@@ -355,6 +256,9 @@ love.draw = function()
         drawShader:send("perInstanceDataBuffer", perInstanceDataBuffer)
     end
 
+    -- set color / transform
+    love.graphics.setColor(1, 1, 1, 1)
+
     -- draw `instanceCount` many copies of the mesh instanced
     -- each instance will read the correct data using the vertex shader
     love.graphics.drawInstanced(drawMesh, instanceCount)
@@ -364,7 +268,6 @@ love.draw = function()
 end
 
 -- (x.2) update loop
-local modifyPosition, modifyScale, modifyIsVisible -- functions, declared below
 
 love.update = function()
     -- modify the per-instance data
@@ -382,7 +285,7 @@ love.update = function()
             local instanceData = perInstanceData[instanceIndex]
 
             -- write new per-instance attributes to CPU-side copy of instance data
-            instanceData[offsetX], instanceData[offsetY] = modifyPosition(instanceIndex,
+            instanceData[offsetX], instanceData[offsetY] = modifyOffset(instanceIndex,
                 instanceData[offsetX],
                 instanceData[offsetY]
             )
@@ -401,6 +304,13 @@ love.update = function()
         -- get the size of one instance data element, in bytes
         local stride = perInstanceDataBuffer:getElementStride()
 
+        local isVisibleType
+        if BUFFER_MODE == BUFFER_MODE_USE_TEXEL_BUFFER then
+            isVisibleType = "float"
+        else
+            isVisibleType = "uint16_t"
+        end
+
         local offset = 0
         for instanceIndex = 1, instanceCount do
             local startOffset = offset
@@ -409,7 +319,7 @@ love.update = function()
             local readOffset = startOffset
 
             local visible = perInstanceData:getUInt16(readOffset)
-            readOffset = readOffset + ffi.sizeof("uint16_t")
+            readOffset = readOffset + ffi.sizeof(isVisibleType)
 
             local x = perInstanceData:getFloat(readOffset)
             readOffset = readOffset + ffi.sizeof("float")
@@ -422,14 +332,14 @@ love.update = function()
 
             -- mutate
             visible = modifyIsVisible(instanceIndex, visible)
-            x, y = modifyPosition(instanceIndex, x, y)
+            x, y = modifyOffset(instanceIndex, x, y)
             scale = modifyScale(instanceIndex, scale)
 
             -- write per-instance properties to byte data
             local writeOffset = startOffset
 
-            perInstanceData:setUint16(writeOffset, visible)
-            writeOffset = writeOffset + ffi.sizeof("uint16_t")
+            perInstanceData:setUInt16(writeOffset, visible)
+            writeOffset = writeOffset + ffi.sizeof(isVisibleType)
 
             perInstanceData:setFloat(writeOffset, x)
             writeOffset = writeOffset + ffi.sizeof("float")
@@ -439,7 +349,7 @@ love.update = function()
 
             perInstanceData:setFloat(writeOffset, scale)
             writeOffset = writeOffset + ffi.sizeof("float")
-            
+
             offset = offset + stride
         end
 
@@ -458,9 +368,6 @@ love.update = function()
             local readOffset = startOffset
 
             -- cast the byte pointer at this offset to the appropriate type pointer, then dereference using `[0]`
-            local visible = ffi.cast("uint16_t*", perInstanceDataPtr + readOffset)[0]
-            readOffset = readOffset + ffi.sizeof("uint16_t")
-
             local x = ffi.cast("float*", perInstanceDataPtr + readOffset)[0]
             readOffset = readOffset + ffi.sizeof("float")
 
@@ -472,7 +379,7 @@ love.update = function()
 
             -- mutate
             visible = modifyIsVisible(instanceIndex, visible)
-            x, y = modifyPosition(instanceIndex, x, y)
+            x, y = modifyOffset(instanceIndex, x, y)
             scale = modifyScale(instanceIndex, scale)
 
             -- write per-instance properties to byte data
@@ -496,6 +403,57 @@ love.update = function()
     
     -- update the per-instance data buffer
     perInstanceDataBuffer:setArrayData(perInstanceData)
+end
+
+-- ### INTERNALS ###
+
+generateIsVisible = function(instanceIndex)
+    return 0x1
+end
+
+generateOffset = function(instanceIndex)
+    local xMargin, yMargin = 50, 50
+    return xMargin + love.math.random() * (love.graphics.getWidth() - 2 * xMargin),
+        yMargin +  love.math.random() * (love.graphics.getHeight() - 2 * yMargin)
+end
+
+generateScale = function(instanceIndex)
+    return love.math.random(1, 8)
+end
+
+modifyOffset = function(instanceIndex, x, y)
+    local maxOffset = 100 * love.timer.getDelta()
+    local t = love.timer.getTime()
+
+    local seedX = instanceIndex * 17.3
+    local seedY = -instanceIndex * 31.1777777
+    local newX = x + maxOffset * (love.math.perlinNoise(seedX, t) * 2 - 1)
+    local newY = y + maxOffset * (love.math.perlinNoise(seedY, t) * 2 - 1)
+
+    local minX, maxX = 0, love.graphics.getWidth()
+    local minY, maxY = 0, love.graphics.getHeight()
+
+    if newX < minX then
+        newX = minX + (minX - newX)
+    elseif newX > maxX then
+        newX = maxX - (newX - maxX)
+    end
+
+    if newY < minY then
+        newY = minY + (minY - newY)
+    elseif newY > maxY then
+        newY = maxY - (newY - maxY)
+    end
+
+    return newX, newY
+end
+
+modifyIsVisible = function(instanceIndex, isVisible)
+    return isVisible
+end
+
+modifyScale = function(instanceIndex, scale)
+    return 1 + 9 * (math.sin(love.timer.getTime() + (instanceIndex / instanceCount) * (2 * math.pi)) + 1) / 2
 end
 
 -- local instanceDataBuffer = love.graphics.newGraphicsBuffer(instanceDataFormat, nInstances)

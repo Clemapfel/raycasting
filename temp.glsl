@@ -1,35 +1,33 @@
-#ifdef VERTEX
+#ifdef VERTEX // vertex shader
 
-// instance mesh attributes
-layout (location = 0) in vec2 VertexPosition;      // attribute #1: x: position (px), y: position (px)
-layout (location = 1) in vec2 VertexTextureCoords; // attribute #2: x: u, y: v
-layout (location = 2) in vec4 VertexColor;         // attribute #3: rgba
+// draw mesh attributes
+layout (location = 0) in vec2 VertexPosition;      // drawMesh attribute #1
+layout (location = 1) in vec2 VertexTextureCoords; // drawMesh attribute #2
+layout (location = 2) in vec4 VertexColor;         // drawMesh attribute #3
 
-// per-instance data, now packed into a texel buffer instead of vertex attributes
-// each texel holds: x = offset.x, y = offset.y, z = scale, w = unused (padding)
-uniform samplerBuffer InstanceData;
+// data mesh attributes
+layout (location = 3) in uint InstanceIsVisible; // perInstanceDataBuffer attribute #1
+layout (location = 4) in vec2 InstanceOffset;    // perInstanceDataBuffer attribute #2
+layout (location = 5) in float InstanceScale;    // perInstanceDataBuffer attribute #3
 
+out float FragmentIsVisible;     // whether to discard the entire shape
 out vec2 FragmentTextureCoords; // final interpolated texture coordinates, for fragment shader
 out vec4 FragmentColor;         // final interpolated color, for fragment shader
 
 void vertexmain() { // custom vertex shader entry point
-
-    // fetch this instance's data from the texel buffer
-    vec4 instanceData = texelFetch(InstanceData, love_InstanceID);
-    vec2 instanceOffset = instanceData.xy;
-    float instanceScale = instanceData.z;
-
     // compute position from custom vertex attributes
     vec2 position = VertexPosition;
-    position.xy *= instanceScale;
-    position.xy += instanceOffset;
+    position.xy *= InstanceScale;
+    position.xy += InstanceOffset;
 
     // set texture coords to default value
     FragmentTextureCoords = VertexTextureCoords; // xy = uv
 
     // set color to default value
     FragmentColor = ConstantColor * VertexColor; // rgba
-    // where `ConstantColor` is a hardcoded global that holds the `love.graphics` Color
+
+    // set whether the instance is visible
+    FragmentIsVisible = float(InstanceIsVisible);
 
     // set position
     love_Position = TransformProjectionMatrix * vec4(position.xy, 0.0, 1.0);
@@ -41,13 +39,17 @@ void vertexmain() { // custom vertex shader entry point
 
 #ifdef PIXEL // fragment shader
 
-uniform sampler2D InstanceTexture; // texture of the instance mesh
-in vec2 FragmentTextureCoords;     // texture coords from vertex shader
-in vec4 FragmentColor;             // color from vertex shader
+in float FragmentIsVisible;    // whether to discard from vertex shader
+in vec2 FragmentTextureCoords; // texture coords from vertex shader
+in vec4 FragmentColor;         // color from vertex shader
 
 out vec4 FinalColor; // final fragment color drawn to the screen at love_Position
 
+uniform sampler2D InstanceTexture; // texture of the instance mesh
+
 void pixelmain() { // custom fragment shader entry point
+    // make shape invisible
+    if (FragmentIsVisible == 0.0) { discard; }
 
     // default behavior of `effect`, implemented manually
     FinalColor = FragmentColor * texture(InstanceTexture, FragmentTextureCoords);
