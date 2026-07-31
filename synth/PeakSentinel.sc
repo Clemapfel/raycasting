@@ -1,118 +1,100 @@
 PeakSentinel {
-    // Dictionary to hold all active sentinels
-    classvar <allSentinels;
+	classvar <allSentinels; // static list of all active sentinels
 
-    var <server, <bus;
-    var <synth, <oscFunc;
-    var <replyID;
-    var isPlaying = false;
-    var <defName;
-    var <key;
+	var <monitoredBus;
+	var <oscFunc, <oscID;
+	var <>synth, <synthDef;
 
-    // Initializes the classvar when SuperCollider compiles the class library
-    *initClass {
-        allSentinels = Dictionary.new;
-    }
+	*initClass {
+		allSentinels = Dictionary.new;
+	}
 
-    *new { |server, bus|
-        var resolvedServer, instanceKey;
+	init { arg server, bus, hash;
+		var genSynthDef = { arg numChannels;
+			var name = ("peakSentinelMonitor_" ++ numChannels.asString).asSymbol;
+			SynthDef(name, { arg bus = 0, oscID = -1;
+				var signal = In.ar(bus, numChannels);
 
-        resolvedServer = server ?? { Server.default };
+				// send an OSC message anytime a new all-time peaked is encountered
+				var runningMax = RunningMax.ar(
+					signal.reduce('max').abs,
+					0 // never resets
+				);
+				var newPeak = (HPZ1.ar(runningMax) > 0) * (runningMax >= 1.0);
 
-        if(bus.isNil or: { bus.isKindOf(Bus).not }) {
-            Error("PeakSentinel requires a valid Bus object.").throw;
-        };
+				SendReply.ar(
+					Changed.ar(newPeak),
+					'/peak_sentinel_print_warning',
+					[ bus, runningMax ],
+					oscID
+				);
+			});
+		};
 
-        // Create a unique key for this specific server/rate/index combination.
-        // This ensures that even if two separate Bus objects point to the same
-        // underlying hardware index, they share the same Sentinel.
-        instanceKey = "%_%_%".format(resolvedServer.name, bus.rate, bus.index);
+		synthDef = genSynthDef.(bus.numChannels);
+		synthDef.add;
 
-        // Enforce Singleton per bus: Return existing instance if it already exists
-        if(allSentinels.at(instanceKey).notNil) {
-            // Optional: notify the user that an existing instance is being reused
-            ("PeakSentinel: Watcher already exists for " ++ instanceKey ++ ". Returning existing instance.").postln;
-            ^allSentinels.at(instanceKey);
-        };
+		if (bus.rate != \audio) {
+			Error("In PeakSentinel.init: bus is not an audio bus").throw;
+		};
 
-        // Otherwise, create and return a new instance
-        ^super.new.init(resolvedServer, bus, instanceKey);
-    }
+		oscID = UniqueID.next;
+		oscFunc = OSCdef.new(("peakSentinelWarn_" ++ hash).asSymbol, { arg msg, time, addr, recvPort;
+			var bus = msg[3].asInteger;
+			var peakValue = msg[4];
+			"In PeakSentinel: Clipping detected on Bus `%` (Peak Value: `%`)".format(
+				bus,
+				peakValue
+			).warn;
+		}, '/peak_sentinel_print_warning', server.addr);
 
-    // Static helper method to clean up all active sentinels at once
-    *freeAll {
-        allSentinels.copy.do { |sentinel| sentinel.free };
-    }
+		// add to singleton instance list
+		allSentinels.put(hash, this);
 
-    init { |argServer, argBus, argKey|
-        server = argServer;
-        bus = argBus;
-        key = argKey;
+		// register with the server tree so it stays global
+		ServerTree.add(this, server);
 
-        if(bus.rate != \audio) {
-            "PeakSentinel: Warning - designed primarily for audio rate buses.".warn;
-        };
+		monitoredBus = bus;
+	}
 
-        // Store this new instance in the class dictionary
-        allSentinels.put(key, this);
+	*new { arg server, bus;
+		var hash;
 
-        replyID = UniqueID.next;
-        defName = "peak_sentinel_ar_" ++ bus.numChannels;
+		server = server ?? Server.default;
+		bus = bus ?? server.outputBus;
 
-        oscFunc = OSCFunc({ |msg|
-            var peakVal = msg[3];
-            var busIndex = msg[4];
-            "WARNING (PeakSentinel): Clipping detected on Bus % (Peak value: %)".format(
-                busIndex,
-                peakVal.round(0.001)
-            ).warn;
-        }, '/peak_sentinel_clip', server.addr, argTemplate: [nil, replyID]).fix;
+		if (server.isKindOf(Server).not) {
+			Error("In PeakSentinel.new: expected `Server` for argument #1, got `%`".format(bus.class)).throw;
+		};
 
-        isPlaying = true;
+		if (bus.isKindOf(Bus).not) {
+			Error("In PeakSentinel.new: expected `Bus` for argument #2, got `%`".format(bus.class)).throw;
+		};
 
-        ServerTree.add(this, server);
-        if(server.serverRunning) {
-            this.doOnServerTree(server);
-        };
-    }
+		// generate unique hash for this server/bus combination
+		hash = "%_%".format(server.hash, bus.hash);
 
-    doOnServerTree { |srv|
-        if(isPlaying and: { srv == server }) {
-            Routine {
-                this.startSynth;
-            }.play(SystemClock);
-        }
-    }
+		// if a sentinel already exists for this bus, do not create a new one
+		if (allSentinels.at(hash).notNil) {
+			^allSentinels.at(hash);
+		};
 
-    startSynth {
-        var def = SynthDef(defName, { |busIndex = 0, replyID = -1|
-            var sig = In.ar(busIndex, bus.numChannels);
-            var maxAmp = sig.asArray.collect(_.abs).reduce('max');
-            var isClipping = maxAmp >= 1.0;
-            var trig = isClipping > Delay1.ar(isClipping);
-            var debouncedTrig = trig * (1.0 - Delay1.ar(Trig1.ar(trig, 0.5)));
+		^super.new.init(server, bus, hash);
+	}
 
-            SendReply.ar(debouncedTrig, '/peak_sentinel_clip', [maxAmp, busIndex], replyID);
-        });
+	doOnServerTree { arg server;
+		if (synth.isNil.not) {
+			synth.free;
+		};
 
-        def.add;
-        server.sync;
-
-        if(isPlaying) {
-            synth = Synth.tail(server.defaultGroup, defName, [
-                \busIndex, bus.index,
-                \replyID, replyID
-            ]);
-        }
-    }
-
-    free {
-        isPlaying = false;
-        synth !? { synth.free; synth = nil; };
-        oscFunc !? { oscFunc.free; oscFunc = nil; };
-        ServerTree.remove(this, server);
-
-        // Remove from the dictionary so a new one can be created later if needed
-        allSentinels.removeAt(key);
-    }
+		synth = Synth.tail(
+			RootNode(server), // add to the end of all groups
+			synthDef.name,
+			[
+				\bus, monitoredBus,
+				\oscID, oscID,
+				\numChannels, monitoredBus.numChannels
+			]
+		);
+	}
 }

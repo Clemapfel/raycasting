@@ -222,6 +222,12 @@ love.load = function()
             { shaderstorage = true } -- declare as storage buffer
         )
 
+        local dummy = {}
+        for _ = 1, perInstanceDataBuffer:getElementCount() do table.insert(dummy, {}) end
+
+        local mesh = love.graphics.newMesh(perInstanceDataBuffer:getFormat(), {{}}, "triangles", "dynamic")
+        mesh:setVertices(love.graphics.readbackBuffer(perInstanceDataBuffer))
+
     elseif BUFFER_MODE == BUFFER_MODE_USE_TEXEL_BUFFER then
         perInstanceDataBuffer = love.graphics.newBuffer(
             perInstanceFormat,

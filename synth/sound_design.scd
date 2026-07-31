@@ -1,8 +1,8 @@
-var server = Server.default;
+ var server = Server.default;
 //var midi = MIDIInterface.new(server);
 var prefix = thisProcess.nowExecutingPath.dirname;
 var degrees = Scale.chromatic.degrees + 60;
-var peakSentinel = PeakSentinel.new(server, server.outputBus);
+var peakSentinel = PeakSentinel.new(server);
 
 /* ####### MAIN ####### */
 
@@ -10,38 +10,6 @@ server.volume.volume = 0;
 server.options.sampleRate = Renderer.sampleRate;
 
 server.waitForBoot({
-	var def =  SynthDef.new(\intentionalPeak, { arg out;
-		var signal = Ringz.ar(EnvGen.ar(Env.perc()));
-		Out.ar(out, signal.dup);
-		DetectSilence.ar(signal, doneAction: Done.freeSelf);
-	});
-
-	var recorder = Recorder.new(server);
-	recorder.recSampleFormat = "uint8";
-
-	server.sync;
-	fork {
-		def.play;
-		recorder.record;
-		1.wait;
-		recorder.stopRecording;
-	};
-
-	server.recHeaderFormat = Renderer.headerFormat;
-    server.recSampleFormat = Renderer.sampleFormat;
-    server.recChannels = Renderer.numChannels;
-	/*
-	// wipe export dir
-	PathName(Renderer.getExportDir()).entries.do({ |entry| File.delete(entry.fullPath); });
-
-	// export for each degree
-	degrees.do({ arg degree;
-		~degree = degree;
-		~bubble_pop.("bubble_pop_%.wav".format(Renderer.degreeToID(degree)));
-		~bubble_unpop.("bubble_unpop_&.wav", degrees);
-
-	});
-	*/
 
 
 	//~accelerator_surface_sparkle.("accelerator_surface_sparkle.wav");
