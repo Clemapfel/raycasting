@@ -6,7 +6,7 @@ ffi = require "ffi"
 local BUFFER_MODE_USE_VERTEX_BUFFER = "vertexbuffer"
 local BUFFER_MODE_USE_TEXEL_BUFFER = "texelbuffer"
 local BUFFER_MODE_USE_STORAGE_BUFFER = "storagebuffer"
-local BUFFER_MODE = BUFFER_MODE_USE_TEXEL_BUFFER
+local BUFFER_MODE = BUFFER_MODE_USE_STORAGE_BUFFER
 
 -- upload mode, decides whether to use lua tables, `ByteData` or ffi data to upload the instance data
 local DATA_MODE_USE_TABLES = "table"
@@ -31,7 +31,6 @@ local generateOffset, generateScale, generateHue -- see "internals" below
 local modifyOffset, modifyScale, modifyHue
 
 love.load = function()
-
     -- (x.0) declare vertex attribute format of draw mesh
     drawMeshFormat = {
         { -- instance mesh attribute #1: position
@@ -54,7 +53,6 @@ love.load = function()
     }
 
     -- (x.1) declare format of data buffer
-
     do
         if BUFFER_MODE == BUFFER_MODE_USE_VERTEX_BUFFER then
             -- if using mesh as a buffer, location needs to be appended to locations of drawMeshFormat
@@ -77,6 +75,7 @@ love.load = function()
                     format = "float"
                 }
             }
+
         elseif BUFFER_MODE == BUFFER_MODE_USE_STORAGE_BUFFER then
             -- if using storage buffer, locations start at 0
             perInstanceFormat = {
@@ -222,6 +221,7 @@ love.load = function()
             initialData,    -- initial buffer data
             { shaderstorage = true } -- declare as storage buffer
         )
+
     elseif BUFFER_MODE == BUFFER_MODE_USE_TEXEL_BUFFER then
         perInstanceDataBuffer = love.graphics.newBuffer(
             perInstanceFormat,
@@ -551,13 +551,15 @@ love.update = function()
             writeOffset = writeOffset + ffi.sizeof("float")
 
             offset = offset + stride
+
+            -- these casts have a performance impact, we should instead cast once outside the loop. Here they are
+            -- used inside the loop her for the sake of matching the `DATA_MODE_USE_BYTE_DATA` loop 1:1 for
+            -- pedagogic purposes only
         end
     end
-    
+
     -- update the per-instance data buffer
-    local before = love.timer.getTime()
     perInstanceDataBuffer:setArrayData(perInstanceData)
-    dbg((love.timer.getTime() - before))
 end
 
 -- ### INTERNALS ###
@@ -622,98 +624,3 @@ end
 modifyHue = function(instanceIndex, hue)
     return hue
 end
-
--- local instanceDataBuffer = love.graphics.newGraphicsBuffer(instanceDataFormat, nInstances)
-
---[[
-
-require "include"
-require "common.error_handler"
-require "build.config"
-require "common.game_state"
-require "common.scene_manager"
-require "common.music_manager"
-require "common.sound_manager"
-require "common.input_manager"
-require "common.routine"
-
-love.load = function(args)
-    local w, h = love.graphics.getDimensions()
-
-    require "common.texture_format"
-    local texture = rt.TextureScaleMode
-
-    local result_screen = 1
-    local overworld = 2
-    local keybinding = 3
-    local settings = 4
-    local menu = 5
-
-    for to_preallocate in range(
-        -- result_screen
-        --, overworld
-        --, keybinding
-        --, settings
-        --, menu
-    ) do
-        if to_preallocate == 1 then
-            require "overworld.result_screen_scene"
-            rt.SceneManager:preallocate(ow.ResultScreenScene)
-        elseif to_preallocate == 2 then
-            require "overworld.overworld_scene"
-            rt.SceneManager:preallocate(ow.OverworldScene)
-        elseif to_preallocate == 3 then
-            require "menu.keybinding_scene"
-            rt.SceneManager:preallocate(mn.KeybindingScene)
-        elseif to_preallocate == 4 then
-            require "menu.settings_scene"
-            rt.SceneManager:preallocate(mn.SettingsScene)
-        elseif to_preallocate == 5 then
-            require "menu.menu_scene"
-            rt.SceneManager:preallocate(mn.MenuScene)
-        end
-    end
-
-    require "overworld.overworld_scene"
-    --rt.SceneManager:push(ow.OverworldScene, "air_dash_node_tutorial", ow.StageEntryMode.INSTANT)
-
-    require "menu.keybinding_scene"
-    --rt.SceneManager:push(mn.KeybindingScene)
-
-    require "menu.settings_scene"
-    --rt.SceneManager:push(mn.SettingsScene)
-
-    require "menu.menu_scene"
-    rt.SceneManager:push(mn.MenuScene, true)
-
-
-    rt.SceneManager:set_is_cursor_visible(true)
-
-end
-
-love.update = function(delta)
-    if rt.SceneManager ~= nil then
-        debugger.push("update")
-        rt.SceneManager:update(delta)
-        debugger.pop("update")
-    end
-
-    if love.keyboard.isDown("m") then
-        love.keypressed("space", "space")
-    end
-end
-
-love.draw = function()
-    love.graphics.clear(0.5, 0.5, 0.5, 1)
-
-    if rt.SceneManager ~= nil then
-        rt.SceneManager:draw()
-    end
-end
-
-love.resize = function(width, height)
-    if rt.SceneManager ~= nil then
-        rt.SceneManager:resize()
-    end
-end
-]]

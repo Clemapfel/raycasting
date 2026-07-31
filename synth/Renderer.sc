@@ -2,6 +2,7 @@ Renderer {
     classvar <headerFormat = "WAV";
     classvar <sampleFormat = "int16";
     classvar <sampleRate = 48000;
+	classvar <numChannels = 2;
     classvar <serverOptions;
     classvar <>exportPrefix = "export";
 
@@ -14,10 +15,8 @@ Renderer {
     initClass {
         serverOptions = ServerOptions.new;
         serverOptions.sampleRate = sampleRate;
-        serverOptions.numOutputBusChannels = 1;
-        serverOptions.numInputBusChannels = 1;
         serverOptions.memSize = 8192;
-        serverOptions.verbosity = -1;
+        serverOptions.verbosity = 0;
     }
 
 	*pr_assert { arg got, expected, scope, argIndex, optional = false;
@@ -65,7 +64,10 @@ Renderer {
         File.use(synthdefPath, "wb", { arg f; f.write(synthdef.asBytes) });
 
         // make sure pattern allocates s_new ids manually
-        pattern = Pbindf(pattern, \id, Pseries(1000, 1));
+        pattern = Pbindf(pattern,
+			\id, Pseries(1000, 1),
+			\instrument, synthdef.name
+		);
 
         // Generate the score bounded by the duration limit
         score = this.patternToScore(pattern, duration);
@@ -104,6 +106,120 @@ Renderer {
             }
         );
     }
+
+	*record { arg server, synthdef, pattern, filename, doneAction;
+        var export_dir, out_file;
+		var group, bus, recorder, bootCondition;
+		var startListener, endListener;
+		var synthSet, patternDone, recordCondition;
+
+		Renderer.pr_assert(server, Server, "record", 1);
+		Renderer.pr_assert(synthdef, SynthDef, "record", 2);
+        Renderer.pr_assert(pattern, Pattern, "record", 3);
+		Renderer.pr_assert(filename, String, "record", 4);
+		Renderer.pr_assert(doneAction, Function, "record", 5, optional: true);
+
+        if (filename.endsWith(".wav").not) {
+            Error("In Renderer.record: when recording `%`: for argument #4: expected string of the form `<filename>.wav`, got `%`".format(filename, filename)).throw;
+        };
+
+		export_dir = Renderer.getExportDir();
+        if (File.exists(export_dir).not) { File.mkdir(export_dir) };
+
+        out_file = export_dir +/+ filename;
+
+		fork {
+			// allocate custom bus for this recording
+			bus = Bus.audio(server, Renderer.numChannels);
+
+			// init recorder
+			recorder = Recorder(server);
+			recorder.recHeaderFormat = Renderer.headerFormat;
+			recorder.recSampleFormat = Renderer.sampleFormat;
+
+			// allocate group on server if not yet present
+			group = server.defaultGroupID;// server.nextNodeID;
+			server.sendMsg('/g_new', group, Node.addActions[\addToTail], 0);
+
+			// overwrite the patterns synth, group, and instrument
+			pattern = Pbindf(pattern, *[
+				out: bus,
+				group: group
+			]);
+
+			synthSet = IdentitySet.new;
+			patternDone = false;
+			recordCondition = Condition.new;
+
+			server.queryAllNodes;
+
+			// append a function to the pattern that notifies recorder and condition
+			pattern = Pseq([
+				Pfuncn({
+					recorder.record(out_file, bus, Renderer.numChannels);
+					(type: \rest, dur: 0);
+				}, 1),
+
+				pattern,
+
+				Pfuncn({
+					patternDone = true;
+					recordCondition.test = patternDone && synthSet.size == 0;
+					recordCondition.signal;
+					(type: \rest, dur: 0);
+				}, 1),
+			]);
+
+			// register listeners
+			startListener = OSCdef.new(\start_listener, { arg msg, time, addr, recvPort;
+				case
+				{ msg[1] == group } {
+					// group start
+				}
+				{ msg[2] == group } {
+					// synth in group start: add to set
+					synthSet.add(msg[1]);
+					recordCondition.test = patternDone && synthSet.size == 0
+				};
+			}, '/n_go');
+
+			endListener = OSCdef.new(\end_listener, { arg msg, time, addr, recvPort;
+				case
+				{ msg[1] == group } {
+					// group end
+				}
+				{ msg[2] == group } {
+					// synth end: remove from set
+					synthSet.remove(msg[1]);
+
+					// update condition
+					recordCondition.test = patternDone && synthSet.size == 0;
+					recordCondition.signal;
+				};
+			}, '/n_end');
+
+			// start recording
+			pattern.play;
+
+			// wait for pattern to be done
+			recordCondition.hang;
+
+			// exit
+			recorder.stopRecording;
+			if (File.exists(out_file)) {
+				"In Renderer.record: Wrote file to `%`".format(out_file).postln;
+			} {
+				"In Renderer.record: Failed to write file to `%`".format(out_file).postln;
+			};
+
+			// unregister listeners
+			startListener.free;
+		    endListener.free;
+
+			// free synths
+			server.sendMsg('/g_deepFree', group);
+		} // fork
+	}
 
 	*getExportDir {
 		var export_dir;

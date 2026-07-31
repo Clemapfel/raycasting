@@ -1,13 +1,35 @@
 var server = Server.default;
-var volume = Volume.new(server);
 //var midi = MIDIInterface.new(server);
 var prefix = thisProcess.nowExecutingPath.dirname;
 var degrees = Scale.chromatic.degrees + 60;
+var peakSentinel = PeakSentinel.new(server, server.outputBus);
 
 /* ####### MAIN ####### */
 
-volume.volume = -30 ; // db offset
+server.volume.volume = 0;
+server.options.sampleRate = Renderer.sampleRate;
+
 server.waitForBoot({
+	var def =  SynthDef.new(\intentionalPeak, { arg out;
+		var signal = Ringz.ar(EnvGen.ar(Env.perc()));
+		Out.ar(out, signal.dup);
+		DetectSilence.ar(signal, doneAction: Done.freeSelf);
+	});
+
+	var recorder = Recorder.new(server);
+	recorder.recSampleFormat = "uint8";
+
+	server.sync;
+	fork {
+		def.play;
+		recorder.record;
+		1.wait;
+		recorder.stopRecording;
+	};
+
+	server.recHeaderFormat = Renderer.headerFormat;
+    server.recSampleFormat = Renderer.sampleFormat;
+    server.recChannels = Renderer.numChannels;
 	/*
 	// wipe export dir
 	PathName(Renderer.getExportDir()).entries.do({ |entry| File.delete(entry.fullPath); });
@@ -21,7 +43,8 @@ server.waitForBoot({
 	});
 	*/
 
- ~air_dash_node_dash.("fireworks.wav");
+
+	//~accelerator_surface_sparkle.("accelerator_surface_sparkle.wav");
 
 	CmdPeriod.doOnce({
 		server.freeAll;
@@ -88,7 +111,6 @@ server.waitForBoot({
 
 // overworld.bubble.pop
 ~bubble_pop = { arg filename, degree = 60;
-
 	 var def = SynthDef(\bubble_pop, { arg out = 0, amp = 1, base_start, base_end, above_start, above_end, sweep_duration;
 		var attack = 0.05;
 		var env = Env.perc(
@@ -360,10 +382,8 @@ server.waitForBoot({
 // fireworks
 ~fireworks = { arg filename, degree;
 	// reference: https://www.youtube.com/watch?v=zbu-fVXP5nI
-
 	var initSize = 1200;
 	var def = SynthDef(\fireworks, { arg out, pitch = 440, amp = 1, shouldCrackle = 1, shouldRumble = 1;
-
 		// initial snap
 		var snapEnv = EnvGen.ar(Env.perc(0.01, 0.3));
 		var snapTrig = WhiteNoise.ar(1);
@@ -462,11 +482,37 @@ server.waitForBoot({
 		def,
 		pattern,
 		duration: 3, // seconds
-		filename: "fireworks.wav"
+		filename: filename
 	);
 
 	server.sync;
 	pattern.play;
+};
+
+~accelerator_surface_sparkle = { arg filename, degree;
+	var def = SynthDef(\accelerator_surface_sparkle, { arg out, degree;
+		var signal = Ringz.ar(EnvGen.ar(Env.perc()), freq: degree.midicps, decaytime: 2);
+		Out.ar(out, signal.dup);
+		DoneSentinel.ar(signal);
+	}).add;
+
+	var bus = Bus.new(\audio, index: 0);
+	var pattern = Pbind(*[
+		out: bus,
+		instrument: def.name,
+		degree: Pseq([60 /*, 61, 62 */], 1)
+	]);
+
+
+	pattern.play;
+
+	/*
+	Renderer.record(server,
+		def,
+		pattern,
+		filename
+	);
+	*/
 };
 
 Date.getDate; // console output on execution
