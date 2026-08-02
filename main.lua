@@ -228,6 +228,8 @@ love.load = function()
         local mesh = love.graphics.newMesh(perInstanceDataBuffer:getFormat(), {{}}, "triangles", "dynamic")
         mesh:setVertices(love.graphics.readbackBuffer(perInstanceDataBuffer))
 
+        local test = love.graphics.readbackBufferAsync(perInstanceDataBuffer)
+
     elseif BUFFER_MODE == BUFFER_MODE_USE_TEXEL_BUFFER then
         perInstanceDataBuffer = love.graphics.newBuffer(
             perInstanceFormat,

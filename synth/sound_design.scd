@@ -1,5 +1,5 @@
- var server = Server.default;
-//var midi = MIDIInterface.new(server);
+var server = Server.default;
+var midi = MIDIInterface.new(server);
 var prefix = thisProcess.nowExecutingPath.dirname;
 var degrees = Scale.chromatic.degrees + 60;
 var peakSentinel = PeakSentinel.new(server);
@@ -12,10 +12,10 @@ server.options.sampleRate = Renderer.sampleRate;
 server.waitForBoot({
 
 
-	//~accelerator_surface_sparkle.("accelerator_surface_sparkle.wav");
+	~accelerator_surface_sparkle.("accelerator_surface_sparkle.wav");
 
 	CmdPeriod.doOnce({
-		server.freeAll;
+		server.defaultGroup.deepFree;
 	})
 });
 
@@ -458,29 +458,136 @@ server.waitForBoot({
 };
 
 ~accelerator_surface_sparkle = { arg filename, degree;
-	var def = SynthDef(\accelerator_surface_sparkle, { arg out, degree;
-		var signal = Ringz.ar(EnvGen.ar(Env.perc()), freq: degree.midicps, decaytime: 2);
-		Out.ar(out, signal.dup);
-		DoneSentinel.ar(signal);
+	var scale = Scale.new(#[1, 5, 8, 11, 13]);
+	var frequencies = 4.collect({ |x| 4 * (1 + x) });
+	var phases = Array.series(frequencies.size, 0, (2 * pi) / frequencies.size);
+	var ratios = frequencies.collect({ |f| 1 / f; });
+
+	// bus that all voices write their dry signal to
+	var reverbBus = Bus.audio(Server.default, 2);
+
+	// group ordering so voices execute before the reverb synth
+	var voiceGroup = Group.new;
+	var reverbGroup = Group.after(voiceGroup);
+
+	var voiceDef = SynthDef(\accelerator_sparkle, { arg out,
+		degree = 60,
+		dur = 1.0,
+		overlap = 0,
+		amp = 1,
+		phase = 0
+	;
+		var baseAttack = 0.01;
+		var voice = DynKlang.ar(`[
+			frequencies,
+			ratios,
+			phases + phase
+		],
+		//input: Impulse.ar(0),
+		freqscale: Vibrato.ar(
+			DC.ar(degree.midiratio),
+			rate: 6,
+			depth: EnvGen.kr(Env.new([1.0, 1.02], [0.1], \exp)) - 1
+		));
+
+		var base = voice * EnvGen.ar(Env.new(
+			[0, 1, 0],
+			[baseAttack, ((1 + overlap) * dur) - baseAttack]
+		), doneAction: 2);
+
+		Out.ar(out, (amp * base).dup);
+		DoneSentinel.ar(base);
 	}).add;
 
-	var bus = Bus.new(\audio, index: 0);
-	var pattern = Pbind(*[
-		out: bus,
-		instrument: def.name,
-		degree: Pseq([60 /*, 61, 62 */], 1)
+	var reverbDef = SynthDef(\accelerator_sparkle_reverb, { arg out, in;
+		var dry = In.ar(in, 2);
+		var wet = FreeVerb.ar(dry, mix: 0.25, room: 0.3);
+		Out.ar(out, wet);
+		ReplaceOut.ar(in, Silent.ar(2));
+		DoneSentinel.ar(wet);
+	}).add;
+
+	var degrees = scale.degrees;
+	var numOctaves = 2;
+	var root = 60 + (4 * 12);
+	var seq = [];
+	var pattern;
+
+	server.sync;
+
+	(root + [8]).do { |root|
+	    numOctaves.do { |octave|
+		    degrees.do { |degree|
+			    seq = seq ++ (root + degree + (12 * octave));
+		     };
+		     seq = seq ++ Rest(1);
+		};
+	};
+
+	seq = seq ++ Rest(1);
+
+	Synth(reverbDef.name, [\in, reverbBus, \out, 0], reverbGroup);
+
+	pattern = Pbind(*[
+		group: voiceGroup,
+		instrument: voiceDef.name,
+		degree: Pseq(seq),
+		phase: Pseries(0, (2 * pi) / (degrees.size * numOctaves)),
+		overlap: 0,
+		tempo: 50,
+		out: reverbBus,
 	]);
 
-
 	pattern.play;
+};
 
-	/*
-	Renderer.record(server,
-		def,
-		pattern,
-		filename
-	);
-	*/
+~polyphonic_synth = { arg filename, degree;
+	var def = SynthDef(\polyphonic_synth, { arg out, degree = 60, velocity = 1, on = 1, attack = 0.04, decay = 0.3, phase;
+		var env, signal;
+
+		env = EnvGen.kr(
+			Env.asr(attack, 1, decay),
+			gate: on,
+		);
+
+		signal = velocity * SinOsc.ar(degree.midicps) * env;
+		Out.ar(out, signal.dup);
+	}).add;
+
+	var velocitySpec = ControlSpec(0, 127, \lin);
+	var noteToSynth = Dictionary.new;
+	var getSynth = { arg degree;
+		var synth;
+		if (noteToSynth.at(degree).isNil) {
+			synth = Synth(def.name, [
+				\degree, degree,
+				\velocity, 1,
+				\amp, 1,
+				\on, 1
+			]);
+
+			synth.onFree({
+				noteToSynth.removeAt(degree);
+			});
+
+			noteToSynth.put(degree, synth);
+		} {
+			synth = noteToSynth.at(degree);
+		};
+
+		synth;
+	};
+
+	var onFunc = MIDIdef.noteOn(\sparkleMidiOn, {  arg velocity, degree;
+		var synth = getSynth.(degree);
+		synth.set("on", 1);
+		synth.set("velocity", velocitySpec.unmap(velocity));
+	});
+
+	var offFunc = MIDIdef.noteOff(\sparkleMidiOf, { arg velocity, degree;
+		var synth = getSynth.(degree);
+		synth.set("on", 0);
+	});
 };
 
 Date.getDate; // console output on execution
