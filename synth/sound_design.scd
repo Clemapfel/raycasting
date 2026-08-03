@@ -10,9 +10,7 @@ server.volume.volume = 0;
 server.options.sampleRate = Renderer.sampleRate;
 
 server.waitForBoot({
-
-
-	~accelerator_surface_sparkle.("accelerator_surface_sparkle.wav");
+	~dialog_box_confirm.();
 
 	CmdPeriod.doOnce({
 		server.defaultGroup.deepFree;
@@ -466,10 +464,6 @@ server.waitForBoot({
 	// bus that all voices write their dry signal to
 	var reverbBus = Bus.audio(Server.default, 2);
 
-	// group ordering so voices execute before the reverb synth
-	var voiceGroup = Group.new;
-	var reverbGroup = Group.after(voiceGroup);
-
 	var voiceDef = SynthDef(\accelerator_sparkle, { arg out,
 		degree = 60,
 		dur = 1.0,
@@ -507,6 +501,9 @@ server.waitForBoot({
 		DoneSentinel.ar(wet);
 	}).add;
 
+	var voiceGroup = Group.new;
+	var reverbGroup = Group.after(voiceGroup);
+
 	var degrees = scale.degrees;
 	var numOctaves = 2;
 	var root = 60 + (4 * 12);
@@ -538,7 +535,7 @@ server.waitForBoot({
 		out: reverbBus,
 	]);
 
-	pattern.play;
+	Renderer.record(server, pattern, filename);
 };
 
 ~polyphonic_synth = { arg filename, degree;
@@ -552,6 +549,7 @@ server.waitForBoot({
 
 		signal = velocity * SinOsc.ar(degree.midicps) * env;
 		Out.ar(out, signal.dup);
+		DetectSilence.ar(signal, doneAction: Done.freeSelf);
 	}).add;
 
 	var velocitySpec = ControlSpec(0, 127, \lin);
@@ -584,10 +582,82 @@ server.waitForBoot({
 		synth.set("velocity", velocitySpec.unmap(velocity));
 	});
 
-	var offFunc = MIDIdef.noteOff(\sparkleMidiOf, { arg velocity, degree;
+	var offFunc = MIDIdef.noteOff(\sparkleMidiOff, { arg velocity, degree;
 		var synth = getSynth.(degree);
 		synth.set("on", 0);
 	});
+};
+
+// player.on_hitbox, player.bubble.on_hitbox_bounce
+~player_on_hitbox = { arg filename, degree = 60;
+	var def = SynthDef.new(\player_on_hitbox, { arg out, degree, amp, dur, useBounce = 1;
+		var trigDur = (0.3 + useBounce.linlin(0, 1, 0, 0.2)) * dur;
+		var trigAttack = 0.01;
+
+		var pitchEnvAttack = 0.005;
+		var pitchRoot = (degree - 20 + (6 * useBounce)).midicps;
+		var pitchEnv = EnvGen.ar(Env.new(
+			pitchRoot * [4, 1, 0.7], [pitchEnvAttack, trigDur - pitchEnvAttack], [\exp, \exp]
+		));
+
+		var body = SinOsc.ar(Vibrato.ar(pitchEnv, rate: 6, depth: useBounce.linlin(0, 1, 0.1, 0.2))) * EnvGen.ar(Env.perc(trigAttack, trigDur, curve: -8));
+		var click = LPF.ar(BrownNoise.ar, 800) * EnvGen.ar(Env.perc(0.001, 0.03));
+		var voice = Mix.ar([body, click], [1, 0.1].normalizeSum);
+
+		var bounce = voice * EnvGen.ar(Env.new(
+			[0, 1, 1], [trigAttack * 2, trigDur], [\welch, \hold]
+		));
+
+		var dry = bounce;
+		var wet = NHHall.ar(bounce.dup, rt60: 0.1)[0];
+		var mix = 0.11;
+		var signal = HPF.ar(LinXFade2.ar(dry, wet, mix.range(-1, 1)),
+			freq: useBounce.linlin(0, 1, 135, 210)
+		).dup;
+		Out.ar(out, signal.dup);
+
+		DoneSentinel.ar(signal);
+	}).add;
+
+	var pattern = Pbind(*[
+		instrument: def.name,
+		degree: Pseq(degree + [0, 1, 2, 3, 4, 5], 1),
+		dur: 1
+	]);
+
+	var yesBubblePattern = Pbindf(pattern, \useBounce, 1);
+	var noBubblePattern = Pbindf(pattern, \useBounce, 0);
+
+	yesBubblePattern.play;
+};
+
+
+~dialog_box_confirm = { arg filename, degree;
+	var def = SynthDef.new(\portamento, {
+		arg out, freq, gate = 1, amp, dur;
+
+		var noteDuration = dur;
+
+		var attackTime = 0.04;
+		var decayTime = 0.1;
+		var releaseTime = noteDuration - attackTime - decayTime;
+
+		var voice = SinOsc.ar(Lag.ar(freq)) * EnvGen.ar(
+			Env.adsr(attackTime, decayTime, 1, releaseTime),
+			doneAction: Done.freeSelf,
+			gate: gate
+		);
+
+		var signal = (voice * amp).dup;
+		Out.ar(out, signal);
+	}, [ nil, \ar ] // freq is audio-rate for Lag
+	).add;
+
+	var pattern = PmonoArtic(def.name, *[
+		degree: Pn(Pseq([0, 7, 13, 9, 6, 2, 1]))
+	]);
+
+	pattern.play;
 };
 
 Date.getDate; // console output on execution

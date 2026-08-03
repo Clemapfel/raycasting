@@ -107,17 +107,16 @@ Renderer {
         );
     }
 
-	*record { arg server, synthdef, pattern, filename, doneAction;
+	*record { arg server, pattern, filename, doneAction;
         var export_dir, out_file;
 		var group, bus, recorder, bootCondition;
 		var startListener, endListener;
 		var synthSet, patternDone, recordCondition;
 
 		Renderer.pr_assert(server, Server, "record", 1);
-		Renderer.pr_assert(synthdef, SynthDef, "record", 2);
-        Renderer.pr_assert(pattern, Pattern, "record", 3);
-		Renderer.pr_assert(filename, String, "record", 4);
-		Renderer.pr_assert(doneAction, Function, "record", 5, optional: true);
+        Renderer.pr_assert(pattern, Pattern, "record", 2);
+		Renderer.pr_assert(filename, String, "record", 3);
+		Renderer.pr_assert(doneAction, Function, "record", 4, optional: true);
 
         if (filename.endsWith(".wav").not) {
             Error("In Renderer.record: when recording `%`: for argument #4: expected string of the form `<filename>.wav`, got `%`".format(filename, filename)).throw;
@@ -155,7 +154,9 @@ Renderer {
 
 			// append a function to the pattern that notifies recorder and condition
 			pattern = Pseq([
-				Pfuncn({
+				Pfuncn({ |env|
+					if (env[\instrument].isNil) { "In Renderer.record: pattern does not have the `instrument` key set, it will target the default synth.".warn; };
+
 					recorder.record(out_file, bus, Renderer.numChannels);
 					(type: \rest, dur: 0);
 				}, 1),

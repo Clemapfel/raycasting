@@ -16,9 +16,10 @@ PeakSentinel {
 				var signal = In.ar(bus, numChannels);
 
 				// send an OSC message anytime a new all-time peaked is encountered
+				var reduced = signal.reduce('max').abs;
 				var runningMax = RunningMax.ar(
-					signal.reduce('max').abs,
-					0 // never resets
+					reduced,
+					DetectSilence.ar(reduced)
 				);
 				var newPeak = (HPZ1.ar(runningMax) > 0) * (runningMax >= 1.0);
 
