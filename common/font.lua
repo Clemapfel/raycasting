@@ -159,7 +159,7 @@ end
 
 --- @brief
 function rt.Font:get_actual_size(size)
-    meta.assert_enum_value(size, rt.FontSize, 1)
+    meta.assert(size, rt.FontSize)
     return math.max(math.ceil(size * rt.SceneManager:get_height()), 14 / rt.SceneManager:get_downscaling_factor())
 end
 

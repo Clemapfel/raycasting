@@ -276,7 +276,6 @@ end
 function ow.DeformableMesh:step(delta, outer_x, outer_y, outer_r)
     meta.assert(delta, mt.Number, outer_x, mt.Number, outer_y, mt.Number, outer_r, mt.Number)
 
-    require "common.debugger"
     local settings = rt.settings.overworld.deformable_mesh
     local elasticity = settings.elasticity
     local smoothing_strength = settings.smoothing_strength

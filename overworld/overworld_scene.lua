@@ -1060,13 +1060,13 @@ do
 
     --- @brief
     function ow.OverworldScene:push_camera_mode(mode)
-        meta.assert_enum_value(mode, ow.CameraMode)
+        meta.assert(mode, ow.CameraMode)
         self._camera_modes[mode] = self._camera_modes[mode] + 1
     end
 
     --- @brief
     function ow.OverworldScene:pop_camera_mode(mode)
-        meta.assert_enum_value(mode, ow.CameraMode)
+        meta.assert(mode, ow.CameraMode)
         self._camera_modes[mode] = math.max(0, self._camera_modes[mode] - 1)
     end
 

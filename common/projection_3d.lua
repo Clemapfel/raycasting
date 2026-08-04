@@ -72,7 +72,7 @@ end
 
 --- @brief
 function rt.Projection3D:set_projection_type(type)
-    meta.assert_enum_value(type, rt.ProjectionType)
+    meta.assert(type, rt.ProjectionType)
     self._projection_type = type
     if self._is_bound then self:_bind_transforms() end
 end

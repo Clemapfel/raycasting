@@ -47,7 +47,7 @@ function ow.Wall:instantiate(object, stage, scene)
 
     local pattern = object:get_string("type") or ow.WallPatternType.FLAT
     self._pattern = string.upper(pattern)
-    meta.assert_enum_value(self._pattern, ow.WallPatternType)
+    meta.assert(self._pattern, ow.WallPatternType)
 
     self._shader = _pattern_to_shader[self._pattern]
 

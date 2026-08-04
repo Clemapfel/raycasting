@@ -256,7 +256,7 @@ end
 
 --- @brief
 function rt.InputManager:get_mouse_is_down(button)
-    meta.assert_enum_value(button, rt.MouseButton, 1)
+    meta.assert(button, rt.MouseButton)
     return love.mouse.isDown(button)
 end
 

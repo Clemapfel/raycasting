@@ -36,7 +36,7 @@ meta.add_signal(mn.MessageDialog,
 --- @signal selection (mn.MessageDialog, Unsigned) -> nil
 function mn.MessageDialog:instantiate(message, submessage, option1, ...)
     meta.assert(message, mt.String, submessage, mt.String)
-    meta.assert_enum_value(option1, mn.MessageDialogOption, 3)
+    meta.assert_argument_type(option1, mn.MessageDialogOption, 3)
 
     local default_option = 1
     local options = { option1, ... }
@@ -74,7 +74,7 @@ function mn.MessageDialog:instantiate(message, submessage, option1, ...)
 
     self._n_buttons = 0
     for i, option in ipairs(self._options) do
-        meta.assert_enum_value(option, mn.MessageDialogOption)
+        meta.assert_argument_type(option, mn.MessageDialogOption, 2 + i)
         if option == mn.MessageDialogOption.CANCEL then
             self._selected_item_i = i
         end
@@ -120,10 +120,10 @@ function mn.MessageDialog:size_allocate(x, y, width, height)
     local button_margin = m
     local button_label_margin = m
 
-    self._message_label:reformat(0, 0, math.huge, math.huge)
+    self._message_label:reformat(0, 0, width)
     local message_w, message_h = self._message_label:measure()
 
-    self._submessage_label:reformat(0, 0, math.huge, math.huge)
+    self._submessage_label:reformat(0, 0, width)
     local submessage_w, submessage_h = self._submessage_label:measure()
 
     local button_w = 0
@@ -142,11 +142,11 @@ function mn.MessageDialog:size_allocate(x, y, width, height)
     local start_x, start_y = outer_xm, outer_ym
     local current_x, current_y = start_x, start_y
 
-    self._message_label:reformat(current_x, current_y, button_w, math.huge)
+    self._message_label:reformat(current_x, current_y, button_w)
     current_y = current_y + select(2, self._message_label:measure())
     current_y = current_y + m
 
-    self._submessage_label:reformat(current_x, current_y, button_w, math.huge)
+    self._submessage_label:reformat(current_x, current_y, button_w)
     current_y = current_y + select(2, self._submessage_label:measure())
     current_y = current_y + 2 * m
 
@@ -315,7 +315,7 @@ end
 
 --- @brief
 function mn.MessageDialog:set_default_option(option)
-    meta.assert_enum_value(option, mn.MessageDialogOption, 1)
+    meta.assert(option, mn.MessageDialogOption)
 
     for i, other in ipairs(self._options) do
         if option == other then

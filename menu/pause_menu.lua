@@ -207,7 +207,7 @@ function mn.PauseMenu:size_allocate(x, y, width, height)
         )
 
         for label in range(element.selected_label, element.unselected_label) do
-            label:reformat(element.x, element.y, math.huge, element.height)
+            label:reformat(element.x, element.y, width, element.height)
         end
         element.node:set_bounds(element.frame:get_bounds())
 

@@ -1,5 +1,7 @@
 require "common.common"
 
+if _G._NOOP == nil then _G._NOOP = function(...) end end
+
 if meta == nil then meta = {} end
 if mt == nil then mt = meta end
 
@@ -389,7 +391,7 @@ do
         return is_valid, error
     end
 
-    if DEBUG then
+    if false then
         --- @brief
         function meta.assert(...)
             local argument_i = 1
@@ -419,20 +421,9 @@ do
         end
     else
         -- optimize to noop in release mode
-        function meta.assert() end
-        function meta.assert_argument_type() end
+        meta.assert = _G._NOOP
+        meta.assert_argument_type = _G._NOOP
     end
-end
-
---- @brief
-function meta.assert_enum_value(x, enum, argument_i)
-    meta.assert(x, mt.Any, enum, mt.Enum, argument_i, mt.Optional(mt.Number))
-
-    local prefix = ""
-    if argument_i ~= nil then
-        prefix = "For argument #" .. argument_i .. ": "
-    end
-    rt.assert(meta.is_enum_value(x, enum), prefix, "expected value of enum `", _type_to_typename[enum], "`, got `", tostring(x), "`")
 end
 
 -- global signal to disconnect signal after emission

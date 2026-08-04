@@ -85,7 +85,7 @@ end
 
 --- @brief
 function rt.GameState:set_vsync_mode(mode)
-    meta.assert_enum_value(mode, rt.VSyncMode, 1)
+    meta.assert(mode, rt.VSyncMode)
     bd.get_config().vsync = mode
     love.window.setVSync(rt.graphics.vsync_mode_to_native(mode))
 end
@@ -97,7 +97,7 @@ end
 
 --- @brief
 function rt.GameState:set_msaa_quality(msaa)
-    meta.assert_enum_value(msaa, rt.MSAAQuality, 1)
+    meta.assert(msaa, rt.MSAAQuality)
     msaa = rt.graphics.msaa_quality_to_native(msaa)
     
     local config = bd.get_config()
@@ -262,7 +262,7 @@ end
 
 --- @brief
 function rt.GameState:set_player_sprint_mode(mode)
-    meta.assert_enum_value(mode, rt.PlayerSprintMode, 1)
+    meta.assert(mode, rt.PlayerSprintMode)
     bd.get_config().player_sprint_mode = mode
 end
 
@@ -511,7 +511,7 @@ end
 
 --- @brief
 function rt.GameState:get_input_binding(input_action, method)
-    meta.assert_enum_value(input_action, rt.InputAction, 1)
+    meta.assert(input_action, rt.InputAction)
     local keyboard_entry = self._input_action_to_keyboard_key[input_action]
     local controller_entry = self._input_action_to_controller_button[input_action]
 
@@ -539,7 +539,7 @@ function rt.GameState:get_input_binding(input_action, method)
 
         return keyboard, controller
     else
-        meta.assert_enum_value(method, rt.InputMethod, 2) -- always throws
+        meta.assert_argument_type(method, rt.InputMethod, 2) -- always throws
     end
 end
 
@@ -555,13 +555,13 @@ function rt.GameState:get_has_input_binding(input_action, method)
     elseif method == nil then
         return keyboard_entry ~= nil, controller_entry ~= nil
     else
-        meta.assert_enum_value(method, rt.InputMethod, 2) -- always throws
+        meta.assert_argument_type(method, rt.InputMethod, 2) -- always throws
     end
 end
 
 --- @brief
 function rt.GameState:get_reverse_input_binding(native, method)
-    meta.assert_enum_value(method, rt.InputMethod)
+    meta.assert(method, rt.InputMethod)
     if method == rt.InputMethod.KEYBOARD then
         return self._keyboard_key_to_input_action[native]
     elseif method == rt.InputMethod.CONTROLLER then
@@ -584,17 +584,17 @@ function rt.GameState:set_input_binding(input_action_to_keyboard_key, input_acti
 
     for action, entry in pairs(input_action_to_keyboard_key) do
         if not meta.is_table(entry) then entry = { entry } end
-        meta.assert_enum_value(action, rt.InputAction)
+        meta.assert(action, rt.InputAction)
         for key in values(entry) do
-            meta.assert_enum_value(key, rt.KeyboardKey)
+            meta.assert(key, rt.KeyboardKey)
         end
     end
 
     for action, entry in pairs(input_action_to_controller_button) do
         if not meta.is_table(entry) then entry = { entry } end
-        meta.assert_enum_value(action, rt.InputAction)
+        meta.assert(action, rt.InputAction)
         for button in values(entry) do
-            meta.assert_enum_value(button, rt.ControllerButton)
+            meta.assert(button, rt.ControllerButton)
         end
     end
 

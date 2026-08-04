@@ -496,7 +496,7 @@ server.waitForBoot({
 	var reverbDef = SynthDef(\accelerator_sparkle_reverb, { arg out, in;
 		var dry = In.ar(in, 2);
 		var wet = FreeVerb.ar(dry, mix: 0.25, room: 0.3);
-		Out.ar(out, wet);
+		Out.ar(out, wet.distort.clip);
 		ReplaceOut.ar(in, Silent.ar(2));
 		DoneSentinel.ar(wet);
 	}).add;
@@ -523,6 +523,9 @@ server.waitForBoot({
 
 	seq = seq ++ Rest(1);
 
+	// we need to use a synth instead of `Pfx` because the
+	// effect takes longer than the pattern. Pfx frees the fx when the
+	// pattern finishes, not when the patterns emitted sounds are done
 	Synth(reverbDef.name, [\in, reverbBus, \out, 0], reverbGroup);
 
 	pattern = Pbind(*[
@@ -535,7 +538,9 @@ server.waitForBoot({
 		out: reverbBus,
 	]);
 
-	Renderer.record(server, pattern, filename);
+	pattern.play;
+
+	//Renderer.record(server, pattern, filename);
 };
 
 ~polyphonic_synth = { arg filename, degree;
@@ -633,10 +638,11 @@ server.waitForBoot({
 
 
 ~dialog_box_confirm = { arg filename, degree;
-	var def = SynthDef.new(\portamento, {
-		arg out, freq, gate = 1, amp, dur;
 
-		var noteDuration = dur;
+	var def = SynthDef.new(\portamento, {
+		arg out, freq, sustain, gate = 1, amp = 1;
+
+		var noteDuration = sustain;
 
 		var attackTime = 0.04;
 		var decayTime = 0.1;
@@ -650,11 +656,16 @@ server.waitForBoot({
 
 		var signal = (voice * amp).dup;
 		Out.ar(out, signal);
-	}, [ nil, \ar ] // freq is audio-rate for Lag
+	}, [ nil, \ar, \kr] // freq is audio-rate for Lag
 	).add;
 
+	var step = 0.01;
+	var degrees = [0, 7, 5, 3, 1, 9, 13, 11];
 	var pattern = PmonoArtic(def.name, *[
-		degree: Pn(Pseq([0, 7, 13, 9, 6, 2, 1]))
+		degree: Pn(Pseq(degrees), inf),
+		octave: 4 + Pdup(degrees.size, Pseq([0, 1, 2], 3)),
+		sustain: Pseries(0.5, 0.02, 1.0 / step),
+		tempo: 12
 	]);
 
 	pattern.play;

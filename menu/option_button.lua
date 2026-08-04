@@ -116,7 +116,7 @@ function mn.OptionButton:size_allocate(x, y, width, height)
     local current_x = label_start_x
     for item in values(self._items) do
         local w, h = item.label:measure()
-        item.label:reformat(current_x, label_y, tile_w, math.huge)
+        item.label:reformat(current_x, label_y, tile_w)
         item.offset = current_x - label_start_x
         current_x = current_x + tile_w + padding
     end

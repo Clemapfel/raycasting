@@ -192,7 +192,7 @@ function rt.Label._glyph_new(
         outline_glyph = love.graphics.newTextBatch(font_sdf_native, text)
     end
 
-    meta.assert_enum_value(emotion, rt.AnimaleseEmotion)
+    meta.assert_argument_type(emotion, rt.AnimaleseEmotion, 19)
 
     local out = {
         text = text, -- necessary for beat weights
@@ -246,7 +246,7 @@ end
 
 --- @brief
 function rt.Label:set_font_size(font_size)
-    meta.assert_enum_value(font_size, rt.FontSize)
+    meta.assert(font_size, rt.FontSize)
     self._font_size = font_size
     if self:get_is_realized() then
         self:reformat()

@@ -869,11 +869,11 @@ function rt.Animalese:queue(phonemes, gender, emotion)
     if not meta.is_table(phonemes) then phonemes = { phonemes } end
 
     for phoneme in values(phonemes) do
-        meta.assert_enum_value(phoneme, rt.AnimalesePhoneme, 1)
+        meta.assert_argument_type(phoneme, rt.AnimalesePhoneme, 1)
     end
 
-    meta.assert_enum_value(gender, rt.AnimaleseGender, 2)
-    meta.assert_enum_value(emotion, rt.AnimaleseEmotion, 3)
+    meta.assert_argument_type(gender, rt.AnimaleseGender, 2)
+    meta.assert_argument_type(emotion, rt.AnimaleseEmotion, 3)
 
     if gender == rt.AnimaleseGender.NONE then return end
 
@@ -926,8 +926,8 @@ end
 function rt.Animalese:queue_beat(duration, gender, emotion)
     if gender == nil then gender = rt.AnimaleseGender.FEMALE end
     if emotion == nil then emotion = rt.AnimaleseEmotion.NORMAL end
-    meta.assert_enum_value(gender, rt.AnimaleseGender, 2)
-    meta.assert_enum_value(emotion, rt.AnimaleseEmotion, 3)
+    meta.assert_argument_type(gender, rt.AnimaleseGender, 2)
+    meta.assert_argument_type(emotion, rt.AnimaleseEmotion, 3)
 
     if gender == rt.AnimaleseGender.NONE then return end
 

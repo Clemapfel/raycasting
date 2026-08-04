@@ -50,7 +50,7 @@ rt.ByteData._format_to_getter_setter = {
 
 --- @brief
 function rt.ByteData:instantiate(format, count_or_native)
-    meta.assert_enum_value(format, rt.ByteDataFormat, 1)
+    meta.assert_argument_type(format, rt.ByteDataFormat, 1)
 
     if meta.is_function(count_or_native.typeOf) and count_or_native:typeOf("ByteData") then
         self._native = count_or_native
@@ -64,7 +64,7 @@ end
 
 --- @brief
 function rt.ByteData:cast(format)
-    meta.assert_enum_value(format, rt.ByteDataFormat, 1)
+    meta.assert_argument_type(format, rt.ByteDataFormat, 1)
     self._format = format
     self._stride = rt.ByteData.format_to_n_bytes(format)
 

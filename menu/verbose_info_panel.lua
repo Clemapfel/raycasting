@@ -222,7 +222,7 @@ end
 
 --- @brief
 function mn.VerboseInfoPanel:set_selection_state(state)
-    meta.assert_enum_value(state, rt.SelectionState)
+    meta.assert(state, rt.SelectionState)
     self._frame:set_selection_state(state)
 end
 

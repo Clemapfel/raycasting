@@ -208,7 +208,7 @@ function ow.DialogBox:realize()
         end
 
         node.gender = node_entry[gender_key]
-        meta.assert_enum_value(node.gender, rt.AnimaleseGender)
+        meta.assert(node.gender, rt.AnimaleseGender)
 
         local animalese_factor = rt.settings.animalese.scroll_speed_factor
         local event_maps = {}

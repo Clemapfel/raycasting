@@ -119,7 +119,7 @@ end
 
 --- @brief
 function mn.CoinParticleSwarm:set_mode(mode)
-    meta.assert_enum_value(mode, mn.CoinParticleSwarmMode)
+    meta.assert(mode, mn.CoinParticleSwarmMode)
     self._mode = mode
 end
 

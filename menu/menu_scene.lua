@@ -926,6 +926,10 @@ function mn.MenuScene:draw()
 
     self._stage_select.exit_fade:draw()
     self._fade:draw()
+
+    self._camera:bind()
+    self._world:draw() -- TODO
+    self._camera:unbind()
 end
 
 --- @brief

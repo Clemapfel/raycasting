@@ -107,12 +107,14 @@ function debugger.push(id)
 end
 
 function debugger.pop(id, show_instant_time)
+    local now = love.timer.getTime() -- measure before any code in pop is executed
+
     meta.assert(id, mt.String)
 
     local start_time = _active_timings[id]
     if start_time == nil then return end
 
-    local elapsed = math.floor((love.timer.getTime() - start_time) / (1 / 60) * 1000) / 1000
+    local elapsed = math.floor((now - start_time) / (1 / 60) * 1000) / 1000
     _active_timings[id] = nil
 
     local entry = _id_to_data[id]
@@ -141,21 +143,6 @@ function debugger.pop(id, show_instant_time)
         end
         entry.max = new_max
     end
-end
-
-
-local _measure_timestamps = {}
-function debugger.start_measure(name)
-    name = name or -1
-    _measure_timestamps[name] = love.timer.getTime()
-end
-
-function debugger.stop_measure(name)
-    name = name or -1
-    local timestamp = _measure_timestamps[name]
-    if timestamp == nil then return 0 end
-
-    return (love.timer.getTime() - timestamp) / (1 / 60)
 end
 
 --- @brief

@@ -324,7 +324,7 @@ function mn.KeybindingScene:size_allocate(x, y, width, height)
     local left_x, top_y = x + outer_margin, y + outer_margin
     local heading_frame_h = math.max(heading_h + 2 * m, control_h)
     self._heading_label_frame:reformat(left_x, top_y, heading_w + 2 * item_outer_margin, heading_frame_h)
-    self._heading_label:reformat(left_x + item_outer_margin, top_y + 0.5 * heading_frame_h - 0.5 * heading_h, math.huge)
+    self._heading_label:reformat(left_x + item_outer_margin, top_y + 0.5 * heading_frame_h - 0.5 * heading_h)
 
     local current_x, current_y = left_x, top_y + heading_frame_h + m
     self._control_indicator:reformat(
@@ -579,7 +579,4 @@ end
 function mn.KeybindingScene:exit()
     self._input:activate()
     self:_abort_listening()
-
-    -- exit sound done by dialog
-    rt.MusicManager:pause(rt.MusicIDs.keybinding_scene)
 end
