@@ -2,18 +2,53 @@ profiler = {}
 
 local _noop = function() end
 
+local _min_duration = 0.01 -- percentage of frame at 60fps
+
 if PROFILE then
     local _is_active = false
 
-    local _id_stack = {}
-    local _current_id = ""
-    local _id_needs_update = true
+    -- Track states per coroutine to avoid stack corruption
+    local _co_states = setmetatable({}, { __mode = "k" })
+    local _main_state = { id_stack = {}, current_id = "", id_needs_update = true }
+
+    -- Helper to get or initialize the state for the current running thread
+    local function get_state()
+        local co, is_main = coroutine.running()
+
+        -- In Lua 5.1/LuaJIT, 'co' is nil on the main thread.
+        -- In Lua 5.2+, 'is_main' is true.
+        if co == nil or is_main then
+            return _main_state
+        end
+
+        local state = _co_states[co]
+        if not state then
+            state = {
+                id_stack = {},
+                current_id = "",
+                id_needs_update = true
+            }
+            _co_states[co] = state
+        end
+
+        return state
+    end
 
     local _data_id = {}
     local _data_timestamp = {}
     local _data_duration = {}
 
-    profiler.start = function()
+    profiler.start = function(reset)
+        if _is_active == false and reset == true then
+            _data_id = {}
+            _data_timestamp = {}
+            _data_duration = {}
+
+            -- Clear all coroutine states
+            _co_states = setmetatable({}, { __mode = "k" })
+            _main_state = { id_stack = {}, current_id = "", id_needs_update = true }
+        end
+
         _is_active = true
     end
 
@@ -22,26 +57,32 @@ if PROFILE then
     end
 
     profiler.push = function(id)
-        if _is_active then
-            table.insert(_id_stack, id)
-            _id_needs_update = true
-        end
+        local state = get_state()
+        table.insert(state.id_stack, id)
+        state.id_needs_update = true
     end
 
     profiler.pop = function(id)
-        if _is_active then
-            table.remove(_id_stack, #_id_stack)
-            _id_needs_update = true
-        end
+        local state = get_state()
+        local stack = state.id_stack
+
+        assert(#stack > 0 and stack[#stack] == id, "In profiler.pop: trying to pop id `" .. id .. "`, but it is not currently active")
+        table.remove(stack, #stack)
+        state.id_needs_update = true
     end
 
     profiler.notify = function(duration)
         if _is_active then
-            if _id_needs_update then
-                _current_id = table.concat(_id_stack, ">")
+            if duration < _min_duration then return end
+
+            local state = get_state()
+
+            if state.id_needs_update then
+                state.current_id = table.concat(state.id_stack, ">")
+                state.id_needs_update = false
             end
 
-            table.insert(_data_id, _current_id)
+            table.insert(_data_id, state.current_id)
             table.insert(_data_timestamp, love.timer.getTime())
             table.insert(_data_duration, duration)
         end
@@ -51,7 +92,9 @@ if PROFILE then
         return _is_active == true
     end
 
-    profiler.report = function()
+    profiler.report = function(min_depth)
+        if min_depth == nil then min_depth = 0 end
+
         if #_data_id == 0 then
             error("In profiler.report: no collected data to report")
         end
@@ -63,18 +106,20 @@ if PROFILE then
             local duration = _data_duration[i]
             local timestamp = _data_timestamp[i]
 
-            table.insert(unified, {
-                id = id,
-                timestamp = timestamp,
-                duration = duration
-            })
+            if select(2, string.gsub(id, ">", "")) >= min_depth then
+                table.insert(unified, {
+                    id = id,
+                    timestamp = timestamp,
+                    duration = duration
+                })
 
-            local entry = id_to_duration[id]
-            if entry == nil then
-                entry = {}
-                id_to_duration[id] = entry
+                local entry = id_to_duration[id]
+                if entry == nil then
+                    entry = {}
+                    id_to_duration[id] = entry
+                end
+                table.insert(entry, duration)
             end
-            table.insert(entry, duration)  -- fixed: was missing the value
         end
 
         table.sort(unified, function(a, b)
@@ -91,6 +136,10 @@ if PROFILE then
         local max_stddev_width = 0
         local max_percentage_width = 0
 
+        local normalize = function(x)
+            return x / (1 / 60)
+        end
+
         local round = function(x)
             return math.floor(x * 1e6) / 1e6
         end
@@ -102,7 +151,7 @@ if PROFILE then
 
             local sorted = {}
             for i = 1, n do
-                sorted[i] = durations[i]
+                sorted[i] = normalize(durations[i])
             end
             table.sort(sorted)
 
@@ -131,14 +180,19 @@ if PROFILE then
             end
             local stddev = math.sqrt(variance_sum / n)
 
-            local id = string.match(stack_id, ".*>(.*)") or stack_id
+            local percentage_sum = 0
+            for i = 1, n do
+                percentage_sum = percentage_sum + durations[i]
+            end
+            local percentage = round(percentage_sum / total_duration)
+
+            local id = stack_id
 
             mean = round(mean)
             median = round(median)
             min_value = round(min_value)
             max_value = round(max_value)
             stddev = round(stddev)
-            local percentage = round(sum / total_duration)
 
             max_id_width = math.max(max_id_width, #id)
             max_mean_width = math.max(max_mean_width, #tostring(mean))
@@ -186,7 +240,8 @@ if PROFILE then
             percentage = max_percentage_width,
         }
 
-        for id in values(order) do
+        -- [Fix]: Changed values(order) to ipairs(order) for standard Lua compatibility
+        for _, id in ipairs(order) do
             widths[id] = math.max(widths[id], #labels[id])
         end
 
@@ -234,13 +289,15 @@ if PROFILE then
 
         table.insert(res, border)
 
-        return table.concat(res)
+        print(table.concat(res))
     end
 else
     profiler.start = _noop
     profiler.stop = _noop
     profiler.push = _noop
     profiler.pop = _noop
+    profiler.notify = _noop
+    profiler.get_is_active = _noop
     profiler.report = _noop
 end
 
