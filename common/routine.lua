@@ -79,5 +79,3 @@ end
 function rt.Routine:get_native()
     return self._native
 end
-
-if DEBUG then _G.coroutine = nil end -- rt.Routine fully replaces native coroutine
