@@ -648,7 +648,8 @@ server.waitForBoot({
 		var decayTime = 0.1;
 		var releaseTime = noteDuration - attackTime - decayTime;
 
-		var voice = SinOsc.ar(Lag.ar(freq)) * EnvGen.ar(
+		var frequency = Lag.ar(freq);
+		var voice = Mix.ar(SinOsc.ar(frequency), Saw.ar(Lag.ar(freq))) * EnvGen.ar(
 			Env.adsr(attackTime, decayTime, 1, releaseTime),
 			doneAction: Done.freeSelf,
 			gate: gate
