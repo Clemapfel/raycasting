@@ -37,8 +37,9 @@ for module_id, function_ids in pairs(package.loaded["love"]) do
                     parsed_id = string.gsub(parsed_id, exception, title_case)
                 end
 
-                if string.match(parsed_id, "^new.*") ~= nil then
-                    parsed_name = parsed_id
+                local ctor = string.match(parsed_id, "^new(.*)")
+                if ctor ~= nil then
+                    parsed_name = ctor
                 else
                     local words = {}
                     for word in string.gmatch(parsed_id, "%u?[^%u]*") do
@@ -55,6 +56,7 @@ for module_id, function_ids in pairs(package.loaded["love"]) do
                     parsed_name = table.concat(words, "_")
                 end
 
+                print(parsed_name)
                 rt[module_id][parsed_name] = f
             end
         end
