@@ -119,8 +119,10 @@ function bd.join_path(...)
     return table.concat(to_concatenate, "/")
 end
 
---- @brief
+--- @brief standardize a path to OS-independent
 function bd.normalize_path(path)
+    return love.filesystem.canonicalizeRealPath(path)
+    --[[
     if path == nil or path == "" then return "" end
 
     -- starts with `/` or drive letter)
@@ -139,6 +141,7 @@ function bd.normalize_path(path)
     if path == "" and is_absolute then return "/" end
 
     return path
+    ]]
 end
 
 --- @brief
