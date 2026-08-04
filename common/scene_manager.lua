@@ -706,6 +706,8 @@ love.run = function()
 
     local was_active = love.graphics.isActive() and love.window.hasFocus()
     return function()
+        if PROFILE then profiler.push("love.run") end
+
         -- performance metrics
         local state = rt.SceneManager
 
@@ -727,6 +729,10 @@ love.run = function()
         local is_active = love.graphics.isActive() and love.window.hasFocus()
 
         -- ### UPDATE ###
+
+        if PROFILE then
+            profiler.push("love.update")
+        end
 
         local skip_update = false
         if was_active == false and is_active == true then
@@ -772,6 +778,8 @@ love.run = function()
             state._last_update_timestamp = love.timer.getTime()
         end
 
+        if PROFILE then profiler.pop("love.update") end
+
         -- ### SOUND ###
 
         rt.SoundManager:update(delta)
@@ -788,7 +796,11 @@ love.run = function()
 
         local draw = function()
             local before = love.timer.getTime()
+
+            if PROFILE then profiler.push("love.draw") end
             if love.draw ~= nil then love.draw() end
+            if PROFILE then profiler.pop("love.draw") end
+
             state:_notify_draw_duration(love.timer.getTime() - before)
         end
 
@@ -817,8 +829,6 @@ love.run = function()
         elseif _should_draw then
             draw()
             drawn = true
-        else
-            dbg("skip")
         end
 
         if rt.GameState:get_draw_debug_information() then
@@ -834,6 +844,8 @@ love.run = function()
 
         -- safeguard when vsync is off to avoid burning 100% CPU
         love.timer.sleep(1 / 1000)
+
+        if PROFILE then profiler.pop("love.run") end
     end
 end
 

@@ -17,6 +17,8 @@ require "common.input_manager"
 require "common.routine"
 
 love.load = function(args)
+    if PROFILE then profiler.push("love.load") end
+
     local before = love.timer.getTime()
 
     local result_screen = 1
@@ -50,8 +52,13 @@ love.load = function(args)
         end
     end
 
+    profiler.start()
+
     require "overworld.overworld_scene"
     rt.SceneManager:push(ow.OverworldScene, "air_dash_node_tutorial", ow.StageEntryMode.INSTANT)
+
+    profiler.stop()
+   -- profiler.report(8)
 
     require "menu.keybinding_scene"
     --rt.SceneManager:push(mn.KeybindingScene)
@@ -61,6 +68,8 @@ love.load = function(args)
 
     require "menu.menu_scene"
     --rt.SceneManager:push(mn.MenuScene, true)
+
+    if PROFILE then profiler.pop("love.load") end
 end
 
 love.update = function(delta)

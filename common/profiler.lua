@@ -288,7 +288,6 @@ if PROFILE then
         end
 
         table.insert(res, border)
-
         print(table.concat(res))
     end
 else
