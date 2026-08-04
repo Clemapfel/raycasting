@@ -1,6 +1,14 @@
 require "include"
 require "common.error_handler"
-require "build.config"
+
+if _G.PROFILE then
+    profiler = require "common.profiler"
+end
+
+if _G.DEBUG then
+    debugger = require "common.debugger"
+end
+
 require "common.game_state"
 require "common.scene_manager"
 require "common.music_manager"
@@ -8,10 +16,9 @@ require "common.sound_manager"
 require "common.input_manager"
 require "common.routine"
 
-require "common.debugger"
-require "common.profiler"
-
 love.load = function(args)
+    local before = love.timer.getTime()
+
     local result_screen = 1
     local overworld = 2
     local keybinding = 3
@@ -47,13 +54,13 @@ love.load = function(args)
     rt.SceneManager:push(ow.OverworldScene, "air_dash_node_tutorial", ow.StageEntryMode.INSTANT)
 
     require "menu.keybinding_scene"
-    rt.SceneManager:push(mn.KeybindingScene)
+    --rt.SceneManager:push(mn.KeybindingScene)
 
     require "menu.settings_scene"
-    rt.SceneManager:push(mn.SettingsScene)
+    --rt.SceneManager:push(mn.SettingsScene)
 
     require "menu.menu_scene"
-    rt.SceneManager:push(mn.MenuScene, true)
+    --rt.SceneManager:push(mn.MenuScene, true)
 end
 
 love.update = function(delta)

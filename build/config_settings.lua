@@ -48,6 +48,10 @@ do
     require "common.internal_resolution"
 
     bd.config.entries = {
+        -- global internals
+        enable_debug_mode = BOOLEAN(false),
+        enable_profiling_mode = BOOLEAN(false),
+
         -- should window initialize in fullscreen mode
         is_fullscreen = BOOLEAN(false),
 

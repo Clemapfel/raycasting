@@ -1,173 +1,108 @@
-debugger = {
-    is_connected = false
-}
+debugger = {}
 
-local _debugger_active, _emmy_debugger = false
+local _noop = function() return nil end
 
---- @brief
-function debugger.break_here()
-    if _debugger_active == false then
-        debugger.connect()
-    end
+if DEBUG then
+    local _debugger_active, _emmy_debugger = false
 
-    if _emmy_debugger ~= nil then
-        _emmy_debugger.breakHere()
-    end
-end
+    --- @brief
+    function debugger.break_here()
+        if _debugger_active == false then
+            debugger.connect()
+        end
 
---- @brief
-function debugger.get_is_active()
-    return _debugger_active
-end
-
---- @brief
-function debugger.connect()
-    pcall(function()
-        -- connect debugger only when required
-        package.cpath = package.cpath .. ';C:/Users/cleme/AppData/Roaming/JetBrains/CLion2023.3/plugins/EmmyLua/debugger/emmy/windows/x64/?.dll'
-        _emmy_debugger = require('emmy_core')
-        _emmy_debugger.tcpConnect('localhost', 8172)
-
-        love.errorhandler = function(msg)
+        if _emmy_debugger ~= nil then
             _emmy_debugger.breakHere()
-            return nil
+        end
+    end
+
+    --- @brief
+    function debugger.get_is_active()
+        return _debugger_active
+    end
+
+    --- @brief
+    function debugger.connect()
+        pcall(function()
+            -- connect debugger only when required
+            package.cpath = package.cpath .. ';C:/Users/cleme/AppData/Roaming/JetBrains/CLion2023.3/plugins/EmmyLua/debugger/emmy/windows/x64/?.dll'
+            _emmy_debugger = require('emmy_core')
+            _emmy_debugger.tcpConnect('localhost', 8172)
+
+            love.errorhandler = function(msg)
+                _emmy_debugger.breakHere()
+                return nil
+            end
+
+            _debugger_active = true
+            debugger.is_connected = true
+        end)
+    end
+
+    --- @brief
+    function debugger.get_is_connected()
+        return debugger.is_connected
+    end
+
+    --- ###
+
+    local _is_first_load = true
+    local _data = {}
+
+    --- @brief
+    function debugger.reload()
+        local path = "dbg.lua"
+        local load_success, chunk_or_error, love_error = pcall(love.filesystem.load, path)
+        if not load_success then
+            rt.warning("In debugger.reload: error when parsing file at `", path.. "`: ",  chunk_or_error)
+            return
         end
 
-        _debugger_active = true
-        debugger.is_connected = true
-    end)
-end
-
---- @brief
-function debugger.get_is_connected()
-    return debugger.is_connected
-end
-
---- ###
-
-DBG = {}
-
-local _is_first_load = true
-
---- @brief
-function debugger.reload()
-    local path = "dbg.lua"
-    local load_success, chunk_or_error, love_error = pcall(love.filesystem.load, path)
-    if not load_success then
-        rt.warning("In debugger.reload: error when parsing file at `", path.. "`: ",  chunk_or_error)
-        return
-    end
-
-    if love_error ~= nil then
-        rt.warning("In debugger.reload: error when loading file at `", path,  "`: ",  love_error)
-        return
-    end
-
-    local chunk_success, config_or_error = pcall(chunk_or_error)
-    if not chunk_success then
-        rt.warning("In debugger.reload: error when running file at `", path,  "`: ",  config_or_error)
-        return
-    end
-
-    DBG = config_or_error
-
-    if not _is_first_load then
-        rt.log("successfully loaded dbg.lua")
-    end
-    _is_first_load = false
-end
-debugger.reload()
-
-require "common.input_subscriber"
-debugger._input = rt.InputSubscriber()
-debugger._input:signal_connect("keyboard_key_pressed", function(_, which)
-    if which == "k" then
-        debugger.reload()
-    end
-end)
-
---- @brief
-function debugger.get(key)
-    return DBG[key]
-end
-
---- @brief
-function debugger.traceback()
-    return debug.traceback()
-end
-
-local _data = {}
-local _id_to_data = {}
-local _history_count = 120
-local _active_timings = {}
-
-function debugger.push(id)
-    meta.assert(id, mt.String)
-    _active_timings[id] = love.timer.getTime()
-end
-
-function debugger.pop(id, show_instant_time)
-    local now = love.timer.getTime() -- measure before any code in pop is executed
-
-    meta.assert(id, mt.String)
-
-    local start_time = _active_timings[id]
-    if start_time == nil then return end
-
-    local elapsed = math.floor((now - start_time) / (1 / 60) * 1000) / 1000
-    _active_timings[id] = nil
-
-    local entry = _id_to_data[id]
-    if entry == nil then
-        entry = {
-            id = id,
-            max = -math.huge,
-            history = table.rep(0, _history_count),
-            sum = 0
-        }
-
-        _id_to_data[id] = entry
-        table.insert(_data, entry)
-    end
-
-    entry.max = math.max(entry.max, elapsed)
-    local first = entry.history[1]
-    table.remove(entry.history, 1)
-    table.insert(entry.history, elapsed)
-    entry.sum = entry.sum - first + elapsed
-
-    if entry.max == first then
-        local new_max = -math.huge
-        for t in values(entry.history) do
-            new_max = math.max(new_max, t)
+        if love_error ~= nil then
+            rt.warning("In debugger.reload: error when loading file at `", path,  "`: ",  love_error)
+            return
         end
-        entry.max = new_max
+
+        local chunk_success, config_or_error = pcall(chunk_or_error)
+        if not chunk_success then
+            rt.warning("In debugger.reload: error when running file at `", path,  "`: ",  config_or_error)
+            return
+        end
+
+        _data = config_or_error
+
+        if not _is_first_load then
+            rt.log("successfully loaded dbg.lua")
+        end
+        _is_first_load = false
     end
-end
+    debugger.reload()
 
---- @brief
-function debugger.report()
-    if #_data == 0 then return end
-
-    table.sort(_data, function(a, b)
-        return a.max > b.max
+    require "common.input_subscriber"
+    debugger._input = rt.InputSubscriber()
+    debugger._input:signal_connect("keyboard_key_pressed", function(_, which)
+        if which == "k" then
+            debugger.reload()
+        end
     end)
 
-    local max_id_length = 2
-    for entry in values(_data) do
-        if entry.max > 0 then
-            max_id_length = math.max(max_id_length, #entry.id)
-        end
+    --- @brief
+    function debugger.get(key)
+        return _data[key]
     end
 
-    println("")
-    for entry in values(_data) do
-        local mean = entry.sum / #entry.history
-        if entry.max > 0 then
-            println(string.format("| %-" .. max_id_length .. "s | mean: %.3f | max: %.3f |", entry.id, mean, entry.max))
-        end
+    --- @brief
+    function debugger.traceback()
+        return debug.traceback()
     end
-    println("")
+else
+    debugger.break_here = _noop
+    debugger.get_is_active = _noop
+    debugger.connect = _noop
+    debugger.get_is_connected = _noop
+    debugger.reload = _noop
+    debugger.get = _noop
+    debugger.traceback = _noop
 end
 
 return debugger

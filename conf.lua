@@ -1,10 +1,14 @@
-DEBUG = true -- overriden by build script
+_G.DEBUG = true
+_G.PROFILE = true
 
 function love.conf(settings)
     require "include"
     require "common.error_handler"
     require "build.config"
     local config = bd.get_config()
+
+    _G.DEBUG = config.enable_debug_mode
+    _G.PROFILE = config.enable_profiling_mode
 
     local to_exclude = {}
     if config.allow_opengl == false then

@@ -4,7 +4,7 @@ local _safe_call = function(f, ...)
     if  type(f) ~= "function" or (f == nil and select("#", ...) == 0) then return end
     local result = { pcall(f, ...) }
     if result[1] ~= true then
-        if DEBUG then
+        if _G.DEBUG then
             -- handle error inside error handler
             io.stdout:write("\n")
             io.stdout:write(debug.traceback("In love.errorhandler:" .. result[2]))
@@ -160,7 +160,7 @@ function love.errorhandler(message, depth)
     local write_message, write_path
     local write_success = false
 
-    if not DEBUG then
+    if not _G.DEBUG then
         _safe_call(function()
             require "common.filesystem"
             if not bd.exists("/crash_reports") then
@@ -327,7 +327,7 @@ function love.errorhandler(message, depth)
             local write_message_wrapped, write_height
             if write_success then
                 write_message_wrapped, write_height = wrap(default_font, write_message)
-            elseif not DEBUG then
+            elseif not _G.DEBUG then
                 write_message_wrapped, write_height = wrap(default_font, stack_dump_disabled_message)
             else
                 write_message_wrapped, write_height = wrap(default_font, unable_to_write_stack_dump_message)

@@ -1,6 +1,6 @@
 require "common.common"
 
-if _G._NOOP == nil then _G._NOOP = function(...) end end
+local _noop = function() end
 
 if meta == nil then meta = {} end
 if mt == nil then mt = meta end
@@ -391,7 +391,7 @@ do
         return is_valid, error
     end
 
-    if false then
+    if DEBUG then
         --- @brief
         function meta.assert(...)
             local argument_i = 1
@@ -421,8 +421,8 @@ do
         end
     else
         -- optimize to noop in release mode
-        meta.assert = _G._NOOP
-        meta.assert_argument_type = _G._NOOP
+        meta.assert = _noop
+        meta.assert_argument_type = _noop
     end
 end
 
@@ -804,6 +804,23 @@ do
         type_metatable.__typename = meta.Type
         type_metatable.__signals = {}
 
+        -- wrap all function calls in manual timing
+        type_metatable.__newindex = function(self, key, value)
+            if PROFILE and meta.is_function(value) then
+                local id = typename .. "." .. key
+                rawset(self, key, function(...)
+                    profiler.push(id)
+                    local before = love.timer.getTime()
+                    local capture = { value(...) }
+                    profiler.notify(love.timer.getTime() - before)
+                    profiler.pop(id)
+                    return table.unpack(capture)
+                end)
+            else
+                rawset(self, key, value)
+            end
+        end
+
         setmetatable(type, type_metatable)
         rawset(type, _object_hash_index, _current_hash)
         _current_hash = _current_hash + 1
@@ -952,7 +969,7 @@ end
 
 --- @return Number
 function meta.hash(instance)
-    if instance == nil then return nil end
+    if instance == nil then return -1 end
     return rawget(instance, _object_hash_index) or -1
 end
 

@@ -1,5 +1,3 @@
----@diagnostic disable: unnecessary-if
-ENABLE_DEBUGGER = true -- if true, love errorhandler invokes debugger
 require("common.splash_screen")("loading...") -- splash screen during compilation
 
 -- standard library extension
@@ -37,7 +35,7 @@ require "common.meta"
 
 if false then love = {} end
 
-if DEBUG then
+if _G.DEBUG then
     require "love.definitions.audio"
     require "love.definitions.data"
     require "love.definitions.event"
@@ -90,5 +88,6 @@ require "common.log"
 rt.settings = meta.make_auto_extend({
     native_height = 600
 }, true)
+
 
 

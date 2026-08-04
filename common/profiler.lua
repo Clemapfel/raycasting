@@ -1,282 +1,247 @@
 profiler = {}
 
-profiler._jit = require("jit.profile")
-profiler._run_i = 1
-profiler._is_running = false
+local _noop = function() end
 
-profiler._data = {}
-profiler.n_samples = 0
+if PROFILE then
+    local _is_active = false
 
-profiler._zone_name_to_index = {}
-profiler._zone_index_to_name = {}
-profiler._zone_index = 1
-profiler._current_zone_stack = {}
-profiler._n_zones = 0
-profiler._zone_to_start_time = {}
-profiler._zone_to_duration = {}
-profiler._start_date = nil
+    local _id_stack = {}
+    local _current_id = ""
+    local _id_needs_update = true
 
-do
-    local _infinity = math.huge
-    local _format = "f @ plZ;" -- <function_name> @ <file>:<line>;
-    profiler._sampling_callback = function(thread, n_samples, vmstate)
-        if profiler._n_zones > 0 then
-            local zones = {}
-            for i = 1, profiler._n_zones do
-                table.insert(zones, profiler._current_zone_stack[i])
-            end
+    local _data_id = {}
+    local _data_timestamp = {}
+    local _data_duration = {}
 
-            local callstack = profiler._jit.dumpstack(thread, _format, _infinity)
-
-            local splits = {}
-            if vmstate == "N" or vmstate == "J" or vmstate == "C" then
-                -- split into individual function names
-                for split in string.gmatch(callstack, "([^;]+)") do
-                    table.insert(splits, split)
-                end
-            end
-
-            for _, zone_i in pairs(zones) do
-                local zone_name = profiler._zone_index_to_name[zone_i]
-                local zone = profiler._data[zone_name]
-
-                if vmstate == "N" then
-                    zone.n_compiled_samples = zone.n_compiled_samples + n_samples
-                elseif vmstate == "I" then
-                    zone.n_interpreted_samples = zone.n_interpreted_samples + n_samples
-                elseif vmstate == "C" then
-                    zone.n_c_code_samples = zone.n_c_code_samples + n_samples
-                elseif vmstate == "J" then
-                    zone.n_jit_samples = zone.n_jit_samples + n_samples
-                elseif vmstate == "G" then
-                    zone.n_gc_samples = zone.n_gc_samples + n_samples
-                else
-                    error("In profiler._callback: unhandled vmstate `" .. vmstate .. "`")
-                end
-
-                for _, split in pairs(splits) do
-                    if zone.function_to_count[split] == nil then
-                        zone.function_to_count[split] = n_samples
-                    else
-                        zone.function_to_count[split] = zone.function_to_count[split] + n_samples
-                    end
-                end
-
-                zone.n_samples = zone.n_samples + 1
-            end
-
-            profiler.n_samples = profiler.n_samples + n_samples
-        end
-    end
-end
-
---- @brief add a zone to the current stack, if the stack was empty, this starts the profiler
---- @param name string (optional) name of the new zone stack element
-function profiler.push(name)
-    meta.assert(name, mt.String)
-
-    if name == nil then
-        name = "Run #" .. profiler._run_i
-        profiler._run_i = profiler._run_i + 1
+    profiler.start = function()
+        _is_active = true
     end
 
-    local zone_index = profiler._zone_name_to_index[name]
-    if zone_index ~= nil then
-        for _, zone in pairs(profiler._current_zone_stack) do
-            if zone == zone_index then
-                rt.error("In profiler.push: Zone `" .. name .. "` is already active, each zone name has to be unique. Use `push()` for a unique name to be chosen automatically")
-            end
+    profiler.stop = function()
+        _is_active = false
+    end
+
+    profiler.push = function(id)
+        if _is_active then
+            table.insert(_id_stack, id)
+            _id_needs_update = true
         end
     end
 
-    if zone_index == nil then
-        zone_index = profiler._zone_index
-        profiler._zone_index = profiler._zone_index + 1
-
-        profiler._zone_name_to_index[name] = zone_index
-        profiler._zone_index_to_name[zone_index] = name
+    profiler.pop = function(id)
+        if _is_active then
+            table.remove(_id_stack, #_id_stack)
+            _id_needs_update = true
+        end
     end
 
-    table.insert(profiler._current_zone_stack, zone_index)
-    profiler._n_zones = profiler._n_zones + 1
+    profiler.notify = function(duration)
+        if _is_active then
+            if _id_needs_update then
+                _current_id = table.concat(_id_stack, ">")
+            end
 
-    if profiler._is_running == false then
-        profiler._is_running = true
-        profiler._jit.start("i0", profiler._sampling_callback) -- i0 = highest possible frequency architecture allows
-        profiler._start_date = os.date("%c")
+            table.insert(_data_id, _current_id)
+            table.insert(_data_timestamp, love.timer.getTime())
+            table.insert(_data_duration, duration)
+        end
     end
 
-    if profiler._zone_to_start_time[name] == nil then
-        profiler._zone_to_start_time[name] = os.time()
+    profiler.get_is_active = function()
+        return _is_active == true
     end
 
-    if profiler._zone_to_duration[name] == nil then
-        profiler._zone_to_duration[name] = 0
-    end
+    profiler.report = function()
+        if #_data_id == 0 then
+            error("In profiler.report: no collected data to report")
+        end
 
-    if profiler._data[name] == nil then
-        profiler._data[name] = {
-            function_to_count = {},
-            function_to_percentage = {},
-            n_samples = 0,
-            n_gc_samples = 0,
-            n_jit_samples = 0,
-            n_interpreted_samples = 0,
-            n_compiled_samples = 0,
-            n_c_code_samples = 0
+        local unified = {}
+        local id_to_duration = {}
+        for i = 1, #_data_id do
+            local id = _data_id[i]
+            local duration = _data_duration[i]
+            local timestamp = _data_timestamp[i]
+
+            table.insert(unified, {
+                id = id,
+                timestamp = timestamp,
+                duration = duration
+            })
+
+            local entry = id_to_duration[id]
+            if entry == nil then
+                entry = {}
+                id_to_duration[id] = entry
+            end
+            table.insert(entry, duration)  -- fixed: was missing the value
+        end
+
+        table.sort(unified, function(a, b)
+            return a.timestamp < b.timestamp
+        end)
+
+        local total_duration = unified[#unified].timestamp - unified[1].timestamp
+
+        local max_id_width = 0
+        local max_mean_width = 0
+        local max_median_width = 0
+        local max_min_width = 0
+        local max_max_width = 0
+        local max_stddev_width = 0
+        local max_percentage_width = 0
+
+        local round = function(x)
+            return math.floor(x * 1e6) / 1e6
+        end
+
+        local to_print = {}
+
+        for stack_id, durations in pairs(id_to_duration) do
+            local n = #durations
+
+            local sorted = {}
+            for i = 1, n do
+                sorted[i] = durations[i]
+            end
+            table.sort(sorted)
+
+            local sum = 0
+            for i = 1, n do
+                sum = sum + sorted[i]
+            end
+            local mean = sum / n
+
+            local median
+            if n % 2 == 1 then
+                median = sorted[(n + 1) / 2]
+            else
+                local lo = n / 2
+                local hi = lo + 1
+                median = (sorted[lo] + sorted[hi]) / 2
+            end
+
+            local min_value = sorted[1]
+            local max_value = sorted[n]
+
+            local variance_sum = 0
+            for i = 1, n do
+                local diff = sorted[i] - mean
+                variance_sum = variance_sum + diff * diff
+            end
+            local stddev = math.sqrt(variance_sum / n)
+
+            local id = string.match(stack_id, ".*>(.*)") or stack_id
+
+            mean = round(mean)
+            median = round(median)
+            min_value = round(min_value)
+            max_value = round(max_value)
+            stddev = round(stddev)
+            local percentage = round(sum / total_duration)
+
+            max_id_width = math.max(max_id_width, #id)
+            max_mean_width = math.max(max_mean_width, #tostring(mean))
+            max_median_width = math.max(max_median_width, #tostring(median))
+            max_min_width = math.max(max_min_width, #tostring(min_value))
+            max_max_width = math.max(max_max_width, #tostring(max_value))
+            max_stddev_width = math.max(max_stddev_width, #tostring(stddev))
+            max_percentage_width = math.max(max_percentage_width, #tostring(percentage))
+
+            if percentage > 0 then
+                table.insert(to_print, {
+                    id = id,
+                    mean = mean,
+                    median = median,
+                    min = min_value,
+                    max = max_value,
+                    stddev = stddev,
+                    percentage = percentage * 100
+                })
+            end
+        end
+
+        table.sort(to_print, function(a, b) return a.percentage > b.percentage end)
+
+        -- pretty format table
+        local order = { "percentage", "mean", "median", "max", "min", "stddev", "id" }
+
+        local labels = {
+            id = "ID",
+            mean = "mean",
+            median = "median",
+            min = "max",
+            max = "min",
+            stddev = "stddev",
+            percentage = "%",
         }
+
+        local widths = {
+            id = max_id_width,
+            mean = max_mean_width,
+            median = max_median_width,
+            min = max_min_width,
+            max = max_max_width,
+            stddev = max_stddev_width,
+            percentage = max_percentage_width,
+        }
+
+        for id in values(order) do
+            widths[id] = math.max(widths[id], #labels[id])
+        end
+
+        local h_divider = "-"
+        local v_divider = "|"
+        local corner = "+"
+
+        local function pad(str, width)
+            str = tostring(str)
+            return str .. string.rep(" ", width - #str)
+        end
+
+        local res = {}
+
+        -- top/bottom/mid border
+        local border_parts = {}
+        for _, col in ipairs(order) do
+            table.insert(border_parts, string.rep(h_divider, widths[col] + 2))
+        end
+        local border = corner .. table.concat(border_parts, corner) .. corner
+
+        table.insert(res, border)
+        table.insert(res, "\n")
+
+        -- header row
+        local header_parts = {}
+        for _, col in ipairs(order) do
+            table.insert(header_parts, " " .. pad(labels[col], widths[col]) .. " ")
+        end
+        table.insert(res, v_divider .. table.concat(header_parts, v_divider) .. v_divider)
+        table.insert(res, "\n")
+
+        table.insert(res, border)
+        table.insert(res, "\n")
+
+        -- data rows
+        for _, row in ipairs(to_print) do
+            local row_parts = {}
+            for _, col in ipairs(order) do
+                table.insert(row_parts, " " .. pad(row[col], widths[col]) .. " ")
+            end
+            table.insert(res, v_divider .. table.concat(row_parts, v_divider) .. v_divider)
+            table.insert(res, "\n")
+        end
+
+        table.insert(res, border)
+
+        return table.concat(res)
     end
+else
+    profiler.start = _noop
+    profiler.stop = _noop
+    profiler.push = _noop
+    profiler.pop = _noop
+    profiler.report = _noop
 end
-
---- @brief remove the last pushed zone from the stack. If the stack reaches size 0, the profiler stops
-function profiler.pop()
-    if profiler._n_zones >= 1 then
-        local last_zone = profiler._zone_index_to_name[profiler._current_zone_stack[#profiler._current_zone_stack]]
-        table.remove(profiler._current_zone_stack, profiler._n_zones)
-        profiler._n_zones = profiler._n_zones - 1
-
-        local now = os.time()
-        profiler._zone_to_duration[last_zone] = profiler._zone_to_duration[last_zone] + (now - profiler._zone_to_start_time[last_zone])
-        profiler._zone_to_start_time[last_zone] = nil
-
-        if profiler._n_zones == 0 and profiler._is_running == true then
-            profiler._jit.stop()
-            profiler._is_running = false
-        end
-    else
-        error("In profiler.pop: Trying to pop, but no zone is active")
-    end
-end
-
-do
-    local function _format_percentage(fraction)
-        local value = math.floor(fraction * 10e3) / 10e3 * 100
-        if value < 0 then
-            value = 0
-        elseif value > 100 then
-            value = 100
-        end
-        return value
-    end
-
-    --- @brief get state of the profiling data pretty-printed
-    function profiler.report()
-        local out = {}
-        for zone_name, entry in pairs(profiler._data) do
-            local names_in_order = {}
-            for name, count in pairs(entry.function_to_count) do
-                entry.function_to_percentage[name] = _format_percentage(count / entry.n_samples)
-                local function_count = entry.function_to_count[name]
-
-                -- percentage may be > if function name occurs twice in same callstack
-                if function_count < 0 then
-                    function_count = 0
-                elseif function_count > entry.n_samples then
-                    function_count = entry.n_samples
-                end
-
-                entry.function_to_count[name] = function_count
-
-                table.insert(names_in_order, name)
-            end
-
-            table.sort(names_in_order, function(a, b)
-                return entry.function_to_count[a] > entry.function_to_count[b]
-            end)
-
-            local cutoff_n = 0
-            local cutoff_sample_count = 0
-            for _, name in pairs(names_in_order) do
-                if entry.function_to_percentage[name] >= 0.1 then
-                    cutoff_n = cutoff_n + 1
-                else
-                    cutoff_sample_count = cutoff_sample_count + entry.function_to_count[name]
-                end
-            end
-
-            local col_width = {}
-            local columns = {
-                {"Percentage (%)", entry.function_to_percentage },
-                {"# Samples", entry.function_to_count },
-                {"Name", names_in_order },
-            }
-
-            local col_lengths = {}
-            for i, _ in ipairs(columns) do col_lengths[i] = #columns[i][1] end
-
-            local n_columns = 0
-            for col_i, column in ipairs(columns) do
-                for i, value in ipairs(column[2]) do
-                    col_lengths[col_i] = math.max(col_lengths[col_i],  #tostring(value))
-                end
-                n_columns = n_columns + 1
-            end
-            col_lengths[2] = math.max(col_lengths[2], #tostring(cutoff_sample_count))
-
-            local header = {" | "}
-            local sub_header = {" |-"}
-            for col_i, col in ipairs(columns) do
-                table.insert(header, col[1] .. string.rep(" ", col_lengths[col_i] - #col[1]))
-                table.insert(sub_header, string.rep("-", col_lengths[col_i]))
-                if col_i < n_columns then
-                    table.insert(header, " | ")
-                    table.insert(sub_header, "-|-")
-                end
-            end
-
-            table.insert(header, " |")
-            table.insert(sub_header, "-|")
-
-            local gc_percentage = _format_percentage(entry.n_gc_samples / entry.n_samples)
-            local jit_percentage = _format_percentage(entry.n_jit_samples / entry.n_samples)
-            local c_percentage = _format_percentage(entry.n_c_code_samples / (entry.n_interpreted_samples + entry.n_compiled_samples + entry.n_c_code_samples))
-            local interpreted_percentage = _format_percentage(entry.n_interpreted_samples / (entry.n_interpreted_samples + entry.n_compiled_samples))
-
-            local duration = math.floor(profiler._zone_to_duration[zone_name] * 10e5) / 10e5
-            local samples_per_second = math.floor(entry.n_samples / duration)
-
-            local str = {
-                " | Zone `" .. zone_name .. "` (" .. entry.n_samples .. " samples | " .. samples_per_second .. " samples/s)\n",
-                " | Ran for " .. duration .. "s on `" .. profiler._start_date .. "`\n",
-                " | GC  : " .. gc_percentage .. " % (" .. entry.n_gc_samples .. ")\n",
-                " | JIT : " .. jit_percentage .. " % (" .. entry.n_jit_samples .. ")\n",
-                --" | Compiled / Interpreted Ratio : " .. interpreted_percentage / 100 .. " (" .. entry.n_compiled_samples  .. " / " .. entry.n_interpreted_samples .. ")\n",
-                " |\n",
-                table.concat(header, "") .. "\n",
-                table.concat(sub_header, "") .. "\n"
-            }
-
-            local rows_printed = 0
-            for _, name in pairs(names_in_order) do
-                if rows_printed < cutoff_n then
-                    for col_i = 1, n_columns do
-                        local value
-                        if col_i == 3 then
-                            value = name
-                        else
-                            value = tostring(columns[col_i][2][name])
-                        end
-                        value = value .. string.rep(" ", col_lengths[col_i] - #value)
-                        table.insert(str, " | " .. value)
-                    end
-                    table.insert(str, " |\n")
-                else
-                    local last_row_percentage = "< 0.1"
-                    local last_row = {" | "}
-                    table.insert(last_row,  last_row_percentage .. string.rep(" ", col_lengths[1] - #last_row_percentage) .. " | ")
-                    table.insert(last_row,tostring(cutoff_sample_count) .. string.rep(" ", col_lengths[2] - #tostring(cutoff_sample_count)) .. " | ")
-                    table.insert(last_row, "..." .. string.rep(" ", col_lengths[3] - #("...")) .. " |")
-                    table.insert(str, table.concat(last_row, ""))
-                    break
-                end
-
-                rows_printed = rows_printed + 1
-            end
-
-            table.insert(out, table.concat(str, "") .. "\n")
-        end
-        return table.concat(out, "\n")
-    end
-end -- do-end
 
 return profiler
