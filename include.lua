@@ -15,13 +15,6 @@ end
 utf8 = require "utf8"
 bit = require "bit"
 
--- globals
-if rt == nil then rt = {} end -- common
-if mn == nil then mn = {} end -- menu
-if ow == nil then ow = {} end -- overworld
-if b2 == nil then b2 = {} end -- physics
-if bd == nil then bd = {} end -- build
-
 require "common.alias"
 require "common.common"
 require "common.math"
@@ -62,6 +55,13 @@ if _G.DEBUG then
     require "love.definitions.video"
     require "love.definitions.window"
 end
+
+-- globals
+if rt == nil then rt = {} end -- common
+if mn == nil then mn = {} end -- menu
+if ow == nil then ow = {} end -- overworld
+if b2 == nil then b2 = {} end -- physics
+if bd == nil then bd = {} end -- build
 
 for id, t in pairs({
     { "_G", _G},

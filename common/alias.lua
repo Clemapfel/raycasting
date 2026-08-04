@@ -56,7 +56,6 @@ for module_id, function_ids in pairs(package.loaded["love"]) do
                     parsed_name = table.concat(words, "_")
                 end
 
-                print(parsed_name)
                 rt[module_id][parsed_name] = f
             end
         end

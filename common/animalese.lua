@@ -1167,7 +1167,6 @@ do -- try retranslate dialog / translation
 
     local dialog_settings = rt.settings.dialog
     local dialog_path = bd.join_path(dialog_settings.path, bd.get_config().language, dialog_settings.filename)
-
     local translation_settings = rt.settings.translation
     local translation_path = bd.join_path(translation_settings.path, bd.get_config().language, translation_settings.filename)
 
