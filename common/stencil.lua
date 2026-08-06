@@ -7,8 +7,7 @@ function rt.graphics.get_stencil_value()
         rt.graphics._stencil_value = 2
     end
 
-    rt.graphics._stencil_value = rt.graphics._stencil_value + 1
-    if rt.graphics._stencil_value > 254 then rt.graphics._stencil_value = 2 end
+    rt.graphics._stencil_value = rt.graphics._stencil_value % 255 + 2
     return out
 end
 
@@ -44,7 +43,7 @@ rt.StencilMode = meta.enum("StencilMode", rt.StencilMode)
 function rt.graphics.set_stencil_mode(value, mode, draw_or_compare_mode)
     if value == nil then
         love.graphics.setStencilState("keep", "always", value)
-        love.graphics.setColorMask(true)
+        love.graphics.setColorMask(true, true, true, true)
         rt.graphics._stencil_mode_active = false
         return
     end
@@ -60,21 +59,18 @@ function rt.graphics.set_stencil_mode(value, mode, draw_or_compare_mode)
         end
     end
 
-    local replace_mode, test_mode, mask
-    if mode == rt.StencilMode.TEST then
-        replace_mode = rt.StencilDrawMode.KEEP
-        test_mode = draw_or_compare_mode or rt.StencilCompareMode.EQUAL
-        mask = true
-        rt.graphics._stencil_mode_active = false
-    elseif mode == rt.StencilMode.DRAW then
-        replace_mode = draw_or_compare_mode or rt.StencilDrawMode.REPLACE
-        test_mode = rt.StencilCompareMode.ALWAYS
-        mask = false
-        rt.graphics._stencil_mode_active = true
-    end
 
-    love.graphics.setStencilState(replace_mode, test_mode, value)
-    love.graphics.setColorMask(mask)
+    if mode == rt.StencilMode.DRAW then
+        local replace_mode = draw_or_compare_mode or rt.StencilDrawMode.REPLACE
+        local test_mode = rt.StencilCompareMode.ALWAYS
+        love.graphics.setStencilState(replace_mode, test_mode, value)
+        love.graphics.setColorMask(false, false, false, false)
+    else
+        local replace_mode = rt.StencilDrawMode.KEEP
+        local test_mode = draw_or_compare_mode or rt.StencilCompareMode.EQUAL
+        love.graphics.setStencilState(replace_mode, test_mode, value)
+        love.graphics.setColorMask(true, true, true, true)
+    end
 end
 
 function rt.graphics.clear_stencil()

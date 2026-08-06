@@ -134,6 +134,9 @@ do
         -- apply lighting to normal map
         is_dynamic_lighting_enabled = BOOLEAN(true),
 
+        -- enable dynamic shadows
+        are_dynamic_shadows_enabled = BOOLEAN(true),
+
         -- enable mirror
         are_reflections_enabled = BOOLEAN(true),
 

@@ -21,7 +21,7 @@ rt.settings.overworld_scene = {
     idle_threshold_duration = 5,
     control_indicator_delay = 0.0,
 
-    player_canvas_scale = rt.settings.player_body.texture_scale,
+    player_canvas_scale = 2, --rt.settings.player_body.texture_scale,
     player_canvas_size_radius_factor = rt.settings.player.bubble_radius_factor * 2.5,
 
     screenshot_texture_format = rt.RGBA8,
@@ -1011,7 +1011,7 @@ function ow.OverworldScene:_update_player_canvas()
     if self._stage == nil or self._player_canvas_needs_update ~= true then return end
 
     love.graphics.push("all")
-    love.graphics.reset()
+    --love.graphics.reset()
 
     local x, y = self._player:get_position()
     local w, h = self._player_canvas:get_size()
@@ -1023,7 +1023,6 @@ function ow.OverworldScene:_update_player_canvas()
     love.graphics.translate(-x + 0.5 * w, -y + 0.5 * h)
 
     self._player_canvas:bind()
-    love.graphics.clear(0, 0, 0, 0)
 
     if self._player_is_visible then
         self._player:draw_body()

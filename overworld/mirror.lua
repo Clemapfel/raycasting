@@ -48,23 +48,27 @@ function ow.Mirror:draw()
     then return end
 
     local should_stencil = self._draw_mirror_mask_callback ~= nil
+    local stencil_value = rt.graphics.get_stencil_value()
+
+    love.graphics.push("all")
 
     -- stencil mirror areas
     if should_stencil then
-        local stencil_value = rt.graphics.get_stencil_value()
         rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW)
 
         love.graphics.push("all")
         love.graphics.translate(self._offset_x, self._offset_y)
 
         self._draw_mirror_mask_callback()
+        --love.graphics.rectangle("fill", self._scene:get_camera():get_world_bounds():unpack())
+        --love.graphics.rectangle("fill", 0, 0, love.graphics.getDimensions()) --self._scene:get_camera():get_world_bounds():unpack())
 
         if self._draw_occluding_mask_callback ~= nil then
             love.graphics.setStencilState("replace", "always", 0)
             love.graphics.setColorMask(false)
 
             -- exclude occluding
-            self._draw_occluding_mask_callback()
+            --self._draw_occluding_mask_callback()
         end
 
         love.graphics.pop()
@@ -73,14 +77,17 @@ function ow.Mirror:draw()
     end
 
     -- draw canvases
-    local canvas, scale_x, scale_y = self._scene:get_player_canvas()
+    local canvas, scale_x, scale_y = self._scene:get_player_canvas() -- rt.Texture("assets/sprites/why.png")--
+    if scale_x == nil then scale_x = 1 end
+    if scale_y == nil then scale_y = 1 end
+
     local canvas_w, canvas_h = canvas:get_size()
 
     local camera = self._scene:get_camera()
     local player = self._scene:get_player()
     local player_opacity = ternary(player:get_is_visible(), 1, 0)
 
-    _shader:bind()
+    --_shader:bind()
     _shader:send("player_color", { player:get_color():unpack() })
     _shader:send("player_position", { camera:world_xy_to_screen_xy(player:get_position()) })
     _shader:send("camera_scale", camera:get_final_scale())
@@ -113,6 +120,8 @@ function ow.Mirror:draw()
             0.5 * canvas_w, 0.5 * canvas_h
         )
 
+        love.graphics.rectangle("fill", image.x + self._offset_x - 0.5 * canvas_w, image.y + self._offset_y - 0.5 * canvas_h, canvas_w, canvas_h)
+
         n_drawn = n_drawn + 1
         if n_drawn >= rt.settings.overworld.mirror.max_n_mirror_segments then
             -- safety check for degenerate geometry
@@ -122,9 +131,29 @@ function ow.Mirror:draw()
     end
     _shader:unbind()
 
+    --love.graphics.rectangle("fill", self._scene:get_camera():get_world_bounds():unpack())
+
+    --[[
+    love.graphics.rectangle("fill", self._scene:get_camera():get_world_bounds():unpack())
+
+    for image in values(self._mirror_images) do
+        local canvas_w, canvas_h = 50, 50
+        love.graphics.rectangle("fill", image.x + self._offset_x - 0.5 * canvas_w, image.y + self._offset_y - 0.5 * canvas_h, canvas_w, canvas_h)
+    end
+
     if should_stencil then
         rt.graphics.set_stencil_mode(nil)
     end
+    ]]
+
+    --[[
+    love.graphics.setColor(1, 1, 1, 1)
+    for line in values(self._visible) do
+        love.graphics.line(line)
+    end
+    ]]
+
+    love.graphics.pop()
 end
 
 local _round = function(x)
@@ -670,7 +699,6 @@ function ow.Mirror:update(delta)
         py - self._offset_y,
         occluding_segments
     )
-
 
     self._mirror_images = {}
     for segment in values(self._visible) do

@@ -162,6 +162,17 @@ function rt.GameState:set_are_reflections_enabled(b)
 end
 
 --- @brief
+function rt.GameState:get_are_dynamic_shadows_enabled()
+    return bd.get_config().are_dynamic_shadows_enabled
+end
+
+--- @brief
+function rt.GameState:set_are_dynamic_shadows_enabled(b)
+    meta.assert(b, mt.Boolean)
+    bd.get_config().are_dynamic_shadows_enabled = b
+end
+
+--- @brief
 function rt.GameState:get_is_background_animated()
     return bd.get_config().is_background_animated
 end

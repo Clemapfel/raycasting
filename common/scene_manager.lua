@@ -273,7 +273,7 @@ function rt.SceneManager:draw(...)
         self._hdr:bind()
     end
 
-    love.graphics.clear(0, 0, 0, 0)
+    love.graphics.clear(true, true, true)
 
     if self._current_scene ~= nil then
         self._current_scene:draw(...)

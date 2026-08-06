@@ -85,35 +85,51 @@ love.resize = function(width, height)
     end
 end
 
-
 --[[
-local image = rt.Texture("assets/sprites/why.png")
 local w, h = love.graphics.getDimensions()
-local use = false
+
+local settings = {
+    canvas = true
+}
+local outer = love.graphics.newTexture(w, h, settings)
+local inner = love.graphics.newTexture(w, h, settings)
+
+do
+    love.graphics.push("all")
+    love.graphics.setCanvas({ inner, stencil = true })
+    love.graphics.clear(1, 0, 0, 1)
+    love.graphics.pop()
+end
 
 love.draw = function()
-    rt.SceneManager:get_hdr():bind()
-    love.graphics.clear()
 
-    if use then
-        rt.graphics.set_stencil_mode(123, rt.StencilMode.DRAW)
-    else
-        love.graphics.setStencilState("replace", "always", 123)
-        love.graphics.setColorMask(false)
-    end
+    love.graphics.setCanvas({ outer, stencil = true })
+    love.graphics.clear(0, 0, 0, 0)
 
+    local value = 123
+
+    love.graphics.setStencilState("replace", "always", value)
+    love.graphics.setColorMask(false, false, false, false)
+
+    love.graphics.setColor(1, 0, 1, 1)
     love.graphics.circle("fill", 0.5 * w, 0.5 * h, 0.25 * h)
 
-    if use then
-        rt.graphics.set_stencil_mode(123, rt.StencilMode.TEST, rt.StencilCompareMode.EQUAL)
-    else
-        love.graphics.setStencilState("keep", "notequal", 123)
-        love.graphics.setColorMask(true)
-    end
+    love.graphics.setStencilState("keep", "notequal", value)
+    love.graphics.setColorMask(true, true, true, true)
 
+    love.graphics.setColor(0, 1, 0, 1)
     love.graphics.circle("fill", 0.5 * w, 0.5 * h, 0.5 * h)
-    rt.SceneManager:get_hdr():unbind()
-    rt.SceneManager:get_hdr():draw()
+
+    love.graphics.setStencilState("keep", "always", value)
+    love.graphics.setColorMask(true, true, true, true)
+    love.graphics.setCanvas(nil)
+
+    -- draw red rectangle
+    love.graphics.setColor(1, 0, 0, 1)
+    love.graphics.rectangle("fill", 0, 0, love.graphics.getDimensions())
+
+    -- draw red canvas
+
+    love.graphics.draw(inner)
 end
 ]]
-

@@ -1171,7 +1171,7 @@ function rt.PlayerBody:draw_body()
         love.graphics.pop()
     end
 
-    love.graphics.push()
+    love.graphics.push("all")
     local w, h = self._body_texture:get_size()
     local texture_scale = rt.settings.player_body.texture_scale
 

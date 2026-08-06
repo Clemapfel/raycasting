@@ -8,7 +8,7 @@ rt.settings.overworld.light_map = {
     start_n_segment_lights = 256,
     max_n_segment_lights = 512,
 
-    start_n_point_lights_per_tile = 256,--32,
+    start_n_point_lights_per_tile = 256,
     max_n_point_lights_per_tile = 256,
 
     start_n_segment_lights_per_tile = 16,
