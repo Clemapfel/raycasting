@@ -84,3 +84,36 @@ love.resize = function(width, height)
         rt.SceneManager:resize()
     end
 end
+
+
+--[[
+local image = rt.Texture("assets/sprites/why.png")
+local w, h = love.graphics.getDimensions()
+local use = false
+
+love.draw = function()
+    rt.SceneManager:get_hdr():bind()
+    love.graphics.clear()
+
+    if use then
+        rt.graphics.set_stencil_mode(123, rt.StencilMode.DRAW)
+    else
+        love.graphics.setStencilState("replace", "always", 123)
+        love.graphics.setColorMask(false)
+    end
+
+    love.graphics.circle("fill", 0.5 * w, 0.5 * h, 0.25 * h)
+
+    if use then
+        rt.graphics.set_stencil_mode(123, rt.StencilMode.TEST, rt.StencilCompareMode.EQUAL)
+    else
+        love.graphics.setStencilState("keep", "notequal", 123)
+        love.graphics.setColorMask(true)
+    end
+
+    love.graphics.circle("fill", 0.5 * w, 0.5 * h, 0.5 * h)
+    rt.SceneManager:get_hdr():unbind()
+    rt.SceneManager:get_hdr():draw()
+end
+]]
+

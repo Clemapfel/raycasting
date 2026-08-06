@@ -1,3 +1,4 @@
+--[[
 local modules = {}
 for _, module in pairs({
     "window",
@@ -61,3 +62,4 @@ for module_id, function_ids in pairs(package.loaded["love"]) do
         end
     end
 end
+]]

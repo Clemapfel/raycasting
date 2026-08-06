@@ -54,7 +54,7 @@ function ow.Mirror:draw()
         local stencil_value = rt.graphics.get_stencil_value()
         rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW)
 
-        love.graphics.push()
+        love.graphics.push("all")
         love.graphics.translate(self._offset_x, self._offset_y)
 
         self._draw_mirror_mask_callback()
@@ -613,7 +613,7 @@ local function _reflect(px, py, x1, y1, x2, y2)
     local reflected_y = py - 2 * projection * normal_y
 
     local flip_x = math.abs(math.dot(ux, uy, 1, 0)) < math.abs(math.dot(ux, uy, 0, 1))
-    local flip_y = false --not flip_x
+    local flip_y = not flip_x
 
     local distance = math.abs(projection)
 

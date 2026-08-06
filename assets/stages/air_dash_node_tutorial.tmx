@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="342">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="343">
  <editorsettings>
   <export target="air_dash_node_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -133,7 +133,7 @@
    </properties>
    <ellipse/>
   </object>
-  <object id="119" x="-176" y="-1152">
+  <object id="119" type="SlipperyHitbox" x="-176" y="-1152">
    <polygon points="0,0 1024,0 1024,784 1584,784 1584,-96 0,-96"/>
   </object>
   <object id="143" type="SlipperyHitbox" x="1008" y="-352">

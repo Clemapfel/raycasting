@@ -271,8 +271,9 @@ function rt.SceneManager:draw(...)
 
     if use_upscaler then
         self._hdr:bind()
-        love.graphics.clear(0, 0, 0, 0)
     end
+
+    love.graphics.clear(0, 0, 0, 0)
 
     if self._current_scene ~= nil then
         self._current_scene:draw(...)

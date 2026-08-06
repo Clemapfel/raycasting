@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 342,
+  nextobjectid = 343,
   properties = {
     ["background_id"] = "\"nebula\""
   },
@@ -520,7 +520,7 @@ return {
         {
           id = 119,
           name = "",
-          type = "",
+          type = "SlipperyHitbox",
           shape = "polygon",
           x = -176,
           y = -1152,

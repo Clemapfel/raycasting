@@ -452,9 +452,8 @@ end
 
 --- @brief
 function ow.Stage:draw_above_player()
-    self._mirror:draw()
-
     self._normal_map:draw_light(self._scene:get_camera())
+
     for entry in values(self._above_player) do
         for object in values(entry.objects) do
             object:draw(entry.priority)
@@ -462,6 +461,8 @@ function ow.Stage:draw_above_player()
 
         ow.Sprite.draw_all(entry.priority)
     end
+
+    self._mirror:draw()
 end
 
 --- @brief

@@ -10,7 +10,8 @@ server.volume.volume = 0;
 server.options.sampleRate = Renderer.sampleRate;
 
 server.waitForBoot({
-	~dialog_box_confirm.();
+	//~accelerator_surface_sparkle.();
+	~dialog_box.();
 
 	CmdPeriod.doOnce({
 		server.defaultGroup.deepFree;
@@ -67,12 +68,16 @@ server.waitForBoot({
 		tempo: 2
     ]);
 
+	pattern.play;
+	/*
+
 	Renderer.render(
 		def,
 		pattern,
 		duration: dur * (60 / 60) // 1 beat at 60bpm
 		filename: filename,
 	);
+	*/
 };
 
 // overworld.bubble.pop
@@ -534,7 +539,7 @@ server.waitForBoot({
 		degree: Pseq(seq),
 		phase: Pseries(0, (2 * pi) / (degrees.size * numOctaves)),
 		overlap: 0,
-		tempo: 50,
+		tempo: 60,
 		out: reverbBus,
 	]);
 
@@ -637,39 +642,88 @@ server.waitForBoot({
 };
 
 
-~dialog_box_confirm = { arg filename, degree;
-
-	var def = SynthDef.new(\portamento, {
-		arg out, freq, sustain, gate = 1, amp = 1;
+~dialog_box = { arg filename, degree;
+	var def = SynthDef.new(\dialog_box_portamento, {
+		arg out, freq, sustain, gate = 1, amp = 1, release = 1;
 
 		var noteDuration = sustain;
 
 		var attackTime = 0.04;
 		var decayTime = 0.1;
-		var releaseTime = noteDuration - attackTime - decayTime;
+		var releaseTime = release * (noteDuration - attackTime - decayTime);
 
-		var frequency = Lag.ar(freq);
-		var voice = Mix.ar(SinOsc.ar(frequency), Saw.ar(Lag.ar(freq))) * EnvGen.ar(
+		var frequency = Lag.ar(freq, 10.reciprocal);
+		var voice = Normalizer.ar(Mix.ar([
+			SinOsc.ar(frequency).softclip,
+			Pulse.ar(frequency)
+		] * [1, 1]));
+
+		voice = BLowPass.ar(voice, freq: freq * 2);
+		voice = voice * EnvGen.ar(
 			Env.adsr(attackTime, decayTime, 1, releaseTime),
 			doneAction: Done.freeSelf,
 			gate: gate
 		);
 
-		var signal = (voice * amp).dup;
-		Out.ar(out, signal);
-	}, [ nil, \ar, \kr] // freq is audio-rate for Lag
+		Out.ar(out, (voice * amp).dup);
+
+		DoneSentinel.ar(voice);
+	}, [ nil, \ar, \kr] // freq is audio-rate (for Lag)
 	).add;
 
-	var step = 0.01;
-	var degrees = [0, 7, 5, 3, 1, 9, 13, 11];
-	var pattern = PmonoArtic(def.name, *[
-		degree: Pn(Pseq(degrees), inf),
-		octave: 4 + Pdup(degrees.size, Pseq([0, 1, 2], 3)),
-		sustain: Pseries(0.5, 0.02, 1.0 / step),
-		tempo: 12
+	// confirm
+	var confirmDegrees = 24 + [0, 7];
+	var confirmPattern = PmonoArtic(def.name, *[
+		degree: Pseq(confirmDegrees),
+		sustain: 0.4,
+		tempo: 40
 	]);
 
-	pattern.play;
+	var backDegrees = 24 + [4, -4];
+	var backPattern = PmonoArtic(def.name, *[
+		degree: Pseq(backDegrees),
+		sustain: 0.35,
+		tempo: 40
+	]);
+
+	var resetCount = 2;
+	var resetPattern = PmonoArtic(def.name, *[
+		degree: 24 + Pseq([0, 1, 2, 1, 0, -1, 2, -1, 0]),
+		sustain: 0.35,
+		tempo: 40
+	]);
+
+	var navigationRelease = 0.5;
+	var navigationSustain = 0.5;
+	var navigationTempo = 100;
+	var upDegrees = 24 + [0, 1, 2, 3] - 4;
+	var upPattern = Pmono(def.name, *[
+		degree: Pseq(upDegrees),
+		release: navigationRelease,
+		sustain: navigationSustain,
+		tempo: navigationTempo
+	]);
+
+	var downDegrees = 24 + [3, 1, 2, 0] - 3;
+	var downPattern = Pmono(def.name, *[
+		degree: Pseq(downDegrees),
+		release: navigationRelease,
+		sustain: navigationSustain,
+		tempo: navigationTempo
+	]);
+
+	Pseq([
+		confirmPattern,
+		Rest(40),
+		backPattern,
+		Rest(40),
+		resetPattern,
+		Rest(40),
+		upPattern,
+		Rest(40),
+		downPattern,
+		Rest(40)
+	], 1).play;
 };
 
 Date.getDate; // console output on execution

@@ -40,45 +40,23 @@ rt.StencilMode = {
 }
 rt.StencilMode = meta.enum("StencilMode", rt.StencilMode)
 
-local _draw_to_backbuffer = true
-local _canvas_shader
-
-local _stencil_stack = {}
-
-function rt.graphics.push_stencil()
-    table.insert(_stencil_stack, 1, {
-        stencil = { love.graphics.getStencilState() },
-        mask = { love.graphics.getColorMask() }
-    })
-end
-
---- @brief
-function rt.graphics.pop_stencil()
-    if #_stencil_stack == 0 then
-        rt.error("In rt.graphics.pop_stencil: trying to pop, but stack is empty")
-    end
-
-    local front = _stencil_stack[1]
-    table.remove(_stencil_stack, 1)
-    love.graphics.setStencilState(table.unpack(front.stencil))
-    love.graphics.setColorMask(table.unpack(front.mask))
-end
-
 --- @brief
 function rt.graphics.set_stencil_mode(value, mode, draw_or_compare_mode)
     if value == nil then
         love.graphics.setStencilState("keep", "always", value)
-        love.graphics.setColorMask(_draw_to_backbuffer)
+        love.graphics.setColorMask(true)
         rt.graphics._stencil_mode_active = false
         return
     end
 
-    meta.assert(value, mt.Number)
-    if draw_or_compare_mode ~= nil then
-        if mode == rt.StencilMode.TEST then
-            meta.assert_argument_type(draw_or_compare_mode, rt.StencilCompareMode, 3)
-        elseif mode == rt.StencilMode.DRAW then
-            meta.assert_argument_type(draw_or_compare_mode, rt.StencilDrawMode, 3)
+    if DEBUG then
+        meta.assert(value, mt.Number)
+        if draw_or_compare_mode ~= nil then
+            if mode == rt.StencilMode.TEST then
+                meta.assert_argument_type(draw_or_compare_mode, rt.StencilCompareMode, 3)
+            elseif mode == rt.StencilMode.DRAW then
+                meta.assert_argument_type(draw_or_compare_mode, rt.StencilDrawMode, 3)
+            end
         end
     end
 
@@ -86,12 +64,12 @@ function rt.graphics.set_stencil_mode(value, mode, draw_or_compare_mode)
     if mode == rt.StencilMode.TEST then
         replace_mode = rt.StencilDrawMode.KEEP
         test_mode = draw_or_compare_mode or rt.StencilCompareMode.EQUAL
-        mask = _draw_to_backbuffer
+        mask = true
         rt.graphics._stencil_mode_active = false
     elseif mode == rt.StencilMode.DRAW then
         replace_mode = draw_or_compare_mode or rt.StencilDrawMode.REPLACE
         test_mode = rt.StencilCompareMode.ALWAYS
-        mask = not _draw_to_backbuffer
+        mask = false
         rt.graphics._stencil_mode_active = true
     end
 
@@ -102,6 +80,3 @@ end
 function rt.graphics.clear_stencil()
     love.graphics.clear(false, true, false)
 end
-
-local _stencil_stack = {}
-local _stencil_stack_depth = 0
