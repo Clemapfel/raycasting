@@ -26,7 +26,7 @@ function ow.CoinParticleTextureAtlas:instantiate(hues)
     local canvas = rt.RenderTexture(
         quad_width * n_columns * 2,
         quad_height * n_rows,
-        rt.GameState:get_msaa_quality()
+        { msaa = rt.GameState:get_msaa() }
     )
     canvas:set_scale_mode(rt.TextureScaleMode.LINEAR)
 

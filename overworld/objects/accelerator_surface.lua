@@ -79,7 +79,9 @@ function ow.AcceleratorSurface:instantiate(object, stage, scene)
         local canvas_w = frame_w * n_frames
         local canvas_h = frame_h
 
-        _particle_texture = rt.RenderTexture(canvas_w, canvas_h, 4)
+        _particle_texture = rt.RenderTexture(canvas_w, canvas_h, {
+            msaa = 4
+        })
 
         local frame_i = 1
         local center_x, center_y = 0.5 * frame_w, 0.5 * frame_h

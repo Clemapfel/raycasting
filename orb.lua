@@ -29,7 +29,7 @@ local new_int_array = new_float_array
 function orb.generate_particle_texture()
     local size_x, size_y = 64, 64
 
-    local texture = rt.RenderTexture(size_x, size_y, rt.RGBA8)
+    local texture = rt.RenderTexture(size_x, size_y, { format = rt.RGBA8 })
     texture:bind()
     love.graphics.clear(0, 0, 0, 0)
     particle_shader:bind()

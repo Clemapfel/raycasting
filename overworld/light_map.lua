@@ -53,49 +53,43 @@ function ow.LightMap:instantiate(width, height)
     local settings = rt.settings.overworld.light_map
     self._tile_size = 128
 
-    self._light_intensity_texture = rt.RenderTexture(
-        width, height,
-        0, -- msaa
-        settings.intensity_texture_format,
-        true -- compute write
-    )
+    self._light_intensity_texture = rt.RenderTexture(width, height, {
+        msaa = 0,
+        format = settings.intensity_texture_format,
+        is_compute = true
+    })
 
-    self._light_direction_texture = rt.RenderTexture(
-        width, height,
-        0,
-        settings.direction_texture_format,
-        true
-    )
+    self._light_direction_texture = rt.RenderTexture(width, height, {
+        msaa = 0,
+        format = settings.direction_texture_format,
+        is_compute = true
+    })
 
-    self._mask_texture = rt.RenderTexture(
-        width, height,
-        0,
-        settings.mask_texture_format,
-        true
-    )
+    self._mask_texture = rt.RenderTexture(width, height, {
+        msaa = 0,
+        format = settings.mask_texture_format,
+        is_compute = true
+    })
 
-    self._composite_texture = rt.RenderTexture(
-        width, height,
-        0,
-        settings.composite_texture_format,
-        true
-    )
+    self._composite_texture = rt.RenderTexture(width, height, {
+        msaa = 0,
+        format = settings.composite_texture_format,
+        is_compute = true
+    })
 
-    self._composite_mask = rt.RenderTexture(
-        width, height,
-        0,
-        settings.composite_mask_texture_format,
-        true
-    )
+    self._composite_mask = rt.RenderTexture(width, height, {
+        msaa = 0,
+        format = settings.composite_mask_texture_format,
+        is_compute = true
+    })
 
     -- dummy texture for use if real bloom texture is not available
     require "common.bloom"
-    self._bloom_dummy_texture = rt.RenderTexture(
-        1, 1, 
-        0, 
-        rt.settings.bloom.texture_format,
-        true
-    )
+    self._bloom_dummy_texture = rt.RenderTexture(1, 1,  {
+        msaa = 0,
+        format = rt.settings.bloom.texture_format,
+        is_compute = true
+    })
 
     do
         love.graphics.push("all")

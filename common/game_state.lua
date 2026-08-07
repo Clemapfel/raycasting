@@ -108,8 +108,15 @@ function rt.GameState:set_msaa_quality(msaa)
 end
 
 --- @brief
+--- @return rt.MSAAQuality
 function rt.GameState:get_msaa_quality()
     return bd.get_config().msaa
+end
+
+--- @brief
+--- @return Number
+function rt.GameState:get_msaa()
+    return rt.graphics.msaa_quality_to_native(bd.get_config().msaa)
 end
 
 --- @brief

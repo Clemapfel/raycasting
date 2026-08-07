@@ -334,7 +334,7 @@ function ow.Stage:instantiate(scene, id)
     end
 
     if n_time_attack_npcs < 1 then
-        rt.warning("In ow.stage.initialize: no `TimeAttackTriggerNPC` present in stage `", self._id, "`")
+        rt.warning("In ow.Stage.initialize: no `TimeAttackTriggerNPC` present in stage `", self._id, "`")
     end
 
     local sort = function(t)

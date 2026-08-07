@@ -59,7 +59,6 @@ function rt.graphics.set_stencil_mode(value, mode, draw_or_compare_mode)
         end
     end
 
-
     if mode == rt.StencilMode.DRAW then
         local replace_mode = draw_or_compare_mode or rt.StencilDrawMode.REPLACE
         local test_mode = rt.StencilCompareMode.ALWAYS

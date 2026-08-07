@@ -379,18 +379,21 @@ function rt.PlayerBody:_initialize()
 
         self._body_texture = rt.RenderTexture(
             texture_w, texture_h,
-            settings.msaa,
-            rt.TextureFormat.R32F
+            {
+                msaa = settings.msaa,
+                format = rt.TextureFormat.R32F,
+                has_stencil = true
+            }
         )
 
         self._body_outline_texture = rt.RenderTexture(
             texture_w, texture_h,
-            settings.msaa
+            { msaa = settings.msaa }
         )
 
         self._swap_texture = rt.RenderTexture(
             texture_w, texture_h,
-            settings.msaa
+            { msaa = settings.msaa }
         )
 
         for texture in range(self._body_texture, self._body_outline_texture, self._swap_texture) do

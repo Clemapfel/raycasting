@@ -1,6 +1,5 @@
 require "common.texture_format"
-require "common.render_texture_volume"
-require "common.render_texture_array"
+require "common.render_texture"
 require "common.shader"
 require "common.compute_shader"
 require "common.lch_texture"
@@ -147,16 +146,17 @@ end
 --- @brief
 function ow.Clouds:_init_volume_texture()
     local n_layers = rt.settings.overworld.clouds.n_layeres
-    local texture_config = {
+
+    self._volume_texture = rt.RenderTextureVolume(
         self._resolution_x,
         self._resolution_y,
         self._resolution_z,
-        0, -- msaa
-        rt.settings.overworld.clouds.volume_texture_format,
-        true -- compute writable
-    }
-
-    self._volume_texture = rt.RenderTextureVolume(table.unpack(texture_config))
+        {
+            msaa = 0,
+            format = rt.settings.overworld.clouds.volume_texture_format,
+            is_compute = true
+        }
+    )
 
     self._volume_texture:set_scale_mode(
         rt.TextureScaleMode.LINEAR,
@@ -339,10 +339,11 @@ function ow.Clouds:_init_slices()
     self._export_texture = rt.RenderTextureArray(
         self._resolution_x,
         self._resolution_y,
-        self._n_slices,
-        0, -- msaa,
-        rt.settings.overworld.clouds.export_texture_format,
-        true -- computewrite
+        self._n_slices, {
+            msaa = 0,
+            format = rt.settings.overworld.clouds.export_texture_format,
+            is_compute = true
+        }
     )
 
     self._export_texture:set_scale_mode(

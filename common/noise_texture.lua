@@ -74,7 +74,12 @@ function rt.NoiseTexture:instantiate(size_x, size_y, size_z, ...)
         return
     end
 
-    self._texture = rt.RenderTextureVolume(size_x, size_y, size_z, 0, texture_format)
+    self._texture = rt.RenderTextureVolume(size_x, size_y, size_z, {
+        msaa = 0,
+        format = texture_format,
+        is_compute = true
+    })
+
     self._texture:set_wrap_mode(
         rt.TextureWrapMode.MIRROR,
         rt.TextureWrapMode.MIRROR,

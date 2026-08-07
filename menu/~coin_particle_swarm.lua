@@ -366,7 +366,7 @@ function mn.CoinParticleSwarm:instantiate()
     self._texture_atlas = rt.RenderTexture(
         quad_w * n_columns,
         quad_h * n_rows,
-        rt.GameState:get_msaa_quality()
+        rt.GameState:get_msaa()
     )
 
     love.graphics.push("all")

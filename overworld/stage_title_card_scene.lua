@@ -197,7 +197,7 @@ end
 --- @brief
 function ow.StageTitleCardScene:size_allocate(x, y, width, height)
     if _canvas == nil or _canvas:get_width() ~= width or _canvas:get_height() ~= height then
-        _canvas = rt.RenderTexture(width, height, 4)
+        _canvas = rt.RenderTexture(width, height, { msaa = 4 })
         _canvas:set_scale_mode(rt.TextureScaleMode.LINEAR)
     end
 

@@ -335,17 +335,21 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
 
         local mask = rt.RenderTexture(
             chunk_size + 2 * padding, chunk_size + 2 * padding,
-            0, -- msaa
-            _mask_texture_format,
-            true -- computewrite
+            {
+                msaa = 0,
+                format = _mask_texture_format,
+                is_compute = true
+            }
         )
 
         local jfa_texture = rt.RenderTextureArray(
             chunk_size + 2 * padding, chunk_size + 2 * padding,
             2, -- n layers
-            0, -- msaa
-            _jfa_texture_format,
-            true -- computewrite
+            {
+                msaa = 0,
+                format = _jfa_texture_format,
+                is_compute = true
+            }
         )
 
         -- allocate texture atlas
@@ -359,9 +363,11 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
         self._texture_atlas = rt.RenderTexture(
             render_atlas_n_rows * atlas_tile_size,
             render_atlas_n_columns * atlas_tile_size,
-            0,
-            _normal_map_texture_format,
-            true
+            {
+                msaa = 0,
+                format = _normal_map_texture_format,
+                is_compute = true
+            }
         )
 
         for i, chunk in ipairs(self._non_empty_chunks) do

@@ -32,13 +32,14 @@ function rt.HDR:reinitialize(width, height)
     if self._texture == nil
         or self._texture:get_width() ~= width
         or self._texture:get_height() ~= height
-        or self._texture:get_msaa() ~= rt.GameState:get_msaa_quality()
+        or self._texture:get_msaa() ~= rt.GameState:get_msaa()
     then
-        self._texture = rt.RenderTexture(
-            width, height,
-            rt.GameState:get_msaa_quality(),
-            rt.settings.hdr.texture_format
-        )
+        self._texture = rt.RenderTexture(width, height, {
+            msaa = rt.GameState:get_msaa(),
+            format = rt.settings.hdr.texture_format,
+            has_stencil = true,
+            has_depth = true
+        })
 
         self:_init_mesh(love.graphics.getDimensions())
     end

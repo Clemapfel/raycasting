@@ -46,11 +46,13 @@ function rt.Bloom:instantiate(width, height)
         local level = 1
         while (w > 8 or h > 8) do
         local mesh = rt.MeshRectangle(0, 0, w, h)
-        local texture = rt.RenderTexture(w, h,
-        rt.settings.bloom.msaa,
-        rt.settings.bloom.texture_format,
-        level == 1 -- allow computewrite
-        )
+        local texture = rt.RenderTexture(w, h, {
+            msaa = rt.settings.bloom.msaa,
+            format = rt.settings.bloom.texture_format,
+            is_compute = level == 1,
+            has_stencil = true,
+            has_depth = true
+        })
 
         mesh:set_texture(texture)
         texture:set_wrap_mode(rt.TextureWrapMode.ZERO)

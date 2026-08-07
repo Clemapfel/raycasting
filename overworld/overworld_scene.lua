@@ -104,8 +104,13 @@ function ow.OverworldScene:instantiate(state)
         _player_canvas_scale = rt.settings.overworld_scene.player_canvas_scale,
         _player_canvas = rt.RenderTexture(
             2 * rt.settings.player.radius * settings.player_canvas_size_radius_factor * settings.player_canvas_scale, 
-            2 * rt.settings.player.radius * settings.player_canvas_size_radius_factor * settings.player_canvas_scale
+            2 * rt.settings.player.radius * settings.player_canvas_size_radius_factor * settings.player_canvas_scale,
+            {
+                msaa = 0,
+                has_stencil = true
+            }
         ),
+
         _player_canvas_needs_update = true,
 
         _screenshot = nil, -- rt.RenderTexture
@@ -475,7 +480,11 @@ function ow.OverworldScene:size_allocate(x, y, width, height)
         or self._blur:get_width() ~= width
         or self._blur:get_height() ~= height
     then
-        self._blur = rt.Blur(width, height)
+        self._blur = rt.Blur(width, height, {
+            msaa = rt.GameState:get_msaa(),
+            has_stencil = true,
+            has_depth = true
+        })
     end
 
     local m = rt.SceneManager:get_margin_unit()
@@ -689,8 +698,6 @@ function ow.OverworldScene:update(delta)
         self._queue_timer_start = false
     end
 end
-
-local before = love.timer.getTime()
 
 --- @brief
 function ow.OverworldScene:draw()
@@ -975,11 +982,12 @@ function ow.OverworldScene:_update_screenshot(draw_player)
         or self._screenshot:get_height() ~= height
         or self._screenshot:get_format() ~= format
     then
-        self._screenshot = rt.RenderTexture(
-            width, height,
-            rt.GameState:get_msaa_quality(),
-            format
-        )
+        self._screenshot = rt.RenderTexture(width, height, {
+            msaa = rt.GameState:get_msaa(),
+            format = format,
+            has_depth = true,
+            has_stencil = true,
+        })
     end
 
     local before = self._player_is_visible
@@ -1011,7 +1019,7 @@ function ow.OverworldScene:_update_player_canvas()
     if self._stage == nil or self._player_canvas_needs_update ~= true then return end
 
     love.graphics.push("all")
-    --love.graphics.reset()
+    love.graphics.reset()
 
     local x, y = self._player:get_position()
     local w, h = self._player_canvas:get_size()
@@ -1023,6 +1031,7 @@ function ow.OverworldScene:_update_player_canvas()
     love.graphics.translate(-x + 0.5 * w, -y + 0.5 * h)
 
     self._player_canvas:bind()
+    love.graphics.clear(0, 0, 0, 0)
 
     if self._player_is_visible then
         self._player:draw_body()

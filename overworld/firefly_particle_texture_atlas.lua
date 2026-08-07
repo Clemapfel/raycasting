@@ -64,7 +64,7 @@ function ow.FireflyParticleTextureAtlas:instantiate(hues, radii)
     local canvas = rt.RenderTexture(
         math.max(1, canvas_width),
         math.max(1, canvas_height),
-        rt.GameState:get_msaa_quality()
+        { msaa = rt.GameState:get_msaa() }
     )
     canvas:set_scale_mode(rt.TextureScaleMode.LINEAR)
 

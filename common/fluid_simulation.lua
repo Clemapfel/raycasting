@@ -487,11 +487,10 @@ function rt.FluidSimulation:_initialize_particle_texture()
     local canvas_width = (radius + padding) * 2
     local canvas_height = canvas_width
 
-    self._particle_texture = rt.RenderTexture(
-        canvas_width, canvas_height,
-        0,
-        self._render_texture_format
-    )
+    self._particle_texture = rt.RenderTexture(canvas_width, canvas_height, {
+        msaa = 0,
+        format = self._render_texture_format
+    })
 
     self._particle_texture:set_scale_mode(rt.TextureScaleMode.LINEAR)
     self._particle_texture:set_wrap_mode(rt.TextureWrapMode.ZERO)
@@ -1654,8 +1653,10 @@ do
                 local new_canvas = rt.RenderTexture(
                     math.max(new_w, current_w),
                     math.max(new_h, current_h),
-                    self._canvas_msaa,
-                    self._render_texture_format
+                    {
+                        msaa = self._canvas_msaa,
+                        format = self._render_texture_format
+                    }
                 )
                 new_canvas:set_scale_mode(rt.TextureScaleMode.LINEAR)
 

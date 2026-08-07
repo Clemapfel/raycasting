@@ -1,7 +1,7 @@
 require "common.texture"
 require "common.image"
 require "common.compute_shader"
-require "common.render_texture_volume"
+require "common.render_texture"
 
 rt.settings.lch_texture = {
     texture_format = rt.TextureFormat.RGB10A2,
@@ -71,7 +71,11 @@ function rt.LCHTexture:_initialize()
         self._n_chroma_steps,
         self._n_hue_steps
 
-    self._texture = rt.RenderTextureVolume(size_x, size_y, size_z, 0, rt.settings.lch_texture.texture_format)
+    self._texture = rt.RenderTextureVolume(size_x, size_y, size_z, {
+        msaa = 0,
+        format = rt.settings.lch_texture.texture_format,
+        is_compute = true
+    })
     self._texture:set_scale_mode(rt.TextureScaleMode.LINEAR)
     self._texture:set_wrap_mode(
         rt.TextureWrapMode.CLAMP,  -- lightness

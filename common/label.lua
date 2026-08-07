@@ -1146,7 +1146,10 @@ function rt.Label:_apply_wrapping(width)
     self._texture_height = outline_texture_h
 
     if self._use_caching then
-        self._texture = rt.RenderTexture(outline_texture_w, outline_texture_h, rt.GameState:get_msaa_quality(), _texture_format)
+        self._texture = rt.RenderTexture(outline_texture_w, outline_texture_h, {
+            msaa = rt.GameState:get_msaa(),
+            format = _texture_format
+        })
     else
         self._texture = nil
     end

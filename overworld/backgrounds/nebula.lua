@@ -1094,7 +1094,6 @@ function ow.NebulaBackground:_init_glow_particle()
     love.graphics.rectangle("fill", 0, 0, canvas:get_size())
     canvas:unbind()
 
-
     local instance_mesh = rt.Mesh(
         mesh_data,
         rt.MeshDrawMode.TRIANGLES,

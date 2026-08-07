@@ -31,13 +31,14 @@ for entry in values(_kernels) do
 end
 
 --- @brief
-function rt.Blur:instantiate(width, height, ...)
+function rt.Blur:instantiate(width, height, settings)
+    meta.assert(width, mt.Number, height, mt.Number, settings, mt.Optional(mt.Table))
     return meta.install(self, {
         _blur_strength = 1, -- Integer
         _texture_w = width,
         _texture_h = height,
-        _texture_a = rt.RenderTexture(width, height, ...):get_native(),
-        _texture_b = rt.RenderTexture(width, height, ...):get_native(),
+        _texture_a = rt.RenderTexture(width, height, settings):get_native(),
+        _texture_b = rt.RenderTexture(width, height, settings):get_native(),
         _a_or_b = true,
         _blur_applied = false,
         _blur_horizontally = true,

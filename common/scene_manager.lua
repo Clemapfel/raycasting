@@ -359,7 +359,7 @@ function rt.SceneManager:resize(_)
     if self._hdr == nil
         or self._hdr:get_width() ~= self._width
         or self._hdr:get_height() ~= self._height
-        or self._hdr:get_msaa() ~= rt.GameState:get_msaa_quality()
+        or self._hdr:get_msaa() ~= rt.GameState:get_msaa()
     then
         if self._hdr == nil then
             self._hdr = rt.HDR(self._width, self._height)

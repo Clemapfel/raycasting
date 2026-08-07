@@ -192,7 +192,10 @@ function mn.StagePreview:size_allocate(x, y, width, height)
         or self._canvas:get_width() ~= canvas_w
         or self._canvas:get_height() ~= canvas_h
     then
-        self._canvas = rt.Blur(canvas_w, canvas_h, 8) -- msaa: 8
+        self._canvas = rt.Blur(canvas_w, canvas_h, {
+            msaa = 8,
+            has_stencil = true
+        })
         self._canvas:set_blur_strength(1)
         self._canvas:set_flush_manually(true)
     end

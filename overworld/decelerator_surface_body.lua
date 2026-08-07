@@ -269,7 +269,7 @@ function ow.DeceleratorSurfaceBody:instantiate(scene, contour)
 
     self._canvas = rt.RenderTexture(
         self._aabb.width, self._aabb.height,
-        rt.TextureFormat.RG16F
+        { format = rt.TextureFormat.RG16F }
     )
     self._canvas_needs_update = true
 

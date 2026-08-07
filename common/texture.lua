@@ -39,6 +39,13 @@ end
 --- @param mode rt.TextureScaleMode
 function rt.Texture:set_scale_mode(mode, other, anisotropy)
     if other == nil then other = mode end
+
+    meta.assert(
+        mode, rt.TextureScaleMode,
+        other, mt.Optional(rt.TextureScaleMode),
+        anisotropy, mt.Optional(mt.Number)
+    )
+
     self._native:setFilter(mode, other, anisotropy)
 end
 
@@ -53,6 +60,13 @@ end
 function rt.Texture:set_wrap_mode(mode_x, mode_y, mode_z)
     if mode_y == nil then mode_y = mode_x end
     if mode_z == nil then mode_z = mode_y end
+
+    meta.assert(
+        mode_x, rt.TextureWrapMode,
+        mode_y, rt.TextureWrapMode,
+        mode_z, rt.TextureWrapMode
+    )
+
     self._native:setWrap(mode_x, mode_y, mode_z)
 end
 
@@ -92,7 +106,7 @@ function rt.Texture:draw(...)
 end
 
 --- @brief
-function rt.Texture:release()
+function rt.Texture:free()
     self._native:release()
 end
 
@@ -101,10 +115,11 @@ function rt.Texture:get_native()
     return self._native
 end
 
-if love.getVersion() >= 12 then
-    --- @overload
-    function rt.Texture:download()
-        require "common.image"
+--- @brief
+function rt.Texture:download()
+    if love.getVersion() >= 12 then
         return rt.Image(love.graphics.readbackTexture(self._native))
+    else
+        return rt.Image(self._native:newImageData())
     end
 end

@@ -50,6 +50,8 @@ rt.TextureFormat = {
 
 --- @brief get fallback for texture format if platform does not support it
 rt.graphics.texture_format_get_fallback = function(format, is_canvas)
+    meta.assert_argument_type(is_canvas, mt.Boolean)
+
     local fallback_chains = {
         NORMAL            = { },
         R8                = { "r8", "rg8", "rgba8" },
@@ -70,7 +72,6 @@ rt.graphics.texture_format_get_fallback = function(format, is_canvas)
         R16F              = { "r16f", "r16", "rg16f", "rg16", "rgba16f", "rgba16" },
         R16I              = { "r16i", "rg16i", "rgba16i" },
         R16UI             = { "r16ui", "rg16ui", "rgba16ui" },
-        DEPTH16           = { "depth16", "depth24", "depth32f" },
         RG16              = { "rg16", "rg16f", "rgba16", "rgba16f" },
         RG16F             = { "rg16f", "rg16", "rgba16f", "rgba16" },
         RG16I             = { "rg16i", "rgba16i" },
@@ -80,6 +81,7 @@ rt.graphics.texture_format_get_fallback = function(format, is_canvas)
         R32UI             = { "r32ui", "rg32ui", "rgba32ui" },
         RGB10A2           = { "rgb10a2", "rgba16", "rgba16f" },
         RG11B10F          = { "rg11b10f", "rgba16f", "rgba32f" },
+        DEPTH16           = { "depth16", "depth24", "depth32f" },
         DEPTH24           = { "depth24", "depth32f", "depth16" },
         DEPTH32F          = { "depth32f", "depth24", "depth16" },
         DEPTH24_STENCIL8  = { "depth24stencil8", "depth32fstencil8" },

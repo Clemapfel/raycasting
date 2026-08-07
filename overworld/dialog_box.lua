@@ -472,7 +472,9 @@ function ow.DialogBox:size_allocate(x, y, width, height)
         or self._portrait_canvas:get_width() ~= portrait_w
         or self._portrait_canvas:get_height() ~= portrait_h
     then
-        self._portrait_canvas = rt.RenderTexture(portrait_w, portrait_h, rt.GameState:get_msaa_quality())
+        self._portrait_canvas = rt.RenderTexture(portrait_w, portrait_h, {
+            msaa = rt.GameState:get_msaa()
+        })
     end
 
     do

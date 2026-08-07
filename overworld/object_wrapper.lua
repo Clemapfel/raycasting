@@ -705,7 +705,7 @@ function ow.ObjectWrapper:validate_schema(schema, ...)
 
             for type in values(types) do
                 if _valid_types[type] ~= true then
-                    rt.error("In ow.ObjectWrapper: In stage `", self.stage_id, "`: invalid schema, key `", property_name, "` is not a value of enum ow.PropertyType")
+                    rt.error("In ow.ObjectWrapper: In ow.Stage `", self.stage_id, "`: invalid schema, key `", property_name, "` is not a value of enum ow.PropertyType")
                 end
 
                 if type == ow.Number or type == ow.String or type == ow.Boolean then
@@ -721,7 +721,7 @@ function ow.ObjectWrapper:validate_schema(schema, ...)
                 end
 
                 if not is_valid then
-                    rt.error("In ow.ObjectWrapper: In stage `", self.stage_id, "`: object `", self:get_id(), "` property `", property_name, "` does not adhere to schema: expected `", type, "`, got `", value, "`")
+                    rt.error("In ow.ObjectWrapper: In ow.Stage `", self.stage_id, "`: object `", self:get_id(), "` property `", property_name, "` does not adhere to schema: expected `", type, "`, got `", value, "`")
                 end
             end
         end
@@ -729,7 +729,7 @@ function ow.ObjectWrapper:validate_schema(schema, ...)
 
     for name in keys(self.properties) do
         if valid_names[name] ~= true then
-            rt.warning("In ow.ObjectWrapper: In stage `", self.stage_id, "`: property `", name, "` of object `", self.id, "` is not a valid schema key. It will be ignored.")
+            rt.warning("In ow.ObjectWrapper: In ow.Stage `", self.stage_id, "`: property `", name, "` of object `", self.id, "` is not a valid schema key. It will be ignored.")
         end
     end
 

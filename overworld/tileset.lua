@@ -167,7 +167,7 @@ function ow.Tileset:instantiate(tileset_name)
         atlas_height = atlas_height + shelf_height
     end
 
-    self._texture_atlas = rt.RenderTexture(atlas_width, atlas_height, 0)
+    self._texture_atlas = rt.RenderTexture(atlas_width, atlas_height)
 
     local space_usage = total_area / (atlas_width * atlas_height)
     if space_usage < 0.7 then

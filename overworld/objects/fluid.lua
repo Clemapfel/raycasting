@@ -201,11 +201,10 @@ function ow.Fluid:_initialize(center_x, center_y)
         local w = (particle_texture_r + 2) * 2
         local h = w
 
-        self._particle_texture = rt.RenderTexture(
-            w, h,
-            0, -- msaa
-            rt.TextureFormat.NORMAL
-        )
+        self._particle_texture = rt.RenderTexture(w, h, {
+            msaa = 0,
+            format = rt.TextureFormat.NORMAL
+        })
 
         love.graphics.push("all")
         love.graphics.reset()
@@ -903,11 +902,10 @@ function ow.Fluid:_resize_canvas()
         or self._canvas:get_width() ~= width
         or self._canvas:get_height() ~= height
     then
-        self._canvas = rt.RenderTexture(
-            width, height,
-            rt.graphics.msaa_quality_to_native(rt.MSAAQuality.BETTER),
-            rt.TextureFormat.RGBA16F
-        )
+        self._canvas = rt.RenderTexture(width, height, {
+            msaa = rt.graphics.msaa_quality_to_native(rt.MSAAQuality.BETTER),
+            format = rt.TextureFormat.RGBA16F
+        })
 
         self._canvas_needs_update = true
     end
