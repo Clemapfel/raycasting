@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 346,
+  nextobjectid = 350,
   properties = {
     ["background_id"] = "\"nebula\""
   },
@@ -995,8 +995,8 @@ return {
           name = "",
           type = "MovableHitbox",
           shape = "polygon",
-          x = 480,
-          y = -1472,
+          x = -369.114,
+          y = -1467.42,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1067,8 +1067,8 @@ return {
           name = "",
           type = "Path",
           shape = "point",
-          x = 240,
-          y = -1376,
+          x = -609.114,
+          y = -1371.42,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1083,8 +1083,8 @@ return {
           name = "",
           type = "PathNode",
           shape = "point",
-          x = 483.338,
-          y = -1654.11,
+          x = -365.776,
+          y = -1649.53,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1092,6 +1092,80 @@ return {
           properties = {
             ["next"] = { id = 344 }
           }
+        },
+        {
+          id = 346,
+          name = "",
+          type = "",
+          shape = "polygon",
+          x = 642.944,
+          y = -1469.15,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 114.539, y = 93.1582 },
+            { x = 230.605, y = -6.10874 }
+          },
+          properties = {}
+        },
+        {
+          id = 347,
+          name = "",
+          type = "",
+          shape = "polygon",
+          x = 554.368,
+          y = -1534.82,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 25.9621, y = 126.756 },
+            { x = 238.241, y = 3.05437 }
+          },
+          properties = {}
+        },
+        {
+          id = 348,
+          name = "",
+          type = "",
+          shape = "polygon",
+          x = 595.602,
+          y = -1608.12,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 334.453, y = 236.714 },
+            { x = 456.628, y = 109.957 }
+          },
+          properties = {}
+        },
+        {
+          id = 349,
+          name = "",
+          type = "",
+          shape = "polygon",
+          x = 189.371,
+          y = -1528.71,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = -13.3708, y = 168.711 },
+            { x = 178.629, y = 184.711 },
+            { x = 178.629, y = -167.289 },
+            { x = 114.629, y = 40.7111 }
+          },
+          properties = {}
         }
       }
     },

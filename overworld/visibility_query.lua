@@ -86,23 +86,184 @@ function ow.VisibilityQuery:get_segments_in_area(aabb)
 end
 
 --- @brief
-function ow.VisibilityQuery:get_visible_subsegments(x, y, r, max_range)
-    if max_range == nil then max_range = math.huge end
+function ow.VisibilityQuery:get_visible_subsegments(x, y, r)
     meta.assert(x, mt.Number, y, mt.Number, r, mt.Number)
-
-    return self:get_segments_in_area(rt.AABB(
-        x - r,
-        y - r,
-        2 * r,
-        2 * r
-    ))
+    return self:_compute_subsegments(x, y, r)
 end
 
 --- @brief
 function ow.VisibilityQuery:draw()
-    for _, shape in ipairs(self._shapes) do
-        love.graphics.line(shape:getUserData().segment)
+    rt.Palette.GREEN:bind()
+
+    if self._subsegments ~= nil then
+        for _, entry in ipairs(self._subsegments) do
+            if #entry.segment >= 4 then
+                love.graphics.line(entry.segment)
+            end
+        end
     end
+end
+
+--- @brief
+function ow.VisibilityQuery:_compute_subsegments(x, y, r)
+    -- cache all data in continuous tables
+    local edges = self._world:getShapesInArea(
+        x - r, y - r,
+        x + r, y + r
+    )
+
+    for i, shape in ipairs(edges) do
+        edges[i] = shape:getUserData()
+    end
+
+    if #edges == 0 then return {} end
+
+    local n_ids = #edges * 2
+
+    local id_to_distance = table.new(n_ids, 0)
+    local id_to_angle = table.new(n_ids, 0)
+    local id_to_data = table.new(n_ids, 0)
+    local ids_sorted = table.new(n_ids, 0)
+
+    local edge_id_to_edge = {}
+    local angle_to_edge_ids = {}
+
+    do
+        local id = 1
+        for edge_id, data in ipairs(edges) do
+
+            local a_id, b_id = id + 0, id + 1
+            id_to_data[a_id] = data
+            id_to_data[b_id] = data
+            data._a_id = a_id
+            data._b_id = b_id
+
+            local ax, ay, bx, by = table.unpack(data.segment)
+            id_to_distance[a_id] = math.distance(ax, ay, x, y)
+            id_to_distance[b_id] = math.distance(bx, by, x, y)
+
+            edge_id_to_edge[edge_id] = { ax, ay, bx, by }
+
+            local a_angle = math.normalize_angle(math.angle(math.subtract(ax, ay, x, y)))
+            local b_angle = math.normalize_angle(math.angle(math.subtract(bx, by, x, y)))
+
+            if angle_to_edge_ids[a_angle] == nil then
+                angle_to_edge_ids[a_angle] = {}
+            end
+
+            if angle_to_edge_ids[b_angle] == nil then
+                angle_to_edge_ids[b_angle] = {}
+            end
+
+            id_to_angle[a_id] = a_angle
+            id_to_angle[b_id] = b_angle
+
+            ids_sorted[a_id] = a_id
+            ids_sorted[b_id] = b_id
+
+            id = id + 2
+        end
+    end
+
+    require "common.stable_sort"
+
+    -- sort by angle
+    table.sort(ids_sorted, function(a, b)
+        return id_to_angle[a] < id_to_angle[b]
+    end)
+
+    local unique_angles = {}
+    for key in keys(angle_to_edge_ids) do
+        table.insert(unique_angles, key)
+    end
+
+    table.sort(unique_angles)
+
+    local ray_segment_distance = function(x, y, angle, ax, ay, bx, by)
+        local dx, dy = math.cos(angle), math.sin(angle)
+
+        local v1x, v1y = ax - x, ay - y
+        local v2x, v2y = bx - ax, by - ay
+        local v3x, v3y = -dy, dx
+
+        local denom = math.dot(v2x, v2y, v3x, v3y)
+
+        if math.abs(denom) < math.eps then
+            return nil
+        end
+
+        local t =  math.cross(v1x, v1y, v2x, v2y) / denom   -- cross(v1, v2)
+        local s = -math.dot(v1x, v1y, v3x, v3y) / denom      -- note minus
+
+        if t >= 0 and s >= 0 and s <= 1 then
+            local ix, iy = x + dx * t, y + dy * t
+            return t, ix, iy
+        end
+
+        return nil
+    end
+
+    local subsegments = {}
+
+    -- state of the currently visible edge and its subsegment
+    local current_edge_id = nil
+    local current_start_x, current_start_y = nil, nil
+    local current_end_x,   current_end_y   = nil, nil
+
+    for _, angle in ipairs(unique_angles) do
+        local min_distance = math.huge
+        local min_edge_id = nil
+        local min_point_x, min_point_y = nil, nil
+
+        -- find closest edge along this ray
+        for edge_id, edge in ipairs(edges) do
+            local distance, hit_x, hit_y = ray_segment_distance(
+                x, y, angle, table.unpack(edge.segment)
+            )
+            if distance ~= nil and distance < min_distance then
+                min_distance = distance
+                min_edge_id = edge_id
+                min_point_x = hit_x
+                min_point_y = hit_y
+            end
+        end
+
+        -- if the visible edge changed
+        if min_edge_id ~= current_edge_id then
+            -- close the previous segment, if any
+            if current_edge_id ~= nil then
+                table.insert(subsegments, {
+                    edge_id = current_edge_id,
+                    segment = { current_start_x, current_start_y, current_end_x, current_end_y }
+                })
+            end
+
+            -- start a new segment with the current hit point
+            if min_edge_id ~= nil then
+                current_edge_id = min_edge_id
+                current_start_x, current_start_y = min_point_x, min_point_y
+                current_end_x,   current_end_y   = min_point_x, min_point_y
+            else
+                current_edge_id = nil
+            end
+        else
+            -- same edge still visible – extend its endpoint
+            if current_edge_id ~= nil then
+                current_end_x, current_end_y = min_point_x, min_point_y
+            end
+        end
+    end
+
+    -- close the last segment after the sweep
+    if current_edge_id ~= nil then
+        table.insert(subsegments, {
+            edge_id = current_edge_id,
+            segment = { current_start_x, current_start_y, current_end_x, current_end_y }
+        })
+    end
+
+    self._subsegments = subsegments
+    return subsegments
 end
 
 --[[

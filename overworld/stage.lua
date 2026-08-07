@@ -485,7 +485,7 @@ function ow.Stage:draw_bloom()
         object:draw_bloom()
     end
 
-    self._shadow_cast:draw_bloom()
+    --self._shadow_cast:draw_bloom()
 end
 
 --- @brief

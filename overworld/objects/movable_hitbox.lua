@@ -205,7 +205,7 @@ function ow.MovableHitbox:draw(priority)
         self._blood_spatter:draw()
     end
 
-    self._shadow_cast:draw()
+    --self._shadow_cast:draw()
 end
 
 --- @brief
@@ -217,6 +217,6 @@ function ow.MovableHitbox:draw_bloom()
         self._blood_spatter:draw_bloom()
     end
 
-    self._shadow_cast:draw_bloom()
+    --self._shadow_cast:draw_bloom()
 end
 

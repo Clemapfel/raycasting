@@ -37,12 +37,13 @@ function ow.ShadowCast:update(delta)
     bounds.x = bounds.x - self._offset_x
     bounds.y = bounds.y - self._offset_y
 
-    local all = {}
-    for data in values(self._query:get_segments_in_area(bounds)) do
-        table.insert(all, data.segment)
+    local px, py = self._scene:get_player():get_position()
+    local subsegments = {}
+    for data in values(self._query:get_visible_subsegments(px, py, math.huge)) do
+        table.insert(subsegments, data.segment)
     end
 
-    self._todo = all
+    self._todo = subsegments
 end
 
 --- @brief
@@ -58,18 +59,16 @@ end
 --- @brief
 function ow.ShadowCast:draw()
     if rt.GameState:get_are_dynamic_shadows_enabled() == false then return end
+
+    love.graphics.push()
+    love.graphics.translate(self._offset_x, self._offset_y)
+    love.graphics.setColor(self._scene:get_player():get_color():unpack())
+    self._query:draw()
+    love.graphics.pop()
 end
 
 --- @brief
 function ow.ShadowCast:draw_bloom()
     if rt.GameState:get_are_dynamic_shadows_enabled() == false then return end
-
-    love.graphics.push()
-    love.graphics.translate(self._offset_x, self._offset_y)
-    love.graphics.setColor(self._scene:get_player():get_color():unpack())
-    for line in values(self._todo) do
-        love.graphics.line(line)
-    end
-    love.graphics.pop()
 end
 

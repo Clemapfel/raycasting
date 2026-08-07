@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="346">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="350">
  <editorsettings>
   <export target="air_dash_node_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -249,7 +249,7 @@
    </properties>
    <ellipse/>
   </object>
-  <object id="338" type="MovableHitbox" x="480" y="-1472">
+  <object id="338" type="MovableHitbox" x="-369.114" y="-1467.42">
    <properties>
     <property name="slippery" type="bool" value="true"/>
    </properties>
@@ -262,18 +262,30 @@
   <object id="343" x="528" y="-1248">
    <polygon points="0,0 0,-16 128,-16 128,0"/>
   </object>
-  <object id="344" type="Path" x="240" y="-1376">
+  <object id="344" type="Path" x="-609.114" y="-1371.42">
    <properties>
     <property name="next" type="object" value="345"/>
     <property name="target" type="object" value="338"/>
    </properties>
    <point/>
   </object>
-  <object id="345" type="PathNode" x="483.338" y="-1654.11">
+  <object id="345" type="PathNode" x="-365.776" y="-1649.53">
    <properties>
     <property name="next" type="object" value="344"/>
    </properties>
    <point/>
+  </object>
+  <object id="346" x="642.944" y="-1469.15">
+   <polygon points="0,0 114.539,93.1582 230.605,-6.10874"/>
+  </object>
+  <object id="347" x="554.368" y="-1534.82">
+   <polygon points="0,0 25.9621,126.756 238.241,3.05437"/>
+  </object>
+  <object id="348" x="595.602" y="-1608.12">
+   <polygon points="0,0 334.453,236.714 456.628,109.957"/>
+  </object>
+  <object id="349" x="189.371" y="-1528.71">
+   <polygon points="0,0 -13.3708,168.711 178.629,184.711 178.629,-167.289 114.629,40.7111"/>
   </object>
  </objectgroup>
  <objectgroup id="6" name="front"/>
