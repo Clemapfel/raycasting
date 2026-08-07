@@ -1,6 +1,7 @@
 require "common.player"
 require "common.shader"
 require "common.noise_texture"
+require "overworld.visibility_query"
 require "overworld.stage_config"
 require "overworld.object_wrapper"
 require "overworld.pathfinding_graph"
@@ -71,7 +72,7 @@ function ow.Stage:instantiate(scene, id)
         _coins = {}, -- cf. add_coin
         _camera_bounds = meta.make_weak({}), -- Table<ow.CameraBounds>
         _checkpoints = meta.make_weak({}), -- Table<ow.Checkpoint, Number>
-        _blood_splatter = ow.BloodSplatter(scene),
+        _blood_splatter = ow.BloodSplatter(),
         _mirror = nil, -- ow.Mirror,
 
         _light_mask_bodies = {},
@@ -132,6 +133,10 @@ function ow.Stage:instantiate(scene, id)
     self._normal_map._debug_draw_enabled = true
 
     -- static hitbox mirrors
+
+    self._visibility_query = ow.VisibilityQuery()
+
+    self._blood_splatter = ow.BloodSplatter()
 
     self._mirror = ow.Mirror(
         scene,
@@ -358,6 +363,7 @@ function ow.Stage:instantiate(scene, id)
         ow.Hitbox:get_contours(true, false), -- sticky
         ow.Hitbox:get_contours(false, true)  -- slippery occluding
     )
+    self._blood_splatter:notify_camera_changed(self._scene:get_camera())
 
     self._mirror:create_contour(
         ow.Hitbox:get_contours(false, true), -- mirror
@@ -563,6 +569,8 @@ function ow.Stage:update(delta)
     if self._flow_graph ~= nil then
         --self._flow_fraction = self._flow_graph:update_player_position(self._scene:get_player():get_position())
     end
+
+    self._blood_splatter:notify_camera_changed(self._scene:get_camera())
 end
 
 local _error_no_userdata = function(scope, instance)

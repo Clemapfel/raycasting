@@ -10,9 +10,8 @@ rt.settings.overworld.blood_splatter = {
 ow.BloodSplatter = meta.class("BloodSplatter")
 
 --- @brief
-function ow.BloodSplatter:instantiate(scene)
+function ow.BloodSplatter:instantiate()
     meta.install(self, {
-        _scene = scene,
         _edges = {},
         _active_divisions = {},
         _world = nil,
@@ -156,6 +155,11 @@ function ow.BloodSplatter:add(x, y, radius, color_r, color_g, color_b, opacity, 
 end
 
 --- @brief
+function ow.BloodSplatter:notify_camera_changed(camera)
+    self._camera = camera
+end
+
+--- @brief
 function ow.BloodSplatter:draw()
     if self._world == nil then return end
 
@@ -164,7 +168,11 @@ function ow.BloodSplatter:draw()
     love.graphics.setLineStyle("rough")
     love.graphics.setLineJoin("bevel")
 
-    local camera = self._scene:get_camera()
+    if self._camera == nil then
+        rt.error("In ow.BloodSplatter: trying to draw, but `notify_camera_changed` has not yet been called")
+    end
+
+    local camera = self._camera
     local bounds = camera:get_world_bounds()
     local padding = rt.settings.overworld.stage.visible_area_padding * camera:get_final_scale()
     bounds.x = bounds.x - padding
