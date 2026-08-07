@@ -410,7 +410,7 @@ function ow.NormalMap:draw_light()
     local max_chunk_y = math.floor(((y + h - 1) - bounds.y) / chunk_size)
 
     local scene, camera, player = self._stage:get_scene(), self._stage:get_scene():get_camera(), self._stage:get_scene():get_player()
-    local blood_splatter = self._stage:get_blood_splatter()
+    local blood_splatter = self._stage:get_blood_spatter()
 
     local shader_bound = false
 

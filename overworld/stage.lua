@@ -7,6 +7,7 @@ require "overworld.object_wrapper"
 require "overworld.pathfinding_graph"
 require "overworld.blood_splatter"
 require "overworld.mirror"
+require "overworld.shadow_cast"
 require "overworld.normal_map"
 require "overworld.player_recorder"
 require "physics.physics"
@@ -72,7 +73,9 @@ function ow.Stage:instantiate(scene, id)
         _coins = {}, -- cf. add_coin
         _camera_bounds = meta.make_weak({}), -- Table<ow.CameraBounds>
         _checkpoints = meta.make_weak({}), -- Table<ow.Checkpoint, Number>
-        _blood_splatter = ow.BloodSplatter(),
+
+        _blood_spatter = nil, -- ow.BloodSpatter
+        _shadow_cast = nil, -- ow.ShadowCast
         _mirror = nil, -- ow.Mirror,
 
         _light_mask_bodies = {},
@@ -134,10 +137,8 @@ function ow.Stage:instantiate(scene, id)
 
     -- static hitbox mirrors
 
-    self._visibility_query = ow.VisibilityQuery()
-
-    self._blood_splatter = ow.BloodSplatter()
-
+    self._blood_spatter = ow.BloodSpatter()
+    self._shadow_cast = ow.ShadowCast(scene)
     self._mirror = ow.Mirror(
         scene,
         function() ow.Hitbox:draw_mask(false, true) end,
@@ -292,6 +293,7 @@ function ow.Stage:instantiate(scene, id)
     table.insert(self._to_update, self._player_recorder)
     for object in range(
         self._mirror,
+        self._shadow_cast,
         self._world,
         self._normal_map
     ) do
@@ -359,15 +361,18 @@ function ow.Stage:instantiate(scene, id)
     sort(self._below_player)
     sort(self._above_player)
 
-    self._blood_splatter:create_contour(
-        ow.Hitbox:get_contours(true, false), -- sticky
-        ow.Hitbox:get_contours(false, true)  -- slippery occluding
+    self._blood_spatter:initialize(
+        ow.Hitbox:get_contours(true, false) -- sticky
     )
-    self._blood_splatter:notify_camera_changed(self._scene:get_camera())
 
-    self._mirror:create_contour(
+    self._mirror:initialize(
         ow.Hitbox:get_contours(false, true), -- mirror
-        ow.Hitbox:get_contours(true, false) -- occluding
+        ow.Hitbox:get_contours(true, false)  -- occluding
+    )
+
+    self._shadow_cast:initialize(
+        ow.Hitbox:get_contours(false, true), -- mirror
+        ow.Hitbox:get_contours(true, false)  -- occluding
     )
 
     -- create flow graph
@@ -453,7 +458,7 @@ function ow.Stage:draw_below_player()
     end
 
     self._player_recorder:draw()
-    self._blood_splatter:draw()
+    self._blood_spatter:draw()
 end
 
 --- @brief
@@ -468,16 +473,19 @@ function ow.Stage:draw_above_player()
         ow.Sprite.draw_all(entry.priority)
     end
 
+    self._shadow_cast:draw()
     self._mirror:draw()
 end
 
 --- @brief
 function ow.Stage:draw_bloom()
-    self._blood_splatter:draw_bloom()
+    self._blood_spatter:draw_bloom()
 
     for object in values(self._bloom_objects) do
         object:draw_bloom()
     end
+
+    self._shadow_cast:draw_bloom()
 end
 
 --- @brief
@@ -570,7 +578,7 @@ function ow.Stage:update(delta)
         --self._flow_fraction = self._flow_graph:update_player_position(self._scene:get_player():get_position())
     end
 
-    self._blood_splatter:notify_camera_changed(self._scene:get_camera())
+    self._blood_spatter:notify_camera_changed(self._scene:get_camera())
 end
 
 local _error_no_userdata = function(scope, instance)
@@ -738,8 +746,8 @@ function ow.Stage:get_coins()
 end
 
 --- @brief
-function ow.Stage:get_blood_splatter()
-    return self._blood_splatter
+function ow.Stage:get_blood_spatter()
+    return self._blood_spatter
 end
 
 --- @brief
@@ -748,9 +756,14 @@ function ow.Stage:destroy()
         self._world:destroy()
     end
 
-    self._player_recorder:destroy()
-    self._mirror:destroy()
-    self._blood_splatter:destroy()
+    for object in range(
+        self._player_recorder,
+        self._mirror,
+        self._blood_spatter,
+        self._shadow_cast
+    ) do
+        if meta.is_function(object.destroy) then object:destroy() end
+    end
 end
 
 --- @brief
@@ -891,7 +904,7 @@ function ow.Stage:collect_segment_lights(callback)
         instance:collect_segment_lights(count)
     end
 
-    self._blood_splatter:collect_segment_lights(
+    self._blood_spatter:collect_segment_lights(
         self._scene:get_camera():get_world_bounds(),
         callback
     )

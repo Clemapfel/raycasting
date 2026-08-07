@@ -85,21 +85,21 @@ function ow.MovableHitbox:instantiate(object, stage, scene)
             {} -- occluding tris
         )
     else
-        self._blood_splatter = ow.BloodSplatter(
+        self._blood_spatter = ow.BloodSpatter(
             self._scene
         )
 
-        self._blood_splatter:create_contour(
+        self._blood_spatter:create_contour(
             self._tris
         )
     end
 
     -- lighting
-    if self._blood_splatter ~= nil then
+    if self._blood_spatter ~= nil then
         self._body:add_tag(b2.Tag.SEGMENT_LIGHT_SOURCE)
         self._body:set_user_data(self)
         self.get_segment_light_sources = function(self)
-            return self._blood_splatter:get_visible_segments(self._scene:get_camera():get_world_bounds())
+            return self._blood_spatter:get_visible_segments(self._scene:get_camera():get_world_bounds())
         end
     end
 end
@@ -125,7 +125,7 @@ function ow.MovableHitbox:update(delta)
             if player:get_is_colliding_with(self._body) then
                 local nx, ny, cx, cy = player:get_collision_normal(self._body)
                 local r = player:get_radius() / 2
-                self._blood_splatter:add(cx, cy, r, player:get_hue())
+                self._blood_spatter:add(cx, cy, r, player:get_hue())
             end
         end
     end
@@ -138,7 +138,7 @@ function ow.MovableHitbox:draw(priority)
     if self._mirror ~= nil then
         self._mirror:set_offset(self._body:get_predicted_position())
     else
-        self._blood_splatter:set_offset(self._body:get_predicted_position())
+        self._blood_spatter:set_offset(self._body:get_predicted_position())
     end
 
     love.graphics.push()
@@ -200,8 +200,8 @@ function ow.MovableHitbox:draw(priority)
 
     if self._mirror ~= nil then
         self._mirror:draw()
-    elseif self._blood_splatter ~= nil then
-        self._blood_splatter:draw()
+    elseif self._blood_spatter ~= nil then
+        self._blood_spatter:draw()
     end
 end
 

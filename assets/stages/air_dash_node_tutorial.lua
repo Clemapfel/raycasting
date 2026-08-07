@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 343,
+  nextobjectid = 346,
   properties = {
     ["background_id"] = "\"nebula\""
   },
@@ -993,21 +993,23 @@ return {
         {
           id = 338,
           name = "",
-          type = "Hitbox",
+          type = "MovableHitbox",
           shape = "polygon",
-          x = 336,
-          y = -1264,
+          x = 480,
+          y = -1472,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
           polygon = {
             { x = 0, y = 0 },
-            { x = 0, y = -720 },
-            { x = -176, y = -720 },
+            { x = 1.3146, y = -159.201 },
+            { x = -174.685, y = -159.201 },
             { x = -176, y = 0 }
           },
-          properties = {}
+          properties = {
+            ["slippery"] = true
+          }
         },
         {
           id = 339,
@@ -1040,6 +1042,56 @@ return {
           rotation = 0,
           visible = true,
           properties = {}
+        },
+        {
+          id = 343,
+          name = "",
+          type = "",
+          shape = "polygon",
+          x = 528,
+          y = -1248,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 0, y = -16 },
+            { x = 128, y = -16 },
+            { x = 128, y = 0 }
+          },
+          properties = {}
+        },
+        {
+          id = 344,
+          name = "",
+          type = "Path",
+          shape = "point",
+          x = 240,
+          y = -1376,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["next"] = { id = 345 },
+            ["target"] = { id = 338 }
+          }
+        },
+        {
+          id = 345,
+          name = "",
+          type = "PathNode",
+          shape = "point",
+          x = 483.338,
+          y = -1654.11,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["next"] = { id = 344 }
+          }
         }
       }
     },

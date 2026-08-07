@@ -1,4 +1,4 @@
-require "common.contour"
+require "overworld.visibility_query"
 
 rt.settings.overworld.blood_splatter = {
     line_width = 3.5,
@@ -6,16 +6,15 @@ rt.settings.overworld.blood_splatter = {
     hue_difference_threshold = 1 / 8
 }
 
--- @class ow.BloodSplatter
-ow.BloodSplatter = meta.class("BloodSplatter")
+--- @class ow.BloodSpatter
+ow.BloodSpatter = meta.class("BloodSpatter")
 
 --- @brief
-function ow.BloodSplatter:instantiate()
+function ow.BloodSpatter:instantiate()
     meta.install(self, {
-        _edges = {},
-        _active_divisions = {},
-        _world = nil,
-        _bloom_factor = 0,
+        _query = ow.VisibilityQuery(),
+        _visible_divisions = {},
+        
         _offset_x = 0,
         _offset_y = 0,
         _impulse = rt.ImpulseSubscriber()
@@ -60,12 +59,7 @@ local function _clip_segment_in_circle(x1, y1, x2, y2, cx, cy, radius)
 
     local ndx, ndy = math.normalize(dx, dy)
 
-    -- ray-circle intersection using quadratic formula
-    -- ray: p = px1 + t * (ndx, ndy), t in [0, seg_length]
-    -- circle: x^2 + y^2 = radius^2
-    -- substituting: (px1 + t*ndx)^2 + (py1 + t*ndy)^2 = radius^2
-
-    local a = 1.0 -- ndx^2 + ndy^2 = 1 (normalized)
+    local a = 1.0
     local b = 2 * (px1 * ndx + py1 * ndy)
     local c = px1 * px1 + py1 * py1 - radius * radius
 
@@ -91,285 +85,210 @@ local function _clip_segment_in_circle(x1, y1, x2, y2, cx, cy, radius)
 end
 
 --- @brief
-function ow.BloodSplatter:add(x, y, radius, color_r, color_g, color_b, opacity, allow_override)
-    if self._world == nil then return end
-
+function ow.BloodSpatter:add(x, y, radius, color_r, color_g, color_b, opacity, allow_override)
     if opacity == nil then opacity = 1 end
     if allow_override == nil then allow_override = true end
 
-    local r = radius
+    local r = radius * rt.settings.player.bottom_wall_ray_length_factor
+
     local was_added = false
-    x = x - self._offset_x
-    y = y - self._offset_y
+    for data in values(self._query:get_visible_subsegments(
+        x - self._offset_x,
+        y - self._offset_y,
+        2 * r
+    )) do
+        -- check for line-circle overlap
+        local x1, y1, x2, y2 = table.unpack(data.segment)
+        local ix1, iy1, ix2, iy2 = _clip_segment_in_circle(
+            x1, y1, x2, y2,
+            x - self._offset_x, y - self._offset_y, r
+        )
 
-    for shape in values(self._world:getShapesInArea(x - r, y - r, x + r, y + r)) do
-        local data = shape:getUserData()
+        if ix1 ~= nil then
+            local dx, dy = x2 - x1, y2 - y1
+            local length = math.magnitude(dx, dy)
+            if length > math.eps then
+                -- project clipped points onto the original segment to get fraction
+                local t1 = math.dot(ix1 - x1, iy1 - y1, dx, dy) / (length * length)
+                local t2 = math.dot(ix2 - x1, iy2 - y1, dx, dy) / (length * length)
 
-        if data ~= nil then
-            -- check for line-circle overlap
-            local x1, y1, x2, y2 = table.unpack(data.line)
-            local ix1, iy1, ix2, iy2 = _clip_segment_in_circle(
-                x1, y1, x2, y2,
-                x, y, r
-            )
+                -- ensure left < right
+                local left_fraction = math.min(t1, t2)
+                local right_fraction = math.max(t1, t2)
 
-            if ix1 ~= nil then
-                local dx, dy = x2 - x1, y2 - y1
-                local length = math.magnitude(dx, dy)
-                if length > math.eps then
-                    -- project clipped points onto the original segment to get fraction
-                    local t1 = math.dot(ix1 - x1, iy1 - y1, dx, dy) / (length * length)
-                    local t2 = math.dot(ix2 - x1, iy2 - y1, dx, dy) / (length * length)
+                left_fraction = math.clamp(left_fraction, 0, 1)
+                right_fraction = math.clamp(right_fraction , 0, 1)
 
-                    -- ensure left < right
-                    local left_fraction = math.min(t1, t2)
-                    local right_fraction = math.max(t1, t2)
+                -- color all subdivisions in this interval
+                local color = rt.RGBA(color_r, color_g, color_b, opacity)
+                local hue = select(1, rt.rgba_to_hsva(color_r, color_g, color_b, opacity))
 
-                    left_fraction = math.clamp(left_fraction, 0, 1)
-                    right_fraction = math.clamp(right_fraction , 0, 1)
-
-                    -- color all subdivisions in this interval
-                    local color = rt.RGBA(color_r, color_g, color_b, opacity)
-                    local hue = select(1, rt.rgba_to_hsva(color_r, color_g, color_b, opacity))
-
-                    for division in values(data.subdivisions) do
-                        if division.left_fraction <= right_fraction and division.right_fraction >= left_fraction then
-                            if allow_override or not division.is_active then
-                                division.color = color
-                                division.hue = hue
-                                if not division.is_active then
-                                    self._active_divisions[division] = true
-                                    division.is_active = true
-                                end
-
-                                was_added = true
-                            end
+                for division in values(data.subdivisions) do
+                    if division.left_fraction <= right_fraction and division.right_fraction >= left_fraction then
+                        if allow_override or not division.is_active then
+                            division.color = color
+                            division.hue = hue
+                            division.is_active = true
+                            was_added = true
                         end
                     end
                 end
-            end -- x1 ~= nil
-        end -- data ~= nil
-    end
+            end -- length > math.eps
+        end -- x1 ~= nil
+    end -- for shape in values
 
     return was_added
 end
 
 --- @brief
-function ow.BloodSplatter:notify_camera_changed(camera)
-    self._camera = camera
-end
-
---- @brief
-function ow.BloodSplatter:draw()
-    if self._world == nil then return end
-
-    local line_width = rt.settings.overworld.blood_splatter.line_width
-    love.graphics.setLineWidth(line_width)
-    love.graphics.setLineStyle("rough")
-    love.graphics.setLineJoin("bevel")
-
-    if self._camera == nil then
-        rt.error("In ow.BloodSplatter: trying to draw, but `notify_camera_changed` has not yet been called")
-    end
-
-    local camera = self._camera
+function ow.BloodSpatter:notify_camera_changed(camera)
     local bounds = camera:get_world_bounds()
     local padding = rt.settings.overworld.stage.visible_area_padding * camera:get_final_scale()
-    bounds.x = bounds.x - padding
-    bounds.y = bounds.y - padding
+    bounds.x = bounds.x - padding - self._offset_x
+    bounds.y = bounds.y - padding - self._offset_y
     bounds.width = bounds.width + 2 * padding
     bounds.height = bounds.height + 2 * padding
-    local x, y, w, h = bounds:unpack()
-
-    x = x - self._offset_x
-    y = y - self._offset_y
-    local visible = {}
-    self._world:update(0)
-
-    love.graphics.push()
-    love.graphics.translate(self._offset_x, self._offset_y)
-
-    local t = 0.25 -- experimentally ddetermined to compensate best
-    local brightness_offset = math.mix(1, rt.settings.impulse_manager.max_brightness_factor, self._impulse:get_pulse())
 
     self._visible_divisions = {}
-    for shape in values(self._world:getShapesInArea(x, y, x + w, y + h)) do
-        for division in values(shape:getUserData().subdivisions) do
+    for data in values(self._query:get_segments_in_area(bounds)) do
+        for division in values(data.subdivisions) do
             if division.is_active then
-                local r, g, b, a = division.color:unpack()
-                love.graphics.setColor(
-                    (r - t) * brightness_offset,
-                    (g - t) * brightness_offset,
-                    (b - t) * brightness_offset,
-                    a
-                )
-                love.graphics.line(division.line)
-
                 table.insert(self._visible_divisions, division)
             end
         end
     end
-
-    love.graphics.pop()
 end
 
---- @brief
-function ow.BloodSplatter:draw_bloom()
-    if self._world == nil then return end
+local _t = 0.25 -- experimentally determined to compensate best
 
+--- @brief
+function ow.BloodSpatter:draw()
+    if self._visible_divisions == nil then return end
+    
     local line_width = rt.settings.overworld.blood_splatter.line_width
     love.graphics.setLineWidth(line_width)
     love.graphics.setLineStyle("rough")
     love.graphics.setLineJoin("bevel")
-
     love.graphics.push()
     love.graphics.translate(self._offset_x, self._offset_y)
 
-    local t = 0 -- experimentally determined to compensate best
     local brightness_offset = math.mix(1, rt.settings.impulse_manager.max_brightness_factor, self._impulse:get_pulse())
-    love.graphics.setLineWidth(line_width)
-
     for division in values(self._visible_divisions) do
         local r, g, b, a = division.color:unpack()
         love.graphics.setColor(
-            (r - t) * brightness_offset,
-            (g - t) * brightness_offset,
-            (b - t) * brightness_offset,
+            (r - _t) * brightness_offset,
+            (g - _t) * brightness_offset,
+            (b - _t) * brightness_offset,
             a
         )
-        love.graphics.line(division.line)
+        love.graphics.line(division.segment)
     end
-
 
     love.graphics.pop()
 end
 
-local _round = function(x)
-    return math.floor(x)
-end
+--- @brief
+function ow.BloodSpatter:draw_bloom()
+    if self._visible_divisions == nil then return end
 
-local _hash_to_segment = {}
+    local brightness_offset = math.mix(1, rt.settings.impulse_manager.max_brightness_factor, self._impulse:get_pulse())
+    local line_width = rt.settings.overworld.blood_splatter.line_width
+    love.graphics.setLineWidth(line_width)
+    love.graphics.setLineStyle("rough")
+    love.graphics.setLineJoin("bevel")
+    love.graphics.push()
+    love.graphics.translate(self._offset_x, self._offset_y)
 
-local _hash = function(points)
-    local x1, y1, x2, y2 = _round(points[1]), _round(points[2]), _round(points[3]), _round(points[4])
-    if x1 < x2 or (x1 == x2 and y1 < y2) then -- swap so point order does not matter
-        x1, y1, x2, y2 = x2, y2, x1, y1
+    for division in values(self._visible_divisions) do
+        local r, g, b, a = division.color:unpack()
+        love.graphics.setColor(
+            r * brightness_offset,
+            r * brightness_offset,
+            r * brightness_offset,
+            a
+        )
+
+        love.graphics.line(division.segment)
     end
-    local hash = tostring(x1) .. "," .. tostring(y1) .. "," .. tostring(x2) .. "," .. tostring(y2)
-    _hash_to_segment[hash] = points
-    return hash
-end
 
-local _unhash = function(hash)
-    return table.unpack(_hash_to_segment[hash])
+    love.graphics.pop()
 end
 
 --- @brief
-function ow.BloodSplatter:create_contour(contours)
+function ow.BloodSpatter:initialize(contours)
     meta.assert(contours, mt.Table)
 
-    self._world = love.physics.newWorld(0, 0)
-    self._edges = {}
-    self._active_edges = {}
-
-    self._edge_body = love.physics.newBody(self._world, 0, 0, b2.BodyType.STATIC)
-
     local max_length = rt.settings.overworld.blood_splatter.subdivision_length
+    local datas = self._query:initialize(contours, nil) -- no reflective contours
 
-    for contour in values(contours) do
-        for i = 1, #contour - 2, 2 do
-            local x1, y1, x2, y2 = contour[i+0],
-            contour[i+1],
-            contour[i+2],
-            contour[i+3]
+    for data in values(datas) do
+        -- Extract the segment coordinates directly from the userdata
+        local x1, y1, x2, y2 = table.unpack(data.segment)
 
-            local dx, dy = x2 - x1, y2 - y1
-            local length = math.magnitude(dx, dy)
+        local dx, dy = x2 - x1, y2 - y1
+        local length = math.magnitude(dx, dy)
+        local subdivisions = {}
 
-            local edge = love.physics.newEdgeShape(self._edge_body, x1, y1, x2, y2)
-            local subdivisions = {}
+        if length > max_length then
+            local num_segments = math.ceil(length / max_length)
+            local segment_length = length / num_segments
 
-            if length > max_length then
-                local num_segments = math.ceil(length / max_length)
-                local segment_length = length / num_segments
+            for j = 0, num_segments - 1 do
+                local left_fraction = j / num_segments
+                local right_fraction = (j + 1) / num_segments
 
-                for i = 0, num_segments - 1 do
-                    local left_fraction = i / num_segments
-                    local right_fraction = (i + 1) / num_segments
+                local sx1 = x1 + left_fraction * dx
+                local sy1 = y1 + left_fraction * dy
+                local sx2 = x1 + right_fraction * dx
+                local sy2 = y1 + right_fraction * dy
 
-                    local sx1 = x1 + left_fraction * dx
-                    local sy1 = y1 + left_fraction * dy
-                    local sx2 = x1 + right_fraction * dx
-                    local sy2 = y1 + right_fraction * dy
-
-                    local hue = rt.random.number(0, 1)
-                    local color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, hue, 1))
-                    local division ={
-                        shape = edge,
-                        line = { sx1, sy1, sx2, sy2 },
-                        left_fraction = left_fraction,
-                        right_fraction = right_fraction,
-                        is_active = false,
-                        hue = nil,
-                        color = nil
-                    }
-                    table.insert(subdivisions, division)
-                    self._active_divisions[division] = true
-                end
-            else
-                table.insert(subdivisions, {
-                    shape = edge,
-                    line = { x1, y1, x2, y2 },
-                    left_fraction = 0,
-                    right_fraction = 1,
+                local division = {
+                    segment = { sx1, sy1, sx2, sy2 },
+                    left_fraction = left_fraction,
+                    right_fraction = right_fraction,
                     is_active = false,
                     hue = nil,
                     color = nil
-                })
+                }
+
+                table.insert(subdivisions, division)
             end
-
-            edge:setUserData({
-                line = { x1, y1, x2, y2 },
-                subdivisions = subdivisions
+        else
+            table.insert(subdivisions, {
+                segment = { x1, y1, x2, y2 },
+                left_fraction = 0,
+                right_fraction = 1,
+                is_active = false,
+                hue = nil,
+                color = nil
             })
-
-            table.insert(self._edges, edge)
         end
+
+        data.subdivisions = subdivisions
     end
 end
 
 --- @brief
-function ow.BloodSplatter:destroy()
-    self._world:destroy()
-end
-
---- @brief
-function ow.BloodSplatter:collect_segment_lights(bounds, callback)
+function ow.BloodSpatter:collect_segment_lights(bounds, callback)
     if self._world == nil then return end
 
     local hue_threshold = rt.settings.overworld.blood_splatter.hue_difference_threshold
     local x, y, w, h = bounds:unpack()
 
     local padding = rt.settings.overworld.light_map.light_range ^ 2
-    x = x - padding
-    y = y - padding
+    x = x - padding - self._offset_x
+    y = y - padding - self._offset_y
     w = w + 2 * padding
     h = h + 2 * padding
-
-    x = x - self._offset_x
-    y = y - self._offset_y
-    for shape in values(self._world:getShapesInArea(
-        x, y, x + w, y + h
-    )) do
-        local data = shape:getUserData()
-
+    
+    for data in values(self._query:get_segments_in_area(rt.AABB(x, y, w, h))) do
         local x1, y1, x2, y2 = nil, nil, nil, nil
         local current_hue = nil
         local current_color = nil
         local segment_active = false
 
         local start_segment = function(division)
-            x1, y1, x2, y2 = table.unpack(division.line)
+            x1, y1, x2, y2 = table.unpack(division.segment)
             current_hue = division.hue
             current_color = division.color
             segment_active = true
@@ -395,7 +314,7 @@ function ow.BloodSplatter:collect_segment_lights(bounds, callback)
                 if current_hue == nil then
                     start_segment(division)
                 elseif math.abs(current_hue - division.hue) <= hue_threshold then
-                    x2, y2 = division.line[3], division.line[4]
+                    x2, y2 = division.segment[3], division.segment[4]
                 else
                     end_segment()
                     start_segment(division)
@@ -412,11 +331,11 @@ function ow.BloodSplatter:collect_segment_lights(bounds, callback)
 end
 
 --- @brief
-function ow.BloodSplatter:set_offset(x, y)
+function ow.BloodSpatter:set_offset(x, y)
     self._offset_x, self._offset_y = x, y
 end
 
 --- @brief
-function ow.BloodSplatter:get_offset()
+function ow.BloodSpatter:get_offset()
     return self._offset_x, self._offset_y
 end

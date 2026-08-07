@@ -2,6 +2,7 @@ require "common.path"
 require "common.contour"
 require "overworld.normal_map"
 require "overworld.mirror"
+require "overworld.shadow_cast"
 
 rt.settings.overworld.moving_hitbox = {
     default_velocity = 100, -- px per second
@@ -47,8 +48,8 @@ function ow.MovableHitbox:instantiate(object, stage, scene)
     -- match tags from ow.Hitbox
     for property in range(
         b2.Tag.SLIPPERY,
-        "sticky",
-        b2.Tag.UNJUMABLE,
+        b2.Tag.STICKY,
+        b2.Tag.UNJUMPABLE,
         b2.Tag.UNWALKABLE
     ) do
         if object:get_boolean(property) then
@@ -77,6 +78,8 @@ function ow.MovableHitbox:instantiate(object, stage, scene)
     self._is_slippery = object:get_boolean(b2.Tag.SLIPPERY)
     if self._is_slippery == nil then self._is_slippery = false end
 
+    self._shadow_cast = ow.ShadowCast(scene)
+
     if self._is_slippery then
         self._mirror = ow.Mirror(
             self._scene,
@@ -84,22 +87,32 @@ function ow.MovableHitbox:instantiate(object, stage, scene)
             nil  -- occluding mask
         )
 
-        self._mirror:create_contour(
+        self._mirror:initialize(
+            { self._contour }, -- mirror
+            {} -- occluding
+        )
+
+        self._shadow_cast:initialize(
             { self._contour }, -- mirror
             {} -- occluding
         )
     else
-        self._blood_splatter = ow.BloodSplatter(
+        self._blood_spatter = ow.BloodSpatter(
             self._scene
         )
 
-        self._blood_splatter:create_contour(
+        self._blood_spatter:initialize(
             { self._contour }
+        )
+
+        self._shadow_cast:initialize(
+            {}, -- mirror
+            { self._contour } -- occluding
         )
     end
 
     -- lighting
-    if self._blood_splatter ~= nil then
+    if self._blood_spatter ~= nil then
         self._body:add_tag(b2.Tag.SEGMENT_LIGHT_SOURCE)
         self._body:set_user_data(self)
         self.collect_segment_lights = function(self, callback)
@@ -111,8 +124,8 @@ function ow.MovableHitbox:instantiate(object, stage, scene)
             bounds.width = bounds.width + 2 * padding
             bounds.height = bounds.height + 2 * padding
 
-            self._blood_splatter:set_offset(self._body:get_position())
-            self._blood_splatter:collect_segment_lights(bounds, callback)
+            self._blood_spatter:set_offset(self._body:get_position())
+            self._blood_spatter:collect_segment_lights(bounds, callback)
         end
     end
 end
@@ -123,16 +136,20 @@ function ow.MovableHitbox:update(delta)
     local is_visible = self._stage:get_is_body_visible(self._body)
 
     if is_visible then
-        if self._mirror ~= nil then
+        if self._mirror ~= nil then -- sticky
             self._mirror:update(delta)
-        else
+        else -- slippery
             local player = self._scene:get_player()
+            self._blood_spatter:notify_camera_changed(self._scene:get_camera())
             if player:get_is_colliding_with(self._body) then
                 local nx, ny, cx, cy = player:get_collision_normal(self._body)
                 local r = player:get_radius() / 2
-                self._blood_splatter:add(cx, cy, r, player:get_color():unpack())
+                self._blood_spatter:set_offset(self._body:get_position())
+                self._blood_spatter:add(cx, cy, r, player:get_color():unpack())
             end
         end
+
+        self._shadow_cast:update(delta)
     end
 end
 
@@ -141,17 +158,17 @@ function ow.MovableHitbox:draw(priority)
     if not self._stage:get_is_body_visible(self._body) then return end
 
     local offset_x, offset_y = self._body:get_position()
-
     if self._mirror ~= nil then
         self._mirror:set_offset(offset_x, offset_y)
     else
-        self._blood_splatter:set_offset(offset_x, offset_y)
+        self._blood_spatter:set_offset(offset_x, offset_y)
     end
 
     if self._normal_map:get_is_done() then
         self._normal_map:set_offset(offset_x, offset_y)
-        self._normal_map.dbg = true
     end
+
+    self._shadow_cast:set_offset(offset_x, offset_y)
 
     love.graphics.push()
     love.graphics.translate(offset_x, offset_y)
@@ -176,16 +193,30 @@ function ow.MovableHitbox:draw(priority)
 
     love.graphics.pop()
 
-    if self._mirror ~= nil then
-        self._mirror:draw()
-    elseif self._blood_splatter ~= nil then
-        self._blood_splatter:draw()
-    end
-
     if self._normal_map:get_is_done() then
         local camera = self._scene:get_camera()
         self._normal_map:draw_shadow(camera)
         self._normal_map:draw_light(camera)
     end
+
+    if self._mirror ~= nil then
+        self._mirror:draw()
+    elseif self._blood_spatter ~= nil then
+        self._blood_spatter:draw()
+    end
+
+    self._shadow_cast:draw()
+end
+
+--- @brief
+function ow.MovableHitbox:draw_bloom()
+    if not self._stage:get_is_body_visible(self._body) then return end
+
+    if self._blood_spatter ~= nil then
+        love.graphics.setColor(1, 1, 1, 1)
+        self._blood_spatter:draw_bloom()
+    end
+
+    self._shadow_cast:draw_bloom()
 end
 

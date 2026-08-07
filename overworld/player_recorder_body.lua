@@ -43,7 +43,7 @@ function ow.PlayerRecorderBody:instantiate(scene, stage)
         local n_outer_vertices = rt.settings.player.n_outer_bodies
         local positions = {}
         local r = self._radius - (self._radius * 2 * math.pi) / rt.settings.player.n_outer_bodies / 1.5
-        self._blood_splatter_radius = r
+        self._blood_spatter_radius = r
         for i = 1, n_outer_vertices do
             local angle = (i - 1) / n_outer_vertices * 2 * math.pi
             table.insert(positions, math.cos(angle) * r)
@@ -198,7 +198,7 @@ function ow.PlayerRecorderBody:update(delta)
         player_settings.ghost_collision_group
     ))
 
-    local blood_splatter = self._stage:get_blood_splatter()
+    local blood_splatter = self._stage:get_blood_spatter()
     local n_rays = 8
     local cx, cy = body:get_position()
     local ray_length = self._max_radius
@@ -216,7 +216,7 @@ function ow.PlayerRecorderBody:update(delta)
 
         if hit_body ~= nil then
             local color_r, color_g, color_b, color_a = self._splatter_color:unpack()
-            blood_splatter:add(tx, ty, self._blood_splatter_radius,
+            blood_splatter:add(tx, ty, self._blood_spatter_radius,
                 color_r, color_g, color_b, color_a,
                 _settings.blood_should_override -- override
             )

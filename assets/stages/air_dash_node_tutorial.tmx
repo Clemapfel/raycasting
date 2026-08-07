@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="343">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="346">
  <editorsettings>
   <export target="air_dash_node_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -249,13 +249,32 @@
    </properties>
    <ellipse/>
   </object>
-  <object id="338" type="Hitbox" x="336" y="-1264">
-   <polygon points="0,0 0,-720 -176,-720 -176,0"/>
+  <object id="338" type="MovableHitbox" x="480" y="-1472">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,0 1.3146,-159.201 -174.685,-159.201 -176,0"/>
   </object>
   <object id="339" type="Hitbox" x="80" y="-1264">
    <polygon points="0,0 0,-720 -176,-720 -176,0"/>
   </object>
   <object id="341" type="StageThumbnail" x="1408" y="-736" width="1120" height="736"/>
+  <object id="343" x="528" y="-1248">
+   <polygon points="0,0 0,-16 128,-16 128,0"/>
+  </object>
+  <object id="344" type="Path" x="240" y="-1376">
+   <properties>
+    <property name="next" type="object" value="345"/>
+    <property name="target" type="object" value="338"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="345" type="PathNode" x="483.338" y="-1654.11">
+   <properties>
+    <property name="next" type="object" value="344"/>
+   </properties>
+   <point/>
+  </object>
  </objectgroup>
  <objectgroup id="6" name="front"/>
  <layer id="4" name="noop" width="32" height="32">

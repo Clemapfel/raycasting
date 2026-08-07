@@ -99,7 +99,7 @@ function ow.PlayerRecorderBody:initialize(x, y)
     self._body:set_collision_group(player_settings.exempt_collision_group)
     self._body:signal_connect("collision_start", function(_, other_body, normal_x, normal_y, x1, y1, x2, y2)
         if x1 ~= nil then
-            self._stage:get_blood_splatter():add(x1, y1, self._radius, 0, 0)
+            self._stage:get_blood_spatter():add(x1, y1, self._radius, 0, 0)
         end
     end)
 

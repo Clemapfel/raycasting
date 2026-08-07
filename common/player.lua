@@ -1975,7 +1975,7 @@ function rt.Player:update(delta)
             radius = settings.radius * settings.bubble_radius_factor * 0.5
         end
 
-        local function _add_blood_splatter(contact_x, contact_y, last_contact_x, last_contact_y)
+        local function _add_blood_spatter(contact_x, contact_y, last_contact_x, last_contact_y)
             -- at high velocities, interpolate
             if last_contact_x ~= nil and last_contact_y ~= nil then
                 local lcx, lcy = last_contact_x, last_contact_y
@@ -1995,11 +1995,11 @@ function rt.Player:update(delta)
                         self._last_position_x, self._last_position_y,
                         interpolation_x, interpolation_y
                     ) < radius then
-                        self._stage:get_blood_splatter():add(interpolation_x, interpolation_y, radius, color_r, color_g, color_b, 1)
+                        self._stage:get_blood_spatter():add(interpolation_x, interpolation_y, radius, color_r, color_g, color_b, 1)
                     end
                 end
             else
-                self._stage:get_blood_splatter():add(cx, cy, radius, color_r, color_g, color_b, 1)
+                self._stage:get_blood_spatter():add(cx, cy, radius, color_r, color_g, color_b, 1)
             end
         end
 
@@ -2007,56 +2007,56 @@ function rt.Player:update(delta)
             and not top_left_wall_body:has_tag("slippery")
             and not top_left_wall_body:has_tag("no_blood")
         then
-            _add_blood_splatter(top_left_x, top_left_y, self._last_top_left_x, self._last_top_left_y)
+            _add_blood_spatter(top_left_x, top_left_y, self._last_top_left_x, self._last_top_left_y)
         end
 
         if self._top_wall
             and not top_wall_body:has_tag("slippery")
             and not top_wall_body:has_tag("no_blood")
         then
-            _add_blood_splatter(top_x, top_y, self._last_top_x, self._last_top_y)
+            _add_blood_spatter(top_x, top_y, self._last_top_x, self._last_top_y)
         end
 
         if self._top_right_wall
             and not top_right_wall_body:has_tag("slippery")
             and not top_right_wall_body:has_tag("no_blood")
         then
-            _add_blood_splatter(top_right_x, top_right_y, self._last_top_right_x, self._last_top_right_y)
+            _add_blood_spatter(top_right_x, top_right_y, self._last_top_right_x, self._last_top_right_y)
         end
 
         if self._right_wall
             and not right_wall_body:has_tag("slippery")
             and not right_wall_body:has_tag("no_blood")
         then
-            _add_blood_splatter(right_x, right_y, self._last_right_x, self._last_right_y)
+            _add_blood_spatter(right_x, right_y, self._last_right_x, self._last_right_y)
         end
 
         if self._bottom_right_wall
             and not bottom_right_wall_body:has_tag("slippery")
             and not bottom_right_wall_body:has_tag("no_blood")
         then
-            _add_blood_splatter(bottom_right_x, bottom_right_y, self._last_bottom_right_x, self._last_bottom_right_y)
+            _add_blood_spatter(bottom_right_x, bottom_right_y, self._last_bottom_right_x, self._last_bottom_right_y)
         end
 
         if self._bottom_wall
             and not bottom_wall_body:has_tag("slippery")
             and not bottom_wall_body:has_tag("no_blood")
         then
-            _add_blood_splatter(bottom_x, bottom_y, self._last_bottom_x, self._last_bottom_y)
+            _add_blood_spatter(bottom_x, bottom_y, self._last_bottom_x, self._last_bottom_y)
         end
 
         if self._bottom_left_wall
             and not bottom_left_wall_body:has_tag("slippery")
             and not bottom_left_wall_body:has_tag("no_blood")
         then
-            _add_blood_splatter(bottom_left_x, bottom_left_y, self._last_bottom_left_x, self._last_bottom_left_y)
+            _add_blood_spatter(bottom_left_x, bottom_left_y, self._last_bottom_left_x, self._last_bottom_left_y)
         end
 
         if self._left_wall
             and not left_wall_body:has_tag("slippery")
             and not left_wall_body:has_tag("no_blood")
         then
-            _add_blood_splatter(left_x, left_y, self._last_left_x, self._last_left_y)
+            _add_blood_spatter(left_x, left_y, self._last_left_x, self._last_left_y)
         end
     end
 

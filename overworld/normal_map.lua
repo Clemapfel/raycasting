@@ -23,7 +23,7 @@ rt.settings.overworld.normal_map = {
 ow.NormalMap = meta.class("NormalMap")
 meta.add_signal(ow.NormalMap, "done")
 
-local _is_disabled = true -- TODO
+local _is_disabled = false -- TODO
 
 local _mask_texture_format = rt.TextureFormat.R8  -- used to store alpha of walls
 local _jfa_texture_format = rt.TextureFormat.RGBA32F -- used during JFA
@@ -452,8 +452,8 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
             savepoint()
         end
 
-        jfa_texture:release()
-        mask:release()
+        jfa_texture:free()
+        mask:free()
 
         self._is_done = true
         self._is_visible = true
