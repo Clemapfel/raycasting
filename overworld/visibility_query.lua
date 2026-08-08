@@ -24,7 +24,8 @@ function ow.VisibilityQuery:initialize(non_reflective_contours, reflective_conto
         end
     }
 
-    local userdatas = {}
+    -- collect segments from contours
+    local raw_segments = {}
     for contours_and_type in range(
         { reflective_contours, ow.ContourType.REFLECTIVE },
         { non_reflective_contours, ow.ContourType.NON_REFLECTIVE }
@@ -32,25 +33,120 @@ function ow.VisibilityQuery:initialize(non_reflective_contours, reflective_conto
         local contours, type = table.unpack(contours_and_type)
         for _, contour in ipairs(contours) do
             for i = 1, #contour - 2, 2 do
-                local x1, y1, x2, y2 =  contour[i+0],
-                    contour[i+1],
-                    contour[i+2],
-                    contour[i+3]
-
-                local shape = love.physics.newEdgeShape(self._body, x1, y1, x2, y2)
-                local userdata = setmetatable({
-                    shape = shape,
-                    segment = { x1, y1, x2, y2 },
+                table.insert(raw_segments, {
+                    x1 = contour[i+0],
+                    y1 = contour[i+1],
+                    x2 = contour[i+2],
+                    y2 = contour[i+3],
                     contour = contour,
-                    type = type
-                }, metatable)
-
-                shape:setUserData(userdata)
-
-                table.insert(self._shapes, shape)
-                table.insert(userdatas, userdata)
+                    type = type,
+                    splits = {} -- list of t values where this segment must be cut
+                })
             end
         end
+    end
+
+    -- find all pairwise intersection ts
+
+    local function _segment_intersection(x1, y1, x2, y2, x3, y3, x4, y4)
+        n = n or 0  -- number of coordinate-space units for the epsilon margin
+
+        local d1x, d1y = x2 - x1, y2 - y1
+        local d2x, d2y = x4 - x3, y4 - y3
+
+        local denom = d1x * d2y - d1y * d2x
+        if math.abs(denom) < 1e-12 then
+            return nil
+        end
+
+        local dx, dy = x3 - x1, y3 - y1
+        local t = (dx * d2y - dy * d2x) / denom
+        local u = (dx * d1y - dy * d1x) / denom
+
+        local margin = 1 -- px
+        local t_eps = margin / math.magnitude(d1x, d1y)
+        local u_eps = margin / math.magnitude(d2x, d2y)
+
+        if t_eps > 1 then t_eps = 0 end
+        if u_eps > 1 then u_eps = 0 end
+
+        if t > t_eps and t < 1 - t_eps and u > u_eps and u < 1 - u_eps then
+            return t, u, x1 + t * d1x, y1 + t * d1y
+        end
+
+        return nil
+    end
+
+    for a_i = 1, #raw_segments do
+        for b_i = 1, #raw_segments do
+            if a_i ~= b_i then
+                local a = raw_segments[a_i]
+                local b = raw_segments[b_i]
+                local t, u = _segment_intersection(a.x1, a.y1, a.x2, a.y2, b.x1, b.y1, b.x2, b.y2)
+                if t ~= nil then
+                    table.insert(a.splits, t)
+                    table.insert(b.splits, u)
+                end
+            end
+        end
+    end
+
+    -- 3) split each segment at its recorded t values, producing final sub-segments
+    local final_segments = {} -- { x1, y1, x2, y2, contour, type }
+    for _, seg in ipairs(raw_segments) do
+        if #seg.splits == 0 then
+            table.insert(final_segments, {
+                x1 = seg.x1, y1 = seg.y1,
+                x2 = seg.x2, y2 = seg.y2,
+                contour = seg.contour, type = seg.type
+            })
+        else
+            table.sort(seg.splits)
+
+            local dx, dy = seg.x2 - seg.x1, seg.y2 - seg.y1
+            local prev_x, prev_y = seg.x1, seg.y1
+            local prev_t = 0
+
+            for _, t in ipairs(seg.splits) do
+                -- avoid degenerate zero-length segments from duplicate t values
+                if t - prev_t > 1e-6 then
+                    local px, py = seg.x1 + t * dx, seg.y1 + t * dy
+                    table.insert(final_segments, {
+                        x1 = prev_x, y1 = prev_y,
+                        x2 = px, y2 = py,
+                        contour = seg.contour, type = seg.type
+                    })
+                    prev_x, prev_y = px, py
+                    prev_t = t
+                end
+            end
+
+            -- final tail segment from last split point to the original endpoint
+            if 1 - prev_t > 1e-6 then
+                table.insert(final_segments, {
+                    x1 = prev_x, y1 = prev_y,
+                    x2 = seg.x2, y2 = seg.y2,
+                    contour = seg.contour, type = seg.type
+                })
+            end
+        end
+    end
+
+    -- 4) build shapes from the final, split segment list
+    local userdatas = {}
+    for _, seg in ipairs(final_segments) do
+        local shape = love.physics.newEdgeShape(self._body, seg.x1, seg.y1, seg.x2, seg.y2)
+        local userdata = setmetatable({
+            shape = shape,
+            segment = { seg.x1, seg.y1, seg.x2, seg.y2 },
+            contour = seg.contour,
+            type = seg.type
+        }, metatable)
+
+        shape:setUserData(userdata)
+
+        table.insert(self._shapes, shape)
+        table.insert(userdatas, userdata)
     end
 
     return userdatas
@@ -124,12 +220,8 @@ function ow.VisibilityQuery:_compute_subsegments(x, y, r)
 
     self._todo = {}
     if #edges == 0 then return {} end
-
-    -- compute critical angles
+    local angles = table.new(#edges, 0)
     local angle_set = {}
-
-    -- angles from segment start / end points
-    local angles = {}
     for _, data in ipairs(edges) do
         local ax, ay, bx, by = table.unpack(data.segment)
         local a_angle = math.normalize_angle(math.angle(math.subtract(ax, ay, x, y)))
@@ -140,35 +232,6 @@ function ow.VisibilityQuery:_compute_subsegments(x, y, r)
         table.insert(self._todo, ay)
         table.insert(self._todo, bx)
         table.insert(self._todo, by)
-    end
-
-    local function segment_intersection(ax, ay, bx, by, cx, cy, dx, dy)
-        local d1x, d1y = bx - ax, by - ay
-        local d2x, d2y = dx - cx, dy - cy
-        local denom = d1x * d2y - d1y * d2x
-        if math.abs(denom) < math.eps then
-            return nil
-        end
-
-        local t = ((cx - ax) * d2y - (cy - ay) * d2x) / denom
-        local u = ((cx - ax) * d1y - (cy - ay) * d1x) / denom
-        if t >= 0 and t <= 1 and u >= 0 and u <= 1 then
-            return ax + t * d1x, ay + t * d1y
-        end
-        return nil
-    end
-
-    -- angles from segment intersection
-    for i = 1, #edges do
-        local ax, ay, bx, by = table.unpack(edges[i].segment)
-        for j = i + 1, #edges do
-            local cx, cy, dx, dy = table.unpack(edges[j].segment)
-            local ix, iy = segment_intersection(ax, ay, bx, by, cx, cy, dx, dy)
-            if ix ~= nil then
-                local cross_angle = math.normalize_angle(math.angle(math.subtract(ix, iy, x, y)))
-                angle_set[cross_angle] = true
-            end
-        end
     end
 
     for angle in keys(angle_set) do
