@@ -33,9 +33,9 @@ function ow.VisibilityQuery:initialize(non_reflective_contours, reflective_conto
         for _, contour in ipairs(contours) do
             for i = 1, #contour - 2, 2 do
                 local x1, y1, x2, y2 =  contour[i+0],
-                contour[i+1],
-                contour[i+2],
-                contour[i+3]
+                    contour[i+1],
+                    contour[i+2],
+                    contour[i+3]
 
                 local shape = love.physics.newEdgeShape(self._body, x1, y1, x2, y2)
                 local userdata = setmetatable({
@@ -121,10 +121,15 @@ function ow.VisibilityQuery:_compute_subsegments(x, y, r)
     )) do
         table.insert(edges, shape:getUserData())
     end
+
     self._todo = {}
     if #edges == 0 then return {} end
-    local angles = table.new(#edges, 0)
+
+    -- compute critical angles
     local angle_set = {}
+
+    -- angles from segment start / end points
+    local angles = {}
     for _, data in ipairs(edges) do
         local ax, ay, bx, by = table.unpack(data.segment)
         local a_angle = math.normalize_angle(math.angle(math.subtract(ax, ay, x, y)))
@@ -136,12 +141,42 @@ function ow.VisibilityQuery:_compute_subsegments(x, y, r)
         table.insert(self._todo, bx)
         table.insert(self._todo, by)
     end
+
+    local function segment_intersection(ax, ay, bx, by, cx, cy, dx, dy)
+        local d1x, d1y = bx - ax, by - ay
+        local d2x, d2y = dx - cx, dy - cy
+        local denom = d1x * d2y - d1y * d2x
+        if math.abs(denom) < math.eps then
+            return nil
+        end
+
+        local t = ((cx - ax) * d2y - (cy - ay) * d2x) / denom
+        local u = ((cx - ax) * d1y - (cy - ay) * d1x) / denom
+        if t >= 0 and t <= 1 and u >= 0 and u <= 1 then
+            return ax + t * d1x, ay + t * d1y
+        end
+        return nil
+    end
+
+    -- angles from segment intersection
+    for i = 1, #edges do
+        local ax, ay, bx, by = table.unpack(edges[i].segment)
+        for j = i + 1, #edges do
+            local cx, cy, dx, dy = table.unpack(edges[j].segment)
+            local ix, iy = segment_intersection(ax, ay, bx, by, cx, cy, dx, dy)
+            if ix ~= nil then
+                local cross_angle = math.normalize_angle(math.angle(math.subtract(ix, iy, x, y)))
+                angle_set[cross_angle] = true
+            end
+        end
+    end
+
     for angle in keys(angle_set) do
         table.insert(angles, angle)
     end
+
     table.sort(angles)
 
-    local world = self._world
     local function ray_segment_distance(x, y, dir_x, dir_y, ax, ay, bx, by)
         local dx = bx - ax
         local dy = by - ay
@@ -149,46 +184,21 @@ function ow.VisibilityQuery:_compute_subsegments(x, y, r)
         if math.abs(det) < math.eps then
             return nil
         end
+
         local oax = ax - x
         local oay = ay - y
         local distance = (oax * dy - oay * dx) / det
+
         if distance >= 0 then
             local hit_x = x + dir_x * distance
             local hit_y = y + dir_y * distance
+
             local u = (dir_y * oax - dir_x * oay) / det
             if u < 0 or u > 1 then return nil end
+
             return distance, hit_x, hit_y
         end
         return nil
-    end
-
-    -- casts a single ray, returns the nearest edge hit (or nil if the ray
-    -- reaches the query radius without hitting anything, in which case the
-    -- point returned lies on the boundary circle)
-    local function cast(angle)
-        local dir_x, dir_y = math.cos(angle), math.sin(angle)
-        local min_distance = math.huge
-        local min_edge = nil
-        local min_point_x, min_point_y = nil, nil
-        for _, edge in ipairs(edges) do
-            local distance, hit_x, hit_y = ray_segment_distance(
-                x, y, dir_x, dir_y,
-                table.unpack(edge.segment)
-            )
-            if distance ~= nil and distance <= r and distance < min_distance then
-                min_distance = distance
-                min_edge = edge
-                min_point_x, min_point_y = hit_x, hit_y
-            end
-        end
-
-        if min_edge == nil then
-            -- nothing hit within range: boundary point lies on the circle
-            min_point_x = x + dir_x * r
-            min_point_y = y + dir_y * r
-        end
-
-        return min_edge, min_point_x, min_point_y
     end
 
     local subsegments = {}
@@ -205,31 +215,46 @@ function ow.VisibilityQuery:_compute_subsegments(x, y, r)
         end
     end
 
-    local eps = 1e-3
     local function visit(angle)
-        local min_edge, min_point_x, min_point_y = cast(angle)
-        if min_edge ~= current_edge then
-            push_current()
-            current_edge = min_edge
-            current_start_x, current_start_y = min_point_x, min_point_y
-            current_end_x, current_end_y = min_point_x, min_point_y
-        else
-            current_end_x, current_end_y = min_point_x, min_point_y
+        local dir_x, dir_y = math.cos(angle), math.sin(angle)
+        local min_distance = math.huge
+        local min_edge = nil
+        local min_point_x, min_point_y = nil, nil
+        for _, edge in ipairs(edges) do
+            local distance, hit_x, hit_y = ray_segment_distance(
+                x, y, dir_x, dir_y,
+                table.unpack(edge.segment)
+            )
+
+            if distance ~= nil and distance < min_distance then
+                min_distance = distance
+                min_edge = edge
+                min_point_x, min_point_y = hit_x, hit_y
+            end
+        end
+
+        if min_edge ~= nil then
+            if min_edge ~= current_edge then
+                push_current()
+                current_edge = min_edge
+                current_start_x, current_start_y = min_point_x, min_point_y
+                current_end_x, current_end_y = min_point_x, min_point_y
+            else
+                current_end_x, current_end_y = min_point_x, min_point_y
+            end
         end
     end
 
+    local eps = math.degrees_to_radians(2 / 360)
     for angle_i = 1, #angles do
         local angle = angles[angle_i]
-        -- cast slightly before, at, and slightly after the vertex angle so
-        -- that occlusion boundaries at edge endpoints are resolved correctly
         visit(angle - eps)
         visit(angle)
         visit(angle + eps)
     end
     push_current()
 
-    -- angles are circular: merge the first and last subsegment if they
-    -- belong to the same edge (or are both boundary-circle segments)
+    -- merge subsegment going across sweep start / end
     if #subsegments > 1 and subsegments[1].edge == subsegments[#subsegments].edge then
         local first = table.remove(subsegments, 1)
         local last = subsegments[#subsegments]
