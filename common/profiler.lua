@@ -72,7 +72,7 @@ if PROFILE then
     end
 
     profiler.notify = function(duration)
-        if _is_active then
+        if not _is_active then
             if duration < _min_duration then return end
 
             local state = get_state()

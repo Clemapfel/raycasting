@@ -172,7 +172,11 @@ function ow.Mirror:update(delta)
     for data in values(self._query:get_visible_subsegments(
         px - self._offset_x,
         py - self._offset_y,
-        r
+        rt.AABB(
+            px - self._offset_x - r,
+            py - self._offset_y - r,
+            2 * r
+        )
     )) do
         if data.type == ow.ContourType.REFLECTIVE then
             table.insert(self._visible, data.segment)

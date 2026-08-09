@@ -6,7 +6,7 @@ function rt.AABB:instantiate(x, y, width, height)
     if x == nil then x = 0 end
     if y == nil then y = 0 end
     if width == nil then width = 1 end
-    if height == nil then height = 1 end
+    if height == nil then height = width end
     meta.install(self, {
         x = x,
         y = y,

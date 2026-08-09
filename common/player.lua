@@ -2319,6 +2319,7 @@ end
 
 --- @brief
 function rt.Player:draw_bloom()
+    if true then return end
     if self:get_is_visible() == false then return end
 
     if self:get_flow() == 0 then
@@ -2328,6 +2329,7 @@ end
 
 --- @brief
 function rt.Player:draw_body()
+    if true then return end
     if self:get_is_visible() == false then return end
 
     local trail_visible = self:get_is_trail_visible()
@@ -2344,6 +2346,8 @@ end
 
 --- @brief
 function rt.Player:draw_core()
+    if true then return end
+
     if self:get_is_visible() == false then return end
 
     local radius = self._core_radius

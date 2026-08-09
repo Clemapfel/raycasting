@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 350,
+  nextobjectid = 355,
   properties = {
     ["background_id"] = "\"nebula\""
   },
@@ -191,8 +191,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = 557.935,
-          y = -1357.26,
+          x = 464,
+          y = -1328,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1165,6 +1165,88 @@ return {
             { x = 178.629, y = -167.289 },
             { x = 114.629, y = 40.7111 }
           },
+          properties = {}
+        },
+        {
+          id = 350,
+          name = "",
+          type = "Fireflies",
+          shape = "point",
+          x = 656,
+          y = -1360,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["count"] = 7
+          }
+        },
+        {
+          id = 351,
+          name = "",
+          type = "DarknessArea",
+          shape = "polygon",
+          x = 32,
+          y = -1984,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 0, y = 832 },
+            { x = 1296, y = 832 },
+            { x = 1280, y = -16 }
+          },
+          properties = {}
+        },
+        {
+          id = 352,
+          name = "",
+          type = "Wall",
+          shape = "polygon",
+          x = 32,
+          y = -1984,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 0, y = 832 },
+            { x = 1296, y = 832 },
+            { x = 1280, y = -16 }
+          },
+          properties = {}
+        },
+        {
+          id = 353,
+          name = "",
+          type = "OneWayPlatform",
+          shape = "point",
+          x = 256,
+          y = -1248,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["color"] = 0.4,
+            ["other"] = { id = 354 }
+          }
+        },
+        {
+          id = 354,
+          name = "",
+          type = "OneWayPlatformNode",
+          shape = "point",
+          x = 448,
+          y = -1504,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
           properties = {}
         }
       }

@@ -92,10 +92,14 @@ function ow.BloodSpatter:add(x, y, radius, color_r, color_g, color_b, opacity, a
     local r = radius * rt.settings.player.bottom_wall_ray_length_factor
 
     local was_added = false
-    for data in values(self._query:get_visible_subsegments(
-        x - self._offset_x,
-        y - self._offset_y,
-        2 * r
+    for data in values(self._query:get_segments_in_area(
+        --x - self._offset_x,
+        --y - self._offset_y,
+        rt.AABB(
+            x - self._offset_x - r,
+            y - self._offset_y - r,
+            2 * r
+        )
     )) do
         -- check for line-circle overlap
         local x1, y1, x2, y2 = table.unpack(data.segment)
@@ -159,7 +163,7 @@ function ow.BloodSpatter:notify_camera_changed(camera)
     end
 end
 
-local _t = 0.25 -- experimentally determined to compensate best
+local _t = 0.1 -- experimentally determined to compensate best
 
 --- @brief
 function ow.BloodSpatter:draw()

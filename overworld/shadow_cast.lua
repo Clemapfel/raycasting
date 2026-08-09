@@ -39,7 +39,7 @@ function ow.ShadowCast:update(delta)
 
     local px, py = self._scene:get_player():get_position()
     local subsegments = {}
-    for data in values(self._query:get_visible_subsegments(px, py, math.huge)) do
+    for data in values(self._query:get_visible_subsegments(px, py, bounds)) do
         table.insert(subsegments, data.segment)
     end
 
