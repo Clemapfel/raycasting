@@ -36,6 +36,82 @@ function ow.Mirror:instantiate(
     })
 end
 
+
+--- @brief
+function ow.Mirror:initialize(mirror_contours, occluding_contours)
+    meta.assert(mirror_contours, mt.Table, occluding_contours, mt.Table)
+    self._query:initialize(
+        occluding_contours, -- sic, swapped, non-reflective
+        mirror_contours -- reflective
+    )
+end
+
+-- flip across line defined by line segment
+local function _reflect(px, py, x1, y1, x2, y2)
+    local dx = x2 - x1
+    local dy = y2 - y1
+    local ux, uy = math.normalize(dx, dy)
+    local normal_x, normal_y = math.turn_left(ux, uy)
+
+    local to_point_x, to_point_y = px - x1, py - y1
+
+    local projection = math.dot(to_point_x, to_point_y, normal_x, normal_y)
+
+    local reflected_x = px - 2 * projection * normal_x
+    local reflected_y = py - 2 * projection * normal_y
+
+    local angle = math.angle(dx, dy)
+    local distance = math.abs(projection)
+
+    return reflected_x, reflected_y, angle, distance
+end
+
+--- @brief
+function ow.Mirror:update(_)
+    if rt.GameState:get_are_reflections_enabled() == false then return end
+
+    local camera = self._scene:get_camera()
+    local bounds = camera:get_world_bounds()
+
+    -- find segments near player
+    local px, py = self._scene:get_player():get_physics_body():get_position()
+    local search_r = math.max(400, 4 * rt.settings.player.radius * rt.settings.player.bottom_wall_ray_length_factor)
+
+    px = px - self._offset_x
+    py = py - self._offset_y
+
+    self._visible = {}
+    for data in values(self._query:get_visible_subsegments(
+        px, py,
+        rt.AABB(
+            px - search_r,
+            py - search_r,
+            2 * search_r
+        )
+    )) do
+        table.insert(self._visible, data.subsegment)
+    end
+
+    self._mirror_images = {}
+    for segment in values(self._visible) do
+        local rx, ry, angle, distance = _reflect(
+            px, py, table.unpack(segment)
+        )
+
+        table.insert(self._mirror_images, {
+            segment = segment,
+            x = rx,
+            y = ry,
+            angle = angle,
+            distance = distance
+        })
+    end
+
+    table.sort(self._mirror_images, function(a, b)
+        return a.distance < b.distance
+    end)
+end
+
 --- @brief
 function ow.Mirror:draw()
     if rt.GameState:get_are_reflections_enabled() == false then return end
@@ -83,10 +159,6 @@ function ow.Mirror:draw()
 
     local n_drawn = 0
     for image in values(self._mirror_images) do
-        local flip_x, flip_y
-        if image.flip_x == true then flip_x = -1 else flip_x = 1 end
-        if image.flip_y == true then flip_y = -1 else flip_y = 1 end
-
         local x1, y1, x2, y2 = table.unpack(image.segment)
         x1 = x1 + self._offset_x
         y1 = y1 + self._offset_y
@@ -99,109 +171,26 @@ function ow.Mirror:draw()
         _shader:send("axis_of_reflection", { lx1, ly1, lx2, ly2 })
 
         love.graphics.setColor(1, 1, 1, 1)
-        local image_x, image_y = image.x + self._offset_x, image.y + self._offset_y
         love.graphics.draw(
             canvas:get_native(),
-            image.x, image.y,
-            image.angle or 0,
-            flip_x / scale_x,
-            flip_y / scale_y,
-            0.5 * canvas_w, 0.5 * canvas_h
+            image.x,
+            image.y,
+            2 * image.angle, -- double rotation = flip
+            1 / scale_x,
+            -1 / scale_y, -- flip y
+            0.5 * canvas_w,
+            0.5 * canvas_h
         )
 
         n_drawn = n_drawn + 1
         if n_drawn >= rt.settings.overworld.mirror.max_n_mirror_segments then
-            -- safety check for degenerate geometry
-            -- segment priority is distance to player
             break
         end
     end
     _shader:unbind()
 
-    for line in values(self._visible) do
-        love.graphics.line(line)
-    end
-
     rt.graphics.set_stencil_mode(nil)
     love.graphics.pop()
-end
-
---- @brief
-function ow.Mirror:initialize(mirror_contours, occluding_contours)
-    meta.assert(mirror_contours, mt.Table, occluding_contours, mt.Table)
-    self._query:initialize(
-        occluding_contours, -- sic, swapped, non-reflective
-        mirror_contours -- reflective
-    )
-end
-
--- flip across line defined by line segment
-local function _reflect(px, py, x1, y1, x2, y2)
-    local dx = x2 - x1
-    local dy = y2 - y1
-    local ux, uy = math.normalize(dx, dy)
-    local normal_x, normal_y = math.turn_left(ux, uy)
-
-    local to_point_x, to_point_y = px - x1, py - y1
-
-    local projection = math.dot(to_point_x, to_point_y, normal_x, normal_y)
-
-    local reflected_x = px - 2 * projection * normal_x
-    local reflected_y = py - 2 * projection * normal_y
-
-    local flip_x = math.abs(math.dot(ux, uy, 1, 0)) < math.abs(math.dot(ux, uy, 0, 1))
-    local flip_y = not flip_x
-
-    local distance = math.abs(projection)
-
-    return reflected_x, reflected_y, flip_x, flip_y, distance
-end
-
---- @brief
-function ow.Mirror:update(_)
-    if rt.GameState:get_are_reflections_enabled() == false then return end
-
-    local camera = self._scene:get_camera()
-    local bounds = camera:get_world_bounds()
-
-    -- find segments near player
-    local px, py = self._scene:get_player():get_physics_body():get_position()
-    local search_r = math.max(400, 4 * rt.settings.player.radius * rt.settings.player.bottom_wall_ray_length_factor)
-
-    px = px - self._offset_x
-    py = py - self._offset_y
-
-    self._visible = {}
-    for data in values(self._query:get_visible_subsegments(
-        px, py,
-        rt.AABB(
-            px - search_r,
-            py - search_r,
-            2 * search_r
-        )
-    )) do
-        table.insert(self._visible, data.subsegment)
-    end
-
-    self._mirror_images = {}
-    for segment in values(self._visible) do
-        local rx, ry, flip_x, flip_y, distance = _reflect(
-            px, py, table.unpack(segment)
-        )
-
-        table.insert(self._mirror_images, {
-            segment = segment,
-            x = rx,
-            y = ry,
-            flip_x = flip_x,
-            flip_y = flip_y,
-            distance = distance
-        })
-    end
-
-    table.sort(self._mirror_images, function(a, b)
-        return a.distance < b.distance
-    end)
 end
 
 --- @brief
