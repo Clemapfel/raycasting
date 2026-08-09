@@ -137,7 +137,7 @@ function ow.Stage:instantiate(scene, id)
 
     -- static hitbox mirrors
 
-    self._blood_spatter = ow.BloodSpatter()
+    self._blood_spatter = ow.BloodSpatter(scene)
     self._shadow_cast = ow.ShadowCast(scene)
     self._mirror = ow.Mirror(
         scene,
@@ -292,6 +292,7 @@ function ow.Stage:instantiate(scene, id)
     -- add non-object updatables
     table.insert(self._to_update, self._player_recorder)
     for object in range(
+        self._blood_spatter,
         self._mirror,
         self._shadow_cast,
         self._world,
@@ -578,6 +579,7 @@ function ow.Stage:update(delta)
         --self._flow_fraction = self._flow_graph:update_player_position(self._scene:get_player():get_position())
     end
 
+    -- mirror / blood spatter updated in _to_update
     self._blood_spatter:notify_camera_changed(self._scene:get_camera())
 end
 

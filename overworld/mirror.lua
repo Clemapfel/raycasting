@@ -20,7 +20,7 @@ function ow.Mirror:instantiate(
     draw_occluding_mask_callback -- optional
 )
     meta.assert(
-        scene, "OverworldScene",
+        scene, ow.OverworldScene,
         draw_mirror_mask_callback, mt.Function
     )
 
@@ -50,24 +50,19 @@ function ow.Mirror:draw()
     local stencil_value = rt.graphics.get_stencil_value()
 
     love.graphics.push("all")
+    love.graphics.translate(self._offset_x, self._offset_y)
 
     -- stencil mirror areas
     rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW)
-
-    love.graphics.push("all")
-    love.graphics.translate(self._offset_x, self._offset_y)
-
     self._draw_mirror_mask_callback()
 
     if self._draw_occluding_mask_callback ~= nil then
         love.graphics.setStencilState("replace", "always", 0)
         love.graphics.setColorMask(false)
 
-        -- exclude occluding
+        -- exclude occluding that overlap mirror mask
         self._draw_occluding_mask_callback()
     end
-
-    love.graphics.pop()
 
     rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.TEST, rt.StencilCompareMode.EQUAL)
 
@@ -87,7 +82,6 @@ function ow.Mirror:draw()
     _shader:send("camera_scale", camera:get_final_scale())
 
     local n_drawn = 0
-
     for image in values(self._mirror_images) do
         local flip_x, flip_y
         if image.flip_x == true then flip_x = -1 else flip_x = 1 end
@@ -105,10 +99,11 @@ function ow.Mirror:draw()
         _shader:send("axis_of_reflection", { lx1, ly1, lx2, ly2 })
 
         love.graphics.setColor(1, 1, 1, 1)
+        local image_x, image_y = image.x + self._offset_x, image.y + self._offset_y
         love.graphics.draw(
             canvas:get_native(),
-            image.x + self._offset_x, image.y + self._offset_y,
-            image.angle,
+            image.x, image.y,
+            image.angle or 0,
             flip_x / scale_x,
             flip_y / scale_y,
             0.5 * canvas_w, 0.5 * canvas_h
@@ -123,6 +118,11 @@ function ow.Mirror:draw()
     end
     _shader:unbind()
 
+    for line in values(self._visible) do
+        love.graphics.line(line)
+    end
+
+    rt.graphics.set_stencil_mode(nil)
     love.graphics.pop()
 end
 
@@ -131,7 +131,7 @@ function ow.Mirror:initialize(mirror_contours, occluding_contours)
     meta.assert(mirror_contours, mt.Table, occluding_contours, mt.Table)
     self._query:initialize(
         occluding_contours, -- sic, swapped, non-reflective
-        mirror_contours    -- reflective
+        mirror_contours -- reflective
     )
 end
 
@@ -158,7 +158,7 @@ local function _reflect(px, py, x1, y1, x2, y2)
 end
 
 --- @brief
-function ow.Mirror:update(delta)
+function ow.Mirror:update(_)
     if rt.GameState:get_are_reflections_enabled() == false then return end
 
     local camera = self._scene:get_camera()
@@ -166,26 +166,29 @@ function ow.Mirror:update(delta)
 
     -- find segments near player
     local px, py = self._scene:get_player():get_physics_body():get_position()
-    local r = 8 * rt.settings.overworld.mirror.segment_detection_radius_factor * rt.settings.player.radius
+    local search_r = math.max(400, 4 * rt.settings.player.radius * rt.settings.player.bottom_wall_ray_length_factor)
+
+    px = px - self._offset_x
+    py = py - self._offset_y
 
     self._visible = {}
     for data in values(self._query:get_visible_subsegments(
-        px - self._offset_x,
-        py - self._offset_y,
+        px, py,
         rt.AABB(
-            px - self._offset_x - r,
-            py - self._offset_y - r,
-            2 * r
+            px - search_r,
+            py - search_r,
+            2 * search_r
         )
     )) do
-        if data.type == ow.ContourType.REFLECTIVE then
-            table.insert(self._visible, data.segment)
-        end
+        table.insert(self._visible, data.subsegment)
     end
 
     self._mirror_images = {}
     for segment in values(self._visible) do
-        local rx, ry, flip_x, flip_y, distance = _reflect(px - self._offset_x, py - self._offset_y, table.unpack(segment))
+        local rx, ry, flip_x, flip_y, distance = _reflect(
+            px, py, table.unpack(segment)
+        )
+
         table.insert(self._mirror_images, {
             segment = segment,
             x = rx,

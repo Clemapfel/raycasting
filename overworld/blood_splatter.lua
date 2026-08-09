@@ -10,8 +10,10 @@ rt.settings.overworld.blood_splatter = {
 ow.BloodSpatter = meta.class("BloodSpatter")
 
 --- @brief
-function ow.BloodSpatter:instantiate()
+function ow.BloodSpatter:instantiate(scene)
+    meta.assert(scene, ow.OverworldScene)
     meta.install(self, {
+        _scene = scene,
         _query = ow.VisibilityQuery(),
         _visible_divisions = {},
         
@@ -85,41 +87,48 @@ local function _clip_segment_in_circle(x1, y1, x2, y2, cx, cy, radius)
 end
 
 --- @brief
-function ow.BloodSpatter:add(x, y, radius, color_r, color_g, color_b, opacity, allow_override)
+function ow.BloodSpatter:update(_)
+    local player = self._scene:get_player()
+    local x, y = player:get_position()
+    local radius = player:get_radius()
+    local r, g, b, a = player:get_color():unpack()
+    self:_add(x, y, radius, r, g, b, a)
+end
+
+--- @brief
+function ow.BloodSpatter:_add(x, y, radius, color_r, color_g, color_b, opacity, allow_override)
     if opacity == nil then opacity = 1 end
     if allow_override == nil then allow_override = true end
 
-    local r = radius * rt.settings.player.bottom_wall_ray_length_factor
+    local search_r = math.max(400, 4 * rt.settings.player.radius * rt.settings.player.bottom_wall_ray_length_factor)
+
+    x = x - self._offset_x
+    y = y - self._offset_y
 
     local was_added = false
-    for data in values(self._query:get_segments_in_area(
-        --x - self._offset_x,
-        --y - self._offset_y,
-        rt.AABB(
-            x - self._offset_x - r,
-            y - self._offset_y - r,
-            2 * r
-        )
+    for data in values(self._query:get_visible_subsegments(
+        x, y,
+        rt.AABB(x - search_r, y - search_r, 2 * search_r)
     )) do
         -- check for line-circle overlap
-        local x1, y1, x2, y2 = table.unpack(data.segment)
+        local x1, y1, x2, y2 = table.unpack(data.subsegment)
         local ix1, iy1, ix2, iy2 = _clip_segment_in_circle(
             x1, y1, x2, y2,
-            x - self._offset_x, y - self._offset_y, r
+            x, y,
+            radius * rt.settings.player.bottom_wall_ray_length_factor -- player radius, not search radius
         )
 
         if ix1 ~= nil then
-            local dx, dy = x2 - x1, y2 - y1
+            local sx1, sy1, sx2, sy2 = table.unpack(data.edge.segment)
+            local dx, dy = sx2 - sx1, sy2 - sy1
             local length = math.magnitude(dx, dy)
             if length > math.eps then
                 -- project clipped points onto the original segment to get fraction
-                local t1 = math.dot(ix1 - x1, iy1 - y1, dx, dy) / (length * length)
-                local t2 = math.dot(ix2 - x1, iy2 - y1, dx, dy) / (length * length)
+                local t1 = math.dot(ix1 - sx1, iy1 - sy1, dx, dy) / (length * length)
+                local t2 = math.dot(ix2 - sx1, iy2 - sy1, dx, dy) / (length * length)
 
-                -- ensure left < right
                 local left_fraction = math.min(t1, t2)
                 local right_fraction = math.max(t1, t2)
-
                 left_fraction = math.clamp(left_fraction, 0, 1)
                 right_fraction = math.clamp(right_fraction , 0, 1)
 
@@ -127,7 +136,7 @@ function ow.BloodSpatter:add(x, y, radius, color_r, color_g, color_b, opacity, a
                 local color = rt.RGBA(color_r, color_g, color_b, opacity)
                 local hue = select(1, rt.rgba_to_hsva(color_r, color_g, color_b, opacity))
 
-                for division in values(data.subdivisions) do
+                for division in values(data.edge.subdivisions) do
                     if division.left_fraction <= right_fraction and division.right_fraction >= left_fraction then
                         if allow_override or not division.is_active then
                             division.color = color
@@ -284,7 +293,7 @@ function ow.BloodSpatter:collect_segment_lights(bounds, callback)
     y = y - padding - self._offset_y
     w = w + 2 * padding
     h = h + 2 * padding
-    
+
     for data in values(self._query:get_segments_in_area(rt.AABB(x, y, w, h))) do
         local x1, y1, x2, y2 = nil, nil, nil, nil
         local current_hue = nil

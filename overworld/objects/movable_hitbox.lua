@@ -66,7 +66,7 @@ function ow.MovableHitbox:instantiate(object, stage, scene)
     local mesh, tris = object:create_mesh(true) -- translate to origin
     self._mesh = mesh
     self._tris = tris
-    self._contour = rt.contour.close(object:create_contour(true))
+    self._contour = rt.contour.close(object:create_contour(true)) -- translate to origin
 
     -- graphics
     self._normal_map = ow.NormalMap(
@@ -97,10 +97,7 @@ function ow.MovableHitbox:instantiate(object, stage, scene)
             {} -- occluding
         )
     else
-        self._blood_spatter = ow.BloodSpatter(
-            self._scene
-        )
-
+        self._blood_spatter = ow.BloodSpatter(self._scene)
         self._blood_spatter:initialize(
             { self._contour }
         )
@@ -136,17 +133,13 @@ function ow.MovableHitbox:update(delta)
     local is_visible = self._stage:get_is_body_visible(self._body)
 
     if is_visible then
-        if self._mirror ~= nil then -- sticky
+        if self._mirror ~= nil then -- slippery
+            self._mirror:set_offset(self._body:get_position())
             self._mirror:update(delta)
         else -- slippery
-            local player = self._scene:get_player()
+            self._blood_spatter:update(delta)
+            self._blood_spatter:set_offset(self._body:get_position())
             self._blood_spatter:notify_camera_changed(self._scene:get_camera())
-            if player:get_is_colliding_with(self._body) then
-                local nx, ny, cx, cy = player:get_collision_normal(self._body)
-                local r = player:get_radius() / 2
-                self._blood_spatter:set_offset(self._body:get_position())
-                self._blood_spatter:add(cx, cy, r, player:get_color():unpack())
-            end
         end
 
         self._shadow_cast:update(delta)

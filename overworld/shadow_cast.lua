@@ -59,12 +59,6 @@ end
 --- @brief
 function ow.ShadowCast:draw()
     if rt.GameState:get_are_dynamic_shadows_enabled() == false then return end
-
-    love.graphics.push()
-    love.graphics.translate(self._offset_x, self._offset_y)
-    love.graphics.setColor(self._scene:get_player():get_color():unpack())
-    self._query:draw()
-    love.graphics.pop()
 end
 
 --- @brief

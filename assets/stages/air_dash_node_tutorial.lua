@@ -520,7 +520,7 @@ return {
         {
           id = 119,
           name = "",
-          type = "SlipperyHitbox",
+          type = "Hitbox",
           shape = "polygon",
           x = -176,
           y = -1152,
@@ -995,8 +995,8 @@ return {
           name = "",
           type = "MovableHitbox",
           shape = "polygon",
-          x = -369.114,
-          y = -1467.42,
+          x = 490.702,
+          y = -1454.92,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1067,8 +1067,8 @@ return {
           name = "",
           type = "Path",
           shape = "point",
-          x = -609.114,
-          y = -1371.42,
+          x = 250.702,
+          y = -1358.92,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1083,8 +1083,8 @@ return {
           name = "",
           type = "PathNode",
           shape = "point",
-          x = -365.776,
-          y = -1649.53,
+          x = 494.04,
+          y = -1637.03,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1098,8 +1098,8 @@ return {
           name = "",
           type = "",
           shape = "polygon",
-          x = 642.944,
-          y = -1469.15,
+          x = 568.237,
+          y = -2273.13,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1109,15 +1109,17 @@ return {
             { x = 114.539, y = 93.1582 },
             { x = 230.605, y = -6.10874 }
           },
-          properties = {}
+          properties = {
+            ["slippery"] = true
+          }
         },
         {
           id = 347,
           name = "",
           type = "",
           shape = "polygon",
-          x = 554.368,
-          y = -1534.82,
+          x = 479.661,
+          y = -2338.8,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1127,15 +1129,17 @@ return {
             { x = 25.9621, y = 126.756 },
             { x = 238.241, y = 3.05437 }
           },
-          properties = {}
+          properties = {
+            ["slippery"] = true
+          }
         },
         {
           id = 348,
           name = "",
           type = "",
           shape = "polygon",
-          x = 595.602,
-          y = -1608.12,
+          x = 520.895,
+          y = -2412.1,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1145,15 +1149,17 @@ return {
             { x = 334.453, y = 236.714 },
             { x = 456.628, y = 109.957 }
           },
-          properties = {}
+          properties = {
+            ["slippery"] = true
+          }
         },
         {
           id = 349,
           name = "",
           type = "",
           shape = "polygon",
-          x = 189.371,
-          y = -1528.71,
+          x = 114.664,
+          y = -2332.69,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1165,7 +1171,9 @@ return {
             { x = 178.629, y = -167.289 },
             { x = 114.629, y = 40.7111 }
           },
-          properties = {}
+          properties = {
+            ["slippery"] = true
+          }
         },
         {
           id = 350,
@@ -1183,50 +1191,12 @@ return {
           }
         },
         {
-          id = 351,
-          name = "",
-          type = "DarknessArea",
-          shape = "polygon",
-          x = 32,
-          y = -1984,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = 0 },
-            { x = 0, y = 832 },
-            { x = 1296, y = 832 },
-            { x = 1280, y = -16 }
-          },
-          properties = {}
-        },
-        {
-          id = 352,
-          name = "",
-          type = "Wall",
-          shape = "polygon",
-          x = 32,
-          y = -1984,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = 0 },
-            { x = 0, y = 832 },
-            { x = 1296, y = 832 },
-            { x = 1280, y = -16 }
-          },
-          properties = {}
-        },
-        {
           id = 353,
           name = "",
           type = "OneWayPlatform",
           shape = "point",
-          x = 256,
-          y = -1248,
+          x = -587.116,
+          y = -1429.43,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1241,8 +1211,8 @@ return {
           name = "",
           type = "OneWayPlatformNode",
           shape = "point",
-          x = 448,
-          y = -1504,
+          x = -395.116,
+          y = -1685.43,
           width = 0,
           height = 0,
           rotation = 0,

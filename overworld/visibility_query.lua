@@ -205,46 +205,23 @@ end
 --- @brief
 function ow.VisibilityQuery:draw()
     rt.Palette.GREEN:bind()
-
-    if true then return end
-
-    if self._cache ~= nil then
-        for _, entry in ipairs(self._cache) do
-            love.graphics.line(entry.segment)
-        end
-
-        love.graphics.circle("fill", table.unpack(self._cursor))
-
-        love.graphics.setLineWidth(0.5)
-        local x, y = rt.SceneManager:get_current_scene():get_camera():screen_xy_to_world_xy(love.mouse.getPosition())
-        for i = 1, #self._todo, 2 do
-            love.graphics.line(x, y, self._todo[i], self._todo[i+1])
-        end
+    for shape in values(self._shapes) do
+        love.graphics.line(shape:getUserData().segment)
     end
 end
 
--- refactored: single contiguous array for angle ranges
-
+--- @brief get all subsegments that are visible from a point
 function ow.VisibilityQuery:get_visible_subsegments(x, y, bounds)
     meta.assert(x, mt.Number, y, mt.Number, bounds, rt.AABB)
 
-    local before = love.timer.getTime()
-
-    x, y = rt.SceneManager:get_current_scene():get_camera():screen_xy_to_world_xy(love.mouse.getPosition())
-
-    self._cursor = { x, y, 10 }
-
     -- caching
-    local frame_i = rt.SceneManager:get_frame_index()
     local to_hash = {}
-
-    for h in range(frame_i, x, y, bounds.x, bounds.y, bounds.width, bounds.height) do
+    for h in range(x, y, bounds.x, bounds.y, bounds.width, bounds.height) do
         table.insert(to_hash, math.floor(h))
     end
 
     local hash = table.concat(to_hash, "_")
     if self._cache_hash == hash then
-        dbg(rt.SceneManager:get_frame_index(), 0)
         return self._cache
     end
 
@@ -257,10 +234,6 @@ function ow.VisibilityQuery:get_visible_subsegments(x, y, bounds)
         table.insert(edges, shape:getUserData())
     end
 
-    local from = true
-    local to = false
-
-    self._todo = {}
     if #edges == 0 then return {} end
 
     local angles = table.new(#edges, 0)
@@ -284,13 +257,17 @@ function ow.VisibilityQuery:get_visible_subsegments(x, y, bounds)
         angle_to_is_from[a_angle] = true
         angle_to_is_to[b_angle] = true
 
-        local min_angle = math.min(a_angle, b_angle)
-        local max_angle = math.max(a_angle, b_angle)
+        local min_angle, max_angle
+        if a_angle < b_angle then
+            min_angle, max_angle = a_angle, b_angle
+        else
+            min_angle, max_angle = b_angle, a_angle
+        end
+
         if max_angle - min_angle > math.pi then
             min_angle, max_angle = max_angle, min_angle
         end
 
-        -- store in contiguous array at positions 2*edge_i-1 and 2*edge_i
         local idx = 2 * edge_i - 1
         edge_angle_ranges[idx] = min_angle
         edge_angle_ranges[idx + 1] = max_angle
@@ -300,11 +277,6 @@ function ow.VisibilityQuery:get_visible_subsegments(x, y, bounds)
             math.magnitude(dxa, dya),
             math.magnitude(dxb, dyb)
         )
-
-        table.insert(self._todo, ax)
-        table.insert(self._todo, ay)
-        table.insert(self._todo, bx)
-        table.insert(self._todo, by)
     end
 
     for angle in keys(angle_set) do
@@ -335,6 +307,7 @@ function ow.VisibilityQuery:get_visible_subsegments(x, y, bounds)
         local dx = bx - ax
         local dy = by - ay
         local det = dir_x * dy - dir_y * dx
+
         if math.abs(det) < math.eps then
             return nil
         end
@@ -361,10 +334,12 @@ function ow.VisibilityQuery:get_visible_subsegments(x, y, bounds)
     local current_end_x, current_end_y = nil, nil
 
     local function push_current()
-        if current_start_x ~= nil then
+        if current_start_x ~= nil
+            and math.distance(current_start_x, current_start_y, current_end_x, current_end_y) > 1
+        then
             table.insert(subsegments, {
                 edge = current_edge,
-                segment = { current_start_x, current_start_y, current_end_x, current_end_y }
+                subsegment = { current_start_x, current_start_y, current_end_x, current_end_y }
             })
         end
     end
@@ -428,18 +403,17 @@ function ow.VisibilityQuery:get_visible_subsegments(x, y, bounds)
         end
     end
 
-    push_current() -- push final segment
+    push_current() -- push final unfinished segment
 
     -- merge subsegment going across sweep start / end
     if #subsegments > 1 and subsegments[1].edge == subsegments[#subsegments].edge then
         local first = table.remove(subsegments, 1)
         local last = subsegments[#subsegments]
-        last.segment[3] = first.segment[3]
-        last.segment[4] = first.segment[4]
+        last.subsegment[3] = first.subsegment[3]
+        last.subsegment[4] = first.subsegment[4]
     end
 
     self._cache = subsegments
     self._cache_hash = hash
-    dbg(ran / (#edges)^2)
     return subsegments
 end

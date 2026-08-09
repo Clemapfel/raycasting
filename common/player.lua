@@ -1966,100 +1966,6 @@ function rt.Player:update(delta)
     if self._jump_button_is_down then self._jump_button_is_down_elapsed = self._jump_button_is_down_elapsed + delta end
     if self._sprint_button_is_down then self._sprint_button_is_down_elapsed = self._sprint_button_is_down_elapsed + delta end
 
-    -- add blood splatter
-    local color_r, color_g, color_b, _ = self._current_color:unpack()
-    if self._stage ~= nil and not is_ghost and not is_disabled then
-        local cx, cy = self:get_position()
-        local radius = self:get_radius()
-        if is_bubble then
-            radius = settings.radius * settings.bubble_radius_factor * 0.5
-        end
-
-        local function _add_blood_spatter(contact_x, contact_y, last_contact_x, last_contact_y)
-            -- at high velocities, interpolate
-            if last_contact_x ~= nil and last_contact_y ~= nil then
-                local lcx, lcy = last_contact_x, last_contact_y
-                local dx = cx - lcx
-                local dy = cy - lcy
-                local distance = math.magnitude(dx, dy)
-
-                local step_size = radius * 0.5
-                local num_steps = math.max(1, math.ceil(distance / step_size))
-
-                for i = 0, num_steps do
-                    local t = i / num_steps
-                    local interpolation_x = lcx + dx * t
-                    local interpolation_y = lcy + dy * t
-
-                    if math.distance(
-                        self._last_position_x, self._last_position_y,
-                        interpolation_x, interpolation_y
-                    ) < radius then
-                        self._stage:get_blood_spatter():add(interpolation_x, interpolation_y, radius, color_r, color_g, color_b, 1)
-                    end
-                end
-            else
-                self._stage:get_blood_spatter():add(cx, cy, radius, color_r, color_g, color_b, 1)
-            end
-        end
-
-        if self._top_left_wall
-            and not top_left_wall_body:has_tag("slippery")
-            and not top_left_wall_body:has_tag("no_blood")
-        then
-            _add_blood_spatter(top_left_x, top_left_y, self._last_top_left_x, self._last_top_left_y)
-        end
-
-        if self._top_wall
-            and not top_wall_body:has_tag("slippery")
-            and not top_wall_body:has_tag("no_blood")
-        then
-            _add_blood_spatter(top_x, top_y, self._last_top_x, self._last_top_y)
-        end
-
-        if self._top_right_wall
-            and not top_right_wall_body:has_tag("slippery")
-            and not top_right_wall_body:has_tag("no_blood")
-        then
-            _add_blood_spatter(top_right_x, top_right_y, self._last_top_right_x, self._last_top_right_y)
-        end
-
-        if self._right_wall
-            and not right_wall_body:has_tag("slippery")
-            and not right_wall_body:has_tag("no_blood")
-        then
-            _add_blood_spatter(right_x, right_y, self._last_right_x, self._last_right_y)
-        end
-
-        if self._bottom_right_wall
-            and not bottom_right_wall_body:has_tag("slippery")
-            and not bottom_right_wall_body:has_tag("no_blood")
-        then
-            _add_blood_spatter(bottom_right_x, bottom_right_y, self._last_bottom_right_x, self._last_bottom_right_y)
-        end
-
-        if self._bottom_wall
-            and not bottom_wall_body:has_tag("slippery")
-            and not bottom_wall_body:has_tag("no_blood")
-        then
-            _add_blood_spatter(bottom_x, bottom_y, self._last_bottom_x, self._last_bottom_y)
-        end
-
-        if self._bottom_left_wall
-            and not bottom_left_wall_body:has_tag("slippery")
-            and not bottom_left_wall_body:has_tag("no_blood")
-        then
-            _add_blood_spatter(bottom_left_x, bottom_left_y, self._last_bottom_left_x, self._last_bottom_left_y)
-        end
-
-        if self._left_wall
-            and not left_wall_body:has_tag("slippery")
-            and not left_wall_body:has_tag("no_blood")
-        then
-            _add_blood_spatter(left_x, left_y, self._last_left_x, self._last_left_y)
-        end
-    end
-
     do -- update position history
         local last_x, last_y = self._position_history[#self._position_history - 1], self._position_history[#self._position_history]
         local current_x, current_y = self:get_position()
@@ -2319,7 +2225,6 @@ end
 
 --- @brief
 function rt.Player:draw_bloom()
-    if true then return end
     if self:get_is_visible() == false then return end
 
     if self:get_flow() == 0 then
@@ -2329,7 +2234,6 @@ end
 
 --- @brief
 function rt.Player:draw_body()
-    if true then return end
     if self:get_is_visible() == false then return end
 
     local trail_visible = self:get_is_trail_visible()
@@ -2346,8 +2250,6 @@ end
 
 --- @brief
 function rt.Player:draw_core()
-    if true then return end
-
     if self:get_is_visible() == false then return end
 
     local radius = self._core_radius
