@@ -187,161 +187,68 @@ function ow.VisibilityQuery:get_segments_in_area(aabb)
     meta.assert(aabb, rt.AABB)
 
     local shapes = self._world:getShapesInArea(
-        aabb.x, 
+        aabb.x,
         aabb.y,
         aabb.x + aabb.width,
         aabb.y + aabb.height
     )
-    
+
     local result = {}
     for _, shape in ipairs(shapes) do
         table.insert(result, shape:getUserData())
     end
-    
+
     return result
 end
 
+do
 
---- @brief
-function ow.VisibilityQuery:draw()
-    rt.Palette.GREEN:bind()
-    for shape in values(self._shapes) do
-        love.graphics.line(shape:getUserData().segment)
-    end
-end
-
---- @brief get all subsegments that are visible from a point
-function ow.VisibilityQuery:get_visible_subsegments(x, y, bounds)
-    meta.assert(x, mt.Number, y, mt.Number, bounds, rt.AABB)
-
-    -- caching
-    local to_hash = {}
-    for h in range(x, y, bounds.x, bounds.y, bounds.width, bounds.height) do
-        table.insert(to_hash, math.floor(h))
-    end
-
-    local hash = table.concat(to_hash, "_")
-    if self._cache_hash == hash then
-        return self._cache
-    end
-
-    local edges = {}
-    for i, shape in ipairs(self._world:getShapesInArea(
-        bounds.x, bounds.y,
-        bounds.x + bounds.width,
-        bounds.y + bounds.height
-    )) do
-        table.insert(edges, shape:getUserData())
-    end
-
-    if #edges == 0 then return {} end
-
-    local angles = table.new(#edges, 0)
-    local angle_to_is_from = table.new(0, #edges * 2)
-    local angle_to_is_to = table.new(0, #edges * 2)
-    local edge_angle_ranges = table.new(#edges * 2, 0) -- [ min, max, min, max, min ... ]
-
-    local angle_eps = -math.huge -- store as max distance for now
-
-    local angle_set = {}
-    for edge_i, data in ipairs(edges) do
-        local ax, ay, bx, by = table.unpack(data.segment)
-        local dxa, dya = math.subtract(ax, ay, x, y)
-        local dxb, dyb = math.subtract(bx, by, x, y)
-        local a_angle = math.normalize_angle(math.angle(dxa, dya))
-        local b_angle = math.normalize_angle(math.angle(dxb, dyb))
-
-        angle_set[a_angle] = true
-        angle_set[b_angle] = true
-
-        angle_to_is_from[a_angle] = true
-        angle_to_is_to[b_angle] = true
-
-        local min_angle, max_angle
-        if a_angle < b_angle then
-            min_angle, max_angle = a_angle, b_angle
-        else
-            min_angle, max_angle = b_angle, a_angle
-        end
-
-        if max_angle - min_angle > math.pi then
-            min_angle, max_angle = max_angle, min_angle
-        end
-
-        local idx = 2 * edge_i - 1
-        edge_angle_ranges[idx] = min_angle
-        edge_angle_ranges[idx + 1] = max_angle
-
-        angle_eps = math.max(
-            angle_eps,
-            math.magnitude(dxa, dya),
-            math.magnitude(dxb, dyb)
-        )
-    end
-
-    for angle in keys(angle_set) do
-        table.insert(angles, angle)
-    end
-
-    table.sort(angles)
-
-    -- convert to radians
-    angle_eps = 0.25 / angle_eps -- n / radius is n px displacement along circle in radians
-
-    -- dedupe angles
-    do
-        local i = #angles
-        while i > 1 do
-            local a, b = angles[i], angles[i - 1]
-            if math.abs(a - b) < angle_eps then
-                table.remove(angles, i)
-                table.remove(angles, i - 1)
-                table.insert(angles, i - 1, a)
-            end
-
-            i = i - 1
-        end
-    end
-
-    local function ray_segment_distance(x, y, dir_x, dir_y, ax, ay, bx, by)
+    local function _ray_line_intersect(clamp_to_segment, x, y, dir_x, dir_y, ax, ay, bx, by)
         local dx = bx - ax
         local dy = by - ay
         local det = dir_x * dy - dir_y * dx
 
-        if math.abs(det) < math.eps then
-            return nil
+        local eps = 1e-5
+
+        -- ray is parallel to the segment
+        if math.abs(det) < eps then
+            if clamp_to_segment then
+                -- line segment: no intersection
+                return nil
+            else
+                -- infinite line: fallback to nearest end point
+                local dist_a = (ax - x)^2 + (ay - y)^2
+                local dist_b = (bx - x)^2 + (by - y)^2
+                if dist_a < dist_b then
+                    return ax, ay
+                else
+                    return bx, by
+                end
+            end
         end
 
         local oax = ax - x
         local oay = ay - y
         local distance = (oax * dy - oay * dx) / det
+        local hit_x = x + dir_x * distance
+        local hit_y = y + dir_y * distance
 
-        if distance >= 0 then
-            local hit_x = x + dir_x * distance
-            local hit_y = y + dir_y * distance
-
-            local u = (dir_y * oax - dir_x * oay) / det
-            if u < 0 or u > 1 then return nil end
-
-            return distance, hit_x, hit_y
+        if not clamp_to_segment then
+            return hit_x, hit_y
         end
-        return nil
-    end
 
-    local subsegments = {}
-    local current_edge = nil
-    local current_start_x, current_start_y = nil, nil
-    local current_end_x, current_end_y = nil, nil
-
-    local function push_current()
-        if current_start_x ~= nil
-            and math.distance(current_start_x, current_start_y, current_end_x, current_end_y) > 1
-        then
-            table.insert(subsegments, {
-                edge = current_edge,
-                subsegment = { current_start_x, current_start_y, current_end_x, current_end_y }
-            })
+        if distance < 0 then
+            -- ray starts behind line segment
+            return nil
         end
+
+        local u = (dir_y * oax - dir_x * oay) / det
+        if u < 0 - eps or u > 1 + eps then
+            -- intersection outside of segment
+            return nil
+        end
+
+        return distance, hit_x, hit_y
     end
 
     local function _angle_in_range(a, mn, mx)
@@ -352,68 +259,176 @@ function ow.VisibilityQuery:get_visible_subsegments(x, y, bounds)
         end
     end
 
-    local ran = 0
-    local function check_edges(angle)
-        local dir_x, dir_y = math.cos(angle), math.sin(angle)
-        local min_distance = math.huge
-        local min_edge = nil
-        local min_point_x, min_point_y = nil, nil
-        for edge_i, edge in ipairs(edges) do
+    --- @brief get all subsegments that are visible from a point
+    function ow.VisibilityQuery:get_visible_subsegments(x, y, bounds)
+        meta.assert(x, mt.Number, y, mt.Number, bounds, rt.AABB)
+
+        -- caching
+        local to_hash = {}
+        for h in range(x, y, bounds.x, bounds.y, bounds.width, bounds.height) do
+            table.insert(to_hash, math.floor(h))
+        end
+
+        local hash = table.concat(to_hash, "_")
+        if self._cache_hash == hash then
+            return self._cache
+        end
+
+        self._dbg = {}
+        local edges = {}
+        for i, shape in ipairs(self._world:getShapesInArea(
+            bounds.x, bounds.y,
+            bounds.x + bounds.width,
+            bounds.y + bounds.height
+        )) do
+            table.insert(edges, shape:getUserData())
+        end
+
+        if #edges == 0 then return {} end
+
+        local angles = table.new(#edges * 2, 0)
+        local edge_angle_ranges = table.new(#edges * 2, 0)
+
+        local angle_eps = -math.huge
+        local angle_set = {}
+
+        for edge_i, data in ipairs(edges) do
+            local ax, ay, bx, by = table.unpack(data.segment)
+            local dxa, dya = math.subtract(ax, ay, x, y)
+            local dxb, dyb = math.subtract(bx, by, x, y)
+            local a_angle = math.normalize_angle(math.angle(dxa, dya))
+            local b_angle = math.normalize_angle(math.angle(dxb, dyb))
+
+            angle_set[a_angle] = true
+            angle_set[b_angle] = true
+
+            local min_angle, max_angle
+            if a_angle < b_angle then
+                min_angle, max_angle = a_angle, b_angle
+            else
+                min_angle, max_angle = b_angle, a_angle
+            end
+
+            if max_angle - min_angle > math.pi then
+                min_angle, max_angle = max_angle, min_angle
+            end
+
             local idx = 2 * edge_i - 1
-            local min_angle = edge_angle_ranges[idx + 0]
-            local max_angle = edge_angle_ranges[idx + 1]
+            edge_angle_ranges[idx] = min_angle
+            edge_angle_ranges[idx + 1] = max_angle
 
-            -- reject if angle span of edge is out of range
-            if _angle_in_range(angle, min_angle, max_angle) then
-                local distance, hit_x, hit_y = ray_segment_distance(
-                    x, y, dir_x, dir_y,
-                    table.unpack(edge.segment)
-                )
+            angle_eps = math.max(
+                angle_eps,
+                math.magnitude(dxa, dya),
+                math.magnitude(dxb, dyb)
+            )
+        end
 
-                ran = ran + 1
+        for angle in keys(angle_set) do
+            table.insert(angles, angle)
+        end
 
-                if distance ~= nil and distance < min_distance then
-                    min_distance = distance
-                    min_edge = edge
-                    min_point_x, min_point_y = hit_x, hit_y
+        table.sort(angles)
+
+        angle_eps = 0.25 / angle_eps
+
+        -- dedupe angles
+        do
+            local i = #angles
+            while i > 1 do
+                local a, b = angles[i], angles[i - 1]
+                if math.abs(a - b) < angle_eps then
+                    table.remove(angles, i)
+                end
+                i = i - 1
+            end
+        end
+
+        local subsegments = {}
+        local current_edge = nil
+        local current_start_x, current_start_y = nil, nil
+        local current_end_x, current_end_y = nil, nil
+
+        local function push_current()
+            if current_edge ~= nil and current_start_x ~= nil then
+                if math.distance(current_start_x, current_start_y, current_end_x, current_end_y) > 1 then
+                    table.insert(subsegments, {
+                        edge = current_edge,
+                        subsegment = { current_start_x, current_start_y, current_end_x, current_end_y }
+                    })
                 end
             end
+            current_edge = nil
         end
 
-        if min_edge ~= nil then
-            if min_edge ~= current_edge then
-                push_current()
-                current_edge = min_edge
-                current_start_x, current_start_y = min_point_x, min_point_y
-                current_end_x, current_end_y = min_point_x, min_point_y
-            else
-                current_end_x, current_end_y = min_point_x, min_point_y
+        if #angles > 0 then
+            for i = 1, #angles do
+                local angle1 = angles[i]
+                local angle2 = angles[i % #angles + 1]
+
+                local diff = angle2 - angle1
+                if diff <= 0 then
+                    diff = diff + 2 * math.pi
+                end
+
+                -- The mid angle guarantees we test safely between endpoints
+                local mid_angle = math.normalize_angle(angle1 + diff / 2)
+                local dir_x, dir_y = math.cos(mid_angle), math.sin(mid_angle)
+
+                local min_distance = math.huge
+                local min_edge = nil
+
+                for edge_i, edge in ipairs(edges) do
+                    local idx = 2 * edge_i - 1
+                    local min_angle = edge_angle_ranges[idx + 0]
+                    local max_angle = edge_angle_ranges[idx + 1]
+
+                    if _angle_in_range(mid_angle, min_angle, max_angle) then
+                        local distance = _ray_line_intersect(
+                            true,
+                            x, y, dir_x, dir_y,
+                            table.unpack(edge.segment)
+                        )
+
+                        if distance ~= nil and distance < min_distance then
+                            min_distance = distance
+                            min_edge = edge
+                        end
+                    end
+                end
+
+                if min_edge ~= nil then
+                    local hit1_x, hit1_y = _ray_line_intersect(false, x, y, math.cos(angle1), math.sin(angle1), table.unpack(min_edge.segment))
+                    local hit2_x, hit2_y = _ray_line_intersect(false, x, y, math.cos(angle2), math.sin(angle2), table.unpack(min_edge.segment))
+
+                    if hit1_x and hit2_x then
+                        if min_edge ~= current_edge then
+                            push_current()
+                            current_edge = min_edge
+                            current_start_x, current_start_y = hit1_x, hit1_y
+                            current_end_x, current_end_y = hit2_x, hit2_y
+                        else
+                            -- Seamlessly extend the current segment
+                            current_end_x, current_end_y = hit2_x, hit2_y
+                        end
+                    end
+                else
+                    push_current()
+                end
             end
-        end
-    end
-
-    for angle_i = 1, #angles do
-        local angle = angles[angle_i]
-        if angle_to_is_from[angle] then
-            check_edges(angle - angle_eps)
+            push_current() -- push final unfinished segment
         end
 
-        if angle_to_is_to[angle] then
-            check_edges(angle + angle_eps)
+        -- merge subsegment going across sweep start / end
+        if #subsegments > 1 and subsegments[1].edge == subsegments[#subsegments].edge then
+            local first = table.remove(subsegments, 1)
+            local last = subsegments[#subsegments]
+            last.subsegment[3] = first.subsegment[3]
+            last.subsegment[4] = first.subsegment[4]
         end
+
+        self._cache = subsegments
+        self._cache_hash = hash
+        return subsegments
     end
-
-    push_current() -- push final unfinished segment
-
-    -- merge subsegment going across sweep start / end
-    if #subsegments > 1 and subsegments[1].edge == subsegments[#subsegments].edge then
-        local first = table.remove(subsegments, 1)
-        local last = subsegments[#subsegments]
-        last.subsegment[3] = first.subsegment[3]
-        last.subsegment[4] = first.subsegment[4]
-    end
-
-    self._cache = subsegments
-    self._cache_hash = hash
-    return subsegments
 end
