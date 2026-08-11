@@ -21,6 +21,7 @@ rt.settings.overworld.light_map = {
     light_z_height = 512 + 128, -- px, smaller values = more dramatic normal falloff
     darkness_range = 128,
     darkness_range_threshold = 256 * 2,
+    frame_interpolation_t = 15, -- unitless
     intensity = 1,
     intensity_texture_format = rt.TextureFormat.RGBA8,
     direction_texture_format = rt.TextureFormat.RG16F,
@@ -457,7 +458,8 @@ do
     local light_functions_initialized = false
 
     --- @brief
-    function ow.LightMap:update(stage)
+    function ow.LightMap:update(stage, delta)
+        meta.assert(stage, ow.Stage, delta, ow.Number)
         if rt.GameState:get_is_dynamic_lighting_enabled() == false then return end
 
         if light_functions_initialized ~= true then -- delay init because we need buffer offsets
@@ -858,6 +860,11 @@ do
         shader:send("should_compute_composite", self._should_compute_composite)
         shader:send("light_range", settings.light_range * camera:get_final_scale())
         shader:send("darkness_range", settings.darkness_range * camera:get_final_scale())
+
+        -- convert to frame-rate independent interpolation factor
+        local t = 1 - math.exp(-settings.frame_interpolation_t * delta)
+        shader:send("frame_interpolation_t", t)
+
         if self._should_compute_composite and rt.GameState:get_is_bloom_enabled() then
             local bloom = rt.SceneManager:get_bloom()
             bloom:flush() -- noop if already done
@@ -1020,11 +1027,6 @@ function ow.LightMap:composite(_)
     rt.graphics.set_blend_mode(rt.BlendMode.MULTIPLY, rt.BlendMode.MULTIPLY)
 
     _composite_shader:bind()
-    --[[
-    _composite_shader:send("light_intensity_texture", self._light_intensity_texture)
-    _composite_shader:send("light_direction_texture", self._light_direction_texture)
-    _composite_shader:send("mask_texture", self._mask_texture)
-    ]]
     _composite_shader:send("composite_texture", self._composite_texture)
     _composite_shader:send("mask", self._composite_mask)
     _composite_shader:send("strength", 1.0) --strength)
@@ -1033,6 +1035,13 @@ function ow.LightMap:composite(_)
     _composite_shader:unbind()
 
     love.graphics.pop()
+
+    love.graphics.setColor(1, 1, 1, 1)
+    if self._dbg ~= nil then
+        for line in values(self._dbg) do
+            love.graphics.line(line)
+        end
+    end
 end
 
 --- @brief

@@ -458,6 +458,7 @@ function ow.Stage:draw_below_player()
         ow.Sprite.draw_all(entry.priority)
     end
 
+    self._shadow_cast:draw()
     self._player_recorder:draw()
     self._blood_spatter:draw()
 end
@@ -474,7 +475,6 @@ function ow.Stage:draw_above_player()
         ow.Sprite.draw_all(entry.priority)
     end
 
-    self._shadow_cast:draw()
     self._mirror:draw()
 end
 
@@ -485,8 +485,6 @@ function ow.Stage:draw_bloom()
     for object in values(self._bloom_objects) do
         object:draw_bloom()
     end
-
-    --self._shadow_cast:draw_bloom()
 end
 
 --- @brief
@@ -910,6 +908,8 @@ function ow.Stage:collect_segment_lights(callback)
         self._scene:get_camera():get_world_bounds(),
         callback
     )
+
+    self._shadow_cast:collect_segment_lights(callback)
 end
 
 --- @brief

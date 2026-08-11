@@ -806,7 +806,7 @@ do
 
         -- wrap all function calls in manual timing
         type_metatable.__newindex = function(self, key, value)
-            if PROFILE and meta.is_function(value) then
+            if false then --PROFILE and meta.is_function(value) then
                 local id = typename .. "." .. key
                 rawset(self, key, function(...)
                     profiler.push(id)

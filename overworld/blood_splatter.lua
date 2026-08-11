@@ -283,8 +283,6 @@ end
 
 --- @brief
 function ow.BloodSpatter:collect_segment_lights(bounds, callback)
-    if self._world == nil then return end
-
     local hue_threshold = rt.settings.overworld.blood_splatter.hue_difference_threshold
     local x, y, w, h = bounds:unpack()
 

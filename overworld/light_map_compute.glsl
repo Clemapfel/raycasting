@@ -157,7 +157,7 @@ int get_segment_light_index(int tile_offset, int i) {
 #error "COMPOSITE_TEXTURE_FORMAT undefined"
 #endif
 
-layout(LIGHT_INTENSITY_TEXTURE_FORMAT) uniform writeonly image2D light_intensity_texture;
+layout(LIGHT_INTENSITY_TEXTURE_FORMAT) uniform /*writeonly*/ image2D light_intensity_texture;
 // rgb: light color, a: intensity
 
 layout(LIGHT_DIRECTION_TEXTURE_FORMAT) uniform writeonly image2D light_direction_texture;
@@ -193,6 +193,9 @@ float gaussian(float x) {
 
 uniform float light_range;
 uniform float darkness_range;
+
+uniform float frame_interpolation_t;
+uniform float last_frame_delta;
 
 vec4 compute_light(vec4 light_color, float distance) {
     const float third = 1.0 / 3.0;
@@ -328,9 +331,12 @@ void computemain() {
 
     if (imageLoad(mask_texture, position).r > 0) {
         vec4 mapped = tonemap(point_color + segment_color);
+        vec4 before = imageLoad(light_intensity_texture, position);
 
         // export rgba
-        imageStore(light_intensity_texture, position, mapped);
+        imageStore(light_intensity_texture, position,
+            mix(before, mapped, frame_interpolation_t)
+        );
 
         // export mean direction
         light_direction = (light_direction_weight > 0.0) ? (light_direction / light_direction_weight) : vec2(0.0);

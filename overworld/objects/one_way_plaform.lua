@@ -375,18 +375,20 @@ function ow.OneWayPlatform:update(delta)
     local cx1, cy1 = math.add(self._x1, self._y1, offset_x, offset_y)
     local cx2, cy2 = math.add(self._x2, self._y2, offset_x, offset_y)
 
-    local px, py = player:get_position()
+    local px, py = player:get_centroid()
     local center_px, center_py = px, py
-
     local closest_x, closest_y, is_on_segment = _closest_point_on_segment(px, py, cx1, cy1, cx2, cy2, -0.5 * player_r)
     local segment_distance = math.distance(px, py, closest_x, closest_y)
 
-    -- use closets point on player circle instead of center
+    -- use farthest point on player circle instead of center
     local dx, dy = math.normalize(closest_x - px, closest_y - py)
-    px, py = px + dx * player_r, py + dy * player_r
+    px, py = px - dx * player_r, py - dy * player_r
 
-    -- if player is on non-solid side, apply force along player velocity to fully push player through
-    if segment_distance < player_r and _get_side(px, py, cx1, cy1, cx2, cy2) == self._sidedness then
+    --[[ if player is on non-solid side, apply force along player velocity to fully push player through
+    if player:get_is_bubble() == false
+        and segment_distance < player_r
+        and _get_side(px, py, cx1, cy1, cx2, cy2) == self._sidedness
+    then
         local farthest_px, farthest_py = center_px - dx * player_r, center_py - dy * player_r
         local target_distance = player_r + 1
         local player_vx, player_vy = player:get_physics_body():get_velocity()
@@ -416,17 +418,19 @@ function ow.OneWayPlatform:update(delta)
                 local new_vx = player_vx + correction_vx * delta
                 local new_vy = player_vy + correction_vy * delta
 
-                player:get_physics_body():set_velocity(new_vx, new_vy)
+                player:request_force(self, correction_vx, correction_vy)
             end
         end
+    else
+        player:request_force(self, nil)
     end
+    ]]
 
+    -- update sensor
     if segment_distance < self._update_range then
-        px, py = player:get_centroid() -- compute more exact position as average of all player bodies
         local player_side = _get_side(px, py, cx1, cy1, cx2, cy2)
 
         self._body:set_is_sensor(not (player_side == self._sidedness))
-
         if self._body:get_type() == b2.BodyType.STATIC then
             self._velocity_protection_body:set_is_enabled(player_side == self._sidedness and is_on_segment)
         else

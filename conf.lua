@@ -1,5 +1,5 @@
 _G.DEBUG = true
-_G.PROFILE = true
+_G.PROFILE = false
 
 function love.conf(settings)
     require "include"

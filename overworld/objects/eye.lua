@@ -29,14 +29,6 @@ local _noise_texture = rt.NoiseTexture(32, 32, 8,
 
 local _lch_texture = rt.LCHTexture(1, 1, 256)
 
-DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
-    if which == "k" then
-        _iris_shader:recompile()
-        _highlight_shader:recompile()
-        _shading_shader:recompile()
-    end
-end)
-
 local n_hue_steps = 64
 
 function ow.Eye:instantiate(object, stage, scene)

@@ -697,6 +697,11 @@ function ow.OverworldScene:update(delta)
         self._timer:start()
         self._queue_timer_start = false
     end
+
+    -- update light map
+    if self._stage ~= nil and (self._stage:get_should_draw_light() or self._stage:get_should_draw_darkness()) then
+        rt.SceneManager:get_light_map():update(self._stage, delta)
+    end
 end
 
 --- @brief
@@ -790,11 +795,6 @@ function ow.OverworldScene:draw()
 
             love.graphics.pop()
         end
-    end
-
-    -- update light map
-    if self._stage ~= nil and (self._stage:get_should_draw_light() or self._stage:get_should_draw_darkness()) then
-        rt.SceneManager:get_light_map():update(self._stage)
     end
 
     -- update bloom

@@ -47,6 +47,9 @@ do
         position_history_sample_frequency = 5, -- px
         velocity_history_n = 3, -- n samples
 
+        min_solver_velocity_mix_factor = 0,
+        max_solver_velocity_mix_factor = 0.75,  -- solver to non-solver ratio, reduce to dampe rest-forces
+
         ground_acceleration_duration = 5 / 60, -- seconds to target velocity if currently slower
         ground_deceleration_duration = 2 / 60, -- seconds to target velocity if currently faster
 
@@ -820,9 +823,13 @@ function rt.Player:update(delta)
     end
 
     -- input method agnostic button state
-    local left_is_down, right_is_down, up_is_down, down_is_down
-    local magnitude_x, magnitude_y = self._input_smoothing:get_magnitude()
+    local left_is_down, right_is_down, up_is_down, down_is_down =
+        self._left_button_is_down,
+        self._right_button_is_down,
+        self._up_button_is_down,
+        self._down_button_is_down
 
+    local magnitude_x, magnitude_y = self._input_smoothing:get_magnitude()
     if self:get_is_disabled() == true then magnitude_x, magnitude_y = 0, 0 end
 
     do
@@ -1048,7 +1055,40 @@ function rt.Player:update(delta)
             1 - math.exp(-1 / settings.sprint_multiplier_transition_duration * delta)
         )
 
-        local current_velocity_x, current_velocity_y = self._body:get_velocity()
+        local current_velocity_x, current_velocity_y
+
+        do
+
+            local down_is_held = self._down_button_is_down or self._joystick_gesture:get_magnitude(rt.InputAction.DOWN) > settings.joystick_magnitude_down_threshold
+            local left_is_held = self._right_button_is_down or self._joystick_gesture:get_magnitude(rt.InputAction.RIGHT) > settings.joystick_magnitude_down_threshold
+            local right_is_held = self._left_button_is_down or self._joystick_gesture:get_magnitude(rt.InputAction.LEFT) > settings.joystick_magnitude_down_threshold
+
+            if down_is_down or
+                (not self._jump_button_is_down and (not left_is_held and not right_is_held))
+            then
+                -- if controller neutral, allow solver forces
+                current_velocity_x, current_velocity_y = self._body:get_velocity()
+            else
+                local static_vx, static_vy = self._last_velocity_x, self._last_velocity_y
+                local solver_vx, solver_vy = self._body:get_velocity()
+                local static_magnitude = math.magnitude(static_vx, static_vy)
+                local solver_magnitude = math.magnitude(solver_vx, solver_vy)
+                if static_magnitude >= 1 and solver_magnitude >= 1 then
+                    current_velocity_x, current_velocity_y = math.mix2(
+                        static_vx, static_vy,
+                        solver_vx, solver_vy,
+                        math.clamp(static_magnitude / solver_magnitude,
+                            settings.min_solver_velocity_mix_factor,
+                            settings.max_solver_velocity_mix_factor
+                        )
+                    )
+                else
+                    -- else, allow restitution
+                    current_velocity_x, current_velocity_y = static_vx, static_vy
+                end
+            end
+        end
+
         current_velocity_x = current_velocity_x - self._platform_velocity_x
         current_velocity_y = current_velocity_y - self._platform_velocity_y
 

@@ -123,6 +123,7 @@ function ow.MovableHitbox:instantiate(object, stage, scene)
 
             self._blood_spatter:set_offset(self._body:get_position())
             self._blood_spatter:collect_segment_lights(bounds, callback)
+            self._shadow_cast:collect_segment_lights(callback)
         end
     end
 end
@@ -133,15 +134,18 @@ function ow.MovableHitbox:update(delta)
     local is_visible = self._stage:get_is_body_visible(self._body)
 
     if is_visible then
+        local offset_x, offset_y = self._body:get_position()
+
         if self._mirror ~= nil then -- slippery
-            self._mirror:set_offset(self._body:get_position())
+            self._mirror:set_offset(offset_x, offset_y)
             self._mirror:update(delta)
         else -- slippery
             self._blood_spatter:update(delta)
-            self._blood_spatter:set_offset(self._body:get_position())
+            self._blood_spatter:set_offset(offset_x, offset_y)
             self._blood_spatter:notify_camera_changed(self._scene:get_camera())
         end
 
+        self._shadow_cast:set_offset(offset_x, offset_y)
         self._shadow_cast:update(delta)
     end
 end
@@ -198,7 +202,7 @@ function ow.MovableHitbox:draw(priority)
         self._blood_spatter:draw()
     end
 
-    --self._shadow_cast:draw()
+    self._shadow_cast:draw()
 end
 
 --- @brief
@@ -210,6 +214,6 @@ function ow.MovableHitbox:draw_bloom()
         self._blood_spatter:draw_bloom()
     end
 
-    --self._shadow_cast:draw_bloom()
+    self._shadow_cast:draw_bloom()
 end
 

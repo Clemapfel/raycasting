@@ -202,7 +202,6 @@ function ow.VisibilityQuery:get_segments_in_area(aabb)
 end
 
 do
-
     local function _ray_line_intersect(clamp_to_segment, x, y, dir_x, dir_y, ax, ay, bx, by)
         local dx = bx - ax
         local dy = by - ay
@@ -258,6 +257,9 @@ do
             return a >= mn or a <= mx
         end
     end
+
+    local _HALF_PI = math.pi / 2
+    local _TAU = 2 * math.pi
 
     --- @brief get all subsegments that are visible from a point
     function ow.VisibilityQuery:get_visible_subsegments(x, y, bounds)
@@ -331,6 +333,9 @@ do
         table.sort(angles)
 
         angle_eps = 0.25 / angle_eps
+        for i = 1, #angles do
+            angles[i] = math.floor(angles[i] / angle_eps + 0.5) * angle_eps
+        end
 
         -- dedupe angles
         do
@@ -361,6 +366,20 @@ do
             current_edge = nil
         end
 
+        local trig_cache = table.new(0, 6 * #angles)
+        local cos = function(angle)
+            local value = trig_cache[angle]
+            if value == nil then
+                value = math.cos(angle)
+                trig_cache[angle] = value
+            end
+            return value
+        end
+
+        local sin = function(angle)
+            return cos((angle - _HALF_PI) % _TAU)
+        end
+
         if #angles > 0 then
             for i = 1, #angles do
                 local angle1 = angles[i]
@@ -368,16 +387,15 @@ do
 
                 local diff = angle2 - angle1
                 if diff <= 0 then
-                    diff = diff + 2 * math.pi
+                    diff = diff + (2 * math.pi)
                 end
 
-                -- The mid angle guarantees we test safely between endpoints
-                local mid_angle = math.normalize_angle(angle1 + diff / 2)
-                local dir_x, dir_y = math.cos(mid_angle), math.sin(mid_angle)
+                -- bisect angle sector
+                local mid_angle = math.normalize_angle(angle1 + (diff / 2))
 
+                -- find closest segment to each critical point
                 local min_distance = math.huge
                 local min_edge = nil
-
                 for edge_i, edge in ipairs(edges) do
                     local idx = 2 * edge_i - 1
                     local min_angle = edge_angle_ranges[idx + 0]
@@ -386,7 +404,8 @@ do
                     if _angle_in_range(mid_angle, min_angle, max_angle) then
                         local distance = _ray_line_intersect(
                             true,
-                            x, y, dir_x, dir_y,
+                            x, y,
+                            cos(mid_angle), sin(mid_angle),
                             table.unpack(edge.segment)
                         )
 
@@ -398,25 +417,39 @@ do
                 end
 
                 if min_edge ~= nil then
-                    local hit1_x, hit1_y = _ray_line_intersect(false, x, y, math.cos(angle1), math.sin(angle1), table.unpack(min_edge.segment))
-                    local hit2_x, hit2_y = _ray_line_intersect(false, x, y, math.cos(angle2), math.sin(angle2), table.unpack(min_edge.segment))
+                    local hit1_x, hit1_y = _ray_line_intersect(
+                        false, x, y,
+                        cos(angle1), sin(angle1),
+                        table.unpack(min_edge.segment)
+                    )
+
+                    local hit2_x, hit2_y = _ray_line_intersect(
+                        false,
+                        x, y,
+                        cos(angle2), sin(angle2),
+                        table.unpack(min_edge.segment)
+                    )
 
                     if hit1_x and hit2_x then
                         if min_edge ~= current_edge then
+                            -- segment changed: push subsegment, start new
                             push_current()
                             current_edge = min_edge
                             current_start_x, current_start_y = hit1_x, hit1_y
                             current_end_x, current_end_y = hit2_x, hit2_y
                         else
-                            -- Seamlessly extend the current segment
+                            -- extend subsegment
                             current_end_x, current_end_y = hit2_x, hit2_y
                         end
                     end
                 else
+                    -- end of regular segment, push subsegment
                     push_current()
                 end
             end
-            push_current() -- push final unfinished segment
+
+            -- push final unfinished segment
+            push_current()
         end
 
         -- merge subsegment going across sweep start / end
@@ -429,6 +462,7 @@ do
 
         self._cache = subsegments
         self._cache_hash = hash
+
         return subsegments
     end
 end
