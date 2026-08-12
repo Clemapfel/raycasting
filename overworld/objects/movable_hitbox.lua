@@ -44,6 +44,7 @@ function ow.MovableHitbox:instantiate(object, stage, scene)
     self._body:set_use_continuous_collision(true)
     local start_x, start_y = self._body:get_position()
     self._elapsed = 0
+    self._visible_segments = {}
 
     -- match tags from ow.Hitbox
     for property in range(
@@ -78,7 +79,8 @@ function ow.MovableHitbox:instantiate(object, stage, scene)
     self._is_slippery = object:get_boolean(b2.Tag.SLIPPERY)
     if self._is_slippery == nil then self._is_slippery = false end
 
-    self._shadow_cast = ow.ShadowCast(scene)
+    self._query = ow.VisibilityQuery(scene)
+    self._query:initialize({ self._contour })
 
     if self._is_slippery then
         self._mirror = ow.Mirror(
@@ -91,20 +93,10 @@ function ow.MovableHitbox:instantiate(object, stage, scene)
             { self._contour }, -- mirror
             {} -- occluding
         )
-
-        self._shadow_cast:initialize(
-            { self._contour }, -- mirror
-            {} -- occluding
-        )
     else
         self._blood_spatter = ow.BloodSpatter(self._scene)
         self._blood_spatter:initialize(
             { self._contour }
-        )
-
-        self._shadow_cast:initialize(
-            {}, -- mirror
-            { self._contour } -- occluding
         )
     end
 
@@ -116,14 +108,15 @@ function ow.MovableHitbox:instantiate(object, stage, scene)
             local camera = self._scene:get_camera()
             local bounds = camera:get_world_bounds()
             local padding = rt.settings.overworld.stage.visible_area_padding * camera:get_final_scale()
+
             bounds.x = bounds.x - padding
             bounds.y = bounds.y - padding
             bounds.width = bounds.width + 2 * padding
             bounds.height = bounds.height + 2 * padding
 
-            self._blood_spatter:set_offset(self._body:get_position())
+            local offset_x, offset_y = self._body:get_position()
+            self._blood_spatter:set_offset(offset_x, offset_y)
             self._blood_spatter:collect_segment_lights(bounds, callback)
-            self._shadow_cast:collect_segment_lights(callback)
         end
     end
 end
@@ -144,9 +137,6 @@ function ow.MovableHitbox:update(delta)
             self._blood_spatter:set_offset(offset_x, offset_y)
             self._blood_spatter:notify_camera_changed(self._scene:get_camera())
         end
-
-        self._shadow_cast:set_offset(offset_x, offset_y)
-        self._shadow_cast:update(delta)
     end
 end
 
@@ -164,8 +154,6 @@ function ow.MovableHitbox:draw(priority)
     if self._normal_map:get_is_done() then
         self._normal_map:set_offset(offset_x, offset_y)
     end
-
-    self._shadow_cast:set_offset(offset_x, offset_y)
 
     love.graphics.push()
     love.graphics.translate(offset_x, offset_y)
@@ -201,8 +189,6 @@ function ow.MovableHitbox:draw(priority)
     elseif self._blood_spatter ~= nil then
         self._blood_spatter:draw()
     end
-
-    self._shadow_cast:draw()
 end
 
 --- @brief
@@ -213,7 +199,20 @@ function ow.MovableHitbox:draw_bloom()
         love.graphics.setColor(1, 1, 1, 1)
         self._blood_spatter:draw_bloom()
     end
-
-    self._shadow_cast:draw_bloom()
 end
 
+--- @brief
+function ow.MovableHitbox:get_contour()
+    if self._stage:get_is_body_visible(self._body) then
+        local contour = table.deepcopy(self._contour)
+        local offset_x, offset_y = self._body:get_position()
+        for i = 1, #contour, 2 do
+            contour[i+0] = contour[i+0] + offset_x
+            contour[i+1] = contour[i+1] + offset_y
+        end
+
+        return contour
+    else
+        return {}
+    end
+end

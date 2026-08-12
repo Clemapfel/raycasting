@@ -139,6 +139,8 @@ function ow.Stage:instantiate(scene, id)
 
     self._blood_spatter = ow.BloodSpatter(scene)
     self._shadow_cast = ow.ShadowCast(scene)
+    self._shadow_cast_bodies = {}
+
     self._mirror = ow.Mirror(
         scene,
         function() ow.Hitbox:draw_mask(false, true) end,
@@ -285,6 +287,10 @@ function ow.Stage:instantiate(scene, id)
                 if meta.is_function(instance.reset) then
                     table.insert(self._to_reset, instance)
                 end
+
+                if meta.is_function(instance.get_contour) then
+                    table.insert(self._shadow_cast_bodies, instance)
+                end
             end
         end
     end
@@ -373,7 +379,8 @@ function ow.Stage:instantiate(scene, id)
 
     self._shadow_cast:initialize(
         ow.Hitbox:get_contours(false, true), -- mirror
-        ow.Hitbox:get_contours(true, false)  -- occluding
+        ow.Hitbox:get_contours(true, false), -- occluding
+        self._shadow_cast_bodies
     )
 
     -- create flow graph

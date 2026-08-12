@@ -260,11 +260,13 @@ do
 
     local _HALF_PI = math.pi / 2
     local _TAU = 2 * math.pi
+    local empty = {}
 
     --- @brief get all subsegments that are visible from a point
-    function ow.VisibilityQuery:get_visible_subsegments(x, y, bounds, compute_polygon)
+    function ow.VisibilityQuery:get_visible_subsegments(x, y, bounds, compute_polygon, additional_edges)
         if compute_polygon == nil then compute_polygon = false end
-        meta.assert(x, mt.Number, y, mt.Number, bounds, rt.AABB, compute_polygon, mt.Boolean)
+        if additional_edges == nil then additional_edges = empty end
+        meta.assert(x, mt.Number, y, mt.Number, bounds, rt.AABB, compute_polygon, mt.Boolean, additional_edges, mt.Table)
 
         -- caching
         local to_hash = {}
@@ -278,7 +280,7 @@ do
         end
 
         local hash = table.concat(to_hash, "_")
-        if self._cache_hash == hash then
+        if #additional_edges == 0 and self._cache_hash == hash then
             return self._cache.subsegments, self._cache.tris
         end
 
@@ -290,6 +292,19 @@ do
             bounds.y + bounds.height
         )) do
             table.insert(edges, shape:getUserData())
+        end
+
+        if #additional_edges > 0 then
+            for i, edge in ipairs(additional_edges) do
+                rt.assert(meta.is_table(edge)
+                    and not meta.is_nil(edge.segment)
+                    and #edge.segment == 4
+                    and meta.is_number(edge.segment[1]),
+                    "In ow.VisibilityQuery:get_visible_subsegments: additional edges has malformed entry at position `", i, "`"
+                )
+
+                table.insert(edges, edge)
+            end
         end
 
         -- insert dummy edges for visibility polygon tris

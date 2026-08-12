@@ -13,7 +13,7 @@ function ow.ShadowCast:instantiate(scene)
 
     self._scene = scene
     self._query = ow.VisibilityQuery()
-    self._intensity = 0 -- TODO 1
+    self._intensity = 1
 
     self._entries = {}
     self._polygons = {}
@@ -24,12 +24,17 @@ function ow.ShadowCast:instantiate(scene)
 end
 
 --- @brief
-function ow.ShadowCast:initialize(non_reflective_contours, reflective_contours)
+function ow.ShadowCast:initialize(non_reflective_contours, reflective_contours, additional_contour_bodies)
     meta.assert(reflective_contours, mt.Table, non_reflective_contours, mt.Table)
     self._query:initialize(
         non_reflective_contours,
         reflective_contours
     )
+
+    self._additional_contour_bodies = additional_contour_bodies
+    for i, body in ipairs(additional_contour_bodies) do
+        rt.assert(meta.is_function(body.get_contour), "In ow.ShadowCast.initialize: contour body at position `", i, "` does not have a `get_contour` function")
+    end
 end
 
 local function _get_ts(segment, subsegment)
@@ -92,10 +97,26 @@ function ow.ShadowCast:update(delta)
     px = px - self._offset_x
     py = py - self._offset_y
 
+    local additional_segments = {}
+    for body in values(self._additional_contour_bodies) do
+        local contour = body:get_contour()
+        rt.assert(meta.is_table(contour) and (#contour == 0 or #contour % 2 == 0),
+            "In ow.ShadowCast.update: additional contour body `", meta.typeof(body), ".get_contour` does not return a flat table of numbers"
+        )
+
+        for i = 1, #contour - 2, 2 do
+            local ax, ay, bx, by = contour[i], contour[i+1], contour[i+2], contour[i+3]
+            table.insert(additional_segments, {
+                segment = { ax, ay, bx, by }
+            })
+        end
+    end
+
     self._entries, self._tris = self._query:get_visible_subsegments(
         px, py,
         bounds,
-        true -- compute visibility polygon
+        true, -- compute visibility polygon
+        additional_segments
     )
 end
 

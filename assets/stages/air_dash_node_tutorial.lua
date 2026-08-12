@@ -191,8 +191,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = -128.151,
-          y = -2025.27,
+          x = 1008,
+          y = -1728,
           width = 0,
           height = 0,
           rotation = 0,
@@ -995,8 +995,8 @@ return {
           name = "",
           type = "MovableHitbox",
           shape = "polygon",
-          x = 1359.02,
-          y = -1578.96,
+          x = 1310.39,
+          y = -1671.98,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1008,7 +1008,7 @@ return {
             { x = -176, y = 0 }
           },
           properties = {
-            ["slippery"] = true
+            ["slippery"] = false
           }
         },
         {
@@ -1067,8 +1067,8 @@ return {
           name = "",
           type = "Path",
           shape = "point",
-          x = 1119.02,
-          y = -1482.96,
+          x = 1197.24,
+          y = -1518.9,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1083,8 +1083,8 @@ return {
           name = "",
           type = "PathNode",
           shape = "point",
-          x = 1319.42,
-          y = -1756.3,
+          x = 1232.74,
+          y = -1965.6,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1232,7 +1232,7 @@ return {
           visible = true,
           polygon = {
             { x = 0, y = 0 },
-            { x = 944, y = 192 },
+            { x = 631.104, y = 175.087 },
             { x = 144, y = -224 }
           },
           properties = {}
