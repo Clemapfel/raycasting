@@ -737,7 +737,8 @@ server.waitForBoot({
 		var buf = PlayBuf.ar(1, bufnum);
 		var sig = buf;
 		var fade_duration = 0.005;
-		var before, after, chain;
+		var before, after, chain, carrier, sigChain, carrierChain;
+		var fftBufSize = 2**11;
 
 		// remove background hum
 		[ 240, 360, 480, 600 ].do({ |freq|
@@ -745,9 +746,18 @@ server.waitForBoot({
 		});
 
 		before = sig;
-		chain = FFT(LocalBuf(2**12), sig);
-		3.do({ chain = PV_MagSmooth(chain); });
-		after = IFFT(chain);
+
+		// remove noise
+		chain = FFT(LocalBuf(fftBufSize), sig);
+		3.do({ sig = PV_MagSmooth(chainSig, 0.5) });
+		sig = IFFT(chain);
+
+		// vocode
+		carrier = Saw.ar(80) + Saw.ar(160.1);
+		sigChain = FFT(LocalBuf(fftBufSize), sig);
+		carrierChain = FFT(LocalBuf(fftBufSize), carrier);
+
+		after = IFFT(PV_MagMul(carrierChain, sigChain));
 
 		after = after * EnvGen.ar(Env.new(
 			[0, 1, 0],

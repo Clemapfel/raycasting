@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 359,
+  nextobjectid = 360,
   properties = {
     ["background_id"] = "\"nebula\""
   },
@@ -1180,8 +1180,8 @@ return {
           name = "",
           type = "Fireflies",
           shape = "point",
-          x = 656,
-          y = -1360,
+          x = -566.845,
+          y = -1433.58,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1255,7 +1255,7 @@ return {
             { x = 1485.55, y = -133.13 }
           },
           properties = {
-            ["type"] = "FLAT"
+            ["type"] = "SQUARES"
           }
         },
         {
@@ -1268,7 +1268,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
-          visible = true,
+          visible = false,
           polygon = {
             { x = 0, y = 0 },
             { x = 45.5501, y = 986.87 },
@@ -1276,7 +1276,7 @@ return {
             { x = 1485.55, y = -133.13 }
           },
           properties = {
-            ["type"] = "FLAT"
+            ["type"] = "SPHERES"
           }
         }
       }

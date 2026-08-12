@@ -13,7 +13,7 @@ function ow.ShadowCast:instantiate(scene)
 
     self._scene = scene
     self._query = ow.VisibilityQuery()
-    self._intensity = 1
+    self._intensity = 0 -- TODO 1
 
     self._entries = {}
     self._polygons = {}
@@ -150,7 +150,7 @@ function ow.ShadowCast:draw_bloom()
     rt.graphics.set_stencil_mode(value, rt.StencilMode.TEST, rt.StencilCompareMode.NOT_EQUAL)
 
     rt.graphics.set_blend_mode(rt.BlendMode.ADD, rt.BlendMode.ADD)
-    t = 0.25
+    t = 0.25 * t
     love.graphics.setColor(t * r, t * g, t * b, t)
     for polygon in values(self._tris) do
         love.graphics.polygon("fill", polygon)

@@ -15,19 +15,18 @@ ow.Wall = meta.class("Wall")
 --- @enum ow.WallPatternType
 ow.WallPatternType = meta.enum("WallPatternType", {
     FLAT = "FLAT",
-    SPHERES = "SPHERES"
+    SQUARES = "SQUARES",
+    SPHERES = "SPHERES",
+    TRIANGLES = "TRIANGLES",
+    HEXAGONS = "HEXAGONS"
 })
 
 local _pattern_to_shader = {
-    [ow.WallPatternType.FLAT] = rt.Shader("overworld/objects/wall_flat.glsl", {
-        MAX_N_POINT_LIGHTS = rt.settings.overworld.normal_map.max_n_point_lights,
-        MAX_N_SEGMENT_LIGHTS = rt.settings.overworld.normal_map.max_n_segment_lights
-    }),
-
-    [ow.WallPatternType.SPHERES] = rt.Shader("overworld/objects/wall_spheres.glsl", {
-        MAX_N_POINT_LIGHTS = rt.settings.overworld.normal_map.max_n_point_lights,
-        MAX_N_SEGMENT_LIGHTS = rt.settings.overworld.normal_map.max_n_segment_lights
-    })
+    [ow.WallPatternType.FLAT] = rt.Shader("overworld/objects/wall_flat.glsl"),
+    [ow.WallPatternType.SQUARES] = rt.Shader("overworld/objects/wall_squares.glsl"),
+    [ow.WallPatternType.SPHERES] = rt.Shader("overworld/objects/wall_spheres.glsl"),
+    [ow.WallPatternType.TRIANGLES] = rt.Shader("overworld/objects/wall_triangles.glsl"),
+    [ow.WallPatternType.HEXAGONS] = rt.Shader("overworld/objects/wall_hexagons.glsl")
 }
 
 function ow.Wall:instantiate(object, stage, scene)
