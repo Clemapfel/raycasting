@@ -4,14 +4,17 @@ var prefix = thisProcess.nowExecutingPath.dirname;
 var degrees = Scale.chromatic.degrees + 60;
 var peakSentinel = PeakSentinel.new(server);
 
+~asset_path = thisProcess.nowExecutingPath.dirname +/+ "assets";
+
 /* ####### MAIN ####### */
 
 server.volume.volume = 0;
 server.options.sampleRate = Renderer.sampleRate;
+server.options.memSize = 65536 * 4;
 
 server.waitForBoot({
 	//~accelerator_surface_sparkle.();
-	~dialog_box.();
+	~hook.();
 
 	CmdPeriod.doOnce({
 		server.defaultGroup.deepFree;
@@ -725,5 +728,64 @@ server.waitForBoot({
 		Rest(40)
 	], 1).play;
 };
+
+~hook = { arg filename, degree;
+	var buf_a = Buffer.read(server, ~asset_path +/+ "camera_shutter_a.wav");
+	var buf_b = Buffer.read(server, ~asset_path +/+ "camera_shutter_b.wav");
+
+	var def = SynthDef.new(\hook, { arg out, trig, bufnum = -1, degree, amp, dur;
+		var buf = PlayBuf.ar(1, bufnum);
+		var sig = buf;
+		var fade_duration = 0.005;
+		var before, after, chain;
+
+		// remove background hum
+		[ 240, 360, 480, 600 ].do({ |freq|
+			sig = BRF.ar(sig, freq: freq, rq: 0.05);
+		});
+
+		before = sig;
+		chain = FFT(LocalBuf(2**12), sig);
+		3.do({ chain = PV_MagSmooth(chain); });
+		after = IFFT(chain);
+
+		after = after * EnvGen.ar(Env.new(
+			[0, 1, 0],
+			[fade_duration, dur - fade_duration],
+			[\sin, \sin]
+		));
+
+		after = BHiShelf.ar(after, freq: 22000, db: -100);
+
+		Out.ar(out, Select.ar(trig, [before, after]).dup);
+		DoneSentinel.ar(buf);
+	}, [ nil, \kr ]).add;
+
+	var hook, unhook;
+
+	server.sync;
+
+
+	// hook
+	hook = Pbind(*[
+		instrument: def.name,
+		bufnum: buf_a,
+		dur: buf_a.duration,
+		trig: Pseq([1], inf)
+	]);
+
+	// unhook
+	unhook = Pbind(*[
+		instrument: def.name,
+		bufnum: buf_b,
+		dur: buf_b.duration,
+		trig: Pseq([1], 1)
+	]);
+
+	// recover
+
+	unhook.play;
+};
+
 
 Date.getDate; // console output on execution
