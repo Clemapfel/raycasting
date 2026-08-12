@@ -262,18 +262,24 @@ do
     local _TAU = 2 * math.pi
 
     --- @brief get all subsegments that are visible from a point
-    function ow.VisibilityQuery:get_visible_subsegments(x, y, bounds)
-        meta.assert(x, mt.Number, y, mt.Number, bounds, rt.AABB)
+    function ow.VisibilityQuery:get_visible_subsegments(x, y, bounds, compute_polygon)
+        if compute_polygon == nil then compute_polygon = false end
+        meta.assert(x, mt.Number, y, mt.Number, bounds, rt.AABB, compute_polygon, mt.Boolean)
 
         -- caching
         local to_hash = {}
-        for h in range(x, y, bounds.x, bounds.y, bounds.width, bounds.height) do
+        for h in range(
+            x, y,
+            bounds.x, bounds.y,
+            bounds.width, bounds.height,
+            ternary(compute_polygon, 0, 1)
+        ) do
             table.insert(to_hash, math.floor(h))
         end
 
         local hash = table.concat(to_hash, "_")
         if self._cache_hash == hash then
-            return self._cache
+            return self._cache.subsegments, self._cache.tris
         end
 
         self._dbg = {}
@@ -286,7 +292,26 @@ do
             table.insert(edges, shape:getUserData())
         end
 
-        if #edges == 0 then return {} end
+        -- insert dummy edges for visibility polygon tris
+        local edge_to_is_bound = {}
+        if compute_polygon then
+            do
+                local bx, by, bw, bh = bounds.x, bounds.y, bounds.width, bounds.height
+                local top = { segment = { bx, by, bx + bw, by } }
+                local right = { segment = { bx + bw, by, bx + bw, by + bh } }
+                local bottom = { segment = { bx + bw, by + bh, bx, by + bh } }
+                local left = { segment = { bx, by + bh, bx, by } }
+
+                for edge in range(top, right, bottom, left) do
+                    edge_to_is_bound[edge] = true
+                end
+
+                table.insert(edges, top)
+                table.insert(edges, right)
+                table.insert(edges, bottom)
+                table.insert(edges, left)
+            end
+        end
 
         local angles = table.new(#edges * 2, 0)
         local edge_angle_ranges = table.new(#edges * 2, 0)
@@ -350,12 +375,17 @@ do
         end
 
         local subsegments = {}
+        local tris = {}
+
         local current_edge = nil
         local current_start_x, current_start_y = nil, nil
         local current_end_x, current_end_y = nil, nil
 
         local function push_current()
-            if current_edge ~= nil and current_start_x ~= nil then
+            if current_edge ~= nil
+                and (not compute_polygon or edge_to_is_bound[current_edge] ~= true)
+                and current_start_x ~= nil
+            then
                 if math.distance(current_start_x, current_start_y, current_end_x, current_end_y) > 1 then
                     table.insert(subsegments, {
                         edge = current_edge,
@@ -431,6 +461,10 @@ do
                     )
 
                     if hit1_x and hit2_x then
+                        if compute_polygon then
+                            table.insert(tris, { x, y, hit1_x, hit1_y, hit2_x, hit2_y })
+                        end
+
                         if min_edge ~= current_edge then
                             -- segment changed: push subsegment, start new
                             push_current()
@@ -460,9 +494,12 @@ do
             last.subsegment[4] = first.subsegment[4]
         end
 
-        self._cache = subsegments
+        self._cache = {
+            subsegments = subsegments,
+            tris = tris
+        }
         self._cache_hash = hash
 
-        return subsegments
+        return subsegments, tris
     end
 end

@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 358,
+  nextobjectid = 359,
   properties = {
     ["background_id"] = "\"nebula\""
   },
@@ -191,8 +191,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = 464,
-          y = -1328,
+          x = -128.151,
+          y = -2025.27,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1255,7 +1255,28 @@ return {
             { x = 1485.55, y = -133.13 }
           },
           properties = {
-            ["type"] = "SPHERES"
+            ["type"] = "FLAT"
+          }
+        },
+        {
+          id = 358,
+          name = "",
+          type = "CameraBounds",
+          shape = "polygon",
+          x = -45.5501,
+          y = -2154.87,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 45.5501, y = 986.87 },
+            { x = 1549.55, y = 970.87 },
+            { x = 1485.55, y = -133.13 }
+          },
+          properties = {
+            ["type"] = "FLAT"
           }
         }
       }

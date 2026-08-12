@@ -92,34 +92,11 @@ function ow.ShadowCast:update(delta)
     px = px - self._offset_x
     py = py - self._offset_y
 
-    self._entries = {}
-    for data in values(self._query:get_visible_subsegments(px, py, bounds)) do
-        table.insert(self._entries, data)
-    end
-
-    self._polygons = {}
-    self._points = {}
-
-    for entry in values(self._entries) do
-        local a_x, a_y, b_x, b_y = table.unpack(entry.subsegment)
-
-        table.insert(self._points, a_x)
-        table.insert(self._points, a_y)
-        table.insert(self._points, b_x)
-        table.insert(self._points, b_y)
-
-        local dax, day = math.normalize(a_x - px, a_y - py)
-        local dbx, dby = math.normalize(b_x - py, b_y - py)
-
-        local lx = 2 * bounds.width
-        local ly = 2 * bounds.height
-        table.insert(self._polygons, {
-            a_x, a_y,
-            a_x + dax * lx, a_y + day * ly,
-            b_x + dbx * lx, b_y + dby * ly,
-            b_x, b_y
-        })
-    end
+    self._entries, self._tris = self._query:get_visible_subsegments(
+        px, py,
+        bounds,
+        true -- compute visibility polygon
+    )
 end
 
 --- @brief
@@ -151,8 +128,11 @@ function ow.ShadowCast:draw_bloom()
     local px, py = self._scene:get_player():get_position()
     px, py = self._scene:get_camera():world_xy_to_screen_xy(px, py)
 
+    love.graphics.push("all")
+
     _shader:bind()
     _shader:send("player_position", { px, py })
+    _shader:send("mask", rt.SceneManager:get_light_map():get_mask())
 
     love.graphics.push()
     love.graphics.translate(self._offset_x, self._offset_y)
@@ -164,7 +144,23 @@ function ow.ShadowCast:draw_bloom()
     end
     love.graphics.pop()
 
+    local value = rt.graphics.get_stencil_value()
+    rt.graphics.set_stencil_mode(value, rt.StencilMode.DRAW)
+    ow.Hitbox:draw_mask(true, true)
+    rt.graphics.set_stencil_mode(value, rt.StencilMode.TEST, rt.StencilCompareMode.NOT_EQUAL)
+
+    rt.graphics.set_blend_mode(rt.BlendMode.ADD, rt.BlendMode.ADD)
+    t = 0.25
+    love.graphics.setColor(t * r, t * g, t * b, t)
+    for polygon in values(self._tris) do
+        love.graphics.polygon("fill", polygon)
+    end
+
     _shader:unbind()
+
+    rt.graphics.set_stencil_mode(nil)
+
+    love.graphics.pop()
 end
 
 --- @brief

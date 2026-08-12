@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="358">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="359">
  <editorsettings>
   <export target="air_dash_node_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -41,7 +41,7 @@
   </object>
  </objectgroup>
  <objectgroup id="2" name="main">
-  <object id="89" name="Spawn" type="PlayerSpawn" x="464" y="-1328">
+  <object id="89" name="Spawn" type="PlayerSpawn" x="-128.151" y="-2025.27">
    <point/>
   </object>
   <object id="91" type="Hitbox" x="-1439.08" y="1248">
@@ -299,7 +299,7 @@
    </properties>
    <polygon points="0,0 -13.3708,168.711 178.629,184.711 178.629,-167.289 114.629,40.7111"/>
   </object>
-  <object id="350" type="Fireflies" x="656" y="-1360">
+  <object id="350" type="Fireflies" x="-566.845" y="-1433.58">
    <properties>
     <property name="count" type="float" value="7"/>
    </properties>
@@ -320,7 +320,13 @@
   </object>
   <object id="357" type="Wall" x="-45.5501" y="-2154.87">
    <properties>
-    <property name="type" value="SPHERES"/>
+    <property name="type" value="FLAT"/>
+   </properties>
+   <polygon points="0,0 45.5501,986.87 1549.55,970.87 1485.55,-133.13"/>
+  </object>
+  <object id="358" type="CameraBounds" x="-45.5501" y="-2154.87">
+   <properties>
+    <property name="type" value="FLAT"/>
    </properties>
    <polygon points="0,0 45.5501,986.87 1549.55,970.87 1485.55,-133.13"/>
   </object>

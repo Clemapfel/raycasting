@@ -87,7 +87,8 @@ function ow.Mirror:update(_)
             px - search_r,
             py - search_r,
             2 * search_r
-        )
+        ),
+        false -- not visibility polygon
     )) do
         table.insert(self._visible, data.subsegment)
     end

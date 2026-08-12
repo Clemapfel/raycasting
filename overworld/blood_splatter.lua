@@ -89,10 +89,12 @@ end
 --- @brief
 function ow.BloodSpatter:update(_)
     local player = self._scene:get_player()
-    local x, y = player:get_position()
-    local radius = player:get_radius()
-    local r, g, b, a = player:get_color():unpack()
-    self:_add(x, y, radius, r, g, b, a)
+    if not (player:get_is_disabled() or player:get_is_ghost()) then
+        local x, y = player:get_position()
+        local radius = player:get_radius()
+        local r, g, b, a = player:get_color():unpack()
+        self:_add(x, y, radius, r, g, b, a)
+    end
 end
 
 --- @brief
@@ -108,7 +110,8 @@ function ow.BloodSpatter:_add(x, y, radius, color_r, color_g, color_b, opacity, 
     local was_added = false
     for data in values(self._query:get_visible_subsegments(
         x, y,
-        rt.AABB(x - search_r, y - search_r, 2 * search_r)
+        rt.AABB(x - search_r, y - search_r, 2 * search_r),
+        false -- no visibility polygon
     )) do
         -- check for line-circle overlap
         local x1, y1, x2, y2 = table.unpack(data.subsegment)

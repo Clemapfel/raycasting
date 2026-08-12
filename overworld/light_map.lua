@@ -1055,6 +1055,11 @@ function ow.LightMap:get_light_direction()
 end
 
 --- @brief
+function ow.LightMap:get_mask()
+    return self._mask_texture
+end
+
+--- @brief 
 function ow.LightMap:get_size()
     return self._light_intensity_texture:get_size()
 end
