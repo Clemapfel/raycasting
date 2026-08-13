@@ -44,7 +44,6 @@ export class Mesh extends GLResource {
         this.vertex_buffer = vertex_buffer;
         this.index_buffer = index_buffer;
 
-        // Fix: Call this class's allocate to ensure WebGL resources are created
         this.allocate();
         this.context._notify_resources_added(this);
     }
