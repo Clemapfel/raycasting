@@ -792,8 +792,7 @@ do
 
         local instance_metatable = {
             __index = type,
-            __typename = typename,
-            __default_index = type
+            __typename = typename
         }
 
         local supers = {}

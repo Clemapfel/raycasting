@@ -13,6 +13,8 @@ function rt.AABB:instantiate(x, y, width, height)
         width = width,
         height = height
     })
+
+    dbg(self)
 end
 
 --- @brief

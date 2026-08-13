@@ -396,25 +396,16 @@ function rt.SceneManager:resize(_)
     if current_scene ~= nil then
         self:_reformat_scene(current_scene)
     end
-
-    local reallocate_light_map = false
-    if self._light_map == nil then
-        reallocate_light_map = true
-    else
-        local w, h = self._light_map:get_size()
-        if w ~= self._width or h ~= self._height then
-            reallocate_light_map = true
-        end
-    end
-
-    if reallocate_light_map then
-        self:_reallocate_light_map()
-    end
 end
 
 --- @brief
 function rt.SceneManager:get_previous_scene()
-    return self._previous_scene_type
+    local entry = self._scene_stack[2]
+    if entry ~= nil then
+        return entry.scene
+    else
+        return nil
+    end
 end
 
 --- @brief
@@ -520,18 +511,31 @@ function rt.SceneManager:_notify_draw_duration(duration)
         value = duration
     })
 
-    table.insert(self._draw_instants, love.timer.getTime())
+    local now = love.timer.getTime()
+    table.insert(self._draw_instants, now)
 
-    local count = 0
-    local threshold = love.timer.getTime() - 1 -- last second
-    for i = #self._draw_instants, 1, -1 do
-        if self._draw_instants[i] < threshold then break end
-        count = count + 1
+    -- discard old samples
+    local threshold = now - rt.settings.scene_manager.performance_metrics_interval
+    local n_to_remove = 0
+    for i = 1, #self._draw_instants do
+        if self._draw_instants[i] < threshold then
+            n_to_remove = i
+        else
+            break
+        end
+    end
+
+    if n_to_remove > 0 then
+        local remaining = {}
+        for i = n_to_remove + 1, #self._draw_instants do
+            table.insert(remaining, self._draw_instants[i])
+        end
+        self._draw_instants = remaining
     end
 
     table.insert(self._fps_samples, {
-        timestamp = love.timer.getTime(),
-        value = count
+        timestamp = now,
+        value = #self._draw_instants
     })
 end
 
