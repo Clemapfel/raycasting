@@ -588,6 +588,11 @@ end
 --- @brief
 function dbg(...)
     for _, x in pairs({...}) do
+        if meta.is_object(x) then
+            io.write(meta.typeof(x))
+            io.write(" ")
+        end
+
         io.write(_serialize(x))
         io.write(" ")
     end
