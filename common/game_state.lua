@@ -409,6 +409,7 @@ function rt.GameState:_validate_input_binding()
     -- verify that all actions have an assignment
     for action in keys(input_actions) do
         local keyboard_entry = self._input_action_to_keyboard_key[action]
+
         local keyboard_unused = false
         local keyboard
 
@@ -596,6 +597,32 @@ function rt.GameState:set_input_binding(input_action_to_keyboard_key, input_acti
         input_action_to_keyboard_key, mt.Table,
         input_action_to_controller_button, mt.Table
     )
+
+    for key, value in pairs(input_action_to_keyboard_key) do
+        if not meta.is_table(value) then
+            value = { value }
+            input_action_to_keyboard_key[key] = value
+        end
+
+        for i, x in ipairs(value) do
+            if not meta.is_enum_value(x, rt.KeyboardKey) then
+                rt.error("In rt.GameState.set_input_binding: table `input_action_to_keyboard_key` has `", x, "` at index `", i, "`, which is not a valid keyboard key")
+            end
+        end
+    end
+
+    for key, value in pairs(input_action_to_controller_button) do
+        if not meta.is_table(value) then
+            value = { value }
+            input_action_to_controller_button[key] = value
+        end
+
+        for i, x in ipairs(value) do
+            if not meta.is_enum_value(x, rt.ControllerButton) then
+                rt.error("In rt.GameState.set_input_binding: table `input_action_to_controller_button` has `", x, "` at index `", i, "`, which is not a valid controller button")
+            end
+        end
+    end
 
     local keyboard_before = table.deepcopy(self._input_action_to_keyboard_key)
     local controller_before = table.deepcopy(self._input_action_to_controller_button)

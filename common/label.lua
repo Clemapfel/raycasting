@@ -151,7 +151,7 @@ function rt.Label:instantiate(text, font_size, font, use_caching)
         _texture_offset_x = 0,
         _texture_offset_y = 0,
         _texture_width = 1,
-        _texture_heigth = 1,
+        _texture_height = 1,
         _texture = nil, -- rt.RenderTexture
         _opacity = 1,
 

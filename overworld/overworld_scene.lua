@@ -7,6 +7,7 @@ require "common.fade"
 require "common.blur"
 require "common.timer"
 require "common.control_indicator"
+require "overworld.stage"
 require "overworld.control_indicator_type"
 require "overworld.background"
 require "overworld.stage_title_card"
@@ -658,11 +659,11 @@ function ow.OverworldScene:update(delta)
         self._stage:update(delta)
         self._background:notify_camera_changed(self._camera)
         self._background:update(delta)
-
         self:_update_camera(delta)
 
         self._screenshot_needs_update = true
         self._player_canvas_needs_update = true
+        self._bloom_needs_update = true
     end
 
     for x in range(

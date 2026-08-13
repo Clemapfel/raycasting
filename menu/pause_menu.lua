@@ -30,7 +30,6 @@ function mn.PauseMenu:instantiate(scene)
         _input = rt.InputSubscriber(0), -- highest priority
         _joystick_gesture = rt.JoystickGestureDetector(),
 
-        _schedule_activate = true,
         _is_active = false,
 
         _selection_graph = rt.SelectionGraph(),
@@ -222,9 +221,8 @@ end
 function mn.PauseMenu:update(delta)
     if not self._is_active then return end
 
-    if self._schedule_activate == true then
+    if self._input:get_is_active() == false then
         self._input:activate()
-        self._schedule_activate = false
     end
 
     local current_node = self._selection_graph:get_selected_node()
@@ -310,7 +308,6 @@ end
 --- @brief
 function mn.PauseMenu:present()
     self._is_active = true
-    self._schedule_activate = true
     self._selection_graph:set_selected_node(self._first_node)
     -- delay input:activate to next frame
 end

@@ -4,7 +4,7 @@ rt.settings.spline = {
     metric_curvature_weight = 10
 }
 
---- @brief rt.Spline
+--- @class rt.Spline
 rt.Spline = meta.class("Spline")
 
 --- @brief

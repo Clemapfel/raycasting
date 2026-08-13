@@ -107,7 +107,7 @@ function ow.VisibilityQuery:initialize(non_reflective_contours, reflective_conto
         end
     end
 
-    -- remove duplicate / close together split points
+    -- dedupe points
     local t_eps = 1e-4
     for entry in values(raw_segments) do
         table.sort(entry.splits)
@@ -284,7 +284,6 @@ do
             return self._cache.subsegments, self._cache.tris
         end
 
-        self._dbg = {}
         local edges = {}
         for i, shape in ipairs(self._world:getShapesInArea(
             bounds.x, bounds.y,

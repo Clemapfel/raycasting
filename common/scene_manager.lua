@@ -13,25 +13,11 @@ rt.settings.scene_manager = {
     performance_metrics_n_frames = 144,
     fade_duration = 0.2,
     fps_limit = 1000,
-    
     performance_metrics_interval = 5 -- seconds
 }
 
 --- @class SceneManager
 rt.SceneManager = meta.class("SceneManager")
-
---- @brief restart the game
-_G.restart = function()
-    rt.SceneManager._restart_active = true
-    rt.ThreadManager:request_shutdown()
-end
-
-_G._exit = _G.exit
-
---- @brief shutdown runtime
-_G.exit = function(status)
-    _G._exit(status)
-end
 
 --- @brief
 function rt.SceneManager:instantiate()
@@ -40,15 +26,11 @@ function rt.SceneManager:instantiate()
 
     meta.install(self, {
         _scene_type_to_scene = {},
-        _current_scene = nil,
-        _current_scene_type = nil,
-        _current_scene_varargs = {},
-        _schedule_enter = false,
+        _scene_stack = {},
+        _scene_stack_queue = {},
 
-        _scene_stack = {}, -- Stack<SceneType>
-        _fade = rt.Fade(),
-        _should_use_fade = false,
         _use_fixed_timestep = false,
+        _last_update_timestamp = love.timer.getTime(),
 
         _start_time = love.timer.getTime(),
         _elapsed = 0,
@@ -62,7 +44,7 @@ function rt.SceneManager:instantiate()
         _is_cursor_visible = false,
         _cursor = rt.Cursor(),
 
-        _restart_active = false,
+        _composition_overlay_visible = false,
 
         _frame_i = 0,
         _frame_timestamp = love.timer.getTime(),
@@ -72,22 +54,39 @@ function rt.SceneManager:instantiate()
         _update_accumulator = 0,
 
         _draw_use_fixed_timestep = false,
-        _draw_fixed_fps = 5,
+        _draw_fixed_fps = 60,
         _draw_accumulator = 0,
-
-        _n_draws = 0,
-        _draw_start = love.timer.getTime(),
-
         _draw_interpolation_time = 0,
-        _composition_overlay_visible = false,
     })
 
     self:set_use_fixed_timestep(self._update_use_fixed_timestep)
     self:set_use_fixed_fps(self._draw_use_fixed_timestep)
 
+    self._fade = rt.Fade()
     self._fade:set_duration(rt.settings.scene_manager.fade_duration)
+    self._lag_frame_active = true -- prevent lag frames influencing fade duration
 
-    -- performance
+    -- register push / pop / set_scene actions to be ran through when fade completes
+    self._fade:signal_connect("hidden", function()
+        if #self._scene_stack_queue > 0 then
+            self:_reset() -- reset light map / bloom because scene changed
+
+            for _, entry in ipairs(self._scene_stack_queue) do
+                local f = entry[1]
+                local vararg = entry[2]
+                if vararg ~= nil then
+                    f(table.unpack(vararg))
+                else
+                    f()
+                end
+            end
+
+            self._scene_stack_queue = {}
+            self._lag_frame_active = true
+        end
+    end)
+
+    -- init performance metrics
     local n_samples = rt.settings.scene_manager.performance_metrics_n_samples
 
     self._update_samples = {}
@@ -126,141 +125,167 @@ function rt.SceneManager:_reformat_scene(scene)
 end
 
 --- @brief
-function rt.SceneManager:preallocate(scene_type, ...)
+function rt.SceneManager:preallocate(scene_type)
+    meta.assert(scene_type, meta.Type)
     local scene = self._scene_type_to_scene[scene_type]
     if scene == nil then
         scene = scene_type(rt.GameState)
-        scene:realize()
+
+        -- store stashed scene instance, one per type
         self._scene_type_to_scene[scene_type] = scene
+
+        scene:realize()
         self:_reformat_scene(scene)
     end
 end
 
 --- @brief
-function rt.SceneManager:_push_to_stack()
-    table.insert(self._scene_stack, {
-        type = self._current_scene_type,
-        varargs = self._current_scene_varargs,
-        instance = self._current_scene
-    })
+function rt.SceneManager:_get_instance(scene_type)
+    local instance = self._scene_type_to_scene[scene_type]
+    if instance == nil then
+        self:preallocate(scene_type)
+        instance = self._scene_type_to_scene[scene_type] -- create by preallocate
+    end
+
+    instance:realize()
+    self:_reformat_scene(instance)
+    return instance
 end
 
 --- @brief
-function rt.SceneManager:_set_scene(add_to_stack, scene_type, ...)
-    local use_fade = self._should_use_fade
-    self:preallocate(scene_type, ...)
+function rt.SceneManager:_exit_scene(scene)
+    scene:update(0)
+    scene:exit()
+    scene:signal_emit("exit")
+end
 
-    local varargs = { ... }
-    local on_scene_changed = function()
-        local scene = self._scene_type_to_scene[scene_type]
+--- @brief
+function rt.SceneManager:_enter_scene(add_to_stack, scene, scene_type, ...)
+    meta.assert(add_to_stack, mt.Boolean)
 
-        if add_to_stack == false then
-            while #self._scene_stack > 0 do
-                table.remove(self._scene_stack)
-            end
-        elseif self._current_scene ~= nil then
-            self:_push_to_stack()
+    scene:enter(...)
+    scene:signal_emit("enter")
+
+    -- delay push to after enter, so `get_is_active` returns correct value
+    if add_to_stack == true then
+        table.insert(self._scene_stack, 1, {
+            scene = scene,
+            type = scene_type,
+            vararg = { ... }
+        })
+    end
+
+    scene:update(0)
+end
+
+--- @brief
+function rt.SceneManager:_reset()
+    for object in range(
+        self:get_bloom(),
+        self:get_light_map()
+    ) do
+        if meta.is_function(object.reset) then
+            object:reset()
         end
-
-        local previous_scene = self._current_scene
-
-        self._current_scene = scene
-        self._current_scene_type = scene_type
-        self._current_scene_varargs = varargs
-
-        if previous_scene ~= nil then
-            previous_scene:exit()
-            previous_scene:signal_emit("exit")
-
-            if self:get_bloom() ~= nil then
-                self:get_bloom():reset()
-            end
-
-            if self:get_light_map() ~= nil then
-                self:get_light_map():reset()
-            end
-        end
-
-        rt.InputManager:flush()
-        self:_reformat_scene(self._current_scene)
-        self._schedule_enter = true
     end
 
-    if self._current_scene == nil or use_fade == false then -- don't fade at start of game
-        on_scene_changed()
-    else
-        self._fade:signal_connect("hidden", function()
-            on_scene_changed()
-            return meta.DISCONNECT_SIGNAL
-        end)
-        self._fade:start()
-    end
-end
-
---- @brief
-function rt.SceneManager:push(scene_type, ...)
-    rt.assert(scene_type ~= nil, "In rt.SceneManager: scene type cannot be nil")
-    if self._current_scene_type ~= scene_type then
-        self:_set_scene(true, scene_type, ...)
-    else
-        self:_set_scene(false, scene_type, ...)
-    end
-end
-
---- @brief
-function rt.SceneManager:pop(...)
-    local last = self._scene_stack[1]
-    if last ~= nil then
-        table.remove(self._scene_stack, 1)
-        self:_set_scene(false, last[1], ...)
-    end
+    rt.InputManager:flush() -- prevent input from this frame leaking into new scene
 end
 
 --- @brief
 function rt.SceneManager:set_scene(scene_type, ...)
-    self:_set_scene(false, scene_type, ...)
+    rt.assert(meta.isa(scene_type, meta.Type)
+        and meta.is_subtype(scene_type, rt.Scene),
+        "In rt.SceneManager.set_scene: object `", scene_type, "` is not a meta.Type or does not inherit from rt.Scene"
+    )
+
+    table.insert(self._scene_stack_queue, { function(...)
+        -- replace the top node
+        local current_node = self._scene_stack[1]
+        if current_node ~= nil then
+            self:_exit_scene(current_node.scene)
+            table.remove(self._scene_stack, 1)
+        end
+
+        local instance = self:_get_instance(scene_type)
+        self:_enter_scene(true, instance, scene_type, ...)
+    end, { ... }})
+
+    self._fade:start()
 end
 
 --- @brief
-function rt.SceneManager:set_use_fade(b)
-    self._should_use_fade = b
+function rt.SceneManager:push(scene_type, ...)
+    rt.assert(meta.isa(scene_type, meta.Type)
+        and meta.is_subtype(scene_type, rt.Scene),
+        "In rt.SceneManager.push: object `", scene_type, "` is not a meta.Type or does not inherit from rt.Scene"
+    )
+
+    table.insert(self._scene_stack_queue, { function(...)
+        -- keep top node, but exit
+        local current_node = self._scene_stack[1]
+        if current_node ~= nil then
+            self:_exit_scene(current_node.scene)
+        end
+
+        -- add new top node
+        local instance = self:_get_instance(scene_type)
+        self:_enter_scene(true, instance, scene_type, ...)
+    end, { ... } }) -- capture varag
+
+    self._fade:start()
 end
 
 --- @brief
-function rt.SceneManager:update(delta)
-    -- check if resize is necessary
-    local width, height = rt.GameState:get_internal_resolution()
-    if self._width ~= width or self._height ~= height then
-        self:resize()
-    end
+function rt.SceneManager:pop()
+    if #self._scene_stack == 0 then return end
 
-    if self._restart_active == true then
-        if rt.ThreadManager:get_is_shutdown() then
-            self._restart_active = false
-            love.event.restart()
-            return
+    table.insert(self._scene_stack_queue, { function(...)
+        local current_node = self._scene_stack[1]
+        if current_node ~= nil then
+            self:_exit_scene(current_node.scene)
+            table.remove(self._scene_stack, 1)
         end
-    end
 
-    self._elapsed = self._elapsed + delta
-
-    rt.RoutineManager:step()
-    rt.GameState:update(delta)
-    rt.InputManager:update(delta)
-    rt.Animalese:update(delta)
-
-    self._fade:update(delta)
-
-    if self._current_scene ~= nil then
-        if self._schedule_enter then
-            self._schedule_enter = false
-            self._current_scene:enter(table.unpack(self._current_scene_varargs))
-            self._current_scene:signal_emit("enter")
-            self:_push_to_stack() -- after enter, before everything else
-            self._current_scene:draw() -- to prevent black frame
+        local next_node = self._scene_stack[1]
+        if next_node ~= nil then
+            self:_enter_scene(false,
+                next_node.scene,
+                next_node.type,
+                table.unpack(next_node.vararg)
+            )
         end
-        self._current_scene:update(delta)
-        self._current_scene:signal_emit("update", delta)
+    end, {}})
+
+    self._fade:start()
+end
+
+do
+    local _last_frame_time = love.timer.getTime()
+
+    --- @brief
+    function rt.SceneManager:update(delta)
+        -- check if resize is necessary
+        local width, height = rt.GameState:get_internal_resolution()
+        if self._width ~= width or self._height ~= height then
+            self:resize()
+        end
+
+        local current_scene = self:get_current_scene()
+        if current_scene ~= nil then
+            current_scene:update(delta)
+        end
+
+        self._elapsed = self._elapsed + delta
+
+        rt.RoutineManager:step()
+        rt.GameState:update(delta)
+        rt.InputManager:update(delta)
+
+        -- use stable fps to avoid lag frames skipping fade animation
+        local now = love.timer.getTime()
+        self._fade:update(now - _last_frame_time)
+        _last_frame_time = now
     end
 end
 
@@ -275,9 +300,12 @@ function rt.SceneManager:draw(...)
 
     love.graphics.clear(true, true, true)
 
-    if self._current_scene ~= nil then
-        self._current_scene:draw(...)
+    local current_scene = self:get_current_scene()
+    if current_scene ~= nil then
+        current_scene:draw(...)
     end
+
+    self._fade:draw()
 
     if self._composition_overlay_visible then
         local width = love.graphics.getWidth()
@@ -309,8 +337,8 @@ function rt.SceneManager:draw(...)
 
     rt.graphics._stencil_value = 1 -- reset running stencil value
 
-    if self._should_use_fade then
-        self._fade:draw()
+    if self._lag_frame_active == true then
+        love.graphics.clear(true, false, false)
     end
 
     if use_upscaler then
@@ -329,13 +357,9 @@ function rt.SceneManager:resize(_)
 
     self._width, self._height = rt.GameState:get_internal_resolution()
 
-    if self._current_scene ~= nil then
-        self:_reformat_scene(self._current_scene)
-    end
-
     if self._bloom == nil
         or self._bloom:get_width() ~= self._width
-        or self._bloom:get_height() ~= self._heigth
+        or self._bloom:get_height() ~= self._height
     then
         require "overworld.stage"
         self._bloom = rt.Bloom(
@@ -368,14 +392,9 @@ function rt.SceneManager:resize(_)
         end
     end
 
-    local scene = self._current_scene
-    if scene ~= nil then
-        local current_w, current_h = scene._scene_manager_current_width, scene._scene_manager_current_height
-        if current_w ~= self._width or current_w ~= self._height then
-            self:_reformat_scene(scene)
-            scene._scene_manager_current_width = self._width
-            scene._scene_manager_current_height = self._height
-        end
+    local current_scene = self:get_current_scene()
+    if current_scene ~= nil then
+        self:_reformat_scene(current_scene)
     end
 
     local reallocate_light_map = false
@@ -400,7 +419,9 @@ end
 
 --- @brief
 function rt.SceneManager:get_current_scene()
-    return self._current_scene
+    local node = self._scene_stack[1]
+    if node == nil then return nil end
+    return node.scene
 end
 
 --- @brief
@@ -595,8 +616,9 @@ function rt.SceneManager:draw_debug_information()
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.printf(right, love.graphics.getWidth() - str_width - margin, margin, math.huge)
 
-    if self._current_scene ~= nil then
-        local left = self._current_scene:get_debug_information() or ""
+    local current_scene = self:get_current_scene()
+    if current_scene ~= nil then
+        local left = current_scene:get_debug_information() or ""
         love.graphics.printf(left, margin * 2, margin, math.huge)
     end
 end
@@ -665,8 +687,8 @@ end
 
 --- @brief check whether scene is on scene stack
 function rt.SceneManager:scene_get_is_active(scene)
-    for other in values(self._scene_stack) do
-        if other.instance == scene then
+    for _, entry in ipairs(self._scene_stack) do
+        if entry.scene == scene then
             return true
         end
     end
@@ -819,7 +841,7 @@ love.run = function()
 
                 n_steps = n_steps + 1
                 if n_steps > rt.settings.scene_manager.max_n_steps_per_frame then
-                    state._update_accumulator = 0
+                    state._draw_accumulator = 0
                     break
                 end
             end
@@ -839,9 +861,10 @@ love.run = function()
 
         if drawn then
             love.graphics.present()
+            state._frame_i = state._frame_i + 1
+            state._lag_frame_active = false
+            _should_draw = false
         end
-
-        state._frame_i = state._frame_i + 1
 
         -- safeguard when vsync is off to avoid burning 100% CPU
         love.timer.sleep(1 / 1000)

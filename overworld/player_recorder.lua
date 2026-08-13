@@ -1,9 +1,9 @@
+---@diagnostic disable: duplicate-type
 require "common.player"
 require "common.input_manager"
 require "common.path"
 require "common.version"
 require "common.byte_data"
-
 require "overworld.player_recorder_body"
 
 rt.settings.overworld.player_recorder = {

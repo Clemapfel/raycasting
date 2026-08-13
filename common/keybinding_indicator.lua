@@ -37,7 +37,8 @@ function rt.KeybindingIndicator:instantiate()
         _font = nil, -- rt.Font
         _draw = function() end,
         _final_width = 0,
-        _initializer = function(self, width)  end
+        _initializer = function(self, width) end,
+        _opacity = 1
     })
 end
 
@@ -209,7 +210,7 @@ function rt.KeybindingIndicator:draw()
     local x, y = math.floor(self._bounds.x), math.floor(self._bounds.y)
     love.graphics.setLineStyle("smooth")
     love.graphics.translate(x, y)
-    self._draw()
+    self._draw(self._opacity)
     love.graphics.translate(-x, -y)
 end
 

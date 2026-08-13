@@ -56,12 +56,20 @@ if _G.DEBUG then
     require "love.definitions.window"
 end
 
--- globals
-if rt == nil then rt = {} end -- common
-if mn == nil then mn = {} end -- menu
-if ow == nil then ow = {} end -- overworld
-if b2 == nil then b2 = {} end -- physics
-if bd == nil then bd = {} end -- build
+--- @class rt
+rt = rt or {} -- common
+
+--- @class mn
+mn = mn or {} -- menu
+
+--- @class ow
+ow = ow or {} -- overworld
+
+--- @class b2
+b2 = b2 or {} -- physics
+
+--- @class bd
+bd = bd or {} -- build
 
 for id, t in pairs({
     { "_G", _G},
@@ -82,6 +90,7 @@ end
 
 require "common.log"
 
+--- @class rt.settings
 rt.settings = meta.make_auto_extend({
     native_height = 600
 }, true)

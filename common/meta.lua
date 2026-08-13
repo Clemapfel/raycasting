@@ -71,7 +71,7 @@ meta.Optional = function(...)
     return meta.Union(mt.Nil, ...)
 end
 
---- @class
+--- @class meta.Any
 meta.Any = "*"
 
 if _G.type == nil then error("In require(\"common.meta\"): function `type` is not available in the global environment. Was it overwritten or was setfenv called?") end
@@ -152,6 +152,30 @@ function meta.is_type(x)
     if _get_native_type(x) ~= "table" then return false end
     local mt = getmetatable(x)
     return mt ~= nil and mt.__typename == meta.Type
+end
+
+--- @brief check if `type` inherits from `other_type`, directly or transitively
+--- @param type meta.Type
+--- @param other_type meta.Type
+--- @return meta.Boolean
+function meta.is_subtype(type, other_type)
+    meta.assert(type, meta.Type, other_type, meta.Type)
+    if type == other_type then return true end
+
+    local seen = {}
+    local current = meta.get_super(type)
+    repeat
+        if current == other_type then
+            return true
+        end
+        if seen[current] then
+            break -- inheritance cycle
+        end
+        seen[current] = true
+        current = meta.get_super(current)
+    until current == nil
+
+    return false
 end
 
 --- @brief
@@ -654,7 +678,7 @@ do
             local callback = entry.callback_id_to_callback[callback_id]
             if callback ~= nil then
                 if callback(instance, ...) == meta.DISCONNECT_SIGNAL then
-                    instance:signal_disconnect(id, callback_id)
+                    instance:signal_try_disconnect(id, callback_id)
                 end
             else
                 -- disconnected during emission
@@ -737,10 +761,11 @@ do
         end
     end
 
-    --- @brief create a new class
-    --- @param typename String
-    --- @param schema_maybe Union<Table, Nil>
-    --- @return meta.Type
+    --- @generic T
+    --- @param typename `T`
+    --- @param super Any
+    --- @param _ Nil
+    --- @return T
     function meta.class(typename, super, _)
         meta.assert(typename, mt.String, super, mt.Optional(mt.Type), _, mt.Nil)
 
@@ -748,6 +773,19 @@ do
             rt.fatal("In meta.class: a type with typename `", typename, "` already exists")
         end
         meta._typenames[typename] = true
+
+        if super ~= nil then
+            -- check for cyclic inheritance
+            local seen = {}
+            local current = super
+            repeat
+                if seen[current] then
+                    rt.fatal("In meta.class: cyclic inheritance detected for type: `", typename, "`, multiple super types inherit from `", meta.get_typename(current), "`")
+                end
+                seen[current] = true
+                current = _type_to_super[current]
+            until current == nil
+        end
 
         -- instance metatable
         local type = {}

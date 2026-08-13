@@ -304,10 +304,6 @@ function ow.Stage:instantiate(scene, id)
         self._world,
         self._normal_map
     ) do
-        if meta.is_function(object.update) then
-            table.insert(self._to_update, object)
-        end
-
         if meta.is_function(object.draw_bloom) then
             table.insert(self._bloom_objects, object)
         end
@@ -501,6 +497,8 @@ function ow.Stage:draw_above_bloom()
     end
 end
 
+local _last_frame_i = 0
+
 --- @brief
 function ow.Stage:update(delta)
     if self._normal_map:get_is_done()
@@ -511,70 +509,7 @@ function ow.Stage:update(delta)
         self._signal_done_emitted = true
     end
 
-    if self._normal_map_done then
-        -- collect light sources and visibel bodies
-        local camera = self._scene:get_camera()
-        local bounds = camera:get_world_bounds()
-
-        local padding = rt.settings.overworld.light_map.light_range * 2
-
-        self._visible_bodies = {}
-
-        local light_mask_bodies = {}
-        local darkness_mask_bodies = {}
-
-        for body in values(self._world:query_aabb(
-            bounds.x - padding, bounds.y - padding,
-            bounds.width + 2 * padding, bounds.height + 2 * padding
-        )) do
-            self._visible_bodies[body] = true
-            if body:has_tag(b2.Tag.USE_LIGHTING) then
-                table.insert(light_mask_bodies, body)
-            end
-
-            if body:has_tag(b2.Tag.USE_DARKNESS) then
-                table.insert(darkness_mask_bodies, body)
-            end
-        end
-
-        local light_map = rt.SceneManager:get_light_map()
-
-        love.graphics.push("all")
-        love.graphics.reset()
-        love.graphics.setColor(1, 1, 1, 1)
-
-        local draw_masks = function(masks, tag, getter)
-            for body in values(masks) do
-                local userdata = body:get_user_data()
-                if userdata ~= nil and meta.is_function(userdata[getter]) then
-                    local strength = userdata[getter](userdata)
-                    if not meta.is_number(strength) then
-                        rt.error("In ow.Stage.draw: object of type `", meta.typeof(userdata), "` has `", tag, "` set, but `", getter, "` does not return a number, instead returning `", meta.typeof(strength), "`")
-                    end
-                    love.graphics.setColor(strength, strength, strength, strength)
-                else
-                    love.graphics.setColor(1, 1, 1, 1)
-                end
-                body:draw(true) -- mask only
-            end
-        end
-
-        light_map:bind_mask()
-        self._scene:get_camera():bind()
-        draw_masks(light_mask_bodies, b2.Tag.USE_LIGHTING, "get_light_strength")
-        self._scene:get_camera():unbind()
-        light_map:unbind_mask()
-
-        light_map:bind_composite_mask()
-        self._scene:get_camera():bind()
-        draw_masks(light_mask_bodies, b2.Tag.USE_DARKNESS, "get_darkness_strength")
-        self._scene:get_camera():unbind()
-        light_map:unbind_composite_mask()
-
-        love.graphics.pop()
-        self._light_mask_bodies = light_mask_bodies
-        self._darkness_mask_bodies = darkness_mask_bodies
-    end
+    self._world:update(delta)
 
     for object in values(self._to_update) do
         object:update(delta)
@@ -584,8 +519,83 @@ function ow.Stage:update(delta)
         --self._flow_fraction = self._flow_graph:update_player_position(self._scene:get_player():get_position())
     end
 
-    -- mirror / blood spatter updated in _to_update
+    rt.Animalese:update(delta) -- update global animalese playback
+
+    self._blood_spatter:update(delta) -- needs to check every subframe
     self._blood_spatter:notify_camera_changed(self._scene:get_camera())
+
+    -- only update visual-only objects when a new render frame is required
+    if rt.SceneManager:get_frame_index() ~= _last_frame_i then
+        self._mirror:update(delta)
+        self._shadow_cast:update(delta)
+
+        if self._normal_map_done then
+            -- collect light sources and visible bodies
+            local camera = self._scene:get_camera()
+            local bounds = camera:get_world_bounds()
+
+            local padding = rt.settings.overworld.light_map.light_range * 2
+
+            self._visible_bodies = {}
+
+            local light_mask_bodies = {}
+            local darkness_mask_bodies = {}
+
+            for body in values(self._world:query_aabb(
+                bounds.x - padding, bounds.y - padding,
+                bounds.width + 2 * padding, bounds.height + 2 * padding
+            )) do
+                self._visible_bodies[body] = true
+                if body:has_tag(b2.Tag.USE_LIGHTING) then
+                    table.insert(light_mask_bodies, body)
+                end
+
+                if body:has_tag(b2.Tag.USE_DARKNESS) then
+                    table.insert(darkness_mask_bodies, body)
+                end
+            end
+
+            local light_map = rt.SceneManager:get_light_map()
+
+            love.graphics.push("all")
+            love.graphics.reset()
+            love.graphics.setColor(1, 1, 1, 1)
+
+            local draw_masks = function(masks, tag, getter)
+                for body in values(masks) do
+                    local userdata = body:get_user_data()
+                    if userdata ~= nil and meta.is_function(userdata[getter]) then
+                        local strength = userdata[getter](userdata)
+                        if not meta.is_number(strength) then
+                            rt.error("In ow.Stage.draw: object of type `", meta.typeof(userdata), "` has `", tag, "` set, but `", getter, "` does not return a number, instead returning `", meta.typeof(strength), "`")
+                        end
+                        love.graphics.setColor(strength, strength, strength, strength)
+                    else
+                        love.graphics.setColor(1, 1, 1, 1)
+                    end
+                    body:draw(true) -- mask only
+                end
+            end
+
+            light_map:bind_mask()
+            self._scene:get_camera():bind()
+            draw_masks(light_mask_bodies, b2.Tag.USE_LIGHTING, "get_light_strength")
+            self._scene:get_camera():unbind()
+            light_map:unbind_mask()
+
+            light_map:bind_composite_mask()
+            self._scene:get_camera():bind()
+            draw_masks(light_mask_bodies, b2.Tag.USE_DARKNESS, "get_darkness_strength")
+            self._scene:get_camera():unbind()
+            light_map:unbind_composite_mask()
+
+            love.graphics.pop()
+            self._light_mask_bodies = light_mask_bodies
+            self._darkness_mask_bodies = darkness_mask_bodies
+        end
+    end -- get_frame_index ~= _last_frame_i
+
+    _last_frame_i = rt.SceneManager:get_frame_index()
 end
 
 local _error_no_userdata = function(scope, instance)
@@ -627,7 +637,6 @@ function ow.Stage:instance_to_object_wrapper(instance)
 
     return self._wrapper_id_to_wrapper[self._instance_to_wrapper[instance]]
 end
-
 
 local _no_timestamp = -1
 

@@ -118,7 +118,19 @@ function rt.Fade:update(delta)
     local fraction = self._elapsed / self._duration
     self._value, self._direction = _envelope(fraction, self._has_attack, self._has_decay)
 
-    if self._hidden_emitted == false and fraction > 0.5 then
+    if self._queue_hidden_emit then
+        self:signal_emit("hidden")
+        self._hidden_emitted = true
+        self._queue_hidden_emit = false
+    end
+
+    if self._queue_done_emit then
+        self:signal_emit("done")
+        self._done_emitted = true
+        self._queue_done_emit = false
+    end
+
+    if self._hidden_emitted == false and fraction >= 0.5 then
         self._value = 1
         self._queue_hidden_emit = true
     end
@@ -131,18 +143,6 @@ function rt.Fade:update(delta)
     if self._started then
         self._elapsed = self._elapsed + delta
     end
-
-    if self._queue_hidden_emit then
-        self:signal_emit("hidden")
-        self._hidden_emitted = true
-        self._queue_hidden_emit = false
-    end
-
-    if self._queue_done_emit then
-        self:signal_emit("done")
-        self._done_emitted = true
-        self._queue_done_emit = false
-    end
 end
 
 --- @brief
@@ -153,7 +153,12 @@ function rt.Fade:draw()
         love.graphics.push()
         love.graphics.origin()
         self._shader:bind()
-        self._shader:send("value", self._value)
+
+        if self._queue_hidden_emit then
+            self._shader:send("value", 1.0) -- make sure screen is full black on emission
+        else
+            self._shader:send("value", self._value)
+        end
 
         if self._shader:has_uniform("direction") then
             self._shader:send("direction", self._direction)
