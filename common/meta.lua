@@ -2,8 +2,9 @@ require "common.common"
 
 local _noop = function() end
 
-if meta == nil then meta = {} end
-if mt == nil then mt = meta end
+--- @class meta
+meta = meta or {}
+mt = mt or meta
 
 --- @class meta.Number
 meta.Number = "Number"
@@ -79,9 +80,9 @@ local _get_native_type = _G.type
 
 local _current_hash = 0
 
-local _object_metatable_index = 1
-local _object_hash_index = _object_metatable_index + 1
-local _object_signal_component_index = _object_hash_index + 1
+local _object_metatable_index = -1
+local _object_hash_index = _object_metatable_index - 1
+local _object_signal_component_index = _object_hash_index - 1
 
 local _instantiate_name = "instantiate"
 meta._typenames = {}
@@ -151,7 +152,9 @@ end
 function meta.is_type(x)
     if _get_native_type(x) ~= "table" then return false end
     local mt = getmetatable(x)
-    return mt ~= nil and mt.__typename == meta.Type
+    return mt ~= nil
+        and rawget(x, _object_metatable_index) == mt
+        and mt.__typename == meta.Type
 end
 
 --- @brief check if `type` inherits from `other_type`, directly or transitively
@@ -451,7 +454,7 @@ do
 end
 
 -- global signal to disconnect signal after emission
-meta.DISCONNECT_SIGNAL = "DISCONNECT"
+meta.DISCONNECT_SIGNAL = true
 
 do
     -- signal aux
@@ -477,7 +480,7 @@ do
         meta.assert(instance, mt.Object, id, mt.String)
 
         local component, entry
-        component = instance[_object_signal_component_index]
+        component = rawget(instance, _object_signal_component_index)
         if component ~= nil then entry = component[id] end
 
         if component == nil or entry == nil then
@@ -494,7 +497,7 @@ do
     local _signal_list_signals = function(instance)
         meta.assert(instance, mt.Object)
 
-        local component = instance[_object_signal_component_index]
+        local component = rawget(instance, _object_signal_component_index)
         if component == nil then return {} end
 
         local out = {}
@@ -508,7 +511,7 @@ do
         local callback = select(1, ...)
         meta.assert(instance, mt.Object, id, mt.String, callback, mt.Function)
 
-        local component = instance[_object_signal_component_index]
+        local component = rawget(instance, _object_signal_component_index)
         local entry = component[id]
         if entry == nil then
             _throw_no_signal("signal_connect", instance, id)
@@ -531,7 +534,7 @@ do
         )
 
         local component, entry
-        component = instance[_object_signal_component_index]
+        component = rawget(instance, _object_signal_component_index)
 
         if component ~= nil then
             entry = component[id]
@@ -562,7 +565,7 @@ do
             callback_id, mt.Number
         )
 
-        local component = instance[_object_signal_component_index]
+        local component = rawget(instance, _object_signal_component_index)
         if component == nil then
             return false
         end
@@ -589,7 +592,7 @@ do
     local _signal_disconnect_all = function(instance, id)
         meta.assert(instance, mt.Object, id, mt.Optional(mt.String))
 
-        local component = instance[_object_signal_component_index]
+        local component = rawget(instance, _object_signal_component_index)
         if component == nil then
             rt.error("In ", meta.typeof(instance), ".signal_disconnect_all: object `", meta.typeof(instance), "` does not have any signals")
             return
@@ -616,7 +619,7 @@ do
         meta.assert(instance, mt.Object, id, mt.String, b, mt.Boolean)
 
         local component, entry
-        component = instance[_object_signal_component_index]
+        component = rawget(instance, _object_signal_component_index)
         if component ~= nil then
             entry = component[id]
         end
@@ -633,7 +636,7 @@ do
         meta.assert(instance, mt.Object, id, mt.String)
 
         local component, entry
-        component = instance[_object_signal_component_index]
+        component = rawget(instance, _object_signal_component_index)
         if component ~= nil then entry = component[id] end
 
         if component == nil or entry == nil then
@@ -647,7 +650,7 @@ do
     local _signal_has_signal = function(instance, id)
         meta.assert(instance, mt.Object, id, mt.String)
 
-        local component = instance[_object_signal_component_index]
+        local component = rawget(instance, _object_signal_component_index)
         if component == nil then
             return false
         end
@@ -658,7 +661,7 @@ do
         meta.assert(instance, mt.Object, id, mt.String)
 
         local component, entry
-        component = instance[_object_signal_component_index]
+        component = rawget(instance, _object_signal_component_index)
         if component ~= nil then entry = component[id] end
 
         if component == nil or entry == nil then
@@ -691,7 +694,7 @@ do
         meta.assert(instance, mt.Object, id, mt.String)
 
         local component, entry
-        component = instance[_object_signal_component_index]
+        component = rawget(instance, _object_signal_component_index)
         if component ~= nil then entry = component[id] end
 
         if component == nil or entry == nil then
@@ -725,7 +728,7 @@ do
     end
 
     local function _install_signals(instance, type)
-        local signals = type[_object_metatable_index].__signals
+        local signals = rawget(type, _object_metatable_index).__signals
         if #signals == 0 then return end
 
         type.signal_emit = _signal_emit
@@ -741,10 +744,10 @@ do
         type.signal_list_signals = _signal_list_signals
 
         for signal_id in values(signals) do
-            local component = instance[_object_signal_component_index]
+            local component = rawget(instance, _object_signal_component_index)
             if component == nil then
                 component = {}
-                instance[_object_signal_component_index] = component
+                rawset(instance, _object_signal_component_index, component)
             end
 
             component[signal_id] = {
@@ -898,7 +901,7 @@ end
 --- @brief
 function meta.add_signals(type, ...)
     meta.assert(type, meta.Type)
-    local metatable = type[_object_metatable_index]
+    local metatable = rawget(type, _object_metatable_index)
     for i = 1, select("#", ...) do
         local id = select(i, ...)
         rt.assert(meta.typeof(id) == meta.String, "In meta.add_signals: expected `", meta.String, "`, got `", meta.typeof(id), "`")
@@ -916,7 +919,7 @@ function meta.list_signals(type)
 
     local current = type
     while current ~= nil do
-        local signals = current[_object_metatable_index].__signals
+        local signals = rawget(current, _object_metatable_index).__signals
         for _, signal_id in ipairs(signals) do
             if not seen[signal_id] then
                 seen[signal_id] = true
