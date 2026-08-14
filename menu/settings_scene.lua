@@ -943,7 +943,7 @@ function mn.SettingsScene:size_allocate(x, y, width, height)
                 widget_h = height - 2 * item_y_padding
             end
 
-            local widget_w = width - 2 * item_outer_margin - item_inner_margin - max_prefix_w
+            local widget_w = math.max(1, width - 2 * item_outer_margin - item_inner_margin - max_prefix_w)
             item.widget:reformat(
                 x + width - item_outer_margin - widget_w,
                 y + 0.5 * height - 0.5 * widget_h,

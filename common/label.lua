@@ -151,7 +151,7 @@ function rt.Label:instantiate(text, font_size, font, use_caching)
         _texture_offset_x = 0,
         _texture_offset_y = 0,
         _texture_width = 1,
-        _texture_height = 1,
+        _texture_heigth = 1,
         _texture = nil, -- rt.RenderTexture
         _opacity = 1,
 
@@ -962,6 +962,7 @@ end
 
 --- @brief [internal]
 function rt.Label:_apply_wrapping(width)
+    local original_width = width
     if self._format_mode == rt.LabelWrapMode.SINGLE_LINE then
         width = math.huge
     end
@@ -1113,8 +1114,12 @@ function rt.Label:_apply_wrapping(width)
     end
     _insert(row_widths, glyph_x)
 
+    self._width = math.max(0, max_x - min_x)
     if math.is_inf(max_w) then
-        max_w = self._width
+        max_w = original_width
+        if math.is_inf(max_w) then
+            rt.critical("In Label._apply_wrapping: detected max width is infinite")
+        end
     end
 
     -- update justify offsets
@@ -1123,7 +1128,6 @@ function rt.Label:_apply_wrapping(width)
         glyph.justify_right_offset = (max_w - row_widths[glyph.row_index])
     end
 
-    self._width = math.max(0, max_x - min_x)
     self._height = line_height * row_i
     self._n_lines = row_i
 

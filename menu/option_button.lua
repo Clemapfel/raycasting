@@ -110,20 +110,20 @@ function mn.OptionButton:size_allocate(x, y, width, height)
 
     local label_start_x = x + indicator_r + m
     local label_y = y + 0.5 * height - 0.5 * max_h
-    local tile_w = width - 2 * m - 2 * indicator_r
+    local tile_w = math.max(1, width - 2 * m - 2 * indicator_r)
     local padding = 5 * rt.SceneManager:get_pixel_scale()
 
     local current_x = label_start_x
     for item in values(self._items) do
         local w, h = item.label:measure()
-        item.label:reformat(current_x, label_y, tile_w)
+        item.label:reformat(current_x, label_y, tile_w) -- w required for center justify
         item.offset = current_x - label_start_x
         current_x = current_x + tile_w + padding
     end
 
     local stencil_h = max_h + 2 * padding
     self._stencil:reformat(
-        x + indicator_r, y + 0.5 * height - 0.5 * stencil_h, tile_w, stencil_h
+        x + indicator_r, y + 0.5 * height - 0.5 * stencil_h, width - 2 * indicator_r, stencil_h
     )
 
     self:_update_direction_indicators()
@@ -137,6 +137,7 @@ function mn.OptionButton:draw()
 
     local stencil_value = rt.graphics.get_stencil_value()
     rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW)
+    love.graphics.setColor(1, 1, 1, 1)
     self._stencil:draw()
     rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.TEST, rt.StencilCompareMode.EQUAL)
 
