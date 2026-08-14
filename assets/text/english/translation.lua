@@ -163,7 +163,7 @@ return {
     -- verbose info
     verbose_info = {
         vsync_title = "Vertical Synchronization (VSync)",
-        vsync_description = "If enabled, limits maximum FPS to the refresh rate of the monitor",
+        vsync_description = "Limits maximum FPS to the refresh rate of the monitor",
         vsync_widget = function(fps)
             return "Current FPS: " .. fps
         end,
@@ -177,7 +177,7 @@ return {
         end,
 
         fullscreen_title = "Fullscreen",
-        fullscreen_description = "If enabled, automatically resizes to monitor resolution",
+        fullscreen_description = "Resizes window resolution to that of the monitor",
 
         msaa_title = "Multi-Sample Anti Aliasing (MSAA)",
         msaa_description = "Reduces jagged lines and other rendering artifacts.\n\n<b>Performance Impact</b>: moderate",
@@ -192,10 +192,13 @@ return {
         downscaling_description = "Reduces image quality to increase performance.\n\n<b>Performance Impact</b>: very high",
 
         dynamic_lighting_title = "Dynamic Lighting",
-        dynamic_lighting_description = "Draws and computes lighting for certain objects in real time.\n\n<b>Performance Impact</b>: high",
+        dynamic_lighting_description = "Computes lighting for certain objects in real time.\n\n<b>Performance Impact</b>: very high",
+
+        dynamic_shadows_title = "Dynamic Shadows",
+        dynamic_shadows_description = "Computes shadows cast by certain objects in real time.\n\n<b>Performance Impact</b>: moderate",
 
         reflections_title = "Reflections",
-        reflections_description = "Draw a mirror image of the player on certain reflective surfaces.\n\n<b>Performance Impact</b>: negligible",
+        reflections_description = "Draws a mirror image of the player on certain reflective surfaces.\n\n<b>Performance Impact</b>: negligible",
 
         background_animation_title = "Animate Background",
         background_animation_description = "If disabled, the background behind a stage will no longer be animated.\n\n<b>Performance Impact</b>: low",
@@ -325,6 +328,10 @@ return {
         dynamic_lighting_prefix = "Dynamic Lighting",
         dynamic_lighting_on = "On",
         dynamic_lighting_off = "Off",
+
+        dynamic_shadows_prefix = "Dynamic Shadows",
+        dynamic_shadows_on = "On",
+        dynamic_shadows_off = "Off",
 
         reflections_prefix = "Dynamic Reflections",
         reflections_on = "On",

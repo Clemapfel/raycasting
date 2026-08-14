@@ -37,53 +37,6 @@ function ow.ShadowCast:initialize(non_reflective_contours, reflective_contours, 
     end
 end
 
-local function _get_ts(segment, subsegment)
-    local ax1, ay1, ax2, ay2 = table.unpack(segment)
-    local sx1, sy1, sx2, sy2 = table.unpack(subsegment)
-
-    local dx, dy = ax2 - ax1, ay2 - ay1
-    local magnitude = math.magnitude(dx, dy)
-
-    if magnitude == 0 then
-        return 0, 0
-    end
-
-    local ndx, ndy = math.normalize(dx, dy)
-
-    local function fraction_of(px, py)
-        local vx, vy = px - ax1, py - ay1
-        local proj = math.dot(vx, vy, ndx, ndy)
-        return proj / magnitude
-    end
-
-    local t1 = fraction_of(sx1, sy1)
-    local t2 = fraction_of(sx2, sy2)
-
-    return math.min(t1, t2), math.max(t1, t2)
-end
-
-local function _ray_line_intersection(x, y, dir_x, dir_y, ax, ay, bx, by)
-    local dx = bx - ax
-    local dy = by - ay
-    local det = dir_x * dy - dir_y * dx
-
-    if math.abs(det) < math.eps then
-        return nil
-    end
-
-    local oax = ax - x
-    local oay = ay - y
-    local distance = (oax * dy - oay * dx) / det
-
-    if distance >= 0 then
-        local hit_x = x + dir_x * distance
-        local hit_y = y + dir_y * distance
-
-        return distance, hit_x, hit_y
-    end
-    return nil
-end
-
 --- @brief
 function ow.ShadowCast:update(delta)
     if rt.GameState:get_are_dynamic_shadows_enabled() == false then return end

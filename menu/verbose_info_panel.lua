@@ -19,6 +19,7 @@ mn.VerboseInfoObject = {
     HDR = "hdr",
     RESOLUTION_DOWNSCALING = "downscaling",
     DYNAMIC_LIGHTING = "dynamic_lighting",
+    DYNAMIC_SHADOWS = "dynamic_shadows",
     REFLECTIONS = "reflections",
     BACKGROUND_ANIMATION = "background_animation",
     SPRINT_MODE = "sprint_mode",

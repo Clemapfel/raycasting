@@ -26,6 +26,7 @@ local SettingsItem = {
     HDR = "hdr",
     DOWNSCALING = "downscaling",
     DYNAMIC_LIGHTING = "dynamic_lighting",
+    DYNAMIC_SHADOWS = "dynamic_shadows",
     REFLECTIONS = "reflections",
     BACKGROUND_ANIMATION = "background_animation",
 
@@ -68,6 +69,7 @@ rt.settings.settings_scene = {
         SettingsItem.BLOOM,
         SettingsItem.HDR,
         SettingsItem.DYNAMIC_LIGHTING,
+        SettingsItem.DYNAMIC_SHADOWS,
         SettingsItem.REFLECTIONS,
         SettingsItem.DOWNSCALING,
         --SettingsItem.BACKGROUND_ANIMATION,
@@ -425,6 +427,33 @@ function mn.SettingsScene:instantiate()
 
         item:signal_connect("reset", function(_)
             dynamic_lighting_button:set_option(dynamic_lighting_to_label[defaults.is_dynamic_lighting_enabled])
+        end)
+    end
+
+    init_functions[SettingsItem.DYNAMIC_SHADOWS] = function() -- dynamic lighting
+        local dynamic_shadows_to_label = {
+            [false] = translation.dynamic_shadows_off,
+            [true] = translation.dynamic_shadows_on
+        }
+        local label_to_dynamic_shadows = reverse(dynamic_shadows_to_label)
+
+        local dynamic_shadows_button = mn.OptionButton({
+            dynamic_shadows_to_label[false],
+            dynamic_shadows_to_label[true],
+        })
+
+        dynamic_shadows_button:set_option(dynamic_shadows_to_label[rt.GameState:get_are_dynamic_shadows_enabled()])
+        dynamic_shadows_button:signal_connect("selection", function(_, label)
+            rt.GameState:set_are_dynamic_shadows_enabled(label_to_dynamic_shadows[label])
+        end)
+
+        local item = add_item(
+            translation.dynamic_shadows_prefix, dynamic_shadows_button,
+            mn.VerboseInfoObject.DYNAMIC_SHADOWS
+        )
+
+        item:signal_connect("reset", function(_)
+            dynamic_shadows_button:set_option(dynamic_shadows_to_label[defaults.are_dynamic_shadows_enabled])
         end)
     end
 

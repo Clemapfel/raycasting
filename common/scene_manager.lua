@@ -12,7 +12,7 @@ rt.settings.scene_manager = {
     max_n_steps_per_frame = 8,
     performance_metrics_n_frames = 144,
     fade_duration = 0.2,
-    fps_limit = 1000,
+    fps_limit = 420,
     performance_metrics_interval = 5 -- seconds
 }
 
@@ -865,7 +865,7 @@ love.run = function()
             drawn = true
         end
 
-        rt.SceneManager:draw_debug_information()
+        rt.SceneManager:draw_debug_information() -- automatically checks for draw_debug_information flag
 
         if drawn then
             love.graphics.present()
@@ -875,7 +875,7 @@ love.run = function()
         end
 
         -- safeguard when vsync is off to avoid burning 100% CPU
-        love.timer.sleep(1 / 1000)
+        love.timer.sleep(1 / rt.settings.scene_manager.fps_limit)
 
         if PROFILE then profiler.pop("love.run") end
     end
