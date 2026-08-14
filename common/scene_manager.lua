@@ -403,8 +403,6 @@ function rt.SceneManager:get_previous_scene()
     local entry = self._scene_stack[2]
     if entry ~= nil then
         return entry.scene
-    else
-        return nil
     end
 end
 
@@ -505,32 +503,37 @@ function rt.SceneManager:_notify_update_duration(duration)
 end
 
 --- @brief
+--- @brief
 function rt.SceneManager:_notify_draw_duration(duration)
+    local now = love.timer.getTime()
+
     table.insert(self._draw_samples, {
-        timestamp = love.timer.getTime(),
+        timestamp = now,
         value = duration
     })
 
-    local now = love.timer.getTime()
     table.insert(self._draw_instants, now)
 
-    -- discard old samples
-    local threshold = now - rt.settings.scene_manager.performance_metrics_interval
-    local n_to_remove = 0
+    local threshold = now - 1 -- last second
+    local stale_count = 0
+
     for i = 1, #self._draw_instants do
-        if self._draw_instants[i] < threshold then
-            n_to_remove = i
-        else
+        if self._draw_instants[i] >= threshold then
+            stale_count = i - 1
             break
         end
     end
 
-    if n_to_remove > 0 then
-        local remaining = {}
-        for i = n_to_remove + 1, #self._draw_instants do
-            table.insert(remaining, self._draw_instants[i])
+    if stale_count > 0 then
+        local valid_count = #self._draw_instants - stale_count
+
+        for i = 1, valid_count do
+            self._draw_instants[i] = self._draw_instants[i + stale_count]
         end
-        self._draw_instants = remaining
+
+        for i = valid_count + 1, #self._draw_instants do
+            self._draw_instants[i] = nil
+        end
     end
 
     table.insert(self._fps_samples, {
@@ -542,7 +545,7 @@ end
 local _default_font = love.graphics.getFont()
 
 --- @brief
-function rt.SceneManager:draw_debug_information()
+function rt.SceneManager:draw_debug_information(draw)
     local threshold = love.timer.getTime() - rt.settings.scene_manager.performance_metrics_interval
 
     local update_samples = function(t)
@@ -581,49 +584,53 @@ function rt.SceneManager:draw_debug_information()
         draw_mean, draw_max = update_samples(self._draw_samples)
     end
 
-    local fps_variance = 0
-    for entry in values(self._fps_samples) do
-        fps_variance = fps_variance + (entry.value - fps_mean)^2
-    end
-    fps_variance = math.sqrt(fps_variance / #self._fps_samples)
+    if rt.GameState:get_draw_debug_information() then
+        love.graphics.reset()
 
-    local stats = love.graphics.getStats()
-    local n_draws = tostring(stats.drawcalls)
-    while #n_draws < 3 do n_draws = "0" .. n_draws end
-
-    local gpu_side_memory = math.ceil(stats.texturememory / 1024 / 1024) -- in mb
-
-    local to_percent = function(seconds)
-        return math.ceil(seconds / (1 / 60) * 100)
-    end
-
-    local format = function(value)
-        local str = tostring(value)
-        while #str < 3 do
-            str = "0" .. str
+        local fps_variance = 0
+        for entry in values(self._fps_samples) do
+            fps_variance = fps_variance + (entry.value - fps_mean)^2
         end
-        return str
-    end
+        fps_variance = math.sqrt(fps_variance / #self._fps_samples)
 
-    local right = table.concat({
-        format(math.round(fps_mean)), " fps \u{00B1} " .. format(math.round(fps_variance)) .. " | ",
-        format(to_percent(update_mean)), " (", format(to_percent(update_max)), ") % | ",
-        format(to_percent(draw_mean)), " (", format(to_percent(draw_max)), ") % | ",
-        n_draws, " draws | ",
-        gpu_side_memory, " mb "
-    })
+        local stats = love.graphics.getStats()
+        local n_draws = tostring(stats.drawcalls)
+        while #n_draws < 3 do n_draws = "0" .. n_draws end
 
-    love.graphics.setFont(_default_font)
-    local str_width = _default_font:getWidth(right)
+        local gpu_side_memory = math.ceil(stats.texturememory / 1024 / 1024) -- in mb
 
-    local margin = 5
-    love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.printf(right, love.graphics.getWidth() - str_width - margin, margin, math.huge)
+        local to_percent = function(seconds)
+            return math.ceil(seconds / (1 / 60) * 100)
+        end
 
-    local current_scene = self:get_current_scene()
-    if current_scene ~= nil then
-        local left = current_scene:get_debug_information() or ""
-        love.graphics.printf(left, margin * 2, margin, math.huge)
+        local format = function(value)
+            local str = tostring(value)
+            while #str < 3 do
+                str = "0" .. str
+            end
+            return str
+        end
+
+        local right = table.concat({
+            format(math.round(fps_mean)), " fps \u{00B1} " .. format(math.round(fps_variance)) .. " | ",
+            format(to_percent(update_mean)), " (", format(to_percent(update_max)), ") % | ",
+            format(to_percent(draw_mean)), " (", format(to_percent(draw_max)), ") % | ",
+            n_draws, " draws | ",
+            gpu_side_memory, " mb "
+        })
+
+        love.graphics.setFont(_default_font)
+        local str_width = _default_font:getWidth(right)
+
+        local margin = 5
+        love.graphics.setColor(1, 1, 1, 1)
+        love.graphics.printf(right, love.graphics.getWidth() - str_width - margin, margin, math.huge)
+
+        local current_scene = self:get_current_scene()
+        if current_scene ~= nil then
+            local left = current_scene:get_debug_information() or ""
+            love.graphics.printf(left, margin * 2, margin, math.huge)
+        end
     end
 end
 
@@ -858,10 +865,7 @@ love.run = function()
             drawn = true
         end
 
-        if rt.GameState:get_draw_debug_information() then
-            love.graphics.reset()
-            rt.SceneManager:draw_debug_information()
-        end
+        rt.SceneManager:draw_debug_information()
 
         if drawn then
             love.graphics.present()
