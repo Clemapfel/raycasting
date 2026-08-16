@@ -705,7 +705,7 @@ function ow.ObjectWrapper:validate_schema(schema, ...)
 
             for type in values(types) do
                 if _valid_types[type] ~= true then
-                    rt.error("In ow.ObjectWrapper: In ow.Stage `", self.stage_id, "`: invalid schema, key `", property_name, "` is not a value of enum ow.PropertyType")
+                    rt.error("In ow.ObjectWrapper: In ow.Stage.validate_schema `", self.stage_id, "`: invalid schema, key `", property_name, "` is not a value of enum ow.PropertyType")
                 end
 
                 if type == ow.Number or type == ow.String or type == ow.Boolean then

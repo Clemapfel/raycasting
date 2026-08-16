@@ -349,7 +349,7 @@ return {
         shake_on = "On",
         shake_off = "Off",
 
-        controller_vibration_strength_prefix = "Controller Vibration",
+        controller_vibration_strength_prefix = "Controller Vibration Controller Vibration Controller Vibration Controller Vibration Controller Vibration Controller Vibration Controller Vibration",
         controller_vibration_strength_on = "On",
         controller_vibration_strength_off = "Off",
 

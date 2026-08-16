@@ -126,7 +126,7 @@ function rt.Label:instantiate(text, font_size, font, use_caching)
         _font = font,
         _font_size = font_size,
         _justify_mode = rt.JustifyMode.LEFT,
-        _format_mode = rt.LabelWrapMode.MULTI_LINE,
+        _wrap_mode = rt.LabelWrapMode.MULTI_LINE,
 
         _n_visible_characters = -1,
         _elapsed = 0,
@@ -314,12 +314,12 @@ end
 --- @brief
 function rt.Label:set_wrap_mode(mode)
     meta.assert(mode, rt.LabelWrapMode)
-    self._format_mode = mode
+    self._wrap_mode = mode
 end
 
 --- @brief
-function rt.Label:get_format_mode()
-    return self._format_mode
+function rt.Label:get_wrap_mode()
+    return self._wrap_mode
 end
 
 --- @brief
@@ -581,7 +581,6 @@ function rt.Label:_parse(raw)
     local BEAT_TO_WEIGHT = _syntax.BEAT_TO_WEIGHT
 
     local glyphs = self._glyphs
-    local glyph_indices = self._glyph_indices
 
     local default_color = "FOREGROUND"
     local default_outline_color = "BLACK"
@@ -589,8 +588,6 @@ function rt.Label:_parse(raw)
     local tokens = self._tokens
 
     local glyph_settings = {
-        is_bold = false,
-        is_italic = false,
         is_bold = false,
         is_italic = false,
         is_outlined = false,
@@ -944,11 +941,9 @@ end
 
 --- @brief [internal]
 function rt.Label:_glyph_set_n_visible_characters(glyph, n)
-    local before = glyph.n_visible_characters
-
     glyph.n_visible_characters = n
     if glyph.is_underlined or glyph.is_strikethrough then
-        local new_width = glyph.font:getWidth(string.sub(glyph.text, 1, glyph.n_visible_characters))
+        local new_width = glyph.font:getWidth(utf8.sub(glyph.text, 1, glyph.n_visible_characters))
 
         if glyph.is_underlined then
             glyph.underline_bx = glyph.x + _padding + new_width
@@ -962,25 +957,16 @@ end
 
 --- @brief [internal]
 function rt.Label:_apply_wrapping(width)
-    local original_width = width
-    if self._format_mode == rt.LabelWrapMode.SINGLE_LINE then
-        width = math.huge
-    end
-
-    local current_line_width = 0
-    local max_line_w = 0
-
     local bold_italic = self._font:get_native(self._font_size, rt.FontStyle.BOLD_ITALIC)
     local space_w = self:_measure_glyph(_syntax.SPACE, false)
     local mono_space_w = self:_measure_glyph(_syntax.SPACE, true)
-    local tab_w = self:_measure_glyph(_syntax.TAB, true)
-    local mono_tab_w = self:_measure_glyph(_syntax.TAB, false)
+    local tab_w = self:_measure_glyph(_syntax.TAB, false)
+    local mono_tab_w = self:_measure_glyph(_syntax.TAB, true)
     local line_height = bold_italic:getHeight()
 
     local glyph_x, glyph_y = 0, 0
     local max_w = width
     local row_i = 1
-    local is_first_word = true
 
     local line_spacing = 0
 
@@ -990,12 +976,12 @@ function rt.Label:_apply_wrapping(width)
     local newline = function()
         max_glyph_x = math.max(max_glyph_x, glyph_x)
         _insert(row_widths, glyph_x)
-        if is_first_word ~= true then
-            glyph_x = 0
-            glyph_y = glyph_y + line_height + line_spacing
-            row_i = row_i + 1
-        end
+        glyph_x = 0
+        glyph_y = glyph_y + line_height + line_spacing
+        row_i = row_i + 1
     end
+
+    local use_wrapping = self._wrap_mode ~= rt.LabelWrapMode.SINGLE_LINE
 
     local min_x, max_x, min_y, max_y = math.huge, -math.huge, math.huge, -math.huge
     local min_outline_y, max_outline_y = math.huge, -math.huge
@@ -1017,12 +1003,12 @@ function rt.Label:_apply_wrapping(width)
                 glyph_x = glyph_x + ternary(last_glyph_was_mono, mono_space_w, space_w)
                 row_w = row_w + space_w
             end
-            if glyph_x > max_w then newline() end
+            if use_wrapping and glyph_x > max_w then newline() end
             last_glyph_was_mono = false
         elseif glyph == _syntax.TAB then
             glyph_x = glyph_x + ternary(last_glyph_was_mono, mono_tab_w, tab_w)
             row_w = row_w + tab_w
-            if glyph_x > max_w then newline() end
+            if use_wrapping and glyph_x > max_w then newline() end
             last_glyph_was_mono = false
         elseif glyph == _syntax.NEWLINE then
             newline()
@@ -1032,7 +1018,7 @@ function rt.Label:_apply_wrapping(width)
         elseif _syntax.BEAT_TO_WEIGHT[glyph] ~= nil then
             -- noop
         else
-            if glyph_x + glyph.width >= max_w then
+            if use_wrapping and glyph_x + glyph.width >= max_w then
                 newline()
                 last_glyph_was_underlined = false
                 last_glyph_was_strikethrough = false
@@ -1064,6 +1050,7 @@ function rt.Label:_apply_wrapping(width)
                     else
                         glyph.underline_ax = glyph.x + _padding
                     end
+
                     glyph.underline_ay = math.ceil(glyph.y + underline_y)
                     glyph.underline_bx = glyph.x + glyph.width + _padding
                     glyph.underline_by = glyph.underline_ay
@@ -1075,6 +1062,7 @@ function rt.Label:_apply_wrapping(width)
                     else
                         glyph.strikethrough_ax = glyph.x + _padding
                     end
+
                     glyph.strikethrough_ay = math.ceil(glyph.y + strikethrough_y)
                     glyph.strikethrough_bx = glyph.x + glyph.width + _padding
                     glyph.strikethrough_by = glyph.strikethrough_ay
@@ -1109,18 +1097,11 @@ function rt.Label:_apply_wrapping(width)
 
         min_x = math.min(min_x, glyph_x) -- consider non-glyphs for size
         max_x = math.max(max_x, glyph_x)
-
-        is_first_word = false
     end
+
     _insert(row_widths, glyph_x)
 
     self._width = math.max(0, max_x - min_x)
-    if math.is_inf(max_w) then
-        max_w = original_width
-        if math.is_inf(max_w) then
-            rt.critical("In Label._apply_wrapping: detected max width is infinite")
-        end
-    end
 
     -- update justify offsets
     for glyph in values(self._glyphs_only) do
@@ -1193,7 +1174,7 @@ function rt.Label:update_n_visible_characters_from_elapsed(elapsed, n_characters
                 self:_glyph_set_n_visible_characters(glyph, 0)
             else
                 local text = glyph.text
-                local n_seen = 1
+                local n_seen = 0
                 for i = 1, glyph.n_characters do
                     local weight = weights[string.sub(glyph.text, i, i)]
                     if weight == nil then
@@ -1207,7 +1188,6 @@ function rt.Label:update_n_visible_characters_from_elapsed(elapsed, n_characters
                     if so_far < 0 then break end
                 end
 
-                local before = glyph.n_visible_characters
                 self:_glyph_set_n_visible_characters(glyph, n_seen)
                 max_row = math.max(max_row, glyph.row_index)
             end
@@ -1221,7 +1201,6 @@ function rt.Label:update_n_visible_characters_from_elapsed(elapsed, n_characters
 
     local is_done = elapsed > self._total_beats * (1 / n_characters_per_second)
     self:_update_texture()
-    local rest_delta = so_far
     return is_done, max_row, so_far
 end
 
@@ -1650,7 +1629,6 @@ function rt.Glyph:size_allocate(x, y, width, height)
         glyph.strikethrough_by = math.ceil(glyph.y + strikethrough_y)
     end
 
-    local rest_w = width - glyph.width
     glyph.justify_left_offset = 0
     glyph.justify_right_offset = width - glyph.width
     glyph.justify_center_offset = 0.5 * width - 0.5 * glyph.width

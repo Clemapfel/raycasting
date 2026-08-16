@@ -14,10 +14,10 @@ server.options.memSize = 65536 * 4;
 
 server.waitForBoot({
 	//~accelerator_surface_sparkle.();
-	~hook.();
+	~player.();
 
 	CmdPeriod.doOnce({
-		server.defaultGroup.deepFree;
+		server.freeAll;
 	})
 });
 
@@ -641,7 +641,7 @@ server.waitForBoot({
 	var yesBubblePattern = Pbindf(pattern, \useBounce, 1);
 	var noBubblePattern = Pbindf(pattern, \useBounce, 0);
 
-	yesBubblePattern.play;
+	Pseq([yesBubblePattern, noBubblePattern]).play;
 };
 
 
@@ -737,8 +737,8 @@ server.waitForBoot({
 		var buf = PlayBuf.ar(1, bufnum);
 		var sig = buf;
 		var fade_duration = 0.005;
-		var before, after, chain, carrier, sigChain, carrierChain;
-		var fftBufSize = 2**11;
+		var before, after, carrier, sigChain, carrierChain;
+		var fftBufSize = 2**12;
 
 		// remove background hum
 		[ 240, 360, 480, 600 ].do({ |freq|
@@ -747,17 +747,12 @@ server.waitForBoot({
 
 		before = sig;
 
-		// remove noise
-		chain = FFT(LocalBuf(fftBufSize), sig);
-		3.do({ sig = PV_MagSmooth(chainSig, 0.5) });
-		sig = IFFT(chain);
-
 		// vocode
-		carrier = Saw.ar(80) + Saw.ar(160.1);
+		carrier = Saw.ar(freq: 4 * Pitch.kr(sig));
 		sigChain = FFT(LocalBuf(fftBufSize), sig);
 		carrierChain = FFT(LocalBuf(fftBufSize), carrier);
 
-		after = IFFT(PV_MagMul(carrierChain, sigChain));
+		after = XFade2.ar(sig, IFFT(PV_MagMul(carrierChain, sigChain)), -0.8);
 
 		after = after * EnvGen.ar(Env.new(
 			[0, 1, 0],
@@ -766,6 +761,7 @@ server.waitForBoot({
 		));
 
 		after = BHiShelf.ar(after, freq: 22000, db: -100);
+		after = carrier;
 
 		Out.ar(out, Select.ar(trig, [before, after]).dup);
 		DoneSentinel.ar(buf);
@@ -795,6 +791,21 @@ server.waitForBoot({
 	// recover
 
 	unhook.play;
+};
+
+~player = {
+	var def = SynthDef.new(\player, { arg out, pitch, gate = 1, delta, dur, tempo, legato, sustain;
+		var signal = SinOsc.ar(pitch) * EnvGen.ar(Env.perc(), gate: gate);
+		Out.ar(out, signal.dup);
+		DetectSilence.ar(signal, doneAction: Done.freeSelf);
+	}).add;
+
+	server.sync;
+
+	PmonoArtic(def.name, *[
+		pitch: Pseq(440 * [1, 2, 2.5, 1.5]),
+		sustain: 0.05
+	]).play;
 };
 
 

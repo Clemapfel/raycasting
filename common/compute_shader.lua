@@ -14,17 +14,22 @@ function rt.ComputeShader:instantiate(filename, defines)
         limits.threadgroupsz
     )
 
+    if not bd.exists(filename) then
+        rt.error("In rt.ComputeShader: file at `", filename, "` does not exist")
+        self._is_disabled = true
+    end
+
     if not self._is_disabled then
-        local success, shader = pcall(love.graphics.newComputeShader, filename, {
+        local success, shader_or_error = pcall(love.graphics.newComputeShader, filename, {
             defines = defines
         })
 
         if not success then
-            rt.error("In rt.ComputeShader: Error when evaluating shader at `", filename, "`:\n", shader)
+            rt.error("In rt.ComputeShader: Error when evaluating shader at `", filename, "`:\n", shader_or_error)
             self._is_disabled = true
         else
             meta.install(self, {
-                _native = shader,
+                _native = shader_or_error,
                 _filename = filename,
                 _defines = defines
             })
@@ -106,12 +111,17 @@ end
 --- @brief
 function rt.ComputeShader:recompile()
     if self._is_disabled then return end
+
+    if not bd.exists(self._filename) then
+        rt.error("In rt.ComputeShader.recompile: file at `", self._filename, "` does not exist")
+    end
+
     local success, shader = pcall(love.graphics.newComputeShader, self._filename, {
         defines = self._defines
     })
 
     if not success then
-        rt.critical("In rt.ComputeShader: Error when evaluating shader at `", self._filename, "`:\n", shader)
+        rt.critical("In rt.ComputeShader.recompile: Error when evaluating shader at `", self._filename, "`:\n", shader)
     else
         self._native = shader
     end

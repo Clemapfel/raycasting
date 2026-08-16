@@ -644,6 +644,11 @@ function rt.Mesh:set_vertex_attribute(i, ...)
 end
 
 --- @brief
+function rt.Mesh:get_vertex_attribute(i, ...)
+    return self._native:getVertexAttribute(i, ...)
+end
+
+--- @brief
 function rt.Mesh:set_texture(texture)
     if texture ~= nil and meta.is_function(texture.get_native) then
         texture = texture:get_native()
