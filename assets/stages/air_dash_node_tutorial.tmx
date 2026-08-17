@@ -320,7 +320,7 @@
   </object>
   <object id="357" type="Wall" x="-45.5501" y="-2154.87">
    <properties>
-    <property name="type" value="SQUARES"/>
+    <property name="type" value="SPHERES"/>
    </properties>
    <polygon points="0,0 45.5501,986.87 1549.55,970.87 1485.55,-133.13"/>
   </object>

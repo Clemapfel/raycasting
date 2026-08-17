@@ -77,6 +77,17 @@ function rt.Texture:get_wrap_mode()
 end
 
 --- @brief
+function rt.Texture:set_mipmap_scale_mode(scale_mode, sharpness)
+    meta.assert(scale_mode, rt.TextureScaleMode, sharpness, mt.Optional(mt.Number))
+    self._native:setMipmapFilter(scale_mode, sharpness)
+end
+
+--- @brief
+function rt.Texture:get_mipmap_scale_mode()
+    self._native:getMipmapFilter()
+end
+
+--- @brief
 --- @return rt.TextureFormat
 function rt.Texture:get_format()
     return self._native:getFormat()

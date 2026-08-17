@@ -2,7 +2,7 @@ rt.settings.overworld.wall = {
     texture_format = rt.TextureFormat.RGBA8,
     work_group_size_x = 16,
     work_group_size_y = 16,
-    texture_size = 1024 * 4,
+    texture_size = 512 * 7,
     world_size = 2048,
 }
 
@@ -19,8 +19,7 @@ ow.WallPatternType = meta.enum("WallPatternType", {
     FLAT = "FLAT",
     SQUARES = "SQUARES",
     SPHERES = "SPHERES",
-    TRIANGLES = "TRIANGLES",
-    HEXAGONS = "HEXAGONS"
+    TRIANGLES = "TRIANGLES"
 })
 
 local _textures_initialized = false
@@ -109,20 +108,20 @@ end
 
 function ow.Wall._initialize_textures() -- sic, static
     local size = rt.settings.overworld.wall.texture_size
-    local get_size = function(x_ratio, y_ratio)
-        if y_ratio == nil then y_ratio = x_ratio end
-        x_ratio = y_ratio / x_ratio
-        y_ratio = 1
 
-        return { x_ratio * size, y_ratio * size }
+    -- Takes the mathematical X and Y periods and normalizes them to 'size'
+    local get_size = function(w_period, h_period)
+        if h_period == nil then h_period = w_period end
+        local aspect_ratio = w_period / h_period
+
+        return { aspect_ratio * size, 1 * size }
     end
 
     local type_to_texture_size = {
         [ow.WallPatternType.FLAT] = { 1, 1 },
-        [ow.WallPatternType.SQUARES] = get_size(1, math.sqrt(2)),
-        [ow.WallPatternType.SPHERES] = get_size(1, math.sqrt(3) / 3),
-        [ow.WallPatternType.TRIANGLES] = get_size(2, 2 * math.sqrt(3)),
-        [ow.WallPatternType.HEXAGONS] = get_size(1, 1)
+        [ow.WallPatternType.SQUARES] = get_size(math.sqrt(2), math.sqrt(2)),
+        [ow.WallPatternType.SPHERES] = get_size(math.sqrt(3), 3),
+        [ow.WallPatternType.TRIANGLES] = get_size(2, 2 * math.sqrt(3))
     }
 
     local get_ambient = function(x, y, z, intensity)
@@ -133,12 +132,12 @@ function ow.Wall._initialize_textures() -- sic, static
         return { x, y, 0.5, intensity }
     end
 
+    local square_angle = -math.pi / 8
     _pattern_type_to_ambient = {
         [ow.WallPatternType.FLAT] = get_ambient(0, 0, 0, 0),
-        [ow.WallPatternType.SQUARES] = get_ambient(0),
+        [ow.WallPatternType.SQUARES] = get_ambient(math.cos(square_angle), math.sin(square_angle), 0.5, 0.2),
         [ow.WallPatternType.SPHERES] = get_ambient(-1, -1, 0.5, 0.3),
-        [ow.WallPatternType.TRIANGLES] = get_ambient(-1, -1, 0.5, 0.3),
-        [ow.WallPatternType.HEXAGONS] = get_ambient(1)
+        [ow.WallPatternType.TRIANGLES] = get_ambient(-1, -1, 0.5, 0.3)
     }
 
     for texture in values(_pattern_type_to_texture) do
@@ -149,8 +148,7 @@ function ow.Wall._initialize_textures() -- sic, static
         ow.WallPatternType.FLAT, -- 1
         ow.WallPatternType.SPHERES, -- 2
         ow.WallPatternType.TRIANGLES, -- 3
-        ow.WallPatternType.SQUARES, -- 4
-        ow.WallPatternType.HEXAGONS -- 5
+        ow.WallPatternType.SQUARES -- 4
     }) do
         local settings = rt.settings.overworld.wall
         local size_x, size_y = table.unpack(type_to_texture_size[type])

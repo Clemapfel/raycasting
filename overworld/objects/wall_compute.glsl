@@ -2,10 +2,9 @@
 #define PATTERN_TYPE_SPHERES 2
 #define PATTERN_TYPE_TRIANGLES 3
 #define PATTERN_TYPE_SQUARES 4
-#define PATTERN_TYPE_HEXAGONS 5
 
 #ifndef PATTERN_TYPE
-#error "PATTERN_TYPE undefined, should be 1, 2, 3, 4, or 5"
+#error "PATTERN_TYPE undefined, should be 1, 2, 3, or 4"
 #endif
 
 #ifndef TEXTURE_FORMAT
@@ -26,9 +25,9 @@ layout(TEXTURE_FORMAT) uniform writeonly image2D texture;
 #if PATTERN_TYPE == PATTERN_TYPE_FLAT
 
 void pattern(
-    in vec2 position,
-    out float height,
-    out vec3 normal
+in vec2 position,
+out float height,
+out vec3 normal
 ) {
     height = 0.0;
     normal = vec3(0.0, 0.0, 1.0);
@@ -83,12 +82,16 @@ float hexagonal_dome_sdf(vec2 position, out vec3 surface_normal) {
 }
 
 void pattern(
-    in vec2 position,
-    out float height,
-    out vec3 normal
+in vec2 position,
+out float height,
+out vec3 normal
 ) {
-    position *= (3 * 20) * vec2(sqrt(3) / 3, 1);
-    height = hexagonal_dome_sdf(position, normal);
+    int tiling_repeats = 20;
+
+    vec2 period = vec2(sqrt(3.0), 3.0);
+    vec2 p = position * float(tiling_repeats) * period;
+
+    height = hexagonal_dome_sdf(p, normal);
 }
 
 #elif PATTERN_TYPE == PATTERN_TYPE_TRIANGLES
@@ -128,29 +131,45 @@ in vec2 position,
 out float height,
 out vec3 normal
 ) {
-    vec2 p = position * (3 * 11) * vec2(2.0 * sqrt(3.0), 2);
+    int tiling_repeats = 17;
+
+    vec2 period = vec2(2.0, 2.0 * sqrt(3.0));
+    vec2 p = position * float(tiling_repeats) * period;
+
     triangle_tiling(p, height, normal);
 }
 
 #elif PATTERN_TYPE == PATTERN_TYPE_SQUARES
 
 void square_tiling(vec2 p, out float height, out vec3 normal) {
-    p = p / sqrt(2.0);
+    const float H_half = 0.5;
 
-    vec2 local = fract(p) - 0.5;
-    vec2 abs_local = abs(local);
+    vec2 u = fract(p + H_half) - H_half;
+    vec2 d = abs(u);
+    float max_d = max(d.x, d.y);
 
-    height = 0.5 - max(abs_local.x, abs_local.y);
+    // Peak (height = 1) at the cell center, falling to 0 at the cell edges,
+    // matching the orientation of the triangle/sphere patterns.
+    height = 2.0 * max_d;
 
-    vec2 gradient;
-    if (abs_local.x > abs_local.y) {
-        gradient = vec2(-sign(local.x), 0.0);
+    // The dominant axis (the one farther from center) determines which pair
+    // of pyramid faces we're on, and thus the slope direction.
+    vec2 active_grad;
+    if (d.x > d.y) {
+        active_grad = vec2(sign(u.x), 0.0);
     } else {
-        gradient = vec2(0.0, -sign(local.y));
+        active_grad = vec2(0.0, sign(u.y));
     }
 
-    const float steepness = 1.0;
-    normal = normalize(vec3(-gradient * steepness, 1.0));
+    // steepness = 2.0 to match d(height)/d(u) = -2*sign(u) along the active axis
+    const float steepness = 2.0;
+    normal = normalize(vec3(-active_grad * steepness, 1.0));
+}
+
+vec2 rotate(vec2 p, float angle) {
+    float c = cos(angle);
+    float s = sin(angle);
+    return mat2(c, -s, s, c) * p;
 }
 
 void pattern(
@@ -158,23 +177,17 @@ in vec2 position,
 out float height,
 out vec3 normal
 ) {
-    const float aspect = sqrt(2);
-    vec2 p = position * (aspect * 20) * vec2(aspect, 1);
+    int tiling_repeats = 25;
+
+    vec2 period = vec2(sqrt(2.0), sqrt(2.0));
+    vec2 p = position * float(tiling_repeats) * period;
+
+    p = rotate(p, radians(45.0));
     square_tiling(p, height, normal);
 }
 
-#elif PATTERN_TYPE == PATTERN_TYPE_HEXAGONS
-
-void pattern(
-    in vec2 position,
-    out float height,
-    out vec3 normal
-) {
-    // TODO
-}
-
 #else
-#error "Unhandled PATTERN_TYPE, should be 1, 2, 3, 4, or 5"
+#error "Unhandled PATTERN_TYPE, should be 1, 2, 3, or 4"
 #endif
 
 layout (local_size_x = WORK_GROUP_SIZE_X, local_size_y = WORK_GROUP_SIZE_Y, local_size_z = 1) in;

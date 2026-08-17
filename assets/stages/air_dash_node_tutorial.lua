@@ -1255,7 +1255,7 @@ return {
             { x = 1485.55, y = -133.13 }
           },
           properties = {
-            ["type"] = "SQUARES"
+            ["type"] = "SPHERES"
           }
         },
         {
