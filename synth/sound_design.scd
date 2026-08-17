@@ -794,17 +794,31 @@ server.waitForBoot({
 };
 
 ~player = {
-	var def = SynthDef.new(\player, { arg out, pitch, gate = 1, delta, dur, tempo, legato, sustain;
-		var signal = SinOsc.ar(pitch) * EnvGen.ar(Env.perc(), gate: gate);
-		Out.ar(out, signal.dup);
+	var def = SynthDef.new(\player, { arg out, freq, amp = 1, gate = 1, sustain = 1, tempo = 1;
+		var noteDuration = sustain / tempo;
+		var sweep = freq * XLine.ar(0.midiratio, 8.midiratio, noteDuration);
+		var decay = 1;
+		var signal = Ringz.ar(
+			Impulse.ar(0),
+			freq: sweep,
+			decaytime: decay
+		);
+
+		var env = EnvGen.ar(Env.asr(
+			attackTime: 0.02,
+			releaseTime: decay
+		), gate: gate);
+
+		Out.ar(out, amp * (env * signal).dup);
 		DetectSilence.ar(signal, doneAction: Done.freeSelf);
 	}).add;
 
 	server.sync;
 
 	PmonoArtic(def.name, *[
-		pitch: Pseq(440 * [1, 2, 2.5, 1.5]),
-		sustain: 0.05
+		degree: Pseq([0] - 6),
+		sustain: 0.1,
+		amp: 1 / 2,
 	]).play;
 };
 
