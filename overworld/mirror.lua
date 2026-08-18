@@ -36,14 +36,19 @@ function ow.Mirror:instantiate(
     })
 end
 
-
 --- @brief
-function ow.Mirror:initialize(mirror_contours, occluding_contours)
-    meta.assert(mirror_contours, mt.Table, occluding_contours, mt.Table)
-    self._query:initialize(
-        occluding_contours, -- sic, swapped, non-reflective
-        mirror_contours -- reflective
-    )
+function ow.Mirror:initialize(mirror_contours)
+    meta.assert(mirror_contours, mt.Table)
+
+    local entries = {}
+    for _, contour in ipairs(mirror_contours) do
+        table.insert(entries, {
+            contour = contour,
+            is_dynamic = false
+        })
+    end
+
+    self._query:initialize(entries)
 end
 
 -- flip across line defined by line segment

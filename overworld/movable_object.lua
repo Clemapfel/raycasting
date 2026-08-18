@@ -30,3 +30,16 @@ end
 function ow.MovableObject:get_velocity()
     return _forward_or_throw(self, "get_velocity")
 end
+
+--- @brief
+function ow.MovableObject:get_is_visible()
+    if self._body == nil
+        or not meta.isa(self._body, b2.Body)
+        or self._stage == nil
+        or not meta.isa(self._stage, ow.Stage)
+    then
+        rt.error("In ", meta.typeof(self), ".get_is_visible: abstract function called")
+    else
+        return self._stage:get_is_body_visible(self._body)
+    end
+end

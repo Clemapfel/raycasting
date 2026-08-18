@@ -1,13 +1,6 @@
 --- @class ow.VisiblityQuery
 ow.VisibilityQuery = meta.class("VisibilityQuery")
 
---- @enum ow.ContourType
-ow.ContourType = {
-    REFLECTIVE = true,
-    NON_REFLECTIVE = false
-}
-ow.ContourType = meta.enum("ContourType", ow.ContourType)
-
 local function _dedupe(list, eps)
     local result = {}
     for i = 1, #list do
@@ -25,40 +18,60 @@ local function _dedupe(list, eps)
 end
 
 --- @brief
-function ow.VisibilityQuery:initialize(non_reflective_contours, reflective_contours)
-    if reflective_contours == nil then reflective_contours = {} end
-    if non_reflective_contours == nil then non_reflective_contours = {} end
-    meta.assert(non_reflective_contours, mt.Table, reflective_contours, mt.Table)
+---
+--- input format: {
+---     contour : Table<Number>
+---     is_dynamic : Boolean
+--- }
+---
+--- output format: {
+---     segment : Table<Number>
+---     entry : Table, ref to input entry
+---     is_dynamic : Boolean
+---     set_offset : Function
+--- }
+function ow.VisibilityQuery:initialize(entries)
+    meta.assert(entries, mt.Table)
+
+    -- verify entry integrity
+    for i, entry in ipairs(entries) do
+        rt.assert(meta.is_table(entry),
+            "In ow.VisibilityQuery: entry at position `", i, "` is not a table"
+        )
+
+        rt.assert(meta.is_table(entry.contour) and (#entry.contour % 2 == 0) and meta.is_number(entry.contour[1]),
+            "In ow.VisibilityQuery: contour at position `", i, "` does not have `contour` set to a valid table of 2d positions"
+        )
+
+        if entry.is_dynamic == nil then entry.is_dynamic = false end
+        rt.assert(meta.is_boolean(entry.is_dynamic),
+            "In ow.VisibilityQuery: contour at position `", i, "` does not have `is_dynamic` set to a boolean"
+        )
+    end
 
     self._world = love.physics.newWorld(0, 0, false)
-    self._body = love.physics.newBody(self._world, 0, 0, b2.BodyType.STATIC)
     self._shapes = {}
 
     self._cache_hash = nil
     self._cache = nil
 
-    local metatable = {
-        __index = function(self, key)
-            rt.error("In ow.VisibilityQuery: trying to access property `", key, "` of a segment, but it does not exist")
-        end
-    }
+    local create_raw = function(entry, ax, ay, bx, by)
+        meta.assert(entry, mt.Table, ax, mt.Number, ay, mt.Number, bx, mt.Number, by, mt.Number)
+        return {
+            segment = { ax, ay, bx, by },
+            splits = {}, -- list of t values where this segment must be cut
+            entry = entry
+        }
+    end
 
     -- collect segments from contours
     local raw_segments = {}
-    for contours_and_type in range(
-        { reflective_contours, ow.ContourType.REFLECTIVE },
-        { non_reflective_contours, ow.ContourType.NON_REFLECTIVE }
-    ) do
-        local contours, type = table.unpack(contours_and_type)
-        for contour in values(contours) do
-            for i = 1, #contour - 2, 2 do
-                table.insert(raw_segments, {
-                    segment = { contour[i+0], contour[i+1], contour[i+2], contour[i+3] },
-                    contour = contour,
-                    type = type,
-                    splits = {} -- list of t values where this segment must be cut
-                })
-            end
+    for _, entry in ipairs(entries) do
+        local contour = entry.contour
+        for i = 1, #contour - 2, 2 do
+            table.insert(raw_segments, create_raw(entry,
+                contour[i+0], contour[i+1], contour[i+2], contour[i+3]
+            ))
         end
     end
 
@@ -114,16 +127,18 @@ function ow.VisibilityQuery:initialize(non_reflective_contours, reflective_conto
         entry.splits = _dedupe(entry.splits, t_eps)
     end
 
+    local create_final = function(entry, ax, ay, bx, by)
+        return {
+            segment = { ax, ay, bx, by },
+            entry = entry
+        }
+    end
+
     -- compute final split segments
     local final_segments = {}
     for raw in values(raw_segments) do
         if #raw.splits == 0 then
-            local segment = raw.segment
-            table.insert(final_segments, {
-                segment = { table.unpack(segment) },
-                contour = raw.contour,
-                type = raw.type
-            })
+            table.insert(final_segments, create_final(raw.entry, table.unpack(raw.segment)))
         else
             local raw_x1, raw_y1, raw_x2, raw_y2 = table.unpack(raw.segment)
             local dx, dy = raw_x2 - raw_x1, raw_y2 - raw_y1
@@ -133,36 +148,61 @@ function ow.VisibilityQuery:initialize(non_reflective_contours, reflective_conto
 
             for _, t in ipairs(raw.splits) do
                 local px, py = raw_x1 + t * dx, raw_y1 + t * dy
-                table.insert(final_segments, {
-                    segment = { previous_x, previous_y, px, py },
-                    contour = raw.contour,
-                    type = raw.type
-                })
+                table.insert(final_segments, create_final(raw.entry,
+                    previous_x, previous_y, px, py
+                ))
 
                 previous_x, previous_y = px, py
                 last_t = t
             end
 
             if 1 - last_t > t_eps then
-                table.insert(final_segments, {
-                    segment = { previous_x, previous_y, raw_x2, raw_y2 },
-                    contour = raw.contour,
-                    type = raw.type
-                })
+                table.insert(final_segments, create_final(raw.entry,
+                    previous_x, previous_y, raw_x2, raw_y2
+                ))
             end
         end
     end
 
+    self._body = love.physics.newBody(self._world, 0, 0, b2.BodyType.STATIC)
+
+    local entry_to_body = {}
+
     -- export as physics shapes
     local userdatas = {}
+    local variable_userdatas = {}
     for _, final in ipairs(final_segments) do
-        local shape = love.physics.newEdgeShape(self._body, table.unpack(final.segment))
-        local userdata = setmetatable({
+        local body, shape = nil, nil
+        if final.entry.is_dynamic then
+            body = entry_to_body[final.entry]
+            if body == nil then
+                body = love.physics.newBody(self._world, 0, 0, b2.BodyType.STATIC)
+                entry_to_body[final.entry] = body
+            end
+
+            -- if dynamic, use per-entry body
+            shape = love.physics.newEdgeShape(body, table.unpack(final.segment))
+        else
+            -- otherwise use global body, this allows for faster queries
+            body = nil
+            shape = love.physics.newEdgeShape(self._body, table.unpack(final.segment))
+        end
+
+        local userdata = {
+            is_dynamic = final.entry.is_dynamic,
+            body = body,
             shape = shape,
             segment = final.segment,
-            contour = final.contour,
-            type = final.type
-        }, metatable)
+            entry = final.entry,
+            set_offset = function(self, x, y)
+                meta.assert(self, mt.Table, x, mt.Number, y, mt.Number)
+                if body ~= nil then
+                    body:setPosition(x, y)
+                else
+                    rt.error("In ow.VisibilityQuery: trying to call userdata `set_offset`, but the segments for this userdata where declared as non-dynamic")
+                end
+            end
+        }
 
         shape:setUserData(userdata)
         table.insert(self._shapes, shape)
@@ -263,14 +303,29 @@ do
     local empty = {}
 
     --- @brief get all subsegments that are visible from a point
-    function ow.VisibilityQuery:get_visible_subsegments(x, y, bounds, compute_polygon, additional_edges)
+    function ow.VisibilityQuery:get_visible_subsegments(x, y, bounds, compute_polygon)
         if compute_polygon == nil then compute_polygon = false end
-        if additional_edges == nil then additional_edges = empty end
-        meta.assert(x, mt.Number, y, mt.Number, bounds, rt.AABB, compute_polygon, mt.Boolean, additional_edges, mt.Table)
+        meta.assert(x, mt.Number, y, mt.Number, bounds, rt.AABB, compute_polygon, mt.Boolean)
+
+        local edges = {}
+        local allow_hash = true
+        for i, shape in ipairs(self._world:getShapesInArea(
+            bounds.x, bounds.y,
+            bounds.x + bounds.width,
+            bounds.y + bounds.height
+        )) do
+            local userdata = shape:getUserData()
+            if userdata.is_dynamic == true then
+                allow_hash = false
+            end
+
+            table.insert(edges, userdata)
+        end
 
         -- caching
         local to_hash = {}
         for h in range(
+            rt.SceneManager:get_frame_index(),
             x, y,
             bounds.x, bounds.y,
             bounds.width, bounds.height,
@@ -280,29 +335,10 @@ do
         end
 
         local hash = table.concat(to_hash, "_")
-        if #additional_edges == 0 and self._cache_hash == hash then
-            return self._cache.subsegments, self._cache.tris
-        end
 
-        local edges = {}
-        for i, shape in ipairs(self._world:getShapesInArea(
-            bounds.x, bounds.y,
-            bounds.x + bounds.width,
-            bounds.y + bounds.height
-        )) do
-            table.insert(edges, shape:getUserData())
-        end
-
-        if #additional_edges > 0 then
-            for i, edge in ipairs(additional_edges) do
-                rt.assert(meta.is_table(edge)
-                    and not meta.is_nil(edge.segment)
-                    and #edge.segment == 4
-                    and meta.is_number(edge.segment[1]),
-                    "In ow.VisibilityQuery:get_visible_subsegments: additional edges has malformed entry at position `", i, "`"
-                )
-
-                table.insert(edges, edge)
+        if allow_hash then
+            if self._cache_hash == hash then
+                return self._cache.subsegments, self._cache.tris
             end
         end
 
@@ -327,6 +363,19 @@ do
             end
         end
 
+        local get_segment = function(data)
+            local ax, ay, bx, by = table.unpack(data.segment)
+            if data.body ~= nil then -- nil for dummy bounds segments
+                local offset_x, offset_y = data.body:getPosition()
+                ax = ax + offset_x
+                ay = ay + offset_y
+                bx = bx + offset_x
+                by = by + offset_y
+            end
+
+            return ax, ay, bx, by
+        end
+
         local angles = table.new(#edges * 2, 0)
         local edge_angle_ranges = table.new(#edges * 2, 0)
 
@@ -334,7 +383,8 @@ do
         local angle_set = {}
 
         for edge_i, data in ipairs(edges) do
-            local ax, ay, bx, by = table.unpack(data.segment)
+            local ax, ay, bx, by = get_segment(data)
+
             local dxa, dya = math.subtract(ax, ay, x, y)
             local dxb, dyb = math.subtract(bx, by, x, y)
             local a_angle = math.normalize_angle(math.angle(dxa, dya))
@@ -450,7 +500,7 @@ do
                             true,
                             x, y,
                             cos(mid_angle), sin(mid_angle),
-                            table.unpack(edge.segment)
+                            get_segment(edge)
                         )
 
                         if distance ~= nil and distance < min_distance then
@@ -464,14 +514,14 @@ do
                     local hit1_x, hit1_y = _ray_line_intersect(
                         false, x, y,
                         cos(angle1), sin(angle1),
-                        table.unpack(min_edge.segment)
+                        get_segment(min_edge)
                     )
 
                     local hit2_x, hit2_y = _ray_line_intersect(
                         false,
                         x, y,
                         cos(angle2), sin(angle2),
-                        table.unpack(min_edge.segment)
+                        get_segment(min_edge)
                     )
 
                     if hit1_x and hit2_x then

@@ -42,7 +42,7 @@ function ow.MovableHitbox:instantiate(object, stage, scene)
     ))
 
     self._body:set_use_continuous_collision(true)
-    local start_x, start_y = self._body:get_position()
+    self._start_x, self._start_y = self._body:get_position()
     self._elapsed = 0
     self._visible_segments = {}
 
@@ -78,9 +78,6 @@ function ow.MovableHitbox:instantiate(object, stage, scene)
 
     self._is_slippery = object:get_boolean(b2.Tag.SLIPPERY)
     if self._is_slippery == nil then self._is_slippery = false end
-
-    self._query = ow.VisibilityQuery(scene)
-    self._query:initialize({ self._contour })
 
     if self._is_slippery then
         self._mirror = ow.Mirror(
@@ -124,7 +121,7 @@ end
 local dt = math.eps * 10e2
 
 function ow.MovableHitbox:update(delta)
-    local is_visible = self._stage:get_is_body_visible(self._body)
+    local is_visible = self:get_is_visible()
 
     if is_visible then
         local offset_x, offset_y = self._body:get_position()
@@ -142,7 +139,7 @@ end
 
 --- @brief
 function ow.MovableHitbox:draw(priority)
-    if not self._stage:get_is_body_visible(self._body) then return end
+    if not self:get_is_visible() then return end
 
     local offset_x, offset_y = self._body:get_position()
     if self._mirror ~= nil then
@@ -193,7 +190,7 @@ end
 
 --- @brief
 function ow.MovableHitbox:draw_bloom()
-    if not self._stage:get_is_body_visible(self._body) then return end
+    if not self:get_is_visible() then return end
 
     if self._blood_spatter ~= nil then
         love.graphics.setColor(1, 1, 1, 1)
@@ -203,16 +200,23 @@ end
 
 --- @brief
 function ow.MovableHitbox:get_contour()
-    if self._stage:get_is_body_visible(self._body) then
-        local contour = table.deepcopy(self._contour)
-        local offset_x, offset_y = self._body:get_position()
-        for i = 1, #contour, 2 do
-            contour[i+0] = contour[i+0] + offset_x
-            contour[i+1] = contour[i+1] + offset_y
-        end
-
-        return contour
-    else
-        return {}
+    local contour = table.deepcopy(self._contour)
+    local offset_x, offset_y = self._start_x, self._start_y
+    for i = 1, #contour, 2 do
+        contour[i+0] = contour[i+0] + offset_x
+        contour[i+1] = contour[i+1] + offset_y
     end
+
+    return contour, true -- is dynamic
+end
+
+--- @brief
+function ow.MovableHitbox:get_offset()
+    local x, y = self._body:get_position()
+    return x - self._start_x, y - self._start_y
+end
+
+--- @brief
+function ow.MovableHitbox:get_is_visible()
+    return self._stage:get_is_body_visible(self._body)
 end

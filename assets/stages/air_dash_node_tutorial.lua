@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 360,
+  nextobjectid = 361,
   properties = {
     ["background_id"] = "\"nebula\""
   },
@@ -1278,6 +1278,25 @@ return {
           properties = {
             ["type"] = "SPHERES"
           }
+        },
+        {
+          id = 360,
+          name = "",
+          type = "Hitbox",
+          shape = "polygon",
+          x = 224,
+          y = -1552,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = -16, y = 96 },
+            { x = 80, y = 64 },
+            { x = 96, y = 32 }
+          },
+          properties = {}
         }
       }
     },

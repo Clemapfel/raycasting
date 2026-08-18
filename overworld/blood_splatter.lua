@@ -235,12 +235,19 @@ function ow.BloodSpatter:initialize(contours)
     meta.assert(contours, mt.Table)
 
     local max_length = rt.settings.overworld.blood_splatter.subdivision_length
-    local datas = self._query:initialize(contours, nil) -- no reflective contours
+
+    local entries = {}
+    for i, contour in ipairs(contours) do
+        table.insert(entries, {
+            contour = contour,
+            is_dynamic = false
+        })
+    end
+
+    local datas = self._query:initialize(entries)
 
     for data in values(datas) do
-        -- Extract the segment coordinates directly from the userdata
         local x1, y1, x2, y2 = table.unpack(data.segment)
-
         local dx, dy = x2 - x1, y2 - y1
         local length = math.magnitude(dx, dy)
         local subdivisions = {}

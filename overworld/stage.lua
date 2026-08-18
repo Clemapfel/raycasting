@@ -369,13 +369,10 @@ function ow.Stage:instantiate(scene, id)
     )
 
     self._mirror:initialize(
-        ow.Hitbox:get_contours(false, true), -- mirror
-        ow.Hitbox:get_contours(true, false)  -- occluding
+        ow.Hitbox:get_contours(false, true) -- slippery
     )
 
     self._shadow_cast:initialize(
-        ow.Hitbox:get_contours(false, true), -- mirror
-        ow.Hitbox:get_contours(true, false), -- occluding
         self._shadow_cast_bodies
     )
 

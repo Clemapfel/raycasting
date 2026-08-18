@@ -156,6 +156,11 @@ function ow.Hitbox:instantiate(object, stage, scene)
 end
 
 --- @brief
+function ow.Hitbox:get_contour()
+    return self._contour, false -- not dynamic
+end
+
+--- @brief
 function ow.Hitbox:reinitialize()
     ow.Hitbox._slippery_mesh_tris = {}
     ow.Hitbox._slippery_collision_tris = {}
@@ -329,4 +334,9 @@ function ow.Hitbox:get_contours(sticky, slippery)
     end
 
     return contours
+end
+
+--- @brief
+function ow.Hitbox:get_is_visible()
+    return self._stage:get_is_visible(self._body)
 end
