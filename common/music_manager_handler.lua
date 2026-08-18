@@ -7,91 +7,89 @@ rt.MusicManagerHandler = meta.class("MusicManagerHandler")
 
 local MessageType = {}
 for id in range(
-    "SHUTDOWN",
-    "SHUTDOWN_RESPONSE",
-    "ERROR",
-    "SIGNAL_EMIT",
-    "NOTIFY_STATE",
-    "PLAY",
-    "STOP",
-    "UNPAUSE",
-    "PAUSE",
-    "ADD_EFFECT",
-    "REMOVE_EFFECT",
-    "SET_FILTER",
-    "SET_VOLUME",
-    "REMOVE_FILTER",
-    "SET_PITCH",
-    "RESET"
+    "SHUTDOWN", --[[
+        main -> worker
+        type : MessageType
+    ]]
+    "SHUTDOWN_RESPONSE", --[[
+        worker -> main
+        type : MessageType
+        success : Boolean
+        error : String?
+        traceback : String?
+    ]]
+    "ERROR", --[[
+        worker -> main
+        type : MessageType
+        error : String
+        fatal : Boolean
+    ]]
+    "SIGNAL_EMIT", --[[
+        worker -> main
+        type : MessageType
+        signal : String
+        args : Table<Any>
+    ]]
+    "NOTIFY_STATE", --[[
+        main -> worker
+        type : MessageType
+        is_paused : Boolean
+    ]]
+    "PLAY", --[[
+        main -> worker
+        type : MessageType
+        id : String?
+        skip_fade : Union<Number, String>
+    ]]
+    "STOP", --[[
+        main -> worker
+        type : MessageType
+        reset_to_loop_or_file : Boolean?
+    ]]
+    "UNPAUSE", --[[
+        main -> worker
+        type : MessageType
+    ]]
+    "PAUSE", --[[
+        main -> worker
+        type : MessageType
+    ]]
+    "ADD_EFFECT", --[[
+        main -> worker
+        type : MessageType
+        native : String
+    ]]
+    "REMOVE_EFFECT", --[[
+        main -> worker
+        type : MessageType
+        native : String
+    ]]
+    "SET_FILTER", --[[
+        main -> worker
+        type : MessageType
+        t : Number
+    ]]
+    "SET_VOLUME", --[[
+        main -> worker
+        type : MessageType
+        volume : Number
+    ]]
+    "REMOVE_FILTER", --[[
+        main -> worker
+        type : MessageType
+    ]]
+    "SET_PITCH", --[[
+        main -> worker
+        type : MessageType
+        pitch : Number
+    ]]
+    "RESET" --[[
+        main -> worker
+        type : MessageType
+    ]]
 ) do
     MessageType[id] = id
 end
-
---[[
-SHUTDOWN:  main -> worker
-    type : MessageType
-
-SHUTDOWN_RESPONSE: worker -> main
-    type : MessageType
-    success : Boolean
-    error : String?
-    traceback : String?
-
-ERROR: worker -> main
-    type : MessageType
-    error : String
-    fatal : Boolean
-
-SIGNAL_EMIT: worker -> main
-    type : MessageType
-    signal : String
-    args : Table<Any>
-
-NOTIFY_STATE : main -> worker
-    type : MessageType
-    is_paused : Boolean
-
-PLAY: main -> worker
-    type : MessageType
-    id : String?
-    skip_fade : Union<Number, String>
-
-STOP: main -> worker
-    type : MessageType
-    reset_to_loop_or_file : Boolean?
-
-UNPAUSE: main -> worker
-    type : MessageType
-
-PAUSE: main -> worker
-    type : MessageType
-
-ADD_EFFECT: main -> worker
-    type : MessageType
-    native : String
-
-REMOVE_EFFECT: main -> worker
-    type : MessageType
-    native : String
-
-SET_FILTER: main -> worker
-    type : MessageType
-    t : Number
-
-REMOVE_FILTER: main -> worker
-    type : MessageType
-
-SET_PITCH: main -> worker
-    type : MessageType
-    pitch : Number
-
-SET_VOLUME: main -> worker
-    type : MessageType
-    volume : Number
-
-RESET: main -> worker
-    type : MessageType
-]]
 
 --- @brief
 function rt.MusicManagerHandler:instantiate()

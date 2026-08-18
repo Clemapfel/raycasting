@@ -25,20 +25,12 @@ ow.WallPatternType = meta.enum("WallPatternType", {
 local _textures_initialized = false
 local _pattern_type_to_texture = {}
 local _pattern_type_to_ambient = {}
-local _pattern_to_scale = {}
 
 local _draw_shader = rt.Shader("overworld/objects/wall_draw.glsl")
 
 function ow.Wall:instantiate(object, stage, scene)
     if _textures_initialized ~= true then
         ow.Wall._initialize_textures()
-
-        DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
-            if which == rt.KeyboardKey.CIRCUMFLEX then
-                ow.Wall._initialize_textures()
-            end
-        end)
-
         _textures_initialized = true
     end
     object:validate_schema(schema, ow.ShapeType.NOT_A_POINT)
@@ -108,12 +100,9 @@ end
 
 function ow.Wall._initialize_textures() -- sic, static
     local size = rt.settings.overworld.wall.texture_size
-
-    -- Takes the mathematical X and Y periods and normalizes them to 'size'
-    local get_size = function(w_period, h_period)
-        if h_period == nil then h_period = w_period end
-        local aspect_ratio = w_period / h_period
-
+    local get_size = function(x_period, y_period)
+        if y_period == nil then y_period = x_period end
+        local aspect_ratio = x_period / y_period
         return { aspect_ratio * size, 1 * size }
     end
 

@@ -10,11 +10,13 @@ var peakSentinel = PeakSentinel.new(server);
 
 server.volume.volume = 0;
 server.options.sampleRate = Renderer.sampleRate;
-server.options.memSize = 65536 * 4;
+server.options.memSize = 2 * (2 ** 20); // 2 gb
 
 server.waitForBoot({
 	//~accelerator_surface_sparkle.();
-	~player.();
+	//~player.();
+
+	~granular.();
 
 	CmdPeriod.doOnce({
 		server.freeAll;
@@ -819,6 +821,45 @@ server.waitForBoot({
 		degree: Pseq([0] - 6),
 		sustain: 0.1,
 		amp: 1 / 2,
+	]).play;
+};
+
+~granular = {
+	var def = SynthDef.new(\granular, { arg out, gate = 1, freq, dur, bufnum, bufdur, amp = 0.5, density = 600, start_t = 0, end_t = 1;
+		var sig = GrainBuf.ar(
+			numChannels: 1,
+			trigger: Impulse.ar(freq + Vibrato.ar(DC.ar(freq), depth: 0.03)),
+			sndbuf: bufnum,
+			dur: (end_t - start_t) * bufdur,
+			pos: start_t * bufdur,
+			envbufnum: -1
+		);
+
+		var env = EnvGen.ar(Env.asr(attackTime: 0.08 , releaseTime: 0.4), gate: gate);
+
+		sig = sig * env;
+		Out.ar(out, amp * sig.dup);
+		DetectSilence.ar(sig, time: 2 * dur, doneAction: Done.freeSelf);
+	}).add;
+
+
+	var bufdur = 0.1;
+	var buffer = Buffer.alloc(server, Renderer.sampleRate * bufdur, 1);
+	{
+		var sig = BrownNoise.ar();
+		Silence.ar() * RecordBuf.ar(sig, buffer, run: 1, loop: false, doneAction: Done.freeSelf);
+	}.play;
+
+	server.sync;
+
+	PmonoArtic(def.name, *[
+		bufnum: buffer,
+		bufdur: buffer.duration,
+		start_t: 0.4,
+		end_t: 0.6,
+		dur: 0.5,
+		degree: Pseq([0, 1, 2]),
+		sustain: 0.25
 	]).play;
 };
 

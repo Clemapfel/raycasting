@@ -10,106 +10,119 @@ meta.add_signals(rt.SoundManagerHandler, -- same as rt.SoundManager
 
 local MessageType = {}
 for id in range(
-    "SHUTDOWN",
-    "SHUTDOWN_RESPONSE",
-    "ERROR",
-    "NOTIFY_STATE",
-    "SIGNAL_EMIT",
-    "SET_PLAYER_POSITION",
-    "SET_POSITION",
-    "PLAY",
-    "STOP",
-    "SET_GLOBAL_VOLUME",
-    "SET_VOLUME",
-    "SET_PITCH",
-    "SET_FILTER",
-    "REMOVE_FILTER",
-    "ADD_EFFECT",
-    "REMOVE_EFFECT"
+    "SHUTDOWN", --[[
+        main -> worker
+        type : MessageType
+    ]]
+
+    "SHUTDOWN_RESPONSE", --[[
+        worker -> main
+        type : MessageType
+        success : Boolean
+        error : String?
+        traceback : String?
+    ]]
+
+    "ERROR", --[[
+        worker -> main
+        type : MessageType
+        error : String
+        fatal : Boolean
+    ]]
+
+    "NOTIFY_STATE", --[[
+        worker -> main
+        type : MessageType
+        sound_id_to_active_handlers : Table<String, Table<Number>>
+    ]]
+
+    "SIGNAL_EMIT", --[[
+        worker -> main
+        type : MessageType
+        signal : String
+        args : Table<Any>
+    ]]
+
+    "SET_PLAYER_POSITION", --[[
+        main -> worker
+        type : MessageType
+        position_x : Number
+        position_y : Number
+    ]]
+
+    "SET_POSITION", --[[
+        main -> worker
+        type : MessageType
+        handler_id : Number
+        position_x : Number?
+        position_y : Number?
+    ]]
+
+    "PLAY", --[[
+        main -> worker
+        type : MessageType
+        id : String
+        config : Table? -- pitch, position_x, position_y, should_loop
+    ]]
+
+    "STOP", --[[
+        main -> worker
+        type : MessageType
+        handler_id : Number
+        fade_out_duration : Number?
+    ]]
+
+    "SET_GLOBAL_VOLUME", --[[
+        main -> worker
+        type : MessageType
+        value : Number
+    ]]
+
+    "SET_VOLUME", --[[
+        main -> worker
+        type : MessageType
+        handler_id : Number
+        volume : Number
+        use_smoothing : Boolean
+    ]]
+
+    "SET_PITCH", --[[
+        main -> worker
+        type : MessageType
+        handler_id : Number
+        pitch : Number
+        use_smoothing : Boolean
+    ]]
+
+    "SET_FILTER", --[[
+        main -> worker
+        type : MessageType
+        handler_id : Number
+        t : Number
+    ]]
+
+    "REMOVE_FILTER", --[[
+        main -> worker
+        type : MessageType
+        handler_id : Number
+    ]]
+
+    "ADD_EFFECT", --[[
+        main -> worker
+        type : MessageType
+        handler_id : Number
+        native : Object -- native handle from rt.SoundEffect:get_native()
+    ]]
+
+    "REMOVE_EFFECT" --[[
+        main -> worker
+        type : MessageType
+        handler_id : Number
+        native : Object -- native handle from rt.SoundEffect:get_native()
+    ]]
 ) do
     MessageType[id] = id
 end
-
---[[
-SHUTDOWN:  main -> worker
-    type : MessageType
-
-SHUTDOWN_RESPONSE: worker -> main
-    type : MessageType
-    success : Boolean
-    error : String?
-    traceback : String?
-
-ERROR: worker -> main
-    type : MessageType
-    error : String
-    fatal : Boolean
-
-NOTIFY_STATE: worker -> main
-    type : MessageType
-    sound_id_to_active_handlers : Table<String, Table<Number>>
-
-SIGNAL_EMIT: worker -> main
-    type : MessageType
-    signal : String
-    args : Table<Any>
-
-SET_PLAYER_POSITION: main -> worker
-    type : MessageType
-    position_x : Number
-    position_y : Number
-
-SET_POSITION: main -> worker
-    type : MessageType
-    handler_id : Number
-    position_x : Number?
-    position_y : Number?
-
-PLAY: main -> worker
-    type : MessageType
-    id : String
-    config : Table? -- pitch, position_x, position_y, should_loop
-
-STOP: main -> worker
-    type : MessageType
-    handler_id : Number
-    fade_out_duration : Number?
-
-SET_GLOBAL_VOLUME: main -> worker
-    type : MessageType
-    value : Number
-
-SET_VOLUME: main -> worker
-    type : MessageType
-    handler_id : Number
-    volume : Number
-    use_smoothing : Boolean
-
-SET_PITCH: main -> worker
-    type : MessageType
-    handler_id : Number
-    pitch : Number
-    use_smoothing : Boolean
-
-SET_FILTER: main -> worker
-    type : MessageType
-    handler_id : Number
-    t : Number
-
-REMOVE_FILTER: main -> worker
-    type : MessageType
-    handler_id : Number
-
-ADD_EFFECT: main -> worker
-    type : MessageType
-    handler_id : Number
-    native : Object -- native handle from rt.SoundEffect:get_native()
-
-REMOVE_EFFECT: main -> worker
-    type : MessageType
-    handler_id : Number
-    native : Object -- native handle from rt.SoundEffect:get_native()
-]]
 
 --- @brief
 function rt.SoundManagerHandler:instantiate()

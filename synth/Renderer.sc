@@ -374,6 +374,18 @@ Renderer {
         ^Score(bundleList);
     }
 
+	*allocBufferFromDuration { arg server, duration, numChannels = 1, doneAction;
+		var buffer, numFrames;
+
+		Renderer.pr_assert(server, Server, "allocBufferFromDuration", 1);
+		Renderer.pr_assert(duration, Number, "allocBufferFromDuration", 2);
+		Renderer.pr_assert(numChannels, Integer, "allocBufferFromDuration", 3);
+		Renderer.pr_assert(doneAction, Function, "allocBufferFromDuration", 4, optional: true);
+
+		numFrames = (duration * Renderer.sampleRate).ceil.asInteger;
+		^Renderer.allocBuffer(server, numFrames, numChannels, doneAction)
+	}
+
 	*allocBuffer { arg server, numFrames, numChannels, doneAction;
 		var buffer;
 

@@ -55,8 +55,6 @@ love.load = function(args)
     require "overworld.overworld_scene"
     rt.SceneManager:push(ow.OverworldScene, "air_dash_node_tutorial", ow.StageEntryMode.INSTANT)
 
-   -- profiler.report(8)
-
     require "menu.keybinding_scene"
     --rt.SceneManager:push(mn.KeybindingScene)
 
@@ -84,52 +82,3 @@ love.resize = function(width, height)
         rt.SceneManager:resize()
     end
 end
-
---[[
-local w, h = love.graphics.getDimensions()
-
-local settings = {
-    canvas = true
-}
-local outer = love.graphics.newTexture(w, h, settings)
-local inner = love.graphics.newTexture(w, h, settings)
-
-do
-    love.graphics.push("all")
-    love.graphics.setCanvas({ inner, stencil = true })
-    love.graphics.clear(1, 0, 0, 1)
-    love.graphics.pop()
-end
-
-love.draw = function()
-
-    love.graphics.setCanvas({ outer, stencil = true })
-    love.graphics.clear(0, 0, 0, 0)
-
-    local value = 123
-
-    love.graphics.setStencilState("replace", "always", value)
-    love.graphics.setColorMask(false, false, false, false)
-
-    love.graphics.setColor(1, 0, 1, 1)
-    love.graphics.circle("fill", 0.5 * w, 0.5 * h, 0.25 * h)
-
-    love.graphics.setStencilState("keep", "notequal", value)
-    love.graphics.setColorMask(true, true, true, true)
-
-    love.graphics.setColor(0, 1, 0, 1)
-    love.graphics.circle("fill", 0.5 * w, 0.5 * h, 0.5 * h)
-
-    love.graphics.setStencilState("keep", "always", value)
-    love.graphics.setColorMask(true, true, true, true)
-    love.graphics.setCanvas(nil)
-
-    -- draw red rectangle
-    love.graphics.setColor(1, 0, 0, 1)
-    love.graphics.rectangle("fill", 0, 0, love.graphics.getDimensions())
-
-    -- draw red canvas
-
-    love.graphics.draw(inner)
-end
-]]

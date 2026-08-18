@@ -1,4 +1,13 @@
+require "love.math"
+
 rt.random = {}
+
+--- @enum rt.RandomDistribution
+rt.RandomDistribution = {
+    UNIFORM = "uniform",
+    GAUSSIAN = "gaussian"
+}
+rt.RandomDistribution = meta.enum("RandomDistribution", rt.RandomDistribution)
 
 local _generator_stack = {}
 local _default_generator = love.math.newRandomGenerator(os.time())
@@ -54,6 +63,8 @@ function rt.random.gaussian(min, max)
     local r = _random_normal(0.25, 0.5) -- 95% fall into [0, 1]
     return math.clamp(math.mix(min, max, r), min, max)
 end
+
+rt.random.uniform = rt.random.number
 
 --- @brief pick random element from table
 --- @param set Table

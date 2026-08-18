@@ -12,7 +12,7 @@ function rt.ThreadManager:request_shutdown()
     self._shutdown_active = true
     for thread in values(self._threads) do
         if thread:get_native():isRunning() then
-            thread:shutdown()
+            thread:shutdown() -- automatically emits signal `shutdown`
         end
     end
 end

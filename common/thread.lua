@@ -17,7 +17,14 @@ end
 
 --- @brief
 function rt.Thread:start(...)
-    self._native:start(...)
+    local args = { ... }
+    for i, value in ipairs(args) do
+        if meta.is_object(value) and meta.is_function(value.get_native) then
+            args[i] = value:get_native()
+        end
+    end
+
+    self._native:start(table.unpack(args))
 end
 
 --- @brief
