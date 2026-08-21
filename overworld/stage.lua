@@ -42,7 +42,6 @@ meta.add_signals(ow.Stage,
 --- @brief
 function ow.Stage:instantiate(scene, id)
     meta.assert(scene, ow.OverworldScene, id, mt.String)
-
     local config = rt.GameState:stage_get_config(id)
 
     self._id = id
@@ -139,7 +138,7 @@ function ow.Stage:instantiate(scene, id)
 
     self._blood_spatter = ow.BloodSpatter(scene)
     self._shadow_cast = ow.ShadowCast(scene)
-    self._shadow_cast_bodies = {}
+    self._contour_bodies = {}
 
     self._mirror = ow.Mirror(
         scene,
@@ -289,23 +288,9 @@ function ow.Stage:instantiate(scene, id)
                 end
 
                 if meta.is_function(instance.get_contour) then
-                    table.insert(self._shadow_cast_bodies, instance)
+                    table.insert(self._contour_bodies, instance)
                 end
             end
-        end
-    end
-
-    -- add non-object updatables
-    table.insert(self._to_update, self._player_recorder)
-    for object in range(
-        self._blood_spatter,
-        self._mirror,
-        self._shadow_cast,
-        self._world,
-        self._normal_map
-    ) do
-        if meta.is_function(object.draw_bloom) then
-            table.insert(self._bloom_objects, object)
         end
     end
 
@@ -373,7 +358,7 @@ function ow.Stage:instantiate(scene, id)
     )
 
     self._shadow_cast:initialize(
-        self._shadow_cast_bodies
+        self._contour_bodies
     )
 
     -- create flow graph
@@ -458,9 +443,9 @@ function ow.Stage:draw_below_player()
         ow.Sprite.draw_all(entry.priority)
     end
 
-    self._shadow_cast:draw()
     self._player_recorder:draw()
     self._blood_spatter:draw()
+    self._shadow_cast:draw()
 end
 
 --- @brief
@@ -481,6 +466,7 @@ end
 --- @brief
 function ow.Stage:draw_bloom()
     self._blood_spatter:draw_bloom()
+    self._shadow_cast:draw_bloom()
 
     for object in values(self._bloom_objects) do
         object:draw_bloom()
@@ -520,6 +506,8 @@ function ow.Stage:update(delta)
 
     self._blood_spatter:update(delta) -- needs to check every subframe
     self._blood_spatter:notify_camera_changed(self._scene:get_camera())
+
+    self._shadow_cast:set_intensity(self._scene:get_player():get_flow())
 
     -- only update visual-only objects when a new render frame is required
     if rt.SceneManager:get_frame_index() ~= _last_frame_i then
@@ -888,6 +876,8 @@ end
 
 --- @brief
 function ow.Stage:collect_segment_lights(callback)
+    self._scene:get_player():collect_segment_lights(callback)
+
     local instances = {}
     for body in keys(self._visible_bodies) do
         if body:has_tag(b2.Tag.SEGMENT_LIGHT_SOURCE) then

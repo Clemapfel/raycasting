@@ -369,6 +369,7 @@ function ow.Checkpoint:_set_state(state)
         player:teleport_to(self._top_x, spawn_y)
         player:relax()
         player:request_is_disabled(self, true)
+        player:request_is_trail_enabled(self, false)
 
     elseif self._state == _STATE_EXPLODING then
         local player_radius = player:get_radius()
@@ -392,6 +393,7 @@ function ow.Checkpoint:_set_state(state)
         player:request_is_frozen(self, true)
         player:request_is_visible(self, false)
         player:request_is_disabled(self, true)
+        player:request_is_trail_enabled(self, false)
 
     elseif self._state == _STATE_RAY then
         self._spawn_elapsed = 0
@@ -425,6 +427,7 @@ function ow.Checkpoint:_set_state(state)
         player:teleport_to(self._top_x, self._top_y)
         player:request_opacity(self, 0)
         player:request_is_disabled(self, true)
+        player:request_is_trail_enabled(self, false)
         player:relax()
         self._stage:apply_camera_bounds(self._bottom_x, self._bottom_y)
 
@@ -432,6 +435,7 @@ function ow.Checkpoint:_set_state(state)
         player:reset()
         player:relax()
         player:request_is_disabled(self, nil) -- remove request
+        player:request_is_trail_enabled(self, nil)
         self._stage:signal_emit("respawn")
         self._stage:apply_camera_bounds(self._bottom_x, self._bottom_y)
     end

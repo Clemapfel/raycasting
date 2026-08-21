@@ -1,6 +1,8 @@
 require "overworld.visibility_query"
 
-rt.settings.overworld.shadow_cast = {}
+rt.settings.overworld.shadow_cast = {
+    glow_intensity = 0.5
+}
 
 --- @class ow.ShadowCast
 ow.ShadowCast = meta.class("ShadowCast")
@@ -82,7 +84,6 @@ function ow.ShadowCast:update(delta)
 
     local px, py = self._scene:get_player():get_position()
 
-
     self._entries, self._tris = self._query:get_visible_subsegments(
         px, py,
         bounds,
@@ -103,42 +104,50 @@ end
 --- @brief
 function ow.ShadowCast:draw_bloom()
     if rt.GameState:get_are_dynamic_shadows_enabled() == false then return end
-    local r, g, b, a = self._scene:get_player():get_color():unpack()
-    local t = self._intensity
 
-    local px, py = self._scene:get_player():get_position()
-    px, py = self._scene:get_camera():world_xy_to_screen_xy(px, py)
+    local r, g, b, a = self._scene:get_player():get_color():unpack()
+
+    local player = self._scene:get_player()
+    local camera = self._scene:get_camera()
+
+    local px, py = player:get_position()
+    px, py = camera:world_xy_to_screen_xy(px, py)
 
     love.graphics.push("all")
 
     _shader:bind()
     _shader:send("player_position", { px, py })
+    _shader:send("player_radius", 2 * rt.settings.player.radius * camera:get_final_scale())
     _shader:send("mask", rt.SceneManager:get_light_map():get_mask())
 
-    love.graphics.push()
-    love.graphics.setLineWidth(4)
-    love.graphics.setColor(t * r, t * g, t * b, t * a)
-    for entry in values(self._entries) do
-        local ax, ay, bx, by = table.unpack(entry.subsegment)
-        love.graphics.line(ax, ay, bx, by)
+    do
+        love.graphics.push()
+        love.graphics.setLineWidth(4)
+        local t = self._intensity
+        love.graphics.setColor(t * r, t * g, t * b, t * a)
+        for entry in values(self._entries) do
+            local ax, ay, bx, by = table.unpack(entry.subsegment)
+            love.graphics.line(ax, ay, bx, by)
+        end
+        love.graphics.pop()
     end
-    love.graphics.pop()
 
-    local value = rt.graphics.get_stencil_value()
-    rt.graphics.set_stencil_mode(value, rt.StencilMode.DRAW)
-    ow.Hitbox:draw_mask(true, true)
-    rt.graphics.set_stencil_mode(value, rt.StencilMode.TEST, rt.StencilCompareMode.NOT_EQUAL)
+    do
+        local value = rt.graphics.get_stencil_value()
+        rt.graphics.set_stencil_mode(value, rt.StencilMode.DRAW)
+        ow.Hitbox:draw_mask(true, true)
+        rt.graphics.set_stencil_mode(value, rt.StencilMode.TEST, rt.StencilCompareMode.NOT_EQUAL)
 
-    rt.graphics.set_blend_mode(rt.BlendMode.ADD, rt.BlendMode.ADD)
-    t = 0.25 * t
-    love.graphics.setColor(t * r, t * g, t * b, t)
-    for polygon in values(self._tris) do
-        love.graphics.polygon("fill", polygon)
+        local t = self._intensity * rt.settings.overworld.shadow_cast.glow_intensity
+        love.graphics.setColor(t * r, t * g, t * b, t * a)
+        for polygon in values(self._tris) do
+            love.graphics.polygon("fill", polygon)
+        end
+
+        rt.graphics.set_stencil_mode(nil)
     end
 
     _shader:unbind()
-
-    rt.graphics.set_stencil_mode(nil)
 
     love.graphics.pop()
 end

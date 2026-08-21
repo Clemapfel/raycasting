@@ -1279,7 +1279,6 @@ function rt.PlayerBody:draw_bloom()
     local w, h = self._body_texture:get_size()
     local texture_scale = rt.settings.player_body.texture_scale
 
-
     local stencil_value = rt.graphics.get_stencil_value()
     rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW)
     for body in values(self._body_stencil_bodies) do

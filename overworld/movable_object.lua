@@ -31,7 +31,8 @@ function ow.MovableObject:get_velocity()
     return _forward_or_throw(self, "get_velocity")
 end
 
---- @brief
+--- @brief get whether an object is currently in bounds of the camera view
+--- @return Boolean
 function ow.MovableObject:get_is_visible()
     if self._body == nil
         or not meta.isa(self._body, b2.Body)

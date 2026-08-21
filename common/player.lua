@@ -45,7 +45,7 @@ do
 
         position_history_n = 1000, -- n samples
         position_history_sample_frequency = 5, -- px
-        velocity_history_n = 3, -- n samples
+        velocity_history_n = 1000, -- n samples
 
         min_solver_velocity_mix_factor = 0,
         max_solver_velocity_mix_factor = 0.75,  -- solver to non-solver ratio, reduce to dampe rest-forces
@@ -118,7 +118,10 @@ do
 
         max_velocity = 10000,
 
-        hue_cycle_duration = 30, -- seconds
+        boom_intensity_reference_velocity = 600, -- px / s
+
+        hue_max_cycle_duration = 30, -- seconds at flow = 0
+        hue_min_cycle_duration = 4, -- seconds at flow = 1
 
         pulse_duration = 0.6, -- seconds
         pulse_radius_factor = 2, -- factor
@@ -325,7 +328,7 @@ function rt.Player:instantiate()
             "is_jump_allowed_override",
             "is_double_jump_disabled",
             "is_omnidirectional_movement_allowed",
-            "is_trail_visible",
+            "is_trail_enabled",
             "is_flow_frozen",
             "is_idle_timer_frozen",
 
@@ -360,7 +363,7 @@ function rt.Player:instantiate()
     end
 
     -- graphics
-    self._trail = rt.PlayerTrail(self._radius)
+    self._trail = rt.PlayerTrail(self)
     self._graphics_body = rt.PlayerBody(0, 0)
 
     self._pulse_mesh = rt.MeshCircle(0, 0, 1, 1, 32) -- scaled in draw
@@ -592,10 +595,6 @@ function rt.Player:update(delta)
             self._graphics_body:update(delta)
         end
 
-        self._trail:set_position(center_x, center_y)
-        self._trail:set_velocity(self:get_velocity())
-        self._trail:set_hue(self:get_hue())
-        self._trail:set_opacity(self:get_opacity())
         self._trail:update(delta)
 
         do
@@ -617,8 +616,15 @@ function rt.Player:update(delta)
             end
         end
 
-        self._hue_elapsed = self._hue_elapsed + delta / settings.hue_cycle_duration
-        self._hue = math.fract(self._hue_elapsed)
+        self._hue_elapsed = self._hue_elapsed + delta
+
+        local cycle_duration = math.mix(
+            settings.hue_min_cycle_duration,
+            settings.hue_max_cycle_duration,
+            1 - self:get_flow()
+        )
+
+        self._hue = math.fract(self._hue_elapsed / cycle_duration)
         self:_update_color()
     end
 
@@ -1991,13 +1997,6 @@ function rt.Player:update(delta)
         self:_update_flow(delta)
     end
 
-    do -- update trail
-        local value = rt.InterpolationFunctions.LINEAR(math.clamp(self:get_flow(), 0, 1))
-        self._trail:set_glow_intensity(value)
-        self._trail:set_boom_intensity(value * ternary(is_bubble, 0, 1))
-        self._trail:set_trail_intensity(value)
-    end
-
     -- timers
     if down_is_down then self._down_button_is_down_elapsed = self._down_button_is_down_elapsed + delta end
     if up_is_down then self._up_button_is_down_elapsed = self._up_button_is_down_elapsed + delta end
@@ -2276,16 +2275,9 @@ end
 function rt.Player:draw_body()
     if self:get_is_visible() == false then return end
 
-    local trail_visible = self:get_is_trail_visible()
-    if trail_visible then
-        self._trail:draw_below()
-    end
-
+    self._trail:draw_below()
     self._graphics_body:draw_body()
-
-    if trail_visible then
-        self._trail:draw_above()
-    end
+    self._trail:draw_above()
 end
 
 --- @brief
@@ -2799,6 +2791,11 @@ function rt.Player:get_past_position_path(distance)
     return self._position_history_path
 end
 
+--- @brief
+function rt.Player:get_position_history()
+    return self._position_history
+end
+
 --- @return Number, Number, Number, Number position_x, position_y, velocity_x, velocity_y
 function rt.Player:get_past_velocity(distance)
     if self._position_history_path_needs_update == true then
@@ -2824,6 +2821,11 @@ function rt.Player:get_past_velocity(distance)
     end
 
     return sum_x / count, sum_y / count
+end
+
+--- @brief
+function rt.Player:get_velocity_history()
+    return self._velocity_history
 end
 
 
@@ -2901,7 +2903,7 @@ function rt.Player:reset()
         self._is_double_jump_disabled_requests,
         self._is_jump_allowed_override_requests,
         self._is_omnidirectional_movement_allowed_requests,
-        self._is_trail_visible_requests,
+        self._is_trail_enabled_requests,
         self._is_flow_frozen_requests,
         self._is_idle_timer_frozen_requests,
         self._opacity_requests,
@@ -3014,15 +3016,6 @@ function rt.Player:get_use_analog_input()
 end
 
 --- @brief
-function rt.Player:get_trail_is_visible()
-    for source in values(self._trail_is_visible_requests) do
-        if source.is_visible == false then return false end
-    end
-
-    return true
-end
-
---- @brief
 function rt.Player:get_jump_allowed_override()
     local override = nil
 
@@ -3069,8 +3062,8 @@ for tuple in range(
 --- @alias request_is_omnidirectional_movement_allowed = fun(id: Object, is_allowed: Boolean)
     { "is_omnidirectional_movement_allowed", { { "is_allowed", mt.Boolean } } },
 
---- @alias request_is_trail_visible fun(id: Object, is_visible: Boolean)
-    { "is_trail_visible", { { "is_visible", mt.Boolean } } },
+--- @alias request_is_trail_enabled fun(id: Object, is_visible: Boolean)
+    { "is_trail_enabled", { { "is_visible", mt.Boolean } } },
 
 --- @alias request_is_flow_frozen fun(id: Object, is_frozen: Boolean)
     { "is_flow_frozen", { { "is_frozen", mt.Boolean } } },
@@ -3367,8 +3360,8 @@ function rt.Player:get_is_omnidirectional_movement_allowed()
 end
 
 --- @brief
-function rt.Player:get_is_trail_visible()
-    for source in values(self._is_trail_visible_requests) do
+function rt.Player:get_is_trail_enabled()
+    for source in values(self._is_trail_enabled_requests) do
         if source.is_visible == false then return false end
     end
 
@@ -3576,7 +3569,7 @@ end
 
 --- @brief
 function rt.Player:get_flow()
-    return 0.5 * self._current_flow
+    return self._current_flow
 end
 
 --- @brief
@@ -3600,7 +3593,7 @@ function rt.Player:_update_flow(delta)
     end
 
     to_add = to_add - settings.flow_decay_per_second * delta
-    self._current_flow = math.clamp(self._current_flow + to_add, 0, 1)
+    self._current_flow = 1 --math.clamp(self._current_flow + to_add, 0, 1)
 end
 
 --- @brief
@@ -3608,19 +3601,31 @@ function rt.Player:collect_point_lights(callback)
     if self:get_is_visible() then
         local px, py = self:get_position()
         local radius = self._core_radius
-        local r, g, b, a = self:get_color():unpack()
-        callback(
-            px, py, radius,
-            r, g, b, a
-        )
+        local opacity = self:get_color().a
+        do
+            local r, g, b, _ = self:get_color():unpack()
+            callback(
+                px, py, radius,
+                r, g, b, opacity
+            )
+        end
 
         for pulse in values(self._pulses) do
             if pulse.should_draw ~= true then break end
             local t = 1 - rt.InterpolationFunctions.SINUSOID_EASE_OUT(math.min(1, pulse.elapsed / settings.pulse_duration))
             local scale = 2 * radius * settings.pulse_radius_factor * (1 - t)
             local r, g, b, a = pulse.color:unpack()
-            callback(px, py, scale, r, g, b, a)
+            callback(px, py, scale, r, g, b, a * opacity)
         end
+
+        self._trail:collect_point_lights(callback)
+    end
+end
+
+--- @brief
+function rt.Player:collect_segment_lights(callback)
+    if self:get_is_visible() then
+        self._trail:collect_segment_lights(callback)
     end
 end
 

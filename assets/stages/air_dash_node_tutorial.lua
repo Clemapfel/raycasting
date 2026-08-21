@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 361,
+  nextobjectid = 368,
   properties = {
     ["background_id"] = "\"nebula\""
   },
@@ -1156,7 +1156,7 @@ return {
         {
           id = 349,
           name = "",
-          type = "",
+          type = "Hitbox",
           shape = "polygon",
           x = 160,
           y = -1536.59,
@@ -1172,7 +1172,7 @@ return {
             { x = 114.629, y = 40.7111 }
           },
           properties = {
-            ["slippery"] = true
+            ["slippery"] = false
           }
         },
         {
@@ -1282,7 +1282,7 @@ return {
         {
           id = 360,
           name = "",
-          type = "Hitbox",
+          type = "SlipperyHitbox",
           shape = "polygon",
           x = 224,
           y = -1552,
@@ -1295,6 +1295,101 @@ return {
             { x = -16, y = 96 },
             { x = 80, y = 64 },
             { x = 96, y = 32 }
+          },
+          properties = {}
+        },
+        {
+          id = 361,
+          name = "",
+          type = "Portal",
+          shape = "point",
+          x = 188.456,
+          y = -1902.12,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["other"] = { id = 362 },
+            ["target"] = { id = 363 }
+          }
+        },
+        {
+          id = 362,
+          name = "",
+          type = "PortalNode",
+          shape = "point",
+          x = 262.865,
+          y = -2013.73,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 363,
+          name = "",
+          type = "Portal",
+          shape = "point",
+          x = 544,
+          y = -1264,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["other"] = { id = 364 },
+            ["target"] = { id = 361 }
+          }
+        },
+        {
+          id = 364,
+          name = "",
+          type = "PortalNode",
+          shape = "point",
+          x = 640,
+          y = -1264,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 365,
+          name = "",
+          type = "",
+          shape = "polygon",
+          x = 1408,
+          y = -1616,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = -144, y = 368 },
+            { x = 0, y = 368 }
+          },
+          properties = {}
+        },
+        {
+          id = 366,
+          name = "",
+          type = "",
+          shape = "polygon",
+          x = 902.055,
+          y = -1379.77,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 114.758, y = 25.3536 },
+            { x = 120.096, y = -122.765 },
+            { x = -4.0032, y = -82.7329 }
           },
           properties = {}
         }

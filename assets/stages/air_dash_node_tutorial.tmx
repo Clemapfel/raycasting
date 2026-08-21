@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="361">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="368">
  <editorsettings>
   <export target="air_dash_node_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -293,9 +293,9 @@
    </properties>
    <polygon points="0,0 334.453,236.714 456.628,109.957"/>
   </object>
-  <object id="349" x="160" y="-1536.59">
+  <object id="349" type="Hitbox" x="160" y="-1536.59">
    <properties>
-    <property name="slippery" type="bool" value="true"/>
+    <property name="slippery" type="bool" value="false"/>
    </properties>
    <polygon points="0,0 -13.3708,168.711 178.629,184.711 178.629,-167.289 114.629,40.7111"/>
   </object>
@@ -330,8 +330,34 @@
    </properties>
    <polygon points="0,0 45.5501,986.87 1549.55,970.87 1485.55,-133.13"/>
   </object>
-  <object id="360" type="Hitbox" x="224" y="-1552">
+  <object id="360" type="SlipperyHitbox" x="224" y="-1552">
    <polygon points="0,0 -16,96 80,64 96,32"/>
+  </object>
+  <object id="361" type="Portal" x="188.456" y="-1902.12">
+   <properties>
+    <property name="other" type="object" value="362"/>
+    <property name="target" type="object" value="363"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="362" type="PortalNode" x="262.865" y="-2013.73">
+   <point/>
+  </object>
+  <object id="363" type="Portal" x="544" y="-1264">
+   <properties>
+    <property name="other" type="object" value="364"/>
+    <property name="target" type="object" value="361"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="364" type="PortalNode" x="640" y="-1264">
+   <point/>
+  </object>
+  <object id="365" x="1408" y="-1616">
+   <polygon points="0,0 -144,368 0,368"/>
+  </object>
+  <object id="366" x="902.055" y="-1379.77">
+   <polygon points="0,0 114.758,25.3536 120.096,-122.765 -4.0032,-82.7329"/>
   </object>
  </objectgroup>
  <objectgroup id="6" name="front"/>

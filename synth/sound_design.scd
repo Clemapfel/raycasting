@@ -10,13 +10,12 @@ var peakSentinel = PeakSentinel.new(server);
 
 server.volume.volume = 0;
 server.options.sampleRate = Renderer.sampleRate;
-server.options.memSize = 2 * (2 ** 20); // 2 gb
+server.options.memSize = 2 * (2 ** 16); // 2 gb
 
 server.waitForBoot({
 	//~accelerator_surface_sparkle.();
 	//~player.();
-
-	~granular.();
+	~subdivide.();
 
 	CmdPeriod.doOnce({
 		server.freeAll;
@@ -824,6 +823,7 @@ server.waitForBoot({
 	]).play;
 };
 
+/*
 ~granular = {
 	var def = SynthDef.new(\granular, { arg out, gate = 1, freq, dur, bufnum, bufdur, amp = 0.5, density = 600, start_t = 0, end_t = 1;
 		var sig = GrainBuf.ar(
@@ -843,6 +843,8 @@ server.waitForBoot({
 	}).add;
 
 
+	var buffer = Renderer.recordIntoBuffer(server, {
+	}, duration: 0.1);
 	var bufdur = 0.1;
 	var buffer = Buffer.alloc(server, Renderer.sampleRate * bufdur, 1);
 	{
@@ -860,6 +862,67 @@ server.waitForBoot({
 		dur: 0.5,
 		degree: Pseq([0, 1, 2]),
 		sustain: 0.25
+	]).play;
+};
+*/
+
+~subdivide = {
+	var tableRes = 2**9;
+	var waveAmplitudes = [1, 1, 1, 1, 1, 1];
+	var wavePhases = n.collect({ |n| (2 * pi * (n / amplitudes.size); });
+
+	var sinTable = Buffer.loadCollection(server, Signal.fill(tableRes, { |i|
+		var t = i / tableRes;
+		var x = 0;
+		waveAmplitudes.do({ |amplitude, n|
+			x = x + (amplitude * sin((2 * pi * (n + 1) * t) + ));
+		});
+		x;
+	}).asWavetable);
+
+	var triTable = Buffer.loadCollection(server, Signal.fill(tableRes, { |i|
+		var t = i / tableRes;
+		var x = 0;
+		waveAmplitudes.do({ |amplitude, n|
+			x = x + (amplitude * (2 / pi) * asin(sin((2 * pi * (n + 1) * t) + wavePhases[n])));
+		});
+		x;
+	}).asWavetable);
+
+	var circleTable = Buffer.loadCollection(server, Signal.fill(tableRes, { |i|
+		var t = i / tableRes;
+		var x = 0;
+		waveAmplitudes.do({ |amplitude, n|
+			x = x + (amplitude * (4 / pi) * atan(sin((2 * pi * (n + 1) * t) + wavePhases[n])));
+		});
+		x;
+	}));
+
+	var triShape = Buffer.loadCollection(server, Signal.fill(tableRes, { |i|
+		var t = i / tableRes;
+		(2 / pi) * asin(sin(2 * pi * t));
+	}));
+
+
+	var def = SynthDef.new(\subdivide, { arg out, gate = 1, freq, amp, wavebufnum;
+		var masterClock = Impulse.ar(24000);
+		var divide = PulseDivider.ar(masterClock, 5);
+		var square = ToggleFF.ar(divide);
+
+		//var signal = Shaper.ar(wavebufnum, divide);
+		var signal = PlayBuf.ar(1, wavebufnum, loop: 1);
+		//var signal = LFTri.ar(freq);
+		signal = signal * EnvGen.ar(Env.asr(0.04, releaseTime: 0.5), gate: gate);
+		Out.ar(out, (amp * signal).dup);
+		DoneSentinel.ar(signal);
+	}).add;
+
+	server.sync;
+
+	PmonoArtic(def.name, *[
+		degree: Pseq([0, 1, 5, 2, 1], inf),
+		sustain: 1.0,
+		wavebufnum: sinTable
 	]).play;
 };
 

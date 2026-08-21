@@ -1,9 +1,11 @@
 require "overworld.tether"
+require "common.spline"
+require "common.path"
 
 rt.settings.overworld.portal = {
     mesh_w = 100, -- px
     pulse_duration = 1, -- s
-    transition_min_speed = 400,
+    transition_min_speed = 600,
     transition_speed_factor = 1.5,
     particle = {
         radius = 25,
@@ -327,6 +329,8 @@ function ow.Portal:instantiate(object, stage, scene)
                     to_x, to_y
                 )
 
+                self._path = rt.Path():create_from_and_resample(rt.Spline(from_x, from_y, to_x, to_y):discretize())
+
                 -- fully relax tether
                 local elapsed = 2
                 local step = rt.SceneManager:get_timestep()
@@ -348,10 +352,10 @@ function ow.Portal:instantiate(object, stage, scene)
         local n_particles = length / min_radius * settings.coverage
 
         local padding = 2 * max_radius
-        self._static_canvas = rt.RenderTexture(
-            2 * padding,
-            length
-        )
+        self._static_canvas = rt.RenderTexture(2 * padding, length, {
+            has_stencil = true
+        })
+
         self._canvas_x, self._canvas_y = math.mix2(self._ax, self._ay, self._bx, self._by, 0.5)
         self._canvas_angle = math.angle(self._bx - self._ax, self._by - self._ay) + 0.5 * math.pi
 
@@ -439,9 +443,9 @@ local function _clamp_point_to_line(ax, ay, bx, by, normal_x, normal_y, x, y)
     local to_point_x = x - ax
     local to_point_y = y - ay
 
-    local distance_squared = math.dot(to_point_x, to_point_y, normal_x, normal_y)
+    local distance = math.dot(to_point_x, to_point_y, normal_x, normal_y)
 
-    if distance_squared < 0 then
+    if distance < 0 then
         local projection = math.dot(to_point_x, to_point_y, line_dx, line_dy)
         projection = math.clamp(projection, 0, line_length)
         x = ax + line_dx * projection
@@ -612,11 +616,11 @@ function ow.Portal:update(delta)
         local t = rt.InterpolationFunctions.SINUSOID_EASE_IN_OUT(distance_traveled / distance)
 
         local transition_x, transition_y, path
-        if self._tether ~= nil then
-            path = self._tether:as_path()
+        if self._path ~= nil then
+            path = self._path
             transition_x, transition_y = path:at(t)
         else
-            path = self._target._tether:as_path()
+            path = self._target._path
             transition_x, transition_y = path:at(1 - t)
         end
 
@@ -654,7 +658,7 @@ function ow.Portal:update(delta)
         if self._queue_trail_invisible == true then
             -- test if point farther away on player core passed portal
             if self._transition_stencil:test_point(player:get_position()) == true then -- stencil clamped to line
-                player:request_is_trail_visible(self, false)
+                player:request_is_trail_enabled(self, false)
                 self._queue_trail_invisible = false
             end
         end
@@ -668,7 +672,7 @@ function ow.Portal:update(delta)
 
         -- once camera arrives, properly teleport
         if is_done then
-            player:request_is_trail_visible(self, nil)
+            player:request_is_trail_enabled(self, nil)
             self:_set_player_disabled(false)
             self:_teleport()
 
@@ -901,15 +905,15 @@ function ow.Portal:draw()
     )
     _particle_shader:unbind()
 
-    local pulse_origin_y, pulse_origin_y = math.mix2(
+    local pulse_origin_x, pulse_origin_y = math.mix2(
         self._ax, self._ay,
         self._bx, self._by,
     1 - self._entry_t
     )
 
-    love.graphics.translate(pulse_origin_y, pulse_origin_y)
+    love.graphics.translate(pulse_origin_x, pulse_origin_y)
     love.graphics.scale(1 - self._pulse_value)
-    love.graphics.translate(-pulse_origin_y, -pulse_origin_y)
+    love.graphics.translate(-pulse_origin_x, -pulse_origin_y)
 
     local brightness = lightness
     love.graphics.setColor(brightness * r, brightness * g, brightness * b, 1)
@@ -934,15 +938,15 @@ function ow.Portal:draw_bloom()
     love.graphics.push()
     love.graphics.translate(self._offset_x, self._offset_y)
 
-    local pulse_origin_y, pulse_origin_y = math.mix2(
+    local pulse_origin_x, pulse_origin_y = math.mix2(
         self._ax, self._ay,
         self._bx, self._by,
         1 - self._entry_t
     )
 
-    love.graphics.translate(pulse_origin_y, pulse_origin_y)
+    love.graphics.translate(pulse_origin_x, pulse_origin_y)
     love.graphics.scale(1 - self._pulse_value)
-    love.graphics.translate(-pulse_origin_y, -pulse_origin_y)
+    love.graphics.translate(-pulse_origin_x, -pulse_origin_y)
 
     local r, g, b = self._color:unpack()
     love.graphics.setColor(r, g, b, 1)

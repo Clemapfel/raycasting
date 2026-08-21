@@ -430,48 +430,34 @@ end
 
 --- @class rt.MeshPlane
 rt.MeshPlane = function(center_x, center_y, center_z, width, height, curvature, n_segments_x, n_segments_y)
-    -- Choose resolution based on size and curvature
-    -- More curvature needs more vertices for smooth deformation
     n_segments_x = n_segments_x or math.max(20, math.floor(width * 2 + curvature * 10))
     n_segments_y = n_segments_y or math.max(20, math.floor(height * 2 + curvature * 10))
 
     local data = {}
     local indices = {}
 
-    -- Half dimensions for centering
     local half_width = width / 2
     local half_height = height / 2
 
-    -- Generate vertices
     for row = 0, n_segments_y do
         for col = 0, n_segments_x do
-            -- Normalized coordinates from 0 to 1
             local u = col / n_segments_x
             local v = row / n_segments_y
 
-            -- Position in plane space (before deformation)
-            -- Map from [0,1] to [-half_width, half_width] and [-half_height, half_height]
             local px = (u - 0.5) * width
             local py = (v - 0.5) * height
 
-            -- Calculate distance from center for deformation
-            local dist = math.sqrt(px * px + py * py)
+            local dist = math.magnitude(px, py)
 
-            -- Spherical deformation using a smooth falloff function
-            -- The deformation creates a bump at the center that smoothly falls off
             local max_radius = math.sqrt(half_width * half_width + half_height * half_height)
             local normalized_dist = math.min(dist / max_radius, 1)
 
-            -- Use cosine falloff for smooth deformation (like a sphere cap)
-            -- pz represents the vertical displacement
             local pz = curvature * math.cos(normalized_dist * math.pi / 2)
 
-            -- World space position
             local world_x = center_x + px
             local world_y = center_y + py
             local world_z = center_z + pz
 
-            -- Insert vertex: { x, y, z, u, v, r, g, b, a }
             table.insert(data, {
                 world_x, world_y, world_z,
                 u, v,
@@ -480,23 +466,18 @@ rt.MeshPlane = function(center_x, center_y, center_z, width, height, curvature, 
         end
     end
 
-    -- Generate indices for triangulation
     for row = 0, n_segments_y - 1 do
         for col = 0, n_segments_x - 1 do
-            -- Current row vertices (1-based indexing)
             local current = row * (n_segments_x + 1) + col + 1
             local next_col = row * (n_segments_x + 1) + col + 2
 
-            -- Next row vertices
             local below = (row + 1) * (n_segments_x + 1) + col + 1
             local below_next = (row + 1) * (n_segments_x + 1) + col + 2
 
-            -- First triangle (current, next_col, below)
             table.insert(indices, current)
             table.insert(indices, next_col)
             table.insert(indices, below)
 
-            -- Second triangle (next_col, below_next, below)
             table.insert(indices, next_col)
             table.insert(indices, below_next)
             table.insert(indices, below)
