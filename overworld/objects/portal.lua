@@ -6,7 +6,8 @@ require "common.path"
 rt.settings.overworld.portal = {
     default_winding = true,
     transition_min_velocity = 600,
-    sensor_width = 2 * rt.settings.player.radius * rt.settings.player.bubble_radius_factor
+    sensor_width = 2 * rt.settings.player.radius * rt.settings.player.bubble_radius_factor,
+    one_way_particle_lightness = 0.6
 }
 
 --- @class ow.Portal
@@ -28,6 +29,9 @@ local schema = {
 local _STATE_DEFAULT = 0
 local _STATE_TRANSITIONING = 1
 local _STATE_EXITING = 2
+
+local _LEFT = 1
+local _RIGHT = -1
 
 function ow.Portal:instantiate(object, stage, scene)
     object:validate_schema(schema, ow.ShapeType.POINT)
@@ -109,17 +113,24 @@ function ow.Portal:instantiate(object, stage, scene)
         -- graphics
         self._particles = ow.PortalParticles(
             self._ax, self._ay, self._bx, self._by,
-            self._winding
+            self._winding == _LEFT
         )
 
         return meta.DISCONNECT_SIGNAL
     end)
 
     self._stage:signal_connect("post_initialized", function()
+        local set_color = function(object, hue, lightness)
+
+        end
+
         -- color
+        if stage.portal_hue_index == nil then stage.portal_hue_index = 0 end
+        local hue = stage.portal_hue_index % 12
+
         if self._color == nil then
-            if stage.portal_hue_index == nil then stage.portal_hue_index = 0 end
-            self._color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, stage.portal_hue_index % 12, 1))
+            self._particles:set_hue(hue)
+            self._color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, hue, 1))
             stage.portal_hue_index = stage.portal_hue_index + 1
         end
 
@@ -130,9 +141,15 @@ function ow.Portal:instantiate(object, stage, scene)
             rt.assert(meta.isa(self._target, ow.Portal), "In ow.Portal: `target` object `", target_object:get_id(), "`: expected `ow.Portal`, got `", meta.typeof(self._target) , "`")
 
             -- synch color between portals
-            if self._color ~= nil and self._target._color == nil then
+            if self._target._color == nil then
+                self._target._particles:set_hue(hue)
                 self._target._color = self._color
             end
+
+            self._particles:set_lightness(1)
+        else
+            -- darken particles if
+            self._particles:set_lightness(rt.settings.overworld.portal.one_way_particle_lightness)
         end
 
         return meta.DISCONNECT_SIGNAL
@@ -324,7 +341,7 @@ function ow.Portal:update(delta)
                 self._state = _STATE_EXITING
                 self._start_time = love.timer.getTime()
 
-                self._portals:contract(0.5) -- exit always from center
+                target._particles:contract(0.5) -- exit always from center
             else
                 -- move stencil along with player, automatically clamped behind line
                 update_stencil_body(self, true, px, py)

@@ -146,6 +146,11 @@ function math.equals(a, b, eps)
     return math.abs(a - b) <= eps
 end
 
+function math.not_equals(a, b, eps)
+    if eps == nil then eps = 0 end
+    return math.abs(a - b) > eps
+end
+
 function math.less_than(a, b, eps)
     if eps == nil then eps = 0 end
     return a < b - eps
