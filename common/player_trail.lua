@@ -28,6 +28,7 @@ function rt.PlayerTrail:instantiate(player)
 
     self._trail = {}
     self._trail_mesh = nil
+    self._trail_mesh_visible = false
     self._trail_mesh_data = {}
 
     -- Pre-allocate reusable structures to avoid GC thrashing every frame
@@ -124,29 +125,6 @@ function rt.PlayerTrail:instantiate(player)
         love.graphics.pop()
     end
 end
-
---- @brief
-function rt.PlayerTrail:set_glow_intensity(t)
-    self._glow_intensity = t
-    self._glow_intensity_motion:set_target_value(t)
-end
-
---- @brief
-function rt.PlayerTrail:set_boom_intensity(t)
-    self._boom_intensity = t
-    self._boom_intensity_motion:set_target_value(t)
-end
-
---- @brief
-function rt.PlayerTrail:set_trail_intensity(t)
-    self._trail_intensity = t
-end
-
---- @brief
-function rt.PlayerTrail:set_is_enabled(b)
-    self._is_enabled = b
-end
-
 --- @brief
 function rt.PlayerTrail:update(delta)
     local player = self._player
@@ -159,7 +137,7 @@ function rt.PlayerTrail:update(delta)
         self._trail_intensity = value
 
         local boom_value
-        if player:get_is_ghost() or player:get_is_disabled() then
+        if player:get_is_bubble() or player:get_is_ghost() or player:get_is_disabled() then
             boom_value = 0
         else
             local boom = value * math.min(math.magnitude(player:get_velocity()) / rt.settings.player.boom_intensity_reference_velocity, 1)
@@ -262,7 +240,7 @@ function rt.PlayerTrail:draw_below()
     love.graphics.setBlendMode("add", "premultiplied")
 
     local r, g, b, a = self._player:get_color():unpack()
-    if self._trail_mesh ~= nil then
+    if self._trail_mesh ~= nil and self._trail_mesh_visible == true then
         love.graphics.setColor(r * a, g * a, b * a, a * self._trail_intensity)
         self._trail_mesh:draw()
     end
@@ -491,6 +469,9 @@ function rt.PlayerTrail:_reformat_trail(delta)
             self._trail_mesh:replace_data(self._trail_mesh_data)
             self._trail_mesh:set_vertex_map(vertex_buffer)
         end
+        self._trail_mesh_visible = true
+    elseif self._trail_mesh ~= nil then
+        self._trail_mesh_visible = false
     end
 
     --[[

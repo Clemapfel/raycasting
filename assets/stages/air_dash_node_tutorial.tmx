@@ -41,7 +41,7 @@
   </object>
  </objectgroup>
  <objectgroup id="2" name="main">
-  <object id="89" name="Spawn" type="PlayerSpawn" x="1008" y="-1728">
+  <object id="89" name="Spawn" type="PlayerSpawn" x="18.1359" y="-1995.41">
    <point/>
   </object>
   <object id="91" type="Hitbox" x="-1439.08" y="1248">
@@ -266,6 +266,7 @@
    <properties>
     <property name="next" type="object" value="345"/>
     <property name="target" type="object" value="338"/>
+    <property name="target_02" type="object" value="363"/>
    </properties>
    <point/>
   </object>
@@ -343,14 +344,14 @@
   <object id="362" type="PortalNode" x="262.865" y="-2013.73">
    <point/>
   </object>
-  <object id="363" type="Portal" x="544" y="-1264">
+  <object id="363" type="Portal" x="1136" y="-1696">
    <properties>
     <property name="other" type="object" value="364"/>
     <property name="target" type="object" value="361"/>
    </properties>
    <point/>
   </object>
-  <object id="364" type="PortalNode" x="640" y="-1264">
+  <object id="364" type="PortalNode" x="1136" y="-1792">
    <point/>
   </object>
   <object id="365" x="1408" y="-1616">

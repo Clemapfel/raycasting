@@ -729,7 +729,7 @@ function ow.ObjectWrapper:validate_schema(schema, ...)
 
     for name in keys(self.properties) do
         if valid_names[name] ~= true then
-            rt.warning("In ow.ObjectWrapper: In ow.Stage `", self.stage_id, "`: property `", name, "` of object `", self.id, "` is not a valid schema key. It will be ignored.")
+            rt.critical("In ow.ObjectWrapper: In ow.Stage `", self.stage_id, "`: property `", name, "` of object `", self.id, "` is not a valid schema key. It will be ignored.")
         end
     end
 

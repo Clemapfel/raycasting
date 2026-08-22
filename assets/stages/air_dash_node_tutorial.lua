@@ -191,8 +191,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = 1008,
-          y = -1728,
+          x = 18.1359,
+          y = -1995.41,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1075,7 +1075,8 @@ return {
           visible = true,
           properties = {
             ["next"] = { id = 345 },
-            ["target"] = { id = 338 }
+            ["target"] = { id = 338 },
+            ["target_02"] = { id = 363 }
           }
         },
         {
@@ -1332,8 +1333,8 @@ return {
           name = "",
           type = "Portal",
           shape = "point",
-          x = 544,
-          y = -1264,
+          x = 1136,
+          y = -1696,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1348,8 +1349,8 @@ return {
           name = "",
           type = "PortalNode",
           shape = "point",
-          x = 640,
-          y = -1264,
+          x = 1136,
+          y = -1792,
           width = 0,
           height = 0,
           rotation = 0,
