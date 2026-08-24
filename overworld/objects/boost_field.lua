@@ -10,7 +10,25 @@ rt.settings.overworld.boost_field = {
     outline_width = 2.5,
     opacity = 0.8,
     hue_span = 0.1,
-    hue_gradient_reference_length = 600
+    hue_gradient_reference_length = 600,
+
+    particles = {
+        n_hue_steps = 512,
+        triangle_extrusion = 0, -- px
+        spatial_hash_cell_size = 8,
+        additive_scale = 0.25,
+
+        density = 0.05, -- factor
+        min_velocity = 20,
+        max_velocity = 30,
+        min_radius = 6,
+        max_radius = 8,
+        min_lifetime = 1.0,
+        max_lifetime = 2.5,
+        velocity_interpolation = 0.7, -- in [0, 1]
+        attack_fraction = 0.1,
+        release_fraction = 0.1
+    }
 }
 
 local schema = {
@@ -39,6 +57,8 @@ ow.BoostFieldAxis = meta.class("BoostFieldAxis")
 ow.BoostFieldPathNode = meta.class("BoostFieldPath")
 
 local _shader = rt.Shader("overworld/objects/boost_field.glsl")
+local _particle_texture = nil
+local _particle_texture_shader = rt.Shader("overworld/objects/boost_field_particle_texture.glsl")
 
 --- @brief
 function ow.BoostField:instantiate(object, stage, scene)
@@ -189,100 +209,34 @@ function ow.BoostField:instantiate(object, stage, scene)
         self._mesh = rt.Mesh(mesh_data, rt.MeshDrawMode.TRIANGLES)
     end
 
-    -- init hue table
-    do
-        local n_steps = 512
-        local image = rt.Image(1, n_steps, rt.TextureFormat.RGBA32F)
-
-        local function cbrt(x) return x < 0 and -math.pow(-x, 1/3) or math.pow(x, 1/3) end
-        local function clamp(x) return math.max(0, math.min(1, x)) end
-
-        local function oklch_to_oklab(l, c, h)
-            local hue_rad = h * math.pi * 2.0
-            return l, c * math.cos(hue_rad), c * math.sin(hue_rad)
-        end
-
-        local function oklab_to_linear_srgb(l, a, b)
-            local l_ = l + 0.3963377774 * a + 0.2158037573 * b
-            local m_ = l - 0.1055613458 * a - 0.0638541728 * b
-            local s_ = l - 0.0894841775 * a - 1.2914855480 * b
-
-            local l3 = l_ * l_ * l_
-            local m3 = m_ * m_ * m_
-            local s3 = s_ * s_ * s_
-
-            local r =  4.0767416621 * l3 - 3.3077115913 * m3 + 0.2309699292 * s3
-            local g = -1.2684380046 * l3 + 2.6097574011 * m3 - 0.3413193965 * s3
-            local b_val = -0.0041960863 * l3 - 0.7034186147 * m3 + 1.7076147010 * s3
-
-            return r, g, b_val
-        end
-
-        local function linear_srgb_to_oklab(r, g, b_val)
-            local l = 0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b_val
-            local m = 0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b_val
-            local s = 0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b_val
-
-            l, m, s = cbrt(l), cbrt(m), cbrt(s)
-
-            local L = 0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s
-            local a = 1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s
-            local b = 0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s
-
-            return L, a, b
-        end
-
-        -- 2. Generate high-resolution arc-length mapping
-        local HIGH_RES = 2048 * 2
-        local eval_L = 0.9 -- A representative lightness from your shader noise
-        local eval_C = 0.9 -- The hardcoded chroma from your shader
-
-        local dists = {0}
-        local prev_l, prev_a, prev_b
-
-        for i = 1, HIGH_RES do
-            local h = (i - 1) / (HIGH_RES - 1)
-            local ol, oa, ob = oklch_to_oklab(eval_L, eval_C, h)
-            local r, g, b = oklab_to_linear_srgb(ol, oa, ob)
-
-            -- The non-linearity comes from this clamp! We measure perceptual distance AFTER clipping.
-            r, g, b = clamp(r), clamp(g), clamp(b)
-            local cl, ca, cb = linear_srgb_to_oklab(r, g, b)
-
-            if i > 1 then
-                local dl, da, db = cl - prev_l, ca - prev_a, cb - prev_b
-                dists[i] = dists[i-1] + math.sqrt(dl*dl + da*da + db*db)
-            end
-            prev_l, prev_a, prev_b = cl, ca, cb
-        end
-
-        local total_dist = dists[HIGH_RES]
-
-        -- 3. Bake uniform perceptual steps into the texture LUT
-        for i = 1, n_steps do
-            local target_dist = ((i - 1) / (n_steps - 1)) * total_dist
-
-            -- Binary search to find where we are along the path
-            local low, high = 1, HIGH_RES
-            while low < high - 1 do
-                local mid = math.floor((low + high) / 2)
-                if dists[mid] <= target_dist then low = mid else high = mid end
-            end
-
-            -- Linear interpolation for exact hue
-            local d1, d2 = dists[low], dists[high]
-            local t = (d2 > d1) and ((target_dist - d1) / (d2 - d1)) or 0
-            local corrected_hue = (low - 1 + t) / (HIGH_RES - 1)
-
-            image:set(1, i, corrected_hue, 0.0, 0.0, 1.0)
-        end
-
-        self._hue_texture = image:create_texture()
-        self._hue_texture:set_scale_mode(rt.TextureScaleMode.LINEAR)
-    end
-
+    self._particles_need_update = true
     self:_init_particles()
+
+    if _particle_texture == nil then
+        do -- particle texture
+            local w =  2 * rt.settings.overworld.boost_field.particles.max_radius
+            local h = w
+            _particle_texture = rt.RenderTexture(w, h)
+
+            love.graphics.push("all")
+            love.graphics.reset()
+            _particle_texture:bind()
+            _particle_texture_shader:bind()
+
+            love.graphics.setColor(1, 1, 1, 1)
+            love.graphics.rectangle("fill",
+                0, 0, w, h
+            )
+
+            _particle_texture_shader:unbind()
+            _particle_texture:unbind()
+            love.graphics.pop()
+        end
+    end
 end
+
+local _first = nil -- TODO
+local with_sum, with_n = 0, 0
 
 --- @brief
 function ow.BoostField:update(delta)
@@ -330,7 +284,20 @@ function ow.BoostField:update(delta)
         player:set_velocity(new_vx, new_vy)
     end
 
-    self:_update_particles(delta)
+    if _first then self._dbg = true; _first = nil end
+    local before = love.timer.getTime()
+
+    if self._particles_need_update == true then
+        self:_update_particles(delta)
+        self._particles_need_update = false
+    end
+
+    if self._dbg then
+        local duration = (love.timer.getTime() - before) / (1 / 60)
+        with_sum = with_sum + duration
+        with_n = with_n + 1
+        dbg(meta.hash(self), with_sum / with_n)
+    end
 end
 
 --- @brief
@@ -340,6 +307,8 @@ function ow.BoostField:draw()
     then
         return
     end
+
+    self._particles_need_update = true
 
     love.graphics.push("all")
     love.graphics.translate(self._body:get_position())
@@ -366,9 +335,16 @@ function ow.BoostField:draw()
     _shader:unbind()
     ]]
 
+    local stencil = rt.graphics.get_stencil_value()
+    rt.graphics.set_stencil_mode(stencil, rt.StencilMode.DRAW)
+    self._mesh:draw()
+    rt.graphics.set_stencil_mode(stencil, rt.StencilMode.TEST, rt.StencilCompareMode.ALWAYS)--rt.StencilCompareMode.EQUAL)
     self:_draw_particles()
+    rt.graphics.set_stencil_mode(nil)
 
     love.graphics.pop()
+
+    dbg(self._n_particles)
 end
 
 --- @brief
@@ -386,73 +362,27 @@ function ow.BoostField:reset()
 end
 
 do
-    local function _point_in_triangle(px, py, x1, y1, x2, y2, x3, y3)
-        local v0x, v0y = x3 - x1, y3 - y1
-        local v1x, v1y = x2 - x1, y2 - y1
-        local v2x, v2y = px - x1, py - y1
-
-        local dot00 = v0x * v0x + v0y * v0y
-        local dot01 = v0x * v1x + v0y * v1y
-        local dot02 = v0x * v2x + v0y * v2y
-        local dot11 = v1x * v1x + v1y * v1y
-        local dot12 = v1x * v2x + v1y * v2y
-
-        local denom = dot00 * dot11 - dot01 * dot01
-        if denom == 0 then
-            return false -- degenerate
-        end
-
-        local u = (dot11 * dot02 - dot01 * dot12) * (1 / denom)
-        local v = (dot00 * dot12 - dot01 * dot02) * (1 / denom)
-
-        return (u >= 0) and (v >= 0) and (u + v <= 1)
-    end
-
     local function _tri_area(ax, ay, bx, by, cx, cy)
         local abx, aby = bx - ax, by - ay
         local acx, acy = cx - ax, cy - ay
         return math.abs(math.cross(abx, aby, acx, acy)) / 2
     end
 
-    local function _random_point_in_tri(ax, ay, bx, by, cx, cy)
-
-        -- generate random point in rectangle, then fold to tri
-        local r1, r2 = rt.random.number(0, 1), rt.random.number(0, 1)
-        if r1 + r2 > 1 then
-            r1, r2 = 1 - r1, 1 - r2
-        end
-
-        local x = ax + r1 * (bx - ax) + r2 * (cx - ax)
-        local y = ay + r1 * (by - ay) + r2 * (cy - ay)
-
-        return x, y
-    end
-
     local _x_offset = 0
     local _y_offset = 1
     local _radius_offset = 2
     local _velocity_offset = 3
-    local _last_vx_offset = 4
-    local _last_vy_offset = 5
-    local _hue_offset = 6
-    local _opacity_offset = 7
-    local _lifetime_offset = 8
-    local _lifetime_elapsed_offset = 9
+    local _hue_offset = 4
+    local _opacity_offset = 5
+    local _lifetime_offset = 6
+    local _lifetime_elapsed_offset = 7
 
     local _stride = _lifetime_elapsed_offset + 1
     local _particle_i_to_data_offset = function(particle_i)
         return (particle_i - 1) * _stride + 1 -- 1-based
     end
 
-    local settings = {
-        n_hue_steps = 256,
-        density = 1.2, -- factor
-        velocity = 10,
-        radius = 8,
-        max_lifetime = 0.5,
-        attack_fraction = 0.05,
-        release_fraction = 0.1
-    }
+    local settings = rt.settings.overworld.boost_field.particles
 
     --- @brief
     function ow.BoostField:_init_particles()
@@ -476,65 +406,6 @@ do
             total_area = total_area + area
         end
 
-        -- uniform sample triangle based on weight
-        local random_tri
-        do
-            -- vose's aliasing method https://en.wikipedia.org/wiki/Alias_method
-            local n = #tris
-            local prob = {}
-            local alias = {}
-
-            local scaled = {}
-            local small, large = {}, {}
-
-            for i, tri in ipairs(tris) do
-                scaled[i] = (tri_to_area[tri] / total_area) * n
-                if scaled[i] < 1 then
-                    table.insert(small, i)
-                else
-                    table.insert(large, i)
-                end
-            end
-
-            while #small > 0 and #large > 0 do
-                local l = table.remove(small)
-                local g = table.remove(large)
-
-                prob[l] = scaled[l]
-                alias[l] = g
-
-                scaled[g] = (scaled[g] + scaled[l]) - 1
-                if scaled[g] < 1 then
-                    table.insert(small, g)
-                else
-                    table.insert(large, g)
-                end
-            end
-
-            -- set leftover to 1 exactl to address floating point
-            while #large > 0 do
-                local g = table.remove(large)
-                prob[g] = 1
-            end
-
-            while #small > 0 do
-                local l = table.remove(small)
-                prob[l] = 1
-            end
-
-            -- sample routine
-            random_tri = function()
-                local i = rt.random.number(1, n)
-                local coin = rt.random.number(0, 1 - math.eps)
-
-                if coin < prob[i] then
-                    return tris[i]
-                else
-                    return tris[alias[i]]
-                end
-            end
-        end
-
         local particle_path
         if self._path ~= nil then
             particle_path = rt.Path():create_from_and_reparameterize(
@@ -552,6 +423,29 @@ do
             )
         end
 
+        local extrude = function(offset, ax, ay, bx, by, cx, cy)
+            -- radially scale, this may distort the triangle but we only
+            -- extrude to have particle seed points fall slightly outside the tris
+            local ox, oy = (ax + bx + cx) / 3, (ay + by + cy) / 3
+            local dax, day = math.subtract(ax, ay, ox, oy)
+            local dbx, dby = math.subtract(bx, by, ox, oy)
+            local dcx, dcy = math.subtract(cx, cy, ox, oy)
+
+            local a_len = math.magnitude(dax, day)
+            local b_len = math.magnitude(dbx, dby)
+            local c_len = math.magnitude(dcx, dcy)
+
+            local a_scale = (a_len + offset) / a_len
+            local b_scale = (b_len + offset) / b_len
+            local c_scale = (c_len + offset) / c_len
+
+            ax, ay = math.add(ox, oy, math.multiply(dax, day, a_scale, a_scale))
+            bx, by = math.add(ox, oy, math.multiply(dbx, dby, b_scale, b_scale))
+            cx, cy = math.add(ox, oy, math.multiply(dcx, dcy, c_scale, c_scale))
+
+            return ax, ay, bx, by, cx, cy, _tri_area(ax, ay, bx, by, cx, cy)
+        end
+
         -- particle spawn point table
         local seed_points = {}
 
@@ -559,14 +453,14 @@ do
         local particle_data = {}
 
         local particle_i = 1
-        for tri, area in pairs(tri_to_area) do
-            local n_particles = settings.density * (area / settings.radius)
-            local ax, ay, bx, by, cx, cy = table.unpack(tri)
+        for _, tri in ipairs(tris) do
+            local ax, ay, bx, by, cx, cy, area = extrude(settings.triangle_extrusion, table.unpack(tri))
+            local n_particles = settings.density * (area / math.mix(settings.min_radius, settings.max_radius, 0.5))
 
             -- distribute points in triangular lattice using barycentric coordinates
             -- (k+1)th triangular number is (k+1)(k+2)/2, # points in triangular grid with k+1 points per side
-            -- solving (k+1)(k+2)/2 = n_particles, using quadratic formula, gives:
-            local k = math.floor((-3 + math.sqrt(1 + 8 * n_particles)) / 2)
+            -- solving (k+1)(k+2)/2 = n_particles gives:
+            local k = math.floor(0.5 * (-3 + math.sqrt(1 + 8 * n_particles)))
             if k < 1 then k = 1 end
 
             for i = 0, k do
@@ -584,14 +478,14 @@ do
                     local pi = _particle_i_to_data_offset(particle_i)
                     particle_data[pi + _x_offset] = x
                     particle_data[pi + _y_offset] = y
-                    particle_data[pi + _radius_offset] = settings.radius
-                    particle_data[pi + _velocity_offset] = settings.velocity
-                    particle_data[pi + _last_vx_offset] = 0
-                    particle_data[pi + _last_vy_offset] = 0
+                    particle_data[pi + _radius_offset] = rt.random.number(settings.min_radius, settings.max_radius)
+                    particle_data[pi + _velocity_offset] = rt.random.number(settings.min_velocity, settings.max_velocity)
                     particle_data[pi + _hue_offset] = particle_path:get_fraction(x, y)
                     particle_data[pi + _opacity_offset] = 0
-                    particle_data[pi + _lifetime_elapsed_offset] = 0
-                    particle_data[pi + _lifetime_offset] = settings.max_lifetime
+
+                    local lifetime = settings.max_lifetime
+                    particle_data[pi + _lifetime_elapsed_offset] = rt.random.number(0, lifetime)
+                    particle_data[pi + _lifetime_offset] = lifetime
                     particle_i = particle_i + 1
                 end
             end
@@ -610,16 +504,61 @@ do
         end
 
         self._hue_to_rgba = function(hue)
-            hue = math.floor(hue * settings.n_hue_steps)
+            hue = math.floor(hue * settings.n_hue_steps) + 1
             local entry = hue_to_rgba[hue]
             assert(entry ~= nil)
             return table.unpack(entry)
         end
 
+        -- init spatial hash
+        local spatial_hash = {}
+        local cell_size = settings.spatial_hash_cell_size
+        local i_offset = -math.floor(min_x / cell_size) + 1
+        local j_offset = -math.floor(min_y / cell_size) + 1
+
+        self._get_tangent_t = function(x, y)
+            local i = math.floor(x / cell_size) + i_offset
+            local j = math.floor(y / cell_size) + j_offset
+
+            local row = spatial_hash[i]
+            if row == nil then
+                row = {}
+                spatial_hash[i] = row
+            end
+
+            local entry = row[j]
+            if entry == nil then
+                local cell_x = (i - i_offset) * cell_size + 0.5 * cell_size
+                local cell_y = (j - j_offset) * cell_size + 0.5 * cell_size
+                local t = particle_path:get_fraction(cell_x, cell_y)
+                local dx, dy = particle_path:tangent_at(t)
+                entry = { t, dx, dy }
+                row[j] = entry
+            end
+
+            return table.unpack(entry)
+        end
+
+        do -- force initialize spatial hash in bounding box
+            local min_i, max_i = math.floor(min_x / cell_size), math.floor(max_x / cell_size)
+            local min_j, max_j = math.floor(min_y / cell_size), math.floor(max_y / cell_size)
+
+            for i = min_i, max_i do
+                for j = min_j, max_j do
+                    local x = (i + 0.5) * cell_size
+                    local y = (j + 0.5) * cell_size
+                    self._get_tangent_t(x, y)
+                end
+            end
+        end
+
+        self._spatial_hash = spatial_hash
         self._particle_path = particle_path
         self._particle_data = particle_data
         self._n_particles = particle_i - 1
     end
+
+    local _HUE_UPDATE_NEEDED = -1
 
     function ow.BoostField:_update_particles(delta)
         local data = self._particle_data
@@ -632,6 +571,12 @@ do
             return envelope(math.min(t, 1), attack, release)
         end
 
+        local velocity_interpolation = settings.velocity_interpolation
+        local velocity_factor = self._velocity_factor
+
+        local get_tangent_t = self._get_tangent_t
+        local get_seed = self._get_seed
+
         for pi = 1, self._n_particles do
             local i = _particle_i_to_data_offset(pi)
 
@@ -639,12 +584,13 @@ do
             local y = data[i + _y_offset]
             local velocity = data[i + _velocity_offset]
 
-            local t = path:get_fraction(x, y)
-            data[i + _hue_offset] = t
+            local t, dx, dy = get_tangent_t(x, y)
+            if data[i + _hue_offset] == _HUE_UPDATE_NEEDED then
+                data[i + _hue_offset] = t
+            end
 
-            local dx, dy = path:tangent_at(t)
-            x = x + dx * velocity * delta
-            y = y + dy * velocity * delta
+            x = x + dx * velocity_factor * velocity * delta
+            y = y + dy * velocity_factor * velocity * delta
 
             local elapsed = data[i + _lifetime_elapsed_offset]
             elapsed = elapsed + delta
@@ -655,36 +601,55 @@ do
             if lifetime_t > 1 then
                 data[i + _opacity_offset] = 0
 
-                --[[ respawn at new position
-                local new_x, new_y = self._get_seed()
+                local new_x, new_y = get_seed()
                 data[i + _x_offset] = new_x
                 data[i + _y_offset] = new_y
-                data[i + _last_vx_offset] = 0
-                data[i + _last_vy_offset] = 0
                 data[i + _opacity_offset] = 0
-                -- hue queried next update
-                ]]
+                data[i + _lifetime_elapsed_offset] = 0
+                data[i + _hue_offset] = _HUE_UPDATE_NEEDED
             else
                 data[i + _x_offset] = x
                 data[i + _y_offset] = y
                 data[i + _lifetime_elapsed_offset] = elapsed
-                data[i + _opacity_offset] = math.min(lifetime_t, 1)
+                data[i + _opacity_offset] = opacity_easing(math.min(lifetime_t, 1))
             end
         end
     end
 
     function ow.BoostField:_draw_particles()
+        love.graphics.push("all")
+        rt.graphics.set_blend_mode(rt.BlendMode.ADD, rt.BlendMode.ADD)
+
         local data = self._particle_data
+        local hue_to_rgba = self._hue_to_rgba
+        local w, h = _particle_texture:get_size()
+        local ox, oy = 0.5 * w, 0.5 * h
+        local native = _particle_texture:get_native()
+        local t = settings.additive_scale
+
         for pi = 1, self._n_particles do
             local i = _particle_i_to_data_offset(pi)
-            local x = data[i + _x_offset]
-            local y = data[i + _y_offset]
-            local r, g, b, a = self._hue_to_rgba(data[i + _hue_offset])
-            a = a * data[i + _opacity_offset]
-            local radius = data[i + _radius_offset]
+            local opacity = data[i + _opacity_offset]
 
-            love.graphics.setColor(r, g, b, a)
-            love.graphics.circle("fill", x, y, radius)
+            if opacity > 0 then
+                local x = data[i + _x_offset]
+                local y = data[i + _y_offset]
+                local r, g, b, a = hue_to_rgba(data[i + _hue_offset])
+                a = a * opacity
+                local radius = data[i + _radius_offset]
+
+                local scale = 2 * radius / (w / 2)
+
+                love.graphics.setColor(t * r, t * g, t * b, t * a)
+                love.graphics.draw(native,
+                    x, y,
+                    0,
+                    scale, scale,
+                    ox, oy
+                )
+            end
         end
+
+        love.graphics.pop()
     end
 end
