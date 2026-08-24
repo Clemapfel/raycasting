@@ -289,16 +289,16 @@ rt.InterpolationFunctions = {
         return 1 - (2 * (x - 0.5))^2
     end,
 
-    ENVELOPE = function(x, attack_fraction, decay_fraction)
+    ENVELOPE = function(x, attack_fraction, release_fraction)
         attack_fraction = attack_fraction or 0.5
-        decay_fraction  = decay_fraction or attack_fraction
+        release_fraction  = release_fraction or attack_fraction
 
         if x < 0 or x > 1 then return 0 end
 
         attack_fraction = math.max(attack_fraction, 0)
-        decay_fraction  = math.max(decay_fraction, 0)
+        release_fraction  = math.max(release_fraction, 0)
 
-        local total = attack_fraction + decay_fraction
+        local total = attack_fraction + release_fraction
         if total == 0 then return 1 end
 
         local function sine_ease_in(t)
@@ -309,7 +309,7 @@ rt.InterpolationFunctions = {
             return math.cos(t * math.pi / 2)
         end
 
-        local decay_start = 1 - decay_fraction
+        local release_start = 1 - release_fraction
 
         -- attack
         if attack_fraction > 0 and x < attack_fraction then
@@ -317,32 +317,32 @@ rt.InterpolationFunctions = {
         end
 
         -- sustain
-        if x < decay_start then
+        if x < release_start then
             return 1
         end
 
-        -- decay
-        if decay_fraction > 0 and x < 1 then
-            return sine_ease_out((x - decay_start) / decay_fraction)
+        -- release
+        if release_fraction > 0 and x < 1 then
+            return sine_ease_out((x - release_start) / release_fraction)
         end
 
         -- exactly 0 at t = 1
         return 0
     end,
 
-    HANN_ENVELOPE = function(x, attack_fraction, decay_fraction)
+    HANN_ENVELOPE = function(x, attack_fraction, release_fraction)
         attack_fraction = attack_fraction or 0.5
-        decay_fraction  = decay_fraction or attack_fraction
+        release_fraction  = release_fraction or attack_fraction
 
         if x < 0 or x > 1 then return 0 end
 
         attack_fraction = math.max(attack_fraction, 0)
-        decay_fraction  = math.max(decay_fraction, 0)
+        release_fraction  = math.max(release_fraction, 0)
 
-        local total = attack_fraction + decay_fraction
+        local total = attack_fraction + release_fraction
         if total == 0 then return 1 end
 
-        local decay_start = 1 - decay_fraction
+        local release_start = 1 - release_fraction
 
         -- attack
         if attack_fraction > 0 and x < attack_fraction then
@@ -351,13 +351,13 @@ rt.InterpolationFunctions = {
         end
 
         -- sustain
-        if x < decay_start then
+        if x < release_start then
             return 1
         end
 
-        -- decay
-        if decay_fraction > 0 and x < 1 then
-            local t = (x - decay_start) / decay_fraction
+        -- release
+        if release_fraction > 0 and x < 1 then
+            local t = (x - release_start) / release_fraction
             return 0.5 * (1 + math.cos(t * math.pi))
         end
 
