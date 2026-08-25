@@ -5,9 +5,9 @@ require "common.path"
 
 rt.settings.overworld.portal = {
     default_winding = true,
-    transition_min_velocity = 600,
-    sensor_width = 2 * rt.settings.player.radius * rt.settings.player.bubble_radius_factor,
-    one_way_particle_lightness = 0.6
+    transition_min_velocity_non_bubble = 600,
+    transition_min_velocity_bubble = 300,
+    sensor_width = 2 * rt.settings.player.radius * rt.settings.player.bubble_radius_factor
 }
 
 --- @class ow.Portal
@@ -48,6 +48,8 @@ function ow.Portal:instantiate(object, stage, scene)
         if other:get_type() ~= ow.ObjectType.POINT then
             rt.error("In ow.Portal: object `", other:get_id(), "` is not a point")
         end
+
+        self._entry_t = 0.5 -- contraction point of portal
 
         self._ax, self._ay = object.x, object.y
         self._bx, self._by = other.x, other.y
@@ -93,8 +95,8 @@ function ow.Portal:instantiate(object, stage, scene)
             )
         )
         self._stencil_body_radius = stencil_r
+
         self._stencil_body:add_tag(
-            b2.Tag.HITBOX,
             b2.Tag.STENCIL,
             b2.Tag.CORE_STENCIL,
             b2.Tag.BODY_STENCIL
@@ -120,10 +122,6 @@ function ow.Portal:instantiate(object, stage, scene)
     end)
 
     self._stage:signal_connect("post_initialized", function()
-        local set_color = function(object, hue, lightness)
-
-        end
-
         -- color
         if stage.portal_hue_index == nil then stage.portal_hue_index = 0 end
         local hue = stage.portal_hue_index % 12
@@ -146,10 +144,9 @@ function ow.Portal:instantiate(object, stage, scene)
                 self._target._color = self._color
             end
 
-            self._particles:set_lightness(1)
+            self._particles:set_is_enabled(true)
         else
-            -- darken particles if
-            self._particles:set_lightness(rt.settings.overworld.portal.one_way_particle_lightness)
+            self._particles:set_is_enabled(false)
         end
 
         return meta.DISCONNECT_SIGNAL
@@ -231,6 +228,7 @@ function ow.Portal:update(delta)
 
     -- check if teleport should be started
     if self._stage.portal_active_portal == nil
+        and self._target ~= nil
         and self._state == _STATE_DEFAULT
         and is_visible
     then
@@ -261,9 +259,14 @@ function ow.Portal:update(delta)
                 self._stage.portal_active_portal = self
 
                 self._start_x, self._start_y = px, py
+                self._start_t = entry_t
                 self._start_time = love.timer.getTime()
+
                 self._transition_velocity_magnitude = math.max(
-                    settings.transition_min_velocity,
+                    ternary(player:get_is_bubble(),
+                        settings.transition_min_velocity_bubble,
+                        settings.transition_min_velocity_non_bubble
+                    ),
                     math.magnitude(player:get_velocity())
                 )
 
@@ -287,12 +290,13 @@ function ow.Portal:update(delta)
                 update_stencil_body(self._target, true, self._target:get_position())
 
                 self._particles:contract(entry_t)
+                self._entry_t = entry_t
             end
         end
     end
 
     -- teleport active
-    if self._stage.portal_active_portal == self then
+    if self._stage.portal_active_portal == self and self._target ~= nil then
         local target = self._target
         local penetration_r = settings.sensor_width
 
@@ -341,7 +345,7 @@ function ow.Portal:update(delta)
                 self._state = _STATE_EXITING
                 self._start_time = love.timer.getTime()
 
-                target._particles:contract(0.5) -- exit always from center
+                target._particles:contract(self._entry_t) -- exit always from center
             else
                 -- move stencil along with player, automatically clamped behind line
                 update_stencil_body(self, true, px, py)
@@ -350,7 +354,7 @@ function ow.Portal:update(delta)
         end
 
         -- exiting target portal
-        if self._state == _STATE_EXITING then
+        if self._state == _STATE_EXITING and self._target ~= nil then
             local target_x, target_y = target:get_position()
             local dx, dy = math.normalize(-target._nx, -target._ny)
 
@@ -369,9 +373,6 @@ function ow.Portal:update(delta)
                 player:request_is_trail_enabled(self, nil)
             end
 
-            update_stencil_body(self, false, self:get_position())
-            update_stencil_body(self._target, true, self._target:get_position())
-
             if math.distance(px, py, target_x, target_y) > penetration_r + player:get_radius() then
                 -- player is far enough, disengage transitioning state
                 self._scene:pop_camera_mode(ow.CameraMode.CUTSCENE)
@@ -380,8 +381,14 @@ function ow.Portal:update(delta)
                 player:request_is_disabled(self, nil)
                 player:request_is_trail_enabled(self, nil) -- safety
 
+                update_stencil_body(self, false, self:get_position())
+                update_stencil_body(self._target, false, self._target:get_position())
+
                 self._state = _STATE_DEFAULT
                 self._stage.portal_active_portal = nil
+            else
+                update_stencil_body(self, false, self:get_position())
+                update_stencil_body(self._target, true, self._target:get_position())
             end
         end
     end
@@ -396,8 +403,6 @@ function ow.Portal:draw()
     love.graphics.line(self._ax, self._ay, self._bx, self._by)
     self._particles:draw()
     love.graphics.pop()
-    
-    self._stencil_body:draw()
 end
 
 --- @brief

@@ -1,0 +1,367 @@
+
+require "common.smoothed_motion_1d"
+require "common.impulse_manager"
+require "overworld.movable_object"
+
+rt.settings.overworld.boost_field = {
+    acceleration_duration = 10 / 60, -- seconds to accelerate player from 0 to max
+    max_velocity = 1500,
+    bloom = 0.4,
+    contrast = 0.25,
+    line_width = 3,
+    max_velocity_influence = 6,
+    animation_velocity = 1 / 4, -- factor of seconds
+}
+
+local schema = {
+    axis_x = ow.Number,
+    axis_y = ow.Number,
+    axis = ow.Object,
+    is_visible = ow.Boolean,
+    has_outline = ow.Boolean,
+    velocity = ow.Number,
+    hue = { ow.String, ow.Number }
+}
+
+--- @class ow.BoostField
+--- @types Polygon, Rectangle, Ellipse
+--- @field velocity Number?
+--- @field axis ow.BoostFieldAxis! non-optional
+ow.BoostField = meta.class("BoostField", ow.MovableObject)
+
+--- @class ow.BoostFieldAxis
+--- @types Point
+--- @field axis_x Number! in [-1, 1]
+--- @field axis_y Number! in [-1, 1]
+ow.BoostFieldAxis = meta.class("BoostFieldAxis") -- dummy
+
+local _shader
+do
+    local defines = {}
+    if love.graphics.getSupported().shaderderivatives then
+        defines.SHADER_DERIVATIVES_AVAILABLE = 1
+    end
+    _shader = rt.Shader("overworld/objects/boost_field.glsl", defines)
+end
+
+--- @brief
+function ow.BoostField:instantiate(object, stage, scene)
+    object:validate_schema(schema, ow.ShapeType.NOT_A_POINT)
+    self._body = object:create_physics_body(stage:get_physics_world())
+    self._body:set_is_sensor(true)
+    self._body:set_collides_with(rt.settings.player.player_collision_group)
+    self._use_exact_testing = table.sizeof(self._body:get_native():getShapes()) > 1
+
+    self._is_active = false
+    self._player_influence_motion = rt.SmoothedMotion1D(0, 1)
+
+    if not self._use_exact_testing then
+        self._body:signal_connect("collision_start", function()
+            self._is_active = true
+        end)
+
+        self._body:signal_connect("collision_end", function()
+            self._is_active = false
+        end)
+    end
+
+    self._scene = scene
+    self._stage = stage
+
+    self._has_outline = object:get_boolean("has_outline", false)
+    if self._has_outline == nil then self._has_outline = true end
+
+    self._player = self._scene:get_player()
+
+    local factor = object:get_number("velocity", false) or 1
+    self._velocity_factor = factor
+    self._target_velocity = rt.settings.overworld.boost_field.max_velocity * factor
+
+    local axis = object:get_object("axis")
+    if axis == nil then
+        local axis_x = object:get_number("axis_x")
+        local axis_y = object:get_number("axis_y")
+
+        if axis_x ~= nil and axis_y == nil then axis_y = 0 end
+        if axis_y ~= nil and axis_x == nil then axis_x = 0 end
+
+        if axis_x ~= nil and axis_y ~= nil then
+            -- if manually set, use as is
+            self._axis_x = axis_x
+            self._axis_y = axis_y
+        else
+
+            -- lineare regression
+            local function _fit_line(vertices)
+                local n = #vertices / 2
+
+                local sum_x, sum_y = 0, 0
+                for i = 1, #vertices, 2 do
+                    sum_x = sum_x + vertices[i]
+                    sum_y = sum_y + vertices[i + 1]
+                end
+
+                local mean_x = sum_x / n
+                local mean_y = sum_y / n
+
+                local var_x, var_y = 0, 0
+                local covar = 0
+                for i = 1, #vertices, 2 do
+                    local dx = vertices[i] - mean_x
+                    local dy = vertices[i + 1] - mean_y
+                    var_x = var_x + dx * dx
+                    var_y = var_y + dy * dy
+                    covar = covar + dx * dy
+                end
+
+                local dir_x, dir_y
+                if math.equals(var_x, 0) and math.equals(var_y, 0) then
+                    dir_x, dir_y = 1, 0
+                elseif math.equals(var_x, 0) then
+                    dir_x, dir_y = 0, 1
+                else
+                    local theta = 0.5 * math.angle(var_x - var_y, 2 * covar)
+                    dir_x = math.cos(theta)
+                    dir_y = math.sin(theta)
+                end
+
+                dir_x, dir_y = math.normalize(dir_x, dir_y)
+
+                local min_proj = math.huge
+                local max_proj = -math.huge
+                for i = 1, #vertices, 2 do
+                    local dx = vertices[i] - mean_x
+                    local dy = vertices[i + 1] - mean_y
+                    local proj = math.dot(dx, dy, dir_x, dir_y)
+                    min_proj = math.min(min_proj, proj)
+                    max_proj = math.max(max_proj, proj)
+                end
+
+                local x1 = mean_x + min_proj * dir_x
+                local y1 = mean_y + min_proj * dir_y
+                local x2 = mean_x + max_proj * dir_x
+                local y2 = mean_y + max_proj * dir_y
+
+                return x1, y1, x2, y2
+            end
+
+            -- else perform linear regression, use directed line as axis
+            local ax, ay, bx, by = _fit_line(object:create_contour())
+            if ay < by then
+                ax, ay, bx, by = bx, by, ax, ay
+            end
+            self._axis_x = bx - ax
+            self._axis_y = by - ay
+        end
+    else
+        -- use point as direction indicator
+        assert(axis:get_type() == ow.ObjectType.POINT, "In ow.BoostField.instantiate: `axis` target is not a point")
+        local start_x, start_y = self._body:get_center_of_mass()
+        local end_x, end_y = axis.x, axis.y
+        self._axis_x, self._axis_y = end_x - start_x, end_y - start_y
+    end
+
+    self._axis_x, self._axis_y = math.normalize(self._axis_x, self._axis_y)
+    rt.assert(math.magnitude(self._axis_x, self._axis_y) > 0, "In ow.BoostField.instantiate: magnitude of axis of object `", object:get_id(), "` in stage `", self._stage:get_id(), "` cannot be 0")
+
+    self._is_visible = object:get_boolean("is_visible")
+    if self._is_visible == nil then self._is_visible = true end
+
+    if not self._is_visible then return end
+
+    local hue = object:get_property("hue")
+    if hue == nil then
+        self._hue = math.angle(self._axis_x, self._axis_y) / (2 * math.pi)
+        self._use_player_hue = false
+    elseif meta.is_string(hue) and hue == "player" then
+        self._hue = 0
+        self._use_player_hue = true
+    else
+        self._hue = object:get_number("hue", true)
+        self._use_player_hue = false
+    end
+
+    self._color = { rt.lcha_to_rgba(0.8, 1, self._hue, 0.8) }
+
+    self._draw_offset_x, self._draw_offset_y = self._body:get_position()
+    self._mesh = object:create_mesh()
+    self._outline = rt.contour.close(object:create_contour())
+
+    self._segment_lights = {}
+    for i = 1, #self._outline - 2, 2 do
+        local x1, y1 = self._outline[i+0], self._outline[i+1]
+        local x2, y2 = self._outline[math.wrap(i+2, #self._outline)], self._outline[math.wrap(i+3, #self._outline)]
+        table.insert(self._segment_lights, { x1, y1, x2, y2 })
+    end
+
+    self._body:add_tag(b2.Tag.SEGMENT_LIGHT_SOURCE)
+    self._body:set_user_data(self)
+
+    self._impulse = rt.ImpulseSubscriber()
+end
+
+--- @brief
+function ow.BoostField:update(delta)
+    if not self._stage:get_is_body_visible(self._body) then return end
+
+    local is_active = self._is_active
+    if self._use_exact_testing then
+        is_active = self._body:test_point(self._player:get_position())
+    end
+
+    self._is_active = is_active
+    if not is_active then return end
+
+    local vx, vy = self._player:get_velocity() -- use actual velocity
+
+    local target = self._target_velocity
+    local target_vx, target_vy = self._axis_x * target, self._axis_y * target
+
+    target_vy = target_vy - rt.settings.player.gravity * delta
+
+    local duration = rt.settings.overworld.boost_field.acceleration_duration
+
+    local dx = target_vx - vx
+    local dy = target_vy - vy
+
+    -- prevent decreasing velocity if already above target
+    if (dx > 0 and target_vx < 0) or (dx < 0 and target_vx > 0) then
+        dx = 0
+    end
+
+    if (dy > 0 and target_vy < 0) or (dy < 0 and target_vy > 0) then
+        dy = 0
+    end
+
+    local new_vx = vx + dx * (1 / duration) * delta
+    local new_vy = vy + dy * (1 / duration) * delta
+
+    self._player:set_velocity(new_vx, new_vy)
+
+    self._player_influence_motion:update(delta)
+    self._player_influence_motion:set_target_value(ternary(is_active, 1, 0))
+end
+
+--- @brief batched drawing
+function ow.BoostField:draw()
+    if not self._is_visible or not self._stage:get_is_body_visible(self._body) then return end
+
+    love.graphics.push()
+    local offset_x, offset_y = self._body:get_position()
+    love.graphics.translate(-self._draw_offset_x + offset_x, -self._draw_offset_y + offset_y)
+
+    local player = self._scene:get_player()
+    local camera = self._scene:get_camera()
+    local px, py = player:get_position()
+    px, py = camera:world_xy_to_screen_xy(px, py)
+
+    local transform = self._scene:get_camera():get_transform()
+    transform = transform:inverse():translate(-offset_x, -offset_y)
+
+    local player_opacity = ternary(player:get_is_visible(), 1, 0)
+
+    local r, g, b, a
+    if self._use_player_hue then
+        r, g, b, a = player:get_color():unpack()
+    else
+        r, g, b, a = table.unpack(self._color)
+    end
+
+    love.graphics.setColor(r, g, b, a)
+    _shader:bind()
+    _shader:send("player_position", { px, py })
+    _shader:send("player_color", { player:get_color():unpack() })
+    _shader:send("screen_to_world_transform", transform)
+    _shader:send("animation_velocity", rt.settings.overworld.boost_field.animation_velocity)
+    _shader:send("contrast", rt.settings.overworld.boost_field.contrast)
+    local player_influence = self._player_influence_motion:get_value() * math.mix(1, 1.4, self._impulse:get_beat())
+    if not self._is_active then player_influence = 0 end
+
+    _shader:send("player_influence", player_influence)
+    _shader:send("axis", { self._axis_x, self._axis_y })
+    _shader:send("brightness_offset", math.mix(1, rt.settings.impulse_manager.max_brightness_factor, self._impulse:get_pulse()))
+    _shader:send("elapsed", rt.SceneManager:get_elapsed() * math.mix(0, rt.settings.overworld.boost_field.max_velocity_influence, self._velocity_factor))
+    love.graphics.draw(self._mesh:get_native())
+    _shader:unbind()
+
+    if self._has_outline then
+        love.graphics.setLineJoin("bevel")
+        love.graphics.setLineStyle("smooth")
+        local line_width = rt.settings.overworld.boost_field.line_width
+
+        local offset = math.mix(1, 1.4, self._impulse:get_pulse())
+
+        rt.Palette.BLACK:bind()
+        love.graphics.setLineWidth(line_width * offset + 2)
+        love.graphics.line(self._outline)
+
+        love.graphics.setColor(r * offset, g * offset, b * offset, a)
+        love.graphics.setLineWidth(line_width * offset)
+        love.graphics.line(self._outline)
+    end
+
+    love.graphics.pop()
+end
+
+--- @brief
+function ow.BoostField:draw_bloom()
+    if not self._is_visible
+        or not self._stage:get_is_body_visible(self._body)
+        or not self._has_outline
+    then
+        return
+    end
+
+    love.graphics.push()
+    local offset_x, offset_y = self._body:get_position()
+    love.graphics.translate(-self._draw_offset_x + offset_x, -self._draw_offset_y + offset_y)
+
+    love.graphics.setLineJoin("bevel")
+    local line_width = rt.settings.overworld.boost_field.line_width
+    local offset = math.mix(1, 1.4, self._impulse:get_pulse())
+
+    local r, g, b, a
+    if self._use_player_hue then
+        r, g, b, a = self._scene:get_player():get_color():unpack()
+    else
+        r, g, b, a = table.unpack(self._color)
+    end
+
+    love.graphics.setColor(r * offset, g * offset, b * offset, a)
+    love.graphics.setLineWidth(line_width * offset)
+    love.graphics.line(self._outline)
+
+    love.graphics.pop()
+end
+
+--- @brief
+function ow.BoostField:reset()
+    self._is_active = false
+end
+
+--- @brief
+function ow.BoostField:collect_segment_lights(callback)
+    if self._is_visible == false or self._has_outline == false then return end
+
+    local offset_x, offset_y = self._body:get_position()
+    offset_x = -self._draw_offset_x + offset_x
+    offset_y = -self._draw_offset_y + offset_y
+
+    local r, g, b, a
+    if self._use_player_hue then
+        r, g, b, a = self._scene:get_player():get_color():unpack()
+    else
+        r, g, b, a = table.unpack(self._color)
+    end
+
+    for segment in values(self._segment_lights) do
+        local x1, y1, x2, y2 = table.unpack(segment)
+        callback(
+            x1 + offset_x,
+            y1 + offset_y,
+            x2 + offset_x,
+            y2 + offset_y,
+            r, g, b, a
+        )
+    end
+end

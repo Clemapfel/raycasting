@@ -4,12 +4,20 @@ require "common.texture_format"
 rt.Image = meta.class("Image")
 
 --- @brief
-function rt.Image:instantiate(...)
-    local first = select(1, ...)
-    if first ~= nil and meta.is_function(first.typeOf) and first:typeOf("ImageData") == true then
+function rt.Image:instantiate(width, height, format)
+    if format == nil then format = rt.TextureFormat.NORMAL end
+    meta.assert(
+        width, mt.Union(mt.Number, mt.UserData),
+        height, mt.Number,
+        format, mt.Optional(rt.TextureFormat)
+    )
+
+    local first = width
+    if meta.is_userdata(first) and meta.is_function(first.typeOf) and first:typeOf("ImageData") == true then
         self._native = first
     else
-        self._native = love.image.newImageData(...)
+        meta.assert(width, mt.Number)
+        self._native = love.image.newImageData(width, height, format)
     end
 end
 
@@ -51,4 +59,9 @@ end
 --- @brief
 function rt.Image:save_to(path)
     self._native:encode("png", path)
+end
+
+--- @brief
+function rt.Image:create_texture()
+    return rt.Texture(love.graphics.newImage(self._native))
 end

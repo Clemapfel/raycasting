@@ -59,7 +59,7 @@ b2.Tag = {
     HITBOX = "hitbox",
     USE_DARKNESS = "use_darkness",
     USE_LIGHTING = "use_lighting",
-    USE_FRICTION = "use_friction"
+    USE_FRICTION = "use_friction",
 }
 
 b2.Tag = meta.enum("Tag", b2.Tag)

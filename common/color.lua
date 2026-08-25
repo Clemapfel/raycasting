@@ -198,6 +198,8 @@ end
 
 --- @brief
 function rt.lcha_to_rgba(l, c, h, alpha)
+    if alpha == nil then alpha = 1 end
+
     -- Convert to Lab color space
     local L = l * 100
     local a = math.cos(h * 6.283185) * c * 100

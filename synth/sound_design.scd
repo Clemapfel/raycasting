@@ -17,6 +17,7 @@ server.waitForBoot({
 	//~player.();
 	~subdivide.();
 
+
 	CmdPeriod.doOnce({
 		server.freeAll;
 	})
@@ -795,7 +796,7 @@ server.waitForBoot({
 };
 
 ~player = {
-	var def = SynthDef.new(\player, { arg out, freq, amp = 1, gate = 1, sustain = 1, tempo = 1;
+	var def = SynthDef.new(\player, { arg out = 0, freq = 440, amp = 1, gate = 1, sustain = 1, tempo = 1;
 		var noteDuration = sustain / tempo;
 		var sweep = freq * XLine.ar(0.midiratio, 8.midiratio, noteDuration);
 		var decay = 1;
@@ -805,22 +806,40 @@ server.waitForBoot({
 			decaytime: decay
 		);
 
-		var env = EnvGen.ar(Env.asr(
-			attackTime: 0.02,
-			releaseTime: decay
-		), gate: gate);
+		var env = EnvGen.ar(
+			Env.asr(attackTime: 0.02, releaseTime: decay),
+			gate: gate,
+			doneAction: Done.freeSelf
+		);
 
 		Out.ar(out, amp * (env * signal).dup);
-		DetectSilence.ar(signal, doneAction: Done.freeSelf);
 	}).add;
 
-	server.sync;
+	var velocitySpec = ControlSpec(0, 127, \lin);
+	var noteDict = IdentityDictionary.new; // holds active Synths, keyed by MIDI note number
 
-	PmonoArtic(def.name, *[
-		degree: Pseq([0] - 6),
-		sustain: 0.1,
-		amp: 1 / 2,
-	]).play;
+	var noteOnDef = MIDIdef.noteOn(\playerNoteOn, { arg velocity, note, chan, src;
+		var amp = velocitySpec.map(velocity) / 127; // 0..1
+		var freq = note.midicps;
+
+		// if this note is already sounding (retrigger), release the old voice first
+		var existing = noteDict.at(note);
+		if(existing.notNil) {
+			existing.set(\gate, 0);
+		};
+
+		noteDict.put(note, Synth.new(\player, [\freq, freq, \amp, amp, \gate, 1]));
+	});
+
+	var noteOffDef = MIDIdef.noteOff(\playerNoteOff, { arg velocity, note, chan, src;
+		var synth = noteDict.at(note);
+		if(synth.notNil) {
+			synth.set(\gate, 0); // triggers release phase of Env.asr
+			noteDict.removeAt(note);
+		};
+	});
+
+	server.sync;
 };
 
 /*
@@ -867,15 +886,18 @@ server.waitForBoot({
 */
 
 ~subdivide = {
+
 	var tableRes = 2**9;
-	var waveAmplitudes = [1, 1, 1, 1, 1, 1];
-	var wavePhases = n.collect({ |n| (2 * pi * (n / amplitudes.size); });
+	var waveAmplitudes = 1 / [1, 2, 3, 4];
+	var wavePhases = (0..(waveAmplitudes.size - 1)).collect({ |i|
+		2 * pi * (i / waveAmplitudes.size);
+	});
 
 	var sinTable = Buffer.loadCollection(server, Signal.fill(tableRes, { |i|
 		var t = i / tableRes;
 		var x = 0;
 		waveAmplitudes.do({ |amplitude, n|
-			x = x + (amplitude * sin((2 * pi * (n + 1) * t) + ));
+			x = x + (amplitude * sin((2 * pi * (n + 1) * t) + wavePhases[n]));
 		});
 		x;
 	}).asWavetable);
@@ -903,7 +925,6 @@ server.waitForBoot({
 		(2 / pi) * asin(sin(2 * pi * t));
 	}));
 
-
 	var def = SynthDef.new(\subdivide, { arg out, gate = 1, freq, amp, wavebufnum;
 		var masterClock = Impulse.ar(24000);
 		var divide = PulseDivider.ar(masterClock, 5);
@@ -922,7 +943,7 @@ server.waitForBoot({
 	PmonoArtic(def.name, *[
 		degree: Pseq([0, 1, 5, 2, 1], inf),
 		sustain: 1.0,
-		wavebufnum: sinTable
+		wavebufnum: circleTable
 	]).play;
 };
 

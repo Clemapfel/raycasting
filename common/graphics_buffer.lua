@@ -8,6 +8,14 @@ local _usage = {
 --- @class rt.GraphicsBuffer
 rt.GraphicsBuffer = meta.class("GraphicsBuffer")
 
+rt.TexelBufferFormat = {
+    {
+        location = 0,
+        name = "default",
+        format = "floatvec4"
+    }
+}
+
 --- @brief
 function rt.GraphicsBuffer:instantiate(format_or_native, n_elements_or_table, usage)
     if meta.is_function(format_or_native.typeOf) and format_or_native:typeOf("GraphicsBuffer") then

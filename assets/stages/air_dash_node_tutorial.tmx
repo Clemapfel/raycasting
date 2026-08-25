@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="368">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="393">
  <editorsettings>
   <export target="air_dash_node_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -39,9 +39,15 @@
   <object id="247" type="OneWayPlatformNode" x="2032" y="-1472">
    <point/>
   </object>
+  <object id="368" type="BoostField" x="1040" y="-752">
+   <properties>
+    <property name="path" type="object" value="369"/>
+   </properties>
+   <polygon points="0,0 0,48 160,64 240,16 224,-224 160,-272 16,-272 0,-256 0,-176 48,-176 48,-208 144,-208 112,-96 144,0"/>
+  </object>
  </objectgroup>
  <objectgroup id="2" name="main">
-  <object id="89" name="Spawn" type="PlayerSpawn" x="18.1359" y="-1995.41">
+  <object id="89" name="Spawn" type="PlayerSpawn" x="1135.54" y="-1857.16">
    <point/>
   </object>
   <object id="91" type="Hitbox" x="-1439.08" y="1248">
@@ -265,8 +271,10 @@
   <object id="344" type="Path" x="1197.24" y="-1518.9">
    <properties>
     <property name="next" type="object" value="345"/>
-    <property name="target" type="object" value="338"/>
-    <property name="target_02" type="object" value="363"/>
+    <property name="target" type="object" value="0"/>
+    <property name="target_02" type="object" value="0"/>
+    <property name="target_03" type="object" value="0"/>
+    <property name="target_04" type="object" value="0"/>
    </properties>
    <point/>
   </object>
@@ -276,23 +284,11 @@
    </properties>
    <point/>
   </object>
-  <object id="346" x="613.573" y="-1477.03">
-   <properties>
-    <property name="slippery" type="bool" value="true"/>
-   </properties>
-   <polygon points="0,0 114.539,93.1582 230.605,-6.10874"/>
-  </object>
   <object id="347" x="524.997" y="-1542.7">
    <properties>
     <property name="slippery" type="bool" value="true"/>
    </properties>
    <polygon points="0,0 25.9621,126.756 238.241,3.05437"/>
-  </object>
-  <object id="348" x="566.231" y="-1616">
-   <properties>
-    <property name="slippery" type="bool" value="true"/>
-   </properties>
-   <polygon points="0,0 334.453,236.714 456.628,109.957"/>
   </object>
   <object id="349" type="Hitbox" x="160" y="-1536.59">
    <properties>
@@ -319,7 +315,7 @@
   <object id="355" x="160" y="-1856">
    <polygon points="0,0 631.104,175.087 144,-224"/>
   </object>
-  <object id="357" type="Wall" x="-45.5501" y="-2154.87">
+  <object id="357" type="Wall" x="-45.5501" y="-2154.87" visible="0">
    <properties>
     <property name="type" value="SPHERES"/>
    </properties>
@@ -334,34 +330,132 @@
   <object id="360" type="SlipperyHitbox" x="224" y="-1552">
    <polygon points="0,0 -16,96 80,64 96,32"/>
   </object>
-  <object id="361" type="Portal" x="188.456" y="-1902.12">
+  <object id="361" type="Portal" x="-1758.26" y="-1172.52">
    <properties>
     <property name="other" type="object" value="362"/>
     <property name="target" type="object" value="363"/>
    </properties>
    <point/>
   </object>
-  <object id="362" type="PortalNode" x="262.865" y="-2013.73">
+  <object id="362" type="PortalNode" x="-1358.26" y="-1172.52">
    <point/>
   </object>
-  <object id="363" type="Portal" x="1136" y="-1696">
+  <object id="363" type="Portal" x="-1358.26" y="-1348.52">
    <properties>
     <property name="other" type="object" value="364"/>
     <property name="target" type="object" value="361"/>
    </properties>
    <point/>
   </object>
-  <object id="364" type="PortalNode" x="1136" y="-1792">
+  <object id="364" type="PortalNode" x="-1758.26" y="-1348.52">
    <point/>
   </object>
-  <object id="365" x="1408" y="-1616">
-   <polygon points="0,0 -144,368 0,368"/>
+ </objectgroup>
+ <objectgroup id="6" name="front">
+  <object id="369" type="BoostFieldPathNode" x="1088" y="-720">
+   <properties>
+    <property name="next" type="object" value="370"/>
+   </properties>
+   <point/>
   </object>
-  <object id="366" x="902.055" y="-1379.77">
-   <polygon points="0,0 114.758,25.3536 120.096,-122.765 -4.0032,-82.7329"/>
+  <object id="370" type="BoostFieldPathNode" x="1232" y="-717.226">
+   <properties>
+    <property name="next" type="object" value="371"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="371" type="BoostFieldPathNode" x="1216" y="-864">
+   <properties>
+    <property name="next" type="object" value="372"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="372" type="BoostFieldPathNode" x="1104" y="-944">
+   <properties>
+    <property name="next" type="object" value="0"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="376" type="MovableHitbox" x="816" y="-1536">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,-16 -16,-16 -16,16 16,16 16,224 192,224 192,64 320,64 320,48 192,48 176,64 176,192 160,208 48,208 32,192 32,0"/>
+  </object>
+  <object id="377" type="MovableHitbox" x="864" y="-1536">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,0 0,176 16,192 96,192 112,176 112,48 128,32 272,32 272,16 96,16 96,176 16,176 16,16 48,16 48,-16 32,-16"/>
+  </object>
+  <object id="378" type="BoostField" x="816" y="-1584">
+   <properties>
+    <property name="path" type="object" value="379"/>
+   </properties>
+   <polygon points="0,0 0,32 32,48 32,240 48,256 160,256 176,240 176,112 192,96 320,96 320,80 176,80 160,96 160,224 144,240 64,240 48,224 48,48 80,32 80,0"/>
+  </object>
+  <object id="379" type="BoostFieldPathNode" x="856.466" y="-1605.87">
+   <properties>
+    <property name="next" type="object" value="380"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="380" type="BoostFieldPathNode" x="855.864" y="-1350.77">
+   <properties>
+    <property name="next" type="object" value="381"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="381" type="BoostFieldPathNode" x="869.151" y="-1337.52">
+   <properties>
+    <property name="next" type="object" value="382"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="382" type="BoostFieldPathNode" x="972.015" y="-1337.85">
+   <properties>
+    <property name="next" type="object" value="383"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="383" type="BoostFieldPathNode" x="984.943" y="-1353.75">
+   <properties>
+    <property name="next" type="object" value="384"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="384" type="BoostFieldPathNode" x="984.952" y="-1479.81">
+   <properties>
+    <property name="next" type="object" value="385"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="385" type="BoostFieldPathNode" x="1001.07" y="-1494.63">
+   <properties>
+    <property name="next" type="object" value="386"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="386" type="BoostFieldPathNode" x="1155.89" y="-1495.17">
+   <properties>
+    <property name="next" type="object" value="0"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="388" type="BoostFieldPathNode" x="679.802" y="-1808.29">
+   <properties>
+    <property name="next" type="object" value="0"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="392" type="BoostField" x="1408" y="-1248">
+   <properties>
+    <property name="axis_x" type="float" value="0"/>
+    <property name="axis_y" type="float" value="-1"/>
+   </properties>
+   <polygon points="0,0 -96,0 -96,-960 0,-960"/>
   </object>
  </objectgroup>
- <objectgroup id="6" name="front"/>
  <layer id="4" name="noop" width="32" height="32">
   <data encoding="base64" compression="zlib"/>
  </layer>

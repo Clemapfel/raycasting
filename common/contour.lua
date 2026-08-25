@@ -107,6 +107,7 @@ end
 --- @param segment_length Number
 --- @return Table<Number>
 function rt.contour.subdivide(contour, segment_length)
+    meta.assert(contour, mt.Table, segment_length, mt.Number)
     local out = {}
     local remainder = 0
 
@@ -207,6 +208,7 @@ end
 --- ###
 
 function rt.contour.smooth(contour, n_iterations)
+    n_iterations = n_iterations or 1
     local points = contour
     for _ = 1, n_iterations do
         local smoothed = {}
@@ -444,92 +446,6 @@ function rt.contour.get_aabb(contour)
         min_x, min_y,
         max_x - min_x, max_y - min_y
     )
-end
-
-function rt.contour.compute_straight_skeleton(contour, depth)
-    depth = depth or 100
-    contour = rt.contour.close(contour)
-
-    local path = rt.Path(contour)
-
-    local origins = {}
-    for i = 1, #contour, 2 do
-        local x1, y1 = contour[i+0], contour[i+1]
-        local x2, y2 = contour[math.wrap(i+2, #contour)], contour[math.wrap(i+3, #contour)]
-
-        local normal_x, normal_y = math.turn_right(math.normalize(math.subtract(x1, y1, x2, y2)))
-        table.insert(origins, {
-            vertex_offset = i,
-            x = x1,
-            y = y1,
-            normal_x = normal_x,
-            normal_y = normal_y,
-            end_x = x1 + normal_x * depth,
-            end_y = y1 + normal_y * depth,
-            length = depth
-        })
-    end
-
-    for origin in values(origins) do
-        local intersections = path:get_intersections(
-            origin.x,
-            origin.y,
-            origin.x + origin.normal_x * depth,
-            origin.y + origin.normal_y * depth
-        )
-
-        for i = 1, #intersections, 2 do
-            local ix, iy = intersections[i+0], intersections[i+1]
-            if math.distance(ix, iy, origin.x, origin.y) > 1 then
-                local length = math.distance(origin.x, origin.y, ix, iy)
-                if length < origin.length then
-                    origin.length = length
-                    origin.end_x = ix
-                    origin.end_y = iy
-                end
-            end
-        end
-    end
-
-    local entry_to_intersections = {}
-
-    for first in values(origins) do
-        for second in values(origins) do
-            if first ~= second then
-                local collision_x, collision_y = math.ray_intersection(
-                    first.x, first.y, first.normal_x * first.length, first.normal_y * first.length,
-                    second.x, second.y, second.normal_x * second.length, second.normal_y * second.length
-                )
-
-                if collision_x ~= nil then
-                    local distance = math.distance(first.x, first.y, collision_x, collision_y)
-                    if distance < first.length then
-
-                        local entry = entry_to_intersections[first]
-                        if entry == nil then
-                            entry = {}
-                            entry_to_intersections[first] = entry
-                        end
-
-                        table.insert(entry, collision_x)
-                        table.insert(entry, collision_y)
-                    end
-                end
-            end
-        end
-    end
-
-    local result = {}
-    for origin in values(origins) do
-        table.insert(result, {
-            origin.x,
-            origin.y,
-            origin.end_x,
-            origin.end_y
-        })
-    end
-
-    return result
 end
 
 function rt.contour.is_inside(contour, point_x, point_y)

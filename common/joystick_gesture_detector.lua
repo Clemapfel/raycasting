@@ -8,8 +8,8 @@ rt.settings.joystick_gesture_detector = {
 
 rt.JoystickGestureDetector = meta.class("JoystickGestureDetector")
 meta.add_signal(rt.JoystickGestureDetector,
-    "pressed",  -- (self, rt.InputAction, count) -> nil
-    "released"  -- (self, rt.InputAction, count) -> nil
+    "pressed",
+    "released"
 )
 
 function rt.JoystickGestureDetector:instantiate()
@@ -32,14 +32,10 @@ function rt.JoystickGestureDetector:instantiate()
     end
 end
 
--- atan2 with y-axis pointing down: angle 0 = right, increases clockwise.
--- Sectors are 90° wide, centred on each cardinal direction.
--- Diagonal inputs snap to the axis with the larger absolute component.
 local function joystick_to_input_action(x, y)
     local magnitude = math.sqrt(x * x + y * y)
     if magnitude < 1e-6 then return nil end
 
-    -- Snap to dominant axis before sector classification, preventing diagonal drift
     local abs_x, abs_y = math.abs(x), math.abs(y)
     if abs_x > abs_y then
         y = 0
@@ -47,13 +43,10 @@ local function joystick_to_input_action(x, y)
         x = 0
     end
 
-    -- atan2 returns [-π, π]; remap to [0, 2π] with 0 = right, clockwise
     local angle = math.atan2(y, x)
     if angle < 0 then angle = angle + 2 * math.pi end
 
-    -- Each sector spans 90° (π/2). Boundaries at 45°, 135°, 225°, 315°.
     local sector = math.floor((angle + math.pi / 4) / (math.pi / 2)) % 4
-    -- sector 0 = right, 1 = down, 2 = left, 3 = up
     if sector == 0 then return rt.InputAction.RIGHT
     elseif sector == 1 then return rt.InputAction.DOWN
     elseif sector == 2 then return rt.InputAction.LEFT
@@ -82,23 +75,18 @@ function rt.JoystickGestureDetector:_handle_joystick_moved(x, y)
     local after
 
     if before == nil then
-        -- Not currently held: require full engage threshold to activate
         if magnitude >= settings.engage_magnitude then
             after = joystick_to_input_action(x, y)
         else
             after = nil
         end
     else
-        -- Currently held: keep direction unless magnitude drops below release threshold,
-        -- OR the stick has moved decisively to a different direction beyond engage threshold
         if magnitude < settings.release_magnitude then
             after = nil
         elseif magnitude >= settings.engage_magnitude then
             local candidate = joystick_to_input_action(x, y)
-            -- Only switch direction if the new sector is unambiguous (dominant axis differs)
             after = candidate ~= nil and candidate or before
         else
-            -- In hysteresis band: hold current direction
             after = before
         end
     end

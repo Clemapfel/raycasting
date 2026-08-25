@@ -1383,9 +1383,9 @@ function rt.Player:update(delta)
                 -- else weigh by how close to vertical the wall is
                 slope_factor = (slope_factor - 0.5) * 2
 
-                -- get tangent
                 local gravity_x, gravity_y = gravity_direction_x, gravity_direction_y
 
+                -- get tangent, orthogonal to gravity
                 local tangent_x, tangent_y
                 if math.dot(gravity_x, gravity_y, math.turn_left(normal_x, normal_y)) < 0 then
                     tangent_x, tangent_y = math.turn_left(normal_x, normal_y)
@@ -1965,7 +1965,7 @@ function rt.Player:update(delta)
         local is_squished = function(x, y)
             local squished = false
             for body in values(bodies) do
-                if body:get_is_sensor() ~= true and body:test_point(center_x, center_y) then
+                if body:has_tag(b2.Tag.HITBOX) and body:get_is_sensor() ~= true and body:test_point(center_x, center_y) then
                     squished = true
                     break
                 end
@@ -3593,7 +3593,7 @@ function rt.Player:_update_flow(delta)
     end
 
     to_add = to_add - settings.flow_decay_per_second * delta
-    self._current_flow = 1 --math.clamp(self._current_flow + to_add, 0, 1)
+    self._current_flow = math.clamp(self._current_flow + to_add, 0, 1)
 end
 
 --- @brief

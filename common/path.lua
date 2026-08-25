@@ -152,7 +152,8 @@ function rt.Path:_find_segment(t)
         local entry = entries[mid]
         local entry_end = entry[_fraction] + entry[_fraction_length]
 
-        if t >= entry[_fraction] and t <= entry_end then
+        local is_last = (mid == n_entries)
+        if t >= entry[_fraction] and (t < entry_end or (is_last and t <= entry_end)) then
             return entry
         elseif t < entry[_fraction] then
             high = mid - 1
@@ -195,7 +196,7 @@ end
 --- @brief
 function rt.Path:tangent_at(t)
     local segment = self:_find_segment(math.clamp(t, 0, 1))
-    return math.normalize(segment[_dx], segment[_dy])
+    return segment[_dx], segment[_dy]
 end
 
 --- @brief return normal at parameter t [0, 1]; normal is precomputed per segment and depends on path winding
@@ -396,7 +397,6 @@ function rt.Path:_closest_point_on_segment(x, y, entry)
     return closest_x, closest_y, global_t
 end
 
---- @brief
 function rt.Path:get_closest_point(x, y)
     if self._n_entries == 0 then
         return nil, nil, nil
@@ -405,6 +405,7 @@ function rt.Path:get_closest_point(x, y)
     local closest_distance_sq = math.huge
     local closest_x, closest_y = nil, nil
     local closest_t = 0
+    local eps = math.eps
 
     for i = 1, self._n_entries do
         local entry = self._entries[i]
@@ -414,11 +415,18 @@ function rt.Path:get_closest_point(x, y)
         local dy = segment_y - y
         local distance_sq = dx * dx + dy * dy
 
-        if distance_sq < closest_distance_sq then
+        if distance_sq < closest_distance_sq - eps then
             closest_distance_sq = distance_sq
             closest_x = segment_x
             closest_y = segment_y
             closest_t = segment_t
+        elseif math.abs(distance_sq - closest_distance_sq) <= eps then
+            -- if tied, prefer outgoing segment
+            if segment_t > closest_t then
+                closest_x = segment_x
+                closest_y = segment_y
+                closest_t = segment_t
+            end
         end
     end
 
@@ -426,14 +434,6 @@ function rt.Path:get_closest_point(x, y)
 end
 
 function rt.Path:get_intersections(x1, y1, x2, y2)
-    -- Fast computation of all intersections between the path and the query segment (x1,y1)-(x2,y2).
-    -- Returns an array of intersections. Each intersection is a table:
-    -- { x = <x>, y = <y>, t = <global_path_parameter_in_[0,1]>, s = <parameter_along_query_segment_in_[0,1]>, segment = <segment_index> }
-    --
-    -- Notes:
-    -- - Uses precomputed segment endpoints from self._entries.
-    -- - Performs quick AABB rejection before more expensive intersection tests.
-    -- - Handles proper intersections and collinear overlap by returning overlap endpoints that lie on the query segment.
     local intersections = {}
 
     if self._n_entries == 0 then
@@ -442,11 +442,9 @@ function rt.Path:get_intersections(x1, y1, x2, y2)
 
     local eps = math.eps or 1e-12
 
-    -- Query segment vector
     local rx = x2 - x1
     local ry = y2 - y1
 
-    -- Precompute query AABB for quick rejection
     local qminx = math.min(x1, x2)
     local qmaxx = math.max(x1, x2)
     local qminy = math.min(y1, y2)
@@ -469,7 +467,6 @@ function rt.Path:get_intersections(x1, y1, x2, y2)
 
         local should_continue = false
 
-        -- Segment AABB test
         local sminx = math.min(sx1, sx2)
         local smaxx = math.max(sx1, sx2)
         if smaxx < qminx - eps or sminx > qmaxx + eps then
@@ -488,29 +485,21 @@ function rt.Path:get_intersections(x1, y1, x2, y2)
             local sx = sx2 - sx1
             local sy = sy2 - sy1
 
-            -- Solve for intersection using parameterization:
-            -- p + t*r = q + u*s
-            -- cross(r, s) is denominator
             local denom = cross(rx, ry, sx, sy)
 
             local qpx = sx1 - x1
             local qpy = sy1 - y1
 
             if math.abs(denom) > eps then
-                -- Proper intersection case for non-parallel segments.
-                -- t = cross((q - p), s) / cross(r, s)
-                -- u = cross((q - p), r) / cross(r, s)
                 local t = cross(qpx, qpy, sx, sy) / denom
                 local u = cross(qpx, qpy, rx, ry) / denom
 
                 if t >= -eps and t <= 1 + eps and u >= -eps and u <= 1 + eps then
-                    -- intersection point
                     local it = math.clamp(t, 0, 1)
                     local iu = math.clamp(u, 0, 1)
                     local ix = x1 + it * rx
                     local iy = y1 + it * ry
                     local global_t = entry[_fraction] + entry[_fraction_length] * iu
-                    --table.insert(intersections, { x = ix, y = iy, t = global_t, s = it, segment = i })
                     table.insert(intersections, ix)
                     table.insert(intersections, iy)
                 end
@@ -664,38 +653,6 @@ end
 --- @brief
 function rt.Path:get_points()
     return self._points
-end
-
---- @brief get parameter t in [0, 1] where path:at(t) is closest to px, py
---- @param px Number
---- @param py Number
---- @return Number
-function rt.Path:get_fraction(px, py)
-    if self._n_entries == 0 then
-        return 0
-    end
-
-    local closest_distance_sq = math.huge
-    local closest_t = 0
-
-    -- iterate over precomputed segment entries
-    for i = 1, self._n_entries do
-        local entry = self._entries[i]
-
-        -- use internal closest-point helper
-        local x, y, t = self:_closest_point_on_segment(px, py, entry)
-
-        local dx = x - px
-        local dy = y - py
-        local distance_sq = dx * dx + dy * dy
-
-        if distance_sq < closest_distance_sq then
-            closest_distance_sq = distance_sq
-            closest_t = t
-        end
-    end
-
-    return math.clamp(closest_t, 0, 1)
 end
 
 --- @brief get parameter t in [0, 1] where path:at(t) is closest to px, py

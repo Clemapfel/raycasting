@@ -22,14 +22,19 @@ rt.settings.overworld.portal_particles = {
 }
 
 --- @class ow.PortalParticles
+-- Merged: also owns the portal "pulse" mesh/shader/animation that used to live in ow.PortalPulse.
 ow.PortalParticles = meta.class("PortalParticles")
 
 local _particle_texture
 local _particle_shader = rt.Shader("overworld/objects/portal_particles.glsl")
-local _lch_texture = rt.LCHTexture(64, 1, 256)
+local _lch_texture = rt.LCHTexture(64, 4, 256)
+local _pulse_shader = rt.Shader("overworld/objects/portal.glsl")
 
 local _FORWARD = true
 local _BACKWARDS = false
+
+local _LEFT = true
+local _RIGHT = false
 
 local _x_offset = 0
 local _y_offset = 1
@@ -46,7 +51,10 @@ end
 function ow.PortalParticles:instantiate(ax, ay, bx, by, left_or_right)
     meta.assert(ax, mt.Number, ay, mt.Number, bx, mt.Number, by, mt.Number, left_or_right, mt.Boolean)
 
-    self._winding = winding -- true = left, false = right
+    self._winding = left_or_right -- true = left, false = right
+
+    -- shared endpoints, used by both the particle field and the pulse mesh
+    self._ax, self._ay, self._bx, self._by = ax, ay, bx, by
 
     if _particle_texture == nil then
         local radius = rt.settings.overworld.portal_particles.particle.radius
@@ -131,6 +139,50 @@ function ow.PortalParticles:instantiate(ax, ay, bx, by, left_or_right)
     self._collapse_active = false
     self._collapse_t = 0.5
     self._canvas_needs_update = true
+
+    -- pulse state / mesh (formerly ow.PortalPulse:instantiate)
+    do
+        local dx, dy = math.normalize(ax - bx, ay - by)
+        local left_x, left_y = math.turn_left(dx, dy)
+        local right_x, right_y = math.turn_right(dx, dy)
+
+        if self._winding == _LEFT then
+            self._pulse_normal_x, self._pulse_normal_y = left_x, left_y
+        else
+            self._pulse_normal_x, self._pulse_normal_y = right_x, right_y
+        end
+
+        local w = rt.settings.overworld.portal_particles.mesh_w
+        local pulse_padding = rt.settings.player.radius * rt.settings.player.bubble_radius_factor
+
+        local mesh_ax, mesh_ay = ax + dx * pulse_padding, ay + dy * pulse_padding
+        local mesh_bx, mesh_by = bx - dx * pulse_padding, by - dy * pulse_padding
+
+        local outer = function() return 0, 0, 0, 0 end
+        local inner = function() return 1, 1, 1, 1 end
+
+        if self._winding == _LEFT then
+            self._pulse_mesh = rt.Mesh({
+                { mesh_ax + left_x * w, mesh_ay + left_y * w, 0, 1, outer() },
+                { mesh_ax, mesh_ay, 0, 0, inner() },
+                { mesh_bx, mesh_by, 1, 0, inner() },
+                { mesh_bx + left_x * w, mesh_by + left_y * w, 1, 1, outer() },
+            })
+        else
+            self._pulse_mesh = rt.Mesh({
+                { mesh_ax, mesh_ay, 1, 0, inner() },
+                { mesh_ax + right_x * w, mesh_ay + right_y * w, 1, 1, outer() },
+                { mesh_bx + right_x * w, mesh_by + right_y * w, 0, 1, outer() },
+                { mesh_bx, mesh_by, 0, 0, inner() },
+            })
+        end
+
+        self._pulse_elapsed = math.huge
+        self._pulse_value = 0
+        self._pulse_entry_t = 0.5
+        -- note: self._lightness is shared with set_is_enabled below
+        self._lightness = 1
+    end
 end
 
 --- @brief
@@ -183,6 +235,14 @@ function ow.PortalParticles:update(delta)
     end
 
     self._canvas_needs_update = true
+
+    -- pulse animation update (formerly ow.PortalPulse:update)
+    self._pulse_elapsed = self._pulse_elapsed + delta
+    self._pulse_value = rt.InterpolationFunctions.ENVELOPE(
+        self._pulse_elapsed / rt.settings.overworld.portal_particles.pulse_duration,
+        0.05,
+        0.05
+    )
 end
 
 --- @brief
@@ -219,10 +279,12 @@ function ow.PortalParticles:draw()
     end
 
     _particle_shader:bind()
-    _particle_shader:send("hue", self._hue)
-    _particle_shader:send("lightness", self._lightness)
-    _particle_shader:send("elapsed", rt.SceneManager:get_elapsed() + meta.hash(self))
+    _particle_shader:send("hue", self._hue or 1)
+    _particle_shader:send("lightness", self._lightness or 1)
+    _particle_shader:send("chroma", self._chroma or 1)
     _particle_shader:send("lch_texture", _lch_texture)
+
+    _particle_shader:send("elapsed", rt.SceneManager:get_elapsed() + meta.hash(self))
     local black_r, black_g, black_b = rt.Palette.BLACK:unpack()
     _particle_shader:send("black", { black_r, black_g, black_b })
     local w, h = self._static_canvas:get_size()
@@ -235,6 +297,75 @@ function ow.PortalParticles:draw()
     _particle_shader:unbind()
 end
 
+--- @brief draws the pulse mesh (formerly ow.PortalPulse:draw)
+function ow.PortalParticles:draw_pulse(r, g, b, a)
+    love.graphics.push()
+
+    local px, py = math.mix2(
+        self._ax, self._ay,
+        self._bx, self._by,
+        1 - self._pulse_entry_t
+    )
+
+    love.graphics.translate(px, py)
+    love.graphics.scale(1 - self._pulse_value)
+    love.graphics.translate(-px, -py)
+
+    local lightness = self._lightness or 1
+    love.graphics.setColor(
+        lightness * r,
+        lightness * g,
+        lightness * b,
+        a or 1
+    )
+
+    _pulse_shader:bind()
+    _pulse_shader:send("elapsed", rt.SceneManager:get_elapsed() + meta.hash(self))
+    _pulse_shader:send("pulse", self._pulse_value)
+    _pulse_shader:send("brightness_scale", 1)
+    self._pulse_mesh:draw()
+    _pulse_shader:unbind()
+
+    love.graphics.pop()
+end
+
+--- @brief draws the pulse mesh's bloom pass (formerly ow.PortalPulse:draw_bloom)
+function ow.PortalParticles:draw_pulse_bloom(r, g, b, a, brightness_scale)
+    love.graphics.push()
+
+    local px, py = math.mix2(
+        self._ax, self._ay,
+        self._bx, self._by,
+        1 - self._pulse_entry_t
+    )
+
+    love.graphics.translate(px, py)
+    love.graphics.scale(1 - self._pulse_value)
+    love.graphics.translate(-px, -py)
+
+    love.graphics.setColor(r, g, b, a or 1)
+
+    _pulse_shader:bind()
+    _pulse_shader:send("elapsed", rt.SceneManager:get_elapsed() + meta.hash(self))
+    _pulse_shader:send("pulse", self._pulse_value)
+    _pulse_shader:send("brightness_scale", brightness_scale or 1)
+    self._pulse_mesh:draw()
+    _pulse_shader:unbind()
+
+    love.graphics.pop()
+end
+
+--- @brief triggers the pulse animation (formerly ow.PortalPulse:trigger)
+function ow.PortalParticles:trigger_pulse()
+    self._pulse_elapsed = 0
+    self._pulse_value = 0
+end
+
+--- @brief sets where along the portal the pulse enters from (formerly ow.PortalPulse:set_entry_t)
+function ow.PortalParticles:set_pulse_entry_t(t)
+    self._pulse_entry_t = t
+end
+
 --- @brief
 function ow.PortalParticles:contract(t)
     self._collapse_active = true
@@ -242,11 +373,17 @@ function ow.PortalParticles:contract(t)
     self._canvas_needs_update = true
 end
 
---- @brief
+--- @brief resets both particle collapse state and pulse animation state
 function ow.PortalParticles:reset()
     self._collapse_active = false
     self._collapse_t = 0.5
     self._canvas_needs_update = true
+
+    -- formerly ow.PortalPulse:reset
+    self._pulse_elapsed = math.huge
+    self._pulse_value = 0
+    self._pulse_entry_t = 0.5
+    self._lightness = 1
 end
 
 --- @brief
@@ -254,8 +391,17 @@ function ow.PortalParticles:set_hue(hue)
     self._hue = hue
 end
 
---- @brief
+--- @brief also drives pulse brightness, since the two used separate `_lightness` fields before
+function ow.PortalParticles:set_is_enabled(b)
+    if b == true then
+        self._lightness = 1
+    else
+        self._lightness = 0.4
+        self._chroma = 0.8
+    end
+end
+
+--- @brief explicit setter kept for parity with the old ow.PortalPulse:set_lightness
 function ow.PortalParticles:set_lightness(lightness)
     self._lightness = lightness
 end
-
