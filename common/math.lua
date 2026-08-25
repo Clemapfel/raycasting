@@ -510,10 +510,11 @@ end
 
 --- @brief Normalize a 2D vector.
 function math.normalize2(x, y)
-    local magnitude = math.sqrt(x * x + y * y)
+    local magnitude = x * x + y * y
     if magnitude < math.eps then
         return 0, 0
     else
+        magnitude = math.sqrt(magnitude)
         return x / magnitude, y / magnitude
     end
 end
@@ -521,6 +522,11 @@ end
 --- @brief Get the magnitude of a 2D vector.
 function math.magnitude2(x, y)
     return math.sqrt(x * x + y * y)
+end
+
+--- @brief Get the magnitude of a 2D vector.
+function math.squared_magnitude2(x, y)
+    return x * x + y * y
 end
 
 --- @brief Reflect a 2D vector off a surface with a given normal.
@@ -539,9 +545,24 @@ function math.normalize3(x, y, z)
     end
 end
 
---- @brief Get the magnitude of a 3D vector.
+--- @brief get the magnitude of a 3D vector.
 function math.magnitude3(x, y, z)
     return math.sqrt(x * x + y * y + z * z)
+end
+
+--- @brief
+function math.squared_magnitude3(x, y, z)
+    return x * x + y * y + z * z
+end
+
+--- @brief get the magnitude of a 3D vector.
+function math.magnitude4(x, y, z, w)
+    return math.sqrt(x * x + y * y + z * z + w * w)
+end
+
+--- @brief
+function math.squared_magnitude4(x, y, z)
+    return x * x + y * y + z * z + w * w
 end
 
 --- @brief Rotate a 2D vector by an angle.

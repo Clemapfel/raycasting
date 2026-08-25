@@ -8,7 +8,7 @@ rt.settings.overworld.boost_field = {
     target_velocity_bubble = 1000,
 
     outline_width = 2.5,
-    opacity = 0.8,
+    opacity = 1.0,
     hue_span = 0.1,
     hue_gradient_reference_length = 600, -- unitless
     segment_light_subdivision = 150, -- px
@@ -19,17 +19,18 @@ rt.settings.overworld.boost_field = {
         n_hue_steps = 512,
         spatial_hash_cell_size = 8,
         extrude_offset = 0, -- px
-        blend_opacity = 0.5,
+        blend_opacity = 0.5, -- blend mode add opacity
+        rgb_multiplier = 1.0, -- darken rgb
 
-        density = 0.01, -- factor
-        min_velocity = 20,
-        max_velocity = 30,
-        min_radius = 12,
-        max_radius = 15,
-        min_lifetime = 1.0,
+        density = 0.1, -- factor
+        min_velocity = 10,
+        max_velocity = 15,
+        min_radius = 3,
+        max_radius = 12,
+        min_lifetime = 0.5,
         max_lifetime = 1.5,
-        attack_fraction = 0.4, -- in [0, 0.5)
-        release_fraction = 0.4 -- in [0, 0.5)
+        attack_fraction = 0.2, -- in [0, 0.5)
+        release_fraction = 0.2 -- in [0, 0.5)
     }
 }
 
@@ -58,7 +59,7 @@ ow.BoostFieldAxis = meta.class("BoostFieldAxis")
 --- @class ow.BoostFieldPathNode
 ow.BoostFieldPathNode = meta.class("BoostFieldPath")
 
-local _shader = rt.Shader("overworld/objects/boost_field.glsl")
+local _mesh_shader = rt.Shader("overworld/objects/boost_field.glsl")
 local _particle_texture = nil
 local _particle_texture_shader = rt.Shader("overworld/objects/boost_field_particle_texture.glsl")
 local _particle_draw_shader = rt.Shader("overworld/objects/boost_field_particle_draw.glsl")
@@ -200,12 +201,11 @@ function ow.BoostField:instantiate(object, stage, scene)
             for i = 1, #tri, 2 do
                 local x, y = tri[i+0], tri[i+1]
                 local t = particle_path:get_fraction(x, y)
-                local dx, dy = particle_path:get_tangent_at(t)
+                local tx, ty = particle_path:get_tangent_at(t)
                 table.insert(mesh_data, {
                     x, y,
-                    t, -- u: arc length parameterized t
-                    t * length / reference_length,  -- v: hue
-                    1, 1, 1, 1
+                    tx, ty, -- uv: flow direction
+                    1, 1, 1, t * length / reference_length -- a: hue
                 })
             end
         end
@@ -301,7 +301,8 @@ function ow.BoostField:update(delta)
 
     local ox, oy = math.subtract(px, py, self._body:get_position())
 
-    if self._body:test_point(player:get_position()) then -- body already compensate for offset
+    self._is_active = self._body:test_point(player:get_position()) -- body already compensate for offset
+    if self._is_active then
         local dir_x, dir_y
 
         if self._path ~= nil then
@@ -342,7 +343,7 @@ function ow.BoostField:update(delta)
     local before = love.timer.getTime()
 
     if self._particles_need_update == true then
-        --self:_update_particles(delta)
+        self:_update_particles(delta)
         self._particles_need_update = false
     end
 
@@ -359,28 +360,41 @@ function ow.BoostField:reset()
     self._is_active = false
 end
 
+local _base_priority = 0
+local _particle_priority = -1
+
 --- @brief
-function ow.BoostField:draw()
+function ow.BoostField:get_render_priority()
+    return _base_priority, _particle_priority
+end
+
+--- @brief
+function ow.BoostField:draw(priority)
     if not self._stage:get_is_body_visible(self._body) then return end
 
     love.graphics.push()
     love.graphics.translate(self._body:get_position())
 
-    self:_draw_particles()
+    if priority == _particle_priority then
+        self:_draw_particles()
+        self._particles_need_update = true
+    elseif priority == _base_priority then
+        love.graphics.setLineStyle("smooth")
+        love.graphics.setLineWidth(1.0)
+        rt.Palette.BLACK:bind()
+        love.graphics.line(self._contour)
 
-    love.graphics.setLineStyle("smooth")
-    love.graphics.setLineWidth(1.0)
-    rt.Palette.BLACK:bind()
-    love.graphics.line(self._contour)
-
-    _shader:bind()
-    _shader:send("elapsed", rt.SceneManager:get_elapsed())
-    _shader:send("velocity_factor", self._velocity_factor)
-    _shader:send("screen_to_world_transform", self._scene:get_camera():get_transform():inverse())
-    love.graphics.setColor(1, 1, 1, 1)
-    self._mesh:draw()
-    _shader:unbind()
-
+        _mesh_shader:bind()
+        _mesh_shader:send("elapsed", rt.SceneManager:get_elapsed())
+        _mesh_shader:send("velocity_factor", self._velocity_factor)
+        _mesh_shader:send("opacity", rt.settings.overworld.boost_field.opacity)
+        _mesh_shader:send("screen_to_world_transform", self._scene:get_camera():get_transform():translate(
+            self._body:get_position()
+        ):inverse())
+        love.graphics.setColor(1, 1, 1, rt.settings.overworld.boost_field.opacity)
+        self._mesh:draw()
+        _mesh_shader:unbind()
+    end
 
     love.graphics.pop()
 end
@@ -528,6 +542,7 @@ do
     end
 
     local _hue_to_rgba = function(hue, hue_to_rgba_table, n_hue_steps)
+        hue = 1 - hue
         hue = math.floor(hue * n_hue_steps) + 1
         local offset = (hue - 1) * 4
         local r, g, b, a = hue_to_rgba_table[offset + 1], hue_to_rgba_table[offset + 2], hue_to_rgba_table[offset + 3], hue_to_rgba_table[offset + 4]
@@ -844,6 +859,13 @@ do
         local hue_to_rgba_table = self._hue_to_rgba_table
         local n_hue_steps = settings.n_hue_steps
 
+        local player = self._scene:get_player()
+        local px, py = player:get_position()
+        px, py = math.subtract(px, py, self._body:get_position())
+        local pvx, pvy = player:get_velocity()
+        local player_r = player:get_radius()
+        local is_active = self._is_active
+
         local stride = _stride
         local max_i = self._n_particles * stride
         for i = 1, max_i, stride do
@@ -857,15 +879,27 @@ do
                 data[i + _hue_offset] = t
             end
 
+
+            local lifetime = data[i + _lifetime_offset]
+
+            if is_active then
+                -- player collision
+                local player_distance = math.distance(x, y, px, py)
+                local pdx, pdy = math.normalize(px - x, py - y)
+                if player_distance < player_r then
+                    x, y = px + pdx * player_r, py + pdy * player_r
+                    dx, dy = pdx, pdy
+                    lifetime = 0
+                end
+            end
+
             x = x + dx * velocity * velocity_delta
             y = y + dy * velocity * velocity_delta
 
             local elapsed = data[i + _lifetime_elapsed_offset]
             elapsed = elapsed + delta
 
-            local lifetime = data[i + _lifetime_offset]
             local lifetime_t = elapsed / lifetime
-
             if lifetime_t > 1 then
                 data[i + _opacity_offset] = 0
                 local new_x, new_y = get_seed()
@@ -882,9 +916,11 @@ do
             end
         end
 
+        local t_a = settings.blend_opacity
+        local t_rgb = settings.rgb_multiplier
+
         -- init GPU-side particle data
         if ffi ~= nil then
-            local t = settings.blend_opacity
             local ptr = ffi.cast("float*", self._instance_data_buffer_data:get_pointer())
             for pi = 1, self._n_particles do
                 local i = _particle_i_to_data_offset(pi)
@@ -902,15 +938,14 @@ do
                     ptr[out + 6] = 0
                 else
                     local r, g, b, a = _hue_to_rgba(hue, hue_to_rgba_table, n_hue_steps)
-                    a = a * data[i + _opacity_offset]
-                    ptr[out + 3] = t * r * a
-                    ptr[out + 4] = t * g * a
-                    ptr[out + 5] = t * b * a
-                    ptr[out + 6] = t * a
+                    a = t_a * a * data[i + _opacity_offset]
+                    ptr[out + 3] = t_rgb * r * a
+                    ptr[out + 4] = t_rgb * g * a
+                    ptr[out + 5] = t_rgb * b * a
+                    ptr[out + 6] = a
                 end
             end
         else
-            local t = settings.blend_opacity
             for pi = 1, self._n_particles do
                 local i = _particle_i_to_data_offset(pi)
 
@@ -927,11 +962,11 @@ do
                     entry[1 + 6] = 0
                 else
                     local r, g, b, a = _hue_to_rgba(hue, hue_to_rgba_table, n_hue_steps)
-                    a = a * data[i + _opacity_offset]
-                    entry[1 + 3] = t * r * a
-                    entry[1 + 4] = t * g * a
-                    entry[1 + 5] = t * b * a
-                    entry[1 + 6] = t * a * data[i + _opacity_offset]
+                    a = t_a * a * data[i + _opacity_offset]
+                    entry[1 + 3] = t_rgb * r * a
+                    entry[1 + 4] = t_rgb * g * a
+                    entry[1 + 5] = t_rgb * b * a
+                    entry[1 + 6] = t_rgb * a
                 end
             end
         end
@@ -945,7 +980,8 @@ do
         rt.graphics.set_blend_mode(rt.BlendMode.ADD, rt.BlendMode.ADD)
         _particle_draw_shader:bind()
         _particle_draw_shader:send("instance_texture", _particle_texture)
-        --self._instance_mesh:draw_instanced(self._n_particles)
+        love.graphics.setColor(1, 1, 1, 1)
+        self._instance_mesh:draw_instanced(self._n_particles)
         _particle_draw_shader:unbind()
         love.graphics.pop()
 
