@@ -52,11 +52,11 @@ rt.ByteData._format_to_getter_setter = {
 function rt.ByteData:instantiate(format, count_or_native)
     meta.assert_argument_type(format, rt.ByteDataFormat, 1)
 
-    if meta.is_function(count_or_native.typeOf) and count_or_native:typeOf("ByteData") then
+    if meta.is_userdata(count_or_native) and meta.is_function(count_or_native.typeOf) and count_or_native:typeOf("ByteData") then
         self._native = count_or_native
     else
         rt.assert(meta.is_number(count_or_native) and count_or_native >= 0 and math.fract(count_or_native) == 0, "In rt.ByteData.instantiate: for argument #2: count `", count_or_native, "` is not an integer")
-        self._native = love.data.newByteData(rt.ByteData.format_to_n_bytes * count_or_native)
+        self._native = love.data.newByteData(rt.ByteData.format_to_n_bytes(format) * count_or_native)
     end
 
     self:cast(format)
