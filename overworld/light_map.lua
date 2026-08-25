@@ -2,17 +2,17 @@ require "common.matrix"
 require "common.byte_data"
 
 rt.settings.overworld.light_map = {
-    start_n_point_lights = 512,
-    max_n_point_lights = 1024,
+    start_n_point_lights = bd.get_config().dynamic_lighting_start_n_point_lights,
+    max_n_point_lights = bd.get_config().dynamic_lighting_max_n_point_lights,
 
-    start_n_segment_lights = 256,
-    max_n_segment_lights = 512,
+    start_n_segment_lights = bd.get_config().dynamic_lighting_start_n_segment_lights,
+    max_n_segment_lights = bd.get_config().dynamic_lighting_max_n_segment_lights,
 
-    start_n_point_lights_per_tile = 256,
-    max_n_point_lights_per_tile = 256,
+    start_n_point_lights_per_tile = bd.get_config().dynamic_lighting_start_n_point_lights_per_tile,
+    max_n_point_lights_per_tile = bd.get_config().dynamic_lighting_max_n_point_lights_per_tile,
 
-    start_n_segment_lights_per_tile = 16,
-    max_n_segment_lights_per_tile = 128,
+    start_n_segment_lights_per_tile = bd.get_config().dynamic_lighting_start_n_segment_lights_per_tile,
+    max_n_segment_lights_per_tile = bd.get_config().dynamic_lighting_max_n_segment_lights_per_tile,
 
     work_group_size_x = 32,
     work_group_size_y = 32,

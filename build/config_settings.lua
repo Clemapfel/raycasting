@@ -35,6 +35,20 @@ local INTEGER_RANGE = function(default, lower, upper)
     }
 end
 
+local POWER_OF_2_RANGE = function(default, min, max)
+    local values = {}
+    for n = min, max do
+        assert(n >= 1)
+        table.insert(values, 2^n)
+    end
+
+    return {
+        type = ENUM_TYPE,
+        default = 2^default,
+        values = values
+    }
+end
+
 do
     local height = 600
     local aspect_ratio = 16 / 9
@@ -131,8 +145,21 @@ do
             rt.BloomQuality.BEST
         ),
 
-        -- apply lighting to normal map
+        -- light map
         is_dynamic_lighting_enabled = BOOLEAN(true),
+
+        -- light map config
+        dynamic_lighting_start_n_point_lights = POWER_OF_2_RANGE(9, 1, 12), -- 2^9 = 512
+        dynamic_lighting_max_n_point_lights   = POWER_OF_2_RANGE(10, 1, 13), -- 2^10 = 1024
+
+        dynamic_lighting_start_n_segment_lights = POWER_OF_2_RANGE(8, 4, 12), -- 2^8 = 256
+        dynamic_lighting_max_n_segment_lights   = POWER_OF_2_RANGE(9, 4, 12), -- 2^9 = 512
+
+        dynamic_lighting_start_n_point_lights_per_tile = POWER_OF_2_RANGE(6, 1, 10), -- 2^6 = 64
+        dynamic_lighting_max_n_point_lights_per_tile   = POWER_OF_2_RANGE(8, 3, 10), -- 2^8 = 256
+
+        dynamic_lighting_start_n_segment_lights_per_tile = POWER_OF_2_RANGE(4, 1, 9), -- 2^4 = 16
+        dynamic_lighting_max_n_segment_lights_per_tile   = POWER_OF_2_RANGE(7, 1, 9), -- 2^7 = 128
 
         -- enable dynamic shadows
         are_dynamic_shadows_enabled = BOOLEAN(true),
