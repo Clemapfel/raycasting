@@ -155,7 +155,7 @@ function rt.Path1D:get_segment(t)
 end
 
 --- @brief get 1D tangent (direction) at parameter t; returns -1, 0, or 1
-function rt.Path1D:tangent_at(t)
+function rt.Path1D:get_tangent_at(t)
     local segment = self:_find_segment(math.clamp(t, 0, 1))
     return segment.dir
 end

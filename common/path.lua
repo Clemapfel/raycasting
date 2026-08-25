@@ -194,7 +194,7 @@ function rt.Path:get_segment(t)
 end
 
 --- @brief
-function rt.Path:tangent_at(t)
+function rt.Path:get_tangent_at(t)
     local segment = self:_find_segment(math.clamp(t, 0, 1))
     return segment[_dx], segment[_dy]
 end

@@ -209,7 +209,7 @@ function ow.AirDashNodeParticleEffect:_init_batch(
         local magnitude = math.mix(min_initial_velocity, max_initial_velocity, mass_t)
 
         local angle = rt.random.number(-cone_arc / 2, cone_arc / 2)
-        local emission_x, emission_y = math.flip(path:tangent_at(t))
+        local emission_x, emission_y = math.flip(path:get_tangent_at(t))
         local particle_velocity_x, particle_velocity_y = math.rotate2(emission_x, emission_y, angle)
 
         local i = #data + 1

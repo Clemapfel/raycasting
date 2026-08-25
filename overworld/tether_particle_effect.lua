@@ -146,7 +146,7 @@ function ow.TetherParticleEffect:_init_batch(
 
         local t = (particle_i - 1) / n_particles
         local position_x, position_y = path:at(t)
-        local dx, dy = path:tangent_at(t)
+        local dx, dy = path:get_tangent_at(t)
         local up_x, up_y = math.normalize(math.turn_left(dx, dy))
         local down_x, down_y = math.normalize(math.turn_right(dx, dy))
 

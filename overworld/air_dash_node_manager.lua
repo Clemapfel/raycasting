@@ -326,7 +326,7 @@ function ow.AirDashNodeManager:update(delta)
         -- move player
 
         local t = self._tether_path:get_fraction(px, py)
-        local dx, dy = self._tether_path:tangent_at(t)
+        local dx, dy = self._tether_path:get_tangent_at(t)
 
         player:set_velocity(
             self._tether_velocity_magnitude * dx,

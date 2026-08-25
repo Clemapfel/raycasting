@@ -3297,7 +3297,7 @@ function rt.Player:get_past_position(distance)
     end
 
     local position_x, position_y = self._position_history_path:at(t)
-    local velocity_x, velocity_y = self._position_history_path:tangent_at(t)
+    local velocity_x, velocity_y = self._position_history_path:get_tangent_at(t)
     return position_x, position_y, velocity_x, velocity_y
 end
 

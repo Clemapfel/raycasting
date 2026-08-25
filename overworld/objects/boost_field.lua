@@ -200,7 +200,7 @@ function ow.BoostField:instantiate(object, stage, scene)
             for i = 1, #tri, 2 do
                 local x, y = tri[i+0], tri[i+1]
                 local t = particle_path:get_fraction(x, y)
-                local dx, dy = particle_path:tangent_at(t)
+                local dx, dy = particle_path:get_tangent_at(t)
                 table.insert(mesh_data, {
                     x, y,
                     t, -- u: arc length parameterized t
@@ -306,7 +306,7 @@ function ow.BoostField:update(delta)
 
         if self._path ~= nil then
             local cx, cy, ct = self._path:get_closest_point(ox, oy)
-            dir_x, dir_y = self._path:tangent_at(ct)
+            dir_x, dir_y = self._path:get_tangent_at(ct)
         else
             dir_x, dir_y = self._axis_x, self._axis_y
         end
@@ -519,7 +519,7 @@ do
             local cell_x = (i - i_offset) * cell_size + 0.5 * cell_size
             local cell_y = (j - j_offset) * cell_size + 0.5 * cell_size
             local t = particle_path:get_fraction(cell_x, cell_y)
-            local dx, dy = particle_path:tangent_at(t)
+            local dx, dy = particle_path:get_tangent_at(t)
             entry = { t, dx, dy }
             row[j] = entry
         end
