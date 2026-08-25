@@ -15,7 +15,7 @@ server.options.memSize = 2 * (2 ** 16); // 2 gb
 server.waitForBoot({
 	//~accelerator_surface_sparkle.();
 	//~player.();
-	~subdivide.();
+	~boost_field.();
 
 
 	CmdPeriod.doOnce({
@@ -796,7 +796,7 @@ server.waitForBoot({
 };
 
 ~player = {
-	var def = SynthDef.new(\player, { arg out = 0, freq = 440, amp = 1, gate = 1, sustain = 1, tempo = 1;
+	var def = SynthDef.new(\player, { arg out = 0, freq = 440, amp, gate = 1, sustain = 1, tempo = 1;
 		var noteDuration = sustain / tempo;
 		var sweep = freq * XLine.ar(0.midiratio, 8.midiratio, noteDuration);
 		var decay = 1;
@@ -945,6 +945,27 @@ server.waitForBoot({
 		sustain: 1.0,
 		wavebufnum: circleTable
 	]).play;
+};
+
+~boost_field = { arg degree, filename;
+	var def = SynthDef.new(\boost_field, { arg out, gate = 1, freq, amp;
+		var demand = Demand.kr(, 0, Dseq([4, 3, 2, 1], inf));
+		var env = EnvGen.ar(Env.asr(0.02, 0.2), gate: gate);
+		var signal = SinOsc.ar(freq * demand).distort * env;
+		Out.ar(out, signal.dup);
+
+		DoneSentinel.ar(signal);
+	}, [nil, nil]).add;
+
+	var pattern = PmonoArtic(def.name, *[
+		degree: Pn(1, inf),
+		sustain: 0.5,
+		tempo: 1
+	]);
+
+	server.sync;
+
+	pattern.play;
 };
 
 

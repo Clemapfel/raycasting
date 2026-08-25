@@ -10,7 +10,10 @@ rt.settings.overworld.boost_field = {
     outline_width = 2.5,
     opacity = 0.8,
     hue_span = 0.1,
-    hue_gradient_reference_length = 600,
+    hue_gradient_reference_length = 600, -- unitless
+    segment_light_subdivision = 150, -- px
+    segment_light_intensity = 0.6,
+    bloom_intensity = 1.0,
 
     particles = {
         n_hue_steps = 512,
@@ -18,7 +21,7 @@ rt.settings.overworld.boost_field = {
         extrude_offset = 0, -- px
         blend_opacity = 0.5,
 
-        density = 0.5, -- factor
+        density = 0.01, -- factor
         min_velocity = 20,
         max_velocity = 30,
         min_radius = 12,
@@ -70,6 +73,9 @@ function ow.BoostField:instantiate(object, stage, scene)
     self._body = object:create_physics_body(stage:get_physics_world())
     self._body:set_is_sensor(true)
     self._body:set_collides_with(rt.settings.player.player_collision_group)
+    self._body:add_tag(b2.Tag.SEGMENT_LIGHT_SOURCE)
+    self._body:set_user_data(self)
+
     self._is_active = self._body:test_point(self._scene:get_player():get_position())
 
     -- physics
@@ -155,7 +161,7 @@ function ow.BoostField:instantiate(object, stage, scene)
     local _, tris = object:create_mesh(translate_to_origin)
     self._tris = tris
 
-    do
+    do -- mesh & segment lights
         local total_area = 0
         local min_x, min_y, max_x, max_y = math.huge, math.huge, -math.huge, -math.huge
         for _, tri in ipairs(self._tris) do
@@ -194,19 +200,69 @@ function ow.BoostField:instantiate(object, stage, scene)
             for i = 1, #tri, 2 do
                 local x, y = tri[i+0], tri[i+1]
                 local t = particle_path:get_fraction(x, y)
-                local r, g, b, a = rt.lcha_to_rgba(0.8, 1, t, 1)
+                local dx, dy = particle_path:tangent_at(t)
                 table.insert(mesh_data, {
                     x, y,
-                    0, --t, -- u: arc length parameterized t
-                    0, --t * length / reference_length,  -- v: hue
-                    r, g, b, a
+                    t, -- u: arc length parameterized t
+                    t * length / reference_length,  -- v: hue
+                    1, 1, 1, 1
                 })
             end
         end
 
         self._mesh = rt.Mesh(mesh_data, rt.MeshDrawMode.TRIANGLES)
+
+        local subdivision_length = rt.settings.overworld.boost_field.segment_light_subdivision
+        local subdivide = function(x1, y1, x2, y2)
+            local dx = x2 - x1
+            local dy = y2 - y1
+            local length = math.magnitude(dx, dy)
+
+            if length <= subdivision_length then
+                return {{ x1, y1, x2, y2 }}
+            else
+                local n = math.ceil(length / subdivision_length)
+                local segments = {}
+                for i = 0, n - 1 do
+                    local t1 = i / n
+                    local t2 = (i + 1) / n
+                    table.insert(segments, {
+                        x1 + dx * t1, y1 + dy * t1,
+                        x1 + dx * t2, y1 + dy * t2
+                    })
+                end
+                return segments
+            end
+        end
+
+        local lights = {}
+        local contour = self._contour
+        for i = 1, #contour, 2 do
+            for division in values(subdivide(
+                contour[i+0],
+                contour[i+1],
+                contour[math.wrap(i+2, #contour)],
+                contour[math.wrap(i+3, #contour)]
+            )) do
+                local x1, y1, x2, y2 = table.unpack(division)
+                local t = particle_path:get_fraction(
+                    math.mix2(x1, y1, x2, y2, 0.5)
+                ) * (length / reference_length)
+
+                table.insert(lights, {
+                    x1, y1, x2, y2,
+                    rt.lcha_to_rgba(0.8, 1, t, 1)
+                })
+
+                if #lights > 10 then break end
+            end
+        end
+
+        self._segment_lights = lights
     end
 
+
+    -- particles
     self._particles_need_update = true
     self:_init_particles()
 
@@ -245,8 +301,7 @@ function ow.BoostField:update(delta)
 
     local ox, oy = math.subtract(px, py, self._body:get_position())
 
-    self._is_active = self._body:test_point(player:get_position())  -- body already compensate for offset
-    if self._is_active then
+    if self._body:test_point(player:get_position()) then -- body already compensate for offset
         local dir_x, dir_y
 
         if self._path ~= nil then
@@ -287,7 +342,7 @@ function ow.BoostField:update(delta)
     local before = love.timer.getTime()
 
     if self._particles_need_update == true then
-        self:_update_particles(delta)
+        --self:_update_particles(delta)
         self._particles_need_update = false
     end
 
@@ -300,45 +355,72 @@ function ow.BoostField:update(delta)
 end
 
 --- @brief
+function ow.BoostField:reset()
+    self._is_active = false
+end
+
+--- @brief
 function ow.BoostField:draw()
-    if not self._stage:get_is_body_visible(self._body)
-        or not self._is_visible
-    then
-        return
-    end
+    if not self._stage:get_is_body_visible(self._body) then return end
 
-    self._particles_need_update = true
-
-    love.graphics.push("all")
+    love.graphics.push()
     love.graphics.translate(self._body:get_position())
 
-    local stencil = rt.graphics.get_stencil_value()
-    rt.graphics.set_stencil_mode(stencil, rt.StencilMode.DRAW)
-    self._mesh:draw()
-    rt.graphics.set_stencil_mode(stencil, rt.StencilMode.TEST, rt.StencilCompareMode.ALWAYS)--rt.StencilCompareMode.EQUAL)
     self:_draw_particles()
-    rt.graphics.set_stencil_mode(nil)
 
+    love.graphics.setLineStyle("smooth")
+    love.graphics.setLineWidth(1.0)
     rt.Palette.BLACK:bind()
-    love.graphics.setLineWidth(1.5)
-    love.graphics.setLineJoin("bevel")
     love.graphics.line(self._contour)
+
+    _shader:bind()
+    _shader:send("elapsed", rt.SceneManager:get_elapsed())
+    _shader:send("velocity_factor", self._velocity_factor)
+    _shader:send("screen_to_world_transform", self._scene:get_camera():get_transform():inverse())
+    love.graphics.setColor(1, 1, 1, 1)
+    self._mesh:draw()
+    _shader:unbind()
+
 
     love.graphics.pop()
 end
 
 --- @brief
 function ow.BoostField:draw_bloom()
-    if not self._stage:get_is_body_visible(self._body)
-        or not self._is_visible
-    then
-        return
+    if not self._stage:get_is_body_visible(self._body) then return end
+
+    local offset_x, offset_y = self._body:get_position()
+    love.graphics.setLineWidth(3)
+    local t = rt.settings.overworld.boost_field.bloom_intensity
+    for _, light in ipairs(self._segment_lights) do
+        local ax, ay, bx, by, r, g, b, a = table.unpack(light)
+        love.graphics.setColor(t * r, t * g, t * b, t * a) -- premultiplied
+        love.graphics.line(
+            ax + offset_x,
+            ay + offset_y,
+            bx + offset_x,
+            by + offset_y
+        )
     end
 end
 
 --- @brief
-function ow.BoostField:reset()
-    self._is_active = false
+function ow.BoostField:collect_segment_lights(callback)
+    if not self._stage:get_is_body_visible(self._body) then return end
+
+    local t = rt.settings.overworld.boost_field.segment_light_intensity
+    local offset_x, offset_y = self._body:get_position()
+    for _, light in ipairs(self._segment_lights) do
+        local ax, ay, bx, by, r, g, b, a = table.unpack(light)
+        callback(
+            ax + offset_x,
+            ay + offset_y,
+            bx + offset_x,
+            by + offset_y,
+            r, g, b,
+            a * t -- not premultiplied
+        )
+    end
 end
 
 do
@@ -421,6 +503,37 @@ do
     end
 
     local settings = rt.settings.overworld.boost_field.particles
+
+    local _get_tangent_t = function(x, y, cell_size, i_offset, j_offset, spatial_hash, particle_path)
+        local i = math.floor(x / cell_size) + i_offset
+        local j = math.floor(y / cell_size) + j_offset
+
+        local row = spatial_hash[i]
+        if row == nil then
+            row = {}
+            spatial_hash[i] = row
+        end
+
+        local entry = row[j]
+        if entry == nil then
+            local cell_x = (i - i_offset) * cell_size + 0.5 * cell_size
+            local cell_y = (j - j_offset) * cell_size + 0.5 * cell_size
+            local t = particle_path:get_fraction(cell_x, cell_y)
+            local dx, dy = particle_path:tangent_at(t)
+            entry = { t, dx, dy }
+            row[j] = entry
+        end
+
+        return entry[1], entry[2], entry[3]
+    end
+
+    local _hue_to_rgba = function(hue, hue_to_rgba_table, n_hue_steps)
+        hue = math.floor(hue * n_hue_steps) + 1
+        local offset = (hue - 1) * 4
+        local r, g, b, a = hue_to_rgba_table[offset + 1], hue_to_rgba_table[offset + 2], hue_to_rgba_table[offset + 3], hue_to_rgba_table[offset + 4]
+        assert(r ~= nil, hue)
+        return r, g, b, a
+    end
 
     --- @brief
     function ow.BoostField:_init_particles()
@@ -527,7 +640,7 @@ do
         local particle_data = {}
 
         local avg_radius = math.mix(settings.min_radius, settings.max_radius, 0.5)
-        local target_n_particles = math.ceil(settings.density * (total_area / avg_radius))
+        local target_n_particles = math.max(1, math.ceil(settings.density * (total_area / avg_radius)))
 
         local particle_i = 1
         for _ = 1, target_n_particles do
@@ -587,13 +700,7 @@ do
             end
         end
 
-        self._hue_to_rgba = function(hue)
-            hue = math.floor(hue * settings.n_hue_steps) + 1
-            local offset = (hue - 1) * 4
-            local r, g, b, a = hue_to_rgba[offset + 1], hue_to_rgba[offset + 2], hue_to_rgba[offset + 3], hue_to_rgba[offset + 4]
-            assert(r ~= nil, hue)
-            return r, g, b, a
-        end
+        self._hue_to_rgba_table = hue_to_rgba
 
         -- init spatial hash
         local spatial_hash = {}
@@ -609,7 +716,7 @@ do
                 for j = min_j, max_j do
                     local x = (i + 0.5) * cell_size
                     local y = (j + 0.5) * cell_size
-                    self._get_tangent_t(x, y)
+                    _get_tangent_t(x, y, cell_size, i_offset, j_offset, spatial_hash, particle_path)
                 end
             end
         end
@@ -619,6 +726,9 @@ do
         self._particle_path = particle_path
         self._particle_data = particle_data
         self._n_particles = particle_i - 1
+        self._cell_size = cell_size
+        self._i_offset = i_offset
+        self._j_offset = j_offset
 
         -- init instanced draw
         self._instance_mesh = rt.MeshRectangle(-1, -1, 2, 2)
@@ -658,7 +768,7 @@ do
                 ptr[ptr_i + 1] = particle_data[data_i + _y_offset]
                 ptr[ptr_i + 2] = particle_data[data_i + _radius_offset]
 
-                local r, g, b, a = self._hue_to_rgba(particle_data[data_i + _hue_offset])
+                local r, g, b, a = _hue_to_rgba(particle_data[data_i + _hue_offset], hue_to_rgba, settings.n_hue_steps)
                 ptr[ptr_i + 3] = r
                 ptr[ptr_i + 4] = g
                 ptr[ptr_i + 5] = b
@@ -674,7 +784,7 @@ do
                 entry[1 + 1] = particle_data[i + _y_offset]
                 entry[1 + 2] = particle_data[i + _radius_offset]
 
-                local r, g, b, a = self._hue_to_rgba(particle_data[i + _hue_offset])
+                local r, g, b, a = _hue_to_rgba(particle_data[i + _hue_offset], hue_to_rgba, settings.n_hue_steps)
                 entry[1 + 3] = r
                 entry[1 + 4] = g
                 entry[1 + 5] = b
@@ -724,38 +834,27 @@ do
         local velocity_interpolation = settings.velocity_interpolation
         local velocity_factor = self._velocity_factor
 
-        local get_tangent_t = self._get_tangent_t
         local get_seed = self._get_seed
         local velocity_delta = self._velocity_factor * delta
 
+        local cell_size = self._cell_size
+        local i_offset = self._i_offset
+        local j_offset = self._j_offset
+        local spatial_hash = self._spatial_hash
+        local hue_to_rgba_table = self._hue_to_rgba_table
+        local n_hue_steps = settings.n_hue_steps
+
         local stride = _stride
         local max_i = self._n_particles * stride
-
-        local blend_opacity = settings.blend_opacity
-        local use_ffi = ffi ~= nil
-        local ptr
-        if use_ffi then
-            ptr = ffi.cast("float*", self._instance_data_buffer_data:get_pointer())
-        end
-
-        local player_x, player_y = self._scene:get_player():get_position()
-
-        local pi = 0
         for i = 1, max_i, stride do
-            pi = pi + 1
-
             local x = data[i + _x_offset]
             local y = data[i + _y_offset]
 
             local velocity = data[i + _velocity_offset]
 
-            local t, dx, dy = get_tangent_t(x, y)
+            local t, dx, dy = _get_tangent_t(x, y, cell_size, i_offset, j_offset, spatial_hash, path)
             if data[i + _hue_offset] == _HUE_UPDATE_NEEDED then
                 data[i + _hue_offset] = t
-            end
-
-            if self._is_active then
-                velocity = velocity * 40
             end
 
             x = x + dx * velocity * velocity_delta
@@ -781,46 +880,58 @@ do
                 data[i + _lifetime_elapsed_offset] = elapsed
                 data[i + _opacity_offset] = _opacity_easing(math.min(lifetime_t, 1))
             end
+        end
 
-            -- write GPU-side particle data for this particle immediately
-            local hue = data[i + _hue_offset]
-            if use_ffi then
+        -- init GPU-side particle data
+        if ffi ~= nil then
+            local t = settings.blend_opacity
+            local ptr = ffi.cast("float*", self._instance_data_buffer_data:get_pointer())
+            for pi = 1, self._n_particles do
+                local i = _particle_i_to_data_offset(pi)
                 local out = (pi - 1) * 7
+
                 ptr[out + 0] = data[i + _x_offset]
                 ptr[out + 1] = data[i + _y_offset]
                 ptr[out + 2] = data[i + _radius_offset]
 
+                local hue = data[i + _hue_offset]
                 if hue == _HUE_UPDATE_NEEDED then
                     ptr[out + 3] = 0
                     ptr[out + 4] = 0
                     ptr[out + 5] = 0
                     ptr[out + 6] = 0
                 else
-                    local r, g, b, a = self._hue_to_rgba(hue)
+                    local r, g, b, a = _hue_to_rgba(hue, hue_to_rgba_table, n_hue_steps)
                     a = a * data[i + _opacity_offset]
-                    ptr[out + 3] = blend_opacity * r * a
-                    ptr[out + 4] = blend_opacity * g * a
-                    ptr[out + 5] = blend_opacity * b * a
-                    ptr[out + 6] = blend_opacity * a
+                    ptr[out + 3] = t * r * a
+                    ptr[out + 4] = t * g * a
+                    ptr[out + 5] = t * b * a
+                    ptr[out + 6] = t * a
                 end
-            else
+            end
+        else
+            local t = settings.blend_opacity
+            for pi = 1, self._n_particles do
+                local i = _particle_i_to_data_offset(pi)
+
                 local entry = self._instance_data_buffer_data[pi]
                 entry[1 + 0] = data[i + _x_offset]
                 entry[1 + 1] = data[i + _y_offset]
                 entry[1 + 2] = data[i + _radius_offset]
 
+                local hue = data[i + _hue_offset]
                 if hue == _HUE_UPDATE_NEEDED then
                     entry[1 + 3] = 0
                     entry[1 + 4] = 0
                     entry[1 + 5] = 0
                     entry[1 + 6] = 0
                 else
-                    local r, g, b, a = self._hue_to_rgba(hue)
+                    local r, g, b, a = _hue_to_rgba(hue, hue_to_rgba_table, n_hue_steps)
                     a = a * data[i + _opacity_offset]
-                    entry[1 + 3] = blend_opacity * r * a
-                    entry[1 + 4] = blend_opacity * g * a
-                    entry[1 + 5] = blend_opacity * b * a
-                    entry[1 + 6] = blend_opacity * a
+                    entry[1 + 3] = t * r * a
+                    entry[1 + 4] = t * g * a
+                    entry[1 + 5] = t * b * a
+                    entry[1 + 6] = t * a * data[i + _opacity_offset]
                 end
             end
         end
@@ -830,10 +941,11 @@ do
 
     function ow.BoostField:_draw_particles()
         love.graphics.push("all")
+
         rt.graphics.set_blend_mode(rt.BlendMode.ADD, rt.BlendMode.ADD)
         _particle_draw_shader:bind()
         _particle_draw_shader:send("instance_texture", _particle_texture)
-        self._instance_mesh:draw_instanced(self._n_particles)
+        --self._instance_mesh:draw_instanced(self._n_particles)
         _particle_draw_shader:unbind()
         love.graphics.pop()
 
@@ -876,4 +988,4 @@ do
         love.graphics.pop()
         ]]
     end
-end
+end -- particles

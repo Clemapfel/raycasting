@@ -91,12 +91,11 @@ vec2 to_world_position(vec2 xy) {
     return result.xy / result.w;
 }
 
-
 vec4 effect(vec4 vertex_color, sampler2D _, vec2 texture_coordinates, vec2 frag_position) {
-    float hue = fract(texture_coordinates.y - velocity_factor * elapsed / 3.0);
+    float hue = fract(texture_coordinates.y - 0.0 * elapsed);
 
     vec2 uv = to_world_position(frag_position) / 10.0;
-    float hue_noise = (gradient_noise(vec3(uv.xy, elapsed / 3.0)) + 1.0) / 2.0;
+    float hue_noise = (gradient_noise(vec3(uv.xy + normalize(uv.xy) * elapsed, elapsed / 3.0)) + 1.0) / 2.0;
     float lightness_noise = (gradient_noise(vec3(uv.y, elapsed, uv.x)) + 1.0) / 2.0;
 
     return vertex_color * vec4(lch_to_rgb(vec3(
