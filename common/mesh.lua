@@ -61,6 +61,10 @@ rt.Mesh = meta.class("Mesh", rt.Drawable)
 --- @param format Table<Table<Number>>?
 --- @param usage rt.GraphicsBufferUsage?
 function rt.Mesh:instantiate(data_or_native, draw_mode, format, usage)
+    if meta.is_table(data_or_native) and meta.is_function(data_or_native.get_native) then
+        data_or_native = data_or_native:get_native()
+    end
+
     mt.assert(
         data_or_native, mt.Union(mt.Table, mt.UserData),
         draw_mode, mt.Optional(rt.MeshDrawMode),
