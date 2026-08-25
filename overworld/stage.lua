@@ -809,6 +809,10 @@ function ow.Stage:reset()
         body:set_is_enabled(false)
     end
 
+    self._mirror:reset()
+    self._blood_spatter:reset()
+    self._shadow_cast:reset()
+
     for instance in values(self._to_reset) do
         instance:reset()
     end

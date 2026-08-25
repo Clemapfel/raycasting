@@ -123,14 +123,22 @@ function ow.BoostField:instantiate(object, stage, scene)
 
     if path ~= nil then
         local points = {}
+        local seen = {}
         local offset_x, offset_y = self._body:get_position()
         local current = path
-        repeat
+        while true do
             current:validate_schema(path_node_schema, ow.ShapeType.POINT)
             table.insert(points, current.x - offset_x)
             table.insert(points, current.y - offset_y)
             current = current:get_object("next", false)
-        until current == nil
+
+            if current == nil then break end
+            if seen[current] == true then
+                rt.warning("In ow.BoostField: boost field `", object:get_id(), "`, path node `", current:get_id(), "` is a loop")
+                break
+            end
+            seen[current] = true
+        end
 
         if #points == 2 then
             self._axis_x, self._axis_y = math.normalize(math.subtract(path.x, path.y, object:get_centroid()))
@@ -977,6 +985,11 @@ do
     function ow.BoostField:_draw_particles()
         love.graphics.push("all")
 
+        local stencil = meta.hash(ow.BoostField) % 254 -- shared global stencil value
+        rt.graphics.set_stencil_mode(stencil, rt.StencilMode.DRAW)
+        self._mesh:draw()
+        rt.graphics.set_stencil_mode(stencil, rt.StencilMode.TEST, rt.StencilCompareMode.EQUAL)
+
         rt.graphics.set_blend_mode(rt.BlendMode.ADD, rt.BlendMode.ADD)
         _particle_draw_shader:bind()
         _particle_draw_shader:send("instance_texture", _particle_texture)
@@ -984,6 +997,8 @@ do
         self._instance_mesh:draw_instanced(self._n_particles)
         _particle_draw_shader:unbind()
         love.graphics.pop()
+
+        rt.graphics.set_stencil_mode(nil)
 
         --[[
         love.graphics.push("all")

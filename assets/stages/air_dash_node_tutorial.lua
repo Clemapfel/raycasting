@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 394,
+  nextobjectid = 416,
   properties = {
     ["background_id"] = "\"nebula\""
   },
@@ -199,6 +199,68 @@ return {
           },
           properties = {
             ["path"] = { id = 369 }
+          }
+        },
+        {
+          id = 401,
+          name = "",
+          type = "BoostField",
+          shape = "polygon",
+          x = 944,
+          y = -2144,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = -368, y = 0 },
+            { x = -368, y = 368 },
+            { x = -288, y = 368 },
+            { x = -288, y = 64 },
+            { x = 0, y = 65.0297 },
+            { x = 0, y = 120.19 },
+            { x = 0, y = 196.283 },
+            { x = 0, y = 288 },
+            { x = -82.4389, y = 288 },
+            { x = -222.351, y = 288 },
+            { x = -288, y = 288 },
+            { x = -288, y = 368 },
+            { x = -156.077, y = 368 },
+            { x = -10.0285, y = 368 },
+            { x = 80, y = 368 },
+            { x = 80, y = 283.421 },
+            { x = 80, y = 145.964 },
+            { x = 80, y = 0 }
+          },
+          properties = {
+            ["path"] = { id = 399 }
+          }
+        },
+        {
+          id = 392,
+          name = "",
+          type = "BoostField",
+          shape = "polygon",
+          x = 1408,
+          y = -1248,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = -112, y = 0 },
+            { x = -112, y = -880 },
+            { x = -112, y = -96 },
+            { x = -112, y = 0 },
+            { x = -224, y = 0 },
+            { x = -224, y = -960 },
+            { x = 0, y = -960 }
+          },
+          properties = {
+            ["axis_x"] = 0,
+            ["axis_y"] = -1,
+            ["path"] = { id = 411 }
           }
         }
       }
@@ -1026,8 +1088,8 @@ return {
           name = "",
           type = "MovableHitbox",
           shape = "polygon",
-          x = 817.15,
-          y = -1850.38,
+          x = 1905.72,
+          y = -1634.41,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1098,8 +1160,8 @@ return {
           name = "",
           type = "Path",
           shape = "point",
-          x = 704,
-          y = -1697.3,
+          x = 1792.57,
+          y = -1481.33,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1107,7 +1169,7 @@ return {
           properties = {
             ["next"] = { id = 345 },
             ["target"] = { id = 0 },
-            ["target_02"] = { id = 393 },
+            ["target_02"] = { id = 0 },
             ["target_03"] = { id = 392 },
             ["target_04"] = { id = 0 }
           }
@@ -1117,8 +1179,8 @@ return {
           name = "",
           type = "PathNode",
           shape = "point",
-          x = 739.5,
-          y = -2144,
+          x = 1828.07,
+          y = -1928.03,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1218,8 +1280,8 @@ return {
           name = "",
           type = "",
           shape = "polygon",
-          x = 160,
-          y = -1856,
+          x = -79.9651,
+          y = -2047.97,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1349,27 +1411,6 @@ return {
           rotation = 0,
           visible = true,
           properties = {}
-        },
-        {
-          id = 393,
-          name = "",
-          type = "BoostField",
-          shape = "polygon",
-          x = 1312,
-          y = -2176,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = 0 },
-            { x = -80, y = 0 },
-            { x = -80, y = 928 },
-            { x = 0, y = 928 }
-          },
-          properties = {
-            ["axis_y"] = 1
-          }
         }
       }
     },
@@ -1675,8 +1716,8 @@ return {
           name = "",
           type = "BoostFieldPathNode",
           shape = "point",
-          x = 679.802,
-          y = -1808.29,
+          x = 1768.37,
+          y = -1592.32,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1686,25 +1727,153 @@ return {
           }
         },
         {
-          id = 392,
+          id = 399,
           name = "",
-          type = "BoostField",
-          shape = "polygon",
-          x = 1408,
-          y = -1248,
+          type = "BoostFieldPathNode",
+          shape = "point",
+          x = 691.661,
+          y = -1805.12,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
-          polygon = {
-            { x = 0, y = 0 },
-            { x = -96, y = 0 },
-            { x = -96, y = -960 },
-            { x = 0, y = -960 }
-          },
           properties = {
-            ["axis_x"] = 0,
-            ["axis_y"] = -1
+            ["next"] = { id = 403 }
+          }
+        },
+        {
+          id = 403,
+          name = "",
+          type = "BoostFieldPathNode",
+          shape = "point",
+          x = 986.908,
+          y = -1801.46,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["next"] = { id = 404 }
+          }
+        },
+        {
+          id = 404,
+          name = "",
+          type = "BoostFieldPathNode",
+          shape = "point",
+          x = 985.455,
+          y = -2104,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["next"] = { id = 409 }
+          }
+        },
+        {
+          id = 409,
+          name = "",
+          type = "BoostFieldPathNode",
+          shape = "point",
+          x = 617.365,
+          y = -2102.97,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["next"] = { id = 410 }
+          }
+        },
+        {
+          id = 410,
+          name = "",
+          type = "BoostFieldPathNode",
+          shape = "point",
+          x = 619.546,
+          y = -1804.1,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["next"] = { id = 399 }
+          }
+        },
+        {
+          id = 411,
+          name = "",
+          type = "BoostFieldPathNode",
+          shape = "point",
+          x = 1232,
+          y = -1296,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["next"] = { id = 412 }
+          }
+        },
+        {
+          id = 412,
+          name = "",
+          type = "BoostFieldPathNode",
+          shape = "point",
+          x = 1360,
+          y = -1296,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["next"] = { id = 413 }
+          }
+        },
+        {
+          id = 413,
+          name = "",
+          type = "BoostFieldPathNode",
+          shape = "point",
+          x = 1360,
+          y = -2160,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["next"] = { id = 414 }
+          }
+        },
+        {
+          id = 414,
+          name = "",
+          type = "BoostFieldPathNode",
+          shape = "point",
+          x = 1232,
+          y = -2160,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["next"] = { id = 415 }
+          }
+        },
+        {
+          id = 415,
+          name = "",
+          type = "BoostFieldPathNode",
+          shape = "point",
+          x = 1232,
+          y = -1296,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["next"] = { id = 411 }
           }
         }
       }

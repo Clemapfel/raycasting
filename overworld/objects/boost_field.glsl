@@ -65,6 +65,10 @@ vec2 to_world_position(vec2 xy) {
     return result.xy / result.w;
 }
 
+layout(std430) readonly buffer path_buffer {
+    float path[];
+};
+
 vec4 effect(vec4 vertex_color, sampler2D _, vec2 texture_coordinates, vec2 frag_position) {
     float time = elapsed / 2.0;
     float hue = fract(vertex_color.a);
