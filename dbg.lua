@@ -1,3 +1,3 @@
 return {
-    t = 15
+    alpha = 0.175
 }

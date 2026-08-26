@@ -28,6 +28,10 @@ end
 
 --- @brief
 function rt.Image:set(x, y, r, g, b, a)
+    if r == nil then r = 0 end
+    if g == nil then g = 0 end
+    if b == nil then b = 0 end
+    if a == nil then a = 1 end
     self._native:setPixel(x - 1, y - 1, r, g, b, a)
 end
 

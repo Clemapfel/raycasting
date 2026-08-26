@@ -67,44 +67,43 @@ vec2 to_world_position(vec2 xy) {
     return result.xy / result.w;
 }
 
-uniform int path_n_segments;       // # nodes - 1
+uniform int path_n_segments; // # nodes - 1
 uniform float path_inverse_length; // 1.0 / length
 uniform sampler2D path_xy_and_tangent; // xy: node position, zw: tangent
 uniform sampler2D path_segment_and_fraction; // x: segment length, y: fraction
 
-float get_fraction(vec2 xy, out vec2 out_tangent) {
-    float min_dist_sq = 3.402823466e+38; // Max float
-    float best_frac = 0.0;
-    out_tangent = vec2(1.0, 0.0); // Fallback
+#define INFINITY 3.402823466e+38
+
+float get_fraction(vec2 xy, out vec2 tangent) {
+    float min_dist_sq = INFINITY;
+    float best_fraction = 0.0;
+    tangent = vec2(0.0, 0.0);
 
     for (int i = 0; i < path_n_segments; ++i) {
-        vec4 geom = texelFetch(path_xy_and_tangent, ivec2(i, 0), 0).xyzw;
-        vec2 metrics = texelFetch(path_segment_and_fraction, ivec2(i, 0), 0).xy;
+        vec4 node_data = texelFetch(path_xy_and_tangent, ivec2(i, 0), 0);
+        vec2 node_xy = node_data.xy;
+        vec2 node_dxy = node_data.zw;
 
-        // Vector from segment start to the query point
-        vec2 ap = xy - geom.xy;
+        vec2 metric_data = texelFetch(path_segment_and_fraction, ivec2(i, 0), 0).xy;
+        float segment_length = metric_data.x;
+        float cumulative_fraction = metric_data.y;
 
-        // Project point onto the infinite line, clamp to segment endpoints
-        float t = clamp(dot(ap, geom.zw), 0.0, metrics.x);
+        vec2 ap = xy - node_xy.xy;
 
-        // Find the closest point on this specific segment
-        vec2 closest = geom.xy + geom.zw * t;
+        float t = clamp(dot(ap, node_dxy), 0.0, segment_length);
+        vec2 closest = node_xy.xy + node_dxy * t;
 
-        // Calculate squared distance (skip sqrt for comparison)
         vec2 diff = xy - closest;
         float dist_sq = dot(diff, diff);
 
-        // Update if this is the closest segment found so far
         if (dist_sq < min_dist_sq) {
             min_dist_sq = dist_sq;
-
-            // Calculate final fraction: fraction at start of segment + fraction along segment
-            best_frac = metrics.y + (t * path_inverse_length);
-            out_tangent = geom.zw;
+            best_fraction = cumulative_fraction + (t * path_inverse_length);
+            tangent = node_dxy;
         }
     }
 
-    return best_frac;
+    return best_fraction;
 }
 
 vec4 effect(vec4 vertex_color, sampler2D _, vec2 texture_coordinates, vec2 frag_position) {

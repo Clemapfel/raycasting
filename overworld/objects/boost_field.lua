@@ -8,6 +8,7 @@ rt.settings.overworld.boost_field = {
     target_velocity_bubble = 1000,
 
     outline_width = 2.5,
+    outline_intensity = 0.175,
     opacity = 1.0,
     hue_span = 0.1,
     hue_gradient_reference_length = 600, -- unitless
@@ -170,8 +171,8 @@ function ow.BoostField:instantiate(object, stage, scene)
     local _, tris = object:create_mesh(translate_to_origin)
     self._tris = tris
 
-    do -- mesh & segment lights
-        local total_area = 0
+    do
+        -- get aabb
         local min_x, min_y, max_x, max_y = math.huge, math.huge, -math.huge, -math.huge
         for _, tri in ipairs(self._tris) do
             for i = 1, #tri, 2 do
@@ -218,8 +219,7 @@ function ow.BoostField:instantiate(object, stage, scene)
 
                 segment_and_fraction:set(i, 1,
                     segment_lengths[i],
-                    fractions[i],
-                    0, 0
+                    fractions[i]
                 )
             end
 
@@ -229,6 +229,7 @@ function ow.BoostField:instantiate(object, stage, scene)
             self._path_buffer_segment_and_fraction = rt.Texture(segment_and_fraction)
         end
 
+        -- create mesh data
         local length = particle_path:get_length()
         local reference_length = rt.settings.overworld.boost_field.hue_gradient_reference_length
 
@@ -241,12 +242,14 @@ function ow.BoostField:instantiate(object, stage, scene)
                 table.insert(mesh_data, {
                     x, y,
                     tx, ty, -- uv: flow direction
-                    1, 1, 1, t * length / reference_length -- a: hue
+                    1, 1, 1, t * length / reference_length -- a: hue (unused with path buffer)
                 })
             end
         end
 
         self._mesh = rt.Mesh(mesh_data, rt.MeshDrawMode.TRIANGLES)
+
+        -- create segment lights
 
         local subdivision_length = rt.settings.overworld.boost_field.segment_light_subdivision
         local subdivide = function(x1, y1, x2, y2)
@@ -324,9 +327,6 @@ function ow.BoostField:instantiate(object, stage, scene)
     end
 end
 
-local _first = nil -- TODO
-local with_sum, with_n = 0, 0
-
 --- @brief
 function ow.BoostField:update(delta)
     if not self._stage:get_is_body_visible(self._body) then return end
@@ -374,19 +374,9 @@ function ow.BoostField:update(delta)
         player:set_velocity(new_vx, new_vy)
     end
 
-    if _first then self._dbg = true; _first = nil end
-    local before = love.timer.getTime()
-
     if self._particles_need_update == true then
         self:_update_particles(delta)
         self._particles_need_update = false
-    end
-
-    if self._dbg then
-        local duration = (love.timer.getTime() - before) / (1 / 60)
-        with_sum = with_sum + duration
-        with_n = with_n + 1
-        dbg(meta.hash(self), with_sum / with_n)
     end
 end
 
@@ -414,10 +404,12 @@ function ow.BoostField:draw(priority)
         self:_draw_particles()
         self._particles_need_update = true
     elseif priority == _base_priority then
+        love.graphics.setBlendMode("add")
         love.graphics.setLineStyle("smooth")
         love.graphics.setLineWidth(1.0)
-        rt.Palette.BLACK:bind()
+        love.graphics.setColor(1, 1, 1, rt.settings.overworld.boost_field.outline_intensity)
         love.graphics.line(self._contour)
+        love.graphics.setBlendMode("alpha")
 
         _mesh_shader:bind()
         _mesh_shader:send("elapsed", rt.SceneManager:get_elapsed())
@@ -428,7 +420,7 @@ function ow.BoostField:draw(priority)
         ):inverse())
 
         _mesh_shader:send("path_n_segments", self._path_n_segments)
-        _mesh_shader:send("path_length", 1 / self._path_length)
+        _mesh_shader:send("path_inverse_length", 1 / self._path_length)
         _mesh_shader:send("path_xy_and_tangent", self._path_buffer_xy_and_tangent)
         _mesh_shader:send("path_segment_and_fraction", self._path_buffer_segment_and_fraction)
         love.graphics.setColor(1, 1, 1, rt.settings.overworld.boost_field.opacity)
@@ -886,9 +878,6 @@ do
         local data = self._particle_data
         local path = self._particle_path
 
-        local velocity_interpolation = settings.velocity_interpolation
-        local velocity_factor = self._velocity_factor
-
         local get_seed = self._get_seed
         local velocity_delta = self._velocity_factor * delta
 
@@ -918,7 +907,6 @@ do
             if data[i + _hue_offset] == _HUE_UPDATE_NEEDED then
                 data[i + _hue_offset] = t
             end
-
 
             local lifetime = data[i + _lifetime_offset]
 
@@ -1031,44 +1019,5 @@ do
         love.graphics.pop()
 
         rt.graphics.set_stencil_mode(nil)
-
-        --[[
-        love.graphics.push("all")
-
-        local data = self._particle_data
-        local hue_to_rgba = self._hue_to_rgba
-        local w, h = _particle_texture:get_size()
-        local ox, oy = 0.5 * w, 0.5 * h
-        local native = _particle_texture:get_native()
-        local t = settings.additive_scale or 1
-
-        local stride = _stride
-        local max_i = self._n_particles * stride
-        for i = 1, max_i, stride do
-            local opacity = data[i + _opacity_offset]
-
-            if opacity > 0 then
-                local x = data[i + _x_offset]
-                local y = data[i + _y_offset]
-                local r, g, b, a = hue_to_rgba(data[i + _hue_offset])
-                a = a * opacity
-                local radius = data[i + _radius_offset]
-
-                local scale = 2 * radius / (w / 2)
-                love.graphics.setColor(t * r, t * g, t * b, t * a)
-                love.graphics.draw(native,
-                    x, y,
-                    0,
-                    scale, scale,
-                    ox, oy
-                )
-
-                --love.graphics.setColor(r, g, b, a)
-                --love.graphics.circle("fill", x, y, radius)
-            end
-        end
-
-        love.graphics.pop()
-        ]]
     end
 end -- particles

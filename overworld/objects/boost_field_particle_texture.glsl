@@ -1,12 +1,12 @@
 #ifdef PIXEL
 
 float dome(float dist) {
-    return sqrt(max(0.0, 1.0 - dist * dist));
+    return 1.0 - sqrt(max(0.0, 1.0 - dist * dist));
 }
 
 float gaussian(float dist) {
     float sigma = 0.25;
-    return exp(-(dist * dist) / (2.0 * sigma * sigma));
+    return 1.0  - exp(-(dist * dist) / (2.0 * sigma * sigma));
 }
 
 float butterworth(float dist, float order) {
