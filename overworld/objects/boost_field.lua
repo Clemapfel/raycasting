@@ -201,6 +201,11 @@ function ow.BoostField:instantiate(object, stage, scene)
             )
         end
 
+        -- create path buffer
+        self._path_buffer = rt.GraphicsBuffer(_mesh_shader:get_buffer_format("path_buffer"),
+            particle_path:get_points()
+        )
+
         local length = particle_path:get_length()
         local reference_length = rt.settings.overworld.boost_field.hue_gradient_reference_length
 
@@ -268,7 +273,6 @@ function ow.BoostField:instantiate(object, stage, scene)
 
         self._segment_lights = lights
     end
-
 
     -- particles
     self._particles_need_update = true
@@ -399,6 +403,9 @@ function ow.BoostField:draw(priority)
         _mesh_shader:send("screen_to_world_transform", self._scene:get_camera():get_transform():translate(
             self._body:get_position()
         ):inverse())
+        _mesh_shader:send("path_buffer", self._path_buffer)
+        _mesh_shader:send("path_n_nodes", self._path:get_n_points())
+        _mesh_shader:send("path_length", self._path:get_length())
         love.graphics.setColor(1, 1, 1, rt.settings.overworld.boost_field.opacity)
         self._mesh:draw()
         _mesh_shader:unbind()

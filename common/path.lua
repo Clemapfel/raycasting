@@ -206,6 +206,11 @@ function rt.Path:get_normal_at(t)
 end
 
 --- @brief
+function rt.Path:get_n_points()
+    return #self._points / 2
+end
+
+--- @brief
 function rt.Path:_create_from(reparameterize_as_uniform, use_arclength, points, ...)
     if meta.is_number(points) then
         points = { points, ... }
