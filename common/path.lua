@@ -660,6 +660,33 @@ function rt.Path:get_points()
     return self._points
 end
 
+--- @brief
+function rt.Path:get_data()
+    local xy = {}
+    local normals = {}
+    local tangents = {}
+    local segment_lengths = {}
+    local fractions = {}
+
+    for i = 1, self._n_entries do
+        local entry = self._entries[i]
+
+        table.insert(xy, entry[_from_x])
+        table.insert(xy, entry[_from_y])
+
+        table.insert(normals, entry[_nx])
+        table.insert(normals, entry[_ny])
+
+        table.insert(tangents, entry[_dx])
+        table.insert(tangents, entry[_dy])
+
+        table.insert(segment_lengths, entry[_distance])
+        table.insert(fractions, entry[_fraction])
+    end
+
+    return xy, normals, tangents, segment_lengths, fractions
+end
+
 --- @brief get parameter t in [0, 1] where path:at(t) is closest to px, py
 --- @param px Number
 --- @param py Number

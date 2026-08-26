@@ -23,13 +23,13 @@ rt.TextureWrapMode = meta.enum("TextureWrapMode", rt.TextureWrapMode)
 rt.Texture = meta.class("Texture", rt.Drawable)
 
 --- @brief
-function rt.Texture:instantiate(...)
-    local first = select(1, ...)
-    if first ~= nil and meta.is_userdata(first) and  meta.is_function(first.typeOf) and first:typeOf("Texture") == true then
+function rt.Texture:instantiate(first, ...)
+    if meta.is_userdata(first) and meta.is_function(first.typeOf) and first:typeOf("Texture") == true then
         self._native = first
-    elseif select("#", ...) > 0 then
-        -- called directly, instead of as parent
-        self._native = love.graphics.newImage(...)
+    elseif meta.is_table(first) and meta.is_function(first.get_native) then
+        self._native = love.graphics.newImage(first:get_native(), ...)
+    elseif first ~= nil then
+        self._native = love.graphics.newImage(first, ...)
         self:set_scale_mode(rt.TextureScaleMode.NEAREST)
         self:set_wrap_mode(rt.TextureWrapMode.CLAMP)
     end

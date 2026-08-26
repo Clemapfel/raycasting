@@ -201,10 +201,33 @@ function ow.BoostField:instantiate(object, stage, scene)
             )
         end
 
-        -- create path buffer
-        self._path_buffer = rt.GraphicsBuffer(_mesh_shader:get_buffer_format("path_buffer"),
-            particle_path:get_points()
-        )
+        do -- create path buffers
+            local n_segments = particle_path:get_n_points() - 1
+            local xy, normals, tangents, segment_lengths, fractions = particle_path:get_data()
+
+            local xy_and_tangent = rt.Image(n_segments, 1, rt.TextureFormat.RGBA32F) -- xy: position, zw: tangent
+            local segment_and_fraction = rt.Image(n_segments, 1, rt.TextureFormat.RG32F) -- x: segment length, y: fraction
+
+            for i = 1, n_segments do
+                xy_and_tangent:set(i, 1,
+                    xy[i * 2 - 1],
+                    xy[i * 2 - 0],
+                    tangents[i * 2 - 1],
+                    tangents[i * 2 - 0]
+                )
+
+                segment_and_fraction:set(i, 1,
+                    segment_lengths[i],
+                    fractions[i],
+                    0, 0
+                )
+            end
+
+            self._path_n_segments = n_segments
+            self._path_length = particle_path:get_length()
+            self._path_buffer_xy_and_tangent = rt.Texture(xy_and_tangent)
+            self._path_buffer_segment_and_fraction = rt.Texture(segment_and_fraction)
+        end
 
         local length = particle_path:get_length()
         local reference_length = rt.settings.overworld.boost_field.hue_gradient_reference_length
@@ -403,9 +426,11 @@ function ow.BoostField:draw(priority)
         _mesh_shader:send("screen_to_world_transform", self._scene:get_camera():get_transform():translate(
             self._body:get_position()
         ):inverse())
-        _mesh_shader:send("path_buffer", self._path_buffer)
-        _mesh_shader:send("path_n_nodes", self._path:get_n_points())
-        _mesh_shader:send("path_length", self._path:get_length())
+
+        _mesh_shader:send("path_n_segments", self._path_n_segments)
+        _mesh_shader:send("path_length", 1 / self._path_length)
+        _mesh_shader:send("path_xy_and_tangent", self._path_buffer_xy_and_tangent)
+        _mesh_shader:send("path_segment_and_fraction", self._path_buffer_segment_and_fraction)
         love.graphics.setColor(1, 1, 1, rt.settings.overworld.boost_field.opacity)
         self._mesh:draw()
         _mesh_shader:unbind()

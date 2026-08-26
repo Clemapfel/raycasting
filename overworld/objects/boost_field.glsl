@@ -1,3 +1,5 @@
+#pragma language glsl4
+
 vec3 lch_to_rgb(vec3 lch) {
     float L = lch.x * 100.0;
     float C = lch.y * 100.0;
@@ -65,17 +67,55 @@ vec2 to_world_position(vec2 xy) {
     return result.xy / result.w;
 }
 
-layout(std430) readonly buffer path_buffer {
-    float path[];
-};
+uniform int path_n_segments;       // # nodes - 1
+uniform float path_inverse_length; // 1.0 / length
+uniform sampler2D path_xy_and_tangent; // xy: node position, zw: tangent
+uniform sampler2D path_segment_and_fraction; // x: segment length, y: fraction
+
+float get_fraction(vec2 xy, out vec2 out_tangent) {
+    float min_dist_sq = 3.402823466e+38; // Max float
+    float best_frac = 0.0;
+    out_tangent = vec2(1.0, 0.0); // Fallback
+
+    for (int i = 0; i < path_n_segments; ++i) {
+        vec4 geom = texelFetch(path_xy_and_tangent, ivec2(i, 0), 0).xyzw;
+        vec2 metrics = texelFetch(path_segment_and_fraction, ivec2(i, 0), 0).xy;
+
+        // Vector from segment start to the query point
+        vec2 ap = xy - geom.xy;
+
+        // Project point onto the infinite line, clamp to segment endpoints
+        float t = clamp(dot(ap, geom.zw), 0.0, metrics.x);
+
+        // Find the closest point on this specific segment
+        vec2 closest = geom.xy + geom.zw * t;
+
+        // Calculate squared distance (skip sqrt for comparison)
+        vec2 diff = xy - closest;
+        float dist_sq = dot(diff, diff);
+
+        // Update if this is the closest segment found so far
+        if (dist_sq < min_dist_sq) {
+            min_dist_sq = dist_sq;
+
+            // Calculate final fraction: fraction at start of segment + fraction along segment
+            best_frac = metrics.y + (t * path_inverse_length);
+            out_tangent = geom.zw;
+        }
+    }
+
+    return best_frac;
+}
 
 vec4 effect(vec4 vertex_color, sampler2D _, vec2 texture_coordinates, vec2 frag_position) {
     float time = elapsed / 2.0;
-    float hue = fract(vertex_color.a);
 
-    vec2 uv = to_world_position(frag_position) / 12.0;
-    vec2 dxy = texture_coordinates.xy;
+    vec2 uv = to_world_position(frag_position);
 
+    vec2 dxy;
+    float hue = get_fraction(uv.xy, dxy);
+
+    uv = uv / 12.0;
     uv.xy -= velocity_factor * dxy * elapsed;
 
     float hue_noise = (gradient_noise(vec3(uv.xy, time)) + 1.0) / 2.0;
