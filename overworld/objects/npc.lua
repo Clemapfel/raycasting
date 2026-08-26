@@ -8,6 +8,7 @@ rt.settings.overworld.npc = {
     interact_radius = 150,
 
     focus_indicator_active_radius = 300,
+    use_postfx = false
 }
 
 --- @class ow.NPC
@@ -52,7 +53,7 @@ function ow.NPC:instantiate(object, stage, scene)
         callback(
             self._position_x,
             self._position_y,
-            settings.hole_radius * self._dilation_motion:get_value(),
+            self._graphics_body:get_radius(),
             r, g, b, a
         )
     end
@@ -137,46 +138,70 @@ do
 
     --- @brief
     function ow.NPC:draw(priority)
-        if exclude_from_drawing == true
-            or not self._stage:get_is_body_visible(self._camera_body) then
-            return
+        if priority == base_priority and self._dilation_motion:get_value() > 0.01 then
+            if exclude_from_drawing == true
+                or not self._stage:get_is_body_visible(self._camera_body) then
+                return
+            end
+
+            if rt.settings.overworld.npc.use_postfx then
+                exclude_from_drawing = true -- prevent loop
+                local bounds = self._graphics_body:get_bounds()
+                local camera = self._scene:get_camera()
+                local screenshot = self._scene:get_screenshot(true, bounds) -- draw player
+                exclude_from_drawing = false
+                if screenshot ~= nil then
+                    local canvas = self._graphics_body:get_texture()
+
+                    love.graphics.push("all")
+                    love.graphics.reset()
+                    canvas:bind()
+                    love.graphics.clear(0, 0, 0, 0)
+
+                    local screen_x, screen_y = camera:world_xy_to_screen_xy(
+                        self._graphics_body_x, self._graphics_body_y
+                    )
+
+                    local scale = camera:get_final_scale()
+
+                    love.graphics.setColor(1, 1, 1, 1)
+                    love.graphics.scale(1 / scale, 1 / scale)
+                    love.graphics.translate(-screen_x, -screen_y)
+
+                    screenshot:draw()
+                    canvas:unbind()
+
+                    love.graphics.pop()
+
+                    rt.Palette.BLACK:bind()
+                    love.graphics.rectangle("fill", self._graphics_body_x, self._graphics_body_y, canvas:get_size())
+                    self._graphics_body:draw()
+                end
+            else
+                local value = rt.graphics.get_stencil_value()
+                rt.graphics.set_stencil_mode(value, rt.StencilMode.DRAW)
+                self._graphics_body:draw()
+                rt.graphics.set_stencil_mode(value, rt.StencilMode.TEST, rt.StencilCompareMode.NOT_EQUAL)
+
+                rt.Palette.BLACK:bind()
+                love.graphics.rectangle("fill", self._graphics_body:get_bounds():unpack())
+
+                rt.graphics.set_stencil_mode(nil)
+            end
+
+            local contour = self._graphics_body:get_contour()
+            if contour ~= nil then
+                rt.Palette.BLACK:bind()
+                love.graphics.setLineWidth(rt.settings.overworld.npc_body.contour_width + 1.5)
+                love.graphics.line(contour)
+
+                love.graphics.setLineWidth(rt.settings.overworld.npc_body.contour_width)
+                self._scene:get_player():get_color():bind()
+                love.graphics.line(contour)
+            end
         end
 
-        exclude_from_drawing = true -- prevent loop
-        local bounds = self._graphics_body:get_bounds()
-        local camera = self._scene:get_camera()
-        local screenshot = self._scene:get_screenshot(true) -- draw player
-        exclude_from_drawing = false
-
-        if screenshot ~= nil then
-            local canvas = self._graphics_body:get_texture()
-
-            love.graphics.push("all")
-            love.graphics.reset()
-            canvas:bind()
-            love.graphics.clear(0, 0, 0, 0)
-
-            local screen_x, screen_y = self._scene:get_camera():world_xy_to_screen_xy(
-                self._graphics_body_x, self._graphics_body_y
-            )
-
-            local scale = self._scene:get_camera():get_final_scale()
-
-            love.graphics.setColor(1, 1, 1, 1)
-            love.graphics.scale(1 / scale, 1 / scale)
-            love.graphics.translate(-screen_x, -screen_y)
-
-            screenshot:draw()
-            canvas:unbind()
-
-            love.graphics.pop()
-
-            rt.Palette.BLACK:bind()
-            love.graphics.rectangle("fill", self._graphics_body_x, self._graphics_body_y, canvas:get_size())
-            self._graphics_body:draw()
-        end
-
-        self._focus_indicator:draw()
+        self._focus_indicator:draw(priority)
         self._dialog_emitter:draw(priority)
     end
 
@@ -194,9 +219,4 @@ end
 --- @brief
 function ow.NPC:get_position()
     return self._position_x, self._position_y
-end
-
---- @brief
-function ow.NPC:get_render_priority()
-    return math.huge
 end

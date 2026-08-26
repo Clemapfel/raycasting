@@ -3,9 +3,10 @@ require "common.projection_3d"
 require "common.transform"
 require "common.path_3d"
 
-rt.settings.overworld.cloth_body = {
+rt.settings.overworld.npc_body = {
     n_strands = 32,
     n_segments_per_strand = 8,
+    contour_width = 2.0,
 
     n_iterations = {
         velocity = 8,
@@ -18,7 +19,7 @@ rt.settings.overworld.cloth_body = {
 --- @class ow.NPCBody
 ow.NPCBody = meta.class("NPCBody")
 
-local _settings = rt.settings.overworld.cloth_body
+local _settings = rt.settings.overworld.npc_body
 local _shader = rt.Shader("overworld/npc_body.glsl")
 
 --- @brief
@@ -32,6 +33,8 @@ function ow.NPCBody:instantiate(
 
     self._dilation = 0
     self._strands = {}
+    self._contour = {}
+    self._contour_radius = 0
 
     self._bounds = rt.AABB(top_left_x, top_left_y, width, height)
 
@@ -265,8 +268,12 @@ end
 --- @brief
 function ow.NPCBody:_update_dilation()
     local min_i, max_i = math.huge, -math.huge
+    local contour = {}
+    local min_hole_x, max_hole_x = math.huge, -math.huge
+    local min_hole_y, max_hole_y = math.huge, -math.huge
+
     for strand in values(self._strands) do
-        for node in values(strand.nodes) do
+        for node_i, node in ipairs(strand.nodes) do
             local x, y
             if node.has_next == false then
                 x, y = node.current_x, node.current_y
@@ -283,8 +290,32 @@ function ow.NPCBody:_update_dilation()
             max_i = math.max(max_i, node.vertex_index)
 
             data[1], data[2] = x, y
+
+            -- innermost ring (segment 1) traces the hole boundary
+            if node_i == 1 then
+                table.insert(contour, x)
+                table.insert(contour, y)
+
+                min_hole_x = math.min(min_hole_x, x)
+                max_hole_x = math.max(max_hole_x, x)
+                min_hole_y = math.min(min_hole_y, y)
+                max_hole_y = math.max(max_hole_y, y)
+            end
         end
     end
+
+    local hole_diameter = math.max(max_hole_x - min_hole_x, max_hole_y - min_hole_y)
+    if hole_diameter < rt.settings.overworld.npc_body.contour_width then
+        contour = {}
+    else
+        if #contour >= 2 then
+            table.insert(contour, contour[1])
+            table.insert(contour, contour[2])
+        end
+    end
+
+    self._contour_radius = hole_diameter
+    self._contour = contour
 
     self._dilation_mesh:replace_data(self._dilation_mesh_data)
 end
@@ -308,14 +339,29 @@ end
 function ow.NPCBody:draw()
     --love.graphics.setWireframe(true)
     --_shader:bind()
-
+    
     love.graphics.push("all")
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.setBlendMode("alpha", "premultiplied")
     self._dilation_mesh:draw()
     love.graphics.pop()
+
     --_shader:unbind()
     --love.graphics.setWireframe(false)
+end
+
+--- @brief
+function ow.NPCBody:get_contour()
+    if self._contour ~= nil and #self._contour > 0 then
+        return self._contour
+    else
+        return nil
+    end
+end
+
+--- @brief
+function ow.NPCBody:get_radius()
+    return self._contour_radius
 end
 
 --- @brief
