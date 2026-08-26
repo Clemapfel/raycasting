@@ -88,7 +88,10 @@ function ow.Stage:instantiate(scene, id)
         _player_spawn_checkpoint = nil,
 
         _visible_bodies = {},
+        _visible_area = rt.AABB(),
+
         _light_sources = {},
+        _light_mask_needs_update = false,
 
         -- npc
         _player_recorder = nil, -- ow.PlayerRecorder
@@ -435,6 +438,8 @@ end
 
 --- @brief
 function ow.Stage:draw_below_player()
+    self._light_mask_needs_update = true
+
     for entry in values(self._below_player) do
         for object in values(entry.objects) do
             object:draw(entry.priority)
@@ -514,34 +519,9 @@ function ow.Stage:update(delta)
         self._mirror:update(delta)
         self._shadow_cast:update(delta)
 
-        if self._normal_map_done then
+        if self._normal_map_done and self._light_mask_needs_update == true then
             -- collect light sources and visible bodies
-            local camera = self._scene:get_camera()
-            local bounds = camera:get_world_bounds()
-
-            local padding = rt.settings.overworld.light_map.light_range * 2
-
-            self._visible_bodies = {}
-
-            local light_mask_bodies = {}
-            local darkness_mask_bodies = {}
-
-            for body in values(self._world:query_aabb(
-                bounds.x - padding, bounds.y - padding,
-                bounds.width + 2 * padding, bounds.height + 2 * padding
-            )) do
-                self._visible_bodies[body] = true
-                if body:has_tag(b2.Tag.USE_LIGHTING) then
-                    table.insert(light_mask_bodies, body)
-                end
-
-                if body:has_tag(b2.Tag.USE_DARKNESS) then
-                    table.insert(darkness_mask_bodies, body)
-                end
-            end
-
             local light_map = rt.SceneManager:get_light_map()
-
             love.graphics.push("all")
             love.graphics.reset()
             love.graphics.setColor(1, 1, 1, 1)
@@ -564,19 +544,19 @@ function ow.Stage:update(delta)
 
             light_map:bind_mask()
             self._scene:get_camera():bind()
-            draw_masks(light_mask_bodies, b2.Tag.USE_LIGHTING, "get_light_strength")
+            draw_masks(self._light_mask_bodies, b2.Tag.USE_LIGHTING, "get_light_strength")
             self._scene:get_camera():unbind()
             light_map:unbind_mask()
 
             light_map:bind_composite_mask()
             self._scene:get_camera():bind()
-            draw_masks(light_mask_bodies, b2.Tag.USE_DARKNESS, "get_darkness_strength")
+            draw_masks(self._darkness_mask_bodies, b2.Tag.USE_DARKNESS, "get_darkness_strength")
             self._scene:get_camera():unbind()
             light_map:unbind_composite_mask()
 
             love.graphics.pop()
-            self._light_mask_bodies = light_mask_bodies
-            self._darkness_mask_bodies = darkness_mask_bodies
+
+            self._light_mask_needs_update = false
         end
     end -- get_frame_index ~= _last_frame_i
 
@@ -695,6 +675,33 @@ end
 function ow.Stage:get_is_body_visible(body)
     meta.assert(body, b2.Body)
     return self._visible_bodies[body] == true
+end
+
+--- @brief
+function ow.Stage:set_visible_area(bounds)
+    meta.assert(bounds, rt.AABB)
+    self._visible_area = bounds
+
+    -- collect light sources and visible bodies
+    local padding = rt.settings.overworld.light_map.light_range * 2
+
+    self._visible_bodies = {}
+    self._light_mask_bodies = {}
+    self._darkness_mask_bodies = {}
+
+    for body in values(self._world:query_aabb(
+        bounds.x - padding, bounds.y - padding,
+        bounds.width + 2 * padding, bounds.height + 2 * padding
+    )) do
+        self._visible_bodies[body] = true
+        if body:has_tag(b2.Tag.USE_LIGHTING) then
+            table.insert(self._light_mask_bodies, body)
+        end
+
+        if body:has_tag(b2.Tag.USE_DARKNESS) then
+            table.insert(self._darkness_mask_bodies, body)
+        end
+    end
 end
 
 --- @brief

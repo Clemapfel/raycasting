@@ -53,18 +53,26 @@ do
 
         if not is_bloom then
             love.graphics.setColor(black_r, black_g, black_b, a)
+            -- left polygon: top_left -> top -> bottom
             love.graphics.polygon("fill",
                 top_left_x, top_left_y,
+                top_x, top_y,
+                bottom_x, bottom_y
+            )
+            -- right polygon: top -> top_right -> bottom
+            love.graphics.polygon("fill",
+                top_x, top_y,
                 top_right_x, top_right_y,
                 bottom_x, bottom_y
             )
         end
 
         local line_width = 2
-        love.graphics.setLineJoin("bevel")
         love.graphics.setLineStyle("smooth")
+        love.graphics.setLineJoin("bevel")
 
         if not is_bloom then
+            love.graphics.setColor(black_r, black_g, black_b, a)
             love.graphics.setLineWidth(line_width + 1.5)
             love.graphics.line( -- outline
                 top_left_x, top_left_y,
@@ -87,6 +95,7 @@ do
     end
 end
 
+--[[
 --- @brief
 function ow.DialogFocusIndicator:draw()
     love.graphics.push()
@@ -115,6 +124,19 @@ function ow.DialogFocusIndicator:draw_bloom()
     love.graphics.setColor(1, 1, 1, 1)
     self:_draw(true, x, y)
     love.graphics.pop()
+end
+]]
+
+--- @brief
+function ow.DialogFocusIndicator:draw()
+    love.graphics.setColor(1, 1, 1, 1)
+    self:_draw(false, self._x, self._y)
+end
+
+--- @brief
+function ow.DialogFocusIndicator:draw_bloom()
+    love.graphics.setColor(1, 1, 1, 1)
+    self:_draw(true, self._x, self._y)
 end
 
 --- @brief

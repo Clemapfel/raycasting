@@ -20,10 +20,10 @@ rt.settings.overworld.boost_field = {
         n_hue_steps = 512,
         spatial_hash_cell_size = 8,
         extrude_offset = 0, -- px
-        blend_opacity = 0.5, -- blend mode add opacity
+        blend_opacity = 0.6, -- blend mode add opacity
         rgb_multiplier = 1.0, -- darken rgb
 
-        density = 0.1, -- factor
+        density = 0.05, -- factor
         min_velocity = 10,
         max_velocity = 15,
         min_radius = 3,
@@ -329,7 +329,7 @@ end
 
 --- @brief
 function ow.BoostField:update(delta)
-    if not self._stage:get_is_body_visible(self._body) then return end
+    if not self._is_visible or not self._stage:get_is_body_visible(self._body) then return end
 
     local player = self._scene:get_player()
     local px, py = player:get_position()
@@ -395,7 +395,7 @@ end
 
 --- @brief
 function ow.BoostField:draw(priority)
-    if not self._stage:get_is_body_visible(self._body) then return end
+    if not self._is_visible or not self._stage:get_is_body_visible(self._body) then return end
 
     love.graphics.push()
     love.graphics.translate(self._body:get_position())

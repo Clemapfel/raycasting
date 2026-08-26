@@ -149,6 +149,7 @@ function ow.OverworldScene:instantiate(state)
         _input = rt.InputSubscriber(-math.huge),
 
         -- manual camera
+        _camera_visible_area_override = nil,
         _camera_scale_override_active = false,
         _camera_scale_override = 1,
 
@@ -661,6 +662,8 @@ function ow.OverworldScene:update(delta)
         self._background:update(delta)
         self:_update_camera(delta)
 
+        self._stage:set_visible_area(self._camera:get_world_bounds())
+
         self._screenshot_needs_update = true
         self._player_canvas_needs_update = true
         self._bloom_needs_update = true
@@ -768,7 +771,7 @@ function ow.OverworldScene:draw()
     local draw_indicators = function()
         self._control_indicator_particle_effect:draw()
         local opacity = self._control_indicator_opacity_motion:get_value()
-        if opacity > 0 and self._pause_menu_active == false then
+        if opacity > 0 and self._is_paused then
             local indicator = self._control_indicator_type_to_control_indicator[self._control_indicator_type]
             if indicator ~= nil then
                 indicator:set_opacity(opacity)
@@ -930,7 +933,10 @@ function ow.OverworldScene:show_result_screen()
         coins[coin_i] = self._stage:get_coin_is_collected(coin_i)
     end
 
-    self:_update_screenshot(false) -- do not draw player
+    self:_update_screenshot(
+        false,  -- do not draw player
+        self._camera:get_world_bounds()
+    )
 
     require "overworld.result_screen_scene"
     rt.SceneManager:set_scene(
@@ -976,7 +982,7 @@ function ow.OverworldScene:_update_screenshot(draw_player)
 
     self._screenshot_active = true
 
-    local width, height = self:get_bounds().width, self:get_bounds().height
+    local _, _, width, height = self:get_bounds():unpack()
     local format = ternary(rt.GameState:get_is_hdr_enabled(), rt.settings.hdr.texture_format, rt.settings.overworld_scene.screenshot_texture_format)
     if self._screenshot == nil
         or self._screenshot:get_width() ~= width
@@ -1010,8 +1016,19 @@ function ow.OverworldScene:_update_screenshot(draw_player)
 end
 
 --- @brief
-function ow.OverworldScene:get_screenshot(draw_player)
-    self:_update_screenshot(draw_player)
+function ow.OverworldScene:get_screenshot(draw_player, bounds)
+    meta.assert(draw_player, mt.Boolean, bounds, mt.Optional(rt.AABB))
+
+    if bounds ~= nil then
+        self._stage:set_visible_area(bounds)
+    end
+
+    self:_update_screenshot(draw_player, bounds)
+
+    if bounds ~= nil then
+        self._stage:set_visible_area(self._camera:get_world_bounds())
+    end
+
     return self._screenshot
 end
 
@@ -1319,4 +1336,13 @@ end
 function ow.OverworldScene:get_is_time_attack_mode_active()
     return self._state == _STATE_TIME_ATTACK_COUNTDOWN
         or self._state == _STATE_TIME_ATTACK
+end
+
+--- @brief
+function ow.OverworldScene:get_visible_area()
+    if self._visible_area_override ~= nil then
+        return self._camera_visible_area_override:clone()
+    else
+        return self._camera:get_world_bounds():clone()
+    end
 end

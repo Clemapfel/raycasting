@@ -202,8 +202,7 @@ function ow.DialogBox:realize()
             node.speaker:reformat(
                 0,
                 0,
-                label_w + 2 * rt.SceneManager:get_margin_unit(),
-                math.huge
+                label_w + 2 * rt.SceneManager:get_margin_unit()
             )
         end
 
@@ -386,7 +385,7 @@ function ow.DialogBox:_set_active_node(node)
             self._speaker_label_right_x = self._speaker_frame_right_x
             self._speaker_label_right_y = self._speaker_label_left_y
 
-            node.speaker:reformat(0, 0, self._speaker_frame_w, math.huge)
+            node.speaker:reformat(0, 0, self._speaker_frame_w)
             self._speaker_frame:reformat(0, 0, self._speaker_frame_w, self._speaker_frame_h)
         end
 
