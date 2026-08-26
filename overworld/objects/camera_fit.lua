@@ -80,11 +80,14 @@ function ow.CameraFit:_bind()
     local camera = self._scene:get_camera()
 
     self._scene:push_camera_mode(ow.CameraMode.STATIC)
-    camera:set_apply_bounds(false)
+    camera:set_apply_bounds(true)
     camera:set_scale_speed(self._scale_speed)
     camera:set_speed(self._speed)
-    camera:move_to(self._bounds.x + 0.5 * self._bounds.width, self._bounds.y + 0.5 * self._bounds.height)
-    camera:fit_to(self._bounds)
+    camera:fit_to(self._bounds,
+        self._bounds.x + 0.5 * self._bounds.width,
+        self._bounds.y + 0.5 * self._bounds.height
+    )
+
     self._is_bound = true
 
     self._stage:signal_connect("respawn", function()
@@ -134,3 +137,12 @@ end
 function ow.CameraFit:reset()
     if self._is_bound == true then self:_unbind() end
 end
+
+--[[
+function ow.CameraFit:draw()
+    if self._stage:get_is_body_visible(self._body) then
+        love.graphics.rectangle("line", self._bounds:unpack())
+    end
+end
+]]
+

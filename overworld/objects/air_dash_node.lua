@@ -58,7 +58,7 @@ local _noise_texture = rt.NoiseTexture(64, 64, 64,
 ow.AirDashNode.reinitialize = function(scene, stage)
     require "overworld.air_dash_node_manager"
     if stage.air_dash_node_manager ~= nil then
-        stage.air_dash_node_manager:clear()
+        stage.air_dash_node_manager:reset()
     end
 
     stage.air_dash_node_manager = ow.AirDashNodeManager(scene, stage)

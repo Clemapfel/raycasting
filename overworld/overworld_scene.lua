@@ -652,15 +652,14 @@ function ow.OverworldScene:update(delta)
         return
     end
 
-    -- order matters
-
-    if self._is_paused ~= true then
+    if self._is_paused ~= true and self._restart_active ~= true then
         self._player:update(delta)
         self._camera:update(delta)
         self._stage:update(delta)
         self._background:notify_camera_changed(self._camera)
         self._background:update(delta)
         self:_update_camera(delta)
+        -- order matters
 
         self._stage:set_visible_area(self._camera:get_world_bounds())
 
@@ -1170,6 +1169,7 @@ do
                 self._camera_bottom_border_t = 0
                 self._camera_left_border_t = 0
             end
+            self._camera:set_apply_bounds(not self._camera_override_active)
         else
             local triggers_pressed = rt.InputManager:get_left_trigger() > math.eps
                 or rt.InputManager:get_right_trigger() > math.eps
@@ -1184,9 +1184,8 @@ do
             self._camera_right_border_t = math.max(0, x)
             self._camera_top_border_t = math.abs(math.min(0, y))
             self._camera_bottom_border_t = math.max(0, y)
+            self._camera:set_apply_bounds(not self._camera_override_active)
         end
-
-        self._camera:set_apply_bounds(not self._camera_override_active)
 
         rt.SceneManager:set_is_cursor_visible(self._camera_override_active)
 
@@ -1344,5 +1343,28 @@ function ow.OverworldScene:get_visible_area()
         return self._camera_visible_area_override:clone()
     else
         return self._camera:get_world_bounds():clone()
+    end
+end
+
+--- @brief
+function ow.OverworldScene:reset()
+    if self._stage ~= nil then self._stage:reset() end
+end
+
+--- @brief
+function ow.OverworldScene:restart()
+    if self._stage ~= nil then
+        self._restart_active = true
+        self._player:request_is_disabled(self, true)
+        self._player:request_is_frozen(self, true)
+        self._fade:signal_connect("hidden", function(_)
+            self._stage:restart()
+            self._player:request_is_disabled(self, nil)
+            self._player:request_is_frozen(self, nil)
+            self._restart_active = false
+            return meta.DISCONNECT_SIGNAL
+        end)
+
+        self._fade:start()
     end
 end

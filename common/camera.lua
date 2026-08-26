@@ -394,13 +394,17 @@ function rt.Camera:fit_to(bounds, center_x, center_y)
     if self._is_enabled ~= true then return end
 
     local screen_w, screen_h = rt.SceneManager:get_size()
-    local pixel_scale = self:get_final_scale()
+
+    local constant_factor = 1 / rt.SceneManager:get_downscaling_factor()
+    if self._use_pixel_scale then
+        constant_factor = constant_factor * rt.SceneManager:get_pixel_scale()
+    end
 
     local bw = math.max(math.eps, bounds.width)
     local bh = math.max(math.eps, bounds.height)
 
-    local scale_x = screen_w / (pixel_scale * bw)
-    local scale_y = screen_h / (pixel_scale * bh)
+    local scale_x = screen_w / (constant_factor * bw)
+    local scale_y = screen_h / (constant_factor * bh)
     local target_scale = math.min(scale_x, scale_y)
     target_scale = math.clamp(target_scale, rt.settings.camera.min_scale, rt.settings.camera.max_scale)
 
@@ -408,7 +412,7 @@ function rt.Camera:fit_to(bounds, center_x, center_y)
     local cy = center_y or (bounds.y + 0.5 * bounds.height)
 
     self:scale_to(target_scale)
-    self:move_to(cx, cy, true)
+    self:move_to(cx, cy, true) -- override bounds
 end
 
 --- @brief

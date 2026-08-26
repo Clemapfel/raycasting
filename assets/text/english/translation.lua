@@ -420,8 +420,13 @@ return {
             id = "accelerator_tutorial",
             title = "TODO",
             target_time = -1
-        }
+        },
 
+        {
+            id = "debug_room",
+            title = "D0 - Debug Room",
+            target_time = -1
+        }
         --[[
 
         },

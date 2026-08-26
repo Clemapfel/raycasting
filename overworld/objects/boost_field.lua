@@ -129,8 +129,8 @@ function ow.BoostField:instantiate(object, stage, scene)
         local current = path
         while true do
             current:validate_schema(path_node_schema, ow.ShapeType.POINT)
-            table.insert(points, current.x - offset_x)
-            table.insert(points, current.y - offset_y)
+            table.insert(points, math.floor(current.x) - offset_x)
+            table.insert(points, math.floor(current.y) - offset_y)
             current = current:get_object("next", false)
 
             if current == nil then break end
@@ -301,8 +301,10 @@ function ow.BoostField:instantiate(object, stage, scene)
     end
 
     -- particles
-    self._particles_need_update = true
-    self:_init_particles()
+    if self._is_visible then
+        self._particles_need_update = true
+        self:_init_particles()
+    end
 
     if _particle_texture == nil then
         do -- particle texture
@@ -433,7 +435,7 @@ end
 
 --- @brief
 function ow.BoostField:draw_bloom()
-    if not self._stage:get_is_body_visible(self._body) then return end
+    if not self._is_visible and not self._stage:get_is_body_visible(self._body) then return end
 
     local offset_x, offset_y = self._body:get_position()
     love.graphics.setLineWidth(3)
@@ -452,7 +454,7 @@ end
 
 --- @brief
 function ow.BoostField:collect_segment_lights(callback)
-    if not self._stage:get_is_body_visible(self._body) then return end
+    if not self._is_visible and not self._stage:get_is_body_visible(self._body) then return end
 
     local t = rt.settings.overworld.boost_field.segment_light_intensity
     local offset_x, offset_y = self._body:get_position()

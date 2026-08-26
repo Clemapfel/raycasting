@@ -19,7 +19,7 @@ local schema = {
 function ow.Fireflies.reinitialize(scene, stage)
     require "overworld.firefly_manager"
     if stage.firefly_manager ~= nil then
-        stage.firefly_manager:clear()
+        stage.firefly_manager:reset()
         stage.firefly_manager_step = 0
     end
     stage.firefly_manager = ow.FireflyManager(scene, stage)

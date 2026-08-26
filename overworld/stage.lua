@@ -139,9 +139,10 @@ function ow.Stage:instantiate(scene, id)
 
     -- static hitbox mirrors
 
+    self._contour_bodies = {}
+
     self._blood_spatter = ow.BloodSpatter(scene)
     self._shadow_cast = ow.ShadowCast(scene)
-    self._contour_bodies = {}
 
     self._mirror = ow.Mirror(
         scene,
@@ -429,7 +430,6 @@ function ow.Stage:instantiate(scene, id)
     self._is_first_spawn = true
     self:signal_connect("respawn", function()
         self._is_first_spawn = false
-        return meta.DISCONNECT_SIGNAL
     end)
 
     -- precompile shader
@@ -816,10 +816,6 @@ function ow.Stage:reset()
         body:set_is_enabled(false)
     end
 
-    self._mirror:reset()
-    self._blood_spatter:reset()
-    self._shadow_cast:reset()
-
     for instance in values(self._to_reset) do
         instance:reset()
     end
@@ -829,6 +825,7 @@ function ow.Stage:reset()
     end
 
     rt.SceneManager:get_light_map():clear()
+    rt.SceneManager:get_bloom():clear()
     self._light_map_bodies = {}
     self._darkness_mask_bodies = {}
 
@@ -954,4 +951,12 @@ end
 --- @brief
 function ow.Stage:get_should_draw_light()
     return #self._light_mask_bodies > 0
+end
+
+--- @brief
+function ow.Stage:restart()
+    self._is_first_spawn = true
+    self._player_spawn_checkpoint:spawn(
+        true, false -- no kill, no animation
+    )
 end

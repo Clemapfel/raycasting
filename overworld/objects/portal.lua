@@ -307,13 +307,13 @@ function ow.Portal:update(delta)
             local self_x, self_y = self:get_position()
 
             -- move camera
-            local path = rt.Path(
+            local path = rt.Path(rt.Spline(
                 self._start_x, self._start_y,
-                self_x, self_y,
-                self_x + self._nx * penetration_r,
-                self_y + self._ny * penetration_r,
+                --self_x, self_y,
+                --self_x + self._nx * penetration_r,
+                --self_y + self._ny * penetration_r,
                 target_x, target_y
-            )
+            ):discretize())
 
             local px, py = player:get_position()
             local ax, ay = math.add2(self._ax, self._ay, self_x, self_y)
@@ -396,17 +396,19 @@ end
 
 --- @brief
 function ow.Portal:draw()
-    local offset_x, offset_y = self:get_position()
+    if not self._stage:get_is_body_visible(self._body) then return end
 
+    local offset_x, offset_y = self:get_position()
     love.graphics.push()
     love.graphics.translate(offset_x, offset_y)
-    love.graphics.line(self._ax, self._ay, self._bx, self._by)
     self._particles:draw()
     love.graphics.pop()
 end
 
 --- @brief
 function ow.Portal:collect_segment_lights(callback)
+    if not self._stage:get_is_body_visible(self._body) then return end
+
     local offset_x, offset_y = self:get_position()
     callback(
         self._ax + offset_x, self._ay + offset_y,
@@ -433,4 +435,39 @@ end
 --- @brief
 function ow.Portal:get_velocity()
     return self._body:get_velocity()
+end
+
+--- @brief
+function ow.Portal:reset()
+    local target = self._target
+    local player = self._scene:get_player()
+
+    if player ~= nil then
+        player:request_is_disabled(self, nil)
+        player:request_is_ghost(self, nil)
+        player:request_is_trail_enabled(self, nil)
+    end
+
+    self._stencil_body:set_is_enabled(false)
+    if target ~= nil then
+        target._stencil_body:set_is_enabled(false)
+    end
+
+    self._start_x, self._start_y = nil, nil
+    self._start_t = nil
+    self._start_time = nil
+    self._transition_velocity_magnitude = nil
+    self._transition_velocity_x, self._transition_velocity_y = nil, nil
+    self._entry_t = 0.5
+
+    self._state = _STATE_DEFAULT
+    if target ~= nil then
+        target._state = _STATE_DEFAULT
+    end
+
+    if self._stage.portal_active_portal == self then
+        self._stage.portal_active_portal = nil
+    end
+
+    self._scene:pop_camera_mode(ow.CameraMode.CUTSCENE)
 end

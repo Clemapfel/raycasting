@@ -208,3 +208,8 @@ end
 function ow.Mirror:get_offset()
     return self._offset_x, self._offset_y
 end
+
+--- @brief
+function ow.Mirror:reset()
+    self._query:reset()
+end

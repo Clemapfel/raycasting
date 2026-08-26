@@ -360,3 +360,16 @@ end
 function ow.BloodSpatter:get_offset()
     return self._offset_x, self._offset_y
 end
+
+function ow.BloodSpatter:reset()
+    for data in values(self._query:get_all_segments()) do
+        for division in values(data.subdivisions) do
+            division.is_active = false
+            division.hue = nil
+            division.color = nil
+        end
+    end
+
+    self._visible_divisions = {}
+    self._query:reset()
+end
