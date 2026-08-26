@@ -712,7 +712,7 @@ do
         for _, callback_id in ipairs(callback_ids) do
             local callback = entry.callback_id_to_callback[callback_id]
             if callback ~= nil then
-                local success, result_maybe = pcall(callback, instance, ...)
+                local success, result_maybe = callback(instance, ...)
                 if success then
                     if result_maybe == meta.DISCONNECT_SIGNAL then
                         instance:signal_disconnect(id, callback_id)
