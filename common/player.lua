@@ -74,12 +74,15 @@ do
         ground_instant_turn_around_decay = 0.86,
         ground_instant_turn_around_magnitude = 300,
 
-        coyote_time = 12 / 60, -- seconds after leaving ground
+        coyote_time = 8 / 60, -- seconds after leaving ground
         coyote_time_downwards_ray_factor = 2,
 
         wall_jump_coyote_time = 8 / 60, -- seconds after letting go of direction against wall
 
         platform_velocity_decay = 0.7,
+
+        slope_slide_freely_joystick_angle_range = 0.25 * math.pi,
+        slope_slide_velocity = 2200,
 
         jump_duration = 11 / 60,
         jump_impulse = 530, -- 10 * 16 tiles neutral jump
@@ -1066,8 +1069,8 @@ function rt.Player:update(delta)
         do
 
             local down_is_held = self._down_button_is_down or self._joystick_gesture:get_magnitude(rt.InputAction.DOWN) > settings.joystick_magnitude_down_threshold
-            local left_is_held = self._right_button_is_down or self._joystick_gesture:get_magnitude(rt.InputAction.RIGHT) > settings.joystick_magnitude_down_threshold
-            local right_is_held = self._left_button_is_down or self._joystick_gesture:get_magnitude(rt.InputAction.LEFT) > settings.joystick_magnitude_down_threshold
+            local left_is_held = self._right_button_is_down or self._joystick_gesture:get_magnitude(rt.InputAction.LEFT) > settings.joystick_magnitude_down_threshold
+            local right_is_held = self._left_button_is_down or self._joystick_gesture:get_magnitude(rt.InputAction.RIGHT) > settings.joystick_magnitude_down_threshold
 
             if down_is_down or
                 (not self._jump_button_is_down and (not left_is_held and not right_is_held))
@@ -1158,7 +1161,7 @@ function rt.Player:update(delta)
         local is_jumping = false
 
         -- on input, accelerates towards new target velocity / direction
-        if input_magnitude ~= 0 then
+        if input_magnitude ~= 0 or down_is_down then -- down: slide freely
             local velocity_delta = target_velocity_x - current_velocity_x
             local is_accelerating = (math.sign(target_velocity_x) == math.sign(current_velocity_x)) and
                 (math.abs(target_velocity_x) > math.abs(current_velocity_x))
@@ -1628,8 +1631,9 @@ function rt.Player:update(delta)
 
         local is_sliding = false
 
-        -- downwards force
+        -- increase falling speed when holding down
         if down_is_down
+            and not is_grounded
             and not is_movement_disabled
             and not is_frozen
             and not ((left_is_down and self._left_wall) or (right_is_down and self._right_wall))
@@ -1641,30 +1645,55 @@ function rt.Player:update(delta)
             end
 
             local dx, dy = gravity_direction_x, gravity_direction_y
-
-            if is_grounded then
-                local ground_normal_x = bottom_nx or bottom_left_nx or bottom_right_nx
-                local ground_normal_y = bottom_ny or bottom_left_ny or bottom_right_ny
-
-                if next_velocity_x > 0 and self._bottom_left_wall then
-                    ground_normal_x, ground_normal_y = bottom_left_nx, bottom_left_ny
-                elseif next_velocity_x < 0 and self._bottom_right_wall then
-                    ground_normal_x, ground_normal_y = bottom_right_nx, bottom_right_ny
-                end
-
-                local ground_tangent_x, ground_tangent_y = math.turn_left(ground_normal_x, ground_normal_y)
-                local gravity_tangent_dot = math.dot(ground_tangent_x, ground_tangent_y, gravity_direction_x, gravity_direction_y)
-
-                next_velocity_x = next_velocity_x + ground_tangent_x * gravity_tangent_dot * force
-                next_velocity_y = next_velocity_y + ground_tangent_y * gravity_tangent_dot * force
-                is_sliding = true
-            else
+            if not is_grounded then
+                -- if in the air, apply downwards force
                 -- weigh by velocity alignment with gravity, prevents force being applied while jumping
                 local dot = math.dot(0, 1, math.normalize(next_velocity_x, next_velocity_y))
                 local weight = (math.clamp( (dot + 1) / 2, 0, 1))
                 next_velocity_x = next_velocity_x + dx * force * weight
                 next_velocity_y = next_velocity_y + dy * force * weight
             end
+        end
+
+        -- slide down slopes
+        if (self._down_button_is_down or self._joystick_gesture:get_magnitude(rt.InputAction.DOWN) > 0)
+            and is_grounded
+        then
+            -- if grounded, when holding down, slide down slope freely
+            local ground_normal_x = bottom_nx or bottom_left_nx or bottom_right_nx
+            local ground_normal_y = bottom_ny or bottom_left_ny or bottom_right_ny
+
+            if self._bottom_left_wall then
+                ground_normal_x, ground_normal_y = bottom_left_nx, bottom_left_ny
+            elseif self._bottom_right_wall then
+                ground_normal_x, ground_normal_y = bottom_right_nx, bottom_right_ny
+            end
+
+            local ground_tangent_x, ground_tangent_y = math.turn_left(ground_normal_x, ground_normal_y)
+            local gravity_tangent_dot = math.dot(ground_tangent_x, ground_tangent_y, gravity_direction_x, gravity_direction_y)
+
+            local multiplier = 1
+            if use_analog_input then
+                -- weigh slope slide speed by how aligned joystick is with down direction
+                local angle_range = settings.slope_slide_freely_joystick_angle_range
+                local angle = math.angle(self._joystick_position_x, self._joystick_position_y)
+                local diff = angle - math.angle(gravity_direction_x, gravity_direction_y)
+                diff = (diff + math.pi) % (2 * math.pi) - math.pi
+
+                local abs_diff = math.abs(diff)
+
+                if abs_diff >= angle_range then
+                    multiplier = 0
+                else
+                    multiplier = 1 - (abs_diff / angle_range)
+                end
+            end
+
+            local velocity = settings.slope_slide_velocity * multiplier
+            next_velocity_x = next_velocity_x + ground_tangent_x * gravity_tangent_dot * velocity * delta
+            next_velocity_y = next_velocity_y + ground_tangent_y * gravity_tangent_dot * velocity * delta
+
+            is_sliding = true
         end
 
         -- friction

@@ -1,7 +1,7 @@
 return {
   version = "1.10",
   luaversion = "5.1",
-  tiledversion = "1.11.2",
+  tiledversion = "1.12.2",
   class = "",
   orientation = "orthogonal",
   renderorder = "right-down",
@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 419,
+  nextobjectid = 420,
   properties = {
     ["background_id"] = "\"nebula\""
   },
@@ -78,6 +78,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           polygon = {
             { x = 208, y = 0 },
@@ -109,6 +110,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {
             ["count"] = 7
@@ -124,6 +126,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {
             ["other"] = { id = 163 }
@@ -139,6 +142,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {}
         },
@@ -152,6 +156,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {
             ["other"] = { id = 247 }
@@ -167,6 +172,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {}
         },
@@ -180,6 +186,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           polygon = {
             { x = 0, y = 0 },
@@ -211,6 +218,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           polygon = {
             { x = -368, y = 0 },
@@ -238,6 +246,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           polygon = {
             { x = 0, y = 0 },
@@ -281,6 +290,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {}
         },
@@ -294,6 +304,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           polygon = {
             { x = -256, y = 16 },
@@ -315,6 +326,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           polygon = {
             { x = 0, y = -96 },
@@ -335,6 +347,7 @@ return {
           width = 224,
           height = 224,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {
             ["angle"] = 0,
@@ -351,6 +364,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           polygon = {
             { x = 160, y = -320 },
@@ -371,6 +385,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           polygon = {
             { x = 96, y = 0 },
@@ -392,6 +407,7 @@ return {
           width = 176,
           height = 176,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {
             ["angle"] = 0,
@@ -408,6 +424,7 @@ return {
           width = 176,
           height = 176,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {
             ["direction"] = { id = 106 }
@@ -423,6 +440,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {}
         },
@@ -436,6 +454,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           polygon = {
             { x = 0, y = 0 },
@@ -462,6 +481,7 @@ return {
           width = 176,
           height = 176,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {
             ["angle"] = 0,
@@ -478,6 +498,7 @@ return {
           width = 176,
           height = 176,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {
             ["angle"] = 0,
@@ -494,6 +515,7 @@ return {
           width = 176,
           height = 176,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {
             ["angle"] = 0,
@@ -510,6 +532,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           polygon = {
             { x = 160, y = -672 },
@@ -530,6 +553,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           polygon = {
             { x = -32, y = 0 },
@@ -552,6 +576,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           polygon = {
             { x = -112, y = -80 },
@@ -575,6 +600,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           polygon = {
             { x = 304, y = 304 },
@@ -594,6 +620,7 @@ return {
           width = 256,
           height = 256,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {
             ["angle"] = 0,
@@ -612,6 +639,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           polygon = {
             { x = 0, y = 0 },
@@ -633,6 +661,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           polygon = {
             { x = 0, y = 16 },
@@ -658,6 +687,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           polygon = {
             { x = 0, y = -16 },
@@ -687,6 +717,7 @@ return {
           width = 128,
           height = 128,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {
             ["angle"] = 0,
@@ -703,6 +734,7 @@ return {
           width = 320,
           height = 320,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {}
         },
@@ -716,6 +748,7 @@ return {
           width = 224,
           height = 224,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {}
         },
@@ -729,6 +762,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           polygon = {
             { x = 16, y = 32 },
@@ -752,6 +786,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           polygon = {
             { x = -32, y = 0 },
@@ -774,6 +809,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = false,
           polygon = {
             { x = 0, y = 0 },
@@ -794,6 +830,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           polygon = {
             { x = -32, y = 0 },
@@ -816,6 +853,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {}
         },
@@ -829,6 +867,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {}
         },
@@ -842,6 +881,7 @@ return {
           width = 320,
           height = 320,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {
             ["angle_range"] = 0.5,
@@ -859,6 +899,7 @@ return {
           width = 304,
           height = 304,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {
             ["angle_range"] = 0.5,
@@ -876,6 +917,7 @@ return {
           width = 304,
           height = 304,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {
             ["angle_range"] = 0.5,
@@ -893,6 +935,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           polygon = {
             { x = 1504, y = -2064 },
@@ -915,6 +958,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           polygon = {
             { x = 1504, y = -2064 },
@@ -937,6 +981,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           polygon = {
             { x = 1504, y = -2064 },
@@ -959,6 +1004,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           polygon = {
             { x = -1504, y = -2064 },
@@ -981,6 +1027,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           polygon = {
             { x = -1504, y = -2064 },
@@ -1003,6 +1050,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           polygon = {
             { x = -1504, y = -2064 },
@@ -1025,6 +1073,7 @@ return {
           width = 128,
           height = 128,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {}
         },
@@ -1038,6 +1087,7 @@ return {
           width = 320,
           height = 320,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {
             ["angle_range"] = 0.25,
@@ -1054,6 +1104,7 @@ return {
           width = 224,
           height = 224,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {
             ["angle_range"] = 0.25,
@@ -1070,6 +1121,7 @@ return {
           width = 208,
           height = 208,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {
             ["x_axis"] = 1
@@ -1085,6 +1137,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           polygon = {
             { x = 0, y = 0 },
@@ -1106,6 +1159,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           polygon = {
             { x = 0, y = 0 },
@@ -1125,6 +1179,7 @@ return {
           width = 1120,
           height = 736,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {}
         },
@@ -1138,6 +1193,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           polygon = {
             { x = 0, y = 0 },
@@ -1157,6 +1213,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {
             ["next"] = { id = 345 },
@@ -1176,6 +1233,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {
             ["next"] = { id = 344 }
@@ -1191,6 +1249,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           polygon = {
             { x = 0, y = 0 },
@@ -1211,6 +1270,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           polygon = {
             { x = 0, y = 0 },
@@ -1233,6 +1293,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {
             ["count"] = 7
@@ -1248,6 +1309,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {
             ["color"] = 0.4,
@@ -1264,6 +1326,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {}
         },
@@ -1277,6 +1340,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           polygon = {
             { x = 0, y = 0 },
@@ -1295,6 +1359,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = false,
           polygon = {
             { x = 0, y = 0 },
@@ -1316,6 +1381,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = false,
           polygon = {
             { x = 0, y = 0 },
@@ -1337,6 +1403,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           polygon = {
             { x = 0, y = 0 },
@@ -1356,6 +1423,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {
             ["other"] = { id = 362 },
@@ -1372,6 +1440,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {}
         },
@@ -1385,6 +1454,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {
             ["other"] = { id = 364 },
@@ -1401,6 +1471,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {}
         },
@@ -1414,6 +1485,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {
             ["dialog_id"] = "animalese_test"
@@ -1429,6 +1501,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {}
         },
@@ -1442,6 +1515,21 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 419,
+          name = "",
+          type = "",
+          shape = "ellipse",
+          x = 424.738,
+          y = -1007.64,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {}
         }
@@ -1471,6 +1559,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {
             ["next"] = { id = 370 }
@@ -1486,6 +1575,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {
             ["next"] = { id = 371 }
@@ -1501,6 +1591,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {
             ["next"] = { id = 372 }
@@ -1516,6 +1607,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {
             ["next"] = { id = 0 }
@@ -1531,6 +1623,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           polygon = {
             { x = 0, y = -16 },
@@ -1564,6 +1657,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           polygon = {
             { x = 0, y = 0 },
@@ -1597,6 +1691,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           polygon = {
             { x = 0, y = 0 },
@@ -1621,6 +1716,19 @@ return {
             { x = 80, y = 0 }
           },
           properties = {
+            ["list"] = {
+              true,
+              1.23,
+              123,
+              "str",
+              379,
+              {
+                378,
+                "\"inner\"",
+                "#ff55ff7f"
+              },
+              true
+            },
             ["path"] = { id = 379 }
           }
         },
@@ -1634,6 +1742,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {
             ["next"] = { id = 380 }
@@ -1649,6 +1758,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {
             ["next"] = { id = 381 }
@@ -1664,6 +1774,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {
             ["next"] = { id = 382 }
@@ -1679,6 +1790,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {
             ["next"] = { id = 383 }
@@ -1694,6 +1806,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {
             ["next"] = { id = 384 }
@@ -1709,6 +1822,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {
             ["next"] = { id = 385 }
@@ -1724,6 +1838,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {
             ["next"] = { id = 386 }
@@ -1739,6 +1854,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {
             ["next"] = { id = 0 }
@@ -1754,6 +1870,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {
             ["next"] = { id = 0 }
@@ -1769,6 +1886,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {
             ["next"] = { id = 403 }
@@ -1784,6 +1902,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {
             ["next"] = { id = 404 }
@@ -1799,6 +1918,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {
             ["next"] = { id = 409 }
@@ -1814,6 +1934,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {
             ["next"] = { id = 410 }
@@ -1829,6 +1950,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {
             ["next"] = { id = 399 }
@@ -1844,6 +1966,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {
             ["next"] = { id = 412 }
@@ -1859,6 +1982,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {
             ["next"] = { id = 413 }
@@ -1874,6 +1998,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {
             ["next"] = { id = 414 }
@@ -1889,6 +2014,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {
             ["next"] = { id = 415 }
@@ -1904,6 +2030,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
+          opacity = 1,
           visible = true,
           properties = {
             ["next"] = { id = 411 }

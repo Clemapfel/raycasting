@@ -66,12 +66,13 @@ local _align = function(x)
 end
 
 --- @brief
-function ow.ObjectWrapper:instantiate(type, id)
-    meta.assert(type, mt.String, id, mt.Number)
+function ow.ObjectWrapper:instantiate(type, id, scope)
+    meta.assert(type, mt.String, id, mt.Number, scope, mt.String)
     local class = nil
     if type ~= "" then class = type end
     meta.install(self, {
         class = class,
+        scope = scope,
         id = id,
         type = nil, -- set in _parse_object_group
 
@@ -181,7 +182,7 @@ end
 
 --- @brief
 function ow.ObjectWrapper:clone()
-    local out = ow.ObjectWrapper(self.type, self.id)
+    local out = ow.ObjectWrapper(self.type, self.id, self.scope)
     for k, v in pairs(self) do
         out[k] = v
     end
@@ -393,7 +394,7 @@ function ow.ObjectWrapper:create_physics_body(world, type, is_sensor)
     if type == nil then
         type = self:get_string("physics_body_type") or self:get_physics_body_type()
     elseif self._should_be_kinematic and type == b2.BodyType.STATIC then
-        rt.warning("In ow.ObjectWrapper.create_physics_body: object `", self:get_id(), "` was manually declared to have body type `STATIC`, but the stage config has requested the body to respect velocity changes, the type should be `KINEMATIC` or `DYNAMIC`")
+        rt.warning("In ow.ObjectWrapper.create_physics_body: object `", self:get_id(), "` in stage `", self.scope, "` was manually declared to have body type `STATIC`, but the stage config has requested the body to respect velocity changes, the type should be `KINEMATIC` or `DYNAMIC`")
     end
 
     if is_sensor == nil then
@@ -625,13 +626,13 @@ function ow.ObjectWrapper:get_string(id, assert_exists)
     local out = self.properties[id]
     if out == nil then
         if assert_exists == true then
-            rt.error("In ow.ObjectWrapper: when trying to access property `", id, "` of object `", self.id, "`: property does not exist")
+            rt.error("In ow.ObjectWrapper: when trying to access property `", id, "` of object `", self.id, "` in stage `", self.scope, "`: property does not exist")
         end
         return nil
     end
 
     if meta.is_table(out) then
-        rt.error("In ow.ObjectWrapper: when trying to access property `", id, "` of object `", self.id, "`: expected `String`, got `Table`")
+        rt.error("In ow.ObjectWrapper: when trying to access property `", id, "` of object `", self.id, "` in stage `", self.scope, "`: expected `String`, got `Table`")
         return nil
     end
 
@@ -758,7 +759,7 @@ function ow.ObjectWrapper:validate_schema(schema, ...)
             is_valid_shape = type ~= ow.ObjectType.POINT
                 and type ~= ow.ObjectType.SPRITE
         else
-            rt.error("In ow.ObjectWrapper.validate_schema: invalid object shape type `", shape, "`bu")
+            rt.error("In ow.ObjectWrapper.validate_schema: invalid object shape type `", shape, "`")
         end
 
         if is_valid_shape == true then break end
@@ -785,19 +786,19 @@ function ow.ObjectWrapper:get_number(id, assert_exists)
     local out = self.properties[id]
     if out == nil then
         if assert_exists == true then
-            rt.error("In ow.ObjectWrapper: when trying to access property `", id, "` of object `", self.id, "`: property does not exist")
+            rt.error("In ow.ObjectWrapper: when trying to access property `", id, "` of object `", self.id, "` in stage `", self.scope, "`: property does not exist")
         end
         return nil
     end
 
     if meta.is_table(out) then
-        rt.error("In ow.ObjectWrapper: when trying to access property `", id, "` of object `", self.id, "`: expected `Number`, got `Table`")
+        rt.error("In ow.ObjectWrapper: when trying to access property `", id, "` of object `", self.id, "` in stage `", self.scope, "`: expected `Number`, got `Table`")
     end
 
     if meta.is_string(out) then
         local parsed = tonumber(out)
         if parsed == nil then
-            rt.error("In ow.ObjectWrapper: when trying to access property `", id, "` of object `", self.id, "`: expected `Number`, got `\"", out, "\"`")
+            rt.error("In ow.ObjectWrapper: when trying to access property `", id, "` of object `", self.id, "` in stage `", self.scope, "`: expected `Number`, got `\"", out, "\"`")
         end
         return parsed
     end
@@ -812,7 +813,7 @@ function ow.ObjectWrapper:get_boolean(id, assert_exists)
     local out = self.properties[id]
     if out == nil then
         if assert_exists == true then
-            rt.error("In ow.ObjectWrapper: when trying to access property `", id, "` of object `", self.id, "`: property does not exist")
+            rt.error("In ow.ObjectWrapper: when trying to access property `", id, "` of object `", self.id, "` in stage `", self.scope, "`: property does not exist")
         end
         return nil
     end
@@ -834,7 +835,7 @@ function ow.ObjectWrapper:get_boolean(id, assert_exists)
         end
     end
 
-    rt.error("In ow.ObjectWrapper: when trying to access property `", id, "` of object `", self.id, "`: expected `boolean`, got `", meta.typeof(out), "`")
+    rt.error("In ow.ObjectWrapper: when trying to access property `", id, "` of object `", self.id, "` in stage `", self.scope, "`: expected `boolean`, got `", meta.typeof(out), "`")
     return nil
 end
 
@@ -845,13 +846,13 @@ function ow.ObjectWrapper:get_object(id, assert_exists)
     local out = self.properties[id]
     if out == nil then
         if assert_exists == true then
-            rt.error("In ow.ObjectWrapper: when trying to access property `", id, "` of object `", self.id, "`: property does not exist")
+            rt.error("In ow.ObjectWrapper: when trying to access property `", id, "` of object `", self.id, "` in stage `", self.scope, "`: property does not exist")
         end
         return nil
     end
 
     if not meta.is_table(out) then
-        rt.error("In ow.ObjectWrapper: when trying to access property `", id, "` of object `", self.id, "`: expected `ObjectWrapper`, got `", meta.typeof(out), "`")
+        rt.error("In ow.ObjectWrapper: when trying to access property `", id, "` of object `", self.id, "` in stage `", self.scope, "`: expected `ObjectWrapper`, got `", meta.typeof(out), "`")
     end
 
     return out
@@ -863,7 +864,7 @@ function ow.ObjectWrapper:get(id, assert_exists)
     local out = self.properties[id]
     if out == nil then
         if assert_exists == true then
-            rt.error("In ow.ObjectWrapper: when trying to access property `", id, "` of object `", self.id, "`: property does not exist")
+            rt.error("In ow.ObjectWrapper: when trying to access property `", id, "` of object `", self.id, "` in stage `", self.scope, "`: property does not exist")
         end
     end
     return out
@@ -963,6 +964,35 @@ local function _decode_gid(gid)
     return true_id, flip_x, flip_y
 end
 
+local _is_object = function(x)
+    return meta.is_table(x) and x["id"] ~= nil
+end
+
+local _is_list = function(x)
+    return meta.is_table(x) and x["id"] == nil
+end
+
+local _is_plain = function(x)
+    return meta.is_number(x) or meta.is_string(x) or meta.is_boolean(x)
+end
+
+local function _parse_property(wrapper, key, value, path)
+    if meta.is_table(value) then
+        if value["id"] ~= nil then
+            -- other tiled object
+            if value.id ~= 0 then -- 0 means "no object"
+                table.insert(wrapper.to_replace, { path = key, id = value.id })
+            end
+        else
+            -- tiled list property
+            wrapper.properties[key] = {}
+        end
+    else
+        -- plain property type
+        wrapper.properties[key] = value
+    end
+end
+
 -- iterate object group and extract wrappers
 local function _parse_single_object_group(object_group, group_offset_x, group_offset_y, scope)
     local objects = {}
@@ -970,17 +1000,12 @@ local function _parse_single_object_group(object_group, group_offset_x, group_of
 
     for object in values(object_group.objects) do
         if _get(object, "shape") ~= "text" then  -- skip "text" objects
-
-            local wrapper = ow.ObjectWrapper(_get(object, "type"), _get(object, "id"))
+            local wrapper = ow.ObjectWrapper(_get(object, "type"), _get(object, "id"), scope)
             wrapper.name = _get(object, "name")
 
             wrapper.to_replace = {}
             for key, value in pairs(_get(object, "properties")) do
-                if meta.is_table(value) then -- object property, evaluated on second pass
-                    wrapper.to_replace[key] = _get(value, "id")
-                else
-                    wrapper.properties[key] = value
-                end
+                _parse_property(wrapper, key, value, {})
             end
 
             wrapper.rotation = math.rad(_get(object, "rotation"))
@@ -1075,7 +1100,7 @@ local function _parse_single_object_group(object_group, group_offset_x, group_of
                         -- skip points, as they have no volume
                         skip_wrapper = true
                     else
-                        rt.warning("In ", scope, ": object `", wrapper.id, "` has no class, assuming `Hitbox`")
+                        rt.warning("In ", scope, ": object `", wrapper.id, "` in stage `", scope, "` has no class, assuming `Hitbox`")
                         require "overworld.objects.hitbox"
                         wrapper.class = meta.get_typename(ow.Hitbox)
                     end
@@ -1110,7 +1135,11 @@ function ow.ObjectWrapper.parse_object_groups(scope, layers)
             local group_offset_x, group_offset_y = _get(object_group, "offsetx"), _get(object_group, "offsety")
             local group_visible = _get(object_group, "visible")
 
-            local objects, layer_object_id_to_wrapper = _parse_single_object_group(object_group, group_offset_x, group_offset_y, scope)
+            local objects, layer_object_id_to_wrapper = _parse_single_object_group(
+                object_group,
+                group_offset_x, group_offset_y,
+                scope
+            )
 
             layer_i_to_objects[layer_i] = objects
             for id, wrapper in pairs(layer_object_id_to_wrapper) do
@@ -1124,17 +1153,16 @@ function ow.ObjectWrapper.parse_object_groups(scope, layers)
     -- second pass, set object reference properties
 
     for wrapper in values(object_id_to_wrapper) do
-        for key, id in pairs(wrapper.to_replace) do
-            if id > 0 then
-                local other = object_id_to_wrapper[id]
-                if other == nil then
-                    error(string.paste("object `", wrapper.id, "` points to `", id, "`, but there is no object with that id"))
-                    -- sic, use lua error since this will be pcalled
-                end
-
-                wrapper.properties[key] = other
+        for key, entry in pairs(wrapper.to_replace) do
+            local other = object_id_to_wrapper[entry.id]
+            if other == nil then
+                rt.error("object `", wrapper.id, "` points to `", entry.id, "`, but there is no object with that id in stage `", scope, "`")
+                -- sic, use lua error since this will be pcalled
             end
+
+            wrapper.properties[entry.path] = other
         end
+
         wrapper.to_replace = nil
     end
 
@@ -1145,33 +1173,6 @@ function ow.ObjectWrapper.parse_object_groups(scope, layers)
     end
 
     return layer_i_to_objects
-end
-
---- @brief parse single object group
-function ow.ObjectWrapper.parse_object_group(scope, object_group)
-    local group_offset_x, group_offset_y = _get(object_group, "offsetx"), _get(object_group, "offsety")
-    local group_visible = _get(object_group, "visible")
-
-    local objects, object_id_to_wrapper = _parse_single_object_group(scope, object_group, group_offset_x, group_offset_y)
-
-    -- second pass, set "object" tiled property
-    for wrapper in values(objects) do
-        for key, id in pairs(wrapper.to_replace) do
-            if id > 0 then
-                wrapper.properties[key] = object_id_to_wrapper[id]
-                if wrapper.properties[key] == nil then
-                    error("object `", wrapper.id, "` points to `", id, "`, but no object with that id is located on the same layer")
-                end
-            end
-        end
-        wrapper.to_replace = nil
-    end
-
-    table.sort(objects, function(a, b)
-        return meta.hash(a) < meta.hash(b)
-    end)
-
-    return objects
 end
 
 --- @brief

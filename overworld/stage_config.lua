@@ -95,11 +95,7 @@ function ow.StageConfig:instantiate(stage_id)
     local path_class_id = rt.settings.overworld.path.class_id
     local path_target_property_pattern = rt.settings.overworld.path.target_property_pattern
 
-    local success, error_or_return = pcall(ow.ObjectWrapper.parse_object_groups, "ow.Stage `" .. stage_id .. "`", _get(self._config, "layers"))
-    if not success then
-        rt.error("In ow.StageConfig.instantiate: for stage `", stage_id, "`: ", error_or_return)
-    end
-    local layer_i_to_objects = error_or_return
+    local layer_i_to_objects = ow.ObjectWrapper.parse_object_groups(stage_id, _get(self._config, "layers"))
 
     local layer_i = 1
     local n_layers = 0
@@ -326,7 +322,7 @@ function ow.StageConfig:instantiate(stage_id)
                             w = w * self._tile_width
                             h = h * self._tile_height
 
-                            local wrapper = ow.ObjectWrapper(meta.get_typename(ow.Hitbox), _dummy_hitbox_id):_as_rectangle(x, y, w, h)
+                            local wrapper = ow.ObjectWrapper(meta.get_typename(ow.Hitbox), _dummy_hitbox_id, stage_id):_as_rectangle(x, y, w, h)
                             _dummy_hitbox_id = _dummy_hitbox_id - 1
                             table.insert(to_add.objects, wrapper)
                         end
