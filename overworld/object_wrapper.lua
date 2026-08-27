@@ -859,6 +859,27 @@ function ow.ObjectWrapper:get_object(id, assert_exists)
 end
 
 --- @brief
+--- @param id String
+--- @param assert_exists Boolean?
+function ow.ObjectWrapper:get_list(id, assert_exists)
+    if assert_exists == nil then assert_exists = false end
+
+    local out = self.properties[id]
+    if out == nil then
+        if assert_exists == true then
+            rt.error("In ow.ObjectWrapper: when trying to access property `", id, "` of object `", self.id, "` in stage `", self.scope, "`: property is not a list")
+        end
+        return nil
+    end
+
+    if not meta.is_table(out) then
+        rt.error("In ow.ObjectWrapper: when trying to access property `", id, "` of object `", self.id, "` in stage `", self.scope, "`: expected `Table`, got `", meta.typeof(out), "`")
+    end
+
+    return out
+end
+
+--- @brief
 function ow.ObjectWrapper:get(id, assert_exists)
     if assert_exists == nil then assert_exists = false end
     local out = self.properties[id]
@@ -976,20 +997,25 @@ local _is_plain = function(x)
     return meta.is_number(x) or meta.is_string(x) or meta.is_boolean(x)
 end
 
-local function _parse_property(wrapper, key, value, path)
-    if meta.is_table(value) then
-        if value["id"] ~= nil then
-            -- other tiled object
-            if value.id ~= 0 then -- 0 means "no object"
-                table.insert(wrapper.to_replace, { path = key, id = value.id })
-            end
-        else
-            -- tiled list property
-            wrapper.properties[key] = {}
+local function _parse_property(wrapper, x, path)
+    if meta.is_table(x) and x.id ~= nil then
+        -- tiled object pointer
+        table.insert(wrapper.to_replace, {
+            path = table.deepcopy(path),
+            value = { id = _get(x, "id") }
+        })
+    elseif meta.is_table(x) then
+        -- tiled list property
+        for i, value in ipairs(x) do
+            local child_path = table.deepcopy(path)
+            table.insert(child_path, i)
+            _parse_property(wrapper, value, child_path)
         end
     else
-        -- plain property type
-        wrapper.properties[key] = value
+        table.insert(wrapper.to_replace, {
+            path = table.deepcopy(path),
+            value = x
+        })
     end
 end
 
@@ -1005,7 +1031,7 @@ local function _parse_single_object_group(object_group, group_offset_x, group_of
 
             wrapper.to_replace = {}
             for key, value in pairs(_get(object, "properties")) do
-                _parse_property(wrapper, key, value, {})
+                _parse_property(wrapper, value, { key })
             end
 
             wrapper.rotation = math.rad(_get(object, "rotation"))
@@ -1150,17 +1176,43 @@ function ow.ObjectWrapper.parse_object_groups(scope, layers)
         layer_i = layer_i + 1
     end
 
-    -- second pass, set object reference properties
+    -- second pass, set properties and object
 
     for wrapper in values(object_id_to_wrapper) do
         for key, entry in pairs(wrapper.to_replace) do
-            local other = object_id_to_wrapper[entry.id]
-            if other == nil then
-                rt.error("object `", wrapper.id, "` points to `", entry.id, "`, but there is no object with that id in stage `", scope, "`")
-                -- sic, use lua error since this will be pcalled
+            local to_set = wrapper.properties
+            local n = #entry.path
+
+            for key_i = 1, n - 1 do
+                local current_key = entry.path[key_i]
+                local next = to_set[current_key]
+
+                if next == nil then -- create list property if not yet existing
+                    next = {}
+                    to_set[current_key] = next
+                end
+
+                to_set = next
             end
 
-            wrapper.properties[entry.path] = other
+            local property
+            if meta.is_table(entry.value) and entry.value["id"] ~= nil then
+                -- handle object proxy from _parse_property
+                local id = entry.value["id"]
+                if id == 0 then
+                    -- unset object property
+                    property = nil
+                else
+                    property = object_id_to_wrapper[id]
+                    if property == nil then
+                        rt.error("object `", wrapper.id, "` points to `", id, "`, but there is no object with that id in stage `", scope, "`")
+                    end
+                end
+            else
+                property = entry.value
+            end
+
+            to_set[entry.path[n]] = property
         end
 
         wrapper.to_replace = nil

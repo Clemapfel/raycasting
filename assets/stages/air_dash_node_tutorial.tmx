@@ -426,13 +426,11 @@
      <item value="str"/>
      <item type="object" value="379"/>
      <item type="list">
-      <item type="object" value="378"/>
-      <item value="&quot;inner&quot;"/>
-      <item type="color" value="#ff55ff7f"/>
+      <item type="object" value="381"/>
+      <item type="int" value="381"/>
      </item>
-     <item type="bool" value="true"/>
     </property>
-    <property name="path" type="object" value="379"/>
+    <property name="test" type="object" value="379"/>
    </properties>
    <polygon points="0,0 0,32 32,48 32,240 48,256 160,256 176,240 176,112 192,96 320,96 320,80 176,80 160,96 160,224 144,240 64,240 48,224 48,48 80,32 80,0"/>
   </object>
