@@ -2,8 +2,7 @@ var server = Server.default;
 var midi = MIDIInterface.new(server);
 var prefix = thisProcess.nowExecutingPath.dirname;
 var degrees = Scale.chromatic.degrees + 60;
-var peakSentinel = PeakSentinel.new(server);
-
+~detect_clipping = ClipDetector();
 ~asset_path = thisProcess.nowExecutingPath.dirname +/+ "assets";
 
 /* ####### MAIN ####### */
@@ -13,13 +12,11 @@ server.options.sampleRate = Renderer.sampleRate;
 server.options.memSize = 2 * (2 ** 16); // 2 gb
 
 server.waitForBoot({
-	//~accelerator_surface_sparkle.();
-	//~player.();
-	~boost_field.();
+	~coin.();
 
 
 	CmdPeriod.doOnce({
-		server.freeAll;
+		//server.freeAll;
 	})
 });
 
@@ -948,25 +945,108 @@ server.waitForBoot({
 };
 
 ~boost_field = { arg degree, filename;
-	var def = SynthDef.new(\boost_field, { arg out, gate = 1, freq, amp;
-		var demand = Demand.kr(, 0, Dseq([4, 3, 2, 1], inf));
-		var env = EnvGen.ar(Env.asr(0.02, 0.2), gate: gate);
+	var def = SynthDef.new(\boost_field, { arg out, trig, freq = 440, amp = 1;
+		var demand = Demand.kr(Impulse.kr(20), 0, Dseq([4, 3, 2, 1], inf));
+		var env = EnvGen.ar(Env.asr(0.02, 1.0, 0.5), gate: Trig.kr(trig));
 		var signal = SinOsc.ar(freq * demand).distort * env;
-		Out.ar(out, signal.dup);
+		Out.ar(out, (amp * signal).dup);
+	}, [nil, \tr]).add;
 
-		DoneSentinel.ar(signal);
-	}, [nil, nil]).add;
-
-	var pattern = PmonoArtic(def.name, *[
-		degree: Pn(1, inf),
-		sustain: 0.5,
-		tempo: 1
+	var pattern = Pmono(def.name, *[
+		degree: Pn(Pseq([1, 5, 3]) , inf),
+		amp: 1,
+		trig: Pn(1, inf),
 	]);
 
 	server.sync;
 
 	pattern.play;
+
+	// Global watcher: fires for ANY node freed on the server
+	OSCFunc({ |msg|
+		var nodeID = msg[1];
+		("Node freed: " ++ nodeID).postln;
+	}, '/n_end');
 };
 
+~checkpoint_thunder = { arg degree, filename;
+	var def = SynthDef(\checkpoint_thunder_rumble, { arg out = 0, amp = 0.3, freq = 120, delta = 1, decay = 0.6, pan = 0;
+		var signal = PinkNoise.ar;
+		var env = EnvGen.kr(
+			Env.perc(attackTime: 0.02, releaseTime: decay * delta)
+		);
+		var cutoff = freq;
+		signal = RLPF.ar(signal, cutoff, 0.6);
+		signal = LPF.ar(signal, cutoff * 1.5);
+		signal = signal + (0.3 * LPF.ar(signal, 80));
+		signal = signal * env;
+		Out.ar(out, Pan2.ar(amp * signal, pan));
+		DoneSentinel.ar(signal);
+	}).add;
+
+	var dur = 6;
+
+	var densityEnv = Env([1.0, 0.05], [1] * dur);
+	var deltas = List.new;
+	var pans = List.new;
+	var decays = List.new;
+	var amps = List.new;
+	var freqs = List.new;
+	var elapsed = 0;
+
+	while { elapsed < dur } {
+		var shapeVal = densityEnv.at(elapsed);
+		var delta = (1 / shapeVal.linlin(0, 1, 2, 14)) * (1 + (dur * 0.15).rand);
+
+		deltas.add(delta);
+		pans.add(0.6.rand2);
+		decays.add(rrand(0.4, 0.9) * (1 + (1 - shapeVal)));
+		amps.add(shapeVal * rrand(0.5, 1.0));
+		freqs.add(rrand(60, 180) * rrand(0.7, 1.4));
+		elapsed = elapsed + delta;
+	};
+
+	server.sync;
+	Pbind(*[
+		instrument: def.name,
+		freq: Pseq(freqs.asArray),
+		pan: Pseq(pans.asArray),
+		delta: Pseq(deltas.asArray),
+		decay: Pseq(decays.asArray),
+		amp: Pseq(amps.asArray)
+	]).play;
+};
+
+~coin = { arg out;
+	var freqs = [1, 1.41, 2.0, 2.4, 2.74, 3.76, 4.07];
+	var amplitudes = freqs.collect({ |x| 1 / (x ** 2) });
+	var offset = freqs.collect({ |x| (x ** 0.9) });
+
+	var def = SynthDef(\coin_collect, { arg out, amp, freq, gate = 1;
+		var env =  EnvGen.ar(
+			Env.asr(attackTime: 0.02, releaseTime: 0.1),
+			gate: gate
+		);
+
+		var signal = DynKlank.ar(`[
+			freqs, amplitudes, offset
+		], input: EnvGen.ar(Env.perc()), freqoffset: freq).round(4);
+
+		var final = env * amp * signal;
+		Out.ar(out, final.dup);
+		DoneSentinel.ar(signal);
+		detector.ar(final);
+	}).add;
+
+	server.sync;
+
+	Pbind(*[
+		instrument: def.name,
+		degree: Pseq([1, 6, Rest(), 1, 5, Rest(), 1, 4, Rest(), 1, 3, Rest()]),
+		dur: Pseq([1, 1, 1], inf),
+		sustain: Pseq([2.0, 2.0, 0], inf),
+		tempo: 4
+	]).play;
+};
 
 Date.getDate; // console output on execution
