@@ -1012,6 +1012,7 @@ local function _parse_property(wrapper, x, path)
             _parse_property(wrapper, value, child_path)
         end
     else
+        -- plain data property
         table.insert(wrapper.to_replace, {
             path = table.deepcopy(path),
             value = x

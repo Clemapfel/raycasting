@@ -17,7 +17,7 @@ ClipDetector {
 
             "In ClipDetector: clipping detected on bus %: %".format(
 				busOrID.asInteger,
-                peakValue.round(0.001)
+                peakValue
             ).warn;
 
         }, ClipDetector.oscPath).permanent_(true);

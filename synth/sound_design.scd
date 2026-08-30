@@ -3,6 +3,7 @@ var midi = MIDIInterface.new(server);
 var prefix = thisProcess.nowExecutingPath.dirname;
 var degrees = Scale.chromatic.degrees + 60;
 ~detect_clipping = ClipDetector();
+~detect_done = DoneSentinel; // sic, type
 ~asset_path = thisProcess.nowExecutingPath.dirname +/+ "assets";
 
 /* ####### MAIN ####### */
@@ -1018,34 +1019,76 @@ server.waitForBoot({
 };
 
 ~coin = { arg out;
-	var freqs = [1, 1.41, 2.0, 2.4, 2.74, 3.76, 4.07];
-	var amplitudes = freqs.collect({ |x| 1 / (x ** 2) });
-	var offset = freqs.collect({ |x| (x ** 0.9) });
 
-	var def = SynthDef(\coin_collect, { arg out, amp, freq, gate = 1;
-		var env =  EnvGen.ar(
-			Env.asr(attackTime: 0.02, releaseTime: 0.1),
+	var scale = [ 1, 5 ];
+
+	// convert semitone offsets to frequency ratios (just powers of 2^(1/12))
+	var ratios = scale.collect({ |x|
+		x.midiratio;
+	});
+
+	// detune each by a quarter tone (0.5 semitone) sharp
+	var ratiosDetuned = scale.collect({ |x|
+		(x + 0.5.rand2).midiratio;
+	});
+
+	// the "tuned" target is just the original in-tune ratios
+	var ratiosTuned = ratios;
+
+	var amplitudes = ratios.collect({ |x| 1 / (x ** 0.7) }).normalizeSum;
+	var ringTimes = ratios.collect({ |x| 1 / (x ** 0.4) });
+
+	var def = SynthDef(\coin_collect, { arg out=0, amp=0.5, freq=440, gate=1, dur=2, sustain=1;
+		var envAttack = 0.01;
+		var releaseTime = 3.0;
+		var decayTime = 0.2;
+		var env = EnvGen.ar(
+			Env.adsr(
+				attackTime: envAttack,
+				decayTime: decayTime,
+				releaseTime: releaseTime,
+				curve: -4
+			),
 			gate: gate
 		);
+		var tuneDur = 0.0;
+		var glide = Line.ar(1, 0, tuneDur);
+		var currentRatios = ratiosDetuned.blend(ratiosTuned, glide.neg + 1);
 
 		var signal = DynKlank.ar(`[
-			freqs, amplitudes, offset
-		], input: EnvGen.ar(Env.perc()), freqoffset: freq).round(4);
+			currentRatios,
+			amplitudes,
+			ringTimes * 4
+		],
+		input: PinkNoise.ar * EnvGen.ar(Env.perc(0.001, 0.02)),
+		freqoffset: freq
+		) * env;
 
-		var final = env * amp * signal;
-		Out.ar(out, final.dup);
-		DoneSentinel.ar(signal);
-		detector.ar(final);
+		var shimmerTrig = Impulse.kr(Line.kr(30, 0, tuneDur));
+		var shimmer = SinOsc.ar(
+			Demand.kr(
+				shimmerTrig,
+				Silence.kr(),
+				80 + Dseq([3, 1, 8, 9, 0], inf)
+			).midicps
+		) * EnvGen.ar(Env.perc(), gate: shimmerTrig);
+
+		signal = (signal) * amp;
+		Out.ar(out, signal.dup);
+		~detect_done.ar(signal);
+		~detect_clipping.ar(signal);
 	}).add;
 
 	server.sync;
 
+	ratiosTuned.postln;
+
 	Pbind(*[
 		instrument: def.name,
-		degree: Pseq([1, 6, Rest(), 1, 5, Rest(), 1, 4, Rest(), 1, 3, Rest()]),
+		degree: Pseq(5 + [1, 5]), //, Rest(), 1, 5, Rest(), 1, 4, Rest(), 1, 3, Rest()]),
 		dur: Pseq([1, 1, 1], inf),
-		sustain: Pseq([2.0, 2.0, 0], inf),
-		tempo: 4
+		sustain: Pseq([1, 2.0], inf),
+		tempo: 20
 	]).play;
 };
 
