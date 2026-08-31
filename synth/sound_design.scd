@@ -13,6 +13,7 @@ server.options.sampleRate = Renderer.sampleRate;
 server.options.memSize = 2 * (2 ** 16); // 2 gb
 
 server.waitForBoot({
+	//~wavetable.();
 	~coin.();
 
 
@@ -1019,77 +1020,147 @@ server.waitForBoot({
 };
 
 ~coin = { arg out;
+	var def = SynthDef(\coin_collect, {
+		arg out, amp, freq, gate = 1, dur, sustain, scale = #[0, 0, 0, 0], amps = #[1, 1, 1, 1];
 
-	var scale = [ 1, 5 ];
+		var ratios = scale.collect({ |x|
+			x.midiratio;
+		});
 
-	// convert semitone offsets to frequency ratios (just powers of 2^(1/12))
-	var ratios = scale.collect({ |x|
-		x.midiratio;
-	});
+		var amplitudes = ratios.collect({ |x, i|
+			1 / (x.midiratio ** 0.7);
+		}).normalizeSum;
 
-	// detune each by a quarter tone (0.5 semitone) sharp
-	var ratiosDetuned = scale.collect({ |x|
-		(x + 0.5.rand2).midiratio;
-	});
+		var ringTimes = ratios.collect({ |x|
+			2 / (x.midiratio ** 0.4);
+		});
 
-	// the "tuned" target is just the original in-tune ratios
-	var ratiosTuned = ratios;
+		var excitation = PinkNoise.ar * EnvGen.ar(Env.perc(0.001, 0.02));
 
-	var amplitudes = ratios.collect({ |x| 1 / (x ** 0.7) }).normalizeSum;
-	var ringTimes = ratios.collect({ |x| 1 / (x ** 0.4) });
+		var res = [
+			Ringz.ar(excitation, freq * ratios[0], ringTimes[0]),
+			Ringz.ar(excitation, freq * ratios[1], ringTimes[1]),
+			Ringz.ar(excitation, freq * ratios[2], ringTimes[2]),
+			Ringz.ar(excitation, freq * ratios[3], ringTimes[3])
+		];
 
-	var def = SynthDef(\coin_collect, { arg out=0, amp=0.5, freq=440, gate=1, dur=2, sustain=1;
-		var envAttack = 0.01;
-		var releaseTime = 3.0;
-		var decayTime = 0.2;
-		var env = EnvGen.ar(
-			Env.adsr(
-				attackTime: envAttack,
-				decayTime: decayTime,
-				releaseTime: releaseTime,
-				curve: -4
-			),
-			gate: gate
-		);
-		var tuneDur = 0.0;
-		var glide = Line.ar(1, 0, tuneDur);
-		var currentRatios = ratiosDetuned.blend(ratiosTuned, glide.neg + 1);
+		var signal = Mix.ar(res, amps.normalizeSum) / res.size * EnvGen.ar(Env.new([0, 1], [0.1], \welch));
 
-		var signal = DynKlank.ar(`[
-			currentRatios,
-			amplitudes,
-			ringTimes * 4
-		],
-		input: PinkNoise.ar * EnvGen.ar(Env.perc(0.001, 0.02)),
-		freqoffset: freq
-		) * env;
-
-		var shimmerTrig = Impulse.kr(Line.kr(30, 0, tuneDur));
-		var shimmer = SinOsc.ar(
-			Demand.kr(
-				shimmerTrig,
-				Silence.kr(),
-				80 + Dseq([3, 1, 8, 9, 0], inf)
-			).midicps
-		) * EnvGen.ar(Env.perc(), gate: shimmerTrig);
-
-		signal = (signal) * amp;
+		signal = Limiter.ar(signal, 1 - 1e-3);
 		Out.ar(out, signal.dup);
+
 		~detect_done.ar(signal);
 		~detect_clipping.ar(signal);
 	}).add;
 
 	server.sync;
 
-	ratiosTuned.postln;
-
 	Pbind(*[
 		instrument: def.name,
-		degree: Pseq(5 + [1, 5]), //, Rest(), 1, 5, Rest(), 1, 4, Rest(), 1, 3, Rest()]),
-		dur: Pseq([1, 1, 1], inf),
-		sustain: Pseq([1, 2.0], inf),
-		tempo: 20
+		degree: Pseq(5 + [1, 5]),
+		scale: Pseq([[0, 0.1, 12, 12.1], [0, 0.1, 12, 12.1]]),
+		amps:  Pseq([[1, 0.5, 0.8, 0.4], [1, 0.5, 0.8, 0.4]]),
+		delta: Pseq([0.15, 0.2])
 	]).play;
+};
+
+~wavetable = { arg out;
+    fork {
+		var server = s;
+		var n = 2048 * 4;
+		var serverBufs, wavetables, def;
+
+		var buffers = [
+			// pure square
+			Signal.fill(n, { |i| sin(2pi * i / n).sign }),
+
+			// pure saw
+			//Signal.fill(n, { |i| 2 * ((i / n) - (0.5 + (i / n)).floor) }),
+
+			// pure sine
+			//Signal.fill(n, { |i| sin(2pi * i / n) }),
+
+			// pure triangle
+			//Signal.fill(n, { |i| (2 / pi) * asin(sin(2pi * i / n)) }),
+
+			// rounded square \frac{\tanh \left(\sin \left(2\pi x\right)\right)}{\tanh 1}
+			//Signal.fill(n, { |i| tanh(6 * sin(2pi * i / n)) }) / tanh(1),
+
+			// rounded triangle \frac{\sinh \left(\sin \left(2\pi x\right)\right)}{\sinh \left(1\right)}
+			//Signal.fill(n, { |i| sinh(sin(2pi * i / n)) }) / sinh(1),
+
+			// rounded saw \frac{2}{\pi }\arctan \left(\frac{\sin \left(2\pi x\right)}{1+\cos \left(2\pi x\right)+s}\right)\cdot \frac{2\arctan \left(1\right)}{\arctan \left(\frac{1}{\sqrt{s\left(s+2\right)}}\right)}
+            Signal.fill(n, { |i|
+				var x = i / n;
+				var eps = 0.5;
+				(2 / pi) * atan(sin(2pi * x) / (1 + cos(2pi * x) + eps)) * ((pi / 2) / atan( 1 / sqrt(eps * (eps + 2))))
+			})
+		];
+
+        buffers = buffers.collect({ |sig| sig.normalize(-1, 1) });
+        wavetables = buffers.collect({ |sig| sig.asWavetable });
+        serverBufs = Buffer.allocConsecutive(buffers.size, s, wavetables[0].size, 1);
+
+        server.sync;
+
+        serverBufs.do({ |buf, i| buf.loadCollection(wavetables[i]) });
+
+        server.sync;
+
+        def = SynthDef(\wavetableMorph, {arg out = 0, freq = 150, amp = 0.2, bufBase = 0, morph = 0;
+            var sig, which, safeMorph;
+
+			morph = MouseX.kr(0, 1);
+            morph = Lag.kr(morph.clip(0, 1 - 1e-5));
+
+            which = bufBase + (morph * (serverBufs.size - 1));
+            sig = VOsc.ar(which, freq, 1);
+            Out.ar(out, (sig * amp).dup);
+			~detect_done.(sig);
+			~detect_clipping.(sig);
+        }).add;
+
+        server.sync;
+
+        Synth(def.name, [
+            \bufBase, serverBufs[0].bufnum,
+            \morph, 0,
+            \freq, 150,
+			\amp, 0.04
+        ]);
+    };
+};
+
+~wavetable = {
+    fork {
+        var server = s;
+        var n = 2048;
+        var def;
+        var wavetable = Signal.fill(n, { |i|
+			var x = i / n;
+				var eps = 0.5;
+				(2 / pi) * atan(sin(2pi * x) / (1 + cos(2pi * x) + eps)) * ((pi / 2) / atan( 1 / sqrt(eps * (eps + 2))))
+		}).normalize.asWavetable;
+        var buf = Buffer.alloc(server, wavetable.size);
+
+        server.sync;
+
+        buf.loadCollection(wavetable);
+        server.sync;
+
+		def = SynthDef(\wavetableChorus, { arg out = 0, gate = 1, freq, amp = 0.2, bufnum = 0, morph = 0;
+			var sig = COsc.ar(bufnum, freq, 0.25) * EnvGen.ar(Env.asr(releaseTime: 0.25), gate: gate);
+            Out.ar(out, (sig * amp).dup);
+        }).add;
+        server.sync;
+
+		Pmono(def.name, *[
+			bufnum: buf,
+			degree: Pseq([-17, -16, -20]),
+			amp: 0.1,
+			delta: Pseq([1, 1, 3])
+		]).play;
+    };
 };
 
 Date.getDate; // console output on execution
