@@ -34,8 +34,6 @@ function math.quaternion.multiply(x1, y1, z1, w1, x2, y2, z2, w2)
 end
 
 function math.quaternion.apply(qx, qy, qz, qw, vx, vy, vz)
-    -- v' = q * v * q^-1
-    -- Optimized version using: v' = v + 2 * cross(q.xyz, cross(q.xyz, v) + q.w * v)
     local uvx = qy * vz - qz * vy
     local uvy = qz * vx - qx * vz
     local uvz = qx * vy - qy * vx

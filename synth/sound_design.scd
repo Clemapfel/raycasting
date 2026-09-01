@@ -1,13 +1,23 @@
 var server = Server.default;
 var midi = MIDIInterface.new(server);
+var recorder = AutoRecorder.new(server);
 
-server.options.sampleRate = Renderer.sampleRate;
+server.options.sampleRate = AutoRecorder.sampleRate;
 server.options.memSize = 2 * (2 ** 16);
 
-~detect_clipping = ClipDetector();
+~detect_clipping = ClipDetector.new;
 ~detect_done = DoneSentinel; // sic, type
+
 ~export_path = thisProcess.nowExecutingPath.dirname +/+ "export";
 ~asset_path = thisProcess.nowExecutingPath.dirname +/+ "assets";
+
+~recorder_start = { arg filename;
+	recorder.start(~export_path +/+ filename);
+};
+
+~recorder_end = { arg signal;
+	recorder.ar(signal);
+};
 
 /* ##### MAIN ##### */
 
@@ -19,84 +29,10 @@ server.waitForBoot({
 
 /* ##### IMPLEMENTATIONS ##### */
 
-~bubble = { arg filename, degree;
-	var condition = Condition.new(true);
+~bubble = { arg filename, degree = 0;
 
-	fork {
-		var outFile;
-		var recorder = Recorder(server)
-		.recHeaderFormat_(Renderer.headerFormat)
-		.recSampleFormat_(Renderer.sampleFormat);
-
-		// Correct OSC path definitions
-		var recordStartOSC = '/recordStart';
-		var recordEndOSC = '/recordEnd';
-
-		var pr_startRecording = { |outfile, bus, numChannels = 1|
-			if (condition.test == false) {
-				Error("In Renderer.startRecording: recording to % is already active".format(outFile)).throw;
-			};
-
-			recorder.record(outfile, bus, numChannels);
-			condition.test = false; // Set condition test to false while recording
-		};
-
-		var pr_endRecording = {
-			if (condition.test == true) {
-				Error("In Renderer.endRecording: no recording is currently active").throw;
-			};
-			recorder.stopRecording;
-			outFile = nil;
-			condition.test = true; // Set condition test to true when done
-			condition.unhang;      // Resume the Routine
-		};
-
-		var recordStartDef = OSCdef(\recordStartDef, { arg msg;
-			var filename = msg[1];
-			var bus = msg[2];
-			var numChannels = msg[3];
-			var outfile;
-
-			if (File.exists(export_dir).not) { File.mkdir(export_dir) };
-
-			outfile = ~export_path +/+ filename;
-			pr_startRecording.(outfile, bus, numChannels);
-		}, recordStartOSC);
-
-		var recordEndDef = OSCdef(\recordEndDef, { arg msg;
-			pr_endRecording.();
-		}, recordEndOSC);
-
-		var def = SynthDef(\testDef, { arg out = 0;
-			var signal = SinOsc.ar(440) * EnvGen.ar(Env.perc());
-			Out.ar(out, signal.dup);
-			SendReply.ar(DetectSilence.ar(signal, doneAction: Done.freeSelf), recordEndOSC);
-		}).add;
-
-        var pattern = Pbind(*[
-            instrument: def.name,
-            degree: Pn(0, 1)
-
-        ]);
-
-		server.sync;
-
-		NetAddr.localAddr.sendMsg('/recordStart', "bubble.wav", 0, 1);
-
-		// Play pattern after starting recorder
-		pattern.play;
-
-		// Wait until condition.unhang is called by pr_endRecording
-		condition.hang;
-
-		// Cleanup OSC responders after execution finishes
-		recordStartDef.free;
-		recordEndDef.free;
-	};
-
-	/*
 	var popDef = SynthDef(\bubblePop, {
-		arg out = 0, amp, degree, freq, baseStart, baseEnd, aboveStart, aboveEnd, sweepDuration, attack = 0.05;
+		arg out = 0, amp, degree, freq, baseStart, baseEnd, aboveStart, aboveEnd, sweepDuration = 1, attack = 0.05;
 
 		var baseFreqStart = (freq.cpsmidi + baseStart).midicps;
 		var baseFreqEnd = (freq.cpsmidi + baseEnd).midicps;
@@ -131,22 +67,22 @@ server.waitForBoot({
 		var signal = noise + sweepAbove + sweepBase;
 		Out.ar(out, (amp * signal).dup);
 
+		~recorder_end.(signal);
 		~detect_done.(signal);
 		~detect_clipping.(signal);
 	}).add;
 
-		var scale = Scale.chromatic;
-		var pattern = Pbind(*[
-			instrument: popDef.name,
-			tempo: 3,
-			degree: 4,
-			baseState: 0,
-			baseEnd: 12,
-			aboveStart: -3,
-			aboveEnd: 5,
-			sweepDuration: 0.1,
-		]);
-	*/
+	Pbind(*[
+		instrument: popDef.name,
+		tempo: 1,
+		sweepDuration: 0.25,
+		degree: Pseq(degree + [0, 1, 2]),
+		baseStart: 0,
+        baseEnd: 12,
+        aboveStart: -3,
+        aboveEnd: 5,
+		record: Pfunc({ |ev| ~recorder_start.("bubble_pop_%.wav".format(ev.degree)) })
+	]).play;
 };
 
 
