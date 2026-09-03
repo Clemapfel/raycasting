@@ -13,6 +13,7 @@ ow.ObjectType = {
     RECTANGLE = "rectangle",
     ELLIPSE = "ellipse",
     POLYGON = "polygon",
+    CAPSULE = "capsule",
     POINT = "point"
 }
 ow.ObjectType = meta.enum("ObjectType", ow.ObjectType)
@@ -46,6 +47,7 @@ ow.Boolean = ow.PropertyType.BOOLEAN
 ow.ShapeType = {
     CIRCLE = "Circle",
     ELLIPSE = "Ellipse",
+    CAPSULE = "Capsule",
     AXIS_ALIGNED_RECTANGLE = "Axis-Aligned Rectangle",
     RECTANGLE = "Rectangle",
     POINT = "Point",
@@ -57,8 +59,13 @@ ow.ShapeType = {
 
 ow.ShapeType = meta.enum("ShapeType", ow.ShapeType)
 
-local _calculate_n_outer_vertices = function(x_radius, y_radius)
+local _calculate_n_outer_vertices_mesh = function(x_radius, y_radius)
     return rt.Mesh.radius_to_n_vertices(x_radius, y_radius)
+end
+
+local _calculate_n_outer_vertices_physics = function(x_radius, y_radius)
+    return math.max(3, math.floor(rt.Mesh.radius_to_n_vertices(x_radius, y_radius) / 2))
+
 end
 
 local _align = function(x)
@@ -89,8 +96,8 @@ function ow.ObjectWrapper:instantiate(type, id, scope)
         flip_origin_y = 0,
 
         rotation_offset = 0,
-        rotation_origin_x = 0,
-        rotation_origin_y = 0,
+        rotation_origin_x = nil,
+        rotation_origin_y = nil,
 
         properties = {},
 
@@ -140,6 +147,19 @@ function ow.ObjectWrapper:_as_rectangle(x, y, width, height, origin_x, origin_y)
         height = height,
         origin_x = origin_x,
         origin_y = origin_y,
+    })
+end
+
+--- @brief
+function ow.ObjectWrapper:_as_capsule(x, y, width, height, origin_x, origin_y)
+    self.type = ow.ObjectType.CAPSULE
+    return meta.install(self, {
+        x = x,
+        y = y,
+        width = width,
+        height = height,
+        origin_x = origin_x,
+        origin_y = origin_y
     })
 end
 
@@ -225,9 +245,10 @@ local function _process_polygon(vertices, object)
         if object.flip_vertically then y = -y end
         x, y = _translate_point(x, y, object.flip_origin_x, object.flip_origin_y)
 
-        x, y = _translate_point(x, y, -object.rotation_origin_x, -object.rotation_origin_y)
+        local rot_ox, rot_oy = object.rotation_origin_x or object.x, object.rotation_origin_y or object.y
+        x, y = _translate_point(x, y, -rot_ox, -rot_oy)
         x, y = _rotate_point(x, y, object.rotation + object.rotation_offset)
-        x, y = _translate_point(x, y, object.rotation_origin_x, object.rotation_origin_y)
+        x, y = _translate_point(x, y, rot_ox, rot_oy)
 
         table.insert(out, x)
         table.insert(out, y)
@@ -280,10 +301,11 @@ function ow.ObjectWrapper:_initialize_physics_prototypes()
             table.insert(all_vertices, center_vertices[2])
         else
             local vertices = {}
+            local additional = {}
 
             local center_x, center_y = self.center_x, self.center_y
             local x_radius, y_radius = self.x_radius, self.y_radius
-            local n_outer_vertices = _calculate_n_outer_vertices(x_radius, y_radius)
+            local n_outer_vertices = _calculate_n_outer_vertices_physics(x_radius, y_radius)
 
             local angle_step = (2 * math.pi) / n_outer_vertices
             for angle = 0, 2 * math.pi, angle_step do
@@ -291,8 +313,106 @@ function ow.ObjectWrapper:_initialize_physics_prototypes()
                 table.insert(vertices, center_y + y_radius * math.sin(angle))
             end
 
+            table.insert(additional, center_x)
+            table.insert(additional, center_y)
+
             vertices = _process_polygon(vertices, self)
-            local polygonization = rt.math.polygonize(8, vertices)
+            additional = _process_polygon(additional, self)
+
+            local polygonization = rt.math.polygonize(8, vertices, additional)
+
+            for shape in values(polygonization) do
+                table.insert(prototypes, {
+                    type = ow.ObjectWrapperShapeType.POLYGON,
+                    vertices = shape
+                })
+
+                for i = 1, #shape do
+                    table.insert(all_vertices, shape[i])
+                end
+            end
+        end
+    elseif self.type == ow.ObjectType.CAPSULE then
+        local x, y = self.x, self.y
+        local w, h = self.width, self.height
+        local n_outer_vertices = _calculate_n_outer_vertices_physics(0.5 * w, 0.5 * h)
+
+        local is_circle = math.abs(w - h) < 1
+
+        if is_circle then
+            local radius = 0.5 * w
+            local center_vertices = _process_polygon({
+                x + radius,
+                y + radius
+            }, self)
+
+            table.insert(prototypes, {
+                type = ow.ObjectWrapperShapeType.CIRCLE,
+                x = center_vertices[1],
+                y = center_vertices[2],
+                radius = radius
+            })
+
+            table.insert(all_vertices, center_vertices[1])
+            table.insert(all_vertices, center_vertices[2])
+        else
+            local vertices = {}
+            local r = math.min(w, h) * 0.5
+            local n_cap_vertices = math.max(2, math.floor(n_outer_vertices / 2))
+            local angle_step = math.pi / n_cap_vertices
+
+            local additional = {}
+
+            if w >= h then
+                -- right cap
+                local cx_right, cy = x + w - r, y + r
+                local cy_right = y + h - r
+                for i = 0, n_cap_vertices do
+                    local angle = -math.pi / 2 + i * angle_step
+                    table.insert(vertices, cx_right + r * math.cos(angle))
+                    table.insert(vertices, cy + r * math.sin(angle))
+                end
+
+                -- left cap
+                local cx_left = x + r
+                local cy_left = y + r
+                for i = 0, n_cap_vertices do
+                    local angle = math.pi / 2 + i * angle_step
+                    table.insert(vertices, cx_left + r * math.cos(angle))
+                    table.insert(vertices, cy + r * math.sin(angle))
+                end
+
+                table.insert(additional, cx_left)
+                table.insert(additional, cy_left)
+                table.insert(additional, cx_right)
+                table.insert(additional, cy_right)
+            else
+                -- bottom cap
+                local cx = x + r
+                local cx_top, cy_top = x + r, y + r
+                local cx_bottom, cy_bottom = x + r, y + h - r
+                for i = 0, n_cap_vertices do
+                    local angle = 0 + i * angle_step
+                    table.insert(vertices, cx + r * math.cos(angle))
+                    table.insert(vertices, cy_bottom + r * math.sin(angle))
+                end
+
+                -- top cap
+                for i = 0, n_cap_vertices do
+                    local angle = math.pi + i * angle_step
+                    table.insert(vertices, cx + r * math.cos(angle))
+                    table.insert(vertices, cy_top + r * math.sin(angle))
+                end
+
+                table.insert(additional, cx_top)
+                table.insert(additional, cy_top)
+                table.insert(additional, cx_bottom)
+                table.insert(additional, cy_bottom)
+            end
+
+            vertices = _process_polygon(vertices, self)
+            additional = _process_polygon(additional, self)
+            local polygonization = rt.math.polygonize(8, vertices, additional)
 
             for shape in values(polygonization) do
                 table.insert(prototypes, {
@@ -401,12 +521,10 @@ function ow.ObjectWrapper:create_physics_body(world, type, is_sensor)
         is_sensor = self:get_boolean("is_sensor") or false
     end
 
-    -- Ensure physics prototypes are initialized to get the centroid position
     if self.physics_prototypes_initialized ~= true then
         self:_initialize_physics_prototypes()
     end
 
-    -- Use the calculated centroid as the physics body position
     local body_x = self.physics_body_x or 0
     local body_y = self.physics_body_y or 0
 
@@ -427,31 +545,77 @@ function ow.ObjectWrapper:_initialize_mesh_prototype()
         self:_initialize_physics_prototypes()
     end
 
-    local to_polygonize = {}
+    local vertices = {}
     if self.type == ow.ObjectType.RECTANGLE or self.type == ow.ObjectType.SPRITE then
         local x, y = self.x, self.y
         local w, h = self.width, self.height
-        to_polygonize = { x, y, x + w, y, x + w, y + h, x, y + h }
+        vertices = { x, y, x + w, y, x + w, y + h, x, y + h }
     elseif self.type == ow.ObjectType.ELLIPSE then
         local x, y = self.center_x, self.center_y
         local x_radius, y_radius = self.x_radius, self.y_radius
         local points = { x, y }
-        local n_outer_vertices = _calculate_n_outer_vertices(x_radius, y_radius)
+        local n_outer_vertices = _calculate_n_outer_vertices_mesh(x_radius, y_radius)
         for i = 1, n_outer_vertices + 1 do
             local angle = (i - 1) / n_outer_vertices * 2 * math.pi
             table.insert(points, x + math.cos(angle) * x_radius)
             table.insert(points, y + math.sin(angle) * y_radius)
         end
-        to_polygonize = points
+        vertices = points
+    elseif self.type == ow.ObjectType.CAPSULE then
+        local x, y = self.x, self.y
+        local w, h = self.width, self.height
+        local n_outer_vertices = _calculate_n_outer_vertices_mesh(0.5 * w, 0.5 * h)
+
+        local r = math.min(w, h) * 0.5
+        local n_cap_vertices = math.max(2, math.floor(n_outer_vertices / 2))
+        local angle_step = math.pi / n_cap_vertices
+
+        if w >= h then
+            -- right cap
+            local cx_right, cy_right = x + w - r, y + h - r
+            local cy = y + r
+            for i = 0, n_cap_vertices do
+                local angle = -math.pi / 2 + i * angle_step
+                table.insert(vertices, cx_right + r * math.cos(angle))
+                table.insert(vertices, cy + r * math.sin(angle))
+            end
+
+            -- left cap
+            local cx_left = x + r
+            local cy_left = y + r
+            for i = 0, n_cap_vertices do
+                local angle = math.pi / 2 + i * angle_step
+                table.insert(vertices, cx_left + r * math.cos(angle))
+                table.insert(vertices, cy + r * math.sin(angle))
+            end
+        else
+            -- bottom cap
+            local cy_top, cy_bottom = y + r, y + h - r
+            local cx_top, cx_bottom = x + r, x + h - r
+
+            local cx = x + r
+            for i = 0, n_cap_vertices do
+                local angle = 0 + i * angle_step
+                table.insert(vertices, cx + r * math.cos(angle))
+                table.insert(vertices, cy_bottom + r * math.sin(angle))
+            end
+
+            -- top cap
+            for i = 0, n_cap_vertices do
+                local angle = math.pi + i * angle_step
+                table.insert(vertices, cx + r * math.cos(angle))
+                table.insert(vertices, cy_top + r * math.sin(angle))
+            end
+        end
     elseif self.type == ow.ObjectType.POLYGON then
-        to_polygonize = self.vertices
+        vertices = self.vertices
     elseif self.type == ow.ObjectType.POINT then
         -- points have no mesh
     else
         rt.error("In ow.ObjectWrapper._initialize_mesh_prototype: unhandled object type `", tostring(self.type), "`")
     end
 
-    to_polygonize = _process_polygon(to_polygonize, self)
+    vertices = _process_polygon(vertices, self)
 
     local centroid_x = self.physics_body_x
     local centroid_y = self.physics_body_y
@@ -461,7 +625,7 @@ function ow.ObjectWrapper:_initialize_mesh_prototype()
     self.mesh_triangles = {}
     self.mesh_triangles_normalized = {}
 
-    local polygonized = rt.math.triangulate(to_polygonize)
+    local polygonized = rt.math.triangulate(vertices)
 
     for tri in values(polygonized) do
         for i = 1, #tri, 2 do
@@ -498,12 +662,49 @@ function ow.ObjectWrapper:_initialize_contour_prototype()
     elseif self.type == ow.ObjectType.ELLIPSE then
         local x, y = self.center_x, self.center_y
         local x_radius, y_radius = self.x_radius, self.y_radius
-        local n_outer_vertices = _calculate_n_outer_vertices(x_radius, y_radius)
+        local n_outer_vertices = _calculate_n_outer_vertices_mesh(x_radius, y_radius)
         for i = 1, n_outer_vertices do
             local angle = (i - 1) / n_outer_vertices * 2 * math.pi
             table.insert(contour, x + math.cos(angle) * x_radius)
             table.insert(contour, y + math.sin(angle) * y_radius)
         end
+    elseif self.type == ow.ObjectType.CAPSULE then
+        local x, y = self.x, self.y
+        local w, h = self.width, self.height
+        local n_outer_vertices = _calculate_n_outer_vertices_mesh(0.5 * w, 0.5 * h)
+
+        local r = math.min(w, h) * 0.5
+        local n_cap_vertices = math.max(2, math.floor(n_outer_vertices / 2))
+        local angle_step = math.pi / n_cap_vertices
+
+        if w >= h then
+            local cx_right, cy = x + w - r, y + r
+            for i = 0, n_cap_vertices do
+                local angle = -math.pi / 2 + i * angle_step
+                table.insert(contour, cx_right + r * math.cos(angle))
+                table.insert(contour, cy + r * math.sin(angle))
+            end
+            local cx_left = x + r
+            for i = 0, n_cap_vertices do
+                local angle = math.pi / 2 + i * angle_step
+                table.insert(contour, cx_left + r * math.cos(angle))
+                table.insert(contour, cy + r * math.sin(angle))
+            end
+        else
+            local cx = x + r
+            local cy_top, cy_bottom = y + r, y + h - r
+            for i = 0, n_cap_vertices do
+                local angle = 0 + i * angle_step
+                table.insert(contour, cx + r * math.cos(angle))
+                table.insert(contour, cy_bottom + r * math.sin(angle))
+            end
+            for i = 0, n_cap_vertices do
+                local angle = math.pi + i * angle_step
+                table.insert(contour, cx + r * math.cos(angle))
+                table.insert(contour, cy_top + r * math.sin(angle))
+            end
+        end
+
     elseif self.type == ow.ObjectType.POLYGON then
         contour = table.deepcopy(self.vertices)
     end
@@ -739,6 +940,8 @@ function ow.ObjectWrapper:validate_schema(schema, ...)
     for shape in values(shapes) do
         if shape == ow.ShapeType.ANY then
             is_valid_shape = true
+        elseif shape == ow.ShapeType.CAPSULE then
+            is_valid_shape = type == ow.ObjectType.CAPSULE
         elseif shape == ow.ShapeType.CIRCLE then
             is_valid_shape = type == ow.ObjectType.ELLIPSE
                 and math.equals(self.x_radius, self.y_radius, 1)
@@ -1058,17 +1261,31 @@ local function _parse_single_object_group(object_group, group_offset_x, group_of
                 if wrapper.class == nil then wrapper.class = "Sprite" end
             else
                 local shape_type = _get(object, "shape")
-                if shape_type == "rectangle" then
-                    local x, y = _get(object, "x"), _get(object, "y")
-                    local width, height = _get(object, "width"), _get(object, "height")
+                if shape_type == ow.ObjectType.RECTANGLE then
+                    local x = _get(object, "x") + group_offset_x
+                    local y = _get(object, "y") + group_offset_y
+                    local width = _get(object, "width")
+                    local height = _get(object, "height")
 
                     wrapper:_as_rectangle(
-                        x + group_offset_x, y + group_offset_y, -- top left
+                        x, y, -- top left
                         width, height, -- size
-                        x + group_offset_x, y + group_offset_y
+                        x, y
                     )
 
-                elseif shape_type == "ellipse" then
+                elseif shape_type == ow.ObjectType.CAPSULE then
+                    local x = _get(object, "x") + group_offset_x
+                    local y = _get(object, "y") + group_offset_y
+                    local width = _get(object, "width")
+                    local height = _get(object, "height")
+
+                    wrapper:_as_capsule(
+                        x, y, -- top left
+                        width, height,
+                        x, y
+                    )
+
+                elseif shape_type == ow.ObjectType.ELLIPSE then
                     local x = _get(object, "x") + group_offset_x
                     local y = _get(object, "y") + group_offset_y
                     local width = _get(object, "width")
@@ -1084,7 +1301,7 @@ local function _parse_single_object_group(object_group, group_offset_x, group_of
                         x, y
                     )
 
-                elseif shape_type == "polygon" then
+                elseif shape_type == ow.ObjectType.POLYGON then
                     local vertices = {}
                     local offset_x, offset_y = _get(object, "x"), _get(object, "y")
 
@@ -1111,7 +1328,7 @@ local function _parse_single_object_group(object_group, group_offset_x, group_of
                     wrapper.flip_origin_x = origin_x
                     wrapper.flip_origin_y = origin_y
 
-                elseif shape_type == "point" then
+                elseif shape_type == ow.ObjectType.POINT then
                     local x, y = _get(object, "x"), _get(object, "y")
 
                     wrapper:_as_point(

@@ -22,6 +22,6 @@ rt.math.triangulate = function(points, use_speedup)
     return out
 end
 
-rt.math.polygonize = function(n, points)
-    return slick.polygonize(n, { points })
+rt.math.polygonize = function(n, points, ...)
+    return slick.polygonize(n, { points, ... })
 end

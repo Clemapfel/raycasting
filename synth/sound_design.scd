@@ -179,7 +179,10 @@ server.waitForBoot {
 			[\hold, \lin, \hold, \lin]
 		);
 
-		signal = signal + (0.25 * FreeVerb.ar(SinOsc.ar(EnvGen.kr(freqEnv)) * EnvGen.ar(ampEnv), room: 0.2, damp: 1.5));
+		signal = signal + (0.25 * FreeVerb.ar(SinOsc.ar(EnvGen.kr(freqEnv)) * EnvGen.ar(ampEnv),
+			room: 0.2,
+			damp: 1.5
+		));
 
         Out.ar(out, signal.dup);
 		~recorder_end.(DelayN.ar(signal, sweepDur, sweepDur));
