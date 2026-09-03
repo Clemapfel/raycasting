@@ -1,69 +1,140 @@
 AutoRecorder {
-    classvar <headerFormat = "WAV";
-    classvar <sampleFormat = "int16";
-    classvar <sampleRate = 48000;
+	classvar <>headerFormat = "wav";
+	classvar <>sampleFormat = "int16";
+    classvar <>sampleRate = 48000;
 
-	var <>idToEntry = Dictionary.new();
+    var <>path;
+    var <>defID;
+    var <>server;
+    var <>recordEndOSC;
+    var <>recordEndOSCdef;
+    var <>doneCondition;
+    var <>buffer;
+    var <>synth;
 
-	var <>recordStartOSC;
-	var <>recordEndOSC;
-	var <>recorder;
-	var <>recordStartOSCdef;
-	var <>recordEndOSCdef;
+    var <state = \idle;
 
-	*new { arg server;
-		^super.new.init(server);
-	}
+    *new { arg server;
+        ^super.new.init(server);
+    }
 
-	init { arg server;
-		var id = UniqueID.next;
+    init { arg inServer, numChannels = 1;
+        var id = UniqueID.next;
+        server = inServer;
 
-		recorder = Recorder(server);
-		recorder.recHeaderFormat = AutoRecorder.headerFormat;
-		recorder.recSampleFormat = AutoRecorder.sampleFormat;
+        doneCondition = Condition.new(true);
+        recordEndOSC = ("/recordEnd" ++ id).asSymbol;
+        defID = ("autoRecorder_Disk" ++ id).asSymbol;
 
-		recordStartOSC = ("/recordStart" ++ id).asSymbol;
-		recordEndOSC = ("/recordEnd" ++ id).asSymbol;
+        SynthDef(defID, { arg bufnum, bus;
+            DiskOut.ar(bufnum, In.ar(bus, numChannels));
+        }).add;
 
-		recordStartOSCdef = OSCdef(("recordStartOSCdef" ++ id).asSymbol, { arg msg;
-			var filename = msg[1].asString;
-			var bus = msg[2];
-			var numChannels = msg[3];
+        recordEndOSCdef = OSCdef(("recordEndOSCdef" ++ id).asSymbol, {
+            this.stop();
+        }, recordEndOSC);
 
-			recorder.record(filename, bus: bus, numChannels: numChannels);
-		}, recordStartOSC);
+        ^this;
+    }
 
-		recordEndOSCdef = OSCdef(("recordEndOSCdef" ++ id).asSymbol, { arg msg;
-			recorder.stopRecording;
-		}, recordEndOSC);
+    record { arg filename, f, bus = 0, numChannels = 1;
+        if (f.isKindOf(Function).not && f.respondsTo(\play).not) {
+            Error("In AutoRecorder.record: argument #2 is not callable").throw
+        };
 
-		^this;
-	}
+        if (filename.isKindOf(PathName)) {
+            filename = filename.fullPath
+        };
 
-	start { arg filename, bus = 0, numChannels = 1;
-		var symbol;
+        if (state != \idle) {
+            "AutoRecorder is currently busy. Skipping.".warn;
+            ^this;
+        };
 
-		if (filename.isKindOf(PathName)) { filename = filename.fullPath; };
-		symbol = filename.asSymbol;
+        state = \recording;
+        doneCondition.test = false;
 
-		NetAddr.localAddr.sendMsg(recordStartOSC, filename, bus, numChannels);
+        fork {
+            buffer = Buffer.alloc(server,
+                sampleRate.nextPowerOfTwo,
+                numChannels
+            );
 
-		^this;
-	}
+            server.sync;
 
-	ar { arg signal;
-		^SendReply.ar(DetectSilence.ar(signal), recordEndOSC);
-	}
+            buffer.write(filename, headerFormat, sampleFormat,
+                0, 0, true // disk out config
+            );
 
-	kr { arg signal;
-		^SendReply.kr(DetectSilence.kr(signal), recordEndOSC);
-	}
+            server.sync;
 
-	free {
-		if (recordStartOSCdef.isNil.not) { recordStartOSCdef.free; };
-		if (recordEndOSCdef.isNil.not) { recordEndOSCdef.free; };
-	}
+            synth = Synth.tail(server.defaultGroup, defID, [
+                \bufnum, buffer,
+                \bus, bus
+            ]);
+
+            path = PathName.new(filename);
+            "In AutoRecorder: recording `%` to `%`".format(
+                path.fileNameWithoutExtension,
+                path.fullPath
+            ).postln;
+
+            if (f.isKindOf(Function)) {
+                f.value;
+            } {
+                f.play;
+            }
+        }
+
+        ^this;
+    }
+
+    stop {
+        if (state != \recording) { ^this };
+        state = \stopping;
+
+        if (buffer.notNil) {
+            var bufToClose = buffer;
+            buffer = nil; // clear immediately to prevent UI race conditions
+
+            bufToClose.close({ arg buf;
+                buf.free;
+                state = \idle;
+                doneCondition.test = true;
+                doneCondition.unhang;
+
+                "In AutoRecorder: finished  `%` to `%`".format(
+                    path.fileNameWithoutExtension,
+                    path.fullPath
+                ).postln;
+            });
+        } {
+            state = \idle;
+			"called".postln;
+            doneCondition.test = true;
+            doneCondition.unhang;
+        };
+
+        if (synth.notNil) {
+            synth.free;
+            synth = nil;
+        };
+    }
+
+    ar { arg signal, doneAction = 0;
+        ^SendReply.ar(DetectSilence.ar(signal, doneAction: doneAction), recordEndOSC);
+    }
+
+    kr { arg signal, doneAction = 0;
+        ^SendReply.kr(DetectSilence.kr(signal, doneAction: doneAction), recordEndOSC);
+    }
+
+    hang {
+        doneCondition.hang;
+    }
+
+    free {
+        if (recordEndOSCdef.notNil) { recordEndOSCdef.free; };
+        if (buffer.notNil) { buffer.free; };
+    }
 }
-
-
-    

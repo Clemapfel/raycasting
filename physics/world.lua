@@ -79,7 +79,7 @@ function b2.World:instantiate()
         entry.contact = contact
     end
 
-    local _begin_contact_callback = function(shape_a, shape_b, contact)
+    local _begin_contact_callback = function(shape_a, shape_b, contact, ...)
         local body_a = shape_a:getBody():getUserData()
         local body_b = shape_b:getBody():getUserData()
         local normal_x, normal_y = contact:getNormal()
