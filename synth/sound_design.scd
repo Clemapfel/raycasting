@@ -1,11 +1,37 @@
 var server = Server.default;
 var recorder = AutoRecorder.new(server);
 
+~temp_path = Platform.defaultTempDir +/+ "synth";
+~export_path = thisProcess.nowExecutingPath.dirname +/+ "export";
+
+~degrees = [0, 1]; // pitches for all pitch-dependent sfx
+
+server.options.sampleRate = AutoRecorder.sampleRate;
+server.options.memSize = 2 * (2 ** 16);
+
+/* ###### MAIN ###### */
+
+server.waitForBoot {
+	var before = Main.elapsedTime;
+    ~bubble_pop.();
+    ~bubble_unpop.();
+
+	"Done. Took %s".format(Main.elapsedTime - before).postln;
+
+    CmdPeriod.doOnce {
+        server.freeAll;
+        recorder.stop;
+		recorder.hang;
+		recorder.free;
+		recorder = AutoRecorder.new(server);
+    };
+};
+
+/* ##### AUXILIARY ##### */
+
 ~detect_clipping = ClipDetector.new;
 ~detect_done = { |signal| DetectSilence.ar(signal, 1e-4, time: 1.0, doneAction: Done.freeSelf); };
 
-~temp_path = Platform.defaultTempDir +/+ "synth";
-~export_path = thisProcess.nowExecutingPath.dirname +/+ "export";
 ~filename = { arg prefix, name, degree;
 	var res;
 	if (prefix.isNil || name.isNil) { Error("In ~filename: expected string for argument #1 and #2").throw };
@@ -37,25 +63,7 @@ var recorder = AutoRecorder.new(server);
 ~recorder_wait = { recorder.hang; };
 ~recorder_end = { |signal| recorder.ar(signal, doneAction: Done.freeSelf) };
 
-server.options.sampleRate = AutoRecorder.sampleRate;
-server.options.memSize = 2 * (2 ** 16);
-
-server.waitForBoot {
-	var before = Main.elapsedTime;
-    ~bubble_pop.();
-    ~bubble_unpop.();
-
-	"Done. Took %s".format(Main.elapsedTime - before).postln;
-
-    CmdPeriod.doOnce {
-        server.freeAll;
-        recorder.stop;
-    };
-};
-
 /* ##### IMPLEMENTATIONS ##### */
-
-~degrees = [0, 1];
 
 ~bubble_pop = {
     var def = SynthDef(\bubblePop, {
@@ -91,7 +99,8 @@ server.waitForBoot {
             freq: Line.ar(8000, 10, snapDuration - 0.001)
         );
 
-        var signal = noise + sweepAbove + sweepBase;
+		var signal = noise + FreeVerb.ar(sweepAbove + sweepBase, mix: 0.05);
+
         Out.ar(out, (amp * signal).dup);
 
         ~recorder_end.(signal);

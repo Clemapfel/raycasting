@@ -110,7 +110,6 @@ AutoRecorder {
             });
         } {
             state = \idle;
-			"called".postln;
             doneCondition.test = true;
             doneCondition.unhang;
         };
