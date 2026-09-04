@@ -48,18 +48,31 @@ rt.ByteData._format_to_getter_setter = {
     [rt.ByteDataFormat.FLOAT64] = { get = "getDouble", set = "setDouble" },
 }
 
---- @brief
-function rt.ByteData:instantiate(format, count_or_native)
+--- @param count_or_table_or_native Union<Number, Table, love.ByteData>
+function rt.ByteData:instantiate(format, count_or_table_or_native)
     meta.assert_argument_type(format, rt.ByteDataFormat, 1)
+    local should_fill = false
 
-    if meta.is_userdata(count_or_native) and meta.is_function(count_or_native.typeOf) and count_or_native:typeOf("ByteData") then
-        self._native = count_or_native
+    if meta.is_userdata(count_or_table_or_native)
+        and meta.is_function(count_or_table_or_native.typeOf)
+        and count_or_table_or_native:typeOf("ByteData")
+    then
+        self._native = count_or_table_or_native
+    elseif meta.is_table(count_or_table_or_native) then
+        local n = #count_or_table_or_native
+        local data = count_or_table_or_native
+        should_fill = true
+        self._native = love.data.newByteData(rt.ByteData.format_to_n_bytes(format) * n)
     else
-        rt.assert(meta.is_number(count_or_native) and count_or_native >= 0 and math.fract(count_or_native) == 0, "In rt.ByteData.instantiate: for argument #2: count `", count_or_native, "` is not an integer")
-        self._native = love.data.newByteData(rt.ByteData.format_to_n_bytes(format) * count_or_native)
+        local n = count_or_table_or_native
+        self._native = love.data.newByteData(rt.ByteData.format_to_n_bytes(format) * n)
     end
 
     self:cast(format)
+
+    if should_fill then
+        self:replace_data(count_or_table_or_native)
+    end
 end
 
 --- @brief
@@ -97,6 +110,19 @@ if ffi ~= nil then
     function rt.ByteData:get_pointer()
         return ffi.cast(self._format .. "*", self._native:getFFIPointer())
     end
+
+    --- @brief
+    function rt.ByteData:replace_data(data)
+        meta.assert(data, mt.Table)
+
+        local max_n = self._native:getSize() / rt.ByteData.format_to_n_bytes(self._format)
+        rt.assert(#data <= max_n, "In rt.ByteData.replace_data: data has `", #data, "` entries, but byte data cast as `", self._format,"` only has `", max_n, "` fields")
+
+        local ptr = self._pointer
+        for i = 1, #data do
+            ptr[i - 1] = data[i]
+        end
+    end
 else
     --- @brief
     function rt.ByteData:get(i)
@@ -111,6 +137,21 @@ else
     --- @brief
     function rt.ByteData:get_pointer()
         return self._native:getPointer()
+    end
+
+    --- @brief
+    function rt.ByteData:replace_data(data)
+        meta.assert(data, mt.Table)
+
+        local max_n = self._native:getSize() / rt.ByteData.format_to_n_bytes(self._format)
+        rt.assert(#data <= max_n, "In rt.ByteData.replace_data: data has `", #data, "` entries, but byte data cast as `", self._format,"` only has `", max_n, "` fields")
+
+        local native = self._native:getPointer()
+        local setter = self._setter
+        local stride = self._stride
+        for i = 1, #data do
+            setter(native, (i - 1) * stride, data[i])
+        end
     end
 end
 

@@ -29,11 +29,27 @@ local _data_mesh_format = {
     { location = 3, name = "particle_position", format = "floatvec2" },
     { location = 4, name = "particle_scale", format = "float" },
     { location = 5, name = "particle_rotation", format = "floatvec4" }, -- quaternion
-    { location = 6, name = "particle_is_outline", format = "uint32" }
+    { location = 6, name = "particle_is_outline", format = "float" }
 }
 
 local _instance_draw_shader = rt.Shader("overworld/objects/kill_plane_instanced_draw.glsl")
 local _background_shader = rt.Shader("overworld/objects/kill_plane_background.glsl")
+
+local _x_offset = 0
+local _y_offset = 1
+local _radius_offset = 2
+local _qx_offset = 3
+local _qy_offset = 4
+local _qz_offset = 5
+local _qw_offset = 6
+local _is_outline_offset = 7
+local _particle_stride = _is_outline_offset + 1
+
+local _axis_speed_offset = 0
+local _axis_x_offset = 1
+local _axis_y_offset = 2
+local _axis_z_offset = 3
+local _axis_stride = _axis_z_offset + 1
 
 function ow.KillPlane:instantiate(object, stage, scene)
     object:validate_schema(schema, ow.ShapeType.NOT_A_POINT)
@@ -148,8 +164,10 @@ function ow.KillPlane:instantiate(object, stage, scene)
         )
     end
 
+    self._n_particles = 0
+
     do -- data mesh
-        local data_mesh_data = {}
+        local particle_data = {}
         local axis_data = {}
         local min_radius, max_radius = rt.settings.overworld.kill_plane.min_radius, rt.settings.overworld.kill_plane.max_radius
         local noise_cutoff = 1 - rt.settings.overworld.kill_plane.noise_density
@@ -167,33 +185,43 @@ function ow.KillPlane:instantiate(object, stage, scene)
 
             local qx, qy, qz, qw = math.quaternion.random()
 
-            table.insert(data_mesh_data, {
-                x, y,
-                radius,
-                qx, qy, qz, qw,
-                outline,
-            })
+            local i = #particle_data + 1
+            particle_data[i + _x_offset] = x
+            particle_data[i + _y_offset] = y
+            particle_data[i + _radius_offset] = radius
+            particle_data[i + _qx_offset] = qx
+            particle_data[i + _qy_offset] = qy
+            particle_data[i + _qz_offset] = qz
+            particle_data[i + _qw_offset] = qw
+            particle_data[i + _is_outline_offset] = outline
 
-            table.insert(data_mesh_data, {
-                x, y,
-                radius,
-                qx, qy, qz, qw,
-                not_outline,
-            })
+            i = #particle_data + 1
+            particle_data[i + _x_offset] = x
+            particle_data[i + _y_offset] = y
+            particle_data[i + _radius_offset] = radius
+            particle_data[i + _qx_offset] = qx
+            particle_data[i + _qy_offset] = qy
+            particle_data[i + _qz_offset] = qz
+            particle_data[i + _qw_offset] = qw
+            particle_data[i + _is_outline_offset] = not_outline
 
-            table.insert(axis_data, {
-                speed = rt.random.choose(-1, 1) * rt.random.number(
-                    rt.settings.overworld.kill_plane.min_rotation_speed,
-                    rt.settings.overworld.kill_plane.max_rotation_speed
-                ),
-                axis = {
-                    math.normalize3(
-                        rt.random.number(-1, 1),
-                        rt.random.number(-1, 1),
-                        rt.random.number(-1, 1)
-                    )
-                }
-            })
+            i = #axis_data + 1
+            axis_data[i + _axis_speed_offset] = rt.random.choose(-1, 1) * rt.random.number(
+                rt.settings.overworld.kill_plane.min_rotation_speed,
+                rt.settings.overworld.kill_plane.max_rotation_speed
+            )
+
+            local ax, ay, az = math.normalize3(
+                rt.random.number(-1, 1),
+                rt.random.number(-1, 1),
+                rt.random.number(-1, 1)
+            )
+
+            axis_data[i + _axis_x_offset] = ax
+            axis_data[i + _axis_y_offset] = ay
+            axis_data[i + _axis_z_offset] = az
+
+            self._n_particles = self._n_particles + 1
         end
 
         local n_columns = math.ceil(aabb.width / cell_size)
@@ -235,16 +263,20 @@ function ow.KillPlane:instantiate(object, stage, scene)
             end
         end
 
-        if #data_mesh_data == 0 then
+        if #particle_data == 0 then
             self._is_visible = false
             return
         end
 
-        self._data_mesh_data = data_mesh_data
+        -- first create lua table, then export to bytedata because number of
+        -- particles is indeterminate until everything is allocated
+
+        self._byte_data = rt.ByteData(rt.ByteDataFormat.FLOAT32, particle_data)
+        self._particle_data = particle_data
         self._axis_data = axis_data
 
         self._data_mesh = rt.Mesh(
-            data_mesh_data,
+            self._byte_data,
             rt.MeshDrawMode.POINTS,
             _data_mesh_format,
             rt.GraphicsBufferUsage.STREAM
@@ -258,11 +290,10 @@ function ow.KillPlane:instantiate(object, stage, scene)
             )
         end
 
-        self._n_instances = #self._data_mesh_data
+        self._n_instances = #particle_data / 2
     end
 end
 
---- @brief
 function ow.KillPlane:update(delta)
     if not self._is_visible or not self._stage:get_is_body_visible(self._body) then
         return
@@ -272,21 +303,47 @@ function ow.KillPlane:update(delta)
     local ox, oy = self._body:get_position()
     local range = rt.settings.overworld.kill_plane.player_range
 
-    local bounds = self._scene:get_camera():get_world_bounds()
+    local bx, by, bw, bh = self._scene:get_camera():get_world_bounds():unpack()
 
-    local axis_i = 1
-    for i = 1, #self._data_mesh_data, 2 do
-        local data = self._data_mesh_data[i]
-        local qx, qy, qz, qw = data[4], data[5], data[6], data[7]
-        local axis_data = self._axis_data[axis_i]
-        local angle = delta * 2 * math.pi * axis_data.speed
-        local axis_x, axis_y, axis_z = table.unpack(axis_data.axis)
+    local use_ffi = ffi ~= nil
+    local particle_data
+    if use_ffi then
+        particle_data = self._byte_data:get_pointer() -- float*, 0-based
+    else
+        particle_data = self._particle_data -- lua table, 1-based
+    end
 
-        local x_local, y_local = data[1], data[2]
+    local axis_data = self._axis_data
+    local particle_stride = _particle_stride
+    local axis_stride = _axis_stride
+
+    for i = 1, self._n_particles do
+        local outline_i = (i - 1) * 2 * particle_stride + 1
+        local fill_i = outline_i + particle_stride
+
+        if use_ffi then
+            outline_i = outline_i - 1
+            fill_i = fill_i - 1
+        end
+
+        local x_local = particle_data[outline_i + _x_offset]
+        local y_local = particle_data[outline_i + _y_offset]
         local x_world = x_local + ox
         local y_world = y_local + oy
 
-        if bounds:contains(x_world, y_world) then
+        local qx = particle_data[outline_i + _qx_offset]
+        local qy = particle_data[outline_i + _qy_offset]
+        local qz = particle_data[outline_i + _qz_offset]
+        local qw = particle_data[outline_i + _qw_offset]
+
+        local axis_i = (i - 1) * axis_stride + 1
+        local speed = axis_data[axis_i + _axis_speed_offset]
+        local axis_x = axis_data[axis_i + _axis_x_offset]
+        local axis_y = axis_data[axis_i + _axis_y_offset]
+        local axis_z = axis_data[axis_i + _axis_z_offset]
+        local angle = delta * 2 * math.pi * speed
+
+        if x_world >= bx and x_world <= bx + bw and y_world >= by and y_world <= by + bh then
             local dx = px - x_world
             local dy = py - y_world
             local player_angle = math.angle(dx, dy) + 0.5 * math.pi
@@ -297,9 +354,13 @@ function ow.KillPlane:update(delta)
                 player_angle
             )
 
+            local axis_qx, axis_qy, axis_qz, axis_qw = math.quaternion.from_axis_angle(
+                axis_x, axis_y, axis_z, angle
+            )
+
             local rotated_qx, rotated_qy, rotated_qz, rotated_qw = math.quaternion.multiply(
                 qx, qy, qz, qw,
-                math.quaternion.from_axis_angle(axis_x, axis_y, axis_z, angle)
+                axis_qx, axis_qy, axis_qz, axis_qw
             )
 
             local new_qx, new_qy, new_qz, new_qw = math.quaternion.mix(
@@ -308,16 +369,23 @@ function ow.KillPlane:update(delta)
                 t
             )
 
-            local a = self._data_mesh_data[i+0]
-            local b = self._data_mesh_data[i+1]
-            a[4], a[5], a[6], a[7] = new_qx, new_qy, new_qz, new_qw
-            b[4], b[5], b[6], b[7] = new_qx, new_qy, new_qz, new_qw
-        end
+            particle_data[outline_i + _qx_offset] = new_qx
+            particle_data[outline_i + _qy_offset] = new_qy
+            particle_data[outline_i + _qz_offset] = new_qz
+            particle_data[outline_i + _qw_offset] = new_qw
 
-        axis_i = axis_i + 1
+            particle_data[fill_i + _qx_offset] = new_qx
+            particle_data[fill_i + _qy_offset] = new_qy
+            particle_data[fill_i + _qz_offset] = new_qz
+            particle_data[fill_i + _qw_offset] = new_qw
+        end
     end
 
-    self._data_mesh:replace_data(self._data_mesh_data)
+    if not use_ffi then
+        self._byte_data:replace_data(particle_data)
+    end
+
+    self._data_mesh:replace_data(self._byte_data)
 end
 
 --- @brief
