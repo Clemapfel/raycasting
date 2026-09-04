@@ -13,23 +13,21 @@ server.options.memSize = 2 * (2 ** 16);
 
 server.waitForBoot {
 	var before = Main.elapsedTime;
-    ~bubble_pop.();
-    ~bubble_unpop.();
+    //~bubble_pop.();
+    //~bubble_unpop.();
+	~bounce_pad.();
 
-	"Done. Took %s".format(Main.elapsedTime - before).postln;
+	//"Done. Took %s".format(Main.elapsedTime - before).postln;
 
     CmdPeriod.doOnce {
         server.freeAll;
-        recorder.stop;
-		recorder.hang;
-		recorder.free;
-		recorder = AutoRecorder.new(server);
-    };
+		recorder.stop;
+	};
 };
 
 /* ##### AUXILIARY ##### */
 
-~detect_clipping = ClipDetector.new;
+~detect_clipping = { |signal| ClipDetector.ar(signal) };
 ~detect_done = { |signal| DetectSilence.ar(signal, 1e-4, time: 1.0, doneAction: Done.freeSelf); };
 
 ~filename = { arg prefix, name, degree;
@@ -249,6 +247,82 @@ server.waitForBoot {
 		File.delete(path);
 		~log.("rm `%`".format(path));
 	};
+};
+
+~bounce_pad = {
+	var def = SynthDef(\bouncePad, { arg out, amp, freq, dur, gate;
+		var fadeOutDur = 0.05;
+		var freqEnv = Env.new(
+			[1, 0], [dur - fadeOutDur], [\exp]
+		);
+
+		var attack = 0.02;
+		var ampEnv = Env.new(
+			[0, 1, 1, 0], [attack, dur - attack - fadeOutDur, fadeOutDur], [\lin, \hold, \lin]
+		);
+
+		var wobbleFreq = Vibrato.kr(
+			freq: DC.ar(freq / 2),
+			rate: XLine.kr(6, 9, dur),
+			depth: 0.4 * (XLine.kr(2 - 0.8, 2, dur) - 1)
+		) * EnvGen.ar(ampEnv);
+
+		var ratios = [ 1, 2, 3, 5, 7, 9 ].sqrt;
+		var wobble = DynKlank.ar(`[
+			ratios,
+			ratios.collect({ |r| (1 / ratios.size) / r; }),
+			ratios.collect({ |r| dur / r; })
+		], EnvGen.ar(Env.new([0, 1], [1e-3], [\lin])), freqoffset: wobbleFreq);
+
+		var ringDur = 1.0 * dur;
+        var ring = Ringz.ar(
+			EnvGen.ar(Env.perc(0.01, 0)) * PinkNoise.ar(),
+			freq: freq * EnvGen.kr(Env.new(
+				[ -12, 0, -12 ], [ 0.01, 0.2 ].normalizeSum * ringDur, [\welch]
+			)).midiratio,
+            decaytime: ringDur
+		) * EnvGen.ar(Env.perc(0.02, 1.0));
+
+		var signal;
+
+		// scale to prevent clipping, values determined empirically
+		ring = Limiter.ar(ring / 20);
+		wobble = Limiter.ar(wobble / 400);
+		~detect_clipping.(ring);
+		~detect_clipping.(wobble);
+
+		signal = Mix.ar([ring, wobble] * [2, 0.75].normalizeSum);
+
+		// make sure impulse last exactly dur long
+		signal = signal * EnvGen.ar(
+			Env.new([0, 1, 0], [0.01, dur - 0.1, 0.1]),
+			doneAction: Done.freeSelf
+		);
+
+		Out.ar(out, (amp * signal).dup);
+		~recorder_end.(signal);
+	}).add;
+
+	Pbind(*[
+		instrument: def.name,
+		degree: Pseq(~degrees),
+		dur: 2,
+		amp: 1
+	]).play;
+
+	/*
+	~degrees.do { arg degree;
+        ~recorder_start.(
+			~filename.("bounce_pad", "hit", degree),
+			Pbind(*[
+				instrument: def.name,
+				degree: Pn(degree, 1),
+				dur: 2
+			])
+		);
+        ~recorder_wait.()
+    };
+	*/
 };
 
 Date.getDate;
