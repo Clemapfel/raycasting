@@ -342,13 +342,13 @@ server.waitForBoot {
 ~air_dash_node_dash = {
      var def = SynthDef(\violin, { |out = 0, freq = 440, amp = 0.5, gate = 1, pan = 0, dur|
 
-		var forceEnv = EnvGen.kr(Env.perc(0.08, dur), gate: gate);
+		var forceEnv = EnvGen.kr(Env.new([0.0, 1], [0.02], [\welch]), gate: gate);
 
 		var stringDecay = 4.0;
 		var feedback = LocalIn.ar();
 
-		var violinFreq = Vibrato.kr(DC.kr(freq), depth: (1 - forceEnv) * 0.02);
-		var violinEnv = EnvGen.ar(Env.new([1, 1, 0.3, 0], [0, dur * 0.8, dur * 0.2], [\lin, \welch]), gate: gate);
+		var violinFreq = Vibrato.kr(DC.kr(freq), depth: 0.01);
+		var violinEnv = EnvGen.ar(Env.new([1, 1, 0.3, 0], [0, dur - 0.2, 0.2], [\lin, \welch]), gate: gate);
         var violin = DWGSoundBoard.ar(DWGBowedTor.ar(
 			freq: violinFreq,
 			velb: 0.7 * forceEnv,
@@ -362,7 +362,7 @@ server.waitForBoot {
 		var bodyAmps = 1 ! bodyFreqs.size;
 		var bodyRings = bodyFreqs.collect { |freq| dur / freq };
 
-        var body = (1 / 12) * DynKlank.ar(`[bodyFreqs, bodyAmps, bodyRings], violin);
+        var body = Limiter.ar(DynKlank.ar(`[bodyFreqs, bodyAmps, bodyRings], violin) / 6);
         var masterEnv = EnvGen.kr(Env.adsr(
 			attackTime: 0,
 			decayTime: 0.2,
@@ -370,9 +370,13 @@ server.waitForBoot {
 			releaseTime: 2,
 		), gate, doneAction: Done.freeSelf);
 
-		var signal = body;
 
-		~detect_clipping.(signal);
+		var dash = EnvGen.ar(Env.perc(0.4), gate: gate) * SinOsc.ar(freq, phase: PinkNoise.ar());
+		var signal = FreeVerb.ar(body, mix: 0.2) * LPF.ar(dash, 6000);
+
+				~detect_clipping.(body);
+		LocalOut.ar(dash);
+
         Out.ar(out, Pan2.ar(signal * amp * masterEnv, pan));
     }).add;
 
@@ -384,7 +388,7 @@ server.waitForBoot {
         \degree, Pseq(~degrees, inf),
         \legato, Pn(0.5, inf),
         \amp, 0.4,
-		\tempo, 0.2
+		\dur, 1.0
     ).play;
 };
 
