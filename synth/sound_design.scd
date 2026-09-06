@@ -342,24 +342,27 @@ server.waitForBoot {
 ~air_dash_node_dash = {
      var def = SynthDef(\violin, { |out = 0, freq = 440, amp = 0.5, gate = 1, pan = 0, dur|
 
-		var forceEnv = 0.2 * EnvGen.kr(Env.perc(0.1, dur), gate: gate);
+		var forceEnv = EnvGen.kr(Env.perc(0.08, dur), gate: gate);
 
 		var stringDecay = 4.0;
 		var feedback = LocalIn.ar();
-        var violin = DWGSoundBoard.ar(DWGBowed.ar(
-			freq: Vibrato.kr(DC.kr(0.8 * freq), depth: Line.kr(0.001, 0.02, dur)),
-            velb: 0.8 * forceEnv,
-            force: 2.0 * forceEnv,
+
+		var violinFreq = Vibrato.kr(DC.kr(freq), depth: (1 - forceEnv) * 0.02);
+		var violinEnv = EnvGen.ar(Env.new([1, 1, 0.3, 0], [0, dur * 0.8, dur * 0.2], [\lin, \welch]), gate: gate);
+        var violin = DWGSoundBoard.ar(DWGBowedTor.ar(
+			freq: violinFreq,
+			velb: 0.7 * forceEnv,
+            force: 0.2 * forceEnv,
             gate: gate,
 			pos: 0.2,
             release: stringDecay
-		)) * SinOsc.ar(100, phase: feedback);
+		)) * violinEnv;
 
-		var bodyFreqs = [1 / 8, 1 / 4, 1 / 2, 1];
+		var bodyFreqs = [1 / 8, 1 / 6, 1 / 4, 1];
 		var bodyAmps = 1 ! bodyFreqs.size;
 		var bodyRings = bodyFreqs.collect { |freq| dur / freq };
 
-        var body = (1 / 12) * Klank.ar(`[bodyFreqs, bodyAmps, bodyRings], violin);
+        var body = (1 / 12) * DynKlank.ar(`[bodyFreqs, bodyAmps, bodyRings], violin);
         var masterEnv = EnvGen.kr(Env.adsr(
 			attackTime: 0,
 			decayTime: 0.2,
@@ -367,7 +370,7 @@ server.waitForBoot {
 			releaseTime: 2,
 		), gate, doneAction: Done.freeSelf);
 
-		var signal = XFade2.ar(violin, body, 0);
+		var signal = body;
 
 		~detect_clipping.(signal);
         Out.ar(out, Pan2.ar(signal * amp * masterEnv, pan));
