@@ -9,6 +9,7 @@ import {
     MeshRectangle,
     radius_to_n_vertices
 } from "../common/mesh.ts";
+
 import {
     DEFAULT_COLOR_NAME,
     DEFAULT_FLOAT_PRECISION,
@@ -22,14 +23,16 @@ import {
     DEFAULT_TRANSFORM_NAME,
     Shader
 } from "../common/shader.ts";
+
 import { RenderTexture, TextureFormat } from "../common/texture.ts";
 import { LCHA, RGBA } from "../common/color.ts";
 import { Time } from "../common/time.ts";
+
 import "../common/math.ts";
 import { MeshVertexFormat } from "../common/mesh_vertex_format.ts";
 import { Vec2, Vec2Array } from "../common/vector.ts";
 
-const line_width_factor = 5 / 100;
+const line_width_factor = 2 / 100;
 const line_margin_factor = 1 / 100;
 const line_angle = 0.75 * 0.125 * Math.PI;
 
@@ -116,11 +119,76 @@ const particle_texture_shader_source = `${DEFAULT_SHADER_VERSION}
 
 const canvas_threshold_shader_source = `${DEFAULT_SHADER_VERSION}
     ${DEFAULT_FLOAT_PRECISION}
+    
+    vec3 lch_to_rgb(vec3 lch) {
+        float L = lch.x * 100.0;
+        float C = lch.y * 100.0;
+        float H = lch.z * 360.0;
+    
+        float a = cos(radians(H)) * C;
+        float b = sin(radians(H)) * C;
+    
+        float Y = (L + 16.0) / 116.0;
+        float X = a / 500.0 + Y;
+        float Z = Y - b / 200.0;
+    
+        X = 0.95047 * ((X * X * X > 0.008856) ? X * X * X : (X - 16.0 / 116.0) / 7.787);
+        Y = 1.00000 * ((Y * Y * Y > 0.008856) ? Y * Y * Y : (Y - 16.0 / 116.0) / 7.787);
+        Z = 1.08883 * ((Z * Z * Z > 0.008856) ? Z * Z * Z : (Z - 16.0 / 116.0) / 7.787);
+    
+        float R = X *  3.2406 + Y * -1.5372 + Z * -0.4986;
+        float G = X * -0.9689 + Y *  1.8758 + Z *  0.0415;
+        float B = X *  0.0557 + Y * -0.2040 + Z *  1.0570;
+    
+        R = (R > 0.0031308) ? 1.055 * pow(R, 1.0 / 2.4) - 0.055 : 12.92 * R;
+        G = (G > 0.0031308) ? 1.055 * pow(G, 1.0 / 2.4) - 0.055 : 12.92 * G;
+        B = (B > 0.0031308) ? 1.055 * pow(B, 1.0 / 2.4) - 0.055 : 12.92 * B;
+    
+        return vec3(clamp(R, 0.0, 1.0), clamp(G, 0.0, 1.0), clamp(B, 0.0, 1.0));
+    }
+    
+    vec3 random_3d(in vec3 p) {
+        return fract(sin(vec3(
+        dot(p, vec3(127.1, 311.7, 74.7)),
+        dot(p, vec3(269.5, 183.3, 246.1)),
+        dot(p, vec3(113.5, 271.9, 124.6)))
+        ) * 43758.5453123);
+    }
+    
+    float gradient_noise(vec3 p) {
+        vec3 i = floor(p);
+        vec3 v = fract(p);
+    
+        vec3 u = v * v * v * (v * (v * 6.0 - 15.0) + 10.0);
+    
+        return mix( mix( mix( dot( -1.0 + 2.0 * random_3d(i + vec3(0.0, 0.0, 0.0)), v - vec3(0.0, 0.0, 0.0)),
+        dot( -1.0 + 2.0 * random_3d(i + vec3(1.0, 0.0, 0.0)), v - vec3(1.0, 0.0, 0.0)), u.x),
+        mix( dot( -1.0 + 2.0 * random_3d(i + vec3(0.0, 1.0, 0.0)), v - vec3(0.0, 1.0, 0.0)),
+        dot( -1.0 + 2.0 * random_3d(i + vec3(1.0, 1.0, 0.0)), v - vec3(1.0, 1.0, 0.0)), u.x), u.y),
+        mix( mix( dot( -1.0 + 2.0 * random_3d(i + vec3(0.0, 0.0, 1.0)), v - vec3(0.0, 0.0, 1.0)),
+        dot( -1.0 + 2.0 * random_3d(i + vec3(1.0, 0.0, 1.0)), v - vec3(1.0, 0.0, 1.0)), u.x),
+        mix( dot( -1.0 + 2.0 * random_3d(i + vec3(0.0, 1.0, 1.0)), v - vec3(0.0, 1.0, 1.0)),
+        dot( -1.0 + 2.0 * random_3d(i + vec3(1.0, 1.0, 1.0)), v - vec3(1.0, 1.0, 1.0)), u.x), u.y), u.z );
+    }
+    
+    #define PI 3.1415926535897932384626433832795
+    float gaussian(float x, float ramp)
+    {
+        return exp(((-4.0 * PI) / 3.0) * (ramp * x) * (ramp * x));
+    }
+    
+    vec2 rotate(vec2 v, float angle) {
+        float s = sin(angle);
+        float c = cos(angle);
+        return v * mat2(c, -s, s, c);
+    }
 
     uniform sampler2D ${DEFAULT_TEXTURE_NAME};
     uniform vec2 ${DEFAULT_SCREEN_SIZE_NAME};
     uniform float eps;
     uniform float threshold;
+    uniform float elapsed;
+    uniform float hue;
     
     in vec2 ${DEFAULT_UV_NAME};
     in vec4 ${DEFAULT_RGBA_NAME};
@@ -129,51 +197,41 @@ const canvas_threshold_shader_source = `${DEFAULT_SHADER_VERSION}
     out vec4 ${DEFAULT_FRAGMENT_OUT_NAME};
     
     void main() {
-        vec2 pixel_size = 1.0 / ${DEFAULT_SCREEN_SIZE_NAME};
-
-        vec4 data = texture(${DEFAULT_TEXTURE_NAME}, ${DEFAULT_UV_NAME});
+        vec4 texel = texture(${DEFAULT_TEXTURE_NAME}, ${DEFAULT_UV_NAME});
         
         float value = smoothstep(
             threshold - eps,
             threshold + eps,
-            data.a
+            texel.a
         );
-
-        vec4 center = vec4(data.rgb, value) * ${DEFAULT_RGBA_NAME};
-
-        float tl = texture(${DEFAULT_TEXTURE_NAME}, ${DEFAULT_UV_NAME} + vec2(-1.0, -1.0) * pixel_size).a;
-        float tm = texture(${DEFAULT_TEXTURE_NAME}, ${DEFAULT_UV_NAME} + vec2( 0.0, -1.0) * pixel_size).a;
-        float tr = texture(${DEFAULT_TEXTURE_NAME}, ${DEFAULT_UV_NAME} + vec2( 1.0, -1.0) * pixel_size).a;
-        float ml = texture(${DEFAULT_TEXTURE_NAME}, ${DEFAULT_UV_NAME} + vec2(-1.0,  0.0) * pixel_size).a;
-        float mr = texture(${DEFAULT_TEXTURE_NAME}, ${DEFAULT_UV_NAME} + vec2( 1.0,  0.0) * pixel_size).a;
-        float bl = texture(${DEFAULT_TEXTURE_NAME}, ${DEFAULT_UV_NAME} + vec2(-1.0,  1.0) * pixel_size).a;
-        float bm = texture(${DEFAULT_TEXTURE_NAME}, ${DEFAULT_UV_NAME} + vec2( 0.0,  1.0) * pixel_size).a;
-        float br = texture(${DEFAULT_TEXTURE_NAME}, ${DEFAULT_UV_NAME} + vec2( 1.0,  1.0) * pixel_size).a;
-
-        float gradient_x = -tl + tr - 2.0 * ml + 2.0 * mr - bl + br;
-        float gradient_y = -tl - 2.0 * tm - tr + bl + 2.0 * bm + br;
-
-        const float gradient_influence = 0.25;
-        vec3 surface_normal = gradient_influence * normalize(vec3(-gradient_x, -gradient_y, 1.0));
-
-        vec3 specular_light_direction = normalize(vec3(1.0, -1.0, 1.0));
-        vec3 view_dir = vec3(0.0, 0.0, 1.0);
-        vec3 half_dir = normalize(specular_light_direction + view_dir);
-        
-        const float specular_focus = 16.0;
-        const float highlight_strength = 1.0;
-        float specular = highlight_strength * pow(max(dot(surface_normal, half_dir), 0.0), specular_focus);
-
-        vec3 shadow_light_direction = normalize(vec3(-0.5, 0.75, 0.0));
-        const float shadow_strength = 1.0;
-        float shadow = dot(surface_normal, shadow_light_direction);
-        shadow = smoothstep(0.0, 1.0, clamp(shadow * shadow_strength, 0.0, 1.0));
-        
-        ${DEFAULT_FRAGMENT_OUT_NAME} = vec4(center.rgb - shadow + specular, center.a);
+    
+        vec2 texture_coordinates = ${DEFAULT_UV_NAME} * 2.0;
+        vec2 uv = texture_coordinates - vec2(1.0);
+    
+        float time = elapsed / 2.0;
+        float scale = 3.0;
+        float n_octaves = 2.0;
+        vec2 step = vec2(0.0, 1.0);
+        float persistence = 1.0;
+    
+        for (int i = 0; i < int(n_octaves); ++i) {
+            uv = uv + step * gradient_noise(vec3(uv * persistence * scale, time));
+            step = rotate(step, (n_octaves - float(i)) * 2.0 * PI);
+            persistence *= distance(uv, texture_coordinates) * 0.4;
+        }
+    
+        float hue_eps = 0.05;
+        float noise = gradient_noise(vec3(uv * distance(uv, texture_coordinates), 0.0));
+    
+        float lightness = mix(0.4, 1.0, (noise + 1.0) / 2.0);
+        float hue_adj = fract(hue + mix(-hue_eps, +hue_eps, noise)); // intentional overflow of mixed, noise in -1, 1
+    
+        vec3 rgb = lch_to_rgb(vec3(lightness, 1.0, fract(hue_adj)));
+        ${DEFAULT_FRAGMENT_OUT_NAME} = vec4(rgb, value);
     }
     `;
 
-const glass_mesh_shader_source = `${DEFAULT_SHADER_VERSION}
+    const glass_mesh_shader_source = `${DEFAULT_SHADER_VERSION}
     ${DEFAULT_FLOAT_PRECISION}
     
     #define PI 3.1415926535897932384626433832795
@@ -281,7 +339,7 @@ export class Orb extends GLWidget  {
     private glass_mesh_shader? : Shader;
     private glass_mesh_cursor_position = new Vec2(0);
 
-    private glass_backing_color : RGBA = new RGBA(0.5, 0.5, 0.5, 1);
+    private glass_backing_color : RGBA = new RGBA(11 / 255, 11 / 255, 16 / 255, 1);
     private line_color : RGBA = new RGBA(1, 1, 1, 1);
     private fluid_color : RGBA = new RGBA(1, 1, 1, 1);
 
@@ -297,7 +355,6 @@ export class Orb extends GLWidget  {
     private was_freed : Boolean = false;
 
     private hue_color : LCHA = new LCHA(0.8, 1, 0, 1);
-
     private agitation_elapsed : number = Infinity;
 
     protected override draw() {
@@ -367,6 +424,8 @@ export class Orb extends GLWidget  {
             this.canvas_threshold_shader!.setUniform(DEFAULT_TEXTURE_NAME, this.particle_canvas);
             this.canvas_threshold_shader!.setUniform("threshold", threshold);
             this.canvas_threshold_shader!.setUniform("eps", eps);
+            this.canvas_threshold_shader!.setUniform("elapsed", this.elapsed);
+            this.canvas_threshold_shader!.setUniform("hue", this.hue_color.h)
             this.particle_canvas_mesh!.draw();
             this.canvas_threshold_shader!.unbind();
 
@@ -414,6 +473,7 @@ export class Orb extends GLWidget  {
             }
         }
 
+        this.hue_color.h = (this.hue_color.h + (delta.asSeconds() / 10)) % 1;
         this.update_mesh_data();
     }
 
@@ -521,11 +581,11 @@ export class Orb extends GLWidget  {
 
         {
             const n_vertices = 10 * radius_to_n_vertices(this.orb_radius, this.orb_radius) / 2;
-            const radius = this.orb_radius + line_margin + line_width;
+            const radius = this.orb_radius + line_margin + 0.5 * line_width;
 
             const tau = 2 * Math.PI;
-            const sweep_start = line_angle - 0.25 * tau;
-            const sweep_end   = line_angle + 0.25 * tau;
+            const sweep_start = 0;
+            const sweep_end   = tau;
             const sweep_step  = 1 / n_vertices * 0.5 * tau;
 
             let vertices: Vec2[] = [];
@@ -913,8 +973,6 @@ export class Orb extends GLWidget  {
         const agitation_t = Math.min(1, this.agitation_elapsed / agitation_duration);
         const current_gravity = gravity * agitation_t
         const swirl_multiplier = this.particle_canvas!.getHeight() / swirl_reference_height;
-
-        this.hue_color.h = Math.fract(this.hue_color.h + swirl_hue_strength * delta * (this.agitation_elapsed <= agitation_duration ? 1.0  - agitation_t : 0));
 
         for (let sub_step = 0; sub_step < n_sub_steps; ++sub_step) {
 
