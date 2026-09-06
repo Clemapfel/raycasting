@@ -19,9 +19,8 @@ server.waitForBoot {
 	var before = Main.elapsedTime;
     //~bubble_pop.();
     //~bubble_unpop.();
-	~bounce_pad.();
-	//~air_dash_node_dash.();
-
+	//~bounce_pad.();
+	~air_dash_node_dash.();
 
 	//"Done. Took %s".format(Main.elapsedTime - before).postln;
 
@@ -268,41 +267,52 @@ server.waitForBoot {
 	};
 };
 
+
+
 ~bounce_pad = {
+	var ringFeedbackBus = Bus.audio(server, 1);
+	var wobbleFeedbackBus = Bus.audio(server, 1);
+
 	var def = SynthDef(\bouncePad, { arg out, amp, freq, dur, gate = 1;
 		var signal;
 
-		var ringFreq = Ball.ar(Impulse.ar(0), g: 10, damp: 0, friction: 0);
-		var ringAmp = EnvGen.ar(Env.perc(0.1, 0.04), gate: gate);
-		var ring = Saw.ar(freq: freq);
+		var ringFeedback = InFeedback.ar(ringFeedbackBus);
+		var ringFreq = XLine.ar(freq, freq, dur) / 2;
+		var ratios = [1, 1 / 3, 1 / 5, 1 / 7, 1 / 9];
+		var ring = DynKlank.ar(`[
+			ratios,
+			ratios.collect { |r| 1 / r },
+			ratios.collect { 1 / ratios.size }
+		],
+		EnvGen.ar(Env.perc(0.04, 0)),
+		freqoffset: XLine.kr(0.5 * freq, 0.8 * freq, dur * 0.02)
+		);
 
 		// wobble
-
 		var wobbleFreq = Ball.ar(Impulse.ar(0),
 			g: 0.01,
 			damp: 0.0,
-			friction: 0.002
+			friction: 0.004
 		);
 
-		var feedback = LocalIn.ar(1);
 		var wobble = (1 - 1e-3) * SinOsc.ar(
-			freq: wobbleFreq.linlin(0, 1, freq * (1 - 0.4), freq + (1 + 0.4)),
-			phase: 0.35 * feedback
+			freq: wobbleFreq.linlin(0, 1, 0.4, 0.7) * freq,
+			phase: 0.7 * InFeedback.ar(wobbleFeedbackBus)
 		);
-		LocalOut.ar(wobble);
+
+		Out.ar(wobbleFeedbackBus, wobble);
+		Out.ar(ringFeedbackBus, ring);
 
 		~detect_clipping.(ring);
 		~detect_clipping.(wobble);
-
-		signal = Mix.ar([ring, 0.0 * wobble]);
+		signal = Mix.ar([ring, wobble]);
 
 		// make sure impulse last exactly dur long
 		signal = signal * EnvGen.ar(
 			Env.new([ 0, 1, 0 ], [ 0.01, dur - 0.1, 0.1 ]),
 			doneAction: Done.freeSelf
 		);
-
-		Out.ar(out, (amp * signal).dup);
+		Out.ar(out, Limiter.ar(amp * signal).dup);
 		~recorder_end.(signal);
 		~detect_done.(signal);
 	}).add;
@@ -323,86 +333,44 @@ server.waitForBoot {
 		Pbind(*[
 			instrument: def.name,
 			degree: Pseq(~degrees, inf),
-			dur: 2,
+			dur: 1,
 			amp: 1
 		]).play;
 	};
 };
 
 ~air_dash_node_dash = {
-     var def = SynthDef(\violin, { |out = 0, freq = 440, amp = 0.5, gate = 1, pan = 0|
+     var def = SynthDef(\violin, { |out = 0, freq = 440, amp = 0.5, gate = 1, pan = 0, dur|
 
-        // --- 1. Bow Dynamics & Articulation ---
-        // A real bow stroke requires a higher initial pressure (bite) to catch the string,
-        // which then settles. When the gate goes to 0 (bow lifts), the force drops to 0.
-        var forceEnv = EnvGen.kr(Env([0, 1.5, 1.0, 0], [0.05, 0.1, 0.08], \lin, releaseNode: 2), gate);
+		var forceEnv = 0.2 * EnvGen.kr(Env.perc(0.1, dur), gate: gate);
 
-        // We use a slight lag on the frequency to mimic the finger gliding/placing on the fingerboard
-        var fLag = Lag.kr(freq, 0.03);
-
-        // Natural delayed vibrato introduced by the left hand
-        var vibEnv = EnvGen.kr(Env([0, 0, 1], [0.2, 0.4]), gate); // Vibrato ramps up after 0.2s
-        var vibrato = SinOsc.kr(Vibrato.kr(rate: 6, rateVariation: 0.1, depth: 0.2, delay: 0.1), 0, 0.007 * vibEnv);
-        var f = fLag * (1 + vibrato);
-
-        // --- 2. String Excitation (The Bowed String) ---
-        // DWGBowed parameters tuned for realism:
-        // pos: 0.14 mimics bowing roughly 1/7th of the string length from the bridge (standard position).
-        // c1 (0.25) & c3 (30) dictate high and low-frequency loss. High frequencies decay faster.
-        // release: 2.0 allows the internal DWG model to ring naturally when gate goes to 0.
-        var stringDecay = 2.0;
-        var sig = DWGBowed.ar(
-            freq: f,
-            velb: 0.8 * forceEnv, // Velocity drops when bow lifts
-            force: 1.2 * forceEnv, // Pressure drops when bow lifts
+		var stringDecay = 4.0;
+		var feedback = LocalIn.ar();
+        var violin = DWGSoundBoard.ar(DWGBowed.ar(
+			freq: Vibrato.kr(DC.kr(0.8 * freq), depth: Line.kr(0.001, 0.02, dur)),
+            velb: 0.8 * forceEnv,
+            force: 2.0 * forceEnv,
             gate: gate,
-            pos: 0.14,
-            release: stringDecay,
-            c1: 0.25,
-            c3: 30
-        );
+			pos: 0.2,
+            release: stringDecay
+		)) * SinOsc.ar(100, phase: feedback);
 
-        // --- 3. Sympathetic Resonance (The Open Strings) ---
-        // A violin has 4 open strings: G3, D4, A4, E5. We simulate these using comb filters (waveguides).
-        // They absorb energy from the main string and ring out independently.
-        var openStrings = [196.00, 293.66, 440.00, 659.25]; // Frequencies in Hz
-        var sympDecays  = [3.5, 2.8, 2.0, 1.5]; // Lower frequencies decay slower in real life
+		var bodyFreqs = [1 / 8, 1 / 4, 1 / 2, 1];
+		var bodyAmps = 1 ! bodyFreqs.size;
+		var bodyRings = bodyFreqs.collect { |freq| dur / freq };
 
-        var sympResonance = openStrings.collect { |sf, i|
-            // Excite the comb filters primarily with the higher transient energy to avoid low-end mud
-            var exciter = HPF.ar(sig, 150);
-            CombL.ar(exciter, maxdelaytime: 0.01, delaytime: 1/sf, decaytime: sympDecays[i])
-        }.sum;
+        var body = (1 / 12) * Klank.ar(`[bodyFreqs, bodyAmps, bodyRings], violin);
+        var masterEnv = EnvGen.kr(Env.adsr(
+			attackTime: 0,
+			decayTime: 0.2,
+			sustainLevel: 1,
+			releaseTime: 2,
+		), gate, doneAction: Done.freeSelf);
 
-        // --- 4. Violin Body Resonance (Formants & Wood) ---
-        // We combine DWGSoundBoard (for complex woody reflections) with a Klank bank
-        // modeled specifically on the resonant modes of a real violin body:
-        // A0 (Air mode), CBR (Wood), B1-, B1+, and upper body modes.
-        var bodyFreqs = [275, 400, 455, 550, 650, 900, 1200, 3000];
-        var bodyAmps  = [1.0, 0.8, 0.8, 0.9, 0.6, 0.5, 0.3, 0.1];
-        var bodyRings = [1.2, 1.0, 0.8, 0.6, 0.4, 0.2, 0.1, 0.05]; // High freq body modes decay extremely fast
+		var signal = XFade2.ar(violin, body, 0);
 
-        var combinedSignal = sig + (sympResonance * 0.05);
-
-        var dwgBody = DWGSoundBoard.ar(combinedSignal);
-        var modalBody = Klank.ar(`[bodyFreqs, bodyAmps, bodyRings], combinedSignal);
-
-
-        // --- 5. Master Release Envelope ---
-        // This keeps the synth alive after the bow lifts (gate=0), allowing the
-        // free decay of the main string, sympathetic strings, and body to ring out
-        // completely before SuperCollider kills the node.
-        var masterEnv = EnvGen.kr(Env.asr(0.01, 1, stringDecay + 1.0), gate, doneAction: 2);
-
-
-        // Mix the direct string, DWG physical body, and modal body resonances
-        var outSig = (combinedSignal * 0.4) + (dwgBody * 0.4) + (modalBody * 0.05);
-
-        // Final EQ to remove harsh digital artifacts and keep it in the violin's acoustic range
-        outSig = LPF.ar(outSig, 10000);
-        outSig = HPF.ar(outSig, 180);
-
-        Out.ar(out, Pan2.ar(outSig * amp * masterEnv, pan));
+		~detect_clipping.(signal);
+        Out.ar(out, Pan2.ar(signal * amp * masterEnv, pan));
     }).add;
 
     s.sync;
@@ -410,11 +378,49 @@ server.waitForBoot {
     // PmonoArtic will articulate staccato and legato gracefully.
     // Notice how the physical free-decay rings out vividly on the longer rests/releases.
     PmonoArtic(def.name,
-        \degree, Pseq([0, 2, 4, 3, 2, -3, -1, 0], inf),
-        \dur, Pseq([0.5, 0.5, 1.0, 0.5, 0.5, 0.5, 0.5, 2.0], inf),
-        \legato, Pseq([0.8, 1.05, 0.5, 0.8, 1.05, 1.05, 1.05, 0.5], inf), // < 1 triggers free decay, > 1 glides
-        \amp, 0.4
+        \degree, Pseq(~degrees, inf),
+        \legato, Pn(0.5, inf),
+        \amp, 0.4,
+		\tempo, 0.2
     ).play;
+};
+
+~rubber_feedback = {
+	var ringFeedbackBus = Bus.audio(server, 1);
+
+	var def = SynthDef(\ringOnly, { arg out, amp, freq, dur, gate = 1;
+		var signal;
+
+		var ringDur = 0.04;
+		var ringFeedback = InFeedback.ar(ringFeedbackBus);
+
+		var ringSource = EnvGen.ar(Env.perc(0.01, 1.0)) * LFTri.ar(
+			freq: freq * (ringFeedback * 1.0 + 1)
+		);
+		var ring = ringSource;
+
+		Out.ar(ringFeedbackBus, DelayN.ar(ring,
+			delaytime: EnvGen.ar(Env.new([0.2, 0.0], [ringDur], [\exp]), gate: gate);
+		));
+
+		~detect_clipping.(ring);
+		signal = ring;
+
+		// make sure impulse lasts exactly dur long
+		signal = signal * EnvGen.ar(
+			Env.new([ 0, 1, 0 ], [ 0.01, dur - 0.1, 0.1 ]),
+			doneAction: Done.freeSelf
+		);
+		Out.ar(out, Limiter.ar(amp * signal).dup);
+		~detect_done.(signal);
+	}).add;
+
+	Pbind(*[
+		instrument: def.name,
+		degree: Pseq(~degrees, inf),
+		dur: 2,
+		amp: 1
+	]).play;
 };
 
 Date.getDate;

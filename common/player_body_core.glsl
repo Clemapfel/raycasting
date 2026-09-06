@@ -45,7 +45,7 @@ uniform float saturation;
 
 vec4 effect(vec4 color, sampler2D image, vec2 texture_coordinates, vec2 _) {
     vec4 texel = texture(image, texture_coordinates);
-    vec2 uv = texture_coordinates - vec2(1);
+    vec2 uv = texture_coordinates - vec2(1.0);
 
     float time = elapsed / 2.0;
     float scale = 3.0;
