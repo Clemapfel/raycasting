@@ -29,7 +29,7 @@ ClipDetector {
         absSig = signal.asArray.abs;
         reduced = absSig.reduce('max');
 
-        runningMax = RunningMax.perform(rate, reduced, Changed.perform(rate, DetectSilence.perform(rate, reduced)));
+        runningMax = RunningMax.perform(rate, reduced, DetectSilence.perform(rate, reduced));
         trigger = (HPZ1.perform(rate, runningMax) > 0) * (runningMax >= 1.0);
 
         SendReply.perform(

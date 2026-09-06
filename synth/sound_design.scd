@@ -11,7 +11,7 @@ var recorder = AutoRecorder.new(server);
 ~mode = \play;
 
 server.options.sampleRate = AutoRecorder.sampleRate;
-server.options.memSize = 2 * (2 ** 16);
+server.options.memSize = 3 * (2 ** 16);
 
 /* ###### MAIN ###### */
 
@@ -19,8 +19,8 @@ server.waitForBoot {
 	var before = Main.elapsedTime;
     //~bubble_pop.();
     //~bubble_unpop.();
-	//~bounce_pad.();
-	~air_dash_node_dash.();
+	~bounce_pad.();
+	//~air_dash_node_dash.();
 
 
 	//"Done. Took %s".format(Main.elapsedTime - before).postln;
@@ -270,56 +270,41 @@ server.waitForBoot {
 
 ~bounce_pad = {
 	var def = SynthDef(\bouncePad, { arg out, amp, freq, dur, gate = 1;
-		var fadeOutDur = 0.05;
-		var freqEnv = Env.new(
-			[1, 0], [dur - fadeOutDur], [\exp]
-		);
+		var signal;
 
-		var attack = 0.02;
-		var ampEnv = Env.new(
-			[0, 1, 1, 0], [attack, dur - attack - fadeOutDur, fadeOutDur], [\lin, \hold, \lin]
-		);
+		var ringFreq = Ball.ar(Impulse.ar(0), g: 10, damp: 0, friction: 0);
+		var ringAmp = EnvGen.ar(Env.perc(0.1, 0.04), gate: gate);
+		var ring = Saw.ar(freq: freq);
+
+		// wobble
 
 		var wobbleFreq = Ball.ar(Impulse.ar(0),
 			g: 0.01,
 			damp: 0.0,
-			friction: 0.001
-		).linlin(0, 1, freq * (1 - 0.4), freq + (1 + 0.4));
+			friction: 0.002
+		);
 
-		var ratios = [ 1, 2, 3, 5, 7, 9 ].sqrt;
-		var wobble = DynKlank.ar(`[
-			ratios,
-			ratios.collect({ |r| (1 / ratios.size) / r; }),
-			ratios.collect({ |r| dur / r; })
-		], EnvGen.ar(Env.new([0, 1], [1e-3], [\lin])), freqoffset: wobbleFreq);
+		var feedback = LocalIn.ar(1);
+		var wobble = (1 - 1e-3) * SinOsc.ar(
+			freq: wobbleFreq.linlin(0, 1, freq * (1 - 0.4), freq + (1 + 0.4)),
+			phase: 0.35 * feedback
+		);
+		LocalOut.ar(wobble);
 
-		// TODO: ring
-		var ringFreq = Ball.ar(Impulse.ar(0), g: 10, damp: 0, friction: 0);
-
-		var ringAmp = EnvGen.ar(Env.perc(0.1, 0.04), gate: gate);
-		var ring = Saw.ar(freq + ringFreq.range(
-			(-12).midicps,
-			( 12).midicps)
-		) * ringAmp;
-
-		var signal;
-
-		// scale to prevent clipping, values determined empirically
-		ring = Limiter.ar(ring / 20);
-		wobble = Limiter.ar(wobble / 80);
 		~detect_clipping.(ring);
 		~detect_clipping.(wobble);
 
-		signal = Mix.ar([0.0 * ring, wobble]);
+		signal = Mix.ar([ring, 0.0 * wobble]);
 
 		// make sure impulse last exactly dur long
 		signal = signal * EnvGen.ar(
-			Env.new([0, 1, 0], [0.01, dur - 0.1, 0.1]),
+			Env.new([ 0, 1, 0 ], [ 0.01, dur - 0.1, 0.1 ]),
 			doneAction: Done.freeSelf
 		);
 
 		Out.ar(out, (amp * signal).dup);
 		~recorder_end.(signal);
+		~detect_done.(signal);
 	}).add;
 
 	if (~mode == ~mode_record) {
@@ -337,7 +322,7 @@ server.waitForBoot {
 	} {
 		Pbind(*[
 			instrument: def.name,
-			degree: Pseq(~degrees),
+			degree: Pseq(~degrees, inf),
 			dur: 2,
 			amp: 1
 		]).play;
