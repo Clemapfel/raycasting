@@ -1,8 +1,10 @@
 var server = Server.default;
 var recorder = AutoRecorder.new(server);
 
+~sample_rate = AutoRecorder.sampleRate;
 ~temp_path = Platform.defaultTempDir +/+ "synth";
 ~export_path = thisProcess.nowExecutingPath.dirname +/+ "export";
+~asset_path = thisProcess.nowExecutingPath.dirname +/+ "assets";
 
 ~degrees = [0, 1]; // pitches for all pitch-dependent sfx
 
@@ -10,8 +12,9 @@ var recorder = AutoRecorder.new(server);
 ~mode_play = \play;
 ~mode = \play;
 
-server.options.sampleRate = AutoRecorder.sampleRate;
-server.options.memSize = 3 * (2 ** 16);
+server.options.numWireBufs = 256;
+server.options.sampleRate = ~sample_rate;
+server.options.memSize = (2 ** 16);
 
 /* ###### MAIN ###### */
 
@@ -20,7 +23,9 @@ server.waitForBoot {
     //~bubble_pop.();
     //~bubble_unpop.();
 	//~bounce_pad.();
-	~air_dash_node_dash.();
+	//~air_dash_node_dash.();
+	//~feedback_delay_network.();
+	~granular_particles.();
 
 	//"Done. Took %s".format(Main.elapsedTime - before).postln;
 
@@ -348,7 +353,7 @@ server.waitForBoot {
 		var feedback = LocalIn.ar();
 
 		var violinFreq = Vibrato.kr(DC.kr(freq), depth: 0.01);
-		var violinEnv = EnvGen.ar(Env.new([1, 1, 0.3, 0], [0, dur - 0.2, 0.2], [\lin, \welch]), gate: gate);
+		var violinEnv = EnvGen.ar(Env.adsr(0.02, dur, 0.3, 2), gate: gate);
         var violin = DWGSoundBoard.ar(DWGBowedTor.ar(
 			freq: violinFreq,
 			velb: 0.7 * forceEnv,
@@ -374,7 +379,7 @@ server.waitForBoot {
 		var dash = EnvGen.ar(Env.perc(0.4), gate: gate) * SinOsc.ar(freq, phase: PinkNoise.ar());
 		var signal = FreeVerb.ar(body, mix: 0.2) * LPF.ar(dash, 6000);
 
-				~detect_clipping.(body);
+		~detect_clipping.(body);
 		LocalOut.ar(dash);
 
         Out.ar(out, Pan2.ar(signal * amp * masterEnv, pan));
@@ -382,14 +387,193 @@ server.waitForBoot {
 
     s.sync;
 
-    // PmonoArtic will articulate staccato and legato gracefully.
-    // Notice how the physical free-decay rings out vividly on the longer rests/releases.
-    PmonoArtic(def.name,
-        \degree, Pseq(~degrees, inf),
-        \legato, Pn(0.5, inf),
-        \amp, 0.4,
-		\dur, 1.0
-    ).play;
+    PmonoArtic(def.name, *[
+        degree: Pseq(~degrees, inf),
+        legato: Pn(0.5, inf),
+        amp: 0.4,
+		dur: 1.0
+    ]).play;
+};
+
+~granular_particles = {
+	// initialize grain buffer
+	var path = ~asset_path +/+ "pink_noise.wav";
+	var export = false;
+
+	var buffer = if (export || File.exists(path).not) {
+		var duration = 0.5;
+		var fillDef = SynthDef(\granular_particles_fill, { |out, amp, bufnum|
+			var signal = PinkNoise.ar(1) + SinOsc.ar(440);
+			var rec = RecordBuf.ar(signal, bufnum, loop: 0, doneAction: Done.freeSelf);
+			SendReply.kr(Done.kr(rec), '/done');
+			Out.ar(out, (amp * rec).dup);
+		}).add;
+
+		var synth;
+		var condition = Condition.new(false);
+
+		"In ~granular_synthesis: initializing buffer at `%".format(path).postln;
+		buffer = Buffer.alloc(server, ~sample_rate * duration, 1);
+
+		server.sync;
+
+		Pmono(fillDef.name, *[
+			bufnum: buffer
+		]).play;
+
+		OSCFunc({
+			buffer.write(path,
+				AutoRecorder.headerFormat,
+				AutoRecorder.sampleFormat,
+				completionMessage: {
+					"In ~granular_synthesis: done.".postln;
+					condition.test = true;
+					condition.unhang;
+					();
+				}
+			);
+		}, '/done').oneShot;
+
+		condition.hang;
+		buffer;
+	} {
+		Buffer.read(server, path);
+	};
+
+	var grainEnv = {
+		var duration = 0.5;
+		var attack = 0.05 * duration, release = 0.05 * duration;
+		var sustain = duration - attack - release;
+		var shape = Env.new(
+			[0, 1, 1, 0], [attack, sustain, release], \sin
+		);
+
+		var envBuffer = Buffer.loadCollection(server, shape.asArray(2048));
+		server.sync;
+
+		envBuffer;
+	}.value;
+
+	var def = SynthDef.new(\granular_particles, { arg out, amp, gate = 1, freq, dur, bufnum, envbufnum;
+		var grainTrig = Impulse.ar(XLine.ar(400, 1, dur) - 1);
+
+		var grainDur = Demand.ar(grainTrig, gate, Dwhite(0.05, 0.1));
+		var grainFreq = Demand.ar(grainTrig, gate, Drand((60 + [0, 3, 2, 5, 1, 5, 6]).midicps));
+		var grainPan = Demand.ar(grainTrig, gate, Dwhite(-1, 1));
+		var grainRate = Demand.ar(grainTrig, gate, Dwhite(1 / 8, 8));
+
+		var feedback = LocalIn.ar(1);
+		var phase = feedback * Demand.ar(grainTrig, gate, Dwhite(0, 2));
+
+		var grains = GrainBuf.ar(1,
+			trigger: grainTrig,
+			sndbuf: bufnum,
+			rate: grainRate,
+			dur: grainDur,
+			pan: grainPan,
+			interp: 4, // cubic
+			envbufnum: envbufnum, // grain envelope
+			maxGrains: 1024
+		);
+
+		var signal = grains;
+		LocalOut.ar(signal);
+
+		Out.ar(out, (amp * signal).dup);
+	}).add;
+
+	PmonoArtic(def.name, *[
+		degree: Pn(0, 1),
+		bufnum: buffer.bufnum,
+		envbufnum: grainEnv.bufnum
+	]).play;
+};
+
+~feedback_delay_network = {
+	// nudge to nearest prime number of samples
+	var delayAmounts = (1e-3 * [23.3, 29.7, 37.1, 41.9, 47.3, 53.8, 59.5, 67.2]).do { |n|
+		var candidate = n.round.asInteger * ~sample_rate;
+		var isPrime = { |n|
+			var prime = true;
+			case
+			{ n < 2 } { prime = false }
+			{ n == 2 } { prime = true }
+			{ n.even } { prime = false }
+			{
+				prime = true;
+				(3, 5..n.sqrt.floor).do { |i|
+					if (n % i == 0) { prime = false }
+				};
+			};
+			prime;
+		};
+		var offset = 0;
+		var found = false;
+		var result;
+
+		while ({ found.not }, {
+			if (isPrime.(candidate + offset)) {
+				result = candidate + offset;
+				found = true;
+			} {
+				if (isPrime.(candidate - offset)) {
+					result = candidate - offset;
+					found = true;
+				}
+			};
+			offset = offset + 1;
+		});
+
+		result / ~sample_rate;
+	};
+
+	var mixingMatrix = [ // 8x8 orthonormal hadamard
+		[ 1,  1,  1,  1,  1,  1,  1,  1 ],
+		[ 1, -1,  1, -1,  1, -1,  1, -1 ],
+		[ 1,  1, -1, -1,  1,  1, -1, -1 ],
+		[ 1, -1, -1,  1,  1, -1, -1,  1 ],
+		[ 1,  1,  1,  1, -1, -1, -1, -1 ],
+		[ 1, -1,  1, -1, -1,  1, -1,  1 ],
+		[ 1,  1, -1, -1, -1, -1,  1,  1 ],
+		[ 1, -1, -1,  1, -1,  1,  1, -1 ]
+	] / 8.sqrt;
+
+	var inputGain = 1 ! 8;
+	var outputGain = (1 - 0.8 ) ! 8;
+
+	var feedbacks = 8.collect { Bus.audio(server, 1) };
+	var maxDelayTime = delayAmounts.max;
+
+	var def = SynthDef.new(\feedbackDelayNetwork, { arg out, amp = 0.4, gate = 1, freq = 440;
+		var signal = SinOsc.ar(freq: freq);
+
+		// signal * inputGain
+		var expansion = signal ! 8;
+		var delays = 8.collect { |i|
+			DelayN.ar(expansion[i] * inputGain[i] + InFeedback.ar(feedbacks[i]),
+				maxdelaytime: maxDelayTime,
+				delaytime: delayAmounts[i]
+			);
+		};
+
+		// (delay * mixing matrix)
+		var mixed = mixingMatrix.collect { |row, i|
+			row.sum { |x, j| x * delays[j] };
+		};
+
+		var wet = Mix.ar(mixed);
+
+		// mixed * outputGain, inject into feedback
+		8.do { |i| Out.ar(feedbacks[i], mixed[i] * outputGain[i]) };
+
+		Out.ar(out, (amp * wet).dup);
+	}).add;
+
+	server.sync;
+
+	Synth.new(def.name, [
+		degree: 0
+	]);
 };
 
 ~rubber_feedback = {
