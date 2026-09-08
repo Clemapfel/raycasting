@@ -14,23 +14,23 @@ var recorder = AutoRecorder.new(server);
 
 server.options.numWireBufs = 256;
 server.options.sampleRate = ~sample_rate;
-server.options.memSize = (2 ** 16);
+server.options.memSize = 2 * (2 ** 16);
 
 /* ###### MAIN ###### */
 
 server.waitForBoot {
 	var before = Main.elapsedTime;
-    //~bubble_pop.();
-    //~bubble_unpop.();
+	//~bubble_pop.();
+	//~bubble_unpop.();
 	//~bounce_pad.();
 	//~air_dash_node_dash.();
-	//~feedback_delay_network.();
+	//~reverb.();
 	~granular_particles.();
 
 	//"Done. Took %s".format(Main.elapsedTime - before).postln;
 
-    CmdPeriod.doOnce {
-        server.freeAll;
+	CmdPeriod.doOnce {
+		server.freeAll;
 		recorder.stop;
 	};
 };
@@ -440,6 +440,7 @@ server.waitForBoot {
 		Buffer.read(server, path);
 	};
 
+	// initialize grain envelope
 	var grainEnv = {
 		var duration = 0.5;
 		var attack = 0.05 * duration, release = 0.05 * duration;
@@ -449,8 +450,8 @@ server.waitForBoot {
 		);
 
 		var envBuffer = Buffer.loadCollection(server, shape.asArray(2048));
-		server.sync;
 
+		server.sync;
 		envBuffer;
 	}.value;
 
@@ -460,7 +461,7 @@ server.waitForBoot {
 		var grainDur = Demand.ar(grainTrig, gate, Dwhite(0.05, 0.1));
 		var grainFreq = Demand.ar(grainTrig, gate, Drand((60 + [0, 3, 2, 5, 1, 5, 6]).midicps));
 		var grainPan = Demand.ar(grainTrig, gate, Dwhite(-1, 1));
-		var grainRate = Demand.ar(grainTrig, gate, Dwhite(1 / 8, 8));
+		var grainRate = Demand.ar(grainTrig, gate, Drand([-1, 1])) * Demand.ar(grainTrig, gate, Dwhite(1 / 8, 8));
 
 		var feedback = LocalIn.ar(1);
 		var phase = feedback * Demand.ar(grainTrig, gate, Dwhite(0, 2));
@@ -472,7 +473,7 @@ server.waitForBoot {
 			dur: grainDur,
 			pan: grainPan,
 			interp: 4, // cubic
-			envbufnum: envbufnum, // grain envelope
+			envbufnum: envbufnum,
 			maxGrains: 1024
 		);
 
@@ -489,92 +490,175 @@ server.waitForBoot {
 	]).play;
 };
 
-~feedback_delay_network = {
-	// nudge to nearest prime number of samples
-	var delayAmounts = (1e-3 * [23.3, 29.7, 37.1, 41.9, 47.3, 53.8, 59.5, 67.2]).do { |n|
-		var candidate = n.round.asInteger * ~sample_rate;
-		var isPrime = { |n|
+~reverb = {
+    var server = Server.default;
+    var sampleRate = server.sampleRate;
+
+	var n = 8;
+
+	var minDelay = 0.03;
+	var maxDelay = 0.1;
+
+	// choose delay amounts
+    var delayAmounts = {
+		var numDelays = n;
+
+		// pick n logarithmically distributed
+		var baseTimes = numDelays.collect { |i|
+			minDelay * (maxDelay / minDelay) ** (i / n)
+		};
+
+		// then nudge to nearest prime number of samples
+		// this ensures delay amounts are coprime
+		var isPrime = { |x|
 			var prime = true;
 			case
-			{ n < 2 } { prime = false }
-			{ n == 2 } { prime = true }
-			{ n.even } { prime = false }
+			{ x < 2 } { prime = false }
+			{ x == 2 } { prime = true }
+			{ x.even } { prime = false }
 			{
 				prime = true;
-				(3, 5..n.sqrt.floor).do { |i|
-					if (n % i == 0) { prime = false }
+				(3, 5..x.sqrt.floor).do { |i|
+					if (x % i == 0) { prime = false }
 				};
 			};
 			prime;
 		};
-		var offset = 0;
-		var found = false;
-		var result;
 
-		while ({ found.not }, {
-			if (isPrime.(candidate + offset)) {
-				result = candidate + offset;
-				found = true;
-			} {
-				if (isPrime.(candidate - offset)) {
-					result = candidate - offset;
+		var nearestPrime = { |candidate|
+			var offset = 0;
+			var found = false;
+			var result;
+
+			while ({ found.not }, {
+				if (isPrime.(candidate + offset)) {
+					result = candidate + offset;
 					found = true;
-				}
-			};
-			offset = offset + 1;
-		});
+				} {
+					if ((candidate - offset > 1) && isPrime.(candidate - offset)) {
+						result = candidate - offset;
+						found = true;
+					}
+				};
+				offset = offset + 1;
+			});
 
-		result / ~sample_rate;
+			result;
+		};
+
+		baseTimes.collect { |t|
+			var candidate = (t * sampleRate).round.asInteger;
+			nearestPrime.(candidate) / sampleRate;
+		};
+	}.value;
+
+	// generate nxn orthonormal hadamard matrix using sylvester construction
+    var mixingMatrix = { |n|
+		var h = [[1]];
+		while ({ h.size < n }, {
+			var size = h.size;
+			var newH = Array.fill(size * 2, { |i|
+				Array.fill(size * 2, { |j|
+					var r = i % size, c = j % size;
+					if (i < size or: { j < size }) {
+						h[r][c]
+					} {
+						h[r][c].neg
+					};
+				});
+			});
+			h = newH;
+		});
+		h / n.sqrt;
+	}.value(n);
+
+	// signal * gain -> delay
+	var inputGain = 1 ! n;
+
+	// delay -> output * gain
+    var outputGain = 1 ! n;
+
+	// feedback weight
+	var t60 = 3.0;
+	var feedbackGain = delayAmounts.collect { |d|
+		10 ** (-3 * d / t60);
 	};
 
-	var mixingMatrix = [ // 8x8 orthonormal hadamard
-		[ 1,  1,  1,  1,  1,  1,  1,  1 ],
-		[ 1, -1,  1, -1,  1, -1,  1, -1 ],
-		[ 1,  1, -1, -1,  1,  1, -1, -1 ],
-		[ 1, -1, -1,  1,  1, -1, -1,  1 ],
-		[ 1,  1,  1,  1, -1, -1, -1, -1 ],
-		[ 1, -1,  1, -1, -1,  1, -1,  1 ],
-		[ 1,  1, -1, -1, -1, -1,  1,  1 ],
-		[ 1, -1, -1,  1, -1,  1,  1, -1 ]
-	] / 8.sqrt;
+    var reverbDef = SynthDef.new(\reverbFDN, { arg out, in, amp = 0.4, gate = 1, mix = 0.5;
+		var dry = In.ar(in);
 
-	var inputGain = 1 ! 8;
-	var outputGain = (1 - 0.8 ) ! 8;
+		var feedbackIn = LocalIn.ar(n);
+        var expansion = dry ! n;
+        var delays = n.collect { |i|
+            DelayC.ar(
+                in: (expansion[i] * inputGain[i]) + feedbackIn[i],
+                maxdelaytime: delayAmounts[i],
+                delaytime: delayAmounts[i] - ControlDur.ir
+            );
+        };
 
-	var feedbacks = 8.collect { Bus.audio(server, 1) };
-	var maxDelayTime = delayAmounts.max;
+        var mixed = mixingMatrix.collect { |row, i|
+            row.sum { |x, j| x * delays[j] };
+        };
 
-	var def = SynthDef.new(\feedbackDelayNetwork, { arg out, amp = 0.4, gate = 1, freq = 440;
-		var signal = SinOsc.ar(freq: freq);
+        var wet = Mix.ar(delays * outputGain);
 
-		// signal * inputGain
-		var expansion = signal ! 8;
-		var delays = 8.collect { |i|
-			DelayN.ar(expansion[i] * inputGain[i] + InFeedback.ar(feedbacks[i]),
-				maxdelaytime: maxDelayTime,
-				delaytime: delayAmounts[i]
-			);
-		};
+		LocalOut.ar(mixed * feedbackGain);
 
-		// (delay * mixing matrix)
-		var mixed = mixingMatrix.collect { |row, i|
-			row.sum { |x, j| x * delays[j] };
-		};
+		Out.ar(out, amp * ((mix * dry) + (1 - mix) * wet).dup);
+		DetectSilence.ar(wet, doneAction: Done.freeSelf);
+    }).add;
 
-		var wet = Mix.ar(mixed);
+	var buf = Buffer.read(s, ExampleFiles.apollo11);
+	var playDef = SynthDef.new(\playbackFDN, { arg out = 0, amp = 1.0, gate = 1, bufnum;
+		Out.ar(out, amp * PlayBuf.ar(1,
+			bufnum: bufnum,
+			trigger: gate,
+			doneAction: Done.freeSelf
+		).dup);
+    }).add;
 
-		// mixed * outputGain, inject into feedback
-		8.do { |i| Out.ar(feedbacks[i], mixed[i] * outputGain[i]) };
+	var group = Group.new;
+	var bus = Bus.audio(server, 1);
 
-		Out.ar(out, (amp * wet).dup);
-	}).add;
+    server.sync;
 
-	server.sync;
+	Synth.new(playDef.name, [
+		\out, bus,
+		\bufnum, buf.bufnum
+	], group, addAction: \addToHead);
 
-	Synth.new(def.name, [
-		degree: 0
-	]);
+	Synth.new(reverbDef.name, [
+		\out, 0,
+		\in, bus
+	], group, addAction: \addToTail);
+
+	/*
+    PmonoArtic(def.name, *[
+        degree: 0,
+        mix: 0.5,
+		bufnum: Pn(buf, 1)
+    ]).play;
+	*/
 };
+
+/*
+~reverb = {
+	var buf = Buffer.read(s, ExampleFiles.apollo11);
+    var def = SynthDef.new(\feedbackDelayNetwork, { arg out = 0, amp = 0.4, gate = 1, mix = 0.5, bufnum;
+		var signal = PlayBuf.ar(1, bufnum);
+        Out.ar(out, FreeVerb.ar(signal, room: 1.0).dup);
+    }).add;
+
+    server.sync;
+
+    PmonoArtic(def.name, *[
+        degree: 0,
+        mix: 0.5,
+		bufnum: Pn(buf, 1)
+    ]).play;
+};
+*/
 
 ~rubber_feedback = {
 	var ringFeedbackBus = Bus.audio(server, 1);
