@@ -23,9 +23,8 @@ server.waitForBoot {
 	//~bubble_pop.();
 	//~bubble_unpop.();
 	//~bounce_pad.();
-	//~air_dash_node_dash.();
+	~air_dash_node_dash.();
 	//~reverb.();
-	~granular_particles.();
 
 	//"Done. Took %s".format(Main.elapsedTime - before).postln;
 
@@ -273,7 +272,6 @@ server.waitForBoot {
 };
 
 
-
 ~bounce_pad = {
 	var ringFeedbackBus = Bus.audio(server, 1);
 	var wobbleFeedbackBus = Bus.audio(server, 1);
@@ -345,57 +343,6 @@ server.waitForBoot {
 };
 
 ~air_dash_node_dash = {
-     var def = SynthDef(\violin, { |out = 0, freq = 440, amp = 0.5, gate = 1, pan = 0, dur|
-
-		var forceEnv = EnvGen.kr(Env.new([0.0, 1], [0.02], [\welch]), gate: gate);
-
-		var stringDecay = 4.0;
-		var feedback = LocalIn.ar();
-
-		var violinFreq = Vibrato.kr(DC.kr(freq), depth: 0.01);
-		var violinEnv = EnvGen.ar(Env.adsr(0.02, dur, 0.3, 2), gate: gate);
-        var violin = DWGSoundBoard.ar(DWGBowedTor.ar(
-			freq: violinFreq,
-			velb: 0.7 * forceEnv,
-            force: 0.2 * forceEnv,
-            gate: gate,
-			pos: 0.2,
-            release: stringDecay
-		)) * violinEnv;
-
-		var bodyFreqs = [1 / 8, 1 / 6, 1 / 4, 1];
-		var bodyAmps = 1 ! bodyFreqs.size;
-		var bodyRings = bodyFreqs.collect { |freq| dur / freq };
-
-        var body = Limiter.ar(DynKlank.ar(`[bodyFreqs, bodyAmps, bodyRings], violin) / 6);
-        var masterEnv = EnvGen.kr(Env.adsr(
-			attackTime: 0,
-			decayTime: 0.2,
-			sustainLevel: 1,
-			releaseTime: 2,
-		), gate, doneAction: Done.freeSelf);
-
-
-		var dash = EnvGen.ar(Env.perc(0.4), gate: gate) * SinOsc.ar(freq, phase: PinkNoise.ar());
-		var signal = FreeVerb.ar(body, mix: 0.2) * LPF.ar(dash, 6000);
-
-		~detect_clipping.(body);
-		LocalOut.ar(dash);
-
-        Out.ar(out, Pan2.ar(signal * amp * masterEnv, pan));
-    }).add;
-
-    s.sync;
-
-    PmonoArtic(def.name, *[
-        degree: Pseq(~degrees, inf),
-        legato: Pn(0.5, inf),
-        amp: 0.4,
-		dur: 1.0
-    ]).play;
-};
-
-~granular_particles = {
 	// initialize grain buffer
 	var path = ~asset_path +/+ "granular_particles_in.wav";
 	var export = false;
@@ -454,13 +401,15 @@ server.waitForBoot {
 	var grainEnv = Buffer.loadCollection(server, Env.perc(1 / 10, 1).asSignal(2048).asArray);
 
 	var def = SynthDef.new(\granular_particles, { arg out, amp, gate = 1, freq, dur, bufnum, envbufnum;
-		var grainTrig = Impulse.ar(20);
+		var bufStart = 0.0, bufEnd = 0.4;
+		var sliceDur = abs(bufEnd - bufStart) * BufDur.ir(bufnum);
 
-		var maxDur = 1;
-		var grainDur = Demand.ar(grainTrig, gate, Dwhite(0.5, maxDur));
-		var grainRateEps = 1 / 8;
-		var grainRate = Demand.ar(grainTrig, gate, Dwhite(1 - grainRateEps, 1 + grainRateEps));
-		var grainPos = Line.kr(0.8, 0.0);
+		var grainTrig = Impulse.ar(XLine.ar(100, 1, dur) - 1);
+		var grainDurMin = 0.2 * sliceDur;
+		var grainDurMax = 0.4 * sliceDur;
+		var grainDur = Demand.ar(grainTrig, gate, Dwhite(grainDurMin, grainDurMax));
+
+        var grainPos = Demand.ar(grainTrig, gate, Dwhite(bufStart, bufEnd));
 
 		var grainPanEps = 1e-5;
 		var grainPanUniform = Demand.ar(grainTrig, gate, [
@@ -469,49 +418,52 @@ server.waitForBoot {
 		]);
 		var grainPan = (0.25 * (-2 * grainPanUniform[0].log).sqrt * (2pi * grainPanUniform[1]).cos).clip(-1, 1);
 
-		/*
 		var signal = GrainBuf.ar(1,
 			trigger: grainTrig,
 			sndbuf: bufnum,
 			pos: grainPos,
-			rate: grainRate,
+			rate: 1,
 			dur: grainDur,
 			pan: grainPan,
 			interp: 4,
 			envbufnum: envbufnum,
 			maxGrains: 1024
-		);
-		*/
+		) * EnvGen.ar(Env.new([0, 1, 1], [0.05], \welch), gate: gate);
 
-		var bufStart = 0.7, bufEnd = 0.5;
-		var bufSpeed = 1.35;
-		var sliceDur = bufSpeed * abs(bufEnd - bufStart) * BufDur.ir(bufnum);
-		var signal = BufRd.ar(1, bufnum, loop: 0,
-			phase: Line.ar(
-				bufStart, bufEnd,
-				sliceDur
-			) * BufFrames.ir(bufnum),
-			interpolation: 4
+		var sweepDur = 0.18;
+		var freqSweep = freq * XLine.kr(1 / 4, 4, sweepDur);
+		signal = BBandPass.ar(signal,
+			freq: freqSweep,
+			bw: XLine.kr(1, 10, sweepDur);
 		);
 
-		var envAttack = 0.05 * sliceDur, envRelease = 0.2 * sliceDur;
-		signal = signal * EnvGen.ar(Env.new(
-			[0, 1, 1, 0],
-			[envAttack, sliceDur - (envAttack + envRelease), envRelease],
-			[\lin, \hold, \sin]
-		), gate: gate, doneAction: Done.freeSelf);
-
-
-		LocalOut.ar(signal);
-		Out.ar(out, (amp * signal).dup);
+		Out.ar(out, (amp * (signal)).dup);
+		DetectSilence.ar(signal, doneAction: Done.freeSelf);
 	}).add;
 
-
-	PmonoArtic(def.name, *[
-		degree: Pn(0, 1),
-		bufnum: buffer.bufnum,
-		envbufnum: grainEnv.bufnum
-	]).play;
+	if (~mode == ~mode_record) {
+		~degrees.do { arg degree;
+			~recorder_start.(
+				~filename.("air_dash_node", "dash", degree),
+				PmonoArtic(def.name, *[
+					degree: Pn(degree, 1),
+					bufnum: buffer.bufnum,
+					envbufnum: grainEnv.bufnum,
+					dur: 0.1
+				]).play;
+			);
+			~recorder_wait.()
+		};
+	} {
+		Pbind(*[
+			instrument: def.name,
+			degree: Pseq(~degrees, 1),
+			bufnum: buffer.bufnum,
+			envbufnum: grainEnv.bufnum,
+			dur: 0.1,
+			delta: 1
+		]).play;
+	};
 };
 
 ~vynil = {
