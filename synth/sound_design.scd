@@ -397,32 +397,42 @@ server.waitForBoot {
 
 ~granular_particles = {
 	// initialize grain buffer
-	var path = ~asset_path +/+ "pink_noise.wav";
+	var path = ~asset_path +/+ "granular_particles_in.wav";
 	var export = false;
 
+	// reverse buffer
 	var buffer = if (export || File.exists(path).not) {
-		var duration = 0.5;
-		var fillDef = SynthDef(\granular_particles_fill, { |out, amp, bufnum|
-			var signal = PinkNoise.ar(1) + SinOsc.ar(440);
-			var rec = RecordBuf.ar(signal, bufnum, loop: 0, doneAction: Done.freeSelf);
+		var fillDef = SynthDef(\granular_particles_fill, { |out, amp = 1, recordbuf, playbuf|
+			var signal, chain, rec;
+
+			signal = PlayBuf.ar(1, playbuf,
+				rate: -1 * BufRateScale.kr(playbuf),
+				startPos: BufFrames.kr(playbuf) - 1,
+				loop: 0
+			);
+
+			rec = RecordBuf.ar(signal, recordbuf, loop: 0, doneAction: Done.freeSelf);
 			SendReply.kr(Done.kr(rec), '/done');
 			Out.ar(out, (amp * rec).dup);
 		}).add;
-
 		var synth;
 		var condition = Condition.new(false);
 
-		"In ~granular_synthesis: initializing buffer at `%".format(path).postln;
-		buffer = Buffer.alloc(server, ~sample_rate * duration, 1);
+		var playbuf, recordbuf;
 
+		playbuf = Buffer.read(server, ~asset_path +/+ "storm.wav");
+		server.sync;
+		"In ~granular_synthesis: initializing buffer at `%`".format(path).postln;
+		recordbuf = Buffer.alloc(server, playbuf.numFrames, 1);
 		server.sync;
 
-		Pmono(fillDef.name, *[
-			bufnum: buffer
-		]).play;
+		synth = Synth(fillDef.name, [
+			\recordbuf, recordbuf,
+			\playbuf, playbuf
+		]);
 
 		OSCFunc({
-			buffer.write(path,
+			recordbuf.write(path,
 				AutoRecorder.headerFormat,
 				AutoRecorder.sampleFormat,
 				completionMessage: {
@@ -435,59 +445,110 @@ server.waitForBoot {
 		}, '/done').oneShot;
 
 		condition.hang;
-		buffer;
+		recordbuf;
 	} {
 		Buffer.read(server, path);
 	};
 
 	// initialize grain envelope
-	var grainEnv = {
-		var duration = 0.5;
-		var attack = 0.05 * duration, release = 0.05 * duration;
-		var sustain = duration - attack - release;
-		var shape = Env.new(
-			[0, 1, 1, 0], [attack, sustain, release], \sin
-		);
-
-		var envBuffer = Buffer.loadCollection(server, shape.asArray(2048));
-
-		server.sync;
-		envBuffer;
-	}.value;
+	var grainEnv = Buffer.loadCollection(server, Env.perc(1 / 10, 1).asSignal(2048).asArray);
 
 	var def = SynthDef.new(\granular_particles, { arg out, amp, gate = 1, freq, dur, bufnum, envbufnum;
-		var grainTrig = Impulse.ar(XLine.ar(400, 1, dur) - 1);
+		var grainTrig = Impulse.ar(20);
 
-		var grainDur = Demand.ar(grainTrig, gate, Dwhite(0.05, 0.1));
-		var grainFreq = Demand.ar(grainTrig, gate, Drand((60 + [0, 3, 2, 5, 1, 5, 6]).midicps));
-		var grainPan = Demand.ar(grainTrig, gate, Dwhite(-1, 1));
-		var grainRate = Demand.ar(grainTrig, gate, Drand([-1, 1])) * Demand.ar(grainTrig, gate, Dwhite(1 / 8, 8));
+		var maxDur = 1;
+		var grainDur = Demand.ar(grainTrig, gate, Dwhite(0.5, maxDur));
+		var grainRateEps = 1 / 8;
+		var grainRate = Demand.ar(grainTrig, gate, Dwhite(1 - grainRateEps, 1 + grainRateEps));
+		var grainPos = Line.kr(0.8, 0.0);
 
-		var feedback = LocalIn.ar(1);
-		var phase = feedback * Demand.ar(grainTrig, gate, Dwhite(0, 2));
+		var grainPanEps = 1e-5;
+		var grainPanUniform = Demand.ar(grainTrig, gate, [
+			Dwhite(grainPanEps, 1 - grainPanEps),
+			Dwhite(grainPanEps, 1 - grainPanEps)
+		]);
+		var grainPan = (0.25 * (-2 * grainPanUniform[0].log).sqrt * (2pi * grainPanUniform[1]).cos).clip(-1, 1);
 
-		var grains = GrainBuf.ar(1,
+		/*
+		var signal = GrainBuf.ar(1,
 			trigger: grainTrig,
 			sndbuf: bufnum,
+			pos: grainPos,
 			rate: grainRate,
 			dur: grainDur,
 			pan: grainPan,
-			interp: 4, // cubic
+			interp: 4,
 			envbufnum: envbufnum,
 			maxGrains: 1024
 		);
+		*/
 
-		var signal = grains;
+		var bufStart = 0.7, bufEnd = 0.5;
+		var bufSpeed = 1.35;
+		var sliceDur = bufSpeed * abs(bufEnd - bufStart) * BufDur.ir(bufnum);
+		var signal = BufRd.ar(1, bufnum, loop: 0,
+			phase: Line.ar(
+				bufStart, bufEnd,
+				sliceDur
+			) * BufFrames.ir(bufnum),
+			interpolation: 4
+		);
+
+		var envAttack = 0.05 * sliceDur, envRelease = 0.2 * sliceDur;
+		signal = signal * EnvGen.ar(Env.new(
+			[0, 1, 1, 0],
+			[envAttack, sliceDur - (envAttack + envRelease), envRelease],
+			[\lin, \hold, \sin]
+		), gate: gate, doneAction: Done.freeSelf);
+
+
 		LocalOut.ar(signal);
-
 		Out.ar(out, (amp * signal).dup);
 	}).add;
+
 
 	PmonoArtic(def.name, *[
 		degree: Pn(0, 1),
 		bufnum: buffer.bufnum,
 		envbufnum: grainEnv.bufnum
 	]).play;
+};
+
+~vynil = {
+	var envDur = max(1 / (server.sampleRate / 2), 0.01);
+	var def = SynthDef.new(\vynil_noise, { arg out, amp, gate = 1;
+		var trig = Dust.ar(400);
+
+		var demand = Demand.ar(trig, gate, [
+			Dwhite(0, 1).linexp(0, 1, 1000, 4000), // freq
+			Dwhite(0.03, 0.6), // amp
+			Dwhite(0.001, 0.001), // dur
+		]);
+
+		var eps = 1e-5;
+		var grainPanUniform = Demand.ar(trig, gate, [
+			Dwhite(eps, 1 - eps),
+			Dwhite(eps, 1 - eps)
+		]);
+		var grainPan = 0.25 * (-2 * grainPanUniform[0].log).sqrt * (2pi * grainPanUniform[1]).cos;
+
+		var grainFreq, grainAmp, grainDur, shape;
+		#grainFreq, grainAmp, grainDur = demand;
+
+		shape = 0.25 * BBandPass.ar(WhiteNoise.ar(grainAmp), grainFreq) * EnvGen.ar(
+			Env.perc(1e-5, grainDur),
+			gate: trig
+		);
+
+		Out.ar(out, Pan2.ar(shape, grainPan.clip(-1, 1)));
+	}).add;
+
+	server.sync;
+
+	Synth.new(def.name, [
+		\amp, 1,
+		\gate, 1
+	]);
 };
 
 ~reverb = {
@@ -569,6 +630,7 @@ server.waitForBoot {
 			});
 			h = newH;
 		});
+
 		h / n.sqrt;
 	}.value(n);
 
