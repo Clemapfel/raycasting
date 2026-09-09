@@ -289,7 +289,8 @@ server.waitForBoot {
 			phase: ringRatio.range(0.05, 0) * feedback[0].range(0, 2pi)
 		) * EnvGen.ar(Env.perc(0.05, ringDuration));
 
-		var ringDelay = SinOsc.kr(9).range(0.6, 1.5) * 1e-5 * ringFreq;
+		var ratio = 2;
+		var ringDelay = SinOsc.kr(9).range(1 / ratio, ratio) * 1e-5 * ringFreq;
 
 		var feedbackOnly = DelayL.ar(
 			feedback[1] * ringGain,
@@ -304,6 +305,8 @@ server.waitForBoot {
 		) * Line.kr(1, 0, ringDuration);
 
 		LocalOut.ar([ ringImpulse, ring ]);
+
+		feedbackOnly = feedbackOnly / 4.5;
 
 		~detect_clipping.(feedbackOnly);
 		~detect_done.(feedbackOnly);
@@ -371,9 +374,10 @@ server.waitForBoot {
 		};
 	} {
 		PmonoArtic(def.name, *[
-			degree: Pseq(~degrees, 1),
+			degree: Pseq(~degrees),
 			amp: 1,
 			sustain: 0.2,
+			dur: 1.0
 		]).play;
 	};
 };
