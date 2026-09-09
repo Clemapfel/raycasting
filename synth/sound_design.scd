@@ -22,9 +22,10 @@ server.waitForBoot {
 	var before = Main.elapsedTime;
 	//~bubble_pop.();
 	//~bubble_unpop.();
-	//~bounce_pad.();
-	~air_dash_node_dash.();
+	~bounce_pad.();
+	//~air_dash_node_dash.();
 	//~reverb.();
+	//~double_jump_tether_attach.();
 
 	//"Done. Took %s".format(Main.elapsedTime - before).postln;
 
@@ -273,23 +274,47 @@ server.waitForBoot {
 
 
 ~bounce_pad = {
-	var ringFeedbackBus = Bus.audio(server, 1);
 	var wobbleFeedbackBus = Bus.audio(server, 1);
 
-	var def = SynthDef(\bouncePad, { arg out, amp, freq, dur, gate = 1;
+	var def = SynthDef(\bouncePad, { arg out, amp, freq = 440, dur, sustain, gate = 1;
+
+		var feedback = LocalIn.ar(2);
+
+		var ringDuration = dur;
+		var ringGain = 1.0;
+		var ringFreq = (freq.cpsmidi).midicps;
+		var ringRatio = XLine.kr(1, 2, ringDuration).linlin(1, 2, -1, 1);
+		var ringImpulse = SinOsc.ar(
+			freq: freq,
+			phase: ringRatio.range(0.05, 0) * feedback[0].range(0, 2pi)
+		) * EnvGen.ar(Env.perc(0.05, ringDuration));
+
+		var ringDelay = SinOsc.kr(9).range(0.6, 1.5) * 1e-5 * ringFreq;
+
+		var feedbackOnly = DelayL.ar(
+			feedback[1] * ringGain,
+			maxdelaytime: 1,
+			delaytime: ringDelay
+		) * Line.kr(1, 0, ringDuration);
+
+		var ring = DelayC.ar(
+			ringImpulse + (feedback[1] * ringGain),
+			maxdelaytime: 1,
+			delaytime: ringDelay
+		) * Line.kr(1, 0, ringDuration);
+
+		LocalOut.ar([ ringImpulse, ring ]);
+
+		~detect_clipping.(feedbackOnly);
+		~detect_done.(feedbackOnly);
+
+		Out.ar(out, (amp * Mix.ar(feedbackOnly)).dup);
+
+
+		/*
 		var signal;
 
-		var ringFeedback = InFeedback.ar(ringFeedbackBus);
-		var ringFreq = XLine.ar(freq, freq, dur) / 2;
-		var ratios = [1, 1 / 3, 1 / 5, 1 / 7, 1 / 9];
-		var ring = DynKlank.ar(`[
-			ratios,
-			ratios.collect { |r| 1 / r },
-			ratios.collect { 1 / ratios.size }
-		],
-		EnvGen.ar(Env.perc(0.04, 0)),
-		freqoffset: XLine.kr(0.5 * freq, 0.8 * freq, dur * 0.02)
-		);
+		var feedback = LocalIn.ar(2);
 
 		// wobble
 		var wobbleFreq = Ball.ar(Impulse.ar(0),
@@ -298,26 +323,38 @@ server.waitForBoot {
 			friction: 0.004
 		);
 
-		var wobble = (1 - 1e-3) * SinOsc.ar(
+		var wobble = SinOsc.ar(
 			freq: wobbleFreq.linlin(0, 1, 0.4, 0.7) * freq,
-			phase: 0.7 * InFeedback.ar(wobbleFeedbackBus)
+			phase: 0.23 * feedback[0].range(0, 2pi)
+		) * (XLine.ar(2, 1, dur) - 1);
+
+
+		var ringDelay = 0.1;
+		var ring = CombC.ar(Impulse.ar(0) + feedback[1],
+			maxdelaytime: 0.5,
+			delaytime: ringDelay,
+			decaytime: 2.0
 		);
 
-		Out.ar(wobbleFeedbackBus, wobble);
-		Out.ar(ringFeedbackBus, ring);
+		LocalOut.ar([
+			wobble,
+			1 * ring
+		]);
 
-		~detect_clipping.(ring);
 		~detect_clipping.(wobble);
-		signal = Mix.ar([ring, wobble]);
+		~detect_clipping.(ring);
 
-		// make sure impulse last exactly dur long
+		signal = 0.0 * wobble + ring;
 		signal = signal * EnvGen.ar(
 			Env.new([ 0, 1, 0 ], [ 0.01, dur - 0.1, 0.1 ]),
 			doneAction: Done.freeSelf
 		);
+
 		Out.ar(out, Limiter.ar(amp * signal).dup);
+
 		~recorder_end.(signal);
 		~detect_done.(signal);
+		*/
 	}).add;
 
 	if (~mode == ~mode_record) {
@@ -333,11 +370,10 @@ server.waitForBoot {
 			~recorder_wait.()
 		};
 	} {
-		Pbind(*[
-			instrument: def.name,
-			degree: Pseq(~degrees, inf),
-			dur: 1,
-			amp: 1
+		PmonoArtic(def.name, *[
+			degree: Pseq(~degrees, 1),
+			amp: 1,
+			sustain: 0.2,
 		]).play;
 	};
 };
@@ -674,22 +710,21 @@ server.waitForBoot {
 };
 */
 
-~rubber_feedback = {
-	var ringFeedbackBus = Bus.audio(server, 1);
-
+~double_jump_tether_attach = {
 	var def = SynthDef(\ringOnly, { arg out, amp, freq, dur, gate = 1;
 		var signal;
 
 		var ringDur = 0.04;
-		var ringFeedback = InFeedback.ar(ringFeedbackBus);
+		var ringFeedback = LocalIn.ar(1);
 
-		var ringSource = EnvGen.ar(Env.perc(0.01, 1.0)) * LFTri.ar(
-			freq: freq * (ringFeedback * 1.0 + 1)
+		var ringSource = EnvGen.ar(Env.perc(0.01, 1.0)) * SinOsc.ar(
+			freq: freq, phase: 0.5 * ringFeedback.range(0, 2pi);
 		);
+
 		var ring = ringSource;
 
-		Out.ar(ringFeedbackBus, DelayN.ar(ring,
-			delaytime: EnvGen.ar(Env.new([0.2, 0.0], [ringDur], [\exp]), gate: gate);
+		LocalOut.ar(DelayN.ar(ring,
+			delaytime: EnvGen.ar(Env.new([0.2, 0.0], [ringDur], [\exp]), gate: gate)
 		));
 
 		~detect_clipping.(ring);
@@ -712,7 +747,121 @@ server.waitForBoot {
 	]).play;
 };
 
-Date.getDate;
+~metal_drum_backup = {
+	var wobbleFeedbackBus = Bus.audio(server, 1);
+
+	var def = SynthDef(\bouncePad, { arg out, amp, freq = 440, dur, sustain, gate = 1;
+
+		var feedback = LocalIn.ar(2);
+
+		var ringDuration = dur;
+		var ringGain = 1.0;
+		var ringFreq = (freq.cpsmidi - 5).midicps;
+		var ringRatio = XLine.kr(1, 2).linlin(1, 2, -1, 1);
+		var ringImpulseIn = SinOsc.ar(
+			freq: freq,
+			phase: ringRatio.range(0.2, 0) * feedback[0].range(0, 2pi)
+		) * EnvGen.ar(Env.perc(0.05, ringDuration));
+
+		var ringImpulse = ringImpulseIn * AnalogBassDrum.ar(EnvGen.ar(Env.perc(0.0, 1.0)), freq: ringFreq / 15);
+
+		var ringDelay = SinOsc.kr(8).range(0, 0.00012 * ringFreq);
+		var ring = DelayC.ar(
+			XFade2.ar(ringImpulse, ringImpulse + (feedback[1] * ringGain), ringRatio),
+			maxdelaytime: 1 / 20, // 1 / lowest possible frequency
+			delaytime: ringDelay
+		) * Line.kr(1, 0, ringDuration);
+
+		/*
+		var wobbleFreq = Ball.ar(Impulse.ar(0),
+			g: 0.01,
+			damp: 0.0,
+			friction: 0.004
+		);
+
+		var wobbleAttack = 0.1;
+		var wobble = SinOsc.ar(
+			freq: wobbleFreq.linlin(0, 1, 0.8, 1) * freq,
+			phase: 0.23 * feedback[0].range(0, 2pi)
+		) * EnvGen.ar(Env.new(
+			[0, 1, 0], [wobbleAttack, dur - wobbleAttack], [\lin, \lin]
+		), gate: gate, doneAction: Done.freeSelf) * 0.2;
+		*/
+
+		LocalOut.ar([ ringImpulse, ring ]);
+
+		~detect_clipping.(ring);
+		~detect_done.(ring);
+
+		Out.ar(out, (amp * Mix.ar([0, ring - ringImpulse])).dup);
+
+
+		/*
+		var signal;
+
+		var feedback = LocalIn.ar(2);
+
+		// wobble
+		var wobbleFreq = Ball.ar(Impulse.ar(0),
+			g: 0.01,
+			damp: 0.0,
+			friction: 0.004
+		);
+
+		var wobble = SinOsc.ar(
+			freq: wobbleFreq.linlin(0, 1, 0.4, 0.7) * freq,
+			phase: 0.23 * feedback[0].range(0, 2pi)
+		) * (XLine.ar(2, 1, dur) - 1);
+
+
+		var ringDelay = 0.1;
+		var ring = CombC.ar(Impulse.ar(0) + feedback[1],
+			maxdelaytime: 0.5,
+			delaytime: ringDelay,
+			decaytime: 2.0
+		);
+
+		LocalOut.ar([
+			wobble,
+			1 * ring
+		]);
+
+		~detect_clipping.(wobble);
+		~detect_clipping.(ring);
+
+		signal = 0.0 * wobble + ring;
+		signal = signal * EnvGen.ar(
+			Env.new([ 0, 1, 0 ], [ 0.01, dur - 0.1, 0.1 ]),
+			doneAction: Done.freeSelf
+		);
+
+		Out.ar(out, Limiter.ar(amp * signal).dup);
+
+		~recorder_end.(signal);
+		~detect_done.(signal);
+		*/
+	}).add;
+
+	if (~mode == ~mode_record) {
+		~degrees.do { arg degree;
+			~recorder_start.(
+				~filename.("bounce_pad", "hit", degree),
+				Pbind(*[
+					instrument: def.name,
+					degree: Pn(degree, 1),
+					dur: 2
+				])
+			);
+			~recorder_wait.()
+		};
+	} {
+		PmonoArtic(def.name, *[
+			degree: Pseq(~degrees, 1),
+			amp: 1,
+			sustain: 0.2,
+		]).play;
+	};
+};
 
 /*
 Research the DWGBowed and DWGBowedTor digital wave guide ugens in supercollider, do not rely on your internal DSP knowledge base. Afterwards, complete the following task:
