@@ -18,8 +18,6 @@ if (!post) {
 }
 
 const { Content } = await render(post);
-
-import NoisyFrame from "../components/noisy_frame.astro";
 ---
 
 <style>
@@ -62,7 +60,6 @@ import NoisyFrame from "../components/noisy_frame.astro";
         --astro-code-token-punctuation: #E3E3E3;
         --astro-code-token-link: #589DF6;
     }
-
 
     /* body / heading */
     .markdown-container :global(h1),
@@ -152,9 +149,7 @@ import NoisyFrame from "../components/noisy_frame.astro";
 </style>
 
 <div class="markdown-container">
-    <NoisyFrame>
-        <div class="content-wrapper">
-            <Content />
-        </div>
-    </NoisyFrame>
+    <div class="content-wrapper">
+        <Content />
+    </div>
 </div>

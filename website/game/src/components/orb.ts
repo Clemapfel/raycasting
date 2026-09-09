@@ -25,18 +25,20 @@ import {
 } from "../common/shader.ts";
 
 import { RenderTexture, TextureFormat } from "../common/texture.ts";
-import { LCHA, RGBA } from "../common/color.ts";
+import { LCHA, parseRGBA, RGBA } from "../common/color.ts";
 import { Time } from "../common/time.ts";
 
 import "../common/math.ts";
 import { MeshVertexFormat } from "../common/mesh_vertex_format.ts";
 import { Vec2, Vec2Array } from "../common/vector.ts";
+import { DEFAULT_COLOR_BACKGROUND } from "../styles/default.ts";
 
 const line_width_factor = 2 / 100;
 const line_margin_factor = 1 / 100;
 const line_angle = 0.75 * 0.125 * Math.PI;
+const hue_speed = 1 / 40;
 
-const n_particles = 32; //128 + 64;
+const n_particles = 32 + 16; //128 + 64;
 const n_sub_steps = 3;
 const n_constraint_iterations = 2;
 const step_delta = 1 / 60;
@@ -208,7 +210,7 @@ const canvas_threshold_shader_source = `${DEFAULT_SHADER_VERSION}
         vec2 texture_coordinates = ${DEFAULT_UV_NAME} * 2.0;
         vec2 uv = texture_coordinates - vec2(1.0);
     
-        float time = elapsed / 2.0;
+        float time = elapsed / 5.0;
         float scale = 3.0;
         float n_octaves = 2.0;
         vec2 step = vec2(0.0, 1.0);
@@ -240,8 +242,6 @@ const canvas_threshold_shader_source = `${DEFAULT_SHADER_VERSION}
         return exp(((-4.0 * PI) / 3.0) * (ramp * x) * (ramp * x));
     }
     
-    uniform vec2 cursor_position;
-    
     uniform sampler2D ${DEFAULT_TEXTURE_NAME};
     uniform vec2 ${DEFAULT_SCREEN_SIZE_NAME};
     uniform vec4 ${DEFAULT_COLOR_NAME};
@@ -256,16 +256,16 @@ const canvas_threshold_shader_source = `${DEFAULT_SHADER_VERSION}
         vec2 dxy = ${DEFAULT_UV_NAME}.xy;
         float distance_from_center = length(dxy);
         float angle = atan(dxy.y, dxy.x);
-        
+    
         vec3 surface_normal = vec3(
             distance_from_center * cos(angle),
             distance_from_center * sin(angle),
             sqrt(1.0 - distance_from_center * distance_from_center)
         );
-        
+    
         const vec2 center = vec2(0.0);
         vec2 uv = ${DEFAULT_UV_NAME};
-        
+    
         vec4 body_color = vec4(1.0);
         float shadow_offset = -1.0 / 3.5;
         float body = max(0.05, 1.0 - gaussian(distance(uv, vec2(shadow_offset)), 0.6));
@@ -278,27 +278,16 @@ const canvas_threshold_shader_source = `${DEFAULT_SHADER_VERSION}
             static_highlight_color = vec4(vec3(1.0), distance(uv, center)) * highlight;
             static_highlight_color = mix(static_highlight_color, vec4(highlight), 0.4);
         }
-        
-        float player_highlight_color;
-        {
-            vec2 player_dir = normalize(cursor_position);
-            float player_dist = length(cursor_position);
-            float intensity = clamp(8.0 / (player_dist * player_dist), 0.0, 2.0);
-            vec2 highlight_pos = player_dir * 0.4;
-            float dist = distance(pow(distance(uv, center), 1.5) * uv, highlight_pos);
-            float highlight = gaussian(1.0 - dist, 1.3) * gaussian(1.0 - distance(uv, center), 0.25);
-            player_highlight_color = highlight * min(intensity, 0.5);
-        }
-        
-        player_highlight_color = 0.0;
-
+    
+        float player_highlight_color = 0.0;
+    
         float fresnel_edge = dot(surface_normal, vec3(0.0, 0.0, 1.0));
         float limb_darkness = pow(1.0 - fresnel_edge, 2.0) * smoothstep(0.0, 0.5, distance_from_center);
         vec4 limb_outline = vec4(0.0, 0.0, 0.0, limb_darkness);
-        
+    
         ${DEFAULT_FRAGMENT_OUT_NAME} = ${DEFAULT_COLOR_NAME} * mix(
-            vec4(body_color * static_highlight_color + player_highlight_color), 
-            limb_outline, 
+            vec4(body_color * static_highlight_color + player_highlight_color),
+            limb_outline,
             limb_outline.a
         );
     }
@@ -339,13 +328,11 @@ export class Orb extends GLWidget  {
     private glass_mesh_shader? : Shader;
     private glass_mesh_cursor_position = new Vec2(0);
 
-    private glass_backing_color : RGBA = new RGBA(11 / 255, 11 / 255, 16 / 255, 1);
+    private glass_backing_color : RGBA = parseRGBA(DEFAULT_COLOR_BACKGROUND);
     private line_color : RGBA = new RGBA(1, 1, 1, 1);
     private fluid_color : RGBA = new RGBA(1, 1, 1, 1);
 
-    private line_end? : Mesh;
     private line? : Mesh;
-    private line_arc? : Mesh;
 
     private orb_radius : number = 0;
     private orb_center_x : number = 0;
@@ -446,10 +433,8 @@ export class Orb extends GLWidget  {
         {   // draw line
             using context = this.context.with()
 
-            this.context.setColor(this.line_color);
-            this.line_end!.draw();
+            this.context.setColor(this.hue_color.asRGBA());
             this.line!.draw();
-            this.line_arc!.draw();
         }
     }
 
@@ -473,7 +458,7 @@ export class Orb extends GLWidget  {
             }
         }
 
-        this.hue_color.h = (this.hue_color.h + (delta.asSeconds() / 10)) % 1;
+        this.hue_color.h = (this.hue_color.h + (delta.asSeconds() * hue_speed)) % 1;
         this.update_mesh_data();
     }
 
@@ -570,15 +555,6 @@ export class Orb extends GLWidget  {
             false // no end caps
         )
 
-        this.line_end = MeshEllipse(this.context,
-            line_origin_right.x,
-            line_origin_right.y,
-            line_width / 2,
-            line_width / 2,
-            undefined, // default color
-            false // no anti-aliasing
-        );
-
         {
             const n_vertices = 10 * radius_to_n_vertices(this.orb_radius, this.orb_radius) / 2;
             const radius = this.orb_radius + line_margin + 0.5 * line_width;
@@ -596,7 +572,7 @@ export class Orb extends GLWidget  {
                 ));
             }
 
-            this.line_arc = MeshLine(this.context,
+            this.line = MeshLine(this.context,
                 vertices,
                 line_width,
                 LineJoin.NONE
@@ -665,7 +641,7 @@ export class Orb extends GLWidget  {
 
         this.glass_backing_mesh = MeshCircle(this.context,
             this.orb_center_x, this.orb_center_y,
-            this.orb_radius
+            this.orb_radius + 2 * line_width
         )
 
         // reinitialize simulation

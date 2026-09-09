@@ -12,12 +12,13 @@ const inner_color_lighten : number = 1.25; // rgb multiplier
 const outer_color_darken : number = 0.75; // rgb multiplier
 const default_segment_length : number = 10; // px
 const max_noise_offset : number = 2; // px
-const noise_frequency : number = 0.04;
+const noise_frequency : number = 0.02;
 const noise_speed : number = 1 / 3; // multiplies seconds
 const default_background_overhang : number = 2; // px
 const default_outline_width : number = 4;
 const default_border_radius : number = 8;
 const background_opacity = 0.98;
+
 export class NoisyFrame extends GLWidget {
     // cache
     private mesh? : Mesh
@@ -63,32 +64,6 @@ export class NoisyFrame extends GLWidget {
 
         // reupload mesh data
         this.reformat(this.getWidth(), this.getHeight())
-
-        /*
-        // only upload color for frame
-        const vertex_buffer = this.vertex_buffer!;
-        const color = this.color.asRGBA();
-        const alpha = color.a;
-
-        const outer_r = color.r * outer_color_darken;
-        const outer_g = color.g * outer_color_darken;
-        const outer_b = color.b * outer_color_darken;
-
-        const center_r = color.r * inner_color_lighten;
-        const center_g = color.g * inner_color_lighten;
-        const center_b = color.b * inner_color_lighten;
-
-        for (let i = 0; i < this.n_contour_vertices; i++) {
-            const is_center = (i % 3) === 1;
-            const base = i * 8;
-            vertex_buffer[base + 4] = is_center ? center_r : outer_r;
-            vertex_buffer[base + 5] = is_center ? center_g : outer_g;
-            vertex_buffer[base + 6] = is_center ? center_b : outer_b;
-            vertex_buffer[base + 7] = alpha;
-        }
-
-        this.mesh.replaceData(vertex_buffer, this.index_buffer);
-         */
     }
 
     // ### internal ###
@@ -105,11 +80,28 @@ export class NoisyFrame extends GLWidget {
         color: RGBA, background_color: RGBA
     ) {
         const element = this as HTMLElement;
-        const rect = element.getBoundingClientRect();
+        const element_rect = element.getBoundingClientRect();
         const scale = Math.max(
-            (rect.width / element.offsetWidth) * window.devicePixelRatio,
-            (rect.height / element.offsetHeight) * window.devicePixelRatio
-        )
+            (element_rect.width / element.offsetWidth) * window.devicePixelRatio,
+            (element_rect.height / element.offsetHeight) * window.devicePixelRatio
+        );
+
+        const canvas = this.querySelector("canvas") as HTMLCanvasElement;
+        const canvas_rect = canvas.getBoundingClientRect();
+
+        const scale_x = canvas_rect.width / this.getWidth();
+        const scale_y = canvas_rect.height / this.getHeight();
+
+        const buffer_x = max_noise_offset * scale_x;
+        const buffer_y = max_noise_offset * scale_y;
+
+        const in_bounds = (x: number, y: number): boolean => {
+            const vx = canvas_rect.left + (x * scale_x);
+            const vy = canvas_rect.top + (y * scale_y);
+
+            return vx >= -buffer_x && vx <= window.innerWidth + buffer_x &&
+                vy >= -buffer_y && vy <= window.innerHeight + buffer_y;
+        };
 
         thickness *= scale;
         const segment_length = default_segment_length * scale;
@@ -208,14 +200,20 @@ export class NoisyFrame extends GLWidget {
             const xi = i + 0;
             const yi = i + 1;
 
-            const value = (2 * Math.PI) * (1 + perlinNoise(
-                contour[xi] * noise_frequency / scale,
-                contour[yi] * noise_frequency / scale,
-                this.elapsed.asSeconds() * noise_speed
-            )) / 2;
+            if (in_bounds(contour[xi], contour[yi])) {
+                const value = (2 * Math.PI) * (1 + perlinNoise(
+                    contour[xi] * noise_frequency / scale,
+                    contour[yi] * noise_frequency / scale,
+                    this.elapsed.asSeconds() * noise_speed
+                )) / 2;
 
-            offset_contour[xi] = contour[xi] + Math.cos(value) * noise_magnitude;
-            offset_contour[yi] = contour[yi] + Math.sin(value) * noise_magnitude;
+                offset_contour[xi] = contour[xi] + Math.cos(value) * noise_magnitude;
+                offset_contour[yi] = contour[yi] + Math.sin(value) * noise_magnitude;
+            } else {
+                // skip expensive noise computation for off-screen vertices
+                offset_contour[xi] = contour[xi];
+                offset_contour[yi] = contour[yi];
+            }
         }
 
         this.last_x = x;
@@ -281,7 +279,6 @@ export class NoisyFrame extends GLWidget {
             const next_right = (next_i * 3) + 2;
 
             const offset = n_background_indices - 1
-                // offset so contour tris are drawn *after* background tris
 
             index_buffer[offset + contour_index_offset++] = current_left;
             index_buffer[offset + contour_index_offset++] = current_center;

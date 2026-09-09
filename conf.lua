@@ -64,8 +64,8 @@ function love.conf(settings)
     settings.window.usedpiscale = config.use_dpi_scale
     settings.console = config.show_console
 
-    settings.window.title = "Chroma Drift"
-    settings.identity = "chroma_drift"
+    settings.window.title = "Chroma Void"
+    settings.identity = "chroma_void"
     settings.appendidentity = false -- prioritze source dir over save dir for file i/o
 
     for _, exclude in pairs({
