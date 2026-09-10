@@ -6,37 +6,40 @@ ClipDetector {
             var nodeID = msg[1];
             var busOrID = msg[3];
             var peakValue = msg[4];
+			var threshold = msg[5];
 
-            "In ClipDetector: clipping detected on bus %: %".format(
+			"In ClipDetector: bus % : %".format(
                 busOrID.asInteger,
                 peakValue
             ).warn;
-
         }, ClipDetector.oscPath).permanent_(true);
     }
 
-    *ar { arg signal, busOrID = 0, oscID = -1;
-        ^this.prMakeDetector(signal, busOrID, oscID, \ar);
+    *ar { arg signal, threshold = 1.0, reset = 2.0, busOrID = 0, oscID = -1;
+        ^this.prMakeDetector(signal, busOrID, oscID, \ar, threshold, reset);
     }
 
-    *kr { arg signal, busOrID = 0, oscID = -1;
-        ^this.prMakeDetector(signal, busOrID, oscID, \kr);
+    *kr { arg signal, threshold = 1.0, reset = 2.0, busOrID = 0, oscID = -1;
+        ^this.prMakeDetector(signal, busOrID, oscID, \kr, threshold, reset);
     }
 
-    *prMakeDetector { arg signal, busOrID, oscID, rate;
+    *prMakeDetector { arg signal, busOrID, oscID, rate, threshold, reset;
         var absSig, reduced, runningMax, trigger;
 
         absSig = signal.asArray.abs;
         reduced = absSig.reduce('max');
 
-        runningMax = RunningMax.perform(rate, reduced, DetectSilence.perform(rate, reduced));
-        trigger = (HPZ1.perform(rate, runningMax) > 0) * (runningMax >= 1.0);
+        runningMax = RunningMax.perform(rate, reduced, DetectSilence.perform(rate,
+			in: reduced,
+			time: reset
+		));
+        trigger = (HPZ1.perform(rate, runningMax) > 0) * (runningMax >= threshold);
 
         SendReply.perform(
             rate,
             trigger,
             oscPath,
-            [ busOrID, runningMax ],
+            [ busOrID, runningMax, threshold ],
             oscID
         );
     }

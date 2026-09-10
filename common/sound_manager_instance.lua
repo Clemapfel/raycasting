@@ -374,7 +374,6 @@ end
 
 --- @brief
 function rt.SoundManager:_map_coordinates(x, y)
-    -- no mapping needed, face/up transform and reference distance automatically scale and flip coords
     return x, y, 0
 end
 
