@@ -926,7 +926,7 @@ server.waitForBoot {
 };
 
 ~crystal = {
-	var grainCount = 4;
+	var grainCount = 8;
 	var grainDur = 0.5;
 	var grainRelease = 1;
 
@@ -948,7 +948,7 @@ server.waitForBoot {
 
 		var sig = BHiPass.ar(DynKlank.ar(`[
 			frequencies, amplitudes, ringTimes
-		], impulse), 1200, 0.6);
+		], impulse, freqoffset: freq), 1200, 0.6);
         var trig = DetectSilence.ar(sig, doneAction: Done.freeSelf);
 
 		SendReply.ar(trig, oscMessageID);
@@ -958,31 +958,32 @@ server.waitForBoot {
 
 	var grainSegmentDur = ~sample_rate * (grainDur + grainRelease);
 
-	var grainPlayPositions = grainCount.collect { |i|
-		i / grainCount * grainSegmentDur / ~sample_rate
-	};
+	var grainPlayPositions = grainCount.collect { |i| i / grainCount };
 	var grainPlayDuration = grainSegmentDur / ~sample_rate;
 
-	var playDef = SynthDef.new(\crystal_play, { arg out, amp, dur, freq, bufnum, gate = 1;
-		var trig = Dust.ar(40 * EnvGen.kr(
+	var playDef = SynthDef.new(\crystal_play, { arg out, amp = 0.4, dur, freq, bufnum, gate = 1;
+		var trig = Dust.ar(400 * EnvGen.kr(
 			Env.new([0, 1, 0], [0.2, dur], [\lin, \sin]),
 			gate: gate
 		));
 
 		var grainPan = Demand.ar(trig, gate, Dwhite(-1, 1));
-		var grainRate = Demand.ar(trig, gate, Dwhite(1, 1));
+		var rate = 2;
+		var grainRate = Demand.ar(trig, gate, Dwhite(1 / rate, rate));
+		var grainRateDir = Demand.ar(trig, gate, Dwhite(-1, 1, inf));
 		var grainPos = Demand.ar(trig, gate, Drand(grainPlayPositions, inf));
 
 		var grains = GrainBuf.ar(1,
 			trigger: trig,
-			dur: grainPlayDuration,
+			dur: bufnum,
 			sndbuf: bufnum,
 			pos: grainPos,
 			pan: grainPan,
-			rate: grainRate
+			rate: grainRate * grainRateDir
 		);
 
 		Out.ar(out, amp * grains.dup);
+		~detect_done.(grains);
 	}).add;
 
 	var condition = Condition.new(false);
@@ -1001,7 +1002,7 @@ server.waitForBoot {
 		server.sync;
 
 		grainCount.do { |i|
-			var grainFreq = (i + 1) / grainCount * 440;
+			var grainFreq = (i / grainCount).linlin(0, 1, 220, 4000);
 			Synth.new(fillDef.name, [
 				\out, 0,
 				\freq, grainFreq,
@@ -1021,6 +1022,8 @@ server.waitForBoot {
 			degree: 0,
 			bufnum: recordbuf
 		]).play;
+
+		osc.free;
 	};
 };
 
