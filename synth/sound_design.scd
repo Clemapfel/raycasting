@@ -2,6 +2,7 @@ var server = Server.default;
 var recorder = AutoRecorder.new(server);
 
 ~sample_rate = AutoRecorder.sampleRate;
+~nyquist = ~sample_rate / 2;
 ~temp_path = Platform.defaultTempDir +/+ "synth";
 ~export_path = thisProcess.nowExecutingPath.dirname +/+ "export";
 ~asset_path = thisProcess.nowExecutingPath.dirname +/+ "assets";
@@ -24,7 +25,8 @@ server.waitForBoot {
 	//~bubble_unpop.();
 	//~bounce_pad.();
 	//~air_dash_node_dash.();
-	~double_jump_tether.();
+	//~double_jump_tether.();
+	~crystal.();
 
 	//"Done. Took %s".format(Main.elapsedTime - before).postln;
 
@@ -679,24 +681,27 @@ server.waitForBoot {
 };
 
 ~double_jump_tether = {
-	var attachDef = SynthDef(\doubleJumpTetherAttach, { arg out, amp, freq, dur, gate = 1;
-		var ratios = #[1, 1.37];
+	var attachDef = SynthDef(\doubleJumpTetherAttach, { arg out, amp, freq, dur, gate = 1, direction = 1;
+		var ratios = #[0.21e-1];
 
         var feedback = LocalIn.ar(ratios.size);
-        var feedbackGain = 1.0;
+        var feedbackGain = 0.8;
 
-        var impulse = Spring.ar(Impulse.ar(0), spring: freq) * EnvGen.ar(Env.perc(0.02, 0.2), gate: gate);
-        var minDelay = 0.001, maxDelay = 0.03;
-		var signal = ratios.collect({ |ratio|
-			var delayTime = ratio * XLine.ar(2, 1).linlin(1, 2, minDelay, maxDelay);
+		var impulseEnv = EnvGen.ar(Env.perc(0.01, 0.1), gate: gate);
+		var impulse = SinOsc.ar(freq, phase: feedback) * impulseEnv;
+		var releaseTime = 0.2;
+		var minDelay = 0.midiratio;
+		var maxDelay = 1.midiratio;
+
+		var signal = ratios.collect { |ratio|
+			var delayTime = ratio * XLine.ar(1, 2, dur).linlin(1, 2, minDelay, maxDelay);
 			DelayC.ar(impulse + (feedbackGain * feedback), maxDelay, delayTime)
-		}).mean * EnvGen.ar(Env.adsr(attackTime: 0.02, decayTime: dur, releaseTime: 2), gate: gate);
+		} * EnvGen.ar(Env.asr(0.25, 1.0, dur - 0.25), gate: gate);
 
+		LocalOut.ar(signal);
 
-		LocalOut.ar(signal ! ratios.size);
-
-        ~detect_clipping.(signal);
-        Out.ar(out, signal.dup);
+        ~detect_volume.(signal);
+        Out.ar(out, signal.mean.dup);
     }).add;
 
 	Pbind(*[
@@ -708,50 +713,318 @@ server.waitForBoot {
 	]).play;
 };
 
-~metal_drum = {
-	var wobbleFeedbackBus = Bus.audio(server, 1);
+~crystal = {
+    // initialize crystal buffer
+    var path = ~asset_path +/+ "crystal_grain.wav";
+    var export = true;
 
-	var def = SynthDef(\bouncePad, { arg out, amp, freq = 440, dur, sustain, gate = 1;
-		var feedback = LocalIn.ar(1);
+    // Increased grains slightly for more shard variation,
+    // but code dynamically scales to whatever numGrains is set to.
+    var numGrains = 8;
+    var sampleFreq = 400;
 
-		var feedbackSweepDur = dur;
-		var feedbackAmount = Vibrato.ar(XLine.ar(1.0, 1.8, dur) - 1,
-			rate: XLine.kr(1, 20, feedbackSweepDur),
-			depth: 0.05
-		);
+    var buffer = if (export || File.exists(path).not) {
+        var ratiosIn = #[
+            1.0, 2.756, 5.404, 8.933, 13.34, 18.64, 24.82, 31.89, 39.85, 48.68, 53.71
+        ];
 
-		var ringDuration = dur;
-		var ringGain = 1.0;
-		var ringFreq = (freq.cpsmidi - 5).midicps;
-		var ringDelay = XLine.ar(1.0, 1.2) - 1;
-		var ringImpulseIn = SinOsc.ar(
-			freq: freq,
-			phase: feedbackAmount * DelayC.ar(feedback, ringDelay, ringDelay).range(0, 2pi)
-		) * EnvGen.ar(Env.adsr(
-			attackTime: 0.04,
-			decayTime: dur,
-			releaseTime: 2
-		), gate: gate);
+        var ratios = ratiosIn.collect { |x, i|
+            (i / (ratiosIn.size - 1)).linexp(0, 1, 1, 100)
+        };
 
-		var ringImpulse = Limiter.ar(4 * ringImpulseIn * AnalogBassDrum.ar(
-			trig: EnvGen.ar(Env.perc(0.0, 2.0)),
-			freq: ringFreq / 15
-		) * EnvGen.ar(Env.new([0, 1], [0.015], \welch)));
+        var tempo = 1;
+        var baseFreq = 2500; // Increased base frequency for more realistic "glass"
+        var amplitudes = ratios.collect { |x| 1.0 / (x ** 1.5) };
+        var ringTimes = ratios.collect { |x, i| (1 / (x * 0.2)).min(1 / tempo); };
+        var frequencies = ratios.collect { |x| x * baseFreq };
 
-		~detect_volume.(ringImpulse);
-		~detect_done.(ringImpulse);
+        var dur = 0.4;
+        var sampleDur = dur + ringTimes.maxItem;
 
-		LocalOut.ar(ringImpulseIn);
+        // Generator synth: Excites resonances to simulate a single shard.
+        // We use 'scale' to randomize shard size/pitch at instantiation.
+        var fillDef = SynthDef(\crystal_grain, { arg out, dur, scale = 1;
+            // Snappy noise transient for the impact of a single piece
+            var impulse = WhiteNoise.ar * EnvGen.ar(Env.perc(0.0001, 0.005));
 
-		Out.ar(out, (amp * Mix.ar([0, ringImpulse])).dup);
+            // Adjust shard partials based on scale
+            var scaledFreqs = Control.names([\freqs]).kr(frequencies) * scale;
+            var amps = Control.names([\amps]).kr(amplitudes);
+            var scaledRings = Control.names([\rings]).kr(ringTimes) * (1 / scale.sqrt);
+
+            var ring = DynKlank.ar(`[scaledFreqs, amps, scaledRings], impulse);
+            var ampEnv = EnvGen.ar(Env.new([1, 1, 0], [dur * 0.9, dur * 0.1]), doneAction: 2);
+
+            // Add a high-pass to thin out mud and emphasize glass brightness
+            ring = BHiPass.ar(ring, 1200, 0.6);
+
+            Out.ar(out, ring * ampEnv);
+        }).add;
+
+        // Recorder synth: reads from a bus, records to buffer, frees itself.
+        var recDef = SynthDef(\crystal_rec, { arg in, bufnum;
+            var sig = In.ar(in, 1);
+            var rec = RecordBuf.ar(sig, bufnum, loop: 0);
+            var done = Done.kr(rec);
+            FreeSelf.kr(done);
+            SendReply.kr(done, '/recDone');
+        }).add;
+
+        var condition = Condition.new(false);
+        var singleBufs, buses;
+        var doneCount = 0;
+        var frames = (server.sampleRate * sampleDur).ceil;
+		var arrays, combined, finalBuf;
+
+        server.sync;
+
+        "In ~crystal: allocating buses and single buffers...".postln;
+        singleBufs = numGrains.collect { Buffer.alloc(server, frames, 1) };
+        buses = numGrains.collect { Bus.audio(server, 1) };
+
+        server.sync;
+
+        OSCdef(\crystalDone, {
+            doneCount = doneCount + 1;
+            "In ~crystal: % / % shards recorded.".format(doneCount, numGrains).postln;
+            if (doneCount >= numGrains) {
+                condition.test = true;
+                condition.unhang;
+            };
+        }, '/recDone');
+
+        // Play and record all grains simultaneously into their respective buses/buffers
+        numGrains.do { |i|
+            var shardScale = exprand(0.5, 3.0); // Randomize shard properties
+
+            Synth(fillDef.name, [
+                \out, buses[i],
+                \dur, sampleDur,
+                \scale, shardScale
+            ]);
+
+            Synth(recDef.name, [
+                \in, buses[i],
+                \bufnum, singleBufs[i]
+            ], addAction: \addAfter);
+        };
+
+        // Wait for all recording to finish
+        condition.hang;
+        OSCdef(\crystalDone).free;
+
+        "In ~crystal: appending buffers...".postln;
+        condition.test = false;
+        doneCount = 0;
+
+        // Fetch all buffer data to the language side
+        arrays = Array.newClear(numGrains);
+        singleBufs.do { |buf, i|
+            buf.loadToFloatArray(action: { |arr|
+                arrays[i] = arr;
+                doneCount = doneCount + 1;
+                if (doneCount >= numGrains) {
+                    condition.test = true;
+                    condition.unhang;
+                }
+            });
+        };
+
+        // Wait for all arrays to load
+        condition.hang;
+
+        // Concatenate arrays
+        combined = FloatArray.new(arrays.sum(_.size));
+        arrays.do { |arr| combined = combined.addAll(arr) };
+
+        finalBuf = Buffer.loadCollection(server, combined);
+        server.sync;
+
+        "In ~crystal: writing combined buffer to disk...".postln;
+        condition.test = false;
+
+        finalBuf.write(path,
+            AutoRecorder.headerFormat,
+            AutoRecorder.sampleFormat,
+            completionMessage: {
+                "In ~crystal: all done.".postln;
+                condition.test = true;
+                condition.unhang;
+                ();
+            }
+        );
+
+        condition.hang;
+
+        singleBufs.do(_.free);
+        buses.do(_.free);
+
+        finalBuf;
+
+    } {
+        Buffer.read(server, path);
+    };
+
+    var def = SynthDef.new(\crystal, { arg out, amp, dur, bufnum, gate = 1;
+        // Impact envelope: instantaneous shatter, exponential decay to simulate dropping fragments
+        var impactEnv = EnvGen.kr(Env.new([0, 1, 0.001], [0.01, dur], [\lin, -5]), gate: gate, doneAction: 2);
+
+        // Start with a massive spray of particles, dropping down to isolated ticks
+        var trigDensity = 2500 * (impactEnv ** 2) + 10;
+        var trig = Dust.ar(trigDensity) * (impactEnv > 0.001);
+
+        var totalDur = BufDur.kr(bufnum);
+        var shardDur = totalDur / numGrains;
+
+        // 1. Pick a random shard section (0 to numGrains - 1)
+        var shardIdx = TIRand.kr(0, numGrains - 1, trig);
+        var shardBasePos = shardIdx / numGrains;
+
+        // 2. Map grain size to impact envelope:
+        // Initial shatter = very tiny noisy grains; Tail = longer ringing fragments
+        var envInvert = 1.0 - impactEnv;
+        var minDur = 0.005 + (envInvert * 0.04);
+        var maxDur = 0.02 + (envInvert * 0.2);
+        var grainDur = TExpRand.kr(minDur, maxDur, trig);
+
+        // Slight randomization in fragment pitch
+        var grainRate = TExpRand.kr(0.85, 1.25, trig);
+
+        // 3. Strict Boundary Math to prevent reading outside the current shard bounds:
+        // We find the max allowable start time offset (in seconds) based on the shard's duration
+        var maxOffsetSecs = (shardDur - (grainDur * grainRate)).max(0);
+
+        // Pick an offset in seconds, then convert it to a normalized 0..1 position
+        var offsetSecs = TRand.kr(0, maxOffsetSecs, trig);
+        var grainPos = shardBasePos + (offsetSecs / totalDur);
+
+        var grainPan = TRand.kr(-1.0, 1.0, trig);
+
+        var grains = GrainBuf.ar(
+            numChannels: 2,
+            trigger: trig,
+            dur: grainDur,
+            sndbuf: bufnum,
+            rate: grainRate,
+            pos: grainPos,
+            pan: grainPan
+        );
+
+        // High-pass the granular output to remove sub rumble from overlaps
+        grains = HPF.ar(grains, 400);
+
+        Out.ar(out, amp * grains * impactEnv);
+    }).add;
+
+    Pnew(def.name, *[
+        degree: 0,
+        tempo: 1,
+        bufnum: buffer,
+        dur: 10,
+        amp: 1
+    ]).play;
+};
+
+~crystal = {
+	var grainCount = 4;
+	var grainDur = 0.5;
+	var grainRelease = 1;
+
+	var ratiosIn = #[
+		1.0, 2.756, 5.404, 8.933, 13.34, 18.64, 24.82, 31.89, 39.85, 48.68, 53.71
+	];
+
+	var ratios = ratiosIn.collect { |x, i|
+		(i / (ratiosIn.size - 1)).linexp(0, 1, 1, 100)
+	};
+
+	var amplitudes = ratios.collect { |x| 1.0 / (x ** 1.5) };
+	var ringTimes = ratios.collect { |x, i| (grainDur / (x * 0.7)).min(grainDur); };
+	var frequencies = ratios.collect { |x| x * 2000 };
+
+	var oscMessageID = '/crystalDone';
+	var fillDef = SynthDef(\crystal_record, { arg out, gate = 1, recordbuf, recordoffset, amp, dur, freq = 440;
+		var impulse = WhiteNoise.ar * EnvGen.ar(Env.perc(0.00001, 0.005));
+
+		var sig = BHiPass.ar(DynKlank.ar(`[
+			frequencies, amplitudes, ringTimes
+		], impulse), 1200, 0.6);
+        var trig = DetectSilence.ar(sig, doneAction: Done.freeSelf);
+
+		SendReply.ar(trig, oscMessageID);
+        RecordBuf.ar(sig, recordbuf, recordoffset);
+        Out.ar(out, sig.dup);
 	}).add;
 
-	PmonoArtic(def.name, *[
-		degree: Pseq(~degrees, 1),
-		amp: 1,
-		sustain: 0.2
-	]).play;
+	var grainSegmentDur = ~sample_rate * (grainDur + grainRelease);
+
+	var grainPlayPositions = grainCount.collect { |i|
+		i / grainCount * grainSegmentDur / ~sample_rate
+	};
+	var grainPlayDuration = grainSegmentDur / ~sample_rate;
+
+	var playDef = SynthDef.new(\crystal_play, { arg out, amp, dur, freq, bufnum, gate = 1;
+		var trig = Dust.ar(40 * EnvGen.kr(
+			Env.new([0, 1, 0], [0.2, dur], [\lin, \sin]),
+			gate: gate
+		));
+
+		var grainPan = Demand.ar(trig, gate, Dwhite(-1, 1));
+		var grainRate = Demand.ar(trig, gate, Dwhite(1, 1));
+		var grainPos = Demand.ar(trig, gate, Drand(grainPlayPositions, inf));
+
+		var grains = GrainBuf.ar(1,
+			trigger: trig,
+			dur: grainPlayDuration,
+			sndbuf: bufnum,
+			pos: grainPos,
+			pan: grainPan,
+			rate: grainRate
+		);
+
+		Out.ar(out, amp * grains.dup);
+	}).add;
+
+	var condition = Condition.new(false);
+
+	fork {
+		// allocate n consecutive grains
+		var recordbuf = Buffer.alloc(server, grainCount * grainSegmentDur);
+
+		var oscDoneCount = 0;
+        var osc = OSCdef(\crystalDone, {
+            oscDoneCount = oscDoneCount + 1;
+			condition.test = (oscDoneCount == grainCount);
+			condition.unhang;
+        }, oscMessageID);
+
+		server.sync;
+
+		grainCount.do { |i|
+			var grainFreq = (i + 1) / grainCount * 440;
+			Synth.new(fillDef.name, [
+				\out, 0,
+				\freq, grainFreq,
+				\dur, grainDur,
+				\release, grainRelease,
+				\recordbuf, recordbuf,
+				\recordoffset, i * (grainDur + grainRelease) * ~sample_rate
+			]);
+		};
+
+		condition.hang;
+
+		server.sync;
+
+		Pmono(playDef.name, *[
+			amp: 1,
+			degree: 0,
+			bufnum: recordbuf
+		]).play;
+	};
 };
+
+
 
 Date.getDate;
 

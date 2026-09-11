@@ -16,10 +16,6 @@ require "common.sound_manager"
 require "common.input_manager"
 require "common.routine"
 
-for x in range(rt.Palette.BLACK:unpack()) do
-    dbg(x * 255)
-end
-
 love.load = function(args)
     if PROFILE then profiler.push("love.load") end
 
