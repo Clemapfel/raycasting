@@ -36,6 +36,7 @@ rt.settings.player_body = {
         bending_compliance = 1,
         axis_compliance = 1,
         collision_compliance = 0.025,
+        contraction_compliance = 0.003,
 
         gravity = 500
     },
@@ -47,6 +48,7 @@ rt.settings.player_body = {
         axis_compliance = 1,
         distance_compliance = 7e-6,
         collision_compliance = 0.00055,
+        contraction_compliance = 1,
 
         damping = 1 - 0.4,
 
@@ -122,6 +124,7 @@ function rt.PlayerBody:instantiate(position_x, position_y)
     self._body_stencil_bodies = {}
     self._core_stencil_bodies = {}
     self._use_contour = true
+    self._contour_radius = rt.settings.player.radius * rt.settings.player.bubble_radius_factor
     self._contour_transition_motion = rt.SmoothedMotion1D(0)
     self._contour_transition_motion:set_speed(
         rt.settings.player_body.contour_inflation_speed,
@@ -134,6 +137,8 @@ function rt.PlayerBody:instantiate(position_x, position_y)
 
     self._colliding_lines = {} -- Table<Tuple<4>>
     self._colliding_lines_to_lambda = {}
+
+    self._contraction = 1.0
 
     self._particle_texture_radius = nil -- Number
     self._particle_texture = nil -- rt.RenderTexture
@@ -169,8 +174,9 @@ local _collision_strength_offset = 13
 local _distance_lambda_offset = 14
 local _bending_lambda_offset = 15
 local _axis_lambda_offset = 16
+local _contraction_lambda_offset = 17
 
-local _stride = _axis_lambda_offset + 1
+local _stride = _contraction_lambda_offset + 1
 local _particle_i_to_data_offset = function(particle_i)
     return (particle_i - 1) * _stride + 1 -- 1-based
 end
@@ -221,7 +227,7 @@ function rt.PlayerBody:_initialize()
         return 1 / math.sqrt(2) * result
     end
 
-    local contour_radius = rt.settings.player.radius * rt.settings.player.bubble_radius_factor
+    local contour_radius = self._contour_radius
 
     local collision_easing = function(i, n)
         local progress = (i - 1) / n
@@ -317,6 +323,7 @@ function rt.PlayerBody:_initialize()
                 data[i + _distance_lambda_offset] = 0
                 data[i + _bending_lambda_offset] = 0
                 data[i + _axis_lambda_offset] = 0
+                data[i + _contraction_lambda_offset] = 0
 
                 x = x + dx * segment_length
                 y = y + dy * segment_length
@@ -343,7 +350,6 @@ function rt.PlayerBody:_initialize()
 
                 local n_nodes = rope_length_to_n_nodes(rope_length)
 
-                -- Calculate total radius contribution for this rope
                 local total_radius = 0
                 for node_i = 1, n_nodes do
                     local radius = particle_texture_radius * radius_easing(node_i, n_nodes)
@@ -541,6 +547,7 @@ function rt.PlayerBody:relax()
             data[i + _distance_lambda_offset] = 0
             data[i + _bending_lambda_offset] = 0
             data[i + _axis_lambda_offset] = 0
+            data[i + _contraction_lambda_offset] = 0
 
             if self._use_contour then
                 -- if contour, align with axis, else keep at rope origin
@@ -568,7 +575,7 @@ function rt.PlayerBody:update(delta)
     end
 end
 
-do -- update helpers (XPBD with lambdas)
+do
     local function _pre_solve(
         position_x, position_y,
         velocity_x, velocity_y,
@@ -577,44 +584,33 @@ do -- update helpers (XPBD with lambdas)
         relative_velocity_x, relative_velocity_y,
         damping, delta
     )
-        -- store previous world positions for velocity update in post-solve
         local previous_x = position_x
         local previous_y = position_y
 
-        -- world velocity from previous step
         local world_velocity_x = velocity_x
         local world_velocity_y = velocity_y
 
-        -- convert to frame-relative before damping so the frame motion is not damped
         local relative_x = (world_velocity_x - relative_velocity_x) * damping
         local relative_y = (world_velocity_y - relative_velocity_y) * damping
 
-        -- integrate external acceleration (gravity); y-down so positive gravity_y accelerates downward
         relative_x = relative_x + mass * gravity_x * delta
         relative_y = relative_y + mass * gravity_y * delta
 
-        -- convert back to world velocity for advection and storage
         local world_velocity_new_x = relative_x + relative_velocity_x
         local world_velocity_new_y = relative_y + relative_velocity_y
 
-        -- predict positions in world space (advected by frame)
         local position_new_x = position_x + world_velocity_new_x * delta
         local position_new_y = position_y + world_velocity_new_y * delta
 
-        -- reset XPBD lambdas per particle
-        local distance_lambda = 0
-        local bending_lambda = 0
-        local axis_lambda = 0
-
-        return position_new_x, position_new_y, world_velocity_new_x, world_velocity_new_y, previous_x, previous_y, distance_lambda, bending_lambda, axis_lambda
+        return position_new_x, position_new_y, world_velocity_new_x, world_velocity_new_y, previous_x, previous_y
     end
 
     local function _enforce_distance(
         ax, ay, bx, by,
         inverse_mass_a, inverse_mass_b,
         target_distance,
-        alpha,         -- compliance (already scaled by sub_delta^2)
-        lambda_before    -- accumulated lambda for this constraint
+        alpha,
+        lambda_before
     )
         local delta_x = bx - ax
         local delta_y = by - ay
@@ -635,10 +631,9 @@ do -- update helpers (XPBD with lambdas)
         local delta_lambda = -(constraint + alpha * lambda_before) / denominator
         local lambda_new = lambda_before + delta_lambda
 
-        -- x_i += w_i * d_lambda * gradC_i
-        local correction_ax = inverse_mass_a * delta_lambda * (-normal_x) -- grad_a = -n
+        local correction_ax = inverse_mass_a * delta_lambda * (-normal_x)
         local correction_ay = inverse_mass_a * delta_lambda * (-normal_y)
-        local correction_bx = inverse_mass_b * delta_lambda * ( normal_x) -- grad_b = +n
+        local correction_bx = inverse_mass_b * delta_lambda * ( normal_x)
         local correction_by = inverse_mass_b * delta_lambda * ( normal_y)
 
         return correction_ax, correction_ay, correction_bx, correction_by, lambda_new
@@ -651,37 +646,27 @@ do -- update helpers (XPBD with lambdas)
         alpha,
         lambda_before
     )
-        -- direction from A to C
-        local t_x = cx - ax
-        local t_y = cy - ay
-        local t_len = math.magnitude(t_x, t_y)
-        if t_len < math.eps then
-            -- degenerate: A and C coincide -> no stable normal available
+        local tx = cx - ax
+        local ty = cy - ay
+        if math.magnitude(tx, ty) < math.eps then
             return 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, lambda_before
         end
-        t_x, t_y = math.normalize(t_x, t_y)
+        tx, ty = math.normalize(tx, ty)
 
-        -- perpendicular normal
-        local n_x = -t_y
-        local n_y =  t_x
+        local nx, ny = math.turn_left(tx, ty)
 
-        -- midpoint of A and C
-        local m_x = 0.5 * (ax + cx)
-        local m_y = 0.5 * (ay + cy)
+        local mx = 0.5 * (ax + cx)
+        local my = 0.5 * (ay + cy)
 
-        -- scalar constraint: signed distance of B from line AC along n
-        local e_x = m_x - bx
-        local e_y = m_y - by
-        local constraint = math.dot(e_x, e_y, n_x, n_y)
+        local ex = mx - bx
+        local ey = my - by
+        local constraint = math.dot(ex, ey, nx, ny)
 
-        -- gradients (constant-n approximation)
-        local gax, gay =  0.5 * n_x,  0.5 * n_y
-        local gbx, gby = -1.0 * n_x, -1.0 * n_y
-        local gcx, gcy =  0.5 * n_x,  0.5 * n_y
+        local gax, gay =  0.5 * nx,  0.5 * ny
+        local gbx, gby = -1.0 * nx, -1.0 * ny
+        local gcx, gcy =  0.5 * nx,  0.5 * ny
 
-        -- Σ w_i |g_i|^2, with |n| = 1
-        local weight_sum =
-        inverse_mass_a * (0.5 * 0.5) +
+        local weight_sum = inverse_mass_a * (0.5 * 0.5) +
             inverse_mass_b * (1.0 * 1.0) +
             inverse_mass_c * (0.5 * 0.5)
 
@@ -693,7 +678,6 @@ do -- update helpers (XPBD with lambdas)
         local delta_lambda = -(constraint + alpha * lambda_before) / denominator
         local lambda_new = lambda_before + delta_lambda
 
-        -- corrections
         local correction_ax = inverse_mass_a * delta_lambda * gax
         local correction_ay = inverse_mass_a * delta_lambda * gay
         local correction_bx = inverse_mass_b * delta_lambda * gbx
@@ -703,7 +687,6 @@ do -- update helpers (XPBD with lambdas)
 
         return correction_ax, correction_ay, correction_bx, correction_by, correction_cx, correction_cy, lambda_new
     end
-
 
     local function _enforce_axis_alignment(
         ax, ay,
@@ -722,21 +705,17 @@ do -- update helpers (XPBD with lambdas)
         end
         vector_x, vector_y = math.normalize(vector_x, vector_y)
 
-        -- choose orientation to avoid 180° ambiguity
         if math.dot(vector_x, vector_y, target_x, target_y) < 0 then
             vector_x = -vector_x
             vector_y = -vector_y
         end
 
-        -- perpendicular to current segment
         local perpendicular_x = -vector_y
         local perpendicular_y =  vector_x
 
-        -- desired endpoint for B along target axis
         local target_b_x = ax + target_x * segment_length
         local target_b_y = ay + target_y * segment_length
 
-        -- scalar error along perpendicular
         local error_x = target_b_x - bx
         local error_y = target_b_y - by
         local constraint = math.dot(error_x, error_y, perpendicular_x, perpendicular_y)
@@ -786,7 +765,6 @@ do -- update helpers (XPBD with lambdas)
             return 0.0, 0.0, lambda_before
         end
 
-        -- inequality complementarity: clamp λ >= 0
         local delta_lambda = -(constraint + alpha * lambda_before) / denominator
         local lambda_new = math.clamp(lambda_before + delta_lambda, 0.0, math.huge)
         delta_lambda = lambda_new - lambda_before
@@ -795,6 +773,37 @@ do -- update helpers (XPBD with lambdas)
         local correction_y = inverse_mass * delta_lambda * normalized_y
 
         return correction_x, correction_y, lambda_new
+    end
+
+    local function _enforce_position(
+        ax, ay,
+        inverse_mass_a,
+        target_x, target_y,
+        alpha,
+        lambda_before
+    )
+        local delta_x = target_x - ax
+        local delta_y = target_y - ay
+        local length = math.magnitude(delta_x, delta_y)
+        if length < math.eps then
+            return 0, 0, lambda_before
+        end
+
+        local normal_x, normal_y = math.normalize(delta_x, delta_y)
+
+        local constraint = length
+        local denominator = inverse_mass_a + alpha
+        if denominator < math.eps then
+            return 0, 0, lambda_before
+        end
+
+        local delta_lambda = -(constraint + alpha * lambda_before) / denominator
+        local lambda_new = lambda_before + delta_lambda
+
+        local correction_ax = inverse_mass_a * delta_lambda * (-normal_x)
+        local correction_ay = inverse_mass_a * delta_lambda * (-normal_y)
+
+        return correction_ax, correction_ay, lambda_new
     end
 
     local function _post_solve(
@@ -808,7 +817,6 @@ do -- update helpers (XPBD with lambdas)
         return velocity_x, velocity_y
     end
 
-    -- PlayerBody:_step with XPBD lambdas
     function rt.PlayerBody:_step(delta)
         local settings = ternary(self._use_contour, rt.settings.player_body.contour, rt.settings.player_body.non_contour)
         local sub_delta = delta / settings.n_sub_steps
@@ -820,6 +828,7 @@ do -- update helpers (XPBD with lambdas)
         local distance_alpha = settings.distance_compliance / (sub_delta^2)
         local bending_alpha = settings.bending_compliance / (sub_delta^2)
         local axis_alpha = settings.axis_compliance / (sub_delta^2)
+        local contraction_alpha = math.mix(settings.contraction_compliance, 1, self._contraction) / (sub_delta^2)
         local collision_alpha = settings.collision_compliance / (sub_delta^2)
 
         local data = self._particle_data
@@ -834,7 +843,7 @@ do -- update helpers (XPBD with lambdas)
         for _ = 1, n_sub_steps do
             for particle_i = 1, self._n_particles do
                 local offset = _particle_i_to_data_offset(particle_i)
-                local new_position_x, new_position_y, new_velocity_x, new_velocity_y, previous_x, previous_y, distance_lambda, bending_lambda, axis_lambda = _pre_solve(
+                local new_position_x, new_position_y, new_velocity_x, new_velocity_y, previous_x, previous_y = _pre_solve(
                     data[offset + _x_offset],
                     data[offset + _y_offset],
                     data[offset + _velocity_x_offset],
@@ -851,9 +860,10 @@ do -- update helpers (XPBD with lambdas)
                 data[offset + _velocity_y_offset] = new_velocity_y
                 data[offset + _previous_x_offset] = previous_x
                 data[offset + _previous_y_offset] = previous_y
-                data[offset + _distance_lambda_offset] = distance_lambda
-                data[offset + _bending_lambda_offset] = bending_lambda
-                data[offset + _axis_lambda_offset] = axis_lambda
+                data[offset + _distance_lambda_offset] = 0
+                data[offset + _bending_lambda_offset] = 0
+                data[offset + _axis_lambda_offset] = 0
+                data[offset + _contraction_lambda_offset] = 0
             end
 
             -- reset collision lambdas
@@ -878,111 +888,136 @@ do -- update helpers (XPBD with lambdas)
                     data[anchor_offset + _x_offset] = anchor_x
                     data[anchor_offset + _y_offset] = anchor_y
 
-                    -- segment distance constraints (XPBD)
-                    for node_i = rope.start_i, rope.end_i - 1, 1 do
-                        local a_i = _particle_i_to_data_offset(node_i + 0)
-                        local b_i = _particle_i_to_data_offset(node_i + 1)
+                    -- segment distance
+                    if settings.distance_compliance < 1 then
+                        for node_i = rope.start_i, rope.end_i - 1, 1 do
+                            local a_i = _particle_i_to_data_offset(node_i + 0)
+                            local b_i = _particle_i_to_data_offset(node_i + 1)
 
-                        local ax, ay = data[a_i + _x_offset], data[a_i + _y_offset]
-                        local bx, by = data[b_i + _x_offset], data[b_i + _y_offset]
+                            local ax, ay = data[a_i + _x_offset], data[a_i + _y_offset]
+                            local bx, by = data[b_i + _x_offset], data[b_i + _y_offset]
 
-                        local inverse_mass_a = data[a_i + _inverse_mass_offset]
-                        local inverse_mass_b = data[b_i + _inverse_mass_offset]
+                            local inverse_mass_a = data[a_i + _inverse_mass_offset]
+                            local inverse_mass_b = data[b_i + _inverse_mass_offset]
 
-                        local segment_length
-                        if not self._use_contour then
-                            segment_length = data[a_i + _segment_length_offset]
-                        else
-                            segment_length = data[a_i + _contour_segment_length_offset]
+                            local segment_length
+                            if not self._use_contour then
+                                segment_length = data[a_i + _segment_length_offset]
+                            else
+                                segment_length = data[a_i + _contour_segment_length_offset]
+                            end
+
+                            local correction_ax, correction_ay, correction_bx, correction_by, lambda_new = _enforce_distance(
+                                ax, ay, bx, by,
+                                inverse_mass_a, inverse_mass_b,
+                                segment_length,
+                                distance_alpha,
+                                data[a_i + _distance_lambda_offset]
+                            )
+
+                            data[a_i + _x_offset] = ax + correction_ax
+                            data[a_i + _y_offset] = ay + correction_ay
+                            data[b_i + _x_offset] = bx + correction_bx
+                            data[b_i + _y_offset] = by + correction_by
+                            data[a_i + _distance_lambda_offset] = lambda_new
                         end
-
-                        local correction_ax, correction_ay, correction_bx, correction_by, lambda_new = _enforce_distance(
-                            ax, ay, bx, by,
-                            inverse_mass_a, inverse_mass_b,
-                            segment_length,
-                            distance_alpha,
-                            data[a_i + _distance_lambda_offset]
-                        )
-
-                        data[a_i + _x_offset] = ax + correction_ax
-                        data[a_i + _y_offset] = ay + correction_ay
-                        data[b_i + _x_offset] = bx + correction_bx
-                        data[b_i + _y_offset] = by + correction_by
-                        data[a_i + _distance_lambda_offset] = lambda_new
                     end
 
-                    -- bending constraints (XPBD)
-                    for node_i = rope.start_i, rope.end_i - 2, 1 do
-                        local a_i = _particle_i_to_data_offset(node_i + 0)
-                        local b_i = _particle_i_to_data_offset(node_i + 1)
-                        local c_i = _particle_i_to_data_offset(node_i + 2)
+                    -- bending constraints
+                    if settings.bending_compliance < 1 then
+                        for node_i = rope.start_i, rope.end_i - 2, 1 do
+                            local a_i = _particle_i_to_data_offset(node_i + 0)
+                            local b_i = _particle_i_to_data_offset(node_i + 1)
+                            local c_i = _particle_i_to_data_offset(node_i + 2)
 
-                        local ax, ay = data[a_i + _x_offset], data[a_i + _y_offset]
-                        local bx, by = data[b_i + _x_offset], data[b_i + _y_offset]
-                        local particle_c_x, particle_c_y = data[c_i + _x_offset], data[c_i + _y_offset]
+                            local ax, ay = data[a_i + _x_offset], data[a_i + _y_offset]
+                            local bx, by = data[b_i + _x_offset], data[b_i + _y_offset]
+                            local particle_c_x, particle_c_y = data[c_i + _x_offset], data[c_i + _y_offset]
 
-                        local inverse_mass_a = data[a_i + _inverse_mass_offset]
-                        local inverse_mass_b = data[b_i + _inverse_mass_offset]
-                        local inverse_mass_c = data[c_i + _inverse_mass_offset]
+                            local inverse_mass_a = data[a_i + _inverse_mass_offset]
+                            local inverse_mass_b = data[b_i + _inverse_mass_offset]
+                            local inverse_mass_c = data[c_i + _inverse_mass_offset]
 
-                        local segment_length_ab = data[a_i + _segment_length_offset]
-                        local segment_length_bc = data[b_i + _segment_length_offset]
-                        local target_length = segment_length_ab + segment_length_bc
+                            local segment_length_ab = data[a_i + _segment_length_offset]
+                            local segment_length_bc = data[b_i + _segment_length_offset]
+                            local target_length = segment_length_ab + segment_length_bc
 
-                        local correction_ax, correction_ay, correction_bx, correction_by, correction_cx, correction_cy, lambda_new = _enforce_bending(
-                            ax, ay, bx, by, particle_c_x, particle_c_y,
-                            inverse_mass_a, inverse_mass_b, inverse_mass_c,
-                            target_length,
-                            bending_alpha,
-                            data[a_i + _bending_lambda_offset]
-                        )
+                            local correction_ax, correction_ay, correction_bx, correction_by, correction_cx, correction_cy, lambda_new = _enforce_bending(
+                                ax, ay, bx, by, particle_c_x, particle_c_y,
+                                inverse_mass_a, inverse_mass_b, inverse_mass_c,
+                                target_length,
+                                bending_alpha,
+                                data[a_i + _bending_lambda_offset]
+                            )
 
-                        data[a_i + _x_offset] = ax + correction_ax
-                        data[a_i + _y_offset] = ay + correction_ay
-                        data[b_i + _x_offset] = bx + correction_bx
-                        data[b_i + _y_offset] = by + correction_by
-                        data[c_i + _x_offset] = particle_c_x + correction_cx
-                        data[c_i + _y_offset] = particle_c_y + correction_cy
-                        data[a_i + _bending_lambda_offset] = lambda_new
-
+                            data[a_i + _x_offset] = ax + correction_ax
+                            data[a_i + _y_offset] = ay + correction_ay
+                            data[b_i + _x_offset] = bx + correction_bx
+                            data[b_i + _y_offset] = by + correction_by
+                            data[c_i + _x_offset] = particle_c_x + correction_cx
+                            data[c_i + _y_offset] = particle_c_y + correction_cy
+                            data[a_i + _bending_lambda_offset] = lambda_new
+                        end
                     end
 
-                    -- axis alignment (XPBD, IK-like)
-                    for node_i = rope.start_i, rope.end_i - 1 do
-                        local a_i = _particle_i_to_data_offset(node_i)
-                        local b_i = _particle_i_to_data_offset(node_i + 1)
+                    -- axis alignment
+                    if settings.axis_compliance < 1 then
+                        for node_i = rope.start_i, rope.end_i - 1 do
+                            local a_i = _particle_i_to_data_offset(node_i)
+                            local b_i = _particle_i_to_data_offset(node_i + 1)
 
-                        local ax = data[a_i + _x_offset]
-                        local ay = data[a_i + _y_offset]
-                        local bx = data[b_i + _x_offset]
-                        local by = data[b_i + _y_offset]
+                            local ax = data[a_i + _x_offset]
+                            local ay = data[a_i + _y_offset]
+                            local bx = data[b_i + _x_offset]
+                            local by = data[b_i + _y_offset]
 
-                        local inverse_mass_a = data[a_i + _inverse_mass_offset]
-                        local inverse_mass_b = data[b_i + _inverse_mass_offset]
+                            local inverse_mass_a = data[a_i + _inverse_mass_offset]
+                            local inverse_mass_b = data[b_i + _inverse_mass_offset]
 
-                        local segment_length = data[a_i + _segment_length_offset]
+                            local segment_length = data[a_i + _segment_length_offset]
 
-                        local axis_j = node_i - rope.start_i + 1
-                        local correction_ax, correction_ay, correction_bx, correction_by, lambda_new = _enforce_axis_alignment(
-                            ax, ay, bx, by,
-                            inverse_mass_a, inverse_mass_b,
-                            segment_length,
-                            rope.axis_x, rope.axis_y,
-                            axis_alpha,
-                            data[a_i + _axis_lambda_offset]
-                        )
-                        data[a_i + _axis_lambda_offset] = lambda_new
+                            local axis_j = node_i - rope.start_i + 1
+                            local correction_ax, correction_ay, correction_bx, correction_by, lambda_new = _enforce_axis_alignment(
+                                ax, ay, bx, by,
+                                inverse_mass_a, inverse_mass_b,
+                                segment_length,
+                                rope.axis_x, rope.axis_y,
+                                axis_alpha,
+                                data[a_i + _axis_lambda_offset]
+                            )
+                            data[a_i + _axis_lambda_offset] = lambda_new
 
-                        data[a_i + _x_offset] = ax + correction_ax
-                        data[a_i + _y_offset] = ay + correction_ay
-                        data[b_i + _x_offset] = bx + correction_bx
-                        data[b_i + _y_offset] = by + correction_by
+                            data[a_i + _x_offset] = ax + correction_ax
+                            data[a_i + _y_offset] = ay + correction_ay
+                            data[b_i + _x_offset] = bx + correction_bx
+                            data[b_i + _y_offset] = by + correction_by
+                        end
                     end
 
-                    ::next_rope::
+                    -- contraction
+                    if settings.contraction_compliance < 1 then
+                        for node_i = rope.start_i, rope.end_i do
+                            local i = _particle_i_to_data_offset(node_i)
+                            local x = data[i + _x_offset]
+                            local y = data[i + _y_offset]
+                            local inverse_mass_a = data[i + _inverse_mass_offset]
+                            local axis_j = node_i - rope.start_i + 1
+
+                            local correction_x, correction_y, lambda_new = _enforce_position(
+                                x, y, inverse_mass_a,
+                                self._position_x, self._position_y,
+                                contraction_alpha,
+                                data[i + _contraction_lambda_offset]
+                            )
+
+                            data[i + _contraction_lambda_offset] = lambda_new
+                            data[i + _x_offset] = x + correction_x
+                            data[i + _y_offset] = y + correction_y
+                        end
+                    end
                 end
 
-                -- collisions (XPBD inequality per line, per particle)
+                -- collisions
                 for line_i, line in ipairs(self._colliding_lines or {}) do
                     local row = self._colliding_lines_to_lambda and self._colliding_lines_to_lambda[line_i]
                     for particle_i = 1, self._n_particles do
@@ -1234,9 +1269,17 @@ end
 function rt.PlayerBody:set_shape(positions)
     self._core_vertices = positions
     local max_r = -math.huge
+    local center_x, center_y, n = 0, 0, 0
     for i = 1, #positions, 2 do
-        max_r = math.max(max_r, math.distance(positions[i+0], positions[i+1], 0, 0))
+        local x, y = positions[i+0], positions[i+1]
+        max_r = math.max(max_r, math.distance(x, y, 0, 0))
+        center_x = center_x + x
+        center_y = center_y + y
+        n = n + 1
     end
+
+    self._center_x = center_x / n
+    self._center_y = center_y / n
 
     local outline_width = rt.settings.player_body.core_outline_width
     self._core_outline_scale = 1 + (outline_width / max_r)
@@ -1386,4 +1429,9 @@ end
 --- @brief
 function rt.PlayerBody:get_saturation()
     return self._saturation
+end
+
+--- @brief
+function rt.PlayerBody:set_contraction(t)
+    self._contraction = t
 end

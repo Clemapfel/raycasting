@@ -2,11 +2,12 @@ require "common.smoothed_motion_1d"
 require "overworld.movable_object"
 
 rt.settings.overworld.hook = {
-    radius_factor = 1.8,
+    radius_factor = 1.9,
     hook_animation_duration = 3,
     hook_sound_id = "hook",
     outline_width = 2,
-    cooldown = 20 / 60
+    cooldown = 20 / 60,
+    contraction_factor = 0.5
 }
 
 --- @class ow.Hook
@@ -223,6 +224,7 @@ function ow.Hook:_hook()
             end
 
             self._is_hooked = true
+            player:request_is_contracted(self, true)
             player:pulse(self._color)
             return meta.DISCONNECT_SIGNAL
         end)
@@ -269,6 +271,7 @@ function ow.Hook:_unhook()
         end
 
         player:request_is_jump_allowed_override(self, nil)
+        player:request_is_contracted(self, nil)
 
         return meta.DISCONNECT_SIGNAL
     end)
@@ -289,7 +292,7 @@ function ow.Hook:draw()
     local brightness_scale = math.mix(1, rt.settings.impulse_manager.max_brightness_factor, self._impulse:get_pulse())
 
     _shader:bind()
-    _shader:send("elapsed", rt.SceneManager:get_elapsed())
+    _shader:send("elapsed", rt.SceneManager:get_elapsed() + ((meta.hash(self) % 16) / 16))
     _shader:send("fraction", rt.InterpolationFunctions.SIGMOID(1 - value))
     _shader:send("player_color", { self._color:unpack() })
     _shader:send("hue", self._hue)
@@ -320,19 +323,12 @@ end
 
 --- @brief
 function ow.Hook:draw_bloom()
-    if not self._stage:get_is_body_visible(self._body)
-        or self._is_hooked -- prevent bloom being drawn on top of player
-    then
-        return
-    end
-
     love.graphics.push()
     love.graphics.translate(self._body:get_position())
 
     self._color:bind()
     love.graphics.setLineWidth(rt.settings.overworld.hook.outline_width * 1.5)
     love.graphics.line(self._outline)
-
     love.graphics.pop()
 end
 

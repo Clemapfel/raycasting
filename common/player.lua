@@ -334,6 +334,7 @@ function rt.Player:instantiate()
             "is_trail_enabled",
             "is_flow_frozen",
             "is_idle_timer_frozen",
+            "is_contracted",
 
             "opacity",
             "time_dilation",
@@ -588,11 +589,12 @@ function rt.Player:update(delta)
             self._graphics_body:set_position(center_x, center_y)
             self._graphics_body:set_color(self._current_color)
             self._graphics_body:set_opacity(self:get_opacity())
+            self._graphics_body:set_contraction(ternary(self:get_is_contracted(), 0, 1))
 
             if self:get_is_bubble() then
-                self._graphics_body:set_use_contour(true)
+                self._graphics_body:set_use_contour(true, settings.bubble_radius_factor)
             else
-                self._graphics_body:set_use_contour(false)
+                self._graphics_body:set_use_contour(false, 1)
             end
 
             self._graphics_body:update(delta)
@@ -2927,6 +2929,7 @@ function rt.Player:reset()
         self._is_disabled_requests,
         self._is_ghost_requests,
         self._is_bubble_requests,
+        self._is_contracted_requests,
         self._is_movement_disabled_requests,
         self._is_jump_disabled_requests,
         self._is_double_jump_disabled_requests,
@@ -3067,52 +3070,55 @@ end
 
 
 for tuple in range(
---- @alias request_is_visible fun(id: Object, is_visible: Boolean)
+    --- @alias request_is_visible fun(id: Object, is_visible: Boolean)
     { "is_visible", { { "is_visible", mt.Boolean } } },
 
---- @alias request_is_frozen fun(id: Object, is_frozen: Boolean)
+    --- @alias request_is_frozen fun(id: Object, is_frozen: Boolean)
     { "is_frozen", { { "is_frozen", mt.Boolean } } },
 
---- @alias request_is_disabled fun(id: Object, is_disabled: Boolean)
+    --- @alias request_is_disabled fun(id: Object, is_disabled: Boolean)
     { "is_disabled", { { "is_disabled", mt.Boolean } } },
 
---- @alias request_is_movement_disabled fun(id: Object, is_disabled: Boolean)
+    --- @alias request_is_movement_disabled fun(id: Object, is_disabled: Boolean)
     { "is_movement_disabled", { { "is_disabled", mt.Boolean } } },
 
---- @alias request_is_jump_disabled fun(id: Object, is_disabled: Boolean)
+    --- @alias request_is_jump_disabled fun(id: Object, is_disabled: Boolean)
     { "is_jump_disabled", { { "is_disabled", mt.Boolean } } },
 
---- @alias request_is_double_jump_disabled fun(id: Object, is_disabled: Boolean)
+    --- @alias request_is_double_jump_disabled fun(id: Object, is_disabled: Boolean)
     { "is_double_jump_disabled", { { "is_disabled", mt.Boolean } } },
 
---- @alias request_is_jump_allowed_override fun(id: Object, is_allowed: Boolean)
+    --- @alias request_is_jump_allowed_override fun(id: Object, is_allowed: Boolean)
     { "is_jump_allowed_override", { { "is_allowed", mt.Boolean } } },
-    
---- @alias request_is_omnidirectional_movement_allowed = fun(id: Object, is_allowed: Boolean)
+
+    --- @alias request_is_omnidirectional_movement_allowed = fun(id: Object, is_allowed: Boolean)
     { "is_omnidirectional_movement_allowed", { { "is_allowed", mt.Boolean } } },
 
---- @alias request_is_trail_enabled fun(id: Object, is_visible: Boolean)
+    --- @alias request_is_contracted = fun(id: Object, value: Number)
+    { "is_contracted", { { "is_contracted", mt.Boolean } } },
+
+    --- @alias request_is_trail_enabled fun(id: Object, is_visible: Boolean)
     { "is_trail_enabled", { { "is_visible", mt.Boolean } } },
 
---- @alias request_is_flow_frozen fun(id: Object, is_frozen: Boolean)
+    --- @alias request_is_flow_frozen fun(id: Object, is_frozen: Boolean)
     { "is_flow_frozen", { { "is_frozen", mt.Boolean } } },
 
---- @alias request_is_idle_timer_frozen fun(id: Object, is_frozen: Boolean)
+    --- @alias request_is_idle_timer_frozen fun(id: Object, is_frozen: Boolean)
     { "is_idle_timer_frozen", { { "is_frozen", mt.Boolean } } },
 
---- @alias request_opacity fun(id: Object, opacity: Number)
+    --- @alias request_opacity fun(id: Object, opacity: Number)
     { "opacity", { { "opacity", mt.Number } } },
 
---- @alias request_time_dilation fun(id: Object, factor: Number)
+    --- @alias request_time_dilation fun(id: Object, factor: Number)
     { "time_dilation", { { "dilation", mt.Number } } },
 
---- @alias request_gravity_multiplier fun(id: Object, factor: Number)
+    --- @alias request_gravity_multiplier fun(id: Object, factor: Number)
     { "gravity_multiplier", { { "multiplier", mt.Number } } },
 
---- @alias request_gravity_direction fun(id: Object, dx: Number, dy: Number)
+    --- @alias request_gravity_direction fun(id: Object, dx: Number, dy: Number)
     { "gravity_direction", { { "dx", mt.Number }, { "dy", mt.Number } } },
 
---- @alias request_force fun(id: Object, dx: Number, dy: Number)
+    --- @alias request_force fun(id: Object, dx: Number, dy: Number)
     { "force", { { "dx", mt.Number }, { "dy", mt.Number } } }
 ) do
     local which, args_table = table.unpack(tuple)
@@ -3238,6 +3244,14 @@ function rt.Player:get_is_ghost()
         if source.is_ghost == true then return true end
     end
 
+    return false
+end
+
+--- @brief
+function rt.Player:get_is_contracted()
+    for source in values(self._is_contracted_requests) do
+        if source.is_contracted == true then return true end
+    end
     return false
 end
 
