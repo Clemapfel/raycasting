@@ -818,8 +818,11 @@ server.waitForBoot {
 ~hook = {
 	var humFreqs = #[ 240, 355, 470, 600, 720, 845 ];
 
-	var def = SynthDef.new("\hook_filter", { arg out, amp, freq, dur = 1, gate = 1, degree = 0, bufnum, split = 440;
-		var signal = PlayBuf.ar(1, bufnum);
+	var def = SynthDef.new("\hook_filter", { arg out, amp, freq, dur = 1, gate = 1, degree = 0, bufnum, split = 440, rate = 1, attack = 0.1;
+		var isForward = (rate > 0);
+		var startPos = Select.kr(isForward, [BufFrames.kr(bufnum) - 1, 0]);
+		var playRate = Select.kr(isForward, [rate.abs.neg, rate.abs]);
+		var signal = PlayBuf.ar(1, bufnum, rate: playRate, startPos: startPos);
 
 		var feedback = LocalIn.ar(3);
 
@@ -829,7 +832,7 @@ server.waitForBoot {
 			Env.new([0, 1, 1, 0], [0.02, bufDur - ampRelease, ampRelease], \lin)
 		);
 
-		var low, mid, high, chorus;
+		var low, mid, high, env;
 
 		var chain = FFT(LocalBuf(2 ** 12), signal);
 		var filterWeight = FFTPower.kr(chain);
@@ -851,35 +854,26 @@ server.waitForBoot {
 		mid = BBandPass.ar(signal, split, bw: 2.sqrt);
 		high = BHiPass.ar(signal, split, rq: 1);
 
-		chorus = (60 - 24 + [0, 4, 7]).midicps;
-		signal = Mix.ar([low, mid, high].collect({ |input, i|
-			var osc = LFTri.ar(
-				freq: Vibrato.ar(
-					freq: DC.ar(chorus[i]),
-					rate: input.range(12, 0),
-					depth: 0.05
-				),
-				phase: Mix.ar(feedback).range(0, 2pi),
-				mul: Amplitude.kr(signal)
-			);
 
-			osc + input;
-		}));
+		env = EnvGen.ar(Env.new([0, 1, 0], [attack, dur * 0.8], \welch));
 
-		signal = BHiShelf.ar(signal, 5000, db: -60);
+		signal = XFade2.ar(RLPF.ar(Mix.ar([low, 0, high]), freq: 400), mid, Line.kr(0, -1, dur * 0.8));
+		signal = signal * env;
 
 		DetectSilence.ar(signal, doneAction: Done.freeSelf);
 
-		LocalOut.ar([low, mid, high]);
+		LocalOut.ar([signal, mid, high]);
 		Out.ar(out, (amp * signal).dup);
 	}).add;
 
 	var buffers = [
 		"camera_shutter_open_01",
-		"camera_shutter_open_02",
-		"camera_shutter_open_03",
 		"camera_shutter_close_01",
+
+		"camera_shutter_open_02",
 		"camera_shutter_close_02",
+
+		"camera_shutter_open_03",
 		"camera_shutter_close_03"
 	].collect { |x| Buffer.read(server, ~asset_path +/+ x ++ ".wav") };
 
@@ -895,7 +889,7 @@ server.waitForBoot {
 				\out, 0,
 				\amp, 1,
 				\freq, 440,
-				\bufnum, buf.bufnum
+				\bufnum, buf.bufnum,
 			]);
 
 			synth.onFree {
