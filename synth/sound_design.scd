@@ -1,7 +1,8 @@
 var server = Server.default;
-var recorder = AutoRecorder.new(server);
+~recorder = AutoRecorder.new(server);
 
 ~sample_rate = AutoRecorder.sampleRate;
+~sample_format = AutoRecorder.sampleFormat;
 ~nyquist = ~sample_rate / 2;
 ~temp_path = Platform.defaultTempDir +/+ "synth";
 ~export_path = thisProcess.nowExecutingPath.dirname +/+ "export";
@@ -13,9 +14,12 @@ var recorder = AutoRecorder.new(server);
 ~mode_play = \play;
 ~mode = \play;
 
+server.options.threads = 2;
 server.options.numWireBufs = 256;
-server.options.sampleRate = ~sample_rate;
+//server.options.sampleRate = ~sample_rate;
 server.options.memSize = 2 * (2 ** 16);
+
+ServerOptions.devices.do{|x| x.postln};
 
 /* ###### MAIN ###### */
 
@@ -26,7 +30,8 @@ server.waitForBoot {
 	//~bounce_pad.();
 	//~air_dash_node_dash.();
 	//~double_jump_tether.();
-	~hook.();
+	//~hook.();
+	~pulse.(2);
 
 	//"Done. Took %s".format(Main.elapsedTime - before).postln;
 
@@ -35,7 +40,7 @@ server.waitForBoot {
 	//~reverb.();
 	CmdPeriod.doOnce {
 		server.freeAll;
-		recorder.stop;
+		~recorder.stop;
 	};
 };
 
@@ -72,9 +77,9 @@ server.waitForBoot {
 	};
 };
 
-~recorder_start = { |path, f| recorder.record(path, f); };
-~recorder_wait = { recorder.hang; };
-~recorder_end = { |signal| recorder.ar(signal, doneAction: Done.freeSelf) };
+~recorder_start = { |path, f| ~recorder.record(path, f); };
+~recorder_wait = { ~recorder.hang; };
+~recorder_end = { |signal| ~recorder.ar(signal, doneAction: Done.freeSelf) };
 
 /* ##### IMPLEMENTATIONS ##### */
 
@@ -902,6 +907,100 @@ server.waitForBoot {
 	};
 
 	play.(buffers);
+};
+
+~pulse = { arg duration;
+	var offsets = [-18.0, -6.0, 6.0, 18.0];
+
+	var n = offsets.size;
+	var decays = [ 0.05, 0.3, 1.0, 1.0 ];
+	var fuzzes = 0.4 * [0.7, 1.0, 1.0, 0.3, 0.0];
+
+	var phi = (1 + 5.sqrt) / 2;
+	var phiEps = 0.001;
+	var phiPitch = n.collect { |i| phi.pow(i + 1).frac.linlin(0, 1, 1 - phiEps, 1 + phiEps) };
+
+	var def = SynthDef.new(\pulse, { arg out, amp, freq, degree, offset = 12, gate = 1, dur;
+		var feedback = LocalIn.ar(n);
+
+		var attackTime = 0.04;
+		var osc = n.collect { |i|
+			var attack = 0.045;
+
+			var fuzzEnv = EnvGen.kr(Env.new([0, 1.0, 0], [attack, decays[i] * dur], [\lin, \welch]));
+			var fuzz = Vibrato.kr(DC.kr(fuzzes[i]), // fuzz strength
+				rate: fuzzEnv.linlin(0, 1, 9, 11.5),
+				depth: fuzzEnv.linlin(0, 1, 0.05, 0.06)
+			) * fuzzEnv;
+
+			SinOsc.ar(
+				freq: (60 + degree + offsets[i]).midicps * phiPitch[i],
+				phase: fuzz * feedback[i].range(0, 2pi)
+			) * EnvGen.ar(Env.new(
+				[0, 1, 0],
+				[attack, decays[i] * dur],
+				[\lin, \sin]
+			), gate: gate);
+		};
+
+		var mid, side, dry, wet;
+		var stereo = 0.2; // how spread the stereo channels are
+
+		var sig = Mix.ar(osc);
+		sig = BHiShelf.ar(sig, freq: 5000, db: -60); // filter fuzz highs
+
+		dry = sig;
+
+		wet = DelayC.ar(sig, 0.03, 0.015);
+		wet = NHHall.ar(wet.dup,
+			rt60: 0.7,
+			stereo: 0.7
+		);
+
+		// reduce stereo width
+		mid = (wet[0] + wet[1]) * 0.5;
+		side = (wet[0] - wet[1]) * 0.5 * stereo;
+		wet = [mid + side, mid  - side];
+
+		// wet / dry mix
+		sig = XFade2.ar(wet, dry, -1);
+
+		sig = BHiShelf.ar(sig, 1000, rs: 1.05.reciprocal, db: -30);
+		sig = BLowShelf.ar(sig, 200, rs: 2.reciprocal, db: -10);
+
+		LocalOut.ar(osc);
+		Out.ar(out, amp * sig);
+
+		DetectSilence.ar(sig, doneAction: Done.freeSelf);
+		~recorder_end.(sig);
+	}).add;
+
+	server.sync;
+
+	if (~mode == ~mode_recording) {
+	    ~degrees.do { arg degree;
+			~recorder_start.(
+				~filename.("bubble", "pop", degree),
+				Pbind(*[
+					instrument: def.name,
+					tempo: 1,
+					sweepDuration: 0.25,
+					degree: Pn(degree, 1),
+					baseStart: 0,
+					baseEnd: 12,
+					aboveStart: -3,
+					aboveEnd: 5
+				]);
+			);
+
+			~recorder_wait.()
+		};
+	} {
+		Pnew(def.name, *[
+			degree: Pseq(~degrees, 1),
+			dur: 0.15
+		]).play;
+	}
 };
 
 
