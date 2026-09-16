@@ -12,11 +12,13 @@ var server = Server.default;
 
 ~mode_record = \record;
 ~mode_play = \play;
-~mode = \play;
+~mode = ~mode_record;
 
+server.latency = 0.25;
+server.options.blockSize = 2048;
 server.options.threads = 2;
 server.options.numWireBufs = 256;
-//server.options.sampleRate = ~sample_rate;
+server.options.sampleRate = ~sample_rate;
 server.options.memSize = 2 * (2 ** 16);
 
 ServerOptions.devices.do{|x| x.postln};
@@ -24,6 +26,7 @@ ServerOptions.devices.do{|x| x.postln};
 /* ###### MAIN ###### */
 
 server.waitForBoot {
+
 	var before = Main.elapsedTime;
 	//~bubble_pop.();
 	//~bubble_unpop.();
@@ -31,7 +34,8 @@ server.waitForBoot {
 	//~air_dash_node_dash.();
 	//~double_jump_tether.();
 	//~hook.();
-	~pulse.(2);
+	//~pulse.(2);
+	~accelerator_surface.();
 
 	//"Done. Took %s".format(Main.elapsedTime - before).postln;
 
@@ -40,8 +44,7 @@ server.waitForBoot {
 	//~reverb.();
 	CmdPeriod.doOnce {
 		server.freeAll;
-		~recorder.stop;
-	};
+	}
 };
 
 /* ##### AUXILIARY ##### */
@@ -59,6 +62,7 @@ server.waitForBoot {
 	if (degree.isNil) {
 		res = ~export_path +/+ prefix +/+ name ++ "." ++ AutoRecorder.headerFormat;
 	} {
+		degree = ["c", "cs", "d", "ds", "e", "f", "fs", "g", "gs", "a", "as", "b"][degree];
 		res = ~export_path +/+ prefix +/+ name ++ "_%".format(degree) ++ "." ++ AutoRecorder.headerFormat;
 	};
 
@@ -719,7 +723,8 @@ server.waitForBoot {
 	]).play;
 };
 
-~crystal = {
+/*
+~accelerator_surface = {
 	var grainCount = 8;
 	var grainDur = 0.5;
 	var grainRelease = 1;
@@ -750,10 +755,10 @@ server.waitForBoot {
         Out.ar(out, sig.dup);
 	}).add;
 
-	var grainSegmentDur = ~sample_rate * (grainDur + grainRelease);
+	var grainPlayDuration = grainDur + grainRelease;
+	var grainSegmentNumSamples = ~sample_rate * grainPlayDuration;
 
 	var grainPlayPositions = grainCount.collect { |i| i / grainCount };
-	var grainPlayDuration = grainSegmentDur / ~sample_rate;
 
 	var playDef = SynthDef.new(\crystal_play, { arg out, amp = 0.4, dur, freq, bufnum, gate = 1;
 		var trig = Dust.ar(400 * EnvGen.kr(
@@ -764,12 +769,12 @@ server.waitForBoot {
 		var grainPan = Demand.ar(trig, gate, Dwhite(-1, 1));
 		var rate = 2;
 		var grainRate = Demand.ar(trig, gate, Dwhite(1 / rate, rate));
-		var grainRateDir = Demand.ar(trig, gate, Dwhite(-1, 1, inf));
+		var grainRateDir = 1; //Demand.ar(trig, gate, Dwhite(-1, 1, inf));
 		var grainPos = Demand.ar(trig, gate, Drand(grainPlayPositions, inf));
 
 		var grains = GrainBuf.ar(1,
 			trigger: trig,
-			dur: bufnum,
+			dur: grainPlayDuration,
 			sndbuf: bufnum,
 			pos: grainPos,
 			pan: grainPan,
@@ -783,7 +788,7 @@ server.waitForBoot {
 
 	fork {
 		// allocate n consecutive grains
-		var recordbuf = Buffer.alloc(server, grainCount * grainSegmentDur);
+		var recordbuf = Buffer.alloc(server, grainCount * grainSegmentNumSamples);
 
 		var oscDoneCount = 0;
         var osc = OSCdef(\crystalDone, {
@@ -818,6 +823,198 @@ server.waitForBoot {
 
 		osc.free;
 	};
+};*/
+
+~accelerator_surface = {
+    var grainCount = 8;
+	var grainAttack = 0.075;
+    var grainSustain = 0.5;
+    var grainRelease = 1.0;
+
+    var ratiosIn = #[
+        1.0, 2.756, 5.404, 8.933, 13.34, 18.64, 24.82, 31.89, 39.85, 48.68, 53.71
+    ];
+
+    var ratios = ratiosIn.collect { |x, i|
+        (i / (ratiosIn.size - 1)).linexp(0, 1, 1, 100)
+    };
+
+    var amplitudes = ratios.collect { |x| 1.0 / (x ** 1.5) };
+    var ringTimes = ratios.collect { |x, i| (grainSustain / (x * 0.7)).min(grainSustain); };
+    var frequencies = ratios.collect { |x| x * 2000 };
+
+    var oscMessageID = '/crystalDone';
+    var fillDef = SynthDef(\crystal_record, { arg out, recordbuf, recordoffset, freq = 440;
+        var impulse = WhiteNoise.ar * EnvGen.ar(Env.perc(0.00001, 0.005));
+
+        var sig = BHiPass.ar(DynKlank.ar(`[
+            frequencies,
+            amplitudes,
+            ringTimes
+        ], impulse, freqoffset: freq), 1200, 0.6);
+
+        var trig = DetectSilence.ar(sig);
+
+        sig = sig * EnvGen.ar(Env.new(
+            [0, 1, 1, 0],
+            [grainAttack, grainSustain, grainRelease],
+            [\welch, \hold, \welch]
+        ), doneAction: Done.freeSelf);
+
+        RecordBuf.ar(sig, recordbuf, recordoffset, loop: 0);
+        Out.ar(out, sig.dup);
+        SendReply.ar(trig, oscMessageID);
+    }).add;
+
+    var grainDur = grainAttack + grainSustain + grainRelease;
+    var grainForwardPositions = grainCount.collect { |i| i / grainCount };
+	var grainReversePositions = grainCount.collect { |i| (i + 1) / grainCount };
+    var grainOverlap = 0.5;
+
+	var humChord = #[0, 4, 7, 9];
+
+	var masterAttack = grainOverlap * grainDur;
+	var masterEnvEnv = Env.new(
+		[0, 1, 1, 0],
+		[masterAttack, grainDur, masterAttack],
+		\welch
+	);
+
+	var masterDur = 2 * masterAttack + grainDur;
+
+    var grainDef = SynthDef.new(\acceleratorGrains, { arg out, amp = 0.4, dur, bufnum, envbuf, gate = 1;
+        var masterAttack = grainOverlap * grainDur;
+        var masterEnv = EnvGen.ar(masterEnvEnv, gate: gate);
+
+		var trigEnv = EnvGen.ar(Env.new(
+			[0, 0, 1, 1, 0],
+			[masterAttack, 0.25 * dur, 0.75 * dur, masterAttack],
+			\lin
+		), gate: gate);
+
+		var trig = Dust.ar(200 * trigEnv);
+
+		var reset = 0.0;
+        var grainPan = Demand.ar(trig, reset, 0.5 * Dwhite(-1, 1));
+
+		// choose reverse or forward rate, avoiding 0 region
+		var minRate = 2.reciprocal, maxRate = 2;
+		var which = Demand.ar(trig, reset, Drand([0, 1], inf)); // duplicate to choose distribution
+        var grainRate = Select.ar(which, [
+			Demand.ar(trig, reset, -1 * Dwhite(maxRate, minRate)),
+			Demand.ar(trig, reset,  1 * Dwhite(minRate, maxRate))
+		]);
+
+        var grainPos = Select.ar(which, [
+			Demand.ar(trig, reset, Drand(grainForwardPositions, inf)),
+			Demand.ar(trig, reset, Drand(grainReversePositions, inf)),
+		]);
+
+        var grains = GrainBuf.ar(2,
+            trigger: trig,
+            dur: grainDur / grainRate.abs,
+            sndbuf: bufnum,
+            pos: grainPos,
+            pan: grainPan,
+            rate: grainRate,
+            envbufnum: envbuf,
+            maxGrains: 1024
+        ) * masterEnv;
+
+        Out.ar(out, amp * grains);
+		~recorder_end.(grains);
+    }).add;
+
+	var humDef = SynthDef.new(\acceleratorHum, { arg out, amp = 0.4, dur, degree, gate = 1;
+        var masterEnv = EnvGen.ar(masterEnvEnv, gate: gate);
+		var degrees = (60 + degree + humChord).midicps;
+		var hum = Mix.ar(degrees.size.collect { |i|
+			SinOsc.ar(
+				freq: Vibrato.ar(DC.ar(degrees[i]), rate: masterEnv.linlin(0, 1, 5, 12), depth: 0.02),
+				phase: (i / degrees.size).linlin(0, 1, 0, 2pi)
+			)
+		}) * masterEnv;
+
+        Out.ar(out, hum.dup * amp);
+		~recorder_end.(hum);
+    }).add;
+
+    var condition = Condition.new(false);
+
+    fork {
+        // allocate n consecutive grains
+        var recordbuf = Buffer.alloc(server,
+            numFrames: grainCount * grainDur * ~sample_rate,
+			sampleRate: ~sample_rate
+        );
+
+        var rectEnv = Buffer.loadCollection(server, Env([1, 1], [1]).asSignal(512));
+
+        var oscDoneCount = 0;
+        var osc = OSCdef(\crystalDone, {
+            oscDoneCount = oscDoneCount + 1;
+            condition.test = (oscDoneCount == grainCount);
+            condition.unhang;
+        }, oscMessageID);
+
+		var grainPattern = { |degrees|
+			PmonoArtic(grainDef.name, *[
+				amp: 1,
+				degree: Pn(0, degrees.size),
+				dur: masterDur,
+				bufnum: recordbuf,
+				envbuf: rectEnv
+			]);
+		};
+
+		var humPattern = { |degrees|
+			PmonoArtic(humDef.name, *[
+				amp: 1,
+				degree: Pseq(degrees, 1),
+				dur: masterDur
+			]);
+		};
+
+        server.sync;
+
+        grainCount.do { |i|
+            var grainFreq = (i / grainCount).linlin(0, 1, 220, 4000);
+            Synth.new(fillDef.name, [
+                \out, 0,
+                \freq, grainFreq,
+                \dur, grainDur,
+                \release, grainRelease,
+                \recordbuf, recordbuf,
+                \recordoffset, i * grainDur * ~sample_rate
+            ]);
+        };
+
+        condition.hang;
+        server.sync;
+
+		if (~mode == ~mode_record) {
+			~degrees.do { |degree|
+				~recorder_start.(
+					~filename.("accelerator_surface", "hum", degree),
+					humPattern.value([degree]).play;
+				);
+				~recorder_wait.()
+			};
+
+			~recorder_start.(
+				~filename.("accelerator_surface", "grains"),
+				grainPattern.value([]).play;
+			);
+
+			~recorder_wait.();
+		} {
+            var deg = [0, 1, 4, -2];
+			humPattern.value(deg).play;
+			grainPattern.value(deg).play;
+		};
+
+        osc.free;
+    };
 };
 
 ~hook = {
@@ -977,7 +1174,7 @@ server.waitForBoot {
 
 	server.sync;
 
-	if (~mode == ~mode_recording) {
+	if (~mode == ~mode_record) {
 	    ~degrees.do { arg degree;
 			~recorder_start.(
 				~filename.("bubble", "pop", degree),
@@ -1002,8 +1199,6 @@ server.waitForBoot {
 		]).play;
 	}
 };
-
-
 
 Date.getDate;
 
