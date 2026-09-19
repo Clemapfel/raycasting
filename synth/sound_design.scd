@@ -33,6 +33,12 @@ server.waitForBoot {
 
 	var before = Main.elapsedTime;
 
+	var export = LuaExport.new;
+	export["test"] = 1234;
+	export[1234] = [1, 2, Dictionary.newFrom([\test, 1, "get", [1, 2, 3]])];
+	export[[1, 2, 3]] = "test";
+	export.serialize.postln;
+
 	//~bubble_pop.();
 	//~bubble_unpop.();
 	//~bounce_pad.();
@@ -40,7 +46,7 @@ server.waitForBoot {
 	//~double_jump_tether_attach.();
 	//~double_jump_tether_detach.();
 	//~hook.();
-	~pulse.(2);
+	//~pulse.(2);
 	//~accelerator_surface.();
 
 	//"Done. Took %s".format(Main.elapsedTime - before).postln;
@@ -326,7 +332,7 @@ server.waitForBoot {
 			dur ! ratios.size
 		], ringImpulse, freqscale: freq) * ringImpulseDur;
 
-		var signal = ring + (0.8 * wobble);
+		var signal = 0.0 * ring + (0.8 * wobble);
 		signal = signal / 1.35;
 
 		LocalOut.ar(vibrato / wobbleFreq);
@@ -353,8 +359,6 @@ server.waitForBoot {
 	} {
 		Pnew(def.name, *[
 			degree: Pseq(~degrees),
-			amp: 1,
-			sustain: 0.2,
 			dur: dur
 		]).play;
 	};
@@ -980,12 +984,13 @@ server.waitForBoot {
 		sig = BHiShelf.ar(sig, 1000, rs: 1.05.reciprocal, db: -30);
 		sig = BLowShelf.ar(sig, 200, rs: 2.reciprocal, db: -10);
 
-		sig = sig * (EnvGen.ar(Env.new(1 + [0, 1, 0], [1, 4], \exp), gate: gate) - 1);
+		sig = sig * (-1 + EnvGen.ar(Env.new(
+			1 + [0, 1, 0], [1, 4], \exp
+		), gate: gate, doneAction: Done.freeSelf));
 
 		LocalOut.ar(osc);
 		Out.ar(out, ~amp * sig);
 
-		DetectSilence.ar(sig, doneAction: Done.freeSelf);
 		~recorder_end.(sig);
 	}).add;
 
@@ -994,17 +999,11 @@ server.waitForBoot {
 	if (~mode == ~mode_record) {
 	    ~degrees.do { arg degree;
 			~recorder_start.(
-				~filename.("bubble", "pop", degree),
-				Pbind(*[
-					instrument: def.name,
-					tempo: 1,
-					sweepDuration: 0.25,
+				~filename.("player", "pulse", degree),
+				Pnew(def.name, *[
 					degree: Pn(degree, 1),
-					baseStart: 0,
-					baseEnd: 12,
-					aboveStart: -3,
-					aboveEnd: 5
-				]);
+					dur: 0.15
+				])
 			);
 
 			~recorder_wait.()

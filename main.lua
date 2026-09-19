@@ -16,6 +16,10 @@ require "common.sound_manager"
 require "common.input_manager"
 require "common.routine"
 
+local test = {
+    [{ 1, 2, 3}] = "test"
+}
+
 love.load = function(args)
     if PROFILE then profiler.push("love.load") end
 
