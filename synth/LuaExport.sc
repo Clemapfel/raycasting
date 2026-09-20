@@ -1,4 +1,5 @@
 LuaExport {
+	classvar indent = "    ";
     var <>data;
 
     *new { arg server;
@@ -61,59 +62,77 @@ LuaExport {
         };
     }
 
-    pr_serialize { arg obj, seen, indent = "";
+    pr_serialize { arg x, seen, indent = "";
         var items, childIndent;
 
-        if (obj.isNil) { ^"nil" };
-        if (obj.isKindOf(Boolean)) { ^if(obj, "true", "false") };
-		if (obj.isKindOf(Number)) { ^obj.asString }; // no escape
-        if (obj.isKindOf(String)) { ^obj.asCompileString };
-		if (obj.isKindOf(Symbol)) { ^obj.asString }; // no escape
+        if (x.isNil) { ^"nil" };
+        if (x.isKindOf(Boolean)) { ^if(x, "true", "false") };
+		if (x.isKindOf(Number)) { ^x.asString };
+		if (x.isKindOf(String)) { ^x.asCompileString }; // escape special characters, add ""
+		if (x.isKindOf(Symbol)) { ^x.asString };
 
-        if (obj.isKindOf(Array)) {
-            if (seen.includes(obj)) {
+        if (x.isKindOf(Array)) {
+            if (seen.includes(x)) {
                 Error("In LuaExport.serialize: cyclic reference in array detected").throw;
             };
 
-            seen.add(obj);
-            items = obj.collect { |item| this.pr_serialize(item, seen, indent) };
-            seen.remove(obj);
+            seen.add(x);
+            items = x.collect { |item| this.pr_serialize(item, seen, indent) };
+            seen.remove(x);
 
             ^"{ " ++ items.join(", ") ++ " }";
         };
 
-        if (obj.isKindOf(Dictionary)) {
-            if (seen.includes(obj)) {
-                Error("In LuaExport.serialize: cyclic reference in dictionary detected").throw;
-            };
+        if (x.isKindOf(Dictionary)) {
+			if (seen.includes(x)) {
+				Error("In LuaExport.serialize: cyclic reference in dictionary detected").throw;
+			};
 
-            if (obj.isEmpty) { ^"{}" };
+			if (x.isEmpty) { ^"{}" };
 
-            seen.add(obj);
+			seen.add(x);
 
-            childIndent = indent ++ "    ";
-            items = Array.new;
+			childIndent = indent ++ LuaExport.indent;
 
-            obj.keysValuesDo { |key, val|
-                var keyStr, valStr;
-                if (key.isNil) {
-                    Error("In LuaExport.serialize: invalid key %".format(key)).throw;
-                };
-
-				if (key.isKindOf(Symbol)) {
-					keyStr = this.pr_serialize(key, seen, childIndent);
-				} {
-					keyStr = "[" ++ this.pr_serialize(key, seen, childIndent) ++ "]";
+			items = x.asAssociations.collect { |assoc|
+				var key, val, keyString, valueString;
+				key = assoc.key;
+				val = assoc.value;
+				if (key.isNil) {
+					Error("In LuaExport.serialize: invalid key %".format(key)).throw;
 				};
 
-                valStr = this.pr_serialize(val, seen, childIndent);
-                items = items.add(childIndent ++ keyStr ++ " = " ++ valStr);
-            };
+				if (key.isKindOf(Symbol)) {
+					keyString = this.pr_serialize(key, seen, childIndent);
+				} {
+					keyString = "[" ++ this.pr_serialize(key, seen, childIndent) ++ "]";
+				};
 
-            seen.remove(obj);
-            ^"{\n" ++ items.join(",\n") ++ "\n" ++ indent ++ "}";
-        };
+				valueString = this.pr_serialize(val, seen, childIndent);
+				childIndent ++ keyString ++ " = " ++ valueString;
+			};
 
-        Error("In LuaExport.serialize: object of type % cannot be serialized".format(obj.class)).throw;
+			seen.remove(x);
+			^"{\n" ++ items.join(",\n") ++ "\n" ++ indent ++ "}";
+		};
+
+        Error("In LuaExport.serialize: object of type % cannot be serialized".format(x.class)).throw;
     }
+
+	write { arg path;
+		var file = File(path, "w");
+
+		if (file.isOpen.not) {
+			Error("In LuaExport.writeTo: unable to open file for writing at %".format(path)).throw;
+		};
+
+		if (path.endsWith(".lua").not) {
+			"In LuaExport.writeTo: path does not end in `.lua`".warn;
+		};
+
+		file.write(this.serialize(true));
+		file.close;
+
+		^this;
+	}
 }

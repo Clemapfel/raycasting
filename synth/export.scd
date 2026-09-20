@@ -14,6 +14,8 @@ var outHeaderFormat = "OGG";
 var outSampleFormat = "vorbis";
 var outExtension = "ogg";
 
+var tempPrefix = "tmp";
+
 var mkdirJobs = List.new();
 var convertJobs = List.new();
 
@@ -34,7 +36,11 @@ var export = { |pathname|
     };
 };
 
-server.waitForBoot {
+var condition = Condition.new(false);
+var mkdirJobsDone = 0;
+var convertJobsDone = 0;
+
+server.waitForBoot( fork {
     inPath.entries.do { |sub|
         export.(sub);
     };
@@ -48,16 +54,34 @@ server.waitForBoot {
 
 		File.mkdir(job.path);
 		"In export.scd: mkdir `%`".format(print).postln;
+
+		mkdirJobsDone = mkdirJobsDone + 1;
+		condition.test = mkdirJobsDone >= mkdirJobs.size;
+		condition.unhang;
 	};
 
+	condition.hang;
+	condition.test = false;
+
 	convertJobs.do { |job|
-        var buffer = Buffer.read(server, job.in);
-		buffer.write(job.out, headerFormat: outHeaderFormat, sampleFormat: outSampleFormat);
-		"In export.scd: converted `%` -> `%`".format(
-			job.in.drop(inPath.fullPath.size + 1),
-			job.out.drop(outPath.fullPath.size + 1)
-		).postln;
+		if (job.in.beginsWith(tempPrefix)) {
+			"In export.scd: skipping `%`".format(job.in);
+		} {
+			var buffer = Buffer.read(server, job.in);
+			buffer.write(job.out, headerFormat: outHeaderFormat, sampleFormat: outSampleFormat);
+			"In export.scd: converted `%` -> `%`".format(
+				job.in.drop(inPath.fullPath.size + 1),
+				job.out.drop(outPath.fullPath.size + 1)
+			).postln;
+		};
+
+		convertJobsDone = convertJobsDone + 1;
+		condition.test = convertJobsDone == convertJobs.size;
+		condition.unhang;
 	};
-};
+
+	condition.hang;
+	"done.".postln;
+});
 
 Date.getDate;

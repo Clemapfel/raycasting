@@ -1,7 +1,5 @@
 var server = Server.default;
 
-[0.5 ! 4]!?_.add([1, 2])!?_.flop!?_.add([2, 2].reciprocal)!?_.flatten!?_.sum!?_.postln;
-
 ~recorder = AutoRecorder.new(server);
 
 ~sample_rate = AutoRecorder.sampleRate;
@@ -33,12 +31,6 @@ server.waitForBoot {
 
 	var before = Main.elapsedTime;
 
-	var export = LuaExport.new;
-	export["test"] = 1234;
-	export[1234] = [1, 2, Dictionary.newFrom([\test, 1, "get", [1, 2, 3]])];
-	export[[1, 2, 3]] = "test";
-	export.serialize.postln;
-
 	//~bubble_pop.();
 	//~bubble_unpop.();
 	//~bounce_pad.();
@@ -48,7 +40,7 @@ server.waitForBoot {
 	//~hook.();
 	//~pulse.(2);
 	//~accelerator_surface.();
-
+	~one_way_platform.();
 	//"Done. Took %s".format(Main.elapsedTime - before).postln;
 
 	//	~crystal.();
@@ -272,74 +264,34 @@ server.waitForBoot {
 };
 
 ~bounce_pad = {
-	var def = SynthDef(\bouncePad, { arg out, degree, freq = 440, dur, gate = 1;
-		var wobbleAttack = 0.04;
-		var ringDur = 0.1;
-		var wobbleRelease = dur;
+	var def = SynthDef(\handPan, { arg out, degree, freq = 440, dur, gate = 1, amp = 0.3;
+		var ringDur = dur;
+		var ringAttack = 0.005; // fast attack like a mallet strike
+		var ringEnv = EnvGen.ar(Env.new(
+			[0, 1, 0.0001], [ringAttack, ringDur - ringAttack], [\sin, \exp]
+		), gate: gate, doneAction: 2);
 
-		var wobbleDegreeStart = (60 + degree);
-		var wobbleDegreeEnd = (60 + degree - 9);
+		var ratios = [-12, 0, 12, 12 + 8].midiratio;
+		var amplitudes = ([0.7, 1, 0, 0.8]).normalizeSum;
+		var decayTimes = dur * (1 / (ratios.sqrt));
 
-		var wobbleFreq = EnvGen.kr(Env.new(
-			[wobbleDegreeStart, wobbleDegreeEnd].midicps,
-			[wobbleAttack],
-			[\hold, \exp]
-		), gate: gate);
+		var excitation = PinkNoise.ar * EnvGen.ar(Env.perc(0.0001, 0.015));
 
-		var wobbleFreqStart = 7;
-		var wobbleFreqEnd = 8;
-		var wobbleFreqMod = EnvGen.kr(Env.new(
-			[wobbleFreqStart, wobbleFreqStart, wobbleFreqEnd],
-			[wobbleAttack + ringDur, wobbleRelease],
-			[\hold, \exp]
-		), gate: gate);
+		var detune = 0.04;
+		var vibrato = LFPar.ar(XLine.ar(20, 1, dur) - 1).range(1 - detune, 1 + detune);
 
-		var wobbleFreqDepth = EnvGen.kr(Env.new(
-			1 + [0.0, 0.1, 0.03],
-			[wobbleAttack, ringDur + wobbleRelease],
-			[\lin, \exp]
-		), gate: gate) - 1;
-
-		var wobbleAmp = EnvGen.ar(Env.new(
-			1 + [0, 1, 0],
-			[wobbleAttack + ringDur, wobbleRelease],
-			[\exp, \exp]
-		), gate: gate) - 1;
-
-		var feedback = LocalIn.ar(1);
-		var vibrato = wobbleFreq * (1 + SinOsc.ar(wobbleFreqMod, mul: wobbleFreqDepth));
-		var wobble = SinOsc.ar(vibrato) * wobbleAmp;
-
-		var ringDegreeStart = (60 + degree);
-		var ringDegreeEnd = (60 + degree - 4);
-		var ringFreq = EnvGen.kr(Env.new(
-			[ringDegreeStart, ringDegreeEnd].midicps,
-			ringDur,
-			\lin
-		), gate: gate);
-
-		var ringAmp = EnvGen.kr(Env.new(
-			1 + [1, 0], ringDur, \exp
-		), gate: gate) - 1;
-
-		var ringImpulseDur = 1 / 100;
-		var ringImpulse = EnvGen.ar(Env.perc(0.001, ringImpulseDur));
-
-		var ratios = [ 0.5, 1 ];
 		var ring = DynKlank.ar(`[
-			ratios,
-			1 ! ratios.size,
-			dur ! ratios.size
-		], ringImpulse, freqscale: freq) * ringImpulseDur;
+			ratios * vibrato,
+			amplitudes,
+			decayTimes
+		], excitation, freqscale: freq) * ringEnv;
 
-		var signal = 0.0 * ring + (0.8 * wobble);
-		signal = signal / 1.35;
+		var wobble = LFPar.ar(freq) * EnvGen.ar(Env.perc(0.01));
 
-		LocalOut.ar(vibrato / wobbleFreq);
-		~detect_clipping.(signal);
-		~recorder_end.(signal);
-		Out.ar(out, ~amp * signal.dup);
-    }).add;
+		~detect_volume.(ring);
+		~detect_clipping.(ring);
+		Out.ar(out, amp * ring.dup);
+	}).add;
 
 	var dur = 2.0;
 
@@ -1013,7 +965,33 @@ server.waitForBoot {
 			degree: Pn(0, 1),
 			dur: 0.15
 		]).play;
-	}
+	};
+};
+
+~one_way_platform = {
+	var def = SynthDef.new(\one_way_platform_buzz, { arg out, freq, gate = 1;
+		var hold = 0.05 / (2 * freq);
+		var signal = DelayN.ar(LFPar.ar(freq), delaytime: 0.5 * hold) * DelayN.ar(
+			1 - Trig1.ar(Impulse.ar(freq), dur: hold),
+			delayTime: 1 / freq - 0.5 * hold
+		);
+
+		signal = signal * EnvGen.ar(Env.linen(
+			attackTime: 0.02, releaseTime: 0.04, sustainTime: 10.0, curve: \welch
+		), gate: gate, doneAction: Done.freeSelf);
+
+		signal.scope;
+
+		Out.ar(out, ~amp * signal.dup);
+	}).add;
+
+	var synth;
+	server.sync;
+
+	synth = Synth.new(def.name, [
+		freq: 120
+	]);
+
 };
 
 Date.getDate;
