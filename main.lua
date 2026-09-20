@@ -15,10 +15,42 @@ require "common.music_manager"
 require "common.sound_manager"
 require "common.input_manager"
 require "common.routine"
+require "common.functional"
 
-local test = {
-    [{ 1, 2, 3}] = "test"
-}
+
+local means = {}
+for _ = 1, 100 do
+    local n = rt.random.integer(0.25e6, 0.3e6)
+
+    local before = love.timer.getTime()
+
+    local expanded = {}
+    for i = 1, n do
+        table.insert(expanded, {
+            i, i
+        })
+    end
+
+    for i = 1, n do
+        expanded[i][1] = expanded[i][1] + n
+        expanded[i][2] = expanded[i][2] + n
+    end
+
+    local after = love.timer.getTime()
+
+    local fbefore = love.timer.getTime()
+    local fexpanded = newRange(1, n).collect(|i| -> { i, i }).add(n)._
+    local fafter = love.timer.getTime()
+
+    table.insert(means, (after - before) / (fafter - fbefore))
+
+    dbg(_)
+end
+
+dbg(math.mean(means))
+
+exit(0)
+
 
 love.load = function(args)
     if PROFILE then profiler.push("love.load") end

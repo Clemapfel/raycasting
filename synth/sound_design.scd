@@ -23,8 +23,6 @@ server.options.numWireBufs = 256;
 server.options.sampleRate = ~sample_rate;
 server.options.memSize = 2 * (2 ** 16);
 
-ServerOptions.devices.do{|x| x.postln};
-
 /* ###### MAIN ###### */
 
 server.waitForBoot {
@@ -969,12 +967,15 @@ server.waitForBoot {
 };
 
 ~one_way_platform = {
+	/*
 	var def = SynthDef.new(\one_way_platform_buzz, { arg out, freq, gate = 1;
-		var hold = 0.05 / (2 * freq);
-		var signal = DelayN.ar(LFPar.ar(freq), delaytime: 0.5 * hold) * DelayN.ar(
-			1 - Trig1.ar(Impulse.ar(freq), dur: hold),
-			delayTime: 1 / freq - 0.5 * hold
-		);
+		var hold = 0.05 / (freq);
+		var sigDelay = 0.5 * hold;
+		var trigDelay = 0.25 / freq;
+		var signal = DelayN.ar(LFPar.ar(freq), sigDelay, sigDelay);
+
+		var zero = 1 - Trig1.ar(Impulse.ar(2 * freq), dur: hold);
+		signal = signal * DelayN.ar(zero, delaytime: trigDelay);
 
 		signal = signal * EnvGen.ar(Env.linen(
 			attackTime: 0.02, releaseTime: 0.04, sustainTime: 10.0, curve: \welch
@@ -984,14 +985,108 @@ server.waitForBoot {
 
 		Out.ar(out, ~amp * signal.dup);
 	}).add;
+	*/
 
-	var synth;
+	// neon-bulb waveshape: https://www.giangrandi.org/electronics/neon/glow-lamp-current-ne-it.png
+
+	var wavetableRes = 4096;
+	var signalRes = wavetableRes / 2;
+
+	var step = 0.0009;
+	var wavetables = Array.series(4, 0, step).collect { |hold|
+		Signal.fill(signalRes, { |i|
+			var t = i / signalRes;
+			var h = hold / 2;
+			var f = { |t|
+				t = (t * 0.5) / (0.5 - (2 * h));
+
+				// piecewise parabola
+				if (t <= 0.5) {
+					1 - (2 * (2 * t - 0.5)).squared
+				} {
+					(2 * (2 * t - 1.5)).squared - 1
+				};
+			};
+
+			case
+			{ t < h } { 0 }
+			{ t <= (0.5 - h) } { f.(t - h) }
+			{ t < (0.5 + h) } { 0 }
+			{ t <= (1.0 - h) } { -1 * f.(t - (0.5 + h)) }
+			{ true } { 0 }
+			// zero crossing have 0 regions around, but still continuous
+		}).asWavetable;
+	};
+
+	var wavetableBufs = {
+		var bufs = Buffer.allocConsecutive(wavetables.size, server, wavetableRes, 1);
+		bufs.do { |buf, i| buf.loadCollection(wavetables[i]); };
+		bufs;
+	}.value;
+
+	var pitches = ([0, 5, 8, 12] ! 4).collect({ |x, i| x * i}).flatten.select({ |x| x != 0 }) ++ 0;
+	var def = SynthDef.new(\one_way_platform_buzz, { arg out, freq, dur, gate = 1, oscbufnum, oscbufcount;
+        var pitch = Demand.ar(Impulse.ar(200), gate, Drand([0, 5, 8, 12], inf)).midiratio * freq;
+
+		var bufeps = 1e-4;
+		var minbufpos = oscbufnum;
+		var maxbufpos = oscbufnum + oscbufcount - 1 - bufeps;
+
+		var bufnum1 = LFNoise2.kr(40).range(minbufpos, maxbufpos);
+		var bufnum2 = LFNoise2.kr(40).range(minbufpos, maxbufpos);
+
+		var detune = 0.002;
+		var signal = [-12, 0, 12].midiratio.collect { |ratio|
+			VOsc.ar(bufnum2, freq: ratio * LFNoise2.kr(20).range(1 - detune, 1 + detune) * pitch);
+		}.mean;
+
+		signal = Normalizer.ar(signal);
+
+		signal = FreeVerb.ar(signal, room: LFNoise2.kr(40).range(0.25, 0.5));
+		signal = signal * EnvGen.ar(Env.linen(
+			attackTime: 0.1, releaseTime: 0.1, sustainTime: dur, curve: \welch
+		), gate: gate);
+
+		~recorder_end.(signal);
+		Out.ar(out, ~amp * signal.dup);
+	}).add;
+
+	var play = {
+		Synth.new(def.name, [
+			freq: 240,
+			oscbufnum: wavetableBufs[0].bufnum,
+			oscbufcount: wavetableBufs.size,
+			dur: 10
+		]).onFree {
+			wavetableBufs.do(_.free);
+		};
+	};
+
 	server.sync;
 
-	synth = Synth.new(def.name, [
-		freq: 120
-	]);
+	pitches.postln;
 
+	if (~mode == ~mode_record) {
+		~recorder_start.(
+			~filename.("one_way_platform", "buzz"),
+			play
+		);
+		~recorder_wait.();
+	} {
+		play.value();
+	};
+};
+
+~player_slippery_surface = {
+	var def = SynthDef.new(\player_slippery_surface, { arg out, freq, dur, gate = 1;
+	}).add;
+
+	server.sync;
+
+	Pnew(def.name, *[
+		degree: Pseq(~degrees, 1),
+		dur: 1
+	]);
 };
 
 Date.getDate;
