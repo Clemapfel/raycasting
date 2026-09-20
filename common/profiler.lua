@@ -162,7 +162,7 @@ if PROFILE then
             local mean = sum / n
 
             local median
-            if n % 2 == 1 then
+            if math.is_even(n) then
                 median = sorted[(n + 1) / 2]
             else
                 local lo = n / 2

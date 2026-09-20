@@ -134,7 +134,7 @@ function rt.PlayerParticles:_init_batch(
         local position_y = ay + dy * t
 
         local vx, vy
-        if i % 2 == 0 then
+        if math.is_even(i) then
             vx, vy = up_x, up_y
         else
             vx, vy = down_x, down_y

@@ -463,5 +463,5 @@ function rt.contour.is_inside(contour, point_x, point_y)
         end
     end
 
-    return crossings % 2 == 1
+    return math.is_odd(crossings)
 end

@@ -156,7 +156,7 @@ function ow.TetherParticleEffect:_init_batch(
         local magnitude = math.mix(min_initial_velocity, max_initial_velocity, mass_t)
 
         local vx, vy
-        if particle_i % 2 == 0 then
+        if math.is_even(particle_i) then
             vx, vy = up_x, up_y
         else
             vx, vy = down_x, down_y

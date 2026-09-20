@@ -397,7 +397,7 @@ function ow.ResultScreenFrame:_update_mesh_paths()
     for i, entry in ipairs(vertex_i_to_weight_entry) do
         local path = self._vertex_i_to_path[i]
         if i >= 2 then
-            if i % 2 == 0 then -- inner
+            if math.is_even(i) then -- inner
                 local total = entry.to_circle + entry.to_rect
 
                 local circle_time_ratio = max_inner_to_circle / max_inner_total

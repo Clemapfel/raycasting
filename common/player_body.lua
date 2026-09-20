@@ -344,7 +344,7 @@ function rt.PlayerBody:_initialize()
                 local ring_t = (ring_i - 1) / n_rings
                 local ring_r = (1 - ring_t) * body_radius / n_rings
                 local n_ropes = math.max(3, math.ceil((2 * math.pi * ring_r) / rope_r))
-                if n_ropes % 2 == 0 then n_ropes = n_ropes + 1 end
+                if math.is_even(n_ropes) then n_ropes = n_ropes + 1 end
                 local rope_length = fraction_to_rope_length(ring_t)
                 max_length = math.max(max_length, rope_length)
 

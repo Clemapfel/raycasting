@@ -183,6 +183,24 @@ function math.is_integer(x)
     return (x % 1) == 0
 end
 
+if bit then
+    function math.is_even(x)
+        return bit.band(x, 0x1) == 0
+    end
+
+    function math.is_odd(x)
+        return bit.band(x, 0x1) == 1
+    end
+else
+    function math.is_even(x)
+        return x % 2 == 0
+    end
+
+    function math.is_odd(x)
+        return x % 2 == 1
+    end
+end
+
 --- @brief
 function math.mix_angles(angle_a, angle_b, ratio)
     angle_a = math.normalize_angle(angle_a)
