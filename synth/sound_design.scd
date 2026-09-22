@@ -11,13 +11,14 @@ var server = Server.default;
 
 ~degrees = Pseries(0, 3, 4).asStream.all; // pitches for all pitch-dependent sfx
 ~amp = 0.4;
+~latency = 0.4;
 
 ~mode_record = \record;
 ~mode_play = \play;
-~mode = ~mode_play;
+~mode = ~mode_record;
 
-server.latency = 0.25;
-server.options.blockSize = 2048;
+server.latency = ~latency;
+server.options.blockSize = 4096;
 server.options.threads = 2;
 server.options.numWireBufs = 256;
 server.options.sampleRate = ~sample_rate;
@@ -29,6 +30,9 @@ server.waitForBoot {
 
 	var before = Main.elapsedTime;
 
+	AutoRecorder.trimSilence(~filename.("coin", "hum"));
+
+
 	//~bubble_pop.();
 	//~bubble_unpop.();
 	//~bounce_pad.();
@@ -38,7 +42,7 @@ server.waitForBoot {
 	//~hook.();
 	//~pulse.(2);
 	//~accelerator_surface.();
-	~one_way_platform.();
+	//~coin.();
 	//"Done. Took %s".format(Main.elapsedTime - before).postln;
 
 	//	~crystal.();
@@ -68,13 +72,6 @@ server.waitForBoot {
 	};
 
 	res = res.standardizePath;
-};
-
-~recorder_start = { |path, f| ~recorder.record(path, f); };
-~recorder_wait = { ~recorder.hang; };
-~recorder_end = { |signal|
-	~recorder.ar(signal, doneAction: Done.freeSelf);
-	ClipDetector.ar(signal, threshold: 1.0);
 };
 
 /* ##### IMPLEMENTATIONS ##### */
@@ -118,7 +115,7 @@ server.waitForBoot {
 
 	if (~mode == ~mode_record) {
 		~degrees.do { arg degree;
-			~recorder_start.(
+			~recorder.record(
 				~filename.("bubble", "pop", degree),
 				Pbind(*[
 					instrument: def.name,
@@ -130,7 +127,7 @@ server.waitForBoot {
 				]);
 			);
 
-			~recorder_wait.()
+			~recorder.wait()
 		};
 	} {
 		Pbind(*[
@@ -223,14 +220,14 @@ server.waitForBoot {
 		var buffer = Buffer.read(server, originalPath);
 		server.sync;
 
-		~recorder_start.(tempPath, {
+		~recorder.record(tempPath, {
 			Synth.new(forwardDef.name, [
 				\bufnum, buffer,
 				\dur, 2 // duration of bubble respawn
 			]);
 		});
 
-		~recorder_wait.();
+		~recorder.wait();
 
 		toFree.add(buffer);
 	};
@@ -243,7 +240,7 @@ server.waitForBoot {
 		var buffer = Buffer.read(server, tempPath);
 		server.sync;
 
-		~recorder_start.(finalPath, {
+		~recorder.record(finalPath, {
 			Synth.new(backwardsDef.name, [
 				\bufnum, buffer,
 				\degreeStart, 8,
@@ -251,7 +248,7 @@ server.waitForBoot {
 			]);
 		});
 
-		~recorder_wait.();
+		~recorder.wait();
 
 		toFree.add(buffer);
 		toDelete.add(tempPath);
@@ -295,7 +292,7 @@ server.waitForBoot {
 
 	if (~mode == ~mode_record) {
 		~degrees.do { arg degree;
-			~recorder_start.(
+			~recorder.record(
 				~filename.("bounce_pad", "hit", degree),
 				Pnew(def.name, *[
 					degree: Pn(degree, 1),
@@ -304,7 +301,7 @@ server.waitForBoot {
 					dur: dur
 				]);
 			);
-			~recorder_wait.()
+			~recorder.wait()
 		};
 	} {
 		Pnew(def.name, *[
@@ -416,7 +413,7 @@ server.waitForBoot {
 
 	if (~mode == ~mode_record) {
 		~degrees.do { arg degree;
-			~recorder_start.(
+			~recorder.record(
 				~filename.("air_dash_node", "dash", degree),
 				PmonoArtic(def.name, *[
 					degree: Pn(degree, 1),
@@ -425,7 +422,7 @@ server.waitForBoot {
 					dur: 0.1
 				]).play;
 			);
-			~recorder_wait.()
+			~recorder.wait()
 		};
 	} {
 		Pbind(*[
@@ -466,7 +463,7 @@ server.waitForBoot {
 
 	if (~mode == ~mode_record) {
 		~degrees.do { |degree|
-			~recorder_start.(
+			~recorder.record(
 				~filename.("double_jump_tether", "tether", degree),
 				Pnew(def.name, *[
 					degree: Pn(degree, 1),
@@ -475,7 +472,7 @@ server.waitForBoot {
 					sustain: 0.5
 				]);
 			);
-			~recorder_wait.()
+			~recorder.wait()
 		}
 	} {
 		Pnew(def.name, *[
@@ -520,14 +517,14 @@ server.waitForBoot {
 	var dur = 0.5;
 	if (~mode == ~mode_record) {
 		~degrees.do { |degree|
-			~recorder_start.(
+			~recorder.record(
 				~filename.("double_jump_tether", "untether", degree),
 				Pnew(def.name, *[
 					degree: Pn(degree, 1),
 					dur: dur
 				]);
 			);
-			~recorder_wait.()
+			~recorder.wait()
 		}
 	} {
 		Pnew(def.name, *[
@@ -722,19 +719,19 @@ server.waitForBoot {
 
 		if (~mode == ~mode_record) {
 			~degrees.do { |degree|
-				~recorder_start.(
+				~recorder.record(
 					~filename.("accelerator_surface", "hum", degree),
 					humPattern.value([degree]).play;
 				);
-				~recorder_wait.()
+				~recorder.wait()
 			};
 
-			~recorder_start.(
+			~recorder.record(
 				~filename.("accelerator_surface", "grains"),
 				grainPattern.value([0]).play;
 			);
 
-			~recorder_wait.();
+			~recorder.wait();
 		} {
             var deg = [0, 1, 4, -2];
 			humPattern.value(deg).play;
@@ -821,7 +818,7 @@ server.waitForBoot {
 
 	if (~mode == ~mode_record) {
 		openBuffers.do { |buffer, i|
-			~recorder_start.(
+			~recorder.record(
 				~filename.("hook", "open", i), {
 					var synth = Synth.new(def.name, [
 						\out, 0,
@@ -832,11 +829,11 @@ server.waitForBoot {
 				}
 			);
 
-			~recorder_wait.();
+			~recorder.wait();
 		};
 
 		closeBuffers.do { |buffer, i|
-			~recorder_start.(
+			~recorder.record(
 				~filename.("hook", "close", i), {
 					var synth = Synth.new(def.name, [
 						\out, 0,
@@ -847,7 +844,7 @@ server.waitForBoot {
 				}
 			);
 
-			~recorder_wait.();
+			~recorder.wait();
 		};
 	} {
 		var buffers = [openBuffers, closeBuffers].lace;
@@ -948,7 +945,7 @@ server.waitForBoot {
 
 	if (~mode == ~mode_record) {
 	    ~degrees.do { arg degree;
-			~recorder_start.(
+			~recorder.record(
 				~filename.("player", "pulse", degree),
 				Pnew(def.name, *[
 					degree: Pn(degree, 1),
@@ -956,7 +953,7 @@ server.waitForBoot {
 				])
 			);
 
-			~recorder_wait.()
+			~recorder.wait()
 		};
 	} {
 		Pnew(def.name, *[
@@ -966,25 +963,34 @@ server.waitForBoot {
 	};
 };
 
-~one_way_platform = {
+~coin = {
+
+	var a = 0.5;
+	var dur = 2;
+
 	/*
-	var def = SynthDef.new(\one_way_platform_buzz, { arg out, freq, gate = 1;
-		var hold = 0.05 / (freq);
-		var sigDelay = 0.5 * hold;
-		var trigDelay = 0.25 / freq;
-		var signal = DelayN.ar(LFPar.ar(freq), sigDelay, sigDelay);
+	var buf = Buffer.read(server, ~export_path +/+ "coin" +/+ "hum.wav");
 
-		var zero = 1 - Trig1.ar(Impulse.ar(2 * freq), dur: hold);
-		signal = signal * DelayN.ar(zero, delaytime: trigDelay);
+	var testDef = SynthDef.new(\coinTest, { arg out, bufnum, gate = 1;
+		var t = dur + (2 * a);
+		var period = t - a;
 
-		signal = signal * EnvGen.ar(Env.linen(
-			attackTime: 0.02, releaseTime: 0.04, sustainTime: 10.0, curve: \welch
-		), gate: gate, doneAction: Done.freeSelf);
+		var prevTrig = Impulse.ar(1 / period);
+		var prev = PlayBuf.ar(1, bufnum, trigger: prevTrig);
 
-		signal.scope;
+		var nextTrig = DelayN.ar(prevTrig, period);
+		var next = PlayBuf.ar(1, bufnum, trigger: nextTrig);
 
-		Out.ar(out, ~amp * signal.dup);
+		var signal = prev + next;
+		Out.ar(out, signal.dup);
+		~detect_silence.(signal);
 	}).add;
+
+	server.sync;
+
+	Synth(testDef.name, [
+		\bufnum, buf
+	]);
 	*/
 
 	// neon-bulb waveshape: https://www.giangrandi.org/electronics/neon/glow-lamp-current-ne-it.png
@@ -992,7 +998,7 @@ server.waitForBoot {
 	var wavetableRes = 4096;
 	var signalRes = wavetableRes / 2;
 
-	var step = 0.0009;
+	var step = 0.001;
 	var wavetables = Array.series(4, 0, step).collect { |hold|
 		Signal.fill(signalRes, { |i|
 			var t = i / signalRes;
@@ -1024,9 +1030,9 @@ server.waitForBoot {
 		bufs;
 	}.value;
 
-	var pitches = ([0, 5, 8, 12] ! 4).collect({ |x, i| x * i}).flatten.select({ |x| x != 0 }) ++ 0;
+    var pitches = ([5, 8, 12] ! 4).collect({ |x, i| x * i }).flatten.select(_ != 0).addFirst(0);
 	var def = SynthDef.new(\one_way_platform_buzz, { arg out, freq, dur, gate = 1, oscbufnum, oscbufcount;
-        var pitch = Demand.ar(Impulse.ar(200), gate, Drand([0, 5, 8, 12], inf)).midiratio * freq;
+		var pitch = freq; //Lag.ar(Demand.ar(Impulse.ar(2), gate, Dseq(pitches, inf)).midiratio * freq);
 
 		var bufeps = 1e-4;
 		var minbufpos = oscbufnum;
@@ -1036,29 +1042,32 @@ server.waitForBoot {
 		var bufnum2 = LFNoise2.kr(40).range(minbufpos, maxbufpos);
 
 		var detune = 0.002;
-		var signal = [-12, 0, 12].midiratio.collect { |ratio|
-			VOsc.ar(bufnum2, freq: ratio * LFNoise2.kr(20).range(1 - detune, 1 + detune) * pitch);
+		var feedbackout = [0, 0, 0];
+		var signal = [-12, 0, 12].midiratio.collect { |ratio, i|
+			var freq = ratio * LFNoise2.kr(20).range(1 - detune, 1 + detune) * pitch;
+			var vosc = VOsc.ar(bufnum2, freq: freq);
+			vosc;
 		}.mean;
+
+		var masterEnv = EnvGen.ar(Env.new([0, 1, 1, 0], [1, dur, 1], \lin));
 
 		signal = Normalizer.ar(signal);
 
 		signal = FreeVerb.ar(signal, room: LFNoise2.kr(40).range(0.25, 0.5));
-		signal = signal * EnvGen.ar(Env.linen(
-			attackTime: 0.1, releaseTime: 0.1, sustainTime: dur, curve: \welch
-		), gate: gate);
+		signal = signal * masterEnv;
 
-		~recorder_end.(signal);
 		Out.ar(out, ~amp * signal.dup);
+		~recorder.end(Done.kr(masterEnv), doneAction: Done.freeSelf);
 	}).add;
 
 	var play = {
-		Synth.new(def.name, [
+		var main = Synth.new(def.name, [
 			freq: 240,
 			oscbufnum: wavetableBufs[0].bufnum,
 			oscbufcount: wavetableBufs.size,
-			dur: 10
+			dur: dur
 		]).onFree {
-			wavetableBufs.do(_.free);
+			wavetableBufs.free;
 		};
 	};
 
@@ -1067,11 +1076,12 @@ server.waitForBoot {
 	pitches.postln;
 
 	if (~mode == ~mode_record) {
-		~recorder_start.(
-			~filename.("one_way_platform", "buzz"),
+		~recorder.record(
+			~filename.("coin", "hum"),
 			play
 		);
-		~recorder_wait.();
+
+		~recorder.wait();
 	} {
 		play.value();
 	};
@@ -1089,7 +1099,7 @@ server.waitForBoot {
 	]);
 };
 
-Date.getDate;
+server.ping();
 
 /*
 Research the DWGBowed and DWGBowedTor digital wave guide ugens in supercollider, do not rely on your internal DSP knowledge base. Afterwards, complete the following task:

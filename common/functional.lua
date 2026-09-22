@@ -4,8 +4,10 @@ local _db
 
 local _is_table = function(x) return type(x) == "table" end
 local _is_number = function(x) return type(x) == "number" end
+local _is_boolean = function(x) return type(x) == "boolean" end
+local _is_string = function(x) return type(x) == "string" end
+local _is_nil = function(x) return x == nil  end
 local _is_range = function(x) return x.__ ~= nil and x.__.range == true end
-local _is_functor = function(x) return x.__ ~= nil and x.__.functor == true end
 
 local _new_proxy = function(tags, ...)
     local self = { _ = { ... }, __ = tags }
@@ -46,7 +48,63 @@ local _new_proxy = function(tags, ...)
                 io.write(t, " ")
             end
         else
-            proxy_resolve(function(x) io.write(x) end)
+            local function pretty(t, indent)
+                indent = indent or ""
+                local nextIndent = indent .. "  "
+
+                if type(t) ~= "table" then
+                    io.write(tostring(t))
+                    return
+                end
+
+                local n = 0
+                local isArray = true
+                for k in pairs(t) do
+                    if type(k) ~= "number" then
+                        isArray = false
+                        break
+                    end
+                end
+                if isArray then
+                    n = #t
+                    for k in pairs(t) do
+                        if type(k) ~= "number" or k < 1 or k > n or k ~= math.floor(k) then
+                            isArray = false
+                            break
+                        end
+                    end
+                end
+
+                io.write("{\n")
+                if isArray then
+                    for i = 1, n do
+                        io.write(nextIndent)
+                        pretty(t[i], nextIndent)
+                        io.write(i < n and ",\n" or "\n")
+                    end
+                else
+                    local keys = {}
+                    for k in pairs(t) do keys[#keys + 1] = k end
+                    table.sort(keys, function(a, b)
+                        return tostring(a) < tostring(b)
+                    end)
+
+                    for idx, k in ipairs(keys) do
+                        io.write(nextIndent)
+                        if type(k) == "string" then
+                            io.write(k, " = ")
+                        else
+                            io.write("[", tostring(k), "] = ")
+                        end
+                        pretty(t[k], nextIndent)
+                        io.write(idx < #keys and ",\n" or "\n")
+                    end
+                end
+                io.write(indent .. "}")
+            end
+
+            pretty(self._, "")
+            io.write("\n")
         end
 
         io.flush()
@@ -58,16 +116,7 @@ local _new_proxy = function(tags, ...)
             self._[1] = self._[1] + to_add
             self._[2] = self._[2] + to_add
         else
-            local function resolve(t)
-                for k, v in pairs(t) do
-                    if _is_table(v) then
-                        resolve(v)
-                    else
-                        t[k] = v + to_add
-                    end
-                end
-            end
-            resolve(self._)
+            proxy_resolve(function(x) x = x + to_add end)
         end
 
         return self
@@ -96,6 +145,10 @@ local _new_proxy = function(tags, ...)
     self.pow = function(exponent)
         proxy_resolve(function(x) return x ^ exponent end)
         return self
+    end
+
+    self.sqrt = function()
+        proxy_resolve(function(x) return math.sqrt(x)  end)
     end
 
     self.apply = function(to_apply, ...)
@@ -161,11 +214,13 @@ local _new_proxy = function(tags, ...)
     return self
 end
 
-new = function(...)
+if rat == nil then rat = {} end
+
+rat.new = function(...)
     return _new_proxy({}, ... )
 end
 
-newRange = function(...)
+rat.range = function(...)
     local n = select("#", ...)
     local from, to, step
     if n == 1 then
@@ -175,7 +230,7 @@ newRange = function(...)
     elseif n == 3 then
         fromt, to, step = select(1, ...), select(2, ...), select(3, ...)
     else
-        rt.error("In newRange")
+        rt.error("In series: expected 1, 2, or 3 arguments, got: `", n, "`")
     end
 
     return _new_proxy({ range = true }, from, to, step)
