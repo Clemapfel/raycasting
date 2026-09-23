@@ -6,6 +6,7 @@ require "include"
 require "common.filesystem"
 require "common.sound_effect"
 require "common.envelope"
+require "common.envelope_asr"
 require "common.smoothed_motion_1d"
 require "common.smoothed_motion_2d"
 
@@ -88,6 +89,7 @@ function rt.SoundManager:_load_data(sound_path)
     local attack = math.min(settings.import_attack, settings.max_import_attack_fraction * duration)
     local release = math.min(settings.import_release, settings.max_import_release_fraction * duration)
     local sustain = duration - math.min(attack + release, duration)
+
     local envelope = rt.Envelope(
         attack, sustain, release,
         rt.EnvelopeCurve.WELCH,
@@ -103,7 +105,7 @@ function rt.SoundManager:_load_data(sound_path)
         local elapsed = sample_i / n_channels / sample_rate -- position to seconds
         local t = envelope:at(elapsed)
         for offset = 0, n_channels - 1 do
-            data:setSample(sample_i + offset, t * data:getSample(sample_i + offset))
+            data:setSample(sample_i + offset - 1, t * data:getSample(sample_i + offset - 1))
         end
     end
 
@@ -119,13 +121,29 @@ function rt.SoundManager:_set_source_position(source, position_x, position_y)
         return 0, 0
     else
         -- static position in world
-        local x, y, z = self:_map_coordinates(
-            position_x or self._listener_x,
+        local x, y = position_x or self._listener_x,
             position_y or self._listener_y
-        )
-        source:setPosition(x, y, z)
+
+        source:setPosition(x, y, 0)
         source:setRelative(false)
         return x, y
+    end
+end
+
+--- @brief
+function rt.SoundManager:_sync_sources(origin, ...)
+    for i = 1, select("#", ...) do
+        local source = select(i, ...)
+        source:setVolume(origin:getVolume())
+        source:setPitch(origin:getPitch())
+        source:setLooping(origin:isLooping())
+
+        source:setPosition(origin:getPosition())
+        source:setVelocity(origin:getVelocity())
+        source:setRelative(origin:isRelative())
+
+        source:setRolloff(origin:getRolloff())
+        source:setAttenuationDistances(origin:getAttenuationDistances())
     end
 end
 
@@ -134,29 +152,38 @@ local _config_default = {
     position_x = nil, -- relative
     position_y = nil,
     should_loop = false,
+    loop_overlap = 0, -- seconds
     attack = 0,
-    sustain = nil, -- duration
+    sustain = nil, -- seconds
     release = 0,
     effects = {}
 }
 
-local _config_keys = {
-    pitch = true,
-    position_x = true,
-    position_y = true,
-    should_loop = true,
-    attack = true,
-    sustain = true,
-    release = true,
-    effects = true
-}
+local _config_keys = {}
+for x in range(
+    "pitch",
+    "position_x",
+    "position_y",
+    "should_loop",
+    "loop_overlap",
+    "attack",
+    "sustain",
+    "release",
+    "effects"
+) do
+    _config_keys[x] = true
+end
 
 --- @brief
 function rt.SoundManager:play(id, config)
-    meta.assert(id, mt.String, config, mt.Optional(mt.Table))
-
     local handler_id = self._handler_id
     self._handler_id = self._handler_id + 1
+    self:_play_internal(id, config, handler_id)
+end
+
+--- @brief
+function rt.SoundManager:_play_internal(id, config, handler_id)
+    meta.assert(id, mt.String, config, mt.Optional(mt.Table))
 
     local resource_entry = self._id_to_entry[id]
     if resource_entry == nil then
@@ -197,12 +224,38 @@ function rt.SoundManager:play(id, config)
     _verify("pitch", mt.Number, false)
     _verify("position_x", mt.Number, true)
     _verify("position_y", mt.Number, true)
-    _verify("should_loop", mt.Boolean, false)
+    _verify("should_loop", mt.Boolean, true)
+    _verify("loop_overlap", mt.Number, false)
     _verify("attack", mt.Number, false)
     _verify("sustain", mt.Number, true)
     _verify("release", mt.Number, false)
     _verify("effects", mt.Table, false)
     if failed then return nil end
+
+    local error_prefix = string.paste("In rt.SoundManager.play: config for sound `", id, "`:")
+    if (config.loop_overlap < 0 or config.loop_overlap > 1) then
+        rt.critical(error_prefix, "loop_overlap `", config.loop_overlap, "` is outside [0, 1]")
+        config.loop_overlap = math.clamp(config.loop_overlap, 0, 1)
+    end
+
+    if config.loop_overlap > 0 and config.should_loop == false then
+        rt.critical(error_prefix, "`loop_overlap` is set, but `should_loop` is false")
+    end
+
+    if config.pitch <= 0 then
+        rt.critical(error_prefix, "pitch `", config.pitch, "` is outside (0, 1]")
+        config.pitch = 1
+    end
+
+    if config.attack < 0 then
+        rt.critical(error_prefix, "attack `", config.attack, "` is negative")
+        config.attack = 0
+    end
+
+    if config.release < 0 then
+        rt.critical(error_prefix, "release `", config.sustain, "` is negative")
+        config.release = 0
+    end
 
     if resource_entry.sound_data == nil then
         resource_entry.sound_data = self:_load_data(resource_entry.sound_path)
@@ -211,11 +264,19 @@ function rt.SoundManager:play(id, config)
     local entry = {
         id = handler_id,
         resource_entry = resource_entry,
+
         source = love.audio.newSource(resource_entry.sound_data),
+        duration = resource_entry.sound_data:getDuration(),
+        elapsed = 0,
+
         envelope = nil, -- rt.Envelope
         position_motion = nil, -- Optional<rt.SmoothedMotion2D>,
         volume_motion = nil, -- rt.SmoothedMotion1D
-        is_stopping = false
+        is_stopping = false,
+
+        swap_source = nil, -- love.Source
+        swap_period = nil,  -- seconds
+        swap_envelope = nil -- rt.Envelope
     }
 
     if entry.source ~= nil then
@@ -237,33 +298,66 @@ function rt.SoundManager:play(id, config)
         self:_set_source_position(entry.source, config.position_x, config.position_y)
     )
 
+    -- loop
+    entry.source:setLooping(config.should_loop)
+
     -- volume
     entry.source:setVolume(0) -- set next update
-    entry.volume_motion = rt.SmoothedMotion1D(0)
+    entry.volume_motion = rt.SmoothedMotion1D(1)
 
-    local sustain = resource_entry.sound_data:getDuration() - (config.attack + config.release)
-    if config.sustain ~= nil then
-        sustain = math.min(config.sustain, sustain)
+    local max_sustain = entry.duration - (config.attack + config.release)
+    if config.sustain == nil then
+        config.sustain = max_sustain
+    else
+        config.sustain = math.min(config.sustain, max_sustain)
     end
 
-    entry.envelope = rt.Envelope(
-        config.attack,
-        sustain,
-        config.release,
-        rt.EnvelopeCurve.WELCH,
-        rt.EnvelopeCurve.WELCH
-    )
+    if config.sustain < 0 then
+        rt.critical(error_prefix, "sustain `", config.release, "` is negative")
+        config.sustain = entry.duration - (config.attack + config.release)
+    end
+
+    if not config.should_loop and (config.attack + config.sustain + config.release > entry.duration) then
+        rt.warning(error_prefix, "envelope config duration exceeds audio length")
+    end
+
+    if config.should_loop then
+        entry.envelope = rt.EnvelopeASR(
+            config.attack,
+            config.release,
+            rt.EnvelopeCurve.WELCH,
+            rt.EnvelopeCurve.WELCH
+        )
+    else
+        entry.envelope = rt.Envelope(
+            config.attack,
+            config.sustain,
+            config.release,
+            rt.EnvelopeCurve.WELCH,
+            rt.EnvelopeCurve.WELCH
+        )
+    end
 
     -- pitch
     local pitch = config.pitch or 1
     entry.source:setPitch(pitch)
     entry.pitch_motion = rt.SmoothedMotion1D(pitch)
 
-    -- others
-    entry.source:setLooping(config.should_loop)
-
     -- start source, return handler id
     entry.source:play()
+
+    -- second swap source for cross fading loop
+    if config.should_loop == true and config.loop_overlap > 0 then
+        entry.swap_source = love.audio.newSource(resource_entry.sound_data)
+        local overlap = config.loop_overlap * entry.duration
+        local period = entry.duration - overlap
+
+        entry.swap_period = period
+        entry.swap_envelope = rt.Envelope(overlap, period - overlap, overlap)
+
+        self:_sync_sources(entry.source, entry.swap_source)
+    end
+
     self._handler_id_to_entry[handler_id] = entry
 
     for effect in values(config.effects) do
@@ -284,16 +378,49 @@ function rt.SoundManager:update(delta)
         entry.pitch_motion:update(delta)
         entry.envelope:update(delta)
 
-        local volume = self._volume
-            * entry.envelope:get_value()
+        entry.elapsed = entry.elapsed + delta
+
+        local master_amp = self._volume
             * entry.volume_motion:get_value()
+            * entry.envelope:get_value()
 
-        entry.source:setVolume(volume)
-        self:_set_source_position(entry.source, entry.position_motion:get_position())
-        entry.source:setPitch(entry.pitch_motion:get_value())
+        local px, py = entry.position_motion:get_position()
+        local pitch = entry.pitch_motion:get_value()
 
+        local is_looping = entry.source:isLooping()
+        if entry.swap_source then
+            -- both sources play continously, envelopes staggered for seamless loop
+            --   _ _ _ _         _ _ _ _
+            --  /   A   \       /   A   \
+            --           _ _ _ _
+            --          /   B   \
+
+            if entry.swap_source:isPlaying() == false
+                and entry.elapsed > entry.swap_period
+            then
+                -- delay second source by period
+                entry.swap_source:play()
+            end
+
+            local amp_a = entry.swap_envelope:at(entry.elapsed % (2 * entry.swap_period))
+            local amp_b = 1 - amp_a
+
+            entry.source:setVolume(master_amp * amp_a)
+            self:_set_source_position(entry.source, px, py)
+            entry.source:setPitch(pitch)
+
+            entry.swap_source:setVolume(master_amp * amp_b)
+            self:_set_source_position(entry.swap_source, px, py)
+            entry.swap_source:setPitch(pitch)
+        else
+            entry.source:setVolume(master_amp)
+            self:_set_source_position(entry.source, px, py)
+            entry.source:setPitch(pitch)
+        end
+
+        -- mark to free
         local x, y = entry.source:getPosition()
-        if (entry.is_stopping and math.equals(volume, 0, 0.01))
+        if entry.is_stopping and math.less_than_or_equal(master_amp, 0, 0.01)
             or entry.envelope:get_is_done()
             or math.distance(x, y, self._listener_x, self._listener_y) > self._reference_distance
         then
@@ -303,8 +430,13 @@ function rt.SoundManager:update(delta)
 
     -- free entry
     for id in values(to_free) do
-        local entry = self._handler_id_to_entry
+        local entry = self._handler_id_to_entry[id]
         entry.source:release()
+
+        if entry.swap_source then
+            entry.swap_source:release()
+        end
+
         _active_sources = _active_sources - 1
         self._handler_id_to_entry[id] = nil
     end
@@ -458,7 +590,9 @@ function rt.SoundManager:stop(handler_id)
     if entry == nil then return false end
 
     entry.volume_motion:set_target_value(0)
+    entry.envelope:release()
     entry.is_stopping = true
+
     return true
 end
 

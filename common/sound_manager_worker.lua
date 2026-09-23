@@ -19,7 +19,7 @@ local message_type_to_handler = {
     end,
 
     [MessageType.PLAY] = function(message)
-        rt.SoundManager:play(
+        rt.SoundManager:_play_internal(
             message.id,
             message.config,
             message.handler_id
@@ -28,8 +28,7 @@ local message_type_to_handler = {
 
     [MessageType.STOP] = function(message)
         rt.SoundManager:stop(
-            message.handler_id,
-            message.fade_out_duration
+            message.handler_id
         )
     end,
 

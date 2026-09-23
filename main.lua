@@ -54,7 +54,7 @@ love.load = function(args)
     end
 
     require "overworld.overworld_scene"
-    rt.SceneManager:push(ow.OverworldScene, "debug_room", ow.StageEntryMode.INSTANT)
+    --rt.SceneManager:push(ow.OverworldScene, "debug_room", ow.StageEntryMode.INSTANT)
 
     require "menu.keybinding_scene"
     --rt.SceneManager:push(mn.KeybindingScene)
@@ -64,6 +64,20 @@ love.load = function(args)
 
     require "menu.menu_scene"
     --rt.SceneManager:push(mn.MenuScene, true)
+
+    local hum_handler = rt.SoundManager:play("coin.hum", {
+        should_loop = true,
+        loop_overlap = 0,
+        attack = 1,
+        release = 1
+    })
+
+    DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
+        if which == rt.KeyboardKey.J then
+            rt.SoundManager:stop(hum_handler)
+            dbg("called")
+        end
+    end)
 end
 
 love.update = function(delta)

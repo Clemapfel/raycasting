@@ -18,8 +18,7 @@ var server = Server.default;
 ~mode = ~mode_record;
 
 server.latency = ~latency;
-server.options.blockSize = 4096;
-server.options.threads = 2;
+server.options.blockSize = 2048;
 server.options.numWireBufs = 256;
 server.options.sampleRate = ~sample_rate;
 server.options.memSize = 2 * (2 ** 16);
@@ -30,9 +29,6 @@ server.waitForBoot {
 
 	var before = Main.elapsedTime;
 
-	AutoRecorder.trimSilence(~filename.("coin", "hum"));
-
-
 	//~bubble_pop.();
 	//~bubble_unpop.();
 	//~bounce_pad.();
@@ -42,7 +38,7 @@ server.waitForBoot {
 	//~hook.();
 	//~pulse.(2);
 	//~accelerator_surface.();
-	//~coin.();
+	~coin.();
 	//"Done. Took %s".format(Main.elapsedTime - before).postln;
 
 	//	~crystal.();
@@ -964,33 +960,40 @@ server.waitForBoot {
 };
 
 ~coin = {
-
-	var a = 0.5;
-	var dur = 2;
+	var dur = 20;
 
 	/*
-	var buf = Buffer.read(server, ~export_path +/+ "coin" +/+ "hum.wav");
+	var crossfadeTime = 1.0;
+    var buf = Buffer.read(s, ~export_path +/+ "coin" +/+ "hum.wav");
 
-	var testDef = SynthDef.new(\coinTest, { arg out, bufnum, gate = 1;
-		var t = dur + (2 * a);
-		var period = t - a;
+    var testDef = SynthDef(\coinTestSeamless, { arg out = 0, bufnum, gate = 1;
+        var dur = BufDur.kr(bufnum);
+        var loopPeriod = dur - crossfadeTime;
+        var sustainTime = dur - (2 * crossfadeTime);
 
-		var prevTrig = Impulse.ar(1 / period);
-		var prev = PlayBuf.ar(1, bufnum, trigger: prevTrig);
+        var env = Env(
+            levels: [0, 1, 1, 0],
+            times: [crossfadeTime, sustainTime, crossfadeTime],
+            curve: \welch
+        );
 
-		var nextTrig = DelayN.ar(prevTrig, period);
-		var next = PlayBuf.ar(1, bufnum, trigger: nextTrig);
+        var masterTrig = Impulse.ar(1 / loopPeriod);
+        var trigA = PulseDivider.ar(masterTrig, 2, 0);
+        var trigB = PulseDivider.ar(masterTrig, 2, 1);
 
-		var signal = prev + next;
-		Out.ar(out, signal.dup);
-		~detect_silence.(signal);
-	}).add;
+        var sigA = PlayBuf.ar(1, bufnum, trigger: trigA, loop: 0) * EnvGen.ar(env, trigA);
+        var sigB = PlayBuf.ar(1, bufnum, trigger: trigB, loop: 0) * EnvGen.ar(env, trigB);
 
-	server.sync;
+		var signal = sigA + sigB;
+        var masterEnv = EnvGen.kr(Env.asr(0.05, 1, 0.1), gate, doneAction: 2);
 
-	Synth(testDef.name, [
-		\bufnum, buf
-	]);
+		signal.scope;
+
+        Out.ar(out, (signal * masterEnv).dup);
+    }).add;
+
+    s.sync; Synth(testDef.name, [\bufnum, buf]);
+
 	*/
 
 	// neon-bulb waveshape: https://www.giangrandi.org/electronics/neon/glow-lamp-current-ne-it.png
@@ -1039,17 +1042,17 @@ server.waitForBoot {
 		var maxbufpos = oscbufnum + oscbufcount - 1 - bufeps;
 
 		var bufnum1 = LFNoise2.kr(40).range(minbufpos, maxbufpos);
-		var bufnum2 = LFNoise2.kr(40).range(minbufpos, maxbufpos);
 
 		var detune = 0.002;
 		var feedbackout = [0, 0, 0];
 		var signal = [-12, 0, 12].midiratio.collect { |ratio, i|
 			var freq = ratio * LFNoise2.kr(20).range(1 - detune, 1 + detune) * pitch;
-			var vosc = VOsc.ar(bufnum2, freq: freq);
+			var vosc = VOsc.ar(bufnum1, freq: freq);
 			vosc;
 		}.mean;
 
-		var masterEnv = EnvGen.ar(Env.new([0, 1, 1, 0], [1, dur, 1], \lin));
+		var masterEnv = EnvGen.ar(Env.new([1, 1], dur));
+		var endTrig = Done.kr(masterEnv);
 
 		signal = Normalizer.ar(signal);
 
@@ -1057,7 +1060,7 @@ server.waitForBoot {
 		signal = signal * masterEnv;
 
 		Out.ar(out, ~amp * signal.dup);
-		~recorder.end(Done.kr(masterEnv), doneAction: Done.freeSelf);
+		~recorder.end(endTrig);
 	}).add;
 
 	var play = {

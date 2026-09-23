@@ -1,1 +1,1 @@
-& "C:\Program Files\SuperCollider-3.14.1\scsynth.exe" @args
+& "C:\Program Files\SuperCollider-3.14.1\sclang.exe" @args

@@ -16,7 +16,7 @@ AutoRecorder {
     var <>buffer;
     var <>synth;
     var <>bus;
-
+	var <>shouldTrimSilence;
     var <state = \idle; // states: \idle, \armed, \recording, \stopping
 
     *new { arg server;
@@ -47,7 +47,7 @@ AutoRecorder {
         ^this;
     }
 
-    record { arg filename, f, startAutomatically = true, inBus = 0, numChannels = 1;
+    record { arg filename, f, startAutomatically = true, trimSilence = true, inBus = 0, numChannels = 1;
         if (f.isKindOf(Function).not && f.respondsTo(\play).not) {
             Error("In AutoRecorder.record: argument #2 is not callable").throw
         };
@@ -63,6 +63,7 @@ AutoRecorder {
         bus = inBus;
         state = \armed;
         doneCondition.test = false;
+		shouldTrimSilence = trimSilence;
 
         fork {
             buffer = Buffer.alloc(server,
@@ -147,6 +148,10 @@ AutoRecorder {
                 };
             };
 
+			if (shouldTrimSilence) {
+				AutoRecorder.trimSilence(path.fullPath);
+			};
+
 			state = \idle;
 			doneCondition.test = true;
 			doneCondition.unhang;
@@ -163,7 +168,6 @@ AutoRecorder {
 
         var reply = SendReply.perform(method, trig, recordEndOSC);
 
-        // Keep the source synth alive to account for latency
         DetectSilence.perform(method,
             in: 1 - (trig > 0),
             amp: 0.5,

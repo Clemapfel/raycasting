@@ -62,14 +62,13 @@ for id in range(
         main -> worker
         type : MessageType
         id : String
-        config : Table? -- pitch, position_x, position_y, should_loop
+        config : Table? -- pitch, position_x, position_y, should_loop, loop_overlap
     ]]
 
     "STOP", --[[
         main -> worker
         type : MessageType
         handler_id : Number
-        fade_out_duration : Number?
     ]]
 
     "SET_GLOBAL_VOLUME", --[[
@@ -127,7 +126,7 @@ end
 --- @brief
 function rt.SoundManagerHandler:instantiate()
     self._sound_id_to_active_handlers = {}
-    self._current_handler_id = 1
+    self._handler_id = 0
 
     self._worker = rt.Thread("common/sound_manager_worker.lua")
     self._main_to_worker = rt.Channel()
@@ -175,15 +174,17 @@ end
 function rt.SoundManagerHandler:play(id, config)
     meta.assert(id, mt.String, config, mt.Optional(mt.Table))
 
-    self._current_handler_id = self._current_handler_id + 1
+    local handler_id = self._handler_id
+    self._handler_id = self._handler_id + 1
+    
     self._main_to_worker:push({
         type = MessageType.PLAY,
         id = id,
-        handler_id = self._current_handler_id,
-        config = config
-    }) -- pitch, position_x, position_y, should_loop
+        config = config,  -- pitch, position_x, position_y, should_loop, loop_overlap
+        handler_id = handler_id
+    })
 
-    return self._current_handler_id
+    return handler_id
 end
 
 --- @brief
@@ -192,8 +193,7 @@ function rt.SoundManagerHandler:stop(handler_id, fade_out_duration)
 
     self._main_to_worker:push({
         type = MessageType.STOP,
-        handler_id = handler_id,
-        fade_out_duration = fade_out_duration
+        handler_id = handler_id
     })
 end
 
