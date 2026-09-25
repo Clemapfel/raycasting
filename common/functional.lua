@@ -83,6 +83,7 @@ local _new_proxy = function(tags, ...)
                         io.write(i < n and ",\n" or "\n")
                     end
                 else
+                    -- collect and stable-sort keys for deterministic output
                     local keys = {}
                     for k in pairs(t) do keys[#keys + 1] = k end
                     table.sort(keys, function(a, b)
@@ -214,13 +215,11 @@ local _new_proxy = function(tags, ...)
     return self
 end
 
-if rat == nil then rat = {} end
-
-rat.new = function(...)
+new = function(...)
     return _new_proxy({}, ... )
 end
 
-rat.range = function(...)
+new_series = function(...)
     local n = select("#", ...)
     local from, to, step
     if n == 1 then

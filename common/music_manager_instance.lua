@@ -9,6 +9,7 @@ require "common.interpolation_functions"
 require "common.audio_time_unit"
 require "common.sound_effect"
 require "common.cross_fader"
+require "common.cache"
 
 rt.settings.music_manager = {
     assets_directory = "assets/music",
@@ -17,7 +18,7 @@ rt.settings.music_manager = {
     source_buffer_count = 8,
     n_samples_per_chunk = 2^12, -- bits
     silence_threshold = 0.01, -- gain, in [0, 1]
-    max_cache_size_mb = 150 -- mb
+    max_cache_size = 150 -- mb
 }
 
 --- @class rt.MusicManager
@@ -36,9 +37,8 @@ local _MODE_STOP = 2
 local _MODE_RESTART = 3
 
 -- priority based sound data caching
-local _cache = {} -- Table<Path, SoundData>
-local _cache_size_mb = 0
-local _cache_priority = {} -- Priority Queue, most recently used at back, oldest first
+local _cache = rt.Cache(rt.CachePolicy.FIRST_IN_FIRST_OUT)
+local _cache_size = 0
 
 --- @brief
 function rt.MusicManager:instantiate()
@@ -90,7 +90,7 @@ function rt.MusicManager:instantiate()
     self._volume_motion = rt.SmoothedMotion1D(1)
     self._pause_motion = rt.SmoothedMotion1D(1, 2) -- 2x speed
     -- 0: fully pause, 1: unpaused
-    
+
     self._on_silence = nil -- Function, oneshot
 
     -- load looping metadata
@@ -144,9 +144,9 @@ function rt.MusicManager:play(id, skip_fade)
 
     -- sic, override queue
     self._queue = {{
-        id = id,
-        skip_fade = skip_fade
-    }}
+                       id = id,
+                       skip_fade = skip_fade
+                   }}
 end
 
 --- @brief
@@ -171,19 +171,19 @@ function rt.MusicManager:stop(reset_to_loop_or_file)
 end
 
 --- @brief
+function rt.MusicManager:pause()
+    if self._a.source == nil and self._b.source == nil then return end
+
+    if self:get_is_paused() then return end
+    self._pause_motion:set_target_value(0)
+end
+
+--- @brief
 function rt.MusicManager:unpause()
     if self._a.source == nil and self._b.source == nil then return end
 
     if not self:get_is_paused() then return end
     self._pause_motion:set_target_value(1)
-end
-
---- @brief
-function rt.MusicManager:pause()
-    if self._a.source == nil and self._b.source == nil then return end
-
-    if self:get_is_paused() then return end
-   self._pause_motion:set_target_value(0)
 end
 
 --- @brief
@@ -266,49 +266,43 @@ end
 
 local _skip_next_delta = false
 local _get_data_size_mb = function(data)
-    return (data:getSampleCount() * data:getBitDepth() * data:getChannelCount()) / (8 * 1024^2)
+    return (data:getSampleCount() * data:getBitDepth() * data:getChannelCount()) / (8 * 1024 ^ 2)
 end
 
 --- @brief
 function rt.MusicManager:_load_data(path)
-    local data = _cache[path]
-    local should_add_size = false
+    local cached_entry = _cache:get(path)
+    local data
 
-    if data ~= nil then
-        -- remove to bubble up to most recently used
-        for i, other in ipairs(_cache_priority) do
-            if other == path then
-                table.remove(_cache_priority, i)
-                break
-            end
-        end
+    if cached_entry ~= nil then
+        data = cached_entry.data
 
-        -- was already in queue, cache did not increase size
+        -- mark as recently used
+        _cache:bump(path)
     else
         local success, data_or_error = pcall(love.sound.newSoundData, path)
         if not success then
             rt.error(data_or_error)
         else
             data = data_or_error
-            _cache[path] = data
-            _cache_size_mb = _cache_size_mb + _get_data_size_mb(data)
+
+            local entry = { path = path, data = data }
+            _cache:push(path, entry) -- use path as hash
+            _cache_size = _cache_size + _get_data_size_mb(data)
             _skip_next_delta = true -- prevent lag spike
+
+            -- notify cache, if size too high, evict oldest used and deallocate
+            if _cache_size > rt.settings.music_manager.max_cache_size then
+                local last_node, last_hash = _cache:get_back()
+                while last_hash ~= nil and last_node ~= entry and _cache:get_size() > 1 do
+                    _cache_size = _cache_size - _get_data_size_mb(last_node.data)
+                    _cache:pop(last_hash)
+                    last_node.data:release()
+                    last_node.data = nil
+                    last_node, last_hash = _cache:get_back()
+                end
+            end
         end
-    end
-
-    if data ~= nil then
-        table.insert(_cache_priority, path)
-    end
-
-    while _cache_size_mb > rt.settings.music_manager.max_cache_size_mb do
-        local oldest = _cache_priority[1]
-        if oldest == nil then break end
-
-        local old_data = _cache[oldest]
-
-        _cache[oldest] = nil -- free cache ref, MusicManager may keep it next to the source
-        table.remove(_cache_priority, 1)
-        _cache_size_mb = _cache_size_mb - _get_data_size_mb(old_data)
     end
 
     return data
@@ -473,6 +467,17 @@ function rt.MusicManager:update(delta)
         if entry.source ~= nil then
             if pause > silence_threshold then
                 entry.source:play()
+
+                for effect in keys(self._sound_effects) do
+                    entry.source:setEffect(effect, true)
+                end
+
+                for effect in values(entry.source:getActiveEffects()) do
+                    if self._sound_effects[effect] ~= true then
+                        entry.source:setEffect(effect, false)
+                    end
+                end
+
                 -- play needs to be called every update because of `Source:queue`
             else
                 entry.source:pause()

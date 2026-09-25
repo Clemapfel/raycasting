@@ -879,6 +879,7 @@ do
 end
 
 --- @brief
+--- @return meta.Type
 function meta.abstract_class(typename, super)
     local type = meta.class(typename, super)
     local type_metatable = getmetatable(type)

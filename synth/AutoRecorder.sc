@@ -228,7 +228,7 @@ AutoRecorder {
 		};
 
 		if (startFrame.isNil || endFrame.isNil) {
-			"In AutoRecorder: file at `%` only silence".postln;
+			"In AutoRecorder: file at `%` only silence".format(path.fullPath).postln;
 		} {
 			var outData = data.copyRange(
 				startFrame * numChannels,

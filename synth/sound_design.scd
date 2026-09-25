@@ -9,7 +9,7 @@ var server = Server.default;
 ~export_path = thisProcess.nowExecutingPath.dirname +/+ "export";
 ~asset_path = thisProcess.nowExecutingPath.dirname +/+ "assets";
 
-~degrees = Pseries(0, 3, 4).asStream.all; // pitches for all pitch-dependent sfx
+~degrees = [0, 4, 7];
 ~amp = 0.4;
 ~latency = 0.4;
 
@@ -39,6 +39,7 @@ server.waitForBoot {
 	//~pulse.(2);
 	//~accelerator_surface.();
 	~coin.();
+	//~player_slippery_surface.();
 	//"Done. Took %s".format(Main.elapsedTime - before).postln;
 
 	//	~crystal.();
@@ -959,10 +960,71 @@ server.waitForBoot {
 	};
 };
 
+
 ~coin = {
+	var def = SynthDef(\coinCollect, { arg out = 0, degree, freq, dur, gate = 1;
+
+		var attack = 0.08;
+		var release = 0.6;
+
+		var masterEnv =  EnvGen.ar(Env.adsr(
+			attackTime: attack, decayTime: dur - attack, releaseTime: release
+		), gate: gate);
+
+		var signal = [-24, -12, 0, 12, 24].collect({ |octave|
+			var freq = (degree + octave).midicps;
+			var eps = 0.008;
+			SinOsc.ar(
+				freq: freq * LFCub.ar(5).range(1 - eps, 1 + eps)
+			)
+		}).mean * masterEnv;
+
+		signal = XFade2.ar(RLPF.ar(signal, 1200), signal, Line.kr(-1, 0.25, dur));
+		signal = FreeVerb.ar(signal.dup, room: EnvGen.kr(Env.new(
+			[1, 1, 0], [2, 0.1].normalizeSum * dur, \welch
+		)));
+
+		~recorder.end(DetectSilence.ar(signal));
+
+		Out.ar(out, ~amp * signal);
+	}).add;
+
+
+	var interval = Degree.new("Gf5").midi - Degree.new("B4").midi; // yoshis island coin interval
+	var durs = [1 / 4, 1 / 4];
+	var tempo = 4;
+
+	server.sync;
+
+	if (~mode == ~mode_record) {
+		~degrees.do { |degree|
+			~recorder.record(
+				~filename.("coin", "collected", degree),
+				Pnew(def.name, *[
+					degree: Pseq(Degree.new("C5").midi + [degree, degree + interval]),
+					dur: Pseq(durs, inf),
+					tempo: tempo
+				])
+			);
+
+			~recorder.wait();
+		};
+	} {
+		var notes = Degree.new("C5").midi + ~degrees.collect({ |x| [x, x + interval, Rest(4)] }).flatten;
+		Pnew(def.name, *[
+			degree: Pseq(notes, 1),
+			dur: Pseq(durs, inf),
+			tempo: tempo
+		]).play;
+	}
+};
+
+
+
+~coin_hum = {
 	var dur = 20;
 
-	/*
+
 	var crossfadeTime = 1.0;
     var buf = Buffer.read(s, ~export_path +/+ "coin" +/+ "hum.wav");
 
@@ -973,7 +1035,11 @@ server.waitForBoot {
 
         var env = Env(
             levels: [0, 1, 1, 0],
-            times: [crossfadeTime, sustainTime, crossfadeTime],
+            times: [
+				crossfadeTime, // seconds
+				sustainTime,
+				crossfadeTime
+			],
             curve: \welch
         );
 
@@ -992,9 +1058,7 @@ server.waitForBoot {
         Out.ar(out, (signal * masterEnv).dup);
     }).add;
 
-    s.sync; Synth(testDef.name, [\bufnum, buf]);
-
-	*/
+   // s.sync; Synth(testDef.name, [\bufnum, buf]);
 
 	// neon-bulb waveshape: https://www.giangrandi.org/electronics/neon/glow-lamp-current-ne-it.png
 
@@ -1091,15 +1155,37 @@ server.waitForBoot {
 };
 
 ~player_slippery_surface = {
+
+    var ratiosIn = #[
+        1.0, 2.756, 5.404, 8.933, 13.34, 18.64, 24.82, 31.89, 39.85, 48.68, 53.71
+    ];
+
+    var freqs = ratiosIn.collect { |x, i|
+        (i / (ratiosIn.size - 1)).linexp(0, 1, 1, 100)
+    };
+
+	var amps = freqs.collect { |x, i| (i / freqs.size) / (x ** 1.5) };
+    var decays = freqs.collect { |x| 1 / x };
+
 	var def = SynthDef.new(\player_slippery_surface, { arg out, freq, dur, gate = 1;
+
+		var excitation = LFPar.ar(freq) * EnvGen.ar(Env.perc(0.01, 0.05), gate: gate);
+
+		var glassFreqs = [1240, 2150, 3200, 4900, 6500];
+		var glassAmps  = [1.0, 0.7, 0.4, 0.3, 0.15];
+		var glassDecays = [0.06, 0.05, 0.03, 0.02, 0.01];
+		var glass = DynKlank.ar(`[glassFreqs, glassAmps, glassDecays], excitation);
+
+		Out.ar(out, glass.dup);
 	}).add;
+
 
 	server.sync;
 
 	Pnew(def.name, *[
 		degree: Pseq(~degrees, 1),
 		dur: 1
-	]);
+	]).play;
 };
 
 server.ping();

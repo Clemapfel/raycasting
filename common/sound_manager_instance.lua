@@ -5,6 +5,7 @@ require "love.timer"
 require "include"
 require "common.filesystem"
 require "common.sound_effect"
+require "common.cache"
 require "common.envelope"
 require "common.envelope_asr"
 require "common.smoothed_motion_1d"
@@ -16,10 +17,13 @@ rt.settings.sound_manager = {
 
     import_attack = 5 / 60,
     import_release = 8 / 60,
+    
+    envelope_shape = rt.EnvelopeCurve.WELCH,
+    
     max_import_attack_fraction = 0.01,
     max_import_release_fraction = 0.01,
 
-    max_valid_source = 64
+    max_cache_size = 512 -- mb
 }
 
 --- @class rt.SoundManager
@@ -29,6 +33,10 @@ meta.add_signals(rt.SoundManager,
 )
 
 local _active_sources = 0
+
+local _skip_next_delta = false
+local _cache = rt.Cache(rt.CachePolicy.FIRST_IN_FIRST_OUT)
+local _cache_size = 0 -- size in mb
 
 --- @brief
 function rt.SoundManager:instantiate()
@@ -52,12 +60,12 @@ function rt.SoundManager:instantiate()
         if string.last(prefix) ~= "/" then prefix = prefix .. "/" end
         local id_to_path = bd.generate_resource_ids(prefix, bd.is_sound_file)
 
-        self._id_to_entry = {} -- Table<String, String>, indexable like `self._id_to_entry["overworld.foo.effect"]`
+        self._id_to_resource_entry = {} -- Table<String, String>, indexable like `self._id_to_resource_entry["overworld.foo.effect"]`
         for id, path in pairs(id_to_path) do
-            self._id_to_entry[id] = {
+            self._id_to_resource_entry[id] = {
                 id = id,
-                sound_path = path,  -- String
-                sound_data = nil -- love.SoundData
+                path = path,  -- String
+                data = nil -- love.SoundData
             }
         end
     end
@@ -70,10 +78,10 @@ function rt.SoundManager:instantiate()
 end
 
 --- @brief
-function rt.SoundManager:_load_data(sound_path)
-    local success, data_or_error = pcall(love.sound.newSoundData, sound_path)
+function rt.SoundManager:_load_data(path)
+    local success, data_or_error = pcall(love.sound.newSoundData, path)
     if not success then
-        rt.critical("In rt.SoundManager.play: when trying to play sound at `", sound_path,  "`: ",  data_or_error)
+        rt.critical("In rt.SoundManager.play: when trying to play sound at `", path,  "`: ",  data_or_error)
         return nil
     end
 
@@ -89,11 +97,11 @@ function rt.SoundManager:_load_data(sound_path)
     local attack = math.min(settings.import_attack, settings.max_import_attack_fraction * duration)
     local release = math.min(settings.import_release, settings.max_import_release_fraction * duration)
     local sustain = duration - math.min(attack + release, duration)
-
+    
     local envelope = rt.Envelope(
         attack, sustain, release,
-        rt.EnvelopeCurve.WELCH,
-        rt.EnvelopeCurve.WELCH
+        rt.settings.sound_manager.envelope_shape,
+        rt.settings.sound_manager.envelope_shape
     )
 
     if n_samples == 0 then
@@ -104,11 +112,17 @@ function rt.SoundManager:_load_data(sound_path)
     for sample_i = 1, n_samples, n_channels do
         local elapsed = sample_i / n_channels / sample_rate -- position to seconds
         local t = envelope:at(elapsed)
-        for offset = 0, n_channels - 1 do
-            data:setSample(sample_i + offset - 1, t * data:getSample(sample_i + offset - 1))
+
+        for channel_i = 1, n_channels do
+            data:setSample(
+                sample_i - 1,
+                channel_i,
+                t * data:getSample(sample_i - 1, channel_i)
+            )
         end
     end
 
+    _skip_next_delta = true -- prevent lag spike
     return data
 end
 
@@ -156,7 +170,7 @@ local _config_default = {
     attack = 0,
     sustain = nil, -- seconds
     release = 0,
-    effects = {}
+    effects = nil
 }
 
 local _config_keys = {}
@@ -174,18 +188,22 @@ for x in range(
     _config_keys[x] = true
 end
 
+local _get_data_size_mb = function(data)
+    return (data:getSampleCount() * data:getBitDepth() * data:getChannelCount()) / (8 * 1024 ^ 2)
+end
+
 --- @brief
 function rt.SoundManager:play(id, config)
     local handler_id = self._handler_id
     self._handler_id = self._handler_id + 1
-    self:_play_internal(id, config, handler_id)
+    return self:_play_internal(id, config, handler_id)
 end
 
 --- @brief
 function rt.SoundManager:_play_internal(id, config, handler_id)
     meta.assert(id, mt.String, config, mt.Optional(mt.Table))
 
-    local resource_entry = self._id_to_entry[id]
+    local resource_entry = self._id_to_resource_entry[id]
     if resource_entry == nil then
         rt.error("In rt.SoundManager.play: no sound with id `", id, "`")
         return nil
@@ -215,9 +233,11 @@ function rt.SoundManager:_play_internal(id, config, handler_id)
         end
     end
 
-    for i, effect in ipairs(config.effects) do
-        if not meta.isa(effect, rt.SoundEffect) then
-            rt.error("In rt.SoundManager.play: effect at position `", i, "`: expected `rt.SoundEffect`, got `", meta.typeof(effect), "`")
+    if config.effects ~= nil then
+        for i, effect in ipairs(config.effects) do
+            if not meta.isa(effect, rt.SoundEffect) then
+                rt.error("In rt.SoundManager.play: effect at position `", i, "`: expected `rt.SoundEffect`, got `", meta.typeof(effect), "`")
+            end
         end
     end
 
@@ -229,7 +249,7 @@ function rt.SoundManager:_play_internal(id, config, handler_id)
     _verify("attack", mt.Number, false)
     _verify("sustain", mt.Number, true)
     _verify("release", mt.Number, false)
-    _verify("effects", mt.Table, false)
+    _verify("effects", mt.Table, true)
     if failed then return nil end
 
     local error_prefix = string.paste("In rt.SoundManager.play: config for sound `", id, "`:")
@@ -253,20 +273,38 @@ function rt.SoundManager:_play_internal(id, config, handler_id)
     end
 
     if config.release < 0 then
-        rt.critical(error_prefix, "release `", config.sustain, "` is negative")
+        rt.critical(error_prefix, "release `", config.release, "` is negative")
         config.release = 0
     end
 
-    if resource_entry.sound_data == nil then
-        resource_entry.sound_data = self:_load_data(resource_entry.sound_path)
+    if resource_entry.data == nil then
+        resource_entry.data = self:_load_data(resource_entry.path)
+
+        -- notify cache, if RAM usage too high, evict oldest used and deallocate
+        _cache:push(resource_entry.path, resource_entry) -- use path as hash
+        _cache_size = _cache_size + _get_data_size_mb(resource_entry.data)
+
+        if _cache_size > rt.settings.sound_manager.max_cache_size then
+            local last_node, last_hash = _cache:get_back()
+            while last_hash ~= nil and last_node ~= resource_entry and _cache:get_size() > 1 do
+                _cache_size = _cache_size - _get_data_size_mb(last_node.data)
+                _cache:pop(last_hash)
+                last_node.data:release()
+                last_node.data = nil
+                last_node, last_hash = _cache:get_back()
+            end
+        end
+    else
+        -- mark as recently used
+        _cache:bump(resource_entry.path)
     end
 
     local entry = {
         id = handler_id,
         resource_entry = resource_entry,
 
-        source = love.audio.newSource(resource_entry.sound_data),
-        duration = resource_entry.sound_data:getDuration(),
+        source = love.audio.newSource(resource_entry.data),
+        duration = resource_entry.data:getDuration(),
         elapsed = 0,
 
         envelope = nil, -- rt.Envelope
@@ -313,7 +351,7 @@ function rt.SoundManager:_play_internal(id, config, handler_id)
     end
 
     if config.sustain < 0 then
-        rt.critical(error_prefix, "sustain `", config.release, "` is negative")
+        rt.critical(error_prefix, "sustain `", config.sustain, "` is negative")
         config.sustain = entry.duration - (config.attack + config.release)
     end
 
@@ -325,16 +363,16 @@ function rt.SoundManager:_play_internal(id, config, handler_id)
         entry.envelope = rt.EnvelopeASR(
             config.attack,
             config.release,
-            rt.EnvelopeCurve.WELCH,
-            rt.EnvelopeCurve.WELCH
+             rt.settings.sound_manager.envelope_shape,
+             rt.settings.sound_manager.envelope_shape
         )
     else
         entry.envelope = rt.Envelope(
             config.attack,
             config.sustain,
             config.release,
-            rt.EnvelopeCurve.WELCH,
-            rt.EnvelopeCurve.WELCH
+             rt.settings.sound_manager.envelope_shape,
+             rt.settings.sound_manager.envelope_shape
         )
     end
 
@@ -348,7 +386,15 @@ function rt.SoundManager:_play_internal(id, config, handler_id)
 
     -- second swap source for cross fading loop
     if config.should_loop == true and config.loop_overlap > 0 then
-        entry.swap_source = love.audio.newSource(resource_entry.sound_data)
+        entry.swap_source = love.audio.newSource(resource_entry.data)
+
+        if entry.swap_source ~= nil then
+            _active_sources = _active_sources + 1
+        else
+            rt.critical("In rt.SoundManager: number of active sources reached maximum of `", _active_sources, "`. No more sources can be allocated")
+            return nil
+        end
+
         local overlap = config.loop_overlap * entry.duration
         local period = entry.duration - overlap
 
@@ -360,8 +406,10 @@ function rt.SoundManager:_play_internal(id, config, handler_id)
 
     self._handler_id_to_entry[handler_id] = entry
 
-    for effect in values(config.effects) do
-        self:add_effect(handler_id, effect)
+    if config.effects ~= nil then
+        for effect in values(config.effects) do
+            self:add_effect(handler_id, effect)
+        end
     end
 
     return handler_id
@@ -370,6 +418,11 @@ end
 --- @brief
 function rt.SoundManager:update(delta)
     meta.assert(delta, mt.Number)
+
+    if _skip_next_delta == true then
+        _skip_next_delta = false
+        return
+    end
 
     local to_free = {}
     for handler_id, entry in pairs(self._handler_id_to_entry) do
@@ -422,7 +475,7 @@ function rt.SoundManager:update(delta)
         local x, y = entry.source:getPosition()
         if entry.is_stopping and math.less_than_or_equal(master_amp, 0, 0.01)
             or entry.envelope:get_is_done()
-            or math.distance(x, y, self._listener_x, self._listener_y) > self._reference_distance
+            or math.distance(x, y, self._listener_x, self._listener_y) > self._reference_distance ^ 2
         then
             table.insert(to_free, handler_id)
         end
@@ -432,12 +485,13 @@ function rt.SoundManager:update(delta)
     for id in values(to_free) do
         local entry = self._handler_id_to_entry[id]
         entry.source:release()
+        _active_sources = _active_sources - 1
 
         if entry.swap_source then
             entry.swap_source:release()
+            _active_sources = _active_sources - 1
         end
 
-        _active_sources = _active_sources - 1
         self._handler_id_to_entry[id] = nil
     end
 end

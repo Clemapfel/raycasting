@@ -1,5 +1,5 @@
 --- @enum rt.CachePolicy
-rt.CachePolicy = meta.enum({
+rt.CachePolicy = meta.enum("CachePolicy", {
     FIRST_IN_FIRST_OUT = true,
     FIRST_IN_LAST_OUT = false
 })
@@ -19,105 +19,152 @@ end
 
 --- @brief
 function rt.Cache:instantiate(policy)
+    if policy == nil then policy = rt.CachePolicy.FIRST_IN_FIRST_OUT end
     meta.assert(policy, rt.CachePolicy)
 
     self._policy = policy
     self._current_hash = 0
 
     self._hash_to_node = {} -- Table<Hash, Any>
-    self._node_to_hash = {} -- Table<Any, Hash>
 
     self._hash_to_next = {} -- Table<Hash, Hash>
     self._hash_to_previous = {} -- Table<Hash, Hash>
 
-    self._count = 0
+    self._size = 0
 
     self._max_priority_hash = nil -- hash for object with highest priority
     self._min_priority_hash = nil -- lowest priority
 end
 
 --- @brief
-function rt.Cache:node_to_hash(node)
-    return self._node_to_hash[node]
-end
-
---- @brief
-function rt.Cache:hash_to_node(hash)
+function rt.Cache:get(hash)
     return self._hash_to_node[hash]
 end
 
 --- @brief
-function rt.Cache:front()
+function rt.Cache:get_hash(node)
+    local current_hash = self._max_priority_hash
+    while current_hash ~= nil do
+        if self._hash_to_node[current_hash] == node then
+            return current_hash
+        end
+        current_hash = self._hash_to_next[current_hash]
+    end
+    return nil
+end
+
+--- @brief
+function rt.Cache:contains(hash)
+    return self._hash_to_node[hash] ~= nil
+end
+
+--- @brief
+function rt.Cache:get_front()
+    return self._hash_to_node[self._max_priority_hash], self._max_priority_hash
+end
+
+--- @brief
+function rt.Cache:get_back()
+    return self._hash_to_node[self._min_priority_hash], self._min_priority_hash
+end
+
+--- @brief
+function rt.Cache:get_front_node()
     return self._hash_to_node[self._max_priority_hash]
 end
 
 --- @brief
-function rt.Cache:back()
+function rt.Cache:get_back_node()
     return self._hash_to_node[self._min_priority_hash]
 end
 
+--- @brief
+function rt.Cache:get_front_hash()
+    return self._max_priority_hash
+end
+
+--- @brief
+function rt.Cache:get_back_hash()
+    return self._min_priority_hash
+end
+
 --- @brief add an object to the cache, or if it already exists, bump
-function rt.Cache:push(object, hash_override)
-    meta.assert(object, mt.Any, hash_override, mt.Optional(mt.Any))
-
-    local hash = self._node_to_hash[object]
-    if hash ~= nil then
-        self:bump(hash)
-    else
-        if hash_override ~= nil then
-            hash = hash_override
-        else
-            hash = self._current_hash
-            self._current_hash = self._current_hash + 1
-        end
-
-        self._hash_to_node[hash] = object
-        self._node_to_hash[object] = hash
-
-        if self._policy == rt.CachePolicy.FIRST_IN_FIRST_OUT then
-            -- queue
-            local old_min = self._min_priority_hash
-            self._hash_to_previous[hash] = nil
-            self._hash_to_next[hash] = old_min
-
-            if old_min ~= nil then
-                self._hash_to_previous[old_min] = hash
-            end
-
-            self._min_priority_hash = hash
-
-            if self._max_priority_hash == nil then
-                self._max_priority_hash = hash
-            end
-
-        elseif self._policy == rt.CachePolicy.FIRST_IN_LAST_OUT then
-            -- stack
-            local old_max = self._max_priority_hash
-            self._hash_to_next[hash] = nil
-            self._hash_to_previous[hash] = old_max
-
-            if old_max ~= nil then
-                self._hash_to_next[old_max] = hash
-            end
-
-            self._max_priority_hash = hash
-
-            if self._min_priority_hash == nil then
-                self._min_priority_hash = hash
-            end
-        else
-            rt.error("In rt.Cache.instantiate: unhandled policy `", self._policy, "`")
-        end
-
-        self._size = self._size + 1
+function rt.Cache:push(...)
+    local object, hash_override
+    if select("#", ...) == 1 then
+        object = select(1, ...)
+        hash_override = nil
+        meta.assert(object, mt.Any)
+    elseif select("#", ...) == 2 then
+        hash_override = select(1, ...)
+        object = select(2, ...)
+        meta.assert(hash_override, mt.Any, object, mt.Any)
     end
+
+    if hash_override ~= nil and self._hash_to_node[hash_override] ~= nil then
+        return
+    end
+
+    local hash
+    if hash_override ~= nil then
+        hash = hash_override
+    else
+        hash = self._current_hash
+        self._current_hash = self._current_hash + 1
+    end
+
+    self._hash_to_node[hash] = object
+
+    if self._policy == rt.CachePolicy.FIRST_IN_FIRST_OUT then
+        -- queue
+        local old_min = self._min_priority_hash
+        self._hash_to_previous[hash] = nil
+        self._hash_to_next[hash] = old_min
+
+        if old_min ~= nil then
+            self._hash_to_previous[old_min] = hash
+        end
+
+        self._min_priority_hash = hash
+
+        if self._max_priority_hash == nil then
+            self._max_priority_hash = hash
+        end
+
+    elseif self._policy == rt.CachePolicy.FIRST_IN_LAST_OUT then
+        -- stack
+        local old_max = self._max_priority_hash
+        self._hash_to_next[hash] = nil
+        self._hash_to_previous[hash] = old_max
+
+        if old_max ~= nil then
+            self._hash_to_next[old_max] = hash
+        end
+
+        self._max_priority_hash = hash
+
+        if self._min_priority_hash == nil then
+            self._min_priority_hash = hash
+        end
+    else
+        rt.error("In rt.Cache.instantiate: unhandled policy `", self._policy, "`")
+    end
+
+    self._size = self._size + 1
 
     return hash
 end
 
 --- @brief remove an object from the highest priority spot in the cache
 function rt.Cache:pop(hash)
-    if hash == nil then hash = self._max_priority_hash end
+    if hash == nil then
+        if self._policy == rt.CachePolicy.FIRST_IN_FIRST_OUT then
+            hash = self._min_priority_hash
+        else
+            hash = self._max_priority_hash
+        end
+    end
+
     meta.assert(hash, mt.Any)
 
     local object = self._hash_to_node[hash]
@@ -158,7 +205,6 @@ function rt.Cache:remove(hash)
     self._hash_to_next[hash] = nil
 
     self._hash_to_node[hash] = nil
-    self._node_to_hash[object] = nil
     self._size = self._size - 1
 
     return object
@@ -217,4 +263,9 @@ function rt.Cache:bump(hash, n_steps)
         end
         self._max_priority_hash = hash
     end
+end
+
+--- @brief
+function rt.Cache:get_size()
+    return self._size
 end
