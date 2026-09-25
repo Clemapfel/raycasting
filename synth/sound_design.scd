@@ -9,13 +9,13 @@ var server = Server.default;
 ~export_path = thisProcess.nowExecutingPath.dirname +/+ "export";
 ~asset_path = thisProcess.nowExecutingPath.dirname +/+ "assets";
 
-~degrees = [0, 4, 7];
+~degrees = [0, 4, 8];
 ~amp = 0.4;
 ~latency = 0.4;
 
 ~mode_record = \record;
 ~mode_play = \play;
-~mode = ~mode_record;
+~mode = ~mode_play;
 
 server.latency = ~latency;
 server.options.blockSize = 2048;
@@ -39,6 +39,7 @@ server.waitForBoot {
 	//~pulse.(2);
 	//~accelerator_surface.();
 	~coin.();
+	~coin_hum.();
 	//~player_slippery_surface.();
 	//"Done. Took %s".format(Main.elapsedTime - before).postln;
 
@@ -961,6 +962,8 @@ server.waitForBoot {
 };
 
 
+~coin_interval = Degree.new("Gf5").midi - Degree.new("B4").midi;
+
 ~coin = {
 	var def = SynthDef(\coinCollect, { arg out = 0, degree, freq, dur, gate = 1;
 
@@ -990,7 +993,6 @@ server.waitForBoot {
 	}).add;
 
 
-	var interval = Degree.new("Gf5").midi - Degree.new("B4").midi; // yoshis island coin interval
 	var durs = [1 / 4, 1 / 4];
 	var tempo = 4;
 
@@ -1001,7 +1003,7 @@ server.waitForBoot {
 			~recorder.record(
 				~filename.("coin", "collected", degree),
 				Pnew(def.name, *[
-					degree: Pseq(Degree.new("C5").midi + [degree, degree + interval]),
+					degree: Pseq(Degree.new("C5").midi + [degree, degree + ~coin_interval]),
 					dur: Pseq(durs, inf),
 					tempo: tempo
 				])
@@ -1010,17 +1012,61 @@ server.waitForBoot {
 			~recorder.wait();
 		};
 	} {
-		var notes = Degree.new("C5").midi + ~degrees.collect({ |x| [x, x + interval, Rest(4)] }).flatten;
+		var notes = Degree.new("C5").midi + ~degrees.collect({ |x| [x, x + ~coin_interval, Rest(4)] }).flatten;
 		Pnew(def.name, *[
 			degree: Pseq(notes, 1),
 			dur: Pseq(durs, inf),
 			tempo: tempo
-		]).play;
+		]);
 	}
 };
 
+~coin_hum = {
+	var def = SynthDef(\coinCollect, { arg out = 0, degree = 60, dur, gate = 1;
+		var attack = 0.08;
+		var release = 0.6;
+
+		var masterEnv =  EnvGen.ar(Env.new([0, 1, 1, 0], [0.05, dur, 0.05], \step)
+			, gate: gate, doneAction: Done.freeSelf
+		);
+
+		var peak = LFNoise2.ar(10).range(-2, 2);
+
+		var osc = [-36, -24, -12, 0, ~coin_interval].collect({ |octave|
+			var freq = (degrees + octave).midicps;
+			var eps = 0.008;
+			LFPar.ar(
+				freq: freq * LFCub.ar(LFNoise2.ar(2).range(0, 5)).range(1 - eps, 1 + eps)
+			)
+		});
+
+		var signal = osc.drop(-1);
+		signal[signal.size - 1] = signal[signal.size - 1] * LFNoise2.ar(20).range(0, 0.25);
+		signal = signal.mean * masterEnv;
+
+		signal = HPF.ar(signal, (60 - (2 * 12)).midicps);
+		signal = FreeVerb.ar(signal, room: 1.0).mean;
 
 
+		signal = signal + (LFNoise2.ar(10).range(0, 0.25) * osc.keep(-1));
+
+		Out.ar(out, ~amp * signal.dup);
+	}).add;
+
+
+	var dur = 10;
+	var degree = 7;
+
+	server.sync;
+
+	Synth.new(def.name, [
+		degrees: Degree.new("C5").midi + Pseq(~degrees),
+		dur: 10
+	]);
+};
+
+
+/*
 ~coin_hum = {
 	var dur = 20;
 
@@ -1153,6 +1199,7 @@ server.waitForBoot {
 		play.value();
 	};
 };
+*/
 
 ~player_slippery_surface = {
 

@@ -115,46 +115,50 @@ AutoRecorder {
 
     stop {
         var stateBefore = state;
+        var bufToClose;
+        var currentPath;
+
+        if (state != \recording) {
+            ^this;
+        };
+
         state = \stopping;
 
+        bufToClose = buffer;
+        buffer = nil;
+        currentPath = path;
+
         fork {
-            if (buffer.notNil) {
-                var bufToClose = buffer;
-                buffer = nil; // clear immediately to prevent UI race conditions
-
-                bufToClose.close({ arg buf;
-					server.bind {
-						if (synth.notNil and: { synth.isPlaying }) {
-							synth.free;
-						};
-
-						buf.free;
-					};
-
-                    if (stateBefore == \recording) {
-                        "In AutoRecorder: done recording `%` to `%`".format(
-                            path.fileNameWithoutExtension,
-                            path.fullPath
-                        ).postln;
-                    } {
-                        "In AutoRecorder: aborting recording `%`".format(
-                            path.fileNameWithoutExtension
-                        ).postln;
+            if (bufToClose.notNil) {
+                bufToClose.close { arg buf;
+                    if (synth.notNil and: { synth.isPlaying }) {
+                        synth.free;
                     };
-                });
+
+                    buf.free;
+
+                    "In AutoRecorder: done recording `%` to `%`".format(
+                        currentPath.fileNameWithoutExtension,
+                        currentPath.fullPath
+                    ).postln;
+
+                    if (shouldTrimSilence) {
+                        AutoRecorder.trimSilence(currentPath.fullPath);
+                    };
+
+                    state = \idle;
+                    doneCondition.test = true;
+                    doneCondition.unhang;
+                };
             } {
                 if (synth.notNil and: { synth.isPlaying }) {
                     synth.free;
                 };
+
+                state = \idle;
+                doneCondition.test = true;
+                doneCondition.unhang;
             };
-
-			if (shouldTrimSilence) {
-				AutoRecorder.trimSilence(path.fullPath);
-			};
-
-			state = \idle;
-			doneCondition.test = true;
-			doneCondition.unhang;
         }
     }
 
