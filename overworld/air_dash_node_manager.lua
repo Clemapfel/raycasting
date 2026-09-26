@@ -6,8 +6,8 @@ rt.settings.overworld.air_dash_node_manager = {
     dash_velocity = 850,
     exit_velocity = 700,
 
-    dash_velocity_bubble = 500,
-    exit_velocity_bubble = 350,
+    dash_velocity_bubble = 600,
+    exit_velocity_bubble = 600,
 
     stuck_detection_radius = rt.settings.player.radius / 8, -- px
     stuck_detection_duration = 30 / 60, -- seconds

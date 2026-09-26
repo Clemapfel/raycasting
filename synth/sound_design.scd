@@ -1,4 +1,7 @@
 var server = Server.default;
+var mode_record = \record;
+var mode_play = \play;
+var mode = mode_record;
 
 ~recorder = AutoRecorder.new(server);
 
@@ -12,10 +15,6 @@ var server = Server.default;
 ~degrees = [0, 4, 8];
 ~amp = 0.4;
 ~latency = 0.4;
-
-~mode_record = \record;
-~mode_play = \play;
-~mode = ~mode_play;
 
 server.latency = ~latency;
 server.options.blockSize = 2048;
@@ -33,13 +32,14 @@ server.waitForBoot {
 	//~bubble_unpop.();
 	//~bounce_pad.();
 	//~air_dash_node_dash.();
-	//~double_jump_tether_attach.();
-	//~double_jump_tether_detach.();
+	//~air_dash_node_focus.();
+	~double_jump_tether_attach.();
+	~double_jump_tether_detach.();
 	//~hook.();
 	//~pulse.(2);
 	//~accelerator_surface.();
-	~coin.();
-	~coin_hum.();
+	//~coin.();
+	//~coin_hum.();
 	//~player_slippery_surface.();
 	//"Done. Took %s".format(Main.elapsedTime - before).postln;
 
@@ -111,7 +111,7 @@ server.waitForBoot {
 
     server.sync;
 
-	if (~mode == ~mode_record) {
+	if (mode == mode_record) {
 		~degrees.do { arg degree;
 			~recorder.record(
 				~filename.("bubble", "pop", degree),
@@ -288,7 +288,7 @@ server.waitForBoot {
 
 	var dur = 2.0;
 
-	if (~mode == ~mode_record) {
+	if (mode == mode_record) {
 		~degrees.do { arg degree;
 			~recorder.record(
 				~filename.("bounce_pad", "hit", degree),
@@ -405,11 +405,11 @@ server.waitForBoot {
 		);
 
 		Out.ar(out, (~amp * (signal)).dup);
-		~recorder_end.(signal);
+		~recorder.end(DetectSilence.ar(signal));
 		DetectSilence.ar(signal, doneAction: Done.freeSelf);
 	}).add;
 
-	if (~mode == ~mode_record) {
+	if (mode == mode_record) {
 		~degrees.do { arg degree;
 			~recorder.record(
 				~filename.("air_dash_node", "dash", degree),
@@ -430,6 +430,56 @@ server.waitForBoot {
 			envbufnum: grainEnv.bufnum,
 			dur: 0.1,
 			delta: 1
+		]).play;
+	};
+};
+
+~air_dash_node_focus = {
+	var def = SynthDef(\air_dash_node_focus, { arg out, freq, dur, gate = 1;
+		var masterEnv = EnvGen.ar(Env.new(
+			[0, 1, 0], [impulseDur, 0.3], \welch
+		), gate: gate, doneAction: Done.freeSelf);
+
+		var impulseDur = 0.02;
+		var impulseAttack = 0.02;
+		var impulsePhaseIntensity = Line.kr(0.5, 0, impulseDur); // 0: all sine, 1: all noise
+		var impulse = SinOsc.ar(
+			freq: [freq, 12.midiratio * freq],
+			phase: LFNoise0.ar(3000).range(0, 2pi) * impulsePhaseIntensity
+		) * (EnvGen.ar(Env.new(
+			1 + [0, 1, 0], [impulseAttack, impulseDur], \exp
+		), gate: gate) - 1);
+
+		var db = -20;
+		var rs = 0.8;
+		impulse = BLowShelf.ar(impulse, freq: 200, db: db, rs: rs);
+		impulse = BHiShelf.ar(impulse, freq: 1000, db: db, rs: rs);
+
+		impulse = FreeVerb.ar(impulse, room: 1.0);
+		impulse = impulse * masterEnv;
+
+		impulse = XFade2.ar(impulse, impulse.mean.dup, pan: 0.2); // -1: full width stereo, 1: mono center
+
+		~recorder.end(Done.kr(masterEnv));
+		Out.ar(out, impulse);
+	}).add;
+
+	server.sync;
+
+	if (mode == mode_record) {
+		~degrees.do { |degree|
+			~recorder.record(
+				~filename.("air_dash_node", "focus", degree),
+				Pnew(def.name, *[ degree: Pn(degree, 1)])
+			);
+
+			degree.postln;
+
+			~recorder.wait;
+		};
+	} {
+		Pnew(def.name, *[
+			degree: Pseq(~degrees, inf)
 		]).play;
 	};
 };
@@ -459,7 +509,7 @@ server.waitForBoot {
 		Out.ar(out, ~amp * signal.dup);
     }).add;
 
-	if (~mode == ~mode_record) {
+	if (mode == mode_record) {
 		~degrees.do { |degree|
 			~recorder.record(
 				~filename.("double_jump_tether", "tether", degree),
@@ -513,7 +563,7 @@ server.waitForBoot {
 	}).add;
 
 	var dur = 0.5;
-	if (~mode == ~mode_record) {
+	if (mode == mode_record) {
 		~degrees.do { |degree|
 			~recorder.record(
 				~filename.("double_jump_tether", "untether", degree),
@@ -715,7 +765,7 @@ server.waitForBoot {
         condition.hang;
         server.sync;
 
-		if (~mode == ~mode_record) {
+		if (mode == mode_record) {
 			~degrees.do { |degree|
 				~recorder.record(
 					~filename.("accelerator_surface", "hum", degree),
@@ -814,7 +864,7 @@ server.waitForBoot {
 
 	server.sync;
 
-	if (~mode == ~mode_record) {
+	if (mode == mode_record) {
 		openBuffers.do { |buffer, i|
 			~recorder.record(
 				~filename.("hook", "open", i), {
@@ -941,7 +991,7 @@ server.waitForBoot {
 
 	server.sync;
 
-	if (~mode == ~mode_record) {
+	if (mode == mode_record) {
 	    ~degrees.do { arg degree;
 			~recorder.record(
 				~filename.("player", "pulse", degree),
@@ -998,7 +1048,7 @@ server.waitForBoot {
 
 	server.sync;
 
-	if (~mode == ~mode_record) {
+	if (mode == mode_record) {
 		~degrees.do { |degree|
 			~recorder.record(
 				~filename.("coin", "collected", degree),
@@ -1022,7 +1072,7 @@ server.waitForBoot {
 };
 
 ~coin_hum = {
-	var def = SynthDef(\coinCollect, { arg out = 0, degree = 60, dur, gate = 1;
+	var def = SynthDef(\coinCollect, { arg out = 0, degrees = #[60, 60], dur, gate = 1;
 		var attack = 0.08;
 		var release = 0.6;
 
@@ -1031,8 +1081,8 @@ server.waitForBoot {
 		);
 
 		var peak = LFNoise2.ar(10).range(-2, 2);
-
-		var osc = [-36, -24, -12, 0, ~coin_interval].collect({ |octave|
+		var top = Demand.ar(Impulse.ar(LFNoise0.ar(1, 2)), 0, Dseq([0, ~coin_interval], inf));
+		var osc = [-36, -24, -12, 0, top].collect({ |octave|
 			var freq = (degrees + octave).midicps;
 			var eps = 0.008;
 			LFPar.ar(
@@ -1047,8 +1097,7 @@ server.waitForBoot {
 		signal = HPF.ar(signal, (60 - (2 * 12)).midicps);
 		signal = FreeVerb.ar(signal, room: 1.0).mean;
 
-
-		signal = signal + (LFNoise2.ar(10).range(0, 0.25) * osc.keep(-1));
+		signal = signal + osc.keep(-1);
 
 		Out.ar(out, ~amp * signal.dup);
 	}).add;
@@ -1060,7 +1109,7 @@ server.waitForBoot {
 	server.sync;
 
 	Synth.new(def.name, [
-		degrees: Degree.new("C5").midi + Pseq(~degrees),
+		degrees: Degree.new("C5").midi + ~degrees[0],
 		dur: 10
 	]);
 };
@@ -1188,7 +1237,7 @@ server.waitForBoot {
 
 	pitches.postln;
 
-	if (~mode == ~mode_record) {
+	if (mode == mode_record) {
 		~recorder.record(
 			~filename.("coin", "hum"),
 			play

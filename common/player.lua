@@ -1890,8 +1890,8 @@ function rt.Player:update(delta)
             target_x, target_y = self:get_input_direction()
         end
 
-        local next_force_x, next_force_y
-        if not (target_x == 0 and target_y == 0) then
+        local next_force_x, next_force_y = 0, 0
+        if target_x ~= 0 or target_y ~= 0 then
             target_x = target_x * max_velocity * mass_multiplier
             target_y = target_y * max_velocity * mass_multiplier
             local acceleration = time_dilation * settings.bubble_acceleration
@@ -1900,8 +1900,9 @@ function rt.Player:update(delta)
             next_force_y = (target_y - current_y) * acceleration
         else
             if gravity > 0 then
-                next_force_x = -current_x * settings.bubble_air_resistance * delta
-                next_force_y = -current_y * settings.bubble_air_resistance * delta
+                local resistance_dx, resistance_dy = math.normalize(current_x, current_y)
+                next_force_x = -resistance_dx * settings.bubble_air_resistance * delta
+                next_force_y = -resistance_dy * settings.bubble_air_resistance * delta
             else
                 next_force_x = 0
                 next_force_y = 0
