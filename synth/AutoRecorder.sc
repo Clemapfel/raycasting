@@ -1,196 +1,76 @@
 AutoRecorder {
-    classvar <>headerFormat = "wav";
+	classvar <>headerFormat = "wav";
     classvar <>sampleFormat = "int16";
     classvar <>sampleRate = 48000;
 
-    var <>path;
-    var <>defID;
-    var <>server;
+	classvar <>oscMessageID = '/autoRecorderEnd';
 
-    var <>recordEndOSC;
-    var <>recordEndOSCdef;
-    var <>recordStartOSC;
-    var <>recordStartOSCdef;
+	classvar <>exportPathName = "export";
+	classvar <>assetPathName = "assets";
 
-    var <>doneCondition;
-    var <>buffer;
-    var <>synth;
-    var <>bus;
-	var <>shouldTrimSilence;
-    var <state = \idle; // states: \idle, \armed, \recording, \stopping
-
-    *new { arg server;
-        ^super.new.init(server);
-    }
-
-    init { arg inServer, numChannels = 1;
-        var id = UniqueID.next;
-        server = inServer;
-
-        doneCondition = Condition.new(true);
-        recordEndOSC = ("/recordEnd" ++ id).asSymbol;
-        recordStartOSC = ("/recordStart" ++ id).asSymbol;
-        defID = ("autoRecorder_Disk" ++ id).asSymbol;
-
-        SynthDef(defID, { arg bufnum, bus;
-			DiskOut.ar(bufnum, In.ar(bus, numChannels));
-        }).add;
-
-		recordStartOSCdef = OSCdef(("recordStartOSCdef" ++ id).asSymbol, {
-			server.bind { this.start(); }
-		}, recordStartOSC);
-
-		recordEndOSCdef = OSCdef(("recordEndOSCdef" ++ id).asSymbol, {
-			server.bind { this.stop(); }
-		}, recordEndOSC);
-
-        ^this;
-    }
-
-    record { arg filename, f, startAutomatically = true, trimSilence = true, inBus = 0, numChannels = 1;
-        if (f.isKindOf(Function).not && f.respondsTo(\play).not) {
-            Error("In AutoRecorder.record: argument #2 is not callable").throw
-        };
-
-        if (filename.isKindOf(PathName)) {
-            filename = filename.fullPath
-        };
-
-        if (state != \idle) {
-            ^this;
-        };
-
-        bus = inBus;
-        state = \armed;
-        doneCondition.test = false;
-		shouldTrimSilence = trimSilence;
-
-        fork {
-            buffer = Buffer.alloc(server,
-				sampleRate.nextPowerOfTwo,
-                numChannels
-            );
-
-            server.sync;
-
-            // prepare for writing, synth is started on `start`
-            buffer.write(filename, headerFormat, sampleFormat,
-                0, 0, true // disk out config
-            );
-
-            server.sync;
-
-            path = PathName.new(filename);
-			"In AutoRecorder: preparing recording `%`".format(
-                path.fileNameWithoutExtension
-            ).postln;
-
-			startAutomatically.if { this.start() };
-
-			if (f.isKindOf(Function)) {
-				f.value;
-			} {
-				f.play;
-			};
-        }
-
-        ^this;
-    }
-
-	start { arg group = server.defaultGroup;
-		if (state == \armed) {
-			state = \recording;
-
-			synth = Synth.tail(group, defID, [
-				\bufnum, buffer,
-				\bus, bus
-			]);
-
-			"In AutoRecorder: recording `%` to `%`".format(
-				path.fileNameWithoutExtension,
-				path.fullPath
-			).postln;
-		}
+	*record { arg recordbuf, sig;
+		DiskOut.ar(recordbuf, sig);
 	}
 
-    stop {
-        var stateBefore = state;
-        var bufToClose;
-        var currentPath;
+	*end { arg trig;
+		var method = if (trig.rate == \audio) { \ar } { \kr };
+		SendReply.perform(method, trig, cmdName: AutoRecorder.oscMessageID);
+	}
 
-        if (state != \recording) {
-            ^this;
-        };
+	*start { arg filename, f;
+		if (f.isKindOf(Function).not) {
+			Error("In AutoRecorder.record: argument #2 is not a function").throw;
+		};
 
-        state = \stopping;
 
-        bufToClose = buffer;
-        buffer = nil;
-        currentPath = path;
 
-        fork {
-            if (bufToClose.notNil) {
-                bufToClose.close { arg buf;
-                    if (synth.notNil and: { synth.isPlaying }) {
-                        synth.free;
-                    };
+	}
 
-                    buf.free;
+	*filename { arg prefix, name, degree;
+		var exportPath = thisProcess.nowExecutingPath.dirname +/+ AutoRecorder.exportPathName;
+		var res;
 
-                    "In AutoRecorder: done recording `%` to `%`".format(
-                        currentPath.fileNameWithoutExtension,
-                        currentPath.fullPath
-                    ).postln;
+		if (prefix.isNil || name.isNil) {
+			Error("In AutoRecorder.filename: expected string for argument #1 and #2").throw
+		};
 
-                    if (shouldTrimSilence) {
-                        AutoRecorder.trimSilence(currentPath.fullPath);
-                    };
+		if (File.exists(exportPath).not) {
+			File.mkdir(exportPath)
+		};
 
-                    state = \idle;
-                    doneCondition.test = true;
-                    doneCondition.unhang;
-                };
-            } {
-                if (synth.notNil and: { synth.isPlaying }) {
-                    synth.free;
-                };
+		if (File.exists(exportPath +/+ prefix).not) {
+			File.mkdir(~export_path +/+ prefix)
+		};
 
-                state = \idle;
-                doneCondition.test = true;
-                doneCondition.unhang;
-            };
-        }
-    }
+		if (degree.isNil) {
+			res = exportPath +/+ prefix +/+ name ++ "." ++ AutoRecorder.headerFormat;
+		} {
+			res = exportPath +/+ prefix +/+ name ++ "_%".format(degree + 1) ++ "." ++ AutoRecorder.headerFormat;
+		};
 
-    begin { arg trig;
-		// triggers after recording started are ignored
-		^SendReply.ar(trig, recordStartOSC);
-    }
+		^res.standardizePath;
+	}
 
-	end { arg trig, doneAction = Done.freeSelfToTail;
-        var method = if (trig.rate == \audio) { \ar } { \kr };
+	*measureLatency { arg server;
+		var condition = Condition.new(false);
+		var id = UniqueID.next;
+		var t0, t1;
 
-        var reply = SendReply.perform(method, trig, recordEndOSC);
+		server.sync; // flush pending messages
 
-        DetectSilence.perform(method,
-            in: 1 - (trig > 0),
-            amp: 0.5,
-            time: server.latency,
-            doneAction: doneAction
-        );
+		OSCdef(("ping_" ++ id).asSymbol, { |msg|
+			if (msg[1] == id) {
+				t1 = Main.elapsedTime;
+				condition.test = true;
+				condition.signal;
+			};
+		}, '/synced').oneShot;
 
-        ^reply;
-    }
-
-    wait {
-        doneCondition.hang;
-    }
-
-    free {
-        if (recordStartOSCdef.notNil) { recordStartOSCdef.free; };
-        if (recordEndOSCdef.notNil) { recordEndOSCdef.free; };
-        if (buffer.notNil) { buffer.free; };
-    }
+		t0 = Main.elapsedTime;
+		server.sendMsg('/sync', id);
+		condition.wait;
+		^((t1 - t0) * 1.5).max(server.latency); // safety margin
+	}
 
 	*trimSilence { arg pathIn;
 		var path = PathName.new(pathIn.standardizePath);
@@ -232,7 +112,8 @@ AutoRecorder {
 		};
 
 		if (startFrame.isNil || endFrame.isNil) {
-			"In AutoRecorder: file at `%` only silence".format(path.fullPath).postln;
+			"In AutoRecorder.trimSilence: file at `%` only silence".format(path.fullPath).postln;
+			^false;
 		} {
 			var outData = data.copyRange(
 				startFrame * numChannels,
@@ -249,14 +130,18 @@ AutoRecorder {
 			if (outFile.openWrite(path.fullPath)) {
 				outFile.writeData(outData);
 				outFile.close;
-				"In AutoRecorder: exported recording `%`".format(
+				"In AutoRecorder.trimSilence: exported recording `%`".format(
 					path.fullPath
 				).postln;
+				^true;
 			} {
 				"In AutoRecorder.trimSilence: failed to open file at `%`".format(
 					path.fullPath
 				).postln;
+				^false;
 			};
 		};
 	}
+
+
 }

@@ -14,9 +14,7 @@ var mode = mode_record;
 
 ~degrees = [0, 4, 8];
 ~amp = 0.4;
-~latency = 0.4;
 
-server.latency = ~latency;
 server.options.blockSize = 2048;
 server.options.numWireBufs = 256;
 server.options.sampleRate = ~sample_rate;
@@ -24,17 +22,94 @@ server.options.memSize = 2 * (2 ** 16);
 
 /* ###### MAIN ###### */
 
-server.waitForBoot {
+s.waitForBoot {
+	// measure ping
+	var latency = AutoRecorder.measureLatency(server);
 
-	var before = Main.elapsedTime;
+	// synth def
+	var def = SynthDef(\diskout, { arg out, freq, dur, amp, gate = 1, recordbuf;
+		var sig = amp * SinOsc.ar(freq) * EnvGen.ar(Env.asr(attackTime: 0.1, releaseTime: 0.1), gate: gate);
+
+		// detect when the signal is done
+		var endTrig = DetectSilence.ar(sig);
+
+		// write to disk
+		AutoRecorder.record(recordbuf, sig);
+
+		// notify that recording should end
+		AutoRecorder.end(endTrig);
+
+		// free this synth
+		FreeSelf.kr(endTrig);
+
+		// debug out
+		Out.ar(out, sig.dup);
+	}).add;
+
+	// synchronization: wait for oscdef to fire
+	[1, 4, 6].do { |degree|
+		var recordCondition = Condition.new;
+
+		// oscdef unhangs condition after `SendReply`
+		var oscdef = OSCdef(("recordEndOSCdef" ++ UniqueID.next).asSymbol, {
+			recordCondition.test = true;
+			recordCondition.signal;
+		}, AutoRecorder.oscMessageID).oneShot;
+
+		var filename = AutoRecorder.filename("test", "diskout", degree);
+
+		// alloc swap for DiskOut
+		var swap = Buffer.alloc(s, 48000.nextPowerOfTwo, 1);
+
+		server.sync; // wait for alloc to finish
+
+		// open file on disk
+		swap.write(filename,
+			"WAV", "int16",
+			0, 0, true
+		);
+
+		// wait for open to finish
+		server.sync;
+
+		latency.wait; // safety padding at start of recording
+
+		"start recording...".postln;
+		recordCondition.test = false;
+
+		// play pattern to be recorded
+		PmonoArtic(def.name, *[
+			degree: Pseq(degree + [0, 1, 2, 3], 1),
+			sustain: 1.2,
+			recordbuf: swap.bufnum,
+			tempo: 10
+		]).play;
+
+		// wait for oscdef to fire
+		recordCondition.wait;
+
+		latency.wait; // safety padding at end of recording
+
+		// dealloc
+		swap.close {
+			swap.free;
+
+			// trim silence
+			AutoRecorder.trimSilence(filename);
+		};
+
+		"recording done.".postln;
+	};
+
+	//var before = Main.elapsedTime;
 
 	//~bubble_pop.();
 	//~bubble_unpop.();
 	//~bounce_pad.();
 	//~air_dash_node_dash.();
 	//~air_dash_node_focus.();
-	~double_jump_tether_attach.();
-	~double_jump_tether_detach.();
+	//~double_jump_tether_attach.();
+	//~double_jump_tether.();
 	//~hook.();
 	//~pulse.(2);
 	//~accelerator_surface.();
@@ -460,6 +535,7 @@ server.waitForBoot {
 
 		impulse = XFade2.ar(impulse, impulse.mean.dup, pan: 0.2); // -1: full width stereo, 1: mono center
 
+		~recorder.record(impulse);
 		~recorder.end(Done.kr(masterEnv));
 		Out.ar(out, impulse);
 	}).add;
@@ -468,14 +544,10 @@ server.waitForBoot {
 
 	if (mode == mode_record) {
 		~degrees.do { |degree|
-			~recorder.record(
+			~recorder.start(
 				~filename.("air_dash_node", "focus", degree),
 				Pnew(def.name, *[ degree: Pn(degree, 1)])
 			);
-
-			degree.postln;
-
-			~recorder.wait;
 		};
 	} {
 		Pnew(def.name, *[
@@ -484,102 +556,168 @@ server.waitForBoot {
 	};
 };
 
-~double_jump_tether_ratio = 0.0001;
+~double_jump_tether = {
+	var msg = '/recordEndOSC';
 
-~double_jump_tether_attach = {
-	var def = SynthDef(\double_jump_tether_attach, { arg out, freq, dur, gate = 1;
-		var ratio = ~double_jump_tether_ratio;
-        var feedback = LocalIn.ar(1);
-        var feedbackGain = 0.8;
-
-		var impulseEnv = EnvGen.ar(Env.perc(0.01, 0.1), gate: gate);
-		var releaseTime = 0.2;
-		var minDelay = (-1).midiratio;
-		var maxDelay = ( 1).midiratio;
-
-		var impulse = SinOsc.ar(freq, phase: feedback) * impulseEnv;
-		var delayTime = Line.kr(1, 0.05) * ratio;
-		var signal = DelayC.ar(impulse + (feedbackGain * feedback), maxDelay, delayTime)
-		    * EnvGen.ar(Env.asr(0.25, 1.0, dur - 0.25), gate: gate);
-
-		LocalOut.ar(signal);
-
-		signal = Mix.ar(signal) * 3;
-		~recorder_end.(signal);
-		Out.ar(out, ~amp * signal.dup);
-    }).add;
-
-	if (mode == mode_record) {
-		~degrees.do { |degree|
-			~recorder.record(
-				~filename.("double_jump_tether", "tether", degree),
-				Pnew(def.name, *[
-					degree: Pn(degree, 1),
-					dur: 1,
-					amp: 1,
-					sustain: 0.5
-				]);
-			);
-			~recorder.wait()
-		}
-	} {
-		Pnew(def.name, *[
-			degree: Pseq(~degrees, 1),
-			dur: 1,
-			amp: 1,
-			sustain: 0.5
-		]).play;
-	}
-};
-
-~double_jump_tether_detach = {
-	var def = SynthDef(\double_jump_tether_detach, { arg out, freq = 800, dur = 0.3, gate = 1;
-		var impulse = PinkNoise.ar(1) * EnvGen.ar(Env.perc(1e-4, 0.01), gate: gate);
-
+	var def = SynthDef(\double_jump_tether, { arg out, freq = 800, dur = 0.3, gate = 1, pluck = 0.18, recordbuf;
 		var plucked = Pluck.ar(
-			in: impulse,
+			in: PinkNoise.ar(1),
 			trig: Impulse.ar(0),
-			maxdelaytime: freq.reciprocal,
 			delaytime: freq.reciprocal,
-			decaytime: dur * (freq / 800),
-			coef: 0.8
-		);
+			decaytime: dur,
+			coef: pluck.linlin(0, 1, 0.05, 0.8)
+		) * EnvGen.ar(Env.new([0, 1], 0.02), gate: gate);
 
-		var feedback = LocalIn.ar(1);
+		var wahEnv = EnvGen.kr(Env.new(
+			[1, 0, 1], [0.3, 0.1].normalizeSum * dur, \lin
+		), gate: gate);
 
-		var env =(XLine.ar(1, 2, dur) - 1);
-		var delayed = DelayC.ar(plucked + feedback, delaytime: ~double_jump_tether_ratio)
-		* env;
+		var endTrig = DelayN.kr(Impulse.kr(0), 1, 1);
 
-		delayed = BLowShelf.ar(delayed, 80, db: -40);
-		delayed = BHiShelf.ar(delayed, 12000, db: -60);
-		LocalOut.ar(LeakDC.ar(delayed) * 0.55);
+		plucked = BBandPass.ar(plucked, wahEnv.linexp(0, 1, 400, 4000), bw: 1.5);
+		plucked = BHiPass.ar(plucked, 300);
 
-		delayed = delayed * EnvGen.ar(Env.asr(attackTime: 0.05), gate: gate);
-		delayed = Compander.ar(delayed, Amplitude.ar(delayed), thresh: 1.0, slopeBelow: 0.2);
+		plucked = plucked * SinOsc.ar(Vibrato.kr(DC.kr(freq), rate: 6, depth: 0.01));
 
-		~recorder_end.(delayed);
-		Out.ar(out, ~amp * delayed.dup);
+		~detect_clipping.(plucked);
+
+		DiskOut.ar(recordbuf, plucked);
+		SendReply.kr(endTrig, cmdName: msg);
+		FreeSelf.kr(endTrig);
+
+		Out.ar(out, ~amp * plucked.dup);
 	}).add;
 
-	var dur = 0.5;
+    var attachPattern = { |degree, recordbuf|
+		PmonoArtic(def.name, *[
+			degree: Pseq(degree + [0, 8]),
+			dur: Pseq([0.5, 1.0]),
+			pluck: Pseq([0.6, 0.2]), // pluck: higher = less buzz
+			tempo: 4,
+			recordbuf: recordbuf
+		])
+	};
+
+	var recordCondition = Condition.new(false);
+	var filename = ~filename.("double_jump_tether", "attach", 1);
+
+	var oscdef = OSCdef(("recordEndOSCdef" ++ UniqueID.next).asSymbol, {
+		recordCondition.test = true;
+		recordCondition.unhang;
+	}, msg).oneShot;
+
+	var swap = Buffer.alloc(s, 48000.nextPowerOfTwo, 2);
+	server.sync;
+
+	swap.write(filename, "WAV", "int16", 0, 0, true);
+
+	"recording start".postln;
+	recordCondition.test = false;
+	attachPattern.(1, swap.bufnum).play;
+	recordCondition.hang;
+	"recording done".postln;
+
+	server.sync;
+	swap.close();
+	server.sync;
+	swap.free();
+
+	/*
+	~degrees.do { |degree|
+
+		var detachPattern = { |degree, recordbuf|
+		PmonoArtic(def.name, *[
+			degree: degree + Pn(0, inf),
+			pluck: Pseq([0.2, 0.5]),
+			tempo: 8,
+			recordbuf: recordbuf
+		])
+	};
+
+
+
+		var noop = ['/noop', 0];
+
+		var swap = Buffer.alloc(server,
+			~sample_rate.nextPowerOfTwo,
+			1,
+			completionMessage: { |b1|
+
+				"start writing".postln;
+				b1.write(filename, "WAV", "int16",
+					0, 0, leaveOpen: false, completionMessage: { |b2|
+						"writing done".postln;
+
+						/*
+						"start recording".postln;
+						attachPattern.(degree, b2.bufnum).play;
+						recordCondition.hang;
+						"done recording".postln;
+
+						"start close".postln;
+						b2.close { |b3|
+							"close done".postln;
+							b3.free {
+								"free".postln;
+								writeCondition.test = true;
+								writeCondition.unhang;
+							}
+						};
+						*/
+
+						"start close".postln;
+						b2.close { |b3|
+							"close done".postln;
+							b3.free {
+								"free".postln;
+								writeCondition.test = true;
+								writeCondition.unhang;
+
+								noop;
+							};
+
+							noop;
+						};
+
+						noop;
+					}
+				);
+			};
+		);
+
+		writeCondition.hang;
+		"done."
+	};
+	*/
+
+	/*
+
+	var condition = Condition.new(false);
+
 	if (mode == mode_record) {
 		~degrees.do { |degree|
-			~recorder.record(
-				~filename.("double_jump_tether", "untether", degree),
-				Pnew(def.name, *[
-					degree: Pn(degree, 1),
-					dur: dur
-				]);
+			server.sync;
+			~recorder.start(
+				~filename.("double_jump_tether", "attach", degree),
+				attachPattern.(degree)
 			);
-			~recorder.wait()
+
+			/*
+			~recorder.record(
+				~filename.("double_jump_tether", "detach", degree),
+				detachPattern.(degree)
+			);
+			*/
 		}
 	} {
-		Pnew(def.name, *[
-			degree: Pseq(~degrees, 1),
-			dur: dur
-		]).play;
+		var seqs = [];
+		~degrees.do { |degree|
+			[attachPattern.(degree), Rest(), detachPattern.(degree), Rest()].do { |x| seqs = seqs ++ x }
+		};
+
+		Pseq(seqs.flatten).play;
 	}
+	*/
 };
 
 ~accelerator_surface = {
