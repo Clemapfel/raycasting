@@ -1,34 +1,36 @@
 // src: https://github.com/KhronosGroup/ToneMapping/blob/main/PBR_Neutral/README.md#pbr-neutral-specification
 
-const float fresnel_90 = 0.04;
-const float compression_start = 2.0;
+const float fresnel_90 = 0.035;
+const float compression_start = 1.0 - fresnel_90;
 const float desaturation_speed = 0.15;
 
+float smoothmax(float x, float eps) {
+    return 0.5 * (x + sqrt(x * x + eps));
+}
+
 vec3 tonemap(vec3 rgb) {
-    float minimum = min(rgb.r, min(rgb.g, rgb.b));
+    float m = smoothmax(min(rgb.r, min(rgb.g, rgb.b)), 2.0 * fresnel_90);
 
-    // Branchless selection of offset
-    float cond1 = step(minimum, 2.0 * fresnel_90);
-    float offset1 = minimum - (minimum * minimum) / (4.0 * fresnel_90);
-    float offset = mix(fresnel_90, offset1, cond1);
+    vec3 offset = rgb - mix(
+        fresnel_90,
+        m - (m * m) / (4.0 * fresnel_90),
+        step(m, 2.0 * fresnel_90)
+    );
 
-    vec3 color_offset = rgb - offset;
-    float peak = max(color_offset.r, max(color_offset.g, color_offset.b));
+    float peak = max(offset.r, max(offset.g, offset.b));
 
-    // Branchless selection between early return (peak <= 2.0) and compressed path
-    float cond2 = step(peak, compression_start);
+    if (peak > compression_start) {
+        float d = 1.0 - compression_start;
+        float peak_new = 1.0 - (d * d ) / ((peak - compression_start) + d);
 
-    // Compute the compressed result safely, even when it will not be used
-    float excess = max(peak - compression_start, 0.0);            // avoid negative / zero division
-    float peak_new = compression_start + excess / (excess + 1.0);
-    float compression_amount = peak - peak_new;
-    float desaturation_factor = 1.0 / (1.0 + desaturation_speed * compression_amount);
+        return mix(
+            vec3(peak_new),
+            offset * (peak_new / peak),
+            1.0 / (1.0 + desaturation_speed * (peak - peak_new))
+        );
+    }
 
-    float peak_safe = max(peak, 1e-10);                           // avoid division by zero
-    vec3 blend_result = mix(vec3(peak_new), color_offset * (peak_new / peak_safe), desaturation_factor);
-
-    // Choose the correct output
-    return mix(blend_result, color_offset, cond2);
+    return offset;
 }
 
 vec4 effect(vec4 vertex_color, sampler2D image, vec2 texture_coordinates, vec2 fragment_position) {
