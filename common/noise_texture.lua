@@ -81,8 +81,8 @@ function rt.NoiseTexture:instantiate(size_x, size_y, size_z, ...)
     })
 
     self._texture:set_wrap_mode(
-        rt.TextureWrapMode.MIRROR,
-        rt.TextureWrapMode.MIRROR,
+        rt.TextureWrapMode.REPEAT,
+        rt.TextureWrapMode.REPEAT,
         rt.TextureWrapMode.REPEAT
     )
 

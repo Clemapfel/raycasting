@@ -17,12 +17,22 @@ require "common.input_manager"
 require "common.routine"
 require "common.functional"
 
-rt.GameState:set_draw_debug_information(false)
 require "socials.social_media_banner_generator"
+rt.GameState:set_draw_debug_information(false)
+
+
+local downres = 1;
+rt.SocialMediaPlatform.YOUTUBE[1] = 1000 / downres --rt.SocialMediaPlatform.YOUTUBE[1] / res
+rt.SocialMediaPlatform.YOUTUBE[2] = 1000 / downres --rt.SocialMediaPlatform.YOUTUBE[2] / res
+
 local generator = rt.SocialMediaBannerGenerator(rt.SocialMediaPlatform.YOUTUBE)
 DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
     if which == rt.KeyboardKey.Q then
+        local before = love.timer.getTime()
         generator:regenerate()
+        dbg(love.timer.getTime() - before)
+    elseif which == rt.KeyboardKey.R then
+        generator:update(1 / 30)
     elseif which == rt.KeyboardKey.U then
         generator:export()
     end
@@ -77,12 +87,21 @@ love.load = function(args)
     --rt.SceneManager:push(mn.MenuScene, true)
 end
 
+local elapsed = 0
+local n = 20
+
 love.update = function(delta)
     if rt.SceneManager ~= nil then
         rt.SceneManager:update(delta)
     end
 
-    generator:update(delta)
+    elapsed = elapsed + delta
+    if elapsed > 1 / n then
+        if love.keyboard.isDown("r") then
+            generator:update(delta)
+        end
+        elapsed = 0
+    end
 end
 
 love.draw = function()
