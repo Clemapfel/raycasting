@@ -1,15 +1,19 @@
 // src: https://github.com/KhronosGroup/ToneMapping/blob/main/PBR_Neutral/README.md#pbr-neutral-specification
 
-const float fresnel_90 = 0.035;
+const float fresnel_90 = 0.025;
 const float compression_start = 1.0 - fresnel_90;
 const float desaturation_speed = 0.15;
 
-float smoothmax(float x, float eps) {
+float relu(float x, float eps) {
+    // smoothed version of max(x, 0)
     return 0.5 * (x + sqrt(x * x + eps));
 }
 
 vec3 tonemap(vec3 rgb) {
-    float m = smoothmax(min(rgb.r, min(rgb.g, rgb.b)), 2.0 * fresnel_90);
+    float m = relu(
+        min(rgb.r, min(rgb.g, rgb.b)),
+        2.0 * fresnel_90 // 2.0 is empirically tuned, not mathematically motivated
+    );
 
     vec3 offset = rgb - mix(
         fresnel_90,
@@ -21,12 +25,12 @@ vec3 tonemap(vec3 rgb) {
 
     if (peak > compression_start) {
         float d = 1.0 - compression_start;
-        float peak_new = 1.0 - (d * d ) / ((peak - compression_start) + d);
+        float peak_new = 1.0 - (d * d) / ((peak - compression_start) + d);
 
         return mix(
-            vec3(peak_new),
-            offset * (peak_new / peak),
-            1.0 / (1.0 + desaturation_speed * (peak - peak_new))
+        vec3(peak_new),
+        offset * (peak_new / peak),
+        1.0 / (1.0 + desaturation_speed * (peak - peak_new))
         );
     }
 
