@@ -17,6 +17,17 @@ require "common.input_manager"
 require "common.routine"
 require "common.functional"
 
+rt.GameState:set_draw_debug_information(false)
+require "socials.social_media_banner_generator"
+local generator = rt.SocialMediaBannerGenerator(rt.SocialMediaPlatform.YOUTUBE)
+DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
+    if which == rt.KeyboardKey.Q then
+        generator:regenerate()
+    elseif which == rt.KeyboardKey.U then
+        generator:export()
+    end
+end)
+
 love.load = function(args)
     if PROFILE then profiler.push("love.load") end
 
@@ -70,16 +81,22 @@ love.update = function(delta)
     if rt.SceneManager ~= nil then
         rt.SceneManager:update(delta)
     end
+
+    generator:update(delta)
 end
 
 love.draw = function()
     if rt.SceneManager ~= nil then
         rt.SceneManager:draw()
     end
+
+   generator:draw()
 end
 
 love.resize = function(width, height)
     if rt.SceneManager ~= nil then
         rt.SceneManager:resize()
     end
+
+    generator:reformat(0, 0, width, height)
 end

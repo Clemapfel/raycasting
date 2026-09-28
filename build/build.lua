@@ -13,11 +13,11 @@ bd.SystemArchitecture = {
     MAC_OS = "mac_os",
     UNSUPPORTED = "unsupported"
 }
-bd.SystemArchitecture = meta.enum("SystemArchitexture", bd.SystemArchitecture)
+bd.SystemArchitecture = meta.enum("SystemArchitecture", bd.SystemArchitecture)
 
 love.filesystem.setSymlinksEnabled(true)
 
-local executable_name = "chromadrift"
+local executable_name = "chromavoid"
 
 bd.settings = {
     build_directory = "build",

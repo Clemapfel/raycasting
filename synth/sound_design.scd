@@ -23,9 +23,6 @@ server.options.memSize = 2 * (2 ** 16);
 /* ###### MAIN ###### */
 
 s.waitForBoot {
-	// measure ping
-	var latency = AutoRecorder.measureLatency(server);
-
 	// synth def
 	var def = SynthDef(\diskout, { arg out, freq, dur, amp, gate = 1, recordbuf;
 		var sig = amp * SinOsc.ar(freq) * EnvGen.ar(Env.asr(attackTime: 0.1, releaseTime: 0.1), gate: gate);
@@ -34,7 +31,7 @@ s.waitForBoot {
 		var endTrig = DetectSilence.ar(sig);
 
 		// write to disk
-		AutoRecorder.record(recordbuf, sig);
+		AutoRecorder.ar(recordbuf, sig);
 
 		// notify that recording should end
 		AutoRecorder.end(endTrig);
@@ -48,57 +45,15 @@ s.waitForBoot {
 
 	// synchronization: wait for oscdef to fire
 	[1, 4, 6].do { |degree|
-		var recordCondition = Condition.new;
-
-		// oscdef unhangs condition after `SendReply`
-		var oscdef = OSCdef(("recordEndOSCdef" ++ UniqueID.next).asSymbol, {
-			recordCondition.test = true;
-			recordCondition.signal;
-		}, AutoRecorder.oscMessageID).oneShot;
-
-		var filename = AutoRecorder.filename("test", "diskout", degree);
-
-		// alloc swap for DiskOut
-		var swap = Buffer.alloc(s, 48000.nextPowerOfTwo, 1);
-
-		server.sync; // wait for alloc to finish
-
-		// open file on disk
-		swap.write(filename,
-			"WAV", "int16",
-			0, 0, true
-		);
-
-		// wait for open to finish
-		server.sync;
-
-		latency.wait; // safety padding at start of recording
-
-		"start recording...".postln;
-		recordCondition.test = false;
-
-		// play pattern to be recorded
-		PmonoArtic(def.name, *[
-			degree: Pseq(degree + [0, 1, 2, 3], 1),
-			sustain: 1.2,
-			recordbuf: swap.bufnum,
-			tempo: 10
-		]).play;
-
-		// wait for oscdef to fire
-		recordCondition.wait;
-
-		latency.wait; // safety padding at end of recording
-
-		// dealloc
-		swap.close {
-			swap.free;
-
-			// trim silence
-			AutoRecorder.trimSilence(filename);
-		};
-
-		"recording done.".postln;
+		AutoRecorder.record(server,
+			AutoRecorder.filename("test", "diskout", degree), { |recordbuf|
+			PmonoArtic(def.name, *[
+				degree: Pseq(degree + [0, 1, 2, 3], 1),
+				sustain: 1.2,
+				//recordbuf: recordbuf.bufnum,
+				tempo: 10
+			]).play;
+		});
 	};
 
 	//var before = Main.elapsedTime;

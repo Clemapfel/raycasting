@@ -1,29 +1,127 @@
 AutoRecorder {
-	classvar <>headerFormat = "wav";
+	classvar <>headerFormat = "WAV";
     classvar <>sampleFormat = "int16";
     classvar <>sampleRate = 48000;
 
-	classvar <>oscMessageID = '/autoRecorderEnd';
+	classvar <>recordEndMessage = '/autoRecorderEnd';
+	classvar <>warnMessage = '/autoRecorderWarn';
 
 	classvar <>exportPathName = "export";
 	classvar <>assetPathName = "assets";
 
-	*record { arg recordbuf, sig;
+	/*
+
+	// ### EXAMPLE USAGE ###
+
+	// synth def
+	var def = SynthDef(\diskout, { arg out, freq, dur, amp, gate = 1, recordbuf;
+		var sig = amp * SinOsc.ar(freq) * EnvGen.ar(Env.asr(attackTime: 0.1, releaseTime: 0.1), gate: gate);
+
+		// detect when the signal is done
+		var endTrig = DetectSilence.ar(sig);
+
+		// write to disk
+		AutoRecorder.ar(recordbuf, sig);
+
+		// notify that recording should end
+		AutoRecorder.end(endTrig);
+
+		// free this synth
+		FreeSelf.kr(endTrig);
+
+		// debug out
+		Out.ar(out, sig.dup);
+	}).add;
+
+	[1, 4, 6].do { |degree|
+		AutoRecorder.record(server,
+			AutoRecorder.filename("test", "diskout", degree), { |recordbuf|
+			PmonoArtic(def.name, *[
+				degree: Pseq(degree + [0, 1, 2, 3], 1),
+				sustain: 1.2,
+				recordbuf: recordbuf.bufnum
+			]).play;
+		});
+	};
+
+	*/
+
+	*ar { arg recordbuf, sig;
+		// warn if recordbuf == 0
+		SendReply.kr((recordbuf <= 0) * Impulse.kr(0), cmdName: AutoRecorder.warnMessage);
+
+		// write to disk
 		DiskOut.ar(recordbuf, sig);
 	}
 
 	*end { arg trig;
+		// notify recording is done
 		var method = if (trig.rate == \audio) { \ar } { \kr };
-		SendReply.perform(method, trig, cmdName: AutoRecorder.oscMessageID);
+		SendReply.perform(method, trig, cmdName: AutoRecorder.recordEndMessage);
 	}
 
-	*start { arg filename, f;
+	*record { arg server, filename, f;
+		var condition, latency, pathname, dummy, swap;
+
 		if (f.isKindOf(Function).not) {
 			Error("In AutoRecorder.record: argument #2 is not a function").throw;
 		};
 
+		// manually measure latency to keep start/end safety buffer as small as possible
+		latency = AutoRecorder.measureLatency(server);
 
+		condition = Condition.new(false);
+		pathname = PathName.new(filename.standardizePath);
 
+		// oscdef that unhangs condition after `SendReply` in `end`
+		OSCdef(("autoRecorderEnd" ++ UniqueID.next).asSymbol, {
+			condition.test = true;
+			condition.signal;
+		}, AutoRecorder.recordEndMessage).oneShot;
+
+		// oscdef that warns if ar gets an unassigned bufnum
+		OSCdef(("autoRecorderWarn" ++ UniqueID.next).asSymbol, {
+			"In AutoRecorder.ar: `recordbufnum` is `0`. Was the synthdef argument assigned correctly?".warn;
+		}, AutoRecorder.warnMessage).oneShot;
+
+		// alloc buffer
+		server.bind {
+			Buffer.alloc(server, 1, 1); // alloc dummy buffer so swap can never have bufnum 0 for `ar` warning
+			swap = Buffer.alloc(server, 48000.nextPowerOfTwo, 1);
+			server.sync;
+		};
+
+		// open file on disk
+		swap.write(filename,
+			AutoRecorder.headerFormat,
+			AutoRecorder.sampleFormat,
+			0, 0, true // DiskOut config
+		);
+		server.sync;
+
+		"In AutoRecorder: starting recording...".postln;
+
+		// buffer at start and end of recording, will be trimmed on export
+		latency.wait;
+
+		// invoke callback, provides local swap, to be handed to `ar`
+		f.value(swap);
+
+		// wait for `end` to fire
+		condition.wait;
+
+		latency.wait;
+
+		swap.close {
+			swap.free {
+				latency.wait;
+				AutoRecorder.trimSilence(pathname);
+				"In AutoRecorder: done. Wrote `%` to `%`".format(
+					pathname.fileNameWithoutExtension,
+					pathname.fullPath
+				).postln;
+			}
+		};
 	}
 
 	*filename { arg prefix, name, degree;
@@ -39,13 +137,13 @@ AutoRecorder {
 		};
 
 		if (File.exists(exportPath +/+ prefix).not) {
-			File.mkdir(~export_path +/+ prefix)
+			File.mkdir(exportPath +/+ prefix)
 		};
 
 		if (degree.isNil) {
-			res = exportPath +/+ prefix +/+ name ++ "." ++ AutoRecorder.headerFormat;
+			res = exportPath +/+ prefix +/+ name ++ "." ++ AutoRecorder.headerFormat.toLower;
 		} {
-			res = exportPath +/+ prefix +/+ name ++ "_%".format(degree + 1) ++ "." ++ AutoRecorder.headerFormat;
+			res = exportPath +/+ prefix +/+ name ++ "_%".format(degree + 1) ++ "." ++ AutoRecorder.headerFormat.toLower;
 		};
 
 		^res.standardizePath;
@@ -69,12 +167,10 @@ AutoRecorder {
 		t0 = Main.elapsedTime;
 		server.sendMsg('/sync', id);
 		condition.wait;
-		^((t1 - t0) * 1.5).max(server.latency); // safety margin
+		^((t1 - t0) * 1.5); // safety margin
 	}
 
-	*trimSilence { arg pathIn;
-		var path = PathName.new(pathIn.standardizePath);
-
+	*trimSilence { arg path;
 		var inFile = SoundFile.openRead(path.fullPath);
 		var numChannels = inFile.numChannels;
 		var numFrames = inFile.numFrames;
@@ -130,9 +226,6 @@ AutoRecorder {
 			if (outFile.openWrite(path.fullPath)) {
 				outFile.writeData(outData);
 				outFile.close;
-				"In AutoRecorder.trimSilence: exported recording `%`".format(
-					path.fullPath
-				).postln;
 				^true;
 			} {
 				"In AutoRecorder.trimSilence: failed to open file at `%`".format(

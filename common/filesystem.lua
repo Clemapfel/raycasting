@@ -188,7 +188,7 @@ do
 
     --- @brief
     function bd.mount_path(path, mount_point)
-        meta.assert(path, mt.String)
+        meta.assert(path, mt.String, mount_point, mt.String)
         path = bd.normalize_path(path)
 
         if not _path_exists_raw(path) then
