@@ -63,8 +63,16 @@ AutoRecorder {
 	*record { arg server, filename, f;
 		var condition, latency, pathname, dummy, swap;
 
+		if (server.isKindOf(Server).not) {
+			Error("In AutoRecorder.record: argument #1 `server` is not a `Server`").throw;
+		};
+
+		if (filename.isKindOf(String).not) {
+			Error("In AutoRecorder.record: argument #2 `filename` is not a `String`").throw;
+		};
+
 		if (f.isKindOf(Function).not) {
-			Error("In AutoRecorder.record: argument #2 is not a function").throw;
+			Error("In AutoRecorder.record: argument #3 `f` is not a `Function`").throw;
 		};
 
 		// manually measure latency to keep start/end safety buffer as small as possible
@@ -115,7 +123,10 @@ AutoRecorder {
 		swap.close {
 			swap.free {
 				latency.wait;
-				AutoRecorder.trimSilence(pathname);
+				if (AutoRecorder.trimSilence(pathname) == false) {
+					"In AutoRecorder: file contains only silence. Was `AutoRecorder.ar` used?".format(path.fullPath).postln;
+
+				};
 				"In AutoRecorder: done. Wrote `%` to `%`".format(
 					pathname.fileNameWithoutExtension,
 					pathname.fullPath
@@ -167,7 +178,8 @@ AutoRecorder {
 		t0 = Main.elapsedTime;
 		server.sendMsg('/sync', id);
 		condition.wait;
-		^((t1 - t0) * 1.5); // safety margin
+
+		^(t1 - t0) * 1.5; // safety margin
 	}
 
 	*trimSilence { arg path;
@@ -208,7 +220,6 @@ AutoRecorder {
 		};
 
 		if (startFrame.isNil || endFrame.isNil) {
-			"In AutoRecorder.trimSilence: file at `%` only silence".format(path.fullPath).postln;
 			^false;
 		} {
 			var outData = data.copyRange(

@@ -1,125 +1,47 @@
 var server = Server.default;
-var mode_record = \record;
-var mode_play = \play;
-var mode = mode_record;
-
-~recorder = AutoRecorder.new(server);
-
-~sample_rate = AutoRecorder.sampleRate;
-~sample_format = AutoRecorder.sampleFormat;
-~nyquist = ~sample_rate / 2;
-~temp_path = Platform.defaultTempDir +/+ "synth";
-~export_path = thisProcess.nowExecutingPath.dirname +/+ "export";
-~asset_path = thisProcess.nowExecutingPath.dirname +/+ "assets";
-
-~degrees = [0, 4, 8];
-~amp = 0.4;
+~recording = true;
 
 server.options.blockSize = 2048;
 server.options.numWireBufs = 256;
 server.options.sampleRate = ~sample_rate;
 server.options.memSize = 2 * (2 ** 16);
 
-/* ###### MAIN ###### */
+// ### MAIN ###
 
-s.waitForBoot {
-	// synth def
-	var def = SynthDef(\diskout, { arg out, freq, dur, amp, gate = 1, recordbuf;
-		var sig = amp * SinOsc.ar(freq) * EnvGen.ar(Env.asr(attackTime: 0.1, releaseTime: 0.1), gate: gate);
+server.waitForBoot {
+	var degrees = [0, 1, 4];
 
-		// detect when the signal is done
-		var endTrig = DetectSilence.ar(sig);
+	[
+		\bubble_pop,
+		\bubble_unpop
+	].do { |name| currentEnvironment[name].(degrees) };
 
-		// write to disk
-		AutoRecorder.ar(recordbuf, sig);
-
-		// notify that recording should end
-		AutoRecorder.end(endTrig);
-
-		// free this synth
-		FreeSelf.kr(endTrig);
-
-		// debug out
-		Out.ar(out, sig.dup);
-	}).add;
-
-	// synchronization: wait for oscdef to fire
-	[1, 4, 6].do { |degree|
-		AutoRecorder.record(server,
-			AutoRecorder.filename("test", "diskout", degree), { |recordbuf|
-			PmonoArtic(def.name, *[
-				degree: Pseq(degree + [0, 1, 2, 3], 1),
-				sustain: 1.2,
-				//recordbuf: recordbuf.bufnum,
-				tempo: 10
-			]).play;
-		});
-	};
-
-	//var before = Main.elapsedTime;
-
-	//~bubble_pop.();
-	//~bubble_unpop.();
-	//~bounce_pad.();
-	//~air_dash_node_dash.();
-	//~air_dash_node_focus.();
-	//~double_jump_tether_attach.();
-	//~double_jump_tether.();
-	//~hook.();
-	//~pulse.(2);
-	//~accelerator_surface.();
-	//~coin.();
-	//~coin_hum.();
-	//~player_slippery_surface.();
-	//"Done. Took %s".format(Main.elapsedTime - before).postln;
-
-	//	~crystal.();
-	//~metal_drum.();
-	//~reverb.();
-	CmdPeriod.doOnce {
-		server.freeAll;
-	}
+	CmdPeriod.doOnce { server.freeAll }
 };
 
-/* ##### AUXILIARY ##### */
+// ### AUX ###
 
-~detect_clipping = { |signal| ClipDetector.ar(signal, threshold: 1.0) };
-~detect_volume = { |signal| ClipDetector.ar(signal, threshold: 0.0) };
-~detect_done = { |signal| DetectSilence.ar(signal, 1e-4, time: 1.0, doneAction: Done.freeSelf); };
+~amp = 0.4;
+~rec = AutoRecorder;
 
-~filename = { arg prefix, name, degree;
-	var res;
-	if (prefix.isNil || name.isNil) { Error("In ~filename: expected string for argument #1 and #2").throw };
-	if (File.exists(~export_path).not) { File.mkdir(~export_path) };
-	if (File.exists(~export_path +/+ prefix).not) { File.mkdir(~export_path +/+ prefix) };
+// ### IMPLEMENTATIONS ###
 
-	if (degree.isNil) {
-		res = ~export_path +/+ prefix +/+ name ++ "." ++ AutoRecorder.headerFormat;
-	} {
-		res = ~export_path +/+ prefix +/+ name ++ "_%".format(degree + 1) ++ "." ++ AutoRecorder.headerFormat;
-	};
+~bubble_pop = { arg degrees;
 
-	res = res.standardizePath;
-};
-
-/* ##### IMPLEMENTATIONS ##### */
-
-~bubble_pop = {
-    var def = SynthDef(\bubblePop, {
-		arg out = 0, freq, baseStart, baseEnd, sweepDuration = 1, attack = 0.05;
-
+    var def = SynthDef(\bubblePop, { arg out = 0, freq, baseStart, baseEnd, dur, recordbuf;
 		var baseFreqStart = (freq.cpsmidi + baseStart).midicps;
 		var baseFreqEnd = (freq.cpsmidi + baseEnd).midicps;
 
+		var attack = 0.05;
 		var env = Env.perc(
-			attackTime: sweepDuration * attack,
-			releaseTime: sweepDuration * (1 - attack)
+			attackTime: dur * attack,
+			releaseTime: dur * (1 - attack)
 		);
 
-		var amplitude = EnvGen.ar(env);
+		var amplitude = EnvGen.ar(env, doneAction: Done.freeSelf);
 
 		var sweepBase = amplitude * SinOsc.ar(
-			freq: Line.kr(baseFreqStart, baseFreqEnd, dur: sweepDuration),
+			freq: Line.kr(baseFreqStart, baseFreqEnd, dur: dur),
 			phase: Rand(0, 2pi)
 		);
 
@@ -132,47 +54,47 @@ s.waitForBoot {
 		var signal = noise + FreeVerb.ar(sweepBase, mix: 0.05);
 		signal = signal / 1.5;
 
+		~rec.ar(recordbuf, signal);
+		~rec.end(Done.kr(amplitude));
+		ClipDetector.ar(signal);
 		Out.ar(out, (~amp * signal).dup);
-
-		~recorder_end.(signal);
-		~detect_done.(signal);
-		~detect_clipping.(signal);
 	}).add;
 
     server.sync;
 
-	if (mode == mode_record) {
-		~degrees.do { arg degree;
-			~recorder.record(
-				~filename.("bubble", "pop", degree),
-				Pbind(*[
-					instrument: def.name,
-					tempo: 1,
-					sweepDuration: 0.25,
-					degree: Pn(degree, 1),
-					baseStart: 0,
-					baseEnd: 12
-				]);
+	if (~recording) {
+		degrees.do { arg degree;
+			~rec.record(server,
+				~rec.filename("bubble", "pop", degree), { arg recordbuf;
+					Pbind(*[
+						instrument: def.name,
+						tempo: 1,
+						dur: 0.25,
+						degree: Pn(degree, 1),
+						baseStart: 0,
+						baseEnd: 12,
+						recordbuf: recordbuf
+					]).play;
+				}
 			);
-
-			~recorder.wait()
 		};
 	} {
 		Pbind(*[
 			instrument: def.name,
 			tempo: 1,
-			sweepDuration: 0.25,
-			degree: Pseq(~degrees, 1),
+			dur: 0.25,
+			degree: Pseq(degrees, 1),
 			baseStart: 0,
 			baseEnd: 12
 		]).play;
 	};
 };
 
-~bubble_unpop = {
-    var forwardDef = SynthDef.new(\bubbleUnpopForward, { arg out, bufnum, dur = 1;
+~bubble_unpop = { arg degrees;
+    var forwardDef = SynthDef.new(\bubbleUnpopForward, { arg out, bufnum, dur = 1, recordbuf;
         var buf = PlayBuf.ar(1, bufnum, BufRateScale.kr(bufnum));
         var signal = buf;
+		var env = Line.ar(1, 0, dur);
 
 		// pre-sature signal for nicer tails
 		signal = AnalogTape.ar(signal,
@@ -191,14 +113,15 @@ s.waitForBoot {
 		signal = RLPF.ar(signal, freq: 6000);
 
 		// make sure entire signal is dur length
-		signal = signal * Line.ar(1, 0, dur);
+		signal = signal * env;
 
-        Out.ar(out, (signal).dup);
-        ~recorder_end.(signal);
-        ~detect_done.(signal);
-    }).add;
+		FreeSelf.kr(Done.kr(env));
+		~rec.ar(recordbuf, signal);
+		~rec.end(Done.kr(env));
+		Out.ar(out, signal);
+	}).add;
 
-    var backwardsDef = SynthDef.new(\bubbleUnpopBackwards, { arg out, bufnum, degreeStart, degreeEnd;
+    var backwardsDef = SynthDef.new(\bubbleUnpopBackwards, { arg out, bufnum, degreeStart, degreeEnd, recordbuf;
         var bufDur = BufDur.kr(bufnum);
 		var signal = BLowPass.ar(PlayBuf.ar(1, bufnum,
             rate: -1 * BufRateScale.kr(bufnum),
@@ -220,1210 +143,70 @@ s.waitForBoot {
 		);
 
 		// bloop amplitude
-		var ampEnv = Env.new(
+		var ampEnv = EnvGen.ar(Env.new(
 			0.75 * [0, 0, 1, 1, 0],
 			[delayDur, fadeDur, sweepDur - fadeDur, fadeDur],
 			[\hold, \lin, \hold, \lin]
-		);
+		), doneAction: Done.freeSelf);
 
-		signal = signal + (0.25 * FreeVerb.ar(SinOsc.ar(EnvGen.kr(freqEnv)) * EnvGen.ar(ampEnv),
+		signal = signal + (0.25 * FreeVerb.ar(SinOsc.ar(EnvGen.kr(freqEnv)) * ampEnv,
 			room: 0.2,
 			damp: 1.5
 		));
 
+		~rec.ar(recordbuf, signal);
+		~rec.end(Done.kr(ampEnv));
         Out.ar(out, signal.dup);
-		~recorder_end.(DelayN.ar(signal, sweepDur, sweepDur));
-        ~detect_done.(signal);
     }).add;
 
 	var toFree = List.new;
 	var toDelete = List.new;
 	var tmpFilename = "tmp_unpop";
 
-	~degrees.do { arg degree;
-		var originalPath = ~filename.("bubble", "pop", degree);
-		var tempPath = ~filename.("bubble", tmpFilename, degree);
+	degrees.do { arg degree;
+		var originalPath = ~rec.filename("bubble", "pop", degree);
+		var tempPath = ~rec.filename("bubble", tmpFilename, degree);
 
 		// write reverb of bubble effect to temp buffer
 		var buffer = Buffer.read(server, originalPath);
 		server.sync;
 
-		~recorder.record(tempPath, {
-			Synth.new(forwardDef.name, [
-				\bufnum, buffer,
-				\dur, 2 // duration of bubble respawn
-			]);
-		});
-
-		~recorder.wait();
+		~rec.record(server,
+			tempPath, { arg recordbuf;
+				Synth.new(forwardDef.name, [
+					\bufnum, buffer,
+					\dur, 2, // duration of bubble respawn
+					\recordbuf, recordbuf.bufnum
+				]);
+			}
+		);
 
 		toFree.add(buffer);
 	};
 
-	~degrees.do { arg degree;
-		var tempPath = ~filename.("bubble", tmpFilename, degree);
-		var finalPath = ~filename.("bubble", "unpop", degree);
+	degrees.do { arg degree;
+		var tempPath = ~rec.filename("bubble", tmpFilename, degree);
+		var finalPath = ~rec.filename("bubble", "unpop", degree);
 
 		// reverse reverb signal
 		var buffer = Buffer.read(server, tempPath);
 		server.sync;
 
-		~recorder.record(finalPath, {
-			Synth.new(backwardsDef.name, [
-				\bufnum, buffer,
-				\degreeStart, 8,
-				\degreeEnd, 0
-			]);
-		});
-
-		~recorder.wait();
+		~rec.record(server,
+			finalPath, { arg recordbuf;
+				Synth.new(backwardsDef.name, [
+					\bufnum, buffer,
+					\degreeStart, 8,
+					\degreeEnd, 0,
+					\recordbuf, recordbuf.bufnum
+				]);
+			}
+		);
 
 		toFree.add(buffer);
 		toDelete.add(tempPath);
 	};
 
 	toFree.do { |buffer| buffer.free };
-	toDelete.do { |path| File.delete(path); };
+	toDelete.do { |path| File.delete(path) };
 };
-
-~bounce_pad = {
-	var def = SynthDef(\handPan, { arg out, degree, freq = 440, dur, gate = 1, amp = 0.3;
-		var ringDur = dur;
-		var ringAttack = 0.005; // fast attack like a mallet strike
-		var ringEnv = EnvGen.ar(Env.new(
-			[0, 1, 0.0001], [ringAttack, ringDur - ringAttack], [\sin, \exp]
-		), gate: gate, doneAction: 2);
-
-		var ratios = [-12, 0, 12, 12 + 8].midiratio;
-		var amplitudes = ([0.7, 1, 0, 0.8]).normalizeSum;
-		var decayTimes = dur * (1 / (ratios.sqrt));
-
-		var excitation = PinkNoise.ar * EnvGen.ar(Env.perc(0.0001, 0.015));
-
-		var detune = 0.04;
-		var vibrato = LFPar.ar(XLine.ar(20, 1, dur) - 1).range(1 - detune, 1 + detune);
-
-		var ring = DynKlank.ar(`[
-			ratios * vibrato,
-			amplitudes,
-			decayTimes
-		], excitation, freqscale: freq) * ringEnv;
-
-		var wobble = LFPar.ar(freq) * EnvGen.ar(Env.perc(0.01));
-
-		~detect_volume.(ring);
-		~detect_clipping.(ring);
-		Out.ar(out, amp * ring.dup);
-	}).add;
-
-	var dur = 2.0;
-
-	if (mode == mode_record) {
-		~degrees.do { arg degree;
-			~recorder.record(
-				~filename.("bounce_pad", "hit", degree),
-				Pnew(def.name, *[
-					degree: Pn(degree, 1),
-					amp: 1,
-					sustain: 0.2,
-					dur: dur
-				]);
-			);
-			~recorder.wait()
-		};
-	} {
-		Pnew(def.name, *[
-			degree: Pseq(~degrees),
-			dur: dur
-		]).play;
-	};
-};
-
-~air_dash_node_dash = {
-	// initialize grain buffer
-	var path = ~asset_path +/+ "tmp_granular_particles_in.wav";
-	var export = false;
-
-	// reverse buffer
-	var buffer = if (export || File.exists(path).not) {
-		var fillDef = SynthDef(\granular_particles_fill, { |out, recordbuf, playbuf|
-			var signal, chain, rec;
-
-			signal = PlayBuf.ar(1, playbuf,
-				rate: -1 * BufRateScale.kr(playbuf),
-				startPos: BufFrames.kr(playbuf) - 1,
-				loop: 0
-			);
-
-			rec = RecordBuf.ar(signal, recordbuf, loop: 0, doneAction: Done.freeSelf);
-			SendReply.kr(Done.kr(rec), '/done');
-			Out.ar(out, (~amp * rec).dup);
-		}).add;
-		var synth;
-		var condition = Condition.new(false);
-
-		var playbuf, recordbuf;
-
-		playbuf = Buffer.read(server, ~asset_path +/+ "storm.wav");
-		server.sync;
-		"In ~granular_synthesis: initializing buffer at `%`".format(path).postln;
-		recordbuf = Buffer.alloc(server, playbuf.numFrames, 1);
-		server.sync;
-
-		synth = Synth(fillDef.name, [
-			\recordbuf, recordbuf,
-			\playbuf, playbuf
-		]);
-
-		OSCFunc({
-			recordbuf.write(path,
-				AutoRecorder.headerFormat,
-				AutoRecorder.sampleFormat,
-				completionMessage: {
-					"In ~granular_synthesis: done.".postln;
-					condition.test = true;
-					condition.unhang;
-					();
-				}
-			);
-		}, '/done').oneShot;
-
-		condition.hang;
-		recordbuf;
-	} {
-		Buffer.read(server, path);
-	};
-
-	// initialize grain envelope
-	var grainEnv = Buffer.loadCollection(server, Env.perc(1 / 10, 1).asSignal(2048).asArray);
-
-	var def = SynthDef.new(\granular_particles, { arg out, amp, gate = 1, freq, dur, bufnum, envbufnum;
-		var bufStart = 0.0, bufEnd = 0.4;
-		var sliceDur = abs(bufEnd - bufStart) * BufDur.ir(bufnum);
-
-		var grainTrig = Impulse.ar(XLine.ar(100, 1, dur) - 1);
-		var grainDurMin = 0.2 * sliceDur;
-		var grainDurMax = 0.4 * sliceDur;
-		var grainDur = Demand.ar(grainTrig, gate, Dwhite(grainDurMin, grainDurMax));
-
-        var grainPos = Demand.ar(grainTrig, gate, Dwhite(bufStart, bufEnd));
-
-		var grainPanEps = 1e-5;
-		var grainPanUniform = Demand.ar(grainTrig, gate, [
-			Dwhite(grainPanEps, 1 - grainPanEps),
-			Dwhite(grainPanEps, 1 - grainPanEps)
-		]);
-		var grainPan = (0.25 * (-2 * grainPanUniform[0].log).sqrt * (2pi * grainPanUniform[1]).cos).clip(-1, 1);
-
-		var signal = GrainBuf.ar(1,
-			trigger: grainTrig,
-			sndbuf: bufnum,
-			pos: grainPos,
-			rate: 1,
-			dur: grainDur,
-			pan: grainPan,
-			interp: 4,
-			envbufnum: envbufnum,
-			maxGrains: 1024
-		) * EnvGen.ar(Env.new([0, 1, 1], [0.05], \welch), gate: gate);
-
-		var sweepDur = 0.18;
-		var freqSweep = freq * XLine.kr(1 / 4, 4, sweepDur);
-		signal = BBandPass.ar(signal,
-			freq: freqSweep,
-			bw: XLine.kr(1, 10, sweepDur);
-		);
-
-		Out.ar(out, (~amp * (signal)).dup);
-		~recorder.end(DetectSilence.ar(signal));
-		DetectSilence.ar(signal, doneAction: Done.freeSelf);
-	}).add;
-
-	if (mode == mode_record) {
-		~degrees.do { arg degree;
-			~recorder.record(
-				~filename.("air_dash_node", "dash", degree),
-				PmonoArtic(def.name, *[
-					degree: Pn(degree, 1),
-					bufnum: buffer.bufnum,
-					envbufnum: grainEnv.bufnum,
-					dur: 0.1
-				]).play;
-			);
-			~recorder.wait()
-		};
-	} {
-		Pbind(*[
-			instrument: def.name,
-			degree: Pseq(~degrees, 1),
-			bufnum: buffer.bufnum,
-			envbufnum: grainEnv.bufnum,
-			dur: 0.1,
-			delta: 1
-		]).play;
-	};
-};
-
-~air_dash_node_focus = {
-	var def = SynthDef(\air_dash_node_focus, { arg out, freq, dur, gate = 1;
-		var masterEnv = EnvGen.ar(Env.new(
-			[0, 1, 0], [impulseDur, 0.3], \welch
-		), gate: gate, doneAction: Done.freeSelf);
-
-		var impulseDur = 0.02;
-		var impulseAttack = 0.02;
-		var impulsePhaseIntensity = Line.kr(0.5, 0, impulseDur); // 0: all sine, 1: all noise
-		var impulse = SinOsc.ar(
-			freq: [freq, 12.midiratio * freq],
-			phase: LFNoise0.ar(3000).range(0, 2pi) * impulsePhaseIntensity
-		) * (EnvGen.ar(Env.new(
-			1 + [0, 1, 0], [impulseAttack, impulseDur], \exp
-		), gate: gate) - 1);
-
-		var db = -20;
-		var rs = 0.8;
-		impulse = BLowShelf.ar(impulse, freq: 200, db: db, rs: rs);
-		impulse = BHiShelf.ar(impulse, freq: 1000, db: db, rs: rs);
-
-		impulse = FreeVerb.ar(impulse, room: 1.0);
-		impulse = impulse * masterEnv;
-
-		impulse = XFade2.ar(impulse, impulse.mean.dup, pan: 0.2); // -1: full width stereo, 1: mono center
-
-		~recorder.record(impulse);
-		~recorder.end(Done.kr(masterEnv));
-		Out.ar(out, impulse);
-	}).add;
-
-	server.sync;
-
-	if (mode == mode_record) {
-		~degrees.do { |degree|
-			~recorder.start(
-				~filename.("air_dash_node", "focus", degree),
-				Pnew(def.name, *[ degree: Pn(degree, 1)])
-			);
-		};
-	} {
-		Pnew(def.name, *[
-			degree: Pseq(~degrees, inf)
-		]).play;
-	};
-};
-
-~double_jump_tether = {
-	var msg = '/recordEndOSC';
-
-	var def = SynthDef(\double_jump_tether, { arg out, freq = 800, dur = 0.3, gate = 1, pluck = 0.18, recordbuf;
-		var plucked = Pluck.ar(
-			in: PinkNoise.ar(1),
-			trig: Impulse.ar(0),
-			delaytime: freq.reciprocal,
-			decaytime: dur,
-			coef: pluck.linlin(0, 1, 0.05, 0.8)
-		) * EnvGen.ar(Env.new([0, 1], 0.02), gate: gate);
-
-		var wahEnv = EnvGen.kr(Env.new(
-			[1, 0, 1], [0.3, 0.1].normalizeSum * dur, \lin
-		), gate: gate);
-
-		var endTrig = DelayN.kr(Impulse.kr(0), 1, 1);
-
-		plucked = BBandPass.ar(plucked, wahEnv.linexp(0, 1, 400, 4000), bw: 1.5);
-		plucked = BHiPass.ar(plucked, 300);
-
-		plucked = plucked * SinOsc.ar(Vibrato.kr(DC.kr(freq), rate: 6, depth: 0.01));
-
-		~detect_clipping.(plucked);
-
-		DiskOut.ar(recordbuf, plucked);
-		SendReply.kr(endTrig, cmdName: msg);
-		FreeSelf.kr(endTrig);
-
-		Out.ar(out, ~amp * plucked.dup);
-	}).add;
-
-    var attachPattern = { |degree, recordbuf|
-		PmonoArtic(def.name, *[
-			degree: Pseq(degree + [0, 8]),
-			dur: Pseq([0.5, 1.0]),
-			pluck: Pseq([0.6, 0.2]), // pluck: higher = less buzz
-			tempo: 4,
-			recordbuf: recordbuf
-		])
-	};
-
-	var recordCondition = Condition.new(false);
-	var filename = ~filename.("double_jump_tether", "attach", 1);
-
-	var oscdef = OSCdef(("recordEndOSCdef" ++ UniqueID.next).asSymbol, {
-		recordCondition.test = true;
-		recordCondition.unhang;
-	}, msg).oneShot;
-
-	var swap = Buffer.alloc(s, 48000.nextPowerOfTwo, 2);
-	server.sync;
-
-	swap.write(filename, "WAV", "int16", 0, 0, true);
-
-	"recording start".postln;
-	recordCondition.test = false;
-	attachPattern.(1, swap.bufnum).play;
-	recordCondition.hang;
-	"recording done".postln;
-
-	server.sync;
-	swap.close();
-	server.sync;
-	swap.free();
-
-	/*
-	~degrees.do { |degree|
-
-		var detachPattern = { |degree, recordbuf|
-		PmonoArtic(def.name, *[
-			degree: degree + Pn(0, inf),
-			pluck: Pseq([0.2, 0.5]),
-			tempo: 8,
-			recordbuf: recordbuf
-		])
-	};
-
-
-
-		var noop = ['/noop', 0];
-
-		var swap = Buffer.alloc(server,
-			~sample_rate.nextPowerOfTwo,
-			1,
-			completionMessage: { |b1|
-
-				"start writing".postln;
-				b1.write(filename, "WAV", "int16",
-					0, 0, leaveOpen: false, completionMessage: { |b2|
-						"writing done".postln;
-
-						/*
-						"start recording".postln;
-						attachPattern.(degree, b2.bufnum).play;
-						recordCondition.hang;
-						"done recording".postln;
-
-						"start close".postln;
-						b2.close { |b3|
-							"close done".postln;
-							b3.free {
-								"free".postln;
-								writeCondition.test = true;
-								writeCondition.unhang;
-							}
-						};
-						*/
-
-						"start close".postln;
-						b2.close { |b3|
-							"close done".postln;
-							b3.free {
-								"free".postln;
-								writeCondition.test = true;
-								writeCondition.unhang;
-
-								noop;
-							};
-
-							noop;
-						};
-
-						noop;
-					}
-				);
-			};
-		);
-
-		writeCondition.hang;
-		"done."
-	};
-	*/
-
-	/*
-
-	var condition = Condition.new(false);
-
-	if (mode == mode_record) {
-		~degrees.do { |degree|
-			server.sync;
-			~recorder.start(
-				~filename.("double_jump_tether", "attach", degree),
-				attachPattern.(degree)
-			);
-
-			/*
-			~recorder.record(
-				~filename.("double_jump_tether", "detach", degree),
-				detachPattern.(degree)
-			);
-			*/
-		}
-	} {
-		var seqs = [];
-		~degrees.do { |degree|
-			[attachPattern.(degree), Rest(), detachPattern.(degree), Rest()].do { |x| seqs = seqs ++ x }
-		};
-
-		Pseq(seqs.flatten).play;
-	}
-	*/
-};
-
-~accelerator_surface = {
-    var grainCount = 8;
-	var grainAttack = 0.075;
-    var grainSustain = 0.5;
-    var grainRelease = 1.0;
-
-    var ratiosIn = #[
-        1.0, 2.756, 5.404, 8.933, 13.34, 18.64, 24.82, 31.89, 39.85, 48.68, 53.71
-    ];
-
-    var ratios = ratiosIn.collect { |x, i|
-        (i / (ratiosIn.size - 1)).linexp(0, 1, 1, 100)
-    };
-
-    var amplitudes = ratios.collect { |x| 1.0 / (x ** 1.5) };
-    var ringTimes = ratios.collect { |x, i| (grainSustain / (x * 0.7)).min(grainSustain); };
-    var frequencies = ratios.collect { |x| x * 2000 };
-
-    var oscMessageID = '/crystalDone';
-    var fillDef = SynthDef(\crystal_record, { arg out, recordbuf, recordoffset, freq = 440;
-        var impulse = WhiteNoise.ar * EnvGen.ar(Env.perc(0.00001, 0.005));
-
-        var sig = BHiPass.ar(DynKlank.ar(`[
-            frequencies,
-            amplitudes,
-            ringTimes
-        ], impulse, freqoffset: freq), 1200, 0.6);
-
-        var trig = DetectSilence.ar(sig);
-
-        sig = sig * EnvGen.ar(Env.new(
-            [0, 1, 1, 0],
-            [grainAttack, grainSustain, grainRelease],
-            [\welch, \hold, \welch]
-        ), doneAction: Done.freeSelf);
-
-		sig = sig / 4;
-
-		~detect_clipping.(sig);
-        RecordBuf.ar(sig, recordbuf, recordoffset, loop: 0);
-        Out.ar(out, sig.dup);
-        SendReply.ar(trig, oscMessageID);
-    }).add;
-
-    var grainDur = grainAttack + grainSustain + grainRelease;
-    var grainForwardPositions = grainCount.collect { |i| i / grainCount };
-	var grainReversePositions = grainCount.collect { |i| (i + 1) / grainCount };
-    var grainOverlap = 0.5;
-
-	var humChord = #[0, 4, 7, 9];
-
-	var masterAttack = grainOverlap * grainDur;
-	var masterEnvEnv = Env.new(
-		[0, 1, 1, 0],
-		[masterAttack, grainDur, masterAttack],
-		\welch
-	);
-
-	var masterDur = 2 * masterAttack + grainDur;
-
-    var grainDef = SynthDef.new(\accelerator_grains, { arg out, dur, bufnum, envbuf, gate = 1;
-        var masterAttack = grainOverlap * grainDur;
-        var masterEnv = EnvGen.ar(masterEnvEnv, gate: gate);
-
-		var trigEnv = EnvGen.ar(Env.new(
-			[0, 0, 1, 1, 0],
-			[masterAttack, 0.25 * dur, 0.75 * dur, masterAttack],
-			\lin
-		), gate: gate);
-
-		var trig = Dust.ar(200 * trigEnv);
-
-		var reset = 0.0;
-        var grainPan = Demand.ar(trig, reset, 0.5 * Dwhite(-1, 1));
-
-		// choose reverse or forward rate, avoiding 0 region
-		var minRate = 2.reciprocal, maxRate = 2;
-		var which = Demand.ar(trig, reset, Drand([0, 1], inf)); // duplicate to choose distribution
-        var grainRate = Select.ar(which, [
-			Demand.ar(trig, reset, -1 * Dwhite(maxRate, minRate)),
-			Demand.ar(trig, reset,  1 * Dwhite(minRate, maxRate))
-		]);
-
-        var grainPos = Select.ar(which, [
-			Demand.ar(trig, reset, Drand(grainForwardPositions, inf)),
-			Demand.ar(trig, reset, Drand(grainReversePositions, inf)),
-		]);
-
-        var grains = GrainBuf.ar(2,
-            trigger: trig,
-            dur: grainDur / grainRate.abs,
-            sndbuf: bufnum,
-            pos: grainPos,
-            pan: grainPan,
-            rate: grainRate,
-            envbufnum: envbuf,
-            maxGrains: 1024
-        ) * masterEnv;
-
-		~detect_clipping.(grains);
-        Out.ar(out, ~amp * grains);
-		~recorder_end.(grains);
-    }).add;
-
-	var humDef = SynthDef.new(\accelerator_hum, { arg out, dur, degree, gate = 1;
-        var masterEnv = EnvGen.ar(masterEnvEnv, gate: gate);
-		var degrees = (60 - 12 + degree + humChord).midicps;
-		var n = degrees.size;
-		var feedback = LocalIn.ar(n);
-
-		var hum = n.collect { |i|
-            var phase = masterEnv.linlin(0, 1, 0, 0.45);
-            BLowShelf.ar(SinOsc.ar(
-                freq: Vibrato.kr(DC.kr(degrees[i]),
-                    rate: masterEnv.linlin(0, 1, 6, 10),
-                    depth: masterEnv.linlin(0, 1, 0, 0.015)
-                ),
-				phase: phase * feedback[i].range(-2pi, 2pi)
-			) * LFPar.ar(degrees[i]), freq: (60 - (3 * 12)).midicps, db: -40);
-        } * masterEnv / (degrees.size);
-
-		var sig = Mix.ar(hum);
-
-		~detect_clipping.(sig);
-		~recorder_end.(sig);
-        Out.ar(out, ~amp * sig.dup);
-
-		LocalOut.ar(hum);
-    }).add;
-
-    var condition = Condition.new(false);
-
-    fork {
-        // allocate n consecutive grains
-        var recordbuf = Buffer.alloc(server,
-            numFrames: grainCount * grainDur * ~sample_rate,
-			sampleRate: ~sample_rate
-        );
-
-        var rectEnv = Buffer.loadCollection(server, Env([1, 1], [1]).asSignal(512));
-
-        var oscDoneCount = 0;
-        var osc = OSCdef(\crystalDone, {
-            oscDoneCount = oscDoneCount + 1;
-            condition.test = (oscDoneCount == grainCount);
-            condition.unhang;
-        }, oscMessageID);
-
-		var grainPattern = { |degrees|
-			PmonoArtic(grainDef.name, *[
-				amp: 1,
-				degree: Pn(0, degrees.size),
-				dur: masterDur,
-				bufnum: recordbuf,
-				envbuf: rectEnv
-			]);
-		};
-
-		var humPattern = { |degrees|
-			PmonoArtic(humDef.name, *[
-				amp: 1,
-				degree: Pseq(degrees, 1),
-				dur: masterDur
-			]);
-		};
-
-        server.sync;
-
-        grainCount.do { |i|
-            var grainFreq = (i / grainCount).linlin(0, 1, 220, 4000);
-            Synth.new(fillDef.name, [
-                \out, 0,
-                \freq, grainFreq,
-                \dur, grainDur,
-                \release, grainRelease,
-                \recordbuf, recordbuf,
-                \recordoffset, i * grainDur * ~sample_rate
-            ]);
-        };
-
-        condition.hang;
-        server.sync;
-
-		if (mode == mode_record) {
-			~degrees.do { |degree|
-				~recorder.record(
-					~filename.("accelerator_surface", "hum", degree),
-					humPattern.value([degree]).play;
-				);
-				~recorder.wait()
-			};
-
-			~recorder.record(
-				~filename.("accelerator_surface", "grains"),
-				grainPattern.value([0]).play;
-			);
-
-			~recorder.wait();
-		} {
-            var deg = [0, 1, 4, -2];
-			humPattern.value(deg).play;
-			grainPattern.value(deg).play;
-		};
-
-        osc.free;
-    };
-};
-
-~hook = {
-	var humFreqs = #[ 240, 355, 470, 600, 720, 845 ];
-
-	var def = SynthDef.new("\hook_filter", { arg out, freq, dur = 1, gate = 1, degree = 0, bufnum, split = 440, rate = 1, attack = 0.1;
-		var isForward = (rate > 0);
-		var startPos = Select.kr(isForward, [BufFrames.kr(bufnum) - 1, 0]);
-		var playRate = Select.kr(isForward, [rate.abs.neg, rate.abs]);
-		var signal = PlayBuf.ar(1, bufnum, rate: playRate, startPos: startPos);
-
-		var feedback = LocalIn.ar(3);
-
-		var bufDur = BufDur.kr(bufnum);
-		var ampRelease = 0.05 * bufDur;
-		var ampEnv = EnvGen.ar(
-			Env.new([0, 1, 1, 0], [0.02, bufDur - ampRelease, ampRelease], \lin)
-		);
-
-		var low, mid, high, env;
-
-		var chain = FFT(LocalBuf(2 ** 12), signal);
-		var filterWeight = FFTPower.kr(chain);
-
-		// filter noise floor
-		var filtered = IFFT(PV_MagSmear(PV_MagAbove(chain, 0.025)));
-
-		// filter hum during silence
-		humFreqs.do({ |f|
-			filtered = BBandStop.ar(filtered, freq: f, bw: 0.35);
-		});
-		signal = XFade2.ar(filtered, signal, filterWeight.linlin(0, 1.5, -1, 0.5));
-
-		// filter fft artifact noise floor
-		signal = BLowShelf.ar(signal, freq: 200, rs: 1.0, db: -18);
-		signal = signal * ampEnv;
-
-		low = BLowPass.ar(signal, split, rq: 1);
-		mid = BBandPass.ar(signal, split, bw: 4);
-		high = BHiPass.ar(signal, split, rq: 1);
-
-		env = EnvGen.ar(Env.new([0, 1, 0], [attack, dur * 0.8], \welch));
-
-		signal = XFade2.ar(RLPF.ar(Mix.ar([low, mid, high]), freq: 400), mid, Line.kr(0, -1, dur * 0.8));
-
-		// mix some of the high clicks and bass back in
-		signal = XFade2.ar(signal, BLowPass.ar(BLowShelf.ar(filtered, 4000, db: -60), freq: 5000), -0.3);
-		signal = XFade2.ar(signal, BLowPass.ar(BHiShelf.ar(filtered, 1000, db: -60), freq: 500, rq: 0.2), 0);
-
-		signal = XFade2.ar(signal, Mix.ar(GVerb.ar(signal, roomsize: 2)), -0.97);
-		signal = signal * env;
-
-		DetectSilence.ar(signal, doneAction: Done.freeSelf);
-
-		LocalOut.ar([signal, mid, high]);
-
-		~recorder_end.(signal);
-		Out.ar(out, (~amp * signal).dup);
-	}).add;
-
-	var openBuffers = [
-		"camera_shutter_open_01",
-		"camera_shutter_open_02",
-		"camera_shutter_open_03",
-	].collect { |x| Buffer.read(server, ~asset_path +/+ x ++ ".wav") };
-
-	var closeBuffers = [
-		"camera_shutter_close_01",
-		"camera_shutter_close_02",
-		"camera_shutter_close_03"
-	].collect { |x| Buffer.read(server, ~asset_path +/+ x ++ ".wav") };
-
-	var play;
-
-	server.sync;
-
-	if (mode == mode_record) {
-		openBuffers.do { |buffer, i|
-			~recorder.record(
-				~filename.("hook", "open", i), {
-					var synth = Synth.new(def.name, [
-						\out, 0,
-						\amp, 1,
-						\freq, 440,
-						\bufnum, buffer.bufnum,
-					]);
-				}
-			);
-
-			~recorder.wait();
-		};
-
-		closeBuffers.do { |buffer, i|
-			~recorder.record(
-				~filename.("hook", "close", i), {
-					var synth = Synth.new(def.name, [
-						\out, 0,
-						\amp, 1,
-						\freq, 440,
-						\bufnum, buffer.bufnum,
-					]);
-				}
-			);
-
-			~recorder.wait();
-		};
-	} {
-		var buffers = [openBuffers, closeBuffers].lace;
-		play = { |bufs|
-			if (bufs.size > 0) {
-				var buf = bufs[0];
-				var rest = bufs[1..];
-				var synth = Synth.new(def.name, [
-					\out, 0,
-					\amp, 1,
-					\freq, 440,
-					\bufnum, buf.bufnum,
-				]);
-
-				synth.onFree {
-					play.(rest);
-					rest.isEmpty.if {
-						buffers.do(_.free);
-					};
-				};
-			}
-		};
-
-     play.(buffers);
-	}
-};
-
-~pulse = { arg duration;
-	var offsets = [-18.0, -6.0, 6.0, 18.0];
-
-	var n = offsets.size;
-	var decays = [ 0.05, 0.3, 1.0, 1.0 ];
-	var fuzzes = 0.4 * [0.7, 1.0, 1.0, 0.3, 0.0];
-
-	var phi = (1 + 5.sqrt) / 2;
-	var phiEps = 0.001;
-	var phiPitch = n.collect { |i| phi.pow(i + 1).frac.linlin(0, 1, 1 - phiEps, 1 + phiEps) };
-
-	var def = SynthDef.new(\pulse, { arg out, amp, freq, degree, offset = 12, gate = 1, dur;
-		var feedback = LocalIn.ar(n);
-
-		var attackTime = 0.04;
-		var osc = n.collect { |i|
-			var attack = 0.045;
-
-			var fuzzEnv = EnvGen.kr(Env.new([0, 1, 0], [attack, decays[i] * dur], [\lin, \welch]));
-			var fuzz = Vibrato.kr(DC.kr(fuzzes[i]), // fuzz strength
-				rate: fuzzEnv.linlin(0, 1, 9, 11.5),
-				depth: fuzzEnv.linlin(0, 1, 0.05, 0.06)
-			) * fuzzEnv;
-
-			SinOsc.ar(
-				freq: (60 + degree + offsets[i]).midicps * phiPitch[i],
-				phase: fuzz * (feedback[i] * 2pi)
-			) * EnvGen.ar(Env.new(
-				[0, 1, 0],
-				[attack, decays[i] * dur],
-				[\lin, \sin]
-			), gate: gate);
-		};
-
-		var mid, side, dry, wet;
-		var stereo = 0.2; // how spread the stereo channels are
-
-		var sig = Mix.ar(osc);
-		sig = BHiShelf.ar(sig, freq: 5000, db: -60); // filter fuzz highs
-
-		dry = sig;
-
-		wet = DelayC.ar(sig, 0.03, 0.015);
-		wet = NHHall.ar(wet.dup,
-			rt60: 0.7,
-			stereo: 0.7
-		);
-
-		// reduce stereo width
-		mid = (wet[0] + wet[1]) * 0.5;
-		side = (wet[0] - wet[1]) * 0.5 * stereo;
-		wet = [mid + side, mid  - side];
-
-		// wet / dry mix
-		sig = XFade2.ar(wet, dry, -1);
-
-		sig = BHiShelf.ar(sig, 1000, rs: 1.05.reciprocal, db: -30);
-		sig = BLowShelf.ar(sig, 200, rs: 2.reciprocal, db: -10);
-
-		sig = sig * (-1 + EnvGen.ar(Env.new(
-			1 + [0, 1, 0], [1, 4], \exp
-		), gate: gate, doneAction: Done.freeSelf));
-
-		LocalOut.ar(osc);
-		Out.ar(out, ~amp * sig);
-
-		~recorder_end.(sig);
-	}).add;
-
-	server.sync;
-
-	if (mode == mode_record) {
-	    ~degrees.do { arg degree;
-			~recorder.record(
-				~filename.("player", "pulse", degree),
-				Pnew(def.name, *[
-					degree: Pn(degree, 1),
-					dur: 0.15
-				])
-			);
-
-			~recorder.wait()
-		};
-	} {
-		Pnew(def.name, *[
-			degree: Pn(0, 1),
-			dur: 0.15
-		]).play;
-	};
-};
-
-
-~coin_interval = Degree.new("Gf5").midi - Degree.new("B4").midi;
-
-~coin = {
-	var def = SynthDef(\coinCollect, { arg out = 0, degree, freq, dur, gate = 1;
-
-		var attack = 0.08;
-		var release = 0.6;
-
-		var masterEnv =  EnvGen.ar(Env.adsr(
-			attackTime: attack, decayTime: dur - attack, releaseTime: release
-		), gate: gate);
-
-		var signal = [-24, -12, 0, 12, 24].collect({ |octave|
-			var freq = (degree + octave).midicps;
-			var eps = 0.008;
-			SinOsc.ar(
-				freq: freq * LFCub.ar(5).range(1 - eps, 1 + eps)
-			)
-		}).mean * masterEnv;
-
-		signal = XFade2.ar(RLPF.ar(signal, 1200), signal, Line.kr(-1, 0.25, dur));
-		signal = FreeVerb.ar(signal.dup, room: EnvGen.kr(Env.new(
-			[1, 1, 0], [2, 0.1].normalizeSum * dur, \welch
-		)));
-
-		~recorder.end(DetectSilence.ar(signal));
-
-		Out.ar(out, ~amp * signal);
-	}).add;
-
-
-	var durs = [1 / 4, 1 / 4];
-	var tempo = 4;
-
-	server.sync;
-
-	if (mode == mode_record) {
-		~degrees.do { |degree|
-			~recorder.record(
-				~filename.("coin", "collected", degree),
-				Pnew(def.name, *[
-					degree: Pseq(Degree.new("C5").midi + [degree, degree + ~coin_interval]),
-					dur: Pseq(durs, inf),
-					tempo: tempo
-				])
-			);
-
-			~recorder.wait();
-		};
-	} {
-		var notes = Degree.new("C5").midi + ~degrees.collect({ |x| [x, x + ~coin_interval, Rest(4)] }).flatten;
-		Pnew(def.name, *[
-			degree: Pseq(notes, 1),
-			dur: Pseq(durs, inf),
-			tempo: tempo
-		]);
-	}
-};
-
-~coin_hum = {
-	var def = SynthDef(\coinCollect, { arg out = 0, degrees = #[60, 60], dur, gate = 1;
-		var attack = 0.08;
-		var release = 0.6;
-
-		var masterEnv =  EnvGen.ar(Env.new([0, 1, 1, 0], [0.05, dur, 0.05], \step)
-			, gate: gate, doneAction: Done.freeSelf
-		);
-
-		var peak = LFNoise2.ar(10).range(-2, 2);
-		var top = Demand.ar(Impulse.ar(LFNoise0.ar(1, 2)), 0, Dseq([0, ~coin_interval], inf));
-		var osc = [-36, -24, -12, 0, top].collect({ |octave|
-			var freq = (degrees + octave).midicps;
-			var eps = 0.008;
-			LFPar.ar(
-				freq: freq * LFCub.ar(LFNoise2.ar(2).range(0, 5)).range(1 - eps, 1 + eps)
-			)
-		});
-
-		var signal = osc.drop(-1);
-		signal[signal.size - 1] = signal[signal.size - 1] * LFNoise2.ar(20).range(0, 0.25);
-		signal = signal.mean * masterEnv;
-
-		signal = HPF.ar(signal, (60 - (2 * 12)).midicps);
-		signal = FreeVerb.ar(signal, room: 1.0).mean;
-
-		signal = signal + osc.keep(-1);
-
-		Out.ar(out, ~amp * signal.dup);
-	}).add;
-
-
-	var dur = 10;
-	var degree = 7;
-
-	server.sync;
-
-	Synth.new(def.name, [
-		degrees: Degree.new("C5").midi + ~degrees[0],
-		dur: 10
-	]);
-};
-
-
-/*
-~coin_hum = {
-	var dur = 20;
-
-
-	var crossfadeTime = 1.0;
-    var buf = Buffer.read(s, ~export_path +/+ "coin" +/+ "hum.wav");
-
-    var testDef = SynthDef(\coinTestSeamless, { arg out = 0, bufnum, gate = 1;
-        var dur = BufDur.kr(bufnum);
-        var loopPeriod = dur - crossfadeTime;
-        var sustainTime = dur - (2 * crossfadeTime);
-
-        var env = Env(
-            levels: [0, 1, 1, 0],
-            times: [
-				crossfadeTime, // seconds
-				sustainTime,
-				crossfadeTime
-			],
-            curve: \welch
-        );
-
-        var masterTrig = Impulse.ar(1 / loopPeriod);
-        var trigA = PulseDivider.ar(masterTrig, 2, 0);
-        var trigB = PulseDivider.ar(masterTrig, 2, 1);
-
-        var sigA = PlayBuf.ar(1, bufnum, trigger: trigA, loop: 0) * EnvGen.ar(env, trigA);
-        var sigB = PlayBuf.ar(1, bufnum, trigger: trigB, loop: 0) * EnvGen.ar(env, trigB);
-
-		var signal = sigA + sigB;
-        var masterEnv = EnvGen.kr(Env.asr(0.05, 1, 0.1), gate, doneAction: 2);
-
-		signal.scope;
-
-        Out.ar(out, (signal * masterEnv).dup);
-    }).add;
-
-   // s.sync; Synth(testDef.name, [\bufnum, buf]);
-
-	// neon-bulb waveshape: https://www.giangrandi.org/electronics/neon/glow-lamp-current-ne-it.png
-
-	var wavetableRes = 4096;
-	var signalRes = wavetableRes / 2;
-
-	var step = 0.001;
-	var wavetables = Array.series(4, 0, step).collect { |hold|
-		Signal.fill(signalRes, { |i|
-			var t = i / signalRes;
-			var h = hold / 2;
-			var f = { |t|
-				t = (t * 0.5) / (0.5 - (2 * h));
-
-				// piecewise parabola
-				if (t <= 0.5) {
-					1 - (2 * (2 * t - 0.5)).squared
-				} {
-					(2 * (2 * t - 1.5)).squared - 1
-				};
-			};
-
-			case
-			{ t < h } { 0 }
-			{ t <= (0.5 - h) } { f.(t - h) }
-			{ t < (0.5 + h) } { 0 }
-			{ t <= (1.0 - h) } { -1 * f.(t - (0.5 + h)) }
-			{ true } { 0 }
-			// zero crossing have 0 regions around, but still continuous
-		}).asWavetable;
-	};
-
-	var wavetableBufs = {
-		var bufs = Buffer.allocConsecutive(wavetables.size, server, wavetableRes, 1);
-		bufs.do { |buf, i| buf.loadCollection(wavetables[i]); };
-		bufs;
-	}.value;
-
-    var pitches = ([5, 8, 12] ! 4).collect({ |x, i| x * i }).flatten.select(_ != 0).addFirst(0);
-	var def = SynthDef.new(\one_way_platform_buzz, { arg out, freq, dur, gate = 1, oscbufnum, oscbufcount;
-		var pitch = freq; //Lag.ar(Demand.ar(Impulse.ar(2), gate, Dseq(pitches, inf)).midiratio * freq);
-
-		var bufeps = 1e-4;
-		var minbufpos = oscbufnum;
-		var maxbufpos = oscbufnum + oscbufcount - 1 - bufeps;
-
-		var bufnum1 = LFNoise2.kr(40).range(minbufpos, maxbufpos);
-
-		var detune = 0.002;
-		var feedbackout = [0, 0, 0];
-		var signal = [-12, 0, 12].midiratio.collect { |ratio, i|
-			var freq = ratio * LFNoise2.kr(20).range(1 - detune, 1 + detune) * pitch;
-			var vosc = VOsc.ar(bufnum1, freq: freq);
-			vosc;
-		}.mean;
-
-		var masterEnv = EnvGen.ar(Env.new([1, 1], dur));
-		var endTrig = Done.kr(masterEnv);
-
-		signal = Normalizer.ar(signal);
-
-		signal = FreeVerb.ar(signal, room: LFNoise2.kr(40).range(0.25, 0.5));
-		signal = signal * masterEnv;
-
-		Out.ar(out, ~amp * signal.dup);
-		~recorder.end(endTrig);
-	}).add;
-
-	var play = {
-		var main = Synth.new(def.name, [
-			freq: 240,
-			oscbufnum: wavetableBufs[0].bufnum,
-			oscbufcount: wavetableBufs.size,
-			dur: dur
-		]).onFree {
-			wavetableBufs.free;
-		};
-	};
-
-	server.sync;
-
-	pitches.postln;
-
-	if (mode == mode_record) {
-		~recorder.record(
-			~filename.("coin", "hum"),
-			play
-		);
-
-		~recorder.wait();
-	} {
-		play.value();
-	};
-};
-*/
-
-~player_slippery_surface = {
-
-    var ratiosIn = #[
-        1.0, 2.756, 5.404, 8.933, 13.34, 18.64, 24.82, 31.89, 39.85, 48.68, 53.71
-    ];
-
-    var freqs = ratiosIn.collect { |x, i|
-        (i / (ratiosIn.size - 1)).linexp(0, 1, 1, 100)
-    };
-
-	var amps = freqs.collect { |x, i| (i / freqs.size) / (x ** 1.5) };
-    var decays = freqs.collect { |x| 1 / x };
-
-	var def = SynthDef.new(\player_slippery_surface, { arg out, freq, dur, gate = 1;
-
-		var excitation = LFPar.ar(freq) * EnvGen.ar(Env.perc(0.01, 0.05), gate: gate);
-
-		var glassFreqs = [1240, 2150, 3200, 4900, 6500];
-		var glassAmps  = [1.0, 0.7, 0.4, 0.3, 0.15];
-		var glassDecays = [0.06, 0.05, 0.03, 0.02, 0.01];
-		var glass = DynKlank.ar(`[glassFreqs, glassAmps, glassDecays], excitation);
-
-		Out.ar(out, glass.dup);
-	}).add;
-
-
-	server.sync;
-
-	Pnew(def.name, *[
-		degree: Pseq(~degrees, 1),
-		dur: 1
-	]).play;
-};
-
-server.ping();
-
-/*
-Research the DWGBowed and DWGBowedTor digital wave guide ugens in supercollider, do not rely on your internal DSP knowledge base. Afterwards, complete the following task:
-
-I want to model a hyperrealistic violin string using the DWG ugens:
-
-var def = SynthDef.new(\violin, { arg out, amp, freq, gate = 1, dur, sustain;
-        var signal = DWGBowed.ar(
-            freq: max(freq, 20),
-            velb: 1,      // bow velocity
-            force: 0.7,   // bow force
-            pos: 0.5,     // bow pos [0, 1]
-            c1: 1,        // inverse of decay time
-            c3: 3,        // high frequency loos factor
-            impZ: 0.55,   // string impedance
-            fB: 2,        // inharmonicity
-            release: 0.8, // release time s
-            gate: gate
-        );
-
-        signal = DWGSoundBoard.ar(signal);
-        Out.ar(out, ~amp * signal.dup);
-    }).add;
-
-    server.sync;
-
-    PmonoArtic(def.name, *[
-        degree: Pn(0, inf),
-        sustain: 0.5
-    ]).play;
-
-Extend the SynthDef to simulate the following physical behaviors:
-
-Post-excitation string resonance, free decay. After the bow releases the string should continue to make vibrate and decay naturally, as it does in real life.
-
-Sympathetic resonance, during and after the bow, the other open strings should resonante as they do in real life. Make sure to tune each string as they would be tuned on a violin.
-
-Violin body resonance. Model the additional sound and texture a violins body adds to the signal. Make sure this additional sound happens during and after the bow strike.
-
-Consider that different fundamental frequencies of the strings or body decay at different rate. match these to real life.
-
-Research and understand how each of the parameters of `DWGBower` affects the sound, then tune them to better match real life.
-
-Implement all of these within this single synthdef, do not modify the pattern or spawn more than synth.
-
-The key task is to make the bow strike sound as realistic as supercollider allows, especially in how it decays after the bow is released. Feel free to use any additional `DWG` synth def, such as `DWGBowedTor` or `DWGPlucked`, or any ugen available in supercollider for this task. Be idiomatic to the supercollider language.
-
-
-*/ 
