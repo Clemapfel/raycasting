@@ -14,6 +14,7 @@ require "common.smoothed_motion_2d"
 rt.settings.sound_manager = {
     assets_directory = "assets/sounds",
     update_step = 1 / 240, -- seconds
+    n_priority_queue_sub_steps = 4,
 
     import_attack = 5 / 60,
     import_release = 8 / 60,
@@ -22,6 +23,8 @@ rt.settings.sound_manager = {
     
     max_import_attack_fraction = 0.01,
     max_import_release_fraction = 0.01,
+
+    degree_separation_char = "_",
 
     max_cache_size = 512 -- mb
 }
@@ -61,12 +64,31 @@ function rt.SoundManager:instantiate()
         local id_to_path = bd.generate_resource_ids(prefix, bd.is_sound_file)
 
         self._id_to_resource_entry = {} -- Table<String, String>, indexable like `self._id_to_resource_entry["overworld.foo.effect"]`
+        self._id_to_degrees = {}
+
         for id, path in pairs(id_to_path) do
             self._id_to_resource_entry[id] = {
                 id = id,
                 path = path,  -- String
-                data = nil -- love.SoundData
+                data = nil, -- love.SoundData
+                duration = nil
             }
+
+            local id_without_degree = string.match(id, "^(.*)_[^_]*$") -- everything before last occurence of `_`
+            assert(id_without_degree ~= nil)
+
+            local name = string.match(id, ".*%.([^.]*)_[^_.]*$") -- everything between last `.` and `_`
+            local degree = string.match(id, "_([^_]*)$") -- everything after last `_`
+
+            local degrees = self._id_to_degrees[id_without_degree]
+            if degrees == nil then
+                degrees = {}
+                self._id_to_degrees[id_without_degree] = degrees
+            end
+
+            if degree ~= nil then
+                degrees[degree] = true
+            end
         end
     end
 
@@ -75,6 +97,11 @@ function rt.SoundManager:instantiate()
     -- active playback entries
     self._handler_id = 0
     self._handler_id_to_entry = {} -- handler id to active entry
+end
+
+--- @brief
+function rt.SoundManager:_get_resource_entry(id)
+    return self._id_to_resource_entry[id]
 end
 
 --- @brief
@@ -105,7 +132,7 @@ function rt.SoundManager:_load_data(path)
     )
 
     if n_samples == 0 then
-        return nil
+        return nil, 0
     end
 
     -- apply envelope to all channels
@@ -123,7 +150,7 @@ function rt.SoundManager:_load_data(path)
     end
 
     _skip_next_delta = true -- prevent lag spike
-    return data
+    return data, duration
 end
 
 --- @brief
@@ -170,7 +197,8 @@ local _config_default = {
     attack = 0,
     sustain = nil, -- seconds
     release = 0,
-    effects = nil
+    effects = nil,
+    degree = nil
 }
 
 local _config_keys = {}
@@ -183,7 +211,8 @@ for x in range(
     "attack",
     "sustain",
     "release",
-    "effects"
+    "effects",
+    "degree"
 ) do
     _config_keys[x] = true
 end
@@ -203,7 +232,7 @@ end
 function rt.SoundManager:_play_internal(id, config, handler_id)
     meta.assert(id, mt.String, config, mt.Optional(mt.Table))
 
-    local resource_entry = self._id_to_resource_entry[id]
+    local resource_entry = self:_get_resource_entry(id)
     if resource_entry == nil then
         rt.error("In rt.SoundManager.play: no sound with id `", id, "`")
         return nil
@@ -250,6 +279,7 @@ function rt.SoundManager:_play_internal(id, config, handler_id)
     _verify("sustain", mt.Number, true)
     _verify("release", mt.Number, false)
     _verify("effects", mt.Table, true)
+    _verify("degree", mt.Number, false)
     if failed then return nil end
 
     local error_prefix = string.paste("In rt.SoundManager.play: config for sound `", id, "`:")
@@ -277,8 +307,14 @@ function rt.SoundManager:_play_internal(id, config, handler_id)
         config.release = 0
     end
 
+    if config.degree ~= nil then
+        if self._id_to_valid_degrees[id][config.degree] ~= true then
+            rt.critical(error_prefix, "degree `", config.degree, "` is not present")
+        end
+    end
+
     if resource_entry.data == nil then
-        resource_entry.data = self:_load_data(resource_entry.path)
+        resource_entry.data, resource_entry.duration = self:_load_data(resource_entry.path)
 
         -- notify cache, if RAM usage too high, evict oldest used and deallocate
         _cache:push(resource_entry.path, resource_entry) -- use path as hash
@@ -304,7 +340,6 @@ function rt.SoundManager:_play_internal(id, config, handler_id)
         resource_entry = resource_entry,
 
         source = love.audio.newSource(resource_entry.data),
-        duration = resource_entry.data:getDuration(),
         elapsed = 0,
 
         envelope = nil, -- rt.Envelope
@@ -343,7 +378,9 @@ function rt.SoundManager:_play_internal(id, config, handler_id)
     entry.source:setVolume(0) -- set next update
     entry.volume_motion = rt.SmoothedMotion1D(1)
 
-    local max_sustain = entry.duration - (config.attack + config.release)
+    local duration = entry.resource_entry.duration
+
+    local max_sustain = duration - (config.attack + config.release)
     if config.sustain == nil then
         config.sustain = max_sustain
     else
@@ -352,10 +389,10 @@ function rt.SoundManager:_play_internal(id, config, handler_id)
 
     if config.sustain < 0 then
         rt.critical(error_prefix, "sustain `", config.sustain, "` is negative")
-        config.sustain = entry.duration - (config.attack + config.release)
+        config.sustain = duration - (config.attack + config.release)
     end
 
-    if not config.should_loop and (config.attack + config.sustain + config.release > entry.duration) then
+    if not config.should_loop and (config.attack + config.sustain + config.release > duration) then
         rt.warning(error_prefix, "envelope config duration exceeds audio length")
     end
 
@@ -395,8 +432,8 @@ function rt.SoundManager:_play_internal(id, config, handler_id)
             return nil
         end
 
-        local overlap = config.loop_overlap * entry.duration
-        local period = entry.duration - overlap
+        local overlap = config.loop_overlap * duration
+        local period = duration - overlap
 
         entry.swap_period = period
         entry.swap_envelope = rt.Envelope(overlap, period - overlap, overlap)
@@ -648,6 +685,32 @@ function rt.SoundManager:stop(handler_id)
     entry.is_stopping = true
 
     return true
+end
+
+--- @brief
+function rt.SoundManager:get_duration(id)
+    meta.assert(id, mt.String)
+
+    local entry = self:_get_resource_entry(id)
+    if entry == nil then
+        rt.error("In rt.SoundManager.get_duration: no sound with id `", id, "`")
+        return 0
+    else
+        if entry.duration == nil then
+            -- entry not yet initialized
+            -- load source as stream to query duration with minimal allocation
+            local source = love.audio.newSource(entry.path, "stream")
+            if source == nil then
+                rt.error("In rt.SoundManager.get_duration: source count allocation limit reached")
+                return 0
+            end
+
+            entry.duration = source:getDuration("seconds")
+            source:release()
+        end
+
+        return entry.duration
+    end
 end
 
 --- @brief
