@@ -7,7 +7,6 @@ var inPath = PathName(thisProcess.nowExecutingPath.dirname +/+ "export");
 var outPath = PathName(thisProcess.nowExecutingPath.dirname +/+ ".." +/+ "assets" +/+ "sounds");
 
 var inHeaderFormat = AutoRecorder.headerFormat;
-var inSampleFormat = AutoRecorder.sampleFormat;
 var inExtension = "wav";
 
 var outHeaderFormat = "OGG";
@@ -22,7 +21,8 @@ var convertJobs = List.new();
 var export = { |pathname|
     var relativePath = pathname.fullPath.drop(inPath.fullPath.size);
     var targetPath = outPath.fullPath ++ relativePath;
-    if (pathname.isFolder) {
+
+	if (pathname.isFolder) {
 		mkdirJobs.add((path: targetPath, relativePath: relativePath));
         pathname.entries.do { |sub|
             export.(sub);
@@ -30,20 +30,21 @@ var export = { |pathname|
     } {
         var fromPath = pathname.fullPath;
         var toPath = targetPath.replace(inExtension, outExtension);
-		if (fromPath.endsWith(inHeaderFormat)) {
+		if (fromPath.endsWith(inExtension)) {
             convertJobs.add((in: fromPath, out: toPath));
         };
     };
 };
 
-var condition = Condition.new(false);
-var mkdirJobsDone = 0;
-var convertJobsDone = 0;
+server.waitForBoot {
+	var before = Main.elapsedTime;
+	var condition = Condition.new(false);
+	var semaphore = Semaphore.new(32);
+	var convertJobsDone = 0;
 
-server.waitForBoot( fork {
-    inPath.entries.do { |sub|
-        export.(sub);
-    };
+	inPath.entries.do { |sub|
+		export.(sub);
+	};
 
 	mkdirJobs.do { |job|
 		var print = job.relativePath.keep(job.relativePath.size - 1);
@@ -54,34 +55,61 @@ server.waitForBoot( fork {
 
 		File.mkdir(job.path);
 		"In export.scd: mkdir `%`".format(print).postln;
-
-		mkdirJobsDone = mkdirJobsDone + 1;
-		condition.test = mkdirJobsDone >= mkdirJobs.size;
-		condition.unhang;
 	};
 
-	condition.hang;
-	condition.test = false;
+	convertJobs = convertJobs.reject({ |job| job.in.beginsWith(tempPrefix) });
+	condition.test = convertJobsDone >= convertJobs.size;
 
 	convertJobs.do { |job|
-		if (job.in.beginsWith(tempPrefix)) {
-			"In export.scd: skipping `%`".format(job.in);
-		} {
-			var buffer = Buffer.read(server, job.in);
-			buffer.write(job.out, headerFormat: outHeaderFormat, sampleFormat: outSampleFormat);
-			"In export.scd: converted `%` -> `%`".format(
-				job.in.drop(inPath.fullPath.size + 1),
-				job.out.drop(outPath.fullPath.size + 1)
-			).postln;
-		};
+		fork {
+			var buffer;
+			semaphore.wait;
 
-		convertJobsDone = convertJobsDone + 1;
-		condition.test = convertJobsDone == convertJobs.size;
-		condition.unhang;
+			protect {
+				try {
+					var file = SoundFile.new;
+					var valid = false;
+
+					protect {
+						valid = (
+							job.in.beginsWith(tempPrefix).not
+							and: { file.openRead(job.in) }
+							and: { file.numFrames > 0 }
+							and: { file.numChannels > 0 }
+							and: { file.sampleRate > 0 }
+						);
+					} {
+						file.close;
+					};
+
+					if (valid) {
+						job.in.postln;
+
+						buffer = Buffer.read(server, job.in);
+						server.sync;
+						buffer.write(job.out, headerFormat: outHeaderFormat, sampleFormat: outSampleFormat);
+						server.sync;
+
+						"In export.scd: converted `%` -> `%`".format(
+							job.in.drop(inPath.fullPath.size + 1),
+							job.out.drop(outPath.fullPath.size + 1)
+						).postln;
+					}
+				} { |error|
+					"In export.scd: %".format(error.errorString).warn;
+				};
+			} {
+				if (buffer.notNil) { buffer.free; buffer = nil };
+
+				semaphore.signal;
+
+				convertJobsDone = convertJobsDone + 1;
+				condition.test = convertJobsDone >= convertJobs.size;
+				condition.signal;
+			};
+		};
 	};
 
-	condition.hang;
-	"done.".postln;
-});
-
-Date.getDate;
+	condition.wait;
+	"done. Took %s".format(Main.elapsedTime - before).postln;
+};

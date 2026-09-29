@@ -10,39 +10,35 @@ AutoRecorder {
 	classvar <>assetPathName = "assets";
 
 	/*
-
 	// ### EXAMPLE USAGE ###
 
-	// synth def
-	var def = SynthDef(\diskout, { arg out, freq, dur, amp, gate = 1, recordbuf;
-		var sig = amp * SinOsc.ar(freq) * EnvGen.ar(Env.asr(attackTime: 0.1, releaseTime: 0.1), gate: gate);
+	// client side
 
-		// detect when the signal is done
-		var endTrig = DetectSilence.ar(sig);
+	AutoRecorder.record(
+        server,
+        AutoRecorder.filename("folder", "file", postfix),
+        { |recordbuf|
+            Synth.new(def.name, [
+                \freq, 440,
+                \recordbuf, recordbuf.bufnum
+            ]
+		}
+	);
 
-		// write to disk
-		AutoRecorder.ar(recordbuf, sig);
 
-		// notify that recording should end
-		AutoRecorder.end(endTrig);
+	// in synth def
 
-		// free this synth
-		FreeSelf.kr(endTrig);
+	AutoRecorder.ar(recordbuf, sig);
 
-		// debug out
-		Out.ar(out, sig.dup);
-	}).add;
+	// where
+	// recordbuf: argument given to f in AutoRecorder.reorc
+	// sig: signal to be recorded
 
-	[1, 4, 6].do { |degree|
-		AutoRecorder.record(server,
-			AutoRecorder.filename("test", "diskout", degree), { |recordbuf|
-			PmonoArtic(def.name, *[
-				degree: Pseq(degree + [0, 1, 2, 3], 1),
-				sustain: 1.2,
-				recordbuf: recordbuf.bufnum
-			]).play;
-		});
-	};
+	AutoRecorder.end(trig);
+
+	// where
+    // trig: trigger that signals end of recording
+    //       usually Done.kr, DetectSilence, or DelayN.kr(Impulse.kr(0), t, t)
 
 	*/
 

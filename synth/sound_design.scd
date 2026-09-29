@@ -12,7 +12,7 @@ server.waitForBoot {
 	var degrees = [0, 1, 4];
 
 	[
-		\bubble_pop,
+	    \bubble_pop,
 		\bubble_unpop
 	].do { |name| currentEnvironment[name].(degrees) };
 
