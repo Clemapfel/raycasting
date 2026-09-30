@@ -20,6 +20,10 @@ require "common.functional"
 require "socials.social_media_banner_generator"
 rt.GameState:set_draw_debug_information(false)
 
+local downres = 8
+rt.SocialMediaPlatform.YOUTUBE[1] = rt.SocialMediaPlatform.YOUTUBE[1] / downres
+rt.SocialMediaPlatform.YOUTUBE[2] = rt.SocialMediaPlatform.YOUTUBE[2] / downres
+
 local generator = rt.SocialMediaBannerGenerator(rt.SocialMediaPlatform.YOUTUBE)
 DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
     if which == rt.KeyboardKey.Q then
@@ -83,7 +87,7 @@ love.load = function(args)
 end
 
 local elapsed = 0
-local n = 4
+local n = 8
 
 love.update = function(delta)
     if rt.SceneManager ~= nil then
@@ -93,7 +97,7 @@ love.update = function(delta)
     elapsed = elapsed + delta
     if elapsed > 1 / n then
         if love.keyboard.isDown("r") then
-            generator:update(1)
+            generator:update(1 / n)
         end
         elapsed = 0
     end

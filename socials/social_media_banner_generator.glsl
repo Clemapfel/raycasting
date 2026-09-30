@@ -272,7 +272,7 @@ void computemain() {
         vec3 ray_position = ray_origin;
         vec3 ray_direction = vec3(0, 0, 1);
 
-        float xy_scale = 7.2;
+        float xy_scale = 6;
         vec3 scale = vec3(vec2(xy_scale), 1);
         scale.x *= size.x / size.y;
 
@@ -280,7 +280,7 @@ void computemain() {
         vec3 scale_gain = vec3(xy_scale_gain, xy_scale_gain, 1.02);
 
         vec3 lacunarity = vec3(1);
-        vec3 lacunarity_gain = vec3(0.947, 0.947, 0.96) * 1.02;
+        vec3 lacunarity_gain = vec3(0.947, 0.947, 0.96) * 1;
 
         float opacity_amp = 1.9;
         float opacity_amp_gain = 1.06;
