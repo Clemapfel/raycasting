@@ -16,6 +16,7 @@ rt.settings.overworld.bubble = {
 
 
     bounce_impulse = 280, -- constant
+    inside_bounce_reference_length = 2000, -- cf. _pop
 
     particles = {
         min_radius = 0.5, -- px
@@ -46,7 +47,7 @@ local schema = {
 }
 
 function ow.Bubble:instantiate(object, stage, scene)
-    object:validate_schema(schema, ow.Shape.ELLIPSE)
+    object:validate_schema(schema, ow.ShapeType.ELLIPSE)
 
     rt.assert(object:get_type() == ow.ObjectType.ELLIPSE,
         "In ow.Bubble: object `", object:get_id(), "` is not an ellipse"
@@ -71,7 +72,7 @@ function ow.Bubble:instantiate(object, stage, scene)
     -- physics
 
     self._body = object:create_physics_body(stage:get_physics_world())
-    self._body:add_tag(b2.Tag.SLIPPERY, b2.Tag.NO_BLOOD, b2.Tag.UNJUMABLE)
+    self._body:add_tag(b2.Tag.SLIPPERY, b2.Tag.NO_BLOOD, b2.Tag.UNJUMPABLE)
     self._body:signal_connect("collision_start", function(_, other_body, nx, ny, cx, cy)
         if self._is_destroyed
             or cx == nil or cy == nil -- player is sensor
@@ -87,10 +88,9 @@ function ow.Bubble:instantiate(object, stage, scene)
         local player = self._scene:get_player()
         local px, py = player:get_position()
         local dx, dy = math.normalize(px - body_x, py - body_y)
-        local restitution = player:bounce(dx, dy, rt.settings.overworld.bubble.bounce_impulse)
         -- constant impulse unrelated to player velocity, unlike ow.BouncePad
 
-        self:_pop(self._x + dx * self._x_radius, self._y + dy * self._y_radius)
+        self:_pop(dx, dy, x + dx * self._x_radius, y + dy * self._y_radius)
     end)
 
     local bounce_group = rt.settings.player.bounce_collision_group
@@ -117,7 +117,7 @@ function ow.Bubble:instantiate(object, stage, scene)
         self._hue = object:get_number("hue", true)
     end
 
-    self._color = { rt.lcha_to_rgba(0.8, 1, hue, 1) }
+    self._color = { rt.lcha_to_rgba(0.8, 1, self._hue, 1) }
 
     self._contour = {}
     self._outline_contour = {}
@@ -205,7 +205,7 @@ local _particle_i_to_data_offset = function(particle_i)
 end
 
 --- @brief
-function ow.Bubble:_pop(pop_x, pop_y)
+function ow.Bubble:_pop(dx, dy, pop_x, pop_y)
     if self._is_destroyed == true then return end
 
     self._is_destroyed = true
@@ -213,6 +213,20 @@ function ow.Bubble:_pop(pop_x, pop_y)
     self._path_elapsed = 0 -- reset to 0 offset
     self._pop_light_boost = 0
     self._body:set_is_sensor(true)
+
+    -- if inside while respawning, pop instantly
+    local ndx, ndy = math.normalize(dx, dy)
+    local px, py = self._scene:get_player():get_position()
+    local sx, sy = self._body:get_position()
+    local sr = math.max(self._x_radius, self._y_radius)
+    local dist = math.distance(sx, sy, px, py)
+    local t = math.min(1, dist / sr)
+    -- relates how far away from the surface the player is during respawn to additional impulse
+    self._scene:get_player():bounce(ndx, ndy, rt.settings.overworld.bubble.bounce_impulse
+        + math.mix(0, dist / rt.settings.overworld.bubble.inside_bounce_reference_length, t)
+    )
+
+    rt.SoundManager:play("bubble.pop")
 
     local perimeter
     do
@@ -278,6 +292,21 @@ end
 --- @brief
 function ow.Bubble:_unpop()
     self:reset()
+    self._body:set_is_sensor(true) -- keep sensor until player has left bounds
+
+    local player = self._scene:get_player()
+    local player_x, player_y = player:get_position()
+    local player_r = player:get_radius()
+
+    local x, y = self._body:get_position()
+    local radius = math.max(self._x_radius, self._y_radius)
+
+    local dx, dy = math.subtract(player_x, player_y, x, y)
+    if math.magnitude(dx, dy) < radius + player_r then
+        self:_pop(dx, dy, player_x, player_y)
+    else
+        self._body:set_is_sensor(false)
+    end
 end
 
 function ow.Bubble:_get_opacity()
@@ -298,25 +327,15 @@ end
 --- @brief
 function ow.Bubble:update(delta)
     local respawn_duration = rt.settings.overworld.bubble.respawn_duration
-
     if self._is_destroyed then
         self._respawn_elapsed = self._respawn_elapsed + delta
-
         self._pop_light_boost = rt.InterpolationFunctions.ENVELOPE(
             math.min(1, self._respawn_elapsed / rt.settings.overworld.bubble.pop_light_boost_duration),
             0.05,
             0.25
         )
 
-        local player = self._scene:get_player()
-        local player_x, player_y = player:get_position()
-        local player_r = player:get_radius()
-
-        local x, y = self._body:get_position()
-        local radius = math.max(self._x_radius, self._y_radius)
-        local overlap = math.distance(player_x, player_y, x, y) < player_r + radius
-
-        if self._respawn_elapsed >= respawn_duration and not overlap then
+        if self._respawn_elapsed >= respawn_duration then
             self:_unpop()
             return
         end
@@ -356,9 +375,7 @@ function ow.Bubble:update(delta)
     end
 
     if not self._stage:get_is_body_visible(self._body) then return end
-
-    local x = math.min(1, self._respawn_elapsed / respawn_duration)
-    self._pop_fraction = x
+    self._pop_fraction = math.min(1, self._respawn_elapsed / respawn_duration)
 
     if not self._is_destroyed and self._should_move_in_place then
         -- freeze while respawning

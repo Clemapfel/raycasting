@@ -6,14 +6,17 @@ server.options.numWireBufs = 256;
 server.options.sampleRate = ~sample_rate;
 server.options.memSize = 2 * (2 ** 16);
 
+Main.version.postln;
+
 // ### MAIN ###
 
 server.waitForBoot {
-	var degrees = [0, 1, 4];
 
+	var degrees = [0, 1, 4];
 	[
-	    \bubble_pop,
-		\bubble_unpop
+		//\bubble_pop,
+		//\bubble_unpop,
+		\bubble_fizz
 	].do { |name| currentEnvironment[name].(degrees) };
 
 	CmdPeriod.doOnce { server.freeAll }
@@ -66,8 +69,7 @@ server.waitForBoot {
 		degrees.do { arg degree;
 			~rec.record(server,
 				~rec.filename("bubble", "pop", degree), { arg recordbuf;
-					Pbind(*[
-						instrument: def.name,
+					Pnew(def.name, *[
 						tempo: 1,
 						dur: 0.25,
 						degree: Pn(degree, 1),
@@ -79,8 +81,7 @@ server.waitForBoot {
 			);
 		};
 	} {
-		Pbind(*[
-			instrument: def.name,
+		Pnew(def.name, *[
 			tempo: 1,
 			dur: 0.25,
 			degree: Pseq(degrees, 1),
@@ -209,4 +210,64 @@ server.waitForBoot {
 
 	toFree.do { |buffer| buffer.free };
 	toDelete.do { |path| File.delete(path) };
+};
+
+~bubble_fizz = { arg degrees;
+
+	var def = SynthDef(\bubbleFizz, { arg out = 0, t, dur, recordbuf;
+        var nVoices = 36;
+		var masterEnv = EnvGen.ar(Env.new(1 + [0, 1, 0], [attack, 1 - attack] * dur, \exp), doneAction: Done.freeSelf) - 1;
+        var sig;
+
+        var attack = 0.05;
+        var poissonRate = 400;
+        var poissonEnv = EnvGen.kr(Env(1 + [0, 1, 0.0001, 0], [attack, 1 - attack, 0.2] * dur, \exp)) - 1;
+
+		var feedback = LocalIn.ar(nVoices);
+
+        sig = nVoices.collect { |i|
+            var t = Dust.ar((poissonRate * poissonEnv) / nVoices);
+			var grainFreq = TRand.ar(t.linlin(0, 1, 2000, 5000), t.linlin(0, 1, 8000, 16000), t);
+            var amplitude = TExpRand.ar(0.5, 1, t);
+            var decay = TRand.ar(1e-3, 1e-3, t);
+            var click = EnvGen.ar(Env.perc(0.001, 0.01), gate: t);
+			var freqEnv = (EnvGen.ar(Env.new([1, 2, 1], [0.3, 0.7].normalizeSum * decay, \exp), gate: t));
+			var v = SinOsc.ar(grainFreq * freqEnv, phase: 2pi.rand) * (click * amplitude);
+			DelayN.ar(v + (feedback[i] * 0.4), delaytime: (i / nVoices).linlin(0, 1, 0.001, 0.15));
+        };
+
+		LocalOut.ar(sig);
+
+		sig = Mix.ar(sig) / nVoices;
+        sig = sig * masterEnv * nVoices.sqrt * 1.7;
+
+        ~rec.ar(recordbuf, sig);
+		~rec.end(DelayN.ar(Impulse.ar(0), dur, dur));
+        ClipDetector.ar(sig);
+        Out.ar(out, (~amp * sig).dup);
+    }).add;
+
+	var dur = 0.75;
+
+    server.sync;
+
+	if (~recording) {
+		var n = 12.max(degrees.size);
+		n.do { |degree|
+			~rec.record(server,
+				~rec.filename("bubble", "fizz", degree), { arg recordbuf;
+					Pnew(def.name,
+						\dur, dur,
+						\t, Pn(degree / n, 1),
+						\recordbuf, recordbuf
+					).play;
+				}
+			);
+		};
+	} {
+		Pnew(def.name,
+			\t, Pseq(degrees / degrees.maxItem, 1),
+			\dur, Pn(dur)
+		).play;
+	};
 };

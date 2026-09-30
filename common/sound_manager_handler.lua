@@ -145,6 +145,22 @@ function rt.SoundManagerHandler:instantiate()
             MessageType
         )
     end
+
+    do
+        require "common.sound_manager_instance"
+        local prefix = bd.normalize_path(rt.settings.sound_manager.assets_directory)
+        if string.last(prefix) ~= "/" then prefix = prefix .. "/" end
+        local id_to_path = bd.generate_resource_ids(prefix, bd.is_sound_file)
+
+        self._cache = {}
+        for id, path in pairs(id_to_path) do
+            self._cache[id] = {
+                id = id,
+                path = path,
+                duration = nil
+            }
+        end
+    end
 end
 
 --- @brief
@@ -297,6 +313,32 @@ function rt.SoundManagerHandler:has_handler_id(handler_id)
     end
 
     return false
+end
+
+--- @brief
+function rt.SoundManagerHandler:get_duration(id)
+    meta.assert(id, mt.String)
+
+    -- query cache in main, reduces latency instead of sending a message to the worker and waiting for a response
+    local entry = self._cache[id]
+    if entry == nil then
+        rt.error("In rt.SoundManagerHandler.get_duration: no sound with id `", id, "`")
+        return 0
+    else
+        if entry.duration == nil then
+            -- use streamed source to decode file header for duration query
+            local source = love.audio.newSource(entry.path, "stream")
+            if source == nil then
+                rt.error("In rt.SoundManagerHandler.get_duration: source count allocation limit reached")
+                return 0
+            end
+
+            entry.duration = source:getDuration("seconds")
+            source:release()
+        end
+
+        return entry.duration
+    end
 end
 
 --- @brief

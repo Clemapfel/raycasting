@@ -10,6 +10,7 @@ require "common.envelope"
 require "common.envelope_asr"
 require "common.smoothed_motion_1d"
 require "common.smoothed_motion_2d"
+require "common.random"
 
 rt.settings.sound_manager = {
     assets_directory = "assets/sounds",
@@ -75,7 +76,7 @@ function rt.SoundManager:instantiate()
             }
 
             local id_without_degree = string.match(id, "^(.*)_[^_]*$") -- everything before last occurence of `_`
-            assert(id_without_degree ~= nil)
+            if id_without_degree == nil then id_without_degree = id end
 
             local name = string.match(id, ".*%.([^.]*)_[^_.]*$") -- everything between last `.` and `_`
             local degree = string.match(id, "_([^_]*)$") -- everything after last `_`
@@ -100,7 +101,8 @@ function rt.SoundManager:instantiate()
 end
 
 --- @brief
-function rt.SoundManager:_get_resource_entry(id)
+function rt.SoundManager:_get_resource_entry(id, degree)
+    if degree ~= nil then id = id .. "_" .. degree end
     return self._id_to_resource_entry[id]
 end
 
@@ -232,12 +234,6 @@ end
 function rt.SoundManager:_play_internal(id, config, handler_id)
     meta.assert(id, mt.String, config, mt.Optional(mt.Table))
 
-    local resource_entry = self:_get_resource_entry(id)
-    if resource_entry == nil then
-        rt.error("In rt.SoundManager.play: no sound with id `", id, "`")
-        return nil
-    end
-
     if config == nil then config = {} end
 
     for key, value in pairs(_config_default) do
@@ -279,7 +275,7 @@ function rt.SoundManager:_play_internal(id, config, handler_id)
     _verify("sustain", mt.Number, true)
     _verify("release", mt.Number, false)
     _verify("effects", mt.Table, true)
-    _verify("degree", mt.Number, false)
+    _verify("degree", mt.Number, true)
     if failed then return nil end
 
     local error_prefix = string.paste("In rt.SoundManager.play: config for sound `", id, "`:")
@@ -307,10 +303,30 @@ function rt.SoundManager:_play_internal(id, config, handler_id)
         config.release = 0
     end
 
-    if config.degree ~= nil then
-        if self._id_to_valid_degrees[id][config.degree] ~= true then
-            rt.critical(error_prefix, "degree `", config.degree, "` is not present")
+    local valid_degrees = self._id_to_degrees[id]
+    if valid_degrees ~= nil and not table.is_empty(valid_degrees) then
+        if config.degree ~= nil then config.degree = tostring(config.degree) end
+
+        -- if not present or misconfigured, choose at random
+        if config.degree == nil or valid_degrees[config.degree] ~= true then
+
+            if config.degree ~= nil then
+                rt.warning("In rt.SoundManager.play: degree `", config.degree, "` is invalid for sound `", id, "`")
+            end
+
+            local keys = {}
+            for k in pairs(valid_degrees) do
+                table.insert(keys, k)
+            end
+
+            config.degree = rt.random.choose(keys)
         end
+    end
+
+    local resource_entry = self:_get_resource_entry(id, config.degree)
+    if resource_entry == nil then
+        rt.error("In rt.SoundManager.play: no sound with id `", id, "`")
+        return nil
     end
 
     if resource_entry.data == nil then
@@ -688,10 +704,10 @@ function rt.SoundManager:stop(handler_id)
 end
 
 --- @brief
-function rt.SoundManager:get_duration(id)
-    meta.assert(id, mt.String)
+function rt.SoundManager:get_duration(id, degree)
+    meta.assert(id, mt.String, degree, mt.Optional(mt.Number))
 
-    local entry = self:_get_resource_entry(id)
+    local entry = self:_get_resource_entry(id, degree)
     if entry == nil then
         rt.error("In rt.SoundManager.get_duration: no sound with id `", id, "`")
         return 0

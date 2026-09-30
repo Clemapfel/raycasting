@@ -33,3 +33,8 @@ for forward in range(
         return self._native[forward](self._native, ...)
     end
 end
+
+--- @brief
+function rt.Channel:get_was_read(id)
+    return self._native:hasRead(id)
+end

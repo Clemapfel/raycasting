@@ -38,6 +38,7 @@ var export = { |pathname|
 
 server.waitForBoot {
 	var before = Main.elapsedTime;
+
 	var condition = Condition.new(false);
 	var semaphore = Semaphore.new(32);
 	var convertJobsDone = 0;
