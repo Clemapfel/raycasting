@@ -17,13 +17,8 @@ require "common.input_manager"
 require "common.routine"
 require "common.functional"
 
---[[
 require "socials.social_media_banner_generator"
 rt.GameState:set_draw_debug_information(false)
-
-local downres = 1;
-rt.SocialMediaPlatform.YOUTUBE[1] = 1000 / downres --rt.SocialMediaPlatform.YOUTUBE[1] / res
-rt.SocialMediaPlatform.YOUTUBE[2] = 1000 / downres --rt.SocialMediaPlatform.YOUTUBE[2] / res
 
 local generator = rt.SocialMediaBannerGenerator(rt.SocialMediaPlatform.YOUTUBE)
 DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
@@ -37,7 +32,6 @@ DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
         generator:export()
     end
 end)
-]]
 
 love.load = function(args)
     if PROFILE then profiler.push("love.load") end
@@ -76,7 +70,7 @@ love.load = function(args)
     end
 
     require "overworld.overworld_scene"
-    rt.SceneManager:push(ow.OverworldScene, "debug_room", ow.StageEntryMode.INSTANT)
+    --rt.SceneManager:push(ow.OverworldScene, "debug_room", ow.StageEntryMode.INSTANT)
 
     require "menu.keybinding_scene"
     --rt.SceneManager:push(mn.KeybindingScene)
@@ -89,7 +83,7 @@ love.load = function(args)
 end
 
 local elapsed = 0
-local n = 20
+local n = 4
 
 love.update = function(delta)
     if rt.SceneManager ~= nil then
@@ -99,7 +93,7 @@ love.update = function(delta)
     elapsed = elapsed + delta
     if elapsed > 1 / n then
         if love.keyboard.isDown("r") then
-            --generator:update(delta)
+            generator:update(1)
         end
         elapsed = 0
     end
@@ -110,7 +104,7 @@ love.draw = function()
         rt.SceneManager:draw()
     end
 
-    --generator:draw()
+    generator:draw()
 end
 
 love.resize = function(width, height)
@@ -118,5 +112,5 @@ love.resize = function(width, height)
         rt.SceneManager:resize()
     end
 
-    --generator:reformat(0, 0, width, height)
+    generator:reformat(0, 0, width, height)
 end

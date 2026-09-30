@@ -153,7 +153,7 @@ float gradient_noise(vec3 p) {
     mix( dot( -1.0 + 2.0 * random_3d(i + vec3(0.0, 1.0, 1.0)), v - vec3(0.0, 1.0, 1.0)),
     dot( -1.0 + 2.0 * random_3d(i + vec3(1.0, 1.0, 1.0)), v - vec3(1.0, 1.0, 1.0)), u.x), u.y), u.z );
 
-    return res * 2.0 - 1.0;
+    return res;
 }
 
 float worley_noise(vec3 p) {
@@ -181,12 +181,9 @@ float worley_noise(vec3 p) {
     return 1 - dist;
 }
 
-const float ray_n_steps = 13;
-const float ray_step = 0.031;
-
-const int fbm_steps = 1;
-const float fbm_lacunarity = 1;  // frequency multiplier per octave
-const float fbm_gain = 1;  // amplitude multiplier per octave
+const int fbm_steps = 4;
+const float fbm_lacunarity = 1.2;
+const float fbm_gain = 0.3;
 
 float fbm(vec3 p) {
     float sum = 0.0;
@@ -205,7 +202,6 @@ float fbm(vec3 p) {
 
     return sum / max_value;
 }
-
 
 float noise_field(vec3 p, out vec3 grad) {
     const float h = 1e-3;
@@ -235,7 +231,6 @@ float fbm_worley(vec3 p) {
     return sum / max_value;
 }
 
-
 float noise_field_worley(vec3 p, out vec3 grad) {
     const float h = 1e-3;
 
@@ -263,44 +258,62 @@ void computemain() {
 
     vec2 position = vec2(pixel_position) / vec2(size);
 
-    vec3 scale = vec3(10, 10, 1);
-    vec3 scale_gain = vec3(1, 1, 1);
-    float transmittance = 1.0;
-    float sum = 0;
-    vec3 lacunarity = vec3(1);
-    vec3 lacunarity_gain = vec3(1, 1, 1) * 1.05;
-    vec3 amp = vec3(1);
-    vec3 amp_gain = vec3(1, 1, 1) * 1.1;
+    vec4 color = vec4(0);
 
-    vec3 lch = vec3(1);
+    const int n_hues = 1;
+    for (int i = 0; i < n_hues; ++i) {
 
-    vec3 ray_origin = vec3((position.xy - 0.5), elapsed);
-    vec3 ray_position = ray_origin;
-    vec3 ray_direction = vec3(0, 0, 1);
+        float hue = i / float(n_hues);
 
-    for (int i = 0; i < ray_n_steps; ++i) {
-        vec3 gradient = vec3(0);
-        float noise = noise_field(ray_position * scale, gradient);
+        const int ray_n_steps = 51;
+        const float ray_step = 0.019;
 
-        float alpha = 1.0 - exp(-noise * ray_step);
-        sum += transmittance * alpha * noise;
+        vec3 ray_origin = vec3(position.xy - vec2(0.5), 0);
+        vec3 ray_position = ray_origin;
+        vec3 ray_direction = vec3(0, 0, 1);
 
-        transmittance *= 1.0 - alpha;
-        if (transmittance < 0.1) break; // early out
+        float xy_scale = 7.2;
+        vec3 scale = vec3(vec2(xy_scale), 1);
+        scale.x *= size.x / size.y;
 
-        ray_direction += gradient;
-        ray_position += normalize(ray_direction) * ray_step * lacunarity * amp;
+        float xy_scale_gain = 1.05;
+        vec3 scale_gain = vec3(xy_scale_gain, xy_scale_gain, 1.02);
 
-        lch.xyz += gradient.xyz;
+        vec3 lacunarity = vec3(1);
+        vec3 lacunarity_gain = vec3(0.947, 0.947, 0.96) * 1.02;
 
-        lacunarity *= lacunarity_gain;
-        amp *= amp_gain;
-        scale *= scale_gain;
+        float opacity_amp = 1.9;
+        float opacity_amp_gain = 1.06;
+
+        float hue_sum = 0;
+
+        float transmittance = 1.0;
+        float sum = 0;
+        for (int i = 0; i < ray_n_steps; ++i) {
+            vec3 gradient = vec3(0);
+            float noise = noise_field(ray_position * scale, gradient);
+            noise = mix(-1, 1, (noise + 1) / 2);
+
+            float t = clamp(length(gradient), 0, 1);
+
+            float alpha = 1.0 - exp(-opacity_amp * noise * ray_step);
+            sum += transmittance * alpha;
+
+            transmittance *= 1.0 - alpha;
+            if (transmittance < 0.01 || sum >= 1.0) break;
+
+            hue_sum += dot(normalize(ray_direction), normalize(gradient)) / 20;
+
+            ray_position += normalize(ray_direction) * ray_step * lacunarity * dot(ray_direction, gradient);
+            ray_direction = mix(ray_direction, gradient, 0.9);
+            lacunarity *= lacunarity_gain;
+            scale *= scale_gain;
+            opacity_amp *= opacity_amp_gain;
+        }
+
+        sum = smoothstep(-1, max(1, hue_sum), sum);
+        color += lcha_to_rgba(vec4(mix(0, 1, sum), mix(0, 1, sum), fract(hue_sum + 0.7) , 1));
     }
 
-    float opacity = sum;
-
-    vec4 color = vec4(smoothstep(0.2, 0.8, opacity));
-
-    imageStore(texture, pixel_position, color);
+    imageStore(texture, pixel_position, vec4(color));
 }

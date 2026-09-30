@@ -50,17 +50,22 @@ end
 function rt.SocialMediaBannerGenerator:regenerate()
     local settings = rt.settings.social_media_banner_generator
     local success, shader_or_error = pcall(function()
+        local a = love.timer.getTime()
         local shader = rt.ComputeShader(settings.shader_path, {
             TEXTURE_FORMAT = settings.texture_format,
             WORK_GROUP_SIZE_X = 16,
             WORK_GROUP_SIZE_Y = 16
         })
 
+        local b = love.timer.getTime()
         shader:send("texture", self._texture)
         shader:dispatch(
             math.ceil(self._resolution_x / group_x),
             math.ceil(self._resolution_y / group_y)
         )
+        local c = love.timer.getTime()
+
+
 
         return shader
     end)
