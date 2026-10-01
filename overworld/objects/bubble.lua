@@ -46,6 +46,11 @@ local schema = {
     hue = ow.Number
 }
 
+local _degrees = rt.SoundManager:get_degrees("bubble.pop")
+local _get_degree = function(i)
+    return _degrees[math.wrap(i, #_degrees)]
+end
+
 function ow.Bubble:instantiate(object, stage, scene)
     object:validate_schema(schema, ow.ShapeType.ELLIPSE)
 
@@ -62,6 +67,9 @@ function ow.Bubble:instantiate(object, stage, scene)
     self._x_radius, self._y_radius = radius, radius
 
     self._is_destroyed = false
+    self._respawn_sound_effect_played = true
+    self._current_degree = 1
+
     self._respawn_elapsed = math.huge
     self._pop_fraction = 1
     self._pop_light_boost = 0
@@ -209,6 +217,7 @@ function ow.Bubble:_pop(dx, dy, pop_x, pop_y)
     if self._is_destroyed == true then return end
 
     self._is_destroyed = true
+    self._respawn_sound_effect_played = false
     self._respawn_elapsed = 0
     self._path_elapsed = 0 -- reset to 0 offset
     self._pop_light_boost = 0
@@ -226,9 +235,11 @@ function ow.Bubble:_pop(dx, dy, pop_x, pop_y)
         + math.mix(0, dist / rt.settings.overworld.bubble.inside_bounce_reference_length, t)
     )
 
-    rt.SoundManager:play("bubble.pop")
+    local degree = _get_degree(self._current_degree)
+    rt.SoundManager:play("bubble.pop", { degree = degree })
     rt.SoundManager:play("bubble.fizz", {
         delay = 0.5 * rt.SoundManager:get_duration("bubble.pop")
+        -- fizz has no degree
     })
 
     local perimeter
@@ -332,6 +343,17 @@ function ow.Bubble:update(delta)
     local respawn_duration = rt.settings.overworld.bubble.respawn_duration
     if self._is_destroyed then
         self._respawn_elapsed = self._respawn_elapsed + delta
+
+        if self._respawn_sound_effect_played == false
+            and respawn_duration - self._respawn_elapsed > rt.SoundManager:get_duration("bubble.unpop") then
+            rt.SoundManager:play("bubble.unpop", {
+                degree = _get_degree(self._current_degree)
+            })
+
+            self._current_degree = self._current_degree + 1
+            self._respawn_sound_effect_played = true
+        end
+
         self._pop_light_boost = rt.InterpolationFunctions.ENVELOPE(
             math.min(1, self._respawn_elapsed / rt.settings.overworld.bubble.pop_light_boost_duration),
             0.05,
