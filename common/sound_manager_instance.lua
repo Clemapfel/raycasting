@@ -191,6 +191,8 @@ function rt.SoundManager:_sync_sources(origin, ...)
 end
 
 local _config_default = {
+    volume = 1,
+    delay = 0,
     pitch = 1,
     position_x = nil, -- relative
     position_y = nil,
@@ -205,6 +207,8 @@ local _config_default = {
 
 local _config_keys = {}
 for x in range(
+    "volume",
+    "delay",
     "pitch",
     "position_x",
     "position_y",
@@ -231,8 +235,22 @@ function rt.SoundManager:play(id, config)
 end
 
 --- @brief
-function rt.SoundManager:_play_internal(id, config, handler_id)
-    meta.assert(id, mt.String, config, mt.Optional(mt.Table))
+function rt.SoundManager:queue(after_handler_id, id, config)
+    meta.assert(after_handler_id, mt.Number, id, mt.String, config, mt.Optional(mt.Table))
+
+    local handler_id = self._handler_id
+    self._handler_id = self._handler_id + 1
+
+    if self._handler_id_to_entry[after_handler_id] == nil then
+        after_handler_id = nil
+    end
+
+    return self:_play_internal(id, config, handler_id, after_handler_id)
+end
+
+--- @brief
+function rt.SoundManager:_play_internal(id, config, handler_id, after_handler_id)
+    meta.assert(id, mt.String, config, mt.Optional(mt.Table), after_handler_id, mt.Optional(mt.Number))
 
     if config == nil then config = {} end
 
@@ -266,6 +284,8 @@ function rt.SoundManager:_play_internal(id, config, handler_id)
         end
     end
 
+    _verify("volume", mt.Number, false)
+    _verify("delay", mt.Number, false)
     _verify("pitch", mt.Number, false)
     _verify("position_x", mt.Number, true)
     _verify("position_y", mt.Number, true)
@@ -288,8 +308,16 @@ function rt.SoundManager:_play_internal(id, config, handler_id)
         rt.critical(error_prefix, "`loop_overlap` is set, but `should_loop` is false")
     end
 
+    if config.volume < 0 then
+        rt.critical(error_prefix, "volume `", config.pitch, "` cannot be negative")
+    end
+
+    if config.delay < 0 then
+        rt.critical(error_prefix, "delay `", config.delay, "` cannot be negative")
+    end
+
     if config.pitch <= 0 then
-        rt.critical(error_prefix, "pitch `", config.pitch, "` is outside (0, 1]")
+        rt.critical(error_prefix, "pitch `", config.pitch, "` cannot be zero or negative")
         config.pitch = 1
     end
 
@@ -303,23 +331,23 @@ function rt.SoundManager:_play_internal(id, config, handler_id)
         config.release = 0
     end
 
-    local valid_degrees = self._id_to_degrees[id]
-    if valid_degrees ~= nil and not table.is_empty(valid_degrees) then
+    local degrees = self._id_to_degrees[id]
+    if degrees ~= nil and not table.is_empty(degrees) then
         if config.degree ~= nil then config.degree = tostring(config.degree) end
 
         -- if not present or misconfigured, choose at random
-        if config.degree == nil or valid_degrees[config.degree] ~= true then
+        if config.degree == nil or degrees[config.degree] ~= true then
 
             if config.degree ~= nil then
                 rt.warning("In rt.SoundManager.play: degree `", config.degree, "` is invalid for sound `", id, "`")
             end
 
-            local keys = {}
-            for k in pairs(valid_degrees) do
-                table.insert(keys, k)
+            local to_choose = {}
+            for k in keys(degrees) do
+                table.insert(to_choose, k)
             end
 
-            config.degree = rt.random.choose(keys)
+            config.degree = rt.random.choose(to_choose)
         end
     end
 
@@ -356,15 +384,22 @@ function rt.SoundManager:_play_internal(id, config, handler_id)
         resource_entry = resource_entry,
 
         source = love.audio.newSource(resource_entry.data),
+        volume = config.volume,
+        delay = config.delay,
+        delay_elapsed = 0,
+
         elapsed = 0,
 
-        envelope = nil, -- rt.Envelope
-        position_motion = nil, -- Optional<rt.SmoothedMotion2D>,
+        waiting_for = after_handler_id,
+
+        envelope = nil, -- Union<rt.Envelope, rt.EnvelopeASR>
+        position_motion = nil, -- rt.SmoothedMotion2D
         volume_motion = nil, -- rt.SmoothedMotion1D
+        pitch_motion = nil, -- rt.SmoothedMotion1D
         is_stopping = false,
 
         swap_source = nil, -- love.Source
-        swap_period = nil,  -- seconds
+        swap_period = nil, -- seconds
         swap_envelope = nil -- rt.Envelope
     }
 
@@ -434,9 +469,6 @@ function rt.SoundManager:_play_internal(id, config, handler_id)
     entry.source:setPitch(pitch)
     entry.pitch_motion = rt.SmoothedMotion1D(pitch)
 
-    -- start source, return handler id
-    entry.source:play()
-
     -- second swap source for cross fading loop
     if config.should_loop == true and config.loop_overlap > 0 then
         entry.swap_source = love.audio.newSource(resource_entry.data)
@@ -479,58 +511,78 @@ function rt.SoundManager:update(delta)
 
     local to_free = {}
     for handler_id, entry in pairs(self._handler_id_to_entry) do
-        entry.volume_motion:update(delta)
-        entry.position_motion:update(delta)
-        entry.pitch_motion:update(delta)
-        entry.envelope:update(delta)
-
-        entry.elapsed = entry.elapsed + delta
-
-        local master_amp = self._volume
-            * entry.volume_motion:get_value()
-            * entry.envelope:get_value()
-
-        local px, py = entry.position_motion:get_position()
-        local pitch = entry.pitch_motion:get_value()
-
-        local is_looping = entry.source:isLooping()
-        if entry.swap_source then
-            -- both sources play continously, envelopes staggered for seamless loop
-            --   _ _ _ _         _ _ _ _
-            --  /   A   \       /   A   \
-            --           _ _ _ _
-            --          /   B   \
-
-            if entry.swap_source:isPlaying() == false
-                and entry.elapsed > entry.swap_period
-            then
-                -- delay second source by period
-                entry.swap_source:play()
-            end
-
-            local amp_a = entry.swap_envelope:at(entry.elapsed % (2 * entry.swap_period))
-            local amp_b = 1 - amp_a
-
-            entry.source:setVolume(master_amp * amp_a)
-            self:_set_source_position(entry.source, px, py)
-            entry.source:setPitch(pitch)
-
-            entry.swap_source:setVolume(master_amp * amp_b)
-            self:_set_source_position(entry.swap_source, px, py)
-            entry.swap_source:setPitch(pitch)
-        else
-            entry.source:setVolume(master_amp)
-            self:_set_source_position(entry.source, px, py)
-            entry.source:setPitch(pitch)
+        local should_continue = true
+        if entry.waiting_for ~= nil then
+            local before = self._handler_id_to_entry[entry.waiting_for]
+            should_continue = before == nil or before.is_stopping == true
+            if should_continue == true then entry.waiting_for = nil end
         end
 
-        -- mark to free
-        local x, y = entry.source:getPosition()
-        if entry.is_stopping and math.less_than_or_equal(master_amp, 0, 0.01)
-            or entry.envelope:get_is_done()
-            or math.distance(x, y, self._listener_x, self._listener_y) > self._reference_distance ^ 2
-        then
-            table.insert(to_free, handler_id)
+        if should_continue then
+            entry.delay_elapsed = entry.delay_elapsed + delta
+            should_continue = entry.delay_elapsed >= entry.delay
+        end
+
+        if should_continue then
+
+            if entry.source:isPlaying() == false then
+                entry.source:play()
+            end
+
+            entry.volume_motion:update(delta)
+            entry.position_motion:update(delta)
+            entry.pitch_motion:update(delta)
+            entry.envelope:update(delta)
+
+            entry.elapsed = entry.elapsed + delta
+
+            local master_amp = self._volume
+                * entry.volume
+                * entry.volume_motion:get_value()
+                * entry.envelope:get_value()
+
+            local px, py = entry.position_motion:get_position()
+            local pitch = entry.pitch_motion:get_value()
+
+            local is_looping = entry.source:isLooping()
+            if entry.swap_source then
+                -- both sources play continously, envelopes staggered for seamless loop
+                --   _ _ _ _         _ _ _ _
+                --  /   A   \       /   A   \
+                --           _ _ _ _
+                --          /   B   \
+
+                if entry.swap_source:isPlaying() == false
+                    and entry.elapsed > entry.swap_period
+                then
+                    -- delay second source by period
+                    entry.swap_source:play()
+                end
+
+                local amp_a = entry.swap_envelope:at(entry.elapsed % (2 * entry.swap_period))
+                local amp_b = 1 - amp_a
+
+                entry.source:setVolume(master_amp * amp_a)
+                self:_set_source_position(entry.source, px, py)
+                entry.source:setPitch(pitch)
+
+                entry.swap_source:setVolume(master_amp * amp_b)
+                self:_set_source_position(entry.swap_source, px, py)
+                entry.swap_source:setPitch(pitch)
+            else
+                entry.source:setVolume(master_amp)
+                self:_set_source_position(entry.source, px, py)
+                entry.source:setPitch(pitch)
+            end
+
+            -- mark to free
+            local x, y = entry.source:getPosition()
+            if entry.is_stopping and math.less_than_or_equal(master_amp, 0, 0.01)
+                or entry.envelope:get_is_done()
+                or math.distance(x, y, self._listener_x, self._listener_y) > self._reference_distance ^ 2
+            then
+                table.insert(to_free, handler_id)
+            end
         end
     end
 
@@ -705,7 +757,15 @@ end
 
 --- @brief
 function rt.SoundManager:get_duration(id, degree)
-    meta.assert(id, mt.String, degree, mt.Optional(mt.Number))
+    meta.assert(id, mt.String, degree, mt.Optional(mt.Any))
+
+    local degrees = self._id_to_degrees[id]
+    if degree == nil and degrees ~= nil and not table.is_empty(degrees) then
+        local in_order = {}
+        for x in keys(degrees) do table.insert(in_order, x) end
+        table.sort(in_order)
+        id = id .. in_order[1]
+    end
 
     local entry = self:_get_resource_entry(id, degree)
     if entry == nil then
@@ -745,6 +805,22 @@ function rt.SoundManager:_get_state()
     end
 
     return sound_id_to_active_handlers
+end
+
+--- @brief
+function rt.SoundManager:_get_cache()
+    local cache = {}
+    cache.id_to_entry = {}
+
+    for id, entry in pairs(self._id_to_resource_entry) do
+        cache.id_to_entry[id] = {
+            path = entry.path,
+            duration = nil
+        }
+    end
+
+    cache.id_to_degrees = self._id_to_degrees
+    return cache
 end
 
 

@@ -227,6 +227,9 @@ function ow.Bubble:_pop(dx, dy, pop_x, pop_y)
     )
 
     rt.SoundManager:play("bubble.pop")
+    rt.SoundManager:play("bubble.fizz", {
+        delay = 0.5 * rt.SoundManager:get_duration("bubble.pop")
+    })
 
     local perimeter
     do

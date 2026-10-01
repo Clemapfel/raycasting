@@ -112,5 +112,5 @@ server.waitForBoot {
 	};
 
 	condition.wait;
-	"done. Took %s".format(Main.elapsedTime - before).postln;
+	"done. Took %s".format(Main.elapsedTime - before).round(0.01).postln;
 };

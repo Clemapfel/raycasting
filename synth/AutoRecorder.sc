@@ -8,6 +8,9 @@ AutoRecorder {
 
 	classvar <>exportPathName = "export";
 	classvar <>assetPathName = "assets";
+	classvar <>postfixPattern = "_%";
+
+	classvar <>isSilenced = false;
 
 	/*
 	// ### EXAMPLE USAGE ###
@@ -43,8 +46,10 @@ AutoRecorder {
 	*/
 
 	*ar { arg recordbuf, sig;
-		// warn if recordbuf == 0
-		SendReply.kr((recordbuf <= 0) * Impulse.kr(0), cmdName: AutoRecorder.warnMessage);
+		if (AutoRecorder.isSilenced.not) {
+			// warn if recordbuf == 0
+		    SendReply.kr((recordbuf <= 0) * Impulse.kr(0), cmdName: AutoRecorder.warnMessage);
+		};
 
 		// write to disk
 		DiskOut.ar(recordbuf, sig);
@@ -120,7 +125,7 @@ AutoRecorder {
 			swap.free {
 				latency.wait;
 				if (AutoRecorder.trimSilence(pathname) == false) {
-					"In AutoRecorder: file contains only silence. Was `AutoRecorder.ar` used?".format(path.fullPath).postln;
+					"In AutoRecorder: file contains only silence. Was `AutoRecorder.ar` used?".format(pathname.fullPath).postln;
 
 				};
 				"In AutoRecorder: done. Wrote `%` to `%`".format(
@@ -150,7 +155,7 @@ AutoRecorder {
 		if (degree.isNil) {
 			res = exportPath +/+ prefix +/+ name ++ "." ++ AutoRecorder.headerFormat.toLower;
 		} {
-			res = exportPath +/+ prefix +/+ name ++ "_%".format(degree + 1) ++ "." ++ AutoRecorder.headerFormat.toLower;
+			res = exportPath +/+ prefix +/+ name ++ (AutoRecorder.postfixPattern ++ "%").format(degree + 1) ++ "." ++ AutoRecorder.headerFormat.toLower;
 		};
 
 		^res.standardizePath;

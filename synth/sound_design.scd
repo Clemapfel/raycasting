@@ -12,7 +12,7 @@ Main.version.postln;
 
 server.waitForBoot {
 
-	var degrees = [0, 1, 4];
+	var degrees = [0, 4, 8, 12];
 	[
 		//\bubble_pop,
 		//\bubble_unpop,
@@ -26,6 +26,7 @@ server.waitForBoot {
 
 ~amp = 0.4;
 ~rec = AutoRecorder;
+~rec.isSilenced = ~recording.not;
 
 // ### IMPLEMENTATIONS ###
 
@@ -193,6 +194,8 @@ server.waitForBoot {
 		var buffer = Buffer.read(server, tempPath);
 		server.sync;
 
+		if (~recording) {
+
 		~rec.record(server,
 			finalPath, { arg recordbuf;
 				Synth.new(backwardsDef.name, [
@@ -203,6 +206,13 @@ server.waitForBoot {
 				]);
 			}
 		);
+		} {
+			Synth.new(backwardsDef.name, [
+				\bufnum, buffer,
+				\degreeStart, 8,
+				\degreeEnd, 0
+			]);
+		};
 
 		toFree.add(buffer);
 		toDelete.add(tempPath);
@@ -252,7 +262,7 @@ server.waitForBoot {
     server.sync;
 
 	if (~recording) {
-		var n = 12.max(degrees.size);
+		var n = 4.max(degrees.size);
 		n.do { |degree|
 			~rec.record(server,
 				~rec.filename("bubble", "fizz", degree), { arg recordbuf;

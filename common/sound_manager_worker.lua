@@ -3,7 +3,7 @@ require "common.sound_manager_instance"
 rt.SoundManager = meta.as_singleton(rt.SoundManager)
 assert(rt.SoundManager ~= nil)
 
-local main_to_worker, worker_to_main, MessageType = ...
+local main_to_worker, worker_to_main, worker_to_main_priority, MessageType = ...
 
 local message_type_to_handler = {
     [MessageType.SET_PLAYER_POSITION] = function(message)
@@ -23,6 +23,15 @@ local message_type_to_handler = {
             message.id,
             message.config,
             message.handler_id
+        )
+    end,
+
+    [MessageType.QUEUE] = function(message)
+        rt.SoundManager:_play_internal(
+            message.id,
+            message.config,
+            message.handler_id,
+            message.after_handler_id
         )
     end,
 
@@ -121,6 +130,13 @@ local success, error_maybe = pcall(function()
             })
         end
     end
+
+    -- send back init message
+    local cache = safe_call(rt.SoundManager._get_cache, rt.SoundManager)
+    worker_to_main_priority:push({
+        type = MessageType.NOTIFY_CACHE,
+        cache = cache
+    })
 
     while true do
         local message

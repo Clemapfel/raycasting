@@ -20,7 +20,7 @@ require "common.functional"
 require "socials.social_media_banner_generator"
 rt.GameState:set_draw_debug_information(false)
 
-local downres = 8
+local downres = 1
 rt.SocialMediaPlatform.YOUTUBE[1] = rt.SocialMediaPlatform.YOUTUBE[1] / downres
 rt.SocialMediaPlatform.YOUTUBE[2] = rt.SocialMediaPlatform.YOUTUBE[2] / downres
 
@@ -74,7 +74,7 @@ love.load = function(args)
     end
 
     require "overworld.overworld_scene"
-    --rt.SceneManager:push(ow.OverworldScene, "debug_room", ow.StageEntryMode.INSTANT)
+    rt.SceneManager:push(ow.OverworldScene, "debug_room", ow.StageEntryMode.INSTANT)
 
     require "menu.keybinding_scene"
     --rt.SceneManager:push(mn.KeybindingScene)
@@ -108,7 +108,7 @@ love.draw = function()
         rt.SceneManager:draw()
     end
 
-    generator:draw()
+    --generator:draw()
 end
 
 love.resize = function(width, height)

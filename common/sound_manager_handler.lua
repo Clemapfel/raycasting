@@ -27,7 +27,14 @@ for id in range(
         worker -> main
         type : MessageType
         error : String
+        traceback : String?
         fatal : Boolean
+    ]]
+
+    "NOTIFY_CACHE", --[[
+        worker -> main
+        type : MessageType
+        cache : Table
     ]]
 
     "NOTIFY_STATE", --[[
@@ -62,7 +69,16 @@ for id in range(
         main -> worker
         type : MessageType
         id : String
+        handler_id : Number
         config : Table? -- pitch, position_x, position_y, should_loop, loop_overlap
+    ]]
+
+    "QUEUE", --[[
+        type : MessageType
+        id : String
+        config : Table?
+        handler_id : Number
+        after_handler_id : Number
     ]]
 
     "STOP", --[[
@@ -138,28 +154,19 @@ function rt.SoundManagerHandler:instantiate()
         })
     end)
 
+    self._worker_to_main_priority = rt.Channel()
+
     if not rt.ThreadManager:get_is_shutdown_active() then
         self._worker:start(
             self._main_to_worker:get_native(),
             self._worker_to_main:get_native(),
+            self._worker_to_main_priority:get_native(),
             MessageType
         )
-    end
 
-    do
-        require "common.sound_manager_instance"
-        local prefix = bd.normalize_path(rt.settings.sound_manager.assets_directory)
-        if string.last(prefix) ~= "/" then prefix = prefix .. "/" end
-        local id_to_path = bd.generate_resource_ids(prefix, bd.is_sound_file)
-
-        self._cache = {}
-        for id, path in pairs(id_to_path) do
-            self._cache[id] = {
-                id = id,
-                path = path,
-                duration = nil
-            }
-        end
+        -- wait for cache message to be send back
+        local msg = self._worker_to_main_priority:demand()
+        self._cache = msg.cache
     end
 end
 
@@ -204,8 +211,26 @@ function rt.SoundManagerHandler:play(id, config)
 end
 
 --- @brief
-function rt.SoundManagerHandler:stop(handler_id, fade_out_duration)
-    meta.assert(handler_id, mt.Number, fade_out_duration, mt.Optional(mt.Number))
+function rt.SoundManagerHandler:queue(after_handler_id, id, config)
+    meta.assert(after_handler_id, mt.Number, id, mt.String, config, mt.Optional(mt.Table))
+
+    local handler_id = self._handler_id
+    self._handler_id = self._handler_id + 1
+
+    self._main_to_worker:push({
+        type = MessageType.QUEUE,
+        id = id,
+        config = config,  -- pitch, position_x, position_y, should_loop, loop_overlap
+        handler_id = handler_id,
+        after_handler_id = after_handler_id
+    })
+
+    return handler_id
+end
+
+--- @brief
+function rt.SoundManagerHandler:stop(handler_id)
+    meta.assert(handler_id, mt.Number)
 
     self._main_to_worker:push({
         type = MessageType.STOP,
@@ -316,11 +341,32 @@ function rt.SoundManagerHandler:has_handler_id(handler_id)
 end
 
 --- @brief
-function rt.SoundManagerHandler:get_duration(id)
-    meta.assert(id, mt.String)
+function rt.SoundManagerHandler:get_duration(id, degree)
+    meta.assert(id, mt.String, degree, mt.Optional(mt.Any))
+
+    local degrees = self._cache.id_to_degrees[id]
+    if degrees ~= nil and not table.is_empty(degrees) then
+        if degree ~= nil then degree = tostring(degree) end
+
+        -- if not present or misconfigured, choose at first
+        if degree == nil or degrees[degree] ~= true then
+
+            if degree ~= nil then
+                rt.warning("In rt.SoundManager.get_duration: degree `", degree, "` is invalid for sound `", id, "`")
+            end
+
+            local to_choose = {}
+            for k in keys(degrees) do
+                table.insert(to_choose, k)
+            end
+            table.sort(to_choose)
+
+            id = id .. "_" .. to_choose[1]
+        end
+    end
 
     -- query cache in main, reduces latency instead of sending a message to the worker and waiting for a response
-    local entry = self._cache[id]
+    local entry = self._cache.id_to_entry[id]
     if entry == nil then
         rt.error("In rt.SoundManagerHandler.get_duration: no sound with id `", id, "`")
         return 0
