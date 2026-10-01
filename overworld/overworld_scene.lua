@@ -1318,6 +1318,7 @@ end
 function ow.OverworldScene:pause()
     if self._is_paused ~= true then
         self._is_paused = true
+        rt.SoundManager:pause()
         self._pause_menu:present()
     end
 end
@@ -1326,6 +1327,7 @@ end
 function ow.OverworldScene:unpause()
     if self._is_paused ~= false then
         self._is_paused = false
+        rt.SoundManager:unpause()
         self._pause_menu:close()
         rt.InputManager:flush()
     end

@@ -3,7 +3,10 @@ rt.SmoothedMotion1D = meta.class("SmoothedMotion1D")
 
 --- @brief
 function rt.SmoothedMotion1D:instantiate(value, speed, ramp)
-    if ramp == nil then ramp = 6 end
+    if ramp == nil then
+        ramp = math.ln(1000) -- 1s lag time
+    end
+
     if speed == nil then speed = 1 end
     meta.assert(value, mt.Number, speed, mt.Number)
 
@@ -61,7 +64,6 @@ function rt.SmoothedMotion1D:update(delta)
         distance = self._target_value - self._current_value
     end
 
-
     local step
     if distance > 0 then
         step = self._ramp * distance * self._attack_speed * delta
@@ -79,8 +81,6 @@ function rt.SmoothedMotion1D:update(delta)
         end
 
         if math.abs(final_distance) < math.abs(step) then
-            -- Snap by distance rather than raw target_value to prevent a discontinuous jump
-            -- (e.g. snapping from ~0 up to 2*pi).
             self._current_value = self._current_value + final_distance
         end
     elseif self._is_periodic then

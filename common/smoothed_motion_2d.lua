@@ -10,11 +10,12 @@ function rt.SmoothedMotion2D:instantiate(position_x, position_y, speed, is_linea
 
     meta.assert(position_x, mt.Number, position_y,  mt.Number, speed, mt.Number, is_linear, mt.Boolean)
     self._speed = speed
+    self._ramp = math.ln(1000) -- 1s lag time
     self._current_position_x = position_x
     self._current_position_y = position_y
     self._target_position_x = position_x
     self._target_position_y = position_y
-    self._is_linear = is_linear
+    self._is_linear = is_linear -- kept for compatibility, no longer affects update
 end
 
 --- @brief
@@ -47,47 +48,27 @@ function rt.SmoothedMotion2D:set_speed(speed)
     self._speed = speed
 end
 
+--- @brief set speed such that 99.9% of a step is covered in `seconds`
+function rt.SmoothedMotion2D:set_lag_time(seconds)
+    self._speed = 1 / seconds
+end
+
 --- @brief
 function rt.SmoothedMotion2D:update(delta)
-    if self._is_linear ~= true then
-        local distance_x = self._target_position_x - self._current_position_x
-        local distance_y = self._target_position_y - self._current_position_y
+    local alpha = 1 - math.exp(-self._ramp * self._speed * delta)
 
-        local step_x = 6 * distance_x * self._speed * delta
-        local step_y = 6 * distance_y * self._speed * delta
+    self._current_position_x = self._current_position_x + (self._target_position_x - self._current_position_x) * alpha
+    self._current_position_y = self._current_position_y + (self._target_position_y - self._current_position_y) * alpha
 
-        self._current_position_x = self._current_position_x + step_x
-        self._current_position_y = self._current_position_y + step_y
-
-        if  (distance_x > 0 and self._current_position_x > self._target_position_x) or
-            (distance_x < 0 and self._current_position_x < self._target_position_x)
-        then
-            self._current_position_x = self._target_position_x
-        end
-
-        if  (distance_y > 0 and self._current_position_y > self._target_position_y) or
-            (distance_y < 0 and self._current_position_y < self._target_position_y)
-        then
-            self._current_position_y = self._target_position_y
-        end
-
-        return self._current_position_x, self._current_position_y
-    else
-        local t = 1 - math.exp(-self._speed * delta)
-
-        self._current_position_x = self._current_position_x + (self._target_position_x - self._current_position_x) * t
-        self._current_position_y = self._current_position_y + (self._target_position_y - self._current_position_y) * t
-
-        local threshold = 0.001
-        if math.abs(self._target_position_x - self._current_position_x) < threshold then
-            self._current_position_x = self._target_position_x
-        end
-        if math.abs(self._target_position_y - self._current_position_y) < threshold then
-            self._current_position_y = self._target_position_y
-        end
-
-        return self._current_position_x, self._current_position_y
+    local threshold = 0.001
+    if math.abs(self._target_position_x - self._current_position_x) < threshold then
+        self._current_position_x = self._target_position_x
     end
+    if math.abs(self._target_position_y - self._current_position_y) < threshold then
+        self._current_position_y = self._target_position_y
+    end
+
+    return self._current_position_x, self._current_position_y
 end
 
 --- @brief

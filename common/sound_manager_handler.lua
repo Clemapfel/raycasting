@@ -73,7 +73,23 @@ for id in range(
         config : Table? -- pitch, position_x, position_y, should_loop, loop_overlap
     ]]
 
+    "PAUSE", --[[
+        main -> worker
+        type : MessageType
+    ]]
+
+    "UNPAUSE", --[[
+        main -> worker
+        type : MessageType
+    ]]
+
+    "FLUSH", --[[
+        main -> worker
+        type : MessageType
+    ]]
+
     "QUEUE", --[[
+        main -> worker
         type : MessageType
         id : String
         config : Table?
@@ -203,8 +219,9 @@ function rt.SoundManagerHandler:play(id, config)
     self._main_to_worker:push({
         type = MessageType.PLAY,
         id = id,
-        config = config,  -- pitch, position_x, position_y, should_loop, loop_overlap
-        handler_id = handler_id
+        config = config, -- cf. rt.SoundManagerInstance:_play_internal
+        handler_id = handler_id,
+        after_handler_id = nil
     })
 
     return handler_id
@@ -220,7 +237,7 @@ function rt.SoundManagerHandler:queue(after_handler_id, id, config)
     self._main_to_worker:push({
         type = MessageType.QUEUE,
         id = id,
-        config = config,  -- pitch, position_x, position_y, should_loop, loop_overlap
+        config = config,
         handler_id = handler_id,
         after_handler_id = after_handler_id
     })
@@ -235,6 +252,33 @@ function rt.SoundManagerHandler:stop(handler_id)
     self._main_to_worker:push({
         type = MessageType.STOP,
         handler_id = handler_id
+    })
+end
+
+--- @brief
+function rt.SoundManagerHandler:pause(_)
+    meta.assert(_, mt.Nil)
+
+    self._main_to_worker:push({
+        type = MessageType.PAUSE
+    })
+end
+
+--- @brief
+function rt.SoundManagerHandler:unpause(_)
+    meta.assert(_, mt.Nil)
+
+    self._main_to_worker:push({
+        type = MessageType.PAUSE
+    })
+end
+
+--- @brief
+function rt.SoundManagerHandler:flush(_)
+    meta.assert(_, mt.Nil)
+
+    self._main_to_worker:push({
+        type = MessageType.FLUSH
     })
 end
 
@@ -384,6 +428,29 @@ function rt.SoundManagerHandler:get_duration(id, degree)
         end
 
         return entry.duration
+    end
+end
+
+local _degree_comparator = function(a, b)
+    local a_maybe = tonumber(a)
+    local b_maybe = tonumber(b)
+    return (a_maybe or a) < (b_maybe or b)
+end
+
+--- @brief
+function rt.SoundManagerHandler:get_degrees(id)
+    local degrees = self._cache.id_to_degrees[id]
+    if degrees == nil then
+        return {}
+    else
+        local res = {}
+        for x in keys(degrees) do
+            table.insert(res, x)
+        end
+
+        table.sort(res, _degree_comparator)
+
+        return res
     end
 end
 

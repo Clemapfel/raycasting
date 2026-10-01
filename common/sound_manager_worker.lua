@@ -41,6 +41,18 @@ local message_type_to_handler = {
         )
     end,
 
+    [MessageType.PAUSE] = function(message)
+        rt.SoundManager:pause()
+    end,
+
+    [MessageType.UNPAUSE] = function(message)
+        rt.SoundManager:unpause()
+    end,
+
+    [MessageType.FLUSH] = function(message)
+        rt.SoundManager:flush()
+    end,
+
     [MessageType.SET_GLOBAL_VOLUME] = function(message)
         rt.SoundManager:set_global_volume(message.value)
     end,

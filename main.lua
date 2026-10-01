@@ -34,6 +34,12 @@ DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
         generator:update(1 / 30)
     elseif which == rt.KeyboardKey.U then
         generator:export()
+    elseif which == rt.KeyboardKey.J then
+        rt.SoundManager:pause()
+    elseif which == rt.KeyboardKey.K then
+        rt.SoundManager:unpause()
+    elseif which == rt.KeyboardKey.M then
+        rt.SoundManager:flush()
     end
 end)
 

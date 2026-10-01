@@ -26,6 +26,7 @@ rt.settings.sound_manager = {
     max_import_release_fraction = 0.01,
 
     degree_separation_char = "_",
+    volume_motion_velocity = 4, -- factor
 
     max_cache_size = 512 -- mb
 }
@@ -41,6 +42,11 @@ local _active_sources = 0
 local _skip_next_delta = false
 local _cache = rt.Cache(rt.CachePolicy.FIRST_IN_FIRST_OUT)
 local _cache_size = 0 -- size in mb
+
+local _PAUSE_STATE_IDLE = "IDLE"
+local _PAUSE_STATE_PAUSING = "PAUSING"
+local _PAUSE_STATE_PAUSED = "PAUSED"
+local _PAUSE_STATE_UNPAUSING = "UNPAUSING"
 
 --- @brief
 function rt.SoundManager:instantiate()
@@ -93,7 +99,9 @@ function rt.SoundManager:instantiate()
         end
     end
 
-    self._volume = 1
+    self._volume_motion = rt.SmoothedMotion1D(1, rt.settings.sound_manager.volume_motion_velocity)
+    self._pause_volume_motion = rt.SmoothedMotion1D(1, rt.settings.sound_manager.volume_motion_velocity)
+    self._pause_state = _PAUSE_STATE_IDLE
 
     -- active playback entries
     self._handler_id = 0
@@ -102,7 +110,7 @@ end
 
 --- @brief
 function rt.SoundManager:_get_resource_entry(id, degree)
-    if degree ~= nil then id = id .. "_" .. degree end
+    if degree ~= nil then id = id .. rt.settings.sound_manager.degree_separation_char .. degree end
     return self._id_to_resource_entry[id]
 end
 
@@ -295,7 +303,7 @@ function rt.SoundManager:_play_internal(id, config, handler_id, after_handler_id
     _verify("sustain", mt.Number, true)
     _verify("release", mt.Number, false)
     _verify("effects", mt.Table, true)
-    _verify("degree", mt.Number, true)
+    -- degree is mt.Any
     if failed then return nil end
 
     local error_prefix = string.paste("In rt.SoundManager.play: config for sound `", id, "`:")
@@ -337,7 +345,6 @@ function rt.SoundManager:_play_internal(id, config, handler_id, after_handler_id
 
         -- if not present or misconfigured, choose at random
         if config.degree == nil or degrees[config.degree] ~= true then
-
             if config.degree ~= nil then
                 rt.warning("In rt.SoundManager.play: degree `", config.degree, "` is invalid for sound `", id, "`")
             end
@@ -384,6 +391,7 @@ function rt.SoundManager:_play_internal(id, config, handler_id, after_handler_id
         resource_entry = resource_entry,
 
         source = love.audio.newSource(resource_entry.data),
+        source_is_playing = false,
         volume = config.volume,
         delay = config.delay,
         delay_elapsed = 0,
@@ -396,9 +404,13 @@ function rt.SoundManager:_play_internal(id, config, handler_id, after_handler_id
         position_motion = nil, -- rt.SmoothedMotion2D
         volume_motion = nil, -- rt.SmoothedMotion1D
         pitch_motion = nil, -- rt.SmoothedMotion1D
+
+        flush_volume_motion = nil, -- rt.SmoothedMotion1D
+        is_flushing = false,
         is_stopping = false,
 
         swap_source = nil, -- love.Source
+        swap_source_is_playing = false,
         swap_period = nil, -- seconds
         swap_envelope = nil -- rt.Envelope
     }
@@ -427,7 +439,8 @@ function rt.SoundManager:_play_internal(id, config, handler_id, after_handler_id
 
     -- volume
     entry.source:setVolume(0) -- set next update
-    entry.volume_motion = rt.SmoothedMotion1D(1)
+    entry.volume_motion = rt.SmoothedMotion1D(1, rt.settings.sound_manager.volume_motion_velocity)
+    entry.flush_volume_motion = rt.SmoothedMotion1D(1, rt.settings.sound_manager.volume_motion_velocity)
 
     local duration = entry.resource_entry.duration
 
@@ -501,107 +514,6 @@ function rt.SoundManager:_play_internal(id, config, handler_id, after_handler_id
 end
 
 --- @brief
-function rt.SoundManager:update(delta)
-    meta.assert(delta, mt.Number)
-
-    if _skip_next_delta == true then
-        _skip_next_delta = false
-        return
-    end
-
-    local to_free = {}
-    for handler_id, entry in pairs(self._handler_id_to_entry) do
-        local should_continue = true
-        if entry.waiting_for ~= nil then
-            local before = self._handler_id_to_entry[entry.waiting_for]
-            should_continue = before == nil or before.is_stopping == true
-            if should_continue == true then entry.waiting_for = nil end
-        end
-
-        if should_continue then
-            entry.delay_elapsed = entry.delay_elapsed + delta
-            should_continue = entry.delay_elapsed >= entry.delay
-        end
-
-        if should_continue then
-
-            if entry.source:isPlaying() == false then
-                entry.source:play()
-            end
-
-            entry.volume_motion:update(delta)
-            entry.position_motion:update(delta)
-            entry.pitch_motion:update(delta)
-            entry.envelope:update(delta)
-
-            entry.elapsed = entry.elapsed + delta
-
-            local master_amp = self._volume
-                * entry.volume
-                * entry.volume_motion:get_value()
-                * entry.envelope:get_value()
-
-            local px, py = entry.position_motion:get_position()
-            local pitch = entry.pitch_motion:get_value()
-
-            local is_looping = entry.source:isLooping()
-            if entry.swap_source then
-                -- both sources play continously, envelopes staggered for seamless loop
-                --   _ _ _ _         _ _ _ _
-                --  /   A   \       /   A   \
-                --           _ _ _ _
-                --          /   B   \
-
-                if entry.swap_source:isPlaying() == false
-                    and entry.elapsed > entry.swap_period
-                then
-                    -- delay second source by period
-                    entry.swap_source:play()
-                end
-
-                local amp_a = entry.swap_envelope:at(entry.elapsed % (2 * entry.swap_period))
-                local amp_b = 1 - amp_a
-
-                entry.source:setVolume(master_amp * amp_a)
-                self:_set_source_position(entry.source, px, py)
-                entry.source:setPitch(pitch)
-
-                entry.swap_source:setVolume(master_amp * amp_b)
-                self:_set_source_position(entry.swap_source, px, py)
-                entry.swap_source:setPitch(pitch)
-            else
-                entry.source:setVolume(master_amp)
-                self:_set_source_position(entry.source, px, py)
-                entry.source:setPitch(pitch)
-            end
-
-            -- mark to free
-            local x, y = entry.source:getPosition()
-            if entry.is_stopping and math.less_than_or_equal(master_amp, 0, 0.01)
-                or entry.envelope:get_is_done()
-                or math.distance(x, y, self._listener_x, self._listener_y) > self._reference_distance ^ 2
-            then
-                table.insert(to_free, handler_id)
-            end
-        end
-    end
-
-    -- free entry
-    for id in values(to_free) do
-        local entry = self._handler_id_to_entry[id]
-        entry.source:release()
-        _active_sources = _active_sources - 1
-
-        if entry.swap_source then
-            entry.swap_source:release()
-            _active_sources = _active_sources - 1
-        end
-
-        self._handler_id_to_entry[id] = nil
-    end
-end
-
---- @brief
 function rt.SoundManager:set_global_volume(value)
     meta.assert(value, mt.Number)
     self._volume = value
@@ -647,6 +559,37 @@ end
 --- @brief
 function rt.SoundManager:_get_entry(handler_id)
     return self._handler_id_to_entry[handler_id]
+end
+
+--- @brief
+function rt.SoundManager:pause()
+    if self._PAUSE_STATE_PAUSED then return end
+    self._pause_state = _PAUSE_STATE_PAUSING
+    self._pause_volume_motion:set_target_value(0)
+end
+
+--- @brief
+function rt.SoundManager:unpause()
+    self._pause_state = _PAUSE_STATE_UNPAUSING
+    self._pause_volume_motion:set_target_value(1)
+
+    for entry in values(self._handler_id_to_entry) do
+        if entry.source_is_playing == true then
+            entry.source:play()
+        end
+
+        if entry.swap_source ~= nil and entry.swap_source_is_playing then
+            entry.swap_source:play()
+        end
+    end
+end
+
+--- @brief
+function rt.SoundManager:flush()
+    for entry in values(self._handler_id_to_entry) do
+        entry.is_flushing = true
+        entry.flush_volume_motion:set_target_value(0)
+    end
 end
 
 --- @brief
@@ -764,7 +707,7 @@ function rt.SoundManager:get_duration(id, degree)
         local in_order = {}
         for x in keys(degrees) do table.insert(in_order, x) end
         table.sort(in_order)
-        id = id .. in_order[1]
+        id = id .. rt.settings.sound_manager.degree_separation_char .. in_order[1]
     end
 
     local entry = self:_get_resource_entry(id, degree)
@@ -786,6 +729,28 @@ function rt.SoundManager:get_duration(id, degree)
         end
 
         return entry.duration
+    end
+end
+
+local _degree_comparator = function(a, b)
+    local a_maybe = tonumber(a)
+    local b_maybe = tonumber(b)
+    return (a_maybe or a) < (b_maybe or b)
+end
+
+--- @brief
+function rt.SoundManager:get_degrees(id)
+    local degrees = self._id_to_degrees[id]
+    if degrees == nil then
+        return {}
+    else
+        local res = {}
+        for x in keys(degrees) do
+            table.insert(res, x)
+        end
+
+        table.sort(res, _degree_comparator)
+        return res
     end
 end
 
@@ -821,6 +786,146 @@ function rt.SoundManager:_get_cache()
 
     cache.id_to_degrees = self._id_to_degrees
     return cache
+end
+
+local _motion_eps = 0.01
+
+--- @brief
+function rt.SoundManager:update(delta)
+    meta.assert(delta, mt.Number)
+
+    if _skip_next_delta == true then
+        _skip_next_delta = false
+        return
+    end
+
+    self._pause_volume_motion:update(delta)
+    self._volume_motion:update(delta)
+
+    local to_free = {}
+    for handler_id, entry in pairs(self._handler_id_to_entry) do
+        local should_continue = true
+        if entry.waiting_for ~= nil then
+            local before = self._handler_id_to_entry[entry.waiting_for]
+            should_continue = before == nil or before.is_stopping == true
+            if should_continue == true then entry.waiting_for = nil end
+        end
+
+        if should_continue then
+            entry.delay_elapsed = entry.delay_elapsed + delta
+            should_continue = entry.delay_elapsed >= entry.delay
+        end
+
+        if should_continue then
+            if self._pause_state ~= _PAUSE_STATE_PAUSED then
+                if entry.source:isPlaying() == false then
+                    entry.source:play()
+                    entry.source_is_playing = true
+                end
+
+                entry.volume_motion:update(delta)
+                entry.position_motion:update(delta)
+                entry.pitch_motion:update(delta)
+                entry.envelope:update(delta)
+
+                entry.elapsed = entry.elapsed + delta
+            end
+
+            entry.flush_volume_motion:update(delta)
+
+            local master_amp = self._volume_motion:get_value()
+                * self._pause_volume_motion:get_value()
+                * entry.volume
+                * entry.volume_motion:get_value()
+                * entry.envelope:get_value()
+                * entry.flush_volume_motion:get_value()
+
+            local px, py = entry.position_motion:get_position()
+            local pitch = entry.pitch_motion:get_value()
+
+            local is_looping = entry.source:isLooping()
+            if entry.swap_source then
+                -- both sources play continously, envelopes staggered for seamless loop
+                --   _ _ _ _         _ _ _ _
+                --  /   A   \       /   A   \
+                --           _ _ _ _
+                --          /   B   \
+
+                if entry.swap_source:isPlaying() == false
+                    and entry.elapsed > entry.swap_period
+                then
+                    -- delay second source by period
+                    entry.swap_source:play()
+                    entry.swap_source_is_playing = true
+                end
+
+                local amp_a = entry.swap_envelope:at(entry.elapsed % (2 * entry.swap_period))
+                local amp_b = 1 - amp_a
+
+                entry.source:setVolume(master_amp * amp_a)
+                self:_set_source_position(entry.source, px, py)
+                entry.source:setPitch(pitch)
+
+                entry.swap_source:setVolume(master_amp * amp_b)
+                self:_set_source_position(entry.swap_source, px, py)
+                entry.swap_source:setPitch(pitch)
+            else
+                entry.source:setVolume(master_amp)
+                self:_set_source_position(entry.source, px, py)
+                entry.source:setPitch(pitch)
+            end
+
+            if self._pause_state == _PAUSE_STATE_PAUSED then
+                if entry.source_is_playing == true then
+                    entry.source:pause()
+                end
+
+                if entry.swap_source ~= nil and entry.swap_source_is_playing then
+                    entry.swap_source:pause()
+                end
+            end
+
+            local should_free = entry.is_flushing and math.equals(entry.flush_volume_motion:get_value(), 0, _motion_eps)
+            if self._pause_state ~= _PAUSE_STATE_PAUSED then
+                should_free = should_free or (entry.is_stopping and (
+                    math.equals(master_amp, 0, _motion_eps)
+                    or entry.envelope:get_is_done()
+                    or math.distance(self._listener_x, self._listener_y, entry.source:getPosition()) > self._reference_distance ^ 2
+                ))
+            end
+
+            -- mark to free
+            if should_free then
+                entry.source:stop()
+                if entry.swap_source ~= nil then entry.swap_source:stop() end
+                table.insert(to_free, handler_id)
+            end
+        end
+    end
+
+    -- free entry
+    for id in values(to_free) do
+        local entry = self._handler_id_to_entry[id]
+        entry.source:release()
+        _active_sources = _active_sources - 1
+
+        if entry.swap_source then
+            entry.swap_source:release()
+            _active_sources = _active_sources - 1
+        end
+
+        self._handler_id_to_entry[id] = nil
+    end
+
+    if self._pause_state == _PAUSE_STATE_PAUSING
+        and math.equals(self._pause_volume_motion:get_value(), 0, _motion_eps)
+    then
+        self._pause_state = _PAUSE_STATE_PAUSED
+    elseif self._pause_state == _PAUSE_STATE_UNPAUSING
+        and math.equals(self._pause_volume_motion:get_value(), 1, _motion_eps)
+    then
+        self._pause_state = _PAUSE_STATE_IDLE
+    end
 end
 
 
