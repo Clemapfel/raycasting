@@ -38,6 +38,10 @@ rt.settings.overworld.bubble = {
 --- @class ow.Bubble
 ow.Bubble = meta.class("Bubble", ow.MovableObject)
 
+local _pop_sound_id = "bubble.pop"
+local _unpop_sound_id = "bubble.unpop"
+local _fizz_sound_id = "bubble.fizz"
+
 local _shader = rt.Shader("overworld/objects/bubble.glsl")
 local _n_hue_steps = 13
 
@@ -46,7 +50,7 @@ local schema = {
     hue = ow.Number
 }
 
-local _degrees = rt.SoundManager:get_degrees("bubble.pop")
+local _degrees = rt.SoundManager:get_degrees(_pop_sound_id)
 local _get_degree = function(i)
     return _degrees[math.wrap(i, #_degrees)]
 end
@@ -236,9 +240,18 @@ function ow.Bubble:_pop(dx, dy, pop_x, pop_y)
     )
 
     local degree = _get_degree(self._current_degree)
-    rt.SoundManager:play("bubble.pop", { degree = degree })
-    rt.SoundManager:play("bubble.fizz", {
-        delay = 0.5 * rt.SoundManager:get_duration("bubble.pop")
+    local self_x, self_y = self._body:get_position()
+
+    rt.SoundManager:play(_pop_sound_id, {
+        degree = degree,
+        x = self_x,
+        y = self_y
+    })
+
+    rt.SoundManager:play(_fizz_sound_id, {
+        delay = 0.5 * rt.SoundManager:get_duration(_pop_sound_id),
+        x = self_x,
+        y = self_y
         -- fizz has no degree
     })
 
@@ -345,8 +358,8 @@ function ow.Bubble:update(delta)
         self._respawn_elapsed = self._respawn_elapsed + delta
 
         if self._respawn_sound_effect_played == false
-            and respawn_duration - self._respawn_elapsed > rt.SoundManager:get_duration("bubble.unpop") then
-            rt.SoundManager:play("bubble.unpop", {
+            and respawn_duration - self._respawn_elapsed > rt.SoundManager:get_duration(_unpop_sound_id) then
+            rt.SoundManager:play(_unpop_sound_id, {
                 degree = _get_degree(self._current_degree)
             })
 

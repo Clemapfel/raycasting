@@ -50,6 +50,10 @@ ow.AirDashNode = meta.class("AirDashNode", ow.MovableObject)
 --- @class AirDashNodeDirection
 ow.AirDashNodeDirection = meta.class("AirDashNodeDirection")
 
+local _dash_sound_id = "air_dash_node.dash"
+local _focus_sound_id = "air_dash_node.focus"
+local _unfocus_sound_id = "air_dash_node.unfocus"
+
 local _glow_shader = rt.Shader("overworld/objects/air_dash_node_glow.glsl")
 local _noise_texture = rt.NoiseTexture(64, 64, 64,
     rt.NoiseType.GRADIENT, 3.5
@@ -377,12 +381,32 @@ function ow.AirDashNode:set_is_tethered(b)
 end
 
 --- @brief
-function ow.AirDashNode:set_is_current(b)
-    self._is_current = b
+function ow.AirDashNode:set_is_current(now)
+    local before = now
+    self._is_current = now
 
-    if b == true then
+    if now == true then
         -- skip animation
         self._is_current_motion:set_value(1)
+    end
+
+    if before ~= now then
+        if self._focus_sound_handler ~= nil then
+            rt.SoundManager:stop(self._focus_sound_handler)
+            self._focus_sound_handler = nil
+        end
+
+        if self._unfocus_sound_handler ~= nil then
+            rt.Soundmanager:stop(self._unfocus_sound_handler)
+            self._unfocus_sound_handler = nil
+        end
+    end
+
+
+    if before == false and now == true then
+        self._focus_sound_handler = rt.SoundManager:play(_focus_sound_id)
+    elseif before == true and now == false then
+        self._unfocus_sound_handler = rt.SoundManager:play(_unfocus_sound_id)
     end
 end
 

@@ -483,6 +483,7 @@ function ow.Stage:update(delta)
     end
 
     self._world:update(delta)
+    rt.SoundManager:set_player_position(self._scene:get_player():get_position())
 
     for object in values(self._to_update) do
         object:update(delta)

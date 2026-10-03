@@ -29,7 +29,7 @@ var export = { |pathname|
         };
     } {
         var fromPath = pathname.fullPath;
-        var toPath = targetPath.replace(inExtension, outExtension);
+		var toPath = targetPath.replace("." ++ inExtension, "." ++ outExtension);
 		if (fromPath.endsWith(inExtension)) {
             convertJobs.add((in: fromPath, out: toPath));
         };
@@ -84,8 +84,6 @@ server.waitForBoot {
 					};
 
 					if (valid) {
-						job.in.postln;
-
 						buffer = Buffer.read(server, job.in);
 						server.sync;
 						buffer.write(job.out, headerFormat: outHeaderFormat, sampleFormat: outSampleFormat);
@@ -112,5 +110,5 @@ server.waitForBoot {
 	};
 
 	condition.wait;
-	"done. Took %s".format(Main.elapsedTime - before).round(0.01).postln;
+	"done. Took %s".format((Main.elapsedTime - before).round(0.01)).postln;
 };

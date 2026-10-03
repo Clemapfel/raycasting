@@ -62,7 +62,8 @@ AutoRecorder {
 	}
 
 	*record { arg server, filename, f;
-		var condition, latency, pathname, dummy, swap;
+		var condition, latency, pathname, swap;
+		var aborted = false, onQuit, endDef, warnDef;
 
 		if (server.isKindOf(Server).not) {
 			Error("In AutoRecorder.record: argument #1 `server` is not a `Server`").throw;
@@ -83,15 +84,22 @@ AutoRecorder {
 		pathname = PathName.new(filename.standardizePath);
 
 		// oscdef that unhangs condition after `SendReply` in `end`
-		OSCdef(("autoRecorderEnd" ++ UniqueID.next).asSymbol, {
+		endDef = OSCdef(("autoRecorderEnd" ++ UniqueID.next).asSymbol, {
 			condition.test = true;
 			condition.signal;
 		}, AutoRecorder.recordEndMessage).oneShot;
 
 		// oscdef that warns if ar gets an unassigned bufnum
-		OSCdef(("autoRecorderWarn" ++ UniqueID.next).asSymbol, {
+		warnDef = OSCdef(("autoRecorderWarn" ++ UniqueID.next).asSymbol, {
 			"In AutoRecorder.ar: `recordbufnum` is `0`. Was the synthdef argument assigned correctly?".warn;
 		}, AutoRecorder.warnMessage).oneShot;
+
+		onQuit = {
+			aborted = true;
+			condition.test = true;
+			condition.signal;
+		};
+		ServerQuit.add(onQuit, server);
 
 		// alloc buffer
 		server.bind {
@@ -116,8 +124,32 @@ AutoRecorder {
 		// invoke callback, provides local swap, to be handed to `ar`
 		f.value(swap);
 
-		// wait for `end` to fire
+		// wait for `end` to fire (or for the server to quit)
 		condition.wait;
+
+		ServerQuit.remove(onQuit, server);
+
+		if (aborted) {
+			// server is gone: don't touch `swap`, don't send any messages
+			endDef.free;
+			warnDef.free;
+			"In AutoRecorder: server quit mid-recording. Finalizing `%`".format(pathname.fullPath).warn;
+
+			// give scsynth a moment to flush and close the file during shutdown
+			0.5.wait;
+
+			try {
+				if (File.exists(pathname.fullPath)) {
+					AutoRecorder.trimSilence(pathname);
+					"In AutoRecorder: partial recording kept at `%`".format(pathname.fullPath).postln;
+				};
+			} { |err|
+				"In AutoRecorder: could not trim partial file `%` (%)".format(
+					pathname.fullPath, err.errorString
+				).warn;
+			};
+			^this;
+		};
 
 		latency.wait;
 
@@ -125,8 +157,7 @@ AutoRecorder {
 			swap.free {
 				latency.wait;
 				if (AutoRecorder.trimSilence(pathname) == false) {
-					"In AutoRecorder: file contains only silence. Was `AutoRecorder.ar` used?".format(pathname.fullPath).postln;
-
+					"In AutoRecorder: file contains only silence. Was `AutoRecorder.ar` used?".postln;
 				};
 				"In AutoRecorder: done. Wrote `%` to `%`".format(
 					pathname.fileNameWithoutExtension,

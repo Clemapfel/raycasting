@@ -32,26 +32,21 @@ function rt.Spline:create_from(...)
         table.insert(points, points[2])
     end
 
-    -- Check if spline should be closed (first and last points are very close)
     local first_x, first_y = points[1], points[2]
     local last_x, last_y = points[#points - 1], points[#points]
     local is_closed = math.distance(first_x, first_y, last_x, last_y) < math.eps
 
     if is_closed then
-        -- For closed splines, use actual neighboring points as phantoms
-        -- Phantom at start: use second-to-last real point
         local p0_x = points[#points - 3]
         local p0_y = points[#points - 2]
         table.insert(points, 1, p0_y)
         table.insert(points, 1, p0_x)
 
-        -- Phantom at end: use second real point
-        local pn_x = points[5]  -- After inserting two values at start, second point is at index 5
+        local pn_x = points[5]
         local pn_y = points[6]
         table.insert(points, pn_x)
         table.insert(points, pn_y)
     else
-        -- For open splines, use reflected phantom points
         local p0_x = 2 * points[1] - points[3]
         local p0_y = 2 * points[2] - points[4]
         table.insert(points, 1, p0_y)

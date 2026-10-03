@@ -44,6 +44,8 @@ rt.settings.overworld.bounce_pad = {
 --- @field respawn_duration Number? if single use, how long to respawn
 ow.BouncePad = meta.class("BouncePad", ow.MovableObject)
 
+local _sound_id = "bounce_pad.bounce"
+
 local schema = {} -- no custom attributes
 
 -- mesh deformation
@@ -81,6 +83,10 @@ function ow.BouncePad:instantiate(object, stage, scene)
 
         _signal_elapsed = 0,
         _signal = 0,
+
+        _degree = rt.random.choose(rt.SoundManager:get_degrees(_sound_id)),
+        _last_sound_handler_id = nil,
+        _last_sound_timestamp = love.timer.getTime(),
 
         -- particles
         _batches = {},
@@ -124,6 +130,19 @@ function ow.BouncePad:instantiate(object, stage, scene)
             self._scene:get_camera():shake(math.min(1, restitution))
         end
 
+        if love.timer.getTime() - self._last_sound_timestamp > 0.25 * rt.SoundManager:get_duration(_sound_id) then
+            local self_x, self_y = self._body:get_position()
+            if self._last_sound_handler_id ~= nil then
+                rt.SoundManager:stop(self._last_sound_handler_id)
+            end
+
+            self._last_sound_handler_id = rt.SoundManager:play(_sound_id, {
+                x = self_x,
+                y = self_y,
+                degree = self._degree
+            })
+        end
+
         -- color animation
         self._hue = self._scene:get_player():get_hue()
 
@@ -162,7 +181,6 @@ function ow.BouncePad:instantiate(object, stage, scene)
     end)
 
     if object:get_boolean("is_visible") ~= false then
-
         local contour = object:create_contour()
 
         -- contour

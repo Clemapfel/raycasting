@@ -449,7 +449,6 @@ function rt.SoundManagerHandler:get_degrees(id)
         end
 
         table.sort(res, _degree_comparator)
-
         return res
     end
 end
