@@ -257,6 +257,70 @@ function string.format_percentage(fraction)
     end
 end
 
+--- @brief
+function string.reverse(str)
+    local to_concat = table.new(string.len(str), 0)
+    for i = 1, string.len(str) do
+        table.insert(to_concat, 1, string.at(str, i))
+    end
+    return table.concat(to_concat)
+end
+
+--- @brief
+function string.interlace(a, b)
+    local a_n = string.len(a)
+    local b_n = string.len(b)
+    local to_concat = table.new(a_n + b_n, 0)
+    local n = 0
+
+    for i = 1, math.max(a_n, b_n) do
+        if i <= a_n then
+            n = n + 1
+            to_concat[n] = string.at(a, i)
+        end
+
+        if i <= b_n then
+            n = n + 1
+            to_concat[n] = string.at(b, i)
+        end
+    end
+
+    return table.concat(to_concat)
+end
+
+--- @brief
+function string.deinterlace(a_length, str)
+    assert(type(a_length) == "number", type(str) == "string", "In string.deinterlace: wrong argument types")
+
+    local total = string.len(str)
+    local b_length = total - a_length
+
+    local a_buffer = table.new(a_length, 0)
+    local b_buffer = table.new(b_length, 0)
+    local na, nb = 0, 0
+
+    for i = 1, total do
+        local current = string.at(str, i)
+
+        local take_a
+        if na < a_length and nb < b_length then
+            take_a = (na == nb)
+        else
+            take_a = na < a_length
+        end
+
+        if take_a then
+            na = na + 1
+            a_buffer[na] = current
+        else
+            nb = nb + 1
+            b_buffer[nb] = current
+        end
+    end
+
+    return table.concat(a_buffer), table.concat(b_buffer)
+end
+
 --- @brief get substring of utf8 string
 --- @param s string
 --- @param i Number starting index (in terms of conceptual characters)
@@ -400,6 +464,16 @@ function string.sha256(data)
         local hash = love.data.hash("sha256", data)
         return love.data.encode("string", "hex", hash)
     end
+end
+
+--- @brief
+function string.encode(str, type)
+    return love.data.encode("string", type or "base64", str)
+end
+
+--- @brief
+function string.decode(str, type)
+    return love.data.decode("string", type or "base64", str)
 end
 
 --- @brief
@@ -583,6 +657,85 @@ function table.serialize(t, disallowed_types)
     end
 
     return _serialize(t, true, set)
+end
+
+--- @brief
+function table.encrypt(t)
+    rt.assert(
+        table.is_serializable(t),
+        "In table.encrypt: table is not fully serializable"
+    )
+
+    local function encrypt_table(t)
+        local seen = {}
+        local function encrypt_inner(v)
+            if meta.is_string(v) then
+                return string.reverse(string.encode(v, "base64"))
+            elseif meta.is_table(v) then
+                if seen[v] then
+                    return seen[v]
+                end
+
+                local out = {}
+                seen[v] = out
+
+                for k2, v2 in pairs(v) do
+                    out[encrypt_inner(k2)] = encrypt_inner(v2)
+                end
+                return out
+            end
+
+            return v
+        end
+
+        return encrypt_inner(t)
+    end
+
+    local encrypted = encrypt_table(table.deepcopy(t))
+    local serialized = "return " .. table.serialize(encrypted)
+
+    local bytecode = string.reverse(string.dump(loadstring(serialized), true))
+    return string.interlace(string.encode(bytecode), string.sha256(bytecode))
+end
+
+function table.decrypt(str)
+    local function decrypt_table(t)
+        local seen = {}
+        local function decrypt_inner(v)
+            if meta.is_string(v) then
+                return string.decode(string.reverse(v), "base64")
+            elseif meta.is_table(v) then
+                if seen[v] then
+                    return seen[v]
+                end
+
+                local out = {}
+                seen[v] = out
+                for k2, v2 in pairs(v) do
+                    out[decrypt_inner(k2)] = decrypt_inner(v2)
+                end
+                return out
+            end
+
+            return v
+        end
+
+        return decrypt_inner(t)
+    end
+
+    local encoded, hash = string.deinterlace(string.len(str) - 64, str)
+    local reversed = string.decode(encoded)
+
+    if string.sha256(reversed) ~= hash then
+        rt.critical("In table.decrypt: cryptographic verification failed, the data may have been modified or corrupted")
+    end
+
+    local success, result = pcall(bd.load_string, string.reverse(reversed))
+    if not success or not meta.is_table(result) then
+        return nil
+    end
+
+    return decrypt_table(result)
 end
 
 --- @brief

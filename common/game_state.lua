@@ -5,6 +5,7 @@ require "common.input_action"
 require "common.random"
 require "common.player_sprint_mode"
 require "common.player"
+require "common.player_body_core_type"
 
 require "common.filesystem"
 require "common.file_io"
@@ -19,7 +20,8 @@ rt.settings.game_state = {
     save_keyboard_binding_prefix = "keyboard_binding",
     save_controller_binding_prefix = "controller_binding",
 
-    default_background_id = "nebula"
+    default_background_id = "nebula",
+    encrypt_save = true
 }
 
 --- @class rt.GameState
@@ -35,6 +37,7 @@ function rt.GameState:instantiate()
             best_flow_percentage,
             collected_coins
         }]]--
+        player_body_core_type = rt.PlayerBodyCoreType.SOLID
     }
 
     self._input_action_to_keyboard_key = {}
@@ -47,6 +50,9 @@ function rt.GameState:instantiate()
     self._file_io = rt.FileIO()
     self._save_futures = {}
     self._log_futures = {}
+
+    self:save()
+    self:load_save()
 end
 
 --- @brief
@@ -372,6 +378,17 @@ function rt.GameState:get_draw_speedrun_splits()
 end
 
 --- @brief
+function rt.GameState:set_player_body_core_type(type)
+    meta.assert(type, rt.PlayerBodyCoreType)
+    self._state.player_body_core_type = type
+end
+
+--- @brief
+function rt.GameState:get_player_body_core_type()
+    return self._state.player_body_core_type
+end
+
+--- @brief
 function rt.GameState:load_default_input_binding()
     self._input_action_to_keyboard_key, self._input_action_to_controller_button = bd.get_default_keybinding()
     local valid, error = self:_validate_input_binding()
@@ -591,7 +608,6 @@ function rt.GameState:get_reverse_input_binding(native, method)
 end
 
 --- @brief
---- @param ... Union<rt.KeyboardKey, rt.ControllerButton>
 function rt.GameState:set_input_binding(input_action_to_keyboard_key, input_action_to_controller_button)
     meta.assert(
         input_action_to_keyboard_key, mt.Table,
@@ -663,7 +679,7 @@ function rt.GameState:_init_save_directory()
     local save_prefix = rt.settings.game_state.save_directory
     if not bd.exists(save_prefix) then
         bd.create_directory(save_prefix)
-        rt.log("In rt.GameState._init_save_directory: created ", save_prefix, " directory")
+        rt.log("In rt.GameState._init_save_directory: created `", save_prefix, "` directory")
     end
 end
 
@@ -673,7 +689,7 @@ local _save_pattern = "(%d+).*"
 function rt.GameState:save()
     self:_init_save_directory()
 
-    local state = {}
+    local state = self._state
     for key, value in pairs(bd.get_config()) do
         state[key] = value
     end
@@ -683,17 +699,16 @@ function rt.GameState:save()
     state[settings.save_keyboard_binding_prefix] = self._input_action_to_keyboard_key
     state[settings.save_controller_binding_prefix] = self._input_action_to_controller_button
 
-    rt.assert(
-        table.is_serializable(state),
-        "In rt.GameState.save: state is not fully serializable"
-    )
-
-    local serialized = "return " .. table.serialize(state)
-
-    local success, result = pcall(bd.load_string, serialized)
-    rt.assert(success == true and meta.is_table(result),
-        "In rt.GameState.save: serialization is not valid lua code"
-    )
+    local serialized
+    if settings.encrypt_save == true then
+        serialized = table.encrypt(state)
+    else
+        rt.assert(
+            table.is_serializable(state),
+            "In rt.GameState.save: state is not fully serializable"
+        )
+        serialized = "return " .. table.serialize(state)
+    end
 
     -- find latest save id
     local max_save_id = 0
@@ -707,9 +722,9 @@ function rt.GameState:save()
     local save_name = bd.join_path(settings.save_directory, settings.save_file_prefix .. tostring(max_save_id + 1))
     local success, error_maybe = pcall(bd.create_file, save_name, serialized)
     if success ~= true then
-        rt.fatal("In rt.GameState.save: unable to write save to `", bd.join_path(bd.get_source_directory(), save_name), "`: ", error_maybe)
+        rt.fatal("In rt.GameState.save: unable to write save to `", bd.join_path(bd.get_save_directory(), save_name), "`: ", error_maybe)
     else
-        rt.log("in rt.GameState.save: saved `", bd.join_path(bd.get_source_directory(), save_name), "`")
+        rt.log("in rt.GameState.save: saved `", bd.join_path(bd.get_save_directory(), save_name), "`")
     end
 end
 
@@ -731,12 +746,13 @@ function rt.GameState:load_save()
 
     if max_save_name == nil then return end
 
-    local compile_success, result = pcall(bd.load_string, bd.read_file(max_save_name))
-    if not compile_success or not meta.is_table(result) then
-        rt.error("In rt.GameState.load_save: save at `", max_save_name, "` is corrupted")
+    local result, error_maybe = table.decrypt(bd.read_file(max_save_name))
+    if result == nil then
+        rt.error("In rt.GameState.load_save: save at `", max_save_name, "` is corrupted: ", error_maybe)
+        return
     end
 
-    -- sanitize and load from state
+    -- sanitize and load from state (unchanged from here on)
     local config = bd.get_config()
 
     for key in keys(config) do

@@ -44,7 +44,6 @@ bd.settings = {
     license_name = "license.txt",
     love_license_name = "love_license.txt",
 
-
     module_names = {
         "common",
         "menu",

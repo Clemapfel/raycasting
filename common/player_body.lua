@@ -1,5 +1,6 @@
 require "common.smoothed_motion_1d"
 require "common.lch_texture"
+require "common.player_body_core_type"
 
 rt.settings.player_body = {
     outline_darkening = 0.5,
@@ -56,12 +57,6 @@ rt.settings.player_body = {
     }
 }
 
-setmetatable(rt.settings.player_body.contour, {
-    __index = function(self, k, v)
-        return debugger.get(k) or rawget(rt.settings.player_body.non_contour, k, v)
-    end
-})
-
 --- @class rt.PlayerBody
 rt.PlayerBody = meta.class("PlayerBody")
 
@@ -69,9 +64,20 @@ local _particle_texture_shader = rt.Shader("common/player_body_particle_texture.
 local _instance_draw_shader = rt.Shader("common/player_body_instanced_draw.glsl")
 local _threshold_shader = rt.Shader("common/player_body_threshold.glsl")
 local _outline_shader = rt.Shader("common/player_body_outline.glsl")
-local _core_shader = rt.Shader("common/player_body_core.glsl")
 
-local _lch_texture = rt.LCHTexture(256, 2, 256)
+local _core_type_to_shader = {
+    [rt.PlayerBodyCoreType.DEFAULT] = rt.Shader("common/player_body_core_default.glsl"),
+    [rt.PlayerBodyCoreType.SOLID] = rt.Shader("common/player_body_core_solid.glsl")
+}
+
+for x in values(meta.instances(rt.PlayerBodyCoreType)) do
+    if _core_type_to_shader[x] == nil then
+        rt.error("In rt.PlayerBody: not shader is associated with `PlayerBodyCoreType` `", x, "`")
+        _core_type_to_shader[x] = _core_type_to_shader[rt.PlayerBodyCoreType.DEFAULT]
+    end
+end
+
+local _lch_texture = rt.LCHTexture(256, 64, 256)
 
 local _squished = 1
 local _not_squished = 0
@@ -1246,14 +1252,15 @@ function rt.PlayerBody:draw_core()
     love.graphics.polygon("fill", self._core_vertices)
     love.graphics.pop()
 
-    _core_shader:bind()
-    _core_shader:send("hue", self._hue)
-    _core_shader:send("elapsed", rt.SceneManager:get_elapsed())
-    _core_shader:send("saturation", self._saturation)
-    _core_shader:send("lch_texture", _lch_texture)
+    local core_shader = _core_type_to_shader[rt.GameState:get_player_body_core_type()]
+    core_shader:bind()
+    core_shader:send("hue", self._hue)
+    core_shader:send("elapsed", rt.SceneManager:get_elapsed())
+    core_shader:send("saturation", self._saturation)
+    core_shader:send("lch_texture", _lch_texture)
     love.graphics.setColor(1, 1, 1, self._opacity)
     love.graphics.polygon("fill", self._core_vertices)
-    _core_shader:unbind()
+    core_shader:unbind()
 
     rt.graphics.set_stencil_mode(nil)
 
