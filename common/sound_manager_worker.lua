@@ -53,6 +53,9 @@ local message_type_to_handler = {
         rt.SoundManager:flush()
     end,
 
+    [MessageType.RESET] = function(message)
+        rt.SoundManager:reset()
+    end,
     [MessageType.SET_GLOBAL_VOLUME] = function(message)
         rt.SoundManager:set_global_volume(message.value)
     end,

@@ -66,39 +66,7 @@ function rt.SoundManager:instantiate()
     self._reference_distance = 1500 -- in px, adjust to increase attenuation
     self._z_height = -1500 -- in px, adjust to modify singularity in panning if source is close to listener
 
-    do -- generate resource entries
-        local prefix = bd.normalize_path(rt.settings.sound_manager.assets_directory)
-        if string.last(prefix) ~= "/" then prefix = prefix .. "/" end
-        local id_to_path = bd.generate_resource_ids(prefix, bd.is_sound_file)
-
-        self._id_to_resource_entry = {} -- Table<String, String>, indexable like `self._id_to_resource_entry["overworld.foo.effect"]`
-        self._id_to_degrees = {}
-
-        for id, path in pairs(id_to_path) do
-            self._id_to_resource_entry[id] = {
-                id = id,
-                path = path,  -- String
-                data = nil, -- love.SoundData
-                duration = nil
-            }
-
-            local id_without_degree = string.match(id, "^(.*)_[^_]*$") -- everything before last occurence of `_`
-            if id_without_degree == nil then id_without_degree = id end
-
-            local name = string.match(id, ".*%.([^.]*)_[^_.]*$") -- everything between last `.` and `_`
-            local degree = string.match(id, "_([^_]*)$") -- everything after last `_`
-
-            local degrees = self._id_to_degrees[id_without_degree]
-            if degrees == nil then
-                degrees = {}
-                self._id_to_degrees[id_without_degree] = degrees
-            end
-
-            if degree ~= nil then
-                degrees[degree] = true
-            end
-        end
-    end
+    self:reset() -- generate resource entries
 
     self._volume_motion = rt.SmoothedMotion1D(1, rt.settings.sound_manager.volume_motion_velocity)
     self._pause_volume_motion = rt.SmoothedMotion1D(1, rt.settings.sound_manager.volume_motion_velocity)
@@ -231,7 +199,8 @@ local _config_default = {
     sustain = nil, -- seconds
     release = 0,
     effects = nil,
-    degree = nil
+    degree = nil,
+    stop = {}
 }
 
 local _config_keys = {}
@@ -247,7 +216,8 @@ for v in range(
     "sustain",
     "release",
     "effects",
-    "degree"
+    "degree",
+    "stop"
 ) do
     _config_keys[v] = true
 end
@@ -324,6 +294,18 @@ function rt.SoundManager:_play_internal(id, config, handler_id, after_handler_id
     _verify("sustain", mt.Number, true)
     _verify("release", mt.Number, false)
     _verify("effects", mt.Table, true)
+
+    if config.stop ~= nil and not meta.is_table(config.stop) then
+        config.stop = { config.stop }
+    end
+    _verify("stop", mt.Table, true)
+
+    for x in values(config.stop) do
+        if not meta.is_number(x) then
+            rt.error("In rt.SoundManager.play: value `", x, "` in `stop` is not a valid handler id")
+        end
+    end
+
     -- degree is mt.Any
     if failed then return nil end
 
@@ -531,6 +513,12 @@ function rt.SoundManager:_play_internal(id, config, handler_id, after_handler_id
         end
     end
 
+    if config.stop ~= nil then
+        for to_stop in values(config.stop) do
+            self:stop(to_stop)
+        end
+    end
+
     return handler_id
 end
 
@@ -710,7 +698,7 @@ function rt.SoundManager:stop(handler_id)
     meta.assert(handler_id, mt.Number)
 
     local entry = self:_get_entry(handler_id)
-    if entry == nil then return false end
+    if entry == nil then return false end -- not an error
 
     entry.volume_motion:set_target_value(0)
     entry.envelope:release()
@@ -776,6 +764,19 @@ function rt.SoundManager:get_degrees(id)
 end
 
 --- @brief
+function rt.SoundManager:choose_degree(id)
+    if self._id_to_degrees[id] == nil then
+        rt.error("In rt.SoundManager.choose_degree: no sound with id `", id, "`")
+        return nil
+    end
+
+    local degrees = self:get_degrees(id)
+    local i = self._id_to_degree_i[id]
+    self._id_to_degree_i[id] = i + 1
+    return degrees[math.wrap(i, #degrees)]
+end
+
+--- @brief
 function rt.SoundManager:_get_state()
     local sound_id_to_active_handlers = {}
     for id, entry in pairs(self._handler_id_to_entry) do
@@ -806,10 +807,54 @@ function rt.SoundManager:_get_cache()
     end
 
     cache.id_to_degrees = self._id_to_degrees
+    cache.id_to_degree_i = self._id_to_degree_i
     return cache
 end
 
 local _motion_eps = 0.01
+
+--- @brief
+function rt.SoundManager:reset()
+    local prefix = bd.normalize_path(rt.settings.sound_manager.assets_directory)
+    if string.last(prefix) ~= "/" then prefix = prefix .. "/" end
+    local id_to_path = bd.generate_resource_ids(prefix, bd.is_sound_file)
+
+    self._id_to_resource_entry = {} -- Table<String, String>, indexable like `self._id_to_resource_entry["overworld.foo.effect"]`
+    self._id_to_degrees = {}
+    self._id_to_degree_i = {}
+
+    for id, path in pairs(id_to_path) do
+        self._id_to_resource_entry[id] = {
+            id = id,
+            path = path,  -- String
+            data = nil, -- love.SoundData
+            duration = nil
+        }
+
+        local id_without_degree = string.match(id, "^(.*)_[^_]*$") -- everything before last occurence of `_`
+        if id_without_degree == nil then id_without_degree = id end
+
+        local name = string.match(id, ".*%.([^.]*)_[^_.]*$") -- everything between last `.` and `_`
+        local degree = string.match(id, "_([^_]*)$") -- everything after last `_`
+
+        local degrees = self._id_to_degrees[id_without_degree]
+        if degrees == nil then
+            degrees = {}
+            self._id_to_degrees[id_without_degree] = degrees
+            self._id_to_degree_i[id_without_degree] = 1 -- for choose_degree
+        end
+
+        if degree ~= nil then
+            degrees[degree] = true
+        end
+    end
+
+    if self._handler_id_to_entry ~= nil then
+        for id, entry in pairs(self._handler_id_to_entry) do
+            self:stop(id)
+        end
+    end
+end
 
 --- @brief
 function rt.SoundManager:update(delta)

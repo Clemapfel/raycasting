@@ -251,12 +251,10 @@ function ow.AirDashNodeManager:update(delta)
     if self._recommended_node ~= nil then
         self._recommended_node:set_is_outline_visible(false)
     end
-
-    if self._next_node ~= nil then
-        self._next_node:set_is_current(false)
-    end
-
+    local before = self._next_node
     if best_entry == nil then
+        if before ~= nil then before:set_is_current(false) end
+
         -- no candidate, highlight closest
         self._next_node = nil
 
@@ -266,8 +264,11 @@ function ow.AirDashNodeManager:update(delta)
             self._recommended_node = nil
         end
     else
-        local before = self._next_node
         self._next_node = best_entry.node
+        if before ~= nil and before ~= self._next_node then
+            before:set_is_current(false)
+        end
+
         self._next_node:set_is_current(true)
         self._recommended_node = self._next_node
     end

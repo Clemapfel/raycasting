@@ -88,6 +88,11 @@ for id in range(
         type : MessageType
     ]]
 
+    "RESET", --[[
+        main -> worker
+        type : MessageType
+    ]]
+
     "QUEUE", --[[
         main -> worker
         type : MessageType
@@ -283,6 +288,15 @@ function rt.SoundManagerHandler:flush(_)
 end
 
 --- @brief
+function rt.SoundManagerHandler:reset(_)
+    meta.assert(_, mt.Nil)
+
+    self._main_to_worker:push({
+        type = MessageType.RESET
+    })
+end
+
+--- @brief
 function rt.SoundManagerHandler:set_global_volume(value)
     meta.assert(value, mt.Number)
 
@@ -451,6 +465,19 @@ function rt.SoundManagerHandler:get_degrees(id)
         table.sort(res, _degree_comparator)
         return res
     end
+end
+
+--- @brief
+function rt.SoundManagerHandler:choose_degree(id)
+    if self._cache.id_to_degrees[id] == nil then
+        rt.error("In rt.SoundManager.choose_degree: no sound with id `", id, "`")
+        return nil
+    end
+
+    local degrees = self:get_degrees(id)
+    local i = self._cache.id_to_degree_i[id]
+    self._cache.id_to_degree_i[id] = i + 1
+    return degrees[math.wrap(i, #degrees)]
 end
 
 --- @brief

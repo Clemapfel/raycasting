@@ -51,6 +51,8 @@ ow.AirDashNode = meta.class("AirDashNode", ow.MovableObject)
 ow.AirDashNodeDirection = meta.class("AirDashNodeDirection")
 
 local _dash_sound_id = "air_dash_node.dash"
+
+local _focus_amp = 0.4
 local _focus_sound_id = "air_dash_node.focus"
 local _unfocus_sound_id = "air_dash_node.unfocus"
 
@@ -113,7 +115,12 @@ function ow.AirDashNode:instantiate(object, stage, scene)
     self._hue = (scene.air_dash_node_hue % n_hue_steps) / n_hue_steps
     scene.air_dash_node_hue = scene.air_dash_node_hue + 1
     self._color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, self._hue, 1))
-    self._degree = rt.random.choose(rt.SoundManager:get_degrees(_focus_sound_id))
+    self._degree = rt.SoundManager:choose_degree(_focus_sound_id)
+    dbg(meta.hash(self), " ", self._degree)
+
+    self._dash_sound_handler = nil
+    self._focus_sound_handler = nil
+    self._unfocus_sound_handler = nil
 
     self._particle = ow.AirDashNodeParticle(rt.settings.player.radius * rt.settings.overworld.double_jump_tether.radius_factor)
     self._particles = ow.AirDashNodeParticleEffect()
@@ -374,12 +381,10 @@ function ow.AirDashNode:set_is_tethered(b)
 
     if before == false and b == true then
         self._particle:set_is_exploded(true)
-        if self._dash_sound_handler_id ~= nil then
-            rt.SoundManager:stop(self._dash_sound_handler_id)
-            self._dash_sound_handler_id = nil
-        end
-
-        self._dash_sound_handler_id = rt.SoundManager:play(_dash_sound_id) -- random degree
+        self._dash_sound_handler = rt.SoundManager:play(_dash_sound_id, {
+            degree = nil, -- random degree
+            stop = self._dash_sound_handler
+        })
     elseif before == true and b == false then
         self._particle:set_is_exploded(false)
     end
@@ -397,23 +402,18 @@ function ow.AirDashNode:set_is_current(now)
         self._is_current_motion:set_value(1)
     end
 
-    if before ~= now then
-        if self._focus_sound_handler ~= nil then
-            rt.SoundManager:stop(self._focus_sound_handler)
-            self._focus_sound_handler = nil
-        end
-
-        if self._unfocus_sound_handler ~= nil then
-            rt.Soundmanager:stop(self._unfocus_sound_handler)
-            self._unfocus_sound_handler = nil
-        end
-    end
-
-
     if before == false and now == true then
-        self._focus_sound_handler = rt.SoundManager:play(_focus_sound_id, { degree = self._degree })
+        self._focus_sound_handler = rt.SoundManager:play(_focus_sound_id, {
+            volume = _focus_amp,
+            degree = self._degree,
+            stop = self._focus_sound_handler
+        })
     elseif before == true and now == false then
-        self._unfocus_sound_handler = rt.SoundManager:play(_unfocus_sound_id, { degree = self._degree })
+        self._unfocus_sound_handler = rt.SoundManager:play(_unfocus_sound_id, {
+            volume = _focus_amp,
+            degree = self._degree,
+            stop = self._unfocus_sound_handler
+        })
     end
 end
 

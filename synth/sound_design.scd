@@ -415,23 +415,24 @@ record_pattern = { arg recordbuf, recordbus, pattern, delay = 0;
 	// initialize grain envelope
 	var grainEnv = Buffer.loadCollection(server, Env.perc(1 / 10, 1).asSignal(2048).asArray);
 
-	var def = SynthDef.new(\air_dash_node_dash, { arg out, amp, gate = 1, freq, dur, bufnum, envbufnum, recordbuf;
+	var def = SynthDef.new(\air_dash_node_dash, { arg out, gate = 1, freq, dur, bufnum, envbufnum, recordbuf;
 		var bufStart = 0.0, bufEnd = 0.4;
 		var sliceDur = abs(bufEnd - bufStart) * BufDur.ir(bufnum);
 
-		var grainTrig = Impulse.ar(XLine.ar(100, 1, dur) - 1);
+		var jitter = 0.25;
+		var grainTrig = Impulse.ar(
+			(XLine.ar(100, 1, dur) - 1) * Demand.ar(
+				Impulse.ar(400),
+				0, // no reset
+				Dwhite(1 - jitter, 1 + jitter, inf)
+			)
+		);
+
 		var grainDurMin = 0.2 * sliceDur;
 		var grainDurMax = 0.4 * sliceDur;
 		var grainDur = Demand.ar(grainTrig, gate, Dwhite(grainDurMin, grainDurMax));
 
         var grainPos = Demand.ar(grainTrig, gate, Dwhite(bufStart, bufEnd));
-
-		var grainPanEps = 1e-5;
-		var grainPanUniform = Demand.ar(grainTrig, gate, [
-			Dwhite(grainPanEps, 1 - grainPanEps),
-			Dwhite(grainPanEps, 1 - grainPanEps)
-		]);
-		var grainPan = (0.25 * (-2 * grainPanUniform[0].log).sqrt * (2pi * grainPanUniform[1]).cos).clip(-1, 1);
 
 		var signal = GrainBuf.ar(1,
 			trigger: grainTrig,
@@ -439,17 +440,19 @@ record_pattern = { arg recordbuf, recordbus, pattern, delay = 0;
 			pos: grainPos,
 			rate: 1,
 			dur: grainDur,
-			pan: grainPan,
+			pan: 0,
 			interp: 4,
 			envbufnum: envbufnum,
 			maxGrains: 1024
 		) * EnvGen.ar(Env.new([0, 1, 1], [0.05], \welch), gate: gate);
 
-		Out.ar(out, (~amp * (signal)).dup);
+		var endTrig = DetectSilence.ar(signal, time: 1);
+
+		Out.ar(out, (~amp * signal).dup);
 		~rec.ar(recordbuf, signal);
 		~rec.end(DetectSilence.ar(signal));
 		FreeSelf.kr(DelayN.ar(DetectSilence.ar(signal)));
-	}).add;
+	}, [nil, \ar]).add;
 
 	server.sync;
 
@@ -464,7 +467,7 @@ record_pattern = { arg recordbuf, recordbus, pattern, delay = 0;
 					dur: 0.1,
 					recordbuf: recordbuf.bufnum
 				]).play;
-			});
+			}, numChannels: 1, trimEnd: false);
 		};
 	} {
 		Pbind(*[
@@ -490,7 +493,7 @@ record_pattern = { arg recordbuf, recordbus, pattern, delay = 0;
 
 		var nFeedback = 12;
 		var feedback = LocalIn.ar(nFeedback);
-		var releaseTrig;
+		var env = EnvGen.ar(Env.asr(0, 1, dur), gate: gate);
 
 		impulse = feedback + impulse;
 
@@ -507,24 +510,23 @@ record_pattern = { arg recordbuf, recordbus, pattern, delay = 0;
 		};
 
 		LocalOut.ar(reverb * LeakDC.ar(impulse));
-		signal = Mix.ar(impulse) / nFeedback;
+
+		signal = Mix.ar(impulse) / nFeedback * env;
 		Out.ar(out, signal);
-		DetectSilence.ar(signal, doneAction: Done.freeSelf);
+		FreeSelf.kr(Done.kr(env))
 	}).add;
 
-	var rechargeDef = SynthDef(\air_dash_node_recharge, { arg out, freq, bufnum, recordbuf;
+	var rechargeDef = SynthDef(\air_dash_node_recharge, { arg out, dur, bufnum, recordbuf;
 		var signal = PlayBuf.ar(1, bufnum,
-			rate: -1 *  BufRateScale.kr(bufnum),
-			startPos: BufFrames.kr(bufnum) - 1
-		);
+			rate: -1 * BufRateScale.kr(bufnum),
+			startPos: (dur * BufSampleRate.kr(bufnum)).min(BufFrames.kr(bufnum) - 1);
+		) * EnvGen.kr(Env.linen(0.02, dur - 0.04, 0.02), doneAction: Done.freeSelf);
 
 		var feedback = LocalIn.ar(1);
 		var delay = 0.04;
 		signal = DelayN.ar(signal + feedback, delay, delay);
 		LocalOut.ar(0.4 * signal);
-
 		Out.ar(out, signal);
-		//FreeSelf.kr(DelayN.kr(Impulse.kr(0), BufDur.ir(bufnum), BufDur.ir(bufnum)));
 	}).add;
 
 	server.sync;
@@ -558,7 +560,8 @@ record_pattern = { arg recordbuf, recordbus, pattern, delay = 0;
 		*/
 
 		degrees.do { |degree|
-			var tmp_filename = ~rec.filename("air_dash_node", "tmp_recharge", degree);
+			var tmp_filename = ~rec.filename("air_dash_node", "focus", degree);
+			var dur = 6 / 60, reverb = 0.15, maxDelay = 0.005;
 			var buf;
 
 			~rec.record(server,
@@ -566,9 +569,9 @@ record_pattern = { arg recordbuf, recordbus, pattern, delay = 0;
 					record_pattern.(recordbuf, recordbus, Pnew(def.name, *[
 						out: recordbus,
 						degree: Pn(degree, 1),
-						dur: 0.25,
-						maxDelay: 0.01,
-						reverb: 0.7
+						dur: dur,
+						maxDelay: maxDelay,
+						reverb: reverb
 					]));
 				}
 			);
@@ -577,10 +580,11 @@ record_pattern = { arg recordbuf, recordbus, pattern, delay = 0;
 			server.sync;
 
 			~rec.record(server,
-				~rec.filename("air_dash_node", "recharge", degree), { arg recordbuf, recordbus;
+				~rec.filename("air_dash_node", "unfocus", degree), { arg recordbuf, recordbus;
 					record_pattern.(recordbuf, recordbus, Pnew(rechargeDef.name, *[
 						out: recordbus,
-						bufnum: Pn(buf, 1)
+						bufnum: Pn(buf, 1),
+						dur: dur
 					]));
 				}
 			);

@@ -50,11 +50,6 @@ local schema = {
     hue = ow.Number
 }
 
-local _degrees = rt.SoundManager:get_degrees(_pop_sound_id)
-local _get_degree = function(i)
-    return _degrees[math.wrap(i, #_degrees)]
-end
-
 function ow.Bubble:instantiate(object, stage, scene)
     object:validate_schema(schema, ow.ShapeType.ELLIPSE)
 
@@ -239,7 +234,7 @@ function ow.Bubble:_pop(dx, dy, pop_x, pop_y)
         + math.mix(0, dist / rt.settings.overworld.bubble.inside_bounce_reference_length, t)
     )
 
-    local degree = _get_degree(self._current_degree)
+    local degree = rt.SoundManager:choose_degree(_pop_sound_id)
     local self_x, self_y = self._body:get_position()
 
     rt.SoundManager:play(_pop_sound_id, {
@@ -359,8 +354,8 @@ function ow.Bubble:update(delta)
 
         if self._respawn_sound_effect_played == false
             and respawn_duration - self._respawn_elapsed > rt.SoundManager:get_duration(_unpop_sound_id) then
-            rt.SoundManager:play(_unpop_sound_id, {
-                degree = _get_degree(self._current_degree)
+            self._unpop_sound_handler = rt.SoundManager:play(_unpop_sound_id, {
+                stop = self._unpop_sound_handler
             })
 
             self._current_degree = self._current_degree + 1

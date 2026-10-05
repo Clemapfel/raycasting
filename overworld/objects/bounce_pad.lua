@@ -132,14 +132,11 @@ function ow.BouncePad:instantiate(object, stage, scene)
 
         if love.timer.getTime() - self._last_sound_timestamp > 0.25 * rt.SoundManager:get_duration(_sound_id) then
             local self_x, self_y = self._body:get_position()
-            if self._last_sound_handler_id ~= nil then
-                rt.SoundManager:stop(self._last_sound_handler_id)
-            end
-
             self._last_sound_handler_id = rt.SoundManager:play(_sound_id, {
                 x = self_x,
                 y = self_y,
-                degree = self._degree
+                degree = self._degree,
+                stop = self._last_sound_handler_id
             })
         end
 

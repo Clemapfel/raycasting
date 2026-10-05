@@ -1,252 +1,239 @@
 AutoRecorder {
-	classvar <>headerFormat = "WAV";
+    classvar <>headerFormat = "WAV";
     classvar <>sampleFormat = "int16";
     classvar <>sampleRate = 48000;
 
-	classvar <>recordEndMessage = '/autoRecorderEnd';
-	classvar <>warnMessage = '/autoRecorderWarn';
+    classvar <>recordEndMessage = '/autoRecorderEnd';
+    classvar <>warnMessage = '/autoRecorderWarn';
 
-	classvar <>exportPathName = "export";
-	classvar <>assetPathName = "assets";
-	classvar <>postfixPattern = "_%";
+    classvar <>exportPathName = "export";
+    classvar <>assetPathName = "assets";
+    classvar <>postfixPattern = "_%";
 
-	classvar <>isSilenced = false;
+    classvar <>isSilenced = false;
 
-	/*
-	// ### EXAMPLE USAGE ###
+    *ar { arg recordbuf, sig;
+        if (AutoRecorder.isSilenced.not) {
+            SendReply.kr((recordbuf <= 0) * Impulse.kr(0), cmdName: AutoRecorder.warnMessage);
+        };
+        DiskOut.ar(recordbuf, sig);
+    }
 
-	// client side
+    *end { arg trig;
+        var method = if (trig.rate == \audio) { \ar } { \kr };
+        SendReply.perform(method, trig, cmdName: AutoRecorder.recordEndMessage);
+    }
 
-	AutoRecorder.record(
-        server,
-        AutoRecorder.filename("folder", "file", postfix),
-        { |recordbuf|
-            Synth.new(def.name, [
-                \freq, 440,
-                \recordbuf, recordbuf.bufnum
-            ]
-		}
-	);
+    *record { arg server, filename, f, numChannels = 1, trimStart = true, trimEnd = true, normalize = true;
+        var condition, latency, pathname, swap, bus, dummyBuf;
+        var aborted = false, endDef, warnDef;
 
+        if (server.isKindOf(Server).not) {
+            Error("In AutoRecorder.record: argument #1 `server` is not a `Server`").throw;
+        };
 
-	// in synth def
+        if (filename.isKindOf(String).not) {
+            Error("In AutoRecorder.record: argument #2 `filename` is not a `String`").throw;
+        };
 
-	AutoRecorder.ar(recordbuf, sig);
+        if (f.isKindOf(Function).not) {
+            Error("In AutoRecorder.record: argument #3 `f` is not a `Function`").throw;
+        };
 
-	// where
-	// recordbuf: argument given to f in AutoRecorder.reorc
-	// sig: signal to be recorded
+		protect {
 
-	AutoRecorder.end(trig);
+			latency = AutoRecorder.measureLatency(server);
+			condition = Condition.new(false);
+			pathname = PathName.new(filename.standardizePath);
 
-	// where
-    // trig: trigger that signals end of recording
-    //       usually Done.kr, DetectSilence, or DelayN.kr(Impulse.kr(0), t, t)
-
-	*/
-
-	*ar { arg recordbuf, sig;
-		if (AutoRecorder.isSilenced.not) {
-			// warn if recordbuf == 0
-		    SendReply.kr((recordbuf <= 0) * Impulse.kr(0), cmdName: AutoRecorder.warnMessage);
-		};
-
-		// write to disk
-		DiskOut.ar(recordbuf, sig);
-	}
-
-	*end { arg trig;
-		// notify recording is done
-		var method = if (trig.rate == \audio) { \ar } { \kr };
-		SendReply.perform(method, trig, cmdName: AutoRecorder.recordEndMessage);
-	}
-
-	*record { arg server, filename, f, numChannels = 1;
-		var condition, latency, pathname, swap, bus;
-		var aborted = false, endDef, warnDef;
-
-		if (server.isKindOf(Server).not) {
-			Error("In AutoRecorder.record: argument #1 `server` is not a `Server`").throw;
-		};
-
-		if (filename.isKindOf(String).not) {
-			Error("In AutoRecorder.record: argument #2 `filename` is not a `String`").throw;
-		};
-
-		if (f.isKindOf(Function).not) {
-			Error("In AutoRecorder.record: argument #3 `f` is not a `Function`").throw;
-		};
-
-		// manually measure latency to keep start/end safety buffer as small as possible
-		latency = AutoRecorder.measureLatency(server);
-
-		condition = Condition.new(false);
-		pathname = PathName.new(filename.standardizePath);
-
-		// oscdef that unhangs condition after `SendReply` in `end`
-		endDef = OSCdef(("autoRecorderEnd" ++ UniqueID.next).asSymbol, {
-			condition.test = true;
-			condition.signal;
-		}, AutoRecorder.recordEndMessage).oneShot;
-
-		// oscdef that warns if ar gets an unassigned bufnum
-		warnDef = OSCdef(("autoRecorderWarn" ++ UniqueID.next).asSymbol, {
-			"In AutoRecorder.ar: `recordbufnum` is `0`. Was the synthdef argument assigned correctly?".warn;
-		}, AutoRecorder.warnMessage).oneShot;
-
-		// alloc buffer
-		server.bind {
-			Buffer.alloc(server, 1, 1); // alloc dummy buffer so swap can never have bufnum 0 for `ar` warning
-			swap = Buffer.alloc(server, AutoRecorder.sampleRate.nextPowerOfTwo, 1);
-			bus = Bus.audio(server, numChannels);
-			server.sync;
-		};
-
-		// open file on disk
-		swap.write(filename,
-			AutoRecorder.headerFormat,
-			AutoRecorder.sampleFormat,
-			0, 0, true // DiskOut config
-		);
-		server.sync;
-
-		"In AutoRecorder: starting recording...".postln;
-
-		// buffer at start and end of recording, will be trimmed on export
-		latency.wait;
-
-		// invoke callback, provides local swap, to be handed to `ar`
-		f.value(swap, bus);
-
-		// wait for `end` to fire (or for the server to quit)
-		condition.wait;
-
-		latency.wait;
-
-		swap.close {
-			swap.free {
-				latency.wait;
-				if (AutoRecorder.postprocess(pathname) == false) {
-					"In AutoRecorder: file contains only silence. Was `AutoRecorder.ar` used?".postln;
-				};
-				"In AutoRecorder: done. Wrote `%` to `%`".format(
-					pathname.fileNameWithoutExtension,
-					pathname.fullPath
-				).postln;
-			}
-		};
-	}
-
-	*filename { arg prefix, name, degree;
-		var exportPath = thisProcess.nowExecutingPath.dirname +/+ AutoRecorder.exportPathName;
-		var res;
-
-		if (prefix.isNil || name.isNil) {
-			Error("In AutoRecorder.filename: expected string for argument #1 and #2").throw
-		};
-
-		if (File.exists(exportPath).not) {
-			File.mkdir(exportPath)
-		};
-
-		if (File.exists(exportPath +/+ prefix).not) {
-			File.mkdir(exportPath +/+ prefix)
-		};
-
-		if (degree.isNil) {
-			res = exportPath +/+ prefix +/+ name ++ "." ++ AutoRecorder.headerFormat.toLower;
-		} {
-			res = exportPath +/+ prefix +/+ name ++ (AutoRecorder.postfixPattern ++ "%").format(degree + 1) ++ "." ++ AutoRecorder.headerFormat.toLower;
-		};
-
-		^res.standardizePath;
-	}
-
-	*measureLatency { arg server;
-		var condition = Condition.new(false);
-		var id = UniqueID.next;
-		var t0, t1;
-
-		server.sync; // flush pending messages
-
-		OSCdef(("ping_" ++ id).asSymbol, { |msg|
-			if (msg[1] == id) {
-				t1 = Main.elapsedTime;
+			endDef = OSCdef(("autoRecorderEnd" ++ UniqueID.next).asSymbol, {
 				condition.test = true;
 				condition.signal;
+			}, AutoRecorder.recordEndMessage).oneShot;
+
+			warnDef = OSCdef(("autoRecorderWarn" ++ UniqueID.next).asSymbol, {
+				"In AutoRecorder.ar: `recordbufnum` is `0`. Was the synthdef argument assigned correctly?".warn;
+			}, AutoRecorder.warnMessage).oneShot;
+
+			server.bind {
+				dummyBuf = Buffer.alloc(server, 1, 1); // dummy to avoid bufnum 0 for warnDef
+				swap = Buffer.alloc(server, AutoRecorder.sampleRate.nextPowerOfTwo, numChannels);
+				bus = Bus.audio(server, numChannels);
+				server.sync;
 			};
-		}, '/synced').oneShot;
 
-		t0 = Main.elapsedTime;
-		server.sendMsg('/sync', id);
-		condition.wait;
-
-		^(t1 - t0) * 1.5; // safety margin
-	}
-
-	*postprocess { arg path;
-		var inFile = SoundFile.openRead(path.fullPath);
-		var numChannels = inFile.numChannels;
-		var numFrames = inFile.numFrames;
-		var data = FloatArray.newClear(numFrames * numChannels);
-
-		// trim silence at start and end
-		var isNonZeroFrame = { |i|
-			var result = false;
-			numChannels.do { |j|
-				if (data[(i * numChannels) + j] != 0.0) { result = true };
-			};
-			result;
-		};
-
-		var startFrame = nil, endFrame = nil;
-
-		inFile.readData(data);
-		inFile.close;
-
-		block { |break|
-			forBy (0, numFrames - 1, 1) { |i|
-				if (isNonZeroFrame.value(i)) {
-					startFrame = i;
-					break.value;
-				};
-			};
-		};
-
-		block { |break|
-			forBy (numFrames - 1, 0, -1) { |i|
-				if (isNonZeroFrame.value(i)) {
-					endFrame = i;
-					break.value;
-				};
-			};
-		};
-
-		if (startFrame.isNil || endFrame.isNil) {
-			^false;
-		} {
-			var outData = data.copyRange(
-				startFrame * numChannels,
-				(endFrame * numChannels) + (numChannels - 1)
+			swap.write(filename,
+				AutoRecorder.headerFormat,
+				AutoRecorder.sampleFormat,
+				0, 0, true
 			);
+			server.sync;
 
-			var outFile = SoundFile.new()
-			    .headerFormat_(inFile.headerFormat)
-			    .sampleFormat_(inFile.sampleFormat)
-			    .numChannels_(inFile.numChannels)
-			    .sampleRate_(inFile.sampleRate)
-			;
+			"In AutoRecorder: starting recording...".postln;
+			latency.wait;
 
-			if (outFile.openWrite(path.fullPath)) {
-				outFile.writeData(outData);
-				outFile.close;
-				^true;
-			} {
-				"In AutoRecorder.postprocess: failed to open file at `%`".format(
-					path.fullPath
-				).postln;
-				^false;
+            f.value(swap, bus);
+            condition.wait;
+            latency.wait;
+        } {
+            endDef.free;
+            warnDef.free;
+
+            if (swap.notNil) {
+                try { swap.close };
+                try { swap.free };
+            };
+            if (dummyBuf.notNil) { try { dummyBuf.free } };
+            if (bus.notNil) { try { bus.free } };
+
+            if (File.exists(pathname.fullPath)) {
+                if (AutoRecorder.postprocess(pathname, trimStart, trimEnd, normalize) == false) {
+                    "In AutoRecorder: file contains only silence or failed to postprocess.".postln;
+                } {
+                    "In AutoRecorder: done. Wrote `%` to `%`".format(
+                        pathname.fileNameWithoutExtension,
+                        pathname.fullPath
+                    ).postln;
+                };
+            };
+        };
+    }
+
+    *filename { arg prefix, name, degree;
+        var exportPath = thisProcess.nowExecutingPath.dirname +/+ AutoRecorder.exportPathName;
+        var res;
+
+        if (prefix.isNil || name.isNil) {
+            Error("In AutoRecorder.filename: expected string for argument #1 and #2").throw
+        };
+
+        if (File.exists(exportPath).not) {
+            File.mkdir(exportPath)
+        };
+
+        if (File.exists(exportPath +/+ prefix).not) {
+            File.mkdir(exportPath +/+ prefix)
+        };
+
+        if (degree.isNil) {
+            res = exportPath +/+ prefix +/+ name ++ "." ++ AutoRecorder.headerFormat.toLower;
+        } {
+            res = exportPath +/+ prefix +/+ name ++ (AutoRecorder.postfixPattern ++ "%").format(degree + 1) ++ "." ++ AutoRecorder.headerFormat.toLower;
+        };
+
+        ^res.standardizePath;
+    }
+
+    *measureLatency { arg server;
+        var condition = Condition.new(false);
+        var id = UniqueID.next;
+        var t0, t1;
+
+        server.sync;
+
+        OSCdef(("ping_" ++ id).asSymbol, { |msg|
+            if (msg[1] == id) {
+                t1 = Main.elapsedTime;
+                condition.test = true;
+                condition.signal;
+            };
+        }, '/synced').oneShot;
+
+        t0 = Main.elapsedTime;
+        server.sendMsg('/sync', id);
+        condition.wait;
+
+        ^(t1 - t0) * 1.5;
+    }
+
+    *postprocess { arg path, trimStart = true, trimEnd = true, normalize = true;
+        var inFile = SoundFile.openRead(path.fullPath);
+        var numChannels, numFrames, data, isNonZeroFrame;
+        var startFrame = nil, endFrame = nil;
+        var maxVal = 0.0;
+
+        if (inFile.isNil) { ^false };
+
+        numChannels = inFile.numChannels;
+        numFrames = inFile.numFrames;
+
+        if (numFrames <= 0) {
+            inFile.close;
+            ^false;
+        };
+
+        data = FloatArray.newClear(numFrames * numChannels);
+
+        isNonZeroFrame = { |i|
+            var result = false;
+            numChannels.do { |j|
+                if (data[(i * numChannels) + j] != 0.0) { result = true };
+            };
+            result;
+        };
+
+        inFile.readData(data);
+        inFile.close;
+
+		if (trimStart) {
+			block { |break|
+				forBy (0, numFrames - 1, 1) { |i|
+					if (isNonZeroFrame.value(i)) {
+						startFrame = i;
+						break.value;
+					};
+				};
 			};
+		} {
+			startFrame = 0
 		};
+
+		if (trimEnd) {
+			block { |break|
+				forBy (numFrames - 1, 0, -1) { |i|
+					if (isNonZeroFrame.value(i)) {
+						endFrame = i;
+						break.value;
+					};
+				};
+			};
+		} {
+			endFrame = numFrames;
+		};
+
+        if (startFrame.isNil || endFrame.isNil) {
+            ^false;
+        } {
+            var outData = data.copyRange(
+                startFrame * numChannels,
+                (endFrame * numChannels) + (numChannels - 1)
+            );
+
+            var outFile = SoundFile.new()
+                .headerFormat_(inFile.headerFormat)
+                .sampleFormat_(inFile.sampleFormat)
+                .numChannels_(inFile.numChannels)
+                .sampleRate_(inFile.sampleRate)
+            ;
+
+			if (normalize) {
+				// normalize magnitudes
+				var peak = outData.abs.maxItem;
+				if (maxVal > 0.0) {
+					outData = outData / maxVal;
+				};
+			};
+
+            if (outFile.openWrite(path.fullPath)) {
+                outFile.writeData(outData);
+                outFile.close;
+                ^true;
+            } {
+                "In AutoRecorder.postprocess: failed to open file at `%`".format(
+                    path.fullPath
+                ).postln;
+                ^false;
+            };
+        };
 	}
 }

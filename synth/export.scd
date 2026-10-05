@@ -69,23 +69,24 @@ server.waitForBoot {
 			protect {
 				try {
 					var file = SoundFile.new;
+					var pathname = PathName.new(job.in);
 					var valid = false;
 
-					protect {
-						valid = (
-							job.in.beginsWith(tempPrefix).not
-							and: { file.openRead(job.in) }
-						);
+					try {
+						if (file.openRead(job.in).not) {
+							Error("In export.scd: file at `%` cannot be opened".format(job.in)).throw;
+						};
+
+						if (file.numFrames == 0 or: { file.numChannels == 0 }) {
+							Error("In export.scd: file at `%` contains only silence".format(job.in)).throw;
+						};
 					} {
 						file.close;
 					};
 
-
-					if (file.numFrames == 0 || file.numChannels == 0) {
-						Error("In export.scd: file at `%` contains only silence").throw;
-					};
-
-					if (valid) {
+					if (pathname.fileName.beginsWith(tempPrefix)) {
+						"In export.scd: skipping `%`".format(pathname.fileName).postln;
+					} {
 						buffer = Buffer.read(server, job.in);
 						server.sync;
 						buffer.write(job.out, headerFormat: outHeaderFormat, sampleFormat: outSampleFormat);

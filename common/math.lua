@@ -141,6 +141,18 @@ function math.normalize_angle(angle)
     return angle - (2 * math.pi) * math.floor(angle / (2 * math.pi))
 end
 
+function math.linlin(x, from_a, from_b, to_a, to_b)
+    if x <= from_a then return to_a end
+    if x >= from_b then return to_b end
+    return to_a + (to_b - to_a) * ((x - from_a) / (from_b - from_a))
+end
+
+function math.linexp(x, from_a, from_b, to_a, to_b)
+    if x <= from_a then return to_a end
+    if x >= from_b then return to_b end
+    return (to_b / to_a) ^ ((x - from_a) / (from_b - from_a)) * to_a
+end
+
 function math.equals(a, b, eps)
     if eps == nil then eps = 0 end
     return math.abs(a - b) <= eps

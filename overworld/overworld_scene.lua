@@ -297,6 +297,7 @@ function ow.OverworldScene:instantiate(state)
 
             if before_id ~= nil then
                 rt.GameState:reinitialize_stage(before_id)
+                rt.SoundManager:reset()
             end
 
             self._stage_id = nil
