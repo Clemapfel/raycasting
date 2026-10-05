@@ -691,10 +691,12 @@ function table.encrypt(t)
         return encrypt_inner(t)
     end
 
-    local encrypted = encrypt_table(table.deepcopy(t))
+    local encrypted = t -- encrypt_table(table.deepcopy(t))
     local serialized = "return " .. table.serialize(encrypted)
 
-    local bytecode = string.reverse(string.dump(loadstring(serialized), true))
+    love.filesystem.write("temp", string.dump(loadstring(serialized), true))
+
+    local bytecode = string.reverse(string.dump(loadstring(serialized), true)) -- no line numbers
     return string.interlace(string.encode(bytecode), string.sha256(bytecode))
 end
 
@@ -702,9 +704,7 @@ function table.decrypt(str)
     local function decrypt_table(t)
         local seen = {}
         local function decrypt_inner(v)
-            if meta.is_string(v) then
-                return string.decode(string.reverse(v), "base64")
-            elseif meta.is_table(v) then
+            if meta.is_table(v) then
                 if seen[v] then
                     return seen[v]
                 end
@@ -715,6 +715,9 @@ function table.decrypt(str)
                     out[decrypt_inner(k2)] = decrypt_inner(v2)
                 end
                 return out
+            elseif meta.is_string(v) then
+                    return string.decode(string.reverse(v), "base64")
+                else
             end
 
             return v

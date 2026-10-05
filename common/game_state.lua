@@ -746,9 +746,9 @@ function rt.GameState:load_save()
 
     if max_save_name == nil then return end
 
-    local result, error_maybe = table.decrypt(bd.read_file(max_save_name))
+    local result = table.decrypt(bd.read_file(max_save_name))
     if result == nil then
-        rt.error("In rt.GameState.load_save: save at `", max_save_name, "` is corrupted: ", error_maybe)
+        rt.error("In rt.GameState.load_save: save at `", max_save_name, "` is corrupted")
         return
     end
 
