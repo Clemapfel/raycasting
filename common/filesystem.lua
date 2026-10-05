@@ -674,7 +674,7 @@ function bd.load_string(source, should_sandbox, fenv)
 
     local chunk_success, config_or_error = pcall(chunk)
     if not chunk_success then
-        rt.error("In bd.load_string: error when running source string: ", chunk_or_error)
+        rt.error("In bd.load_string: error when running source string: ", config_or_error)
         return nil
     end
 
