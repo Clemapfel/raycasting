@@ -63,7 +63,7 @@ AutoRecorder {
 
 	*record { arg server, filename, f;
 		var condition, latency, pathname, swap;
-		var aborted = false, onQuit, endDef, warnDef;
+		var aborted = false, endDef, warnDef;
 
 		if (server.isKindOf(Server).not) {
 			Error("In AutoRecorder.record: argument #1 `server` is not a `Server`").throw;
@@ -94,13 +94,6 @@ AutoRecorder {
 			"In AutoRecorder.ar: `recordbufnum` is `0`. Was the synthdef argument assigned correctly?".warn;
 		}, AutoRecorder.warnMessage).oneShot;
 
-		onQuit = {
-			aborted = true;
-			condition.test = true;
-			condition.signal;
-		};
-		ServerQuit.add(onQuit, server);
-
 		// alloc buffer
 		server.bind {
 			Buffer.alloc(server, 1, 1); // alloc dummy buffer so swap can never have bufnum 0 for `ar` warning
@@ -126,30 +119,6 @@ AutoRecorder {
 
 		// wait for `end` to fire (or for the server to quit)
 		condition.wait;
-
-		ServerQuit.remove(onQuit, server);
-
-		if (aborted) {
-			// server is gone: don't touch `swap`, don't send any messages
-			endDef.free;
-			warnDef.free;
-			"In AutoRecorder: server quit mid-recording. Finalizing `%`".format(pathname.fullPath).warn;
-
-			// give scsynth a moment to flush and close the file during shutdown
-			0.5.wait;
-
-			try {
-				if (File.exists(pathname.fullPath)) {
-					AutoRecorder.trimSilence(pathname);
-					"In AutoRecorder: partial recording kept at `%`".format(pathname.fullPath).postln;
-				};
-			} { |err|
-				"In AutoRecorder: could not trim partial file `%` (%)".format(
-					pathname.fullPath, err.errorString
-				).warn;
-			};
-			^this;
-		};
 
 		latency.wait;
 
@@ -278,6 +247,4 @@ AutoRecorder {
 			};
 		};
 	}
-
-
 }

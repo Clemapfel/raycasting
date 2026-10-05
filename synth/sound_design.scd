@@ -1,5 +1,5 @@
  var server = Server.default;
-~is_recording = false;
+~is_recording = true;
 
 server.latency = 0.3;
 server.options.blockSize = 2048;
@@ -445,60 +445,66 @@ server.waitForBoot {
 
 ~air_dash_node_focus = { arg degrees;
 	var def = SynthDef(\air_dash_node_focus, { arg out, trig, freq, dur, amp, tempo, decay = 1, gate = 1, recordbuf;
-		var impulseDur = 0.02;
-		var impulseAttack = 0.02;
-		var impulsePhaseIntensity = Line.kr(0.5, 0, impulseDur); // 0: all sine, 1: all noise
 		var freqs = [freq, 12.midiratio * freq];
-		var impulse = Ringz.ar(EnvGen.ar(Env.new([-1, 1], 0.01), gate: trig),
-			freq: freqs,
-			decaytime: 1
-		);
-
-		var db = -20;
-		var rs = 0.8;
+		var impulse = Ringz.ar(Impulse.ar(0),
+            freq: freqs,
+            decaytime: dur
+        ) * EnvGen.ar(Env.asr(0.25, 1, 1), gate: gate);
 
 		var nFeedback = 12;
-		var maxDelay = 0.03;
+		var maxDelay = 0.04;
 		var feedback = LocalIn.ar(nFeedback);
-		var damped;
 
 		impulse = feedback + impulse;
 
 		nFeedback.do { |i|
-			var delay = (i / nFeedback).linexp(0, 1, maxDelay / nFeedback, maxDelay);
+			var t = i / nFeedback;
+			var delay = t.linexp(0, 1, 0.01, maxDelay);
 			impulse = AllpassC.ar(impulse,
-				maxdelaytime: 0.04,
+				maxdelaytime: maxDelay,
 				delaytime: delay,
-				decaytime: delay * 8
-			) * LFNoise2.ar(20);
+				decaytime: delay
+			);
+
+			impulse = BHiShelf.ar(impulse, 7000, db: -40);
 		};
 
-		impulse = BHiShelf.ar(impulse, 4000, db: -60);
-		LocalOut.ar(0.98 * LeakDC.ar(impulse));
+		LocalOut.ar(0.1 * LeakDC.ar(impulse));
 
-		//impulse = BLowShelf.ar(impulse, freq: 200, db: db, rs: rs);
-		//impulse = BHiShelf.ar(impulse, freq: 1000, db: db, rs: rs);
-
-		//~rec.ar(recordbuf, impulse);
-		//~rec.end(Done.kr(masterEnv));
-		//FreeSelf.kr(DetectSilence.ar(impulse));
-		Out.ar(out, amp * impulse.mean.dup);
-	}, [nil, \tr]).add;
+		~rec.ar(recordbuf, impulse);
+		~rec.end(DetectSilence.ar(impulse));
+		FreeSelf.kr(DetectSilence.ar(impulse));
+		Out.ar(out, ~amp * impulse.mean.dup);
+	}).add;
 
 	server.sync;
 
 	if (~is_recording) {
+		var tempo = 12;
 		degrees.do { |degree|
 			~rec.record(server,
 				~rec.filename("air_dash_node", "focus", degree), { arg recordbuf;
-					Pnew(def.name, \degree, Pn(degree, 1)).play;
+					Pnew(def.name,
+						\degree, Pseq([degree, degree + 3], 1),
+						\recordbuf, recordbuf,
+						\tempo, tempo
+					).play;
+				}
+			);
+
+			~rec.record(server,
+				~rec.filename("air_dash_node", "focus", degree), { arg recordbuf;
+					Pnew(def.name,
+						\degree, Pseq([degree, degree - 2], 1),
+						\recordbuf, recordbuf,
+						\tempo, tempo
+					).play;
 				}
 			);
 		};
 	} {
-		Pmono(def.name, *[
-			degree: Pseq([0, 5, 8, 9, 14, Rest(2), 0, 5, 10, 7, 4, Rest(2)], ),
-			tempo: Pgeom(4, 1.04, inf).min(40),
+		PmonoArtic(def.name, *[
+			degree: Pseq([0, 5, 8, 9, 14, Rest(2), 0, 5, 10, 7, 4, Rest(2)], 1),
 			decay: Pgeom(1, 0.99, inf),
 			trig: Pseq([-1, 1], inf)
 		]).play;
