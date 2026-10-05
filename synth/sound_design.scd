@@ -1,4 +1,6 @@
- var server = Server.default;
+var server = Server.default;
+var record_pattern;
+
 ~is_recording = true;
 
 server.latency = 0.3;
@@ -31,6 +33,47 @@ server.waitForBoot {
 ~asset_path = thisProcess.nowExecutingPath.dirname +/+ AutoRecorder.assetPathName;
 ~rec = AutoRecorder;
 ~rec.isSilenced = ~is_recording.not;
+
+record_pattern = { arg recordbuf, recordbus, pattern, delay = 0;
+	// for multi-snyth patterns, route into recordbus, then record in separate synth
+
+	var recordDef = SynthDef.new(("record" ++ UniqueID.next).asSymbol, { arg out, recordbus, recordbuf;
+		var signal = Limiter.ar(In.ar(recordbus, 1), 0.999);
+		var releaseTrig = DelayN.ar(DetectSilence.ar(signal), delay, delay);
+
+		~rec.ar(recordbuf, signal);
+		~rec.end(releaseTrig);
+
+		Out.ar(out, (~amp * (signal)).dup);
+		ClipDetector.ar(signal);
+		FreeSelf.kr(releaseTrig);
+	}).add;
+
+	server.sync;
+
+	if (recordbus.isNil or: { recordbus == 0 }) {
+		Error("In precord: argument #2 `recordbus` is unassigned").throw;
+	};
+
+	if (recordbuf.isNil or: { recordbuf == 0 }) {
+		Error("In precord: argument #3 `recordbuf` is unassigned").throw;
+	};
+
+	Synth(recordDef.name, [
+		out: 0,
+		recordbuf: recordbuf,
+		recordbus: recordbus
+	]);
+
+	if (pattern.isKindOf(Function)) {
+		pattern.value;
+	} {
+		pattern.play;
+	}
+};
+
+
+// for multi-synth patterns, route to recordbus, then record there
 
 // ### IMPLEMENTATIONS ###
 
@@ -402,17 +445,10 @@ server.waitForBoot {
 			maxGrains: 1024
 		) * EnvGen.ar(Env.new([0, 1, 1], [0.05], \welch), gate: gate);
 
-		var sweepDur = 0.18;
-		var freqSweep = freq * XLine.kr(1 / 4, 4, sweepDur);
-		signal = BBandPass.ar(signal,
-			freq: freqSweep,
-			bw: XLine.kr(1, 10, sweepDur);
-		);
-
 		Out.ar(out, (~amp * (signal)).dup);
 		~rec.ar(recordbuf, signal);
 		~rec.end(DetectSilence.ar(signal));
-		DetectSilence.ar(signal, doneAction: Done.freeSelf);
+		FreeSelf.kr(DelayN.ar(DetectSilence.ar(signal)));
 	}).add;
 
 	server.sync;
@@ -444,22 +480,23 @@ server.waitForBoot {
 };
 
 ~air_dash_node_focus = { arg degrees;
-	var def = SynthDef(\air_dash_node_focus, { arg out, trig, freq, dur, amp, tempo, decay = 1, gate = 1, recordbuf;
+	var def = SynthDef(\air_dash_node_focus, { arg out, freq, dur, reverb = 0.1, gain = 1, maxDelay = 0.04, gate = 1;
+		var signal;
 		var freqs = [freq, 12.midiratio * freq];
 		var impulse = Ringz.ar(Impulse.ar(0),
-            freq: freqs,
-            decaytime: dur
-        ) * EnvGen.ar(Env.asr(0.25, 1, 1), gate: gate);
+			freq: freqs,
+			decaytime: dur
+		).mean * EnvGen.ar(Env.asr(0.25, gain * 1, gain * 1), gate: gate);
 
 		var nFeedback = 12;
-		var maxDelay = 0.04;
 		var feedback = LocalIn.ar(nFeedback);
+		var releaseTrig;
 
 		impulse = feedback + impulse;
 
 		nFeedback.do { |i|
 			var t = i / nFeedback;
-			var delay = t.linexp(0, 1, 0.01, maxDelay);
+			var delay = t.linexp(0, 1, maxDelay / 20, maxDelay);
 			impulse = AllpassC.ar(impulse,
 				maxdelaytime: maxDelay,
 				delaytime: delay,
@@ -469,36 +506,82 @@ server.waitForBoot {
 			impulse = BHiShelf.ar(impulse, 7000, db: -40);
 		};
 
-		LocalOut.ar(0.1 * LeakDC.ar(impulse));
+		LocalOut.ar(reverb * LeakDC.ar(impulse));
+		signal = Mix.ar(impulse) / nFeedback;
+		Out.ar(out, signal);
+		DetectSilence.ar(signal, doneAction: Done.freeSelf);
+	}).add;
 
-		~rec.ar(recordbuf, impulse);
-		~rec.end(DetectSilence.ar(impulse));
-		FreeSelf.kr(DetectSilence.ar(impulse));
-		Out.ar(out, ~amp * impulse.mean.dup);
+	var rechargeDef = SynthDef(\air_dash_node_recharge, { arg out, freq, bufnum, recordbuf;
+		var signal = PlayBuf.ar(1, bufnum,
+			rate: -1 *  BufRateScale.kr(bufnum),
+			startPos: BufFrames.kr(bufnum) - 1
+		);
+
+		var feedback = LocalIn.ar(1);
+		var delay = 0.04;
+		signal = DelayN.ar(signal + feedback, delay, delay);
+		LocalOut.ar(0.4 * signal);
+
+		Out.ar(out, signal);
+		//FreeSelf.kr(DelayN.kr(Impulse.kr(0), BufDur.ir(bufnum), BufDur.ir(bufnum)));
 	}).add;
 
 	server.sync;
 
 	if (~is_recording) {
-		var tempo = 12;
+		/*
+        var tempo = 12;
 		degrees.do { |degree|
 			~rec.record(server,
-				~rec.filename("air_dash_node", "focus", degree), { arg recordbuf;
-					Pnew(def.name,
-						\degree, Pseq([degree, degree + 3], 1),
-						\recordbuf, recordbuf,
-						\tempo, tempo
-					).play;
+				~rec.filename("air_dash_node", "focus", degree), { arg recordbuf, recordbus;
+					record_pattern.(recordbuf, recordbus, Pnew(def.name, *[
+						out: recordbus,
+						degree: Pseq([degree, degree + 3], 1),
+						tempo: tempo,
+						reverb: 0.1
+					]));
 				}
 			);
 
 			~rec.record(server,
-				~rec.filename("air_dash_node", "focus", degree), { arg recordbuf;
-					Pnew(def.name,
-						\degree, Pseq([degree, degree - 2], 1),
-						\recordbuf, recordbuf,
-						\tempo, tempo
-					).play;
+				~rec.filename("air_dash_node", "unfocus", degree), { arg recordbuf, recordbus;
+					record_pattern.(recordbuf, recordbus, Pnew(def.name, *[
+						out: recordbus,
+						degree: Pseq([degree, degree - 2], 1),
+						tempo: tempo,
+						reverb: 0.1
+					]));
+				}
+			);
+		};
+		*/
+
+		degrees.do { |degree|
+			var tmp_filename = ~rec.filename("air_dash_node", "tmp_recharge", degree);
+			var buf;
+
+			~rec.record(server,
+				tmp_filename, { arg recordbuf, recordbus;
+					record_pattern.(recordbuf, recordbus, Pnew(def.name, *[
+						out: recordbus,
+						degree: Pn(degree, 1),
+						dur: 0.25,
+						maxDelay: 0.01,
+						reverb: 0.7
+					]));
+				}
+			);
+
+			buf = Buffer.read(server, tmp_filename);
+			server.sync;
+
+			~rec.record(server,
+				~rec.filename("air_dash_node", "recharge", degree), { arg recordbuf, recordbus;
+					record_pattern.(recordbuf, recordbus, Pnew(rechargeDef.name, *[
+						out: recordbus,
+						bufnum: Pn(buf, 1)
+					]));
 				}
 			);
 		};

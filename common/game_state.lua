@@ -51,7 +51,6 @@ function rt.GameState:instantiate()
     self._save_futures = {}
     self._log_futures = {}
 
-    self:save()
     self:load_save()
 end
 
@@ -752,7 +751,7 @@ function rt.GameState:load_save()
         return
     end
 
-    -- sanitize and load from state (unchanged from here on)
+    -- sanitize and load from state
     local config = bd.get_config()
 
     for key in keys(config) do

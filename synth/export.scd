@@ -75,12 +75,14 @@ server.waitForBoot {
 						valid = (
 							job.in.beginsWith(tempPrefix).not
 							and: { file.openRead(job.in) }
-							and: { file.numFrames > 0 }
-							and: { file.numChannels > 0 }
-							and: { file.sampleRate > 0 }
 						);
 					} {
 						file.close;
+					};
+
+
+					if (file.numFrames == 0 || file.numChannels == 0) {
+						Error("In export.scd: file at `%` contains only silence").throw;
 					};
 
 					if (valid) {

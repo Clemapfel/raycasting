@@ -61,8 +61,8 @@ AutoRecorder {
 		SendReply.perform(method, trig, cmdName: AutoRecorder.recordEndMessage);
 	}
 
-	*record { arg server, filename, f;
-		var condition, latency, pathname, swap;
+	*record { arg server, filename, f, numChannels = 1;
+		var condition, latency, pathname, swap, bus;
 		var aborted = false, endDef, warnDef;
 
 		if (server.isKindOf(Server).not) {
@@ -97,7 +97,8 @@ AutoRecorder {
 		// alloc buffer
 		server.bind {
 			Buffer.alloc(server, 1, 1); // alloc dummy buffer so swap can never have bufnum 0 for `ar` warning
-			swap = Buffer.alloc(server, 48000.nextPowerOfTwo, 1);
+			swap = Buffer.alloc(server, AutoRecorder.sampleRate.nextPowerOfTwo, 1);
+			bus = Bus.audio(server, numChannels);
 			server.sync;
 		};
 
@@ -115,7 +116,7 @@ AutoRecorder {
 		latency.wait;
 
 		// invoke callback, provides local swap, to be handed to `ar`
-		f.value(swap);
+		f.value(swap, bus);
 
 		// wait for `end` to fire (or for the server to quit)
 		condition.wait;
@@ -125,7 +126,7 @@ AutoRecorder {
 		swap.close {
 			swap.free {
 				latency.wait;
-				if (AutoRecorder.trimSilence(pathname) == false) {
+				if (AutoRecorder.postprocess(pathname) == false) {
 					"In AutoRecorder: file contains only silence. Was `AutoRecorder.ar` used?".postln;
 				};
 				"In AutoRecorder: done. Wrote `%` to `%`".format(
@@ -183,12 +184,13 @@ AutoRecorder {
 		^(t1 - t0) * 1.5; // safety margin
 	}
 
-	*trimSilence { arg path;
+	*postprocess { arg path;
 		var inFile = SoundFile.openRead(path.fullPath);
 		var numChannels = inFile.numChannels;
 		var numFrames = inFile.numFrames;
 		var data = FloatArray.newClear(numFrames * numChannels);
 
+		// trim silence at start and end
 		var isNonZeroFrame = { |i|
 			var result = false;
 			numChannels.do { |j|
@@ -240,7 +242,7 @@ AutoRecorder {
 				outFile.close;
 				^true;
 			} {
-				"In AutoRecorder.trimSilence: failed to open file at `%`".format(
+				"In AutoRecorder.postprocess: failed to open file at `%`".format(
 					path.fullPath
 				).postln;
 				^false;
