@@ -17,8 +17,8 @@ rt.settings.sound_manager = {
     update_step = 1 / 240, -- seconds
     n_priority_queue_sub_steps = 4,
 
-    import_attack = 5 / 60,
-    import_release = 8 / 60,
+    import_attack = 1 / 60,
+    import_release = 1 / 60,
     import_should_normalize = true,
     
     envelope_shape = rt.EnvelopeCurve.WELCH,
@@ -441,7 +441,7 @@ function rt.SoundManager:_play_internal(id, config, handler_id, after_handler_id
     entry.source:setLooping(config.should_loop)
 
     -- volume
-    entry.source:setVolume(0) -- set next update
+    entry.source:setVolume(1) -- set next update
     entry.volume_motion = rt.SmoothedMotion1D(1, rt.settings.sound_manager.volume_motion_velocity)
     entry.flush_volume_motion = rt.SmoothedMotion1D(1, rt.settings.sound_manager.volume_motion_velocity)
 

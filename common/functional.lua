@@ -222,6 +222,7 @@ local _new_proxy = function(...)
                     if type ~= nil and _type(v) ~= type then
                         v = _cast(type, v)
                     end
+                    
                     t[i] = f(v)
                 end
             end
@@ -484,7 +485,7 @@ local _new_proxy = function(...)
             end
             add_inner(self._)
         else
-            local idx = _cast(_number_t, i)
+            local index = _cast(_number_t, i)
             local function add_at_inner(t)
                 for k, v in pairs(t) do
                     if _is_table(v) then
@@ -492,10 +493,10 @@ local _new_proxy = function(...)
                     end
                 end
                 if _is_table(t) then
-                    table.insert(t, math.floor(idx), element)
+                    table.insert(t, math.floor(index), element)
                 elseif _is_string(t) then
-                    local p1 = string.sub(t, 1, math.floor(idx) - 1)
-                    local p2 = string.sub(t, math.floor(idx))
+                    local p1 = string.sub(t, 1, math.floor(index) - 1)
+                    local p2 = string.sub(t, math.floor(index))
                     t = p1 .. _to_string(element) .. p2
                 end
             end
@@ -556,21 +557,21 @@ local _new_proxy = function(...)
     end
 
     self.remove_at = function(i)
-        local idx = _cast(_number_t, i)
+        local index = _cast(_number_t, i)
         local function remove_at_inner(x)
             if _is_table(x) then
-                if idx >= 1 and idx <= #x and idx == math.floor(idx) then
-                    table.remove(x, math.floor(idx))
+                if index >= 1 and index <= #x and index == math.floor(index) then
+                    table.remove(x, math.floor(index))
                 end
                 for k, v in pairs(x) do
                     if _is_table(v) then remove_at_inner(v) end
                 end
             elseif _is_string(x) then
-                local f = math.floor(idx)
+                local f = math.floor(index)
                 if f >= 1 and f <= string.len(x) then
                     return string.sub(x, 1, f - 1) .. string.sub(x, f + 1)
                 end
-            elseif idx == 1 then
+            elseif index == 1 then
                 return nil
             end
             return x
@@ -580,10 +581,10 @@ local _new_proxy = function(...)
     end
 
     self.replace_at = function(i, to_replace_with)
-        local idx = _cast(_number_t, i)
+        local index = _cast(_number_t, i)
         local function replace_at_inner(x)
             if _is_table(x) then
-                local f = math.floor(idx)
+                local f = math.floor(index)
                 if f >= 1 and f <= #x then
                     x[f] = to_replace_with
                 end
@@ -591,11 +592,11 @@ local _new_proxy = function(...)
                     if _is_table(v) then replace_at_inner(v) end
                 end
             elseif _is_string(x) then
-                local f = math.floor(idx)
+                local f = math.floor(index)
                 if f >= 1 and f <= string.len(x) then
                     return string.sub(x, 1, f - 1) .. _to_string(to_replace_with) .. string.sub(x, f + 1)
                 end
-            elseif idx == 1 then
+            elseif index == 1 then
                 return to_replace_with
             end
             return x
@@ -608,6 +609,31 @@ local _new_proxy = function(...)
         return _sizeof(self._)
     end
 
+    -- if it is a table { x, y, z }, create a table { x, y, z, x, y, z, ... }
+    -- if it is a string "xyz", replace it with "xyzxyz..."
+    -- otherwise, replace x with { x, x, ... }
+    self.duplicate = function(n)
+
+    end
+
+    -- if f(v) compares true for the value, replace it with nil, recursively
+    self.filter = function(f)
+
+    end
+
+    -- if n is positive, drop first n elements of string / table
+    -- if n is negative, drop last abs(n) elements
+    self.drop = function(n)
+
+    end
+
+    -- if n is positive, drop last n - 1 elements of string/table
+    -- if n is negative, drop first abs(n) elements of string/table
+    self.keep = function(n)
+
+    end
+
+    --
     self.append = function(to_append)
         local function copy(x)
             if not _is_table(x) then return x end
@@ -686,27 +712,28 @@ local _new_proxy = function(...)
     end
 
     self.interlace = function(other)
-        local other_val = _is_table(other) and other or (other._ and other._ or { other })
-        if other._ then other_val = other._ end
+        local other_value = _is_table(other) and other or (other._ and other._ or { other })
+        if other._ then other_value = other._ end
 
         local function interlace_inner(x)
             if _is_table(x) then
                 local out = {}
-                local max_len = math.max(#x, #other_val)
-                local idx = 1
+                local max_len = math.max(#x, #other_value)
+                local index = 1
                 for i = 1, max_len do
                     if i <= #x then
-                        out[idx] = interlace_inner(x[i])
-                        idx = idx + 1
+                        out[index] = interlace_inner(x[i])
+                        index = index + 1
                     end
-                    if i <= #other_val then
-                        out[idx] = other_val[i]
-                        idx = idx + 1
+
+                    if i <= #other_value then
+                        out[index] = other_value[i]
+                        index = index + 1
                     end
                 end
                 return out
             elseif _is_string(x) then
-                local other_str = _cast(_string_t, other_val[1] or "")
+                local other_str = _cast(_string_t, other_value[1] or "")
                 local out = {}
                 local max_len = math.max(string.len(x), string.len(other_str))
                 for i = 1, max_len do
@@ -721,16 +748,17 @@ local _new_proxy = function(...)
             else
                 local t = { x }
                 local out = {}
-                local max_len = math.max(1, #other_val)
-                local idx = 1
+                local max_len = math.max(1, #other_value)
+                local index = 1
                 for i = 1, max_len do
                     if i <= 1 then
-                        out[idx] = t[1]
-                        idx = idx + 1
+                        out[index] = t[1]
+                        index = index + 1
                     end
-                    if i <= #other_val then
-                        out[idx] = other_val[i]
-                        idx = idx + 1
+
+                    if i <= #other_value then
+                        out[index] = other_value[i]
+                        index = index + 1
                     end
                 end
                 return out

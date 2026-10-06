@@ -388,6 +388,17 @@ function rt.GameState:get_player_body_core_type()
 end
 
 --- @brief
+function rt.GameState:get_pause_on_focus_lost()
+    return bd.get_config().pause_on_focus_lost
+end
+
+--- @brief
+function rt.GameState:pause_on_focus_lost(b)
+    meta.assert(b, mt.Boolean)
+    bd.get_config().pause_on_focus_lost = b
+end
+
+--- @brief
 function rt.GameState:load_default_input_binding()
     self._input_action_to_keyboard_key, self._input_action_to_controller_button = bd.get_default_keybinding()
     local valid, error = self:_validate_input_binding()
@@ -727,7 +738,7 @@ function rt.GameState:save()
     end
 end
 
---- @brief
+--- @brief load and validte the newest available save file
 function rt.GameState:load_save()
     local settings = rt.settings.game_state
 
@@ -757,9 +768,13 @@ function rt.GameState:load_save()
     for key in keys(config) do
         if key == settings.save_keyboard_binding_prefix or key == settings.save_controller_binding_prefix then
             -- load keybinds
-            local enum = ternary(key == settings.save_keyboard_binding_prefix, rt.KeyboardKey, rt.ControllerButton)
-            local binding = result[key]
+            local enum = ternary(
+                key == settings.save_keyboard_binding_prefix,
+                rt.KeyboardKey,
+                rt.ControllerButton
+            )
 
+            local binding = result[key]
             local is_valid = true
             for input_action, assigned in pairs(binding) do
                 if not meta.is_enum_value(input_action, rt.InputAction) then

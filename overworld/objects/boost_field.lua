@@ -65,6 +65,9 @@ local _particle_texture = nil
 local _particle_texture_shader = rt.Shader("overworld/objects/boost_field_particle_texture.glsl")
 local _particle_draw_shader = rt.Shader("overworld/objects/boost_field_particle_draw.glsl")
 
+local _ramp_sound_id = "boost_field.ramp"
+local _hold_sound_id = "boost_field.hold"
+
 --- @brief
 function ow.BoostField:instantiate(object, stage, scene)
     object:validate_schema(schema, ow.ShapeType.NOT_A_POINT)
@@ -331,13 +334,17 @@ end
 
 --- @brief
 function ow.BoostField:update(delta)
-    if not self._is_visible or not self._stage:get_is_body_visible(self._body) then return end
+    if not self._is_visible or not self._stage:get_is_body_visible(self._body) then
+        self._is_active = false
+        return
+    end
 
     local player = self._scene:get_player()
     local px, py = player:get_position()
 
     local ox, oy = math.subtract(px, py, self._body:get_position())
 
+    local before = self._is_active
     self._is_active = self._body:test_point(player:get_position()) -- body already compensate for offset
     if self._is_active then
         local dir_x, dir_y
@@ -418,6 +425,7 @@ function ow.BoostField:draw(priority)
         _mesh_shader:send("velocity_factor", self._velocity_factor)
         _mesh_shader:send("opacity", rt.settings.overworld.boost_field.opacity)
         _mesh_shader:send("screen_to_world_transform", self._scene:get_camera():get_transform():translate(
+            -- apply physics translation before inverse
             self._body:get_position()
         ):inverse())
 
@@ -860,7 +868,7 @@ do
 
     local _HUE_UPDATE_NEEDED = -1
 
-    -- linear ASR envelope
+    -- linear envelope
     local attack = settings.attack_fraction
     local release = settings.release_fraction
     local _opacity_easing = function(t)

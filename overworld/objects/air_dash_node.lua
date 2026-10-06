@@ -372,6 +372,9 @@ function ow.AirDashNode:instantiate(object, stage, scene)
 
     -- draw-only angle for interpolation
     self._draw_angle = math.angle(self:get_direction())
+
+    -- state for sound effects
+    self._player_overlap = self:check_player_overlap()
 end
 
 --- @brief
@@ -400,20 +403,6 @@ function ow.AirDashNode:set_is_current(now)
     if now == true then
         -- skip animation
         self._is_current_motion:set_value(1)
-    end
-
-    if before == false and now == true then
-        self._focus_sound_handler = rt.SoundManager:play(_focus_sound_id, {
-            volume = _focus_amp,
-            degree = self._degree,
-            stop = self._focus_sound_handler
-        })
-    elseif before == true and now == false then
-        self._unfocus_sound_handler = rt.SoundManager:play(_unfocus_sound_id, {
-            volume = _focus_amp,
-            degree = self._degree,
-            stop = self._unfocus_sound_handler
-        })
     end
 end
 
@@ -451,15 +440,33 @@ function ow.AirDashNode:update(delta)
         self._stage.air_dash_node_manager:update(delta)
     end
 
+    local player = self._scene:get_player()
     if self._stage:get_is_body_visible(self._body) then
         if self._queue_emit then
-            local player = self._scene:get_player()
             local px, py = player:get_position()
             local vx, vy = player:get_velocity()
             self._particles:emit(delta, px, py, vx, vy, self._scene:get_player():get_color():unpack())
             self._queue_emit = false
         end
 
+        local before = self._player_overlap
+        local now = self:check_player_overlap()
+
+        if before == false and now == true then
+            self._focus_sound_handler = rt.SoundManager:play(_focus_sound_id, {
+                volume = _focus_amp,
+                degree = self._degree,
+                stop = { self._focus_sound_handler, self._unfocus_sound_handler }
+            })
+        elseif before == true and now == false then
+            self._unfocus_sound_handler = rt.SoundManager:play(_unfocus_sound_id, {
+                volume = _focus_amp,
+                degree = self._degree,
+                stop = { self._unfocus_sound_handler, self._focus_sound_handler }
+            })
+        end
+
+        self._player_overlap = now
         self._is_current_motion:update(delta)
 
         local target_dx, target_dy = self:get_direction()
@@ -488,6 +495,8 @@ function ow.AirDashNode:update(delta)
         local dx, dy, _ = self:get_direction()
         self._particle:set_aligned(self._is_current, dx, dy, 0)
         self._particles:update(delta)
+    else
+        self._player_overlap = false
     end
 
     self._lighting_elapsed = self._lighting_elapsed + delta
@@ -590,10 +599,6 @@ function ow.AirDashNode:draw(priority)
         love.graphics.setLineWidth(line_width)
         love.graphics.setColor(r, g, b, alpha)
         draw_line()
-    end
-
-    if self:check_player_overlap() then
-        --love.graphics.circle("line", 0, 0, self._radius)
     end
 
     love.graphics.pop()
@@ -778,16 +783,14 @@ local function line_overlap(px, py, radius, ax, ay, bx, by)
     return math.abs(math.cross(dx, dy, px - ax, py - ay)) <= radius
 end
 
-local _hash_query = function(frame_index, px, py, pr, x, y, r, mid, span)
-    return string.format("%i" .. string.rep("%.2f", 8), frame_index, px, py, pr, x, y, r, mid, span)
+local _hash_query = function(...)
+    return string.format("%i" .. string.rep("%.2f", select("#", ...) - 1), ...)
 end
 
 --- @brief
 function ow.AirDashNode:check_player_overlap(px, py, pr)
     if px == nil or py == nil then
-        local x, y = self._scene:get_player():get_position()
-        px = px or x
-        py = py or y
+        px, py = self._scene:get_player():get_position()
     end
 
     if pr == nil then
@@ -799,7 +802,7 @@ function ow.AirDashNode:check_player_overlap(px, py, pr)
     local mid, span = self._angle, self._angle_range
 
     -- use cached result, for repeated queries
-    local hash = _hash_query(rt.SceneManager:get_frame_index(), px, py, pr, x, y, r, mid, span)
+    local hash = _hash_query(rt.SceneManager:get_frame_index(), meta.hash(self), px, py, pr, x, y, r, mid, span)
     if self._last_query_hash == hash and self._last_overlap_result ~= nil then
         return self._last_overlap_result
     end

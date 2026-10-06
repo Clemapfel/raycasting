@@ -150,16 +150,16 @@ do
 
         -- light map config
         dynamic_lighting_start_n_point_lights = POWER_OF_2_RANGE(9, 1, 12), -- 2^9 = 512
-        dynamic_lighting_max_n_point_lights   = POWER_OF_2_RANGE(10, 1, 13), -- 2^10 = 1024
+        dynamic_lighting_max_n_point_lights = POWER_OF_2_RANGE(10, 1, 13), -- 2^10 = 1024
 
         dynamic_lighting_start_n_segment_lights = POWER_OF_2_RANGE(8, 4, 12), -- 2^8 = 256
-        dynamic_lighting_max_n_segment_lights   = POWER_OF_2_RANGE(9, 4, 12), -- 2^9 = 512
+        dynamic_lighting_max_n_segment_lights = POWER_OF_2_RANGE(9, 4, 12), -- 2^9 = 512
 
         dynamic_lighting_start_n_point_lights_per_tile = POWER_OF_2_RANGE(6, 1, 10), -- 2^6 = 64
-        dynamic_lighting_max_n_point_lights_per_tile   = POWER_OF_2_RANGE(8, 3, 10), -- 2^8 = 256
+        dynamic_lighting_max_n_point_lights_per_tile = POWER_OF_2_RANGE(8, 3, 10), -- 2^8 = 256
 
         dynamic_lighting_start_n_segment_lights_per_tile = POWER_OF_2_RANGE(4, 1, 9), -- 2^4 = 16
-        dynamic_lighting_max_n_segment_lights_per_tile   = POWER_OF_2_RANGE(7, 1, 9), -- 2^7 = 128
+        dynamic_lighting_max_n_segment_lights_per_tile = POWER_OF_2_RANGE(7, 1, 9), -- 2^7 = 128
 
         -- enable dynamic shadows
         are_dynamic_shadows_enabled = BOOLEAN(true),
@@ -179,6 +179,9 @@ do
 
         -- should system console be shown
         show_console = BOOLEAN(true),
+
+        -- should engine stop updating on focus lost
+        pause_on_focus_lost = BOOLEAN(true),
 
         -- audio
         sound_effect_level = FLOAT_RANGE(1, 0, 1),

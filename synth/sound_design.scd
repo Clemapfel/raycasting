@@ -15,12 +15,13 @@ server.waitForBoot {
 
 	var degrees = [0, 4, 8, 12];
 	[
-		//\bubble_pop,
+		\bubble_pop,
 		//\bubble_unpop,
 		//\bubble_fizz,
 		//\bounce_pad, // TODO: make it sound less like a pure sine
 		//\air_dash_node_dash,
-		\air_dash_node_focus
+		//\air_dash_node_focus,
+		\boost_field
 	].do { |name| currentEnvironment[name].(degrees) };
 
 	CmdPeriod.doOnce { server.freeAll }
@@ -561,7 +562,7 @@ record_pattern = { arg recordbuf, recordbus, pattern, delay = 0;
 
 		degrees.do { |degree|
 			var tmp_filename = ~rec.filename("air_dash_node", "focus", degree);
-			var dur = 6 / 60, reverb = 0.15, maxDelay = 0.005;
+			var dur = 8 / 60, reverb = 0.15, maxDelay = 0.005;
 			var buf;
 
 			~rec.record(server,
@@ -594,6 +595,106 @@ record_pattern = { arg recordbuf, recordbus, pattern, delay = 0;
 			degree: Pseq([0, 5, 8, 9, 14, Rest(2), 0, 5, 10, 7, 4, Rest(2)], 1),
 			decay: Pgeom(1, 0.99, inf),
 			trig: Pseq([-1, 1], inf)
+		]).play;
+	};
+};
+
+~boost_field = { arg degrees;
+	var octaves = 8;
+	var maxRate = 4;
+
+	var def = SynthDef.new(\boost_field, { arg out = 0, degree, rampDur, holdDur, recordbuf, envIndex, gate = 1;
+		var n = 8;
+		var base = (12 + degree).midiratio;
+
+		var sweep = EnvGen.ar(Env.new([0, 1, 1], [rampDur, holdDur], [\lin, \hold]));
+		var rate = sweep.linlin(0, 1, 0, maxRate);
+
+		var maxFreq = (60 + (3 * 12)).midicps; //0.25 * (server.sampleRate / 2);
+		var envAttack = ControlDur.ir;
+		var doneTrig;
+
+		var feedback = LocalIn.ar(n);
+		var signal = n.collect { arg i;
+			var t = i / n;
+			var pos = LFSaw.ar(
+				freq: rate / octaves,
+				iphase: t.linlin(0, 1, 0, 2)
+			).range(0, 1) * EnvGen.ar(Env.new([0, 1], 0.04), gate: gate); // prevent bleep at start
+
+			var semis = (pos * octaves * 12).softRound(
+				margin: 0,
+				strength: sweep.linlin(0, 1, 0.9, 0.4)
+			);
+
+			var rawFreq = base * semis.midiratio;
+			var trig = Changed.ar((pos * octaves * 12).round(0.5));
+
+			var window = IEnvGen.ar(
+				Env([0, 1, 0], [0.5, 0.5], \sin),
+				pos
+			);
+
+			var currentFreq = rawFreq.min(maxFreq);
+			var guard = rawFreq.linlin(0, maxFreq, 1, 0);
+
+			var sine = SinOsc.ar(currentFreq,
+				phase: (t.linlin(0, 1, 0.1, 0.3)  * feedback[i].range(0, 2pi) + (t * 2pi)).mod(2pi)
+			) * window * guard;
+
+			sine;
+		};
+
+		LocalOut.ar(signal);
+		signal = Mix.ar(signal) / 1.25;
+		signal = BLowShelf.ar(signal, freq: 80, db: -30);
+
+		signal = signal * Select.ar(envIndex, [
+			EnvGen.ar(Env.linen(envAttack, rampDur - (2 * envAttack), envAttack), gate: gate),
+			EnvGen.ar(Env.linen(envAttack, holdDur - (2 * envAttack), envAttack), gate: gate)
+		]);
+		ClipDetector.ar(signal, 1.0);
+		Out.ar(out, ~amp * signal.dup);
+
+		doneTrig = DetectSilence.ar(signal);
+		~rec.ar(recordbuf, signal);
+		~rec.end(doneTrig);
+
+		FreeSelf.kr(doneTrig);
+
+	}).add;
+
+	var rampDur = 3 * (octaves / maxRate);
+	var holdDur = 4 * (octaves / maxRate); // cycle of hold stage
+
+	if (~is_recording) {
+		[0].do { |degree|
+			~rec.record(server, ~rec.filename("boost_field", "ramp", degree), { arg recordbuf;
+				Synth.new(def.name, [
+					rampDur: rampDur,
+					holdDur: 0,
+					recordbuf: recordbuf,
+					degree: degree,
+					envIndex: 0
+				]);
+			});
+
+			~rec.record(server, ~rec.filename("boost_field", "hold", degree), { arg recordbuf;
+				Synth.new(def.name, [
+					rampDur: 0,
+					holdDur: rampDur,
+					recordbuf: recordbuf,
+					degree: degree,
+					envIndex: 1
+				]);
+			});
+		}
+	} {
+		Pmono(def.name, *[
+			rampDur: rampDur,
+			holdDur: holdDur,
+			recordbuf: Pn(0, 1),
+			dur: rampDur + holdDur
 		]).play;
 	};
 };

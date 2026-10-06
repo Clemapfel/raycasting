@@ -271,6 +271,8 @@ do
             self:resize()
         end
 
+        if rt.GameState:get_pause_on_focus_lost() == true and not love.window.hasFocus() then return end
+
         local current_scene = self:get_current_scene()
         if current_scene ~= nil then
             current_scene:update(delta)

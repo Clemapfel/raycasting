@@ -9,9 +9,9 @@ var outPath = PathName(thisProcess.nowExecutingPath.dirname +/+ ".." +/+ "assets
 var inHeaderFormat = AutoRecorder.headerFormat;
 var inExtension = "wav";
 
-var outHeaderFormat = "OGG";
-var outSampleFormat = "vorbis";
-var outExtension = "ogg";
+var outHeaderFormat = "WAV";
+var outSampleFormat = "int8";
+var outExtension = "wav";
 
 var tempPrefix = "tmp";
 
@@ -40,7 +40,7 @@ server.waitForBoot {
 	var before = Main.elapsedTime;
 
 	var condition = Condition.new(false);
-	var semaphore = Semaphore.new(32);
+	var semaphore = Semaphore.new(1);
 	var convertJobsDone = 0;
 
 	inPath.entries.do { |sub|
@@ -64,7 +64,6 @@ server.waitForBoot {
 	convertJobs.do { |job|
 		fork {
 			var buffer;
-			semaphore.wait;
 
 			protect {
 				try {
