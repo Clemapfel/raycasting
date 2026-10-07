@@ -9,11 +9,15 @@ var outPath = PathName(thisProcess.nowExecutingPath.dirname +/+ ".." +/+ "assets
 var inHeaderFormat = AutoRecorder.headerFormat;
 var inExtension = "wav";
 
-var outHeaderFormat = "OGG";
-var outSampleFormat = "vorbis";
-var outExtension = "ogg";
+var outHeaderFormat = "OGG"; //"WAV";
+var outSampleFormat = "vorbis"; //"int16";
+var outExtension = "ogg"; //"wav";
 
 var tempPrefix = "tmp";
+
+var useExternal = true;  // use ffmpeg for conversion
+var useThreading = false; // `false` results in nicer tty output
+var vorbisQuality = 7; // 1 - 10
 
 var mkdirJobs = List.new();
 var convertJobs = List.new();
@@ -40,8 +44,18 @@ server.waitForBoot {
 	var before = Main.elapsedTime;
 
 	var condition = Condition.new(false);
-	var semaphore = Semaphore.new(1);
+	var chunkSize = 2**27; // ~64 mb
+	var semaphore = Semaphore.new(1024 / 64); // ~1gb peak ram usage
 	var convertJobsDone = 0;
+	var messages = [];
+
+	var log = { |string, isWarning = false|
+		if (useThreading.not) {
+			if (isWarning) { ("\n" ++ string).warn } { ("\n" ++ string).postln };
+		} {
+			messages = messages.add(string -> isWarning);
+		}
+	};
 
 	inPath.entries.do { |sub|
 		export.(sub);
@@ -51,11 +65,11 @@ server.waitForBoot {
 		var print = job.relativePath.keep(job.relativePath.size - 1);
 		if (File.exists(job.path)) {
 			File.deleteAll(job.path);
-			"In export.scd: rmdir `%`".format(print).postln;
+			log.("In export.scd: rmdir `%`".format(print));
 		};
 
 		File.mkdir(job.path);
-		"In export.scd: mkdir `%`".format(print).postln;
+		log.("In export.scd: mkdir `%`".format(print));
 	};
 
 	convertJobs = convertJobs.reject({ |job| job.in.beginsWith(tempPrefix) });
@@ -63,7 +77,7 @@ server.waitForBoot {
 
 	convertJobs.do { |job|
 		fork {
-			var buffer;
+			var tempPath;
 
 			protect {
 				try {
@@ -84,25 +98,67 @@ server.waitForBoot {
 					};
 
 					if (pathname.fileName.beginsWith(tempPrefix)) {
-						"In export.scd: skipping `%`".format(pathname.fileName).postln;
+						log.("In export.scd: skipping `%`".format(pathname.fileName));
 					} {
-						buffer = Buffer.read(server, job.in);
-						server.sync;
-						buffer.write(job.out, headerFormat: outHeaderFormat, sampleFormat: outSampleFormat);
-						server.sync;
-
-						"In export.scd: converted `%` -> `%`".format(
+						log.("In export.scd: converting `%` -> `%`".format(
 							job.in.drop(inPath.fullPath.size + 1),
 							job.out.drop(outPath.fullPath.size + 1)
-						).postln;
+						));
+
+						if (useExternal.not) {
+							SoundFile.normalize(
+								job.in, job.out,
+								outHeaderFormat, outSampleFormat,
+								chunkSize: chunkSize,
+								threaded: useThreading
+							);
+						} {
+							var finished = Condition.new(false);
+							var exitCode = nil;
+
+							var cmd;
+
+							tempPath = Platform.defaultTempDir +/+ "%_%.%".format(
+								tempPrefix, UniqueID.next, inExtension
+							);
+
+							// normalize using SC first
+							SoundFile.normalize(
+								job.in, tempPath,
+								chunkSize: chunkSize,
+								threaded: false
+							);
+
+							// then convert using ffmpeg
+							cmd = "ffmpeg -nostdin -y -i % -c:a libvorbis -q:a % %".format(
+								tempPath.quote,
+								vorbisQuality,
+								job.out.quote
+							);
+
+							cmd.unixCmd({ |res|
+								exitCode = res;
+								finished.test = true;
+								finished.signal;
+							}, false);
+
+							finished.wait;
+
+							if (exitCode != 0) {
+								log.("In export.scd: command failed (exit %): %".format(exitCode, cmd), true);
+							};
+						}
 					}
 				} { |error|
-					"In export.scd: %".format(error.errorString).warn;
+					log.("In export.scd: %".format(error.errorString), \warn);
 				};
 			} {
-				if (buffer.notNil) { buffer.free; buffer = nil };
-
 				semaphore.signal;
+
+				if (tempPath.notNil and: { File.exists(tempPath) }) {
+					File.delete(tempPath);
+					tempPath = nil;
+				};
 
 				convertJobsDone = convertJobsDone + 1;
 				condition.test = convertJobsDone >= convertJobs.size;
@@ -112,5 +168,13 @@ server.waitForBoot {
 	};
 
 	condition.wait;
-	"done. Took %s".format((Main.elapsedTime - before).round(0.01)).postln;
+
+	server.sync;
+	log.("done. Took %s".format((Main.elapsedTime - before).round(0.01)));
+
+	if (useThreading) {
+	    messages.do { |assoc|
+		    if (assoc.value) { assoc.key.warn } { assoc.key.postln };
+	    };
+	};
 };
