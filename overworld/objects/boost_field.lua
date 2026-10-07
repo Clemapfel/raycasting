@@ -65,8 +65,14 @@ local _particle_texture = nil
 local _particle_texture_shader = rt.Shader("overworld/objects/boost_field_particle_texture.glsl")
 local _particle_draw_shader = rt.Shader("overworld/objects/boost_field_particle_draw.glsl")
 
-local _ramp_sound_id = "boost_field.ramp"
-local _hold_sound_id = "boost_field.hold"
+ow.BoostField.reinitialize = function(scene, stage)
+    require "overworld.boost_field_manager"
+    if stage.boost_field_manager ~= nil then
+        stage.boost_field_manager:reset()
+    end
+
+    stage.boost_field_manager = ow.BoostFieldManager(scene, stage)
+end
 
 --- @brief
 function ow.BoostField:instantiate(object, stage, scene)
@@ -82,6 +88,9 @@ function ow.BoostField:instantiate(object, stage, scene)
     self._body:set_user_data(self)
 
     self._is_active = self._body:test_point(self._scene:get_player():get_position())
+
+    if stage.boost_field_manager == nil then ow.BoostField.reinitialize(self._scene, self._stage) end
+    stage.boost_field_manager:notify_boost_field_added(self, self._is_active)
 
     -- physics
     self._velocity_factor = object:get_number("velocity", false) or 1
@@ -346,6 +355,10 @@ function ow.BoostField:update(delta)
 
     local before = self._is_active
     self._is_active = self._body:test_point(player:get_position()) -- body already compensate for offset
+    if before ~= self._is_active then
+        self._stage.boost_field_manager:notify_is_active(self, self._is_active)
+    end
+
     if self._is_active then
         local dir_x, dir_y
 

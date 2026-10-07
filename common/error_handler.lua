@@ -110,6 +110,8 @@ function love.errorhandler(message, depth)
         end
     end)
 
+    _safe_call(rt.SoundManager.flush, rt.SoundManager)
+
     local h_margin = 70 -- px
     local v_margin = 40
 

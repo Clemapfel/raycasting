@@ -9,9 +9,9 @@ var outPath = PathName(thisProcess.nowExecutingPath.dirname +/+ ".." +/+ "assets
 var inHeaderFormat = AutoRecorder.headerFormat;
 var inExtension = "wav";
 
-var outHeaderFormat = "WAV";
-var outSampleFormat = "int8";
-var outExtension = "wav";
+var outHeaderFormat = "OGG";
+var outSampleFormat = "vorbis";
+var outExtension = "ogg";
 
 var tempPrefix = "tmp";
 

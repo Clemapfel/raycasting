@@ -16,11 +16,11 @@ server.waitForBoot {
 	var degrees = [0, 4, 8, 12];
 	[
 		\bubble_pop,
-		//\bubble_unpop,
-		//\bubble_fizz,
-		//\bounce_pad, // TODO: make it sound less like a pure sine
-		//\air_dash_node_dash,
-		//\air_dash_node_focus,
+		\bubble_unpop,
+		\bubble_fizz,
+		\bounce_pad, // TODO: make it sound less like a pure sine
+		\air_dash_node_dash,
+		\air_dash_node_focus,
 		\boost_field
 	].do { |name| currentEnvironment[name].(degrees) };
 

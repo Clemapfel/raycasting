@@ -103,6 +103,7 @@ function ow.Stage:instantiate(scene, id)
     ow.Sprite.reinitialize(self._scene, self)
     ow.Fireflies.reinitialize(self._scene, self)
     ow.AirDashNode.reinitialize(self._scene, self)
+    ow.BoostField.reinitialize(self._scene, self)
 
     local get_triangle_callback = function()
         return ow.Hitbox:get_mesh_tris(true, true)

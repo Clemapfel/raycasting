@@ -200,7 +200,8 @@ local _config_default = {
     release = 0,
     effects = nil,
     degree = nil,
-    stop = {}
+    stop = {},
+    after = nil
 }
 
 local _config_keys = {}
@@ -217,7 +218,8 @@ for v in range(
     "release",
     "effects",
     "degree",
-    "stop"
+    "stop",
+    "after"
 ) do
     _config_keys[v] = true
 end
@@ -234,22 +236,8 @@ function rt.SoundManager:play(id, config)
 end
 
 --- @brief
-function rt.SoundManager:queue(after_handler_id, id, config)
-    meta.assert(after_handler_id, mt.Number, id, mt.String, config, mt.Optional(mt.Table))
-
-    local handler_id = self._handler_id
-    self._handler_id = self._handler_id + 1
-
-    if self._handler_id_to_entry[after_handler_id] == nil then
-        after_handler_id = nil
-    end
-
-    return self:_play_internal(id, config, handler_id, after_handler_id)
-end
-
---- @brief
-function rt.SoundManager:_play_internal(id, config, handler_id, after_handler_id)
-    meta.assert(id, mt.String, config, mt.Optional(mt.Table), after_handler_id, mt.Optional(mt.Number))
+function rt.SoundManager:_play_internal(id, config, handler_id)
+    meta.assert(id, mt.String, config, mt.Optional(mt.Table))
 
     if config == nil then config = {} end
 
@@ -294,6 +282,11 @@ function rt.SoundManager:_play_internal(id, config, handler_id, after_handler_id
     _verify("sustain", mt.Number, true)
     _verify("release", mt.Number, false)
     _verify("effects", mt.Table, true)
+
+    if config.after ~= nil and not meta.is_table(config.after) then
+        config.after = { config.after }
+    end
+    _verify("after", mt.Table, true)
 
     if config.stop ~= nil and not meta.is_table(config.stop) then
         config.stop = { config.stop }
@@ -340,6 +333,24 @@ function rt.SoundManager:_play_internal(id, config, handler_id, after_handler_id
     if config.release < 0 then
         rt.critical(error_prefix, "release `", config.release, "` is negative")
         config.release = 0
+    end
+
+    if config.after ~= nil then
+        for i, which in ipairs(config.after) do
+            if not meta.is_number(which) then
+                rt.critical("In rt.SoundManager: config for `", id, "` has invalid `after` entry at position ", i, ": `", which, "` is not a number")
+                config.after[i] = nil
+            end
+        end
+    end
+
+    if config.stop ~= nil then
+        for i, which in ipairs(config.stop) do
+            if not meta.is_number(which) then
+                rt.critical("In rt.SoundManager: config for `", id, "` has invalid `stop` entry at position ", i, ": `", which, "` is not a number")
+                config.stop[i] = nil
+            end
+        end
     end
 
     local degrees = self._id_to_degrees[id]
@@ -398,10 +409,9 @@ function rt.SoundManager:_play_internal(id, config, handler_id, after_handler_id
         volume = config.volume,
         delay = config.delay,
         delay_elapsed = 0,
+        waiting_for = table.deepcopy(config.after),
 
         elapsed = 0,
-
-        waiting_for = after_handler_id,
 
         envelope = nil, -- Union<rt.Envelope, rt.EnvelopeASR>
         position_motion = nil, -- rt.SmoothedMotion2D
@@ -417,6 +427,7 @@ function rt.SoundManager:_play_internal(id, config, handler_id, after_handler_id
         swap_period = nil, -- seconds
         swap_envelope = nil -- rt.Envelope
     }
+
 
     if entry.source ~= nil then
         _active_sources = _active_sources + 1
@@ -695,10 +706,12 @@ end
 
 --- @brief
 function rt.SoundManager:stop(handler_id)
-    meta.assert(handler_id, mt.Number)
+    meta.assert(handler_id, mt.Union(mt.Number, mt.Nil))
 
+    -- ignore if handler_id is stale
+    if handler_id == nil then return false end
     local entry = self:_get_entry(handler_id)
-    if entry == nil then return false end -- not an error
+    if entry == nil then return false end
 
     entry.volume_motion:set_target_value(0)
     entry.envelope:release()
@@ -871,12 +884,19 @@ function rt.SoundManager:update(delta)
     local to_free = {}
     for handler_id, entry in pairs(self._handler_id_to_entry) do
         local should_continue = true
+
+        -- do not continue if waiting for entries are still active
         if entry.waiting_for ~= nil then
-            local before = self._handler_id_to_entry[entry.waiting_for]
-            should_continue = before == nil or before.is_stopping == true
+            for other in values(entry.waiting_for) do
+                local before = self._handler_id_to_entry[entry.waiting_for]
+                should_continue = before == nil or before.is_stopping == true
+                if should_continue == false then break end
+            end
+
             if should_continue == true then entry.waiting_for = nil end
         end
 
+        -- do not continue with delay
         if should_continue then
             entry.delay_elapsed = entry.delay_elapsed + delta
             should_continue = entry.delay_elapsed >= entry.delay
