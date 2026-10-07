@@ -13,12 +13,12 @@ server.options.memSize = 2 * (2 ** 16);
 
 server.waitForBoot {
 
-	var degrees = [0, 4, 8, 12];
+	var degrees = Scale.major.degrees;
 	[
 		\bubble_pop,
 		\bubble_unpop,
 		\bubble_fizz,
-		\bounce_pad, // TODO: make it sound less like a pure sine
+		\bounce_pad,
 		\air_dash_node_dash,
 		\air_dash_node_focus,
 		\boost_field
@@ -273,7 +273,7 @@ record_pattern = { arg recordbuf, recordbus, pattern, delay = 0;
 ~bubble_fizz = { arg degrees;
 
 	var def = SynthDef(\bubbleFizz, { arg out = 0, t, dur, recordbuf;
-        var nVoices = 36;
+        var nVoices = 16;
 		var masterEnv = EnvGen.ar(Env.new(1 + [0, 1, 0], [attack, 1 - attack] * dur, \exp), doneAction: Done.freeSelf) - 1;
         var sig;
 
@@ -339,19 +339,20 @@ record_pattern = { arg recordbuf, recordbus, pattern, delay = 0;
 			1 + [0, 1, 0], [ringAttack, ringDur - ringAttack], [\sin, \exp]
 		), gate: gate) - 1;
 
-		var amplitudes = ([0.7, 1, 0.2, 0.8]).normalizeSum;
-		var decayTimes = dur * (1 / ratios.sqrt);
+		var amplitudes = ([0.7, 1, 0.6, 1.5]).normalizeSum;
+		var decayTimes = dur * (1 / (ratios ** 0.25));
 
 		var excitation = EnvGen.ar(Env.new(
-			[0, -1, 1], [0.0007, 1.0], [\sin, \sin]
-		), gate: gate) + (PinkNoise.ar * EnvGen.ar(Env.perc(0.0005, 0.01, curve: -6), gate: gate));
+			[0, -1, 1], [0.0007, 1.0], [\welch, \welch]
+		), gate: gate) + (BrownNoise.ar * EnvGen.ar(Env.perc(0.0005, 0.017), gate: gate));
 
 		var vibratoDepth = 0.08;
+		var vibratoFreq = XLine.ar(7, 4, dur);
 		var vibrato = SinOsc.ar(
-			freq: Line.ar(9, 2, dur),
+			freq: vibratoFreq
 		).range(1 - vibratoDepth, 1 + vibratoDepth);
 
-		var ring = Normalizer.ar(DynKlank.ar(`[
+		var ring = Limiter.ar(DynKlank.ar(`[
 			ratios,
 			amplitudes,
 			decayTimes
@@ -661,7 +662,6 @@ record_pattern = { arg recordbuf, recordbus, pattern, delay = 0;
 		~rec.end(doneTrig);
 
 		FreeSelf.kr(doneTrig);
-
 	}).add;
 
 	var rampDur = 3 * (octaves / maxRate);

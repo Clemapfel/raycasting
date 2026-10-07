@@ -24,7 +24,7 @@ AutoRecorder {
         SendReply.perform(method, trig, cmdName: AutoRecorder.recordEndMessage);
     }
 
-    *record { arg server, filename, f, numChannels = 1, trimStart = true, trimEnd = true, normalize = true;
+    *record { arg server, filename, f, numChannels = 1, trimStart = true, trimEnd = true, normalize = false;
         var condition, latency, pathname, swap, bus, dummyBuf;
         var aborted = false, endDef, warnDef;
 
