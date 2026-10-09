@@ -1,7 +1,9 @@
 var server = Server.default;
 var record_pattern;
 
-~is_recording = true;
+~rec = AutoRecorder;
+~is_recording = false;
+~rec.silenced = ~is_recording.not;
 
 server.latency = 0.3;
 server.options.blockSize = 2048;
@@ -15,13 +17,14 @@ server.waitForBoot {
 
 	var degrees = Scale.major.degrees;
 	[
-		\bubble_pop,
-		\bubble_unpop,
-		\bubble_fizz,
-		\bounce_pad,
-		\air_dash_node_dash,
-		\air_dash_node_focus,
-		\boost_field
+		//\bubble_pop,
+		//\bubble_unpop,
+		//\bubble_fizz,
+		//\bounce_pad,
+		//\air_dash_node_dash,
+		//\air_dash_node_focus,
+		//\boost_field,
+		\menu
 	].do { |name| currentEnvironment[name].(degrees) };
 
 	CmdPeriod.doOnce { server.freeAll }
@@ -32,32 +35,30 @@ server.waitForBoot {
 ~amp = 0.4;
 ~export_path = thisProcess.nowExecutingPath.dirname +/+ AutoRecorder.exportPathName;
 ~asset_path = thisProcess.nowExecutingPath.dirname +/+ AutoRecorder.assetPathName;
-~rec = AutoRecorder;
-~rec.isSilenced = ~is_recording.not;
 
 record_pattern = { arg recordbuf, recordbus, pattern, delay = 0;
 	// for multi-snyth patterns, route into recordbus, then record in separate synth
-
 	var recordDef = SynthDef.new(("record" ++ UniqueID.next).asSymbol, { arg out, recordbus, recordbuf;
-		var signal = Limiter.ar(In.ar(recordbus, 1), 0.999);
+		var raw = In.ar(recordbus, 1);
+		var signal = Limiter.ar(raw, 0.999);
 		var releaseTrig = DelayN.ar(DetectSilence.ar(signal), delay, delay);
 
 		~rec.ar(recordbuf, signal);
 		~rec.end(releaseTrig);
 
 		Out.ar(out, (~amp * (signal)).dup);
-		ClipDetector.ar(signal);
+		ClipDetector.ar(raw);
 		FreeSelf.kr(releaseTrig);
 	}).add;
 
 	server.sync;
 
-	if (recordbus.isNil or: { recordbus == 0 }) {
-		Error("In precord: argument #2 `recordbus` is unassigned").throw;
+	if (recordbus.isNil) {
+		Error("In record_pattern: argument #2 `recordbus` is unassigned").throw;
 	};
 
-	if (recordbuf.isNil or: { recordbuf == 0 }) {
-		Error("In precord: argument #3 `recordbuf` is unassigned").throw;
+	if (recordbuf.isNil) {
+		Error("In record_pattern: argument #3 `recordbuf` is unassigned").throw;
 	};
 
 	Synth(recordDef.name, [
@@ -697,4 +698,189 @@ record_pattern = { arg recordbuf, recordbus, pattern, delay = 0;
 			dur: rampDur + holdDur
 		]).play;
 	};
+};
+
+~menu = { arg degrees;
+	var wavetableRes = 2048;
+	var signalRes = wavetableRes / 2; // asWavetable doubles the size
+
+	var wavetable = Signal.fill(signalRes, { |i|
+		var t = i / signalRes * 2pi;
+		tanh(sin(t)) / tanh(1)
+	}).normalize.asWavetable;
+
+	var wavetableBuf = Buffer.alloc(server, wavetableRes, 1);
+
+	/*
+	var def = SynthDef.new(\menuClick, { arg out, freq, dur, gate = 1, click = 1, wavetable, recordbuf;
+		var clickAttack = 0.002;
+		var clickRelease = 0.15;
+		var clickDur = dur;
+		var beepEnv = EnvGen.ar(Env.asr(attackTime: clickAttack, releaseTime: clickRelease), gate: gate);
+		var noiseEnv = EnvGen.ar(Env.perc(clickAttack, clickAttack));
+		var beepFreq = [1, 2] * freq;
+		var signal = Mix.ar([
+			Osc.ar(wavetable, beepFreq).mean * beepEnv,
+			SinOsc.ar(beepFreq).mean * beepEnv,
+			click * WhiteNoise.ar() * noiseEnv
+		] * [1, 1, 0.25].normalizeSum);
+
+		var side = signal;
+		var filtered = signal;
+
+		filtered = BBandPass.ar(filtered, freq: (freq.cpsmidi + (4 * 12)).midicps, bw: 2.0);
+		filtered = BLowShelf.ar(filtered, 500, db: 20);
+
+		Out.ar(out, Mix.ar(filtered).dup);
+	}).add;
+	*/
+
+	var def = SynthDef.new(\menu, { arg out, freq, dur, gate, clickAmp = 1, wavetable, recordbuf;
+
+		var beepEnv = EnvGen.ar(Env.asr(attackTime: 0.02, releaseTime: 0.1), gate: gate);
+		var signal = Mix.ar([
+			Osc.ar(wavetable, freq) * beepEnv,
+			SinOsc.ar(freq) * beepEnv
+		] * [1, 1, clickAmp].normalizeSum);
+
+		Out.ar(out, signal);
+	}).add;
+
+	server.sync;
+	wavetableBuf.loadCollection(wavetable);
+	server.sync;
+
+	[0].do { |degree|
+		var dur = 0.1;
+
+		~rec.record(server, ~rec.filename("menu", "up", degree), { arg recordbuf, recordbus;
+			record_pattern.(recordbuf, recordbus, PmonoArtic(def.name, *[
+				out: recordbus,
+				recordbuf: recordbuf,
+				degree: Pseq(degree + [0, 3], 1),
+				dur: dur,
+				sustain: 0.8
+			]));
+		});
+
+		~rec.record(server, ~rec.filename("menu", "down", degree), { arg recordbuf, recordbus;
+			record_pattern.(recordbuf, recordbus, PmonoArtic(def.name, *[
+				out: recordbus,
+				recordbuf: recordbuf,
+				degree: Pseq(degree + [1, -2], 1),
+				dur: dur,
+				sustain: 0.8
+			]));
+		});
+
+		~rec.record(server, ~rec.filename("menu", "confirm", degree), { arg recordbuf, recordbus;
+			record_pattern.(recordbuf, recordbus, PmonoArtic(def.name, *[
+				out: recordbus,
+				recordbuf: recordbuf,
+				degree: Pseq(degree + [0, 3, 3], 1),
+				dur: dur,
+				sustain: Pseq([1, 0.8])
+			]));
+		});
+
+		~rec.record(server, ~rec.filename("menu", "back", degree), { arg recordbuf, recordbus;
+			record_pattern.(recordbuf, recordbus, PmonoArtic(def.name, *[
+				out: recordbus,
+				recordbuf: recordbuf,
+				degree: Pseq(degree + [1, 3], 1),
+				dur: dur * Pseq([1, 2]),
+				sustain: 0.8
+			]));
+		});
+
+		~rec.record(server, ~rec.filename("menu", "left", degree), { arg recordbuf, recordbus;
+			record_pattern.(recordbuf, recordbus, PmonoArtic(def.name, *[
+				out: recordbus,
+				recordbuf: recordbuf,
+				degree: Pseq(degree + [0, 3], 1),
+				dur: dur,
+				sustain: 1
+			]));
+		});
+
+		~rec.record(server, ~rec.filename("menu", "right", degree), { arg recordbuf, recordbus;
+			record_pattern.(recordbuf, recordbus, PmonoArtic(def.name, *[
+				out: recordbus,
+				recordbuf: recordbuf,
+				degree: Pseq(degree + [1, -2], 1),
+				dur: dur,
+				sustain: 1
+			]));
+		});
+
+		~rec.record(server, ~rec.filename("menu", "reset", degree), { arg recordbuf, recordbus;
+			record_pattern.(recordbuf, recordbus, PmonoArtic(def.name, *[
+				out: recordbus,
+				recordbuf: recordbuf,
+				degree: Pseq(degree + [1, 3, 1], 1),
+				dur: dur,
+				sustain: 1
+			]));
+		});
+
+		~rec.record(server, ~rec.filename("menu", "error", degree), { arg recordbuf, recordbus;
+			record_pattern.(recordbuf, recordbus, PmonoArtic(def.name, *[
+				out: recordbus,
+				recordbuf: recordbuf,
+				degree: Pseq(degree + [1, 3, 1], 1),
+				dur: dur,
+				sustain: 1
+			]));
+		});
+	};
+
+
+	/*
+	 Pnew(def.name, *[
+		degree: Pseq([1, 1], 1),
+		freqEnv: Pseq([[1, 1], [1, 1]], 1),
+		dur: Pseq([0.5, 1] * 0.25),
+		click: Pseq([0, 0, 0]),
+		//recordbuf: recordbuf,
+		wavetable: wavetableBuf
+	]).play;
+
+	*/
+
+
+	// [0, 1, 2, 3, 4, 5].do { |degree|
+
+	/*
+	~rec.record(server, ~rec.filename("menu", "up"), { arg recordbuf;
+		Pmono(def.name, *[
+			degree: Pseq(degree + [0, 1], 1),
+			wavetable: wavetableBuf,
+				dur: dur,
+				click: 0.5,
+			recordbuf: recordbuf
+		]).play;
+	});
+
+		~rec.record(server, ~rec.filename("menu", "down"), { arg recordbuf;
+			Pmono(def.name, *[
+				degree: Pseq(degree + [1, -2], 1),
+				wavetable: wavetableBuf,
+				dur: dur,
+				click: 0.5,
+				recordbuf: recordbuf
+			]).play;
+		});
+
+	~rec.record(server, ~rec.filename("menu", "down"), { arg recordbuf;
+			Pnew(def.name, *[
+				degree: Pseq(degree + [0, 2], 1),
+				wavetable: wavetableBuf,
+				dur: 0.25,
+				click: 0.5,
+				recordbuf: recordbuf,
+				sustain: 0.8
+			]).play;
+		});
+	};
+		*/
 };
