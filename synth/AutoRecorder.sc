@@ -10,14 +10,14 @@ AutoRecorder {
     classvar <>assetPathName = "assets";
     classvar <>postfixPattern = "_%";
 
-    classvar <>isSilenced = false;
+	classvar <>isRecording = false; // switch on to disable recording
 
     *ar { arg recordbuf, sig;
-        if (AutoRecorder.isSilenced.not) {
-            SendReply.kr((recordbuf <= 0) * Impulse.kr(0), cmdName: AutoRecorder.warnMessage);
-        };
-        DiskOut.ar(recordbuf, sig);
-    }
+		if (AutoRecorder.isRecording) {
+			SendReply.kr((recordbuf <= 0) * Impulse.kr(0), cmdName: AutoRecorder.warnMessage);
+			DiskOut.ar(recordbuf, sig);
+		}
+	}
 
     *end { arg trig;
         var method = if (trig.rate == \audio) { \ar } { \kr };
@@ -26,7 +26,7 @@ AutoRecorder {
 
     *record { arg server, filename, f, numChannels = 1, trimStart = true, trimEnd = true, normalize = false;
         var condition, latency, pathname, swap, bus, dummyBuf;
-        var aborted = false, endDef, warnDef;
+        var endDef, warnDef;
 
         if (server.isKindOf(Server).not) {
             Error("In AutoRecorder.record: argument #1 `server` is not a `Server`").throw;
@@ -41,7 +41,6 @@ AutoRecorder {
         };
 
 		protect {
-
 			latency = AutoRecorder.measureLatency(server);
 			condition = Condition.new(false);
 			pathname = PathName.new(filename.standardizePath);
@@ -51,52 +50,68 @@ AutoRecorder {
 				condition.signal;
 			}, AutoRecorder.recordEndMessage).oneShot;
 
-			warnDef = OSCdef(("autoRecorderWarn" ++ UniqueID.next).asSymbol, {
-				"In AutoRecorder.ar: `recordbufnum` is `0`. Was the synthdef argument assigned correctly?".warn;
-			}, AutoRecorder.warnMessage).oneShot;
+			if (AutoRecorder.isRecording) {
+				warnDef = OSCdef(("autoRecorderWarn" ++ UniqueID.next).asSymbol, {
+					"In AutoRecorder.ar: `recordbufnum` is `0`. Was the synthdef argument assigned correctly?".warn;
+				}, AutoRecorder.warnMessage).oneShot;
 
-			server.bind {
-				dummyBuf = Buffer.alloc(server, 1, 1); // dummy to avoid bufnum 0 for warnDef
-				swap = Buffer.alloc(server, AutoRecorder.sampleRate.nextPowerOfTwo, numChannels);
-				bus = Bus.audio(server, numChannels);
+				server.bind {
+					dummyBuf = Buffer.alloc(server, 1, 1); // dummy to avoid bufnum 0 for warnDef
+					swap = Buffer.alloc(server, AutoRecorder.sampleRate.nextPowerOfTwo, numChannels);
+					bus = Bus.audio(server, numChannels);
+					server.sync;
+				};
+
+				swap.write(filename,
+					AutoRecorder.headerFormat,
+					AutoRecorder.sampleFormat,
+					0, 0, true
+				);
 				server.sync;
+
+				"In AutoRecorder: recording `%` ...".format(
+					pathname.fileNameWithoutExtension
+				).postln;
+			} {
+				swap = 0;
+				bus = Bus.audio(server, numChannels);
+
+				"In AutoRecorder: playing `%` ...".format(
+					pathname.fileNameWithoutExtension
+				).postln;
 			};
 
-			swap.write(filename,
-				AutoRecorder.headerFormat,
-				AutoRecorder.sampleFormat,
-				0, 0, true
-			);
-			server.sync;
-
-			"In AutoRecorder: starting recording...".postln;
 			latency.wait;
 
-            f.value(swap, bus);
-            condition.wait;
-            latency.wait;
-        } {
-            endDef.free;
-            warnDef.free;
+			f.value(swap, bus);
+			condition.wait;
+			latency.wait;
+		} {
+			endDef !? _.free;
+			warnDef !? _.free;
 
-            if (swap.notNil) {
-                try { swap.close };
-                try { swap.free };
-            };
-            if (dummyBuf.notNil) { try { dummyBuf.free } };
-            if (bus.notNil) { try { bus.free } };
+			swap !? {
+				try { swap.close };
+				try { swap.free };
+			};
 
-            if (File.exists(pathname.fullPath)) {
-                if (AutoRecorder.postprocess(pathname, trimStart, trimEnd, normalize) == false) {
-                    "In AutoRecorder: file contains only silence or failed to postprocess.".postln;
-                } {
-                    "In AutoRecorder: done. Wrote `%` to `%`".format(
-                        pathname.fileNameWithoutExtension,
-                        pathname.fullPath
-                    ).postln;
-                };
-            };
-        };
+			dummyBuf !? { try { dummyBuf.free } };
+			bus !? { try { bus.free } };
+
+			if (AutoRecorder.isRecording and: { File.exists(pathname.fullPath) }) {
+				if (AutoRecorder.postprocess(pathname, trimStart, trimEnd, normalize) == false) {
+					"In AutoRecorder: file contains only silence or failed to postprocess.".postln;
+				} {
+					"In AutoRecorder: wrote `%`".format(
+						pathname.fullPath
+					).postln;
+				};
+			} {
+				"In AutoRecorder: done playing `%`".format(
+					pathname.fileNameWithoutExtension
+				).postln;
+			};
+		};
     }
 
     *filename { arg prefix, name, degree;

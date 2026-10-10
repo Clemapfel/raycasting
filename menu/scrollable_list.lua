@@ -170,7 +170,11 @@ function mn.ScrollableList:scroll_up()
         else
             self:set_selected_item(self._selected_item_i - 1)
         end
+
+        return true
     end
+
+    return false
 end
 
 --- @brief
@@ -181,7 +185,11 @@ function mn.ScrollableList:scroll_down()
         else
             self:set_selected_item(self._selected_item_i + 1)
         end
+
+        return true
     end
+
+    return false
 end
 
 --- @brief

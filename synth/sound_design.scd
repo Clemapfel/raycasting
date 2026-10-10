@@ -710,28 +710,12 @@ record_pattern = { arg recordbuf, recordbus, pattern, trig = nil, delay = 0;
 };
 
 ~menu = { arg degrees;
-    var wavetableRes = 2048;
-    var signalRes = wavetableRes / 2; // asWavetable doubles the size
-
-    var makeWavetable = { |func|
-        Signal.fill(signalRes, { |i| func.value(i / signalRes * 2pi) }).normalize.asWavetable
-    };
-
-    // pure sin to square-ish tanh
-    var wavetables = [0, 0.5, 1, 1.5, 2, 2.5, 3].collect { |k|
-        makeWavetable.({ |t|
-            if (k == 0) {
-                sin(t)
-            } {
-                tanh(k * sin(t)) / tanh(k)
-            }
-        })
-    };
+	var nControlChannels = 3;
 
     var def = SynthDef.new(\menu, {
-        arg out, gate = 1, dur = 1, freq = 440, amp = 1, fuzz = 0.5, click = 1, reverb = 0.8, release = 1, wavetableStart, wavetableEnd, controlBus, endTrig;
+        arg out, gate = 1, dur = 1, freq = 440, amp = 1, fuzz = 0.5, click = 1, osc = 1, reverb = 0.8, reverbDelay = 0.4, release = 1, wavetableStart, wavetableEnd, controlBus, endTrig;
 
-        var beepEnv = EnvGen.ar(Env.asr(
+        var beepEnv = EnvGen.ar(Env.adsr(
 			attackTime: 0.02, sustainLevel: 1, releaseTime: release * dur
 		), gate: gate);
 
@@ -745,21 +729,21 @@ record_pattern = { arg recordbuf, recordbus, pattern, trig = nil, delay = 0;
             freq
         ) * beepEnv;
 
-		var snap = click * BBandPass.ar(
+		var snap = BBandPass.ar(
 			WhiteNoise.ar * EnvGen.ar(Env.perc(0.0015, 0.0001), gate: gate),
 			freq: 3000,
 			bw: 1
 		);
 
-		signal = amp * (signal + snap);
+		signal = amp * ((osc * signal) + (click * snap));
 
         Out.ar(out, signal);
-		Out.kr(controlBus, [ endTrig, reverb ]);
+		Out.kr(controlBus, [ endTrig, reverb, reverbDelay ]);
 		FreeSelf.kr(Done.kr(beepEnv));
 	}).add;
 
     var recordDef = SynthDef.new(\menuRecord, {
-        arg out, recordbus, recordbuf, controlBus;
+        arg out, dur = 1, recordbus, recordbuf, controlBus;
 
         var raw = In.ar(recordbus, 1);
         var signal = raw;
@@ -767,18 +751,19 @@ record_pattern = { arg recordbuf, recordbus, pattern, trig = nil, delay = 0;
 		// wait for both to trigger at least once
 		var releaseTrig;
 
-		var trig = In.kr(controlBus, 2)[0];
-		var reverb = In.kr(controlBus, 2)[1];
+		var trig = In.kr(controlBus, nControlChannels)[0];
+		var reverb = In.kr(controlBus, nControlChannels)[1];
+		var reverbDelay = In.kr(controlBus, nControlChannels)[2];
 
 		var feedback = LocalIn.ar(1);
 		var delay = 0.4;
 		signal = DelayC.ar(signal + (reverb * feedback), delay, delay);
 		LocalOut.ar(signal);
 
-		releaseTrig = SetResetFF.ar([
+		releaseTrig = DelayN.ar(SetResetFF.ar([
 			K2A.ar(Changed.kr(trig)),
 			DetectSilence.ar(signal, time: 1)
-		], reset: 0).sum >= 1;
+		], reset: 0).sum >= 2, dur, dur);
 
         ~rec.ar(recordbuf, signal);
         ~rec.end(releaseTrig);
@@ -788,22 +773,40 @@ record_pattern = { arg recordbuf, recordbus, pattern, trig = nil, delay = 0;
         FreeSelf.kr(releaseTrig);
     }).add;
 
-    var wavetableBufs = {
-        var bufs = Buffer.allocConsecutive(wavetables.size, server, wavetableRes, 1);
-        server.sync;
-        bufs.do { |buf, i| buf.loadCollection(wavetables[i]); };
-        bufs;
-    }.value;
-
     server.sync;
 
-    [0].do { |degree|
-        var dur_t = 1;
-		var reverb_t = 0.4;
+	if (~menu_wavetablebufs.isNil) {
+		 var wavetableRes = 2048;
+		var signalRes = wavetableRes / 2;
 
-		var make = { arg name, degrees, dur = [1], sustain = [1], reverb = [1], release = [1], click = [1], fuzz = [0];
+		var makeWavetable = { |func|
+			Signal.fill(signalRes, { |i| func.value(i / signalRes * 2pi) }).normalize.asWavetable
+		};
+
+		// pure sin to square-ish tanh
+		var wavetables = [0, 0.5, 1, 1.5, 2, 2.5, 3].collect { |k|
+			makeWavetable.({ |t|
+				if (k == 0) {
+					sin(t)
+				} {
+					tanh(k * sin(t)) / tanh(k)
+				}
+			})
+		};
+
+		var bufs = Buffer.allocConsecutive(wavetables.size, server, wavetableRes, 1);
+		server.sync;
+		bufs.do { |buf, i| buf.loadCollection(wavetables[i]); };
+		server.sync;
+		~menu_wavetablebufs = bufs;
+	};
+
+	server.sync;
+
+    [0].do { |degree|
+		var make = { arg name, degrees, dur = [1], sustain = [1], reverb = [1], reverbDelay = [0.2], release = [1], click = [1], osc = [1], fuzz = [0];
 			~rec.record(server, ~rec.filename("menu", name, degree), { arg recordbuf, recordbus;
-                var controlBus = Bus.control(server, 2);
+                var controlBus = Bus.control(server, nControlChannels);
                 var numSteps = degrees.size;
 
                 var recordSynth = Synth.new(recordDef.name, [
@@ -813,30 +816,45 @@ record_pattern = { arg recordbuf, recordbus, pattern, trig = nil, delay = 0;
                     controlBus: controlBus
                 ]);
 
+				var wts = ~menu_wavetablebufs;
+
                 var play = PmonoArtic(def.name, *[
                     out: recordbus,
-                    wavetableStart: wavetableBufs[0].bufnum,
-                    wavetableEnd: wavetableBufs[0].bufnum + wavetableBufs.size - 1.001,
+					controlBus: controlBus,
+                    wavetableStart: wts[0].bufnum,
+                    wavetableEnd: wts[0].bufnum + wts.size - 1.001,
 
 					degree: Pseq(degree + degrees, 1),
                     dur: Pseq(dur, inf),
-					reverb: Pseq(0.4 * reverb, inf),
-					sustain: Pseq(1 * sustain, inf),
-					release: Pseq(1 * release, inf),
-					click: Pseq(1 * click, inf),
-					fuzz: Pseq(1 * fuzz, inf),
+					reverb: Pseq(reverb, inf),
+					reverbDelay: Pseq(reverbDelay, inf),
+					sustain: Pseq(sustain, inf),
+					release: Pseq(release, inf),
+					click: Pseq(click, inf),
+					osc: Pseq(osc, inf),
+					fuzz: Pseq(fuzz, inf),
 
-                    controlBus: controlBus,
-					endTrig: 0,
+					amp: 1,
+					endTrig: 0
 				]);
 
 				var record = Pnew(def.name, *[
-					out: recordbus,
-                    wavetableStart: wavetableBufs[0].bufnum,
-                    wavetableEnd: wavetableBufs[0].bufnum + wavetableBufs.size - 1.001,
+                    out: recordbus,
+					controlBus: controlBus,
+                    wavetableStart: wts[0].bufnum,
+                    wavetableEnd: wts[0].bufnum + wts.size - 1.001,
+
+					degree: Pn(0, 1),
+                    dur: Pseq(dur, inf),
+					reverb: Pseq(reverb, inf),
+					reverbDelay: Pseq(reverbDelay, inf),
+					sustain: Pseq(sustain, inf),
+					release: Pseq(release, inf),
+					click: Pseq(click, inf),
+					osc: Pseq(osc, inf),
+					fuzz: Pseq(fuzz, inf),
 
 					delta: Pn(0, 1),
-
 					amp: 0,
 					endTrig: 1
 				]);
@@ -845,58 +863,81 @@ record_pattern = { arg recordbuf, recordbus, pattern, trig = nil, delay = 0;
             });
         };
 
-        make.("up",
-            degrees: degrees,
-            dur: [1],
-            sustain: [1],
-			reverb: [0],
-			release: [0.5],
-			fuzz: [1]
-        );
+		[
+			\up -> [0, 3],
+			\down -> [1, -2]
+		].do { |ev|
+			 make.(ev.key.asString,
+				degrees: ev.value,
+				dur: [12.reciprocal],
+				click: [0.5],
+				osc: [1],
+				sustain: [0.05],
+				reverb: [0],
+				reverbDelay: [0.05],
+				release: [0.4],
+				fuzz: [0.2]
+			);
+		};
 
-		/*
+		[
+			\right -> [-1, 1, 0],
+			\left -> [1, -1, 0]
+		].do { |ev|
+			 make.(ev.key.asString,
+				degrees: ev.value,
+				dur: [12.reciprocal],
+				click: [0],
+				osc: [1],
+				sustain: [0.15],
+				reverb: [0.12],
+				reverbDelay: [0.0],
+				release: [0.5],
+				fuzz: [0.2]
+			);
+		};
 
-		make.("down",
-			degrees: [1, 3],
-			durs: [1],
-			sustains: [0.8]
-		);
+		[
+			\confirm -> [0, Rest(4), 3],
+			\back -> [3, Rest(4), 0]
+		].do { |ev|
+			make.(ev.key.asString,
+				degrees: ev.value,
+				dur: [12.reciprocal],
+				click: [0.25],
+				osc: [1],
+				sustain: [0.4],
+				reverb: [0.12],
+				reverbDelay: [0.4],
+				release: [0.2, 1],
+				fuzz: (0.2 ! (ev.value.size - 1)) ++ 0.4
+			);
+		};
 
-		make.("left",
-			degrees: [1, 3],
-			durs: [1],
-			sustains: [0.8]
-		);
-
-		make.("right",
-			degrees: [1, 3],
-			durs: [1],
-			sustains: [0.8]
-		);
-
-		make.("confirm",
-			degrees: [1, 3],
-			durs: [1],
-			sustains: [0.8]
-		);
-
-		make.("back",
-			degrees: [1, 3],
-			durs: [1],
-			sustains: [0.8]
-		);
 
 		make.("reset",
-			degrees: [1, 3],
-			durs: [1],
-			sustains: [0.8]
+			degrees: [0, 3, 0],
+			dur: [12.reciprocal],
+			click: [0],
+			osc: [1],
+			sustain: [0.4],
+			reverb: [0.05],
+			reverbDelay: [0.3],
+			release: [1.0],
+			fuzz: [0.4, 0.2, 0]
 		);
 
+
 		make.("error",
-			degrees: [1, 3],
-			durs: [1],
-			sustains: [0.8]
+			degrees: [-1, -4],
+			dur: [12.reciprocal, 1],
+			click: [0],
+			osc: [1],
+			sustain: [0.4],
+			reverb: [0.05],
+			reverbDelay: [0.3],
+			release: [1.0],
+			fuzz: [1.0]
 		);
-		*/
 	};
 };

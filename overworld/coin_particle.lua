@@ -5,7 +5,7 @@ require "common.label"
 --- @class ow.CoinParticle
 ow.CoinParticle = meta.class("CoinParticle")
 
-local _shader = rt.Shader("common/player_body_core.glsl")
+local _shader = rt.Shader("common/player_body_core_solid.glsl")
 local _lch_texture = rt.LCHTexture(256, 2, 256)
 
 local _font = rt.Font("assets/fonts/Baloo2/Baloo2-Bold.ttf")

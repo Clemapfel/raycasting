@@ -190,6 +190,7 @@ function rt.SceneManager:_reset()
     end
 
     rt.InputManager:flush() -- prevent input from this frame leaking into new scene
+    rt.SoundManager:flush()
 end
 
 --- @brief

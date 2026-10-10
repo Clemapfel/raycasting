@@ -86,6 +86,8 @@ mn.SettingsScene = meta.class("MenuSettingsScene", rt.Scene)
 mn.SettingsScene.Item = meta.class("SettingsSceneItem", rt.Widget)
 meta.add_signal(mn.SettingsScene.Item, "reset")
 
+local sound_ids = require "menu.menu_sound_ids"
+
 --- @brief [internal]
 function mn.SettingsScene.Item:instantiate(t)
     meta.install(self, t)
@@ -765,27 +767,37 @@ function mn.SettingsScene:instantiate()
 
     local handle_left_pressed = function()
         local item = self._list:get_selected_item()
+        local play = false
         if item.is_scale then
             self._scale_elapsed = 0
             self._scale_delay_elapsed = 0
             self._scale_active = true
             self._scale_direction = rt.Direction.LEFT
-            item.widget:move_left()
+            play = item.widget:move_left()
         else
-            item.widget:move_left()
+            play = item.widget:move_left()
+        end
+
+        if play then
+            self._left_sound_handler = rt.SoundManager:play(sound_ids.left, { stop = self._left_sound_handler })
         end
     end
 
     local handle_right_pressed = function()
         local item = self._list:get_selected_item()
+        local play = false
         if item.is_scale then
             self._scale_elapsed = 0
             self._scale_delay_elapsed = 0
             self._scale_active = true
             self._scale_direction = rt.Direction.RIGHT
-            item.widget:move_right()
+            play = item.widget:move_right()
         else
-            item.widget:move_right()
+            play = item.widget:move_right()
+        end
+
+        if play then
+            self._right_sound_handler = rt.SoundManager:play(sound_ids.right, { stop = self._right_sound_handler })
         end
     end
 
@@ -813,6 +825,7 @@ function mn.SettingsScene:instantiate()
         elseif which == rt.InputAction.RESET then
             local item = self._list:get_selected_item()
             item:signal_emit("reset")
+            self._reset_sound_handler = rt.SoundManager:play(sound_ids.reset, { stop = self._reset_sound_handler })
         elseif which == rt.InputAction.BACK then
             rt.SceneManager:pop()
         elseif which == rt.InputAction.SPECIAL then
@@ -997,9 +1010,13 @@ function mn.SettingsScene:update(delta)
             while self._scale_elapsed > step do
                 self._scale_elapsed = self._scale_elapsed - step
                 if self._scale_direction == rt.Direction.LEFT then
-                    scale:move_left()
+                    if scale:move_left() then
+                        self._left_sound_handler = rt.SoundManager:play(sound_ids.left, { stop = self._left_sound_handler })
+                    end
                 elseif self._scale_direction == rt.Direction.RIGHT then
-                    scale:move_right()
+                    if scale:move_right() then
+                        self._right_sound_handler = rt.SoundManager:play(sound_ids.right, { stop = self._right_sound_handler })
+                    end
                 end
             end
         end
@@ -1010,9 +1027,13 @@ function mn.SettingsScene:update(delta)
         while self._scroll_elapsed > step do
             self._scroll_elapsed = self._scroll_elapsed - step
             if self._scroll_direction == rt.Direction.UP then
-                self._list:scroll_up()
+                if self._list:scroll_up() then
+                    self._up_sound_handler = rt.SoundManager:play(sound_ids.up, { stop = self._up_sound_handler })
+                end
             elseif self._scroll_direction == rt.Direction.DOWN then
-                self._list:scroll_down()
+                if self._list:scroll_down() then
+                    self._down_sound_handler = rt.SoundManager:play(sound_ids.down, { stop = self._down_sound_handler })
+                end
             end
         end
 

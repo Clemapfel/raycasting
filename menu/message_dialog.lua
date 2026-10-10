@@ -220,6 +220,8 @@ function mn.MessageDialog:_update_selected_item()
     end
 end
 
+local sound_ids = require "menu.menu_sound_ids"
+
 --- @brief
 function mn.MessageDialog:handle_button(which)
     if self._is_active ~= true then return end
@@ -232,17 +234,21 @@ function mn.MessageDialog:handle_button(which)
         if self._selected_item_i > 1 then
             self._selected_item_i = self._selected_item_i - 1
             self:_update_selected_item()
+            self._left_sound_handler = rt.SoundManager:play(sound_ids.left, { stop = self._left_sound_handler })
         end
     elseif which == rt.InputAction.RIGHT then
         if self._selected_item_i < table.sizeof(self._buttons) then
             self._selected_item_i = self._selected_item_i + 1
             self:_update_selected_item()
+            self._left_sound_handler = rt.SoundManager:play(sound_ids.left, { stop = self._right_sound_handler })
         end
     elseif which == rt.InputAction.CONFIRM then
         local success = self:signal_try_emit("selection", self._options[self._selected_item_i])
         if not success then
             self:close() -- default button behavior
         end
+
+        -- sound handled in caller
     end
 end
 

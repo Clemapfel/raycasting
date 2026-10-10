@@ -15,6 +15,8 @@ mn.KeybindingScene = meta.class("KeybindingsScene", rt.Scene)
 --- @class mn.KeybindingScene.Item
 mn.KeybindingScene.Item = meta.class("KeybindingsSceneItem", rt.Widget)
 
+local sound_ids = require "menu.menu_sound_ids"
+
 --- @brief [internal]
 function mn.KeybindingScene.Item:instantiate(t)
     meta.install(self, t)
@@ -207,7 +209,7 @@ function mn.KeybindingScene:instantiate()
         elseif which == rt.InputAction.DOWN then
             self:_start_scroll(rt.Direction.DOWN)
         elseif which == rt.InputAction.CONFIRM then
-            if not self._listening_active then
+            if self._listening_active == false then
                 self._listening_active = true
                 self._listening_item = self._list:get_selected_item()
 
@@ -216,6 +218,8 @@ function mn.KeybindingScene:instantiate()
                 elseif self._input:get_input_method() == rt.InputMethod.CONTROLLER then
                     self._listening_item:set_controller_indicator(nil)
                 end
+
+                self._start_listen_sound_handler = rt.SoundManager:play(sound_ids.left, { stop = self._start_listen_sound_handler })
             end
         elseif which == rt.InputAction.RESET then
             if self:_was_modified() then
@@ -223,6 +227,7 @@ function mn.KeybindingScene:instantiate()
                     if option == mn.MessageDialogOption.ACCEPT then
                         rt.GameState:load_default_input_binding()
                         self:_update_all_indicators()
+                        self._reset_sound_handler = rt.SoundManager:play(sound_ids.reset, { stop = self._reset_sound_handler })
                     end
 
                     dialog:close()
@@ -270,6 +275,7 @@ function mn.KeybindingScene:instantiate()
 
     self._input:signal_connect("input_method_changed", function(_, new)
         self:_abort_listening()
+        self._abort_sound_handler = rt.SoundManager:play(sound_ids.back, { stop = self._abort_sound_handler })
     end)
 
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
@@ -277,6 +283,7 @@ function mn.KeybindingScene:instantiate()
         self._listening_item:set_keyboard_indicator(which)
         self._listening_active = false
         rt.InputManager:flush()
+        self._end_listen_sound_handler = rt.SoundManager:play(sound_ids.right, { stop = self._end_listen_sound_handler })
     end)
 
     self._input:signal_connect("controller_button_pressed", function(_, which)
@@ -284,6 +291,7 @@ function mn.KeybindingScene:instantiate()
         self._listening_item:set_controller_indicator(which)
         self._listening_active = false
         rt.InputManager:flush()
+        self._end_listen_sound_handler = rt.SoundManager:play(sound_ids.right, { stop = self._end_listen_sound_handler })
     end)
 end
 
@@ -425,9 +433,13 @@ function mn.KeybindingScene:update(delta)
         while self._scroll_elapsed > step do
             self._scroll_elapsed = self._scroll_elapsed - step
             if self._scroll_direction == rt.Direction.UP then
-                self._list:scroll_up()
+                if self._list:scroll_up() then
+                    self._up_sound_handler = rt.SoundManager:play(sound_ids.up, { stop = self._up_sound_handler })
+                end
             elseif self._scroll_direction == rt.Direction.DOWN then
-                self._list:scroll_down()
+                if self._list:scroll_down() then
+                    self._down_sound_handler = rt.SoundManager:play(sound_ids.down, { stop = self._down_sound_handler })
+                end
             end
         end
 
@@ -522,6 +534,7 @@ function mn.KeybindingScene:_exit(save)
             if not valid then
                 self._keybinding_invalid_dialog:set_submessage(error_maybe, rt.JustifyMode.LEFT)
                 self._keybinding_invalid_dialog:present()
+                self._error_sound_handler = rt.SoundManager:play(sound_ids.error, { stop = self._error_sound_handler })
             else
                 can_exit = true
             end
@@ -531,8 +544,10 @@ function mn.KeybindingScene:_exit(save)
             self._confirm_exit_dialog:signal_connect("selection", function(dialog, which)
                 if which == mn.MessageDialogOption.CANCEL then
                     -- noop
+                    self._back_sound_handler = rt.SoundManager:play(sound_ids.back, { stop = self._back_sound_handler })
                 elseif which == mn.MessageDialogOption.ACCEPT then
                     rt.SceneManager:pop()
+                    self._confirm_sound_handler = rt.SoundManager:play(sound_ids.confirm, { stop = self._confirm_sound_handler })
                 end
 
                 dialog:close()
