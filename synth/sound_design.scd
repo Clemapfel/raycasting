@@ -2,8 +2,7 @@ var server = Server.default;
 var record_pattern;
 
 ~rec = AutoRecorder;
-~is_recording = false;
-~rec.silenced = ~is_recording.not;
+~rec.isRecording = true;
 
 server.latency = 0.3;
 server.options.blockSize = 2048;
@@ -15,7 +14,7 @@ server.options.memSize = 2 * (2 ** 16);
 
 server.waitForBoot {
 
-	var degrees = Scale.major.degrees;
+	var degrees = [0, 1]; //Scale.major.degrees;
 	[
 		//\bubble_pop,
 		//\bubble_unpop,
@@ -36,12 +35,19 @@ server.waitForBoot {
 ~export_path = thisProcess.nowExecutingPath.dirname +/+ AutoRecorder.exportPathName;
 ~asset_path = thisProcess.nowExecutingPath.dirname +/+ AutoRecorder.assetPathName;
 
-record_pattern = { arg recordbuf, recordbus, pattern, delay = 0;
+record_pattern = { arg recordbuf, recordbus, pattern, trig = nil, delay = 0;
+
 	// for multi-snyth patterns, route into recordbus, then record in separate synth
-	var recordDef = SynthDef.new(("record" ++ UniqueID.next).asSymbol, { arg out, recordbus, recordbuf;
+	var recordDef = SynthDef.new(("record" ++ UniqueID.next).asSymbol, { arg out, recordbus, recordbuf, trigbus;
 		var raw = In.ar(recordbus, 1);
 		var signal = Limiter.ar(raw, 0.999);
-		var releaseTrig = DelayN.ar(DetectSilence.ar(signal), delay, delay);
+		var releaseTrig;
+
+		if (trig.isNil) {
+			releaseTrig = DelayN.ar(DetectSilence.ar(signal), delay, delay);
+		} {
+			releaseTrig = DelayN.ar(In.ar(trig, 1), delay, delay);
+		};
 
 		~rec.ar(recordbuf, signal);
 		~rec.end(releaseTrig);
@@ -64,7 +70,8 @@ record_pattern = { arg recordbuf, recordbus, pattern, delay = 0;
 	Synth(recordDef.name, [
 		out: 0,
 		recordbuf: recordbuf,
-		recordbus: recordbus
+		recordbus: recordbus,
+		trig: trig
 	]);
 
 	if (pattern.isKindOf(Function)) {
@@ -115,7 +122,7 @@ record_pattern = { arg recordbuf, recordbus, pattern, delay = 0;
 
     server.sync;
 
-	if (~is_recording) {
+	if (AutoRecorder.isRecording) {
 		degrees.do { arg degree;
 			~rec.record(server,
 				~rec.filename("bubble", "pop", degree), { arg recordbuf;
@@ -243,7 +250,7 @@ record_pattern = { arg recordbuf, recordbus, pattern, delay = 0;
 		var buffer = Buffer.read(server, tempPath);
 		server.sync;
 
-		if (~is_recording) {
+		if (AutoRecorder.isRecording) {
 
 		~rec.record(server,
 			finalPath, { arg recordbuf;
@@ -310,7 +317,7 @@ record_pattern = { arg recordbuf, recordbus, pattern, delay = 0;
 
     server.sync;
 
-	if (~is_recording) {
+	if (AutoRecorder.isRecording) {
 		var n = 4.max(degrees.size);
 		n.do { |degree|
 			~rec.record(server,
@@ -373,7 +380,7 @@ record_pattern = { arg recordbuf, recordbus, pattern, delay = 0;
 
 	server.sync;
 
-	if (~is_recording) {
+	if (AutoRecorder.isRecording) {
 		degrees.do { arg degree;
 			~rec.record(server,
 				~rec.filename("bounce_pad", "bounce", degree), { arg recordbuf;
@@ -459,7 +466,7 @@ record_pattern = { arg recordbuf, recordbus, pattern, delay = 0;
 
 	server.sync;
 
-	if (~is_recording) {
+	if (AutoRecorder.isRecording) {
 		6.do { arg degree;
 			~rec.record(server,
 				~rec.filename("air_dash_node", "dash", degree), { arg recordbuf;
@@ -534,7 +541,7 @@ record_pattern = { arg recordbuf, recordbus, pattern, delay = 0;
 
 	server.sync;
 
-	if (~is_recording) {
+	if (AutoRecorder.isRecording) {
 		/*
         var tempo = 12;
 		degrees.do { |degree|
@@ -610,7 +617,7 @@ record_pattern = { arg recordbuf, recordbus, pattern, delay = 0;
 		var base = (12 + degree).midiratio;
 
 		var sweep = EnvGen.ar(Env.new([0, 1, 1], [rampDur, holdDur], [\lin, \hold]));
-		var rate = sweep.linlin(0, 1, 0, maxRate);
+		var rate = 1; //sweep.linlin(0, 1, 0, maxRate);
 
 		var maxFreq = (60 + (3 * 12)).midicps; //0.25 * (server.sampleRate / 2);
 		var envAttack = ControlDur.ir;
@@ -626,11 +633,11 @@ record_pattern = { arg recordbuf, recordbus, pattern, delay = 0;
 
 			var semis = (pos * octaves * 12).softRound(
 				margin: 0,
-				strength: sweep.linlin(0, 1, 0.9, 0.4)
+				strength: LFCub.ar(rate / 4).range(0, 1)
 			);
 
 			var rawFreq = base * semis.midiratio;
-			var trig = Changed.ar((pos * octaves * 12).round(0.5));
+			var trig = Changed.ar((pos * octaves * 12).softRound(0.5, strength: 0));
 
 			var window = IEnvGen.ar(
 				Env([0, 1, 0], [0.5, 0.5], \sin),
@@ -641,7 +648,7 @@ record_pattern = { arg recordbuf, recordbus, pattern, delay = 0;
 			var guard = rawFreq.linlin(0, maxFreq, 1, 0);
 
 			var sine = SinOsc.ar(currentFreq,
-				phase: (t.linlin(0, 1, 0.1, 0.3)  * feedback[i].range(0, 2pi) + (t * 2pi)).mod(2pi)
+				phase: 0 * (t.linlin(0, 1, 0.1, 0.3)  * feedback[i].range(0, 2pi) + (t * 2pi)).mod(2pi)
 			) * window * guard;
 
 			sine;
@@ -668,7 +675,7 @@ record_pattern = { arg recordbuf, recordbus, pattern, delay = 0;
 	var rampDur = 3 * (octaves / maxRate);
 	var holdDur = 4 * (octaves / maxRate); // cycle of hold stage
 
-	if (~is_recording) {
+	if (AutoRecorder.isRecording) {
 		[0].do { |degree|
 			~rec.record(server, ~rec.filename("boost_field", "ramp", degree), { arg recordbuf;
 				Synth.new(def.name, [
@@ -680,6 +687,7 @@ record_pattern = { arg recordbuf, recordbus, pattern, delay = 0;
 				]);
 			});
 
+			/*
 			~rec.record(server, ~rec.filename("boost_field", "hold", degree), { arg recordbuf;
 				Synth.new(def.name, [
 					rampDur: 0,
@@ -689,6 +697,7 @@ record_pattern = { arg recordbuf, recordbus, pattern, delay = 0;
 					envIndex: 1
 				]);
 			});
+			*/
 		}
 	} {
 		Pmono(def.name, *[
@@ -701,186 +710,193 @@ record_pattern = { arg recordbuf, recordbus, pattern, delay = 0;
 };
 
 ~menu = { arg degrees;
-	var wavetableRes = 2048;
-	var signalRes = wavetableRes / 2; // asWavetable doubles the size
+    var wavetableRes = 2048;
+    var signalRes = wavetableRes / 2; // asWavetable doubles the size
 
-	var wavetable = Signal.fill(signalRes, { |i|
-		var t = i / signalRes * 2pi;
-		tanh(sin(t)) / tanh(1)
-	}).normalize.asWavetable;
+    var makeWavetable = { |func|
+        Signal.fill(signalRes, { |i| func.value(i / signalRes * 2pi) }).normalize.asWavetable
+    };
 
-	var wavetableBuf = Buffer.alloc(server, wavetableRes, 1);
+    // pure sin to square-ish tanh
+    var wavetables = [0, 0.5, 1, 1.5, 2, 2.5, 3].collect { |k|
+        makeWavetable.({ |t|
+            if (k == 0) {
+                sin(t)
+            } {
+                tanh(k * sin(t)) / tanh(k)
+            }
+        })
+    };
 
-	/*
-	var def = SynthDef.new(\menuClick, { arg out, freq, dur, gate = 1, click = 1, wavetable, recordbuf;
-		var clickAttack = 0.002;
-		var clickRelease = 0.15;
-		var clickDur = dur;
-		var beepEnv = EnvGen.ar(Env.asr(attackTime: clickAttack, releaseTime: clickRelease), gate: gate);
-		var noiseEnv = EnvGen.ar(Env.perc(clickAttack, clickAttack));
-		var beepFreq = [1, 2] * freq;
-		var signal = Mix.ar([
-			Osc.ar(wavetable, beepFreq).mean * beepEnv,
-			SinOsc.ar(beepFreq).mean * beepEnv,
-			click * WhiteNoise.ar() * noiseEnv
-		] * [1, 1, 0.25].normalizeSum);
+    var def = SynthDef.new(\menu, {
+        arg out, gate = 1, dur = 1, freq = 440, amp = 1, fuzz = 0.5, click = 1, reverb = 0.8, release = 1, wavetableStart, wavetableEnd, controlBus, endTrig;
 
-		var side = signal;
-		var filtered = signal;
+        var beepEnv = EnvGen.ar(Env.asr(
+			attackTime: 0.02, sustainLevel: 1, releaseTime: release * dur
+		), gate: gate);
 
-		filtered = BBandPass.ar(filtered, freq: (freq.cpsmidi + (4 * 12)).midicps, bw: 2.0);
-		filtered = BLowShelf.ar(filtered, 500, db: 20);
+		/*
+		var which = EnvGen.ar(Env.asr(
+			attackTime: dur / 2, sustainLevel: 1, releaseTime: dur / 2
+		), gate: gate) * fuzz;*/
 
-		Out.ar(out, Mix.ar(filtered).dup);
+        var signal = VOsc.ar(
+            fuzz.linlin(0, 1, wavetableStart, wavetableEnd),
+            freq
+        ) * beepEnv;
+
+		var snap = click * BBandPass.ar(
+			WhiteNoise.ar * EnvGen.ar(Env.perc(0.0015, 0.0001), gate: gate),
+			freq: 3000,
+			bw: 1
+		);
+
+		signal = amp * (signal + snap);
+
+        Out.ar(out, signal);
+		Out.kr(controlBus, [ endTrig, reverb ]);
+		FreeSelf.kr(Done.kr(beepEnv));
 	}).add;
-	*/
 
-	var def = SynthDef.new(\menu, { arg out, freq, dur, gate, clickAmp = 1, wavetable, recordbuf;
+    var recordDef = SynthDef.new(\menuRecord, {
+        arg out, recordbus, recordbuf, controlBus;
 
-		var beepEnv = EnvGen.ar(Env.asr(attackTime: 0.02, releaseTime: 0.1), gate: gate);
-		var signal = Mix.ar([
-			Osc.ar(wavetable, freq) * beepEnv,
-			SinOsc.ar(freq) * beepEnv
-		] * [1, 1, clickAmp].normalizeSum);
+        var raw = In.ar(recordbus, 1);
+        var signal = raw;
 
-		Out.ar(out, signal);
-	}).add;
+		// wait for both to trigger at least once
+		var releaseTrig;
 
-	server.sync;
-	wavetableBuf.loadCollection(wavetable);
-	server.sync;
+		var trig = In.kr(controlBus, 2)[0];
+		var reverb = In.kr(controlBus, 2)[1];
 
-	[0].do { |degree|
-		var dur = 0.1;
+		var feedback = LocalIn.ar(1);
+		var delay = 0.4;
+		signal = DelayC.ar(signal + (reverb * feedback), delay, delay);
+		LocalOut.ar(signal);
 
-		~rec.record(server, ~rec.filename("menu", "up", degree), { arg recordbuf, recordbus;
-			record_pattern.(recordbuf, recordbus, PmonoArtic(def.name, *[
-				out: recordbus,
-				recordbuf: recordbuf,
-				degree: Pseq(degree + [0, 3], 1),
-				dur: dur,
-				sustain: 0.8
-			]));
-		});
+		releaseTrig = SetResetFF.ar([
+			K2A.ar(Changed.kr(trig)),
+			DetectSilence.ar(signal, time: 1)
+		], reset: 0).sum >= 1;
 
-		~rec.record(server, ~rec.filename("menu", "down", degree), { arg recordbuf, recordbus;
-			record_pattern.(recordbuf, recordbus, PmonoArtic(def.name, *[
-				out: recordbus,
-				recordbuf: recordbuf,
-				degree: Pseq(degree + [1, -2], 1),
-				dur: dur,
-				sustain: 0.8
-			]));
-		});
+        ~rec.ar(recordbuf, signal);
+        ~rec.end(releaseTrig);
 
-		~rec.record(server, ~rec.filename("menu", "confirm", degree), { arg recordbuf, recordbus;
-			record_pattern.(recordbuf, recordbus, PmonoArtic(def.name, *[
-				out: recordbus,
-				recordbuf: recordbuf,
-				degree: Pseq(degree + [0, 3, 3], 1),
-				dur: dur,
-				sustain: Pseq([1, 0.8])
-			]));
-		});
+        Out.ar(out, ~amp * signal.dup);
+        ClipDetector.ar(raw);
+        FreeSelf.kr(releaseTrig);
+    }).add;
 
-		~rec.record(server, ~rec.filename("menu", "back", degree), { arg recordbuf, recordbus;
-			record_pattern.(recordbuf, recordbus, PmonoArtic(def.name, *[
-				out: recordbus,
-				recordbuf: recordbuf,
-				degree: Pseq(degree + [1, 3], 1),
-				dur: dur * Pseq([1, 2]),
-				sustain: 0.8
-			]));
-		});
+    var wavetableBufs = {
+        var bufs = Buffer.allocConsecutive(wavetables.size, server, wavetableRes, 1);
+        server.sync;
+        bufs.do { |buf, i| buf.loadCollection(wavetables[i]); };
+        bufs;
+    }.value;
 
-		~rec.record(server, ~rec.filename("menu", "left", degree), { arg recordbuf, recordbus;
-			record_pattern.(recordbuf, recordbus, PmonoArtic(def.name, *[
-				out: recordbus,
-				recordbuf: recordbuf,
-				degree: Pseq(degree + [0, 3], 1),
-				dur: dur,
-				sustain: 1
-			]));
-		});
+    server.sync;
 
-		~rec.record(server, ~rec.filename("menu", "right", degree), { arg recordbuf, recordbus;
-			record_pattern.(recordbuf, recordbus, PmonoArtic(def.name, *[
-				out: recordbus,
-				recordbuf: recordbuf,
-				degree: Pseq(degree + [1, -2], 1),
-				dur: dur,
-				sustain: 1
-			]));
-		});
+    [0].do { |degree|
+        var dur_t = 1;
+		var reverb_t = 0.4;
 
-		~rec.record(server, ~rec.filename("menu", "reset", degree), { arg recordbuf, recordbus;
-			record_pattern.(recordbuf, recordbus, PmonoArtic(def.name, *[
-				out: recordbus,
-				recordbuf: recordbuf,
-				degree: Pseq(degree + [1, 3, 1], 1),
-				dur: dur,
-				sustain: 1
-			]));
-		});
+		var make = { arg name, degrees, dur = [1], sustain = [1], reverb = [1], release = [1], click = [1], fuzz = [0];
+			~rec.record(server, ~rec.filename("menu", name, degree), { arg recordbuf, recordbus;
+                var controlBus = Bus.control(server, 2);
+                var numSteps = degrees.size;
 
-		~rec.record(server, ~rec.filename("menu", "error", degree), { arg recordbuf, recordbus;
-			record_pattern.(recordbuf, recordbus, PmonoArtic(def.name, *[
-				out: recordbus,
-				recordbuf: recordbuf,
-				degree: Pseq(degree + [1, 3, 1], 1),
-				dur: dur,
-				sustain: 1
-			]));
-		});
-	};
+                var recordSynth = Synth.new(recordDef.name, [
+                    out: 0,
+                    recordbuf: recordbuf,
+                    recordbus: recordbus,
+                    controlBus: controlBus
+                ]);
 
+                var play = PmonoArtic(def.name, *[
+                    out: recordbus,
+                    wavetableStart: wavetableBufs[0].bufnum,
+                    wavetableEnd: wavetableBufs[0].bufnum + wavetableBufs.size - 1.001,
 
-	/*
-	 Pnew(def.name, *[
-		degree: Pseq([1, 1], 1),
-		freqEnv: Pseq([[1, 1], [1, 1]], 1),
-		dur: Pseq([0.5, 1] * 0.25),
-		click: Pseq([0, 0, 0]),
-		//recordbuf: recordbuf,
-		wavetable: wavetableBuf
-	]).play;
+					degree: Pseq(degree + degrees, 1),
+                    dur: Pseq(dur, inf),
+					reverb: Pseq(0.4 * reverb, inf),
+					sustain: Pseq(1 * sustain, inf),
+					release: Pseq(1 * release, inf),
+					click: Pseq(1 * click, inf),
+					fuzz: Pseq(1 * fuzz, inf),
 
-	*/
+                    controlBus: controlBus,
+					endTrig: 0,
+				]);
 
+				var record = Pnew(def.name, *[
+					out: recordbus,
+                    wavetableStart: wavetableBufs[0].bufnum,
+                    wavetableEnd: wavetableBufs[0].bufnum + wavetableBufs.size - 1.001,
 
-	// [0, 1, 2, 3, 4, 5].do { |degree|
+					delta: Pn(0, 1),
 
-	/*
-	~rec.record(server, ~rec.filename("menu", "up"), { arg recordbuf;
-		Pmono(def.name, *[
-			degree: Pseq(degree + [0, 1], 1),
-			wavetable: wavetableBuf,
-				dur: dur,
-				click: 0.5,
-			recordbuf: recordbuf
-		]).play;
-	});
+					amp: 0,
+					endTrig: 1
+				]);
 
-		~rec.record(server, ~rec.filename("menu", "down"), { arg recordbuf;
-			Pmono(def.name, *[
-				degree: Pseq(degree + [1, -2], 1),
-				wavetable: wavetableBuf,
-				dur: dur,
-				click: 0.5,
-				recordbuf: recordbuf
-			]).play;
-		});
+				Pseq([play, record]).play;
+            });
+        };
 
-	~rec.record(server, ~rec.filename("menu", "down"), { arg recordbuf;
-			Pnew(def.name, *[
-				degree: Pseq(degree + [0, 2], 1),
-				wavetable: wavetableBuf,
-				dur: 0.25,
-				click: 0.5,
-				recordbuf: recordbuf,
-				sustain: 0.8
-			]).play;
-		});
-	};
+        make.("up",
+            degrees: degrees,
+            dur: [1],
+            sustain: [1],
+			reverb: [0],
+			release: [0.5],
+			fuzz: [1]
+        );
+
+		/*
+
+		make.("down",
+			degrees: [1, 3],
+			durs: [1],
+			sustains: [0.8]
+		);
+
+		make.("left",
+			degrees: [1, 3],
+			durs: [1],
+			sustains: [0.8]
+		);
+
+		make.("right",
+			degrees: [1, 3],
+			durs: [1],
+			sustains: [0.8]
+		);
+
+		make.("confirm",
+			degrees: [1, 3],
+			durs: [1],
+			sustains: [0.8]
+		);
+
+		make.("back",
+			degrees: [1, 3],
+			durs: [1],
+			sustains: [0.8]
+		);
+
+		make.("reset",
+			degrees: [1, 3],
+			durs: [1],
+			sustains: [0.8]
+		);
+
+		make.("error",
+			degrees: [1, 3],
+			durs: [1],
+			sustains: [0.8]
+		);
 		*/
+	};
 };
