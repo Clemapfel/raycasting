@@ -23,7 +23,8 @@ server.waitForBoot {
 		//\air_dash_node_dash,
 		//\air_dash_node_focus,
 		//\boost_field,
-		\menu
+		//\menu
+		\main_menu_dive
 	].do { |name| currentEnvironment[name].(degrees) };
 
 	CmdPeriod.doOnce { server.freeAll }
@@ -940,4 +941,58 @@ record_pattern = { arg recordbuf, recordbus, pattern, trig = nil, delay = 0;
 			fuzz: [1.0]
 		);
 	};
+};
+
+~main_menu_dive = {
+	var nyquist = server.sampleRate / 2 * 0.5;
+	var def = SynthDef.new(\main_menu_dive, { arg out, dur, gate = 1;
+		var base = 60 + 2; // D
+		var fifth = 60 + 2 + 7; // G
+		var third = 60 + 2 + 4; // F#
+		var lowOctave = -4;
+		var highOctave = 3;
+		var maxPhase = 2;
+		var maxFreq = SampleRate.ir / 2 * 0.7;
+
+		var freqs = (lowOctave..highOctave).collect({ |octave|
+			var offset = octave * 12;
+			[
+				(base + offset).midicps,
+			    (third + offset).midicps,
+			    (fifth + offset).midicps
+			]
+		}).flatten.select({ |freq| freq < nyquist });
+
+		var oscs = freqs.collect({ |freq, i|
+			var dir = if (i.even) { -1 } { 1 };
+			var freqEnv = EnvGen.ar(Env.new(
+				[(freq.cpsmidi + (dir * 12)).midicps, freq], [dur / 2], \lin
+			), gate: gate);
+
+			var noiseEnv = EnvGen.ar(Env.new([1, 0.04], [dur / 2], \lin));
+			var noise = (noiseEnv * LFNoise2.ar(2)).range(-1.midiratio, 1.midiratio);
+
+			var ampDelay = ((i / freqs.size).linexp(0, 1, 1, 1.4) - 1) * dur;
+			var ampEnv = EnvGen.ar(Env.new(
+				[0, 0, 1] + 1, [ampDelay, 1 - ampDelay], \exp
+			)) - 1;
+
+			ampEnv * VarSaw.ar(
+				Vibrato.ar(Limiter.ar(freqEnv * noise, maxFreq), rate: 6, depth: 0.1.midiratio - 1),
+				width: SinOsc.ar(12, phase: rrand(0, 2pi)).range(0.45, 0.55)
+			);
+		});
+
+		var sig = (Mix.ar(oscs) / oscs.size) * EnvGen.ar(Env.new(
+			[0, 1, 1, 0], [0.01, 1, 0.03].normalizeSum * dur, \welch
+		), gate: gate, doneAction: Done.freeSelf);
+
+		Out.ar(out, sig.dup);
+	}).add;
+
+	server.sync;
+
+	Pmono(def.name, *[
+		dur: Pn(10, 1)
+	]).play;
 };

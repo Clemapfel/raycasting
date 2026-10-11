@@ -14,6 +14,8 @@ local _is_boolean = function(x) return type(x) == _boolean_t end
 local _is_string = function(x) return type(x) == _string_t end
 local _is_type = function(x) return _all_types[x] == true end
 
+local _is_scalar = function(x) return type(x) ~= _table_t or #x == 1 end
+
 local _sizeof = function(x)
     return #x
 end
@@ -201,6 +203,10 @@ local _cast = function(to, x)
     return f(x)
 end
 
+local _expand = function(self, other)
+
+end
+
 local _new_proxy = function(...)
     local self = { _ = { ... } }
 
@@ -241,7 +247,11 @@ local _new_proxy = function(...)
             local next_indent = indent .. "  "
 
             if not _is_table(t) then
-                io.write(_to_string(t))
+                if _is_string(t) then
+                    io.write('"', t, '"')
+                else
+                    io.write(_to_string(t))
+                end
                 return
             end
 
@@ -327,6 +337,57 @@ local _new_proxy = function(...)
         return self
     end
 
+    self.sin = function()
+        resolve(_number_t, function(x)
+            return math.sin(x)
+        end)
+    end
+
+    self.cos = function()
+        resolve(_number_t, function(x)
+            return math.cos(x)
+        end)
+    end
+
+    self.tan = function()
+        resolve(_number_t, function(x)
+            return math.tan(x)
+        end)
+    end
+
+    self.tanh = function()
+        resolve(_number_t, function(x)
+            if x > 20 then return 1.0 end
+            if x < -20 then return -1.0 end
+            local e2x = math.exp(2 * x)
+            return (e2x - 1) / (e2x + 1)
+        end)
+    end
+
+    self.log = function()
+        resolve(_number_t, function(x)
+            return math.log(x)
+        end)
+    end
+
+    self.exp = function()
+        resolve(_number_t, function(x)
+            return math.exp(x)
+        end)
+    end
+
+    self.log10 = function()
+        resolve(_number_t, function(x)
+            return math.log(x, 10)
+        end)
+    end
+
+    self.exp10 = function()
+        resolve(_number_t, function(x)
+            return 10 ^ x
+        end)
+    end
+
     self.sqrt = function()
         resolve(_number_t, function(x)
             return math.sqrt(x)
@@ -334,17 +395,119 @@ local _new_proxy = function(...)
         return self
     end
 
+    self.reciprocal = function()
+        resolve(_number_t, function(x)
+            return 1 / x
+        end)
+        return self
+    end
+
+    self.floor = function(n_digits)
+        n_digits = _cast(_number_t, n_digits)
+        resolve(_number_t, function(x)
+            local factor = 10 ^ (n_digits or 0)
+            return math.floor(x * factor) / factor
+        end)
+
+        return self
+    end
+
+    self.ceil = function(n_digits)
+        n_digits = _cast(_number_t, n_digits)
+        resolve(_number_t, function(x)
+            local factor = 10 ^ (n_digits or 0)
+            return math.ceil(x * factor) / factor
+        end)
+
+        return self
+    end
+
+    self.round = function(n_digits)
+        n_digits = _cast(_number_t, n_digits)
+        resolve(_number_t, function(x)
+            local factor = 10 ^ (n_digits or 0)
+            if x >= 0 then
+                return math.floor(x * factor + 0.5) / factor
+            else
+                return math.ceil(x * factor - 0.5) / factor
+            end
+        end)
+
+        return self
+    end
+
+    self.linlin = function(from_lower, from_upper, to_lower, to_upper)
+        from_lower, from_upper, to_lower, to_upper = _cast(_number_t, from_lower),
+            _cast(_number_t, from_lower),
+            _cast(_number_t, from_lower),
+            _cast(_number_t, from_lower)
+
+        resolve(_number_t, function(x)
+            local lo, hi = math.min(from_lower, from_upper), math.max(from_lower, from_upper)
+            if x < lo then
+                x = lo
+            elseif x > hi then
+                x = hi
+            end
+
+            if from_upper == from_lower then
+                return to_lower
+            end
+
+            return (x - from_lower) / (from_upper - from_lower) * (to_upper - to_lower) + to_lower
+        end)
+
+        return self
+    end
+
+    self.mix = function(to_lower, to_upper)
+        to_lower, to_upper = _cast(to_lower, _number_t), _cast(to_upper, _number_t)
+        resolve(_number_t, function(x)
+            return to_lower * (1 - x) + to_upper * x
+        end)
+
+        return self
+    end
+
+    self.smoothstep = function(to_lower, to_upper)
+        to_lower, to_upper = _cast(to_lower, _number_t), _cast(to_upper, _number_t)
+        resolve(_number_t, function(x)
+            if to_lower == to_upper then
+                return x < to_lower and 0.0 or 1.0
+            end
+
+            local t = (x - to_lower) / (to_upper - to_lower)
+            if t < 0 then t = 0 elseif t > 1 then t = 1 end
+            return t * t * (3 - 2 * t)
+        end)
+
+        return self
+    end
+
+    self.gaussian = function(mean, stddev)
+        if _is_nil(mean) then mean = 0 end
+        if _is_nil(stddev) then stddev = 1 / 1.959963984540054 end -- ~95% in -1, 1
+        mean, stddev = _cast(_number_t, mean), _cast(_number_t, stddev)
+        resolve(_number_t, function(t)
+            local z = (t - mean) / stddev
+            return math.exp(-0.5 * z * z) / (stddev * math.sqrt(2 * math.pi))
+        end)
+
+        return self
+    end
+
     local success, bit = pcall(require, "bit")
     if success then
         local bit_op = function(op)
             return function(other)
+                other = _cast(_number_t, other)
                 resolve(_number_t, function(x)
                     return op(bit.tobit(x), bit.tobit(other))
                 end)
                 return self
             end
         end
-        
+
         self.bit_not = bit_op(function(a) return bit.bnot(a) end)
         self.bit_and = bit_op(function(a, b) return bit.band(a, b) end)
         self.bit_or = bit_op(function(a, b) return bit.bor(a, b) end)
@@ -354,35 +517,84 @@ local _new_proxy = function(...)
         self.bit_rotate_left = bit_op(function(a, b) return bit.rol(a, b) end)
         self.bit_rotate_right = bit_op(function(a, b) return bit.ror(a, b) end)
         self.bit_byte_swap = bit_op(function(a) return bit.bswap(a) end)
+
+        self.is_even = function()
+            resolve(_number_t, function(x)
+                return bit.band(x, 0x1) == 0
+            end)
+            return self
+        end
+
+        self.is_odd = function()
+            resolve(_number_t, function(x)
+                return bit.band(x, 0x1) == 1
+            end)
+            return self
+        end
+    else
+        self.is_even = function()
+            resolve(_number_t, function(x)
+                return x % 2 == 0
+            end)
+            return self
+        end
+
+        self.is_odd = function()
+            resolve(_number_t, function(x)
+                return x % 2 == 1
+            end)
+            return self
+        end
     end
 
     self.iterate = function()
         return ipairs(self._)
     end
 
-    self.series = function()
-        local from = _cast(_number_t, self._[1])
-        local to = _cast(_number_t, self._[2])
-        local step = _cast(_number_t, self._[3])
+    self.series = function(...)
+        local from, to, step
 
-        if step == nil then step = (from <= to) and 1 or -1 end
+        if not _is_nil(select(1, ...)) then
+            from = _cast(_number_t, select(1, ...))
+        elseif not _is_nil(self._[1]) then
+            from = _cast(_number_t, self._[1])
+        else
+            _error("In series: argument #1 `from` is nil")
+        end
+
+        if not _is_nil(select(2, ...)) then
+            to = _cast(_number_t, select(2, ...))
+        elseif not _is_nil(self._[2]) then
+            to = _cast(_number_t, self._[2])
+        else
+            _error("In series: argument #2 `to` is nil")
+        end
+
+        if not _is_nil(select(3, ...)) then
+            step = _cast(_number_t, select(3, ...))
+        elseif not _is_nil(self._[3]) then
+            step = _cast(_number_t, self._[3])
+        else
+            if from <= to then
+                step = 1
+            else
+                step = -1
+            end
+        end
 
         if step == 0 then
-            _error("In series: step cannot be 0")
-            return function() return nil end
+            _error("In series: argument #3 `step` is 0")
         end
 
-        local i = 0
-        return function()
-            local value = from + i * step
-
-            if (step > 0 and value > to) or (step < 0 and value < to) then
-                return nil
-            end
-
+        local out = {}
+        local i = 1
+        for v = from, to, step do
+            out[i] = v
             i = i + 1
-            return value
         end
+
+        self._ = out
+        return self
     end
 
     self.apply = function(to_apply, ...)
@@ -609,31 +821,228 @@ local _new_proxy = function(...)
         return _sizeof(self._)
     end
 
-    -- if it is a table { x, y, z }, create a table { x, y, z, x, y, z, ... }
-    -- if it is a string "xyz", replace it with "xyzxyz..."
-    -- otherwise, replace x with { x, x, ... }
     self.duplicate = function(n)
+        n = _cast(_number_t, n or 2)
+        local count = math.floor(n)
+        if count < 0 then count = 0 end
 
+        local function copy(x)
+            if not _is_table(x) then return x end
+            local out = {}
+            for k, v in pairs(x) do out[k] = copy(v) end
+            return out
+        end
+
+        local function duplicate_inner(x)
+            if _is_table(x) then
+                local n_elem = _sizeof(x)
+                local out = {}
+                for c = 1, count do
+                    for i = 1, n_elem do
+                        out[#out + 1] = copy(x[i])
+                    end
+                end
+                for k, v in pairs(x) do
+                    if not (_is_number(k) and k >= 1 and k <= n_elem and k == math.floor(k)) then
+                        out[k] = copy(v)
+                    end
+                end
+                return out
+            elseif _is_string(x) then
+                return string.rep(x, count)
+            else
+                local out = {}
+                for i = 1, count do
+                    out[i] = x
+                end
+                return out
+            end
+        end
+
+        self._ = duplicate_inner(self._)
+        return self
     end
 
-    -- if f(v) compares true for the value, replace it with nil, recursively
     self.filter = function(f)
+        local function filter_inner(x)
+            if _is_table(x) then
+                local out = {}
+                local n = _sizeof(x)
+                local is_array = true
+                for k, _ in pairs(x) do
+                    if not _is_number(k) or k < 1 or k > n or k ~= math.floor(k) then
+                        is_array = false
+                        break
+                    end
+                end
 
+                if is_array then
+                    for i = 1, n do
+                        local v = x[i]
+                        local res = _is_table(v) and filter_inner(v) or v
+                        if not _cast(_boolean_t, f(res)) then
+                            table.insert(out, res)
+                        end
+                    end
+                else
+                    for k, v in pairs(x) do
+                        local res = _is_table(v) and filter_inner(v) or v
+                        if not _cast(_boolean_t, f(res)) then
+                            out[k] = res
+                        end
+                    end
+                end
+                return out
+            else
+                if _cast(_boolean_t, f(x)) then
+                    return nil
+                else
+                    return x
+                end
+            end
+        end
+
+        self._ = filter_inner(self._)
+        return self
     end
 
-    -- if n is positive, drop first n elements of string / table
-    -- if n is negative, drop last abs(n) elements
     self.drop = function(n)
+        n = math.floor(_cast(_number_t, n or 0))
+        local function drop_inner(x)
+            if _is_table(x) then
+                local n_elem = _sizeof(x)
+                local out = {}
+                if n > 0 then
+                    for i = n + 1, n_elem do
+                        out[#out + 1] = x[i]
+                    end
+                elseif n < 0 then
+                    local keep_count = n_elem + n
+                    for i = 1, math.max(0, keep_count) do
+                        out[#out + 1] = x[i]
+                    end
+                else
+                    out = x
+                end
+                for k, v in pairs(x) do
+                    if not (_is_number(k) and k >= 1 and k <= n_elem and k == math.floor(k)) then
+                        out[k] = v
+                    end
+                end
+                return out
+            elseif _is_string(x) then
+                local len = string.len(x)
+                if n > 0 then
+                    return string.sub(x, math.min(len + 1, n + 1))
+                elseif n < 0 then
+                    return string.sub(x, 1, math.max(0, len + n))
+                else
+                    return x
+                end
+            else
+                return x
+            end
+        end
 
+        self._ = drop_inner(self._)
+        return self
     end
 
-    -- if n is positive, drop last n - 1 elements of string/table
-    -- if n is negative, drop first abs(n) elements of string/table
     self.keep = function(n)
+        n = math.floor(_cast(_number_t, n or 0))
+        local function keep_inner(x)
+            if _is_table(x) then
+                local n_elem = _sizeof(x)
+                local out = {}
+                if n > 0 then
+                    for i = 1, math.min(n, n_elem) do
+                        out[#out + 1] = x[i]
+                    end
+                elseif n < 0 then
+                    local abs_n = math.abs(n)
+                    local start_i = math.max(1, n_elem - abs_n + 1)
+                    for i = start_i, n_elem do
+                        out[#out + 1] = x[i]
+                    end
+                end
+                return out
+            elseif _is_string(x) then
+                local len = string.len(x)
+                if n > 0 then
+                    return string.sub(x, 1, math.min(n, len))
+                elseif n < 0 then
+                    local abs_n = math.abs(n)
+                    return string.sub(x, math.max(1, len - abs_n + 1))
+                else
+                    return ""
+                end
+            else
+                return x
+            end
+        end
 
+        self._ = keep_inner(self._)
+        return self
     end
 
-    --
+    self.sub = function(start_i, end_i)
+        start_i = math.floor(_cast(_number_t, start_i or 1))
+        end_i = math.floor(_cast(_number_t, end_i or 1))
+
+        local function sub_inner(x)
+            if _is_table(x) then
+                local n = _sizeof(x)
+                local lo = math.max(0, math.min(start_i, n))
+                local hi = math.max(0, math.min(end_i, n))
+                if lo > hi then lo, hi = hi, lo end
+                local out = {}
+                for i = lo, hi do
+                    out[#out + 1] = x[i]
+                end
+                return out
+            elseif _is_string(x) then
+                local len = string.len(x)
+                local lo = math.max(0, math.min(start_i, len))
+                local hi = math.max(0, math.min(end_i, len))
+                if lo > hi then lo, hi = hi, lo end
+                return string.sub(x, lo, hi)
+            else
+                return x
+            end
+        end
+
+        self._ = sub_inner(self._)
+        return self
+    end
+
+    local function make_comparison(op_func)
+        return function(other)
+            local function compare_inner(x)
+                if _is_table(x) then
+                    local out = {}
+                    for k, v in pairs(x) do
+                        out[k] = compare_inner(v)
+                    end
+                    return out
+                elseif _is_string(x) and _is_string(other) then
+                    return op_func(x, other)
+                else
+                    local nx = _cast(_number_t, x)
+                    local no = _cast(_number_t, other)
+                    return op_func(nx, no)
+                end
+            end
+            self._ = compare_inner(self._)
+            return self
+        end
+    end
+
+    self.less_than = make_comparison(function(a, b) return a < b end)
+    self.less_than_or_equal = make_comparison(function(a, b) return a <= b end)
+    self.equals = make_comparison(function(a, b) return a == b end)
+    self.greater_than_or_equal = make_comparison(function(a, b) return a >= b end)
+    self.greater_than = make_comparison(function(a, b) return a > b end)
+
     self.append = function(to_append)
         local function copy(x)
             if not _is_table(x) then return x end
@@ -768,6 +1177,8 @@ local _new_proxy = function(...)
         self._ = interlace_inner(self._)
         return self
     end
+
+    
 
     return self
 end
