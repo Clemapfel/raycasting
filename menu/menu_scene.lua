@@ -576,6 +576,7 @@ function mn.MenuScene:_set_state(next)
             self._dive_hold_sound_handler = rt.SoundManager:play(
                 _dive_hold_sound_id, {
                     after = self._dive_sweep_sound_handler,
+                    crossfade = 0.2,
                     should_loop = true,
                     loop_overlap = 0.01
                 }

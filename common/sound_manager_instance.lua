@@ -187,42 +187,45 @@ function rt.SoundManager:_sync_sources(origin, ...)
     end
 end
 
+local _config_keys = {}
+for v in range(
+    "volume",       -- Number, in [0, 1]
+    "delay",        -- Number, seconds
+    "pitch",        -- fraction, 1 is no change
+    "x",            -- Number, in pixels relative to listener
+    "y",            -- Number, in pixels relative to listened
+    "should_loop",  -- Boolean
+    "loop_overlap", -- Number, fraction
+    "attack",       -- Number, seconds
+    "sustain",      -- Number, seconds
+    "release",      -- Number, seconds
+    "effects",      -- Table<rt.SoundEffect>
+    "degree",       -- Any, onf of SoundManager.get_degrees
+    "stop",         -- Table<rt.SoundManager.HandlerID>
+    "after",        -- Table<rt.SoundManager.HandlerID>
+    "crossfade"     -- Number, seconds
+) do
+    _config_keys[v] = true
+end
+
+
 local _config_default = {
     volume = 1,
     delay = 0,
     pitch = 1,
-    x = nil, -- relative
+    x = nil,
     y = nil,
     should_loop = false,
-    loop_overlap = 0, -- seconds
+    loop_overlap = 0,
     attack = 0,
-    sustain = nil, -- seconds
+    sustain = nil,
     release = 0,
     effects = nil,
     degree = nil,
     stop = {},
-    after = nil
+    after = nil,
+    crossfade = 0
 }
-
-local _config_keys = {}
-for v in range(
-    "volume",
-    "delay",
-    "pitch",
-    "x",
-    "y",
-    "should_loop",
-    "loop_overlap",
-    "attack",
-    "sustain",
-    "release",
-    "effects",
-    "degree",
-    "stop",
-    "after"
-) do
-    _config_keys[v] = true
-end
 
 local _get_data_size_mb = function(data)
     return (data:getSampleCount() * data:getBitDepth() * data:getChannelCount()) / (8 * 1024 ^ 2)
@@ -282,6 +285,7 @@ function rt.SoundManager:_play_internal(id, config, handler_id)
     _verify("sustain", mt.Number, true)
     _verify("release", mt.Number, false)
     _verify("effects", mt.Table, true)
+    _verify("crossfade", mt.Number, false)
 
     if config.after ~= nil and not meta.is_table(config.after) then
         config.after = { config.after }
@@ -410,6 +414,7 @@ function rt.SoundManager:_play_internal(id, config, handler_id)
         delay = config.delay,
         delay_elapsed = 0,
         waiting_for = table.deepcopy(config.after),
+        crossfade = config.crossfade,
 
         elapsed = 0,
 
@@ -899,7 +904,9 @@ function rt.SoundManager:update(delta)
         if entry.waiting_for ~= nil then
             for other in values(entry.waiting_for) do
                 local before = self._handler_id_to_entry[other]
-                should_continue = before == nil or before.is_stopping == true
+                should_continue = before == nil
+                    or before.is_stopping == true
+                    or before.resource_entry.duration - before.elapsed <= entry.crossfade
                 if should_continue == false then break end
             end
 
