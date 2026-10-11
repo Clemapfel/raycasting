@@ -26,18 +26,9 @@ local message_type_to_handler = {
         )
     end,
 
-    [MessageType.QUEUE] = function(message)
-        rt.SoundManager:_play_internal(
-            message.id,
-            message.config,
-            message.handler_id,
-            message.after_handler_id
-        )
-    end,
-
     [MessageType.STOP] = function(message)
         rt.SoundManager:stop(
-            message.handler_id
+            table.unpack(message.handler_ids)
         )
     end,
 

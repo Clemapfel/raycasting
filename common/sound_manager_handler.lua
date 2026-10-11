@@ -105,7 +105,7 @@ for id in range(
     "STOP", --[[
         main -> worker
         type : MessageType
-        handler_id : Number
+        handler_ids : Table<Number>
     ]]
 
     "SET_GLOBAL_VOLUME", --[[
@@ -233,31 +233,17 @@ function rt.SoundManagerHandler:play(id, config)
 end
 
 --- @brief
-function rt.SoundManagerHandler:queue(after_handler_id, id, config)
-    meta.assert(after_handler_id, mt.Number, id, mt.String, config, mt.Optional(mt.Table))
+function rt.SoundManagerHandler:stop(...)
+    for i = 1, select("#", ...) do
+        meta.assert_argument_type(select(i, ...), mt.Union(mt.Number, mt.Nil))
+    end
 
-    local handler_id = self._handler_id
-    self._handler_id = self._handler_id + 1
-
-    self._main_to_worker:push({
-        type = MessageType.QUEUE,
-        id = id,
-        config = config,
-        handler_id = handler_id,
-        after_handler_id = after_handler_id
-    })
-
-    return handler_id
-end
-
---- @brief
-function rt.SoundManagerHandler:stop(handler_id)
-    meta.assert(handler_id, mt.Number)
-
-    self._main_to_worker:push({
-        type = MessageType.STOP,
-        handler_id = handler_id
-    })
+    if select("#", ...) > 0 then
+        self._main_to_worker:push({
+            type = MessageType.STOP,
+            handler_ids = { ... }
+        })
+    end
 end
 
 --- @brief

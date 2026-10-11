@@ -54,6 +54,10 @@ local _title_shader_no_sdf = rt.Shader("menu/menu_scene_title_label.glsl", { MOD
 local _title_shader_sdf = rt.Shader("menu/menu_scene_title_label.glsl", { MODE = 1 })
 local _lch_texture = rt.LCHTexture(1, 1, 256)
 
+local shared_sound_ids = require "menu.menu_sound_ids"
+local _dive_sweep_sound_id = "menu.dive_sweep"
+local _dive_hold_sound_id = "menu.dive_hold"
+
 -- @brief
 function mn.MenuScene:instantiate(state)
     self._input_blocked = true
@@ -503,7 +507,7 @@ end
 function mn.MenuScene:_set_state(next)
     assert(next ~= nil)
 
-    local current = self._state
+    local before = self._state
     self._state = next
     self._title_screen.input:deactivate()
     self._stage_select.input:deactivate()
@@ -543,10 +547,13 @@ function mn.MenuScene:_set_state(next)
         self._player:request_is_flow_frozen(self, true)
         self._title_screen.opacity_fade_animation:reset()
         self._stage_select.item_reveal_animation:reset()
-        return
-    end
 
-    if next == mn.MenuSceneState.FALLING or next == mn.MenuSceneState.STAGE_SELECT then
+        rt.SoundManager:stop(
+            self._dive_sweep_sound_handler,
+            self._dive_hold_sound_handler
+        )
+
+    elseif next == mn.MenuSceneState.FALLING or next == mn.MenuSceneState.STAGE_SELECT then
         self._stage_select.input:activate()
         self._stage_select.page_indicator:set_selected_page(1)
         self._stage_select.page_indicator:skip()
@@ -561,10 +568,29 @@ function mn.MenuScene:_set_state(next)
             boundary:signal_set_is_blocked("collision_start", true)
         end
 
+        if before == mn.MenuSceneState.TITLE_SCREEN then
+            self._dive_sweep_sound_handler = rt.SoundManager:play(_dive_sweep_sound_id, {
+                stop = { self._dive_sweep_sound_handler, self._dive_hold_sound_handler }
+            })
+
+            self._dive_hold_sound_handler = rt.SoundManager:play(
+                _dive_hold_sound_id, {
+                    after = self._dive_sweep_sound_handler,
+                    should_loop = true,
+                    loop_overlap = 0.01
+                }
+            )
+        end
+
     elseif next == mn.MenuSceneState.EXITING then
         self._exit_x, self._exit_y = self._camera:get_position()
         self._exit_velocity = select(2, self._player:get_velocity())
         self._exit_elapsed = 0
+
+        rt.SoundManager:stop(
+            self._dive_sweep_sound_handler,
+            self._dive_hold_sound_handler
+        )
     end
 end
 

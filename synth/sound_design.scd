@@ -947,7 +947,7 @@ record_pattern = { arg recordbuf, recordbus, pattern, trig = nil, delay = 0;
 	var nyquist = server.sampleRate / 2 * 0.5;
 	var chord = #[1, 5, 8];
 
-	var def = SynthDef.new(\main_menu_dive, { arg out, dur, gate = 1, phase = 0;
+	var def = SynthDef.new(\main_menu_dive, { arg out, dur, gate = 1, phase = 0, recordbuf;
 		var notes = chord.collect({ |note| 60 + note });
 		var lowOctave = -4;
 		var highOctave = 3;
@@ -955,6 +955,9 @@ record_pattern = { arg recordbuf, recordbus, pattern, trig = nil, delay = 0;
 		var maxFreq = SampleRate.ir / 2 * 0.7;
 
 		var highDelay = 0.4 * dur;
+		var attack = 0.05;
+		var decay = 0.2 * dur;
+		var hold = (dur - attack - highDelay - decay).max(0);
 
 		var freqs = (lowOctave..highOctave).collect({ |octave|
 			var offset = octave * 12;
@@ -963,60 +966,93 @@ record_pattern = { arg recordbuf, recordbus, pattern, trig = nil, delay = 0;
 
 		var oscs = freqs.collect({ |freq, i|
 			var dir = if (i.even) { -1 } { 1 };
-			var freqEnv = EnvGen.ar(Env.new(
+
+
+			var freqEnv0 = EnvGen.ar(Env.new(
 				[(freq.cpsmidi + (dir * 12)).midicps, freq], [dur / 2], \lin
 			), gate: gate);
+			var freqEnv = Select.ar(phase, [freqEnv0, DC.ar(freq)]);
 
-			var noiseEnv = EnvGen.ar(Env.new([1, 0.04], [dur / 2], \lin));
+			var minNoise = 0.04;
+			var noiseEnv0 = EnvGen.ar(Env.new([1, minNoise], [dur / 2], \lin));
+			var noiseEnv = Select.ar(phase, [noiseEnv0, DC.ar(minNoise)]);
+
 			var noise = (noiseEnv * LFNoise2.ar(rrand(1.5, 2.5))).range(-0.5.midiratio, 0.5.midiratio);
 
-			var ampDelay = DelayN.ar(
-				((i / freqs.size).linexp(0, 1, 0 + 1, 0.5 + 1) - 1),
-				highDelay,
-				highDelay
-			);
+			var ampDelay = EnvGen.ar(Env.new(
+				[0, (i / freqs.size).linexp(0, 1, 0 + 1, 0.5 + 1) - 1],
+				[highDelay],
+				\lin
+			));
 
-			var ampEnv = EnvGen.ar(Env.new(
+			var ampEnv0 = EnvGen.ar(Env.new(
 				[0, 0, 1] + 1, [ampDelay, 1 - ampDelay] * (dur / 2), \exp
 			)) - 1;
+			var ampEnv = Select.ar(phase, [ampEnv0, DC.ar(1.0)]);
 
 			var oscFreq = Vibrato.ar(
-				Limiter.ar(freqEnv * noise, maxFreq),
+				Clip.ar(freqEnv * noise, 20, maxFreq),
 				rate: 6,
 				depth: 0.1.midiratio - 1
 			);
 
-			/*
-			var osc = VarSaw.ar(
-				oscFreq,
-				width: SinOsc.ar(40, phase: rrand(0, 2pi)).range(0.45, 0.55)
-			);
-			*/
+			// bw vibrato
+			var bwRate = 100;
+			var bwMin = 0.06;
+			var bwMax = 0.07;
 
-			var bw = Line.kr(0.7, SinOsc.kr(100).range(0.06, 0.07), highDelay);
+			var bw0 = Line.kr(0.7, SinOsc.kr(bwRate).range(bwMin, bwMax), highDelay);
+			var bw1 = SinOsc.kr(bwRate).range(bwMin, bwMax);
+			var bw = Select.kr(phase, [bw0, bw1]);
+
 			var pink = BBandPass.ar(PinkNoise.ar, freq: oscFreq, bw: bw) * bw.reciprocal;
 			pink;
 		});
 
-		var attack = 0.01;
-		var decay = 0.2 * dur;
-		var hold = (dur - attack - highDelay - decay).max(0);
-		var sig = (Mix.ar(oscs) / oscs.size) * EnvGen.ar(
-			Env.new(
-				[0, 0.1, 1, 1, 0],
-				[attack, highDelay, hold, decay],
-				\welch
-			),
-			gate: gate,
-			doneAction: Done.freeSelf
+		var env0 = EnvGen.ar(
+			Env.new([0, 0.1, 1], [attack, highDelay], \welch),
+			gate: gate
 		);
 
+		var env1 = EnvGen.ar(
+			Env.new([1, 1], [hold], \hold),
+			gate: gate
+		);
+
+		var fade = 0.05; // prevent clipping
+		var mainEnv = Select.ar(phase, [
+			env0 * EnvGen.ar(Env.linen(fade, highDelay + attack, fade)),
+			env1 * EnvGen.ar(Env.linen(fade, hold, fade))
+		]);
+
+		var sig = (Mix.ar(oscs) / oscs.size) * mainEnv;
+		var endTrig = Select.kr(phase, [ Done.kr(env0), Done.kr(env1) ]);
+
 		Out.ar(out, ~amp * sig.dup);
+		~rec.ar(recordbuf, sig);
+		~rec.end(endTrig);
+		FreeSelf.kr(endTrig);
 	}).add;
+
+	var dur = 12;
 
 	server.sync;
 
-	Pmono(def.name, *[
-		dur: Pn(12, 1)
-	]).play;
+	~rec.record(server, ~rec.filename("menu", "dive_sweep"), { arg recordbuf;
+		Synth(def.name, [
+			out: 0,
+			dur: dur,
+			recordbuf: recordbuf,
+			phase: 0
+		]);
+	});
+
+	~rec.record(server, ~rec.filename("menu", "dive_hold"), { arg recordbuf;
+		Synth(def.name, [
+			out: 0,
+			dur: dur,
+			recordbuf: recordbuf,
+			phase: 1
+		]);
+	});
 };

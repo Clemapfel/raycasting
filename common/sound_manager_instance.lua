@@ -705,17 +705,26 @@ function rt.SoundManager:remove_effect(handler_id, effect)
 end
 
 --- @brief
-function rt.SoundManager:stop(handler_id)
-    meta.assert(handler_id, mt.Union(mt.Number, mt.Nil))
+function rt.SoundManager:stop(...)
+    for i = 1, select("#", ...) do
+        meta.assert_argument_type(select(i, ...), mt.Union(mt.Number, mt.Nil))
+    end
 
-    -- ignore if handler_id is stale
-    if handler_id == nil then return false end
-    local entry = self:_get_entry(handler_id)
-    if entry == nil then return false end
+    local success = false
+    for i = 1, select("#", ...) do
+        local handler_id = select(i, ...)
 
-    entry.volume_motion:set_target_value(0)
-    entry.envelope:release()
-    entry.is_stopping = true
+        -- ignore if handler id is stale
+        if handler_id ~= nil then
+            local entry = self:_get_entry(handler_id)
+            if entry ~= nil then
+                entry.volume_motion:set_target_value(0)
+                entry.envelope:release()
+                entry.is_stopping = true
+                success = true
+            end
+        end
+    end
 
     return true
 end
@@ -886,9 +895,10 @@ function rt.SoundManager:update(delta)
         local should_continue = true
 
         -- do not continue if waiting for entries are still active
+
         if entry.waiting_for ~= nil then
             for other in values(entry.waiting_for) do
-                local before = self._handler_id_to_entry[entry.waiting_for]
+                local before = self._handler_id_to_entry[other]
                 should_continue = before == nil or before.is_stopping == true
                 if should_continue == false then break end
             end
@@ -973,11 +983,9 @@ function rt.SoundManager:update(delta)
 
             local should_free = entry.is_flushing and math.equals(entry.flush_volume_motion:get_value(), 0, _motion_eps)
             if self._pause_state ~= _PAUSE_STATE_PAUSED then
-                should_free = should_free or (entry.is_stopping and (
-                    math.equals(master_amp, 0, _motion_eps)
-                    or entry.envelope:get_is_done()
-                    or math.distance(self._listener_x, self._listener_y, entry.source:getPosition()) > self._reference_distance ^ 2
-                ))
+                should_free = should_free
+                    or entry.is_stopping
+                    or (entry.envelope:get_is_done() and math.equals(master_amp, 0, _motion_eps))
             end
 
             -- mark to free
