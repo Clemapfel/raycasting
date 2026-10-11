@@ -945,22 +945,20 @@ record_pattern = { arg recordbuf, recordbus, pattern, trig = nil, delay = 0;
 
 ~main_menu_dive = {
 	var nyquist = server.sampleRate / 2 * 0.5;
-	var def = SynthDef.new(\main_menu_dive, { arg out, dur, gate = 1;
-		var base = 60 + 2; // D
-		var fifth = 60 + 2 + 7; // G
-		var third = 60 + 2 + 4; // F#
+	var chord = #[1, 5, 8];
+
+	var def = SynthDef.new(\main_menu_dive, { arg out, dur, gate = 1, phase = 0;
+		var notes = chord.collect({ |note| 60 + note });
 		var lowOctave = -4;
 		var highOctave = 3;
 		var maxPhase = 2;
 		var maxFreq = SampleRate.ir / 2 * 0.7;
 
+		var highDelay = 0.4 * dur;
+
 		var freqs = (lowOctave..highOctave).collect({ |octave|
 			var offset = octave * 12;
-			[
-				(base + offset).midicps,
-			    (third + offset).midicps,
-			    (fifth + offset).midicps
-			]
+			notes.collect({ |note| (note + offset).midicps })
 		}).flatten.select({ |freq| freq < nyquist });
 
 		var oscs = freqs.collect({ |freq, i|
@@ -970,29 +968,55 @@ record_pattern = { arg recordbuf, recordbus, pattern, trig = nil, delay = 0;
 			), gate: gate);
 
 			var noiseEnv = EnvGen.ar(Env.new([1, 0.04], [dur / 2], \lin));
-			var noise = (noiseEnv * LFNoise2.ar(2)).range(-1.midiratio, 1.midiratio);
+			var noise = (noiseEnv * LFNoise2.ar(rrand(1.5, 2.5))).range(-0.5.midiratio, 0.5.midiratio);
 
-			var ampDelay = ((i / freqs.size).linexp(0, 1, 1, 1.4) - 1) * dur;
+			var ampDelay = DelayN.ar(
+				((i / freqs.size).linexp(0, 1, 0 + 1, 0.5 + 1) - 1),
+				highDelay,
+				highDelay
+			);
+
 			var ampEnv = EnvGen.ar(Env.new(
-				[0, 0, 1] + 1, [ampDelay, 1 - ampDelay], \exp
+				[0, 0, 1] + 1, [ampDelay, 1 - ampDelay] * (dur / 2), \exp
 			)) - 1;
 
-			ampEnv * VarSaw.ar(
-				Vibrato.ar(Limiter.ar(freqEnv * noise, maxFreq), rate: 6, depth: 0.1.midiratio - 1),
-				width: SinOsc.ar(12, phase: rrand(0, 2pi)).range(0.45, 0.55)
+			var oscFreq = Vibrato.ar(
+				Limiter.ar(freqEnv * noise, maxFreq),
+				rate: 6,
+				depth: 0.1.midiratio - 1
 			);
+
+			/*
+			var osc = VarSaw.ar(
+				oscFreq,
+				width: SinOsc.ar(40, phase: rrand(0, 2pi)).range(0.45, 0.55)
+			);
+			*/
+
+			var bw = Line.kr(0.7, SinOsc.kr(100).range(0.06, 0.07), highDelay);
+			var pink = BBandPass.ar(PinkNoise.ar, freq: oscFreq, bw: bw) * bw.reciprocal;
+			pink;
 		});
 
-		var sig = (Mix.ar(oscs) / oscs.size) * EnvGen.ar(Env.new(
-			[0, 1, 1, 0], [0.01, 1, 0.03].normalizeSum * dur, \welch
-		), gate: gate, doneAction: Done.freeSelf);
+		var attack = 0.01;
+		var decay = 0.2 * dur;
+		var hold = (dur - attack - highDelay - decay).max(0);
+		var sig = (Mix.ar(oscs) / oscs.size) * EnvGen.ar(
+			Env.new(
+				[0, 0.1, 1, 1, 0],
+				[attack, highDelay, hold, decay],
+				\welch
+			),
+			gate: gate,
+			doneAction: Done.freeSelf
+		);
 
-		Out.ar(out, sig.dup);
+		Out.ar(out, ~amp * sig.dup);
 	}).add;
 
 	server.sync;
 
 	Pmono(def.name, *[
-		dur: Pn(10, 1)
+		dur: Pn(12, 1)
 	]).play;
 };
