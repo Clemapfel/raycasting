@@ -2,7 +2,7 @@ var server = Server.default;
 var record_pattern;
 
 ~rec = AutoRecorder;
-~rec.isRecording = true;
+~rec.isRecording = false;
 
 server.latency = 0.3;
 server.options.blockSize = 2048;
@@ -24,7 +24,8 @@ server.waitForBoot {
 		//\air_dash_node_focus,
 		//\boost_field,
 		//\menu
-		\main_menu_dive
+		//\main_menu_dive
+		\bubble_field
 	].do { |name| currentEnvironment[name].(degrees) };
 
 	CmdPeriod.doOnce { server.freeAll }
@@ -947,14 +948,14 @@ record_pattern = { arg recordbuf, recordbus, pattern, trig = nil, delay = 0;
 	var nyquist = server.sampleRate / 2 * 0.5;
 	var chord = #[1, 5, 8];
 
-	var def = SynthDef.new(\main_menu_dive, { arg out, dur, gate = 1, phase = 0, recordbuf;
+	var def = SynthDef.new(\main_menu_dive, { arg out, dur, gate = 1, phase = 0, glissandoFrac, recordbuf;
 		var notes = chord.collect({ |note| 60 + note });
 		var lowOctave = -4;
 		var highOctave = 3;
 		var maxPhase = 2;
 		var maxFreq = SampleRate.ir / 2 * 0.7;
 
-		var highDelay = 0.4 * dur;
+		var highDelay = glissandoFrac * dur; // glissando -> hold
 		var attack = 0.05;
 		var decay = 0.2 * dur;
 		var hold = (dur - attack - highDelay - decay).max(0);
@@ -998,15 +999,21 @@ record_pattern = { arg recordbuf, recordbus, pattern, trig = nil, delay = 0;
 
 			// bw vibrato
 			var bwRate = 100;
-			var bwMin = 0.06;
-			var bwMax = 0.07;
+			var bwMin = 0.04;
+			var bwMax = 0.06;
 
 			var bw0 = Line.kr(0.7, SinOsc.kr(bwRate).range(bwMin, bwMax), highDelay);
 			var bw1 = SinOsc.kr(bwRate).range(bwMin, bwMax);
 			var bw = Select.kr(phase, [bw0, bw1]);
 
-			var pink = BBandPass.ar(PinkNoise.ar, freq: oscFreq, bw: bw) * bw.reciprocal;
-			pink;
+			var osc = VarSaw.ar(
+				freq: oscFreq,
+				iphase: rrand(0, 2),
+				width: SinOsc.kr(20).range(0.45, 0.55)
+			);
+
+			var pink = BBandPass.ar(PinkNoise.ar, freq: oscFreq, bw: bw) * bw.reciprocal.sqrt;
+			pink * osc.range(0, 1);
 		});
 
 		var env0 = EnvGen.ar(
@@ -1035,6 +1042,7 @@ record_pattern = { arg recordbuf, recordbus, pattern, trig = nil, delay = 0;
 	}).add;
 
 	var dur = 12;
+	var frac = 0.4; // [0, 1]
 
 	server.sync;
 
@@ -1043,6 +1051,7 @@ record_pattern = { arg recordbuf, recordbus, pattern, trig = nil, delay = 0;
 			out: 0,
 			dur: dur,
 			recordbuf: recordbuf,
+			glissandoFrac: frac,
 			phase: 0
 		]);
 	});
@@ -1052,7 +1061,71 @@ record_pattern = { arg recordbuf, recordbus, pattern, trig = nil, delay = 0;
 			out: 0,
 			dur: dur,
 			recordbuf: recordbuf,
+			glissandoFrac: frac,
 			phase: 1
 		]);
 	});
+};
+
+~bubble_field = { arg degrees;
+
+	var buf = Buffer.cueSoundFile(
+		server,
+		"C:\\Users\\cleme\\Workspace\\raycasting\\assets\\music\\Bloodhail - 02 Bloodhail.ogg",
+		startFrame: 0,
+		numChannels: 2
+	);
+
+	// level: 1: fully above, 0: fully below water
+	var def = SynthDef.new(\bubble_field, { arg out, gate = 1, freq, playbackbuf, dur;
+		var disk = VDiskIn.ar(2, playbackbuf, BufRateScale.kr(playbackbuf));
+
+		var attack = 0.02;
+		var sig = disk;
+		var level = \level.kr(0, dur, true);
+
+		var raw = sig;
+		var cutoff = LFNoise2.ar(2).range(700, 1200);
+		var delay = 2.reciprocal / cutoff;
+		var maxDelay = 1 / 400;
+
+		var feedback = LocalIn.ar(2);
+		var tapl, tapr;
+		var tapEps = 0.01;
+		var tapDecay = 0.4;
+
+		//sig = BHiShelf.ar(sig, cutoff, db: -20);
+		//sig = BLowPass4.ar(sig, cutoff);
+
+		sig = HPF.ar(sig, 40);
+		sig = BLowShelf.ar(sig, 200, db: 5);
+
+		sig = BPeakEQ.ar(sig, -2.5.midiratio * cutoff, rq: 4.reciprocal, db: 5);
+
+		tapl = LPF.ar(freq: cutoff, in: DelayC.ar(raw + (tapDecay * feedback[0]), delayTime: delay * LFNoise2.ar(2).range(1 - tapEps, 1 + tapEps)));
+		tapr = LPF.ar(freq: cutoff, in: DelayC.ar(raw + (tapDecay * feedback[1]), delayTime: delay * LFNoise2.ar(2).range(1 - tapEps, 1 + tapEps)));
+
+		LocalOut.ar([tapl, tapr]);
+		sig = sig + [tapl, tapr];
+
+
+		sig = XFade2.ar(
+            DelayN.ar(sig, maxDelay, delay), // keep in sync with wet signal
+			sig,
+			level.linlin(0, 1, -1, 1)
+		);
+
+		Out.ar(out, ~amp * sig);
+	}).add;
+
+	var synth;
+
+	server.sync;
+
+	Pmono(def.name, *[
+		degree: 0,
+		playbackbuf: buf,
+		level: Pseq([0, 1], inf),
+		dur: Pseq([5, 8, 5], inf)
+	]).play;
 };

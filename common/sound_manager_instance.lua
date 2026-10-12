@@ -17,8 +17,8 @@ rt.settings.sound_manager = {
     update_step = 1 / 240, -- seconds
     n_priority_queue_sub_steps = 4,
 
-    import_attack = 1 / 60,
-    import_release = 1 / 60,
+    import_attack = 2 / 240,
+    import_release = 2 / 240,
     import_should_normalize = true,
     
     envelope_shape = rt.EnvelopeCurve.WELCH,
@@ -40,7 +40,6 @@ meta.add_signals(rt.SoundManager,
 
 local _active_sources = 0
 
-local _skip_next_delta = false
 local _cache = rt.Cache(rt.CachePolicy.FIRST_IN_FIRST_OUT)
 local _cache_size = 0 -- size in mb
 
@@ -90,6 +89,8 @@ function rt.SoundManager:_load_data(path)
         rt.critical("In rt.SoundManager.play: when trying to play sound at `", path,  "`: ",  data_or_error)
         return nil
     end
+
+    local before_t = love.timer.getTime()
 
     local data = data_or_error
 
@@ -148,7 +149,6 @@ function rt.SoundManager:_load_data(path)
         end
     end
 
-    _skip_next_delta = true -- prevent lag spike
     return data, duration
 end
 
@@ -886,11 +886,6 @@ end
 --- @brief
 function rt.SoundManager:update(delta)
     meta.assert(delta, mt.Number)
-
-    if _skip_next_delta == true then
-        _skip_next_delta = false
-        return
-    end
 
     self._pause_volume_motion:update(delta)
     self._volume_motion:update(delta)

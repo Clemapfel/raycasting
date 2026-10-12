@@ -176,13 +176,16 @@ function mn.MenuScene:instantiate(state)
             if which == rt.InputAction.CONFIRM then
                 local item = title_screen.menu_items[title_screen.selected_item_i]
                 item.activate()
+                self._confirm_sound_handler = rt.SoundManager:play(shared_sound_ids.confirm, { stop = self._confirm_sound_handler })
             elseif which == rt.InputAction.UP then
                 if title_screen.selected_item_i > 1 then
                     offset = -1
+                    self._up_sound_handler = rt.SoundManager:play(shared_sound_ids.up)
                 end
             elseif which == rt.InputAction.DOWN then
                 if title_screen.selected_item_i < title_screen.n_menu_items then
                     offset = 1
+                    self._down_sound_handler = rt.SoundManager:play(shared_sound_ids.down)
                 end
             end
 
