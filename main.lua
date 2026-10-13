@@ -11,11 +11,6 @@ end
 
 require "common.game_state"
 require "common.scene_manager"
-require "common.music_manager"
-require "common.sound_manager"
-require "common.input_manager"
-require "common.routine"
-require "common.functional"
 
 require "socials.social_media_banner_generator"
 rt.GameState:set_draw_debug_information(false)
@@ -80,7 +75,7 @@ love.load = function(args)
     end
 
     require "overworld.overworld_scene"
-    --rt.SceneManager:push(ow.OverworldScene, "debug_room", ow.StageEntryMode.INSTANT)
+    rt.SceneManager:push(ow.OverworldScene, "debug_room", ow.StageEntryMode.INSTANT)
 
     require "menu.keybinding_scene"
     --rt.SceneManager:push(mn.KeybindingScene)
@@ -89,7 +84,7 @@ love.load = function(args)
     --rt.SceneManager:push(mn.SettingsScene)
 
     require "menu.menu_scene"
-    rt.SceneManager:push(mn.MenuScene, false)
+    --rt.SceneManager:push(mn.MenuScene, false)
 end
 
 local elapsed = 0

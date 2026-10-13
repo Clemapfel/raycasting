@@ -52,8 +52,9 @@ float gradient_noise(vec3 p) {
 
 const float rainbow_width = 120.0;
 const float shake_speed = 10.0; // steps per second
+const float shake_magnitude = 1.5; // fraction
 const float wave_period = 10.0;
-const float wave_offset = 5.0;
+const float wave_offset = 10.0;
 const float wave_speed = 4.0;
 const float anti_aliasing = 0.1; // [0, 1], where 0: maximum sharpness
 
@@ -87,7 +88,7 @@ vec4 position(mat4 transform, vec4 vertex_position) {
     vec2 position = vertex_position.xy;
     if (is_effect_shake) {
         float i_offset = round(elapsed * shake_speed);
-        float magnitude = max(font_size / 50.0, 1.0); // shake magnitude as function of font_size
+        float magnitude = shake_magnitude * max(font_size / 50.0, 1.0); // shake magnitude as function of font_size
         position += noise(position * vec2(i_offset)) * magnitude;
     }
 

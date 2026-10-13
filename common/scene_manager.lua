@@ -7,6 +7,10 @@ require "common.thread_manager"
 require "common.bloom"
 require "common.hdr"
 require "common.screen_recorder"
+require "common.music_manager"
+require "common.sound_manager"
+require "common.input_manager"
+
 
 rt.settings.scene_manager = {
     max_n_steps_per_frame = 8,

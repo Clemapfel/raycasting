@@ -150,12 +150,9 @@ vec4 effect(vec4 vertex_color, sampler2D img, vec2 texture_coordinates, vec2 fra
         bg += balls;
         bg *= 1.2; // bloom
 
-        // HDR support: only clamp to [0,1] when not using HDR
         if (use_hdr) {
-            // In HDR mode, only clamp the lower bound to 0, allow values > 1
             bg = max(bg, vec4(0.0));
         } else {
-            // In LDR mode, clamp to [0,1] range
             bg = clamp(bg, vec4(0.0), vec4(1.0));
         }
     }

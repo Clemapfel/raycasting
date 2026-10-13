@@ -13,10 +13,8 @@ AutoRecorder {
 	classvar <>isRecording = false; // switch on to disable recording
 
     *ar { arg recordbuf, sig;
-		if (AutoRecorder.isRecording) {
-			SendReply.kr((recordbuf <= 0) * Impulse.kr(0), cmdName: AutoRecorder.warnMessage);
-			DiskOut.ar(recordbuf, sig);
-		}
+		SendReply.kr((recordbuf <= 0) * Impulse.kr(0), cmdName: AutoRecorder.warnMessage);
+		DiskOut.ar(recordbuf, sig);
 	}
 
     *end { arg trig;
@@ -24,9 +22,9 @@ AutoRecorder {
         SendReply.perform(method, trig, cmdName: AutoRecorder.recordEndMessage);
     }
 
-    *record { arg server, filename, f, numChannels = 1, trimStart = true, trimEnd = true, normalize = false;
+    *record { arg server, filename, f, numChannels = 1, trimStart = true, trimEnd = true, normalize = false, record = nil;
         var condition, latency, pathname, swap, bus, dummyBuf;
-        var endDef, warnDef;
+        var endDef, warnDef, shouldRecord;
 
         if (server.isKindOf(Server).not) {
             Error("In AutoRecorder.record: argument #1 `server` is not a `Server`").throw;
@@ -40,6 +38,8 @@ AutoRecorder {
             Error("In AutoRecorder.record: argument #3 `f` is not a `Function`").throw;
         };
 
+        shouldRecord = record ? AutoRecorder.isRecording;
+
 		protect {
 			latency = AutoRecorder.measureLatency(server);
 			condition = Condition.new(false);
@@ -50,7 +50,7 @@ AutoRecorder {
 				condition.signal;
 			}, AutoRecorder.recordEndMessage).oneShot;
 
-			if (AutoRecorder.isRecording) {
+			if (shouldRecord) {
 				warnDef = OSCdef(("autoRecorderWarn" ++ UniqueID.next).asSymbol, {
 					"In AutoRecorder.ar: `recordbufnum` is `0`. Was the synthdef argument assigned correctly?".warn;
 				}, AutoRecorder.warnMessage).oneShot;
@@ -98,7 +98,7 @@ AutoRecorder {
 			dummyBuf !? { try { dummyBuf.free } };
 			bus !? { try { bus.free } };
 
-			if (AutoRecorder.isRecording and: { File.exists(pathname.fullPath) }) {
+			if (shouldRecord and: { File.exists(pathname.fullPath) }) {
 				if (AutoRecorder.postprocess(pathname, trimStart, trimEnd, normalize) == false) {
 					"In AutoRecorder: file contains only silence or failed to postprocess.".postln;
 				} {

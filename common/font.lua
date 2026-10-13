@@ -1,7 +1,8 @@
 rt.settings.font = {
     default = nil,
     title_font = nil,
-    love_default = love.graphics.getFont()
+    love_default = love.graphics.getFont(),
+    asset_prefix = "assets/fonts/"
 }
 
 --- @class rt.Font
@@ -69,7 +70,18 @@ function rt.Font:instantiate(
         [rt.FontStyle.MONO_REGULAR] = mono_regular_path,
         [rt.FontStyle.MONO_ITALIC] = mono_italic_path,
         [rt.FontStyle.MONO_BOLD] = mono_bold_path,
-        [rt.FontStyle.MONO_BOLD_ITALIC] = mono_bold_italic_path,
+        [rt.FontStyle.MONO_BOLD_ITALIC] = mono_bold_italic_path
+    }
+
+    self._font_style_to_fallback = {
+        [rt.FontStyle.REGULAR] = {},
+        [rt.FontStyle.ITALIC] = {},
+        [rt.FontStyle.BOLD] = {},
+        [rt.FontStyle.BOLD_ITALIC] = {},
+        [rt.FontStyle.MONO_REGULAR] = {},
+        [rt.FontStyle.MONO_ITALIC] = {},
+        [rt.FontStyle.MONO_BOLD] = {},
+        [rt.FontStyle.MONO_BOLD_ITALIC] = {}
     }
 
     self._size_to_cache = {}
@@ -81,10 +93,10 @@ local _no_sdf = false
 
 -- cache font by size
 local _atlas = {}
-local _fallback_atlas = {}
 
-local function _new_font(path, size, sdf)
+local function _new_font(path, size, sdf, fallbacks)
     if sdf == nil then sdf = _sdf end
+    if fallbacks == nil then fallbacks = {} end
 
     if _atlas[path] == nil then _atlas[path] = {} end
     if _atlas[path][size] == nil then _atlas[path][size] = meta.make_weak({}) end
@@ -96,22 +108,27 @@ local function _new_font(path, size, sdf)
             hinting = "normal"
         })
         _atlas[path][size][sdf] = native
-
-        -- get fallbacks (also cached)
-        if _fallback_atlas[size] == nil then _fallback_atlas[size] = {} end
-        local fallbacks = _fallback_atlas[size][sdf]
-        if fallbacks == nil then
-            fallbacks = {
-                love.graphics.newFont("assets/fonts/NotoSansMath/NotoSansMath-Regular.ttf", size, {
-                    sdf = sdf,
-                    hinting = "normal"
-                })
-            }
-            _fallback_atlas[size][sdf] = fallbacks
-        end
-        native:setFallbacks(table.unpack(fallbacks))
     end
 
+    local native_fallbacks = {}
+    for fallback_path in values(fallbacks) do
+        if _atlas[fallback_path] == nil then _atlas[fallback_path] = {} end
+        if _atlas[fallback_path][size] == nil then _atlas[fallback_path][size] = meta.make_weak({}) end
+
+        local fallback_native = _atlas[fallback_path][size][sdf]
+        if fallback_native == nil then
+            fallback_native = love.graphics.newFont(fallback_path, size, {
+                sdf = sdf,
+                hinting = "normal"
+            })
+
+            _atlas[fallback_path][size][sdf] = native
+        end
+
+        table.insert(native_fallbacks, fallback_native)
+    end
+
+    native:setFallbacks(table.unpack(native_fallbacks))
     return native
 end
 
@@ -138,8 +155,8 @@ function rt.Font:get_native(size, style, sdf)
     local native_entry = entry[style]
     if native_entry == nil then
         native_entry = {
-            sdf = _new_font(path, actual_size, _sdf),
-            no_sdf = _new_font(path, actual_size, _no_sdf)
+            sdf = _new_font(path, actual_size, _sdf, self._font_style_to_fallback[style]),
+            no_sdf = _new_font(path, actual_size, _no_sdf, self._font_style_to_fallback[style])
         }
 
         entry[style] = native_entry
@@ -187,19 +204,49 @@ function rt.Font:get_line_spacing()
     return self._line_spacing
 end
 
+
+--- @brief
+function rt.Font:add_fallback(...)
+    for i = 1, select("#", ...), 2 do
+        local style = select(i + 0, ...)
+        local path = select(i + 1, ...)
+        meta.assert_argument_type(style, rt.FontStyle, i + 0)
+        meta.assert_argument_type(style, rt.FontStyle, i + 1)
+        if not bd.exists(path) then
+            rt.error("In rt.Font.add_fallback: file at `", path, "` does not exist")
+        end
+
+        table.insert(self._font_style_to_fallback[style], path)
+    end
+
+    return self
+end
+
+local prefix = rt.settings.font.asset_prefix
+
 -- load default font
 rt.settings.font.default = rt.Font(
-    "assets/fonts/DejaVuSans/DejaVuSans-Regular.ttf",
-    "assets/fonts/DejaVuSans/DejaVuSans-Bold.ttf",
-    "assets/fonts/DejaVuSans/DejaVuSans-Italic.ttf",
-    "assets/fonts/DejaVuSans/DejaVuSans-BoldItalic.ttf",
-    "assets/fonts/DejaVuSansMono/DejaVuSansMono-Regular.ttf",
-    "assets/fonts/DejaVuSansMono/DejaVuSansMono-Bold.ttf",
-    "assets/fonts/DejaVuSansMono/DejaVuSansMono-Italic.ttf",
-    "assets/fonts/DejaVuSansMono/DejaVuSansMono-BoldItalic.ttf"
+    prefix .. "DejaVuSans/DejaVuSans-Regular.ttf",
+    prefix .. "DejaVuSans/DejaVuSans-Bold.ttf",
+    prefix .. "DejaVuSans/DejaVuSans-Italic.ttf",
+    prefix .. "DejaVuSans/DejaVuSans-BoldItalic.ttf",
+    prefix ..  "DejaVuSansMono/DejaVuSansMono-Regular.ttf",
+    prefix .. "DejaVuSansMono/DejaVuSansMono-Bold.ttf",
+    prefix .. "DejaVuSansMono/DejaVuSansMono-Italic.ttf",
+    prefix .. "DejaVuSansMono/DejaVuSansMono-BoldItalic.ttf"
+):add_fallback(
+    rt.FontStyle.REGULAR,     prefix .. "NotoSans/NotoSans-Regular.ttf",
+    rt.FontStyle.BOLD,        prefix .. "NotoSans/NotoSans-Bold.ttf",
+    rt.FontStyle.ITALIC,      prefix .. "NotoSans/NotoSans-Italic.ttf",
+    rt.FontStyle.BOLD_ITALIC, prefix .. "NotoSans/NotoSans-BoldItalic.ttf",
+
+    rt.FontStyle.REGULAR,     prefix .. "NotoSansMath/NotoSansMath-Regular.ttf",
+
+    rt.FontStyle.REGULAR,     prefix .. "NotoSansJP/NotoSansJP-Regular.ttf",
+    rt.FontStyle.BOLD,        prefix .. "NotoSansJP/NotoSansJP-Bold.ttf"
 )
 
 rt.settings.font.title_font = rt.Font(
-    "assets/fonts/Baloo2/Baloo2-Bold.ttf",
-    "assets/fonts/Baloo2/Baloo2-ExtraBold.ttf"
+    prefix .. "Baloo2/Baloo2-Bold.ttf",
+    prefix .. "Baloo2/Baloo2-ExtraBold.ttf"
 )

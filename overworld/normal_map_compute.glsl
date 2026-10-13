@@ -79,12 +79,14 @@ void computemain() {
         ivec2 position = ivec2(gl_GlobalInvocationID.xy);
 
         if (any(greaterThanEqual(position, image_size))) return;
+
     #else
         ivec3 array_size = imageSize(jfa_texture_array);
         ivec2 image_size = array_size.xy;
         ivec2 position = ivec2(gl_GlobalInvocationID.xy);
 
         if (any(greaterThanEqual(position, image_size))) return;
+
     #endif
 
     #if MODE == MODE_INITIALIZE
@@ -111,16 +113,13 @@ void computemain() {
         }
 
         if (n_others >= 8) {
-            // Write to layer 0 (initial state)
             imageStore(jfa_texture_array, ivec3(position, 0), inner_wall);
         }
         else {
-            // Write to both layers since this is a boundary
             imageStore(jfa_texture_array, ivec3(position, 0), wall);
             imageStore(jfa_texture_array, ivec3(position, 1), wall);
         }
     } else {
-        // Write to layer 0 (initial state)
         imageStore(jfa_texture_array, ivec3(position, 0), non_wall);
     }
 
@@ -158,7 +157,7 @@ void computemain() {
     if (any(lessThan(local_pos, ivec2(0))) || any(greaterThanEqual(local_pos, ivec2(export_texture_quad.zw))))
         return;
 
-    // compute gradient (optimized Sobel operator - only non-zero terms)
+    // compute gradient
 
     float v00 = imageLoad(jfa_texture_array, ivec3(position + ivec2(-1, -1), final_layer)).z;
     float v02 = imageLoad(jfa_texture_array, ivec3(position + ivec2( 1, -1), final_layer)).z;

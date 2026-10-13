@@ -18,16 +18,16 @@ rt.settings.overworld.normal_map = {
     yield_savepoint_fraction = 0.004,
     n_post_process_passes = 2,
     quad_border = 1.0, -- px
+
+    mask_texture_format = rt.TextureFormat.R8,  -- used to store alpha of walls
+    jfa_texture_format = rt.TextureFormat.RGBA32F, -- used during JFA
+    normal_map_texture_format = rt.TextureFormat.RGB10A2 -- final normal map texture
 }
 
 ow.NormalMap = meta.class("NormalMap")
 meta.add_signal(ow.NormalMap, "done")
 
 local _is_disabled = false -- TODO
-
-local _mask_texture_format = rt.TextureFormat.R8  -- used to store alpha of walls
-local _jfa_texture_format = rt.TextureFormat.RGBA32F -- used during JFA
-local _normal_map_texture_format = rt.TextureFormat.RGB10A2 -- final normal map texture
 local _init_shader, _jump_shader, _export_shader, _post_process_shader
 
 local _draw_light_shader = rt.Shader("overworld/normal_map_draw_light.glsl", {
@@ -302,14 +302,15 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
 
         local size_x, size_y = rt.settings.overworld.normal_map.work_group_size_x, rt.settings.overworld.normal_map.work_group_size_y
 
+        local settings = rt.settings.overworld.normal_map
         local defines = function(mode)
             return {
                 MODE = mode,
                 WORK_GROUP_SIZE_X = size_x,
                 WORK_GROUP_SIZE_Y = size_y,
-                MASK_TEXTURE_FORMAT = rt.graphics.texture_format_to_glsl_identifier(_mask_texture_format),
-                JFA_TEXTURE_FORMAT = rt.graphics.texture_format_to_glsl_identifier(_jfa_texture_format),
-                NORMAL_MAP_TEXTURE_FORMAT = rt.graphics.texture_format_to_glsl_identifier(_normal_map_texture_format)
+                MASK_TEXTURE_FORMAT = rt.graphics.texture_format_to_glsl_identifier(settings.mask_texture_format),
+                JFA_TEXTURE_FORMAT = rt.graphics.texture_format_to_glsl_identifier(settings.jfa_texture_format),
+                NORMAL_MAP_TEXTURE_FORMAT = rt.graphics.texture_format_to_glsl_identifier(settings.normal_map_texture_format)
             }
         end
 
@@ -337,7 +338,7 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
             chunk_size + 2 * padding, chunk_size + 2 * padding,
             {
                 msaa = 0,
-                format = _mask_texture_format,
+                format = settings.mask_texture_format,
                 is_compute = true
             }
         )
@@ -347,7 +348,7 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
             2, -- n layers
             {
                 msaa = 0,
-                format = _jfa_texture_format,
+                format = settings.jfa_texture_format,
                 is_compute = true
             }
         )
@@ -365,7 +366,7 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
             render_atlas_n_columns * atlas_tile_size,
             {
                 msaa = 0,
-                format = _normal_map_texture_format,
+                format = settings.normal_map_texture_format,
                 is_compute = true
             }
         )
@@ -422,13 +423,13 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
             local jump = 0.5 * chunk_size
             local current_layer = 0
 
+            _jump_shader:send("jfa_texture_array", jfa_texture)
             while jump > 0.5 do -- jfa+1, necessary
                 local input_layer = current_layer
                 local output_layer = 1 - current_layer
 
                 _jump_shader:send("input_layer", input_layer)
                 _jump_shader:send("output_layer", output_layer)
-                _jump_shader:send("jfa_texture_array", jfa_texture)
                 _jump_shader:send("jump_distance", math.ceil(jump))
                 _jump_shader:dispatch(dispatch_size_x, dispatch_size_y)
 

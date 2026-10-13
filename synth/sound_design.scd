@@ -1076,41 +1076,121 @@ record_pattern = { arg recordbuf, recordbus, pattern, trig = nil, delay = 0;
 		numChannels: 2
 	);
 
-	// level: 1: fully above, 0: fully below water
-	var def = SynthDef.new(\bubble_field, { arg out, gate = 1, freq, playbackbuf, dur;
+	// create grain sample
+	var grainbuf = {
+		var freqs = [60, 70, 80].midiratio;
+		var def = SynthDef.new(\bubble_bloop, { arg out, dur = 1, recordbuf;
+			var n = freqs.size;
+
+			// levels: 0, f1, 0, f2, 0, f3
+			var levels = freqs.collect { |f| [0, f] }.flatten;
+
+			var times = ([dur, 0] ! n).flatten.drop(-1);
+
+			var ampEnv = EnvGen.ar(Env.perc(0.01, dur), gate: Impulse.ar(1 / dur));
+
+			var freqSeq = EnvGen.ar(Env(levels, times, \lin));
+
+			var endTrig = Done.kr(freqSeq);
+
+			var sig = SinOscFB.ar(freqSeq, feedback: 0.1) * ampEnv;
+
+			~rec.ar(recordbuf, sig);
+			~rec.end(endTrig);
+
+			Out.ar(out, sig.dup);
+			FreeSelf.kr(DelayN.kr(endTrig, 0.1, 0.1));
+		}).add;
+
+		var tmp_filename = ~rec.filename("bubble_field", "tmp_grain");
+
+		server.sync;
+
+		~rec.record(server, tmp_filename, { arg recordbuf;
+			Pmono(def.name, *[
+				degree: 2,
+				dur: Pn(0.25, 1),
+				recordbuf: recordbuf
+			]).play;
+		}, record: true);
+
+		server.sync;
+
+		Buffer.read(server, tmp_filename);
+	}.value;
+
+	var bus = Bus.audio(server, 2);
+	var grainenv = Buffer.sendCollection(server, Env.new(
+		[0, 1, 1, 0],
+		[1, 8, 1].normalizeSum,
+		[\welch, \hold, \welch]
+	).discretize());
+
+	var levelLag = 4;
+
+	var bubbleDef = SynthDef.new(\bubble_synh, { arg out, dur, phase = 0, gate = 1, grainbuf, grainenv, playbackbuf;
 		var disk = VDiskIn.ar(2, playbackbuf, BufRateScale.kr(playbackbuf));
 
+		var density = Select.kr(phase, [
+			EnvGen.kr(Env.new([0, 1], dur, \lin), gate), // phase 0
+			EnvGen.kr(Env.new([1, 1], dur, \lin), gate), // phase 1
+			EnvGen.kr(Env.new([1, 0], dur, \lin), gate)  // phase 2
+		]).linexp(0, 1, 1, 41) - 1;
+
+		var trig = Dust.ar(density);
+
+		var rate = 1.5;
+		var scale = [-12, -10, -8, -7, -5, -3, -1];
+		var config = Demand.ar(trig, 0, [
+			Drand((scale ++ (-1 * scale)).midiratio),
+			Dwhite(-1, 1) // pan
+		]);
+
+		var sig = GrainBuf.ar(2,
+			trigger: trig,
+			dur: BufDur.ir(grainbuf),
+			sndbuf: grainbuf,
+			rate: config[0] * BufRateScale.ir(grainbuf),
+			pos: 0,
+			interp: 4,
+			pan: config[1],
+			envbufnum: grainenv
+		);
+
+		sig = FreeVerb.ar(sig);
+
+		Out.ar(out, sig);
+	}).add;
+
+	var filterDef = SynthDef.new(\bubble_field_filter, { arg out, in, gate = 1, freq, dur;
+
 		var attack = 0.02;
-		var sig = disk;
-		var level = \level.kr(0, dur, true);
+		var sig = In.ar(in, 2);
+		var level = \level.kr(0, levelLag, true);
 
 		var raw = sig;
 		var cutoff = LFNoise2.ar(2).range(700, 1200);
-		var delay = 2.reciprocal / cutoff;
-		var maxDelay = 1 / 400;
+		var delay = LFNoise2.ar(0.04, 0.05);
 
 		var feedback = LocalIn.ar(2);
 		var tapl, tapr;
 		var tapEps = 0.01;
-		var tapDecay = 0.4;
+		var tapDecay = 0.0;
 
-		//sig = BHiShelf.ar(sig, cutoff, db: -20);
-		//sig = BLowPass4.ar(sig, cutoff);
-
-		sig = HPF.ar(sig, 40);
+		sig = BHiShelf.ar(sig, cutoff, db: -40);
+		sig = BLowPass4.ar(sig, cutoff);
 		sig = BLowShelf.ar(sig, 200, db: 5);
+		sig = BPeakEQ.ar(sig, -2.5.midiratio * cutoff, rq: 4.reciprocal, db: 10);
+		sig = HPF.ar(sig, 40);
 
-		sig = BPeakEQ.ar(sig, -2.5.midiratio * cutoff, rq: 4.reciprocal, db: 5);
-
-		tapl = LPF.ar(freq: cutoff, in: DelayC.ar(raw + (tapDecay * feedback[0]), delayTime: delay * LFNoise2.ar(2).range(1 - tapEps, 1 + tapEps)));
-		tapr = LPF.ar(freq: cutoff, in: DelayC.ar(raw + (tapDecay * feedback[1]), delayTime: delay * LFNoise2.ar(2).range(1 - tapEps, 1 + tapEps)));
+		#tapl, tapr = DelayC.ar(sig + (tapDecay * feedback), delaytime: (delay - ControlDur.ir).max(0));
+		#tapl, tapr = BLowPass.ar([tapl, tapr], freq: cutoff);
 
 		LocalOut.ar([tapl, tapr]);
-		sig = sig + [tapl, tapr];
-
+		sig = LinXFade2.ar(sig, [tapl, tapr], -0.5);
 
 		sig = XFade2.ar(
-            DelayN.ar(sig, maxDelay, delay), // keep in sync with wet signal
+            DelayN.ar(raw, delaytime: delay), // keep in sync with wet signal
 			sig,
 			level.linlin(0, 1, -1, 1)
 		);
@@ -1118,14 +1198,27 @@ record_pattern = { arg recordbuf, recordbus, pattern, trig = nil, delay = 0;
 		Out.ar(out, ~amp * sig);
 	}).add;
 
-	var synth;
+	var level = Pseq([0, 1, 0], 1);
+	var dur = Pseq([5, 10, 5], inf);
 
 	server.sync;
 
-	Pmono(def.name, *[
-		degree: 0,
+	Pmono(bubbleDef.name, *[
 		playbackbuf: buf,
-		level: Pseq([0, 1], inf),
-		dur: Pseq([5, 8, 5], inf)
+		grainbuf: grainbuf,
+		grainenv: grainenv,
+		level: level,
+		dur: dur,
+		out: bus,
+		phase: Pseq([0, 1, 2], inf)
+	]).play;
+
+	Pmono(filterDef.name, *[
+		addAction: \addAfter,
+		in: bus,
+		out: 0,
+		degree: 0,
+		level: level,
+		dur: dur
 	]).play;
 };
