@@ -268,11 +268,11 @@ void computemain() {
         const int ray_n_steps = 51;
         const float ray_step = 0.019;
 
-        vec3 ray_origin = vec3(position.xy - vec2(0.5), 0);
+        vec3 ray_origin = vec3(position.xy - vec2(0.5) + vec2(0, -0.25), 0);
         vec3 ray_position = ray_origin;
         vec3 ray_direction = vec3(0, 0, 1);
 
-        float xy_scale = 6;
+        float xy_scale = 5;
         vec3 scale = vec3(vec2(xy_scale), 1);
         scale.x *= size.x / size.y;
 

@@ -353,9 +353,9 @@ bd.config.parse_settings_from_string = function(str)
         local success = false
         success, value = bd.config.validate_settings_entry(key, value)
 
-        if not success then goto next end
-        out[key] = value
-        ::next::
+        if success then
+            out[key] = value
+        end
     end
 
     return bd.config._make_immutable(out)

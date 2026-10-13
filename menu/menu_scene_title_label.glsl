@@ -50,9 +50,8 @@ uniform vec4 black;
 #if MODE == MODE_SDF
 
 vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 vertex_position) {
-    float dist = texture(img, texture_coords).a;
-    const float thickness = 1.0 - 0.1;
-    return color * vec4(smoothstep(0.0, 1.0 - thickness, dist)) * black;
+    float dist = 1.0 - texture(img, texture_coords).r;
+    return black * color * vec4(smoothstep(0.5, 0.6, dist));
 }
 
 #elif MODE == MODE_NO_SDF

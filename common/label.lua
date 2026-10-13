@@ -88,10 +88,10 @@ rt.TextEffect = meta.enum("TextEffect", rt.TextEffect)
 
 --- @enum rt.JustifyMode
 rt.JustifyMode = {
-     LEFT = "LEFT",
-     RIGHT = "RIGHT",
-     CENTER = "CENTER"
- }
+    LEFT = "LEFT",
+    RIGHT = "RIGHT",
+    CENTER = "CENTER"
+}
 rt.JustifyMode = meta.enum("JustifyMode", rt.JustifyMode)
 
 --- @enum rt.LabelWrapMode
@@ -1436,9 +1436,10 @@ function rt.Label:draw(x, y)
         )
 
         love.graphics.pop()
-        love.graphics.setBlendMode("alpha")
     else
         love.graphics.push("all")
+        love.graphics.setBlendMode("alpha", "premultiplied")
+
         love.graphics.translate(
             math.floor(self._bounds.x + justify_offset + self._texture_offset_x + x),
             math.floor(self._bounds.y + self._texture_offset_y + y)

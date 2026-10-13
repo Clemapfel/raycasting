@@ -834,6 +834,17 @@ function rt.GameState:get_player()
     return self._player
 end
 
+--- @brief
+function rt.GameState:get_language()
+    return bd.get_config().language
+end
+
+--- @brief
+function rt.GameState:set_language(language)
+    mt.assert(language, rt.Language)
+    bd.get_config().language = language
+end
+
 require "common.game_state_stage"
 
 rt.GameState = rt.GameState()

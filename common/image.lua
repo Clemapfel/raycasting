@@ -3,20 +3,36 @@ require "common.texture_format"
 --- @class rt.Image
 rt.Image = meta.class("Image")
 
---- @brief
-function rt.Image:instantiate(width, height, format)
-    if format == nil then format = rt.TextureFormat.NORMAL end
-    meta.assert(
-        width, mt.Union(mt.Number, mt.UserData),
-        height, mt.Number,
-        format, mt.Optional(rt.TextureFormat)
-    )
+--- @enum ImageEncodingFormat
+rt.ImageEncodingFormat = {
+    PNG = "png",
+    TARGA = "tga",
+    EXR = "exr"
+}
+rt.ImageEncodingFormat = meta.enum("ImageEncodingFormat", rt.ImageEncodingFormat)
 
-    local first = width
-    if meta.is_userdata(first) and meta.is_function(first.typeOf) and first:typeOf("ImageData") == true then
-        self._native = first
+--- @brief
+function rt.Image:instantiate(width_or_userdata, height, format)
+
+    require "common.debugger"
+    if meta.is_userdata(width_or_userdata) then
+        local userdata = width_or_userdata
+        meta.assert(
+            userdata, mt.UserData,
+            height, mt.Nil,
+            format, mt.Nil
+        )
+
+        rt.assert(meta.is_function(userdata.typeOf) and userdata:typeOf("ImageData") == true, "Argument #1 is not a `love.ImageData`")
+        self._native = userdata
     else
-        meta.assert(width, mt.Number)
+        local width = width_or_userdata
+        if format == nil then format = rt.TextureFormat.NORMAL end
+        meta.assert(
+            width, mt.Number,
+            height, mt.Number,
+            format, rt.TextureFormat
+        )
         self._native = love.image.newImageData(width, height, format)
     end
 end
@@ -61,8 +77,10 @@ function rt.Image:get_height()
 end
 
 --- @brief
-function rt.Image:save_to(path)
-    self._native:encode("png", path)
+function rt.Image:save_to(path, encoding_format)
+    if encoding_format == nil then encoding_format = rt.ImageEncodingFormat.PNG end
+    meta.assert(path, mt.String, encoding_format, rt.ImageEncodingFormat)
+    self._native:encode(encoding_format, path)
 end
 
 --- @brief

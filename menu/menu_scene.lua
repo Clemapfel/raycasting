@@ -24,7 +24,9 @@ rt.settings.menu_scene = {
     bloom_composite = 0.2,
 
     title_screen = {
-        title_font_path = "assets/fonts/RubikSprayPaint/RubikSprayPaint-Regular.ttf",
+        font_roman = "assets/fonts/RubikSprayPaint/RubikSprayPaint-Regular.ttf",
+        font_japanese = "assets/fonts/07NikumaruFont/07NikumaruFont.ttf",
+
         player_velocity = 100, -- when reflecting
         player_offset_magnitude = 0.05 * 2 * math.pi, -- when holding left / right
         falling_fraction_threshold = 2000, -- how long it takes to transition to stage select
@@ -58,6 +60,13 @@ local _lch_texture = rt.LCHTexture(1, 1, 256)
 local shared_sound_ids = require "menu.menu_sound_ids"
 local _dive_sweep_sound_id = "menu.dive_sweep"
 local _dive_hold_sound_id = "menu.dive_hold"
+
+DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
+    if which == rt.KeyboardKey.L then
+        _title_shader_no_sdf:recompile()
+        _title_shader_sdf:recompile()
+    end
+end)
 
 -- @brief
 function mn.MenuScene:instantiate(state)
@@ -327,11 +336,17 @@ function mn.MenuScene:size_allocate(x, y, width, height)
 
     do -- title screen
         local title_screen = self._title_screen
-        local font_size = rt.FontSize.GIGANTIC
+        local is_japanese = rt.GameState:get_language() == rt.Language.JAPANESE
+        local font_size = ternary(is_japanese, rt.FontSize.MAX, rt.FontSize.ENORMOUS)
         local title = rt.Translation.menu_scene.title_screen.title
-        local font = rt.Font(rt.settings.menu_scene.title_screen.title_font_path)
+
+        local font = ternary(is_japanese,
+            rt.Font(rt.settings.menu_scene.title_screen.font_japanese),
+            rt.Font(rt.settings.menu_scene.title_screen.font_roman)
+        )
+
         title_screen.title_label_no_sdf = love.graphics.newTextBatch(font:get_native(font_size, rt.FontStyle.REGULAR, false), title)
-        title_screen.title_label_sdf = love.graphics.newTextBatch(font:get_native(font_size, rt.FontStyle.REGULAR, true), title)
+        title_screen.title_label_sdf = rt.LabelSDF(title, font_size, font)
 
         local title_w, title_h = font:measure(font_size, title)
 
@@ -856,11 +871,19 @@ function mn.MenuScene:draw()
 
         love.graphics.setColor(1, 1, 1, 1)
 
+
+        love.graphics.setColor(1, 1, 1, 1)
+        love.graphics.push()
+        love.graphics.translate(title_screen.title_x, title_screen.title_y)
+        rt.Palette.BLACK:bind()
+        love.graphics.draw(title_screen.title_label_no_sdf)
+
         _title_shader_sdf:bind()
         _title_shader_sdf:send("elapsed", self._shader_elapsed)
         _title_shader_sdf:send("black", _black)
-        love.graphics.setColor(1, 1, 1, 1)
-        love.graphics.draw(title_screen.title_label_sdf, title_screen.title_x, title_screen.title_y)
+        rt.Palette.TRUE_WHITE:bind()
+        title_screen.title_label_sdf:draw()
+        love.graphics.pop()
         _title_shader_sdf:unbind()
 
         _title_shader_no_sdf:bind()

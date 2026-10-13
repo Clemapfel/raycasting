@@ -10,6 +10,7 @@ rt.Font = meta.class("Font")
 
 --- @enum rt.FontSize
 rt.FontSize = {
+    MAX = 0.3,
     ENORMOUS = 0.2,
     GIGANTIC = 0.15,
     HUGE = 60 / rt.settings.native_height,
@@ -84,7 +85,6 @@ function rt.Font:instantiate(
         [rt.FontStyle.MONO_BOLD_ITALIC] = {}
     }
 
-    self._size_to_cache = {}
     self._line_spacing = 1 -- fraction
 end
 
@@ -96,7 +96,6 @@ local _atlas = {}
 
 local function _new_font(path, size, sdf, fallbacks)
     if sdf == nil then sdf = _sdf end
-    if fallbacks == nil then fallbacks = {} end
 
     if _atlas[path] == nil then _atlas[path] = {} end
     if _atlas[path][size] == nil then _atlas[path][size] = meta.make_weak({}) end
@@ -110,25 +109,28 @@ local function _new_font(path, size, sdf, fallbacks)
         _atlas[path][size][sdf] = native
     end
 
-    local native_fallbacks = {}
-    for fallback_path in values(fallbacks) do
-        if _atlas[fallback_path] == nil then _atlas[fallback_path] = {} end
-        if _atlas[fallback_path][size] == nil then _atlas[fallback_path][size] = meta.make_weak({}) end
+    if fallbacks ~= nil and #fallbacks > 0 then
+        local native_fallbacks = {}
+        for fallback_path in values(fallbacks) do
+            if _atlas[fallback_path] == nil then _atlas[fallback_path] = {} end
+            if _atlas[fallback_path][size] == nil then _atlas[fallback_path][size] = meta.make_weak({}) end
 
-        local fallback_native = _atlas[fallback_path][size][sdf]
-        if fallback_native == nil then
-            fallback_native = love.graphics.newFont(fallback_path, size, {
-                sdf = sdf,
-                hinting = "normal"
-            })
+            local fallback_native = _atlas[fallback_path][size][sdf]
+            if fallback_native == nil then
+                fallback_native = love.graphics.newFont(fallback_path, size, {
+                    sdf = sdf,
+                    hinting = "normal"
+                })
 
-            _atlas[fallback_path][size][sdf] = native
+                _atlas[fallback_path][size][sdf] = fallback_native
+            end
+
+            table.insert(native_fallbacks, fallback_native)
         end
 
-        table.insert(native_fallbacks, fallback_native)
+        native:setFallbacks(table.unpack(native_fallbacks))
     end
 
-    native:setFallbacks(table.unpack(native_fallbacks))
     return native
 end
 
@@ -141,29 +143,12 @@ function rt.Font:get_native(size, style, sdf)
     )
 
     if style == nil then style = rt.FontStyle.REGULAR end
-    if sdf == nil then sdf = false end
 
     local actual_size = self:get_actual_size(size)
     local path = self._font_style_to_path[style]
 
-    local entry = self._size_to_cache[actual_size]
-    if entry == nil then
-        entry = {}
-        self._size_to_cache[actual_size] = entry
-    end
-
-    local native_entry = entry[style]
-    if native_entry == nil then
-        native_entry = {
-            sdf = _new_font(path, actual_size, _sdf, self._font_style_to_fallback[style]),
-            no_sdf = _new_font(path, actual_size, _no_sdf, self._font_style_to_fallback[style])
-        }
-
-        entry[style] = native_entry
-    end
-
-    local sdf_out = native_entry.sdf
-    local no_sdf_out = native_entry.no_sdf
+    local sdf_out = _new_font(path, actual_size, _sdf, self._font_style_to_fallback[style])
+    local no_sdf_out = _new_font(path, actual_size, _no_sdf, self._font_style_to_fallback[style])
 
     if sdf == nil then
         return sdf_out, no_sdf_out
@@ -204,16 +189,15 @@ function rt.Font:get_line_spacing()
     return self._line_spacing
 end
 
-
 --- @brief
-function rt.Font:add_fallback(...)
+function rt.Font:add_fallbacks(...)
     for i = 1, select("#", ...), 2 do
         local style = select(i + 0, ...)
         local path = select(i + 1, ...)
         meta.assert_argument_type(style, rt.FontStyle, i + 0)
-        meta.assert_argument_type(style, rt.FontStyle, i + 1)
+        meta.assert_argument_type(path, mt.String, i + 1)
         if not bd.exists(path) then
-            rt.error("In rt.Font.add_fallback: file at `", path, "` does not exist")
+            rt.error("In rt.Font.add_fallbacks: file at `", path, "` does not exist")
         end
 
         table.insert(self._font_style_to_fallback[style], path)
@@ -230,11 +214,11 @@ rt.settings.font.default = rt.Font(
     prefix .. "DejaVuSans/DejaVuSans-Bold.ttf",
     prefix .. "DejaVuSans/DejaVuSans-Italic.ttf",
     prefix .. "DejaVuSans/DejaVuSans-BoldItalic.ttf",
-    prefix ..  "DejaVuSansMono/DejaVuSansMono-Regular.ttf",
+    prefix .. "DejaVuSansMono/DejaVuSansMono-Regular.ttf",
     prefix .. "DejaVuSansMono/DejaVuSansMono-Bold.ttf",
     prefix .. "DejaVuSansMono/DejaVuSansMono-Italic.ttf",
     prefix .. "DejaVuSansMono/DejaVuSansMono-BoldItalic.ttf"
-):add_fallback(
+):add_fallbacks(
     rt.FontStyle.REGULAR,     prefix .. "NotoSans/NotoSans-Regular.ttf",
     rt.FontStyle.BOLD,        prefix .. "NotoSans/NotoSans-Bold.ttf",
     rt.FontStyle.ITALIC,      prefix .. "NotoSans/NotoSans-Italic.ttf",

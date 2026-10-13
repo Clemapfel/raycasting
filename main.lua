@@ -24,7 +24,6 @@ DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
     if which == rt.KeyboardKey.Q then
         local before = love.timer.getTime()
         generator:regenerate()
-        dbg(love.timer.getTime() - before)
     elseif which == rt.KeyboardKey.R then
         generator:update(1 / 30)
     elseif which == rt.KeyboardKey.U then
@@ -37,6 +36,8 @@ DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
         rt.SoundManager:flush()
     end
 end)
+
+love.window.setMode(1920, 1200)
 
 love.load = function(args)
     if PROFILE then profiler.push("love.load") end
@@ -75,7 +76,7 @@ love.load = function(args)
     end
 
     require "overworld.overworld_scene"
-    rt.SceneManager:push(ow.OverworldScene, "debug_room", ow.StageEntryMode.INSTANT)
+    --rt.SceneManager:push(ow.OverworldScene, "debug_room", ow.StageEntryMode.INSTANT)
 
     require "menu.keybinding_scene"
     --rt.SceneManager:push(mn.KeybindingScene)
@@ -84,7 +85,7 @@ love.load = function(args)
     --rt.SceneManager:push(mn.SettingsScene)
 
     require "menu.menu_scene"
-    --rt.SceneManager:push(mn.MenuScene, false)
+    rt.SceneManager:push(mn.MenuScene, false)
 end
 
 local elapsed = 0
@@ -109,7 +110,7 @@ love.draw = function()
         rt.SceneManager:draw()
     end
 
-    --generator:draw()
+    generator:draw()
 end
 
 love.resize = function(width, height)

@@ -24,8 +24,8 @@
 
 #if MODE == MODE_INITIALIZE
 
+layout(JFA_TEXTURE_FORMAT) uniform image2DArray jfa_texture_array;
 layout(MASK_TEXTURE_FORMAT) uniform readonly image2D mask_texture;
-layout(JFA_TEXTURE_FORMAT) uniform writeonly image2DArray jfa_texture_array;
 
 #elif MODE == MODE_JUMP
 
@@ -43,10 +43,9 @@ uniform int layer;
 
 #endif
 
-const float infinity = 1 / 0.f;
-
+const float infinity = 1.0 / 0.0;
 const float threshold = 0;
-const float max_distance = 64;
+uniform float max_distance = 16;
 
 const ivec2 directions[8] = ivec2[](
     ivec2(0, -1),
@@ -73,10 +72,7 @@ void computemain() {
     const vec4 wall = vec4(position.x, position.y, -1, 0); // boundary of walled area
     const vec4 non_wall = vec4(-1, -1, infinity, 1);       // free space
 
-    vec4 pixel = imageLoad(mask_texture, ivec2(
-        position.x + mask_offset.x,
-        position.y + mask_offset.y
-    ));
+    vec4 pixel = imageLoad(mask_texture, ivec2(position));
 
     if (pixel.r > threshold) {
         uint n_others = 0;
@@ -105,8 +101,7 @@ void computemain() {
 
     vec4 self = imageLoad(jfa_texture_array, ivec3(position, input_layer));
 
-    if (self.z == 0) // is outer wall
-    return;
+    if (self.z == 0) return; // is outer wall
 
     vec4 best = self;
     for (int i = 0; i < 8; ++i) {
@@ -114,15 +109,15 @@ void computemain() {
 
         // if outside, skip
         if (!all(greaterThanEqual(neighbor_position, ivec2(0))) || any(greaterThanEqual(neighbor_position, image_size)))
-        continue;
+         continue;
 
         vec4 neighbor = imageLoad(jfa_texture_array, ivec3(neighbor_position, input_layer));
         if (any(lessThan(neighbor.xy, vec2(0)))) // is uninitialized
-        continue;
+            continue;
 
         float dist = distance(vec2(position), vec2(neighbor.xy));
         if (dist <= best.z)
-        best = vec4(neighbor.xy, dist, self.w);
+            best = vec4(neighbor.xy, dist, self.w);
     }
 
     imageStore(jfa_texture_array, ivec3(position, output_layer), best);
