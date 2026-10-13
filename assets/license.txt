@@ -3,7 +3,7 @@ Licensing information
 
 This distribution contains code from the following projects (full license text below):
 
-    - Chroma Drift
+    - Chroma Void
         Website: https:/chromadrift.com
         License: CC BY-NC-SA
         Copyright (c) 2025 Clemens Cords
