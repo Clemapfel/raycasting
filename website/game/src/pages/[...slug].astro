@@ -1,0 +1,61 @@
+---
+import Layout from "../layouts/base_layout.astro";
+import MarkdownRenderer from "../components/markdown.astro";
+import ShaderCanvas from "../components/shader_canvas.astro";
+import Footer from "../components/footer.astro";
+import Header from "../components/header.astro";
+import NoisyFrame from "../components/noisy_frame.astro";
+import LanguageChooser from "../components/language_chooser.astro";
+import { Languages } from "../i18n/languages";
+
+const defaultLanguage = 'en';
+
+const id = Astro.url.pathname.replace(
+    new RegExp(`^/(${Object.keys(Languages).join('|')})?/?`),
+    ''
+);
+
+import { getCollection, getEntry } from "astro:content";
+export async function getStaticPaths() {
+    // generate paths from filenames in /src/content/pages/en
+    const entries = await getCollection("pages");
+    const slugs = entries.map((entry) => entry.id.replace(/^en\//, "").replace(/\.mdx?$/, ""));
+    return Object.keys(Languages).flatMap((lang) =>
+        slugs.map((slug) => ({
+            params: { slug: `${lang}/${slug}` },
+            props: { lang, page: slug },
+        }))
+    );
+}
+
+const entry = await getEntry("pages", id);
+---
+
+<style>
+    /* keep centered */
+    .page-wrapper {
+        display: flex;
+        justify-content: center;
+    }
+
+    .frame-content-wrapper {
+        z-index: 1;
+        position: relative;
+    }
+</style>
+
+<Layout>
+    <ShaderCanvas id={entry!.data.shader}/>
+
+    <div class="page-wrapper">
+        <NoisyFrame>
+            <div class="frame-content-wrapper">
+                <Header />
+                <MarkdownRenderer collection="pages" id={id} />
+            </div>
+        </NoisyFrame>
+    </div>
+</Layout>
+
+
+

@@ -18,31 +18,38 @@ const currentYear = new Date().getFullYear();
 
 <style>
     footer {
-        font-family: var(--default-font);
+        position: relative;       /* makes z-index effective so nothing overlaps the hover area */
+        z-index: 1;
+        margin-top: auto;
+        padding: 1rem;
+        font-family: var(--default-font), sans-serif;
         color: var(--default-color-foreground);
         -webkit-text-stroke: 3px var(--default-color-background);
         -webkit-text-fill-color: var(--default-color-foreground);
         paint-order: stroke fill;
         text-align: center;
-        opacity: 0.75;
+        opacity: 0.5;
+        transition: opacity 0.33s;
+    }
+
+    footer:hover {
+        opacity: 1;
     }
 
     footer a {
         color: inherit;
-        text-decoration: underline;
-        text-decoration-style: dotted;
-        text-decoration-thickness: 2px;
-        text-decoration-color: black;
+        -webkit-text-fill-color: currentColor;
     }
 
     footer a:hover {
+        color: var(--default-color-secondary);
+        -webkit-text-fill-color: var(--default-color-secondary);
         text-decoration-style: solid;
-        opacity: 1;
     }
 </style>
 
 <footer>
-    <p> &copy; {currentYear} {author} | Licensed <a href=" https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">
-        CC BY-NC-SA</a> | This Site contains no LLM-generated Content
+    <p> &copy; {currentYear} {author} | Licensed <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="noopener noreferrer">
+        CC BY-NC-SA</a> | This Site contains no AI-generated Content
     </p>
 </footer>

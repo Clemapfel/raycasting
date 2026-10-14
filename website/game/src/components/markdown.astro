@@ -1,23 +1,21 @@
 ---
-//
-// Usage: <MarkdownRenderer id="post-slug-id"/>
-//
-
 import { getEntry, render } from "astro:content";
+import type { CollectionKey } from "astro:content";
 
 interface Props {
+    collection: CollectionKey;
     id: string;
 }
 
-const { id } = Astro.props;
+const { collection, id } = Astro.props;
 
-const post = await getEntry("posts", id);
+const entry = await getEntry(collection, id);
 
-if (!post) {
-    throw new Error(`no post width id "${id}" at "src/content/posts/${id}.md"`);
+if (!entry) {
+    throw new Error(`no entry with id "${id}" at "src/content/${collection}/${id}.md"`);
 }
 
-const { Content } = await render(post);
+const { Content } = await render(entry);
 ---
 
 <style>

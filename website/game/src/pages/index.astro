@@ -1,38 +1,27 @@
 ---
-import Layout from "../layouts/base_layout.astro";
-import MarkdownRenderer from "../components/markdown.astro";
-import ShaderCanvas from "../components/shader_canvas.astro";
-import Footer from "../components/footer.astro";
-import Header from "../components/header.astro";
-import NoisyFrame from "../components/noisy_frame.astro";
+import { Languages } from "../i18n/languages";
+
+const supported = Object.keys(Languages);
+const fallback = "en";
+const page = "index";
 ---
 
-<style>
-    /* keep centered */
-    .page-wrapper {
-        display: flex;
-        justify-content: center;
-    }
+<html>
+<body data-supported={JSON.stringify(supported)} data-fallback={fallback} data-page={page}>
+<noscript>
+    <meta http-equiv="refresh" content={`0; url=/${fallback}/${page}`} />
+</noscript>
 
-    .frame-content-wrapper {
-        z-index: 1;
-        position: relative;
-    }
- </style>
+<script>
+    const { supported, fallback, page } = document.body.dataset;
+    const supportedLangs = JSON.parse(supported);
+    const preferred = (navigator.languages || [navigator.language])
+        .map((l) => l.toLowerCase().split("-")[0]);
+    const lang = preferred.find((l) => supportedLangs.includes(l)) || fallback;
+    window.location.replace(`/${lang}/${page}`);
+</script>
 
-<Layout>
-    <ShaderCanvas id="guts"/>
+<a href={`/${fallback}/${page}`}>Redirecting ...</a>
 
-    <div class="page-wrapper">
-        <NoisyFrame>
-            <div class="frame-content-wrapper">
-                <Header />
-                <MarkdownRenderer id="test" />
-            </div>
-        </NoisyFrame>
-    </div>
-    <Footer author="C. Cords"/>
-</Layout>
-
-
-
+</body>
+</html>

@@ -1,0 +1,118 @@
+@font-face {
+    font-family: "Adwaita Sans";
+    font-style: normal;
+    font-weight: 400;
+    src: url("/fonts/adwaita-fonts-50.0/sans/AdwaitaSans-Regular.ttf") format("truetype");
+}
+
+@font-face {
+    font-family: "Adwaita Sans";
+    font-style: italic;
+    font-weight: 400;
+    src: url("/fonts/adwaita-fonts-50.0/sans/AdwaitaSans-Italic.ttf") format("truetype");
+}
+
+@font-face {
+    font-family: "Adwaita Mono";
+    font-style: normal;
+    font-weight: 400;
+    src: url("/fonts/adwaita-fonts-50.0/mono/AdwaitaMono-Regular.ttf") format("truetype");
+}
+
+@font-face {
+    font-family: "Adwaita Mono";
+    font-style: italic;
+    font-weight: 400;
+    src: url("/fonts/adwaita-fonts-50.0/mono/AdwaitaMono-Italic.ttf") format("truetype");
+}
+
+@font-face {
+    font-family: "Adwaita Mono";
+    font-style: normal;
+    font-weight: 700;
+    src: url("/fonts/adwaita-fonts-50.0/mono/AdwaitaMono-Bold.ttf") format("truetype");
+}
+
+@font-face {
+    font-family: "Adwaita Mono";
+    font-style: italic;
+    font-weight: 700;
+    src: url("/fonts/adwaita-fonts-50.0/mono/AdwaitaMono-BoldItalic.ttf") format("truetype");
+}
+
+@font-face {
+    font-family: "DejaVu Sans";
+    font-style: normal;
+    font-weight: 250;
+    src: url("/fonts/dejavu-fonts-ttf-2.37/ttf/DejaVuSans-ExtraLight.ttf") format("truetype");
+}
+
+@font-face {
+    font-family: "DejaVu Sans";
+    font-style: normal;
+    font-weight: 400;
+    src: url("/fonts/dejavu-fonts-ttf-2.37/ttf/DejaVuSans.ttf") format("truetype");
+}
+
+@font-face {
+    font-family: "DejaVu Sans";
+    font-style: oblique;
+    font-weight: 400;
+    src: url("/fonts/dejavu-fonts-ttf-2.37/ttf/DejaVuSans-Oblique.ttf") format("truetype");
+}
+
+@font-face {
+    font-family: "DejaVu Sans";
+    font-style: normal;
+    font-weight: 700;
+    src: url("/fonts/dejavu-fonts-ttf-2.37/ttf/DejaVuSans-Bold.ttf") format("truetype");
+}
+
+@font-face {
+    font-family: "DejaVu Sans";
+    font-style: oblique;
+    font-weight: 700;
+    src: url("/fonts/dejavu-fonts-ttf-2.37/ttf/DejaVuSans-BoldOblique.ttf") format("truetype");
+}
+
+@font-face {
+    font-family: "DejaVu Sans Mono";
+    font-style: normal;
+    font-weight: 400;
+    src: url("/fonts/dejavu-fonts-ttf-2.37/ttf/DejaVuSansMono.ttf") format("truetype");
+}
+
+@font-face {
+    font-family: "DejaVu Sans Mono";
+    font-style: oblique;
+    font-weight: 400;
+    src: url("/fonts/dejavu-fonts-ttf-2.37/ttf/DejaVuSansMono-Oblique.ttf") format("truetype");
+}
+
+@font-face {
+    font-family: "DejaVu Sans Mono";
+    font-style: normal;
+    font-weight: 700;
+    src: url("/fonts/dejavu-fonts-ttf-2.37/ttf/DejaVuSansMono-Bold.ttf") format("truetype");
+}
+
+@font-face {
+    font-family: "DejaVu Sans Mono";
+    font-style: oblique;
+    font-weight: 700;
+    src: url("/fonts/dejavu-fonts-ttf-2.37/ttf/DejaVuSansMono-BoldOblique.ttf") format("truetype");
+}
+
+@font-face {
+    font-family: "MPLUS1p";
+    font-style: normal;
+    font-weight: 400;
+    src: url("/fonts/MPLUS1p/MPLUS1p-Regular.ttf") format("truetype");
+}
+
+@font-face {
+    font-family: "MPLUS1p";
+    font-style: normal;
+    font-weight: 700;
+    src: url("/fonts/MPLUS1p/MPLUS1p-Bold.ttf") format("truetype");
+}

@@ -1,0 +1,92 @@
+---
+import { Languages } from "../i18n/languages";
+
+type Language = keyof typeof Languages;
+
+const isLanguage = (value: string | undefined): value is Language =>
+    value !== undefined && Object.hasOwn(Languages, value);
+
+const { pathname, search } = Astro.url;
+const [, firstSegment, ...rest] = pathname.split('/');
+
+// locale switching only works for URLs of the form /<lang>/...
+const supportsLocaleSwitching = isLanguage(firstSegment);
+
+const postfix = rest.join('/');
+
+const entries = supportsLocaleSwitching
+    ? (Object.entries(Languages) as [Language, string][]).map(
+        ([code, label]) => ({
+            code,
+            label,
+            href: `/${code}/${postfix}${search}`,
+            isCurrent: code === firstSegment,
+        }),
+    ) : [];
+---
+
+{
+    supportsLocaleSwitching && entries.length > 1 && (
+    <nav class="language-chooser" aria-label="Language">
+        {/* render as [ first | second | ... | last ] */}
+        <span>[ </span>
+        {entries.map(({ code, label, href, isCurrent }, i) => (
+                <>
+                    {i > 0 && <span> | </span>}
+                    <a
+                            href={href}
+                            lang={code}
+                            hreflang={code}
+                            title={label}
+                            class={isCurrent ? 'current' : undefined}
+                            aria-current={isCurrent ? 'page' : undefined}
+                    >
+                        {label}
+                    </a>
+                </>
+        ))}
+        <span> ]</span>
+    </nav>
+        )
+    }
+
+<style>
+    .language-chooser {
+        /* float in the top-right corner of the viewport at all times */
+        position: fixed;
+        top: env(safe-area-inset-top, 0);
+        right: env(safe-area-inset-right, 0);
+        z-index: 1000;
+        padding: 0.75rem 1rem;
+
+        display: inline-flex;
+        gap: 0.5em;
+        align-items: baseline;
+
+        font-size: 11.5pt;
+        font-family: var(--default-font), sans-serif;
+        color: var(--default-color-foreground);
+        opacity: 50%;
+
+        -webkit-text-stroke: 3px var(--default-color-background);
+        paint-order: stroke fill;
+    }
+
+    .language-chooser:hover {
+        opacity: 100%;
+        transition: opacity 0.33s;
+    }
+
+    .language-chooser a {
+        color: inherit;
+        text-decoration: none;
+    }
+
+    .language-chooser a.current {
+        text-decoration: underline;
+    }
+
+    .language-chooser a:hover {
+        color: var(--default-color-secondary);
+    }
+</style>

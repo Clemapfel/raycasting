@@ -9,6 +9,8 @@ import {
 } from "../styles/default.ts";
 
 import "../styles/fonts.css";
+import Footer from "../components/footer.astro";
+import LanguageChooser from "../components/language_chooser.astro";
 ---
 
 <!doctype html>
@@ -36,9 +38,9 @@ import "../styles/fonts.css";
 		default_color_background: DEFAULT_COLOR_BACKGROUND,
 	}}>
 		:root {
-			--default-font-heading: "DejaVu Sans", "Cantarell", sans-serif;
-			--default-font: "Adwaita Sans", "Noto Sans", sans-serif;
-			--default-font-mono: "DejaVu Sans Mono", "Noto Sans Mono", monospace;
+			--default-font-heading: "DejaVu Sans", "Cantarell", "MPLUS1p", sans-serif;
+			--default-font: "Adwaita Sans", "Noto Sans", "MPLUS1p", sans-serif;
+			--default-font-mono: "DejaVu Sans Mono", "Noto Sans Mono", "MPLUS1p", monospace;
 			--default-color-primary: var(--default_color_primary);
 			--default-color-secondary: var(--default_color_secondary);
 			--default-color-foreground: var(--default_color_foreground);
@@ -58,7 +60,8 @@ import "../styles/fonts.css";
 </head>
 
 <body>
+<LanguageChooser></LanguageChooser>
 <slot />
 </body>
-
+<Footer author="C. Cords"/>
 </html>
