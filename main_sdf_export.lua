@@ -7,26 +7,31 @@ require "overworld.normal_map"
 require "menu.menu_scene"
 
 bd.mount_path(bd.join_path(bd.get_source_directory(), "website"), "website")
-local export_prefix = "website/export"
+local export_prefix = "website/game/public"
 if not bd.is_directory(export_prefix) then bd.create_directory(export_prefix) end
 
-local font = rt.Font(rt.settings.menu_scene.title_screen.font)
+local font_roman = rt.Font(rt.settings.menu_scene.title_screen.font_roman)
+local font_japanese = rt.Font(rt.settings.menu_scene.title_screen.font_japanese)
 local font_size = rt.FontSize.MAX
 
 local last
 local before = love.timer.getTime()
-for string_filename in range(
-    { "Contact", "contact_sdf.png" },
-    { "Why", "home_sdf.png" }
+for x in range(
+    { "Home", "contact.png", font_japanese },
+    { "Contact", "home.png", font_japanese },
+    { "404", "404.png", font_japanese }
 ) do
-    local path = bd.join_path(export_prefix, string_filename[2])
+    local text, path, font = table.unpack(x)
+    path = bd.join_path(export_prefix, path)
     last = rt.LabelSDF(
-        string_filename[1],
+        text,
         font_size,
-        font
+        font,
+        nil,
+        true
     )
 
-    last:export(path)
+    last:export(path, rt.ImageEncodingFormat.PNG)
     rt.log("In main_sdf_export: exporting `", path, "` ...")
 end
 

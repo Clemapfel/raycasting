@@ -147,21 +147,34 @@ export class Texture extends GLResource {
     /** **/
     constructor(context: GLContext, image: HTMLImageElement);
 
+    /** loads the texture from an image path / url; a 1x1 placeholder is used until the image has loaded **/
+    constructor(context: GLContext, path: string);
+
     /** **/
     constructor(context: GLContext, width: number, height: number, format?: number);
 
     /** **/
-    constructor(context: GLContext, image_or_width: HTMLImageElement | number, height?: number, format?: TextureFormat) {
+    constructor(context: GLContext, source: HTMLImageElement | string | number, height?: number, format?: TextureFormat) {
         super(context);
 
-        if (image_or_width instanceof HTMLImageElement) {
-            const image : HTMLImageElement = image_or_width;
+        let pending_image: HTMLImageElement | undefined = undefined;
+
+        if (source instanceof HTMLImageElement) {
+            const image : HTMLImageElement = source;
             this.width = image.width;
             this.height = image.height;
             this.image = image;
         }
+        else if (typeof source === "string") {
+            this.width = 1;
+            this.height = 1;
+            this.image = undefined;
+
+            pending_image = new Image();
+            pending_image.crossOrigin = "anonymous";
+        }
         else {
-            const width : number = image_or_width;
+            const width : number = source;
 
             if (width <= 0 || (height !== undefined && height <= 0))
                 throw Error("In Texture: trying to initialize a texture with a non-positive width or height");
@@ -180,6 +193,24 @@ export class Texture extends GLResource {
 
         this.allocate();
         this.context._notify_resources_added(this);
+
+        if (pending_image !== undefined && typeof source === "string") {
+            const loaded_image = pending_image;
+
+            loaded_image.onload = () => {
+                this.width = loaded_image.naturalWidth;
+                this.height = loaded_image.naturalHeight;
+                this.image = loaded_image;
+                this.format = TextureFormat.RGBA8;
+                this.allocate();
+            };
+
+            loaded_image.onerror = () => {
+                console.error(`In Texture: failed to load image from path "${source}"`);
+            };
+
+            loaded_image.src = source;
+        }
     }
 
     /** **/

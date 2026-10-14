@@ -37,8 +37,6 @@ DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
     end
 end)
 
-love.window.setMode(1920, 1200)
-
 love.load = function(args)
     if PROFILE then profiler.push("love.load") end
 
@@ -110,7 +108,7 @@ love.draw = function()
         rt.SceneManager:draw()
     end
 
-    generator:draw()
+    --generator:draw()
 end
 
 love.resize = function(width, height)
@@ -118,5 +116,5 @@ love.resize = function(width, height)
         rt.SceneManager:resize()
     end
 
-    generator:reformat(0, 0, width, height)
+    --generator:reformat(0, 0, width, height)
 end

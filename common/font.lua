@@ -10,7 +10,7 @@ rt.Font = meta.class("Font")
 
 --- @enum rt.FontSize
 rt.FontSize = {
-    MAX = 0.3,
+    MAX = 0.5,
     ENORMOUS = 0.2,
     GIGANTIC = 0.15,
     HUGE = 60 / rt.settings.native_height,

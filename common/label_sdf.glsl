@@ -37,9 +37,12 @@ layout(JFA_TEXTURE_FORMAT) uniform image2DArray jfa_texture_array;
 
 #elif MODE == MODE_EXPORT
 
+layout(MASK_TEXTURE_FORMAT) uniform readonly image2D mask_texture;
 layout(JFA_TEXTURE_FORMAT) uniform readonly image2DArray jfa_texture_array;
 layout(EXPORT_TEXTURE_FORMAT) uniform writeonly image2D export_texture;
+
 uniform int layer;
+uniform bool apply_mask = false;
 
 #endif
 
@@ -125,6 +128,11 @@ void computemain() {
     #elif MODE == MODE_EXPORT
 
     vec4 value = imageLoad(jfa_texture_array, ivec3(position, layer));
+    vec4 mask = imageLoad(mask_texture, ivec2(position));
+
+    if (apply_mask && mask.r > 0)
+        value *= 0;
+
     imageStore(export_texture, ivec2(position), value.zzzz / max_distance);
 
     #endif
