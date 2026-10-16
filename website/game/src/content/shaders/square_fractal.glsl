@@ -107,6 +107,7 @@ vec2 rot90(vec2 p, int quarterTurns) {
     return vec2( p.y, -p.x);
 }
 
+
 vec4 effect(vec4 color, sampler2D tex, vec2 texture_coords, vec2 screen_coords) {
     float time = elapsed / 10.0;
 
@@ -114,7 +115,7 @@ vec4 effect(vec4 color, sampler2D tex, vec2 texture_coords, vec2 screen_coords) 
     uv -= 0.5;
     uv.x *= love_ScreenSize.x / love_ScreenSize.y;
 
-    vec2 pos = 5.0 * uv;
+    vec2 pos = 1.5 * uv;
     vec2 previous = pos;
 
     float snap_t = 0.0;
@@ -122,40 +123,48 @@ vec4 effect(vec4 color, sampler2D tex, vec2 texture_coords, vec2 screen_coords) 
     float snap_t_add = 0.0;
 
     float tile_size = 1.0;
-    float tile_size_mul = 0.5;
+    float tile_size_mul = 1.0;
     float tile_size_add = 0.0;
 
-    vec2 start_tile = floor(pos / tile_size);
-    vec2 dir = normalize(snap(vec2(
-        gradient_noise(vec3(start_tile.x, start_tile.y, time)),
-        gradient_noise(vec3(start_tile.y, time, start_tile.x))
-    ), 1.0));
+    vec2 start_tile = uv;
 
-    vec2 amp = vec2(0.3);
+    vec2 amp = vec2(0.1);
     vec2 amp_mul = vec2(1.0);
-    vec2 amp_add = vec2(0.0);
+    vec2 amp_add = vec2(0.15);
 
-    vec2 camp = vec2(1.0);
-    vec2 camp_mul = vec2(1.0);
-    vec2 camp_add = vec2(0.0);
+    float angle_t = 0.8;
+    float angle_t_mul = 1.0;
+    float angle_t_add = 0.0;
 
+    float scale = 1.0;
+    float scale_mul = 1.0;
+    float scale_add = 0.0;
+
+    vec2 center = vec2(0.0);
+    vec2 seed = 2.0 * pos;
+    vec2 dir = normalize(vec2(
+        gradient_noise(vec3(seed.x, seed.y, time)),
+        gradient_noise(vec3(seed.y, time, seed.x))
+    ));
+
+    vec3 rgb = vec3(0);
     const int n_steps = 3;
     for (int i = 0; i < n_steps; ++i) {
-        vec2 tile = floor(pos / tile_size);
-        vec2 center = tile + 0.5 * tile_size;
-        float angle = mix(0.0, TAU, 2.0 * chebyshev(pos, camp * center));
-        dir = normalize(rotate(dir, angle));
-
-        pos = pos + amp * dir;
 
         amp = amp * amp_mul + amp_add;
-        camp = camp * camp_mul + camp_add;
-        snap_t = snap_t * snap_t_mul + snap_t_add;
-        tile_size = tile_size * tile_size_mul + tile_size_add;
+        angle_t = angle_t * angle_t_mul + angle_t_add;
+        scale = scale * scale_mul + scale_add;
+        center = (center + dir * amp);
+
+        float sign = angle_t * (i % 2 == 0 ? 1.0 : -1.0);
+        vec2 rel = pos - center;
+        float angle = sign * TAU * mix(0.0, 1.0, 2.0 * distance(pos, center));
+        pos = center + rotate(rel, angle);
+
+        rgb = rgb + lch_to_rgb(vec3(0.8, 1.0, fract(angle_t + atan(pos.y, pos.x) / TAU)));
     }
 
-    float hue = atan(dir.y, dir.x);
-    float t = 1.0;
-    vec3 rgb = lch_to_rgb(vec3(0.8, 1.0, hue));
-    return vec4(vec3(hue), 1.0);
+    rgb = rgb / float(n_steps);
+
+    return vec4(vec3(rgb.xyz), 1.0);
 }
