@@ -62,25 +62,12 @@ vec2 symmetric(vec2 value) {
     return vec2(symmetric(value.x), symmetric(value.y));
 }
 
-const float tile_size = 40.0;
-
-vec2 pos_to_tile_id(vec2 pos) {
-    return floor(pos / tile_size);
-}
-
 vec2 tile_id_to_ray_dir(vec2 tile_id) {
     return mod(tile_id, 2.0) * 2.0 - 1.0;
 }
 
 uniform float elapsed;
 
-vec2 snap_cardinal(vec2 v, float strength) {
-    vec2 target = abs(v.x) > abs(v.y)
-    ? vec2(sign(v.x), 0.0)
-    : vec2(0.0, sign(v.y));
-    // keep original length so only the direction changes
-    return mix(v, target * length(v), strength);
-}
 
 float sine(float x) {
     return (sin(x) + 1.0) / 2.0;
@@ -104,39 +91,71 @@ float chebyshev(vec2 pos, vec2 other) {
 const float PI  = 3.14159265358979323846;
 const float TAU = 6.28318530717958647692;
 
+vec2 snap(vec2 v, float strength) {
+    vec2 target = abs(v.x) > abs(v.y)
+    ? vec2(sign(v.x), 0.0)
+    : vec2(0.0, sign(v.y));
+    // keep original length so only the direction changes
+    return mix(v, target * length(v), strength);
+}
+
+vec2 rot90(vec2 p, int quarterTurns) {
+    int k = quarterTurns & 3;
+    if (k == 0) return p;
+    if (k == 1) return vec2(-p.y,  p.x);
+    if (k == 2) return -p;
+    return vec2( p.y, -p.x);
+}
+
 vec4 effect(vec4 color, sampler2D tex, vec2 texture_coords, vec2 screen_coords) {
-    float time = elapsed / 100.0;
+    float time = elapsed / 10.0;
 
     vec2 uv = texture_coords;
     uv -= 0.5;
     uv.x *= love_ScreenSize.x / love_ScreenSize.y;
 
-    vec2 amp = vec2(1.0);
+    vec2 pos = 5.0 * uv;
+    vec2 previous = pos;
+
+    float snap_t = 0.0;
+    float snap_t_mul = 1.0;
+    float snap_t_add = 0.0;
+
+    float tile_size = 1.0;
+    float tile_size_mul = 0.5;
+    float tile_size_add = 0.0;
+
+    vec2 start_tile = floor(pos / tile_size);
+    vec2 dir = normalize(snap(vec2(
+        gradient_noise(vec3(start_tile.x, start_tile.y, time)),
+        gradient_noise(vec3(start_tile.y, time, start_tile.x))
+    ), 1.0));
+
+    vec2 amp = vec2(0.3);
     vec2 amp_mul = vec2(1.0);
     vec2 amp_add = vec2(0.0);
 
-    vec2 dir = 0.05 * vec2(
-        gradient_noise(vec3(uv.x, uv.y, time)),
-        gradient_noise(vec3(uv.y, time, uv.x))
-    );
+    vec2 camp = vec2(1.0);
+    vec2 camp_mul = vec2(1.0);
+    vec2 camp_add = vec2(0.0);
 
-    vec2 pos = uv;
-
-    const int n_steps = 0;
+    const int n_steps = 3;
     for (int i = 0; i < n_steps; ++i) {
-
-        dir = rotate(dir, mix(0.0, TAU, 2.0 * chebyshev(pos, uv)));
+        vec2 tile = floor(pos / tile_size);
+        vec2 center = tile + 0.5 * tile_size;
+        float angle = mix(0.0, TAU, 2.0 * chebyshev(pos, camp * center));
+        dir = normalize(rotate(dir, angle));
 
         pos = pos + amp * dir;
-        amp += amp_add;
-        amp = amp * amp_mul;
+
+        amp = amp * amp_mul + amp_add;
+        camp = camp * camp_mul + camp_add;
+        snap_t = snap_t * snap_t_mul + snap_t_add;
+        tile_size = tile_size * tile_size_mul + tile_size_add;
     }
 
-    pos *= 3.0;
-    pos = vec2(tanh(pos.x), tanh(pos.y));
-    pos = rotate(pos, mix(0.0, TAU, 2.0 * chebyshev(pos, uv) - time));
-    float hue = atan(pos.y, pos.x);
+    float hue = atan(dir.y, dir.x);
     float t = 1.0;
     vec3 rgb = lch_to_rgb(vec3(0.8, 1.0, hue));
-    return vec4(vec3(fract(6.0 * hue / TAU)), 1.0);
+    return vec4(vec3(hue), 1.0);
 }
