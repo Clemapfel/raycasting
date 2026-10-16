@@ -2,6 +2,7 @@ import { GLWidget } from "../common/gl_widget.ts";
 import { Mesh, MeshDrawMode } from "../common/mesh.ts";
 import { MeshVertexFormat } from "../common/mesh_vertex_format.ts";
 import { Texture, TextureFilterMode } from "../common/texture.ts";
+import { BlendMode } from "../common/gl_context.ts";
 import {
     DEFAULT_FLOAT_PRECISION,
     DEFAULT_FRAGMENT_OUT_NAME,
@@ -13,8 +14,10 @@ import {
     Shader
 } from "../common/shader.ts";
 import { Time } from "../common/time.ts";
+import type { Vec2 } from "../common/vector.ts";
 
 const DEFAULT_ELAPSED_NAME = "elapsed";
+const APPLY_BLUR_NAME = "apply_blur";
 
 const canvas_threshold_shader_source = `${DEFAULT_SHADER_VERSION}
     ${DEFAULT_FLOAT_PRECISION}
@@ -72,6 +75,7 @@ const canvas_threshold_shader_source = `${DEFAULT_SHADER_VERSION}
 
     uniform sampler2D ${DEFAULT_TEXTURE_NAME};
     uniform float ${DEFAULT_ELAPSED_NAME};
+    uniform bool ${APPLY_BLUR_NAME};
     
     in vec2 ${DEFAULT_UV_NAME};
     in vec4 ${DEFAULT_RGBA_NAME};
@@ -90,9 +94,32 @@ const canvas_threshold_shader_source = `${DEFAULT_SHADER_VERSION}
             seed_magnitude * gradient_noise(vec3(-seed.yx, elapsed))
         );
         
-        vec4 texel = texture(${DEFAULT_TEXTURE_NAME}, uv);
-        float dist = texel.r;
-        dist = smoothstep(center - eps, center + eps, dist);
+        float dist;
+        if (${APPLY_BLUR_NAME}) {
+            const float kernel[25] = float[25](
+                 1.0 / 256.0,  4.0 / 256.0,  6.0 / 256.0,  4.0 / 256.0,  1.0 / 256.0,
+                 4.0 / 256.0, 16.0 / 256.0, 24.0 / 256.0, 16.0 / 256.0,  4.0 / 256.0,
+                 6.0 / 256.0, 24.0 / 256.0, 36.0 / 256.0, 24.0 / 256.0,  6.0 / 256.0,
+                 4.0 / 256.0, 16.0 / 256.0, 24.0 / 256.0, 16.0 / 256.0,  4.0 / 256.0,
+                 1.0 / 256.0,  4.0 / 256.0,  6.0 / 256.0,  4.0 / 256.0,  1.0 / 256.0
+            );
+            
+            vec2 texel_size = 1.0 / vec2(textureSize(${DEFAULT_TEXTURE_NAME}, 0));
+            
+            dist = 0.0;
+            for (int y = -2; y <= 2; y++) {
+                for (int x = -2; x <= 2; x++) {
+                    vec2 offset = vec2(float(x), float(y)) * texel_size;
+                    dist += kernel[(y + 2) * 5 + (x + 2)]
+                          * texture(${DEFAULT_TEXTURE_NAME}, uv + offset).r;
+                }
+            }
+        } 
+        else {
+             dist = texture(${DEFAULT_TEXTURE_NAME}, uv).r;
+        }
+        
+        dist = 1.0 - smoothstep(center - eps, center + eps, dist);
         ${DEFAULT_FRAGMENT_OUT_NAME} = vec4(dist);
     }
     `;
@@ -103,6 +130,8 @@ export class SDFLabelRenderer extends GLWidget {
     private elapsed : Time = new Time(0);
     private texture_source : string;
     private texture : Texture;
+
+    public apply_blur : boolean = true;
 
     constructor(path: string) {
         super();
@@ -115,18 +144,29 @@ export class SDFLabelRenderer extends GLWidget {
 
         this.shader = new Shader(this.context, canvas_threshold_shader_source);
     }
-    
+
     protected override reformat(width: number, height: number): void {
         if (this.quad !== undefined)
             this.quad.deallocate();
 
+        const [tex_w, tex_h] = this.texture.getSize();
+
+        const scale = Math.min(width / tex_w, height / tex_h);
+        const quad_w = tex_w * scale;
+        const quad_h = tex_h * scale;
+
+        const x0 = (width - quad_w) / 2;
+        const y0 = (height - quad_h) / 2;
+        const x1 = x0 + quad_w;
+        const y1 = y0 + quad_h;
+
         this.quad = new Mesh(
             this.context,
             new Float32Array([
-                0, 0,           0, 0,   1, 1, 1, 1,
-                width, 0,       1, 0,   1, 1, 1, 1,
-                width, height,  1, 1,   1, 1, 1, 1,
-                0, height,      0, 1,   1, 1, 1, 1
+                x0, y0,  0, 0,   1, 1, 1, 1,
+                x1, y0,  1, 0,   1, 1, 1, 1,
+                x1, y1,  1, 1,   1, 1, 1, 1,
+                x0, y1,  0, 1,   1, 1, 1, 1
             ]),
             new Uint16Array([ 0, 1, 2, 0, 2, 3 ]),
             MeshDrawMode.TRIANGLES,
@@ -138,6 +178,10 @@ export class SDFLabelRenderer extends GLWidget {
         this.elapsed.add(delta);
     }
 
+    public override getSize() : Vec2 {
+        return this.texture.getSize();
+    }
+
     protected override draw(): void {
         if (!this.getIsRealized() || this.shader === undefined || this.quad === undefined) return;
 
@@ -147,6 +191,10 @@ export class SDFLabelRenderer extends GLWidget {
         if (this.shader.hasUniform(DEFAULT_TEXTURE_NAME))
             this.shader.setUniform(DEFAULT_TEXTURE_NAME, this.texture);
 
+        if (this.shader.hasUniform(APPLY_BLUR_NAME))
+            this.shader.setUniform(APPLY_BLUR_NAME, this.apply_blur)
+
+        this.context.setBlendMode(BlendMode.ALPHA)
         this.shader.bind();
         this.quad.draw();
         this.shader.unbind();

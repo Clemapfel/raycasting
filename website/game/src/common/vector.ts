@@ -178,6 +178,12 @@ export class Vec2 {
 
         return target;
     }
+
+    /** **/
+    public *[Symbol.iterator](): Iterator<number> {
+        yield this.x;
+        yield this.y;
+    }
 }
 
 /** **/
@@ -359,6 +365,13 @@ export class Vec3 {
         }
 
         return target;
+    }
+
+    /** **/
+    public *[Symbol.iterator](): Iterator<number> {
+        yield this.x;
+        yield this.y;
+        yield this.z;
     }
 }
 
@@ -544,6 +557,14 @@ export class Vec4 {
         }
 
         return target;
+    }
+
+    /** **/
+    public *[Symbol.iterator](): Iterator<number> {
+        yield this.x;
+        yield this.y;
+        yield this.z;
+        yield this.z;
     }
 }
 

@@ -93,14 +93,6 @@ function rt.LabelSDF:_compute()
 
     self._mask_texture:unbind()
 
-    for shader in range(
-        _init_shader,
-        _jump_shader,
-        _export_shader
-    ) do
-        shader:send("max_distance", rt.settings.label_sdf.max_distance)
-    end
-
     -- init jfa
     _init_shader:send("mask_texture", self._mask_texture)
     _init_shader:send("jfa_texture_array", self._jfa_texture)
@@ -129,6 +121,8 @@ function rt.LabelSDF:_compute()
     _export_shader:send("jfa_texture_array", self._jfa_texture)
     _export_shader:send("export_texture", self._export_texture)
     _export_shader:send("mask_texture", self._mask_texture)
+    _export_shader:send("use_mask", self._should_draw_inside)
+    _export_shader:send("max_distance", rt.settings.label_sdf.max_distance)
     _export_shader:dispatch(self._dispatch_x, self._dispatch_y)
 
     self._sdf_needs_export = false

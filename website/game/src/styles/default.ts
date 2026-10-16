@@ -1,6 +1,6 @@
 export const DEFAULT_COLOR_PRIMARY = "#FF0066";
 export const DEFAULT_COLOR_SECONDARY = "#5FFDAE";
-export const DEFAULT_COLOR_FOREGROUND = "#E2E2E2";
+export const DEFAULT_COLOR_FOREGROUND = "#ebebeb";
 export const DEFAULT_COLOR_MUTED = "#ABABAB";
 export const DEFAULT_COLOR_EMPHASIZED = "#F0F0F0";
-export const DEFAULT_COLOR_BACKGROUND = "#0B0B10";
+export const DEFAULT_COLOR_BACKGROUND = "#1c1c1c";

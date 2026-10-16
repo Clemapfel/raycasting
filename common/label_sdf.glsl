@@ -42,13 +42,13 @@ layout(JFA_TEXTURE_FORMAT) uniform readonly image2DArray jfa_texture_array;
 layout(EXPORT_TEXTURE_FORMAT) uniform writeonly image2D export_texture;
 
 uniform int layer;
-uniform bool apply_mask = false;
+uniform bool use_mask = false;
+uniform float max_distance = 16;
 
 #endif
 
 const float infinity = 1.0 / 0.0;
 const float threshold = 0;
-uniform float max_distance = 16;
 
 const ivec2 directions[8] = ivec2[](
     ivec2(0, -1),
@@ -130,7 +130,7 @@ void computemain() {
     vec4 value = imageLoad(jfa_texture_array, ivec3(position, layer));
     vec4 mask = imageLoad(mask_texture, ivec2(position));
 
-    if (apply_mask && mask.r > 0)
+    if (use_mask && mask.r > 0)
         value *= 0;
 
     imageStore(export_texture, ivec2(position), value.zzzz / max_distance);

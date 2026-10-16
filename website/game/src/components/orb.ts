@@ -382,7 +382,7 @@ export class Orb extends GLWidget  {
             this.particle_canvas.bind();
 
             this.context.clear(0, 0, 0, 0);
-            this.context.setBlendmode(BlendMode.ALPHA, BlendMode.ADD);
+            this.context.setBlendMode(BlendMode.ALPHA, BlendMode.ADD);
 
             this.particle_mesh_shader.bind();
             this.particle_mesh_shader.setUniform(DEFAULT_TEXTURE_NAME, this.particle_mesh_texture);
@@ -424,7 +424,7 @@ export class Orb extends GLWidget  {
 
             const t = 0.5
             this.context.setColor(t, t, t, t); // additive blending
-            this.context.setBlendmode(BlendMode.ADD, BlendMode.ALPHA);
+            this.context.setBlendMode(BlendMode.ADD, BlendMode.ALPHA);
             this.glass_mesh_shader!.bind();
             this.glass_mesh!.draw();
             this.glass_mesh_shader!.unbind();

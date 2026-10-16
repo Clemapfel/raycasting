@@ -24,7 +24,7 @@ rt.settings.menu_scene = {
     bloom_composite = 0.2,
 
     title_screen = {
-        font_roman = "assets/fonts/RubikSprayPaint/RubikSprayPaint-Regular.ttf",
+        font_latin = "assets/fonts/RubikSprayPaint/RubikSprayPaint-Regular.ttf",
         font_japanese = "assets/fonts/07NikumaruFont/07NikumaruFont.ttf",
 
         player_velocity = 100, -- when reflecting
@@ -342,7 +342,7 @@ function mn.MenuScene:size_allocate(x, y, width, height)
 
         local font = ternary(is_japanese,
             rt.Font(rt.settings.menu_scene.title_screen.font_japanese),
-            rt.Font(rt.settings.menu_scene.title_screen.font_roman)
+            rt.Font(rt.settings.menu_scene.title_screen.font_latin)
         )
 
         title_screen.title_label_no_sdf = love.graphics.newTextBatch(font:get_native(font_size, rt.FontStyle.REGULAR, false), title)

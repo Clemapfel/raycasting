@@ -607,7 +607,10 @@ function bd.move(source_path, destination_path)
     end
 end
 
---- @brief
+--- @brief safely run a lua file as code
+--- @param path String path to file
+--- @param should_sandbox Boolean? whether the file should be sandbox, true by default
+--- @param fenv Table? custom environment
 function bd.load(path, should_sandbox, fenv)
     if should_sandbox == nil then should_sandbox = true end
     meta.assert(path, mt.String, should_sandbox, mt.Boolean)
@@ -638,13 +641,13 @@ function bd.load(path, should_sandbox, fenv)
         end
     end
 
-    local chunk_success, config_or_error = pcall(chunk)
+    local chunk_success, value_or_error = pcall(chunk)
     if not chunk_success then
-        rt.error("In bd.load: error when running file at `", path, "`: ", config_or_error)
+        rt.error("In bd.load: error when running file at `", path, "`: ", value_or_error)
         return nil
     end
 
-    return config_or_error
+    return value_or_error
 end
 
 function bd.load_string(source, should_sandbox, fenv)

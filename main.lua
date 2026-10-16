@@ -12,28 +12,17 @@ end
 require "common.game_state"
 require "common.scene_manager"
 
-require "socials.social_media_banner_generator"
-rt.GameState:set_draw_debug_information(false)
+local shader = rt.Shader("website/game/src/content/shaders/square_fractal.glsl")
+local elapsed = 0
 
-local downres = 1
-rt.SocialMediaPlatform.YOUTUBE[1] = rt.SocialMediaPlatform.YOUTUBE[1] / downres
-rt.SocialMediaPlatform.YOUTUBE[2] = rt.SocialMediaPlatform.YOUTUBE[2] / downres
-
-local generator = rt.SocialMediaBannerGenerator(rt.SocialMediaPlatform.YOUTUBE)
 DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
-    if which == rt.KeyboardKey.Q then
-        local before = love.timer.getTime()
-        generator:regenerate()
-    elseif which == rt.KeyboardKey.R then
-        generator:update(1 / 30)
-    elseif which == rt.KeyboardKey.U then
-        generator:export()
-    elseif which == rt.KeyboardKey.J then
-        rt.SoundManager:pause()
-    elseif which == rt.KeyboardKey.K then
-        rt.SoundManager:unpause()
-    elseif which == rt.KeyboardKey.M then
-        rt.SoundManager:flush()
+    if which == rt.KeyboardKey.K then
+        local success, error = pcall(shader.recompile, shader)
+        if not success then
+            rt.critical(error)
+        end
+
+        elapsed = 0
     end
 end)
 
@@ -86,21 +75,12 @@ love.load = function(args)
     rt.SceneManager:push(mn.MenuScene, false)
 end
 
-local elapsed = 0
-local n = 8
-
 love.update = function(delta)
     if rt.SceneManager ~= nil then
         rt.SceneManager:update(delta)
     end
 
     elapsed = elapsed + delta
-    if elapsed > 1 / n then
-        if love.keyboard.isDown("r") then
-            generator:update(1 / n)
-        end
-        elapsed = 0
-    end
 end
 
 love.draw = function()
@@ -108,13 +88,14 @@ love.draw = function()
         rt.SceneManager:draw()
     end
 
-    --generator:draw()
+    shader:bind()
+    shader:send("elapsed", elapsed)
+    love.graphics.rectangle("fill", 0, 0, love.graphics.getDimensions())
+    shader:unbind()
 end
 
 love.resize = function(width, height)
     if rt.SceneManager ~= nil then
         rt.SceneManager:resize()
     end
-
-    --generator:reformat(0, 0, width, height)
 end

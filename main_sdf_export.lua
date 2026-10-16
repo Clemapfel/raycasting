@@ -10,7 +10,7 @@ bd.mount_path(bd.join_path(bd.get_source_directory(), "website"), "website")
 local export_prefix = "website/game/public"
 if not bd.is_directory(export_prefix) then bd.create_directory(export_prefix) end
 
-local font_roman = rt.Font(rt.settings.menu_scene.title_screen.font_roman)
+local font_latin = rt.Font(rt.settings.menu_scene.title_screen.font_latin)
 local font_japanese = rt.Font(rt.settings.menu_scene.title_screen.font_japanese)
 local font_size = rt.FontSize.MAX
 
@@ -28,7 +28,7 @@ for x in range(
         font_size,
         font,
         nil,
-        true
+        false -- fill center
     )
 
     last:export(path, rt.ImageEncodingFormat.PNG)

@@ -102,6 +102,7 @@ export class GLContext {
             antialias: true,
             powerPreference: "high-performance",
             alpha: true,
+            premultipliedAlpha: true,
             depth: true,
             stencil: true,
             desynchronized: true
@@ -262,7 +263,7 @@ export class GLContext {
     }
 
     /** **/
-    public setBlendmode(rgb : BlendMode, alpha : BlendMode = BlendMode.ALPHA) : void {
+    public setBlendMode(rgb : BlendMode, alpha : BlendMode = BlendMode.ALPHA) : void {
         if (!this.isValid() || this.gl === null) return;
         const gl = this.gl!;
 
@@ -367,7 +368,7 @@ export class GLContext {
             this.setColor(node.color);
 
         if (node.blend_mode_rgb !== undefined)
-            this.setBlendmode(node.blend_mode_rgb, node.blend_mode_alpha);
+            this.setBlendMode(node.blend_mode_rgb, node.blend_mode_alpha);
 
         if (node.stencil_mode !== undefined)
             this.setStencilMode(node.stencil_mode, node.stencil_value);

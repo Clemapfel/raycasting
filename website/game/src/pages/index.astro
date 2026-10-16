@@ -1,27 +1,84 @@
 ---
 import { Languages } from "../i18n/languages";
+import Layout from "../layouts/layout.astro";
 
 const supported = Object.keys(Languages);
 const fallback = "en";
-const page = "index";
+const page = "";
 ---
 
-<html>
-<body data-supported={JSON.stringify(supported)} data-fallback={fallback} data-page={page}>
-<noscript>
-    <meta http-equiv="refresh" content={`0; url=/${fallback}/${page}`} />
-</noscript>
+<Layout>
+    <Fragment slot="head">
+        <title>Redirecting ...</title>
+        <noscript>
+            <meta http-equiv="refresh" content={`0; url=/${fallback}${page ? `/\${page}` : ""}`} />
+        </noscript>
+    </Fragment>
 
-<script>
-    const { supported, fallback, page } = document.body.dataset;
-    const supportedLangs = JSON.parse(supported);
-    const preferred = (navigator.languages || [navigator.language])
-        .map((l) => l.toLowerCase().split("-")[0]);
-    const lang = preferred.find((l) => supportedLangs.includes(l)) || fallback;
-    window.location.replace(`/${lang}/${page}`);
-</script>
+    <div
+            id="redirect"
+            data-supported={JSON.stringify(supported)}
+            data-fallback={fallback}
+            data-page={page}
+    >
+        <a class="label" href={`/${fallback}${page ? `/\${page}` : ""}`}>
+            Redirecting...<br>
+            Wird weitergeleitet...<br>
+            リダイレクト中...<br>
+        </a>
+    </div>
 
-<a href={`/${fallback}/${page}`}>Redirecting ...</a>
+    <script>
+        const { supported, fallback, page } = document.getElementById("redirect")!.dataset;
+        const supportedLangs: string[] = JSON.parse(supported!);
+        const preferences = navigator.languages || [navigator.language];
 
-</body>
-</html>
+        let matchedLang = fallback;
+        for (const pref of preferences) {
+            const lower = pref.toLowerCase();
+            const base = lower.split("-")[0];
+
+            if (supportedLangs.includes(lower)) {
+                matchedLang = lower;
+                break;
+            }
+            if (supportedLangs.includes(base)) {
+                matchedLang = base;
+                break;
+            }
+        }
+
+        const targetPath = page ? `/${matchedLang}/${page}` : `/${matchedLang}`;
+        window.location.replace(targetPath);
+    </script>
+</Layout>
+
+<style>
+    :global(html),
+    :global(body) {
+        margin: 0;
+        min-height: 100vh;
+        background: black;
+    }
+
+    :global(body) {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .label {
+        font-family: var(--default-font, sans-serif), sans-serif;
+        color: var(--default-color-secondary);
+        font-weight: normal;
+        paint-order: stroke fill;
+        text-align: center;
+        font-size: 18pt;
+        line-height: 200%;
+        text-decoration: none;
+    }
+
+    .label:hover {
+        text-decoration: underline;
+    }
+</style>

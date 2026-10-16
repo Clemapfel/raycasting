@@ -17,23 +17,22 @@ export enum TextureWrapMode {
 
 /** **/
 export enum TextureFormat {
-    // 8-bit Color
     RGBA8, RGB8, RG8, R8,
-    // 16-bit Float Color
+
     RGBA16F, RGB16F, RG16F, R16F,
-    // 32-bit Float Color
+
     RGBA32F, RGB32F, RG32F, R32F,
-    // 8-bit Integer Color
+
     RGBA8UI, RGBA8I, RGB8UI, RGB8I, RG8UI, RG8I, R8UI, R8I,
-    // 16-bit Integer Color
+
     RGBA16UI, RGBA16I, RGB16UI, RGB16I, RG16UI, RG16I, R16UI, R16I,
-    // 32-bit Integer Color
+
     RGBA32UI, RGBA32I, RGB32UI, RGB32I, RG32UI, RG32I, R32UI, R32I,
-    // Packed / Special Color
+
     RGB10_A2, RGB565, RGB5_A1, RGBA4,
     SRGB8_ALPHA8, SRGB8,
     R11F_G11F_B10F, RGB9_E5,
-    // Depth / Stencil
+
     DEPTH_COMPONENT16, DEPTH_COMPONENT24, DEPTH_COMPONENT32F,
     DEPTH24_STENCIL8, DEPTH32F_STENCIL8
 }
