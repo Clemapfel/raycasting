@@ -25,7 +25,8 @@ server.waitForBoot {
 		//\boost_field,
 		//\menu
 		//\main_menu_dive
-		\bubble_field
+		\menu_swipe
+		//\bubble_field
 	].do { |name| currentEnvironment[name].(degrees) };
 
 	CmdPeriod.doOnce { server.freeAll }
@@ -1221,4 +1222,23 @@ record_pattern = { arg recordbuf, recordbus, pattern, trig = nil, delay = 0;
 		level: level,
 		dur: dur
 	]).play;
+};
+
+~menu_swipe = { arg degrees;
+
+	var def = SynthDef.new(\menu_swipe, { arg out, dur, freq, gate = 1;
+		var ampEnv = EnvGen.ar(Env.new([0, 1, 0], [1, 4, 1].normalizeSum * dur, \welch));
+		var signal = PinkNoise.ar * ampEnv;
+
+		var endTrig = Done.kr(ampEnv);
+
+		Out.ar(out, signal);
+		FreeSelf.kr(DelayN.ar(endTrig));
+	}).add;
+
+	server.sync;
+
+	Pnew(def.name, *[
+		degree: Pseq([0, 1, 4], inf)
+	]);
 };

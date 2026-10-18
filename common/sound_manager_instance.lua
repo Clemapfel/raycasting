@@ -76,6 +76,10 @@ function rt.SoundManager:instantiate()
     self._handler_id_to_entry = {} -- handler id to active entry
 end
 
+local _is_mono = function(source)
+    return source:getChannelCount() == 1
+end
+
 --- @brief
 function rt.SoundManager:_get_resource_entry(id, degree)
     if degree ~= nil then id = id .. rt.settings.sound_manager.degree_separation_char .. degree end
@@ -132,7 +136,7 @@ function rt.SoundManager:_load_data(path)
         end
     end
 
-    if rt.settings.sound_manager.import_should_normalize then
+    if max_sample > 0 and rt.settings.sound_manager.import_should_normalize then
         for i = 1, n_samples do
             buffer[i] = buffer[i] / max_sample
         end
@@ -154,19 +158,23 @@ end
 
 --- @brief
 function rt.SoundManager:_set_source_position(source, x, y)
-    if x == nil and y == nil then
-        -- always 0 distance away from player
-        source:setPosition(0, 0, 0)
-        source:setRelative(true)
-        return 0, 0
-    else
-        -- static position in world
-        local x, y = x or self._listener_x,
+    if _is_mono(source) then
+        if x == nil and y == nil then
+            -- always 0 distance away from player
+            source:setPosition(0, 0, 0)
+            source:setRelative(true)
+            return 0, 0
+        else
+            -- static position in world
+            x, y = x or self._listener_x,
             y or self._listener_y
 
-        source:setPosition(x, y, 0)
-        source:setRelative(false)
-        return x, y
+            source:setPosition(x, y, 0)
+            source:setRelative(false)
+            return x, y
+        end
+    else
+        return 0, 0
     end
 end
 
@@ -178,9 +186,11 @@ function rt.SoundManager:_sync_sources(origin, ...)
         source:setPitch(origin:getPitch())
         source:setLooping(origin:isLooping())
 
-        source:setPosition(origin:getPosition())
-        source:setVelocity(origin:getVelocity())
-        source:setRelative(origin:isRelative())
+        if _is_mono(source) then
+            source:setPosition(origin:getPosition())
+            source:setVelocity(origin:getVelocity())
+            source:setRelative(origin:isRelative())
+        end
 
         source:setRolloff(origin:getRolloff())
         source:setAttenuationDistances(origin:getAttenuationDistances())
@@ -317,7 +327,7 @@ function rt.SoundManager:_play_internal(id, config, handler_id)
     end
 
     if config.volume < 0 then
-        rt.critical(error_prefix, "volume `", config.pitch, "` cannot be negative")
+        rt.critical(error_prefix, "volume `", config.volume, "` cannot be negative")
     end
 
     if config.delay < 0 then
@@ -443,15 +453,17 @@ function rt.SoundManager:_play_internal(id, config, handler_id)
     end
 
     -- position
-    entry.source:setRolloff(1)
-    entry.source:setAttenuationDistances(
-        self._reference_distance,
-        self._reference_distance
-    )
-    entry.source:setVelocity(0, 0, 0)
-    entry.position_motion = rt.SmoothedMotion2D(
-        self:_set_source_position(entry.source, config.x, config.y)
-    )
+    if _is_mono(entry.source) then
+        entry.source:setRolloff(1)
+        entry.source:setAttenuationDistances(
+            self._reference_distance,
+            self._reference_distance
+        )
+        entry.source:setVelocity(0, 0, 0)
+        entry.position_motion = rt.SmoothedMotion2D(
+            self:_set_source_position(entry.source, config.x, config.y)
+        )
+    end
 
     -- loop
     entry.source:setLooping(config.should_loop)
@@ -588,7 +600,7 @@ end
 
 --- @brief
 function rt.SoundManager:pause()
-    if self._PAUSE_STATE_PAUSED then return end
+    if self._state == _PAUSE_STATE_IDLE or self._state == _PAUSE_STATE_UNPAUSING then return end
     self._pause_state = _PAUSE_STATE_PAUSING
     self._pause_volume_motion:set_target_value(0)
 end
@@ -628,11 +640,15 @@ function rt.SoundManager:set_position(handler_id, x, y)
     local entry = self:_get_entry(handler_id)
     if entry == nil then return false end
 
-    entry.position_motion:set_target_position(
-        self:_set_source_position(entry.source, x, y)
-    )
-
-    return true
+    if _is_mono(entry.source) then
+        entry.position_motion:set_target_position(
+            self:_set_source_position(entry.source, x, y)
+        )
+        return true
+    else
+        rt.warning("In rt.SoundManager: trying to set position of source `", entry.resource_entry.id, "`, but it is not mono")
+        return false
+    end
 end
 
 --- @brief
@@ -922,7 +938,11 @@ function rt.SoundManager:update(delta)
                 end
 
                 entry.volume_motion:update(delta)
-                entry.position_motion:update(delta)
+
+                if not _is_mono(entry.source) then
+                    entry.position_motion:update(delta)
+                end
+
                 entry.pitch_motion:update(delta)
                 entry.envelope:update(delta)
 
