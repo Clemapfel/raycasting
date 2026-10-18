@@ -1225,12 +1225,27 @@ record_pattern = { arg recordbuf, recordbus, pattern, trig = nil, delay = 0;
 };
 
 ~menu_swipe = { arg degrees;
+	var tail = 0.5; // [0, 1]
+	var def = SynthDef.new(\menu_swipe, { arg out, dur, startFreq, endFreq, gate = 1;
+		var x = Sweep.ar(Trig1.ar(gate), (1e-4.log * (1.0 - tail).log).sqrt.exp / dur);
+		var t = (x.log.squared / (1.0 - tail).log).exp;
+		var endTrig = DetectSilence.ar(t, amp: 1e-4);
 
-	var def = SynthDef.new(\menu_swipe, { arg out, dur, freq, gate = 1;
-		var ampEnv = EnvGen.ar(Env.new([0, 1, 0], [1, 4, 1].normalizeSum * dur, \welch));
-		var signal = PinkNoise.ar * ampEnv;
-
-		var endTrig = Done.kr(ampEnv);
+		var n = 6;
+		var eps = 0.5;
+		var signal = Mix.ar(
+			n.collect({ |i|
+				var noise = LFNoise2.kr(25);
+				Pan2.ar(
+					BPF.ar(
+						PinkNoise.ar * t,
+						freq: t.linlin(0, 1, startFreq, endFreq) * noise.range(1 - eps, 1 + eps),
+						rq: 1.5.reciprocal
+					),
+					pos: t * ((i.linlin(0, n - 1, -1, 1) + noise.linlin(-1, 1, -0.5 / n, 0.5 / n)))
+				)
+			})
+		);
 
 		Out.ar(out, signal);
 		FreeSelf.kr(DelayN.ar(endTrig));
@@ -1239,6 +1254,8 @@ record_pattern = { arg recordbuf, recordbus, pattern, trig = nil, delay = 0;
 	server.sync;
 
 	Pnew(def.name, *[
-		degree: Pseq([0, 1, 4], inf)
-	]);
+		startFreq: 300,
+		endFreq: 8000,
+		dur: Pn(10, 1)
+	]).play;
 };

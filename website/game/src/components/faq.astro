@@ -1,0 +1,84 @@
+---
+interface Props { question: string }
+const { question } = Astro.props;
+---
+
+<style>
+    .faq {
+        /* header question */
+        --faq-header-font: var(--default-font), sans-serif;
+        --faq-header-size: 1.25rem;
+        --faq-header-color: var(--default-color-foreground);
+
+        /* body */
+        --faq-body-font: var(--default-font), sans-serif;
+        --faq-body-size: 1rem;
+        --faq-body-color: var(--default-color-foreground);
+
+        /* icon */
+        --faq-icon-size: 0.6em;
+        --faq-icon-color: var(--default-color-foreground);
+
+        margin-top: 2rem;
+    }
+
+    .faq summary {
+        font-family: var(--faq-header-font), sans-serif;
+        font-size: var(--faq-header-size);
+        color: var(--faq-header-color);
+        font-weight: 600;
+        cursor: pointer;
+        list-style: none; /* hide default triangle on firefox/chrome */
+        display: flex;
+        align-items: center;
+        gap: 0.4em;
+    }
+
+    .faq summary:hover {
+        text-decoration: underline;
+    }
+
+    .faq summary::-webkit-details-marker {
+        display: none; /* hide default triangle on safari */
+    }
+
+    .faq summary::before {
+        content: "";
+        flex: none;
+        width: 0;
+        height: 0;
+        border-top: calc(var(--faq-icon-size) / 2) solid transparent;
+        border-bottom: calc(var(--faq-icon-size) / 2) solid transparent;
+        border-left: var(--faq-icon-size) solid var(--faq-icon-color);
+        transition: transform 0.2s ease;
+    }
+
+    .faq[open] summary::before {
+        transform: rotate(90deg);
+    }
+
+    .faq .faq-body {
+        font-family: var(--faq-body-font), sans-serif;
+        font-size: var(--faq-body-size);
+        color: var(--faq-body-color);
+        line-height: 1.6;
+        padding: 0.75em 0 0 calc(var(--faq-icon-size) + 0.6em); /* aligns with header text */
+    }
+
+    .faq-hline {
+        margin-left: 40px;
+        margin-right: 40px;
+        margin-top: 2em;
+        margin-bottom: 2em;
+        border: none;
+        height: 3px;
+        border-radius: 999px;
+        background-color: color-mix(in srgb, var(--default-color-background), var(--default-color-foreground) 50%);
+    }
+</style>
+
+<details class="faq">
+    <summary>{question}</summary>
+    <div class="faq-body"><slot /></div>
+</details>
+<hr class="faq-hline" />

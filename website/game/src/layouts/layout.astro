@@ -11,6 +11,13 @@ import {
 import "../styles/fonts.css";
 import Footer from "../components/footer.astro";
 import LanguageChooser from "../components/language_chooser.astro";
+
+interface Props {
+	title?: string;
+}
+
+const { title } = Astro.props;
+const fullTitle = title ? `${title} | Chroma Void` : "Chroma Void";
 ---
 
 <!doctype html>
@@ -19,7 +26,8 @@ import LanguageChooser from "../components/language_chooser.astro";
 	<meta charset="UTF-8" />
 	<meta name="generator" content={Astro.generator} />
 
-	<title>Chroma Void</title>
+	<title>{fullTitle}</title>
+
 	<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 
 	<link rel="preconnect" href="https://fonts.googleapis.com">
@@ -55,6 +63,14 @@ import LanguageChooser from "../components/language_chooser.astro";
 
 		html, body {
 			overscroll-behavior-y: none;
+		}
+
+		a {
+			color: var(--default-color-primary);
+		}
+
+		a:visited {
+			color: var(--default-color-secondary);
 		}
 	</style>
 </head>

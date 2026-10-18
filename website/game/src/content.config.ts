@@ -18,6 +18,7 @@ export const collections = {
         loader: glob({ pattern: "*.{md,mdx}", base: "./src/content/pages/en" }),
         schema: z.object({
             language: z.string(),
+            title: z.string(),
             shader: z.string()
         })
     }),

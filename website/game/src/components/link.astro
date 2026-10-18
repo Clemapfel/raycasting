@@ -1,0 +1,25 @@
+---
+// usage: <Link text="text" href="https://link.com" />
+interface Props {
+    text: string;
+    href: string;
+    class?: string;
+}
+
+const { text, href, class: className } = Astro.props;
+---
+
+<a href={href} target="_blank" rel="noopener noreferrer" class={className}>
+    <span class="label">{text}</span>
+</a>
+
+<style>
+    a:link {
+        color: var(--default-color-primary, #0066cc);
+        text-decoration: underline dotted;
+    }
+
+    a:hover {
+        text-decoration: underline;
+    }
+</style>

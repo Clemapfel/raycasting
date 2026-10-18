@@ -6,7 +6,7 @@ import Footer from "../components/footer.astro";
 import Header from "../components/header.astro";
 import NoisyFrame from "../components/noisy_frame.astro";
 import LanguageChooser from "../components/language_chooser.astro";
-import { Languages } from "../i18n/languages";
+import { Languages } from "../common/languages";
 
 const defaultLanguage = 'en';
 
@@ -32,7 +32,6 @@ const entry = await getEntry("pages", id);
 ---
 
 <style>
-    /* keep centered */
     .page-wrapper {
         display: flex;
         justify-content: center;
@@ -44,7 +43,7 @@ const entry = await getEntry("pages", id);
     }
 </style>
 
-<Layout>
+<Layout title={entry!.data.title}>
     <ShaderCanvas id={entry!.data.shader}/>
 
     <div class="page-wrapper">
