@@ -130,7 +130,7 @@ vec4 effect(vec4 color, sampler2D tex, vec2 texture_coords, vec2 screen_coords) 
 
     vec2 amp = vec2(0.1);
     vec2 amp_mul = vec2(1.0);
-    vec2 amp_add = vec2(0.15);
+    vec2 amp_add = vec2(0.15    );
 
     float angle_t = 0.8;
     float angle_t_mul = 1.0;

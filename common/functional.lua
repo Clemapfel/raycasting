@@ -395,6 +395,27 @@ local _new_proxy = function(...)
         return self
     end
 
+    self.square = function(exponent)
+        resolve(_number_t, function(x)
+            return x * x
+        end)
+        return self
+    end
+
+    self.double = function(exponent)
+        resolve(_number_t, function(x)
+            return x * 2
+        end)
+        return self
+    end
+
+    self.half = function(exponent)
+        resolve(_number_t, function(x)
+            return x / 2
+        end)
+        return self
+    end
+
     self.reciprocal = function()
         resolve(_number_t, function(x)
             return 1 / x
