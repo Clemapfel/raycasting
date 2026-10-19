@@ -417,9 +417,6 @@ end
 
 --- @brief split along character
 function string.split(str, sep)
-    assert(type(str) == "string")
-    assert(type(sep) == "string" and #sep == 1)
-
     local out = {}
     local pattern = string.format("([^%s]+)", string.gsub(sep,
         "(%W)", -- not alpha-numeric

@@ -351,9 +351,8 @@ do
 
     --- @brief
     function meta.is_love_type(x, type)
-        require "love.love"
         meta.assert_argument_type(type, meta.String, 2)
-        return meta.is_table(x) and meta.is_function(x.typeOf) and x:typeOf(type) == true
+        return meta.is_userdata(x) and meta.is_function(x.typeOf) and x:typeOf(type) == true
     end
 
     local _type_to_validator = {

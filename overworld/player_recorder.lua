@@ -13,7 +13,10 @@ rt.settings.overworld.player_recorder = {
     path_directory = "assets/paths",
     path_directory_alias = "paths",
     signature = "THIS_IS_VIRUS_ENJOY_BEING_PWNED",
-    fps = 120
+    fps = 120,
+
+    disk_buffer_size = 1024,
+    disk_buffer_path = "tmp"
 }
 
 --- @class ow.PlayerRecorder
@@ -50,6 +53,8 @@ function ow.PlayerRecorder:instantiate(stage, scene, x, y, is_collidable)
         is_collidable
     )
     self._body:get_physics_body():set_is_enabled(false)
+
+    self._disk_out = bd.open
 end
 
 --- @brief

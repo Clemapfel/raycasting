@@ -26,6 +26,19 @@ DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
     end
 end)
 
+require "common.disk_out"
+
+local swap = rt.DiskOut("temp/test.bin")
+for i = 1, 5000 do
+    swap:write(i, i * math.pi, true, nil, tostring(i) .. "_foo")
+end
+swap:flush()
+
+local read = swap:read()
+for i = 1, table.sizeof(read) do
+    dbg(i, " ", read[i])
+end
+
 love.load = function(args)
     if PROFILE then profiler.push("love.load") end
 

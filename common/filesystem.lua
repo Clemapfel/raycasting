@@ -10,6 +10,14 @@ bd.FileType = meta.enum("FileType", {
     OTHER = "other"
 })
 
+--- @enum bd.FileMode
+bd.FileMode = meta.enum("FileMode", {
+    READ = "r",
+    WRITE = "w",
+    APPEND = "a",
+    CLOSED = "c"
+})
+
 --- @brief
 function bd.get_source_directory()
     return bd.normalize_path(love.filesystem.getSource())
@@ -88,7 +96,7 @@ end
 
 --- @brief
 function bd.get_temp_directory_name()
-    return "temp"
+    return "tmp"
 end
 
 --- @brief
@@ -273,8 +281,37 @@ function bd.create_file(path, content, should_overwrite)
     end
 
     local directory = bd.get_directory_prefix(path)
-    if directory ~= nil and directory ~= "" and not bd.exists(directory) then
-        bd.create_directory(directory)
+    if directory ~= nil and directory ~= "" then
+        directory = bd.normalize_path(directory)
+
+        local current = ""
+        local remaining = directory
+
+        if string.match(directory, "^/") then
+            current = "/"
+            remaining = string.sub(directory, 2)
+        elseif string.match(directory, "^%a:/") then
+            current = string.match(directory, "^(%a:/)")
+            remaining = string.sub(directory, #current + 1)
+        end
+
+        for part in string.gmatch(remaining, "[^/]+") do
+            if current == "" then
+                current = part
+            elseif string.match(current, "/$") or string.match(current, ":$") then
+                current = current .. part
+            else
+                current = current .. "/" .. part
+            end
+
+            if bd.exists(current) then
+                if not bd.is_directory(current) then
+                    rt.error("In bd.create_file: object at `", current, "` exists and is not a directory")
+                end
+            else
+                bd.create_directory(current)
+            end
+        end
     end
 
     local file, error_maybe = love.filesystem.openFile(path, "w")
@@ -315,6 +352,54 @@ function bd.read_file(path)
     end
 
     return data
+end
+
+--- @brief
+function bd.open_file(path, mode)
+    meta.assert(path, mt.String, mode, bd.FileMode)
+
+    if mode == bd.FileMode.CLOSED then
+        rt.error("In bd.open_file: cannot open file with CLOSED mode")
+    end
+
+    path = bd.normalize_path(path)
+
+    if mode == bd.FileMode.READ then
+        if not bd.exists(path) then
+            rt.error("In bd.open_file: file at `", path, "` does not exist")
+        end
+
+        if not bd.is_file(path) then
+            rt.error("In bd.open_file: object at `", path, "` is not a file")
+        end
+
+    elseif mode == bd.FileMode.WRITE or mode == bd.FileMode.APPEND then
+        if bd.exists(path) and not bd.is_file(path) then
+            rt.error("In bd.open_file: object at `", path, "` is not a file")
+        end
+
+        if not bd.exists(path) then
+            bd.create_file(path, "")
+        end
+    end
+
+    local file, error_maybe = love.filesystem.openFile(path, mode)
+    if error_maybe ~= nil or not file then
+        rt.error("In bd.open_file: unable to open file at `", path, "` with mode `", mode, "`: ", error_maybe)
+        return nil
+    end
+
+    return file
+end
+
+--- @brief
+function bd.close_file(file)
+    rt.assert(meta.is_love_type(file, "File"), "In bd.close_file: expected `love.File`, got `", meta.typeof(file), "`")
+
+    local success, close_success, close_error = pcall(file.close, file)
+    if not success or close_success == false then
+        rt.error("In bd.close_file: unable to close file: ", close_error or "unknown error")
+    end
 end
 
 --- @brief
