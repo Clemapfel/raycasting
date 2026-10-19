@@ -66,6 +66,7 @@ function ow.AirDashNodeParticleEffect:emit(
         color_r, color_g, color_b, color_a
     )
 
+    free(self._particle_texture)
     local radius, padding = 20, 3
     self._particle_texture = rt.RenderTexture(
         2 * (radius + padding),

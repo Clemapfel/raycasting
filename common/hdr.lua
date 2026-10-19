@@ -17,6 +17,7 @@ end
 
 --- @brief
 function rt.HDR:_init_mesh(width, height)
+    free(self._mesh)
     self._mesh_width, self._mesh_height = width, height
     self._mesh = rt.MeshRectangle(
         0, 0,
@@ -34,6 +35,7 @@ function rt.HDR:reinitialize(width, height)
         or self._texture:get_height() ~= height
         or self._texture:get_msaa() ~= rt.GameState:get_msaa()
     then
+        free(self._texture)
         self._texture = rt.RenderTexture(width, height, {
             msaa = rt.GameState:get_msaa(),
             format = rt.settings.hdr.texture_format,

@@ -37,6 +37,8 @@ function ow.Wall:instantiate(object, stage, scene)
 
     self._scene = scene
     self._stage = stage
+
+    free(self._mesh)
     self._mesh = object:create_mesh()
     self._contour = rt.contour.close(object:create_contour())
 

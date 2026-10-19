@@ -110,6 +110,8 @@ function rt.PlayerTrail:instantiate(player)
         love.graphics.push("all")
 
         love.graphics.reset()
+
+        free(self._glow_texture)
         self._glow_texture = rt.RenderTexture(width, height)
         self._glow_texture:bind()
 

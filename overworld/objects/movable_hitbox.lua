@@ -64,6 +64,7 @@ function ow.MovableHitbox:instantiate(object, stage, scene)
     self._body:add_tag(b2.Tag.HITBOX, b2.Tag.STENCIL)
     self._body:add_tag(b2.Tag.USE_LIGHTING)
 
+    free(self._mesh)
     local mesh, tris = object:create_mesh(true) -- translate to origin
     self._mesh = mesh
     self._tris = tris

@@ -115,6 +115,7 @@ function ow.FireflyParticleTextureAtlas:instantiate(hues, radii)
     canvas:unbind()
     love.graphics.pop()
 
+    free(self._texture_atlas)
     self._texture_atlas = canvas
     self._hue_to_radius_to_quad = hue_to_radius_to_quad
 end

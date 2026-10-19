@@ -46,6 +46,7 @@ function ow.ShatterSurface:instantiate(scene, world, x, y, width, height, angle)
             mesh_x, mesh_y + height
         }
 
+        free(self._pre_shatter_mesh)
         self._pre_shatter_mesh = self._generate_mesh(contour, mesh_x, mesh_y, mesh_x + width, mesh_y + height)
         self._contour = rt.contour.close(contour)
     end
@@ -164,6 +165,7 @@ function ow.ShatterSurface:shatter(origin_x, origin_y, velocity_x, velocity_y)
             part.body:set_velocity(evx + (velocity_x / (shard_mass * (1 + t)) * settings.player_velocity_influence), evy + (velocity_y / (shard_mass * (1 + t)) * settings.player_velocity_influence))
             part.body:set_restitution(1)
 
+            free(part.mesh)
             part.mesh = self._generate_mesh(part.vertices, -0.5 * w - part.x, -0.5 * h - part.y, 0.5 * w - part.x, 0.5 * h - part.y)
             part.contour = rt.contour.close(table.deepcopy(part.vertices))
         end

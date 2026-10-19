@@ -76,6 +76,8 @@ local _STATE_IDLE = "IDLE"
 --- @brief
 function ow.OverworldScene:instantiate(state)
     local settings = rt.settings.overworld_scene
+
+    free(self._player_canvas)
     meta.install(self, {
         _state = _STATE_IDLE,
 
@@ -989,6 +991,7 @@ function ow.OverworldScene:_update_screenshot(draw_player)
         or self._screenshot:get_height() ~= height
         or self._screenshot:get_format() ~= format
     then
+        free(self._screenshot)
         self._screenshot = rt.RenderTexture(width, height, {
             msaa = rt.GameState:get_msaa(),
             format = format,

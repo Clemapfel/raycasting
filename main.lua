@@ -63,7 +63,7 @@ love.load = function(args)
     end
 
     require "overworld.overworld_scene"
-    --rt.SceneManager:push(ow.OverworldScene, "debug_room", ow.StageEntryMode.INSTANT)
+    rt.SceneManager:push(ow.OverworldScene, "debug_room", ow.StageEntryMode.INSTANT)
 
     require "menu.keybinding_scene"
     --rt.SceneManager:push(mn.KeybindingScene)
@@ -90,7 +90,7 @@ love.draw = function()
 
     shader:bind()
     shader:send("elapsed", elapsed)
-    love.graphics.rectangle("fill", 0, 0, love.graphics.getDimensions())
+    --love.graphics.rectangle("fill", 0, 0, love.graphics.getDimensions())
     shader:unbind()
 end
 

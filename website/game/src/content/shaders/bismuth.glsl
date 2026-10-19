@@ -83,7 +83,7 @@ vec3 rotate(vec3 v, float angle) {
 }
 float noise(vec3 p, float twist) {
     // Map pixel coords into a single cell spanning the screen (0..1 in xy)
-    vec3 f = vec3(p.xy / rt_ScreenSize.xy, p.z);
+    vec3 f = vec3(p.xy / love_ScreenSize.xy, p.z);
 
     // Hash a fixed seed to get the one feature point's position
     vec3 q = fract(vec3(1.0) * vec3(0.1031, 0.1030, 0.0973));
@@ -100,6 +100,7 @@ float noise(vec3 p, float twist) {
 
 uniform float elapsed;
 
+
 vec4 effect(vec4 color, sampler2D tex, vec2 rt_TextureCoords, vec2 screen_coords) {
     vec2 rt_ScreenSize = love_ScreenSize.xy;
 
@@ -113,7 +114,5 @@ vec4 effect(vec4 color, sampler2D tex, vec2 rt_TextureCoords, vec2 screen_coords
     vec2 center = vec2(0.5);
     center.x *= rt_ScreenSize.x / rt_ScreenSize.y;
 
-    vec3 rgb = vec3(noise(vec3(uv time), 1.0 * (gradient_noise(vec3(uv, time)) + 1.0) / 2));
-
-    return vec4(rgb, 1.0);
+    return vec4(1.0, 0.0, 1.0, 1.0);
 }

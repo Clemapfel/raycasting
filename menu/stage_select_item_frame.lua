@@ -187,6 +187,7 @@ function mn.StageSelectItemframe:size_allocate(x, y, width, height)
     local canvas_w, canvas_h = self._bounds.width + 2 * outer_offset + 2 * padding, love.graphics.getHeight()
 
     if self._canvas == nil or self._canvas:get_width() ~= canvas_w or self._canvas:get_height() ~= canvas_h then
+        free(self._canvas)
         self._canvas = rt.RenderTexture(canvas_w, canvas_h, { msaa = 4 })
     end
 

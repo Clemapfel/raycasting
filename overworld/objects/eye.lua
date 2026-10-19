@@ -151,6 +151,7 @@ function ow.Eye:instantiate(object, stage, scene)
         table.insert(vertex_indices, outer_closing)
         table.insert(vertex_indices, inner_closing)
 
+        free(self._iris_mesh)
         self._iris_mesh = rt.Mesh(data, rt.MeshDrawMode.TRIANGLES)
         self._iris_mesh:set_vertex_map(vertex_indices)
     end
@@ -186,6 +187,7 @@ function ow.Eye:instantiate(object, stage, scene)
             })
         end
 
+        free(self._iris_highlight_mesh, self._sclera_highlight_mesh)
         self._iris_highlight_mesh = rt.Mesh(iris_highlight_data)
         self._sclera_highlight_mesh = rt.Mesh(sclera_highlight_data)
     end

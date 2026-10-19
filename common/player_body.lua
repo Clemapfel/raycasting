@@ -197,9 +197,17 @@ function rt.PlayerBody:_initialize()
     local particle_texture_radius = rt.settings.player_body.particle_texture_radius_factor * rt.settings.player.radius - 1
     self._particle_texture_radius = particle_texture_radius
 
+    free(
+        self._particle_texture,
+        self._body_texture,
+        self._body_outline_texture,
+        self._swap_texture
+    )
+
     do -- particle texture
         local w = (particle_texture_radius + 2) * 2
         local h = w
+
         self._particle_texture = rt.RenderTexture(w, h)
 
         -- fill particle with density data using shader

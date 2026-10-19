@@ -334,6 +334,8 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
         self._chunk_padding = padding
         self._chunk_size = chunk_size
 
+        free(self._mask, self._jfa_texture, self._texture_atlas)
+
         local mask = rt.RenderTexture(
             chunk_size + 2 * padding, chunk_size + 2 * padding,
             {
@@ -453,8 +455,7 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
             savepoint()
         end
 
-        jfa_texture:free()
-        mask:free()
+        free(jfa_texture, mask)
 
         self._is_done = true
         self._is_visible = true

@@ -116,7 +116,6 @@ function ow.AirDashNode:instantiate(object, stage, scene)
     scene.air_dash_node_hue = scene.air_dash_node_hue + 1
     self._color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, self._hue, 1))
     self._degree = rt.SoundManager:choose_degree(_focus_sound_id)
-    dbg(meta.hash(self), " ", self._degree)
 
     self._dash_sound_handler = nil
     self._focus_sound_handler = nil
@@ -357,6 +356,7 @@ function ow.AirDashNode:instantiate(object, stage, scene)
             build_arc(self._angle_ranges[2][1], self._angle_ranges[2][2])
         end
 
+        free(self._glow_mesh)
         self._glow_mesh = rt.Mesh(glow_data,
             rt.MeshDrawMode.TRIANGLES,
             rt.VertexFormat,

@@ -10,8 +10,6 @@ local _keys_iterator = function(t, k)
     return next_key
 end
 
-exit
-
 --- @brief iterate all keys of a table
 function keys(t)
     if t == nil then return _noop end

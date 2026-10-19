@@ -56,6 +56,8 @@ function ow.NPCBody:_initialize(
     radius, inner_radius,
     n_strands, n_segments_per_strand
 )
+    free(self._dilation_canvas, self._dilationion_mesh)
+
     local width, height = max_x - min_x, max_y - min_y
     self._dilation_canvas = rt.RenderTexture(
         width, height

@@ -100,6 +100,7 @@ function ow.Clouds:instantiate(
     self:_update_volume_texture()
     self:_update_slice_textures()
 
+    free(self._lch_texture)
     self._lch_texture = rt.LCHTexture(
         1, -- lightness steps
         1, -- chroma steps
@@ -280,6 +281,8 @@ function ow.Clouds:_init_draw_mesh(size_x, size_y, fov)
 
     mesh:set_vertex_map(vertex_map)
     mesh:set_texture(self._export_texture)
+
+    free(self._draw_mesh)
     self._draw_mesh = mesh
     return mesh
 end

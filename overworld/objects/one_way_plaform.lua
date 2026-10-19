@@ -253,6 +253,7 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
             })
         end
 
+        free(self._direction_mesh)
         self._direction_mesh = rt.Mesh(vertices, rt.MeshDrawMode.TRIANGLES)
 
         -- triangulate

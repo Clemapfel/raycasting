@@ -88,6 +88,7 @@ function ow.PortalParticles:instantiate(ax, ay, bx, by, left_or_right)
     local n_particles = length / min_radius * settings.coverage
 
     local canvas_w, canvas_h = 2 * (2 * max_radius), length
+    free(self._static_canvas)
     self._static_canvas = rt.RenderTexture(canvas_w, canvas_h, {
         has_stencil = true
     })
@@ -161,6 +162,7 @@ function ow.PortalParticles:instantiate(ax, ay, bx, by, left_or_right)
         local outer = function() return 0, 0, 0, 0 end
         local inner = function() return 1, 1, 1, 1 end
 
+        free(self._pulse_mesh)
         if self._winding == _LEFT then
             self._pulse_mesh = rt.Mesh({
                 { mesh_ax + left_x * w, mesh_ay + left_y * w, 0, 1, outer() },

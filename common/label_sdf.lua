@@ -51,6 +51,8 @@ function rt.LabelSDF:instantiate(text, font_size, font, max_distance, should_dra
     local texture_w, texture_h = width + 2 * self._padding,
         height + 2 * self._padding
 
+    free(self._mask_texture, self._jfa_texture, self._export_texture)
+
     -- init mask
     self._mask_texture = rt.RenderTexture(texture_w, texture_h, {
         format = rt.settings.overworld.normal_map.mask_texture_format,

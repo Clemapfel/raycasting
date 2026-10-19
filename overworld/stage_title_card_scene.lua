@@ -116,6 +116,7 @@ function ow.StageTitleCardScene:_initialize()
         _push_vertex(tri[5], tri[6])
     end
 
+    free(self._mesh)
     self._mesh = rt.Mesh(mesh_data, rt.MeshDrawMode.TRIANGLES)
 
     local camera_bounds = rt.AABB(min_x, min_y, max_x - min_x, max_y - min_y)
@@ -197,6 +198,7 @@ end
 --- @brief
 function ow.StageTitleCardScene:size_allocate(x, y, width, height)
     if _canvas == nil or _canvas:get_width() ~= width or _canvas:get_height() ~= height then
+        free(_canvas)
         _canvas = rt.RenderTexture(width, height, { msaa = 4 })
         _canvas:set_scale_mode(rt.TextureScaleMode.LINEAR)
     end

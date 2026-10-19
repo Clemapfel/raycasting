@@ -72,6 +72,7 @@ function mn.MenuSceneBackground:instantiate(scene)
 
     do -- particle texture
         local canvas_w = rt.SceneManager:get_pixel_scale() * (rt.settings.menu.menu_scene_background.radius + 5) -- padding
+        free(self._particle_texture)
         self._particle_texture = rt.RenderTexture(canvas_w, canvas_w, {
             msaa = 0,
             format = _texture_format
@@ -109,6 +110,7 @@ function mn.MenuSceneBackground:size_allocate(x, y, width, height)
     self._radius = settings.radius * rt.SceneManager:get_pixel_scale()
 
     if self._canvas == nil or self._canvas:get_width() ~= width or self._canvas:get_height() ~= height then
+        free(self._canvas)
         self._canvas = rt.RenderTexture(width, height, {
             msaa = 0,
             format = _texture_format

@@ -39,6 +39,14 @@ function rt.Bloom:instantiate(width, height)
     _downsample_shader = rt.Shader("common/bloom_downsample.glsl", { KERNEL_SIZE = self._kernel_size })
     _upsample_shader = rt.Shader("common/bloom_upsample.glsl", { KERNEL_SIZE = self._kernel_size })
 
+    for texture in values(self._textures) do
+        free(texture)
+    end
+
+    for mesh in values(self._meshes) do
+        free(mesh)
+    end
+
     self._textures = {}
     self._meshes = {}
     do -- init textures

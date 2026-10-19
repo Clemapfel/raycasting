@@ -32,6 +32,7 @@ function ow.StageTitleCardSceneBackground:realize()
     local canvas_w = rt.SceneManager:get_pixel_scale() * _max_size + padding
 
     -- draw circle to texture
+    free(self._particle_canvas)
     self._particle_texture = rt.RenderTexture(canvas_w, canvas_w, { msaa = 4})
     self._particle_texture:bind()
     love.graphics.setColor(1, 1, 1, 1)
@@ -73,6 +74,7 @@ function ow.StageTitleCardSceneBackground:size_allocate(x, y, width, height)
     end
 
     if self._data_mesh == nil then
+        free(self._data_mesh)
         self._data_mesh = rt.Mesh(
             self._mesh_data,
             rt.MeshDrawMode.TRIANGLE_FAN,

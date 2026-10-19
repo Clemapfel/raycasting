@@ -74,6 +74,7 @@ function ow.CheckpointPlatform:instantiate(x1, y1, x2, y2, radius)
     add_vertex(outer_bottom_left_x, outer_bottom_left_y, 3/4,  0, 0)
     add_vertex(outer_top_left_x, outer_top_left_y, 4/4,  0, 0) -- duplicate for wrapping
 
+    free(self._mesh)
     self._mesh = rt.Mesh(mesh_data, rt.MeshDrawMode.TRIANGLES)
     self._mesh:set_vertex_map({
         1, 2, 3, 1, 3, 4,

@@ -54,6 +54,15 @@ function ow.LightMap:instantiate(width, height)
     local settings = rt.settings.overworld.light_map
     self._tile_size = 128
 
+    free(
+        self._light_intensity_texture,
+        self._light_direction_texture,
+        self._mask_texture,
+        self._composite_texture,
+        self._composite_mask,
+        self._bloom_dummy_texture
+    )
+
     self._light_intensity_texture = rt.RenderTexture(width, height, {
         msaa = 0,
         format = settings.intensity_texture_format,

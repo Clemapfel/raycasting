@@ -198,6 +198,7 @@ function ow.NPCEyes:_initialize_eyes()
         table.insert(self._base_right_outline, right_y + y)
     end
 
+    free(self._base_left, self._base_right)
     self._base_left = rt.Mesh(self._base_left_data)
     self._base_right = rt.Mesh(self._base_right_data)
 

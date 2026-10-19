@@ -46,7 +46,7 @@ function ow.Mirror:draw()
         or self._scene:get_player():get_is_ghost()
     then return end
 
-    local canvas, scale_x, scale_y = self._scene:get_player_canvas() -- rt.Texture("assets/sprites/why.png")--
+    local canvas, scale_x, scale_y = self._scene:get_player_canvas()
 
     local should_stencil = self._draw_mirror_mask_callback ~= nil
     local stencil_value = rt.graphics.get_stencil_value()

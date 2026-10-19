@@ -151,7 +151,6 @@ function state:update(delta)
             self.output_buffer:setSample(i, out)
         end
 
-        dbg("queue")
         self.source:queue(self.output_buffer)
         self.source:play()
     end

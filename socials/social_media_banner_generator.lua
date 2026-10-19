@@ -34,6 +34,7 @@ function rt.SocialMediaBannerGenerator:instantiate(platform)
         self._export_name = self._export_name .. postfix
     end
 
+    free(self._texture)
     self._texture = rt.RenderTexture(self._resolution_x, self._resolution_y, {
         format = rt.settings.social_media_banner_generator.texture_format,
         is_compute = true,

@@ -237,6 +237,8 @@ function ow.BoostField:instantiate(object, stage, scene)
 
             self._path_n_segments = n_segments
             self._path_length = particle_path:get_length()
+
+            free(self._path_buffer_xy_and_tangent, self._path_buffer_segment_and_fraction)
             self._path_buffer_xy_and_tangent = rt.Texture(xy_and_tangent)
             self._path_buffer_segment_and_fraction = rt.Texture(segment_and_fraction)
         end
@@ -259,6 +261,7 @@ function ow.BoostField:instantiate(object, stage, scene)
             end
         end
 
+        free(self._mesh)
         self._mesh = rt.Mesh(mesh_data, rt.MeshDrawMode.TRIANGLES)
 
         -- create segment lights
@@ -864,6 +867,7 @@ do
             end
         end
 
+        free(self._instance_data_buffer)
         self._instance_data_buffer = rt.Mesh(
             self._instance_data_buffer_data,
             rt.MeshDrawMode.POINTS,

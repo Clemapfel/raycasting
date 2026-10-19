@@ -14,6 +14,8 @@ function ow.FireflyParticle:instantiate(hue, radius)
     local texture_r = radius
     local padding = 2
     local texture_w = 2 * (texture_r + padding)
+
+    free(self._texture)
     self._texture = rt.RenderTexture(texture_w, texture_w)
 
     local x, y = 0.5 * texture_w, 0.5 * texture_w

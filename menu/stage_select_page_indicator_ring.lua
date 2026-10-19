@@ -56,6 +56,7 @@ function mn.StageSelectPageIndicatorRing:instantiate(radius, thickness)
     local min_radius, max_radius = settings.min_radius * thickness, settings.max_radius * thickness
     local min_velocity, max_velocity = settings.min_velocity, settings.max_velocity
 
+    free(self._canvas)
     local max_offset = rt.settings.menu.stage_select_page_indicator_ring.max_noise_offset * thickness
     local padding = (max_offset + 2 * max_radius) + rt.SceneManager:get_pixel_scale() * 20
     self._canvas = rt.RenderTexture(2 * radius + 2 * padding, 2 * radius + 2 * padding)

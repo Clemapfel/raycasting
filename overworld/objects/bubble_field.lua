@@ -175,6 +175,7 @@ function ow.BubbleField:instantiate(object, stage, scene)
         end
     end
 
+    free(self._shape_mesh)
     self._shape_mesh_data = shape_mesh_data
     self._shape_mesh = rt.Mesh(
         shape_mesh_data,
@@ -186,6 +187,7 @@ function ow.BubbleField:instantiate(object, stage, scene)
         rt.DelaunayTriangulation(contour, contour):get_triangle_vertex_map()
     )
 
+    free(self._data_mesh)
     self._data_mesh_data = data_mesh_data
     self._data_mesh = rt.Mesh(
         data_mesh_data,

@@ -52,6 +52,7 @@ function ow.ResultScreenFrame:instantiate()
 
     local padding = 5
     local radius = rt.settings.overworld.result_screen_frame.particle_radius
+    free(self._particle_texture)
     self._particle_texture = rt.RenderTexture(
         2 * (radius + padding),
         2 * (radius + padding)
@@ -382,6 +383,7 @@ function ow.ResultScreenFrame:_update_mesh_paths()
 
     self._vertex_map = vertex_map
 
+    free(self._mesh)
     self._mesh = rt.Mesh(
         self._mesh_data,
         rt.MeshDrawMode.TRIANGLES,

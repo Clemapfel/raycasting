@@ -76,6 +76,8 @@ function ow.DeceleratorSurfaceBody:instantiate(scene, contour)
     do -- init particle texture
         local w = (self._particle_texture_radius + 2) * 2
         local h = w
+
+        free(self._particle_texture)
         self._particle_texture = rt.RenderTexture(w, h)
 
         love.graphics.push("all")
@@ -243,12 +245,14 @@ function ow.DeceleratorSurfaceBody:instantiate(scene, contour)
             end
         end
 
+        free(self._outer_mesh)
         self._outer_mesh = rt.Mesh(
             outer_mesh_data,
             rt.MeshDrawMode.TRIANGLES
         )
         self._outer_mesh:set_vertex_map(outer_mesh_vertex_map)
 
+        free(self._inner_mesh)
         self._inner_mesh = rt.Mesh(
             inner_mesh_data, rt.MeshDrawMode.TRIANGLES
         )
@@ -267,6 +271,7 @@ function ow.DeceleratorSurfaceBody:instantiate(scene, contour)
     self._aabb.width = self._aabb.width + 2 * padding
     self._aabb.height = self._aabb.height + 2 * padding
 
+    free(self._canvas)
     self._canvas = rt.RenderTexture(
         self._aabb.width, self._aabb.height,
         { format = rt.TextureFormat.RG16F }
@@ -495,6 +500,7 @@ end
 function ow.DeceleratorSurfaceBody:_update_instance_mesh()
     if self._instance_mesh == nil then
         local x, y, r = 0, 0, 1
+
         local mesh = rt.Mesh({
             { x    , y    , 0.5, 0.5, 1, 1, 1, 1 },
             { x - r, y - r, 0.0, 0.0, 1, 1, 1, 1 },
@@ -510,6 +516,8 @@ function ow.DeceleratorSurfaceBody:_update_instance_mesh()
             1, 5, 2
         )
         mesh:set_texture(self._particle_texture)
+
+        free(self._instance_mesh)
         self._instance_mesh = mesh
     end
 
@@ -563,6 +571,7 @@ function ow.DeceleratorSurfaceBody:_update_instance_mesh()
             { location = 4, name = "radius", format = "float" },
         }
 
+        free(self._data_mesh)
         self._data_mesh = rt.Mesh(
             self._data_mesh_data,
             rt.MeshDrawMode.POINTS,

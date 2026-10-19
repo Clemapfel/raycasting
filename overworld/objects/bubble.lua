@@ -164,6 +164,7 @@ function ow.Bubble:instantiate(object, stage, scene)
         table.insert(self._outline_contour, outline_y)
     end
 
+    free(self._mesh)
     self._mesh = rt.Mesh(data)
 
     -- particles

@@ -179,6 +179,8 @@ function ow.Fluid:_initialize(center_x, center_y)
     do -- instance mesh
         -- 5-vertex quad with side length 1 centered at 0, 0
         local x, y, r = 0, 0, 1
+
+        free(self._instance_mesh)
         self._instance_mesh = rt.Mesh({
             { x    , y    , 0.5, 0.5, 1, 1, 1, 1 },
             { x - r, y - r, 0.0, 0.0, 1, 1, 1, 1 },
@@ -201,6 +203,7 @@ function ow.Fluid:_initialize(center_x, center_y)
         local w = (particle_texture_r + 2) * 2
         local h = w
 
+        free(self._particle_texture)
         self._particle_texture = rt.RenderTexture(w, h, {
             msaa = 0,
             format = rt.TextureFormat.NORMAL
@@ -231,9 +234,8 @@ function ow.Fluid:_initialize(center_x, center_y)
             rt.GraphicsBufferUsage.STREAM
         )
 
+        free(self._data_mesh, self._data_buffer)
         self._data_mesh = rt.Mesh(native)
-
-        free(self._data_buffer)
         self._data_buffer = rt.GraphicsBuffer(native:getVertexBuffer())
         self._data_buffer_data = self._data_buffer:get_byte_data()
 
@@ -904,6 +906,7 @@ function ow.Fluid:_resize_canvas()
         or self._canvas:get_width() ~= width
         or self._canvas:get_height() ~= height
     then
+        free(self._canvas)
         self._canvas = rt.RenderTexture(width, height, {
             msaa = rt.graphics.msaa_quality_to_native(rt.MSAAQuality.BETTER),
             format = rt.TextureFormat.RGBA16F

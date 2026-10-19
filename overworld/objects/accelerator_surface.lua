@@ -186,6 +186,8 @@ function ow.AcceleratorSurface:instantiate(object, stage, scene)
     -- mesh
 
     self._contour = rt.contour.round(object:create_contour(), 10)
+
+    free(self._mesh)
     self._mesh = rt.Mesh(mesh_data, rt.MeshDrawMode.TRIANGLES)
 
     local contour = object:create_contour()

@@ -144,53 +144,6 @@ function ow.Goal:instantiate(object, stage, scene)
 
         local offset = rt.settings.overworld.goal.outline_width / 2 -- for pixel perfect hitbox accuracy
 
-        local function create_mesh(min_x, min_y, max_x, max_y, radius)
-            meta.assert(min_x, mt.Number, min_y, mt.Number, max_x, mt.Number, max_y, mt.Number)
-            if min_x > max_x then min_x, max_x = max_x, min_x end
-            if min_y > max_y then min_y, max_y = max_y, min_y end
-
-            local inner_thickness = 0.25 * radius
-            local outer_thickness = radius
-
-            local ix1 = min_x + inner_thickness
-            local iy1 = min_y + inner_thickness
-            local ix2 = max_x - inner_thickness
-            local iy2 = max_y - inner_thickness
-
-            local ox1 = min_x - outer_thickness
-            local oy1 = min_y - outer_thickness
-            local ox2 = max_x + outer_thickness
-            local oy2 = max_y + outer_thickness
-
-            local mesh_data = {}
-            local function add_vertex(x, y, u, v, alpha)
-                table.insert(mesh_data, { x, y, u, v, 1, 1, 1, alpha })
-            end
-
-            add_vertex(ix1, iy1, 0/4, 1, 1) -- top-left
-            add_vertex(ix2, iy1, 1/4, 1, 1) -- top-right
-            add_vertex(ix2, iy2, 2/4, 1, 1) -- bottom-right
-            add_vertex(ix1, iy2, 3/4, 1, 1) -- bottom-left
-            add_vertex(ix1, iy1, 4/4, 1, 1) -- wrap duplicate
-
-            add_vertex(ox1, oy1, 0/4, 0, 0) -- top-left
-            add_vertex(ox2, oy1, 1/4, 0, 0) -- top-right
-            add_vertex(ox2, oy2, 2/4, 0, 0) -- bottom-right
-            add_vertex(ox1, oy2, 3/4, 0, 0) -- bottom-left
-            add_vertex(ox1, oy1, 4/4, 0, 0) -- wrap duplicate
-
-            local mesh = rt.Mesh(mesh_data, rt.MeshDrawMode.TRIANGLES)
-
-            mesh:set_vertex_map({
-                1, 6, 2,  2, 6, 7,
-                2, 7, 3,  3, 7, 8,
-                3, 8, 4,  4, 8, 9,
-                4, 9, 5,  5, 9, 10
-            })
-
-            return mesh
-        end
-
         do
             local x, y, width, height = self._bounds:unpack()
             x, y = -0.5 * width, -0.5 * height
@@ -306,6 +259,7 @@ function ow.Goal:instantiate(object, stage, scene)
             table.insert(self._indicator_outline, center_y + v * radius)
         end
 
+        free(self._indicator)
         self._indicator = rt.Mesh(mesh_data)
 
         self._indicator_x, self._indicator_y = self._path:at(0)

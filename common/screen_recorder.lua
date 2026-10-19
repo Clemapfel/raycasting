@@ -203,6 +203,7 @@ function rt.ScreenRecorder:_try_initialize()
         or self._texture:get_width() ~= width
         or self._texture:get_height() ~= height
     then
+        free(self._texture)
         self._texture = rt.RenderTexture(width, height, rt.TextureFormat.RGBA8)
     end
 end

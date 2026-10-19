@@ -238,6 +238,7 @@ function ow.BouncePad:instantiate(object, stage, scene)
             })
         end
 
+        free(self._shape_mesh)
         self._shape_mesh_data = shape_mesh_data
         self._shape_mesh = rt.Mesh(
             shape_mesh_data,
@@ -249,6 +250,7 @@ function ow.BouncePad:instantiate(object, stage, scene)
         local triangulation = rt.DelaunayTriangulation(self._contour, self._contour):get_triangle_vertex_map()
         self._shape_mesh:set_vertex_map(triangulation)
 
+        free(self._offset_mesh)
         self._offset_mesh_data = offset_mesh_data
         self._offset_mesh = rt.Mesh(
             offset_mesh_data,

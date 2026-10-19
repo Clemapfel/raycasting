@@ -138,6 +138,10 @@ function ow.NebulaBackground:size_allocate(x, y, width, height)
         }
     end
 
+    for entry in values(self._particles) do
+        free(entry.instance_mesh, entry.data_mesh)
+    end
+
     local to_sample = {}
     for id, instance_mesh in pairs(instances) do
         local entry = new_entry(instance_mesh, false) -- no bloom
@@ -292,6 +296,7 @@ function ow.NebulaBackground:size_allocate(x, y, width, height)
                 return a[3] < b[3]
             end)
 
+            free(entry.data_mesh)
             entry.data_mesh = rt.Mesh(
                 entry.data_mesh_data,
                 rt.MeshDrawMode.POINTS,
@@ -1042,7 +1047,6 @@ function ow.NebulaBackground:_init_sphere_particle(n_rings, n_segments_per_ring)
         table.insert(new_indices, c); table.insert(new_indices, a); table.insert(new_indices, center_idx)
     end
 
-    -- Build mesh
     local instance_mesh = rt.Mesh(
         sphere_mesh_data,
         rt.MeshDrawMode.TRIANGLES,
@@ -1467,6 +1471,7 @@ function ow.NebulaBackground:_init_room_mesh()
     add_vertex(min_x, max_y, min_z, 1, 0)
     add_vertex(min_x, min_y, min_z, 0, 0)
 
+    free(self._room_mesh)
     self._room_mesh = rt.Mesh(
         room_mesh_data,
         rt.MeshDrawMode.TRIANGLES,

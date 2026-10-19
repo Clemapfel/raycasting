@@ -33,6 +33,8 @@ end
 --- @brief
 function rt.Blur:instantiate(width, height, settings)
     meta.assert(width, mt.Number, height, mt.Number, settings, mt.Optional(mt.Table))
+
+    free(self._texture_a, self._texture_b)
     return meta.install(self, {
         _blur_strength = 1, -- Integer
         _texture_w = width,

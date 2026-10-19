@@ -131,6 +131,7 @@ function ow.DeformableMesh:instantiate(scene, world, contour)
     self._mesh_data = mesh_data
     self._mesh_data_at_rest = table.deepcopy(self._mesh_data)
 
+    free(self._mesh)
     self._mesh = rt.Mesh(
         mesh_data,
         rt.MeshDrawMode.TRIANGLE_FAN,

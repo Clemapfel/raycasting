@@ -117,6 +117,7 @@ function ow.KillPlane:instantiate(object, stage, scene)
         })
     end
 
+    free(self._mask)
     self._mask = object:create_mesh(true) -- translate to origin
     self._outline_width = rt.settings.overworld.kill_plane.outline_width
     self._color = rt.Palette.KILL_PLANE
@@ -151,6 +152,7 @@ function ow.KillPlane:instantiate(object, stage, scene)
         add(center_x + right_x * aa_radius, center_y + right_y * aa_radius, 0)
         add(center_x + left_x * aa_radius, center_y + left_y * aa_radius, 0)
 
+        free(self._instance_mesh)
         self._instance_mesh = rt.Mesh(data, rt.MeshDrawMode.TRIANGLES, rt.VertexFormat2D, rt.GraphicsBufferUsage.STATIC)
         self._instance_mesh:set_vertex_map(
             1, 2, 3,
@@ -275,6 +277,7 @@ function ow.KillPlane:instantiate(object, stage, scene)
         self._particle_data = particle_data
         self._axis_data = axis_data
 
+        free(self._data_mesh)
         self._data_mesh = rt.Mesh(
             self._byte_data,
             rt.MeshDrawMode.POINTS,
