@@ -12,7 +12,7 @@ end
 require "common.game_state"
 require "common.scene_manager"
 
-local shader = rt.Shader("website/game/src/content/shaders/square_fractal.glsl")
+local shader = rt.Shader("website/game/src/content/shaders/bismuth.glsl")
 local elapsed = 0
 
 DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)

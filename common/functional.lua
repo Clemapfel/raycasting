@@ -1199,8 +1199,6 @@ local _new_proxy = function(...)
         return self
     end
 
-    
-
     return self
 end
 

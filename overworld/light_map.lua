@@ -183,6 +183,7 @@ function ow.LightMap:_reinitialize(
     if self._point_light_buffer == nil
         or self._point_light_buffer:get_n_elements() ~= new_n_point_lights
     then
+        free(self._point_light_buffer)
         self._point_light_buffer = rt.GraphicsBuffer(
             self._shader:get_buffer_format("point_light_source_buffer"),
             new_n_point_lights,
@@ -201,6 +202,7 @@ function ow.LightMap:_reinitialize(
     if self._segment_light_buffer == nil
         or self._segment_light_buffer:get_n_elements() ~= new_n_segment_lights
     then
+        free(self._segment_light_buffer)
         self._segment_light_buffer = rt.GraphicsBuffer(
             self._shader:get_buffer_format("segment_light_sources_buffer"),
             new_n_segment_lights,
@@ -228,6 +230,7 @@ function ow.LightMap:_reinitialize(
 
         local buffer_n_elements = (1 + self._n_point_lights_per_tile + 1 + self._n_segment_lights_per_tile) * self._n_tiles
 
+        free(self._tile_data_buffer)
         self._tile_data_buffer = rt.GraphicsBuffer(
             self._shader:get_buffer_format("tile_data_buffer"),
             buffer_n_elements,

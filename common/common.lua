@@ -10,6 +10,8 @@ local _keys_iterator = function(t, k)
     return next_key
 end
 
+exit
+
 --- @brief iterate all keys of a table
 function keys(t)
     if t == nil then return _noop end
@@ -480,6 +482,41 @@ end
 function exit(status)
     if status == nil then status = 0 end
     love.event.push("quit", status)
+end
+
+--- @brief deallocate a love, rt, functional, or box2d object
+--- @param object Any
+--- @return Boolean
+function free(...)
+    local n_freed = 0
+    for i = 1, select("#", ...) do
+        local object = select(i, ...)
+        if object == nil or not (meta.is_table(object) or meta.is_userdata(object)) then
+            break
+        end
+
+        local native = nil
+        if meta.is_function(object.get_native) then
+            native = object:get_native()
+        elseif object._native ~= nil then
+            native = object._native
+        end
+
+        for _, x in ipairs({ object, native }) do
+            if meta.is_function(x.free) then
+                x:free()
+                n_freed = n_freed + 1
+            elseif meta.is_function(x.release) then
+                x:release()
+                n_freed = n_freed + 1
+            elseif meta.is_function(x.destroy) then
+                x:destroy()
+                n_freed = n_freed + 1
+            end
+        end
+    end
+
+    return n_freed == select("#", ...)
 end
 
 local _tabspace = "    "

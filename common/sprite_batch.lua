@@ -141,6 +141,7 @@ end
 function rt.SpriteBatch:_upload()
     if self._buffer == nil then
         self._buffer_format = _shader:get_buffer_format("SpriteBuffer")
+        free(self._buffer)
         self._buffer = rt.GraphicsBuffer(self._buffer_format, self._current_i)
     end
 

@@ -232,6 +232,8 @@ function ow.Fluid:_initialize(center_x, center_y)
         )
 
         self._data_mesh = rt.Mesh(native)
+
+        free(self._data_buffer)
         self._data_buffer = rt.GraphicsBuffer(native:getVertexBuffer())
         self._data_buffer_data = self._data_buffer:get_byte_data()
 
