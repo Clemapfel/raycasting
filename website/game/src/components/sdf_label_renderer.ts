@@ -119,7 +119,7 @@ const canvas_threshold_shader_source = `${DEFAULT_SHADER_VERSION}
              dist = texture(${DEFAULT_TEXTURE_NAME}, uv).r;
         }
         
-        dist = 1.0 - smoothstep(center - eps, center + eps, dist);
+        dist = 1.0 - smoothstep(center - eps, center + eps, dist);        
         ${DEFAULT_FRAGMENT_OUT_NAME} = vec4(dist);
     }
     `;

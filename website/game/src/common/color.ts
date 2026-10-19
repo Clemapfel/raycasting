@@ -204,3 +204,65 @@ export class LCHA {
         return out;
     }
 }
+
+export class OKLCHA {
+    l : number;
+    c : number;
+    h : number;
+    a : number;
+
+    constructor(l : number = 0, c : number = 0, h : number = 0, a : number = 1) {
+        this.l = l;
+        this.c = c;
+        this.h = h;
+        this.a = a;
+    }
+
+    public clone(out? : OKLCHA) {
+        if (out !== undefined) {
+            out.l = this.l;
+            out.c = this.c;
+            out.h = this.h;
+            out.a = this.a;
+            return out;
+        }
+
+        return new OKLCHA(this.l, this.c, this.h, this.a);
+    }
+
+    asRGBA(out? : RGBA): RGBA {
+        // oklch -> oklab
+        const angle = this.h * 6.283185;
+        const a_component = Math.cos(angle) * this.c;
+        const b_component = Math.sin(angle) * this.c;
+
+        // oklab -> nonlinear LMS
+        const l_ = this.l + 0.3963377774 * a_component + 0.2158037573 * b_component;
+        const m_ = this.l - 0.1055613458 * a_component - 0.0638541728 * b_component;
+        const s_ = this.l - 0.0894841775 * a_component - 1.2914855480 * b_component;
+
+        const L = l_ ** 3;
+        const M = m_ ** 3;
+        const S = s_ ** 3;
+
+        // LMS -> linear sRGB
+        const lr =  4.0767416621 * L - 3.3077115913 * M + 0.2309699292 * S;
+        const lg = -1.2684380046 * L + 2.6097574011 * M - 0.3413193965 * S;
+        const lb = -0.0041960863 * L - 0.7034186147 * M + 1.7076147010 * S;
+
+        const clamp = (n: number) => Math.max(0, Math.min(1, n));
+        const linear_to_srgb = (n: number) => {
+            n = clamp(n);
+            return n > 0.0031308 ? 1.055 * n ** (1 / 2.4) - 0.055 : 12.92 * n;
+        };
+
+        out ??= new RGBA();
+
+        out.r = linear_to_srgb(lr);
+        out.g = linear_to_srgb(lg);
+        out.b = linear_to_srgb(lb);
+        out.a = this.a;
+
+        return out;
+    }
+}

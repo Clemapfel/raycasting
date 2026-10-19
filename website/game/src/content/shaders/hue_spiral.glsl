@@ -1,3 +1,17 @@
+#version 300 es
+precision highp float;
+
+uniform vec2 rt_ScreenSize;
+uniform float elapsed;
+
+in vec2 rt_TextureCoords;
+in vec4 rt_VertexColor;
+in vec2 rt_VertexPosition;
+out vec4 rt_FragColor;
+
+#define PI  3.14159265358979323846
+#define TAU 6.28318530717958647692
+
 vec3 lch_to_rgb(vec3 lch) {
     float L = lch.x * 100.0;
     float C = lch.y * 100.0;
@@ -25,11 +39,6 @@ vec3 lch_to_rgb(vec3 lch) {
     return vec3(clamp(R, 0.0, 1.0), clamp(G, 0.0, 1.0), clamp(B, 0.0, 1.0));
 }
 
-// cheap hash: tile index -> pseudo-random value in [0, 1)
-float hash21(vec2 p) {
-    return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
-}
-
 vec3 random_3d(in vec3 p) {
     return fract(sin(vec3(
     dot(p, vec3(127.1, 311.7, 74.7)),
@@ -54,117 +63,57 @@ float gradient_noise(vec3 p) {
     dot( -1.0 + 2.0 * random_3d(i + vec3(1.0, 1.0, 1.0)), v - vec3(1.0, 1.0, 1.0)), u.x), u.y), u.z );
 }
 
-float symmetric(float value) {
-    return abs(fract(value) * 2.0 - 1.0);
-}
-
-vec2 symmetric(vec2 value) {
-    return vec2(symmetric(value.x), symmetric(value.y));
-}
-
-vec2 tile_id_to_ray_dir(vec2 tile_id) {
-    return mod(tile_id, 2.0) * 2.0 - 1.0;
-}
-
-uniform float elapsed;
-
-
-float sine(float x) {
-    return (sin(x) + 1.0) / 2.0;
-}
-
-vec2 rotate(vec2 v, float n) {
-    float a = n;
+vec2 rotate(vec2 v, float a) {
     float c = cos(a);
     float s = sin(a);
     return vec2(
-        c * v.x - s * v.y,
-        s * v.x + c * v.y
+    c * v.x - s * v.y,
+    s * v.x + c * v.y
     );
 }
 
-float chebyshev(vec2 pos, vec2 other) {
-    vec2 d = abs(pos - other);
-    return max(d.x, d.y);
-}
+void main() {
+    float time = elapsed / 30.0;
 
-const float PI  = 3.14159265358979323846;
-const float TAU = 6.28318530717958647692;
-
-vec2 snap(vec2 v, float strength) {
-    vec2 target = abs(v.x) > abs(v.y)
-    ? vec2(sign(v.x), 0.0)
-    : vec2(0.0, sign(v.y));
-    // keep original length so only the direction changes
-    return mix(v, target * length(v), strength);
-}
-
-vec2 rot90(vec2 p, int quarterTurns) {
-    int k = quarterTurns & 3;
-    if (k == 0) return p;
-    if (k == 1) return vec2(-p.y,  p.x);
-    if (k == 2) return -p;
-    return vec2( p.y, -p.x);
-}
-
-
-vec4 effect(vec4 color, sampler2D tex, vec2 texture_coords, vec2 screen_coords) {
-    float time = elapsed / 10.0;
-
-    vec2 uv = texture_coords;
+    vec2 uv = rt_TextureCoords;
     uv -= 0.5;
-    uv.x *= love_ScreenSize.x / love_ScreenSize.y;
+    uv.x *= rt_ScreenSize.x / rt_ScreenSize.y;
 
     vec2 pos = 1.5 * uv;
-    vec2 previous = pos;
-
-    float snap_t = 0.0;
-    float snap_t_mul = 1.0;
-    float snap_t_add = 0.0;
-
-    float tile_size = 1.0;
-    float tile_size_mul = 1.0;
-    float tile_size_add = 0.0;
-
-    vec2 start_tile = uv;
 
     vec2 amp = vec2(0.1);
     vec2 amp_mul = vec2(1.0);
-    vec2 amp_add = vec2(0.15    );
+    vec2 amp_add = vec2(0.02);
 
     float angle_t = 0.8;
     float angle_t_mul = 1.0;
     float angle_t_add = 0.0;
 
-    float scale = 1.0;
-    float scale_mul = 1.0;
-    float scale_add = 0.0;
-
     vec2 center = vec2(0.0);
     vec2 seed = 2.0 * pos;
     vec2 dir = normalize(vec2(
-        gradient_noise(vec3(seed.x, seed.y, time)),
-        gradient_noise(vec3(seed.y, time, seed.x))
+    gradient_noise(vec3(seed.x, seed.y, time)),
+    gradient_noise(vec3(seed.y, time, seed.x))
     ));
 
-    vec3 rgb = vec3(0);
-    const int n_steps = 3;
+    vec3 rgb = vec3(0.0);
+    const int n_steps = 4;
     for (int i = 0; i < n_steps; ++i) {
-
         amp = amp * amp_mul + amp_add;
         angle_t = angle_t * angle_t_mul + angle_t_add;
-        scale = scale * scale_mul + scale_add;
-        center = (center + dir * amp);
+        center = center + dir * amp;
 
-        float sign = angle_t * (i % 2 == 0 ? 1.0 : -1.0);
+        float which = (i % 2 == 0 ? 1.0 : -1.0);
         vec2 rel = pos - center;
-        float angle = sign * TAU * mix(0.0, 1.0, 2.0 * distance(pos, center));
+        float angle = angle_t * which * TAU * (2.0 * distance(pos, center));
         pos = center + rotate(rel, angle);
 
-        rgb = rgb + lch_to_rgb(vec3(0.8, 1.0, fract(angle_t + atan(pos.y, pos.x) / TAU)));
+        float hue = fract(angle_t + atan(pos.y, pos.x) / TAU);
+        float d = distance(pos, center);
+        float mask = pow(0.5 + 0.5 * cos(TAU * 2.0 * d), 6.0);
+
+        rgb = mix(rgb, lch_to_rgb(vec3(0.8, 1.0, hue)), mask);
     }
 
-    rgb = rgb / float(n_steps);
-
-    return vec4(vec3(rgb.xyz), 1.0);
+    rt_FragColor = vec4(0.75 * rgb, 1.0);
 }

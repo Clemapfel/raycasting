@@ -112,7 +112,7 @@ void computemain() {
 
         // if outside, skip
         if (!all(greaterThanEqual(neighbor_position, ivec2(0))) || any(greaterThanEqual(neighbor_position, image_size)))
-         continue;
+            continue;
 
         vec4 neighbor = imageLoad(jfa_texture_array, ivec3(neighbor_position, input_layer));
         if (any(lessThan(neighbor.xy, vec2(0)))) // is uninitialized

@@ -14,8 +14,15 @@ const { text, href, class: className } = Astro.props;
 </a>
 
 <style>
-    a:link {
-        color: var(--default-color-primary, #0066cc);
+    a {
+        color: oklch(
+            var(--global-color-l)
+            var(--global-color-c)
+            var(--global-color-h)
+        );
+    }
+
+    a:visited {
         text-decoration: underline dotted;
     }
 

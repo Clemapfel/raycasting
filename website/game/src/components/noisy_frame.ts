@@ -1,7 +1,7 @@
 import { GLWidget } from "../common/gl_widget.ts";
 import { Mesh, MeshDrawMode } from "../common/mesh.ts";
 import { Shader } from "../common/shader.ts";
-import { RGBA, parseRGBA, LCHA } from "../common/color.ts";
+import { RGBA, parseRGBA, OKLCHA } from "../common/color.ts";
 import { Time } from "../common/time.ts";
 import { perlinNoise } from "../common/noise.ts";
 import { Vec2 } from "../common/vector.ts";
@@ -28,7 +28,7 @@ export class NoisyFrame extends GLWidget {
     private index_buffer? : Uint16Array;
     private n_contour_vertices = 0;
 
-    private color : LCHA = new LCHA(0.8, 1, 0, 1);
+    private color : OKLCHA = new OKLCHA(0.8, 1, 0, 1);
     private elapsed : Time = new Time();
 
     protected override reformat(width: number, height: number) {
@@ -57,7 +57,12 @@ export class NoisyFrame extends GLWidget {
     }
 
     protected override update(delta : Time) {
-        this.color.h = Math.fract(this.color.h += delta.asSeconds() * hue_speed);
+        // get hue from global css animation
+        const style = getComputedStyle(document.documentElement);
+        this.color.c = parseFloat(style.getPropertyValue("--global-color-c")) * 0.9;
+        this.color.l = parseFloat(style.getPropertyValue("--global-color-l"));
+        this.color.h = (parseFloat(style.getPropertyValue("--global-color-h")) / 360) % 1;
+
         this.elapsed.add(delta);
 
         if (this.mesh === undefined) return;

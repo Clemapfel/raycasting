@@ -205,7 +205,7 @@ export class Texture extends GLResource {
             };
 
             loaded_image.onerror = () => {
-                console.error(`In Texture: failed to load image from path "${source}"`);
+                console.error(`In Texture: failed to load image from path "${loaded_image.src}"`);
             };
 
             loaded_image.src = source;

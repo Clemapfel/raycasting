@@ -141,7 +141,7 @@ void main() {
 
     float time = 2.0 * 0.5 * elapsed;
 
-    const float scale = 1.4;
+    const float scale = 1.3;
     vec2 offset = 20.0 / rt_ScreenSize;
     vec3 p = vec3(uv * 20.0 * scale, time / 10.0);
     p.xy /= 2.0;
@@ -161,7 +161,7 @@ void main() {
     vec3 shadow_direction = vec3(cos(gnoise), sin(-gnoise), 0.2);
     float shadow = 0.25 * dot(normal, normalize(shadow_direction));
 
-    const float contrast = 0.3; // decrease for more shadow fog
+    const float contrast = 0.4; // decrease for more shadow fog
     float value = min(1.0, lambertian + 0.5 * noise);
     rt_FragColor = smoothstep(0.0, 1.0 - contrast, noise) * vec4(mix(
         lch_to_rgb(0.8, 1.0, noise * mix(gradient.x, gradient.y, (sin(time + gnoise) + 1.0) / 2.0)) * vec3(smoothstep(0.0, 0.6, value)),

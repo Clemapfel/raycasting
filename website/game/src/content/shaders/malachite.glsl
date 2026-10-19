@@ -96,7 +96,7 @@ void main() {
     vec2 uv = rt_TextureCoords;
     uv.x *= rt_ScreenSize.x / rt_ScreenSize.y;
     uv *= 0.8;
-    float time = 5.0 *  elapsed / 13.0;
+    float time = elapsed / 13.0;
 
     //#if USE_WORLEY_NOISE == 1
     const float worley_noise_scale = 10.0;
@@ -119,7 +119,7 @@ void main() {
     float gradient = 1.0 - min(d.x, d.y) / (cell_size * 0.5);
 
     const float threshold = 0.88;
-    float eps = fwidth(gradient);
+    float eps = max(fwidth(gradient), 0.05);
     float value = smoothstep(threshold - eps, threshold + eps, gradient);
 
     vec3 color = lch_to_rgb(vec3(0.8, 1.0, hue));
@@ -129,5 +129,5 @@ void main() {
     color.g = max(color.g * value, max(black.g, bloom.g));
     color.b = max(color.b * value, max(black.b, bloom.b));
 
-    rt_FragColor = vec4(color, 1.0);
+    rt_FragColor = vec4(0.75 * color, 1.0);
 }

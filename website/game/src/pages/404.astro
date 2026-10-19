@@ -3,6 +3,9 @@ import Layout from "../layouts/layout.astro";
 import SDFLabelRenderer from "../components/sdf_label_renderer.astro";
 import ShaderCanvas from "../components/shader_canvas.astro";
 import Footer from "../components/footer.astro";
+
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+const sdfPath = `${base}/404.png`;
 ---
 
 <style>
@@ -58,10 +61,10 @@ import Footer from "../components/footer.astro";
 </style>
 
 <Layout title="404">
-    <ShaderCanvas id="guts"/>
+    <ShaderCanvas id="crystals"/>
 
     <div class="sdf-label-renderer-wrapper">
-        <SDFLabelRenderer path="/404.png"></SDFLabelRenderer>
+        <SDFLabelRenderer path="sdfPath"></SDFLabelRenderer>
     </div>
 
     <div class="label">

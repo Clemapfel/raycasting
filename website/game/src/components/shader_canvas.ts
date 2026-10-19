@@ -14,6 +14,7 @@ export class ShaderCanvas extends GLWidget {
     private shader_program? : Shader;
     private quad? : Mesh;
     private elapsed : Time = new Time(0);
+    private paused : boolean = false;
 
     private cursor_position : Vec2 = new Vec2();
     private cursor_visible : boolean = true;
@@ -60,7 +61,16 @@ export class ShaderCanvas extends GLWidget {
         )
     }
 
+    public getIsPaused(): boolean {
+        return this.paused;
+    }
+
+    public setIsPaused(paused: boolean): void {
+        this.paused = paused;
+    }
+
     protected override update(delta: Time): void {
+        if (this.paused) return;
         this.elapsed.add(delta);
     }
 

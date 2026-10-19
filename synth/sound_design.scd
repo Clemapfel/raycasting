@@ -1234,28 +1234,34 @@ record_pattern = { arg recordbuf, recordbus, pattern, trig = nil, delay = 0;
 		var n = 6;
 		var eps = 0.5;
 		var signal = Mix.ar(
-			n.collect({ |i|
-				var noise = LFNoise2.kr(25);
-				Pan2.ar(
-					BPF.ar(
-						PinkNoise.ar * t,
-						freq: t.linlin(0, 1, startFreq, endFreq) * noise.range(1 - eps, 1 + eps),
-						rq: 1.5.reciprocal
-					),
-					pos: t * ((i.linlin(0, n - 1, -1, 1) + noise.linlin(-1, 1, -0.5 / n, 0.5 / n)))
-				)
-			})
+			n.collect { |i|
+				4.collect { |octave|
+					var noise = LFNoise2.kr(25);
+					Pan2.ar(
+						BPF.ar(
+							PinkNoise.ar * t,
+							freq: (octave * 12).midiratio * t.linlin(0, 1, startFreq, endFreq) * noise.range(1 - eps, 1 + eps),
+							rq: 1.5.reciprocal
+						),
+						pos: t * (i.linlin(0, n - 1, -1, 1) + noise.linlin(-1, 1, -0.5, 0.5))
+					);
+				};
+			}
 		);
+
+		signal = FreeVerb.ar(signal, mix: 0.05);
 
 		Out.ar(out, signal);
 		FreeSelf.kr(DelayN.ar(endTrig));
 	}).add;
 
+	var notes = [0, 12, 24, 36];
+
 	server.sync;
 
 	Pnew(def.name, *[
-		startFreq: 300,
-		endFreq: 8000,
-		dur: Pn(10, 1)
+		startFreq: Pseq((60 + notes).midicps),
+		endFreq: Pseq((60 + notes + 12).midicps),
+		dur: Pn(2, inf)
 	]).play;
 };
