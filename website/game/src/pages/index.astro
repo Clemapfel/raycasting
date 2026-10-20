@@ -1,84 +1,31 @@
 ---
 import { Languages } from "../common/languages";
-import Layout from "../layouts/layout.astro";
+import Forwarding from "../components/forwarding.astro";
 
 const supported = Object.keys(Languages);
 const fallback = "en";
-const page = "";
+const fallbackPath = `/${fallback}/index`;
 ---
 
-<Layout>
-    <Fragment slot="head">
-        <title>Redirecting ...</title>
-        <noscript>
-            <meta http-equiv="refresh" content={`0; url=/${fallback}${page ? `/\${page}` : ""}`} />
-        </noscript>
-    </Fragment>
-
-    <div
-            id="redirect"
-            data-supported={JSON.stringify(supported)}
-            data-fallback={fallback}
-            data-page={page}
-    >
-        <a class="label" href={`/${fallback}${page ? `/\${page}` : ""}`}>
-            Redirecting...<br>
-            Wird weitergeleitet...<br>
-            リダイレクト中...<br>
-        </a>
-    </div>
-
+<Forwarding
+        target={fallbackPath}
+        data={{ supported: JSON.stringify(supported), fallback }}
+>
     <script>
-        const { supported, fallback, page } = document.getElementById("redirect")!.dataset;
+        const { supported, fallback } = document.getElementById("redirect")!.dataset;
         const supportedLangs: string[] = JSON.parse(supported!);
-        const preferences = navigator.languages || [navigator.language];
 
-        let matchedLang = fallback;
-        for (const pref of preferences) {
-            const lower = pref.toLowerCase();
+        const resolve = (tag: string): string | undefined => {
+            const lower = tag.toLowerCase();
             const base = lower.split("-")[0];
+            return [lower, base]
+                .map((t) => t)
+                .find((t) => supportedLangs.includes(t));
+        };
 
-            if (supportedLangs.includes(lower)) {
-                matchedLang = lower;
-                break;
-            }
-            if (supportedLangs.includes(base)) {
-                matchedLang = base;
-                break;
-            }
-        }
+        const preferences = navigator.languages ?? [navigator.language];
+        const lang = preferences.map(resolve).find(Boolean) ?? fallback;
 
-        const targetPath = page ? `/${matchedLang}/${page}` : `/${matchedLang}`;
-        window.location.replace(targetPath);
+        window.location.replace(`/${lang}/index`);
     </script>
-</Layout>
-
-<style>
-    :global(html),
-    :global(body) {
-        margin: 0;
-        min-height: 100vh;
-        background: black;
-    }
-
-    :global(body) {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .label {
-        font-family: var(--default-font, sans-serif), sans-serif;
-        color: var(--default-color-secondary);
-        font-weight: normal;
-        paint-order: stroke fill;
-        text-align: center;
-        font-size: 18pt;
-        line-height: 200%;
-        text-decoration: none;
-    }
-
-    .label:hover {
-        text-decoration: underline;
-    }
-</style>
+</Forwarding>

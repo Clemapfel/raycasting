@@ -99,6 +99,14 @@ function ow.Stage:instantiate(scene, id)
 
     self._player_recorder = ow.PlayerRecorder(self, self._scene, self._scene:get_player():get_position())
 
+    DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_,which)
+        if which == rt.KeyboardKey.R then
+            self._player_recorder:record()
+        elseif which == rt.KeyboardKey.T then
+            self._player_recorder:play()
+        end
+    end)
+
     ow.Hitbox.reinitialize(self._scene, self)
     ow.Sprite.reinitialize(self._scene, self)
     ow.Fireflies.reinitialize(self._scene, self)

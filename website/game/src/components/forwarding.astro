@@ -1,0 +1,68 @@
+---
+import Layout from "../layouts/layout.astro";
+
+interface Props {
+    target: string;
+    canonical?: boolean;
+    data?: Record<string, string>;
+}
+
+const { target, canonical = false, data = {} } = Astro.props;
+const dataAttributes = Object.fromEntries(
+    Object.entries(data).map(([key, value]) => [`data-${key}`, value]),
+);
+---
+
+<Layout>
+    <Fragment slot="head">
+        <title>Redirecting ...</title>
+        
+        <!-- tell indexing search engines to index the forward pages instead -->
+        {canonical && <link rel="canonical" href={target} />}
+        {canonical && <meta name="robots" content="noindex" />}
+        <noscript>
+            <meta http-equiv="refresh" content={`0; url=${target}`} />
+        </noscript>
+    </Fragment>
+
+    <div id="redirect" {...dataAttributes}>
+        <a class="label" href={target}>
+            Redirecting...<br>
+            Wird weitergeleitet...<br>
+            リダイレクト中...<br>
+        </a>
+    </div>
+
+    <!-- page-specific redirect script -->
+    <slot />
+</Layout>
+
+<style>
+    :global(html),
+    :global(body) {
+        margin: 0;
+        min-height: 100vh;
+        background: black;
+    }
+
+    :global(body) {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .label {
+        font-family: var(--default-font, sans-serif), sans-serif;
+        color: var(--default-color-secondary);
+        font-weight: normal;
+        paint-order: stroke fill;
+        text-align: center;
+        font-size: 18pt;
+        line-height: 200%;
+        text-decoration: none;
+    }
+
+    .label:hover {
+        text-decoration: underline;
+    }
+</style>

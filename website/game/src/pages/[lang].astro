@@ -1,0 +1,21 @@
+---
+import { Languages } from "../common/languages";
+import Forwarding from "../components/forwarding.astro";
+
+// forward /lang to /lang/index
+export function getStaticPaths() {
+    return Object.keys(Languages).map((lang) => ({
+        params: { lang },
+    }));
+}
+
+const { lang } = Astro.params;
+const target = `/${lang}/index`;
+---
+
+<Forwarding target={target} canonical data={{ target }}>
+    <script>
+        const { target } = document.getElementById("redirect")!.dataset;
+        window.location.replace(target!);
+    </script>
+</Forwarding>

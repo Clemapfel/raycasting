@@ -3,27 +3,58 @@
 // Usage: <Footer author="Jim Bobbins"/>
 //
 
-interface Props {
-    author: string;
-}
-
-const { author } = Astro.props;
-
-if (!author) {
-    throw new Error("In Footer: `author` property not specified");
-}
+import Link from "./link.astro";
+import { getRelativeLocaleUrl } from "astro:i18n";
 
 const currentYear = new Date().getFullYear();
+
+const translations = {
+    en: {
+        legalNoticeText: "All rights reserved",
+        aiNoticeText: "This page contains no AI-generated content",
+        legalNoticeRef: "Legal Notice",
+        legalNoticeSlug: "legal-notice"
+    },
+    de: {
+        legalNoticeText: "Alle Rechte vorbehalten",
+        aiNoticeText: "Diese Seite enthält keine KI-erstellte Inhalte",
+        legalNoticeRef: "Impressum",
+        legalNoticeSlug: "impressum"
+    },
+
+    ja: {
+        legalNoticeText: "TODO",
+        aiNoticeText: "TODO",
+        legalNoticeRef: "TODO",
+        legalNoticeSlug: "legal-notice"
+    },
+} as const;
+
+type Locale = keyof typeof translations;
+
+const locale: Locale =
+    Astro.currentLocale && Astro.currentLocale in translations
+        ? (Astro.currentLocale as Locale)
+        : "en";
+
+const {
+    legalNoticeText,
+    aiNoticeText,
+    legalNoticeRef,
+    legalNoticeSlug
+} = translations[locale];
+
+const legalNoticeLink = `/${locale}/${legalNoticeSlug}`;
 ---
 
 <style>
     footer {
-        position: relative;       /* makes z-index effective so nothing overlaps the hover area */
+        position: relative; /* makes z-index effective so nothing overlaps the hover area */
         z-index: 1;
         margin-top: auto;
         padding: 1rem;
         font-family: var(--default-font), sans-serif;
-        color: var(--default-color-foreground);
+        color: var(--default-color-foreground) !important;
         -webkit-text-stroke: 3px var(--default-color-background);
         -webkit-text-fill-color: var(--default-color-foreground);
         paint-order: stroke fill;
@@ -33,23 +64,19 @@ const currentYear = new Date().getFullYear();
     }
 
     footer:hover {
-        opacity: 1;
+        opacity: 1
     }
 
-    footer a {
-        color: inherit;
-        -webkit-text-fill-color: currentColor;
-    }
-
-    footer a:hover {
-        color: var(--default-color-secondary);
-        -webkit-text-fill-color: var(--default-color-secondary);
-        text-decoration-style: solid;
+    /* override styling of Link */
+    footer :global(a:not(:hover)) {
+        color: var(--default-color-foreground) !important;
+        -webkit-text-fill-color: var(--default-color-foreground) !important;
+        text-decoration-color: var(--default-color-foreground) !important;
     }
 </style>
 
 <footer>
-    <p> &copy; {currentYear} {author} | Licensed <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="noopener noreferrer">
-        CC BY-NC-SA</a> | This Site contains no AI-generated Content
+    <p>
+        &copy; {currentYear} {legalNoticeText} | <Link text={legalNoticeRef} href={legalNoticeLink} /> | {aiNoticeText}
     </p>
 </footer>

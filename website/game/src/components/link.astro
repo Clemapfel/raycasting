@@ -14,12 +14,15 @@ const { text, href, class: className } = Astro.props;
 </a>
 
 <style>
-    a {
-        color: oklch(
-            var(--global-color-l)
-            var(--global-color-c)
-            var(--global-color-h)
+    a, a:hover
+    {
+        --link-color: oklch(
+                var(--global-color-l)
+                var(--global-color-c)
+                var(--global-color-h)
         );
+        color: var(--link-color);
+        -webkit-text-fill-color: var(--link-color);
     }
 
     a:visited {

@@ -355,8 +355,8 @@ function bd.read_file(path)
 end
 
 --- @brief
-function bd.open_file(path, mode)
-    meta.assert(path, mt.String, mode, bd.FileMode)
+function bd.open_file(path, mode, create_if_not_exist)
+    meta.assert(path, mt.String, mode, bd.FileMode, create_if_not_exist, mt.Boolean)
 
     if mode == bd.FileMode.CLOSED then
         rt.error("In bd.open_file: cannot open file with CLOSED mode")
@@ -372,13 +372,12 @@ function bd.open_file(path, mode)
         if not bd.is_file(path) then
             rt.error("In bd.open_file: object at `", path, "` is not a file")
         end
-
     elseif mode == bd.FileMode.WRITE or mode == bd.FileMode.APPEND then
         if bd.exists(path) and not bd.is_file(path) then
             rt.error("In bd.open_file: object at `", path, "` is not a file")
         end
 
-        if not bd.exists(path) then
+        if not bd.exists(path) and create_if_not_exist == true then
             bd.create_file(path, "")
         end
     end
