@@ -133,13 +133,12 @@ export class SDFLabelRenderer extends GLWidget {
 
     public apply_blur : boolean = true;
 
-    constructor(path: string) {
-        super();
-        this.texture_source = path;
-    }
-
     protected override async realize() {
-        this.texture = new Texture(this.context, "404.png");
+        const path = this.getAttribute("path");
+        if (path === null)
+            throw new Error("<sdf-label-renderer> requires a 'path' attribute");
+
+        this.texture = new Texture(this.context, path);
         this.texture.setFilterMode(TextureFilterMode.LINEAR);
 
         this.shader = new Shader(this.context, canvas_threshold_shader_source);

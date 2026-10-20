@@ -17,11 +17,11 @@ local font_size = rt.FontSize.MAX
 local last
 local before = love.timer.getTime()
 for x in range(
-    { "HOME", "contact_en.png", font_latin },
-    { "ABOUT", "about_en.png", font_latin },
-    { "FAQ", "faq_en.png", font_latin },
-    { "CONTACT", "home_en.png", font_latin },
-    { "BLOG", "blog_en.png", font_latin },
+    { "HOME", "contact.png", font_latin },
+    { "ABOUT", "about.png", font_latin },
+    { "FAQ", "faq.png", font_latin },
+    { "CONTACT", "home.png", font_latin },
+    { "BLOG", "blog.png", font_latin },
 
     { "404", "404.png", font_latin }
 ) do

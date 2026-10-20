@@ -1,8 +1,4 @@
 ---
-//
-// Usage: <SDFLabelRenderer path="/image.png"/>
-//
-
 import { getEntry } from "astro:content";
 
 interface Props {
@@ -19,25 +15,6 @@ if (!path) {
 <sdf-label-renderer path={path}>
     <canvas class="sdf-label-renderer-canvas"></canvas>
 </sdf-label-renderer>
-
-<style>
-    sdf-label-renderer {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        z-index: -9999;
-        background: transparent;
-        pointer-events: none;
-    }
-
-    .sdf-label-renderer {
-        position: fixed;
-        top: 0;
-        left: 0;
-    }
-</style>
 
 <script>
     import { SDFLabelRenderer } from "./sdf_label_renderer";

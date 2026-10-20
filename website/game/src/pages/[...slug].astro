@@ -3,7 +3,7 @@ import Layout from "../layouts/layout.astro";
 import MarkdownRenderer from "../components/markdown.astro";
 import ShaderCanvas from "../components/shader_canvas.astro";
 import Footer from "../components/footer.astro";
-import Header from "../components/header.astro";
+import HeaderBar from "../components/header_bar.astro";
 import NoisyFrame from "../components/noisy_frame.astro";
 import LanguageChooser from "../components/language_chooser.astro";
 import { Languages } from "../common/languages";
@@ -29,6 +29,17 @@ export async function getStaticPaths() {
 }
 
 const entry = await getEntry("pages", id);
+
+/*
+
+    <div class="page-wrapper">
+        <NoisyFrame>
+            <div class="frame-content-wrapper">
+                <MarkdownRenderer collection="pages" id={id} />
+            </div>
+        </NoisyFrame>
+    </div>
+    */
 ---
 
 <style>
@@ -45,15 +56,7 @@ const entry = await getEntry("pages", id);
 
 <Layout title={entry!.data.title}>
     <ShaderCanvas id={entry!.data.shader}/>
-
-    <div class="page-wrapper">
-        <NoisyFrame>
-            <div class="frame-content-wrapper">
-                <MarkdownRenderer collection="pages" id={id} />
-            </div>
-        </NoisyFrame>
-    </div>
-
+    <HeaderBar />
     <Footer author="C. Cords"/>
 </Layout>
 
