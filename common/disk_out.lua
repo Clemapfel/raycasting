@@ -1,4 +1,4 @@
-rt.settings.disk_buffer = {
+rt.settings.disk_out = {
     buffer_size = 512
 }
 
@@ -7,7 +7,7 @@ rt.DiskOut = meta.class("DiskOut")
 
 --- @brief
 function rt.DiskOut:instantiate(path, _max_buffer_size)
-    if _max_buffer_size == nil then _max_buffer_size = rt.settings.disk_buffer.buffer_size end
+    if _max_buffer_size == nil then _max_buffer_size = rt.settings.disk_out.buffer_size end
     meta.assert(path, mt.String, _max_buffer_size, mt.Number)
 
     self._path = path

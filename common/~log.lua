@@ -1,0 +1,307 @@
+if rt == nil then rt = {} end
+if rt.Log == nil then rt.Log = {} end
+
+rt.Log._message_hook = function(message)
+    -- noop
+    return true
+end
+
+local _prefix_label = "[rt]"
+local _prefix_format = {
+    bold = false,
+    italic = false
+}
+
+local _frame_index_format = {
+    bold = false,
+    italic = false
+}
+
+local _message_prefix = "[LOG]"
+local _message_format = {
+    color = "green",
+    bold = true
+}
+
+local _warning_prefix = "[WARNING]"
+local _warning_format = {
+    color = "yellow",
+    bold = true
+}
+
+local _critical_prefix = "[CRITICAL]"
+local _critical_format = {
+    color = "red",
+    bold = true
+}
+
+
+local _error_prefix = "[ERROR]"
+local _error_format = nil -- because _G.error does not support formatting
+
+local _fatal_prefix = "[FATAL]"
+local _fatal_format = {
+    color = "red",
+    bold = true
+}
+
+local _to_tag = {
+    black         = "\027[30m",
+    red           = "\027[31m",
+    green         = "\027[32m",
+    yellow        = "\027[33m",
+    blue          = "\027[34m",
+    magenta       = "\027[35m",
+    cyan          = "\027[36m",
+    white         = "\027[37m",
+    gray          = "\027[90m",
+    light_black   = "\027[90m", -- same as gray
+    light_red     = "\027[91m",
+    light_green   = "\027[92m",
+    light_yellow  = "\027[93m",
+    light_blue    = "\027[94m",
+    light_magenta = "\027[95m",
+    light_cyan    = "\027[96m",
+    light_white   = "\027[97m",
+
+    normal        = "\027[0m",
+    default       = "\027[39m",
+    bold          = "\027[1m",
+    italic        = "\027[3m",
+    underlined    = "\027[4m",
+    reverse       = "\027[7m",
+    nothing       = "",
+}
+
+--- @brief [internal]
+rt.Log._printstyled = function(message, config)
+    if config == nil then
+        return message
+    end
+
+    local to_print = {}
+
+    if config.color ~= nil then
+        local tag = _to_tag[config.color]
+        if tag == nil then
+            rt.error("In prinstyled: unsupported color `", config.color, "`")
+        end
+        table.insert(to_print, tag)
+    end
+
+    for _, which in pairs({
+        "normal", "bold", "italic", "underline", "reverse"
+    }) do
+        if config[which] == true then
+            table.insert(to_print, _to_tag[which])
+        end
+    end
+
+    table.insert(to_print, message)
+    table.insert(to_print, _to_tag.normal)
+    return table.concat(to_print)
+end
+
+local _to_string = function(x)
+    if x == nil then
+        return "nil"
+    else
+        return tostring(x)
+    end
+end
+
+local _should_print_current_line = true
+function rt.Log.set_print_current_line(b)
+    _should_print_current_line = b
+end
+
+local _append_current_line = function(to_add_to)
+    if _should_print_current_line then
+        local info = debug.getinfo(4, "Sl")
+        if info ~= nil and info.short_src ~= nil and info.currentline ~= nil then
+            table.insert(to_add_to, " " .. info.short_src .. ":" .. info.currentline .. ": ")
+        end
+    end
+end
+
+local _append_frame_index = function(to_print)
+    if rt ~= nil and rt.SceneManager ~= nil then
+        table.insert(to_print, rt.Log._printstyled("[" .. (rt.SceneManager:get_frame_index() or -1) .. "]", _frame_index_format))
+    end
+end
+
+
+--- @brief
+function rt.Log.message(...)
+    local to_print = {}
+
+    table.insert(to_print, rt.Log._printstyled(_prefix_label, _prefix_format))
+    _append_frame_index(to_print)
+    table.insert(to_print, rt.Log._printstyled(_message_prefix, _message_format))
+    _append_current_line(to_print)
+
+    for i = 1, select("#", ...) do
+        local word = select(i, ...)
+        table.insert(to_print, _to_string(word))
+    end
+    table.insert(to_print, "\n")
+
+    local message = table.concat(to_print)
+    local should_print = true
+    if rt.Log._message_hook ~= nil then
+        should_print = rt.Log._message_hook(message)
+    end
+
+    if should_print == true then
+        io.write(message)
+        io.flush()
+    end
+end
+
+--- @brief
+function rt.Log.warning(...)
+    local to_print = {}
+
+    table.insert(to_print, rt.Log._printstyled(_prefix_label, _prefix_format))
+    _append_frame_index(to_print)
+    table.insert(to_print, rt.Log._printstyled(_warning_prefix, _warning_format))
+    _append_current_line(to_print)
+
+    for i = 1, select("#", ...) do
+        table.insert(to_print, _to_string(select(i, ...)))
+    end
+    table.insert(to_print, "\n")
+
+    local message = table.concat(to_print)
+    local should_print = true
+    if rt.Log._message_hook ~= nil then
+        should_print = rt.Log._message_hook(message)
+    end
+
+    if should_print == true then
+        io.write(message)
+        io.flush()
+    end
+end
+
+--- @brief
+function rt.Log.critical(...)
+    local to_print = {}
+
+    table.insert(to_print, rt.Log._printstyled(_prefix_label, _prefix_format))
+    _append_frame_index(to_print)
+    table.insert(to_print, rt.Log._printstyled(_critical_prefix, _critical_format))
+    _append_current_line(to_print)
+
+    for i = 1, select("#", ...) do
+        table.insert(to_print, _to_string(select(i, ...)))
+    end
+    table.insert(to_print, "\n")
+
+    local message = table.concat(to_print)
+    local should_print = true
+    if rt.Log._message_hook ~= nil then
+        should_print = rt.Log._message_hook(message)
+    end
+
+    if should_print == true then
+        io.write(message)
+        io.flush()
+    end
+end
+
+--- @brief
+function rt.Log.error(...)
+    local to_print = {}
+
+    table.insert(to_print, rt.Log._printstyled(_prefix_label, _prefix_format))
+    _append_frame_index(to_print)
+    table.insert(to_print, rt.Log._printstyled(_fatal_prefix, _fatal_format)) -- sic, error does not support tty pretty printing
+    table.insert(to_print, " ")
+
+    for i = 1, select("#", ...) do
+        table.insert(to_print, _to_string(select(i, ...)))
+    end
+    table.insert(to_print, "\n")
+
+    local message = table.concat(to_print)
+    local should_print = true
+    if rt.Log._message_hook ~= nil then
+        should_print = rt.Log._message_hook(message)
+    end
+
+    if should_print == true then
+        error(message, 1)
+    end
+end
+
+--- @brief
+function rt.Log.fatal(...)
+    local to_print = {}
+
+    table.insert(to_print, rt.Log._printstyled(_prefix_label, _prefix_format))
+    table.insert(to_print, rt.Log._printstyled(_error_prefix, _fatal_format))
+    table.insert(to_print, " ")
+
+    for i = 1, select("#", ...) do
+        table.insert(to_print, _to_string(select(i, ...)))
+    end
+    table.insert(to_print, "\n")
+
+    local message = table.concat(to_print)
+    local should_print = true
+    if rt.Log._message_hook ~= nil then
+        should_print = rt.Log._message_hook(message)
+    end
+
+    if should_print == true then
+        error(message, 1)
+    end
+end
+
+--- @brief
+function rt.Log.assert(condition, ...)
+    if condition ~= true then
+        local to_print = {}
+
+        table.insert(to_print, rt.Log._printstyled(_prefix_label, _prefix_format))
+        table.insert(to_print, rt.Log._printstyled(_error_prefix, nil)) -- sic, error does not support tty pretty printing
+        table.insert(to_print, " ")
+
+        for i = 1, select("#", ...) do
+            table.insert(to_print, _to_string(select(i, ...)))
+        end
+        table.insert(to_print, "\n")
+
+        local message = table.concat(to_print)
+        local should_print = true
+        if rt.Log._message_hook ~= nil then
+            should_print = rt.Log._message_hook(message)
+        end
+
+        if should_print == true then
+            _G.assert(condition, message)
+        end
+    end
+end
+
+--- @brief
+function rt.Log.set_message_hook(hook)
+    if hook ~= nil then
+        _G.assert(type(hook) == "function", "In rt.Log.setMessageHook: expected `function`, got `" .. type(hook) .. "`")
+    end
+    rt.Log._message_hook = hook
+end
+
+if rt == nil then rt = {} end
+rt.log = rt.Log.message
+rt.warning = rt.Log.warning
+rt.critical = rt.Log.critical
+rt.error = rt.Log.error
+rt.fatal = rt.Log.fatal
+rt.assert = rt.Log.assert
+
+io.stdout:setvbuf("no")
+
+return rt.Log
+

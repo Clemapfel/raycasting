@@ -15,6 +15,14 @@ function rt.ThreadManager:request_shutdown()
             thread:shutdown() -- automatically emits signal `shutdown`
         end
     end
+
+    local log_worker = rt.Log.get_worker()
+    if log_worker ~= nil then
+        rt.Log.shutdown_worker()
+        while log_worker:isRunning() do
+            love.timer.sleep(0.001)
+        end
+    end
 end
 
 --- @brief

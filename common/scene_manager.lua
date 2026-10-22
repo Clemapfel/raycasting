@@ -732,6 +732,8 @@ love.quit = function()
             rt.critical("In love.quit: unable to delete folder at `", path, "`: ", error)
         end
     end
+
+    rt.ThreadManager:request_shutdown()
 end
 
 local _should_draw = true

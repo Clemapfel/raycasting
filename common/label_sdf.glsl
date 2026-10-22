@@ -133,7 +133,11 @@ void computemain() {
     if (use_mask && mask.r > 0)
         value *= 0;
 
-    imageStore(export_texture, ivec2(position), value.zzzz / max_distance);
+    imageStore(export_texture, ivec2(position), vec4(
+        value.z,
+        value.z * (mask.r > 0 ? 0 : 1),
+        1.0, 1.0
+    ) / max_distance);
 
     #endif
 }

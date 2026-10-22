@@ -24,6 +24,11 @@ function bd.get_source_directory()
 end
 
 --- @brief
+function bd.get_version()
+    return _VERSION
+end
+
+--- @brief
 function bd.get_save_directory()
     local path
     if love.filesystem.isFused() then

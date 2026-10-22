@@ -140,6 +140,9 @@ export class Texture extends GLResource {
     private wrap_mode_s : TextureWrapMode = TextureWrapMode.CLAMP;
     private wrap_mode_t : TextureWrapMode = TextureWrapMode.CLAMP;
 
+    private is_loaded : boolean = false;
+    private load_handlers : Set<(texture : Texture) => void> = new Set();
+
     protected native: WebGLTexture | null = null;
     protected format_info!: FormatInfo;
 
@@ -163,11 +166,13 @@ export class Texture extends GLResource {
             this.width = image.width;
             this.height = image.height;
             this.image = image;
+            this.is_loaded = true;
         }
         else if (typeof source === "string") {
             this.width = 1;
             this.height = 1;
             this.image = undefined;
+            this.is_loaded = false;
 
             pending_image = new Image();
             pending_image.crossOrigin = "anonymous";
@@ -181,6 +186,7 @@ export class Texture extends GLResource {
             this.width = Math.max(1, width);
             this.height = Math.max(1, height ?? width);
             this.image = undefined;
+            this.is_loaded = true;
         }
 
         this.format = format ?? TextureFormat.RGBA8;
@@ -202,6 +208,9 @@ export class Texture extends GLResource {
                 this.image = loaded_image;
                 this.format = TextureFormat.RGBA8;
                 this.allocate();
+
+                this.is_loaded = true;
+                this.load_handlers.forEach(handler => handler(this));
             };
 
             loaded_image.onerror = () => {
@@ -210,6 +219,13 @@ export class Texture extends GLResource {
 
             loaded_image.src = source;
         }
+    }
+
+    /** connect callback to be invoked when the texture is done loading */
+    public connectOnLoad(listener: (texture: Texture) => void): () => void {
+        this.load_handlers.add(listener);
+        if (this.is_loaded) { listener(this); }
+        return () => { this.load_handlers.delete(listener); };
     }
 
     /** **/
@@ -384,7 +400,7 @@ export class Texture extends GLResource {
     }
 
     /** **/
-    public getFiltermode(): { min : TextureFilterMode, max : TextureFilterMode } {
+    public getFilterMode(): { min : TextureFilterMode, max : TextureFilterMode } {
         return {
             min : this.filter_mode_min,
             max : this.filter_mode_mag

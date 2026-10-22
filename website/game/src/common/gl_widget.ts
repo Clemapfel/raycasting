@@ -65,35 +65,37 @@ export abstract class GLWidget extends HTMLElement {
             for (const entry of entries) {
                 let w, h;
 
-                // force aspect ratio, otherwise the gl canvas elements can appear stretched
-                const aspect_ratio = this.native_canvas.clientHeight / this.native_canvas.clientWidth;
-
                 if (entry.devicePixelContentBoxSize) {
-                    w = entry.devicePixelContentBoxSize[0].inlineSize;
+                    const size = Array.isArray(entry.devicePixelContentBoxSize)
+                        ? entry.devicePixelContentBoxSize[0]
+                        : entry.devicePixelContentBoxSize;
+                    w = size.inlineSize;
+                    h = size.blockSize;
                 } else if (entry.contentBoxSize) {
                     const size = Array.isArray(entry.contentBoxSize)
                         ? entry.contentBoxSize[0]
                         : entry.contentBoxSize;
-                    w = Math.round(size.inlineSize * devicePixelRatio);
+                    w = Math.floor(size.inlineSize * devicePixelRatio);
+                    h = Math.floor(size.blockSize * devicePixelRatio);
                 } else {
-                    w = Math.round(entry.contentRect.width * devicePixelRatio);
+                    w = Math.floor(entry.contentRect.width * devicePixelRatio);
+                    h = Math.floor(entry.contentRect.height * devicePixelRatio);
                 }
 
-                h = Math.round(w * aspect_ratio)
+                this.native_canvas.width = w;
+                this.native_canvas.height = h;
 
-                if (this.native_canvas.width !== w || this.native_canvas.height !== h) {
-                    this.native_canvas.width = w;
-                    this.native_canvas.height = h;
+                if (this.context && this.context.isValid()) {
+                    this.context._notify_size_changed(w, h);
+                }
 
-                    if (this.context && this.context.isValid()) {
-                        this.context._notify_size_changed(w, h);
-                    }
-
+                if (this.size.x != w || this.size.y != h) {
                     this.size.x = w;
                     this.size.y = h;
 
-                    if (this.is_realized)
+                    if (this.is_realized) {
                         this.reformat(w, h);
+                    }
                 }
 
                 if (this.is_realized)
@@ -143,9 +145,13 @@ export abstract class GLWidget extends HTMLElement {
     /** @internal */
     public async connectedCallback() {
         const internal_canvas = this.querySelector("canvas");
-        if (internal_canvas === null) {
+        if (internal_canvas === null)
             throw new Error("GLWidget: No canvas element found within the custom element.");
-        }
+
+        // internal canvas should be unable to resize hose
+        internal_canvas.style.width = "100%";
+        internal_canvas.style.height = "100%";
+        internal_canvas.style.display = "block";
 
         this.native_canvas = internal_canvas;
         this.context = new GLContext(this.native_canvas);

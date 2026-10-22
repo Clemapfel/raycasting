@@ -1,0 +1,34 @@
+---
+// Usage: <LabelSDF path="path/to/sdf.png" blur={false} />
+
+import { getEntry } from "astro:content";
+
+interface Props {
+    path: string;
+    blur?: boolean;
+}
+
+const { path, blur = false } = Astro.props;
+
+if (!path) {
+    throw new Error("In LabelSDF: `path` property not specified");
+}
+---
+
+<style>
+    .sdf-label-renderer-canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+    }
+</style>
+
+<sdf-label-renderer path={path} blur={blur}>
+    <canvas class="sdf-label-renderer-canvas"></canvas>
+</sdf-label-renderer>
+
+<script>
+    import { LabelSDF } from "./label_sdf";
+    import { register } from "../common/register_component.ts"
+    register("sdf-label-renderer", LabelSDF)
+</script>

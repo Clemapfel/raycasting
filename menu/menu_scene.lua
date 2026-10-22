@@ -347,6 +347,8 @@ function mn.MenuScene:size_allocate(x, y, width, height)
 
         title_screen.title_label_no_sdf = love.graphics.newTextBatch(font:get_native(font_size, rt.FontStyle.REGULAR, false), title)
         title_screen.title_label_sdf = rt.LabelSDF(title, font_size, font)
+        title_screen.title_label_sdf:realize()
+        title_screen.title_label_sdf:reformat(0, 0, title_screen.title_label_sdf:measure())
 
         local title_w, title_h = font:measure(font_size, title)
 

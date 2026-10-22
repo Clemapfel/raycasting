@@ -54,7 +54,7 @@ local message_type_to_handler = {
 
 local success, error_maybe = pcall(function()
     -- register hook to bubble up non-fatal errors and log messages
-    rt.Log.set_message_hook(function(message)
+    rt.Log.add_message_hook(function(message)
         worker_to_main:push({
             type = MessageType.ERROR,
             error = message,

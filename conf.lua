@@ -1,5 +1,7 @@
+_G.VERSION = "0.0.1d"
 _G.DEBUG = true
 _G.PROFILE = false
+_G.CONFIG = nil -- assigned below
 
 function love.conf(settings)
     require "include"
@@ -65,18 +67,17 @@ function love.conf(settings)
     settings.console = config.show_console
 
     settings.window.title = "Chroma Void"
+    settings.title = "Choma Void" -- deprecated but still set in 12.0
+
     settings.identity = "chroma_void"
     settings.appendidentity = false -- prioritze source dir over save dir for file i/o
 
     for _, exclude in pairs({
         "touch",
-        "sensor",
         "video"
     }) do
         settings.modules[exclude] = false
     end
 
-    settings.vsync = 0
+    _G.CONFIG = settings
 end
-
-

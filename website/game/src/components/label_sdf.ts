@@ -14,10 +14,11 @@ import {
     Shader
 } from "../common/shader.ts";
 import { Time } from "../common/time.ts";
-import type { Vec2 } from "../common/vector.ts";
+import { Vec2 } from "../common/vector.ts";
 
 const DEFAULT_ELAPSED_NAME = "elapsed";
 const APPLY_BLUR_NAME = "apply_blur";
+const DRAW_MASK_NAME = "draw_mask";
 
 const canvas_threshold_shader_source = `${DEFAULT_SHADER_VERSION}
     ${DEFAULT_FLOAT_PRECISION}
@@ -76,6 +77,7 @@ const canvas_threshold_shader_source = `${DEFAULT_SHADER_VERSION}
     uniform sampler2D ${DEFAULT_TEXTURE_NAME};
     uniform float ${DEFAULT_ELAPSED_NAME};
     uniform bool ${APPLY_BLUR_NAME};
+    uniform bool ${DRAW_MASK_NAME};
     
     in vec2 ${DEFAULT_UV_NAME};
     in vec4 ${DEFAULT_RGBA_NAME};
@@ -94,52 +96,83 @@ const canvas_threshold_shader_source = `${DEFAULT_SHADER_VERSION}
             seed_magnitude * gradient_noise(vec3(-seed.yx, elapsed))
         );
         
+        const float kernel[25] = float[25](
+             1.0 / 256.0,  4.0 / 256.0,  6.0 / 256.0,  4.0 / 256.0,  1.0 / 256.0,
+             4.0 / 256.0, 16.0 / 256.0, 24.0 / 256.0, 16.0 / 256.0,  4.0 / 256.0,
+             6.0 / 256.0, 24.0 / 256.0, 36.0 / 256.0, 24.0 / 256.0,  6.0 / 256.0,
+             4.0 / 256.0, 16.0 / 256.0, 24.0 / 256.0, 16.0 / 256.0,  4.0 / 256.0,
+             1.0 / 256.0,  4.0 / 256.0,  6.0 / 256.0,  4.0 / 256.0,  1.0 / 256.0
+        );
+        
+        vec2 texel_size = 1.0 / vec2(textureSize(${DEFAULT_TEXTURE_NAME}, 0));
+                
         float dist;
-        if (${APPLY_BLUR_NAME}) {
-            const float kernel[25] = float[25](
-                 1.0 / 256.0,  4.0 / 256.0,  6.0 / 256.0,  4.0 / 256.0,  1.0 / 256.0,
-                 4.0 / 256.0, 16.0 / 256.0, 24.0 / 256.0, 16.0 / 256.0,  4.0 / 256.0,
-                 6.0 / 256.0, 24.0 / 256.0, 36.0 / 256.0, 24.0 / 256.0,  6.0 / 256.0,
-                 4.0 / 256.0, 16.0 / 256.0, 24.0 / 256.0, 16.0 / 256.0,  4.0 / 256.0,
-                 1.0 / 256.0,  4.0 / 256.0,  6.0 / 256.0,  4.0 / 256.0,  1.0 / 256.0
-            );
-            
-            vec2 texel_size = 1.0 / vec2(textureSize(${DEFAULT_TEXTURE_NAME}, 0));
-            
-            dist = 0.0;
-            for (int y = -2; y <= 2; y++) {
-                for (int x = -2; x <= 2; x++) {
-                    vec2 offset = vec2(float(x), float(y)) * texel_size;
-                    dist += kernel[(y + 2) * 5 + (x + 2)]
-                          * texture(${DEFAULT_TEXTURE_NAME}, uv + offset).r;
+       
+        if (${DRAW_MASK_NAME}) {
+            // r is no-mask
+            if (${APPLY_BLUR_NAME}) {
+                for (int y = -2; y <= 2; y++) {
+                    for (int x = -2; x <= 2; x++) {
+                        vec2 offset = vec2(float(x), float(y)) * texel_size;
+                        dist += kernel[(y + 2) * 5 + (x + 2)]
+                              * texture(${DEFAULT_TEXTURE_NAME}, uv + offset).g;
+                    }
                 }
+            } 
+            else {
+                 dist += texture(${DEFAULT_TEXTURE_NAME}, uv).g;
             }
         } 
         else {
-             dist = texture(${DEFAULT_TEXTURE_NAME}, uv).r;
+               // g is mask
+             if (${APPLY_BLUR_NAME}) {
+                dist = 0.0;
+                for (int y = -2; y <= 2; y++) {
+                    for (int x = -2; x <= 2; x++) {
+                        vec2 offset = vec2(float(x), float(y)) * texel_size;
+                        dist += kernel[(y + 2) * 5 + (x + 2)]
+                              * texture(${DEFAULT_TEXTURE_NAME}, uv + offset).r;
+                    }
+                }
+            } 
+            else {
+                 dist = texture(${DEFAULT_TEXTURE_NAME}, uv).r;
+            }
         }
         
         dist = 1.0 - smoothstep(center - eps, center + eps, dist);        
-        ${DEFAULT_FRAGMENT_OUT_NAME} = vec4(dist);
+        ${DEFAULT_FRAGMENT_OUT_NAME} = 0.00 * vec4(1.0, 0.0, 1.0, 1.0) + vec4(dist);
     }
-    `;
+`;
 
-export class SDFLabelRenderer extends GLWidget {
+export class LabelSDF extends GLWidget {
     private shader? : Shader;
     private quad? : Mesh;
     private elapsed : Time = new Time(0);
     private texture_source : string;
     private texture : Texture;
-
     public apply_blur : boolean = true;
+    public draw_mask : boolean = false;
 
     protected override async realize() {
         const path = this.getAttribute("path");
         if (path === null)
             throw new Error("<sdf-label-renderer> requires a 'path' attribute");
 
+        this.apply_blur = this.getAttribute("blur") == "true";
+
         this.texture = new Texture(this.context, path);
         this.texture.setFilterMode(TextureFilterMode.LINEAR);
+        this.texture.connectOnLoad((texture : Texture) => {
+            const [ tex_w, tex_h ] = texture.getSize();
+            if (tex_w > 0 && tex_h > 0) {
+                this.style.aspectRatio = `${tex_w} / ${tex_h}`;
+                this.style.flex = `${tex_w / tex_h}`;
+            }
+
+            const [ w, h ] = this.getSize();
+            this.reformat(w, h);
+        });
 
         this.shader = new Shader(this.context, canvas_threshold_shader_source);
     }
@@ -177,10 +210,6 @@ export class SDFLabelRenderer extends GLWidget {
         this.elapsed.add(delta);
     }
 
-    public override getSize() : Vec2 {
-        return this.texture.getSize();
-    }
-
     protected override draw(): void {
         if (!this.getIsRealized() || this.shader === undefined || this.quad === undefined) return;
 
@@ -193,9 +222,20 @@ export class SDFLabelRenderer extends GLWidget {
         if (this.shader.hasUniform(APPLY_BLUR_NAME))
             this.shader.setUniform(APPLY_BLUR_NAME, this.apply_blur)
 
+        if (this.shader.hasUniform(DRAW_MASK_NAME))
+            this.shader.setUniform(DRAW_MASK_NAME, this.draw_mask)
+
         this.context.setBlendMode(BlendMode.ALPHA)
         this.shader.bind();
         this.quad.draw();
         this.shader.unbind();
+    }
+
+    protected override onMouseEnter(event: MouseEvent) {
+        this.draw_mask = true;
+    }
+
+    protected override onMouseLeave(event: MouseEvent) {
+        this.draw_mask = false;
     }
 }

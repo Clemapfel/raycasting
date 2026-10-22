@@ -696,34 +696,29 @@ do
         component = rawget(instance, _object_signal_component_index)
         if component ~= nil then entry = component[id] end
 
-        if component == nil or entry == nil then
+        if component == nil or entry == nil or entry.is_blocked then
             return false
         end
-
-        if entry.is_blocked then return false end
 
         local callback_ids = {}
         for _, callback_id in ipairs(entry.callback_ids_in_order) do
             table.insert(callback_ids, callback_id)
         end
 
-        local to_remove_callback_ids = {}
+        local invoked = false
         for _, callback_id in ipairs(callback_ids) do
             local callback = entry.callback_id_to_callback[callback_id]
             if callback ~= nil then
-                local success, result_maybe = callback(instance, ...)
-                if success then
-                    if result_maybe == meta.DISCONNECT_SIGNAL then
-                        instance:signal_disconnect(id, callback_id)
-                    end
-                else
-                    return false
+                invoked = true
+                if callback(instance, ...) == meta.DISCONNECT_SIGNAL then
+                    instance:signal_try_disconnect(id, callback_id)
                 end
             else
-                -- disconnected during emission
                 _disconnect_callback(entry, callback_id)
             end
         end
+
+        return invoked
     end
 
     local function _install_signals(instance, type)

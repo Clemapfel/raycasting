@@ -1,3 +1,4 @@
+require "common.widget"
 require "common.label"
 require "common.blend_mode"
 require "overworld.normal_map"
@@ -5,11 +6,12 @@ require "overworld.normal_map"
 rt.settings.label_sdf = {
     export_texture_format = rt.TextureFormat.NORMAL, -- needs to be 4-component for png export
     max_distance = 32,
-    padding = 0.15 -- fraction of size
+    padding_horizontal = 30, -- px
+    padding_vertical = 30
 }
 
 --- @class rt.LabelSDF
-rt.LabelSDF = meta.class("LabelSDF")
+rt.LabelSDF = meta.class("LabelSDF", rt.Widget)
 
 local _group_size = 16
 local defines = function(mode)
@@ -27,17 +29,15 @@ local _init_shader = rt.ComputeShader("common/label_sdf.glsl", defines(0))
 local _jump_shader = rt.ComputeShader("common/label_sdf.glsl", defines(1))
 local _export_shader = rt.ComputeShader("common/label_sdf.glsl", defines(2))
 
-function rt.LabelSDF:instantiate(text, font_size, font, max_distance, should_draw_inside)
+function rt.LabelSDF:instantiate(text, font_size, font, max_distance)
     meta.assert(
         text, mt.String,
         font_size, rt.FontSize,
         font, rt.Font,
-        max_distance, mt.Optional(mt.Number),
-        should_draw_inside, mt.Optional(mt.Boolean)
+        max_distance, mt.Optional(mt.Number)
     )
 
     if max_distance == nil then max_distance = rt.settings.label_sdf.max_distance end
-    if should_draw_inside == nil then should_draw_inside = false end
 
     self._label = rt.Label(text, font_size, font)
 
@@ -45,11 +45,23 @@ function rt.LabelSDF:instantiate(text, font_size, font, max_distance, should_dra
     self._label:set_wrap_mode(rt.LabelWrapMode.SINGLE_LINE)
     self._label:reformat(0, 0)
 
-    local width, height = self._label:measure()
-    self._padding = rt.settings.label_sdf.padding * math.max(width, height)
+    self._max_distance = max_distance
+    self._sdf_needs_export = true
 
-    local texture_w, texture_h = width + 2 * self._padding,
-        height + 2 * self._padding
+    self._padding_x, self._padding_y = 0, 0
+    self._is_initialized = false
+end
+
+function rt.LabelSDF:reformat(x, y, width, height)
+    local label_w, label_h = self._label:measure()
+    local padding_horizontal = rt.settings.label_sdf.padding_horizontal
+    local padding_vertical = rt.settings.label_sdf.padding_vertical
+
+    local texture_w = math.max(width, label_w + 2 * padding_horizontal)
+    local texture_h = math.max(height, label_h + 2 * padding_vertical)
+
+    self._padding_x = (texture_w - label_w) / 2
+    self._padding_y = (texture_h - label_h) / 2
 
     free(self._mask_texture, self._jfa_texture, self._export_texture)
 
@@ -74,11 +86,9 @@ function rt.LabelSDF:instantiate(text, font_size, font, max_distance, should_dra
     })
 
     self._dispatch_x, self._dispatch_y = math.ceil(texture_w / _group_size),
-        math.ceil(texture_h / _group_size)
+    math.ceil(texture_h / _group_size)
 
-    self._max_distance = max_distance
-    self._should_draw_inside = should_draw_inside
-    self._sdf_needs_export = true
+    self._is_initialized = true
 end
 
 function rt.LabelSDF:_compute()
@@ -89,7 +99,7 @@ function rt.LabelSDF:_compute()
     love.graphics.clear()
 
     love.graphics.push()
-    love.graphics.translate(self._padding, self._padding)
+    love.graphics.translate(self._padding_x, self._padding_y)
     self._label:draw()
     love.graphics.pop()
 
@@ -123,7 +133,6 @@ function rt.LabelSDF:_compute()
     _export_shader:send("jfa_texture_array", self._jfa_texture)
     _export_shader:send("export_texture", self._export_texture)
     _export_shader:send("mask_texture", self._mask_texture)
-    _export_shader:send("use_mask", self._should_draw_inside)
     _export_shader:send("max_distance", rt.settings.label_sdf.max_distance)
     _export_shader:dispatch(self._dispatch_x, self._dispatch_y)
 
@@ -132,16 +141,27 @@ function rt.LabelSDF:_compute()
 end
 
 function rt.LabelSDF:draw()
+    if self._is_initialized ~= true then
+        rt.error("In rt.LabelSDF: `draw` was called before `reformat`")
+    end
+
     if self._sdf_needs_export then self:_compute() end
     love.graphics.push("all")
     love.graphics.setBlendMode("alpha", "premultiplied")
-    love.graphics.translate(-self._padding, -self._padding)
+    love.graphics.translate(-self._padding_x, -self._padding_y)
     self._export_texture:draw()
     love.graphics.pop()
 end
 
 function rt.LabelSDF:update(delta)
     self._label:update(delta)
+end
+
+function rt.LabelSDF:measure()
+    local w, h = self._label:measure()
+    local padding_horizontal = rt.settings.label_sdf.padding_horizontal
+    local padding_vertical = rt.settings.label_sdf.padding_vertical
+    return w + 2 * padding_horizontal, h + 2 * padding_vertical
 end
 
 function rt.LabelSDF:export(path, format)

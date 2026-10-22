@@ -25,7 +25,7 @@ server.waitForBoot {
 		//\boost_field,
 		//\menu
 		//\main_menu_dive
-		\menu_swipe
+		\menu_fall
 		//\bubble_field
 	].do { |name| currentEnvironment[name].(degrees) };
 
@@ -1224,44 +1224,125 @@ record_pattern = { arg recordbuf, recordbus, pattern, trig = nil, delay = 0;
 	]).play;
 };
 
-~menu_swipe = { arg degrees;
+~menu_fall = { arg degrees;
 	var tail = 0.5; // [0, 1]
-	var def = SynthDef.new(\menu_swipe, { arg out, dur, startFreq, endFreq, gate = 1;
+
+	var numVoices = 6;
+	var bpQ = 1.5;
+
+	// pan freq: speed at which the panning of all voices varies
+	var def = SynthDef.new(\menu_fall, { arg out, dur, startFreq, endFreq, gate = 1, panFreq = 3, recordbuf;
 		var x = Sweep.ar(Trig1.ar(gate), (1e-4.log * (1.0 - tail).log).sqrt.exp / dur);
 		var t = (x.log.squared / (1.0 - tail).log).exp;
-		var endTrig = DetectSilence.ar(t, amp: 1e-4);
+		var freq = Line.kr(startFreq, endFreq, dur: dur);
+		var endTrig = DelayN.ar(Impulse.ar(0), dur, dur);
 
-		var n = 6;
 		var eps = 0.5;
 		var signal = Mix.ar(
-			n.collect { |i|
-				4.collect { |octave|
-					var noise = LFNoise2.kr(25);
-					Pan2.ar(
-						BPF.ar(
-							PinkNoise.ar * t,
-							freq: (octave * 12).midiratio * t.linlin(0, 1, startFreq, endFreq) * noise.range(1 - eps, 1 + eps),
-							rq: 1.5.reciprocal
-						),
-						pos: t * (i.linlin(0, n - 1, -1, 1) + noise.linlin(-1, 1, -0.5, 0.5))
-					);
-				};
+			numVoices.collect { |i|
+				var posNoise = LFNoise2.ar(panFreq / numVoices).range(-1.0, 1.0);
+				Pan2.ar(
+					t * BPF.ar(
+						PinkNoise.ar,
+						freq: freq,
+						rq: bpQ.reciprocal
+					),
+					pos: sin(panFreq * ((x / dur) + (i / numVoices)) * 2pi) * posNoise
+				)
 			}
 		);
 
-		signal = FreeVerb.ar(signal, mix: 0.05);
+		~rec.ar(recordbuf, signal);
+		~rec.end(endTrig);
 
 		Out.ar(out, signal);
-		FreeSelf.kr(DelayN.ar(endTrig));
+		FreeSelf.kr(endTrig);
 	}).add;
 
-	var notes = [0, 12, 24, 36];
+	// create grain sample
+	var grainbuf = {
+		var def = SynthDef.new(\menu_grain, { arg out, dur = 1, recordbuf;
+
+			var sig = PinkNoise.ar;
+			var endTrig = Done.kr(Line.kr(0, 0, dur));
+
+			~rec.ar(recordbuf, sig);
+			~rec.end(endTrig);
+
+			Out.ar(out, sig.dup);
+			FreeSelf.kr(DelayN.kr(endTrig, 0.1, 0.1));
+		}).add;
+
+		var tmp_filename = ~rec.filename("menu", "tmp_grain");
+
+		server.sync;
+
+		~rec.record(server, tmp_filename, { arg recordbuf;
+			Pmono(def.name, *[
+				dur: Pn(0.25, 1),
+				recordbuf: recordbuf
+			]).play;
+		}, record: true);
+
+		server.sync;
+
+		Buffer.read(server, tmp_filename);
+	}.value;
+
+	var fallDef = SynthDef.new(\bubble_synh, { arg out, dur, phase = 0, gate = 1, grainbuf, grainenv, playbackbuf;
+		var density = EnvGen.kr(Env.new([0, 1, 0], [dur / 2, dur / 2], \lin), gate);
+
+		var trig = Dust.ar(density);
+
+		var rate = 1.5;
+		var scale = [-12, -10, -8, -7, -5, -3, -1];
+		var config = Demand.ar(trig, 0, [
+			Drand((scale ++ (-1 * scale)).midiratio),
+			Dwhite(-1, 1) // pan
+		]);
+
+		var sig = GrainBuf.ar(2,
+			trigger: trig,
+			dur: BufDur.ir(grainbuf),
+			sndbuf: grainbuf,
+			rate: config[0] * BufRateScale.ir(grainbuf),
+			pos: 0,
+			interp: 4,
+			pan: config[1],
+			envbufnum: grainenv
+		);
+
+		sig = FreeVerb.ar(sig);
+
+		Out.ar(out, sig);
+	}).add;
+
 
 	server.sync;
 
-	Pnew(def.name, *[
-		startFreq: Pseq((60 + notes).midicps),
-		endFreq: Pseq((60 + notes + 12).midicps),
-		dur: Pn(2, inf)
-	]).play;
+	// swipe
+	/*
+	degrees.do { |degree|
+		[\a, \b].do { |i| // for different noise shapes
+			~rec.record(server,
+				~rec.filename("menu", "swipe", degree, i), { arg recordbuf;
+					Pnew(def.name, *[
+						startFreq: (60 + degree).midicps,
+						endFreq: (60 + degree + 12).midicps,
+						dur: Pn(10, 1),
+						recordbuf: recordbuf
+					]).play;
+			});
+		}
+	};
+	*/
+
+	// fall
+	~rec.record(server,
+		~rec.filename("menu", "fall"), { arg recordbuf;
+			Pnew(def.name, *[
+				dur: Pn(10, 1),
+				recordbuf: recordbuf
+			]).play;
+	});
 };

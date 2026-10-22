@@ -15,70 +15,24 @@ require "common.scene_manager"
 local shader = rt.Shader("website/game/src/content/shaders/bismuth.glsl")
 local elapsed = 0
 
-local prefix = love.filesystem.getAppdataDirectory() .. "/" .. love.filesystem.getIdentity() .. "/"
-love.filesystem.createDirectory("a")
-love.filesystem.createDirectory("b")
 
-local a_path = prefix .. "a"
-local b_path = prefix .. "b"
-local a_mount = "mount_a"
-local b_mount = "mount_b"
-
-local args = function() return "readwrite", true end
-
---[[
-assert(love.filesystem.mountFullPath(a_path, a_mount, args()))
-assert(love.filesystem.mountFullPath(b_path, a_mount, args()))
-love.filesystem.write(a_mount .. "/foo.txt", "foo")
-]]--
-
-
-
-love.filesystem.createDirectory("a")
-love.filesystem.write("a/a_before.txt", "a_before")
-love.filesystem.createDirectory("b")
-love.filesystem.write("b/b_before.txt", "b_before")
-love.filesystem.write("b/b_hidden.txt", "hidden")
-
-    local exists = function(x) assert(love.filesystem.getInfo(x) ~= nil, x) end
-exists("a/a_before.txt") -- passes, appdata a/a_test
-exists("b/b_before.txt") -- passes, appdata b/b_test
-
-assert(love.filesystem.mountFullPath(love.filesystem.getAppdataDirectory() .. "/" .. love.filesystem.getIdentity() .. "/a",
-    "b",
-    "readwrite",
-    true
-)) -- mount so writing to b writes to a
-
-assert(love.filesystem.write("b/b_after.txt", "b_after"))
-exists("b/a_before.txt")
-exists("b/b_before.txt")
-exists("b/b_after.txt")
-
-exists("b/b_after.txt")
-println(love.filesystem.read("b/b_hidden.txt"))
-
---[[
-assert(love.filesystem.getInfo(a_mount .. "/foo.txt") ~= nil, "not written to a_mount")
-assert(love.filesystem.getInfo(a_path .. "/foo.txt") ~= nil, "not written to a_path")
-assert(love.filesystem.getInfo(b_path .. "/foo.txt") ~= nil, "not written to b_path")
-]]--
-
-
-
-DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
-    if which == rt.KeyboardKey.K then
-        local success, error = pcall(shader.recompile, shader)
-        if not success then
-            rt.critical(error)
-        end
-
-        elapsed = 0
-    end
-end)
+require "common.log"
+rt.Log.start_worker()
 
 
 love.load = function(args)
+
+    DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
+        if which == rt.KeyboardKey.K then
+            local success, error = pcall(shader.recompile, shader)
+            if not success then
+                rt.critical(error)
+            end
+
+            elapsed = 0
+        end
+    end)
+
     if PROFILE then profiler.push("love.load") end
 
     local before = love.timer.getTime()
@@ -115,7 +69,7 @@ love.load = function(args)
     end
 
     require "overworld.overworld_scene"
-    rt.SceneManager:push(ow.OverworldScene, "debug_room", ow.StageEntryMode.INSTANT)
+    --rt.SceneManager:push(ow.OverworldScene, "debug_room", ow.StageEntryMode.INSTANT)
 
     require "menu.keybinding_scene"
     --rt.SceneManager:push(mn.KeybindingScene)
@@ -124,7 +78,7 @@ love.load = function(args)
     --rt.SceneManager:push(mn.SettingsScene)
 
     require "menu.menu_scene"
-    --rt.SceneManager:push(mn.MenuScene, false)
+    rt.SceneManager:push(mn.MenuScene, false)
 end
 
 love.update = function(delta)

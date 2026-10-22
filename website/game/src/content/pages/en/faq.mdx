@@ -35,6 +35,31 @@ import Link from "../../../components/link.astro";
     **Level design is not procedural**, every object is placed by hand. There is no "random generation" for placement of any gameplay-relevant objects as would be common in other genres such as rogue-lites.
 </Faq>
 
+<Faq question="My game crashed. How do I report a bug?">
+    If you encounter a bug or an error that terminates the game (possibly resulting in a red screen with an error message), proceeds as follows depending on your operating system.
+
+    Data you send using the below method does not contain identifying information, and will not be stored or used for any purpose than for review during bugfixing.
+
+    ## Windows
+
+    1) open the "File Explorer" app
+    2) copypaste `%APPDATA%/chroma_void/logs` into the top bar in the file explorer to navigate to the logs folder
+    3) locate the newest file in this directory by sorting by "Date modified"
+    4) right click the file, choose "Compress to... > ZIP File"
+    5) send the resulting `.zip` file along with a description of the events preceding the error to `bugs@chroma-void.com`
+
+    ## Linux
+
+    1) open the "Terminal" app
+    2) copy paste `cd "${XDG_DATA_HOME:-$HOME/.local/share}/ game/logs"` into the terminal and press enter to navigate to the logs folder
+    3) copy paste `file="$(ls -t | head -n 1)"; gzip -k "$file" && echo "created ${file}.gz"` into the terminal and press enter
+    4) send the resulting `.gz` file along with a description of the events preceding the error to `bugs@chroma-void.com`
+
+    ## Mac
+
+    MacOS is currently not officially supported. If you'd like to contribute to the development of a mac version of the game, feel free to send bug reports to `bugs@chroma-void.com`.
+</Faq>
+
 <Faq question="What engine does the game run on? What tools were used during development?">
     "Chroma Void" runs on a custom, bespoke engine that is currently not available to the public. It is written in <Link text="LuaJIT" href="https://luajit.me/" /> and <Link text="GLSL" href="https://www.khronos.org/opengl/wiki/Core_Language_(GLSL)" />, with additional <Link text="TypeScript" href="https://www.typescriptlang.org/" />, <Link text="C++" href="https://en.cppreference.com/" />, <Link text="Python" href="https://www.python.org/" />, and <Link text="sclang" href="https://doc.sccode.org/Help.html" /> performing auxiliary functions.
 
@@ -57,16 +82,4 @@ import Link from "../../../components/link.astro";
 
 <Faq question="Is the game safe to play for people with photosensitivity?">
     Despite the admittedly overwhelming amount of colors and speed of play, great care was taken to not make the game straining to look at, even for prolonged periods. The accessibility options furthermore include a dimming slider and a toggle to turn off certain animations.
-</Faq>
-
-<Faq question="How do I report bugs?">
-    If you encounter a bug or an error that terminates the game (resulting in a red screen with an error message), please navigate to the following folder on your machine:
-
-    + windows: %APPDATA%/chroma_void/logs
-    + linux: TODO
-    + max: TODO
-
-    Compress the "logs" folder, then replace the fields in the following text with your information, before sending it to `support@chroma-void.com`. Your email address or any other identifying information can be anonymized, and will not be stored or collected:
-
-
 </Faq>

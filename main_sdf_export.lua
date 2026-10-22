@@ -16,34 +16,46 @@ local font_size = rt.FontSize.MAX
 
 local last
 local before = love.timer.getTime()
+
+local label_to_path = {}
+local max_w, max_h = -math.huge, -math.huge
+
 for x in range(
-    { "HOME", "contact.png", font_latin },
+    { "HOME", "home.png", font_latin },
     { "ABOUT", "about.png", font_latin },
     { "FAQ", "faq.png", font_latin },
-    { "CONTACT", "home.png", font_latin },
+    { "CONTACT", "contact.png", font_latin },
     { "BLOG", "blog.png", font_latin },
-
     { "404", "404.png", font_latin }
 ) do
     local text, path, font = table.unpack(x)
     path = bd.join_path(export_prefix, path)
-    last = rt.LabelSDF(
+    local label = rt.LabelSDF(
         text,
         font_size,
         font,
-        nil,
-        false -- fill center
+        nil
     )
 
-    last:export(path, rt.ImageEncodingFormat.PNG)
+    local w, h = label:measure()
+    max_w = math.max(w, max_w)
+    max_h = math.max(h, max_h)
+    label_to_path[label] = path
+end
+
+for label, path in pairs(label_to_path) do
+    local w, h = label:measure()
+    label:reformat(0, 0, w, max_h)
+    label:export(path, rt.ImageEncodingFormat.PNG)
     rt.log("In main_sdf_export: exporting `", path, "` ...")
+    last = label
 end
 
 rt.log("Done. Took `", love.timer.getTime() - before, "`s")
 
 love.draw = function()
     love.graphics.push()
-    love.graphics.translate(last._padding, last._padding)
+    love.graphics.translate(last._padding_x, last._padding_y)
     last:draw()
     love.graphics.pop()
 end

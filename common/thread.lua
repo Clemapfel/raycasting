@@ -45,9 +45,7 @@ end
 --- @brief
 function rt.Thread:shutdown()
     if not self._native:isRunning() then return end
-
-    local emitted = self:signal_try_emit("shutdown")
-    if emitted == false then
+    if self:signal_try_emit("shutdown") == false then
         rt.error("In rt.Thread: thread `", self._path, "` has no handler connected to signal `shutdown`, shutdown was unsuccessfull")
     end
 end
