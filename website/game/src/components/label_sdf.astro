@@ -4,11 +4,13 @@
 import { getEntry } from "astro:content";
 
 interface Props {
-    path: string;
-    blur?: boolean;
+    path : string;
+    blur? : boolean;
+    reactive? : boolean;
+    scale? : number;
 }
 
-const { path, blur = false } = Astro.props;
+const { path, blur = false, reactive = false, scale = 1.0 } = Astro.props;
 
 if (!path) {
     throw new Error("In LabelSDF: `path` property not specified");
@@ -31,7 +33,7 @@ if (!path) {
     }
 </style>
 
-<label-sdf path={path} blur={blur}>
+<label-sdf path={path} blur={blur} reactive={reactive} scale={scale}>
     <canvas class="label-sdf-canvas"></canvas>
 </label-sdf>
 

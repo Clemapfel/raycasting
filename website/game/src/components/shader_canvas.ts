@@ -1,14 +1,13 @@
 import { GLWidget } from "../common/gl_widget.ts";
 import { Mesh, MeshDrawMode } from "../common/mesh.ts";
 import { MeshVertexFormat } from "../common/mesh_vertex_format.ts";
-import { Shader, DEFAULT_TRANSFORM_NAME } from "../common/shader.ts";
+import { Shader, DEFAULT_TRANSFORM_NAME, DEFAULT_SCREEN_SIZE_NAME } from "../common/shader.ts";
 import { Time } from "../common/time.ts";
 import { Vec2 } from "../common/vector.ts";
 
 const default_cursor_position_name = "cursor_position";
 const default_cursor_is_visible_name = "cursor_is_visible";
 const default_elapsed_name = "elapsed";
-const default_screen_size_name = "screen_size";
 
 export class ShaderCanvas extends GLWidget {
     private shader_program? : Shader;
@@ -85,6 +84,14 @@ export class ShaderCanvas extends GLWidget {
 
         if (this.shader_program.hasUniform(default_cursor_is_visible_name))
             this.shader_program.setUniform(default_cursor_is_visible_name, this.cursor_visible)
+
+        if (this.shader_program.hasUniform(DEFAULT_SCREEN_SIZE_NAME)) {
+            const dpr = window.devicePixelRatio || 1;
+            this.shader_program.setUniform(DEFAULT_SCREEN_SIZE_NAME, new Vec2(
+                Math.round(window.innerWidth * dpr),
+                Math.round(window.innerHeight * dpr)
+            ))
+        }
 
         this.shader_program.bind();
         this.quad.draw();

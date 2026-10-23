@@ -20,13 +20,28 @@ local before = love.timer.getTime()
 local label_to_path = {}
 local max_w, max_h = -math.huge, -math.huge
 
+
+
 for x in range(
-    { "HOME", "home.png", font_latin },
-    { "ABOUT", "about.png", font_latin },
-    { "FAQ", "faq.png", font_latin },
-    { "CONTACT", "contact.png", font_latin },
-    { "BLOG", "blog.png", font_latin },
-    { "404", "404.png", font_latin }
+    { "404", "404.png", font_japanese },
+
+    { "HOME", "home_en.png", font_latin },
+    { "ABOUT", "about_en.png", font_latin },
+    { "FAQ", "faq_en.png", font_latin },
+    { "CONTACT", "contact_en.png", font_latin },
+    { "BLOG", "blog_en.png", font_latin },
+
+    { "STARTSEITE", "home_de.png", font_latin },
+    { "ÜBER UNS", "about_de.png", font_latin },
+    { "FAQ", "faq_de.png", font_latin },
+    { "KONTAKT", "contact_de.png", font_latin },
+    { "BLOG", "blog_de.png", font_latin },
+
+    { "ホーム", "home_ja.png", font_japanese },
+    { "アバウト", "about_ja.png", font_japanese },
+    { "FAQ", "faq_ja.png", font_japanese },
+    { "お問い合わせ", "contact_ja.png", font_japanese },
+    { "ブログ", "blog_ja.png", font_japanese }
 ) do
     local text, path, font = table.unpack(x)
     path = bd.join_path(export_prefix, path)

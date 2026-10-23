@@ -8,6 +8,8 @@ import NoisyFrame from "../components/noisy_frame.astro";
 import LanguageChooser from "../components/language_chooser.astro";
 import { Languages } from "../common/languages";
 
+import Orb from "../components/orb.astro";
+
 const defaultLanguage = 'en';
 
 const id = Astro.url.pathname.replace(
@@ -33,43 +35,89 @@ const entry = await getEntry("pages", id);
 
 <style>
     :root {
-        --header-overflow: 200px;
+        --header-overflow: 5vw;
+        --outer-margin: 5vw;
+        --inner-margin: 8ch;
+        --text-width: 120ch;
+    }
+
+    .page-layout {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 100%;
+        padding: 0 var(--outer-margin);
+        box-sizing: border-box;
     }
 
     .page-wrapper {
         display: flex;
-        justify-content: center;
-        position: relative;
+        flex-direction: column;
+        align-items: center;
+        width: 100%;
+        max-width: calc(var(--text-width) + (2 * var(--inner-margin)));
     }
 
     .header-bar-wrapper {
-        position: absolute;
-        z-index: 2;
-        width: calc(100% + 2 * var(--header-overflow));
-        margin-left: calc(-1 * var(--header-overflow));
+        --header-margin: 20px;
+        width: calc(100% + var(--header-overflow));
+        margin-top: var(--header-margin);
+        margin-bottom: var(--header-margin);
+    }
+
+    .noisy-frame-wrapper {
     }
 
     .frame-content-wrapper {
-        position: relative;
-        z-index: 1;
+        width: 100%;
+        max-width: var(--text-width);
+        margin: 0 auto;
+        box-sizing: border-box;
+        padding-left: var(--inner-margin);
+        padding-right: var(--inner-margin);
+        padding-bottom: var(--inner-margin);
+    }
+
+    .footer-wrapper {
+        width: 100%;
+        max-width: calc(var(--text-width) + (2 * var(--inner-margin)));
+        display: flex;
+        justify-content: center;
+    }
+
+    .center-line {
+        position: fixed;
+        top: 0;
+        bottom: 0;
+        left: 50%;
+        width: 1px;
+        transform: translateX(-50%);
+        background: red;
+        pointer-events: none;
+        z-index: 9999;
     }
 </style>
 
 <Layout title={entry!.data.title}>
     <ShaderCanvas id={entry!.data.shader}/>
-    <div class="page-wrapper">
-        <div class="header-bar-wrapper">
-            <HeaderBar />
+    <div class="center-line"></div>
+    <div class="page-layout">
+        <div class="page-wrapper">
+            <div class="header-bar-wrapper">
+                <HeaderBar />
+            </div>
+
+            <div class="noisy-frame-wrapper">
+                <NoisyFrame>
+                    <div class="frame-content-wrapper">
+                        <MarkdownRenderer collection="pages" id={id} />
+                    </div>
+                </NoisyFrame>
+            </div>
         </div>
 
-        <NoisyFrame>
-            <div class="frame-content-wrapper">
-                <MarkdownRenderer collection="pages" id={id} />
-            </div>
-        </NoisyFrame>
+        <div class="footer-wrapper">
+            <Footer author="C. Cords"/>
+        </div>
     </div>
-    <Footer author="C. Cords"/>
 </Layout>
-
-
-

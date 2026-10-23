@@ -62,9 +62,15 @@ if (!fragment_shader) {
     }
 
     .shader-canvas-toggle {
+        --toggle-hover-color: oklch(
+                var(--global-color-l)
+                var(--global-color-c)
+                var(--global-color-h)
+        );
+
         position: fixed;
         left: 10px;
-        top: 10px;
+        bottom: 10px;
         z-index: 9999;
         width: 36px;
         height: 36px;
@@ -72,13 +78,15 @@ if (!fragment_shader) {
         display: flex;
         align-items: center;
         justify-content: center;
-        color: white;
+        color: var(--toggle-hover-color);
         background: var(--default-color-background);
-        border: 2px solid var(--default-color-foreground);
+        border-color: var(--toggle-hover-color);
+        border-width: 2px;
+        border-style: solid;
         border-radius: 50%;
         cursor: pointer;
         opacity: 0.3;
-        transition: opacity 0.15s ease;
+        transition: opacity 0.15s ease, color 0.15s ease;
         pointer-events: auto;
     }
 

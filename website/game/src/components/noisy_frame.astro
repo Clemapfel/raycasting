@@ -14,22 +14,20 @@
 <style>
     :root {
         --outline-width: 3px;
-        --top-bleed: 20%;
     }
 
     noisy-frame {
         display: inline-block;
+        width: 100%;
         position: relative;
         outline-width: var(--outline-width);
         border-radius: calc(var(--outline-width) * 4);
         background: transparent !important;
-        transform: translateY(calc(var(--top-bleed) * -1));
     }
 
     noisy-frame .noise-frame-canvas {
         position: absolute;
         z-index: 0;
-        inset: 0;
         width: 100%;
         height: 100%;
         pointer-events: none;
@@ -37,9 +35,6 @@
 
     noisy-frame .slot-wrapper {
         position: relative;
-        padding-left: calc(var(--outline-width) * 4);
-        padding-right: calc(var(--outline-width) * 4);
-        padding-top: var(--top-bleed);
     }
 </style>
 

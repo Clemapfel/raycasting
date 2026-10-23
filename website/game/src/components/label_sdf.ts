@@ -8,7 +8,7 @@ import {
     DEFAULT_FLOAT_PRECISION,
     DEFAULT_FRAGMENT_OUT_NAME,
     DEFAULT_RGBA_NAME,
-    DEFAULT_SCREEN_POS_NAME,
+    DEFAULT_SCREEN_POS_NAME, DEFAULT_SCREEN_SIZE_NAME,
     DEFAULT_SHADER_VERSION,
     DEFAULT_TEXTURE_NAME,
     DEFAULT_UV_NAME,
@@ -25,6 +25,7 @@ const MASK_T_NAME = "mask_t";
 const RGB_NAME = "rgb";
 const FOREGROUND_COLOR_NAME = "foreground";
 const BACKGROUND_COLOR_NAME = "background";
+const SCALE_NAME = "scale";
 
 const canvas_threshold_shader_source = `${DEFAULT_SHADER_VERSION}
     ${DEFAULT_FLOAT_PRECISION}
@@ -64,6 +65,7 @@ const canvas_threshold_shader_source = `${DEFAULT_SHADER_VERSION}
     uniform vec4 ${DEFAULT_COLOR_NAME};
     uniform vec4 ${FOREGROUND_COLOR_NAME};
     uniform vec4 ${BACKGROUND_COLOR_NAME};
+    uniform float ${SCALE_NAME};
     
     in vec2 ${DEFAULT_UV_NAME};
     in vec4 ${DEFAULT_RGBA_NAME};
@@ -72,17 +74,18 @@ const canvas_threshold_shader_source = `${DEFAULT_SHADER_VERSION}
     out vec4 ${DEFAULT_FRAGMENT_OUT_NAME};
     
     void main() {
-    const float center = 0.4;
-    const float eps = 0.1;
-    const float outline = 0.2;
-    const float fill = -0.1;
+    
+    float center = 0.4 * scale;
+    float eps = 0.1 * scale;
+    float outline = 0.2 * scale;
+    float fill = -0.1 * scale;
 
     vec2 seed = ${DEFAULT_SCREEN_POS_NAME} / 20.0;
-    float seed_magnitude = mix(0.008, 0.012, ${MASK_T_NAME});
+    float seed_magnitude = mix(0.008, 0.012, ${MASK_T_NAME}) * scale;
 
     vec2 noise = vec2(
-        gradient_noise(vec3(seed, elapsed)),
-        gradient_noise(vec3(-seed.yx, elapsed))
+        gradient_noise(vec3(scale * seed, elapsed)),
+        gradient_noise(vec3(-scale * seed.yx, elapsed))
     );
     vec2 uv = ${DEFAULT_UV_NAME} + seed_magnitude * noise;
 
@@ -135,8 +138,8 @@ const canvas_threshold_shader_source = `${DEFAULT_SHADER_VERSION}
     
     
     ${DEFAULT_FRAGMENT_OUT_NAME} = ${BACKGROUND_COLOR_NAME} * outline_t
-        + mix(${FOREGROUND_COLOR_NAME}, ${DEFAULT_COLOR_NAME}, 1.0 - ${MASK_T_NAME}) * line_t
-        + ${DEFAULT_COLOR_NAME} * fill_t * ${MASK_T_NAME}
+        + mix( ${DEFAULT_COLOR_NAME}, ${FOREGROUND_COLOR_NAME}, ${MASK_T_NAME}) * line_t
+        + mix(${BACKGROUND_COLOR_NAME}, ${DEFAULT_COLOR_NAME}, ${MASK_T_NAME}) * fill_t
     ;
 }
 `;
@@ -150,6 +153,8 @@ export class LabelSDF extends GLWidget {
     private texture : Texture;
 
     public apply_blur : boolean = true;
+    public reactive : boolean = true;
+    public scale : number = 1.0;
 
     protected override async realize() {
         const path = this.getAttribute("path");
@@ -157,6 +162,10 @@ export class LabelSDF extends GLWidget {
             throw new Error("<label-sdf> requires a 'path' attribute");
 
         this.apply_blur = this.getAttribute("blur") === "true";
+        this.reactive = this.getAttribute("reactive") === "true";
+
+        const scale_str = this.getAttribute("scale");
+        this.scale = scale_str ? parseFloat(scale_str) : 1.0;
 
         this.texture = new Texture(this.context, path);
         this.texture.setFilterMode(TextureFilterMode.LINEAR);
@@ -214,7 +223,11 @@ export class LabelSDF extends GLWidget {
         this.shader.trySetUniform(DEFAULT_ELAPSED_NAME, this.elapsed.asSeconds());
         this.shader.trySetUniform(DEFAULT_TEXTURE_NAME, this.texture);
         this.shader.trySetUniform(APPLY_BLUR_NAME, this.apply_blur);
-        this.shader.trySetUniform(MASK_T_NAME, this.motion.getValue());
+
+        if (this.reactive)
+            this.shader.trySetUniform(MASK_T_NAME, this.motion.getValue());
+        else
+            this.shader.trySetUniform(MASK_T_NAME, 1);
 
         const oklch : OKLCHA = parseOKLCHA(getComputedStyle(this).color);
         this.shader.trySetUniform(DEFAULT_COLOR_NAME, oklch.asRGBA());
@@ -224,6 +237,8 @@ export class LabelSDF extends GLWidget {
         
         const background : RGBA = parseRGBA(getComputedStyle(this).getPropertyValue("--default-color-background"));
         this.shader.trySetUniform(BACKGROUND_COLOR_NAME, background)
+
+        this.shader.trySetUniform(SCALE_NAME, this.scale);
 
         this.context.setBlendMode(BlendMode.ALPHA)
         this.shader.bind();

@@ -5,16 +5,28 @@ import LabelSDF from "./label_sdf.astro";
 const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 const locale = Astro.currentLocale;
 
+// map identical pictures
+const mapping : Readonly<Record<string, string>> = {
+    "faq_de" :  "faq_en",
+    "blog_de" : "blog_en",
+    "faq_ja" : "faq_en"
+};
+
 const items = [
     { name: "home" },
     { name: "about" },
+    { name: "faq" },
     { name: "contact" },
     { name: "blog" },
-].map(({ name }) => ({
-    name,
-    href: `${base}/${locale}/${name}`,
-    sdfPath: `/${name}.png`,
-}))
+].map(({ name }) => {
+    const raw = `${name}_${locale}`;
+    const file = mapping[raw] ?? raw;
+    return {
+        name,
+        href: `${base}/${locale}/${name}`,
+        sdfPath: `/${file}.png`,
+    };
+});
 ---
 
 <style>
@@ -22,6 +34,7 @@ const items = [
         display: flex;
         position: relative;
         isolation: isolate;
+        gap: 2rem;
     }
 
     .label-sdf-wrapper {
@@ -40,7 +53,7 @@ const items = [
     {
         items.map((item) => (
             <a href={item.href} class="label-sdf-wrapper">
-                <LabelSDF path={item.sdfPath} blur={true} />
+                <LabelSDF path={item.sdfPath} blur={true} reactive={true} />
             </a>
         ))
     }
