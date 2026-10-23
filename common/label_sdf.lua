@@ -5,7 +5,7 @@ require "overworld.normal_map"
 
 rt.settings.label_sdf = {
     export_texture_format = rt.TextureFormat.NORMAL, -- needs to be 4-component for png export
-    max_distance = 32,
+    max_distance = 28,
     padding_horizontal = 30, -- px
     padding_vertical = 30
 }

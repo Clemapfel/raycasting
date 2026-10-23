@@ -8,7 +8,6 @@ const locale = Astro.currentLocale;
 const items = [
     { name: "home" },
     { name: "about" },
-    { name: "faq" },
     { name: "contact" },
     { name: "blog" },
 ].map(({ name }) => ({
@@ -21,26 +20,28 @@ const items = [
 <style>
     .header-bar {
         display: flex;
-        align-items: center;
-        gap: 20px;
-        margin-left: 20%;
-        margin-right: 20%;
+        position: relative;
+        isolation: isolate;
     }
 
-    .sdf-label-renderer-wrapper {
+    .label-sdf-wrapper {
         display: contents;
-        --margin-horizontal: 20px;
-        margin-left: var(--margin-horizontal);
-        margin-right: var(--margin-horizontal);
+        height: 8rem;
+        cursor: pointer;
+        color: oklch(
+            var(--global-color-l)
+            var(--global-color-c)
+            var(--global-color-h)
+        );
     }
 </style>
 
 <nav class="header-bar">
     {
         items.map((item) => (
-            <div class="sdf-label-renderer-wrapper">
-                <LabelSDF path={item.sdfPath} blur="false" />
-            </div>
+            <a href={item.href} class="label-sdf-wrapper">
+                <LabelSDF path={item.sdfPath} blur={true} />
+            </a>
         ))
     }
 </nav>

@@ -16,19 +16,27 @@ if (!path) {
 ---
 
 <style>
-    .sdf-label-renderer-canvas {
+    .label-sdf-canvas {
         display: block;
         width: 100%;
         height: 100%;
     }
+
+    .label-sdf {
+        color: oklch(
+                var(--global-color-l)
+                var(--global-color-c)
+                var(--global-color-h)
+        );
+    }
 </style>
 
-<sdf-label-renderer path={path} blur={blur}>
-    <canvas class="sdf-label-renderer-canvas"></canvas>
-</sdf-label-renderer>
+<label-sdf path={path} blur={blur}>
+    <canvas class="label-sdf-canvas"></canvas>
+</label-sdf>
 
 <script>
     import { LabelSDF } from "./label_sdf";
     import { register } from "../common/register_component.ts"
-    register("sdf-label-renderer", LabelSDF)
+    register("label-sdf", LabelSDF)
 </script>

@@ -85,14 +85,15 @@ export class NoisyFrame extends GLWidget {
         color: RGBA, background_color: RGBA
     ) {
         const element = this as HTMLElement;
-        const element_rect = element.getBoundingClientRect();
-        const scale = Math.max(
-            (element_rect.width / element.offsetWidth) * window.devicePixelRatio,
-            (element_rect.height / element.offsetHeight) * window.devicePixelRatio
-        );
-
         const canvas = this.querySelector("canvas") as HTMLCanvasElement;
         const canvas_rect = canvas.getBoundingClientRect();
+
+        const css_width = canvas.clientWidth || element.offsetWidth;
+        const css_height = canvas.clientHeight || element.offsetHeight;
+        const scale = Math.max(
+            this.getWidth() / css_width,
+            this.getHeight() / css_height
+        );
 
         const scale_x = canvas_rect.width / this.getWidth();
         const scale_y = canvas_rect.height / this.getHeight();
@@ -110,8 +111,9 @@ export class NoisyFrame extends GLWidget {
 
         thickness *= scale;
         const segment_length = default_segment_length * scale;
-        const noise_magnitude = max_noise_offset;
+        const noise_magnitude = max_noise_offset * scale;
         const background_overhang = default_background_overhang * scale;
+        border_radius *= scale;
 
         const padding = thickness + noise_magnitude + background_overhang;
         x += padding;

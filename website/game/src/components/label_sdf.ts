@@ -4,6 +4,7 @@ import { MeshVertexFormat } from "../common/mesh_vertex_format.ts";
 import { Texture, TextureFilterMode } from "../common/texture.ts";
 import { BlendMode } from "../common/gl_context.ts";
 import {
+    DEFAULT_COLOR_NAME,
     DEFAULT_FLOAT_PRECISION,
     DEFAULT_FRAGMENT_OUT_NAME,
     DEFAULT_RGBA_NAME,
@@ -15,41 +16,19 @@ import {
 } from "../common/shader.ts";
 import { Time } from "../common/time.ts";
 import { Vec2 } from "../common/vector.ts";
+import { SmoothedMotion } from "../common/smoothed_motion.ts";
+import { RGBA, OKLCHA, parseOKLCHA, parseRGBA } from "../common/color.ts";
 
 const DEFAULT_ELAPSED_NAME = "elapsed";
 const APPLY_BLUR_NAME = "apply_blur";
-const DRAW_MASK_NAME = "draw_mask";
+const MASK_T_NAME = "mask_t";
+const RGB_NAME = "rgb";
+const FOREGROUND_COLOR_NAME = "foreground";
+const BACKGROUND_COLOR_NAME = "background";
 
 const canvas_threshold_shader_source = `${DEFAULT_SHADER_VERSION}
     ${DEFAULT_FLOAT_PRECISION}
-    
-    vec3 lch_to_rgb(vec3 lch) {
-        float L = lch.x * 100.0;
-        float C = lch.y * 100.0;
-        float H = lch.z * 360.0;
-    
-        float a = cos(radians(H)) * C;
-        float b = sin(radians(H)) * C;
-    
-        float Y = (L + 16.0) / 116.0;
-        float X = a / 500.0 + Y;
-        float Z = Y - b / 200.0;
-    
-        X = 0.95047 * ((X * X * X > 0.008856) ? X * X * X : (X - 16.0 / 116.0) / 7.787);
-        Y = 1.00000 * ((Y * Y * Y > 0.008856) ? Y * Y * Y : (Y - 16.0 / 116.0) / 7.787);
-        Z = 1.08883 * ((Z * Z * Z > 0.008856) ? Z * Z * Z : (Z - 16.0 / 116.0) / 7.787);
-    
-        float R = X *  3.2406 + Y * -1.5372 + Z * -0.4986;
-        float G = X * -0.9689 + Y *  1.8758 + Z *  0.0415;
-        float B = X *  0.0557 + Y * -0.2040 + Z *  1.0570;
-    
-        R = (R > 0.0031308) ? 1.055 * pow(R, 1.0 / 2.4) - 0.055 : 12.92 * R;
-        G = (G > 0.0031308) ? 1.055 * pow(G, 1.0 / 2.4) - 0.055 : 12.92 * G;
-        B = (B > 0.0031308) ? 1.055 * pow(B, 1.0 / 2.4) - 0.055 : 12.92 * B;
-    
-        return vec3(clamp(R, 0.0, 1.0), clamp(G, 0.0, 1.0), clamp(B, 0.0, 1.0));
-    }
-    
+   
     vec3 random_3d(in vec3 p) {
         return fract(sin(vec3(
         dot(p, vec3(127.1, 311.7, 74.7)),
@@ -73,11 +52,18 @@ const canvas_threshold_shader_source = `${DEFAULT_SHADER_VERSION}
         mix( dot( -1.0 + 2.0 * random_3d(i + vec3(0.0, 1.0, 1.0)), v - vec3(0.0, 1.0, 1.0)),
         dot( -1.0 + 2.0 * random_3d(i + vec3(1.0, 1.0, 1.0)), v - vec3(1.0, 1.0, 1.0)), u.x), u.y), u.z );
     }
+    
+    vec4 max4(vec4 a, vec4 b) {
+        return mix(b, a, step(b, a));
+    }
 
     uniform sampler2D ${DEFAULT_TEXTURE_NAME};
     uniform float ${DEFAULT_ELAPSED_NAME};
     uniform bool ${APPLY_BLUR_NAME};
-    uniform bool ${DRAW_MASK_NAME};
+    uniform float ${MASK_T_NAME};
+    uniform vec4 ${DEFAULT_COLOR_NAME};
+    uniform vec4 ${FOREGROUND_COLOR_NAME};
+    uniform vec4 ${BACKGROUND_COLOR_NAME};
     
     in vec2 ${DEFAULT_UV_NAME};
     in vec4 ${DEFAULT_RGBA_NAME};
@@ -86,80 +72,91 @@ const canvas_threshold_shader_source = `${DEFAULT_SHADER_VERSION}
     out vec4 ${DEFAULT_FRAGMENT_OUT_NAME};
     
     void main() {
-        const float eps = 0.04;
-        const float center = 0.07;
-        
-        vec2 seed = ${DEFAULT_SCREEN_POS_NAME} / 20.0;
-        const float seed_magnitude = 0.005;
-        vec2 uv = ${DEFAULT_UV_NAME} + vec2(
-            seed_magnitude * gradient_noise(vec3(seed, elapsed)),
-            seed_magnitude * gradient_noise(vec3(-seed.yx, elapsed))
-        );
-        
-        const float kernel[25] = float[25](
-             1.0 / 256.0,  4.0 / 256.0,  6.0 / 256.0,  4.0 / 256.0,  1.0 / 256.0,
-             4.0 / 256.0, 16.0 / 256.0, 24.0 / 256.0, 16.0 / 256.0,  4.0 / 256.0,
-             6.0 / 256.0, 24.0 / 256.0, 36.0 / 256.0, 24.0 / 256.0,  6.0 / 256.0,
-             4.0 / 256.0, 16.0 / 256.0, 24.0 / 256.0, 16.0 / 256.0,  4.0 / 256.0,
-             1.0 / 256.0,  4.0 / 256.0,  6.0 / 256.0,  4.0 / 256.0,  1.0 / 256.0
-        );
-        
-        vec2 texel_size = 1.0 / vec2(textureSize(${DEFAULT_TEXTURE_NAME}, 0));
-                
-        float dist;
-       
-        if (${DRAW_MASK_NAME}) {
-            // r is no-mask
-            if (${APPLY_BLUR_NAME}) {
-                for (int y = -2; y <= 2; y++) {
-                    for (int x = -2; x <= 2; x++) {
-                        vec2 offset = vec2(float(x), float(y)) * texel_size;
-                        dist += kernel[(y + 2) * 5 + (x + 2)]
-                              * texture(${DEFAULT_TEXTURE_NAME}, uv + offset).g;
-                    }
-                }
-            } 
-            else {
-                 dist += texture(${DEFAULT_TEXTURE_NAME}, uv).g;
-            }
-        } 
-        else {
-               // g is mask
-             if (${APPLY_BLUR_NAME}) {
-                dist = 0.0;
-                for (int y = -2; y <= 2; y++) {
-                    for (int x = -2; x <= 2; x++) {
-                        vec2 offset = vec2(float(x), float(y)) * texel_size;
-                        dist += kernel[(y + 2) * 5 + (x + 2)]
-                              * texture(${DEFAULT_TEXTURE_NAME}, uv + offset).r;
-                    }
-                }
-            } 
-            else {
-                 dist = texture(${DEFAULT_TEXTURE_NAME}, uv).r;
+    const float center = 0.4;
+    const float eps = 0.1;
+    const float outline = 0.2;
+    const float fill = -0.1;
+
+    vec2 seed = ${DEFAULT_SCREEN_POS_NAME} / 20.0;
+    float seed_magnitude = mix(0.008, 0.012, ${MASK_T_NAME});
+
+    vec2 noise = vec2(
+        gradient_noise(vec3(seed, elapsed)),
+        gradient_noise(vec3(-seed.yx, elapsed))
+    );
+    vec2 uv = ${DEFAULT_UV_NAME} + seed_magnitude * noise;
+
+    const float kernel[25] = float[25](
+         1.0 / 256.0,  4.0 / 256.0,  6.0 / 256.0,  4.0 / 256.0,  1.0 / 256.0,
+         4.0 / 256.0, 16.0 / 256.0, 24.0 / 256.0, 16.0 / 256.0,  4.0 / 256.0,
+         6.0 / 256.0, 24.0 / 256.0, 36.0 / 256.0, 24.0 / 256.0,  6.0 / 256.0,
+         4.0 / 256.0, 16.0 / 256.0, 24.0 / 256.0, 16.0 / 256.0,  4.0 / 256.0,
+         1.0 / 256.0,  4.0 / 256.0,  6.0 / 256.0,  4.0 / 256.0,  1.0 / 256.0
+    );
+
+    vec2 texel_size = 1.0 / vec2(textureSize(${DEFAULT_TEXTURE_NAME}, 0));
+
+    vec2 d = vec2(0.0);
+
+    if (${APPLY_BLUR_NAME}) {
+        const int kernel_size = 5;
+        const int radius = kernel_size / 2;
+
+        for (int y = -radius; y <= radius; y++) {
+            for (int x = -radius; x <= radius; x++) {
+                vec2 offset = vec2(x, y) * texel_size;
+                d += kernel[(y + radius) * kernel_size + (x + radius)]
+                   * texture(${DEFAULT_TEXTURE_NAME}, uv + offset).rg;
             }
         }
-        
-        dist = 1.0 - smoothstep(center - eps, center + eps, dist);        
-        ${DEFAULT_FRAGMENT_OUT_NAME} = 0.00 * vec4(1.0, 0.0, 1.0, 1.0) + vec4(dist);
+    } else {
+        d = texture(${DEFAULT_TEXTURE_NAME}, uv).rg;
     }
+
+    float line_t = 1.0 - smoothstep(
+        max(0.0, center - eps), 
+        min(1.0, center + eps), 
+        d.r
+    );
+
+    float outline_t = 1.0 - smoothstep(
+        max(0.0, (center + outline) - eps),
+        min(1.0, (center + outline) + eps), 
+        d.r
+    ) - line_t;
+    
+    float fill_t = 1.0 - smoothstep(
+        max(0.0, (center + fill) - eps),
+        min(1.0, (center + fill) + eps), 
+        d.g
+    ) - outline_t - line_t;
+    
+    fill_t *= mix(0.9, 1.2, (noise.x + 1.0) / 2.0);
+    
+    
+    ${DEFAULT_FRAGMENT_OUT_NAME} = ${BACKGROUND_COLOR_NAME} * outline_t
+        + mix(${FOREGROUND_COLOR_NAME}, ${DEFAULT_COLOR_NAME}, 1.0 - ${MASK_T_NAME}) * line_t
+        + ${DEFAULT_COLOR_NAME} * fill_t * ${MASK_T_NAME}
+    ;
+}
 `;
 
 export class LabelSDF extends GLWidget {
     private shader? : Shader;
     private quad? : Mesh;
     private elapsed : Time = new Time(0);
+    private motion : SmoothedMotion = new SmoothedMotion(0);
     private texture_source : string;
     private texture : Texture;
+
     public apply_blur : boolean = true;
-    public draw_mask : boolean = false;
 
     protected override async realize() {
         const path = this.getAttribute("path");
         if (path === null)
-            throw new Error("<sdf-label-renderer> requires a 'path' attribute");
+            throw new Error("<label-sdf> requires a 'path' attribute");
 
-        this.apply_blur = this.getAttribute("blur") == "true";
+        this.apply_blur = this.getAttribute("blur") === "true";
 
         this.texture = new Texture(this.context, path);
         this.texture.setFilterMode(TextureFilterMode.LINEAR);
@@ -208,22 +205,25 @@ export class LabelSDF extends GLWidget {
 
     protected override update(delta: Time): void {
         this.elapsed.add(delta);
+        this.motion.update(delta);
     }
 
     protected override draw(): void {
         if (!this.getIsRealized() || this.shader === undefined || this.quad === undefined) return;
 
-        if (this.shader.hasUniform(DEFAULT_ELAPSED_NAME))
-            this.shader.setUniform(DEFAULT_ELAPSED_NAME, this.elapsed.asSeconds());
+        this.shader.trySetUniform(DEFAULT_ELAPSED_NAME, this.elapsed.asSeconds());
+        this.shader.trySetUniform(DEFAULT_TEXTURE_NAME, this.texture);
+        this.shader.trySetUniform(APPLY_BLUR_NAME, this.apply_blur);
+        this.shader.trySetUniform(MASK_T_NAME, this.motion.getValue());
 
-        if (this.shader.hasUniform(DEFAULT_TEXTURE_NAME))
-            this.shader.setUniform(DEFAULT_TEXTURE_NAME, this.texture);
+        const oklch : OKLCHA = parseOKLCHA(getComputedStyle(this).color);
+        this.shader.trySetUniform(DEFAULT_COLOR_NAME, oklch.asRGBA());
 
-        if (this.shader.hasUniform(APPLY_BLUR_NAME))
-            this.shader.setUniform(APPLY_BLUR_NAME, this.apply_blur)
-
-        if (this.shader.hasUniform(DRAW_MASK_NAME))
-            this.shader.setUniform(DRAW_MASK_NAME, this.draw_mask)
+        const foreground : RGBA = parseRGBA(getComputedStyle(this).getPropertyValue("--default-color-foreground"));
+        this.shader.trySetUniform(FOREGROUND_COLOR_NAME, foreground);
+        
+        const background : RGBA = parseRGBA(getComputedStyle(this).getPropertyValue("--default-color-background"));
+        this.shader.trySetUniform(BACKGROUND_COLOR_NAME, background)
 
         this.context.setBlendMode(BlendMode.ALPHA)
         this.shader.bind();
@@ -232,10 +232,10 @@ export class LabelSDF extends GLWidget {
     }
 
     protected override onMouseEnter(event: MouseEvent) {
-        this.draw_mask = true;
+        this.motion.setTargetValue(1);
     }
 
     protected override onMouseLeave(event: MouseEvent) {
-        this.draw_mask = false;
+        this.motion.setTargetValue(0);
     }
 }

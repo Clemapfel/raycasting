@@ -30,19 +30,20 @@
         z-index: 0;
         inset: 0;
         width: 100%;
-        height: calc(100% + var(--top-bleed));
-        top: calc(-1 * var(--top-bleed));
+        height: 100%;
         pointer-events: none;
     }
 
     noisy-frame .slot-wrapper {
         position: relative;
         padding: calc(var(--outline-width) * 4);
+        padding-top: var(--top-bleed);
     }
 </style>
 
 <script>
     import { NoisyFrame } from "./noisy_frame.ts";
     import { register } from "../common/register_component";
+    var
     register("noisy-frame", NoisyFrame);
 </script>

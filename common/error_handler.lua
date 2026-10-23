@@ -70,7 +70,6 @@ function love.errorhandler(message, depth)
             traceback = string.gsub(traceback, "\027%[[%d;]*m", "") -- strip control characters
             traceback = string.gsub(traceback, "[^\n]*%[C%]:[^\n]*\n?", "") -- strip native C lines
             traceback = string.gsub(traceback, "stack traceback", "Stack Traceback")
-
         end
     end
 

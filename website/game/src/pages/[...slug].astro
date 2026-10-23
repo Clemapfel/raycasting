@@ -29,34 +29,45 @@ export async function getStaticPaths() {
 }
 
 const entry = await getEntry("pages", id);
+---
 
-/*
+<style>
+    :root {
+        --header-overflow: 200px;
+    }
 
+    .page-wrapper {
+        display: flex;
+        justify-content: center;
+        position: relative;
+    }
+
+    .header-bar-wrapper {
+        position: absolute;
+        z-index: 2;
+        width: calc(100% + 2 * var(--header-overflow));
+        margin-left: calc(-1 * var(--header-overflow));
+    }
+
+    .frame-content-wrapper {
+        position: relative;
+        z-index: 1;
+    }
+</style>
+
+<Layout title={entry!.data.title}>
+    <ShaderCanvas id={entry!.data.shader}/>
     <div class="page-wrapper">
+        <div class="header-bar-wrapper">
+            <HeaderBar />
+        </div>
+
         <NoisyFrame>
             <div class="frame-content-wrapper">
                 <MarkdownRenderer collection="pages" id={id} />
             </div>
         </NoisyFrame>
     </div>
-    */
----
-
-<style>
-    .page-wrapper {
-        display: flex;
-        justify-content: center;
-    }
-
-    .frame-content-wrapper {
-        z-index: 1;
-        position: relative;
-    }
-</style>
-
-<Layout title={entry!.data.title}>
-    <ShaderCanvas id={entry!.data.shader}/>
-    <HeaderBar />
     <Footer author="C. Cords"/>
 </Layout>
 

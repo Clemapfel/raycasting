@@ -20,11 +20,10 @@ const { Content } = await render(entry);
 
 <style>
     .content-wrapper {
-        --padding-horizontal: 60px;
-        padding-left: var(--padding-horizontal);
-        padding-right: var(--padding-horizontal);
+        padding-left: var(--global-margin-horizontal);
+        padding-right: var(--global-margin-horizontal);
         padding-top: 0.5px !important;
-        padding-bottom: var(--padding-horizontal);
+        padding-bottom: var(--global-margin-horizontal);
     }
 
     .markdown-container {

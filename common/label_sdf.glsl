@@ -45,6 +45,32 @@ uniform int layer;
 uniform bool use_mask = false;
 uniform float max_distance = 16;
 
+void sort2(inout float a, inout float b) {
+    float lo = min(a, b);
+    b = max(a, b);
+    a = lo;
+}
+
+float median3(float a, float b, float c) {
+    return max(min(a, b), min(max(a, b), c));
+}
+
+float median5(float a, float b, float c, float d, float e) {
+    sort2(a, b);
+    sort2(d, e);
+    sort2(a, d); // a is now the min of {a,b,d,e}; discard
+    sort2(b, e); // e is now the max of {a,b,d,e}; discard
+    return median3(b, c, d);
+}
+
+float load_distance(ivec2 p, ivec2 image_size) {
+    p = clamp(p, ivec2(0), image_size - 1);
+    float z = imageLoad(jfa_texture_array, ivec3(p, layer)).z;
+    if (use_mask && imageLoad(mask_texture, p).r > 0)
+    z = 0.0;
+    return z;
+}
+
 #endif
 
 const float infinity = 1.0 / 0.0;
@@ -127,16 +153,20 @@ void computemain() {
 
     #elif MODE == MODE_EXPORT
 
-    vec4 value = imageLoad(jfa_texture_array, ivec3(position, layer));
     vec4 mask = imageLoad(mask_texture, ivec2(position));
 
-    if (use_mask && mask.r > 0)
-        value *= 0;
+    float d = median5(
+    load_distance(position,                 image_size),
+    load_distance(position + ivec2(-1,  0), image_size),
+    load_distance(position + ivec2( 1,  0), image_size),
+    load_distance(position + ivec2( 0, -1), image_size),
+    load_distance(position + ivec2( 0,  1), image_size)
+    );
 
     imageStore(export_texture, ivec2(position), vec4(
-        value.z,
-        value.z * (mask.r > 0 ? 0 : 1),
-        1.0, 1.0
+    d,
+    d * (mask.r > 0 ? 0 : 1),
+    1.0, 1.0
     ) / max_distance);
 
     #endif

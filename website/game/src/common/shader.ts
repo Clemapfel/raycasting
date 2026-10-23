@@ -302,6 +302,11 @@ export class Shader extends GLResource {
             throw Error(`In Shader.setUniform: trying to set uniform \"${id}\" to undefined`)
     }
 
+    public trySetUniform(id: string, value: Parameters<Shader["setUniform"]>[1]) {
+        if (this.hasUniform(id))
+            this.setUniform(id, value);
+    }
+
     /** @internal */
     public _get_are_defaults_bound(): {
         texture_bound: boolean;

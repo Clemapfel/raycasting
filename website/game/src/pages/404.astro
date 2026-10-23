@@ -9,7 +9,7 @@ const sdfPath = `${base}/404.png`;
 ---
 
 <style>
-    .sdf-label-renderer-wrapper {
+    .label-sdf-wrapper {
         position: fixed;
         inset: 0;
         width: 100vw;
@@ -22,14 +22,14 @@ const sdfPath = `${base}/404.png`;
         pointer-events: none;
     }
 
-    .sdf-label-renderer-wrapper :global(sdf-label-renderer) {
+    .label-sdf-wrapper :global(label-sdf) {
         display: block;
         position: relative;
         width: 100%;
         height: 100%;
     }
 
-    .sdf-label-renderer-wrapper :global(canvas) {
+    .label-sdf-wrapper :global(canvas) {
         display: block;
         position: absolute;
         inset: 0;
@@ -73,7 +73,7 @@ const sdfPath = `${base}/404.png`;
 <Layout title="404">
     <ShaderCanvas id="crystals"/>
 
-    <div class="sdf-label-renderer-wrapper">
+    <div class="label-sdf-wrapper">
         <LabelSDF path="/404.png" blur={true}></LabelSDF>
     </div>
 
