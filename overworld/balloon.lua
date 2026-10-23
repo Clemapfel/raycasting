@@ -2,16 +2,17 @@
 rt.Balloon = meta.class("Balloon")
 
 local settings = {
-    n_sub_steps = 4,
-    n_constraint_iterations = 3,
+    n_sub_steps = 16,
+    n_constraint_iterations = 4,
 
     vertex_density = 1 / 4,
-    damping = 1 - 1e-3,
+    damping = 0.9999,
     gravity = 5000,
 
-    distance_compliance = 0,
+    distance_compliance = 1e-4,
     volume_compliance = 0,
-    line_compliance = 0
+    line_compliance = 0,
+    bending_compliance = 0
 }
 
 function rt.Balloon:instantiate(radius, center_x, center_y)
@@ -31,8 +32,8 @@ function rt.Balloon:instantiate(radius, center_x, center_y)
             y = y,
             previous_x = x,
             previous_y = y,
-            previous_x = x,
-            previous_y = y,
+            draw_x = x,
+            draw_y = y,
             velocity_x = 0,
             velocity_y = 0,
 
@@ -41,6 +42,7 @@ function rt.Balloon:instantiate(radius, center_x, center_y)
             inverse_mass = 1 / mass,
 
             distance_lambda = 0,
+            bending_lambda = 0,
             line_lambdas = { 0, 0, 0, 0 }
         })
     end
@@ -80,6 +82,18 @@ function rt.Balloon:instantiate(radius, center_x, center_y)
         })
     end
 
+    self._triplets = {}
+    for i = 1, #self._particles do
+        local i1 = i
+        local i2 = math.wrap(i + 1, #self._particles)
+        local i3 = math.wrap(i + 2, #self._particles)
+        table.insert(self._pairs, {
+            self._particles[i1],
+            self._particles[i2],
+            self._particles[i3]
+        })
+    end
+
     -- initial area
     local area = 0.0
     for i = 1, #self._particles do
@@ -95,12 +109,15 @@ function rt.Balloon:instantiate(radius, center_x, center_y)
     -- target segment length
     self._segment_length = (2 * math.pi * radius) / #self._particles
 
+    -- gauss-seidel direction
+    self._direction = true
+
     -- accumulated time
     self._elapsed = 0
 end
 
-function rt.Balloon:draw(alpha)
-    alpha = alpha or 1
+function rt.Balloon:draw(frame_interpolation_alpha)
+    frame_interpolation_alpha = frame_interpolation_alpha or 1
     local n = #self._particles
 
     local zoom = 1 / 1.25
@@ -127,15 +144,14 @@ function rt.Balloon:draw(alpha)
     local positions = {}
     local sum_x, sum_y = 0, 0
 
-    -- single loop: interpolated outline positions, centroid sums, and triangle vertices
     for i = 1, n do
         local a = self._particles[i]
-        local b = self._particles[i % n + 1] -- wraps last -> first
+        local b = self._particles[i % n + 1]
 
-        local ax = a.previous_x + (a.x - a.previous_x) * alpha
-        local ay = a.previous_y + (a.y - a.previous_y) * alpha
-        local bx = b.previous_x + (b.x - b.previous_x) * alpha
-        local by = b.previous_y + (b.y - b.previous_y) * alpha
+        local ax = a.draw_x + (a.x - a.draw_x) * frame_interpolation_alpha
+        local ay = a.draw_y + (a.y - a.draw_y) * frame_interpolation_alpha
+        local bx = b.draw_x + (b.x - b.draw_x) * frame_interpolation_alpha
+        local by = b.draw_y + (b.y - b.draw_y) * frame_interpolation_alpha
 
         table.insert(positions, ax)
         table.insert(positions, ay)
@@ -265,11 +281,59 @@ do
         return correction_x, correction_y, lambda_new
     end
 
+    local function _enforce_bending(
+        ax, ay, bx, by, cx, cy,
+        inverse_mass_a, inverse_mass_b, inverse_mass_c,
+        _,
+        alpha,
+        lambda_before
+    )
+        local tx = cx - ax
+        local ty = cy - ay
+        if math.magnitude(tx, ty) < math.eps then
+            return 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, lambda_before
+        end
+        tx, ty = math.normalize(tx, ty)
+
+        local nx, ny = math.turn_left(tx, ty)
+
+        local mx = 0.5 * (ax + cx)
+        local my = 0.5 * (ay + cy)
+
+        local ex = mx - bx
+        local ey = my - by
+        local constraint = math.dot(ex, ey, nx, ny)
+
+        local gax, gay =  0.5 * nx,  0.5 * ny
+        local gbx, gby = -1.0 * nx, -1.0 * ny
+        local gcx, gcy =  0.5 * nx,  0.5 * ny
+
+        local weight_sum = inverse_mass_a * (0.5 * 0.5) +
+            inverse_mass_b * (1.0 * 1.0) +
+            inverse_mass_c * (0.5 * 0.5)
+
+        local denominator = weight_sum + alpha
+        if denominator < math.eps then
+            return 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, lambda_before
+        end
+
+        local delta_lambda = -(constraint + alpha * lambda_before) / denominator
+        local lambda_new = lambda_before + delta_lambda
+
+        local correction_ax = inverse_mass_a * delta_lambda * gax
+        local correction_ay = inverse_mass_a * delta_lambda * gay
+        local correction_bx = inverse_mass_b * delta_lambda * gbx
+        local correction_by = inverse_mass_b * delta_lambda * gby
+        local correction_cx = inverse_mass_c * delta_lambda * gcx
+        local correction_cy = inverse_mass_c * delta_lambda * gcy
+
+        return correction_ax, correction_ay, correction_bx, correction_by, correction_cx, correction_cy, lambda_new
+    end
+
     local function _enforce_volume(particles, rest_area, alpha, lambda_before)
         local n = #particles
         local current_area = 0.0
 
-        -- Compute current polygon area using the shoelace formula
         for i = 1, n do
             local p = particles[i]
             local q = particles[i % n + 1]
@@ -278,7 +342,6 @@ do
 
         local constraint = current_area - rest_area
 
-        -- Compute gradients and denominator sum (sum of inverse_mass * ||grad||^2)
         local weight_sum = 0.0
         local grads = {}
         for i = 1, n do
@@ -299,7 +362,6 @@ do
         local delta_lambda = -(constraint + alpha * lambda_before) / denominator
         local lambda_new = lambda_before + delta_lambda
 
-        -- Apply position corrections
         for i = 1, n do
             local p = particles[i]
             local g = grads[i]
@@ -348,10 +410,12 @@ do
         local volume_alpha = settings.volume_compliance / (sub_delta^2)
         local line_alpha = settings.line_compliance / (sub_delta^2)
         local distance_alpha = settings.distance_compliance / (sub_delta^2)
+        local bending_alpha = settings.bending_compliance / (sub_delta^2)
 
         local particles = self._particles
         local n_particles = #particles
         local pairs = self._pairs
+        local tris = self._triplets
         local lines = self._lines
         local line_normals = self._line_normals
         local segment_length = self._segment_length
@@ -363,6 +427,8 @@ do
             local particle = particles[particle_i]
             particle.previous_x = particle.x
             particle.previous_y = particle.y
+            particle.draw_x = particle.x
+            particle.draw_y = particle.y
         end
 
         for _ = 1, n_sub_steps do
@@ -386,7 +452,8 @@ do
                 particle.previous_x = previous_x
                 particle.previous_y = previous_y
 
-                particle.volume_lambda = 0
+                particle.distance_lambda = 0
+                particle.bending_lambda = 0
                 for i = 1, 4 do
                     particle.line_lambdas[i] = 0
                 end
@@ -394,8 +461,30 @@ do
 
             self._volume_lambda = 0
 
+            -- flip-flop gauss-seidel iteration direction
+            local pair_start_i, pair_end_i, pair_step
+            local tri_start_i, tri_end_i, tri_step
+            if self._direction then
+                pair_start_i = 1
+                pair_end_i = #pairs
+                pair_step = 1
+
+                tri_start_i = 1
+                tri_end_i = #tris
+                tri_step = 1
+            else
+                pair_start_i = #pairs
+                pair_end_i = 1
+                pair_step = -1
+
+                tri_start_i = #tris
+                tri_end_i = 1
+                tri_step = -1
+            end
+            self._direction = not self._direction
+
             for _ = 1, n_constraint_iterations do
-                for pair_i = 1, #pairs do
+                for pair_i = pair_start_i, pair_end_i, pair_step do
                     local a, b = pairs[pair_i][1], pairs[pair_i][2]
                     local correction_ax, correction_ay, correction_bx, correction_by, lambda_new = _enforce_distance(
                         a.x, a.y, b.x, b.y,
@@ -410,6 +499,31 @@ do
                     b.x = b.x + correction_bx
                     b.y = b.y + correction_by
                     a.distance_lambda = lambda_new
+                end
+
+                for tri_i = tri_start_i, tri_end_i, tri_step do
+                    local a, b, c = table.unpack(tris[tri_i])
+
+                    local segment_length_ab = segment_length
+                    local segment_length_bc = segment_length
+                    local target_length = segment_length_ab + segment_length_bc
+
+                    local correction_ax, correction_ay, correction_bx, correction_by, correction_cx, correction_cy, lambda_new = _enforce_bending(
+                        a.x, a.y, b.x, b.y, c.x, c.y,
+                        a.inverse_mass, b.inverse_mass, c.inverse_mass,
+                        2 * segment_length,
+                        bending_alpha,
+                        a.bending_lambda
+                    )
+
+                    a.x = a.x + correction_ax
+                    a.y = a.y + correction_ay
+                    b.x = b.x + correction_bx
+                    b.y = b.y + correction_by
+                    c.x = c.x + correction_cx
+                    c.y = c.y + correction_cy
+
+                    a.bending_lambda = lambda_new
                 end
 
                 self._volume_lambda = _enforce_volume(

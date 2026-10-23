@@ -20,7 +20,7 @@ local init = function()
     balloon = rt.Balloon(
         100,
         0.5 * love.graphics.getWidth(),
-        0.5 * love.graphics.getHeight()
+        0.25 * love.graphics.getHeight()
     )
 end
 
