@@ -21,16 +21,17 @@
 
 @font-face {
     font-family: "Adwaita Mono";
-    font-style: italic;
-    font-weight: 400;
-    src: url("/fonts/adwaita-fonts-50.0/mono/AdwaitaMono-Italic.ttf") format("truetype");
-}
-
-@font-face {
-    font-family: "Adwaita Mono";
     font-style: normal;
     font-weight: 700;
     src: url("/fonts/adwaita-fonts-50.0/mono/AdwaitaMono-Bold.ttf") format("truetype");
+}
+
+/*
+@font-face {
+    font-family: "Adwaita Mono";
+    font-style: italic;
+    font-weight: 400;
+    src: url("/fonts/adwaita-fonts-50.0/mono/AdwaitaMono-Italic.ttf") format("truetype");
 }
 
 @font-face {
@@ -102,6 +103,7 @@
     font-weight: 700;
     src: url("/fonts/dejavu-fonts-ttf-2.37/ttf/DejaVuSansMono-BoldOblique.ttf") format("truetype");
 }
+ */
 
 @font-face {
     font-family: "MPLUS1p";
