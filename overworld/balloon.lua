@@ -71,7 +71,6 @@ function rt.Balloon:instantiate(radius, center_x, center_y)
         { x + 0.0 * w, y + 1.0 * h, x + 0.0 * w, y + 0.0 * h }
     }
 
-    -- Create closed polygon vertices from lines
     self._polygon = {}
     for _, line in ipairs(self._lines) do
         table.insert(self._polygon, { line[1], line[2] })
