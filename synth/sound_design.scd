@@ -25,8 +25,9 @@ server.waitForBoot {
 		//\boost_field,
 		//\menu
 		//\main_menu_dive
-		\menu_fall
+		//\menu_fall
 		//\bubble_field
+		\player
 	].do { |name| currentEnvironment[name].(degrees) };
 
 	CmdPeriod.doOnce { server.freeAll }
@@ -1231,7 +1232,7 @@ record_pattern = { arg recordbuf, recordbus, pattern, trig = nil, delay = 0;
 	var bpQ = 1.5;
 
 	// pan freq: speed at which the panning of all voices varies
-	var def = SynthDef.new(\menu_fall, { arg out, dur, startFreq, endFreq, gate = 1, panFreq = 3, recordbuf;
+	var swipeDef = SynthDef.new(\menu_fall, { arg out, dur, startFreq, endFreq, gate = 1, panFreq = 3, recordbuf;
 		var x = Sweep.ar(Trig1.ar(gate), (1e-4.log * (1.0 - tail).log).sqrt.exp / dur);
 		var t = (x.log.squared / (1.0 - tail).log).exp;
 		var freq = Line.kr(startFreq, endFreq, dur: dur);
@@ -1255,7 +1256,7 @@ record_pattern = { arg recordbuf, recordbus, pattern, trig = nil, delay = 0;
 		~rec.ar(recordbuf, signal);
 		~rec.end(endTrig);
 
-		Out.ar(out, signal);
+		Out.ar(out, ~amp * signal);
 		FreeSelf.kr(endTrig);
 	}).add;
 
@@ -1263,13 +1264,13 @@ record_pattern = { arg recordbuf, recordbus, pattern, trig = nil, delay = 0;
 	var grainbuf = {
 		var def = SynthDef.new(\menu_grain, { arg out, dur = 1, recordbuf;
 
-			var sig = PinkNoise.ar;
+			var sig = PinkNoise.ar; // * EnvGen.ar(Env.linen(0.02, dur - 0.04, 0.02));
 			var endTrig = Done.kr(Line.kr(0, 0, dur));
 
 			~rec.ar(recordbuf, sig);
 			~rec.end(endTrig);
 
-			Out.ar(out, sig.dup);
+			Out.ar(out, ~amp * sig.dup);
 			FreeSelf.kr(DelayN.kr(endTrig, 0.1, 0.1));
 		}).add;
 
@@ -1289,10 +1290,10 @@ record_pattern = { arg recordbuf, recordbus, pattern, trig = nil, delay = 0;
 		Buffer.read(server, tmp_filename);
 	}.value;
 
-	var fallDef = SynthDef.new(\bubble_synh, { arg out, dur, phase = 0, gate = 1, grainbuf, grainenv, playbackbuf;
+	var fallDef = SynthDef.new(\bubble_synh, { arg out, dur, gate = 1, grainbuf, grainenv, playbackbuf;
 		var density = EnvGen.kr(Env.new([0, 1, 0], [dur / 2, dur / 2], \lin), gate);
 
-		var trig = Dust.ar(density);
+		var trig = Impulse.ar(density.linlin(0, 1, 0, 30));
 
 		var rate = 1.5;
 		var scale = [-12, -10, -8, -7, -5, -3, -1];
@@ -1314,7 +1315,7 @@ record_pattern = { arg recordbuf, recordbus, pattern, trig = nil, delay = 0;
 
 		sig = FreeVerb.ar(sig);
 
-		Out.ar(out, sig);
+		Out.ar(out, ~amp * sig);
 	}).add;
 
 
@@ -1326,7 +1327,7 @@ record_pattern = { arg recordbuf, recordbus, pattern, trig = nil, delay = 0;
 		[\a, \b].do { |i| // for different noise shapes
 			~rec.record(server,
 				~rec.filename("menu", "swipe", degree, i), { arg recordbuf;
-					Pnew(def.name, *[
+					Pnew(swipeDef.name, *[
 						startFreq: (60 + degree).midicps,
 						endFreq: (60 + degree + 12).midicps,
 						dur: Pn(10, 1),
@@ -1340,9 +1341,75 @@ record_pattern = { arg recordbuf, recordbus, pattern, trig = nil, delay = 0;
 	// fall
 	~rec.record(server,
 		~rec.filename("menu", "fall"), { arg recordbuf;
-			Pnew(def.name, *[
+			Pnew(fallDef.name, *[
 				dur: Pn(10, 1),
 				recordbuf: recordbuf
 			]).play;
 	});
+};
+
+~player = { arg degrees;
+
+	var wavetable = if (~player_jump_wt.isNil) {
+		var wavetableRes = 2048;
+		var signalRes = wavetableRes / 2;
+
+		var makeWavetable = { |func|
+			Signal.fill(signalRes, { |i| func.value(i / signalRes * 2pi) }).normalize.asWavetable
+		};
+
+		var wavetables = [0, 1].collect { |k|
+			makeWavetable.({ |t|
+				if (k == 0) {
+					sin(t)
+				} {
+					tanh(k * sin(t)) / tanh(k)
+				}
+			})
+		};
+
+		var bufs = Buffer.allocConsecutive(wavetables.size, server, wavetableRes, 1);
+		server.sync;
+		bufs.do { |buf, i| buf.loadCollection(wavetables[i]) };
+		~player_jump_wt = bufs;
+	} { ~player_jump_wt };
+
+	var def = SynthDef.new(\player_jump, {
+		arg out = 0, dur = 1, freq = 440, gate = 1, wtStart, wtEnd, mix = 0.5;
+
+		var freqEnv = XLine.ar(freq, (freq.cpsmidi + 12).midicps, dur);
+		var attack = 0.04;
+		var sigAmpEnv = EnvGen.ar(
+			Env.new(1 + [0, 1, 0], [attack, (dur - attack).max(0.01)], \exp),
+			gate: gate
+		) - 1;
+
+		// bufnum position, kept strictly below the last table
+		var wtPosition = mix.linlin(0, 1, wtStart, wtEnd - 1e-4);
+
+		var feedback = LocalIn.ar(2) * 0.9;
+		var sig = (feedback + VOsc.ar(wtPosition,
+			freq: freqEnv,
+			phase: 0.2 * feedback.range(0, 2pi)
+		)) * sigAmpEnv;
+
+		LocalOut.ar(DelayC.ar(
+			sig,
+			maxdelaytime: 0.02,
+			delaytime: (0.02 - ControlDur.ir).max(0)
+		));
+		Out.ar(out, ~amp * sig);
+
+		DetectSilence.ar(sig, doneAction: Done.freeSelf);
+	}).add;
+
+	server.sync;
+
+	Pbind(
+		\instrument, def.name,
+		\wtStart, ~player_jump_wt.first.bufnum,
+		\wtEnd, ~player_jump_wt.last.bufnum,   // = first + size - 1
+		\degree, Pseq([0, 1, 3, 4]),
+		\dur, 0.8
+	).play;
 };

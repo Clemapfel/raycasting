@@ -114,30 +114,32 @@ AutoRecorder {
 		};
     }
 
-    *filename { arg prefix, name, degree;
-        var exportPath = thisProcess.nowExecutingPath.dirname +/+ AutoRecorder.exportPathName;
-        var res;
+    *filename { arg prefix, name ... degrees;
+		var exportPath = thisProcess.nowExecutingPath.dirname +/+ AutoRecorder.exportPathName;
+		var res, suffix;
 
-        if (prefix.isNil || name.isNil) {
-            Error("In AutoRecorder.filename: expected string for argument #1 and #2").throw
-        };
+		if (prefix.isNil || name.isNil) {
+			Error("In AutoRecorder.filename: expected string for argument #1 and #2").throw
+		};
 
-        if (File.exists(exportPath).not) {
-            File.mkdir(exportPath)
-        };
+		if (File.exists(exportPath).not) {
+			File.mkdir(exportPath)
+		};
 
-        if (File.exists(exportPath +/+ prefix).not) {
-            File.mkdir(exportPath +/+ prefix)
-        };
+		if (File.exists(exportPath +/+ prefix).not) {
+			File.mkdir(exportPath +/+ prefix)
+		};
 
-        if (degree.isNil) {
-            res = exportPath +/+ prefix +/+ name ++ "." ++ AutoRecorder.headerFormat.toLower;
-        } {
-            res = exportPath +/+ prefix +/+ name ++ (AutoRecorder.postfixPattern ++ "%").format(degree + 1) ++ "." ++ AutoRecorder.headerFormat.toLower;
-        };
+		suffix = if (degrees.isEmpty) {
+			""
+		} {
+			AutoRecorder.postfixPattern ++ degrees.collect(_ + 1).join("_")
+		};
 
-        ^res.standardizePath;
-    }
+		res = exportPath +/+ prefix +/+ name ++ suffix ++ "." ++ AutoRecorder.headerFormat.toLower;
+
+		^res.standardizePath;
+	}
 
     *measureLatency { arg server;
         var condition = Condition.new(false);
