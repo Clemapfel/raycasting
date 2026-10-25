@@ -1,0 +1,27 @@
+---
+//
+// Usage: <NoisyFrame radius=31 />
+//
+---
+
+<soft-body>
+    <canvas class="soft-body-canvas"></canvas>
+</soft-body>
+
+<style>
+    soft-body {
+
+    }
+
+    soft-body-canvas {
+        position: absolute;
+        top: 0;
+        left: 0;
+    }
+</style>
+
+<script>
+    import { SoftBody } from "./soft_body.ts";
+    import { register } from "../common/register_component";
+    register("soft-body", SoftBody);
+</script>

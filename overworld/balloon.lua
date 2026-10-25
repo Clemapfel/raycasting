@@ -1,6 +1,6 @@
 local settings = {
-    n_sub_steps = 2,
-    n_constraint_iterations = 4,
+    n_sub_steps = 4,
+    n_constraint_iterations = 16,
 
     vertex_density = 1 / 4,
     damping = 0.998,
@@ -12,8 +12,8 @@ local settings = {
     bending_compliance = 1e-6,
     angular_compliance = 0,
 
-    n_particles = 64,
-    radius = 80,
+    n_particles = 512,
+    radius = 200,
     texture_zoom = 1 / 1.25
 }
 
@@ -298,7 +298,7 @@ do
         return position_new_x, position_new_y, world_velocity_new_x, world_velocity_new_y, previous_x, previous_y
     end
 
-    local function _enforce_distance(
+    local function _enforce_exact_distance(
         ax, ay, bx, by,
         inverse_mass_a, inverse_mass_b,
         target_distance,
@@ -315,6 +315,44 @@ do
         local normal_x, normal_y = delta_x / length, delta_y / length
 
         local constraint = length - target_distance
+        local weight_sum = inverse_mass_a + inverse_mass_b
+        local denominator = weight_sum + alpha
+        if denominator < math.eps then
+            return 0, 0, 0, 0, lambda_before
+        end
+
+        local delta_lambda = -(constraint + alpha * lambda_before) / denominator
+        local lambda_new = lambda_before + delta_lambda
+
+        local correction_ax = inverse_mass_a * delta_lambda * (-normal_x)
+        local correction_ay = inverse_mass_a * delta_lambda * (-normal_y)
+        local correction_bx = inverse_mass_b * delta_lambda * ( normal_x)
+        local correction_by = inverse_mass_b * delta_lambda * ( normal_y)
+
+        return correction_ax, correction_ay, correction_bx, correction_by, lambda_new
+    end
+
+    local function _enforce_minimum_distance(
+        ax, ay, bx, by,
+        inverse_mass_a, inverse_mass_b,
+        minimum_distance,
+        alpha,
+        lambda_before
+    )
+        local delta_x = bx - ax
+        local delta_y = by - ay
+        local length = math.magnitude(delta_x, delta_y)
+        if length < math.eps then
+            return 0, 0, 0, 0, lambda_before
+        end
+
+        local constraint = length - minimum_distance
+        if constraint >= 0 then
+            return 0, 0, 0, 0, lambda_before
+        end
+
+        local normal_x, normal_y = delta_x / length, delta_y / length
+
         local weight_sum = inverse_mass_a + inverse_mass_b
         local denominator = weight_sum + alpha
         if denominator < math.eps then
@@ -676,7 +714,7 @@ do
                 for chain_i = 1, n_chain, 1 do
                     local ai, bi = chain_a[chain_i], chain_b[chain_i]
 
-                    local correction_ax, correction_ay, correction_bx, correction_by, lambda_new = _enforce_distance(
+                    local correction_ax, correction_ay, correction_bx, correction_by, lambda_new = _enforce_exact_distance(
                         ps[ai + _x_offset], ps[ai + _y_offset],
                         ps[bi + _x_offset], ps[bi + _y_offset],
                         ps[ai + _inverse_mass_offset], ps[bi + _inverse_mass_offset],
@@ -692,6 +730,7 @@ do
                     ps[ai + _distance_lambda_offset] = lambda_new
                 end
 
+                --[[
                 -- bending: triplets
                 for chain_i = 1, n_chain, 1 do
                     local ai, bi, ci = chain_a[chain_i], chain_b[chain_i], chain_c[chain_i]
@@ -716,6 +755,7 @@ do
 
                     ps[ai + _bending_lambda_offset] = lambda_new
                 end
+                ]]
 
                 -- volume
                 self._volume_lambda = _enforce_volume(
