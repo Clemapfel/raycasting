@@ -17,11 +17,8 @@ local init = function()
     package.loaded["overworld.balloon"] = nil
     meta._typenames["Balloon"] = nil
     require "overworld.balloon"
-    balloon = rt.Balloon(
-        100,
-        0.5 * love.graphics.getWidth(),
-        0.25 * love.graphics.getHeight()
-    )
+    balloon = rt.Balloon()
+    balloon:reformat(0, 0, love.graphics.getDimensions())
 end
 
 love.load = function(args)

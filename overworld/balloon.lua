@@ -1,8 +1,5 @@
---- @class rt.Balloon
-rt.Balloon = meta.class("Balloon")
-
 local settings = {
-    n_sub_steps = 16,
+    n_sub_steps = 2,
     n_constraint_iterations = 4,
 
     vertex_density = 1 / 4,
@@ -12,186 +9,273 @@ local settings = {
     distance_compliance = 2e-6,
     volume_compliance = 1e-7,
     line_compliance = 0,
-    bending_compliance = 1e-6
+    bending_compliance = 1e-6,
+    angular_compliance = 0,
+
+    n_particles = 64,
+    radius = 80,
+    texture_zoom = 1 / 1.25
 }
 
-function rt.Balloon:instantiate(radius, center_x, center_y)
-    mt.assert(radius, mt.Number, center_x, mt.Number, center_y, mt.Number)
+--- @class rt.Balloon
+rt.Balloon = meta.class("Balloon", rt.Widget)
 
-    local n_nodes = math.ceil(math.max(16, settings.vertex_density * 2 * math.pi * radius))
+local _x_offset = 0
+local _y_offset = 1
+local _previous_x_offset = 2
+local _previous_y_offset = 3
+local _draw_x_offset = 4
+local _draw_y_offset = 5
+local _velocity_x_offset = 6
+local _velocity_y_offset = 7
+local _radius_offset = 8
+local _mass_offset = 9
+local _inverse_mass_offset = 10
+local _distance_lambda_offset = 11
+local _bending_lambda_offset = 12
+local _polygon_lambda_offset = 13
 
-    -- particle data
-    self._particles = {}
-    for i = 1, n_nodes do
-        local angle = (i - 1) / n_nodes * 2 * math.pi
-        local x = center_x + radius * math.cos(angle)
-        local y = center_y + radius * math.sin(angle)
-        local mass = 1
-        table.insert(self._particles, {
-            x = x,
-            y = y,
-            previous_x = x,
-            previous_y = y,
-            draw_x = x,
-            draw_y = y,
-            velocity_x = 0,
-            velocity_y = 0,
-
-            radius = 4,
-            mass = 1,
-            inverse_mass = 1 / mass,
-
-            distance_lambda = 0,
-            bending_lambda = 0,
-            polygon_lambda = 0
-        })
-    end
-
-    -- collision bounding box lines
-    local w, h = love.graphics.getDimensions()
-    local padding = 5
-    local x, y = padding, padding
-    w = w - 2 * padding
-    h = h - 2 * padding
-
-    local spike_width = 100   -- width of the spike's base
-    local spike_height = 300  -- how far the spike pokes up into the box
-    local cx = x + 0.5 * w   -- horizontal center
-
-    self._lines = {
-        { x + 0.0 * w, y + 0.0 * h, x + 1.0 * w, y + 0.0 * h },
-        { x + 1.0 * w, y + 0.0 * h, x + 1.0 * w, y + 1.0 * h },
-
-        -- bottom line, split around the spike (traversed right to left)
-        { x + 1.0 * w, y + 1.0 * h, cx + spike_width / 2, y + 1.0 * h },                -- right part
-        { cx + spike_width / 2, y + 1.0 * h, cx, y + 1.0 * h - spike_height },          -- spike, rising edge
-        { cx, y + 1.0 * h - spike_height, cx - spike_width / 2, y + 1.0 * h },          -- spike, falling edge
-        { cx - spike_width / 2, y + 1.0 * h, x + 0.0 * w, y + 1.0 * h },                -- left part
-
-        { x + 0.0 * w, y + 1.0 * h, x + 0.0 * w, y + 0.0 * h }
-    }
-
-    self._polygon = {}
-    for _, line in ipairs(self._lines) do
-        table.insert(self._polygon, { line[1], line[2] })
-    end
-
-    -- pairs from contour
-    self._pairs = {}
-    for i = 1, #self._particles do
-        local i1 = i
-        local i2 = math.wrap(i + 1, #self._particles)
-        table.insert(self._pairs, {
-            self._particles[i1],
-            self._particles[i2]
-        })
-    end
-
-    self._triplets = {}
-    for i = 1, #self._particles do
-        local i1 = i
-        local i2 = math.wrap(i + 1, #self._particles)
-        local i3 = math.wrap(i + 2, #self._particles)
-        table.insert(self._triplets, {
-            self._particles[i1],
-            self._particles[i2],
-            self._particles[i3]
-        })
-    end
-
-    -- initial area
-    local area = 0.0
-    for i = 1, #self._particles do
-        local p = self._particles[i]
-        local q = self._particles[i % #self._particles + 1]
-        area = area + 0.5 * (p.x * q.y - q.x * p.y)
-    end
-    self._rest_area = area
-
-    -- global volume lambda
-    self._volume_lambda = 0
-
-    -- target segment length
-    self._segment_length = (2 * math.pi * radius) / #self._particles
-
-    -- gauss-seidel direction
-    self._direction = true
-
-    -- accumulated time
-    self._elapsed = 0
+local _stride = _polygon_lambda_offset + 1
+local _particle_i_to_data_offset = function(particle_i)
+    return (particle_i - 1) * _stride + 1
 end
 
-function rt.Balloon:draw(frame_interpolation_alpha)
-    frame_interpolation_alpha = frame_interpolation_alpha or 1
-    local n = #self._particles
+local _edge_x1_offset = 0
+local _edge_y1_offset = 1
+local _edge_x2_offset = 2
+local _edge_y2_offset = 3
+local _edge_normal_x_offset = 4
+local _edge_normal_y_offset = 5
 
-    local zoom = 1 / 1.25
+local _edge_stride = _edge_normal_y_offset + 1
+local _edge_i_to_data_offset = function(edge_i)
+    return (edge_i - 1) * _edge_stride + 1
+end
 
-    if self._mesh == nil then
-        self._mesh_data = {}
-        for i = 1, n do
-            local angle_a = (i - 1) / n * 2 * math.pi
-            local angle_b = i / n * 2 * math.pi
-            local u_a = 0.5 + 0.5 * zoom * math.cos(angle_a)
-            local v_a = 0.5 + 0.5 * zoom * math.sin(angle_a)
-            local u_b = 0.5 + 0.5 * zoom * math.cos(angle_b)
-            local v_b = 0.5 + 0.5 * zoom * math.sin(angle_b)
+function rt.Balloon:reformat(x, y, width, height)
+    local n_particles = settings.n_particles
+    self._n_particles = n_particles
 
-            table.insert(self._mesh_data, { 0, 0, 0.5,  0.5,  1, 1, 1, 1 })
-            table.insert(self._mesh_data, { 0, 0, u_a,  v_a,  1, 1, 1, 1 })
-            table.insert(self._mesh_data, { 0, 0, u_b,  v_b,  1, 1, 1, 1 })
+    local cx, cy = x + 0.5 * width, y + 0.5 * height
+    local radius = settings.radius
+
+    -- particles
+    local particles = {}
+    self._particles = particles
+
+    for particle_i = 1, n_particles do
+        local angle = (particle_i - 1) / n_particles * 2 * math.pi
+        local px = cx + radius * math.cos(angle)
+        local py = cy + radius * math.sin(angle)
+        local mass = 1
+
+        local base = _particle_i_to_data_offset(particle_i)
+
+        particles[base + _x_offset] = px
+        particles[base + _y_offset] = py
+        particles[base + _previous_x_offset] = px
+        particles[base + _previous_y_offset] = py
+        particles[base + _draw_x_offset] = px
+        particles[base + _draw_y_offset] = py
+        particles[base + _velocity_x_offset] = 0
+        particles[base + _velocity_y_offset] = 0
+        particles[base + _radius_offset] = 4
+        particles[base + _mass_offset] = mass
+        particles[base + _inverse_mass_offset] = 1 / mass
+        particles[base + _distance_lambda_offset] = 0
+        particles[base + _bending_lambda_offset] = 0
+        particles[base + _polygon_lambda_offset] = 0
+    end
+
+    -- collision area
+    local tlx, tly = x, y
+    local trx, try = x + width, y
+    local brx, bry = x + width, y + height
+    local blx, bly = x, y + height
+    local polygon = {
+        tlx, tly,
+        trx, try,
+        brx, bry,
+        blx, bly,
+        tlx, tly
+    }
+    self._polygon = polygon
+
+    -- precompute polygon edge data
+    local edges = {}
+    local n_edges = 0
+    local n_vertices = #polygon / 2
+    for vertex_i = 1, n_vertices do
+        local next_vertex_i = vertex_i % n_vertices + 1
+
+        local ai = (vertex_i - 1) * 2 + 1
+        local bi = (next_vertex_i - 1) * 2 + 1
+        local x1, y1 = polygon[ai + 0], polygon[ai + 1]
+        local x2, y2 = polygon[bi + 0], polygon[bi + 1]
+
+        local e_dx = x2 - x1
+        local e_dy = y2 - y1
+        local e_magnitude = math.sqrt(e_dx * e_dx + e_dy * e_dy)
+
+        if e_magnitude > math.eps then
+            n_edges = n_edges + 1
+            local base = _edge_i_to_data_offset(n_edges)
+
+            edges[base + _edge_x1_offset] = x1
+            edges[base + _edge_y1_offset] = y1
+            edges[base + _edge_x2_offset] = x2
+            edges[base + _edge_y2_offset] = y2
+            edges[base + _edge_normal_x_offset] = -e_dy / e_magnitude
+            edges[base + _edge_normal_y_offset] = e_dx / e_magnitude
         end
-        self._mesh = rt.Mesh(self._mesh_data, rt.MeshDrawMode.TRIANGLES)
-        self._mesh:set_texture(rt.Texture("assets/sprites/why.png"))
+    end
+    self._polygon_edges = edges
+    self._n_polygon_edges = n_edges
+
+    -- volume
+    local area = 0
+    for particle_i = 1, n_particles do
+        local ai = _particle_i_to_data_offset(particle_i)
+        local bi = _particle_i_to_data_offset(particle_i % n_particles + 1)
+        local ax, ay = particles[ai + _x_offset], particles[ai + _y_offset]
+        local bx, by = particles[bi + _x_offset], particles[bi + _y_offset]
+        area = area + 0.5 * (ax * by - bx * ay)
+    end
+    self._rest_volume = area
+
+    self._volume_lambda = 0
+    self._angular_lambda = 0
+
+    -- preallocated gradient buffers for volume constraint
+    self._volume_gradient_x = {}
+    self._volume_gradient_y = {}
+    for particle_i = 1, n_particles do
+        self._volume_gradient_x[particle_i] = 0
+        self._volume_gradient_y[particle_i] = 0
     end
 
-    local mesh_data = self._mesh_data
-    local positions = {}
-    local sum_x, sum_y = 0, 0
-
-    for i = 1, n do
-        local a = self._particles[i]
-        local b = self._particles[i % n + 1]
-
-        local ax = a.draw_x + (a.x - a.draw_x) * frame_interpolation_alpha
-        local ay = a.draw_y + (a.y - a.draw_y) * frame_interpolation_alpha
-        local bx = b.draw_x + (b.x - b.draw_x) * frame_interpolation_alpha
-        local by = b.draw_y + (b.y - b.draw_y) * frame_interpolation_alpha
-
-        table.insert(positions, ax)
-        table.insert(positions, ay)
-        sum_x = sum_x + ax
-        sum_y = sum_y + ay
-
-        local base = (i - 1) * 3
-        local va, vb = mesh_data[base + 2], mesh_data[base + 3]
-        va[1], va[2] = ax, ay
-        vb[1], vb[2] = bx, by
+    -- chain
+    self._chain = {}
+    for particle_i = 1, n_particles  do
+        table.insert(self._chain, particle_i)
     end
 
-    table.insert(positions, positions[1])
-    table.insert(positions, positions[2])
-
-    local cx, cy = sum_x / n, sum_y / n
-    for i = 1, n do
-        local center = mesh_data[(i - 1) * 3 + 1]
-        center[1], center[2] = cx, cy
+    -- precompute wrapped data offsets for pairs (a, b) and triplets (a, b, c)
+    local chain = self._chain
+    local n_chain = #chain
+    self._chain_a = {}
+    self._chain_b = {}
+    self._chain_c = {}
+    for chain_i = 1, n_chain do
+        self._chain_a[chain_i] = _particle_i_to_data_offset(chain[chain_i])
+        self._chain_b[chain_i] = _particle_i_to_data_offset(chain[chain_i % n_chain + 1])
+        self._chain_c[chain_i] = _particle_i_to_data_offset(chain[(chain_i + 1) % n_chain + 1])
     end
 
-    self._mesh:replace_data(mesh_data)
+    -- sim params
+    self._segment_length = (2 * math.pi * radius) / n_particles
+    self._elapsed = 0
 
-    love.graphics.setLineWidth(3)
-    love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.line(positions)
+    -- mesh
+    self._draw_positions = {}
+    for particle_i = 1, n_particles do
+        local i = _particle_i_to_data_offset(particle_i)
+        table.insert(self._draw_positions, particles[i + _x_offset])
+        table.insert(self._draw_positions, particles[i + _y_offset])
+    end
+
+    self._mesh_data = {}
+
+    local zoom = settings.texture_zoom
+    for particle_i = 1, n_particles do
+        local a_particle_i = particle_i
+        local b_particle_i = particle_i % n_particles + 1
+
+        local angle_a = (a_particle_i - 1) / n_particles * 2 * math.pi
+        local angle_b = (b_particle_i - 1) / n_particles * 2 * math.pi
+        local u_a = 0.5 + 0.5 * zoom * math.cos(angle_a)
+        local v_a = 0.5 + 0.5 * zoom * math.sin(angle_a)
+        local u_b = 0.5 + 0.5 * zoom * math.cos(angle_b)
+        local v_b = 0.5 + 0.5 * zoom * math.sin(angle_b)
+
+        local ai = _particle_i_to_data_offset(a_particle_i)
+        local bi = _particle_i_to_data_offset(b_particle_i)
+        local ax, ay = particles[ai + _x_offset], particles[ai + _y_offset]
+        local bx, by = particles[bi + _x_offset], particles[bi + _y_offset]
+
+        table.insert(self._mesh_data, { cx, cy, 0.5, 0.5, 1, 1, 1, 1 })
+        table.insert(self._mesh_data, { ax, ay, u_a, v_a, 1, 1, 1, 1 })
+        table.insert(self._mesh_data, { bx, by, u_b, v_b, 1, 1, 1, 1 })
+    end
+
+    self._mesh = rt.Mesh(self._mesh_data, rt.MeshDrawMode.TRIANGLES)
+    self._mesh:set_texture(rt.Texture("assets/sprites/why.png"))
+    self._mesh_data_needs_update = false
+end
+
+function rt.Balloon:draw()
+    local n_particles = self._n_particles
+    local frame_interpolation_alpha = 1.0
+
+    if self._mesh_data_needs_update then
+        self._mesh_data_needs_update = false
+
+        local particles = self._particles
+        local draw_positions = self._draw_positions
+
+        -- precompute draw positions and centroid
+        local x_sum, y_sum = 0, 0
+        for particle_i = 1, n_particles do
+            local i = _particle_i_to_data_offset(particle_i)
+
+            local base_x, base_y = particles[i + _x_offset], particles[i + _y_offset]
+            local draw_x, draw_y = particles[i + _draw_x_offset], particles[i + _draw_y_offset]
+
+            local x = draw_x + (base_x - draw_x) * frame_interpolation_alpha
+            local y = draw_y + (base_y - draw_y) * frame_interpolation_alpha
+
+            x_sum = x_sum + x
+            y_sum = y_sum + y
+
+            local j = particle_i * 2
+            draw_positions[j - 1] = x
+            draw_positions[j - 0] = y
+        end
+
+        local cx, cy = x_sum / n_particles, y_sum / n_particles
+
+        -- update mesh data
+        local mesh_data = self._mesh_data
+        for particle_i = 1, n_particles do
+            local a_particle_i = particle_i
+            local b_particle_i = particle_i % n_particles + 1
+
+            local ai = (a_particle_i - 1) * 2 + 1
+            local bi = (b_particle_i - 1) * 2 + 1
+
+            local ax, ay = draw_positions[ai + 0], draw_positions[ai + 1]
+            local bx, by = draw_positions[bi + 0], draw_positions[bi + 1]
+
+            local mesh_i = (particle_i - 1) * 3 + 1
+            mesh_data[mesh_i + 0][1] = cx
+            mesh_data[mesh_i + 0][2] = cy
+
+            mesh_data[mesh_i + 1][1] = ax
+            mesh_data[mesh_i + 1][2] = ay
+
+            mesh_data[mesh_i + 2][1] = bx
+            mesh_data[mesh_i + 2][2] = by
+        end
+
+        self._mesh:replace_data(mesh_data)
+    end
 
     love.graphics.setColor(1, 1, 1, 1)
     self._mesh:draw()
 
-    local dark = 0.5
-    love.graphics.setColor(dark, dark, dark, 1)
-    for _, line in ipairs(self._lines) do
-        love.graphics.line(line)
-    end
+    love.graphics.setLineWidth(4)
+    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.line(self._polygon)
 end
 
 do
@@ -228,7 +312,7 @@ do
             return 0, 0, 0, 0, lambda_before
         end
 
-        local normal_x, normal_y = math.normalize(delta_x, delta_y)
+        local normal_x, normal_y = delta_x / length, delta_y / length
 
         local constraint = length - target_distance
         local weight_sum = inverse_mass_a + inverse_mass_b
@@ -252,38 +336,23 @@ do
         local a_x, a_y = sx1, sy1
         local b_x, b_y = sx2, sy2
         local ab_x, ab_y = b_x - a_x, b_y - a_y
-        local ab_len2 = ab_x * ab_x + ab_y * ab_y
+        local ab_magnitude_sq = ab_x * ab_x + ab_y * ab_y
 
-        if ab_len2 <= 0.0 then
+        if ab_magnitude_sq <= 0.0 then
             return a_x, a_y
         end
 
         local ap_x, ap_y = xy_x - a_x, xy_y - a_y
-        local t = (ap_x * ab_x + ap_y * ab_y) / ab_len2
+        local t = (ap_x * ab_x + ap_y * ab_y) / ab_magnitude_sq
         if t < 0.0 then t = 0.0 elseif t > 1.0 then t = 1.0 end
 
         return a_x + t * ab_x, a_y + t * ab_y
     end
 
-    local function _is_point_in_polygon(px, py, polygon)
-        local n = #polygon
-        local inside = false
-        local j = n
-        for i = 1, n do
-            local xi, yi = polygon[i][1], polygon[i][2]
-            local xj, yj = polygon[j][1], polygon[j][2]
-            if ((yi > py) ~= (yj > py)) and (px < (xj - xi) * (py - yi) / (yj - yi) + xi) then
-                inside = not inside
-            end
-            j = i
-        end
-        return inside
-    end
-
     local function _enforce_polygon_collision(
         position_x, position_y, inverse_mass,
         radius,
-        polygon,
+        edges, n_edges,
         alpha,
         lambda_before
     )
@@ -291,17 +360,17 @@ do
             return 0.0, 0.0, lambda_before
         end
 
-        local n = #polygon
         local min_dist_sq = math.huge
         local best_cx, best_cy = position_x, position_y
         local best_nx, best_ny = 0, 0
+        local inside = false
 
-        -- Find closest point on any polygon segment
-        for i = 1, n do
-            local j = (i % n) + 1
-            local x1, y1 = polygon[i][1], polygon[i][2]
-            local x2, y2 = polygon[j][1], polygon[j][2]
+        for edge_i = 1, n_edges do
+            local i = _edge_i_to_data_offset(edge_i)
+            local x1, y1 = edges[i + _edge_x1_offset], edges[i + _edge_y1_offset]
+            local x2, y2 = edges[i + _edge_x2_offset], edges[i + _edge_y2_offset]
 
+            -- closest point
             local cx, cy = _closest_point_on_segment(position_x, position_y, x1, y1, x2, y2)
             local dx = position_x - cx
             local dy = position_y - cy
@@ -310,21 +379,20 @@ do
             if dist_sq < min_dist_sq then
                 min_dist_sq = dist_sq
                 best_cx, best_cy = cx, cy
+                best_nx = edges[i + _edge_normal_x_offset]
+                best_ny = edges[i + _edge_normal_y_offset]
+            end
 
-                local edx = x2 - x1
-                local edy = y2 - y1
-                local elen = math.sqrt(edx * edx + edy * edy)
-                if elen > math.eps then
-                    -- Inward normal for clockwise winding
-                    best_nx, best_ny = -edy / elen, edx / elen
-                end
+            -- even-odd rule
+            if ((y2 > position_y) ~= (y1 > position_y))
+                and (position_x < (x1 - x2) * (position_y - y2) / (y1 - y2) + x2)
+            then
+                inside = not inside
             end
         end
 
-        local inside = _is_point_in_polygon(position_x, position_y, polygon)
         local d = math.sqrt(min_dist_sq)
 
-        -- Determine signed distance and inward correction direction
         local signed_dist
         local normal_x, normal_y
 
@@ -364,33 +432,36 @@ do
     local function _enforce_bending(
         ax, ay, bx, by, cx, cy,
         inverse_mass_a, inverse_mass_b, inverse_mass_c,
-        _,
         alpha,
         lambda_before
     )
-        local tx = cx - ax
-        local ty = cy - ay
-        if math.magnitude(tx, ty) < math.eps then
+        local chord_x = cx - ax
+        local chord_y = cy - ay
+        local length = math.sqrt(chord_x * chord_x + chord_y * chord_y)
+        if length < math.eps then
             return 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, lambda_before
         end
-        tx, ty = math.normalize(tx, ty)
 
-        local nx, ny = math.turn_left(tx, ty)
+        local inv_length = 1.0 / length
+        local tx = chord_x * inv_length
+        local ty = chord_y * inv_length
+        local nx = -ty
+        local ny = tx
 
-        local mx = 0.5 * (ax + cx)
-        local my = 0.5 * (ay + cy)
+        local ex = 0.5 * (ax + cx) - bx
+        local ey = 0.5 * (ay + cy) - by
 
-        local ex = mx - bx
-        local ey = my - by
-        local constraint = math.dot(ex, ey, nx, ny)
+        local constraint = ex * nx + ey * ny
 
-        local gax, gay =  0.5 * nx,  0.5 * ny
-        local gbx, gby = -1.0 * nx, -1.0 * ny
-        local gcx, gcy =  0.5 * nx,  0.5 * ny
+        local k = (ex * tx + ey * ty) * inv_length
 
-        local weight_sum = inverse_mass_a * (0.5 * 0.5) +
-            inverse_mass_b * (1.0 * 1.0) +
-            inverse_mass_c * (0.5 * 0.5)
+        local wa =  0.5 + k
+        local wb = -1.0
+        local wc =  0.5 - k
+
+        local weight_sum = inverse_mass_a * wa * wa
+            + inverse_mass_b * wb * wb
+            + inverse_mass_c * wc * wc
 
         local denominator = weight_sum + alpha
         if denominator < math.eps then
@@ -400,39 +471,112 @@ do
         local delta_lambda = -(constraint + alpha * lambda_before) / denominator
         local lambda_new = lambda_before + delta_lambda
 
-        local correction_ax = inverse_mass_a * delta_lambda * gax
-        local correction_ay = inverse_mass_a * delta_lambda * gay
-        local correction_bx = inverse_mass_b * delta_lambda * gbx
-        local correction_by = inverse_mass_b * delta_lambda * gby
-        local correction_cx = inverse_mass_c * delta_lambda * gcx
-        local correction_cy = inverse_mass_c * delta_lambda * gcy
+        local sa = inverse_mass_a * delta_lambda * wa
+        local sb = inverse_mass_b * delta_lambda * wb
+        local sc = inverse_mass_c * delta_lambda * wc
 
-        return correction_ax, correction_ay, correction_bx, correction_by, correction_cx, correction_cy, lambda_new
+        return sa * nx, sa * ny,
+        sb * nx, sb * ny,
+        sc * nx, sc * ny,
+        lambda_new
     end
 
-    local function _enforce_volume(particles, rest_area, alpha, lambda_before)
-        local n = #particles
-        local current_area = 0.0
+    local function _enforce_angular_momentum(
+        particles, n_particles,
+        alpha,
+        lambda_before
+    )
+        local mass_sum = 0
+        local com_x, com_y = 0, 0
+        for particle_i = 1, n_particles do
+            local i = _particle_i_to_data_offset(particle_i)
+            local m = particles[i + _mass_offset]
+            mass_sum = mass_sum + m
+            com_x = com_x + m * particles[i + _previous_x_offset]
+            com_y = com_y + m * particles[i + _previous_y_offset]
+        end
 
-        for i = 1, n do
-            local p = particles[i]
-            local q = particles[i % n + 1]
-            current_area = current_area + 0.5 * (p.x * q.y - q.x * p.y)
+        if mass_sum < math.eps then return lambda_before end
+        com_x = com_x / mass_sum
+        com_y = com_y / mass_sum
+
+        local constraint = 0
+        local weight_sum = 0
+        for particle_i = 1, n_particles do
+            local i = _particle_i_to_data_offset(particle_i)
+            local m = particles[i + _mass_offset]
+            local inverse_mass = particles[i + _inverse_mass_offset]
+
+            local rx = particles[i + _previous_x_offset] - com_x
+            local ry = particles[i + _previous_y_offset] - com_y
+            local dx = particles[i + _x_offset] - particles[i + _previous_x_offset]
+            local dy = particles[i + _y_offset] - particles[i + _previous_y_offset]
+
+            constraint = constraint + m * (rx * dy - ry * dx)
+
+            local gx, gy = -m * ry, m * rx
+            weight_sum = weight_sum + inverse_mass * (gx * gx + gy * gy)
+        end
+
+        local denominator = weight_sum + alpha
+        if denominator < math.eps then return lambda_before end
+
+        local delta_lambda = -(constraint + alpha * lambda_before) / denominator
+        local lambda_new = lambda_before + delta_lambda
+
+        for particle_i = 1, n_particles do
+            local i = _particle_i_to_data_offset(particle_i)
+            local m = particles[i + _mass_offset]
+            local inverse_mass = particles[i + _inverse_mass_offset]
+
+            local rx = particles[i + _previous_x_offset] - com_x
+            local ry = particles[i + _previous_y_offset] - com_y
+
+            particles[i + _x_offset] = particles[i + _x_offset] + inverse_mass * delta_lambda * (-m * ry)
+            particles[i + _y_offset] = particles[i + _y_offset] + inverse_mass * delta_lambda * ( m * rx)
+        end
+
+        return lambda_new
+    end
+
+    local function _enforce_volume(
+        particles, n_particles,
+        gradient_x, gradient_y,
+        rest_area,
+        alpha,
+        lambda_before
+    )
+        local current_area = 0
+        local weight_sum = 0.0
+
+        local previous_ai = _particle_i_to_data_offset(n_particles)
+        local current_ai = _particle_i_to_data_offset(1)
+
+        for i = 1, n_particles do
+            local next_ai = _particle_i_to_data_offset(i % n_particles + 1)
+
+            local previous_x = particles[previous_ai + _x_offset]
+            local previous_y = particles[previous_ai + _y_offset]
+            local current_x = particles[current_ai + _x_offset]
+            local current_y = particles[current_ai + _y_offset]
+            local next_x = particles[next_ai + _x_offset]
+            local next_y = particles[next_ai + _y_offset]
+
+            current_area = current_area + 0.5 * (current_x * next_y - next_x * current_y)
+
+            local grad_x = 0.5 * (next_y - previous_y)
+            local grad_y = 0.5 * (previous_x - next_x)
+            gradient_x[i] = grad_x
+            gradient_y[i] = grad_y
+
+            local inverse_mass = particles[current_ai + _inverse_mass_offset]
+            weight_sum = weight_sum + inverse_mass * (grad_x * grad_x + grad_y * grad_y)
+
+            previous_ai = current_ai
+            current_ai = next_ai
         end
 
         local constraint = current_area - rest_area
-
-        local weight_sum = 0.0
-        local grads = {}
-        for i = 1, n do
-            local prev = particles[(i - 2) % n + 1]
-            local next = particles[i % n + 1]
-            local grad_x = 0.5 * (next.y - prev.y)
-            local grad_y = 0.5 * (prev.x - next.x)
-            grads[i] = { x = grad_x, y = grad_y }
-
-            weight_sum = weight_sum + particles[i].inverse_mass * (grad_x * grad_x + grad_y * grad_y)
-        end
 
         local denominator = weight_sum + alpha
         if denominator < math.eps then
@@ -442,11 +586,12 @@ do
         local delta_lambda = -(constraint + alpha * lambda_before) / denominator
         local lambda_new = lambda_before + delta_lambda
 
-        for i = 1, n do
-            local p = particles[i]
-            local g = grads[i]
-            p.x = p.x + p.inverse_mass * delta_lambda * g.x
-            p.y = p.y + p.inverse_mass * delta_lambda * g.y
+        for particle_i = 1, n_particles do
+            local i = _particle_i_to_data_offset(particle_i)
+            local inverse_mass = particles[i + _inverse_mass_offset]
+
+            particles[i + _x_offset] = particles[i + _x_offset] + inverse_mass * delta_lambda * gradient_x[particle_i]
+            particles[i + _y_offset] = particles[i + _y_offset] + inverse_mass * delta_lambda * gradient_y[particle_i]
         end
 
         return lambda_new
@@ -474,156 +619,162 @@ do
         local line_alpha = settings.line_compliance / (sub_delta^2)
         local distance_alpha = settings.distance_compliance / (sub_delta^2)
         local bending_alpha = settings.bending_compliance / (sub_delta^2)
+        local angular_alpha = settings.angular_compliance / (sub_delta^2)
 
-        local particles = self._particles
-        local n_particles = #particles
-        local pairs = self._pairs
-        local tris = self._triplets
-        local polygon = self._polygon
+        local ps = self._particles
+        local n_particles = self._n_particles
+        local chain_a, chain_b, chain_c = self._chain_a, self._chain_b, self._chain_c
+        local n_chain = #chain_a
         local segment_length = self._segment_length
+
+        local volume_gradient_x = self._volume_gradient_x
+        local volume_gradient_y = self._volume_gradient_y
+
+        local edges = self._polygon_edges
+        local n_edges = self._n_polygon_edges
 
         local gravity_direction_x, gravity_direction_y = 0, 1
         local gravity = settings.gravity
 
         for particle_i = 1, n_particles do
-            local particle = particles[particle_i]
-            particle.previous_x = particle.x
-            particle.previous_y = particle.y
-            particle.draw_x = particle.x
-            particle.draw_y = particle.y
+            local i = _particle_i_to_data_offset(particle_i)
+            ps[i + _draw_x_offset] = ps[i + _x_offset]
+            ps[i + _draw_y_offset] = ps[i + _y_offset]
         end
 
         for _ = 1, n_sub_steps do
             -- pre solve
-            for particle_i = 1, n_particles  do
-                local particle = particles[particle_i]
+            for particle_i = 1, n_particles do
+                local i = _particle_i_to_data_offset(particle_i)
                 local new_position_x, new_position_y, new_velocity_x, new_velocity_y, previous_x, previous_y = _pre_solve(
-                    particle.x,
-                    particle.y,
-                    particle.velocity_x,
-                    particle.velocity_y,
-                    particle.mass,
+                    ps[i + _x_offset],
+                    ps[i + _y_offset],
+                    ps[i + _velocity_x_offset],
+                    ps[i + _velocity_y_offset],
+                    ps[i + _mass_offset],
                     gravity_direction_x * gravity, gravity_direction_y * gravity,
                     damping, sub_delta
                 )
 
-                particle.x = new_position_x
-                particle.y = new_position_y
-                particle.velocity_x = new_velocity_x
-                particle.velocity_y = new_velocity_y
-                particle.previous_x = previous_x
-                particle.previous_y = previous_y
+                ps[i + _x_offset] = new_position_x
+                ps[i + _y_offset] = new_position_y
+                ps[i + _velocity_x_offset] = new_velocity_x
+                ps[i + _velocity_y_offset] = new_velocity_y
+                ps[i + _previous_x_offset] = previous_x
+                ps[i + _previous_y_offset] = previous_y
 
-                particle.distance_lambda = 0
-                particle.bending_lambda = 0
-                particle.polygon_lambda = 0
+                ps[i + _distance_lambda_offset] = 0
+                ps[i + _bending_lambda_offset] = 0
+                ps[i + _polygon_lambda_offset] = 0
             end
 
             self._volume_lambda = 0
-
-            -- flip-flop gauss-seidel iteration direction
-            local pair_start_i, pair_end_i, pair_step
-            local tri_start_i, tri_end_i, tri_step
-            if self._direction then
-                pair_start_i = 1
-                pair_end_i = #pairs
-                pair_step = 1
-
-                tri_start_i = 1
-                tri_end_i = #tris
-                tri_step = 1
-            else
-                pair_start_i = #pairs
-                pair_end_i = 1
-                pair_step = -1
-
-                tri_start_i = #tris
-                tri_end_i = 1
-                tri_step = -1
-            end
-            self._direction = not self._direction
+            self._angular_lambda = 0
 
             for _ = 1, n_constraint_iterations do
-                for pair_i = pair_start_i, pair_end_i, pair_step do
-                    local a, b = pairs[pair_i][1], pairs[pair_i][2]
+                -- distance: pair wise
+                for chain_i = 1, n_chain, 1 do
+                    local ai, bi = chain_a[chain_i], chain_b[chain_i]
+
                     local correction_ax, correction_ay, correction_bx, correction_by, lambda_new = _enforce_distance(
-                        a.x, a.y, b.x, b.y,
-                        a.inverse_mass, b.inverse_mass,
+                        ps[ai + _x_offset], ps[ai + _y_offset],
+                        ps[bi + _x_offset], ps[bi + _y_offset],
+                        ps[ai + _inverse_mass_offset], ps[bi + _inverse_mass_offset],
                         segment_length,
                         distance_alpha,
-                        a.distance_lambda
+                        ps[ai + _distance_lambda_offset]
                     )
 
-                    a.x = a.x + correction_ax
-                    a.y = a.y + correction_ay
-                    b.x = b.x + correction_bx
-                    b.y = b.y + correction_by
-                    a.distance_lambda = lambda_new
+                    ps[ai + _x_offset] = ps[ai + _x_offset] + correction_ax
+                    ps[ai + _y_offset] = ps[ai + _y_offset] + correction_ay
+                    ps[bi + _x_offset] = ps[bi + _x_offset] + correction_bx
+                    ps[bi + _y_offset] = ps[bi + _y_offset] + correction_by
+                    ps[ai + _distance_lambda_offset] = lambda_new
                 end
 
-                for tri_i = tri_start_i, tri_end_i, tri_step do
-                    local a, b, c = table.unpack(tris[tri_i])
+                -- bending: triplets
+                for chain_i = 1, n_chain, 1 do
+                    local ai, bi, ci = chain_a[chain_i], chain_b[chain_i], chain_c[chain_i]
 
                     local correction_ax, correction_ay, correction_bx, correction_by, correction_cx, correction_cy, lambda_new = _enforce_bending(
-                        a.x, a.y, b.x, b.y, c.x, c.y,
-                        a.inverse_mass, b.inverse_mass, c.inverse_mass,
-                        2 * segment_length,
+                        ps[ai + _x_offset], ps[ai + _y_offset],
+                        ps[bi + _x_offset], ps[bi + _y_offset],
+                        ps[ci + _x_offset], ps[ci + _y_offset],
+                        ps[ai + _inverse_mass_offset],
+                        ps[bi + _inverse_mass_offset],
+                        ps[ci + _inverse_mass_offset],
                         bending_alpha,
-                        a.bending_lambda
+                        ps[ai + _bending_lambda_offset]
                     )
 
-                    a.x = a.x + correction_ax
-                    a.y = a.y + correction_ay
-                    b.x = b.x + correction_bx
-                    b.y = b.y + correction_by
-                    c.x = c.x + correction_cx
-                    c.y = c.y + correction_cy
+                    ps[ai + _x_offset] = ps[ai + _x_offset] + correction_ax
+                    ps[ai + _y_offset] = ps[ai + _y_offset] + correction_ay
+                    ps[bi + _x_offset] = ps[bi + _x_offset] + correction_bx
+                    ps[bi + _y_offset] = ps[bi + _y_offset] + correction_by
+                    ps[ci + _x_offset] = ps[ci + _x_offset] + correction_cx
+                    ps[ci + _y_offset] = ps[ci + _y_offset] + correction_cy
 
-                    a.bending_lambda = lambda_new
+                    ps[ai + _bending_lambda_offset] = lambda_new
                 end
 
+                -- volume
                 self._volume_lambda = _enforce_volume(
-                    particles,
-                    self._rest_area,
+                    ps, n_particles,
+                    volume_gradient_x, volume_gradient_y,
+                    self._rest_volume,
                     volume_alpha,
                     self._volume_lambda
                 )
+
+                -- rotation
+                self._angular_lambda = _enforce_angular_momentum(
+                    ps, n_particles,
+                    angular_alpha,
+                    self._angular_lambda
+                )
             end
 
-            -- solve polygon containment constraint
-            for _ = 1, n_constraint_iterations do
-                for particle_i = 1, n_particles do
-                    local particle = self._particles[particle_i]
+            for particle_i = 1, n_particles do
+                local i = _particle_i_to_data_offset(particle_i)
+
+                local x, y = ps[i + _x_offset], ps[i + _y_offset]
+                local inverse_mass = ps[i + _inverse_mass_offset]
+                local radius = ps[i + _radius_offset]
+                local lambda = ps[i + _polygon_lambda_offset]
+
+                -- polygon collision
+                for _ = 1, n_constraint_iterations do
                     local correction_x, correction_y, lambda_new = _enforce_polygon_collision(
-                        particle.x,
-                        particle.y,
-                        particle.inverse_mass,
-                        particle.radius,
-                        polygon,
+                        x, y,
+                        inverse_mass,
+                        radius,
+                        edges, n_edges,
                         line_alpha,
-                        particle.polygon_lambda
+                        lambda
                     )
 
-                    particle.x = particle.x + correction_x
-                    particle.y = particle.y + correction_y
-                    particle.polygon_lambda = lambda_new
+                    x = x + correction_x
+                    y = y + correction_y
+                    lambda = lambda_new
                 end
-            end
 
-            -- post solve
-            for particle_i = 1, n_particles do
-                local particle = particles[particle_i]
+                ps[i + _x_offset] = x
+                ps[i + _y_offset] = y
+                ps[i + _polygon_lambda_offset] = lambda
+
+                -- post-solve
                 local new_velocity_x, new_velocity_y = _post_solve(
-                    particle.x,
-                    particle.y,
-                    particle.previous_x,
-                    particle.previous_y,
+                    x, y,
+                    ps[i + _previous_x_offset],
+                    ps[i + _previous_y_offset],
                     sub_delta
                 )
 
-                particle.velocity_x = new_velocity_x
-                particle.velocity_y = new_velocity_y
+                ps[i + _velocity_x_offset] = new_velocity_x
+                ps[i + _velocity_y_offset] = new_velocity_y
             end
         end
+
+        self._mesh_data_needs_update = true
     end
 end
