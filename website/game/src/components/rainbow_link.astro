@@ -1,0 +1,49 @@
+---
+// usage: <RainbowLink text="text" href="https://link.com" />
+interface Props {
+    text: string;
+    href: string;
+    class?: string;
+}
+
+const { text, href, class: className } = Astro.props;
+
+const chars = [...text];
+const last = Math.max(chars.length - 1, 1);
+---
+
+<a href={href} target="_blank" rel="noopener noreferrer" class={className} aria-label={text}>
+    {chars.map((char, i) => (
+            <span class="char" aria-hidden="true" style={`--t: ${i / last};`}>{char}</span>
+    ))}
+</a>
+
+<style>
+    @property --rainbow-h {
+        syntax: "<angle>";
+        inherits: true;
+        initial-value: 0deg;
+    }
+
+    @keyframes rainbow-cycle {
+        to { --rainbow-h: 360deg; }
+    }
+
+    a {
+        white-space: pre-wrap;
+        animation: rainbow-cycle 1s linear infinite;
+        animation-play-state: var(--global-animation-state, running);
+        --base: oklch(
+                var(--global-color-l)
+                var(--global-color-c)
+                var(--rainbow-h)
+        );
+        font-weight: bold;
+    }
+
+    .char {
+        color: oklch(from var(--base) l c calc(h + var(--t) * 300));
+        -webkit-text-fill-color: currentColor;
+    }
+
+</style>

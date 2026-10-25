@@ -1,114 +1,117 @@
-	---
-	import {
-		DEFAULT_COLOR_PRIMARY,
-		DEFAULT_COLOR_SECONDARY,
-		DEFAULT_COLOR_FOREGROUND,
-		DEFAULT_COLOR_BACKGROUND,
-		DEFAULT_COLOR_MUTED,
-		DEFAULT_COLOR_EMPHASIZED
-	} from "../styles/default.ts";
+---
+import {
+	DEFAULT_COLOR_PRIMARY,
+	DEFAULT_COLOR_SECONDARY,
+	DEFAULT_COLOR_FOREGROUND,
+	DEFAULT_COLOR_BACKGROUND,
+	DEFAULT_COLOR_MUTED,
+	DEFAULT_COLOR_EMPHASIZED
+} from "../styles/default.ts";
 
-	import "../styles/fonts.css";
-	import Footer from "../components/footer.astro";
-	import LanguageChooser from "../components/language_chooser.astro";
+import "../styles/fonts.css";
+import Footer from "../components/footer.astro";
+import LanguageChooser from "../components/language_chooser.astro";
+import AnimationStateButton from "../components/animation_state_button.astro";
+import { ANIMATION_STATE, ANIMATION_STATE_ACTIVE } from "../common/state";
 
-	interface Props {
-		title?: string;
-	}
+interface Props {
+	title?: string;
+}
 
-	const { title } = Astro.props;
-	const fullTitle = title ? `${title} | Chroma Void` : "Chroma Void";
-	---
+const { title } = Astro.props;
+const fullTitle = title ? `${title} | Chroma Void` : "Chroma Void";
+---
 
-	<!doctype html>
-	<html lang="en">
-	<head>
-		<meta charset="UTF-8" />
-		<meta name="generator" content={Astro.generator} />
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="generator" content={Astro.generator} />
 
-		<title>{fullTitle}</title>
+	<title>{fullTitle}</title>
 
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+	<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 
-		<link rel="preconnect" href="https://fonts.googleapis.com">
-		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-		<link href="https://fonts.googleapis.com/css2?family=Cantarell&family=Noto+Sans&family=Noto+Sans+Mono&family=Noto+Sans+Math&display=swap" rel="stylesheet">
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Cantarell&family=Noto+Sans&family=Noto+Sans+Mono&family=Noto+Sans+Math&display=swap" rel="stylesheet">
 
-		<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
-		<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+	<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
 
-		<style is:global define:vars={{
-			default_color_primary: DEFAULT_COLOR_PRIMARY,
-			default_color_secondary: DEFAULT_COLOR_SECONDARY,
-			default_color_foreground: DEFAULT_COLOR_FOREGROUND,
-			default_color_muted: DEFAULT_COLOR_MUTED,
-			default_color_emphasized: DEFAULT_COLOR_EMPHASIZED,
-			default_color_background: DEFAULT_COLOR_BACKGROUND,
-		}}>
-			:root {
-				--default-font-heading: "DejaVu Sans", "Cantarell", "MPLUS1p", sans-serif;
-				--default-font: "Adwaita Sans", "Noto Sans", "MPLUS1p", sans-serif;
-				--default-font-mono: "DejaVu Sans Mono", "Noto Sans Mono", "MPLUS1p", monospace;
-				--default-color-primary: var(--default_color_primary);
-				--default-color-secondary: var(--default_color_secondary);
-				--default-color-foreground: var(--default_color_foreground);
-				--default-color-muted: var(--default_color_muted);
-				--default-color-emphasized: var(--default_color_emphasized);
-				--default-color-background: var(--default_color_background);
-				--default-content-width: 66.6666vw;
-				--default-frame-thickness: 6px;
+	<style is:global define:vars={{
+		default_color_primary: DEFAULT_COLOR_PRIMARY,
+		default_color_secondary: DEFAULT_COLOR_SECONDARY,
+		default_color_foreground: DEFAULT_COLOR_FOREGROUND,
+		default_color_muted: DEFAULT_COLOR_MUTED,
+		default_color_emphasized: DEFAULT_COLOR_EMPHASIZED,
+		default_color_background: DEFAULT_COLOR_BACKGROUND
+	}}>
+		:root {
+			--default-font-heading: "DejaVu Sans", "Cantarell", "MPLUS1p", sans-serif;
+			--default-font: "Adwaita Sans", "Noto Sans", "MPLUS1p", sans-serif;
+			--default-font-mono: "DejaVu Sans Mono", "Noto Sans Mono", "MPLUS1p", monospace;
+			--default-color-primary: var(--default_color_primary);
+			--default-color-secondary: var(--default_color_secondary);
+			--default-color-foreground: var(--default_color_foreground);
+			--default-color-muted: var(--default_color_muted);
+			--default-color-emphasized: var(--default_color_emphasized);
+			--default-color-background: var(--default_color_background);
+			--default-content-width: 66.6666vw;
+			--default-frame-thickness: 6px;
 
-				background: black;
-			}
+			background: black;
+		}
 
-			html, body {
-				overscroll-behavior-y: none;
-			}
+		html, body {
+			overscroll-behavior-y: none;
+		}
 
-			a {
-				color: var(--default-color-primary);
-			}
+		a {
+			color: var(--default-color-primary);
+		}
 
-			a:visited {
-				color: var(--default-color-secondary);
-			}
+		a:visited {
+			color: var(--default-color-secondary);
+		}
 
-			/* global hue animation */
-			@property --global-color-h {
-				syntax: "<angle>";
-				inherits: true;
-				initial-value: 0deg;
-			}
+		@property --global-color-h {
+			syntax: "<angle>";
+			inherits: true;
+			initial-value: 0deg;
+		}
 
-			:root {
-				animation: hue-cycle 5s linear infinite;
-				--global-color-l: 0.9;
-				--global-color-c: 0.26;
-				--global-margin-horizontal: 60px;
-			}
+		:root {
+			animation: hue-cycle 5s linear infinite;
+			animation-play-state: var(--global-animation-state, running);
+			--global-color-l: 0.9;
+			--global-color-c: 0.26;
+			--global-margin-horizontal: 60px;
+		}
 
-			@keyframes hue-cycle {
-				to { --global-color-h: 360deg; }
-			}
+		@keyframes hue-cycle {
+			to { --global-color-h: 360deg; }
+		}
 
-			@media (prefers-reduced-motion: reduce) {
-				:root { animation: none; }
-			}
+		@media (prefers-reduced-motion: reduce) {
+			:root { animation: none; }
+		}
 
-			::selection {
-				background: oklch(var(--global-color-l) var(--global-color-c) var(--global-color-h));
-				color: var(--default-color-background);
-			}
+		::selection {
+			background: oklch(var(--global-color-l) var(--global-color-c) var(--global-color-h));
+			color: var(--default-color-background);
+		}
 
-			::-moz-selection {
-				background: oklch(var(--global-color-l) var(--global-color-c) var(--global-color-h));
-				color: var(--default-color-background);
-			}
-		</style>
-	</head>
+		::-moz-selection {
+			background: oklch(var(--global-color-l) var(--global-color-c) var(--global-color-h));
+			color: var(--default-color-background);
+		}
+	</style>
+</head>
 
-	<body>
-	<LanguageChooser />
-	<slot />
-	</body>
-	</html>
+<body>
+<LanguageChooser />
+<AnimationStateButton />
+<slot />
+</body>
+</html>

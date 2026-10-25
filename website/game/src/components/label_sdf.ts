@@ -18,6 +18,7 @@ import { Time } from "../common/time.ts";
 import { Vec2 } from "../common/vector.ts";
 import { SmoothedMotion } from "../common/smoothed_motion.ts";
 import { RGBA, OKLCHA, parseOKLCHA, parseRGBA } from "../common/color.ts";
+import { getIsAnimationPaused } from "../common/state.ts";
 
 const DEFAULT_ELAPSED_NAME = "elapsed";
 const APPLY_BLUR_NAME = "apply_blur";
@@ -26,6 +27,7 @@ const RGB_NAME = "rgb";
 const FOREGROUND_COLOR_NAME = "foreground";
 const BACKGROUND_COLOR_NAME = "background";
 const SCALE_NAME = "scale";
+const NOISE_MULTIPLIER_NAME = "noise_multiplier";
 
 const canvas_threshold_shader_source = `${DEFAULT_SHADER_VERSION}
     ${DEFAULT_FLOAT_PRECISION}
@@ -66,6 +68,7 @@ const canvas_threshold_shader_source = `${DEFAULT_SHADER_VERSION}
     uniform vec4 ${FOREGROUND_COLOR_NAME};
     uniform vec4 ${BACKGROUND_COLOR_NAME};
     uniform float ${SCALE_NAME};
+    uniform float ${NOISE_MULTIPLIER_NAME};
     
     in vec2 ${DEFAULT_UV_NAME};
     in vec4 ${DEFAULT_RGBA_NAME};
@@ -86,7 +89,8 @@ const canvas_threshold_shader_source = `${DEFAULT_SHADER_VERSION}
     vec2 noise = vec2(
         gradient_noise(vec3(scale * seed, elapsed)),
         gradient_noise(vec3(-scale * seed.yx, elapsed))
-    );
+    ) * ${NOISE_MULTIPLIER_NAME};
+    
     vec2 uv = ${DEFAULT_UV_NAME} + seed_magnitude * noise;
 
     const float kernel[25] = float[25](
@@ -228,6 +232,8 @@ export class LabelSDF extends GLWidget {
             this.shader.trySetUniform(MASK_T_NAME, this.motion.getValue());
         else
             this.shader.trySetUniform(MASK_T_NAME, 1);
+
+        this.shader.trySetUniform(NOISE_MULTIPLIER_NAME, getIsAnimationPaused() ? 0 : 1);
 
         const oklch : OKLCHA = parseOKLCHA(getComputedStyle(this).color);
         this.shader.trySetUniform(DEFAULT_COLOR_NAME, oklch.asRGBA());

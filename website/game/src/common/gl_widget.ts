@@ -183,6 +183,7 @@ export abstract class GLWidget extends HTMLElement {
         const delta = this.last_timestamp === undefined ? 0 : (timestamp - this.last_timestamp);
         this.last_timestamp = timestamp;
         this.delta.from(delta, TimeUnit.MILLISECONDS);
+
         this.update(this.delta);
         this.draw();
         this.frame_identifier = requestAnimationFrame(this.on_request_animation_frame);

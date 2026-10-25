@@ -6,6 +6,7 @@ import { Time } from "../common/time.ts";
 import { perlinNoise } from "../common/noise.ts";
 import { Vec2 } from "../common/vector.ts";
 import { DEFAULT_COLOR_BACKGROUND } from "../styles/default.ts";
+import { getIsAnimationPaused } from "../common/state.ts";
 
 const hue_speed : number = 1 / 40; // cycles per second
 const inner_color_lighten : number = 1.25; // rgb multiplier
@@ -64,7 +65,6 @@ export class NoisyFrame extends GLWidget {
         this.color.h = (parseFloat(style.getPropertyValue("--global-color-h")) / 360) % 1;
 
         this.elapsed.add(delta);
-
         if (this.mesh === undefined) return;
 
         // reupload mesh data
@@ -198,16 +198,16 @@ export class NoisyFrame extends GLWidget {
         const contour = this.contour;
         const point_count = contour.length / 2;
 
-        // apply noise
         if (this.offset_contour === undefined || this.offset_contour.length != contour.length)
             this.offset_contour = new Float64Array(contour.length);
 
+        // apply noise
         const offset_contour = this.offset_contour;
         for (let i = 0; i < contour.length; i += 2) {
             const xi = i + 0;
             const yi = i + 1;
 
-            if (in_bounds(contour[xi], contour[yi])) {
+            if (!getIsAnimationPaused() && in_bounds(contour[xi], contour[yi])) {
                 const value = (2 * Math.PI) * (1 + perlinNoise(
                     contour[xi] * noise_frequency / scale,
                     contour[yi] * noise_frequency / scale,

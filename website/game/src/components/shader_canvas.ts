@@ -5,6 +5,10 @@ import { Shader, DEFAULT_TRANSFORM_NAME, DEFAULT_SCREEN_SIZE_NAME } from "../com
 import { Time } from "../common/time.ts";
 import { Vec2 } from "../common/vector.ts";
 
+import {
+    getIsAnimationPaused
+} from "../common/state.ts";
+
 const default_cursor_position_name = "cursor_position";
 const default_cursor_is_visible_name = "cursor_is_visible";
 const default_elapsed_name = "elapsed";
@@ -13,7 +17,6 @@ export class ShaderCanvas extends GLWidget {
     private shader_program? : Shader;
     private quad? : Mesh;
     private elapsed : Time = new Time(0);
-    private paused : boolean = false;
 
     private cursor_position : Vec2 = new Vec2();
     private cursor_visible : boolean = true;
@@ -60,16 +63,9 @@ export class ShaderCanvas extends GLWidget {
         )
     }
 
-    public getIsPaused(): boolean {
-        return this.paused;
-    }
-
-    public setIsPaused(paused: boolean): void {
-        this.paused = paused;
-    }
-
     protected override update(delta: Time): void {
-        if (this.paused) return;
+        if (getIsAnimationPaused()) return;
+
         this.elapsed.add(delta);
     }
 

@@ -85,6 +85,7 @@ const entry = await getEntry("pages", id);
         justify-content: center;
     }
 
+    /* for debugging */
     .center-line {
         position: fixed;
         top: 0;
@@ -100,7 +101,7 @@ const entry = await getEntry("pages", id);
 
 <Layout title={entry!.data.title}>
     <ShaderCanvas id={entry!.data.shader}/>
-    <div class="center-line"></div>
+    <!-- <div class="center-line"></div> -->
     <div class="page-layout">
         <div class="page-wrapper">
             <div class="header-bar-wrapper">
