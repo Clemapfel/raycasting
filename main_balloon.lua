@@ -35,7 +35,9 @@ love.update = function(delta)
         rt.SceneManager:update(delta)
     end
 
-    balloon:update(delta)
+    if not love.keyboard.isDown("space") then
+        balloon:update(delta)
+    end
 end
 
 love.draw = function()

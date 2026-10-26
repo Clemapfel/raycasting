@@ -1,19 +1,19 @@
 local settings = {
     n_sub_steps = 4,
-    n_constraint_iterations = 16,
+    n_constraint_iterations = 4,
 
     vertex_density = 1 / 16,
-    damping = 0.998,
+    damping = 0.9998,
     gravity = 5000,
 
     distance_compliance = 2e-6,
     volume_compliance = 1e-7,
     line_compliance = 0,
-    bending_compliance = 1e-6,
+    bending_compliance = 1e-5,
     angular_compliance = 0,
     particle_collision_compliance = 0,
 
-    radius = 200,
+    radius = 100,
     texture_zoom = 1 / 1.25
 }
 
@@ -52,16 +52,19 @@ local _edge_i_to_data_offset = function(edge_i)
     return (edge_i - 1) * _edge_stride + 1
 end
 
+local EPS = 1e-7
+
 function rt.Balloon:reformat(x, y, width, height)
     self._n_particles = 0
 
     -- collision area
-    local tlx, tly = x, y
-    local trx, try = x + width, y
-    local brx, bry = x + width, y + height - 0.5 * height
-    local blx, bly = x, y + height - 0.5 * height
+    local tlx, tly = x, y + 0.25 * height
+    local trx, try = x + width, y + 0.25 * height
+    local brx, bry = x + width, y + height - 0.25 * height
+    local blx, bly = x, y + height - 0.25 * height
     local polygon = {
         tlx, tly,
+        x + 0.5 * width, y,
         trx, try,
         brx, bry,
         x + 0.5 * width, y + height,
@@ -86,7 +89,7 @@ function rt.Balloon:reformat(x, y, width, height)
         local e_dy = y2 - y1
         local e_magnitude = math.sqrt(e_dx * e_dx + e_dy * e_dy)
 
-        if e_magnitude > math.eps then
+        if e_magnitude > EPS then
             n_edges = n_edges + 1
             local base = _edge_i_to_data_offset(n_edges)
 
@@ -134,7 +137,7 @@ function rt.Balloon:reformat(x, y, width, height)
             particles[base + _draw_y_offset] = py
             particles[base + _velocity_x_offset] = 0
             particles[base + _velocity_y_offset] = 0
-            particles[base + _radius_offset] = 4
+            particles[base + _radius_offset] = 1
             particles[base + _mass_offset] = mass
             particles[base + _inverse_mass_offset] = 1 / mass
             particles[base + _distance_lambda_offset] = 0
@@ -143,6 +146,13 @@ function rt.Balloon:reformat(x, y, width, height)
         end
 
         chain.particle_end_i = self._n_particles
+
+        chain.collision_edges = {}
+        chain.n_collision_edges = 0
+        chain.inter_chain_lambda = {}
+        for particle_i = 1, n_particles do
+            chain.inter_chain_lambda[particle_i] = 0
+        end
 
         -- volume
         local area = 0
@@ -279,10 +289,6 @@ function rt.Balloon:draw()
     for chain in values(self._chains) do
         chain.mesh:draw()
     end
-
-    love.graphics.setLineWidth(4)
-    love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.line(self._polygon)
 end
 
 do
@@ -314,8 +320,8 @@ do
     )
         local delta_x = bx - ax
         local delta_y = by - ay
-        local length = math.magnitude(delta_x, delta_y)
-        if length < math.eps then
+        local length = math.sqrt(delta_x^2 + delta_y^2)
+        if length < EPS then
             return 0, 0, 0, 0, lambda_before
         end
 
@@ -324,7 +330,7 @@ do
         local constraint = length - target_distance
         local weight_sum = inverse_mass_a + inverse_mass_b
         local denominator = weight_sum + alpha
-        if denominator < math.eps then
+        if denominator < EPS then
             return 0, 0, 0, 0, lambda_before
         end
 
@@ -348,8 +354,8 @@ do
     )
         local delta_x = bx - ax
         local delta_y = by - ay
-        local length = math.magnitude(delta_x, delta_y)
-        if length < math.eps then
+        local length = math.sqrt(delta_x^2 + delta_y^2)
+        if length < EPS then
             return 0, 0, 0, 0, lambda_before
         end
 
@@ -362,7 +368,7 @@ do
 
         local weight_sum = inverse_mass_a + inverse_mass_b
         local denominator = weight_sum + alpha
-        if denominator < math.eps then
+        if denominator < EPS then
             return 0, 0, 0, 0, lambda_before
         end
 
@@ -399,7 +405,8 @@ do
         radius,
         edges, n_edges,
         alpha,
-        lambda_before
+        lambda_before,
+        keep_outside
     )
         if inverse_mass <= 0.0 then
             return 0.0, 0.0, lambda_before
@@ -441,17 +448,22 @@ do
         local signed_dist
         local normal_x, normal_y
 
-        if inside then
-            signed_dist = d
-            local vx, vy = position_x - best_cx, position_y - best_cy
-            if d < math.eps then
-                normal_x, normal_y = best_nx, best_ny
-            else
-                normal_x, normal_y = vx / d, vy / d
-            end
-        else
-            signed_dist = -d
+        if keep_outside then
+            signed_dist = inside and -d or d
             normal_x, normal_y = best_nx, best_ny
+        else
+            if inside then
+                signed_dist = d
+                local vx, vy = position_x - best_cx, position_y - best_cy
+                if d < EPS then
+                    normal_x, normal_y = best_nx, best_ny
+                else
+                    normal_x, normal_y = vx / d, vy / d
+                end
+            else
+                signed_dist = -d
+                normal_x, normal_y = best_nx, best_ny
+            end
         end
 
         local constraint = signed_dist - radius
@@ -460,7 +472,7 @@ do
         end
 
         local denominator = inverse_mass + alpha
-        if denominator < math.eps then
+        if denominator < EPS then
             return 0.0, 0.0, lambda_before
         end
 
@@ -474,6 +486,50 @@ do
         return correction_x, correction_y, lambda_new
     end
 
+    local function _update_chain_collision_contour(particles, chain_data)
+        local chain = chain_data.chain
+        local chain_n_particles = chain_data.n_particles
+        local edges = chain_data.collision_edges
+
+        local signed_area = 0
+        for chain_i = 1, chain_n_particles do
+            local ai = chain[chain_i]
+            local bi = chain[chain_i % chain_n_particles + 1]
+            local ax = particles[ai + _x_offset]
+            local ay = particles[ai + _y_offset]
+            local bx = particles[bi + _x_offset]
+            local by = particles[bi + _y_offset]
+            signed_area = signed_area + 0.5 * (ax * by - bx * ay)
+        end
+
+        local orientation = signed_area >= 0 and 1 or -1
+        local n_edges = 0
+        for chain_i = 1, chain_n_particles do
+            local ai = chain[chain_i]
+            local bi = chain[chain_i % chain_n_particles + 1]
+            local x1 = particles[ai + _x_offset]
+            local y1 = particles[ai + _y_offset]
+            local x2 = particles[bi + _x_offset]
+            local y2 = particles[bi + _y_offset]
+
+            local dx = x2 - x1
+            local dy = y2 - y1
+            local magnitude = math.sqrt(dx * dx + dy * dy)
+            if magnitude > EPS then
+                n_edges = n_edges + 1
+                local base = _edge_i_to_data_offset(n_edges)
+                edges[base + _edge_x1_offset] = x1
+                edges[base + _edge_y1_offset] = y1
+                edges[base + _edge_x2_offset] = x2
+                edges[base + _edge_y2_offset] = y2
+                edges[base + _edge_normal_x_offset] = orientation * dy / magnitude
+                edges[base + _edge_normal_y_offset] = -orientation * dx / magnitude
+            end
+        end
+
+        chain_data.n_collision_edges = n_edges
+    end
+
     local function _enforce_bending(
         ax, ay, bx, by, cx, cy,
         inverse_mass_a, inverse_mass_b, inverse_mass_c,
@@ -483,7 +539,7 @@ do
         local chord_x = cx - ax
         local chord_y = cy - ay
         local length = math.sqrt(chord_x * chord_x + chord_y * chord_y)
-        if length < math.eps then
+        if length < EPS then
             return 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, lambda_before
         end
 
@@ -509,7 +565,7 @@ do
             + inverse_mass_c * wc * wc
 
         local denominator = weight_sum + alpha
-        if denominator < math.eps then
+        if denominator < EPS then
             return 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, lambda_before
         end
 
@@ -541,7 +597,7 @@ do
             com_y = com_y + m * particles[i + _previous_y_offset]
         end
 
-        if mass_sum < math.eps then return lambda_before end
+        if mass_sum < EPS then return lambda_before end
         com_x = com_x / mass_sum
         com_y = com_y / mass_sum
 
@@ -564,7 +620,7 @@ do
         end
 
         local denominator = weight_sum + alpha
-        if denominator < math.eps then return lambda_before end
+        if denominator < EPS then return lambda_before end
 
         local delta_lambda = -(constraint + alpha * lambda_before) / denominator
         local lambda_new = lambda_before + delta_lambda
@@ -624,7 +680,7 @@ do
         local constraint = current_area - rest_area
 
         local denominator = weight_sum + alpha
-        if denominator < math.eps then
+        if denominator < EPS then
             return lambda_before
         end
 
@@ -712,6 +768,9 @@ do
             for chain_data in values(chains) do
                 chain_data.volume_lambda = 0
                 chain_data.angular_lambda = 0
+                for chain_particle_i = 1, chain_data.n_particles do
+                    chain_data.inter_chain_lambda[chain_particle_i] = 0
+                end
             end
 
             for _ = 1, n_constraint_iterations do
@@ -785,42 +844,64 @@ do
                 end
             end
 
-            for particle_i = 1, n_particles do
-                local i = _particle_i_to_data_offset(particle_i)
-
-                local x, y = ps[i + _x_offset], ps[i + _y_offset]
-                local inverse_mass = ps[i + _inverse_mass_offset]
-                local radius = ps[i + _radius_offset]
-                local lambda = ps[i + _polygon_lambda_offset]
-
-                -- polygon collision
-                for _ = 1, n_constraint_iterations do
-                    local correction_x, correction_y, lambda_new = _enforce_polygon_collision(
-                        x, y,
-                        inverse_mass,
-                        radius,
-                        edges, n_edges,
-                        line_alpha,
-                        lambda
-                    )
-
-                    x = x + correction_x
-                    y = y + correction_y
-                    lambda = lambda_new
+            for _ = 1, n_constraint_iterations do
+                for _, chain_data in ipairs(chains) do
+                    _update_chain_collision_contour(ps, chain_data)
                 end
 
-                ps[i + _x_offset] = x
-                ps[i + _y_offset] = y
-                ps[i + _polygon_lambda_offset] = lambda
+                for chain_i, chain_data in ipairs(chains) do
+                    local other_chain = chains[chain_i % #chains + 1]
+                    local chain = chain_data.chain
 
-                -- post-solve
+                    for chain_particle_i = 1, chain_data.n_particles do
+                        local i = chain[chain_particle_i]
+                        local x = ps[i + _x_offset]
+                        local y = ps[i + _y_offset]
+                        local inverse_mass = ps[i + _inverse_mass_offset]
+                        local radius = ps[i + _radius_offset]
+
+                        local polygon_lambda = ps[i + _polygon_lambda_offset]
+                        local correction_x, correction_y, lambda_new = _enforce_polygon_collision(
+                            x, y,
+                            inverse_mass,
+                            radius,
+                            edges, n_edges,
+                            line_alpha,
+                            polygon_lambda
+                        )
+                        x = x + correction_x
+                        y = y + correction_y
+                        ps[i + _polygon_lambda_offset] = lambda_new
+
+                        local inter_chain_lambda = chain_data.inter_chain_lambda[chain_particle_i]
+                        correction_x, correction_y, lambda_new = _enforce_polygon_collision(
+                            x, y,
+                            inverse_mass,
+                            radius,
+                            other_chain.collision_edges,
+                            other_chain.n_collision_edges,
+                            particle_collision_alpha,
+                            inter_chain_lambda,
+                            true
+                        )
+                        x = x + correction_x
+                        y = y + correction_y
+                        chain_data.inter_chain_lambda[chain_particle_i] = lambda_new
+
+                        ps[i + _x_offset] = x
+                        ps[i + _y_offset] = y
+                    end
+                end
+            end
+
+            -- post solve
+            for particle_i = 1, n_particles do
+                local i = _particle_i_to_data_offset(particle_i)
                 local new_velocity_x, new_velocity_y = _post_solve(
-                    x, y,
-                    ps[i + _previous_x_offset],
-                    ps[i + _previous_y_offset],
+                    ps[i + _x_offset], ps[i + _y_offset],
+                    ps[i + _previous_x_offset], ps[i + _previous_y_offset],
                     sub_delta
                 )
-
                 ps[i + _velocity_x_offset] = new_velocity_x
                 ps[i + _velocity_y_offset] = new_velocity_y
             end

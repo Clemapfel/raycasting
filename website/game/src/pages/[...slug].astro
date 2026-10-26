@@ -2,13 +2,12 @@
 import Layout from "../layouts/layout.astro";
 import MarkdownRenderer from "../components/markdown.astro";
 import ShaderCanvas from "../components/shader_canvas.astro";
+import SoftBody from "../components/soft_body.astro";
 import Footer from "../components/footer.astro";
 import HeaderBar from "../components/header_bar.astro";
 import NoisyFrame from "../components/noisy_frame.astro";
 import LanguageChooser from "../components/language_chooser.astro";
 import { Languages } from "../common/languages";
-
-import Orb from "../components/orb.astro";
 
 const defaultLanguage = 'en';
 
@@ -100,6 +99,7 @@ const entry = await getEntry("pages", id);
 
 <Layout title={entry!.data.title}>
     <ShaderCanvas id={entry!.data.shader}/>
+    <SoftBody />
     <!-- <div class="center-line"></div> -->
     <div class="page-layout">
         <div class="page-wrapper">

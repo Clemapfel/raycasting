@@ -426,13 +426,14 @@ export enum LineJoin {
 
 export function MeshLine(
     context: GLContext,
-    points: Vec2[],
+    points: Float32Array,
     thickness: number,
     line_join: LineJoin = LineJoin.BEVEL,
     color: RGBA = default_color,
     add_circular_endcaps: boolean = true
 ): Mesh {
-    if (points.length < 2) {
+    const pointCount = points.length >> 1;
+    if (pointCount < 2) {
         throw new Error("MeshLine requires at least 2 points");
     }
 
@@ -456,8 +457,8 @@ export function MeshLine(
     };
 
     // Scalar segment state (replaces segment Vec2 + segmentNormal Vec2)
-    let sx = points[1].x - points[0].x;
-    let sy = points[1].y - points[0].y;
+    let sx = points[2] - points[0];
+    let sy = points[3] - points[1];
     let segLen = Math.sqrt(sx * sx + sy * sy);
 
     // turn_right(-sy, sx), normalize, scale — inline getNormal
@@ -550,13 +551,16 @@ export function MeshLine(
         snx = nsnx; sny = nsny;
     };
 
-    for (let i = 0; i + 1 < points.length; i++) {
-        renderEdge(points[i].x, points[i].y, points[i + 1].x, points[i + 1].y);
+    for (let i = 0; i < pointCount - 1; i++) {
+        const o = i << 1;
+        renderEdge(points[o], points[o + 1], points[o + 2], points[o + 3]);
     }
 
     // Virtual closing point extends in the final segment direction
-    const last = points[points.length - 1];
-    renderEdge(last.x, last.y, last.x + sx, last.y + sy);
+    const lastOff = (pointCount - 1) << 1;
+    const lastX = points[lastOff];
+    const lastY = points[lastOff + 1];
+    renderEdge(lastX, lastY, lastX + sx, lastY + sy);
 
     const vertex_count = anchorX.length;
 
@@ -582,8 +586,8 @@ export function MeshLine(
         const CAP_SEGMENTS = 16;
 
         // Start cap — atan2 on stored scalars, no Vec2.angle() needed
-        const scx = points[0].x;
-        const scy = points[0].y;
+        const scx = points[0];
+        const scy = points[1];
         const startAngle = Math.atan2(normalY[0], normalX[0]);
         const centerStartIdx = addVertex(scx, scy);
 
@@ -603,8 +607,8 @@ export function MeshLine(
             prevIdx = currentIdx;
         }
 
-        const ecx = last.x;
-        const ecy = last.y;
+        const ecx = lastX;
+        const ecy = lastY;
         const endAngle = Math.atan2(normalY[normalY.length - 2], normalX[normalX.length - 2]);
         const centerEndIdx = addVertex(ecx, ecy);
         const endStartAngle = endAngle - Math.PI;

@@ -1,7 +1,15 @@
----
+yy---
 //
-// Usage: <NoisyFrame radius=31 />
+// Usage: <ShaderCanvas id="shader_id"/>
 //
+
+import { getEntry } from "astro:content";
+
+interface Props {
+    radius: number;
+}
+
+const { radius = 30 } = Astro.props;
 ---
 
 <soft-body>
@@ -10,18 +18,35 @@
 
 <style>
     soft-body {
-
-    }
-
-    soft-body-canvas {
-        position: absolute;
+        position: fixed;
         top: 0;
         left: 0;
+        width: 100%;
+        height: 100%;
+        color: oklch(
+            var(--global-color-l),
+            var(--global-color-c),
+            var(--global-color-h)
+        );
+        background: rgba(0, 0, 0, 0) !important;
+    }
+
+    .soft-body-canvas {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        color: oklch(
+            var(--global-color-l),
+            var(--global-color-c),
+            var(--global-color-h)
+        );
     }
 </style>
 
 <script>
     import { SoftBody } from "./soft_body.ts";
-    import { register } from "../common/register_component";
-    register("soft-body", SoftBody);
+    import { register } from "../common/register_component.ts"
+    register("soft-body", SoftBody)
 </script>
