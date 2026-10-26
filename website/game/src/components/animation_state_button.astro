@@ -2,27 +2,37 @@
 //
 // Usage: <PlayPauseButton />
 //
+
+import Tooltip from "./tooltip.astro";
+import { Locale, AnimationStateButtonTranslation } from "../i18n/translation";
+
+const tooltip_text = AnimationStateButtonTranslation[Astro.currentLocale ?? Locale.ENGLISH];
 ---
 
 <animation-state-button>
-    <button type="button" aria-pressed="false" aria-label="Pause animations">
+    <Tooltip text={ tooltip_text }>
+    <button type="button" aria-pressed="false">
         <span class="icon-pause" aria-hidden="true"></span>
         <span class="icon-play" aria-hidden="true"></span>
     </button>
+    </Tooltip>
 </animation-state-button>
 
 <style>
+    animation-state-button {
+        position: fixed;
+        bottom: var(--global-outer-margin);
+        left: var(--global-outer-margin);
+        z-index: 1;
+    }
+
     animation-state-button button {
-            --toggle-hover-color: oklch(
+        --toggle-hover-color: oklch(
                 var(--global-color-l)
                 var(--global-color-c)
                 var(--global-color-h)
         );
 
-        position: fixed;
-        left: 10px;
-        bottom: 10px;
-        z-index: 9999;
         width: 36px;
         height: 36px;
         padding: 0;

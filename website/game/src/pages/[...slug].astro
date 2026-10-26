@@ -6,22 +6,24 @@ import SoftBody from "../components/soft_body.astro";
 import Footer from "../components/footer.astro";
 import HeaderBar from "../components/header_bar.astro";
 import NoisyFrame from "../components/noisy_frame.astro";
+import SocialMediaBar from "../components/social_media_bar.astro";
 import LanguageChooser from "../components/language_chooser.astro";
-import { Languages } from "../common/languages";
+import { Locale } from "../i18n/translation.ts";
 
 const defaultLanguage = 'en';
 
 const id = Astro.url.pathname.replace(
-    new RegExp(`^/(${Object.keys(Languages).join('|')})?/?`),
+    new RegExp(`^/(${Object.values(Locale).join('|')})?/?`),
     ''
 );
 
 import { getCollection, getEntry } from "astro:content";
+import Social_media_bar from "../components/social_media_bar.astro";
 export async function getStaticPaths() {
     // generate paths from filenames in /src/content/pages/en
     const entries = await getCollection("pages");
     const slugs = entries.map((entry) => entry.id.replace(/^en\//, "").replace(/\.mdx?$/, ""));
-    return Object.keys(Languages).flatMap((lang) =>
+    return Object.values(Locale).flatMap((lang) =>
         slugs.map((slug) => ({
             params: { slug: `${lang}/${slug}` },
             props: { lang, page: slug },
@@ -67,6 +69,12 @@ const entry = await getEntry("pages", id);
     .noisy-frame-wrapper {
     }
 
+    .social-media-bar-wrapper {
+        position: absolute;
+        top: var(--global-outer-margin);
+        left: var(--global-outer-margin);
+    }
+
     .frame-content-wrapper {
         width: 100%;
         max-width: var(--text-width);
@@ -99,7 +107,7 @@ const entry = await getEntry("pages", id);
 
 <Layout title={entry!.data.title}>
     <ShaderCanvas id={entry!.data.shader}/>
-    <SoftBody />
+    <!-- SoftBody /> -->
     <!-- <div class="center-line"></div> -->
     <div class="page-layout">
         <div class="page-wrapper">
@@ -107,12 +115,17 @@ const entry = await getEntry("pages", id);
                 <HeaderBar />
             </div>
 
+
             <div class="noisy-frame-wrapper">
                 <NoisyFrame>
                     <div class="frame-content-wrapper">
                         <MarkdownRenderer collection="pages" id={id} />
                     </div>
                 </NoisyFrame>
+            </div>
+
+            <div class="social-media-bar-wrapper">
+                <SocialMediaBar />
             </div>
         </div>
 

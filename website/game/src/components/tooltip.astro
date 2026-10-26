@@ -1,0 +1,76 @@
+---
+interface Props {
+    text: string;
+}
+
+const { text } = Astro.props;
+---
+
+<div class="tooltip">
+    <slot />
+    <span class="tooltip-bubble" role="tooltip">
+        {text}
+    </span>
+</div>
+
+<style>
+    .tooltip {
+        position: relative;
+        display: inline-block;
+        max-width: 100%;
+        vertical-align: top;
+    }
+
+    .tooltip-bubble {
+        position: absolute;
+        z-index: 9999;
+
+        /* top right of child */
+        inset-inline-start: calc(100% + 0.5rem);
+        inset-block-start: 50%;
+        transform: translateY(-50%);
+
+        width: max-content;
+        max-width: min(20rem, calc(100vw - 1rem));
+        box-sizing: border-box;
+        padding: 0.5em;
+
+        background: var(--default-color-background);
+        color: var(--default-color-foreground);
+        font-family: var(--default-font), sans-serif;
+        font-size: calc(1em - 2pt);
+        line-height: 1.4;
+        text-align: center;
+        overflow-wrap: anywhere;
+
+        border: 1px solid oklch(
+                var(--global-color-l)
+                var(--global-color-c)
+                var(--global-color-h)
+        );
+        border-radius: 8px;
+
+        pointer-events: none;
+        user-select: none;
+        -webkit-user-select: none;
+
+        opacity: 0;
+        visibility: hidden;
+
+        transition:
+                opacity 0.2s ease,
+                visibility 0.2s ease;
+    }
+
+    .tooltip:hover > .tooltip-bubble {
+        opacity: 1;
+        visibility: visible;
+        transition-delay: 0.2s;
+    }
+
+    .tooltip:has(:focus-visible) > .tooltip-bubble {
+        opacity: 1;
+        visibility: visible;
+        transition-delay: 0.2s;
+    }
+</style>

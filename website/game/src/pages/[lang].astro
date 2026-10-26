@@ -1,10 +1,10 @@
 ---
-import { Languages } from "../common/languages";
+import { Locale } from "../i18n/translation.ts";
 import Forwarding from "../components/forwarding.astro";
 
 // forward /lang to /lang/index
 export function getStaticPaths() {
-    return Object.keys(Languages).map((lang) => ({
+    return Object.values(Locale).map((lang) => ({
         params: { lang },
     }));
 }

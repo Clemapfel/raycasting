@@ -1,17 +1,18 @@
 ---
 // components/header_bar.astro
 import LabelSDF from "./label_sdf.astro";
+import { Locale, HeaderBarTranslation } from "../i18n/translation.ts";
 
 const base = import.meta.env.BASE_URL.replace(/\/$/, "");
-const locale = Astro.currentLocale;
+const locale = Astro.currentLocale ?? Locale.ENGLISH;
 
-// map identical pictures
 const mapping : Readonly<Record<string, string>> = {
     "faq_de" :  "faq_en",
     "blog_de" : "blog_en",
     "faq_ja" : "faq_en"
 };
 
+const titles = HeaderBarTranslation.title
 const items = [
     { name: "home" },
     { name: "about" },
@@ -21,10 +22,13 @@ const items = [
 ].map(({ name }) => {
     const raw = `${name}_${locale}`;
     const file = mapping[raw] ?? raw;
+    const title = titles[name][locale];
+
     return {
         name,
         href: `${base}/${locale}/${name}`,
         sdfPath: `/${file}.png`,
+        title: title
     };
 });
 ---
@@ -52,8 +56,8 @@ const items = [
 <nav class="header-bar">
     {
         items.map((item) => (
-            <a href={item.href} class="label-sdf-wrapper">
-                <LabelSDF path={item.sdfPath} blur={true} reactive={true} />
+            <a href={ item.href } class="label-sdf-wrapper" title={ item.title }>
+                <LabelSDF path={ item.sdfPath } blur={ true } reactive={ true } />
             </a>
         ))
     }

@@ -4,47 +4,24 @@
 //
 
 import Link from "./link.astro";
+import { Locale, FooterTranslation } from "../i18n/translation";
 import { getRelativeLocaleUrl } from "astro:i18n";
 
-const currentYear = new Date().getFullYear();
+const current_year = new Date().getFullYear();
 
-const translations = {
-    en: {
-        legalNoticeText: "All rights reserved",
-        aiNoticeText: "This page contains no AI-generated content",
-        legalNoticeRef: "Legal Notice",
-        legalNoticeSlug: "legal-notice"
-    },
-    de: {
-        legalNoticeText: "Alle Rechte vorbehalten",
-        aiNoticeText: "Diese Seite enthält keine KI-erstellte Inhalte",
-        legalNoticeRef: "Impressum",
-        legalNoticeSlug: "impressum"
-    },
+const local_to_slug = {
+    [Locale.ENGLISH] : "legal-notice",
+    [Locale.GERMAN] : "impressum",
+    [Locale.JAPANESE] : "legal-notice"
+}
 
-    ja: {
-        legalNoticeText: "TODO",
-        aiNoticeText: "TODO",
-        legalNoticeRef: "TODO",
-        legalNoticeSlug: "legal-notice"
-    },
-} as const;
+const locale = Astro.currentLocale ?? Locale.ENGLISH;
 
-type Locale = keyof typeof translations;
+const rights = FooterTranslation.rights[locale];
+const legal_notice = FooterTranslation.legal_notice[locale];
+const ai_policy = FooterTranslation.ai_policy[locale];
 
-const locale: Locale =
-    Astro.currentLocale && Astro.currentLocale in translations
-        ? (Astro.currentLocale as Locale)
-        : "en";
-
-const {
-    legalNoticeText,
-    aiNoticeText,
-    legalNoticeRef,
-    legalNoticeSlug
-} = translations[locale];
-
-const legalNoticeLink = `/${locale}/${legalNoticeSlug}`;
+const legal_notice_url = `/${locale}/${local_to_slug[locale]}`;
 ---
 
 <style>
@@ -77,6 +54,6 @@ const legalNoticeLink = `/${locale}/${legalNoticeSlug}`;
 
 <footer>
     <p>
-        &copy; {currentYear} {legalNoticeText} | <Link text={legalNoticeRef} href={legalNoticeLink} /> | {aiNoticeText}
+        &copy; {current_year} {rights} | <Link text={legal_notice} href={legal_notice_url} /> | {ai_policy}
     </p>
 </footer>

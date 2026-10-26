@@ -1,61 +1,44 @@
 ---
-import { Languages } from "../common/languages";
+import { Locale, LanguageChooserTranslation } from "../i18n/translation.ts";
 
-type Language = keyof typeof Languages;
+const current_locale = Astro.currentLocale;
+const locale_order = [ Locale.ENGLISH, Locale.GERMAN, Locale.JAPANESE ];
 
-const isLanguage = (value: string | undefined): value is Language =>
-    value !== undefined && Object.hasOwn(Languages, value);
+const url = Astro.url;
+const locale_regex = new RegExp(`^/(${locale_order.join("|")})(?=/|$|\\?|#)`);
 
-const { pathname, search } = Astro.url;
-const [, firstSegment, ...rest] = pathname.split('/');
+const locale_to_href = Object.fromEntries(
+    locale_order.map((locale) => {
+        const next = new URL(url);
+        next.pathname = next.pathname.replace(locale_regex, `/${locale}`);
+        return [locale, next];
+    })
+) as Record<Locale, URL>;
 
-// locale switching only works for URLs of the form /<lang>/...
-const supportsLocaleSwitching = isLanguage(firstSegment);
-
-const postfix = rest.join('/');
-
-const entries = supportsLocaleSwitching
-    ? (Object.entries(Languages) as [Language, string][]).map(
-        ([code, label]) => ({
-            code,
-            label,
-            href: `/${code}/${postfix}${search}`,
-            isCurrent: code === firstSegment,
-        }),
-    ) : [];
+const labels = LanguageChooserTranslation.label;
+const titles = LanguageChooserTranslation.title;
 ---
 
-{
-    supportsLocaleSwitching && entries.length > 1 && (
-    <nav class="language-chooser" aria-label="Language">
-        {/* render as [ first | second | ... | last ] */}
-        <span>[ </span>
-        {entries.map(({ code, label, href, isCurrent }, i) => (
-                <>
-                    {i > 0 && <span> | </span>}
-                    <a
-                            href={href}
-                            lang={code}
-                            hreflang={code}
-                            title={label}
-                            class={isCurrent ? 'current' : undefined}
-                            aria-current={isCurrent ? 'page' : undefined}
-                    >
-                        {label}
-                    </a>
-                </>
-        ))}
-        <span> ]</span>
-    </nav>
-        )
-    }
+{ current_locale !== undefined && (
+/* render as [ foo | bar | ... | bat ] */
+<div class="language-chooser">
+    [
+    { locale_order.map((locale, i) => [
+        i > 0 && " | ",
+        <a href={ locale_to_href[locale] } hreflang={ locale } lang={ locale } title={ titles[locale] }>
+            { labels[locale] }
+        </a>,
+    ]) }
+    ]
+</div>
+    ) }
 
 <style>
     .language-chooser {
         /* float in the top-right corner of the viewport at all times */
         position: fixed;
-        bottom: env(safe-area-inset-top, 0);
-        right: env(safe-area-inset-right, 0);
+        bottom: env(safe-area-inset-top, var(--global-outer-margin));
+        right: env(safe-area-inset-right, var(--global-outer-margin));
         z-index: 1000;
         padding: 0.75rem 1rem;
 
