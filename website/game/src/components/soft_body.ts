@@ -77,16 +77,16 @@ interface SoftBodyChain {
 
 /** **/
 export class SoftBody extends GLWidget {
-    
+
     private n_particles = 0;
     private particles = new Float32Array(0);
-    
+
     private polygon = new Float32Array(0);
     private polygon_edges = new Float32Array(0);
     private n_polygon_edges = 0;
-    
+
     private chains: SoftBodyChain[] = [];
-    
+
     private mesh_data_needs_update = false;
 
     private readonly constraint_cache = new Float64Array(7);
@@ -120,7 +120,7 @@ export class SoftBody extends GLWidget {
         const br_y = y + height;
         const bl_x = x;
         const bl_y = y + height;
-        
+
         this.polygon = new Float32Array([
             tl_x, tl_y,
             tr_x, tr_y,
@@ -128,7 +128,7 @@ export class SoftBody extends GLWidget {
             bl_x, bl_y,
             tl_x, tl_y
         ]);;
-        
+
         const n_polygon_vertices = this.polygon.length / 2;
         this.polygon_edges = new Float32Array(n_polygon_vertices * EDGE_STRIDE);
         this.n_polygon_edges = 0;
@@ -160,10 +160,10 @@ export class SoftBody extends GLWidget {
             16,
             Math.floor(settings.radius * TAU * settings.vertex_density)
         );
-        
+
         this.n_particles = n_per_chain * 2;
         this.particles = new Float32Array(this.n_particles * PARTICLE_STRIDE);
-        
+
         this.chains = [
             this.newChain(0.4 * width, 0.5 * height, n_per_chain, 0),
             this.newChain(0.6 * width, 0.5 * height, n_per_chain, n_per_chain)
@@ -304,7 +304,9 @@ export class SoftBody extends GLWidget {
     }
 
     protected override draw(): void {
-        if (!getIsAnimationPaused() && this.mesh_data_needs_update) {
+        if (getIsAnimationPaused()) return;
+
+        if (this.mesh_data_needs_update) {
             this.mesh_data_needs_update = false;
             const particles = this.particles;
 
@@ -734,8 +736,6 @@ export class SoftBody extends GLWidget {
     }
 
     protected override update(time_delta: Time): void {
-        if (getIsAnimationPaused()) return;
-
         const delta = time_delta.asSeconds();
         const n_sub_steps = settings.n_sub_steps;
         const n_constraint_iterations = settings.n_constraint_iterations;

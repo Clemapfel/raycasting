@@ -722,6 +722,8 @@ function ow.OverworldScene:draw()
         self._background:draw()
         love.graphics.pop()
 
+        love.graphics.clear(1, 0, 1, 1)
+
         local r, g, b, _ = rt.Palette.BLACK:unpack()
         love.graphics.setColor(r, g, b, self._fade_to_black_motion:get_value())
         love.graphics.rectangle("fill", self._bounds:unpack())
