@@ -22,16 +22,46 @@ export class Time {
     }
 
     /** **/
-    add(other : Time, out? : Time) : Time {
+    add(other : Time | number, out? : Time) : Time {
         const target = out ?? this;
-        target.value = this.value + other.value;
+        if (typeof other == "number")
+            target.value = this.value + other;
+        else
+            target.value = this.value + other.value;
+
         return target;
     }
 
     /** **/
-    subtract(other : Time, out? : Time) : Time {
+    subtract(other : Time | number, out? : Time) : Time {
         const target = out ?? this;
-        target.value = this.value - other.value;
+        if (typeof other == "number")
+            target.value = this.value - other;
+        else
+            target.value = this.value - other.value;
+
+        return target;
+    }
+
+    /** **/
+    multiply(other : Time | number, out? : Time) : Time {
+        const target = out ?? this;
+        if (typeof other == "number")
+            target.value = this.value * other;
+        else
+            target.value = this.value * other.value;
+
+        return target;
+    }
+
+    /** **/
+    divide(other : Time | number, out? : Time) : Time {
+        const target = out ?? this;
+        if (typeof other == "number")
+            target.value = this.value / other;
+        else
+            target.value = this.value / other.value;
+
         return target;
     }
 

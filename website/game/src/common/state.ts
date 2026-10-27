@@ -1,9 +1,14 @@
 export const ANIMATION_STATE = "--global-animation-state";
 export const ANIMATION_STATE_ACTIVE = "running";
 export const ANIMATION_STATE_INACTIVE = "paused";
+export const ANIMATION_STORAGE_KEY = "animation-paused";
 
 export function getIsAnimationPaused() {
-    return document.documentElement.style.getPropertyValue(ANIMATION_STATE) === ANIMATION_STATE_INACTIVE;
+    try {
+        return localStorage.getItem(ANIMATION_STORAGE_KEY) === "true";
+    } catch {
+        return document.documentElement.style.getPropertyValue(ANIMATION_STATE) === ANIMATION_STATE_INACTIVE;
+    }
 }
 
 export function setIsAnimationPaused(paused: boolean) {
@@ -11,4 +16,7 @@ export function setIsAnimationPaused(paused: boolean) {
         ANIMATION_STATE,
         paused ? ANIMATION_STATE_INACTIVE : ANIMATION_STATE_ACTIVE
     );
+    try {
+        localStorage.setItem(ANIMATION_STORAGE_KEY, String(paused));
+    } catch {}
 }

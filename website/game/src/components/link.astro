@@ -1,15 +1,26 @@
 ---
 // usage: <Link text="text" href="https://link.com" />
+// usage: <Link text="FAQ" href="faq#bug-report" applyLocale />
 interface Props {
     text: string;
     href: string;
     class?: string;
+    applyLocale?: boolean;
 }
 
-const { text, href, class: className } = Astro.props;
+import { Locale } from "../i18n/translation.ts";
+const { text, href, class: className, applyLocale = false } = Astro.props;
+
+const locale = Astro.currentLocale ?? Locale.ENGLISH;
+const localePath = href.replace(/^(\.{0,2}\/)+/, ""); // strip first 2 chars after /
+const finalHref = applyLocale ? `/${locale}/${localePath}` : href;
+
+const externalAttrs = applyLocale
+    ? {}
+    : { target: "_blank", rel: "noopener noreferrer" };
 ---
 
-<a href={href} target="_blank" rel="noopener noreferrer" class={className}>
+<a href={finalHref} {...externalAttrs} class={className}>
     <span class="label">{text}</span>
 </a>
 

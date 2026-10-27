@@ -1,26 +1,26 @@
 ---
 // components/header_bar.astro
 import LabelSDF from "./label_sdf.astro";
-import { Locale, HeaderBarTranslation } from "../i18n/translation.ts";
+import { Locale, Translation } from "../i18n/translation.ts";
 
 const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 const locale = Astro.currentLocale ?? Locale.ENGLISH;
 
 const mapping : Readonly<Record<string, string>> = {
     "faq_de" :  "faq_en",
-    "blog_de" : "blog_en",
+    "posts_de" : "posts_en",
     "faq_ja" : "faq_en"
 };
 
-const titles = HeaderBarTranslation.title
+const titles = Translation.header_bar.title
 const items = [
     { name: "home" },
     { name: "about" },
     { name: "faq" },
     { name: "contact" },
-    { name: "blog" },
+    { name: "posts" },
 ].map(({ name }) => {
-    const raw = `${name}_${locale}`;
+    const raw = `header_bar/${name}_${locale}`;
     const file = mapping[raw] ?? raw;
     const title = titles[name][locale];
 

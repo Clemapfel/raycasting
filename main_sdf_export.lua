@@ -7,7 +7,7 @@ require "overworld.normal_map"
 require "menu.menu_scene"
 
 bd.mount_path(bd.join_path(bd.get_source_directory(), "website"), "website")
-local export_prefix = "website/game/public"
+local export_prefix = "website/game/public/header_bar"
 if not bd.is_directory(export_prefix) then bd.create_directory(export_prefix) end
 
 local font_latin = rt.Font(rt.settings.menu_scene.title_screen.font_latin)
@@ -20,8 +20,6 @@ local before = love.timer.getTime()
 local label_to_path = {}
 local max_w, max_h = -math.huge, -math.huge
 
-
-
 for x in range(
     { "404", "404.png", font_japanese },
 
@@ -29,19 +27,19 @@ for x in range(
     { "ABOUT", "about_en.png", font_latin },
     { "FAQ", "faq_en.png", font_latin },
     { "CONTACT", "contact_en.png", font_latin },
-    { "BLOG", "blog_en.png", font_latin },
+    { "POSTS", "posts_en.png", font_latin },
 
     { "STARTSEITE", "home_de.png", font_latin },
-    { "ÜBER UNS", "about_de.png", font_latin },
+    { "DETAILS", "about_de.png", font_latin },
     { "FAQ", "faq_de.png", font_latin },
     { "KONTAKT", "contact_de.png", font_latin },
-    { "BLOG", "blog_de.png", font_latin },
+    { "POSTS", "posts_de.png", font_latin },
 
     { "ホーム", "home_ja.png", font_japanese },
     { "アバウト", "about_ja.png", font_japanese },
     { "FAQ", "faq_ja.png", font_japanese },
     { "お問い合わせ", "contact_ja.png", font_japanese },
-    { "ブログ", "blog_ja.png", font_japanese }
+    { "ブログ", "posts_ja.png", font_japanese }
 ) do
     local text, path, font = table.unpack(x)
     path = bd.join_path(export_prefix, path)

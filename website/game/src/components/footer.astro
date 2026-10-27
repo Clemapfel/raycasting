@@ -4,7 +4,7 @@
 //
 
 import Link from "./link.astro";
-import { Locale, FooterTranslation } from "../i18n/translation";
+import { Locale, Translation } from "../i18n/translation";
 import { getRelativeLocaleUrl } from "astro:i18n";
 
 const current_year = new Date().getFullYear();
@@ -17,9 +17,9 @@ const local_to_slug = {
 
 const locale = Astro.currentLocale ?? Locale.ENGLISH;
 
-const rights = FooterTranslation.rights[locale];
-const legal_notice = FooterTranslation.legal_notice[locale];
-const ai_policy = FooterTranslation.ai_policy[locale];
+const rights = Translation.footer.rights[locale];
+const legal_notice = Translation.footer.legal_notice[locale];
+const ai_policy = Translation.footer.ai_policy[locale];
 
 const legal_notice_url = `/${locale}/${local_to_slug[locale]}`;
 ---

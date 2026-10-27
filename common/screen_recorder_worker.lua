@@ -58,8 +58,6 @@ local success, error_maybe = pcall(function()
                                 error = string.paste("In GraphicsReadback.getImageData: ", error_or_image_data),
                                 id = current_message.id
                             })
-
-                            goto skip
                         end
 
                         local image_data = error_or_image_data

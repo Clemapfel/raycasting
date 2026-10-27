@@ -2,7 +2,7 @@
 //
 // Usage: <LanguageChooser orientation="horizontal" />
 //
-import { Locale, LanguageChooserTranslation } from "../i18n/translation.ts";
+import { Locale, Translation } from "../i18n/translation.ts";
 import BoxLayout from "./box_layout.astro";
 import Tooltip from "./tooltip.astro";
 
@@ -33,7 +33,7 @@ const locale_icons: Record<Locale, string> = {
     [Locale.JAPANESE]: "🇯🇵",
 };
 
-const titles = LanguageChooserTranslation.title;
+const titles = Translation.language_chooser.title;
 ---
 
 {current_locale !== undefined && (

@@ -1,0 +1,45 @@
+---
+// src/components/OperatingSystem.astro
+interface Props {
+    /** Text shown during SSR and when detection fails */
+    fallback?: string;
+    class?: string;
+}
+
+const { fallback = "Unknown", class: className } = Astro.props;
+---
+
+<client-os class={className}>{fallback}</client-os>
+
+<script>
+    type OS = "Windows" | "macOS" | "iOS" | "Android" | "ChromeOS" | "Linux" | "Unknown";
+
+    function detectOS(): OS {
+        const uaData = (navigator as Navigator & { userAgentData?: { platform?: string } })
+            .userAgentData;
+        const platform = (uaData?.platform ?? "").toLowerCase();
+        const ua = navigator.userAgent.toLowerCase();
+
+        if (/android/.test(ua) || platform === "android") return "Android";
+        if (/iphone|ipad|ipod/.test(ua)) return "iOS";
+        if (/macintosh/.test(ua) && navigator.maxTouchPoints > 1) return "iOS";
+        if (/cros/.test(ua) || platform === "chrome os") return "ChromeOS";
+        if (/win/.test(platform || ua)) return "Windows";
+        if (/mac/.test(platform || ua)) return "macOS";
+        if (/linux|x11/.test(platform || ua)) return "Linux";
+
+        return "Unknown";
+    }
+
+    class ClientOS extends HTMLElement {
+        connectedCallback() {
+            const os = detectOS();
+            this.textContent = os;
+            this.dataset.os = os.toLowerCase();
+        }
+    }
+
+    if (!customElements.get("client-os")) {
+        customElements.define("client-os", ClientOS);
+    }
+</script>

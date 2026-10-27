@@ -1,6 +1,6 @@
 ---
-interface Props { question: string }
-const { question } = Astro.props;
+interface Props { question: string, id: string }
+const { question, id } = Astro.props;
 ---
 
 <style>
@@ -19,7 +19,12 @@ const { question } = Astro.props;
         --faq-icon-size: 0.6em;
         --faq-icon-color: var(--default-color-foreground);
 
+        /* link-target "selection" highlight */
+        --faq-select-color: color-mix(in srgb, Highlight 55%, transparent);
+        --faq-select-fade: 0.6s;
+
         margin-top: 2rem;
+        scroll-margin-top: 2rem; /* raise if you have a fixed header */
     }
 
     .faq summary {
@@ -28,18 +33,18 @@ const { question } = Astro.props;
         color: var(--faq-header-color);
         font-weight: 600;
         cursor: pointer;
-        list-style: none; /* hide default triangle on firefox/chrome */
+        list-style: none;
         display: flex;
         align-items: center;
         gap: 0.4em;
     }
 
-    .faq summary:hover {
+    .faq summary:hover .faq-question {
         text-decoration: underline;
     }
 
     .faq summary::-webkit-details-marker {
-        display: none; /* hide default triangle on safari */
+        display: none;
     }
 
     .faq summary::before {
@@ -62,7 +67,35 @@ const { question } = Astro.props;
         font-size: var(--faq-body-size);
         color: var(--faq-body-color);
         line-height: 1.6;
-        padding: 0.75em 0 0 calc(var(--faq-icon-size) + 0.6em); /* aligns with header text */
+        margin: 0.75em 0 0 calc(var(--faq-icon-size) + 0.6em); /* aligns with header text */
+    }
+
+    /* selection-style highlight */
+    .faq-question,
+    .faq-body {
+        background-color: transparent;
+        border-radius: 2px;
+        -webkit-box-decoration-break: clone;
+        box-decoration-break: clone;
+        transition: background-color var(--faq-select-fade) ease-out; /* fade out */
+    }
+
+    .faq-question {
+        padding: 0.05em 0.2em;
+        margin: -0.05em -0.2em;
+    }
+
+    .faq.faq-selected .faq-question,
+    .faq.faq-selected .faq-body {
+        background-color: var(--faq-select-color);
+        transition: none; /* snap on like a real selection */
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .faq-question,
+        .faq-body {
+            transition: none;
+        }
     }
 
     .faq-hline {
@@ -77,10 +110,54 @@ const { question } = Astro.props;
         );
         opacity: 80%;
     }
+
+    .faq-question {
+        padding: 0.05em 0.2em;
+        margin: -0.05em -0.2em;
+        border-radius: 2px;
+        -webkit-box-decoration-break: clone;
+        box-decoration-break: clone;
+    }
+
+    .faq:target .faq-question {
+        animation: faq-select 2s ease-out;
+    }
+
+    @keyframes faq-select {
+        0%, 50% {
+            background-color: oklch(
+                var(--global-color-l)
+                var(--global-color-c)
+                var(--global-color-h)
+            );
+        }
+        100%    { background-color: transparent; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .faq:target .faq-question {
+            animation: none;
+        }
+    }
 </style>
 
-<details class="faq">
-    <summary>{question}</summary>
+<details class="faq" id={id}>
+    <summary><span class="faq-question">{question}</span></summary>
     <div class="faq-body"><slot /></div>
 </details>
 <hr class="faq-hline" />
+
+<script>
+    function openTarget() {
+        const hash = decodeURIComponent(location.hash.slice(1));
+        if (!hash) return;
+        const el = document.getElementById(hash);
+        if (el instanceof HTMLDetailsElement) {
+            el.open = true;
+            el.scrollIntoView();
+        }
+    }
+
+    openTarget();
+    window.addEventListener("hashchange", openTarget);
+</script>

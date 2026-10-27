@@ -117,7 +117,7 @@ float get_surface_height(vec2 p, float time) {
 
 const vec4 black = vec4(0.043137, 0.043137, 0.062745, 1.0);
 uniform vec2 cursor_position;
-uniform bool cursor_is_visible;
+uniform float cursor_visible;
 
 void main() {
     vec2 uv = rt_TextureCoords;
@@ -132,9 +132,7 @@ void main() {
     vec2 to_light = frag_pos - cursor_uv;
     float dist = length(to_light);
     const float sigma = 0.37;
-    float falloff = exp(-(dist * dist) / (2.0 * sigma * sigma));
-    if (!cursor_is_visible)
-        falloff = 0.0;
+    float falloff = cursor_visible * exp(-(dist * dist) / (2.0 * sigma * sigma));
 
     float value = get_surface_height(uv, time);
     vec2 e = vec2(1.0 / rt_ScreenSize.x, 0);

@@ -9,12 +9,12 @@ interface Props {
 const { text, href, class: className } = Astro.props;
 
 const chars = [...text];
-const last = Math.max(chars.length - 1, 1);
+const n = Math.max(chars.length, 1);
 ---
 
 <a href={href} target="_blank" rel="noopener noreferrer" class={className} aria-label={text}>
     {chars.map((char, i) => (
-            <span class="char" aria-hidden="true" style={`--t: ${i / last};`}>{char}</span>
+            <span class="char" style={`--t: ${i / n};`}>{char}</span>
     ))}
 </a>
 
@@ -31,7 +31,7 @@ const last = Math.max(chars.length - 1, 1);
 
     a {
         white-space: pre-wrap;
-        animation: rainbow-cycle 6s linear infinite;
+        animation: rainbow-cycle 10s linear infinite;
         animation-play-state: var(--global-animation-state, running);
         --base: oklch(
                 var(--global-color-l)
@@ -42,8 +42,7 @@ const last = Math.max(chars.length - 1, 1);
     }
 
     .char {
-        color: oklch(from var(--base) l c calc(h + var(--bar-thickness) * 300));
+        color: oklch(from var(--base) l c calc(h + var(--t) * 360));
         -webkit-text-fill-color: currentColor;
     }
-
 </style>

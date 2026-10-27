@@ -448,8 +448,6 @@ do
                 else
                     rt.critical("In rt.Animalese.translate: unhandled character `", current, "`")
                 end
-
-                ::continue::
             end
         end
 

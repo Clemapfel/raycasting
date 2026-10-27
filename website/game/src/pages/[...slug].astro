@@ -12,7 +12,7 @@ import BackToTopButton from "../components/back_to_top_button.astro";
 import LanguageChooser from "../components/language_chooser.astro";
 import BoxLayout from "../components/box_layout.astro";
 import Tooltip from "../components/tooltip.astro";
-import { Locale, AnimationStateButtonTranslation, BackToTopButtonTranslation } from "../i18n/translation.ts";
+import { Locale, Translation } from "../i18n/translation.ts";
 
 const defaultLanguage = 'en';
 
@@ -22,7 +22,6 @@ const id = Astro.url.pathname.replace(
 );
 
 import { getCollection, getEntry } from "astro:content";
-import { AnimationStateButtonTranslation } from "../i18n/translation";
 
 export async function getStaticPaths() {
     // generate paths from filenames in /src/content/pages/en
@@ -39,8 +38,8 @@ export async function getStaticPaths() {
 const entry = await getEntry("pages", id);
 
 const locale = Astro.currentLocale ?? Locale.ENGLISH;
-const animation_state_text = AnimationStateButtonTranslation[locale];
-const back_to_top_text = BackToTopButtonTranslation[locale]
+const animation_state_text = Translation.animation_state_button[locale];
+const back_to_top_text = Translation.back_to_top_button[locale]
 ---
 
 <style>
@@ -126,10 +125,11 @@ const back_to_top_text = BackToTopButtonTranslation[locale]
 </style>
 
 <Layout title={entry!.data.title}>
-    <ShaderCanvas id={entry!.data.shader}/>
     <!-- SoftBody /> -->
     <!-- <div class="center-line"></div> -->
     <div class="page-layout">
+        <ShaderCanvas id={entry!.data.shader}/>
+
         <div class="page-wrapper">
             <div class="header-bar-wrapper">
                 <HeaderBar />
