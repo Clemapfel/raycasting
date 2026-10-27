@@ -29,7 +29,7 @@ void vertexmain() {
 in vec3 varying_texture_coords;
 in vec4 varying_color;
 
-out vec4 frag_color;
+layout(location = 0) out vec4 frag_color;
 
 uniform sampler2D instance_texture;
 

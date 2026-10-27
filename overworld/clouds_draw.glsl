@@ -34,7 +34,7 @@ uniform float hue;
 uniform float opacity;
 uniform float hue_offset;
 
-out vec4 frag_color;
+layout(location = 0) out vec4 frag_color;
 
 void pixelmain() {
     float value = texture(export_texture, varying_texture_coords).r;

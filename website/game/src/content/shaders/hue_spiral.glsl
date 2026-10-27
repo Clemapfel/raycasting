@@ -72,6 +72,16 @@ vec2 rotate(vec2 v, float a) {
     );
 }
 
+uniform vec2 cursor_position;
+uniform float cursor_visible;
+float cursor_distance() {
+    vec2 aspect = vec2(rt_ScreenSize.x / rt_ScreenSize.y, 1.0);
+    vec2 distance = (rt_TextureCoords - cursor_position / rt_ScreenSize) * aspect;
+    float x = dot(distance, distance) * 32.0;
+    return cursor_visible * (1.0 / (1.0 + x * x));
+}
+
+
 void main() {
     float time = elapsed / 30.0;
 
@@ -92,8 +102,8 @@ void main() {
     vec2 center = vec2(0.0);
     vec2 seed = 2.0 * pos;
     vec2 dir = normalize(vec2(
-    gradient_noise(vec3(seed.x, seed.y, time)),
-    gradient_noise(vec3(seed.y, time, seed.x))
+        gradient_noise(vec3(seed.x, seed.y, time)),
+        gradient_noise(vec3(seed.y, time, seed.x))
     ));
 
     vec3 rgb = vec3(0.0);
@@ -106,7 +116,7 @@ void main() {
         float which = (i % 2 == 0 ? 1.0 : -1.0);
         vec2 rel = pos - center;
         float angle = angle_t * which * TAU * (2.0 * distance(pos, center));
-        pos = center + rotate(rel, angle);
+        pos = center + rotate(rel, angle + mix(0.0, 0.1, cursor_distance()) * TAU);
 
         float hue = fract(angle_t + atan(pos.y, pos.x) / TAU);
         float d = distance(pos, center);

@@ -135,6 +135,21 @@ uniform float elapsed;
 
 const vec4 black = vec4(0.043137, 0.043137, 0.062745, 1.0);
 
+uniform vec2 cursor_position;
+uniform bool cursor_is_visible;
+
+float cursor_falloff() {
+    float aspect = rt_ScreenSize.x / rt_ScreenSize.y;
+    vec2 frag_pos = rt_TextureCoords;
+    frag_pos.x *= aspect;
+    vec2 cursor_uv = cursor_position / rt_ScreenSize;
+    cursor_uv.x *= aspect;
+    float dist = length(frag_pos - cursor_uv);
+    const float sigma = 0.37;
+    float falloff = exp(-(dist * dist) / (2.0 * sigma * sigma));
+    return cursor_is_visible ? falloff : 0.0;
+}
+
 void main() {
     vec2 uv = rt_VertexPosition / rt_ScreenSize;
     uv.x *= rt_ScreenSize.x / rt_ScreenSize.y;
@@ -164,8 +179,9 @@ void main() {
     const float contrast = 0.4; // decrease for more shadow fog
     float value = min(1.0, lambertian + 0.5 * noise);
     rt_FragColor = smoothstep(0.0, 1.0 - contrast, noise) * vec4(mix(
-        lch_to_rgb(0.8, 1.0, noise * mix(gradient.x, gradient.y, (sin(time + gnoise) + 1.0) / 2.0)) * vec3(smoothstep(0.0, 0.6, value)),
-        vec3(shadow),
-        length(gradient.xy) * gnoise
+    lch_to_rgb(0.8, 1.0, noise * mix(gradient.x, gradient.y, (sin(time + gnoise) + 1.0) / 2.0)) * vec3(smoothstep(0.0, 0.6, value)),
+    vec3(shadow),
+    length(gradient.xy) * gnoise
     ), 1.0) + vec4(black);
+    rt_FragColor.rgb = mix(rt_FragColor.rgb, vec3(1.0), cursor_falloff());
 }

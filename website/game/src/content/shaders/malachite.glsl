@@ -90,7 +90,14 @@ uniform float elapsed;
 
 const vec4 black = vec4(0.043137, 0.043137, 0.062745, 1.0);
 
-#define USE_WORLEY_NOISE 0 // 0 or 1
+uniform vec2 cursor_position;
+uniform float cursor_visible;
+float cursor_distance() {
+    vec2 aspect = vec2(rt_ScreenSize.x / rt_ScreenSize.y, 1.0);
+    vec2 distance = (rt_TextureCoords - cursor_position / rt_ScreenSize) * aspect;
+    float x = dot(distance, distance) * 16.0;
+    return cursor_visible * (1.0 / (1.0 + x * x)); // butterworth gaussian approximation
+}
 
 void main() {
     vec2 uv = rt_TextureCoords;
@@ -98,19 +105,14 @@ void main() {
     uv *= 0.8;
     float time = elapsed / 13.0;
 
-    //#if USE_WORLEY_NOISE == 1
-    const float worley_noise_scale = 10.0;
-    float wnoise = worley_noise(vec3(worley_noise_scale * uv.xy, time / 3.0));
-    //#else
     const float gradient_noise_scale = 16.0;
     float gnoise = gradient_noise(vec3(gradient_noise_scale * uv.xy, time / 3.0));
-    //#endif
 
-    float noise_x = gnoise; //mix(wnoise, gnoise, (sin(elapsed) + 1.0) / 2.0);
+    float noise_x = gnoise;
 
     uv.xy += vec2(noise_x, -noise_x);
 
-    const float cell_size = 0.3;
+    float cell_size = 0.3;
     vec2 cell_id = floor(uv / cell_size);
     float hue = fract(sin(dot(cell_id, normalize(vec2(127.1, 311.7))) + 2.0 * time / 80000.0) * 43758.5453123);
 
@@ -118,9 +120,9 @@ void main() {
     vec2 d = min(q, cell_size - q);
     float gradient = 1.0 - min(d.x, d.y) / (cell_size * 0.5);
 
-    const float threshold = 0.88;
+    float threshold = 0.88;
     float eps = max(fwidth(gradient), 0.05);
-    float value = smoothstep(threshold - eps, threshold + eps, gradient);
+    float value = smoothstep(max(0.0, threshold - eps), min(1.0, threshold + eps), gradient + mix(0.0, 0.1, cursor_distance()));
 
     vec3 color = lch_to_rgb(vec3(0.8, 1.0, hue));
 

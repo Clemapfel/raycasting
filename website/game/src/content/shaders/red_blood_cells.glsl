@@ -106,17 +106,26 @@ in vec4 rt_VertexColor;
 in vec2 rt_VertexPosition;
 out vec4 rt_FragColor;
 
+uniform vec2 cursor_position;
+uniform float cursor_visible;
+float cursor_distance() {
+    vec2 aspect = vec2(rt_ScreenSize.x / rt_ScreenSize.y, 1.0);
+    vec2 distance = (rt_TextureCoords - cursor_position / rt_ScreenSize) * aspect;
+    float x = dot(distance, distance) * 32.0;
+    return cursor_visible * (1.0 / (1.0 + x * x));
+}
+
 void main() {
     vec2 uv = rt_VertexPosition / rt_ScreenSize;
     uv.x *= rt_ScreenSize.x / rt_ScreenSize.y;
 
     vec2 screen_coords = uv * rt_ScreenSize;
-    vec2 world_position = uv * 20.0;
+    vec2 world_position = uv * 25.0;
 
     float time = elapsed / 2.0;
 
-    float body = 1.0;
-    float noise = dirac(smoothstep(0.0, 1.0 - 0.3, sparse_worley_noise(vec3(world_position, time / 5.0), 0.25)));
+    float body = mix(1.0, 0.75, cursor_distance());
+    float noise = dirac(smoothstep(0.0, body - 0.3, sparse_worley_noise(vec3(world_position, time / 5.0), 0.25)));
     float background_noise = gradient_noise(vec3(world_position / 12.0, time / 4.0));
 
     vec3 surface_texture = 0.8 * noise * lch_to_rgb(vec3(0.8, 1., background_noise + mix(0.2, 0.3, noise))) * (1. - clamp(background_noise, 0., 1.));
