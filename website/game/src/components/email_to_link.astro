@@ -1,0 +1,30 @@
+---
+//
+//<EmailLink
+// email="name@example.com" subject="bug report" body="Hi, I wanted to ask about..." >
+//
+
+interface Props {
+    email: string;
+    subject?: string;
+    body?: string;
+    cc?: string;
+    bcc?: string;
+    class?: string;
+}
+
+const { email, subject, body, cc, bcc, class: className } = Astro.props;
+
+const params = new URLSearchParams();
+if (subject) params.set("subject", subject);
+if (body) params.set("body", body);
+if (cc) params.set("cc", cc);
+if (bcc) params.set("bcc", bcc);
+
+const query = params.toString().replace(/\+/g, "%20");
+const href = `mailto:${email}${query ? `?${query}` : ""}`;
+---
+
+<a href={href} class={className}>
+    <slot>{email}</slot>
+</a>
