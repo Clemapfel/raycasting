@@ -1,12 +1,16 @@
 ---
+//
+// Usage: <Tooltip text="foo" orientation="right"> <widget /> </Tooltip>
+//
 interface Props {
     text: string;
+    position?: "top" | "right" | "bottom" | "left";
 }
 
-const { text } = Astro.props;
+const { text, position = "right" } = Astro.props;
 ---
 
-<div class="tooltip">
+<div class="tooltip" data-position={position}>
     <slot />
     <span class="tooltip-bubble" role="tooltip">
         {text}
@@ -24,11 +28,6 @@ const { text } = Astro.props;
     .tooltip-bubble {
         position: absolute;
         z-index: 9999;
-
-        /* top right of child */
-        inset-inline-start: calc(100% + 0.5rem);
-        inset-block-start: 50%;
-        transform: translateY(-50%);
 
         width: max-content;
         max-width: min(20rem, calc(100vw - 1rem));
@@ -60,6 +59,31 @@ const { text } = Astro.props;
         transition:
                 opacity 0.2s ease,
                 visibility 0.2s ease;
+    }
+
+    /* placement */
+    .tooltip[data-position="right"] > .tooltip-bubble {
+        inset-inline-start: calc(100% + 0.5rem);
+        inset-block-start: 50%;
+        transform: translateY(-50%);
+    }
+
+    .tooltip[data-position="left"] > .tooltip-bubble {
+        inset-inline-end: calc(100% + 0.5rem);
+        inset-block-start: 50%;
+        transform: translateY(-50%);
+    }
+
+    .tooltip[data-position="top"] > .tooltip-bubble {
+        inset-block-end: calc(100% + 0.5rem);
+        inset-inline-start: 50%;
+        transform: translateX(-50%);
+    }
+
+    .tooltip[data-position="bottom"] > .tooltip-bubble {
+        inset-block-start: calc(100% + 0.5rem);
+        inset-inline-start: 50%;
+        transform: translateX(-50%);
     }
 
     .tooltip:hover > .tooltip-bubble {

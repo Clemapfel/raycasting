@@ -79,3 +79,9 @@ export const AnimationStateButtonTranslation = {
     de: "Animation ab / anstellen",
     ja: "TODO"
 } satisfies Translation;
+
+export const BackToTopButtonTranslation = {
+    en: "Back to top",
+    de: "Zurück nach oben",
+    ja: "TODO"
+} satisfies Translation;

@@ -1,0 +1,107 @@
+---
+//
+// Usage: <BackToTopButton />
+//
+
+import Tooltip from "./tooltip.astro";
+---
+
+<back-to-top-button>
+    <button
+            class="back-to-top-button-item"
+            type="button"
+            data-back-to-top
+            aria-label="Back to top"
+    >
+        <span class="box-layout-item-hover" aria-hidden="true"></span>
+        <span class="icon-up" aria-hidden="true"></span>
+    </button>
+</back-to-top-button>
+
+<style>
+    back-to-top-button {
+        display: inline-block;
+    }
+
+    .back-to-top-button-item {
+        position: relative;
+        display: grid;
+        place-items: center;
+        flex-shrink: 0;
+        width: 45px;
+        height: 45px;
+        padding: 0;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        color: oklch(
+                var(--global-color-l)
+                var(--global-color-c)
+                var(--global-color-h)
+        );
+        cursor: pointer;
+        opacity: 0.5;
+        transition: opacity 0.15s ease, color 0.15s ease;
+    }
+
+    .back-to-top-button-item:hover,
+    .back-to-top-button-item:focus-visible {
+        opacity: 1;
+    }
+
+    .icon-up {
+        position: relative;
+        z-index: 1;
+        display: block;
+        width: 20px;
+        height: 20px;
+        background: currentColor;
+
+        --triangle-base: 14;
+        --triangle_height: calc(var(--triangle-base) * sqrt(3) / 2);
+        --bar-thickness: 2;
+        --bar-gap: 2;
+
+        --cx: calc(
+                (var(--triangle_height) * var(--triangle_height) / 6 - var(--bar-thickness) * (var(--bar-gap) + var(--bar-thickness) / 2))
+                / (var(--triangle_height) / 2 + var(--bar-thickness))
+        );
+
+        --bar-start: calc(50% - (var(--cx) + var(--bar-gap) + var(--bar-thickness)) * 1px);
+        --bar-end: calc(50% - (var(--cx) + var(--bar-gap)) * 1px);
+        --tri-base: calc(50% - var(--cx) * 1px);
+        --tri-tip: calc(50% + (var(--triangle_height) - var(--cx)) * 1px);
+        --top: calc(50% - var(--triangle-base) * 1px / 2);
+        --bottom: calc(50% + var(--triangle-base) * 1px / 2);
+
+        clip-path: polygon(
+                var(--bar-start) var(--top),
+                var(--bar-end) var(--top),
+                var(--bar-end) 50%,
+                var(--tri-base) 50%,
+                var(--tri-base) var(--top),
+                var(--tri-tip) 50%,
+                var(--tri-base) var(--bottom),
+                var(--tri-base) 50%,
+                var(--bar-end) 50%,
+                var(--bar-end) var(--bottom),
+                var(--bar-start) var(--bottom)
+        );
+        transform: rotate(-90deg);
+    }
+</style>
+
+<script>
+    document.querySelectorAll<HTMLButtonElement>("[data-back-to-top]").forEach((button) => {
+        button.addEventListener("click", () => {
+            const prefersReducedMotion = window.matchMedia(
+                "(prefers-reduced-motion: reduce)"
+            ).matches;
+
+            window.scrollTo({
+                top: 0,
+                behavior: prefersReducedMotion ? "auto" : "smooth",
+            });
+        });
+    });
+</script>

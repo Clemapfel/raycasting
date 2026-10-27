@@ -1,8 +1,20 @@
 ---
+//
+// Usage: <LanguageChooser orientation="horizontal" />
+//
 import { Locale, LanguageChooserTranslation } from "../i18n/translation.ts";
+import BoxLayout from "./box_layout.astro";
+import Tooltip from "./tooltip.astro";
+
+interface Props {
+    orientation?: "horizontal" | "vertical";
+    tooltipPosition?: "top" | "right" | "bottom" | "left";
+}
+
+const { orientation = "horizontal", tooltipPosition = "top" } = Astro.props;
 
 const current_locale = Astro.currentLocale;
-const locale_order = [ Locale.ENGLISH, Locale.GERMAN, Locale.JAPANESE ];
+const locale_order = [Locale.ENGLISH, Locale.GERMAN, Locale.JAPANESE];
 
 const url = Astro.url;
 const locale_regex = new RegExp(`^/(${locale_order.join("|")})(?=/|$|\\?|#)`);
@@ -15,65 +27,65 @@ const locale_to_href = Object.fromEntries(
     })
 ) as Record<Locale, URL>;
 
-const labels = LanguageChooserTranslation.label;
+const locale_icons: Record<Locale, string> = {
+    [Locale.ENGLISH]: "🌐",
+    [Locale.GERMAN]: "🇩🇪",
+    [Locale.JAPANESE]: "🇯🇵",
+};
+
 const titles = LanguageChooserTranslation.title;
 ---
 
-{ current_locale !== undefined && (
-/* render as [ foo | bar | ... | bat ] */
-<div class="language-chooser">
-    [
-    { locale_order.map((locale, i) => [
-        i > 0 && " | ",
-        <a href={ locale_to_href[locale] } hreflang={ locale } lang={ locale } title={ titles[locale] }>
-            { labels[locale] }
-        </a>,
-    ]) }
-    ]
-</div>
-    ) }
+{current_locale !== undefined && (
+<BoxLayout
+        orientation={orientation}
+        tooltipPosition={tooltipPosition}
+        ariaLabel="Choose language"
+>
+    {locale_order.map((locale) => (
+            <Tooltip text={titles[locale]} position={tooltipPosition}>
+                <a
+                        href={locale_to_href[locale]}
+                        hreflang={locale}
+                        lang={locale}
+                        class:list={[
+                            "language-chooser-item",
+                            { current: locale === current_locale },
+                        ]}
+                        aria-label={titles[locale]}
+                        aria-current={locale === current_locale ? "true" : undefined}
+                >
+                    <span class="box-layout-item-hover" aria-hidden="true"></span>
+                    <span class="language-chooser-item-icon">
+                        {locale_icons[locale]}
+                    </span>
+                </a>
+            </Tooltip>
+    ))}
+</BoxLayout>
+    )}
 
 <style>
-    .language-chooser {
-        /* float in the top-right corner of the viewport at all times */
-        position: fixed;
-        bottom: env(safe-area-inset-top, var(--global-outer-margin));
-        right: env(safe-area-inset-right, var(--global-outer-margin));
-        z-index: 1000;
-        padding: 0.75rem 1rem;
+    .language-chooser-item {
+        --language-chooser-icon-size: 30px;
 
-        display: inline-flex;
-        gap: 0.5em;
-        align-items: baseline;
+        position: relative;
+        display: grid;
+        flex-shrink: 0;
+        place-items: center;
+        width: calc(1.5 * var(--language-chooser-icon-size));
+        height: calc(1.5 * var(--language-chooser-icon-size));
+        text-decoration: none !important;
+    }
 
-        font-size: 11.5pt;
+    .language-chooser-item-icon {
+        position: relative;
+        z-index: 1;
+        display: block;
         font-family: var(--default-font), sans-serif;
-        color: var(--default-color-foreground);
-        opacity: 50%;
-
-        -webkit-text-stroke: 3px var(--default-color-background);
-        paint-order: stroke fill;
-    }
-
-    .language-chooser:hover {
-        opacity: 100%;
-        transition: opacity 0.33s;
-    }
-
-    .language-chooser a {
-        color: inherit;
-        text-decoration: none;
-    }
-
-    .language-chooser a.current {
-        text-decoration: underline;
-    }
-
-    .language-chooser a:hover {
-        color: oklch(
-            var(--global-color-l)
-            var(--global-color-c)
-            var(--global-color-h)
-        );
+        font-size: var(--language-chooser-icon-size);
+        line-height: 1;
+        text-align: center;
+        user-select: none;
     }
 </style>

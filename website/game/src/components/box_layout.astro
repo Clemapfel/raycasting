@@ -1,0 +1,126 @@
+---
+//
+// Usage: <BoxLayout orientation="horizontal" tooltipPosition="top">
+//
+
+interface Props {
+    orientation?: "horizontal" | "vertical";
+    tooltipPosition?: "top" | "right" | "bottom" | "left";
+    ariaLabel?: string;
+}
+
+const {
+    orientation = "horizontal",
+    tooltipPosition = "top",
+    ariaLabel,
+} = Astro.props;
+---
+
+<nav
+        class:list={["box-layout", { horizontal: orientation === "horizontal" }]}
+        aria-label={ariaLabel}
+>
+    <slot />
+</nav>
+
+<style>
+    .box-layout {
+        z-index: 1000;
+        display: inline-flex;
+        flex-direction: column;
+        border: 1px solid oklch(
+                var(--global-color-l)
+                var(--global-color-c)
+                var(--global-color-h)
+        );
+        border-radius: 8px;
+        background: var(--default-color-background);
+        opacity: 0.5;
+        transition: opacity 0.3s ease;
+    }
+
+    .box-layout.horizontal {
+        flex-direction: row;
+    }
+
+    .box-layout:hover,
+    .box-layout:focus-within {
+        opacity: 1;
+    }
+
+    .box-layout :global(.tooltip:not(:first-child) :is(a, button, [role="button"])) {
+        position: relative;
+    }
+
+    .box-layout :global(.tooltip:not(:first-child) :is(a, button, [role="button"]))::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 8px;
+        right: 8px;
+        z-index: 2;
+        height: 1px;
+        background: oklch(
+                var(--global-color-l)
+                var(--global-color-c)
+                var(--global-color-h)
+        );
+    }
+
+    .box-layout.horizontal :global(.tooltip:not(:first-child) :is(a, button, [role="button"]))::before {
+        top: 8px;
+        bottom: 8px;
+        left: 0;
+        right: auto;
+        width: 1px;
+        height: auto;
+    }
+
+    .box-layout :global(.box-layout-item-hover) {
+        position: absolute;
+        inset: 4px;
+        border-radius: 8px;
+        background: oklch(
+                var(--global-color-l)
+                var(--global-color-c)
+                var(--global-color-h) / 0.25
+        );
+        opacity: 0;
+        transition: opacity 0.2s ease;
+        pointer-events: none;
+    }
+
+    .box-layout :global(.current .box-layout-item-hover),
+    .box-layout :global(a:is(:hover, :focus-visible) .box-layout-item-hover) {
+        opacity: 1;
+    }
+
+    .box-layout > :global(*:not(:first-child)) {
+        position: relative;
+    }
+
+    .box-layout > :global(*:not(:first-child))::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 8px;
+        right: 8px;
+        z-index: 2;
+        height: 1px;
+        background: oklch(
+                var(--global-color-l)
+                var(--global-color-c)
+                var(--global-color-h)
+        );
+        pointer-events: none;
+    }
+
+    .box-layout.horizontal > :global(*:not(:first-child))::before {
+        top: 8px;
+        bottom: 8px;
+        left: 0;
+        right: auto;
+        width: 1px;
+        height: auto;
+    }
+</style>

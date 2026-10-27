@@ -1,5 +1,17 @@
 ---
+//
+// Usage <SocialMediaBar orientation="horizontal" />
+//
+
+import BoxLayout from "./box_layout.astro";
 import Tooltip from "./tooltip.astro";
+
+interface Props {
+    orientation?: "horizontal" | "vertical";
+    tooltipPosition?: "top" | "right" | "bottom" | "left";
+}
+
+const { orientation = "horizontal", tooltipPosition = "top" } = Astro.props;
 
 enum SocialMediaPlatform {
     BLUESKY = "bluesky",
@@ -8,44 +20,50 @@ enum SocialMediaPlatform {
     TIKTOK = "tiktok",
     YOUTUBE = "youtube",
     DISCORD = "discord",
-    KICKSTARTER = "kickstarter"
+    KICKSTARTER = "kickstarter",
 }
 
 const platform_to_entry = {
     [SocialMediaPlatform.BLUESKY]: {
         title: "Bluesky",
-        href: "https://bsky.app/profile/YOUR_HANDLE.bsky.social"
+        href: "https://bsky.app/profile/chromavoid.bsky.social",
     },
+
     [SocialMediaPlatform.DISCORD]: {
         title: "Discord",
-        href: "https://discord.gg/YOUR_INVITE_CODE"
+        href: "https://discord.gg/TODO",
     },
+
     [SocialMediaPlatform.TWITTER]: {
         title: "Twitter",
-        href: "https://x.com/YOUR_HANDLE"
+        href: "https://twitter.com/ch",
     },
+
     [SocialMediaPlatform.INSTAGRAM]: {
         title: "Instagram",
-        href: "https://www.instagram.com/YOUR_HANDLE"
+        href: "https://www.instagram.com/YOUR_HANDLE",
     },
+
     [SocialMediaPlatform.YOUTUBE]: {
         title: "YouTube",
-        href: "https://www.youtube.com/@YOUR_HANDLE"
+        href: "https://www.youtube.com/@YOUR_HANDLE",
     },
+
     [SocialMediaPlatform.KICKSTARTER]: {
         title: "Kickstarter",
-        href: "https://www.kickstarter.com/projects/YOUR_CREATOR/YOUR_PROJECT"
+        href: "https://www.kickstarter.com/projects/YOUR_CREATOR/YOUR_PROJECT",
     },
+
     [SocialMediaPlatform.TIKTOK]: {
         title: "TikTok",
-        href: "https://www.tiktok.com/@YOUR_HANDLE"
-    }
+        href: "https://www.tiktok.com/@YOUR_HANDLE",
+    },
 };
 ---
 
-<nav class="social-media-bar">
+<BoxLayout orientation={orientation} tooltipPosition={tooltipPosition}>
     {Object.entries(platform_to_entry).map(([platform, entry]) => (
-            <Tooltip text={entry.title}>
+            <Tooltip text={entry.title} orientation={tooltipPosition}>
                 <a
                         href={entry.href}
                         class="social-media-bar-item"
@@ -53,59 +71,23 @@ const platform_to_entry = {
                         target="_blank"
                         rel="noopener noreferrer"
                 >
-                    <span class="social-media-bar-item-hover" aria-hidden="true"></span>
+                    <span class="box-layout-item-hover" aria-hidden="true"></span>
                     <img src={`/socials_${platform}.svg`} alt={entry.title} />
                 </a>
             </Tooltip>
     ))}
-</nav>
+</BoxLayout>
 
 <style>
-    :root {
-        --social-media-bar-icon-size:  30px;
-    }
-
-    .social-media-bar {
-        display: inline-flex;
-        flex-direction: column;
-        border: 1px solid oklch(
-                var(--global-color-l)
-                var(--global-color-c)
-                var(--global-color-h)
-        );
-        border-radius: 8px;
-        background: var(--default-color-background);
-        opacity: 0.75;
-        transition: opacity 0.3s ease;
-    }
-
-    .social-media-bar:hover,
-    .social-media-bar:focus-within {
-        opacity: 1;
-    }
-
     .social-media-bar-item {
+        --social-media-bar-icon-size: 30px;
+
         flex-shrink: 0;
         position: relative;
         display: grid;
         place-items: center;
         width: calc(1.5 * var(--social-media-bar-icon-size));
         height: calc(1.5 * var(--social-media-bar-icon-size));
-    }
-
-    :global(.tooltip:not(:first-child)) .social-media-bar-item::before {
-        content: "";
-        position: absolute;
-        top: 0;
-        left: 8px;
-        right: 8px;
-        height: 1px;
-        z-index: 2;
-        background: oklch(
-                var(--global-color-l)
-                var(--global-color-c)
-                var(--global-color-h)
-        );
     }
 
     .social-media-bar-item img {
@@ -115,25 +97,5 @@ const platform_to_entry = {
         width: var(--social-media-bar-icon-size);
         height: var(--social-media-bar-icon-size);
         object-fit: contain;
-    }
-
-    .social-media-bar-item-hover {
-        position: absolute;
-        inset: 4px;
-        border-radius: 8px;
-        background: oklch(
-                var(--global-color-l)
-                var(--global-color-c)
-                var(--global-color-h)
-                / 0.25
-        );
-        opacity: 0;
-        transition: opacity 0.2s ease;
-        pointer-events: none;
-    }
-
-    .social-media-bar-item:hover .social-media-bar-item-hover,
-    .social-media-bar-item:focus-visible .social-media-bar-item-hover {
-        opacity: 1;
     }
 </style>

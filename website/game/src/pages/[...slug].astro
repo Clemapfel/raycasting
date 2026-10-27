@@ -7,8 +7,12 @@ import Footer from "../components/footer.astro";
 import HeaderBar from "../components/header_bar.astro";
 import NoisyFrame from "../components/noisy_frame.astro";
 import SocialMediaBar from "../components/social_media_bar.astro";
+import AnimationStateButton from "../components/animation_state_button.astro";
+import BackToTopButton from "../components/back_to_top_button.astro";
 import LanguageChooser from "../components/language_chooser.astro";
-import { Locale } from "../i18n/translation.ts";
+import BoxLayout from "../components/box_layout.astro";
+import Tooltip from "../components/tooltip.astro";
+import { Locale, AnimationStateButtonTranslation, BackToTopButtonTranslation } from "../i18n/translation.ts";
 
 const defaultLanguage = 'en';
 
@@ -18,7 +22,8 @@ const id = Astro.url.pathname.replace(
 );
 
 import { getCollection, getEntry } from "astro:content";
-import Social_media_bar from "../components/social_media_bar.astro";
+import { AnimationStateButtonTranslation } from "../i18n/translation";
+
 export async function getStaticPaths() {
     // generate paths from filenames in /src/content/pages/en
     const entries = await getCollection("pages");
@@ -32,6 +37,10 @@ export async function getStaticPaths() {
 }
 
 const entry = await getEntry("pages", id);
+
+const locale = Astro.currentLocale ?? Locale.ENGLISH;
+const animation_state_text = AnimationStateButtonTranslation[locale];
+const back_to_top_text = BackToTopButtonTranslation[locale]
 ---
 
 <style>
@@ -70,13 +79,24 @@ const entry = await getEntry("pages", id);
     }
 
     .social-media-bar-wrapper {
-        position: absolute;
-        top: var(--global-outer-margin);
+        position: fixed;
+        bottom: var(--global-outer-margin);
         left: var(--global-outer-margin);
+        max-width: calc(100vw - 2 * var(--outer-margin));
+    }
+
+    .global-control-wrapper {
+        position: fixed;
+        display: flex;
+        flex-direction: column;
+        gap: var(--global-outer-margin);
+        bottom: var(--global-outer-margin);
+        right: var(--global-outer-margin);
     }
 
     .frame-content-wrapper {
         width: 100%;
+        height: 2000px;
         max-width: var(--text-width);
         margin: 0 auto;
         box-sizing: border-box;
@@ -125,7 +145,21 @@ const entry = await getEntry("pages", id);
             </div>
 
             <div class="social-media-bar-wrapper">
-                <SocialMediaBar />
+                <SocialMediaBar orientation="vertical" tooltipPosition="right"/>
+            </div>
+
+            <div class="global-control-wrapper">
+                <BoxLayout orientation="vertical">
+                    <Tooltip text={back_to_top_text} position="left">
+                        <BackToTopButton />
+                    </Tooltip>
+
+                    <Tooltip text={animation_state_text} position="left" >
+                        <AnimationStateButton />
+                    </Tooltip>
+                </BoxLayout>
+
+                <LanguageChooser orientation="vertical" tooltipPosition="left"/>
             </div>
         </div>
 
