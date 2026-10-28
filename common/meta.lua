@@ -763,13 +763,13 @@ do
     --- @param super Any
     --- @param _ Nil
     --- @return T
-    function meta.class(typename, super, _)
-        meta.assert(typename, mt.String, super, mt.Optional(mt.Type), _, mt.Nil)
+    function meta.class(typename, super, allow_overwrite, _)
+        meta.assert(typename, mt.String, super,  mt.Optional(mt.Type), allow_overwrite, mt.Optional(mt.Boolean),_, mt.Nil)
 
-        if meta._typenames[typename] ~= nil then
+        if meta._typenames[typename] == true then
             rt.fatal("In meta.class: a type with typename `", typename, "` already exists")
         end
-        meta._typenames[typename] = true
+        meta._typenames[typename] = allow_overwrite ~= true
 
         if super ~= nil then
             -- check for cyclic inheritance
@@ -867,6 +867,51 @@ do
 
         -- default instantiate
         type.instantiate = _default_instantiate
+
+        return type
+    end
+
+    --- @generic T
+    --- @param typename `T`
+    --- @return T
+    function meta.plain_class(typename, constructor, _)
+        meta.assert(typename, mt.String, constructor, mt.Function, _, mt.Nil)
+
+        if meta._typenames[typename] == true then
+            rt.fatal("In meta.class: a type with typename `", typename, "` already exists")
+        end
+
+        local type = {}
+        local instance_metatable = {
+            __typename = typename
+            -- no __index method
+        }
+
+        type.instantiate = constructor
+
+        local type_metatable = {}
+        type_metatable.__call = function(self, ...)
+            local out = {}
+            out.instantiate = type.instantiate
+            out = setmetatable(out, instance_metatable)
+            out:instantiate(...)
+            return out
+        end
+
+        type_metatable.__typename = meta.Type
+        type_metatable.__newindex = function(self, key, value)
+            rt.error("In meta.pod_class.__newindex: trying to modify type `", typename, "`, but a simple class cannot be modified after construction")
+            rawset(self, key, value)
+        end
+
+        setmetatable(type, type_metatable)
+        rawset(type, _object_hash_index, _current_hash)
+        _current_hash = _current_hash + 1
+        rawset(type, _object_metatable_index, type_metatable)
+
+        _type_to_instance_metatable[type] = instance_metatable
+        _typename_to_type[typename] = type
+        _type_to_typename[type] = typename
 
         return type
     end

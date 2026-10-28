@@ -788,3 +788,9 @@ function dbg(...)
     io.write("\n")
     io.flush()
 end
+
+--- @brief
+function rerequire(module)
+    package.loaded[module] = nil
+    require(module)
+end

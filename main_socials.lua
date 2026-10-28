@@ -5,9 +5,14 @@ require "common.scene_manager"
 -- website header sdf textures
 -- require("website.export_sdf")
 
+DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
+    love.load()
+end)
+
 -- title banner
 love.load = function()
-    require "website.title_banner_scene"
+    rt.SceneManager:pop()
+    rerequire "website.title_banner_scene"
     rt.SceneManager:push(aux.TitleBannerScene)
 end
 
