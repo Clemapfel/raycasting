@@ -42,10 +42,10 @@ function ow.PlayerRecorderBody:instantiate(scene, stage)
     do
         local n_outer_vertices = rt.settings.player.n_outer_bodies
         local positions = {}
-        local r = self._radius - (self._radius * 2 * math.pi) / rt.settings.player.n_outer_bodies / 1.5
+        local r = self._radius - (self._radius * math.tau) / rt.settings.player.n_outer_bodies / 1.5
         self._blood_spatter_radius = r
         for i = 1, n_outer_vertices do
-            local angle = (i - 1) / n_outer_vertices * 2 * math.pi
+            local angle = (i - 1) / n_outer_vertices * math.tau
             table.insert(positions, math.cos(angle) * r)
             table.insert(positions, math.sin(angle) * r)
         end
@@ -204,7 +204,7 @@ function ow.PlayerRecorderBody:update(delta)
     local ray_length = self._max_radius
 
     for ray_i = 1, n_rays do
-        local angle = (ray_i - 1) / n_rays * 2 * math.pi
+        local angle = (ray_i - 1) / n_rays * math.tau
         local dx, dy = math.cos(angle), math.sin(angle)
 
         local tx, ty, nx, ny, hit_body = self._world:query_ray(

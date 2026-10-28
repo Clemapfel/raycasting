@@ -19,12 +19,12 @@ end
 
 do
     local angle_offset = math.pi / 2
-    local squish = 1 / 12 * math.pi / 2
+    local squish = 1 / 1math.tau / 2
     local _focus_indicator_bottom_x = math.cos(angle_offset)
     local _focus_indicator_bottom_y = math.sin(angle_offset)
 
-    local _focus_indicator_top_left_x = math.cos(angle_offset + 2 * math.pi / 3 + squish)
-    local _focus_indicator_top_left_y = math.sin(angle_offset + 2 * math.pi / 3 + squish)
+    local _focus_indicator_top_left_x = math.cos(angle_offset + math.tau / 3 + squish)
+    local _focus_indicator_top_left_y = math.sin(angle_offset + math.tau / 3 + squish)
 
     local _focus_indicator_top_right_x = math.cos(angle_offset + 4 * math.pi / 3 - squish)
     local _focus_indicator_top_right_y = math.sin(angle_offset + 4 * math.pi / 3 - squish)

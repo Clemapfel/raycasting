@@ -41,7 +41,7 @@ function ow.CoinParticle:instantiate(radius, is_outline)
 
     local floor = math.floor
 
-    for angle = 0, 2 * math.pi, 2 * math.pi / n_points do
+    for angle = 0, math.tau, math.tau / n_points do
         table.insert(self._core_outline, math.cos(angle) * self._radius)
         table.insert(self._core_outline, math.sin(angle) * self._radius)
 
@@ -50,7 +50,7 @@ function ow.CoinParticle:instantiate(radius, is_outline)
     end
 
     local n_steps = 32
-    local step = (2 * math.pi) / n_steps
+    local step = (math.tau) / n_steps
     for i = 1, n_steps + 1, 2 do
         table.insert(self._dotted_outlines, {
             math.cos((i - 1) * step) * self._body_radius,

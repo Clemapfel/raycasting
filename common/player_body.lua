@@ -357,7 +357,7 @@ function rt.PlayerBody:_initialize()
             for ring_i = 1, n_rings do
                 local ring_t = (ring_i - 1) / n_rings
                 local ring_r = (1 - ring_t) * body_radius / n_rings
-                local n_ropes = math.max(3, math.ceil((2 * math.pi * ring_r) / rope_r))
+                local n_ropes = math.max(3, math.ceil((math.tau * ring_r) / rope_r))
                 if math.is_even(n_ropes) then n_ropes = n_ropes + 1 end
                 local rope_length = fraction_to_rope_length(ring_t)
                 max_length = math.max(max_length, rope_length)
@@ -371,7 +371,7 @@ function rt.PlayerBody:_initialize()
                 end
 
                 for rope_i = 1, n_ropes do
-                    local angle = (rope_i - 1) / n_ropes * 2 * math.pi
+                    local angle = (rope_i - 1) / n_ropes * math.tau
                     local dx, dy = math.cos(angle), math.sin(angle)
                     local anchor_x, anchor_y = 0 + dx * ring_r, 0 + dy * ring_r
                     local contour_length = contour_max_length - total_radius - math.magnitude(anchor_x, anchor_y)

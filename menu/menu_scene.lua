@@ -28,7 +28,7 @@ rt.settings.menu_scene = {
         font_japanese = "assets/fonts/07NikumaruFont/07NikumaruFont.ttf",
 
         player_velocity = 100, -- when reflecting
-        player_offset_magnitude = 0.05 * 2 * math.pi, -- when holding left / right
+        player_offset_magnitude = 0.05 * math.tau, -- when holding left / right
         falling_fraction_threshold = 2000, -- how long it takes to transition to stage select
     },
 

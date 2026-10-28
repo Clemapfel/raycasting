@@ -12,7 +12,7 @@ ow.AirDashNodeParticle = meta.class("AirDashNodeParticle")
 
 --- @brief
 function ow.AirDashNodeParticle:instantiate(radius)
-    self._theta, self._phi = rt.random.number(0, 2 * math.pi), rt.random.number(0, 2 * math.pi) -- spherical rotation angles
+    self._theta, self._phi = rt.random.number(0, math.tau), rt.random.number(0, math.tau) -- spherical rotation angles
     self._radius = radius
     self._x, self._y, self._z = 0, 0, 0
 
@@ -53,7 +53,7 @@ function ow.AirDashNodeParticle:instantiate(radius)
     for i = 1, self._n_circles do
         self._circles[i] = {
             radius = radius - 3,
-            angle_offset = (i - 1) * (2 * math.pi / self._n_circles),
+            angle_offset = (i - 1) * (math.tau / self._n_circles),
             back_strips = {},
             front_strips = {}
         }
@@ -178,7 +178,7 @@ function ow.AirDashNodeParticle:_update_segments()
         local aligned_basis_v_z = -aligned_u_z * sin_aligned + aligned_v_z * cos_aligned
 
         -- determine sampling resolution
-        local approximate_circumference = 2 * math.pi * circle_radius
+        local approximate_circumference = math.tau * circle_radius
 
         --[[
         local point_count
@@ -196,7 +196,7 @@ function ow.AirDashNodeParticle:_update_segments()
         local circle_points = {}
 
         for point_index = 0, point_count - 1 do
-            local parametric_angle = (point_index / point_count) * 2 * math.pi
+            local parametric_angle = (point_index / point_count) * math.tau
             local cos_angle, sin_angle = math.cos(parametric_angle), math.sin(parametric_angle)
 
             -- regular pose point
@@ -379,7 +379,7 @@ end
 
 function ow.AirDashNodeParticle:update(delta)
     local speed = rt.settings.overworld.double_jump_tether_particle.rotation_speed
-    local angle = delta * 2 * math.pi * speed
+    local angle = delta * math.tau * speed
     self._theta = math.normalize_angle(self._theta + angle)
     self._phi = math.normalize_angle(self._phi + angle)
 

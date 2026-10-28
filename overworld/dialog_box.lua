@@ -482,8 +482,8 @@ function ow.DialogBox:size_allocate(x, y, width, height)
         local center_x = frame_x + 0.5 * frame_w
         local center_y = frame_y + frame_h
         self._advance_indicator = {}
-        local angle_offset = (2 * math.pi) / 4
-        for angle = 0, 2 * math.pi, (2 * math.pi) / 3 do
+        local angle_offset = (math.tau) / 4
+        for angle = 0, math.tau, (math.tau) / 3 do
             table.insert(self._advance_indicator, center_x + math.cos(angle + angle_offset) * advance_radius)
             table.insert(self._advance_indicator, center_y + math.sin(angle + angle_offset) * advance_radius)
         end

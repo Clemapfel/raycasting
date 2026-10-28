@@ -129,7 +129,7 @@ function rt.PlayerInputSmoothing:instantiate()
         for particle_i = 1, n_particles + 1 do
             local i = #data + 1
 
-            local angle = (particle_i - 1) / n_particles * 2 * math.pi
+            local angle = (particle_i - 1) / n_particles * math.tau
             local x = center_x + math.cos(angle) * radius
             local y = center_y + math.sin(angle) * radius
             data[i + _x_offset] = x
@@ -443,7 +443,7 @@ do
         local collider_radius = smoothing_settings.small_radius
         local collider_inverse_mass = 1
 
-        local segment_length = (2 * math.pi * band.radius) / band.n_particles
+        local segment_length = (math.tau * band.radius) / band.n_particles
         local node_radius = smoothing_settings.line_width
         local rest_offset = segment_length * math.cos(math.pi / band.n_particles) / (2 * math.sin(math.pi / band.n_particles))
 
@@ -653,7 +653,7 @@ function rt.PlayerInputSmoothing:draw(center_x, center_y)
         local vertices = {}
         local n_vertices = 32
         for i = 1, n_vertices + 1 do
-            local angle = (i - 1) / n_vertices * 2 * math.pi
+            local angle = (i - 1) / n_vertices * math.tau
             table.insert(vertices, 0 + math.cos(angle) * small_radius)
             table.insert(vertices, 0 + math.sin(angle) * small_radius)
         end

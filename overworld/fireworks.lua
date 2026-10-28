@@ -92,14 +92,14 @@ function ow.Fireworks:spawn(n_particles, start_x, start_y, end_x, end_y, hue_min
     for particle_i = 1, n_particles do
         local idx = particle_i - 0.5 - 1
         local z = 1 - 2 * idx / n_particles
-        local theta = 2 * math.pi * idx / _golden_ratio
+        local theta = math.tau * idx / _golden_ratio
 
         local radius = math.sqrt(1 - z * z)
         local x = radius * math.cos(theta)
         local y = radius * math.sin(theta)
 
         local perturbation = _rng(0.2, 0.5)
-        local angle = _rng(0, 2 * math.pi)
+        local angle = _rng(0, math.tau)
         local offset = _rng(0, perturbation)
         x = x + offset * math.cos(angle)
         y = y + offset * math.sin(angle)

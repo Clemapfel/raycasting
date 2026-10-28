@@ -109,7 +109,7 @@ function rt.Balloon:reformat(x, y, width, height)
     -- chains
     local new_chain = function(cx, cy, radius, texture)
         local chain = {}
-        local n_particles = math.max(16, math.floor(radius * 2 * math.pi * settings.vertex_density))
+        local n_particles = math.max(16, math.floor(radius * math.tau * settings.vertex_density))
         local particles = self._particles
 
         chain.n_particles = n_particles
@@ -119,7 +119,7 @@ function rt.Balloon:reformat(x, y, width, height)
 
         -- particles
         for particle_i = 1, n_particles do
-            local angle = (particle_i - 1) / n_particles * 2 * math.pi
+            local angle = (particle_i - 1) / n_particles * math.tau
             local px = cx + radius * math.cos(angle)
             local py = cy + radius * math.sin(angle)
             local mass = 1
@@ -177,7 +177,7 @@ function rt.Balloon:reformat(x, y, width, height)
         end
 
         -- sim params
-        chain.segment_length = (2 * math.pi * radius) / n_particles
+        chain.segment_length = (math.tau * radius) / n_particles
 
         -- mesh
         chain.draw_positions = {}
@@ -194,8 +194,8 @@ function rt.Balloon:reformat(x, y, width, height)
             local a_particle_i = particle_i
             local b_particle_i = particle_i % n_particles + 1
 
-            local angle_a = (a_particle_i - 1) / n_particles * 2 * math.pi
-            local angle_b = (b_particle_i - 1) / n_particles * 2 * math.pi
+            local angle_a = (a_particle_i - 1) / n_particles * math.tau
+            local angle_b = (b_particle_i - 1) / n_particles * math.tau
             local u_a = 0.5 + 0.5 * zoom * math.cos(angle_a)
             local v_a = 0.5 + 0.5 * zoom * math.sin(angle_a)
             local u_b = 0.5 + 0.5 * zoom * math.cos(angle_b)

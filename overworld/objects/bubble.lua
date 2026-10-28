@@ -140,7 +140,7 @@ function ow.Bubble:instantiate(object, stage, scene)
     local n_outer_vertices = rt.Mesh.radius_to_n_vertices(self._x_radius, self._y_radius)
 
     for i = 1, n_outer_vertices + 1 do
-        local angle = (i - 1) / n_outer_vertices * 2 * math.pi
+        local angle = (i - 1) / n_outer_vertices * math.tau
         local x = mesh_x + math.cos(angle) * self._x_radius
         local y = mesh_y + math.sin(angle) * self._y_radius
 
@@ -303,7 +303,7 @@ function ow.Bubble:_pop(dx, dy, pop_x, pop_y)
 
     local n_particles = math.ceil(perimeter / settings.max_radius)
     for i = 1, n_particles do
-        local angle = (i - 1) / n_particles * 2 * math.pi
+        local angle = (i - 1) / n_particles * math.tau
         local dx, dy = math.cos(angle), math.sin(angle)
         local x = self._x + dx * (self._x_radius * (1 - rt.random.number(0, settings.inlay)))
         local y = self._y + dy * (self._y_radius * (1 - rt.random.number(0, settings.inlay)))

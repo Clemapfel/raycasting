@@ -319,7 +319,7 @@ function rt.PlayerBody:initialize()
     for ring_i = 1, n_rings do
         local ring_radius = ring_to_ring_radius(ring_i)
         local current_n_ropes = ring_to_n_ropes(ring_i)
-        local angle_step = (2 * math.pi) / current_n_ropes
+        local angle_step = (math.tau) / current_n_ropes
         for i = 1, current_n_ropes do
             local angle = (i - 1) * angle_step
             if ring_i % 2 == 1 then angle = angle + angle_step * 0.5 end
@@ -440,7 +440,7 @@ function rt.PlayerBody:_update_contour()
 
     local n = #self._ropes
     for i = 1, n do
-        local angle = (i - 1) / n * 2 * math.pi
+        local angle = (i - 1) / n * math.tau
         local x, y = callback(angle, max_length)
         table.insert(self._contour_vertices, x)
         table.insert(self._contour_vertices, y)

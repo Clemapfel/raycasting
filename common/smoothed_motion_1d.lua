@@ -49,9 +49,9 @@ end
 function rt.SmoothedMotion1D:update(delta)
     local distance
     if self._use_angles then
-        local diff = (self._target_value - self._current_value) % (2 * math.pi)
+        local diff = (self._target_value - self._current_value) % (math.tau)
         if diff > math.pi then
-            distance = diff - (2 * math.pi)
+            distance = diff - (math.tau)
         else
             distance = diff
         end
@@ -74,10 +74,10 @@ function rt.SmoothedMotion1D:update(delta)
     self._current_value = self._current_value + step
 
     if self._use_angles then
-        local diff = (self._target_value - self._current_value) % (2 * math.pi)
+        local diff = (self._target_value - self._current_value) % (math.tau)
         local final_distance = diff
         if final_distance > math.pi then
-            final_distance = final_distance - (2 * math.pi)
+            final_distance = final_distance - (math.tau)
         end
 
         if math.abs(final_distance) < math.abs(step) then

@@ -233,7 +233,7 @@ function ow.TetherParticleEffect:_update_batch(batch, delta)
             vx = vx + (mass * gravity_x + dx * acceleration) * delta
             vy = vy + (mass * gravity_y + dy * acceleration) * delta
 
-            local angle = rt.random.noise(px * turbulence_scale, px * turbulence_scale) * 2 * math.pi
+            local angle = rt.random.noise(px * turbulence_scale, px * turbulence_scale) * math.tau
             local noise_x = math.cos(angle)
             local noise_y = math.sin(angle)
 

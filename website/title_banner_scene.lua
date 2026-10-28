@@ -64,6 +64,7 @@ function aux.TitleBannerScene:reformat(x, y, width, height)
     self._blobs = {}
     for blob_i = 1, 256 do
         local angle = rt.random.number(0, math.tau)
+
     end
 end
 

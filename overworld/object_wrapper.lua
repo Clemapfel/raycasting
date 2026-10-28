@@ -307,8 +307,8 @@ function ow.ObjectWrapper:_initialize_physics_prototypes()
             local x_radius, y_radius = self.x_radius, self.y_radius
             local n_outer_vertices = _calculate_n_outer_vertices_physics(x_radius, y_radius)
 
-            local angle_step = (2 * math.pi) / n_outer_vertices
-            for angle = 0, 2 * math.pi, angle_step do
+            local angle_step = (math.tau) / n_outer_vertices
+            for angle = 0, math.tau, angle_step do
                 table.insert(vertices, center_x + x_radius * math.cos(angle))
                 table.insert(vertices, center_y + y_radius * math.sin(angle))
             end
@@ -556,7 +556,7 @@ function ow.ObjectWrapper:_initialize_mesh_prototype()
         local points = { x, y }
         local n_outer_vertices = _calculate_n_outer_vertices_mesh(x_radius, y_radius)
         for i = 1, n_outer_vertices + 1 do
-            local angle = (i - 1) / n_outer_vertices * 2 * math.pi
+            local angle = (i - 1) / n_outer_vertices * math.tau
             table.insert(points, x + math.cos(angle) * x_radius)
             table.insert(points, y + math.sin(angle) * y_radius)
         end
@@ -664,7 +664,7 @@ function ow.ObjectWrapper:_initialize_contour_prototype()
         local x_radius, y_radius = self.x_radius, self.y_radius
         local n_outer_vertices = _calculate_n_outer_vertices_mesh(x_radius, y_radius)
         for i = 1, n_outer_vertices do
-            local angle = (i - 1) / n_outer_vertices * 2 * math.pi
+            local angle = (i - 1) / n_outer_vertices * math.tau
             table.insert(contour, x + math.cos(angle) * x_radius)
             table.insert(contour, y + math.sin(angle) * y_radius)
         end

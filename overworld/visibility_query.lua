@@ -299,7 +299,7 @@ do
     end
 
     local _HALF_PI = math.pi / 2
-    local _TAU = 2 * math.pi
+    local _TAU = math.tau
     local empty = {}
 
     --- @brief get all subsegments that are visible from a point
@@ -481,7 +481,7 @@ do
 
                 local diff = angle2 - angle1
                 if diff <= 0 then
-                    diff = diff + (2 * math.pi)
+                    diff = diff + (math.tau)
                 end
 
                 -- bisect angle sector

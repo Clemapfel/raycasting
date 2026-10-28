@@ -587,7 +587,7 @@ function ow.NebulaBackground:update(delta, override)
 
             if entry.should_rotate then
                 -- rotate
-                local angle = delta * 2 * math.pi * aux_data.rotation_speed
+                local angle = delta * math.tau * aux_data.rotation_speed
                 local axis_x, axis_y, axis_z = table.unpack(aux_data.rotation_axis)
                 data[5], data[6], data[7], data[8] = math.quaternion.normalize(math.quaternion.multiply(
                     data[5], data[6], data[7], data[8],
@@ -972,7 +972,7 @@ function ow.NebulaBackground:_init_sphere_particle(n_rings, n_segments_per_ring)
         local ring_radius = math.sin(phi)
 
         for seg = 0, n_segments_per_ring - 1 do
-            local theta = 2 * math.pi * seg / n_segments_per_ring
+            local theta = math.tau * seg / n_segments_per_ring
             local x = ring_radius * math.cos(theta)
             local z = ring_radius * math.sin(theta)
             local u = seg / n_segments_per_ring
@@ -1068,7 +1068,7 @@ function ow.NebulaBackground:_init_glow_particle()
     }
 
     for i = 1, n_outer_vertices do
-        local angle = (i - 1) / n_outer_vertices * 2 * math.pi
+        local angle = (i - 1) / n_outer_vertices * math.tau
         local x = center_x + math.cos(angle) * radius
         local y = center_y + math.sin(angle) * radius
         local z = 0

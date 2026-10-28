@@ -51,7 +51,7 @@ function ow.Eye:instantiate(object, stage, scene)
     local new_lining = function(radius)
         local out = {}
         for i = 1, n_outer_vertices + 1 do
-            local angle = (i - 1) / n_outer_vertices * 2 * math.pi
+            local angle = (i - 1) / n_outer_vertices * math.tau
             table.insert(out, 0 + math.cos(angle) * radius)
             table.insert(out, 0 + math.sin(angle) * radius)
         end
@@ -96,7 +96,7 @@ function ow.Eye:instantiate(object, stage, scene)
         local vertex_indices = {}
 
         for i = 1, n_outer_vertices do
-            local angle = (i - 1) / n_outer_vertices * 2 * math.pi
+            local angle = (i - 1) / n_outer_vertices * math.tau
             local cos_a, sin_a = math.cos(angle), math.sin(angle)
             local u = (i - 1) / n_outer_vertices
 
@@ -167,7 +167,7 @@ function ow.Eye:instantiate(object, stage, scene)
         }
 
         for i = 1, n_outer_vertices + 1 do
-            local angle = (i - 1) / n_outer_vertices * 2 * math.pi
+            local angle = (i - 1) / n_outer_vertices * math.tau
             local cos_a, sin_a = math.cos(angle), math.sin(angle)
 
             table.insert(iris_highlight_data, {

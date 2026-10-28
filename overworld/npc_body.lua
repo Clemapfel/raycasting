@@ -86,7 +86,7 @@ function ow.NPCBody:_initialize(
     local strands = self._strands
 
     for i = 1, n_strands do
-        local angle = (i - 1) * 2 * math.pi / n_strands
+        local angle = (i - 1) * math.tau / n_strands
         strands[i] = {
             anchor_x = center_x,
             anchor_y = center_y,

@@ -59,12 +59,12 @@ function mn.MSAAVisualizationWidget:update(delta)
 
     local n_vertices = 5
     local points = {}
-    local angle_step = 2 * math.pi / n_vertices
+    local angle_step = math.tau / n_vertices
 
     local center_x, center_y = self._line_center_x, self._line_center_y
     local radius_x, radius_y = self._line_radius_x, self._line_radius_y
 
-    local angle_offset = self._elapsed / self._duration * 2 * math.pi
+    local angle_offset = self._elapsed / self._duration * math.tau
     for i = 0, n_vertices - 1 do
         local angle = i * angle_step + angle_offset
         local x = center_x + radius_x * math.cos(angle)

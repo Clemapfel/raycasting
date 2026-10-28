@@ -6,8 +6,8 @@ rt.settings.menu.menu_scene_background = {
     max_scale = 1.5,
     min_velocity = 1, -- px / s
     max_velocity = 10,
-    min_angular_velocity = 0.0 * (2 * math.pi),
-    max_angular_velocity = 0.1 * (2 * math.pi),
+    min_angular_velocity = 0.0 * (math.tau),
+    max_angular_velocity = 0.1 * (math.tau),
     scale_speed = 0.2,
     n_layers = 8,
     n_particles_per_layer = 100
@@ -131,8 +131,8 @@ function mn.MenuSceneBackground:size_allocate(x, y, width, height)
             local particle = {
                 [_x] = rt.random.number(x, x + width),
                 [_y] = rt.random.number(top_y, bottom_y),
-                [_velocity_x] = math.cos(rt.random.number(0, 2 * math.pi)),
-                [_velocity_y] = math.sin(rt.random.number(0, 2 * math.pi)),
+                [_velocity_x] = math.cos(rt.random.number(0, math.tau)),
+                [_velocity_y] = math.sin(rt.random.number(0, math.tau)),
                 [_r] = r,
                 [_g] = g,
                 [_b] = b,
@@ -142,7 +142,7 @@ function mn.MenuSceneBackground:size_allocate(x, y, width, height)
                 [_scale_y] = rt.random.number(settings.min_scale, settings.max_scale),
                 [_scale_velocity_x] = rt.random.number(-1, 1),
                 [_scale_velocity_y] = rt.random.number(-1, 1),
-                [_angle] = rt.random.number(0, 2 * math.pi)
+                [_angle] = rt.random.number(0, math.tau)
             }
 
             local data = {

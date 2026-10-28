@@ -105,7 +105,7 @@ function rt.Cursor:_draw_can_click(x, y, scale)
     local line_width = 0.4 * radius
 
     for i = 1, n_vertices + 1 do
-        local angle = (i - 1) / n_vertices * 2 * math.pi
+        local angle = (i - 1) / n_vertices * math.tau
         table.insert(points, x + math.cos(angle) * radius * scale)
         table.insert(points, y + math.sin(angle) * radius * scale)
     end
@@ -127,7 +127,7 @@ function rt.Cursor:_draw_cannot_click(x, y, scale)
     local line_width = 0.4 * radius
 
     for i = 1, n_vertices + 1 do
-        local angle = (i - 1) / n_vertices * 2 * math.pi
+        local angle = (i - 1) / n_vertices * math.tau
         table.insert(points, x + math.cos(angle) * radius * scale)
         table.insert(points, y + math.sin(angle) * radius * scale)
     end

@@ -89,7 +89,7 @@ function ow.AcceleratorSurface:instantiate(object, stage, scene)
             local vertices = {}
             local centroid_x, centroid_y = 0, 0
             for i = 1, n_vertices do
-                local angle = (i - 1) * (2 * math.pi) / n_vertices
+                local angle = (i - 1) * (math.tau) / n_vertices
                 local length = radius + rt.random.number(-1, 1) * max_offset
                 local dx, dy = math.cos(angle) * length, math.sin(angle) * length
                 table.insert(vertices, dx)
@@ -273,7 +273,7 @@ function ow.AcceleratorSurface:update(delta)
             data[i + _elapsed_offset] = 0
             data[i + _lifetime_offset] = rt.random.number(settings.min_lifetime, settings.max_lifetime)
             data[i + _scale_offset] = rt.random.number(settings.min_scale, settings.max_scale * t)
-            data[i + _angle_offset] = rt.random.number(0, 2 * math.pi)
+            data[i + _angle_offset] = rt.random.number(0, math.tau)
             data[i + _quad_i_offset] = rt.random.integer(1, #_particle_quads)
             data[i + _is_stale_offset] = _is_not_stale
 

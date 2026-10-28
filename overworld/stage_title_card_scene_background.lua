@@ -106,7 +106,7 @@ function ow.StageTitleCardSceneBackground:update(delta)
                 (particle[_position_x] / self._bounds.width) * noise_scale,
                 (particle[_position_y] / self._bounds.height) * noise_scale,
                 self._elapsed
-            ) * 2 * math.pi * 0.003 * particle[_scale_direction]
+            ) * math.tau * 0.003 * particle[_scale_direction]
         )
 
         if particle[_position_x] < -padding or particle[_position_x] > screen_width + padding then

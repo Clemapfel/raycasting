@@ -202,7 +202,7 @@ end
 
 local function _get_visible_subsegments(segments, px, py, occluding_segments)
     local epsilon = math.eps
-    local two_pi = 2 * math.pi
+    local two_pi = math.tau
 
     if segments == nil or #segments == 0 then return {} end
     occluding_segments = occluding_segments or {}

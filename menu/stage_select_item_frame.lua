@@ -144,7 +144,7 @@ function mn.StageSelectItemframe:size_allocate(x, y, width, height)
 
         local n_vertices = 16
         for i = 1, n_vertices + 1 do
-            local angle = (i - 1) * ((2 * math.pi) / n_vertices)
+            local angle = (i - 1) * ((math.tau) / n_vertices)
             table.insert(particle_mesh_data, {
                 math.cos(angle),
                 math.sin(angle),
@@ -260,8 +260,8 @@ function mn.StageSelectItemframe:size_allocate(x, y, width, height)
                     [_radius] = radius,
                     [_origin_x] = home_x,
                     [_origin_y] = home_y,
-                    [_velocity_x] = math.cos(rt.random.number(0, 2 * math.pi)),
-                    [_velocity_y] = math.sin(rt.random.number(0, 2 * math.pi)),
+                    [_velocity_x] = math.cos(rt.random.number(0, math.tau)),
+                    [_velocity_y] = math.sin(rt.random.number(0, math.tau)),
                     [_velocity_magnitude] = rt.random.number(min_velocity, max_velocity),
                     [_noise_position_x] = rt.random.number(-10e6, 10e6),
                     [_noise_position_y] = rt.random.number(-10e6, 10e6),

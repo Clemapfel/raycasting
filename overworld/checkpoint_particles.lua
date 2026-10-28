@@ -13,7 +13,7 @@ rt.settings.overworld.checkpoint_particles = {
     max_mass = 1, -- fraction
 
     min_angle = 0,
-    max_angle = 2 * math.pi,
+    max_angle = math.tau,
 
     min_damping = 0.99,
     max_damping = 0.992,
@@ -145,7 +145,7 @@ function ow.CheckpointParticles:_init_batch(batch, origin_x, origin_y, settings)
 
     for i = 1, settings.n_particles do
         local angle = math.mix(min_angle, max_angle, (i - 1) / settings.n_particles)
-        angle = angle + rt.random.number(-0.5, 0.5) * ((2 * math.pi) / settings.n_particles)
+        angle = angle + rt.random.number(-0.5, 0.5) * ((math.tau) / settings.n_particles)
         angle = math.clamp(angle, min_angle, max_angle)
 
         local dx = math.cos(angle)

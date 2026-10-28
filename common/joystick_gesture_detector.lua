@@ -44,7 +44,7 @@ local function joystick_to_input_action(x, y)
     end
 
     local angle = math.atan2(y, x)
-    if angle < 0 then angle = angle + 2 * math.pi end
+    if angle < 0 then angle = angle + math.tau end
 
     local sector = math.floor((angle + math.pi / 4) / (math.pi / 2)) % 4
     if sector == 0 then return rt.InputAction.RIGHT

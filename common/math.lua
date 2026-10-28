@@ -4,6 +4,8 @@ assert(table.unpack ~= nil)
 if debug.setfenv == nil then debug.setfenv = setfenv end
 assert(debug.setfenv ~= nil)
 
+math.tau = 6.28318530717958623199592693708837032318115234375 -- 2 * pi
+
 --- @brief
 function math.mean(values)
     local sum = 0
@@ -136,9 +138,9 @@ end
 --- @brief
 math.mix = math.mix1
 
---- @brief project any angle into [0, 2 * math.pi]
+--- @brief project any angle into [0, math.tau]
 function math.normalize_angle(angle)
-    return angle - (2 * math.pi) * math.floor(angle / (2 * math.pi))
+    return angle - (math.tau) * math.floor(angle / (math.tau))
 end
 
 function math.linlin(x, from_a, from_b, to_a, to_b)
@@ -223,9 +225,9 @@ function math.mix_angles(angle_a, angle_b, ratio)
     local difference = angle_b - angle_a
 
     if difference > math.pi then
-        difference = difference - 2 * math.pi
+        difference = difference - math.tau
     elseif difference < -math.pi then
-        difference = difference + 2 * math.pi
+        difference = difference + math.tau
     end
 
     return math.normalize_angle(angle_a + difference * ratio)
@@ -233,9 +235,9 @@ end
 
 --- @brief
 function math.angle_distance(a, b)
-    local delta = (b - a) % (2 * math.pi)
+    local delta = (b - a) % (math.tau)
     if delta > math.pi then
-        delta = delta - 2 * math.pi
+        delta = delta - math.tau
     end
     return delta
 end
@@ -255,7 +257,7 @@ do
     end
 end
 
-math.pi2 = 2 * math.pi
+math.pi2 = math.tau
 
 --- @brief
 function math.fract(x)
@@ -432,7 +434,7 @@ function math.gamma(x)
         a = a + p[i] / (x + i)
     end
 
-    return math.sqrt(2 * math.pi) * math.pow(t, x + 0.5) * math.exp(-t) * a
+    return math.sqrt(math.tau) * math.pow(t, x + 0.5) * math.exp(-t) * a
 end
 
 --- @brief
@@ -642,7 +644,7 @@ function math.fast_angle(x, y)
     if p <= 4 then
         return (math.pi / 4) * p
     else
-        return (math.pi / 4) * p - 2 * math.pi
+        return (math.pi / 4) * p - math.tau
     end
 end
 

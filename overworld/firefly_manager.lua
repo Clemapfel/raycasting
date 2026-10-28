@@ -297,7 +297,7 @@ function ow.FireflyManager:register(x, y, count, should_move_in_place)
         data[i + _home_x_offset] = home_x
         data[i + _home_y_offset] = home_y
 
-        local angle = rt.random.number(0, 2 * math.pi)
+        local angle = rt.random.number(0, math.tau)
         local magnitude = rt.random.number(-settings.max_follow_target_offset, settings.max_follow_target_offset)
         data[i + _follow_target_offset_x] = math.cos(angle) * magnitude
         data[i + _follow_target_offset_y] = math.sin(angle) * magnitude

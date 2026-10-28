@@ -76,7 +76,7 @@ function ow.PlayerRecorderEyes:_initialize()
     self._base_right_outline = {}
 
     for i = 1, n_vertices + 1 do
-        local angle = (i - 1) / n_vertices * 2 * math.pi
+        local angle = (i - 1) / n_vertices * math.tau
         local x = math.cos(angle) * base_x_radius
         local y = math.sin(angle) * base_y_radius
 

@@ -157,8 +157,8 @@ function math.quaternion.random()
     local a = math.sqrt(1 - u1)
     local b = math.sqrt(u1)
 
-    local theta1 = 2 * math.pi * u2
-    local theta2 = 2 * math.pi * u3
+    local theta1 = math.tau * u2
+    local theta2 = math.tau * u3
 
     local x = a * math.sin(theta1)
     local y = a * math.cos(theta1)

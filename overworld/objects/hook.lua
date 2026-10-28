@@ -114,7 +114,7 @@ function ow.Hook:instantiate(object, stage, scene)
 
     local r = self._radius
     self._outline = {}
-    for angle = 0, 2 * math.pi, (2 + math.pi) / 32 do
+    for angle = 0, math.tau, (2 + math.pi) / 32 do
         table.insert(self._outline, math.cos(angle) * r * 0.95)
         table.insert(self._outline, math.sin(angle) * r * 0.95)
     end

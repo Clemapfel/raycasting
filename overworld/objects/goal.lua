@@ -247,7 +247,7 @@ function ow.Goal:instantiate(object, stage, scene)
 
         local n_vertices = 16
         for i = 1, n_vertices + 1 do
-            local angle = (i - 1) / n_vertices * (2 * math.pi)
+            local angle = (i - 1) / n_vertices * (math.tau)
             local u, v = math.cos(angle), math.sin(angle)
             table.insert(mesh_data, {
                 center_x + u * radius, center_y + v * radius,

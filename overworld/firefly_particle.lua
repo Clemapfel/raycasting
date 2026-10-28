@@ -57,7 +57,7 @@ function ow.FireflyParticle:instantiate(hue, radius)
     self._core_outline = {}
     local n_vertices = 32
     for i = 1, n_vertices do
-        local angle = (i - 1) / n_vertices * 2 * math.pi
+        local angle = (i - 1) / n_vertices * math.tau
         table.insert(self._core_outline, 0.5 * self._texture:get_width() + math.cos(angle) * self._core_radius)
         table.insert(self._core_outline, 0.5 * self._texture:get_height() + math.sin(angle) * self._core_radius)
     end

@@ -142,7 +142,7 @@ rt.Arc = meta.class("Arc", rt.Shape)
 
 function rt.Arc:instantiate(x, y, radius, min_angle, max_angle)
     if min_angle == nil then min_angle = 0 end
-    if max_angle == nil then max_angle = 2 * math.pi end
+    if max_angle == nil then max_angle = math.tau end
 
     self._data = { x, y, radius, min_angle, max_angle }
 end

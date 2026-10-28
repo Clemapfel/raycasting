@@ -105,7 +105,7 @@ function math.complex.random(magnitude)
     local v = rt.random.number(0, 1)
 
     local r = magnitude * math.sqrt(u)
-    local theta = 2 * math.pi * v
+    local theta = math.tau * v
     return r * math.cos(theta), r * math.sin(theta)
 end
 

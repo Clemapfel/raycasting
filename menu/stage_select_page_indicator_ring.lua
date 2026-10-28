@@ -64,13 +64,13 @@ function mn.StageSelectPageIndicatorRing:instantiate(radius, thickness)
     self._canvas_needs_update = true
 
     local max_hue_offset = settings.max_hue_offset
-    local n_particles = math.ceil(((2 * math.pi * radius) / max_radius)) * settings.coverage -- intentionally over-cover
+    local n_particles = math.ceil(((math.tau * radius) / max_radius)) * settings.coverage -- intentionally over-cover
 
     self._data_mesh_data = {}
 
     self._particles = {}
     self._n_particles = 0
-    for angle = 0, 2 * math.pi, (2 * math.pi) / n_particles do
+    for angle = 0, math.tau, (math.tau) / n_particles do
         local particle_x, particle_y = math.cos(angle), math.sin(angle)
         local radius_fraction = rt.random.number(min_radius, max_radius)
         local particle = {
@@ -80,8 +80,8 @@ function mn.StageSelectPageIndicatorRing:instantiate(radius, thickness)
             [_angle] = angle,
             [_velocity] = rt.random.choose(min_velocity, max_velocity), -- direction along ring
             [_direction] = rt.random.choose(-1, 1), -- direction along ring
-            [_noise_dx] = math.cos(rt.random.number(0, 2 * math.pi)),
-            [_noise_dy] = math.sin(rt.random.number(0, 2 * math.pi))
+            [_noise_dx] = math.cos(rt.random.number(0, math.tau)),
+            [_noise_dy] = math.sin(rt.random.number(0, math.tau))
         }
 
         table.insert(self._particles, particle)
@@ -102,8 +102,8 @@ function mn.StageSelectPageIndicatorRing:instantiate(radius, thickness)
             { 0, 0, 1, 1, 1, 1 }
         }
 
-        local step = (2 * math.pi) / 16
-        for angle = 0, 2 * math.pi + step, step  do
+        local step = (math.tau) / 16
+        for angle = 0, math.tau + step, step  do
             table.insert(particle_mesh_data, {
                 math.cos(angle),
                 math.sin(angle),

@@ -13,7 +13,7 @@ ow.PathRail = meta.class("PathRail")
 
 local function normalize_angle_signed(a)
     -- Normalize to (-pi, pi]
-    local two_pi = 2 * math.pi
+    local two_pi = math.tau
     a = (a + math.pi) % two_pi
     if a < 0 then a = a + two_pi end
     return a - math.pi
@@ -122,7 +122,7 @@ local function stroke_polyline_contour(flat_points, r, opts)
         -- Degenerate: single point => circle
         local cx, cy = xs[1], ys[1]
         local circle_pts = {}
-        add_arc(circle_pts, cx, cy, r, 0, 2 * math.pi, max_angle_step)
+        add_arc(circle_pts, cx, cy, r, 0, math.tau, max_angle_step)
         circle_pts = dedup_consecutive(circle_pts, eps)
         -- Flatten points inline
         local flat = {}
@@ -149,7 +149,7 @@ local function stroke_polyline_contour(flat_points, r, opts)
         -- All segments degenerate -> treat as single point circle around first
         local cx, cy = xs[1], ys[1]
         local circle_pts = {}
-        add_arc(circle_pts, cx, cy, r, 0, 2 * math.pi, max_angle_step)
+        add_arc(circle_pts, cx, cy, r, 0, math.tau, max_angle_step)
         circle_pts = dedup_consecutive(circle_pts, eps)
         -- Flatten points inline
         local flat = {}
@@ -322,7 +322,7 @@ function ow.PathRail:instantiate(path)
 
     local n_vertices = 24
     for i = 1, n_vertices + 1 do
-        local angle = ((i - 1) / n_vertices) * (2 * math.pi)
+        local angle = ((i - 1) / n_vertices) * (math.tau)
         local dx, dy = math.cos(angle), math.sin(angle)
 
         table.insert(self._inner_attachment_contour, dx * inner_attachment_r)

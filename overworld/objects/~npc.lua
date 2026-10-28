@@ -130,7 +130,7 @@ function ow.NPC:instantiate(object, stage, scene)
         end
 
         self._noise_x, self._noise_y = 0, 0
-        self._noise_dx, self._noise_dy = math.cos(rt.random.number(0, 2 * math.pi)), math.sin(rt.random.number(0, 2 * math.pi))
+        self._noise_dx, self._noise_dy = math.cos(rt.random.number(0, math.tau)), math.sin(rt.random.number(0, math.tau))
         self._noise_origin_x = self._graphics_body_x + 0.5 * width
         self._noise_origin_y = self._graphics_body_y + 0.5 * height
         self._elapsed = 0
@@ -357,12 +357,12 @@ end
 
 -- precompute focus indicator
 local angle_offset = math.pi / 2  -- Start with bottom vertex (pointing down)
-local squish = 1 / 12 * math.pi / 2
+local squish = 1 / 1math.tau / 2
 local _focus_indicator_bottom_x = math.cos(angle_offset)
 local _focus_indicator_bottom_y = math.sin(angle_offset)
 
-local _focus_indicator_top_left_x = math.cos(angle_offset + 2 * math.pi / 3 + squish)
-local _focus_indicator_top_left_y = math.sin(angle_offset + 2 * math.pi / 3 + squish)
+local _focus_indicator_top_left_x = math.cos(angle_offset + math.tau / 3 + squish)
+local _focus_indicator_top_left_y = math.sin(angle_offset + math.tau / 3 + squish)
 
 local _focus_indicator_top_right_x = math.cos(angle_offset + 4 * math.pi / 3 - squish)
 local _focus_indicator_top_right_y = math.sin(angle_offset + 4 * math.pi / 3 - squish)

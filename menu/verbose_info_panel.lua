@@ -119,7 +119,7 @@ function mn.VerboseInfoPanel:size_allocate(x, y, width, height)
 
     local thickness = rt.SceneManager:get_margin_unit()
     local arrow_width = 6 * m
-    local angle = (2 * math.pi) / 3
+    local angle = (math.tau) / 3
 
     self._scroll_up_indicator:reformat(
         x + 0.5 * width, y - thickness,
@@ -129,7 +129,7 @@ function mn.VerboseInfoPanel:size_allocate(x, y, width, height)
 
     self._scroll_down_indicator:reformat(
         x + 0.5 * width, y + height + thickness,
-        (2 * math.pi) - angle,
+        (math.tau) - angle,
         arrow_width, thickness
     )
 

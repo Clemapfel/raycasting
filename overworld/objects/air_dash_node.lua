@@ -217,7 +217,7 @@ function ow.AirDashNode:instantiate(object, stage, scene)
     if angle_range >= 0.5 * math.pi then
         -- full circle
         for i = 1, n_vertices + 1 do
-            local t = ((i - 1) / n_vertices) * 2 * math.pi
+            local t = ((i - 1) / n_vertices) * math.tau
             table.insert(self._outline_vertices, center_x + math.cos(t) * radius)
             table.insert(self._outline_vertices, center_y + math.sin(t) * radius)
         end
@@ -231,7 +231,7 @@ function ow.AirDashNode:instantiate(object, stage, scene)
         do
             local start_angle, end_angle = self._angle_ranges[1][1], self._angle_ranges[1][2]
             local span = math.abs(start_angle - end_angle)
-            local n_arc_vertices = n_vertices / (span / (2 * math.pi))
+            local n_arc_vertices = n_vertices / (span / (math.tau))
             for i = 1, n_arc_vertices do
                 local t = start_angle + ((i - 1) / n_arc_vertices) * span
                 table.insert(self._outline_vertices, center_x + math.cos(t) * radius)
@@ -242,7 +242,7 @@ function ow.AirDashNode:instantiate(object, stage, scene)
         do
             local start_angle, end_angle = self._angle_ranges[2][1], self._angle_ranges[2][2]
             local span = math.abs(start_angle - end_angle)
-            local n_arc_vertices = n_vertices / (span / (2 * math.pi))
+            local n_arc_vertices = n_vertices / (span / (math.tau))
             for i = n_arc_vertices, 1, -1 do
                 local t = start_angle + ((i - 1) / n_arc_vertices) * span
                 table.insert(self._outline_vertices, center_x + math.cos(t) * radius)
@@ -280,7 +280,7 @@ function ow.AirDashNode:instantiate(object, stage, scene)
             local n_outer_vertices = math.ceil(0.5 * self._radius)
             for i = 1, n_outer_vertices do
                 local arc_length = (i - 1) / n_outer_vertices
-                local angle = arc_length * 2 * math.pi
+                local angle = arc_length * math.tau
                 local dx, dy = math.cos(angle), math.sin(angle)
                 add_vertex(glow_data, x + dx * radius_a, y + dy * radius_a, dx, dy, arc_length, 1, 0)
                 add_vertex(glow_data, x + dx * radius_b, y + dy * radius_b, dx, dy, arc_length, 1, 1)
@@ -306,7 +306,7 @@ function ow.AirDashNode:instantiate(object, stage, scene)
                 local arc_base = #glow_data
 
                 local n_steps = math.max(2, math.ceil(
-                    math.abs(span) / (2 * math.pi) * math.ceil(0.5 * self._radius)
+                    math.abs(span) / (math.tau) * math.ceil(0.5 * self._radius)
                 ))
 
                 add_vertex(glow_data, x, y, 0, 0, 0, 1, 1)
@@ -713,7 +713,7 @@ end
 function circle_overlaps_arc(px, py, pr, center_x, center_y, radius, mid, span)
     -- 1. Handle angles that form a complete circle
     local abs_span = math.abs(span)
-    if abs_span >= 2 * math.pi then
+    if abs_span >= math.tau then
         local dx = px - center_x
         local dy = py - center_y
         local r_sum = radius + pr

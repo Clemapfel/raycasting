@@ -124,9 +124,9 @@ function ow.KillPlane:instantiate(object, stage, scene)
     self._outline_color = rt.Palette.KILL_PLANE_OUTLINE
 
     do -- instanced mesh
-        local up_x, up_y = math.cos(-1/2 * math.pi), math.sin(-1/2 * math.pi)
-        local right_x, right_y = math.cos(-1/2 * math.pi + 2/3 * math.pi), math.sin(-1/2 * math.pi + 2/3 * math.pi)
-        local left_x, left_y = math.cos(-1/2 * math.pi + 4/3 * math.pi), math.sin(-1/2 * math.pi + 4/3 * math.pi)
+        local up_x, up_y = math.cos(-1/math.tau), math.sin(-1/math.tau)
+        local right_x, right_y = math.cos(-1/math.tau + 2/3 * math.pi), math.sin(-1/math.tau + 2/3 * math.pi)
+        local left_x, left_y = math.cos(-1/math.tau + 4/3 * math.pi), math.sin(-1/math.tau + 4/3 * math.pi)
 
         local center_x, center_y = 0, 0
         local radius = 1
@@ -245,7 +245,7 @@ function ow.KillPlane:instantiate(object, stage, scene)
                     if self._body:test_point(local_x + start_x, local_y + start_y)
                         and rt.random.noise(noise_offset + local_x, noise_offset + local_y) > noise_cutoff
                     then
-                        local angle = rt.random.number(0, 2 * math.pi)
+                        local angle = rt.random.number(0, math.tau)
                         local offset = rt.random.number(-0.25 * cell_size, 0.25 * cell_size)
                         add(
                             local_x + offset * math.cos(angle),
@@ -344,7 +344,7 @@ function ow.KillPlane:update(delta)
         local axis_x = axis_data[axis_i + _axis_x_offset]
         local axis_y = axis_data[axis_i + _axis_y_offset]
         local axis_z = axis_data[axis_i + _axis_z_offset]
-        local angle = delta * 2 * math.pi * speed
+        local angle = delta * math.tau * speed
 
         if x_world >= bx and x_world <= bx + bw and y_world >= by and y_world <= by + bh then
             local dx = px - x_world

@@ -177,7 +177,7 @@ function ow.NPCEyes:_initialize_eyes()
     self._base_right_outline = {}
 
     for i = 1, n_vertices + 1 do
-        local angle = (i - 1) / n_vertices * 2 * math.pi
+        local angle = (i - 1) / n_vertices * math.tau
         local x = math.cos(angle) * eye_x_radius
         local y = math.sin(angle) * eye_y_radius
 

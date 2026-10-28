@@ -180,11 +180,11 @@ function rt.Player:instantiate()
 
         _radius = player_radius,
         _inner_body_radius = _settings.inner_body_radius,
-        _outer_body_radius = (player_radius * 2 * math.pi) / _settings.n_outer_bodies / 1.5,
+        _outer_body_radius = (player_radius * math.tau) / _settings.n_outer_bodies / 1.5,
 
         _bubble_radius = player_radius * _settings.bubble_radius_factor,
         _bubble_inner_body_radius = _settings.inner_body_radius * _settings.bubble_inner_radius_scale,
-        _bubble_outer_body_radius = (player_radius * _settings.bubble_radius_factor * 2 * math.pi) / _settings.n_outer_bodies / 2,
+        _bubble_outer_body_radius = (player_radius * _settings.bubble_radius_factor * math.tau) / _settings.n_outer_bodies / 2,
 
         _core_radius = player_radius, -- set on world enter
 
@@ -2381,7 +2381,7 @@ function rt.Player:move_to_world(world)
     self._core_radius = core_radius
 
     local outer_body_shape = b2.Circle(0, 0, self._outer_body_radius)
-    local step = (2 * math.pi) / _settings.n_outer_bodies
+    local step = (math.tau) / _settings.n_outer_bodies
 
     local outer_mask = bit.bnot(bit.bor(
         _settings.player_outer_body_collision_group,
@@ -2402,7 +2402,7 @@ function rt.Player:move_to_world(world)
 
     self._outer_collision_group, self._outer_collision_mask = nil, nil
 
-    for angle = 0, 2 * math.pi, step do
+    for angle = 0, math.tau, step do
         local offset_x = math.cos(angle) * core_radius
         local offset_y = math.sin(angle) * core_radius
         local cx = x + offset_x
@@ -2452,7 +2452,7 @@ function rt.Player:move_to_world(world)
     local bubble_outer_radius = self._bubble_radius - self._bubble_outer_body_radius
     local bubble_outer_body_shape = b2.Circle(0, 0, self._inner_body_radius) -- sic
 
-    for angle = 0, 2 * math.pi, step do
+    for angle = 0, math.tau, step do
         local offset_x = math.cos(angle) * bubble_outer_radius
         local offset_y = math.sin(angle) * bubble_outer_radius
         local cx = x + offset_x

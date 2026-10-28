@@ -45,7 +45,7 @@ function ow.Raycast:instantiate(world)
     self._particle_emitter:set_emission_rate(50)
     self._particle_emitter:set_particle_lifetime(0.2, 0.3)
     self._particle_emitter:set_emission_area(rt.ParticleEmissionAreaShape.ROUND)
-    self._particle_emitter:set_rotation(0, 2 * math.pi)
+    self._particle_emitter:set_rotation(0, math.tau)
     self._particle_emitter:set_sizes(0.1, 0.5)
     self._particle_emitter:set_color(rt.color_unpack(rt.settings.overworld.raycast.laser_color))
 

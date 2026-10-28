@@ -511,7 +511,7 @@ local _new_proxy = function(...)
         mean, stddev = _cast(_number_t, mean), _cast(_number_t, stddev)
         resolve(_number_t, function(t)
             local z = (t - mean) / stddev
-            return math.exp(-0.5 * z * z) / (stddev * math.sqrt(2 * math.pi))
+            return math.exp(-0.5 * z * z) / (stddev * math.sqrt(math.tau))
         end)
 
         return self

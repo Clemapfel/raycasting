@@ -171,7 +171,7 @@ function ow.BoostField:instantiate(object, stage, scene)
 
     local hue = object:get_property("hue")
     if hue == nil then
-        self._hue = math.angle(self._axis_x, self._axis_y) / (2 * math.pi)
+        self._hue = math.angle(self._axis_x, self._axis_y) / (math.tau)
         self._use_player_hue = false
     elseif meta.is_string(hue) and hue == "player" then
         self._hue = 0

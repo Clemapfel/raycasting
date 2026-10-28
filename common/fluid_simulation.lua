@@ -688,7 +688,7 @@ function rt.FluidSimulation:_new_batch(
     -- uniformly distribute points across the disk using fibonacci spiral
     local fibonacci_spiral = function(i, n, x_radius, y_radius)
         local golden_ratio = (1 + math.sqrt(5)) / 2
-        local golden_angle = 2 * math.pi / (golden_ratio * golden_ratio)
+        local golden_angle = math.tau / (golden_ratio * golden_ratio)
 
         local r = math.sqrt((i - 1) / n)
         local theta = i * golden_angle
@@ -2898,7 +2898,7 @@ function rt.FluidSimulation:_new_batch(
     -- uniformly distribute points across the disk using fibonacci spiral
     local fibonacci_spiral = function(i, n, x_radius, y_radius)
         local golden_ratio = (1 + math.sqrt(5)) / 2
-        local golden_angle = 2 * math.pi / (golden_ratio * golden_ratio)
+        local golden_angle = math.tau / (golden_ratio * golden_ratio)
 
         local r = math.sqrt((i - 1) / n)
         local theta = i * golden_angle

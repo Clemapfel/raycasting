@@ -83,7 +83,7 @@ rt.InterpolationFunctions = {
     HANN = function(x)
         -- \frac{-\cos\left(-2\pi x\right)}{2}+0.5
         if x >= 1 then return 0 elseif x <= 0 then return 0 end
-        return (-1 * math.cos(-2 * math.pi * x) + 1) / 2
+        return (-1 * math.cos(-math.tau * x) + 1) / 2
     end,
 
     HANN_HIGHPASS = function(x)
@@ -159,7 +159,7 @@ rt.InterpolationFunctions = {
         if x >= 1 then return 0 elseif x <= 0 then return 0 end
         -- \left(\left(e^{-\frac{x}{n}^{2}}\cdot\sin\left(\frac{x}{n}\right)\right)2\pi\cdot n\right)
         local n = 0.4
-        return math.exp(-((x / n) ^ 2)) * math.sin(x / n) * 2 * math.pi * n
+        return math.exp(-((x / n) ^ 2)) * math.sin(x / n) * math.tau * n
     end,
 
     DERIVATIVE_OF_GAUSSIAN_EASE_IN = function(x)
@@ -228,7 +228,7 @@ rt.InterpolationFunctions = {
         if ramp == nil then ramp = 2 end -- default order
 
         local butterworth = 1 / (1 + x^(2 * ramp))
-        return (math.sin(2 * math.pi * (frequency * x - 1)) / 2) * math.exp(-(ramp * x)^2)
+        return (math.sin(math.tau * (frequency * x - 1)) / 2) * math.exp(-(ramp * x)^2)
     end,
 
     CUBE_EASE_OUT = function(x, order)

@@ -17,7 +17,7 @@ local _sqrt6 = math.sqrt(6)
 
 --- @brief
 function ow.DoubleJumpTetherParticle:instantiate(radius)
-    self._theta, self._phi = rt.random.number(0, 2 * math.pi), rt.random.number(0, 2 * math.pi) -- spherical rotation angles
+    self._theta, self._phi = rt.random.number(0, math.tau), rt.random.number(0, math.tau) -- spherical rotation angles
     self._radius = radius
     self._x, self._y, self._z = 0, 0, 0
 
@@ -139,8 +139,8 @@ end
 --- @brief
 function ow.DoubleJumpTetherParticle:update(delta)
     local speed = rt.settings.overworld.double_jump_tether_particle.rotation_speed
-    self._theta = math.normalize_angle(self._theta + delta * 2 * math.pi * speed)
-    self._phi = math.normalize_angle(self._phi + delta * 2 * math.pi * speed)
+    self._theta = math.normalize_angle(self._theta + delta * math.tau * speed)
+    self._phi = math.normalize_angle(self._phi + delta * math.tau * speed)
 
     self._explosion_motion:update(delta)
 

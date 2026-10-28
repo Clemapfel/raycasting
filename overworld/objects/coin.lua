@@ -107,7 +107,7 @@ function ow.Coin:instantiate(object, stage, scene)
     if self._use_noise == nil then self._use_noise = true end
 
     self._noise_x, self._noise_y = 0, 0
-    self._noise_dx, self._noise_dy = math.cos(rt.random.number(0, 2 * math.pi)), math.sin(rt.random.number(0, 2 * math.pi))
+    self._noise_dx, self._noise_dy = math.cos(rt.random.number(0, math.tau)), math.sin(rt.random.number(0, math.tau))
     self._noise_amplitude = 1
     self._elapsed = 0
 

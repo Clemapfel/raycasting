@@ -275,7 +275,7 @@ function ow.ResultScreenFrame:_update_mesh_paths()
 
     -- Generate ring vertices (inner and outer pairs)
     for i = 1, n_outer_vertices do
-        local angle = (i - 1) / (n_outer_vertices - 1) * (2 * math.pi)
+        local angle = (i - 1) / (n_outer_vertices - 1) * (math.tau)
         local cos_a, sin_a = math.cos(angle), math.sin(angle)
 
         -- Inner ring vertex
@@ -328,7 +328,7 @@ function ow.ResultScreenFrame:_update_mesh_paths()
         max_outer_to_circle = math.max(max_outer_to_circle, outer_weight_entry.to_circle)
         max_outer_to_rect = math.max(max_outer_to_rect, outer_weight_entry.to_rect)
 
-        local u = angle / (2 * math.pi)
+        local u = angle / (math.tau)
 
         -- for last try, override uv to prevent interpolation between last and first trie
         if i == n_outer_vertices then u = 1 end

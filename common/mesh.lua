@@ -152,8 +152,8 @@ rt.MeshCircle = function(center_x, center_y, x_radius, y_radius, n_outer_vertice
         {center_x, center_y, 0.5, 0.5, 1, 1, 1, 1},
     }
 
-    local step = 2 * math.pi / n_outer_vertices
-    for angle = 0, 2 * math.pi, step do
+    local step = math.tau / n_outer_vertices
+    for angle = 0, math.tau, step do
         table.insert(data, {
             center_x + math.cos(angle) * x_radius,
             center_y + math.sin(angle) * y_radius,
@@ -299,7 +299,7 @@ rt.MeshRing = function(center_x, center_y, inner_radius, outer_radius, fill_cent
     n_outer_vertices = n_outer_vertices or _radius_to_n_vertices(outer_radius, outer_radius)
     fill_center = fill_center == nil and true or fill_center
 
-    local step = 2 * math.pi / n_outer_vertices
+    local step = math.tau / n_outer_vertices
 
     local inner_r, inner_g, inner_b, inner_a = 1, 1, 1, 1
     if meta.isa(inner_color, rt.RGBA) then
@@ -515,7 +515,7 @@ function rt.MeshSphere(center_x, center_y, center_z, radius, n_rings, n_segments
         local ring_radius = math.sin(phi)
 
         for seg = 0, n_segments_per_ring do
-            local theta = (seg / n_segments_per_ring) * 2 * math.pi -- 0 to 2π (around)
+            local theta = (seg / n_segments_per_ring) * math.tau -- 0 to 2π (around)
 
             -- Position
             local x = ring_radius * math.cos(theta)

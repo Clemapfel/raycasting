@@ -91,7 +91,7 @@ function ow.FluidProjectiles:add(x, y, n_particles, radius)
 
     local id = 1
     local add_particle = function(to_insert, x, y, radius)
-        local angle = rt.random.number(0, 2 * math.pi)
+        local angle = rt.random.number(0, math.tau)
         local length = rt.random.number(0, radius)
         x, y = x + math.cos(angle) * length, y + math.sin(angle) * length
         local mass = rt.random.number(settings.min_mass, settings.max_mass)

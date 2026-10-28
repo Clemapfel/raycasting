@@ -63,7 +63,7 @@ function mn.CoinParticleSwarm:create_from_state()
 
     local home_angle_width = math.pi
     local add = function(hue)
-        local home_offset = rt.random.number(0, 2 * math.pi)
+        local home_offset = rt.random.number(0, math.tau)
         local mass = rt.random.number(0, 1)
         local particle = {
             x = nil,
@@ -83,7 +83,7 @@ function mn.CoinParticleSwarm:create_from_state()
             mass = 1 + math.mix(0, 1, mass)
         }
 
-        particle.home_z = particle.home_offset / (2 * math.pi)
+        particle.home_z = particle.home_offset / (math.tau)
         particle.previous_x = particle.x
         particle.previous_y = particle.y
         particle.inverse_mass = 1 / particle.mass

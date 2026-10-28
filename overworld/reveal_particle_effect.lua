@@ -35,7 +35,7 @@ local _segments = 10
 local _circle = function(radius, offset, n_segments)
     local points = {}
     for i = 1, n_segments do
-        local angle = (i - 1) / n_segments * 2 * math.pi + offset
+        local angle = (i - 1) / n_segments * math.tau + offset
         table.insert(points, math.cos(angle) * radius)
         table.insert(points, math.sin(angle) * radius)
     end
@@ -101,7 +101,7 @@ function ow.RevealParticleEffect:emit(ax, ay, bx, by, side)
                 [_color_b] = b,
                 [_segments] = _circle(
                     mass * settings.radius,
-                    rt.random.number(0, 2 * math.pi), -- angle offset
+                    rt.random.number(0, math.tau), -- angle offset
                     rt.random.choose(3, 4, 5, 6)
                 )
             }

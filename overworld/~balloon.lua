@@ -23,7 +23,7 @@ function rt.Balloon:instantiate(radius, center_x, center_y)
     -- particle data
     self._particles = {}
     for i = 1, n_nodes do
-        local angle = (i - 1) / n_nodes * 2 * math.pi
+        local angle = (i - 1) / n_nodes * math.tau
         local x = center_x + radius * math.cos(angle)
         local y = center_y + radius * math.sin(angle)
         local mass = 1
@@ -112,7 +112,7 @@ function rt.Balloon:instantiate(radius, center_x, center_y)
     self._volume_lambda = 0
 
     -- target segment length
-    self._segment_length = (2 * math.pi * radius) / #self._particles
+    self._segment_length = (math.tau * radius) / #self._particles
 
     -- gauss-seidel direction
     self._direction = true
@@ -130,8 +130,8 @@ function rt.Balloon:draw(frame_interpolation_alpha)
     if self._mesh == nil then
         self._mesh_data = {}
         for i = 1, n_particles do
-            local angle_a = (i - 1) / n_particles * 2 * math.pi
-            local angle_b = i / n_particles * 2 * math.pi
+            local angle_a = (i - 1) / n_particles * math.tau
+            local angle_b = i / n_particles * math.tau
             local u_a = 0.5 + 0.5 * zoom * math.cos(angle_a)
             local v_a = 0.5 + 0.5 * zoom * math.sin(angle_a)
             local u_b = 0.5 + 0.5 * zoom * math.cos(angle_b)

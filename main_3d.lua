@@ -15,7 +15,7 @@ function make_sphere_mesh(center_x, center_y, center_z, radius, n_rings, n_segme
         local ring_radius = math.sin(phi)
 
         for seg = 0, n_segments_per_ring do
-            local theta = (seg / n_segments_per_ring) * 2 * math.pi -- 0 to 2π (around)
+            local theta = (seg / n_segments_per_ring) * math.tau -- 0 to 2π (around)
 
             -- Position
             local x = ring_radius * math.cos(theta)

@@ -165,7 +165,7 @@ function mn.StageSelectPageIndicator:size_allocate(x, y, width, height)
     self._notification_outline = {}
     do
         local n_outer_vertices = 16
-        local step = (2 * math.pi) / n_outer_vertices
+        local step = (math.tau) / n_outer_vertices
         for i = 1, n_outer_vertices * rt.SceneManager:get_pixel_scale() do
             table.insert(self._notification_outline, notification_x + math.cos((i - 1) * step) * notification_radius)
             table.insert(self._notification_outline, notification_y + math.sin((i - 1) * step) * notification_radius)

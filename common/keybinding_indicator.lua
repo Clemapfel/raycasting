@@ -548,7 +548,7 @@ function rt.KeybindingIndicator:create_as_start_or_select(start_or_select)
 
         do
             local angle1 = 0
-            local angle2 = 2 * math.pi / 3
+            local angle2 = math.tau / 3
             local angle3 = 4 * math.pi / 3
 
             local vertices = {
@@ -564,7 +564,7 @@ function rt.KeybindingIndicator:create_as_start_or_select(start_or_select)
         local left_triangle, left_triangle_outline
         do
             local angle1 = math.pi
-            local angle2 = math.pi + 2 * math.pi / 3
+            local angle2 = math.pi + math.tau / 3
             local angle3 = math.pi + 4 * math.pi / 3
 
             local vertices = {

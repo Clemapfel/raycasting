@@ -229,8 +229,8 @@ function rt.Camera:update(delta)
                 self._shake_current_y = self._shake_to_y
                 self._shake_from_x = self._shake_to_x
                 self._shake_from_y = self._shake_to_y
-                self._shake_to_x = math.cos(rt.random.number(0, 2 * math.pi))
-                self._shake_to_y = math.sin(rt.random.number(0, 2 * math.pi))
+                self._shake_to_x = math.cos(rt.random.number(0, math.tau))
+                self._shake_to_y = math.sin(rt.random.number(0, math.tau))
                 distance_traveled = distance_traveled - dist
             else
                 local sdx, sdy = math.normalize(self._shake_to_x - self._shake_from_x, self._shake_to_y - self._shake_from_y)
@@ -545,7 +545,7 @@ function rt.Camera:shake(intensity, duration)
 
     -- pre-generate random walk on unit circle with opposing directions
     local path = { 0, 0 }
-    local current_angle = rt.random.number(0, 2 * math.pi)
+    local current_angle = rt.random.number(0, math.tau)
 
     for i = 1, n_nodes do
         local angle_offset = rt.random.number(-math.pi / 4, math.pi / 4)

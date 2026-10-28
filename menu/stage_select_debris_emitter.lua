@@ -7,8 +7,8 @@ rt.settings.menu.stage_select_debris_emitter = {
     max_radius = 12,
     min_velocity = 0.1 * max_velocity, -- px / s
     max_velocity = 1 * max_velocity,
-    min_angular_velocity = 0.2 * 2 * math.pi,
-    max_angular_velocity = 0.4 * 2 * math.pi,
+    min_angular_velocity = 0.2 * math.tau,
+    max_angular_velocity = 0.4 * math.tau,
     max_n_particles = math.huge,
     max_angle_perturbation = 0.01 * math.pi,
     trail_max_scale = 3,
@@ -77,7 +77,7 @@ local _shapes = {
     [4] = { -- tetrahedron
         vertices = {
             { math.acos(1 / math.sqrt(3)), 0 },                  -- Vertex 1
-            { math.acos(1 / math.sqrt(3)), 2 * math.pi / 3 },    -- Vertex 2
+            { math.acos(1 / math.sqrt(3)), math.tau / 3 },    -- Vertex 2
             { math.acos(1 / math.sqrt(3)), 4 * math.pi / 3 },    -- Vertex 3
             { math.pi, 0 }                                       -- Vertex 4 (South pole)
         },
@@ -150,7 +150,7 @@ local _new_particle = function(particle_x, particle_y)
         theta = theta + rt.random.number(-perturbation, perturbation)
 
         phi = math.clamp(phi, 0, math.pi)
-        theta = theta % (2 * math.pi)
+        theta = theta % (math.tau)
 
         table.insert(particle.angles, phi)
         table.insert(particle.angles, theta)

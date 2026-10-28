@@ -109,7 +109,7 @@ function ow.PlayerRecorderBody:initialize(x, y)
     local n_cloths = _settings.n_cloths  -- total number of cloths in the spiral
     for cloth_i = 1, n_cloths do
         local ring_t = 1--math.floor(1 * 5) / 5--cloth_i / n_cloths
-        local ring_angle = ring_t * 2 * math.pi
+        local ring_angle = ring_t * math.tau
         local ring_r = _settings.radius
 
         local px = x + math.cos(ring_angle) * ring_r
@@ -121,7 +121,7 @@ function ow.PlayerRecorderBody:initialize(x, y)
         local cloth = {}
         table.insert(self._cloths, 1, cloth)
 
-        local angle = (cloth_i - 1) / n_cloths * 2 * math.pi
+        local angle = (cloth_i - 1) / n_cloths * math.tau
         local axis_x = math.cos(angle)
         local axis_y = math.sin(angle)
 
@@ -265,10 +265,10 @@ function ow.PlayerRecorderBody:initialize(x, y)
             for col_i = min_col, max_col do
                 local node = matrix:get(min_row, col_i)
                 if node then
-                    local anchor_angle = (col_i - 1) / n_columns * 2 * math.pi
+                    local anchor_angle = (col_i - 1) / n_columns * math.tau
                     node[_is_anchor] = true
-                    node[_anchor_x] = 0 --math.cos(ring_t * 2 * math.pi) * ring_r
-                    node[_anchor_y] = 0 --math.sin(ring_t * 2 * math.pi) * ring_r
+                    node[_anchor_x] = 0 --math.cos(ring_t * math.tau) * ring_r
+                    node[_anchor_y] = 0 --math.sin(ring_t * math.tau) * ring_r
                 end
             end
         end
