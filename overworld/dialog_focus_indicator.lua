@@ -19,7 +19,7 @@ end
 
 do
     local angle_offset = math.pi / 2
-    local squish = 1 / 1math.tau / 2
+    local squish = 1 / math.tau / 2
     local _focus_indicator_bottom_x = math.cos(angle_offset)
     local _focus_indicator_bottom_y = math.sin(angle_offset)
 

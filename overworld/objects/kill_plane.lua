@@ -124,9 +124,9 @@ function ow.KillPlane:instantiate(object, stage, scene)
     self._outline_color = rt.Palette.KILL_PLANE_OUTLINE
 
     do -- instanced mesh
-        local up_x, up_y = math.cos(-1/math.tau), math.sin(-1/math.tau)
-        local right_x, right_y = math.cos(-1/math.tau + 2/3 * math.pi), math.sin(-1/math.tau + 2/3 * math.pi)
-        local left_x, left_y = math.cos(-1/math.tau + 4/3 * math.pi), math.sin(-1/math.tau + 4/3 * math.pi)
+        local up_x, up_y = math.cos(-1 / math.tau), math.sin(-1 / math.tau)
+        local right_x, right_y = math.cos(-1 / math.tau + 2/3 * math.pi), math.sin(-1 / math.tau + 2/3 * math.pi)
+        local left_x, left_y = math.cos(-1 / math.tau + 4/3 * math.pi), math.sin(-1 / math.tau + 4/3 * math.pi)
 
         local center_x, center_y = 0, 0
         local radius = 1
