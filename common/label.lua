@@ -117,7 +117,7 @@ function rt.Label:instantiate(text, font_size, font, use_caching)
     meta.assert(
         text, mt.String,
         font, rt.Font,
-        font_size, rt.FontSize,
+        font_size, mt.Union(rt.FontSize, mt.Number),
         use_caching, mt.Boolean
     )
 
@@ -246,7 +246,7 @@ end
 
 --- @brief
 function rt.Label:set_font_size(font_size)
-    meta.assert(font_size, rt.FontSize)
+    meta.assert(font_size, mt.Union(rt.FontSize, mt.Number))
     self._font_size = font_size
     if self:get_is_realized() then
         self:reformat()

@@ -123,7 +123,7 @@ return {
     -- title screen / stage select
     menu_scene = {
         title_screen = {
-            title = "Chroma Void", -- "彩虚空"
+            title = "Chroma Void",
             control_indicator_select = "Select",
             control_indicator_move = "Move",
             control_indicator_exit = "Quit",

@@ -71,6 +71,9 @@ b2 = b2 or {} -- physics
 --- @class bd
 bd = bd or {} -- build
 
+--- @class aux
+aux = aux or {} -- non-game
+
 for id, t in pairs({
     { "_G", _G},
     { "rt", rt },

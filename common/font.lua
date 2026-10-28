@@ -137,14 +137,14 @@ end
 --- @brief
 function rt.Font:get_native(size, style, sdf)
     meta.assert(
-        size, rt.FontSize,
+        size, mt.Union(rt.FontSize, mt.Number),
         style, mt.Optional(rt.FontStyle),
         sdf, mt.Optional(mt.Boolean)
     )
 
     if style == nil then style = rt.FontStyle.REGULAR end
 
-    local actual_size = self:get_actual_size(size)
+    local actual_size = meta.is_number(size) and size or self:get_actual_size(size)
     local path = self._font_style_to_path[style]
 
     local sdf_out = _new_font(path, actual_size, _sdf, self._font_style_to_fallback[style])
@@ -161,15 +161,19 @@ end
 
 --- @brief
 function rt.Font:get_actual_size(size)
-    meta.assert(size, rt.FontSize)
-    return math.max(math.ceil(size * rt.SceneManager:get_height()), 14 / rt.SceneManager:get_downscaling_factor())
+    meta.assert(size, mt.Union(rt.FontSize, mt.Number))
+    if meta.is_number(size) then
+        return math.max(math.ceil(size), 14 / rt.SceneManager:get_downscaling_factor())
+    else
+        return math.max(math.ceil(size * rt.SceneManager:get_height()), 14 / rt.SceneManager:get_downscaling_factor())
+    end
 end
 
 --- @brief
-function rt.Font:measure(font_size, str)
-    meta.assert(font_size, rt.FontSize, str, mt.String)
+function rt.Font:measure(font_size_or_pt, str)
+    meta.assert(font_size_or_pt, mt.Union(rt.FontSize, mt.Number), str, mt.String)
 
-    local native = self:get_native(font_size)
+    local native = self:get_native(font_size_or_pt)
     return native:getWidth(str), native:getHeight()
 end
 

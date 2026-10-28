@@ -11,7 +11,6 @@ require "common.music_manager"
 require "common.sound_manager"
 require "common.input_manager"
 
-
 rt.settings.scene_manager = {
     max_n_steps_per_frame = 8,
     performance_metrics_n_frames = 144,
@@ -302,6 +301,9 @@ function rt.SceneManager:draw(...)
         or rt.GameState:get_internal_resolution_scaling() ~= rt.InternalResolutionScaling.NONE
 
     if use_upscaler then
+        if self._hdr == nil then
+            rt.error("In rt.SceneManager.draw: trying to draw before `resize` was called at least once")
+        end
         self._hdr:bind()
     end
 

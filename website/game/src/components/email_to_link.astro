@@ -1,11 +1,13 @@
 ---
 //
-//<EmailLink
-// email="name@example.com" subject="bug report" body="Hi, I wanted to ask about..." >
+//<EmailTo email="name@example.com" subject="bug report" body="" >
 //
+
+import Link from "../components/link.astro";
 
 interface Props {
     email: string;
+    text?: string;
     subject?: string;
     body?: string;
     cc?: string;
@@ -13,7 +15,15 @@ interface Props {
     class?: string;
 }
 
-const { email, subject, body, cc, bcc, class: className } = Astro.props;
+const {
+    email,
+    text,
+    subject,
+    body,
+    cc,
+    bcc,
+    class: className
+} = Astro.props;
 
 const params = new URLSearchParams();
 if (subject) params.set("subject", subject);
@@ -25,6 +35,4 @@ const query = params.toString().replace(/\+/g, "%20");
 const href = `mailto:${email}${query ? `?${query}` : ""}`;
 ---
 
-<a href={href} class={className}>
-    <slot>{email}</slot>
-</a>
+<Link text={text ?? email} href={href} class={className} />

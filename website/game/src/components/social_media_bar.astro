@@ -21,6 +21,7 @@ enum SocialMediaPlatform {
     YOUTUBE = "youtube",
     DISCORD = "discord",
     KICKSTARTER = "kickstarter",
+    GITHUB = "github",
 }
 
 const platform_to_entry = {
@@ -31,7 +32,7 @@ const platform_to_entry = {
 
     [SocialMediaPlatform.DISCORD]: {
         title: "Discord",
-        href: "https://discord.gg/TODO",
+        href: "https://discord.com/users/1564781745579229347",
     },
 
     [SocialMediaPlatform.TWITTER]: {
@@ -41,12 +42,12 @@ const platform_to_entry = {
 
     [SocialMediaPlatform.INSTAGRAM]: {
         title: "Instagram",
-        href: "https://www.instagram.com/YOUR_HANDLE",
+        href: "https://www.instagram.com/TODO",
     },
 
     [SocialMediaPlatform.YOUTUBE]: {
         title: "YouTube",
-        href: "https://www.youtube.com/@YOUR_HANDLE",
+        href: "https://www.youtube.com/@TODO",
     },
 
     [SocialMediaPlatform.KICKSTARTER]: {
@@ -56,7 +57,12 @@ const platform_to_entry = {
 
     [SocialMediaPlatform.TIKTOK]: {
         title: "TikTok",
-        href: "https://www.tiktok.com/@YOUR_HANDLE",
+        href: "https://www.tiktok.com/@TODO",
+    },
+
+    [SocialMediaPlatform.GITHUB]: {
+        title: "GitHub",
+        href: "https://www.github.com/@TODO",
     },
 };
 ---
@@ -72,7 +78,7 @@ const platform_to_entry = {
                         rel="noopener noreferrer"
                 >
                     <span class="box-layout-item-hover" aria-hidden="true"></span>
-                    <img src={`/socials_${platform}.svg`} alt={entry.title} />
+                    <img src={`/socials/${platform}.svg`} alt={entry.title} />
                 </a>
             </Tooltip>
     ))}

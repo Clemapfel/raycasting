@@ -14,6 +14,12 @@ meta.add_signals(rt.Scene,
 
 --- @brief
 function rt.Scene:instantiate()
+    -- noop
+end
+
+--- @brief
+function rt.Scene:enter()
+    -- noop
 end
 
 --- @brief
@@ -34,10 +40,5 @@ end
 --- @brief
 function rt.Scene:get_debug_information()
     return ""
-end
-
---- @brief
-function rt.Scene:get_allow_downscaling()
-    return false
 end
 

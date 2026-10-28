@@ -29,7 +29,7 @@ function ow.TimeAttackStartCountdown:instantiate(scene)
 
     if _font == nil then
         require "menu.menu_scene"
-        _font = rt.Font(rt.settings.menu_scene.title_screen.font_latin)
+        _font = rt.Font(rt.settings.menu_scene.title_screen.font_roman)
     end
 
     self._ready_entry = nil -- cf. size_allocate

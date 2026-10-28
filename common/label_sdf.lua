@@ -32,7 +32,7 @@ local _export_shader = rt.ComputeShader("common/label_sdf.glsl", defines(2))
 function rt.LabelSDF:instantiate(text, font_size, font, max_distance)
     meta.assert(
         text, mt.String,
-        font_size, rt.FontSize,
+        font_size, mt.Union(rt.FontSize, mt.Number),
         font, rt.Font,
         max_distance, mt.Optional(mt.Number)
     )
@@ -52,7 +52,7 @@ function rt.LabelSDF:instantiate(text, font_size, font, max_distance)
     self._is_initialized = false
 end
 
-function rt.LabelSDF:reformat(x, y, width, height)
+function rt.LabelSDF:size_allocate(x, y, width, height)
     local label_w, label_h = self._label:measure()
     local padding_horizontal = rt.settings.label_sdf.padding_horizontal
     local padding_vertical = rt.settings.label_sdf.padding_vertical
@@ -145,8 +145,11 @@ function rt.LabelSDF:draw()
         rt.error("In rt.LabelSDF: `draw` was called before `reformat`")
     end
 
+    local x, y = self:get_position()
+
     if self._sdf_needs_export then self:_compute() end
     love.graphics.push("all")
+    love.graphics.translate(x, y)
     love.graphics.setBlendMode("alpha", "premultiplied")
     love.graphics.translate(-self._padding_x, -self._padding_y)
     self._export_texture:draw()
@@ -158,10 +161,7 @@ function rt.LabelSDF:update(delta)
 end
 
 function rt.LabelSDF:measure()
-    local w, h = self._label:measure()
-    local padding_horizontal = rt.settings.label_sdf.padding_horizontal
-    local padding_vertical = rt.settings.label_sdf.padding_vertical
-    return w + 2 * padding_horizontal, h + 2 * padding_vertical
+    return self._label:measure()
 end
 
 function rt.LabelSDF:export(path, format)
