@@ -193,7 +193,7 @@ function rt.Log.assert(condition, ...)
 end
 
 --- @brief
-function rt.Log.dump()
+function rt.Log.dump(...)
     local ffi = jit and require("ffi")
 
     -- query all connected controllers / joysticks
@@ -258,7 +258,7 @@ function rt.Log.dump()
         table.insert(recording_device_names, device:getName())
     end
 
-    return {
+    local result = {
         date = os.date("%d_%m_%y"),
         time = os.date("%H_%M_%S"),
         unix_time = os.time(),
@@ -460,6 +460,13 @@ function rt.Log.dump()
             average_delta = love.timer.getAverageDelta(),
         }
     }
+
+    for i = 1, select("#", ...) do
+        local to_add = select(i, ...)
+        dbg(to_add)
+    end
+
+    return result
 end
 
 rt.Log.add_message_hook = function(hook)

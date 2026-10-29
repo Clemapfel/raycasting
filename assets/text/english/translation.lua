@@ -349,7 +349,7 @@ return {
         shake_on = "On",
         shake_off = "Off",
 
-        controller_vibration_strength_prefix = "Controller Vibration Controller Vibration Controller Vibration Controller Vibration Controller Vibration Controller Vibration Controller Vibration",
+        controller_vibration_strength_prefix = "Controller Vibration",
         controller_vibration_strength_on = "On",
         controller_vibration_strength_off = "Off",
 
@@ -394,11 +394,7 @@ return {
     -- error handler
     error_handler = {
         prefix_message = "An Error has occurred and the Application was unable to recover.",
-        wrote_stack_dump_message = "Wrote stack dump to ",
-        unable_to_write_stack_dump_message = "(unable to write stack dump)",
-        open_log_or_exit_message = "Press ENTER to open log file, ESCAPE to exit.",
-        exit_message = "Press ESCAPE to exit.",
-        stack_dump_disabled_message = "(unable to write stack dump, disabled in DEBUG mode)"
+        postfix_message = "Press ESCAPE to close this window, ENTER to open the log file."
     },
 
     -- ## STAGES ## ---

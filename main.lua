@@ -41,11 +41,11 @@ love.load = function(args)
     local menu = 5
 
     for to_preallocate in range(
-    -- result_screen
-    --, overworld
-    --, keybinding
-    --, settings
-    --, menu
+        --result_screen
+        --, overworld
+        --, keybinding
+        --, settings
+        --, menu
     ) do
         if to_preallocate == result_screen then
             require "overworld.result_screen_scene"
@@ -66,13 +66,13 @@ love.load = function(args)
     end
 
     require "overworld.overworld_scene"
-    rt.SceneManager:push(ow.OverworldScene, "trailer", ow.StageEntryMode.INSTANT)
+    --rt.SceneManager:push(ow.OverworldScene, "trailer", ow.StageEntryMode.INSTANT)
 
     require "menu.keybinding_scene"
     --rt.SceneManager:push(mn.KeybindingScene)
 
     require "menu.settings_scene"
-    --rt.SceneManager:push(mn.SettingsScene)
+    rt.SceneManager:push(mn.SettingsScene)
 
     require "menu.menu_scene"
     --rt.SceneManager:push(mn.MenuScene, false)

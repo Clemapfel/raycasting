@@ -52,14 +52,16 @@ end
 
 function love.errorhandler(message, depth)
     local traceback = debug.traceback("Error in " .. message)
+    local raw_traceback = traceback
     traceback = _safe_call(string.gsub, traceback, "\n[^\n]+$", "")
 
-    _safe_call(io.stdout.write, io.stdout, traceback)
-    _safe_call(io.stdout.flush, io.stdout)
+    local stream = io.stderr
+    _safe_call(stream.setvbuf, stream, "no")
+    _safe_call(stream.write, stream, traceback)
+    _safe_call(stream.flush, stream)
 
     do
-        if utf8 == nil then utf8 = require "utf8" end
-
+        if utf8 == nil then utf8 =_safe_call(require, "utf8") end
         if utf8 ~= nil then
             local sanitized = {}
             for char in string.gmatch(traceback, utf8.charpattern) do
@@ -130,12 +132,7 @@ function love.errorhandler(message, depth)
         pixel_scale = _safe_call(rt.SceneManager:get_pixel_scale()) or pixel_scale
     end
 
-    local prefix_message = "An Error has occurred and the Application was unable to recover."
-    local wrote_stack_dump_message = "Wrote stack dump to"
-    local unable_to_write_stack_dump_message = "(unable to write stack dump)"
-    local stack_dump_disabled_message = "(unable to write stack dump, disabled in DEBUG mode)"
-    local open_log_or_exit_message = "Press ENTER to open log file, ESCAPE to exit."
-    local exit_message = "Press ESCAPE to exit"
+    local prefix_message = "An Error has occurred and the Application was unable to recover"
 
     _safe_call(function()
         if rt ~= nil then
@@ -143,23 +140,13 @@ function love.errorhandler(message, depth)
             local translation = _safe_get(rt, "Translation", "error_handler")
             if translation ~= nil then
                 prefix_message = translation.prefix_message
-                wrote_stack_dump_message = translation.wrote_stack_dump_message
-                unable_to_write_stack_dump_message = translation.unable_to_write_stack_dump_message
-                open_log_or_exit_message = translation.open_log_or_exit_message
-                stack_dump_disabled_message = translation.stack_dump_disabled_message
-                exit_message = translation.exit_message
             end
         end
     end)
 
-    local command_message
-
     traceback = prefix_message .. "\n\n" .. traceback
 
     -- write to log folder
-
-    local write_message, write_path
-    local write_success = false
 
     if not _G.DEBUG then
         _safe_call(function()
@@ -168,55 +155,8 @@ function love.errorhandler(message, depth)
                 bd.create_directory("/crash_reports")
             end
 
-            -- prepare for dump
-
-            rt.GameState.scene_manager = rt.SceneManager
-            rt.GameState.music_manager = rt.MusicManager
-            rt.GameState.sound_manager = rt.SoundManager
-            rt.GameState.thread_manager = rt.ThreadManager
-            rt.GameState.input_manager = rt.InputManager
-
-            rt.GameState.rt = rt
-            rt.GameState.meta = meta
-            rt.GameState.b2 = b2
-            rt.GameState.mn = mn
-            rt.GameState.bd = bd
-
-            rt.GameState.system_info = {
-                image_formats = love.graphics.getTextureFormats({ canvas = false }),
-                canvas_formats = love.graphics.getTextureFormats({ canvas = true }),
-                renderer_info = love.graphics.getRendererInfo(),
-                supported = love.graphics.getSupported(),
-                system_limits = love.graphics.getSystemLimits(),
-                texture_types = love.graphics.getTextureTypes(),
-                os = love.system.getOS(),
-                power_info = love.system.getPowerInfo(),
-                processor_count = love.system.getProcessorCount(),
-                version = love.getVersion()
-            }
-
-            local to_write = "return [[\n" ..traceback .. "\n]],\n" .. table.serialize(rt.GameState, {
-                "function",
-                "cdata",
-                "thread",
-                "userdata"
-            })
-
-            local id = os.time() .. "__" .. os.date("%Y_%m_%d_%H_%M_%S")
-            id = bd.join_path("crash_reports", id .. ".log")
-
-            write_success = bd.write_file(id, to_write, false) -- no overwrite
-
-            if write_success then
-                write_path = bd.join_path(bd.get_save_directory(), id)
-                write_message = wrote_stack_dump_message .. "\n\t" .. write_path
-                command_message = open_log_or_exit_message
-            end
+            -- TODO
         end)
-    end
-
-    if not write_success then
-        command_message = exit_message
     end
 
     local default_font = love.graphics.newFont(15 * pixel_scale)
@@ -236,25 +176,6 @@ function love.errorhandler(message, depth)
             darken * color_b,
             1
         )
-
-        --[[
-        local offset = 0.5
-        for offsets in range(
-            { -offset,  offset },
-            {  offset, -offset },
-            {  offset,  offset },
-            { -offset, -offset }
-        ) do
-            local offset_x, offset_y = table.unpack(offsets)
-            love.graphics.translate(offset_x, offset_y)
-            love.graphics.printf(
-                text,
-                h_margin, v_margin + y,
-                love.graphics.getWidth() - 2 * h_margin - 10
-            )
-            love.graphics.translate(-offset_x, -offset_y)
-        end
-        ]]
 
         love.graphics.setColor(1, 1, 1, 1)
         love.graphics.printf(
@@ -325,18 +246,7 @@ function love.errorhandler(message, depth)
 
             local traceback_wrapped, traceback_height = wrap(default_font, traceback)
 
-            local write_message_wrapped, write_height
-            if write_success then
-                write_message_wrapped, write_height = wrap(default_font, write_message)
-            elseif not _G.DEBUG then
-                write_message_wrapped, write_height = wrap(default_font, stack_dump_disabled_message)
-            else
-                write_message_wrapped, write_height = wrap(default_font, unable_to_write_stack_dump_message)
-            end
-
-            local command_message_wrapped, command_height = wrap(default_font, command_message)
-
-            local total_content_height = traceback_height + v_margin + write_height + v_margin + command_height
+            local total_content_height = traceback_height + v_margin
             local max_scroll = math.max(0, (total_content_height + 2 * v_margin) - window_height)
             scroll_y = math.max(0, math.min(scroll_y, max_scroll))
 
@@ -344,8 +254,7 @@ function love.errorhandler(message, depth)
             love.graphics.translate(0, -scroll_y)
 
             draw_text(default_font, traceback_wrapped, 0)
-            draw_text(default_font, write_message_wrapped, 0 + traceback_height + v_margin)
-            draw_text(default_font, command_message_wrapped, 0 + traceback_height + v_margin + write_height + v_margin)
+            draw_text(default_font, "TODO", 0 + traceback_height + v_margin)
 
             love.graphics.pop()
 

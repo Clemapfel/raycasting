@@ -18,7 +18,7 @@ const noise_speed : number = 1 / 3; // multiplies seconds
 const default_background_overhang : number = 2; // px
 const default_outline_width : number = 4;
 const default_border_radius : number = 8;
-const background_opacity = 0.98;
+const background_opacity = 1.0;
 
 export class NoisyFrame extends GLWidget {
     // cache

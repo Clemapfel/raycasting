@@ -17,7 +17,7 @@ const elapsed_name = "elapsed";
 export class ShaderCanvas extends GLWidget {
     private shader_program? : Shader;
     private quad? : Mesh;
-    private elapsed : Time = new Time(0);
+    private elapsed : Time = new Time(Math.mix(-100, 100, Math.random()));
     private animation_speed = 0.5;
 
     private cursor_position = new SmoothedMotion2D(0, 0);
