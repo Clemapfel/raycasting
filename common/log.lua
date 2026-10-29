@@ -487,6 +487,7 @@ rt.Log.start_worker = function()
         require "love.thread"
         rt.Log._worker = love.thread.newThread("common/log_worker.lua")
         rt.Log._main_to_worker = love.thread.newChannel()
+        rt.Log._worker_to_main = love.thread.newChannel()
         rt.Log._message_types = {
             MESSAGE = _message_prefix,
             WARNING = _warning_prefix,
@@ -497,12 +498,20 @@ rt.Log.start_worker = function()
             EXIT = "[EXIT]"
         }
 
-        rt.Log._worker:start(rt.Log._main_to_worker, rt.Log._message_types)
+        rt.Log._worker:start(rt.Log._main_to_worker, rt.Log._worker_to_main, rt.Log._message_types)
         rt.Log._main_to_worker:push({
             type = rt.Log._message_types.DUMP,
             value = rt.Log.dump()
         })
+
+        local response = rt.Log._worker_to_main:demand()
+        rt.Log._active_path = response.value
     end
+end
+
+--- @brief
+function rt.Log.get_active_path()
+    return rt.Log._active_path -- may be nil
 end
 
 --- @brief

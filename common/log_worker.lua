@@ -1,4 +1,4 @@
-local worker_to_main, MessageType = ...
+local main_to_worker, worker_to_main, MessageType = ...
 
 -- no rt includes, log worker must be clean room
 
@@ -139,10 +139,18 @@ local log_name = table.concat({
     love.system.getOS(),
 }, "_") .. ".log"
 
-local file = open_file(join_path(log_prefix, log_name))
+local path = join_path(log_prefix, log_name)
+local file = open_file(path)
+
+-- notify main of active log file path
+worker_to_main:push({
+    type = "RESPONSE",
+    value = path
+})
+
 
 while true do
-    local message = worker_to_main:demand()
+    local message = main_to_worker:demand()
     if message.type == MessageType.EXIT then
         break
     else

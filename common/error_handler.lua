@@ -150,11 +150,6 @@ function love.errorhandler(message, depth)
 
     if not _G.DEBUG then
         _safe_call(function()
-            require "common.filesystem"
-            if not bd.exists("/crash_reports") then
-                bd.create_directory("/crash_reports")
-            end
-
             -- TODO
         end)
     end
