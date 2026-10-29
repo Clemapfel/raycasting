@@ -4,8 +4,6 @@ assert(table.unpack ~= nil)
 if debug.setfenv == nil then debug.setfenv = setfenv end
 assert(debug.setfenv ~= nil)
 
-math.tau = 6.28318530717958623199592693708837032318115234375 -- 2 * pi
-
 --- @brief
 function math.mean(values)
     local sum = 0
@@ -250,14 +248,13 @@ end
 
 do
     math.eps = 1.0
-    local n = 0
     while (1.0 + math.eps / 2.0) > 1.0 do
         math.eps = math.eps / 2.0
-        n = n + 1
     end
 end
 
-math.pi2 = math.tau
+math.tau = 2 * math.pi
+math.euler = math.exp(1)
 
 --- @brief
 function math.fract(x)

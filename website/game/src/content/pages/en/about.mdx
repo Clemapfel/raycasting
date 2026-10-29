@@ -4,13 +4,34 @@ language: en
 shader: hue_spiral
 ---
 
+## Desing
+
+###
+
 ## Technology
+
+Chroma Void does not use any of the common video game engines, instead relying on a bespoke technology stack. This made it, so we could focus on graphical features that are uncommon among the platformer genre, though <Link text="not unheard of" href="https://store.steampowered.com/app/261570/Ori_and_the_Blind_Forest/" />
+
+°video of slug leaving trail°
 
 ### Lighting
 
+While 3D lighting techniques are largely standardized across fields, Chroma Void implements a bespoke 2D lighting system that focuses on color and the number of different light sources. It allows for hundreds of individually moving, light-emitting objects to bake the games athmosphere in a neon glow.
+
+°looping gif of double jump tether particles, and segment lights
+
 ### Procedural Animation
+
+Using <Link text="physics-based animation" href="https://en.wikipedia.org/wiki/Physically_based_animation" /> and techniques from <Link text="algorithmic" href="https://en.wikipedia.org/wiki/Algorithmic_art" /> (non-AI) art, Chroma Void leverages modern gaming hardware to create mathematically infinite, never repeating patterns - without strain on the engine that could impact how smooth it feels to play.
 
 °video of slug falling°
 
+### Slopes
+
+While not very impressive conceptually, many platformers do not have sloped surface at any kind of angle, eschewing them in favor of <Link text="tile-based" href="https://store.steampowered.com/app/504230/Celeste/" /> physics. In Chroma Void you can wall cling to any (mostly vertical) surface, slide down or up slopes , or travel through loops or ceilings.
 
 ### Softbody Simulation
+
+Almost all physics engines simulate **rigid-body** objects, which are objects that cannot deform under stress - such as a stable rod or piece of stone. Chroma Void also incorporates **soft-body** objects, which are considerably harder to simulation and render. Examples include cloth, hair, and rubber. <Link text="This technique" href="https://scholar.google.com/scholar?hl=en&as_sdt=0%2C5&q=extended+position+based+dynamics&btnG=" /> makes it so the player body and various gameplay objects in the world can deform and animate smoothly, reacting to other objects as they would in real life. This increases the sense of fluidity, which can be lost in some hand-drawn animation. The game still employs graphics created using traditional techniques, but notably the player body is entirely animated using physics.
+
+
