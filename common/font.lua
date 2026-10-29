@@ -162,10 +162,11 @@ end
 --- @brief
 function rt.Font:get_actual_size(size)
     meta.assert(size, mt.Union(rt.FontSize, mt.Number))
+    local max = 14 / rt.SceneManager:get_downscaling_factor()
     if meta.is_enum_value(size, rt.FontSize) then
-        return math.max(math.ceil(size), 14 / rt.SceneManager:get_downscaling_factor())
-    else
         return math.max(math.ceil(size * rt.SceneManager:get_height()), 14 / rt.SceneManager:get_downscaling_factor())
+    else
+        return math.max(math.ceil(size), max)
     end
 end
 

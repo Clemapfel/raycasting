@@ -165,13 +165,16 @@
   <object id="1267" type="AirDashNode" x="658.425" y="330.828" width="160" height="160">
    <ellipse/>
   </object>
-  <object id="1285" type="BoostField" x="1344" y="1040">
+  <object id="1285" type="BoostField" x="1344" y="1040" rotation="-22">
    <properties>
     <property name="path" type="object" value="1288"/>
    </properties>
    <polygon points="1.997,-11.117 288,272 784,272 432,-16"/>
   </object>
-  <object id="1288" type="BoostFieldPathNode" x="1536" y="1008">
+  <object id="1286" type="BoostFieldNodesB" x="1632" y="864" rotation="-22">
+   <point/>
+  </object>
+  <object id="1288" type="BoostFieldPathNode" x="1536" y="1008" rotation="-22">
    <properties>
     <property name="next" type="object" value="1289"/>
    </properties>

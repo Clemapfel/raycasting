@@ -706,7 +706,7 @@ return {
           y = 1040,
           width = 0,
           height = 0,
-          rotation = 0,
+          rotation = -22,
           opacity = 1,
           visible = true,
           polygon = {
@@ -720,6 +720,20 @@ return {
           }
         },
         {
+          id = 1286,
+          name = "",
+          type = "BoostFieldNodesB",
+          shape = "point",
+          x = 1632,
+          y = 864,
+          width = 0,
+          height = 0,
+          rotation = -22,
+          opacity = 1,
+          visible = true,
+          properties = {}
+        },
+        {
           id = 1288,
           name = "",
           type = "BoostFieldPathNode",
@@ -728,7 +742,7 @@ return {
           y = 1008,
           width = 0,
           height = 0,
-          rotation = 0,
+          rotation = -22,
           opacity = 1,
           visible = true,
           properties = {

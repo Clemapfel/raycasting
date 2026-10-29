@@ -1136,6 +1136,7 @@ function rt.Label:_apply_wrapping(width)
             msaa = rt.GameState:get_msaa(),
             format = _texture_format
         })
+        self._texture:set_wrap_mode(rt.TextureWrapMode.ZERO)
     else
         self._texture = nil
     end
@@ -1458,7 +1459,7 @@ function rt.Label:_update_texture()
 
     love.graphics.push("all")
     love.graphics.reset()
-    love.graphics.setBlendMode("alpha")
+    love.graphics.setBlendMode("alpha", "alphamultiply")
 
     love.graphics.setCanvas(self._texture._native)
     love.graphics.clear(0, 0, 0, 0)

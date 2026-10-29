@@ -511,21 +511,18 @@ function ow.ResultScreenScene:size_allocate(x, y, width, height)
 
             option.selected_label:reformat(
                 x + 0.5 * width - 0.5 * selected_w,
-                current_y + 0.5 * h - 0.5 * selected_h,
-                math.huge, math.huge
+                current_y + 0.5 * h - 0.5 * selected_h
             )
 
             option.unselected_label:reformat(
                 x + 0.5 * width - 0.5 * unselected_w,
-                current_y + 0.5 * h - 0.5 * selected_h,
-                math.huge, math.huge
+                current_y + 0.5 * h - 0.5 * selected_h
             )
 
             if option.can_be_blocked then
                 option.blocked_label:reformat(
                     x + 0.5 * width - 0.5 * blocked_w,
-                    current_y + 0.5 * h - 0.5 * blocked_h,
-                    math.huge, math.huge
+                    current_y + 0.5 * h - 0.5 * blocked_h
                 )
             end
 
@@ -855,8 +852,7 @@ function ow.ResultScreenScene:_reformat_frame()
     self._stage_name_label:reformat(
         x,
         stage_name_y,
-        width,
-        math.huge
+        width
     )
 
     current_y = current_y + stage_name_h
