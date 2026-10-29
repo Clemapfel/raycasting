@@ -1,0 +1,69 @@
+---
+// import clip from "../../videos/barboach.mp4";
+//
+// <Video video={clip}>
+//
+// Fig 2.1: a **video**
+//
+// </Video>
+//
+// <Video video={clip} autoplay={false}>
+
+interface Props {
+    video: string;
+    caption?: string;
+    autoplay?: boolean;
+}
+
+const { video, caption, autoplay = true } = Astro.props;
+const hasCaption = Boolean(caption) || Astro.slots.has("default");
+---
+
+<figure>
+    <video
+            src={video}
+            autoplay={autoplay}
+            loop
+            muted
+            playsinline
+            preload="metadata"
+            controls={!autoplay}
+    >
+    </video>
+    {
+        hasCaption && (
+            <figcaption>
+                <slot>{caption}</slot>
+            </figcaption>
+        )
+    }
+</figure>
+
+<style>
+    figure {
+        margin: 0 auto;
+    }
+
+    video {
+        display: block;
+        width: 100%;
+        height: auto;
+        max-width: none;
+        margin: var(--global-outer-margin) auto;
+        image-rendering: auto;
+    }
+
+    figcaption {
+        text-align: center;
+        color: var(--default-color-foreground);
+        font-size: 1rem;
+        font-family: var(--default-font), sans-serif;
+        margin-left: 2rem;
+        margin-right: 2rem;
+        margin-top: 0.5rem;
+    }
+
+    figcaption :global(p) {
+        margin: 0;
+    }
+</style>

@@ -1,0 +1,63 @@
+---
+// import barboach from "../../images/barboach.png";
+//
+// <Figure img={barboach} scale={2} alt="A barboach">
+//
+// Fig 2.1: **Barboach**, markdown here
+//
+// </Figure>
+
+import { Image } from "astro:assets";
+import type { ImageMetadata } from "astro";
+
+interface Props {
+    img: ImageMetadata;
+    scale?: number;
+    alt?: string;
+}
+
+const { img, scale = 4, alt = "" } = Astro.props;
+const hasCaption = Astro.slots.has("default");
+
+const width = Math.round(img.width * scale);
+const height = Math.round(img.height * scale);
+---
+
+<figure>
+    <Image src={img} alt={alt} width={width} height={height} />
+    {
+        hasCaption && (
+            <figcaption>
+                <slot />
+            </figcaption>
+        )
+    }
+</figure>
+
+<style>
+    figure {
+        margin: 0 auto;
+    }
+
+    img {
+        display: block;
+        max-width: 100%;
+        height: auto;
+        margin: var(--global-outer-margin) auto;
+        image-rendering: pixelated;
+    }
+
+    figcaption {
+        text-align: center;
+        color: var(--default-color-foreground);
+        font-size: 1rem;
+        font-family: var(--default-font), sans-serif;
+        margin-left: 2rem;
+        margin-right: 2rem;
+        margin-top: 0.5rem;
+    }
+
+    figcaption :global(p) {
+        margin: 0;
+    }
+</style>
