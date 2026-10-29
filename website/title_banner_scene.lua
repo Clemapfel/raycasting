@@ -8,24 +8,24 @@ rt.settings.title_banner_scene = {
     sperm = {
         min_radius = 10,
         max_radius = 12,
-        min_velocity = 100, -- px / s
-        max_velocity = 100,
+        min_velocity = 400, -- px / s
+        max_velocity = 800,
         air_resistance = 1 - 1e-6,
-        position_history_n = 150,
+        position_history_n = 50,
         length = 50, -- px
         n_particles = 24,
 
         contour_clearance = 1.5,
         shape_compliance = 1e-9,
 
-        gravity = 0.1,
+        gravity = 0.5,
         gravity_dx = 0,
         gravity_dy = 1,
         gravity_dz = 0,
 
         damping = 0.99,
         n_sub_steps = 1,
-        n_constraint_iterations = 4,
+        n_constraint_iterations = 1,
         segment_compliance = 1e-8
     }
 }
@@ -34,10 +34,8 @@ rt.settings.title_banner_scene = {
 aux.TitleBannerScene = meta.class("TitleBannerScene", rt.Scene, true)
 
 local _TIMESTEP = 1 / 120   -- use this in reformat() too, instead of get_timestep()
-local _MAX_STEPS_PER_FRAME = 8
+local _MAX_STEPS_PER_FRAME = 4
 
--- XPBD particle data lives in one shared flat buffer. Each particle occupies
--- one fixed-width record; sperm metadata stores the first global particle index.
 local _x_offset = 0
 local _y_offset = 1
 local _previous_x_offset = 2
@@ -622,6 +620,7 @@ function aux.TitleBannerScene:update(delta)
                             head_x, head_y, head_r,
                             circle_alpha, particles[node_i + _head_lambda_offset]
                         )
+
                         node_x = node_x + hx
                         node_y = node_y + hy
                         particles[node_i + _head_lambda_offset] = hl
@@ -631,6 +630,7 @@ function aux.TitleBannerScene:update(delta)
                             tail_x, tail_y, tail_r,
                             circle_alpha, particles[node_i + _tail_lambda_offset]
                         )
+
                         node_x = node_x + tx
                         node_y = node_y + ty
                         particles[node_i + _tail_lambda_offset] = tl

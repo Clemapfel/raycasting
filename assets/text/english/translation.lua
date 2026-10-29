@@ -426,6 +426,12 @@ return {
             id = "debug_room",
             title = "D0 - Debug Room",
             target_time = -1
+        },
+
+        {
+            id = "trailer",
+            title = "Trailer",
+            target_time = -1
         }
         --[[
 

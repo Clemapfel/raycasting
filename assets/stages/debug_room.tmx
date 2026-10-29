@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="9" nextobjectid="1290">
+ <editorsettings>
+  <export target="debug_room.lua" format="lua"/>
+ </editorsettings>
+ <properties>
+  <property name="title" value="Not a Tutorial"/>
+ </properties>
+ <tileset firstgid="1" source="../tilesets/debug_tileset_objects.tsx"/>
+ <tileset firstgid="7" source="../tilesets/debug_tileset.tsx"/>
+ <imagelayer id="3" name="bg" repeatx="1" repeaty="1">
+  <image source="../tilesets/debug_tileset_16x16/tile.png" width="16" height="16"/>
+ </imagelayer>
+ <objectgroup id="8" name="aux"/>
+ <objectgroup id="7" name="background" offsetx="-17.997" offsety="363.117">
+  <object id="1221" type="BoostField" x="128" y="64">
+   <properties>
+    <property name="path" type="object" value="1222"/>
+   </properties>
+   <polygon points="0,0 16,32 16,528 32,544 320,544 368,544 384,528 384,448 368,448 368,512 352,528 48,528 32,512 32,32 48,0"/>
+  </object>
+  <object id="1222" type="BoostFieldPathNode" x="152.141" y="56.5709">
+   <properties>
+    <property name="next" type="object" value="1224"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="1224" type="BoostFieldPathNode" x="152.013" y="586.654">
+   <properties>
+    <property name="next" type="object" value="1225"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="1225" type="BoostFieldPathNode" x="169.016" y="601.789">
+   <properties>
+    <property name="next" type="object" value="1226"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="1226" type="BoostFieldPathNode" x="487.689" y="601.209">
+   <properties>
+    <property name="next" type="object" value="1227"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="1227" type="BoostFieldPathNode" x="503.256" y="585.758">
+   <properties>
+    <property name="next" type="object" value="1228"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="1228" type="BoostFieldPathNode" x="504.103" y="536.585">
+   <properties>
+    <property name="next" type="object" value="0"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="1229" type="BoostField" x="496" y="512">
+   <properties>
+    <property name="axis_x" type="float" value="0"/>
+    <property name="axis_y" type="float" value="1"/>
+    <property name="is_visible" type="bool" value="false"/>
+   </properties>
+   <polygon points="0,0 0,32 16,32 16,0"/>
+  </object>
+  <object id="1201" type="SlipperyHitbox" x="80" y="96">
+   <polygon points="272,528 288,512 416,512 432,496 432,416 464,416 496,448 512,448 512,464 688,464 704,560 304,560 304,736 -64,736 -64,752 -96,752 -96,720 -80,704 32,704 256,704 272,688 272,636.587"/>
+  </object>
+  <object id="1202" type="SlipperyHitbox" x="224" y="96">
+   <polygon points="16,0 -16,-32 -48,-32 -64,0 -64,464 -64,480 -48,496 208,496 256,496 272,480 272,448 272,416 240,416 208,448 192,448 192,464 -32,464 -32,0"/>
+  </object>
+  <object id="1231" type="Hitbox" x="-96" y="1104">
+   <properties>
+    <property name="why" type="float" value="12351.21"/>
+   </properties>
+   <polygon points="0,16 0,240 704,240 704,128 352,-32"/>
+  </object>
+  <object id="1232" type="SlipperyHitbox" x="80" y="96">
+   <polygon points="-16,0 16,-32 48,-32 64,0 64,496 80,512 240,512 256,528 256,672 240,688 -96,688 -112,704 -112,752 -144,752 -144,656 224,656 224,560 32,560 32,0"/>
+  </object>
+  <object id="1233" type="BoostField" x="259.236" y="643.817">
+   <properties>
+    <property name="path" type="object" value="1234"/>
+   </properties>
+   <polygon points="60.7642,-35.8169 108.764,-35.8169 92.7642,-19.8169 92.7642,140.183 76.7642,156.183 -259.236,156.183 -275.236,172.183 -275.236,204.183 -291.236,204.183 -291.236,156.183 -275.236,140.183 60.7642,140.183 76.7642,124.183 76.7642,-19.8169"/>
+  </object>
+  <object id="1234" type="BoostFieldPathNode" x="344.032" y="616.771">
+   <properties>
+    <property name="next" type="object" value="1235"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="1235" type="BoostFieldPathNode" x="343.857" y="780.881">
+   <properties>
+    <property name="next" type="object" value="1236"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="1236" type="BoostFieldPathNode" x="327.739" y="792.823">
+   <properties>
+    <property name="next" type="object" value="1237"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="1237" type="BoostFieldPathNode" x="-8.37583" y="791.821">
+   <properties>
+    <property name="next" type="object" value="1238"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="1238" type="BoostFieldPathNode" x="-24" y="811.169">
+   <properties>
+    <property name="next" type="object" value="1239"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="1239" type="BoostFieldPathNode" x="-24" y="840.278">
+   <properties>
+    <property name="next" type="object" value="0"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="1240" type="SlipperyHitbox" x="-144" y="848">
+   <polygon points="0,128 -16,144 -16,224 0,240 0,256 400,208 768,368 800,368 944.963,298.744 944,320 800,384 768,432 768,480 752,496 752,384 400,224 48,272 48,288 -96,288 -96,-32 0,-32"/>
+  </object>
+  <object id="1241" type="Portal" x="624" y="1344">
+   <properties>
+    <property name="other" type="object" value="1242"/>
+    <property name="target" type="object" value="1243"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="1242" type="PortalNode" x="1488" y="1344">
+   <point/>
+  </object>
+  <object id="1243" type="Portal" x="-144" y="992">
+   <properties>
+    <property name="other" type="object" value="1244"/>
+    <property name="target" type="object" value="0"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="1244" type="PortalNode" x="-144" y="1072">
+   <point/>
+  </object>
+  <object id="1245" type="Hitbox" x="-144" y="1008">
+   <polygon points="0,-32 -16,-16 -16,64 0,80"/>
+  </object>
+  <object id="1246" type="BoostField" x="-32" y="816">
+   <properties>
+    <property name="axis_y" type="float" value="1"/>
+    <property name="is_visible" type="bool" value="false"/>
+   </properties>
+   <polygon points="0,0 0,32 16,32 16,0"/>
+  </object>
+  <object id="1247" type="Hitbox" x="2208" y="1104">
+   <polygon points="0,144 0,240 -704,240 -704,144"/>
+  </object>
+  <object id="1249" type="SlipperyHitbox" x="1504" y="1136">
+   <polygon points="0,112 0,208 -16,208 -16,96 704,96 704,112"/>
+  </object>
+  <object id="1264" type="BouncePad" x="425.339" y="398.639" width="160" height="160">
+   <ellipse/>
+  </object>
+  <object id="1267" type="AirDashNode" x="658.425" y="330.828" width="160" height="160">
+   <ellipse/>
+  </object>
+  <object id="1285" type="BoostField" x="1344" y="1040">
+   <properties>
+    <property name="path" type="object" value="1288"/>
+   </properties>
+   <polygon points="1.997,-11.117 288,272 784,272 432,-16"/>
+  </object>
+  <object id="1288" type="BoostFieldPathNode" x="1536" y="1008">
+   <properties>
+    <property name="next" type="object" value="1289"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="1289" type="BoostFieldPathNode" x="1920" y="1312">
+   <properties>
+    <property name="next" type="object" value="0"/>
+   </properties>
+   <point/>
+  </object>
+ </objectgroup>
+ <objectgroup id="2" name="base">
+  <object id="1199" type="Hitbox" x="-48" y="96">
+   <polygon points="160,0 160,560 112,560 111.328,64 -64,64 -64,-320 384,-320 384,64 368,64 368,448 464,448 464,464 240,464 240,0 320,0 320,-256 0,-256 0,0"/>
+  </object>
+  <object id="1200" name="Spawn" type="PlayerSpawn" x="379.42" y="1420.04">
+   <point/>
+  </object>
+  <object id="1230" type="AcceleratorSurface" x="336" y="160">
+   <polygon points="0,0 -16,0 -16,384 16,384 0,368"/>
+  </object>
+  <object id="1270" type="BoostField" x="544" y="1456">
+   <properties>
+    <property name="axis_y" type="float" value="-1"/>
+   </properties>
+   <polygon points="0,0 0,-448 160,-448 160,0"/>
+  </object>
+ </objectgroup>
+ <objectgroup id="6" name="foreground"/>
+ <layer id="1" name="tiles" width="32" height="32">
+  <data encoding="csv"/>
+ </layer>
+</map>

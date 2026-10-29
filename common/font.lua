@@ -144,7 +144,7 @@ function rt.Font:get_native(size, style, sdf)
 
     if style == nil then style = rt.FontStyle.REGULAR end
 
-    local actual_size = meta.is_number(size) and size or self:get_actual_size(size)
+    local actual_size = meta.is_enum_value(size, rt.FontSize) and self:get_actual_size(size) or size
     local path = self._font_style_to_path[style]
 
     local sdf_out = _new_font(path, actual_size, _sdf, self._font_style_to_fallback[style])
@@ -162,7 +162,7 @@ end
 --- @brief
 function rt.Font:get_actual_size(size)
     meta.assert(size, mt.Union(rt.FontSize, mt.Number))
-    if meta.is_number(size) then
+    if meta.is_enum_value(size, rt.FontSize) then
         return math.max(math.ceil(size), 14 / rt.SceneManager:get_downscaling_factor())
     else
         return math.max(math.ceil(size * rt.SceneManager:get_height()), 14 / rt.SceneManager:get_downscaling_factor())

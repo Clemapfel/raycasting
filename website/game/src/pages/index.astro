@@ -3,7 +3,7 @@ import { Locale } from "../i18n/translation.ts";
 import Forwarding from "../components/forwarding.astro";
 
 const supported = Object.values(Locale);
-const fallback = "en";
+const fallback = Locale.ENGLISH;
 const fallbackPath = `/${fallback}/home`;
 ---
 
@@ -26,6 +26,6 @@ const fallbackPath = `/${fallback}/home`;
         const preferences = navigator.languages ?? [navigator.language];
         const lang = preferences.map(resolve).find(Boolean) ?? fallback;
 
-        window.location.replace(`/${lang}/index`);
+        window.location.replace(`/${lang}/home`);
     </script>
 </Forwarding>

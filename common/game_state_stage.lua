@@ -2,6 +2,7 @@ require "common.stage_grade"
 require "common.translation"
 
 rt.settings.game_state.stage = {
+    stage_mapping_path = "assets/stages/_mapping.lua",
     grade_flow_thresholds = {
         [rt.StageGrade.S] = 0.995, -- precentage
         [rt.StageGrade.A] = 0.95,
@@ -109,8 +110,13 @@ function rt.GameState:_initialize_stage()
     self._stage_id_to_i = {}
 
     local path_prefix = rt.settings.overworld.stage_config.config_path
+    local mapping = bd.load(
+        rt.settings.game_state.stage.stage_mapping_path,
+        true, -- sandbox
+        { math = { huge = math.hue }}
+    )
 
-    for i, entry in pairs(rt.Translation.stages) do
+    for i, entry in pairs(mapping) do
         self._stages[i] = _parse_stage_entry(entry, i, path_prefix)
         self._stage_id_to_i[entry.id] = i
     end
