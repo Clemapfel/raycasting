@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="9" nextobjectid="1297">
+ <editorsettings>
+  <export target="debug_room.lua" format="lua"/>
+ </editorsettings>
+ <properties>
+  <property name="title" value="Not a Tutorial"/>
+ </properties>
+ <tileset firstgid="1" source="../tilesets/debug_tileset_objects.tsx"/>
+ <tileset firstgid="7" source="../tilesets/debug_tileset.tsx"/>
+ <imagelayer id="3" name="bg" repeatx="1" repeaty="1">
+  <image source="../tilesets/debug_tileset_16x16/tile.png" width="16" height="16"/>
+ </imagelayer>
+ <objectgroup id="8" name="aux"/>
+ <objectgroup id="7" name="background" offsetx="-17.997" offsety="363.117"/>
+ <objectgroup id="2" name="base">
+  <object id="1295" type="Hitbox" x="-48" y="32">
+   <polygon points="0,0 144,0 144,32 0,32"/>
+  </object>
+  <object id="1296" name="Spawn" type="PlayerSpawn" x="0" y="0">
+   <point/>
+  </object>
+ </objectgroup>
+ <objectgroup id="6" name="foreground"/>
+ <layer id="1" name="tiles" width="32" height="32">
+  <data encoding="csv"/>
+ </layer>
+</map>

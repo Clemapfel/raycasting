@@ -927,6 +927,7 @@ function mn.MenuScene:draw()
 
         self._camera:set_use_pixel_scale(false)
         self._camera:bind()
+        self._world:draw()
         title_screen.control_indicator:draw()
         self._camera:unbind()
 

@@ -737,6 +737,7 @@ function ow.OverworldScene:draw()
             self._player:draw_body()
             self._player:draw_core()
         end
+        self._stage._world:draw()
         self._camera:unbind()
     end
 

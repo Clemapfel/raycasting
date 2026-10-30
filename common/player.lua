@@ -1,4 +1,4 @@
-require "physics.physics"
+ require "physics.physics"
 require "common.input_subscriber"
 require "common.joystick_gesture_detector"
 require "common.player_input_smoothing"
@@ -1997,7 +1997,7 @@ function rt.Player:update(delta)
         local is_squished = function(x, y)
             local squished = false
             for body in values(bodies) do
-                if body:has_tag(b2.Tag.HITBOX) and body:get_is_sensor() ~= true and body:test_point(center_x, center_y) then
+                if body:has_tag(b2.Tag.HITBOX) and body:get_is_sensor() ~= true and body:test_point(x, y) then
                     squished = true
                     break
                 end
@@ -2417,13 +2417,6 @@ function rt.Player:teleport_to(x, y, relax_body)
                     y + self._spring_body_offsets_y[i]
                 )
             end
-
-            self._world:signal_connect("step", function(_)
-                self._body:set_is_enabled(true)
-                for body in values(self._spring_bodies) do body:set_is_enabled(true) end
-
-                return meta.DISCONNECT_SIGNAL
-            end)
         else
             self._bubble_body:set_is_enabled(false)
             for body in values(self._bubble_spring_bodies) do body:set_is_enabled(false) end
@@ -2435,14 +2428,12 @@ function rt.Player:teleport_to(x, y, relax_body)
                     y + self._bubble_spring_body_offsets_y[i]
                 )
             end
-
-            self._world:signal_connect("step", function(_)
-                self._bubble_body:set_is_enabled(true)
-                for body in values(self._bubble_spring_bodies) do body:set_is_enabled(true) end
-
-                return meta.DISCONNECT_SIGNAL
-            end)
         end
+
+        self._world:signal_connect("step", function(_)
+            self:_update_bubble(self:get_is_bubble())
+            return meta.DISCONNECT_SIGNAL
+        end)
 
         if relax_body then
             self._graphics_body:set_position(self:get_position())
@@ -2949,6 +2940,7 @@ function rt.Player:reset()
         _clear(which)
     end
 
+    self:_update_bubble(self:get_is_bubble())
     self:_update_ghost(self:get_is_ghost())
 
     local is_bubble = self:get_is_bubble()
@@ -2960,6 +2952,8 @@ function rt.Player:reset()
     self._graphics_body:set_left_squish(false)
     self._graphics_body:set_right_squish(false)
     self._graphics_body:set_up_squish(false)
+
+    self._trail:clear()
 
     self._pulses = {}
 end
@@ -3307,8 +3301,6 @@ function rt.Player:_update_bubble(is_bubble)
     self._wall_jump_freeze_elapsed = math.huge
     self._jump_freeze_elapsed = math.huge
 
-    if self._world == nil then return end
-
     -- disable both to avoid interaction
     self._body:set_is_enabled(false)
     for body in values(self._spring_bodies) do
@@ -3319,6 +3311,8 @@ function rt.Player:_update_bubble(is_bubble)
     for body in values(self._bubble_spring_bodies) do
         body:set_is_enabled(false)
     end
+
+    if self._world == nil then return end
 
     if is_bubble == true then
         local x, y = self._body:get_position()
