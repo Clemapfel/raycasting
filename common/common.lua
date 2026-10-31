@@ -258,6 +258,15 @@ function string.format_percentage(fraction)
 end
 
 --- @brief
+function string.unique_timestamp()
+    local time = os.time()
+    return table.concat({
+        string.format("%011d", time),
+        os.date("%Y_%m_%d_%H_%M_%S", time)
+    }, "_")
+end
+
+--- @brief
 function string.reverse(str)
     local to_concat = table.new(string.len(str), 0)
     for i = 1, string.len(str) do

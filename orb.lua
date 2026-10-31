@@ -42,7 +42,7 @@ function orb.generate_particle_texture()
 
     local out_dir = "test"
     bd.mount_path(bd.join_path(bd.get_source_directory(), "website", "game", "public"), out_dir)
-    image:save_to(bd.join_path(out_dir, "orb_particle_texture.png"))
+    image:save_to_file(bd.join_path(out_dir, "orb_particle_texture.png"))
     bd.unmount_path(out_dir)
 
     return texture

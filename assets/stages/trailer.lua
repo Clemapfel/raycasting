@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 9,
-  nextobjectid = 1308,
+  nextobjectid = 1309,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -278,7 +278,7 @@ return {
         {
           id = 1307,
           name = "",
-          type = "Hitboxnd",
+          type = "Hitbox",
           shape = "polygon",
           x = 336,
           y = -192,
@@ -293,6 +293,20 @@ return {
             { x = 48, y = 64 },
             { x = 48, y = 0 }
           },
+          properties = {}
+        },
+        {
+          id = 1308,
+          name = "",
+          type = "Fireflies",
+          shape = "point",
+          x = 336,
+          y = -160,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          opacity = 1,
+          visible = true,
           properties = {}
         }
       }

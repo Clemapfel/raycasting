@@ -132,7 +132,6 @@ if not exists(log_prefix) then
 end
 
 local inverted = string.format("%011d", os.time())
-
 local log_name = table.concat({
     inverted,
     os.date("%Y_%m_%d_%H_%M_%S", os.time()),
@@ -147,7 +146,6 @@ worker_to_main:push({
     type = "RESPONSE",
     value = path
 })
-
 
 while true do
     local message = main_to_worker:demand()

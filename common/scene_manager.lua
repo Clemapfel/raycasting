@@ -707,6 +707,7 @@ end
 
 --- @brief check whether scene is on scene stack
 function rt.SceneManager:scene_get_is_active(scene)
+    meta.assert(scene, rt.Scene)
     for _, entry in ipairs(self._scene_stack) do
         if entry.scene == scene then
             return true
@@ -714,6 +715,18 @@ function rt.SceneManager:scene_get_is_active(scene)
     end
 
     return false
+end
+
+--- @brief
+function rt.SceneManager:screenshot(path, encoding_format)
+    require "common.image"
+    meta.assert(path, mt.String, encoding_format, mt.Optional(rt.ImageEncodingFormat))
+
+    love.graphics.captureScreenshot(function(native)
+        local data = rt.Image(native)
+        data:save_to_file(path, encoding_format)
+        rt.log("In rt.SceneManager.screenshot: saved screenshot to `", bd.as_system_path(path), "`.")
+    end)
 end
 
 rt.SceneManager = meta.as_singleton(rt.SceneManager)

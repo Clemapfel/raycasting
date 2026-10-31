@@ -154,6 +154,7 @@ function bd.normalize_path(path)
     return path
 end
 
+
 --- @brief
 function bd.get_directory_prefix(file_path)
     meta.assert(file_path, mt.String)
@@ -265,6 +266,94 @@ do
 
         _path_to_mount_point[path] = nil
         _mount_point_to_path[mount_point] = nil
+    end
+
+    local function _join_system_path(base_path, relative_path)
+        base_path = bd.normalize_path(base_path)
+        relative_path = bd.normalize_path(relative_path)
+        relative_path = string.gsub(relative_path, "^/+", "")
+
+        if relative_path == "" then
+            return base_path
+        end
+
+        if base_path == "/" then
+            return "/" .. relative_path
+        elseif string.match(base_path, "^%a:/$") then
+            return base_path .. relative_path
+        end
+
+        return base_path .. "/" .. relative_path
+    end
+
+    --- @brief convert any filesystem path into an absolute system path
+    --- @param path String
+    --- @return String
+    function bd.as_system_path(path)
+        meta.assert(path, mt.String)
+
+        path = bd.normalize_path(path)
+
+        -- Already an absolute system path.
+        if path == "" then
+            return bd.get_save_directory()
+        end
+
+        if string.match(path, "^/")
+            or string.match(path, "^%a:/")
+        then
+            return path
+        end
+
+        -- Check whether the path belongs to one of our mounted paths.
+        -- Prefer the longest matching mount point to support nested mounts.
+        local matching_mount_point = nil
+        local matching_system_path = nil
+
+        for mount_point, system_path in pairs(_mount_point_to_path) do
+            mount_point = bd.normalize_path(mount_point)
+
+            local matches = path == mount_point
+                or string.sub(path, 1, #mount_point + 1) == mount_point .. "/"
+
+            if mount_point ~= ""
+                and matches
+                and (
+                matching_mount_point == nil
+                    or #mount_point > #matching_mount_point
+            )
+            then
+                matching_mount_point = mount_point
+                matching_system_path = system_path
+            end
+        end
+
+        if matching_mount_point ~= nil then
+            local relative_path = string.sub(
+                path,
+                #matching_mount_point + 1
+            )
+
+            return _join_system_path(
+                matching_system_path,
+                relative_path
+            )
+        end
+
+        -- Resolve paths inside the regular LÖVE filesystem.
+        -- This handles paths in the save directory and game source.
+        local real_directory = love.filesystem.getRealDirectory(path)
+
+        if real_directory ~= nil and real_directory ~= "" then
+            return _join_system_path(real_directory, path)
+        end
+
+        -- If the path does not exist yet, assume it belongs to the
+        -- application's save directory.
+        return _join_system_path(
+            bd.get_save_directory(),
+            path
+        )
     end
 end
 

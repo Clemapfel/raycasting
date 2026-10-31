@@ -12,6 +12,15 @@ end
 require "common.game_state"
 require "common.scene_manager"
 
+rt.GameState:set_draw_debug_information(false) -- TODO
+
+DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
+    if which == rt.KeyboardKey.M then
+        pcall(bd.mount_path("C:/Users/cleme/Workspace/raycasting/website/screenshots"), "screenshots")
+        rt.SceneManager:screenshot("screenshots/" .. string.unique_timestamp() .. ".png")
+    end
+end)
+
 local shader = rt.Shader("website/game/src/content/shaders/bismuth.glsl")
 local elapsed = 0
 

@@ -77,7 +77,7 @@ function rt.Image:get_height()
 end
 
 --- @brief
-function rt.Image:save_to(path, encoding_format)
+function rt.Image:save_to_file(path, encoding_format)
     if encoding_format == nil then encoding_format = rt.ImageEncodingFormat.PNG end
     meta.assert(path, mt.String, encoding_format, rt.ImageEncodingFormat)
     self._native:encode(encoding_format, path)

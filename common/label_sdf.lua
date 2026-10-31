@@ -167,5 +167,5 @@ end
 function rt.LabelSDF:export(path, format)
     meta.assert(path, mt.String, format, mt.Optional(rt.ImageEncodingFormat))
     if self._sdf_needs_export then self:_compute() end
-    self._export_texture:download():save_to(path, format)
+    self._export_texture:download():save_to_file(path, format)
 end
