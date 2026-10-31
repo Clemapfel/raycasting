@@ -157,6 +157,57 @@ const { Content } = await render(entry);
         color: var(--default-color-secondary);
         margin-top: 0.5rem;
     }
+
+    /* Footnotes */
+    .markdown-container :global(sup a[data-footnote-ref]),
+    .markdown-container :global(a[data-footnote-backref]) {
+        color: var(--default-color-primary, inherit);
+        text-decoration: none;
+    }
+
+    /* footnote link, i.e. 1 from [^1] */
+    .markdown-container :global(sup a[data-footnote-ref]) {
+        font-size: 1em;
+        margin-left: 0.25em;
+        text-decoration: underline;
+        color: oklch(
+            var(--global-color-l)
+            var(--global-color-c)
+            var(--global-color-h)
+        );
+    }
+
+    .markdown-container :global(section[data-footnotes]) {
+        margin-top: 2rem;
+        font-size: 1em;
+    }
+
+    /* "footnote" header */
+    .markdown-container :global(section[data-footnotes] h2) {
+        color: var(--default-color-emphasized, inherit);
+        font-size: 1.25em;
+    }
+
+    /* footnote bottom text */
+    .markdown-container :global(section[data-footnotes] p) {
+        color: var(--default-color-foreground, inherit);
+    }
+
+    /* "back to reference" arrow */
+    .markdown-container :global(a[data-footnote-backref]) {
+        font-size: 0.9em;
+        color: oklch(
+                var(--global-color-l)
+                var(--global-color-c)
+                var(--global-color-h)
+        );
+    }
+
+    .markdown-container :global(a[data-footnote-backref]:hover),
+    .markdown-container :global(a[data-footnote-backref]:focus-visible) {
+        opacity: 0.7;
+        transform: translateY(-2px);
+    }
 </style>
 
 <div class="markdown-container">

@@ -92,7 +92,7 @@ local _sdf = true
 local _no_sdf = false
 
 -- cache font by size
-local _atlas = {}
+local _atlas = {} -- path : String > size : Number > sdf : Boolean
 
 local function _new_font(path, size, sdf, fallbacks)
     if sdf == nil then sdf = _sdf end
@@ -119,13 +119,20 @@ local function _new_font(path, size, sdf, fallbacks)
             if fallback_native == nil then
                 fallback_native = love.graphics.newFont(fallback_path, size, {
                     sdf = sdf,
-                    hinting = "normal"
+                    hinting = "light"
                 })
 
                 _atlas[fallback_path][size][sdf] = fallback_native
             end
 
             table.insert(native_fallbacks, fallback_native)
+        end
+
+        local to_remove = {}
+        for i, font in ipairs(native_fallbacks) do
+            if font == native then
+                table.insert(to_remove, 1, i)
+            end
         end
 
         native:setFallbacks(table.unpack(native_fallbacks))

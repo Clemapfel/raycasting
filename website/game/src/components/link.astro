@@ -11,8 +11,12 @@ interface Props {
 import { Locale } from "../i18n/translation.ts";
 const { text, href, class: className, applyLocale = false } = Astro.props;
 
+if (href == null || href === "") {
+    throw new Error("In Link.astro: `href` is undefined");
+}
+
 const locale = Astro.currentLocale ?? Locale.ENGLISH;
-const localePath = href.replace(/^(\.{0,2}\/)+/, ""); // strip first 2 chars after /
+const localePath = href.replace(/^(\.{0,2}\/)+/, "");
 const finalHref = applyLocale ? `/${locale}/${localePath}` : href;
 
 const externalAttrs = applyLocale

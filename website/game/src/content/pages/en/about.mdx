@@ -4,58 +4,84 @@ language: en
 shader: hue_spiral
 ---
 
+import Name from "../../../components/name.astro";
 import Link from "../../../components/link.astro";
-import Figure from "../../../components/figure.astro";
+import Image from "../../../components/figure.astro";
 import Video from "../../../components/video.astro";
 import barboach from "../../images/barboach.png";
-import test_vid from "../../videos/test_web.mp4";
 
-## Desing
+import flow_img from "../../images/barboach.png";
+
+## Overview
+
+<Name/> is a physics platformer in which you navigate handcrafted levels. While the players control scheme is intentionally kept simple, the mathematical nature of the physics-based movement allows for
+
+°video of collecting coins°
+
+## Design
 
 ### Flow Over Precision
 
+<Name/> features no enemies that can kill the player, and does not use insta-kill object (such as spikes), except to avoid softlocks or accelerate respawn time after a failed section. This is in opposition to how many modern platformers [use spikes to arbitrarily increase the precision necessary to complete a section](<https://gameinformer.com/games/super_meat_boy/b/xbox360/archive/2010/12/28/so-you-wanna-be-the-guy-in-super-meat-boy>). Instead, difficulty in <Name/> is **self-regulating**: the hard part is completing a section as fluidly and quickly as possible, not completing the section at all. Players who do not want to or are incapable of achieving this perfection are free to play through the section casually, focusing on collectibles instead. Players who do want that "best possible run" will find a game that is incredibly challenging and rewarding.
+
+<Image img={flow_img} >
+
+    (left) a hard jump designed to be **consistent** with <Name/>s design philosophy
+    (right) a hard jump **inconsistent** with this same philosophy
+
+</Image>
+
 ### "Kaizo" Recombination
 
-"Kaizo" is a popular genre of romhack
+"Kaizo" (japanese: <Link text="改造" href="https://jisho.org/search/%E6%94%B9%E9%80%A0%20%23kanji" />) is a popular genre of <Link text="romhack" href="https://en.wikipedia.org/wiki/ROM_hacking" />. The name comes from <Link text="&quot;Kaizo Mario&quot; (2007)" href="https://en.wikipedia.org/wiki/Kaizo_Mario_World" />, a romhack of "Super Mario World" (1992) for the SNES. In it, the developer, T. Takemoto, reshuffled mechanics and tiles already present in SMW to create highly unfair levels, mostly as a joke. Over time, the culture of kaizo romhacking maintained the emphasis on high difficulty, but slowly shifted from plainly unfair level design to intentional subversion of design techniques accepted as common and self-evident in mainstream gamedev, both AAA and indie. Another emphasis in kaizo level design is exhaustive recombination of gameplay elements. Two enemies that are never in the same level in stock SMW may interact in interesting ways, and a kaizo romhack may focus an entire level on only this, never before seen interaction. Inspired by the rejection of mainstream "safe" level design and the focus on recombination over quantity of mechanics, <Name/> created a core set of relatively few level elements intended to unlock new mechanics when combined.
 
-<Figure img={barboach}>
+import recombination_video from "../../videos/test_web.mp4";
 
-    Fig 2.1 **Barboach**: *a barboach* (p-value &le; 0.001)
+<Video video={recombination_video} >
 
-</Figure>
+    Touching the tether provides the player with a double jump, which can be carried indefinitely until touching the ground, even through interactions with other gameplay elements.
 
-<Video video={test_vid}>
-
-    Test **caption**
+    tether double jump into bubble switch into triple air dash node into double jump untether
 
 </Video>
 
+### Speedrunners First
+
+<Name/> aims to cater to people with an affinity for speedrunning. It features a tick-perfect[^1] microsecond-precision timer, automatic segment timers like in <Link text="LiveSplit" href="https://livesplit.org/" />, and a **ghost**, which replays the movement of the current fastest level completion. For the full release, a global leaderboard and a replay sharing system is planned. A single-segment mode that simply plays all levels in sequence with no menus in between makes full game completion convenient. The full game is intended to be completed in around 6h casually, but around ~45mins when speedrunning.
+
+import ghost_video from "../../videos/test_web.mp4";
+
+<Video video={ghost_video} >
+    the current best level completion is automatically saved and replayed as a ghost during time-attack gameplay
+</Video>
+
+[^1] A *tick* is the shortest meaningful amount of time in a games physics simulation. Tick-perfect accuracy is independent of devices' frame rate or lag. It is the best possible source of truth for comparing timings of gameplay across different devices.
 
 
 ## Technology
 
-Chroma Void does not use any of the common video game engines, instead relying on a bespoke technology stack. This made it, so we could focus on graphical features that are uncommon among the platformer genre, though <Link text="not unheard of" href="https://store.steampowered.com/app/261570/Ori_and_the_Blind_Forest/" />
+<Name/> does not use any of the common video game engines, instead relying on a bespoke technology stack. This made it, so we could focus on graphical features that are uncommon among the platformer genre, though <Link text="not unheard of" href="https://store.steampowered.com/app/261570/Ori_and_the_Blind_Forest/" />
 
 °video of slug leaving trail°
 
 ### Lighting
 
-While 3D lighting techniques are largely standardized across fields, Chroma Void implements a bespoke 2D lighting system that focuses on color and the number of different light sources. It allows for hundreds of individually moving, light-emitting objects to bake the games athmosphere in a neon glow.
+While 3D lighting techniques are largely standardized across fields, <Name/> implements a bespoke 2D lighting system that focuses on color and the number of different light sources. It allows for hundreds of individually moving, light-emitting objects to bake the games athmosphere in a neon glow.
 
 °looping gif of double jump tether particles, and segment lights
 
 ### Procedural Animation
 
-Using <Link text="physics-based animation" href="https://en.wikipedia.org/wiki/Physically_based_animation" /> and techniques from <Link text="algorithmic" href="https://en.wikipedia.org/wiki/Algorithmic_art" /> (non-AI) art, Chroma Void leverages modern gaming hardware to create mathematically infinite, never repeating patterns - without strain on the engine that could impact how smooth it feels to play.
+Using <Link text="physics-based animation" href="https://en.wikipedia.org/wiki/Physically_based_animation" /> and techniques from <Link text="algorithmic" href="https://en.wikipedia.org/wiki/Algorithmic_art" /> (non-AI) art, <Name/> leverages modern gaming hardware to create mathematically infinite, never repeating patterns - without strain on the engine that could impact how smooth it feels to play.
 
 °video of slug falling°
 
 ### Slopes
 
-While not very impressive conceptually, many platformers do not have sloped surface at any kind of angle, eschewing them in favor of <Link text="tile-based" href="https://store.steampowered.com/app/504230/Celeste/" /> physics. In Chroma Void you can wall cling to any (mostly vertical) surface, slide down or up slopes , or travel through loops or ceilings.
+While not very impressive conceptually, many platformers do not have sloped surface at any kind of angle, eschewing them in favor of <Link text="tile-based" href="https://store.steampowered.com/app/504230/Celeste/" /> physics. In <Name/> you can wall cling to any (mostly vertical) surface, slide down or up slopes , or travel through loops or ceilings.
 
 ### Softbody Simulation
 
-Almost all physics engines simulate **rigid-body** objects, which are objects that cannot deform under stress - such as a stable rod or piece of stone. Chroma Void also incorporates **soft-body** objects, which are considerably harder to simulation and render. Examples include cloth, hair, and rubber. <Link text="This technique" href="https://scholar.google.com/scholar?hl=en&as_sdt=0%2C5&q=extended+position+based+dynamics&btnG=" /> makes it so the player body and various gameplay objects in the world can deform and animate smoothly, reacting to other objects as they would in real life. This increases the sense of fluidity, which can be lost in some hand-drawn animation. The game still employs graphics created using traditional techniques, but notably the player body is entirely animated using physics.
+Almost all physics engines simulate **rigid-body** objects, which are objects that cannot deform under stress - such as a stable rod or piece of stone. <Name/> also incorporates **soft-body** objects, which are considerably harder to simulation and render. Examples include cloth, hair, and rubber. <Link text="This technique" href="https://scholar.google.com/scholar?hl=en&as_sdt=0%2C5&q=extended+position+based+dynamics&btnG=" /> makes it so the player body and various gameplay objects in the world can deform and animate smoothly, reacting to other objects as they would in real life. This increases the sense of fluidity, which can be lost in some hand-drawn animation. The game still employs graphics created using traditional techniques, but notably the player body is entirely animated using physics.
 
 
