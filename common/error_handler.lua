@@ -57,7 +57,7 @@ function love.errorhandler(message, depth)
 
     local stream = io.stderr
     _safe_call(stream.setvbuf, stream, "no")
-    _safe_call(stream.write, stream, traceback)
+    _safe_call(stream.write, stream, traceback .. "\n")
     _safe_call(stream.flush, stream)
 
     do
@@ -148,10 +148,41 @@ function love.errorhandler(message, depth)
 
     -- write to log folder
 
-    if not _G.DEBUG then
-        _safe_call(function()
-            -- TODO
-        end)
+    local log_path = nil
+    local footer_message = "Press ESCAPE to exit"
+
+    _safe_call(function()
+        require "common.log"
+        local log = rt.Log
+
+        local channel = log._main_to_worker
+        local types = log._message_types
+        if channel ~= nil and types ~= nil then
+            channel:push({
+                type = types.FATAL,
+                value = prefix_message .. "\n\n" .. raw_traceback
+            })
+
+            channel:push({
+                type = types.DUMP,
+                value = rt.Log.dump()
+            })
+
+            _safe_call(log.shutdown_worker)
+        end
+
+        log_path = _safe_call(log.get_active_path)
+
+        if log_path ~= nil
+            and not string.match(log_path, "^/")
+            and not string.match(log_path, "^%a:[/\\]")
+        then
+            log_path = love.filesystem.getSaveDirectory() .. "/" .. log_path
+        end
+    end)
+
+    if log_path ~= nil then
+        footer_message = footer_message .. ", ENTER to open log file"
     end
 
     local default_font = love.graphics.newFont(15 * pixel_scale)
@@ -209,18 +240,20 @@ function love.errorhandler(message, depth)
             if event == "quit" then
                 if love.quit then love.quit() end
                 return a or 1, b
-            elseif event == "key    pressed" then
-                if b == "escape" then
+            elseif event == "keypressed" then
+                if a == "escape" then
                     return 0 -- quit
-                elseif b == "return" and write_success then
-                    _safe_call(love.system.openURL, "file://" .. write_path)
-                elseif b == "up" then
+                elseif a == "return" or a == "kpenter" then
+                    if log_path ~= nil then
+                        _safe_call(love.system.openURL, "file://" .. log_path)
+                    end
+                elseif a == "up" then
                     scroll_y = scroll_y - 40 * pixel_scale
-                elseif b == "down" then
+                elseif a == "down" then
                     scroll_y = scroll_y + 40 * pixel_scale
-                elseif b == "pageup" then
+                elseif a == "pageup" then
                     scroll_y = scroll_y - love.graphics.getHeight() / 2
-                elseif b == "pagedown" then
+                elseif a == "pagedown" then
                     scroll_y = scroll_y + love.graphics.getHeight() / 2
                 end
             elseif event == "wheelmoved" then
@@ -249,7 +282,7 @@ function love.errorhandler(message, depth)
             love.graphics.translate(0, -scroll_y)
 
             draw_text(default_font, traceback_wrapped, 0)
-            draw_text(default_font, "TODO", 0 + traceback_height + v_margin)
+            draw_text(default_font, footer_message, 0 + traceback_height + v_margin)
 
             love.graphics.pop()
 

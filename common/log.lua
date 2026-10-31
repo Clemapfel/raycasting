@@ -193,7 +193,7 @@ function rt.Log.assert(condition, ...)
 end
 
 --- @brief
-function rt.Log.dump(...)
+function rt.Log.dump()
     local ffi = jit and require("ffi")
 
     -- query all connected controllers / joysticks
@@ -460,11 +460,6 @@ function rt.Log.dump(...)
             average_delta = love.timer.getAverageDelta(),
         }
     }
-
-    for i = 1, select("#", ...) do
-        local to_add = select(i, ...)
-        dbg(to_add)
-    end
 
     return result
 end
