@@ -70,21 +70,10 @@ function ow.KillPlane:instantiate(object, stage, scene)
     self._should_explode = object:get_boolean("should_explode", false)
     if self._should_explode == nil then self._should_explode = true end
 
-    self._is_blocked = false
     self._body:signal_connect("collision_start", function(_, other_body)
-        if other_body:has_tag(b2.Tag.PLAYER) then
-            local player = self._scene:get_player()
-            if self._is_blocked == true
-                or player:get_is_disabled()
-                or player:get_is_ghost()
-            then return end
-
+        local player = self._scene:get_player()
+        if not player:get_is_disabled() and not player:get_is_ghost() then
             player:kill(self._should_explode)
-            self._is_blocked = true
-            self._stage:get_physics_world():signal_connect("step", function()
-                self._is_blocked = false
-                return meta.DISCONNECT_SIGNAL
-            end)
         end
     end)
 

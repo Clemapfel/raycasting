@@ -9,6 +9,10 @@ server.options.blockSize = 2048;
 server.options.numWireBufs = 256;
 server.options.sampleRate = ~sample_rate;
 server.options.memSize = 2 * (2 ** 16);
+yourActualNight = {
+	var ❤️ = 1234
+	❤️.postln;
+}.();
 
 // ### MAIN ###
 
@@ -1350,32 +1354,35 @@ record_pattern = { arg recordbuf, recordbus, pattern, trig = nil, delay = 0;
 
 ~player = { arg degrees;
 
-	var wavetable = if (~player_jump_wt.isNil) {
+	var wavetable = {
 		var wavetableRes = 2048;
-		var signalRes = wavetableRes / 2;
-
-		var makeWavetable = { |func|
-			Signal.fill(signalRes, { |i| func.value(i / signalRes * 2pi) }).normalize.asWavetable
+		var make = { |func|
+			Signal.fill(wavetableRes.half, { |i| func.value(i / wavetableRes.half) }).normalize.asWavetable
 		};
 
-		var wavetables = [0, 1].collect { |k|
-			makeWavetable.({ |t|
-				if (k == 0) {
-					sin(t)
-				} {
-					tanh(k * sin(t)) / tanh(k)
-				}
+		var wavetables = [
+			make.({ |t|
+				var g = { |x| 4 * x * (1 - x) };
+				if(t < 0.5) { g.(t * 2) } { g.((t - 0.5) * 2).neg }
+			}),
+
+			make.({ |t|
+				sin(2pi * t)
 			})
-		};
+		];
+
+		// https://www.desmos.com/calculator/bszbdsojor
 
 		var bufs = Buffer.allocConsecutive(wavetables.size, server, wavetableRes, 1);
+
 		server.sync;
 		bufs.do { |buf, i| buf.loadCollection(wavetables[i]) };
+		server.sync;
 		~player_jump_wt = bufs;
-	} { ~player_jump_wt };
+	}.value;
 
 	var def = SynthDef.new(\player_jump, {
-		arg out = 0, dur = 1, freq = 440, gate = 1, wtStart, wtEnd, mix = 0.5;
+		arg out = 0, dur = 1, freq = 440, gate = 1, wtStart, wtEnd;
 
 		var freqEnv = XLine.ar(freq, (freq.cpsmidi + 12).midicps, dur);
 		var attack = 0.04;
@@ -1384,13 +1391,13 @@ record_pattern = { arg recordbuf, recordbus, pattern, trig = nil, delay = 0;
 			gate: gate
 		) - 1;
 
-		// bufnum position, kept strictly below the last table
+		var mix = 0; //Line.kr(0, 1, dur); //sigAmpEnv.linlin(0, 1, 0.25, 0.75);
 		var wtPosition = mix.linlin(0, 1, wtStart, wtEnd - 1e-4);
 
 		var feedback = LocalIn.ar(2) * 0.9;
 		var sig = (feedback + VOsc.ar(wtPosition,
 			freq: freqEnv,
-			phase: 0.2 * feedback.range(0, 2pi)
+			phase: 0 * feedback.range(0, 2)
 		)) * sigAmpEnv;
 
 		LocalOut.ar(DelayC.ar(
@@ -1410,6 +1417,6 @@ record_pattern = { arg recordbuf, recordbus, pattern, trig = nil, delay = 0;
 		\wtStart, ~player_jump_wt.first.bufnum,
 		\wtEnd, ~player_jump_wt.last.bufnum,   // = first + size - 1
 		\degree, Pseq([0, 1, 3, 4]),
-		\dur, 0.8
+		\dur, 100
 	).play;
 };

@@ -176,7 +176,8 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
         local max_rope_length = rt.settings.overworld.checkpoint.max_rope_length
         local top_x, top_y, _ = self._world:query_ray(
             self._x, self._y,
-            0, -0.5 * max_rope_length
+            0, -0.5 * max_rope_length,
+            rt.settings.overworld.hitbox.collision_group
         )
 
         if top_x == nil or top_y == nil then
@@ -189,7 +190,8 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
         -- cast down to find true ground
         local bottom_x, bottom_y, body = self._world:query_ray(
             self._top_x, self._top_y,
-            0, max_rope_length
+            0, max_rope_length,
+            rt.settings.overworld.hitbox.collision_group
         )
 
         if bottom_x == nil or bottom_y == nil then
@@ -201,12 +203,10 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
 
         if self._type == ow.CheckpointType.PLAYER_SPAWN then
             self._bottom_y = math.min(self._bottom_y, self._y)
-
-            create_platform(self._x, self._y)
+            create_platform(self._bottom_x, self._bottom_y)
             self._spawn_barrier:set_is_enabled(self._use_spawn_barrier)
             self._body = self._spawn_barrier
         else
-            -- cast up and down to find attachment points
             create_platform(self._bottom_x, self._bottom_y)
             self._spawn_barrier:set_is_enabled(false)
 
@@ -345,18 +345,6 @@ function ow.Checkpoint:_set_state(state)
     if self._state == _STATE_STAGE_ENTRY then
         self._spawn_elapsed = 0
 
-        -- find top most point to spawn player
-        local screen_h = camera:get_world_bounds().height
-        local _, max_y = self._world:query_ray(self._x, self._y, 0, -10e8)
-        local spawn_y
-        if max_y == nil then
-            spawn_y = self._y - screen_h
-        else
-            spawn_y = math.max(self._y - screen_h, max_y)
-        end
-
-        self._top_y = spawn_y
-
         camera:set_apply_bounds(true)
         camera:set_position(self._bottom_x, self._bottom_y)
         self._stage:apply_camera_bounds(
@@ -366,7 +354,7 @@ function ow.Checkpoint:_set_state(state)
 
         player:reset()
         player:request_is_ghost(self, true)
-        player:teleport_to(self._top_x, spawn_y)
+        player:teleport_to(self._bottom_x, self._bottom_y)
         player:relax()
         player:request_is_disabled(self, true)
         player:request_is_trail_enabled(self, false)
@@ -394,7 +382,6 @@ function ow.Checkpoint:_set_state(state)
         player:request_is_visible(self, false)
         player:request_is_disabled(self, true)
         player:request_is_trail_enabled(self, false)
-
     elseif self._state == _STATE_RAY then
         self._spawn_elapsed = 0
         self._ray_seed = self._ray_seed + 1
@@ -422,14 +409,14 @@ function ow.Checkpoint:_set_state(state)
             self._bottom_y - self._top_y
         )
 
+        player:teleport_to(self._bottom_x, self._bottom_y)
         player:reset()
         player:request_is_ghost(self, true)
-        player:teleport_to(self._top_x, self._top_y)
+        player:request_is_frozen(self, nil)
         player:request_opacity(self, 0)
         player:request_is_disabled(self, true)
         player:request_is_trail_enabled(self, false)
         player:relax()
-        self._stage:apply_camera_bounds(self._bottom_x, self._bottom_y)
 
     elseif self._state == _STATE_DEFAULT then
         player:reset()
@@ -604,7 +591,7 @@ function ow.Checkpoint:update(delta)
             self._should_emit_respawn = false
         end
 
-        local threshold = self._bottom_y - 2 * player:get_radius()
+        local threshold = self._bottom_y
         local player_x, player_y = player:get_position()
         if self._ray_fraction < 1 then
             self._ray_fraction = 1 - (player_y - threshold) / (self._top_y - threshold)
@@ -613,9 +600,11 @@ function ow.Checkpoint:update(delta)
         player:request_opacity(self, rt.InterpolationFunctions.GAUSSIAN_HIGHPASS(self._ray_fraction))
         self._scene:set_blur(rt.InterpolationFunctions.GAUSSIAN_HIGHPASS(1 - math.min(1, self._ray_fraction)))
 
-        if player_y >= threshold or self._spawn_elapsed > rt.settings.overworld.checkpoint.max_spawn_duration then
+        if math.abs(player_y - self._bottom_y) < player:get_radius()
+            or self._spawn_elapsed > rt.settings.overworld.checkpoint.max_spawn_duration
+        then
             self._ray_fade_out_start_timestamp = love.timer.getTime()
-            self:_spawn_ray_particles(self._bottom_x, self._bottom_y)
+            self:_spawn_ray_particles(player_x, player_y)
             self:_set_state(_STATE_DEFAULT)
         end
         self._spawn_elapsed = self._spawn_elapsed + delta
@@ -701,6 +690,8 @@ function ow.Checkpoint:draw(priority)
              )
         end
     end
+
+    love.graphics.line(self._top_x, self._top_y, self._bottom_x, self._bottom_y)
 end
 
 --- @brief

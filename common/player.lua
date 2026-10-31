@@ -2405,40 +2405,40 @@ function rt.Player:teleport_to(x, y, relax_body)
 
     local is_bubble = self:get_is_bubble()
 
-    if self._body ~= nil and self._bubble_body ~= nil then
-        if not is_bubble then
-            self._body:set_is_enabled(false)
-            for body in values(self._spring_bodies) do body:set_is_enabled(false) end
+    local set_enabled = function(b)
+        self._body:set_is_enabled(b)
+        for body in values(self._spring_bodies) do body:set_is_enabled(b) end
 
-            self._body:set_position(x, y)
-            for i, body in ipairs(self._spring_bodies) do
-                body:set_position(
-                    x + self._spring_body_offsets_x[i],
-                    y + self._spring_body_offsets_y[i]
-                )
-            end
-        else
-            self._bubble_body:set_is_enabled(false)
-            for body in values(self._bubble_spring_bodies) do body:set_is_enabled(false) end
+        self._bubble_body:set_is_enabled(b)
+        for body in values(self._bubble_spring_bodies) do body:set_is_enabled(b) end
+    end
 
-            self._bubble_body:set_position(x, y)
-            for i, body in ipairs(self._bubble_spring_bodies) do
-                body:set_position(
-                    x + self._bubble_spring_body_offsets_x[i],
-                    y + self._bubble_spring_body_offsets_y[i]
-                )
-            end
-        end
+    set_enabled(false)
 
-        self._world:signal_connect("step", function(_)
-            self:_update_bubble(self:get_is_bubble())
-            return meta.DISCONNECT_SIGNAL
-        end)
+    self._body:set_position(x, y)
+    for i, body in ipairs(self._spring_bodies) do
+        body:set_position(
+            x + self._spring_body_offsets_x[i],
+            y + self._spring_body_offsets_y[i]
+        )
+    end
 
-        if relax_body then
-            self._graphics_body:set_position(self:get_position())
-            self._graphics_body:relax()
-        end
+    self._bubble_body:set_position(x, y)
+    for i, body in ipairs(self._bubble_spring_bodies) do
+        body:set_position(
+            x + self._bubble_spring_body_offsets_x[i],
+            y + self._bubble_spring_body_offsets_y[i]
+        )
+    end
+
+    self._world:signal_connect("step", function(_)
+        self:_update_bubble(self:get_is_bubble()) -- enabled here
+        return meta.DISCONNECT_SIGNAL
+    end)
+
+    if relax_body then
+        self._graphics_body:set_position(self:get_position())
+        self._graphics_body:relax()
     end
 
     self._last_top_left_x, self._last_top_left_y = x, y
@@ -3173,6 +3173,31 @@ function rt.Player:get_is_frozen()
     return false
 end
 
+ --- @brief
+
+ function rt.Player:request_is_disabled(id, is_disabled)
+     local before = self:get_is_disabled()
+
+     local requests = self._is_disabled_requests
+     local should_remove = is_disabled == nil
+
+     if should_remove then
+         requests[id] = nil
+     else
+         local entry = requests[id]
+         if entry == nil then
+             entry = {}
+             requests[id] = entry
+         end
+
+         entry.is_disabled = is_disabled
+     end
+
+     if before ~= self:get_is_disabled() then
+         self:_update_bubble(self:get_is_bubble())
+     end
+ end
+
 --- @brief
 function rt.Player:get_is_disabled()
     for source in values(self._is_disabled_requests) do
@@ -3338,18 +3363,19 @@ function rt.Player:_update_bubble(is_bubble)
     self:_update_ghost(self:get_is_ghost())
 
     -- then update
+    local is_enabled = true
     if not is_bubble then
-        self._body:set_is_enabled(true)
+        self._body:set_is_enabled(is_enabled)
         self._body:set_is_sensor(false)
         for body in values(self._spring_bodies) do
-            body:set_is_enabled(true)
+            body:set_is_enabled(is_enabled)
             body:set_is_sensor(false)
         end
     else
-        self._bubble_body:set_is_enabled(true)
+        self._bubble_body:set_is_enabled(is_enabled)
         self._bubble_body:set_is_sensor(false)
         for body in values(self._bubble_spring_bodies) do
-            body:set_is_enabled(true)
+            body:set_is_enabled(is_enabled)
             body:set_is_sensor(false)
         end
     end

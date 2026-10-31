@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="9" nextobjectid="1301">
+<map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="9" nextobjectid="1308">
  <editorsettings>
   <export target="trailer.lua" format="lua"/>
  </editorsettings>
@@ -11,26 +11,43 @@
  <imagelayer id="3" name="bg" repeatx="1" repeaty="1">
   <image source="../tilesets/debug_tileset_16x16/tile.png" width="16" height="16"/>
  </imagelayer>
- <objectgroup id="8" name="aux"/>
- <objectgroup id="7" name="background" offsetx="-17.997" offsety="363.117"/>
+ <objectgroup id="8" name="aux" visible="0">
+  <object id="1306" type="CameraFit" x="-128" y="160">
+   <polygon points="64,0 1008,0 1008,-608 64,-608"/>
+  </object>
+ </objectgroup>
+ <objectgroup id="7" name="background" visible="0">
+  <object id="1304" type="Wall" x="-64" y="-128">
+   <properties>
+    <property name="type" value="SPHERES"/>
+   </properties>
+   <polygon points="0,0 0,288 944,288 944,-448 624,-448"/>
+  </object>
+ </objectgroup>
  <objectgroup id="2" name="base">
   <object id="1295" type="Hitbox" x="-64" y="16">
-   <polygon points="0,0 144,0 144,128 0,128"/>
+   <polygon points="-128,0 144,0 144,240 -128,240"/>
   </object>
-  <object id="1296" name="Spawn" type="PlayerSpawn" x="0" y="0">
+  <object id="1296" name="Spawn" type="PlayerSpawn" x="-312.096" y="-54.3443">
    <point/>
   </object>
-  <object id="1297" type="SlipperyHitbox" x="288" y="-128">
-   <polygon points="0,0 64,0 64,16 0,16"/>
+  <object id="1297" type="SlipperyHitbox" x="336" y="-208">
+   <polygon points="32,0 64,0 64,80 48,80 49.7592,16 32,16"/>
   </object>
   <object id="1298" type="SlipperyHitbox" x="96" y="144">
-   <polygon points="0,0 0,-128 0,-144 -160,-144 -160,-128 -16,-128 -16,0"/>
+   <polygon points="0,112 0,-128 0,-144 -288,-144 -288,-128 -16,-128 -16,112"/>
   </object>
-  <object id="1299" type="Hitbox" x="560" y="160">
-   <polygon points="0,0 0,-416 256,-416 256,0"/>
+  <object id="1299" type="Hitbox" x="624" y="160">
+   <polygon points="0,96 0,-416 464,-416 464,96"/>
   </object>
-  <object id="1300" type="SlipperyHitboxs" x="560" y="160">
-   <polygon points="0,0 -16,0 -16,-432 256,-432 256,-416 0,-416"/>
+  <object id="1300" type="SlipperyHitbox" x="624" y="160">
+   <polygon points="0,96 -16,96 -16,-432 464,-432 464,-416 0,-416"/>
+  </object>
+  <object id="1301" type="KillPlane" x="96" y="96">
+   <polygon points="0,0 512,0 512,160 0,160"/>
+  </object>
+  <object id="1307" type="Hitboxnd" x="336" y="-192">
+   <polygon points="32,0 32,64 48,64 48,0"/>
   </object>
  </objectgroup>
  <objectgroup id="6" name="foreground"/>

@@ -132,7 +132,7 @@ function ow.ObjectWrapper:_as_sprite(gid, x, y, width, height, origin_x, origin_
         texture_x = 0, -- set in stage_config once tileset is initialized
         texture_y = 0,
         texture_width = 1,
-        texutre_height = 1,
+        texture_height = 1,
         texture = nil
     })
 end
@@ -174,18 +174,39 @@ function ow.ObjectWrapper:_as_ellipse(x, y, center_x, center_y, x_radius, y_radi
         x_radius = x_radius,
         y_radius = y_radius,
         origin_x = origin_x,
-        origin_y = origin_y
+        origin_y = origin_y,
+
+        bounds = rt.AABB(
+            center_x - x_radius,
+            center_y - y_radius,
+            2 * x_radius,
+            2 * y_radius
+        )
     })
 end
 
 --- @brief
 function ow.ObjectWrapper:_as_polygon(vertices, shapes, origin_x, origin_y)
     self.type = ow.ObjectType.POLYGON
+
+    -- vertices is assumed to be a flat list: x1, y1, x2, y2, ...
+    local min_x, min_y = math.huge, math.huge
+    local max_x, max_y = -math.huge, -math.huge
+    for i = 1, #vertices, 2 do
+        local vx, vy = vertices[i], vertices[i + 1]
+        min_x = math.min(min_x, vx)
+        min_y = math.min(min_y, vy)
+        max_x = math.max(max_x, vx)
+        max_y = math.max(max_y, vy)
+    end
+
     return meta.install(self, {
         vertices = vertices,
         shapes = shapes,
         origin_x = origin_x,
-        origin_y = origin_y
+        origin_y = origin_y,
+
+        bounds = rt.AABB(min_x, min_y, max_x - min_x, max_y - min_y)
     })
 end
 
@@ -196,7 +217,9 @@ function ow.ObjectWrapper:_as_point(x, y, origin_x, origin_y)
         x = x,
         y = y,
         origin_x = origin_x,
-        origin_y = origin_y
+        origin_y = origin_y,
+
+        bounds = rt.AABB(x, y, 0, 0)
     })
 end
 
@@ -794,6 +817,33 @@ function ow.ObjectWrapper:get_centroid()
 end
 
 --- @brief
+function ow.ObjectWrapper:get_bounds()
+    local xy
+    if self.type == ow.ObjectType.RECTANGLE or self.type == ow.ObjectType.SPRITE then
+        xy = { self.x, self.y, self.width, self.height }
+    elseif self.type == ow.ObjectType.ELLIPSE then
+        xy = { self.center_x - self.x_radius, self.center_y - self.y_radius, 2 * self.x_radius, 2 * self.y_radius }
+    elseif self.type == ow.ObjectType.POLYGON then
+        local min_x, min_y, max_x, max_y = math.huge, math.huge, -math.huge, -math.huge
+        for i = 1, #self.vertices, 2 do
+            local x, y = self.vertices[i + 0], self.vertices[i + 1]
+            min_x = math.min(min_x, x)
+            min_y = math.min(min_y, y)
+            max_x = math.max(max_x, x)
+            max_y = math.max(max_y, y)
+        end
+        xy = { min_x, min_y, max_x - min_x, max_y - min_y }
+    elseif self.type == ow.ObjectType.POINT then
+        xy = { self.x, self.y, 1, 1}
+    end
+
+    local out = rt.AABB(table.unpack(_process_polygon(xy, self)))
+    out.x = _align(out.x)
+    out.y = _align(out.y)
+    return out
+end
+
+--- @brief
 function ow.ObjectWrapper:get_area()
     if self.type == ow.ObjectType.POINT then
         return 0
@@ -846,8 +896,18 @@ function ow.ObjectWrapper:get_has_property(id)
     return self.properties[id] ~= nil
 end
 
+--- @brief
 function ow.ObjectWrapper:get_property(id)
     return self.properties[id]
+end
+
+--- @brief
+function ow.ObjectWrapper:list_properties()
+    local out = {}
+    for key, value in pairs(sefl.properties) do
+        out[key] = value
+    end
+    return out
 end
 
 local _valid_types = {
@@ -1344,9 +1404,9 @@ local function _parse_single_object_group(object_group, group_offset_x, group_of
                         -- skip points, as they have no volume
                         skip_wrapper = true
                     else
-                        rt.warning("In ", scope, ": object `", wrapper.id, "` in stage `", scope, "` has no class, assuming `Hitbox`")
-                        require "overworld.objects.hitbox"
-                        wrapper.class = meta.get_typename(ow.Hitbox)
+                        rt.critical("In ow._parse_object_group (", scope, "): object `", wrapper.id, "` has no class")
+                        require("overworld.objects.noop")
+                        wrapper.class = meta.get_typename(ow.NOOP)
                     end
                 end
             end

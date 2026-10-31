@@ -194,13 +194,15 @@ function ow.Stage:instantiate(scene, id)
         if table.sizeof(object_wrappers) > 0 then
             for wrapper in values(object_wrappers) do
                 if wrapper.class == nil then
-                    rt.warning("In ow.Stage.instantiate: object `", wrapper.id, "` of stage `", self._config:get_id(), "` has no class, assuming `Hitbox`")
-                    wrapper.class = meta.get_typename(ow.Hitbox)
+                    rt.critical("In ow.Stage.instantiate: object `", wrapper.id, "` of stage `", self._config:get_id(), "` has no class")
+                    wrapper.class = meta.get_typename(ow.NOOP)
                 end
 
                 local Type = ow[wrapper.class]
                 if Type == nil then
-                    rt.error("In ow.Stage: unhandled object class `", tostring(wrapper.class), "`")
+                    rt.critical("In ow.Stage.instantiate: object `", wrapper.id, "` of stage `", self._config:get_id(), "` has unhandled class name `", tostring(wrapper.class), "`")
+                    wrapper.class = meta.get_typename(ow.NOOP)
+                    Type = ow.NOOP
                 end
 
                 local instance = Type(wrapper, self, self._scene)
@@ -823,6 +825,16 @@ function ow.Stage:reset()
     rt.SceneManager:get_bloom():clear()
     self._light_map_bodies = {}
     self._darkness_mask_bodies = {}
+
+    -- reset geometry
+    self._blood_spatter = ow.BloodSpatter(self._scene)
+    self._shadow_cast = ow.ShadowCast(self._scene)
+
+    self._mirror = ow.Mirror(
+        self._scene,
+        function() ow.Hitbox:draw_mask(false, true) end,
+        function() ow.Hitbox:draw_mask(true, false) end
+    )
 
     self:signal_emit("reset")
 end
