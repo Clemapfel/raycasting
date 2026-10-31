@@ -4,9 +4,17 @@ meta.add_signals(rt.StateMachine,
     "added",   -- (rt.StateMachine, id : ID) -> nil
     "removed", -- (rt.StateMachine, id : ID) -> nil
     "update",  -- (rt.StateMachine, id : ID, ... : Any) -> nil
-    "enter",   -- (rt.StateMachine, id : ID, ... : Any) -> nil
-    "exit"     -- (rt.StateMachine, id : ID, ... : Any) -> nil
+    "enter",   -- (rt.StateMachine, current : ID, previous : ID, ... : Any) -> nil
+    "exit"     -- (rt.StateMachine, current : ID, previous : ID, ... : Any) -> nil
 )
+
+local _valid_keys = {
+    on_enter = mt.Function,  -- (next : ID, ...) -> nil
+    on_exit = mt.Function,   -- (previous : ID, ...) -> nil
+    on_update = mt.Function, -- (...) -> nil
+    on_added = mt.Function,  -- () -> nil
+    on_removed = mt.Function -- () -> nil
+}
 
 local function _get_entry(scope, self, id)
     local entry = self._states[id]
@@ -27,17 +35,9 @@ function rt.StateMachine:instantiate(id, config, ...)
     local entry = _get_entry("instantiate", self, self._current_state_id)
     if meta.is_function(entry.on_enter) then
         entry.on_enter()
-        self:signal_emit("enter", self._current_state_id)
+        self:signal_emit("enter", self._current_state_id, nil)
     end
 end
-
-local _valid_keys = {
-    on_enter = mt.Function,
-    on_exit = mt.Function,
-    on_update = mt.Function,
-    on_added = mt.Function,
-    on_removed = mt.Function
-}
 
 local _validate_config = function(scope, id, config)
     if config ~= nil then
@@ -81,7 +81,7 @@ function rt.StateMachine:add_state(...)
         end
 
         self._states[id] = entry
-        table.insert(to_trigger, id)
+        table.insert(to_trigger, entry)
     end
 
     for _, entry in ipairs(to_trigger) do
@@ -138,16 +138,16 @@ function rt.StateMachine:set_state(next_id, ...)
     if next_id == previous_id then return self end
 
     if previous_state.on_exit ~= nil then
-        previous_state.on_exit(...)
+        previous_state.on_exit(next_id, ...)
     end
-    self:signal_emit("exit", self._current_state_id, ...)
+    self:signal_emit("exit", self._current_state_id, previous_id, ...)
 
     self._current_state_id = next_id
 
     if next_state.on_enter ~= nil then
-        next_state.on_enter(...)
+        next_state.on_enter(previous_id, ...)
     end
-    self:signal_emit("enter", self._current_state_id, ...)
+    self:signal_emit("enter", self._current_state_id, previous_id, ...)
 
     return self
 end
