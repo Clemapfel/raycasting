@@ -30,21 +30,27 @@ rt.settings.title_banner_scene = {
     },
 
     blob = {
-        n_blobs = 256,
-        min_position_velocity = 0.5, -- radians / s
-        max_position_velocity = 0.5,
-        min_scale = 1,
-        max_scale = 1,
+        n_blobs = 1024,
+        min_position_velocity = 20, -- px / s
+        max_position_velocity = 30,
+
+        min_scale = 0.5,
+        max_scale = 1.5,
+
         min_radius = 100,
         max_radius = 100,
+
         min_scale_velocity = 0.05, -- fraction / s
         max_scale_velocity = 0.15,
 
         min_rotation_velocity = 0.05, -- radians / s
         max_rotation_velocity = 0.25,
 
-        min_alpha = 0.1,
-        max_alpha = 0.2
+        min_orbit_velocity = 20, -- px / s
+        max_orbit_velocity = 20,
+
+        min_alpha = 0.04,
+        max_alpha = 0.1
     }
 }
 
@@ -86,10 +92,12 @@ function aux.TitleBannerScene:size_allocate(x, y, width, height)
 
     local settings = rt.settings.title_banner_scene.blob
     local center_x, center_y = x + 0.5 * width, y + 0.5 * height
+    self._center_x, self._center_y = center_x, center_y
+    self._radius_x, self._radius_y = 0.5 * label_w, 0.5 * label_h
 
     do
         self._blobs = {}
-        local area_w, area_h = height, height
+        local area_w, area_h = label_w, label_h
         local n_blobs = settings.n_blobs
         for blob_i = 1, n_blobs do
             local angle = rt.random.number(0, math.tau)
@@ -100,34 +108,41 @@ function aux.TitleBannerScene:size_allocate(x, y, width, height)
 
             local radius = rt.random.number(settings.min_radius, settings.max_radius)
 
-            local x_radius = rt.random.number(0, 0.5 * area_w)
-            local y_radius = rt.random.number(0, 0.5 * area_h)
+            local x_offset = rt.random.number(0, 0.5 * area_w)
+            local y_offset = rt.random.number(0, 0.5 * area_h)
+
+            local pdx, pdy = math.cos(angle), math.sin(angle)
+            local px, py = cx + pdx * x_offset, cy + pdy * y_offset
+
+            local vx, vy = math.normalize(math.normalize(math.subtract(px, py, center_x, center_y)))
+            local vm = rt.random.number(settings.min_position_velocity, settings.max_position_velocity)
+            vx = vx * vm
+            vy = vy * vm
 
             table.insert(self._blobs, {
                 angle = angle,
 
                 x_scale = rt.random.number(settings.min_scale, settings.max_scale),
                 x_scale_velocity = rt.random.number(settings.min_scale_velocity, settings.max_scale_velocity),
-                x_scale_elapsed = rt.random.number(0, 1),
+                x_scale_elapsed = rt.random.number(0, math.tau),
 
                 y_scale = rt.random.number(settings.min_scale, settings.max_scale),
                 y_scale_velocity = rt.random.number(settings.min_scale_velocity, settings.max_scale_velocity),
-                y_scale_elapsed = rt.random.number(0, 1),
+                y_scale_elapsed = rt.random.number(0, math.tau),
 
-                cx = cx,
-                cy = cy,
-                x = cx + math.cos(angle) * x_radius,
-                y = cy + math.sin(angle) * y_radius,
-
-                x_radius = x_radius,
-                y_radius = y_radius,
-                position_direction = rt.random.choose(-1, 1),
-                position_velocity = rt.random.number(settings.min_velocity, settings.max_velocity),
-                position_elapsed = 0,
+                x = px,
+                y = py,
+                velocity_x = vx,
+                velocity_y = vy,
+                orbit_direction = rt.random.choose(-1, 1),
+                orbit_velocity = 0, --rt.random.number(settings.min_orbit_velocity, settings.max_orbit_velocity),
 
                 rotation = rt.random.number(0, math.tau),
                 rotation_velocity = rt.random.number(settings.min_rotation_velocity, settings.max_rotation_velocity),
-                rotation_elapsed = rt.random.number(0, 1),
+
+                x_offset = x_offset,
+                y_offset = y_offset,
+                mass = math.pi * radius * radius, -- ellipse volume
 
                 radius = radius,
                 alpha = rt.random.number(settings.min_alpha, settings.max_alpha)
@@ -168,20 +183,42 @@ function aux.TitleBannerScene:update(delta)
 
     do
         local bounds = self:get_bounds()
-        local delta = 0.2 * delta
         for blob in values(self._blobs) do
-            blob.position_elapsed = blob.position_elapsed + delta
-            blob.x = blob.cx + math.cos(blob.angle + blob.position_elapsed
-                * math.tau
-                * blob.position_direction
-                * blob.position_velocity
-            ) * blob.x_radius
 
-            blob.y = blob.cy + math.sin(blob.angle + blob.position_elapsed
-                * math.tau
-                * blob.position_direction
-                * blob.position_velocity
-            ) * blob.y_radius
+            local ox, oy = blob.x - self._center_x, blob.y - self._center_y
+            local dist = math.magnitude(ox, oy)
+            if dist < 0.0001 then return end
+
+            local dx, dy = math.normalize(ox, oy)
+
+            local tx, ty
+            if blob.orbit_direction == 1 then
+                tx, ty = math.turn_left(dx, dy)
+            else
+                tx, ty = math.turn_right(dx, dy)
+            end
+            tx, ty = math.normalize(tx, ty)
+
+            local t_weight = math.distance(blob.x, blob.y, self._center_x, self._center_y) / math.min(self._radius_x, self._radius_y)
+
+            local ax = tx * blob.orbit_velocity * math.min(t_weight, 1)
+            local ay = ty * blob.orbit_velocity * math.min(t_weight, 1)
+
+            local vt = math.dot(
+                blob.velocity_x + ax * delta,
+                blob.velocity_y + ay * delta,
+                tx, ty
+            )
+
+            local centripetal = (vt * vt) / dist
+            ax = ax - dx * centripetal
+            ay = ay - dy * centripetal
+
+            --blob.velocity_x = blob.velocity_x + ax * delta
+            --blob.velocity_y = blob.velocity_y + ay * delta
+
+            blob.x = blob.x + blob.velocity_x * delta
+            blob.y = blob.y + blob.velocity_y * delta
 
             blob.x_scale_elapsed = blob.x_scale_elapsed + delta
             blob.x_scale = math.mix(
@@ -197,11 +234,11 @@ function aux.TitleBannerScene:update(delta)
                 rt.InterpolationFunctions.SINE_WAVE(blob.y_scale_elapsed, blob.y_scale_velocity)
             )
 
-            blob.rotation_elapsed = blob.rotation_elapsed + delta
-            blob.rotation = blob.rotation_elapsed * math.tau * blob.rotation_velocity
-
-            blob.x = math.clamp(blob.x, bounds.x + blob.radius * blob.x_scale, bounds.x + bounds.width - blob.radius * blob.x_scale)
-            blob.y = math.clamp(blob.y, bounds.y + blob.radius * blob.y_scale, bounds.y + bounds.height - blob.radius * blob.y_scale)
+            local cdx, cdy = math.normalize(math.subtract(blob.x, blob.y, self._center_x, self._center_y))
+            local r = math.min(self._radius_x, self._radius_y)
+            if math.distance(blob.x, blob.y, self._center_x, self._center_y) > r then
+                blob.velocity_x, blob.velocity_y = math.reflect(blob.velocity_x, blob.velocity_y, cdx, cdy)
+            end
         end
     end
 end
@@ -213,6 +250,11 @@ function aux.TitleBannerScene:draw()
 
     love.graphics.push("all")
     self._canvas:bind()
+
+    love.graphics.translate(0.5 * love.graphics.getWidth(), 0.5 * love.graphics.getHeight())
+    love.graphics.scale(0.75, 0.75)
+    love.graphics.translate(-0.5 * love.graphics.getWidth(), -0.5 * love.graphics.getHeight())
+
     love.graphics.clear()
     love.graphics.setBlendMode("alpha", "premultiplied")
     for blob in values(self._blobs) do
@@ -229,11 +271,13 @@ function aux.TitleBannerScene:draw()
     love.graphics.pop()
 
     love.graphics.setBlendMode("alpha", "premultiplied")
-    love.graphics.clear(rt.Palette.TRUE_MAGENTA:unpack())
+    love.graphics.clear(rt.Palette.GRAY_8:unpack())
 
     if self._blob_shader ~= nil then
         love.graphics.push("all")
         self._blob_shader:bind()
+        self._blob_shader:send("black", rt.Palette.BLACK)
+        self._blob_shader:send("elapsed", rt.SceneManager:get_elapsed())
         self._canvas:draw()
         self._blob_shader:unbind()
         love.graphics.pop()
@@ -243,7 +287,7 @@ function aux.TitleBannerScene:draw()
     self._text_shader:bind()
     self._text_shader:send("black", rt.Palette.BLACK)
     self._text_shader:send("elapsed", rt.SceneManager:get_elapsed())
-    self._sdf_label:draw()
+    --self._sdf_label:draw()
     self._text_shader:unbind()
     love.graphics.pop()
 end
