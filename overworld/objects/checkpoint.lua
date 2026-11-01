@@ -690,8 +690,6 @@ function ow.Checkpoint:draw(priority)
              )
         end
     end
-
-    love.graphics.line(self._top_x, self._top_y, self._bottom_x, self._bottom_y)
 end
 
 --- @brief

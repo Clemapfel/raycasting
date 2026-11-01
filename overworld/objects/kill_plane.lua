@@ -405,7 +405,7 @@ function ow.KillPlane:draw()
     _instance_draw_shader:send("outline_thickness", self._outline_width)
     _instance_draw_shader:send("outline_color", { self._outline_color:unpack() })
     _instance_draw_shader:send("black", { rt.Palette.BLACK:unpack() })
-    self._instance_mesh:draw_instanced(self._n_instances)
+    --self._instance_mesh:draw_instanced(self._n_instances)
     _instance_draw_shader:unbind()
 
     love.graphics.setLineJoin("bevel")

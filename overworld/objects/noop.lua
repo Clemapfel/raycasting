@@ -3,8 +3,23 @@ ow.NOOP = meta.class("NOOP", ow.MovableObject)
 
 --- @brief
 function ow.NOOP:instantiate(object, stage, scene)
-    self._contour = object:create_contour()
-    self._fill = object:create_mesh()
+    if object:get_type() == ow.ObjectType.POINT then
+        local x, y = object:get_position()
+
+        self._contour = {}
+        local n_vertices = 8
+        local radius = 2
+        for i = 1, n_vertices do
+            local angle = (i - 1) / n_vertices * math.tau
+            table.insert(self._contour, x + math.cos(angle) * radius)
+            table.insert(self._contour, y + math.sin(angle) * radius)
+        end
+
+        self._fill = rt.MeshCircle(x, y, radius)
+    else
+        self._contour = object:create_contour()
+        self._fill = object:create_mesh()
+    end
 end
 
 --- @brief

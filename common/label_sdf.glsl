@@ -27,6 +27,8 @@
 layout(JFA_TEXTURE_FORMAT) uniform image2DArray jfa_texture_array;
 layout(MASK_TEXTURE_FORMAT) uniform readonly image2D mask_texture;
 
+uniform float threshold = 0.0;
+
 #elif MODE == MODE_JUMP
 
 uniform int jump_distance; // k / 2, k / 2 / 2, ..., 1, where k = max(size(input_texture))
@@ -74,7 +76,6 @@ float load_distance(ivec2 p, ivec2 image_size) {
 #endif
 
 const float infinity = 1.0 / 0.0;
-const float threshold = 0;
 
 const ivec2 directions[8] = ivec2[](
     ivec2(0, -1),
@@ -112,7 +113,7 @@ void computemain() {
 
             vec4 other = imageLoad(mask_texture, neighbor_position);
             if (other.r > threshold)
-            n_others += 1;
+                n_others += 1;
         }
 
         if (n_others >= 8) {

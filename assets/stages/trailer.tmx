@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="9" nextobjectid="1309">
+<map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="9" nextobjectid="1329">
  <editorsettings>
   <export target="trailer.lua" format="lua"/>
  </editorsettings>
@@ -11,13 +11,28 @@
  <imagelayer id="3" name="bg" repeatx="1" repeaty="1">
   <image source="../tilesets/debug_tileset_16x16/tile.png" width="16" height="16"/>
  </imagelayer>
- <objectgroup id="8" name="aux" visible="0">
+ <objectgroup id="8" name="aux">
   <object id="1306" type="CameraFit" x="-128" y="160">
-   <polygon points="64,0 1008,0 1008,-608 64,-608"/>
+   <polygon points="-208,0 1008,0 1008,-608 -208,-608"/>
+  </object>
+  <object id="1310" type="CameraBounds" x="-128" y="160">
+   <polygon points="-208,0 1008,0 1008,-608 -208,-608"/>
+  </object>
+  <object id="1312" type="CameraBounds" x="-80" y="1040">
+   <polygon points="-208,0 1008,0 1008,-608 -208,-608"/>
+  </object>
+  <object id="1311" type="CameraFit" x="-80" y="1040">
+   <polygon points="-208,0 1008,0 1008,-608 -208,-608"/>
   </object>
  </objectgroup>
- <objectgroup id="7" name="background" visible="0">
+ <objectgroup id="7" name="background">
   <object id="1304" type="Wall" x="-64" y="-128">
+   <properties>
+    <property name="type" value="SPHERES"/>
+   </properties>
+   <polygon points="0,0 0,288 944,288 944,-448 624,-448"/>
+  </object>
+  <object id="1328" type="Wall" x="-64" y="752">
    <properties>
     <property name="type" value="SPHERES"/>
    </properties>
@@ -27,9 +42,6 @@
  <objectgroup id="2" name="base">
   <object id="1295" type="Hitbox" x="-64" y="16">
    <polygon points="-128,0 144,0 144,240 -128,240"/>
-  </object>
-  <object id="1296" name="Spawn" type="PlayerSpawn" x="-312.096" y="-54.3443">
-   <point/>
   </object>
   <object id="1297" type="SlipperyHitbox" x="336" y="-208">
    <polygon points="32,0 64,0 64,80 48,80 49.7592,16 32,16"/>
@@ -44,13 +56,52 @@
    <polygon points="0,96 -16,96 -16,-432 464,-432 464,-416 0,-416"/>
   </object>
   <object id="1301" type="KillPlane" x="96" y="96">
-   <polygon points="0,0 512,0 512,160 0,160"/>
+   <polygon points="0,0 0,-96 0,-117.843 17.8254,-151.012 47.7915,-186.828 76.992,-208.627 106.675,-219.375 146.241,-224 186.605,-218.803 218.111,-209.949 245.034,-194.199 304,-192 304,-224 304,-304 272,-304 279.837,-334.952 302.967,-379.064 336,-400 378.428,-410.969 419.025,-413.444 459.46,-405.535 492.391,-390.271 512,-368 512,160 0,160"/>
   </object>
   <object id="1307" type="Hitbox" x="336" y="-192">
    <polygon points="32,0 32,64 48,64 48,0"/>
   </object>
   <object id="1308" type="Fireflies" x="336" y="-160">
    <point/>
+  </object>
+  <object id="1309" type="KillPlane" x="96" y="-144">
+   <polygon points="22.4611,-14.4393 45.4672,-35.4009 80.8918,-54.428 120.893,-64.3917 164.184,-67.7727 197.8,-73.5311 199.369,-95.2092 184.896,-145.287 224,-240 271.94,-252.631 316.179,-225.13 340.724,-237.763 376.224,-245.804 407.277,-247.802 441.877,-241.093 466.337,-227.766 496.354,-209.64 528,-208 624,-208 624,-432 -16,-432 -16,16 0,16"/>
+  </object>
+  <object id="1313" type="Hitbox" x="-16" y="896">
+   <polygon points="-128,0 144,0 144,240 -128,240"/>
+  </object>
+  <object id="1314" name="Spawn" type="PlayerSpawn" x="-128" y="-16">
+   <point/>
+  </object>
+  <object id="1315" type="SlipperyHitbox" x="304" y="672">
+   <polygon points="32,0 64,0 64,80 48,80 49.7592,16 32,16"/>
+  </object>
+  <object id="1316" type="SlipperyHitbox" x="144" y="1024">
+   <polygon points="0,112 0,-128 0,-144 -288,-144 -288,-128 -16,-128 -16,112"/>
+  </object>
+  <object id="1317" type="Hitbox" x="672" y="1040">
+   <polygon points="0,96 0,-416 464,-416 464,96"/>
+  </object>
+  <object id="1318" type="SlipperyHitbox" x="672" y="1040">
+   <polygon points="0,96 -16,96 -16,-528 0,-528 0,-432 464,-432 464,-416 0,-416"/>
+  </object>
+  <object id="1319" type="KillPlane" x="144" y="976">
+   <polygon points="0,0 512,0 512,160 0,160"/>
+  </object>
+  <object id="1320" type="Hitbox" x="304" y="688">
+   <polygon points="32,0 32,64 48,64 48,0"/>
+  </object>
+  <object id="1321" type="Fireflies" x="384" y="720">
+   <point/>
+  </object>
+  <object id="1323" type="SlipperyHitbox" x="464" y="768">
+   <polygon points="0,0 0,-432 32,-432 32,0"/>
+  </object>
+  <object id="1324" type="AcceleratorSurface" x="368" y="832">
+   <polygon points="0,0 32,0 32,36.863 38.4599,60.5495 52.4565,80.9268 77.7332,93.0523 106.767,97.0767 137.39,93.8467 161.049,84.3598 175.442,70.4753 188.363,49.0866 192,21.0835 192,-176 208,-192 208,128 0,128"/>
+  </object>
+  <object id="1325" type="AcceleratorSurface" x="496" y="560">
+   <polygon points="0,0 0,-192 192,-192 192,-160 163.352,-126.474 132.336,-123.269 105.051,-120.829 81.5567,-115.574 60.0315,-100.054 43.3929,-73.267 38.4599,-41.0508 34.4835,4.43472 32,32 0,64"/>
   </object>
  </objectgroup>
  <objectgroup id="6" name="foreground"/>

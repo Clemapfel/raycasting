@@ -29,12 +29,13 @@ local _init_shader = rt.ComputeShader("common/label_sdf.glsl", defines(0))
 local _jump_shader = rt.ComputeShader("common/label_sdf.glsl", defines(1))
 local _export_shader = rt.ComputeShader("common/label_sdf.glsl", defines(2))
 
-function rt.LabelSDF:instantiate(text, font_size, font, max_distance)
+function rt.LabelSDF:instantiate(text, font_size, font, max_distance, threshold)
     meta.assert(
         text, mt.String,
         font_size, mt.Union(rt.FontSize, mt.Number),
         font, rt.Font,
-        max_distance, mt.Optional(mt.Number)
+        max_distance, mt.Optional(mt.Number),
+        threshold, mt.Optional(mt.Number)
     )
 
     if max_distance == nil then max_distance = rt.settings.label_sdf.max_distance end
@@ -46,6 +47,7 @@ function rt.LabelSDF:instantiate(text, font_size, font, max_distance)
     self._label:reformat(0, 0)
 
     self._max_distance = max_distance
+    self._threshold = threshold
     self._sdf_needs_export = true
 
     self._padding_x, self._padding_y = 0, 0
@@ -108,6 +110,7 @@ function rt.LabelSDF:_compute()
     -- init jfa
     _init_shader:send("mask_texture", self._mask_texture)
     _init_shader:send("jfa_texture_array", self._jfa_texture)
+    _init_shader:send("threshold", self._threshold or 0)
     _init_shader:dispatch(self._dispatch_x, self._dispatch_y)
 
     -- jfa
@@ -133,7 +136,7 @@ function rt.LabelSDF:_compute()
     _export_shader:send("jfa_texture_array", self._jfa_texture)
     _export_shader:send("export_texture", self._export_texture)
     _export_shader:send("mask_texture", self._mask_texture)
-    _export_shader:send("max_distance", rt.settings.label_sdf.max_distance)
+    _export_shader:send("max_distance", self._max_distance or rt.settings.label_sdf.max_distance)
     _export_shader:dispatch(self._dispatch_x, self._dispatch_y)
 
     self._sdf_needs_export = false
