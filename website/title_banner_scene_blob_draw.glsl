@@ -78,8 +78,6 @@ vec4 effect(vec4 vertex_color, sampler2D img, vec2 texture_coordinates, vec2 fra
         elapsed
     ))));
 
-
-
     return vec4(mix(fill_value * fill_color, vec4(outline_color, 1.0), outline_value));
 }
 

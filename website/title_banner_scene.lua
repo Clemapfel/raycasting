@@ -31,16 +31,16 @@ rt.settings.title_banner_scene = {
 
     blob = {
         n_blobs = 1024,
-        min_position_velocity = 20, -- px / s
-        max_position_velocity = 30,
+        min_position_velocity = 80, -- px / s
+        max_position_velocity = 100,
 
-        min_scale = 0.5,
+        min_scale = 0,
         max_scale = 1.5,
 
         min_radius = 100,
         max_radius = 100,
 
-        min_scale_velocity = 0.05, -- fraction / s
+        min_scale_velocity = 0.1, -- fraction / s
         max_scale_velocity = 0.15,
 
         min_rotation_velocity = 0.05, -- radians / s
@@ -61,7 +61,7 @@ aux.TitleBannerScene = meta.class("TitleBannerScene", rt.Scene, true)
 function aux.TitleBannerScene:size_allocate(x, y, width, height)
     self._sdf_label = rt.LabelSDF(
         rt.Translation.menu_scene.title_screen.title,
-        160,
+        120,
         rt.Font(rt.settings.menu_scene.title_screen.font_roman),
         20, -- max distance
         0.05 -- threshold
@@ -114,7 +114,7 @@ function aux.TitleBannerScene:size_allocate(x, y, width, height)
             local pdx, pdy = math.cos(angle), math.sin(angle)
             local px, py = cx + pdx * x_offset, cy + pdy * y_offset
 
-            local vx, vy = math.normalize(math.normalize(math.subtract(px, py, center_x, center_y)))
+            local vx, vy = math.normalize(math.subtract(px, py, center_x, center_y))
             local vm = rt.random.number(settings.min_position_velocity, settings.max_position_velocity)
             vx = vx * vm
             vy = vy * vm
@@ -181,13 +181,17 @@ end
 function aux.TitleBannerScene:update(delta)
     local settings = rt.settings.title_banner_scene.blob
 
+    -- ratio of ellipse axes, normalized so the larger axis keeps full speed
+    local max_radius = math.max(self._radius_x, self._radius_y)
+    local velocity_scale_x = self._radius_x / max_radius
+    local velocity_scale_y = self._radius_y / max_radius
+
     do
         local bounds = self:get_bounds()
         for blob in values(self._blobs) do
 
             local ox, oy = blob.x - self._center_x, blob.y - self._center_y
             local dist = math.magnitude(ox, oy)
-            if dist < 0.0001 then return end
 
             local dx, dy = math.normalize(ox, oy)
 
@@ -234,10 +238,20 @@ function aux.TitleBannerScene:update(delta)
                 rt.InterpolationFunctions.SINE_WAVE(blob.y_scale_elapsed, blob.y_scale_velocity)
             )
 
-            local cdx, cdy = math.normalize(math.subtract(blob.x, blob.y, self._center_x, self._center_y))
-            local r = math.min(self._radius_x, self._radius_y)
-            if math.distance(blob.x, blob.y, self._center_x, self._center_y) > r then
-                blob.velocity_x, blob.velocity_y = math.reflect(blob.velocity_x, blob.velocity_y, cdx, cdy)
+            if blob.x_scale <= 0.01 or blob.y_scale <= 0.01 then
+                blob.x = self._center_x
+                blob.y = self._center_y
+
+                local angle = rt.random.number(0, math.tau)
+                local vm = rt.random.number(settings.min_position_velocity, settings.max_position_velocity)
+
+                blob.velocity_x = math.cos(angle) * vm * velocity_scale_x
+                blob.velocity_y = math.sin(angle) * vm * velocity_scale_y
+
+                blob.x_scale = rt.random.number(settings.min_scale, settings.max_scale)
+                blob.y_scale = rt.random.number(settings.min_scale, settings.max_scale)
+                blob.x_scale_elapsed = rt.random.number(0, math.tau)
+                blob.y_scale_elapsed = rt.random.number(0, math.tau)
             end
         end
     end
@@ -252,7 +266,8 @@ function aux.TitleBannerScene:draw()
     self._canvas:bind()
 
     love.graphics.translate(0.5 * love.graphics.getWidth(), 0.5 * love.graphics.getHeight())
-    love.graphics.scale(0.75, 0.75)
+    local scale = -0.05
+    love.graphics.scale(1 + scale, 1 + scale)
     love.graphics.translate(-0.5 * love.graphics.getWidth(), -0.5 * love.graphics.getHeight())
 
     love.graphics.clear()
@@ -287,7 +302,7 @@ function aux.TitleBannerScene:draw()
     self._text_shader:bind()
     self._text_shader:send("black", rt.Palette.BLACK)
     self._text_shader:send("elapsed", rt.SceneManager:get_elapsed())
-    --self._sdf_label:draw()
+    self._sdf_label:draw()
     self._text_shader:unbind()
     love.graphics.pop()
 end
