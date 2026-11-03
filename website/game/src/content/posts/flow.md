@@ -1,11 +1,10 @@
 ---
 title: "My Post"
-slug: "test"
+slug: "flow"
 date: "04.05.2026"
 shader: "red_blood_cells"
+abstract: "TODO"
 ---
-
-fofofof
 
 # Test Markdown File
 

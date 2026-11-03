@@ -1,36 +1,44 @@
 ---
 // components/header_bar.astro
+
 import LabelSDF from "./label_sdf.astro";
 import { Locale, Translation } from "../i18n/translation.ts";
+
+const NAV_ITEMS = ["home", "about", "faq", "contact", "posts"] as const;
+type NavItem = (typeof NAV_ITEMS)[number];
+
+interface Props {
+    items?: readonly NavItem[];
+}
+
+const { items: enabled = NAV_ITEMS } = Astro.props;
 
 const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 const locale = Astro.currentLocale ?? Locale.ENGLISH;
 
-const mapping : Readonly<Record<string, string>> = {
-    "faq_de" :  "faq_en",
-    "posts_de" : "posts_en",
-    "faq_ja" : "faq_en"
+const mapping: Readonly<Record<string, string>> = {
+    "header_bar/faq_de": "header_bar/faq_en",
+    "header_bar/posts_de": "header_bar/posts_en",
+    "header_bar/faq_ja": "header_bar/faq_en",
 };
 
-const titles = Translation.header_bar.title
-const items = [
-    { name: "home" },
-    { name: "about" },
-    { name: "faq" },
-    { name: "contact" },
-    { name: "posts" },
-].map(({ name }) => {
-    const raw = `header_bar/${name}_${locale}`;
-    const file = mapping[raw] ?? raw;
-    const title = titles[name][locale];
+const titles = Translation.header_bar.title;
+const enabledSet = new Set<string>(enabled);
 
-    return {
-        name,
-        href: `${base}/${locale}/${name}`,
-        sdfPath: `/${file}.png`,
-        title: title
-    };
-});
+const items = NAV_ITEMS
+    .filter((name) => enabledSet.has(name))
+    .map((name) => {
+        const raw = `header_bar/${name}_${locale}`;
+        const file = mapping[raw] ?? raw;
+        const title = titles[name][locale];
+
+        return {
+            name,
+            href: `${base}/${locale}/${name}`,
+            sdfPath: `/${file}.png`,
+            title,
+        };
+    });
 ---
 
 <style>
@@ -46,9 +54,9 @@ const items = [
         height: 8rem;
         cursor: pointer;
         color: oklch(
-            var(--global-color-l)
-            var(--global-color-c)
-            var(--global-color-h)
+                var(--global-color-l)
+                var(--global-color-c)
+                var(--global-color-h)
         );
     }
 </style>
@@ -56,9 +64,9 @@ const items = [
 <nav class="header-bar">
     {
         items.map((item) => (
-            <a href={ item.href } class="label-sdf-wrapper" title={ item.title }>
-                <LabelSDF path={ item.sdfPath } blur={ true } reactive={ true } />
-            </a>
+                <a href={ item.href } class="label-sdf-wrapper" title={ item.title }>
+                    <LabelSDF path={ item.sdfPath } blur={ true } reactive={ true } />
+                </a>
         ))
     }
 </nav>

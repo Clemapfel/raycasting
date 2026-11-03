@@ -4,7 +4,7 @@ import { getCollection } from "astro:content";
 import Layout from "../../layouts/layout.astro";
 import MarkdownRenderer from "../../components/markdown.astro";
 import ShaderCanvas from "../../components/shader_canvas.astro";
-import Footer from "../../components/footer.astro";
+import { Locale, Translation } from "../../i18n/translation";
 
 export async function getStaticPaths() {
     return (await getCollection("posts")).map(post => ({
@@ -16,8 +16,6 @@ export async function getStaticPaths() {
 const { post } = Astro.props;
 ---
 
-<Layout>
-    <ShaderCanvas id={post.data.shader} />
-    <MarkdownRenderer id={post.data.slug} />
-    <Footer author="C. Cords" />
+<Layout title={}>
+
 </Layout>

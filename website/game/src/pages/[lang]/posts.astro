@@ -1,0 +1,39 @@
+---
+import { getCollection, getEntry, render } from "astro:content";
+import Layout from "../../layouts/layout.astro"
+import { Locale, Translation } from "../../i18n/translation.ts";
+import ShaderCanvas from "../../components/shader_canvas.astro";
+import HeaderBar from "../../components/header_bar.astro";
+
+export async function getStaticPaths() {
+    const posts = await getCollection("posts");
+    return Object.values(Locale).flatMap((lang) =>
+        posts.map((post) => ({
+            params: { lang: lang, slug: post.id },
+            props: { post },
+        }))
+    );
+}
+
+const { post } = Astro.props;
+const { Content } = await render(post);
+
+const locale = Astro.currentLocale ?? Locale.ENGLISH;
+
+---
+
+<style>
+    .header-bar-wrapper {
+        --header-margin: 20px;
+        width: calc(100% + var(--header-overflow));
+        margin-top: var(--header-margin);
+        margin-bottom: var(--header-margin);
+    }
+</style>
+
+<Layout>
+    <ShaderCanvas id="none" />
+    <div class="header-bar-wrapper">
+        <HeaderBar items={["home"]} />
+    </div>
+</Layout>
