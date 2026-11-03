@@ -70,7 +70,7 @@ function love.conf(settings)
     settings.title = "Choma Void" -- deprecated but still set in 12.0
 
     settings.identity = "chroma_void"
-    settings.appendidentity = false -- prioritze source dir over save dir for file i/o
+    settings.appendidentity = true -- needs to be true, otherwise main.lua can be loaded from appdata
 
     for _, exclude in pairs({
         "touch",

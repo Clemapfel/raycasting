@@ -1,6 +1,45 @@
 require "include"
 require "common.error_handler"
 
+
+do
+    -- test
+
+    local Foo = meta.class("Foo")
+
+    local schema = meta.Schema {
+        foo = Foo,
+        number = meta.Number,
+        union_string = meta.Union(meta.String, Foo),
+        [false] = mt.Boolean,
+        inner = {
+            [1] = {
+                [2] = Foo
+            },
+            inner_foo = meta.Optional(Foo),
+            inner_number = meta.Number,
+            inner_union = meta.Union(meta.String, Foo)
+        }
+    }
+
+    local x = {
+        foo = Foo(),
+        number = 1234,
+        union_string = "union",
+        [false] = true,
+        inner = {
+            [1] = {
+                [2] = Foo(),
+            },
+            --inner_foo = Foo(),
+            inner_number = -1234,
+            inner_union = Foo()
+        }
+    }
+
+    dbg(schema:validate(x))
+end
+
 if _G.PROFILE then
     profiler = require "common.profiler"
 end

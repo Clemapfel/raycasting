@@ -1,6 +1,7 @@
 require "common.common"
 
 local _noop = function() end
+--[[
 
 --- @class meta
 meta = meta or {}
@@ -1179,3 +1180,5 @@ function meta.get_instance_metatable(type)
 end
 
 return meta
+
+]]

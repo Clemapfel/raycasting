@@ -44,7 +44,7 @@ local _new_type = function(name, super)
         __index = super,
         __signals = {},
         __typename = _type_typename,
-        __tostring = function(self) return name end,
+        __tostring = function(self) return name end,--_type_typename .. "<" .. name .. ">" end,
         __is_native = false,
     }
 
@@ -110,20 +110,35 @@ meta.Union = _new_native_type(_union_typename)
 --- @class meta.Optional
 meta.Optional = _new_native_type("Optional")
 
-getmetatable(meta.Union).__call = function(self, ...)
-    if select("#", ...) == 0 then rt.error("In meta.Union: number of arguments cannot be 0") end
-    local out = _new_native_type("Union")
-    _get_metatable(out).__typename = _union_typename
-    out.types = { ... }
-    return out
-end
+do
 
-getmetatable(meta.Optional).__call = function(self, ...)
-    if select("#", ...) == 0 then rt.error("In meta.Optional: number of arguments cannot be 0") end
-    local out = _new_native_type("Union")
-    _get_metatable(out).__typename = _union_typename
-    out.types = { meta.Nil, ... }
-    return out
+    local function _union_tostring(self)
+        local names = {}
+        for i, t in ipairs(self.types) do
+            names[i] = tostring(t)
+        end
+        return "Union<" .. table.concat(names, ", ") .. ">"
+    end
+
+    getmetatable(meta.Union).__call = function(self, ...)
+        if select("#", ...) == 0 then rt.error("In meta.Union: number of arguments cannot be 0") end
+        local out = _new_native_type("Union")
+        local mt = _get_metatable(out)
+        mt.__typename = _union_typename
+        mt.__tostring = _union_tostring
+        out.types = { ... }
+        return out
+    end
+
+    getmetatable(meta.Optional).__call = function(self, ...)
+        if select("#", ...) == 0 then rt.error("In meta.Optional: number of arguments cannot be 0") end
+        local out = _new_native_type("Union")
+        local mt = _get_metatable(out)
+        mt.__typename = _union_typename
+        mt.__tostring = _union_tostring
+        out.types = { meta.Nil, ... }
+        return out
+    end
 end
 
 -- reserve typenames
@@ -205,7 +220,10 @@ do
     function meta.is_type(x)
         if _g_type(x) ~= "table" then return false end
         local mt = _get_metatable(x)
-        return meta.is_table(mt) and mt.__typename == _type_typename
+        return meta.is_table(mt) and (mt.__typename == _type_typename
+            or mt.__typename == _union_typename
+            or mt.__typename == _enum_typename
+        )
     end
 
     function meta.is_union(x)
@@ -845,8 +863,24 @@ function meta.make_weak(t, weak_keys, weak_values)
 end
 
 --- @brief
-function meta.make_immutable(t)
-    meta.assert(t, meta.Table)
+function meta.make_immutable(t, recursive, _visited)
+    meta.assert(t, meta.Table, recursive, meta.Optional(meta.Boolean))
+    if recursive == nil then recursive = false end
+
+    -- guard against cycles and shared subtables
+    _visited = _visited or {}
+    if _visited[t] then
+        return t, getmetatable(t)
+    end
+    _visited[t] = true
+
+    if recursive then
+        for _, value in pairs(t) do
+            if type(value) == "table" then
+                meta.make_immutable(value, recursive, _visited)
+            end
+        end
+    end
 
     local metatable = getmetatable(t)
     if metatable == nil then
@@ -917,11 +951,104 @@ function meta.as_singleton(type, ...)
     return instance
 end
 
-function meta.validate_schema(x, schema)
-    meta.assert(x, meta.Any, schema, meta.Table)
+do
+    local function _to_key(prefix, key)
+        local parts = {}
 
+        for i = 1, #prefix + 1 do
+            local p = (i <= #prefix) and prefix[i] or key
+
+            if meta.is_number(p) then
+                parts[#parts + 1] = "[" .. tostring(p) .. "]"
+            else
+                if #parts > 0 then
+                    parts[#parts + 1] = "."
+                end
+                parts[#parts + 1] = tostring(p)
+            end
+        end
+
+        return table.concat(parts)
+    end
+
+    local function _validate_input(input, schema_node, prefix, is_valid_ref, is_active)
+        if is_active[input] == true then return end
+        is_active[input] = true
+
+        for key, value in pairs(input) do
+            if schema_node[key] == nil then
+                rt.error("In meta.validate_schema: key `", _to_key(prefix, key), "`, expected `nil`, got `", meta.typeof(value), "`")
+                is_valid_ref[1] = false
+                return
+            end
+        end
+
+        for key, schema_t in pairs(schema_node) do
+            local value = input[key]
+            if meta.is_type(schema_t) then
+                if not meta.isa(value, schema_t) then
+                    rt.error("In meta.validate_schema: key `", _to_key(prefix, key), "`: expected `", schema_t, "`, got `", meta.typeof(value), "`")
+                    is_valid_ref[1] = false
+                    return
+                end
+            else -- schema_t confirmed nested table in check_schema_correctness
+                if not meta.is_table(value) then
+                    rt.error("In meta.validate_schema: key `", _to_key(prefix, key), "`: expected nested `Table`, got `", meta.typeof(value), "`")
+                    is_valid_ref[1] = false
+                    return
+                end
+
+                local child_prefix = table.deepcopy(prefix)
+                table.insert(child_prefix, key)
+                _validate_input(value, schema_t, child_prefix, is_valid_ref, is_active)
+            end
+        end
+
+        is_active[input] = nil
+        return is_valid_ref[1]
+    end
+
+    local function _validate_schema(node, prefix, seen)
+        if seen[node] then
+            rt.fatal("In meta.validate_schema: malformed schema at key `", _to_key(prefix), "`: duplicate or circular table detected")
+        end
+        seen[node] = true
+
+        for key, value in pairs(node) do
+            if meta.is_type(value) then
+                -- valid, continue
+            elseif _g_type(value) == "table" then
+                local child_prefix = table.deepcopy(prefix)
+                table.insert(child_prefix, key)
+                _validate_schema(value, child_prefix, seen)
+            else
+                rt.fatal("In meta.validate_schema: malformed schema at key `", _to_key(prefix, key), "`: expected `Type` or a nested table, got `", meta.typeof(value), "`")
+            end
+        end
+    end
+
+    --- @class meta.Schema
+    meta.Schema = meta.class("Schema")
+
+    --- @brief
+    function meta.Schema:instantiate(layout)
+        _validate_schema(layout,
+            {}, -- prefix
+            {} -- seen
+        )
+
+        self.layout = meta.make_immutable(layout)
+    end
+
+    --- @brief
+    function meta.Schema:validate(x)
+        meta.assert(x, meta.Table)
+        return _validate_input(x, self.layout,
+            {}, -- prefix
+            { true }, -- return ref
+            {} -- currently active
+        )
+    end
 end
 
-
 return meta
-
