@@ -1,462 +1,365 @@
 require "common.common"
 
 local _noop = function() end
+io.stdout:setvbuf("no")
 
 --- @class meta
 meta = meta or {}
 mt = mt or meta
 
+if _G.type == nil then error("In require(\"common.meta\"): function `type` is not available in the global environment. Was it overwritten or was setfenv called?") end
+local _g_type = _G.type
+
+-- reserved typenames
+local _type_typename = "Type"
+local _union_typename = "Union"
+local _enum_typename = "Enum"
+
+-- shared type data
+local _type_to_name = {}
+local _name_to_type = {}
+local _enum_to_value_to_is_present = {}
+local _enum_to_instances = {}
+local _class_to_instance_metatable = {}
+
+local _current_instance_hash = 0
+
+-- instance properties
+local _metatable_index = 1
+local _hash_index = 2
+local _signals_index = 3
+
+local function _set_metatable(x, mt)
+    rawset(x, _metatable_index, mt)
+end
+
+local function _get_metatable(x)
+    return rawget(x, _metatable_index)
+end
+
+local _new_type = function(name, super)
+    local metatable = {
+        __name = name,
+        __super = super,
+        __index = super,
+        __signals = {},
+        __typename = _type_typename,
+        __tostring = function(self) return name end,
+        __is_native = false,
+    }
+
+    local type = setmetatable({}, metatable)
+
+    _type_to_name[type] = name
+    _name_to_type[name] = type
+
+    _set_metatable(type, metatable)
+    rawset(type, _hash_index, _current_instance_hash)
+    _current_instance_hash = _current_instance_hash + 1
+    type[_signals_index] = nil
+
+    return type
+end
+
+local _new_native_type = function(typename, ...)
+    local res = _new_type(typename, ...)
+    local to_override = getmetatable(res)
+    to_override.__is_native = true
+    return res
+end
+
 --- @class meta.Number
-meta.Number = "Number"
+meta.Number = _new_native_type("Number")
 
 --- @class meta.Boolean
-meta.Boolean = "Boolean"
+meta.Boolean = _new_native_type("Boolean")
 
 --- @class meta.String
-meta.String = "String"
+meta.String = _new_native_type("String")
 
 --- @class meta.Table
-meta.Table = "Table"
+meta.Table = _new_native_type("Table")
 
 --- @class meta.Function
-meta.Function = "Function"
+meta.Function = _new_native_type("Function")
 
 --- @class meta.Coroutine
-meta.Coroutine = "Coroutine"
+meta.Coroutine = _new_native_type("Coroutine")
 
 --- @class meta.Nil
-meta.Nil = "Nil"
-
---- @class meta.Type
-meta.Type = "Type"
-
---- @class meta.Enum
-meta.Enum = "Enum"
+meta.Nil = _new_native_type("Nil")
 
 --- @class meta.CData
-meta.CData = "CData"
+meta.CData = _new_native_type("CData")
 
 --- @class meta.UserData
-meta.UserData = "UserData"
-
---- @class meta.Object
-meta.Object = "Object"
-
---- @class meta.Union
-meta.Union = function(...)
-    if select("#", ...) == 0 then
-        rt.error("In meta.Union: called with 0 arguments, but a type cannot be the empty Union")
-    end
-
-    for i = 1, select("#", ...) do
-        if select(i, ...) == nil then
-            rt.error("In meta.Union: argument #", i, " is `nil`")
-        end
-    end
-
-    return { ... }
-end
-
---- @class meta.Optional
-meta.Optional = function(...)
-    if select("#", ...) == 0 then
-        rt.error("In meta.Optional: called with 0 arguments, but a type cannot be an empty Optional")
-    end
-
-    for i = 1, select("#", ...) do
-        if select(i, ...) == nil then
-            rt.error("In meta.Optional: argument #", i, " is `nil`")
-        end
-    end
-
-    return meta.Union(mt.Nil, ...)
-end
+meta.UserData = _new_native_type("UserData")
 
 --- @class meta.Any
-meta.Any = "*"
+meta.Any = _new_native_type("Any")
 
-if _G.type == nil then error("In require(\"common.meta\"): function `type` is not available in the global environment. Was it overwritten or was setfenv called?") end
-local _get_native_type = _G.type
+--- @class meta.Type
+meta.Type = _new_native_type(_type_typename)
 
-local _current_hash = 0
+--- @class meta.Enum
+meta.Enum = _new_native_type(_enum_typename)
 
-local _object_metatable_index = -1
-local _object_hash_index = _object_metatable_index - 1
-local _object_signal_component_index = _object_hash_index - 1
+--- @class meta.Union
+meta.Union = _new_native_type(_union_typename)
 
-local _instantiate_name = "instantiate"
-meta._typenames = {}
+--- @class meta.Optional
+meta.Optional = _new_native_type("Optional")
+
+getmetatable(meta.Union).__call = function(self, ...)
+    if select("#", ...) == 0 then rt.error("In meta.Union: number of arguments cannot be 0") end
+    local out = _new_native_type("Union")
+    _get_metatable(out).__typename = _union_typename
+    out.types = { ... }
+    return out
+end
+
+getmetatable(meta.Optional).__call = function(self, ...)
+    if select("#", ...) == 0 then rt.error("In meta.Optional: number of arguments cannot be 0") end
+    local out = _new_native_type("Union")
+    _get_metatable(out).__typename = _union_typename
+    out.types = { meta.Nil, ... }
+    return out
+end
+
+-- reserve typenames
 for type in range(
     meta.Number,
     meta.Boolean,
     meta.String,
-    meta.Table,
     meta.Function,
     meta.Coroutine,
     meta.Nil,
-    meta.Type,
     meta.Enum,
-    meta.Object,
     meta.CData,
     meta.UserData,
     meta.Any,
-    "Union",
-    "Optional"
+    meta.Table,
+    meta.Type,
+    meta.Enum,
+    meta.Union
 ) do
-    meta._typenames[type] = true
+    local typename = getmetatable(type).__name
+    _type_to_name[type] = typename
+    _name_to_type[typename] = type
 end
 
-local _type_to_super = {}
-local _type_to_instance_metatable = {}
-local _typename_to_type = {}
-local _type_to_typename = {}
+-- assertion
+
+function meta.is_number(x)
+    return _g_type(x) == "number" and not (x ~= x) -- NaN
+end
+
+function meta.is_boolean(x)
+    return _g_type(x) == "boolean"
+end
+
+function meta.is_string(x)
+    return _g_type(x) == "string"
+end
+
+function meta.is_function(x)
+    return _g_type(x) == "function"
+end
+
+function meta.is_coroutine(x)
+    return _g_type(x) == "thread"
+end
+
+function meta.is_nil(x)
+    return x == nil
+end
+
+function meta.is_cdata(x)
+    return _g_type(x) == "cdata"
+end
+
+function meta.is_userdata(x)
+    return _g_type(x) == "userdata"
+end
+
+function meta.is_any(x)
+    return x ~= nil
+end
+
+function meta.is_table(x)
+    return _g_type(x) == "table"
+end
+
+function meta.is_love_type(x, type)
+    local valid = _g_type(x) == "userdata" and _g_type(x.typeOf) == "function"
+    if type == nil then return valid else return x:typeOf(type) end
+end
+
+do
+    function meta.is_enum(x)
+        if _g_type(x) ~= "table" then return false end
+        local mt = _get_metatable(x)
+        return meta.is_table(mt) and mt.__typename == _enum_typename
+    end
+
+    function meta.is_type(x)
+        if _g_type(x) ~= "table" then return false end
+        local mt = _get_metatable(x)
+        return meta.is_table(mt) and mt.__typename == _type_typename
+    end
+
+    function meta.is_union(x)
+        if _g_type(x) ~= "table" then return false end
+        local mt = _get_metatable(x)
+        return meta.is_table(mt) and mt.__typename == _union_typename and meta.is_table(x.types)
+    end
+end
+
+function meta.is_enum_value(x, enum)
+    local is_present = _g_type(enum) == "table" and _enum_to_value_to_is_present[enum]
+    if is_present == nil then
+        rt.error("In meta.is_enum_value: for argument #2: expected `Enum`, got `", meta.typeof(enum), "`")
+        return false
+    end
+
+    return is_present[x] == true
+end
+
+--- @brief
+function meta.is_subtype(type, other_type)
+    meta.assert(type, meta.Type, other_type, meta.Type)
+
+    local seen = {}
+    local current = _get_metatable(type).__super
+
+    while current ~= nil do
+        if current == other_type then
+            return true
+        end
+
+        if seen[current] then
+            break
+        end
+
+        seen[current] = true
+        current = _get_metatable(current).__super
+    end
+
+    return type == other_type
+end
+
+local _native_to_type = {
+    ["nil"] = meta.Nil,
+    ["number"] = meta.Number,
+    ["string"] = meta.String,
+    ["boolean"] = meta.Boolean,
+    ["table"] = meta.Table,
+    ["function"] = meta.Function,
+    ["thread"] = meta.Coroutine,
+    ["userdata"] = meta.UserData,
+    ["cdata"] = meta.CData,
+}
+
+function meta.typeof(x)
+    local raw_typename = _g_type(x)
+    if raw_typename == "table" then
+        local metatable = getmetatable(x)
+        if meta.is_table(metatable) and metatable.__typename ~= nil then
+            return _name_to_type[metatable.__typename]
+        else
+            return meta.Table
+        end
+    else
+        return _native_to_type[raw_typename]
+    end
+end
 
 --- @brief
 function meta.get_typename(type)
     meta.assert(type, meta.Type)
-    return _type_to_typename[type]
+    return _get_metatable(type).__name
 end
 
---- @brief
-function meta.get_union_typename(union)
-    if not meta.is_union(union) then
-        rt.error("In meta.get_union_typename: expected `Union`, got `", meta.typeof(union), "`")
-    end
+local _type_to_validator = {
+    [meta.Number] = meta.is_number,
+    [meta.Boolean] = meta.is_boolean,
+    [meta.String] = meta.is_string,
+    [meta.Table] = meta.is_table,
+    [meta.Function] = meta.is_function,
+    [meta.Coroutine] = meta.is_coroutine,
+    [meta.Nil] = meta.is_nil,
+    [meta.CData] = meta.is_cdata,
+    [meta.UserData] = meta.is_userdata,
+    [meta.Any] = meta.is_any,
+    [meta.Type] = meta.is_type,
+    [meta.Enum] = meta.is_enum,
+    [meta.Union] = meta.is_union,
+}
 
-    local result = { }
-    for x in values(union) do
-        local to_insert
-        if meta.is_type(x) then
-            to_insert = meta.get_typename(x)
-        elseif meta.is_enum(x) then
-            to_insert = meta.get_enum_name(x)
-        elseif meta.is_union(x) then
-            to_insert = meta.get_union_typename(x)
-        else
-            to_insert = x
+function meta.isa(x, type)
+    if type == meta.Any then return true end
+
+    -- union: x must match at least one member
+    if meta.is_union(type) then
+        for _, other in ipairs(type.types) do
+            if meta.isa(x, other) then return true end
         end
-
-        table.insert(result, to_insert)
+        return false
     end
 
-    return "Union<" .. table.concat(result, ", ") .. ">"
-end
+    -- enum: x must be one of the enum's values
+    if meta.is_enum(type) then
+        return meta.is_enum_value(x, type)
+    end
 
---- @brief
-function meta.get_super(type)
-    meta.assert(type, meta.Type)
-    return _type_to_super[type]
-end
+    -- native types: direct validator
+    local validator = _type_to_validator[type]
+    if validator ~= nil then
+        return validator(x)
+    end
 
---- @brief
-function meta.is_type(x)
-    if _get_native_type(x) ~= "table" then return false end
-    local mt = getmetatable(x)
-    return mt ~= nil
-        and rawget(x, _object_metatable_index) == mt
-        and mt.__typename == meta.Type
-end
+    if not meta.is_type(type) then
+        rt.error("In meta.isa: for argument #2: expected `Type`, got `", meta.typeof(type), "`")
+        return false
+    end
 
---- @brief check if `type` inherits from `other_type`, directly or transitively
---- @param type meta.Type
---- @param other_type meta.Type
---- @return meta.Boolean
-function meta.is_subtype(type, other_type)
-    meta.assert(type, meta.Type, other_type, meta.Type)
-    if type == other_type then return true end
+    -- non-native type: only tables can be instances
+    if _g_type(x) ~= "table" then return false end
 
     local seen = {}
-    local current = meta.get_super(type)
-    repeat
-        if current == other_type then
-            return true
-        end
-        if seen[current] then
-            break -- inheritance cycle
-        end
+    local current = meta.typeof(x)
+    while current ~= nil and not seen[current] do
+        if current == type then return true end
         seen[current] = true
-        current = meta.get_super(current)
-    until current == nil
+        local current_metatable = getmetatable(current)
+        if current_metatable == nil then break end
+        current = rawget(current_metatable, "__super")
+    end
 
     return false
 end
 
---- @brief
-function meta.is_object(x)
-    if _get_native_type(x) ~= "table" then return end
-    local metatable = getmetatable(x)
-    if metatable == nil then return false end
-    return metatable == rawget(x, _object_metatable_index) and meta.is_string(metatable.__typename)
-end
-
---- @brief
-function meta.is_enum(x)
-    if _get_native_type(x) ~= "table" then return false end
-    local mt = getmetatable(x)
-    return mt ~= nil and mt.__typename == meta.Enum
-end
-
-do
-    local _native_type_to_type = {
-        ["nil"] = meta.Nil,
-        ["number"] = meta.Number,
-        ["string"] = meta.String,
-        ["boolean"] = meta.Boolean,
-        ["table"] = meta.Table,
-        ["function"] = meta.Function,
-        ["thread"] = meta.Coroutine,
-        ["userdata"] = meta.UserData,
-        ["cdata"] = meta.CData
-    }
-
-    --- @brief
-    function meta.typeof(instance)
-        if _get_native_type(instance) ~= "table" then
-            local mapped = _native_type_to_type[_get_native_type(instance)]
-            if mapped == nil then return "Unknown" else return mapped end
-        end
-
-        local metatable = getmetatable(instance)
-        if _get_native_type(metatable) ~= "table" then
-            local mapped = _native_type_to_type[_get_native_type(instance)]
-            if mapped == nil then return "Unknown" else return mapped end
-        else
-            local typename = metatable.__typename
-            if typename == nil then
-                return meta.Table
-            else
-                return typename
-            end
-        end
-    end
-
-    --- @brief
-    function meta.is_nil(x)
-        return x == nil
-    end
-
-    --- @brief
-    function meta.is_number(x)
-        return _get_native_type(x) == "number" and not math.is_nan(x)
-    end
-
-    --- @brief
-    function meta.is_integer(x)
-        return meta.is_number(x) and x % 1 == 0
-    end
-
-    --- @brief
-    function meta.is_string(x)
-        return _get_native_type(x) == "string"
-    end
-
-    --- @brief
-    function meta.is_boolean(x)
-        return _get_native_type(x) == "boolean"
-    end
-
-    --- @brief
-    function meta.is_table(x)
-        return _get_native_type(x) == "table"
-    end
-
-    --- @brief
-    function meta.is_function(x)
-        return _get_native_type(x) == "function"
-    end
-
-    --- @brief
-    function meta.is_coroutine(x)
-        return _get_native_type(x) == "thread"
-    end
-
-    --- @brief
-    function meta.is_cdata(x)
-        return _get_native_type(x) == "cdata"
-    end
-
-    --- @brief
-    function meta.is_userdata(x)
-        return _get_native_type(x) == "userdata"
-    end
-
-    --- @brief
-    function meta.is_union(x)
-        if _get_native_type(x) ~= "table" then return false end
-        for type in values(x) do
-            if not (meta.is_string(type)
-                or meta.is_type(type)
-                or meta.is_enum(type)
-                or meta.is_union(type)
-            ) then
-                return false
-            end
-        end
-
-        return true
-    end
-
-    --- @brief
-    function meta.is_type_instance(x, type)
-        local super
-        do
-            local metatable = getmetatable(x)
-            if metatable == nil then return false end
-            super = metatable.__index
-        end
-
-        while super ~= nil do
-            if super == type then return true end
-            local metatable = getmetatable(super)
-            if metatable == nil then return false end
-            super = metatable.__index
-        end
-
-        return false
-    end
-
-    --- @brief
-    function meta.is_union_instance(x, type)
-        for option in values(type) do
-            if meta.isa(x, option) then return true end
-        end
-
-        return false
-    end
-
-    --- @brief
-    function meta.isa(x, type)
-        if x == nil and type == mt.Nil then
-            return true
-        elseif meta.is_string(type) then
-            local is = meta.typeof(x) == type
-            if is == false then
-                -- check love objects
-                if meta.is_userdata(x) and meta.is_function(x.typeOf) then
-                    is = x:typeOf(type)
-                end
-            end
-            return is
-        elseif meta.is_type(type) then
-            return meta.is_type_instance(x, type)
-        elseif meta.is_enum(type) then
-            return meta.is_enum_value(x, type)
-        elseif meta.is_union(type) then
-            return meta.is_union_instance(x, type)
-        else
-            rt.error("In meta.isa: for argument #2: expected `String`, `Type`, `Enum`, or `Union`, got `", meta.typeof(type), "`")
-            return false
-        end
-    end
-
-    --- @brief
-    function meta.is_love_type(x, type)
-        meta.assert_argument_type(type, meta.String, 2)
-        return meta.is_userdata(x) and meta.is_function(x.typeOf) and x:typeOf(type) == true
-    end
-
-    local _type_to_validator = {
-        [meta.Number] = function(x) return meta.is_number, meta.Number end,
-        [meta.Boolean] = function(x) return meta.is_boolean, meta.Boolean end,
-        [meta.String] = function(x) return meta.is_string, meta.String end,
-        [meta.Table] =  function(x) return meta.is_table, meta.Table end,
-        [meta.Function] = function(x) return meta.is_function, meta.Function end,
-        [meta.Coroutine] = function(x) return meta.is_coroutine, meta.Coroutine end,
-        [meta.Nil] = function(x) return meta.is_nil, meta.Nil end,
-        [meta.Object] = function(x) return meta.is_object, meta.Object end,
-        [meta.CData] = function(x) return meta.is_cdata, meta.CData end,
-        [meta.UserData] = function(x) return meta.is_userdata, meta.UserData end,
-        [meta.Type] = function(x) return meta.is_type, meta.Type end,
-        [meta.Enum] = function(x) return meta.is_enum, meta.Enum end,
-        [meta.Union] = function(x) return meta.is_union, meta.get_union_typename(x) end,
-        [meta.Optional] = function(x) return meta.is_union, meta.get_union_typename(x) end
-    }
-
-    local function _assert_typeof(scope, instance, type, i)
-        local is_valid, typename, error = true, nil, nil
-        if type == meta.Any and instance ~= nil then return true, "" end
-
-        if _type_to_validator[type] ~= nil then
-            local validator
-            validator, typename = _type_to_validator[type](instance)
-            is_valid = validator(instance) == true
-        elseif meta.is_type(type) then
-            is_valid = meta.is_type_instance(instance, type)
-            if is_valid == false then
-                typename = meta.get_typename(type)
-            end
-        elseif meta.is_enum(type) then
-            is_valid = meta.is_enum_value(instance, type)
-            if is_valid == false then
-                typename = meta.get_enum_name(type)
-            end
-        elseif meta.is_union(type) then
-            is_valid = meta.is_union_instance(instance, type)
-            if is_valid == false then
-                typename = meta.get_union_typename(type)
-            end
-        elseif meta.is_string(type) then
-            is_valid = meta.typeof(instance) == type
-            typename = type
-
-            if is_valid == false then -- try love typeOf
-                is_valid = meta.is_love_type(instance, type)
-                typename = type
-            end
-        else
-            return false, string.paste("In ", scope, ": wrong arguments for `", scope, "`: argument #", i + 1, ", expected `", meta.Type, "`, `", meta.Enum, "` or `", meta.String, "` got `", meta.typeof(type), "`")
-        end
-
-        if not is_valid then
-            error = string.paste("In meta.assert: for argument #", i, ", expected value of type `", typename, "`, got `", meta.typeof(instance), "`")
-        end
-
-        if error == nil then error = "" end
-
-        assert(meta.is_boolean(is_valid))
-        return is_valid, error
-    end
-
-    if DEBUG then
-        --- @brief
-        function meta.assert(...)
-            local argument_i = 1
-            for i = 1, select("#", ...), 2 do
-                local instance, type =
-                    select(i+0, ...),
-                    select(i+1, ...)
-
-                local is_valid, error = _assert_typeof(
-                    "meta.assert",
-                    instance, type,
-                    argument_i
-                )
-
-                if not is_valid then
-                    rt.error(error)
-                end
-
-                argument_i = argument_i + 1
-            end
-        end
-
-        --- @brief
-        function meta.assert_argument_type(x, type, argument_i)
-            local is_valid, error = _assert_typeof("meta.assert_argument_type", x, type, argument_i)
-            if is_valid ~= true then rt.error(error) end
-        end
-    else
-        -- optimize to noop in release mode
-        meta.assert = _noop
-        meta.assert_argument_type = _noop
+function meta.assert_argument_type(x, type, index)
+    if not meta.isa(x, type) then
+        rt.error("In meta.assert_argument_type: wrong type for argument #", index, ": expected `", _type_to_name[type], "`, got `", meta.typeof(x), "`")
     end
 end
 
--- global signal to disconnect signal after emission
+function meta.assert(...)
+    local argument_i = 1
+    for i = 1, select("#", ...), 2 do
+        local x = select(i + 0, ...)
+        local type = select(i + 1, ...)
+        if not meta.isa(x, type) then
+            rt.error("In meta.assert: wrong type for argument #", argument_i, ": expected `", _type_to_name[type], "`, got `", meta.typeof(x), "`")
+        end
+        argument_i = argument_i + 1
+    end
+end
+
 meta.DISCONNECT_SIGNAL = true
-
+local _install_signals
 do
-    -- signal aux
     local _signal_callback_id = 0
     local _throw_no_signal = function(scope, instance, signal)
         rt.error("In ", meta.typeof(instance), ".", scope, ": no signal with id `", signal, "`")
@@ -466,20 +369,26 @@ do
         local callback = entry.callback_id_to_callback[callback_id]
         entry.callback_id_to_callback[callback_id] = nil
 
+        local to_remove = nil
         for i, other in ipairs(entry.callback_ids_in_order) do
             if other == callback_id then
-                table.remove(entry.callback_ids_in_order, i)
+                to_remove = i
                 break
             end
         end
+
+        if to_remove ~= nil then
+            table.remove(entry.callback_ids_in_order, to_remove)
+        end
+
     end
 
     -- signals
     local _signal_list_handler_ids = function(instance, id)
-        meta.assert(instance, mt.Object, id, mt.String)
+        meta.assert(instance, meta.Any, id, meta.String)
 
         local component, entry
-        component = rawget(instance, _object_signal_component_index)
+        component = rawget(instance, _signals_index)
         if component ~= nil then entry = component[id] end
 
         if component == nil or entry == nil then
@@ -494,9 +403,9 @@ do
     end
 
     local _signal_list_signals = function(instance)
-        meta.assert(instance, mt.Object)
+        meta.assert(instance, meta.Any)
 
-        local component = rawget(instance, _object_signal_component_index)
+        local component = rawget(instance, _signals_index)
         if component == nil then return {} end
 
         local out = {}
@@ -508,9 +417,9 @@ do
 
     local _signal_connect = function(instance, id, ...)
         local callback = select(1, ...)
-        meta.assert(instance, mt.Object, id, mt.String, callback, mt.Function)
+        meta.assert(instance, meta.Any, id, meta.String, callback, meta.Function)
 
-        local component = rawget(instance, _object_signal_component_index)
+        local component = rawget(instance, _signals_index)
         local entry = component[id]
         if entry == nil then
             _throw_no_signal("signal_connect", instance, id)
@@ -527,13 +436,13 @@ do
 
     local _signal_disconnect = function(instance, id, callback_id)
         meta.assert(
-            instance, mt.Object,
-            id, mt.String,
-            callback_id, mt.Optional(mt.Number)
+            instance, meta.Any,
+            id, meta.String,
+            callback_id, meta.Optional(meta.Number)
         )
 
         local component, entry
-        component = rawget(instance, _object_signal_component_index)
+        component = rawget(instance, _signals_index)
 
         if component ~= nil then
             entry = component[id]
@@ -559,12 +468,12 @@ do
 
     local _signal_try_disconnect = function(instance, id, callback_id)
         meta.assert(
-            instance, mt.Object,
-            id, mt.String,
-            callback_id, mt.Number
+            instance, meta.Any,
+            id, meta.String,
+            callback_id, meta.Optional(meta.Number)
         )
 
-        local component = rawget(instance, _object_signal_component_index)
+        local component = rawget(instance, _signals_index)
         if component == nil then
             return false
         end
@@ -589,9 +498,9 @@ do
     end
 
     local _signal_disconnect_all = function(instance, id)
-        meta.assert(instance, mt.Object, id, mt.Optional(mt.String))
+        meta.assert(instance, meta.Any, id, meta.Optional(meta.String))
 
-        local component = rawget(instance, _object_signal_component_index)
+        local component = rawget(instance, _signals_index)
         if component == nil then
             rt.error("In ", meta.typeof(instance), ".signal_disconnect_all: object `", meta.typeof(instance), "` does not have any signals")
             return
@@ -615,10 +524,10 @@ do
     end
 
     local _signal_set_is_blocked = function(instance, id, b)
-        meta.assert(instance, mt.Object, id, mt.String, b, mt.Boolean)
+        meta.assert(instance, meta.Any, id, meta.String, b, meta.Boolean)
 
         local component, entry
-        component = rawget(instance, _object_signal_component_index)
+        component = rawget(instance, _signals_index)
         if component ~= nil then
             entry = component[id]
         end
@@ -632,10 +541,10 @@ do
     end
 
     local _signal_get_is_blocked = function(instance, id)
-        meta.assert(instance, mt.Object, id, mt.String)
+        meta.assert(instance, meta.Any, id, meta.String)
 
         local component, entry
-        component = rawget(instance, _object_signal_component_index)
+        component = rawget(instance, _signals_index)
         if component ~= nil then entry = component[id] end
 
         if component == nil or entry == nil then
@@ -647,9 +556,9 @@ do
     end
 
     local _signal_has_signal = function(instance, id)
-        meta.assert(instance, mt.Object, id, mt.String)
+        meta.assert(instance, meta.Any, id, meta.String)
 
-        local component = rawget(instance, _object_signal_component_index)
+        local component = rawget(instance, _signals_index)
         if component == nil then
             return false
         end
@@ -657,10 +566,10 @@ do
     end
 
     local _signal_emit = function(instance, id, ...)
-        meta.assert(instance, mt.Object, id, mt.String)
+        meta.assert(instance, meta.Any, id, meta.String)
 
         local component, entry
-        component = rawget(instance, _object_signal_component_index)
+        component = rawget(instance, _signals_index)
         if component ~= nil then entry = component[id] end
 
         if component == nil or entry == nil then
@@ -690,10 +599,10 @@ do
     end
 
     local _signal_try_emit = function(instance, id, ...)
-        meta.assert(instance, mt.Object, id, mt.String)
+        meta.assert(instance, meta.Any, id, meta.String)
 
         local component, entry
-        component = rawget(instance, _object_signal_component_index)
+        component = rawget(instance, _signals_index)
         if component ~= nil then entry = component[id] end
 
         if component == nil or entry == nil or entry.is_blocked then
@@ -721,8 +630,8 @@ do
         return invoked
     end
 
-    local function _install_signals(instance, type)
-        local signals = rawget(type, _object_metatable_index).__signals
+    function _install_signals(instance, type)
+        local signals = _get_metatable(type).__signals
         if #signals == 0 then return end
 
         type.signal_emit = _signal_emit
@@ -738,10 +647,10 @@ do
         type.signal_list_signals = _signal_list_signals
 
         for signal_id in values(signals) do
-            local component = rawget(instance, _object_signal_component_index)
+            local component = rawget(instance, _signals_index)
             if component == nil then
                 component = {}
-                rawset(instance, _object_signal_component_index, component)
+                rawset(instance, _signals_index, component)
             end
 
             component[signal_id] = {
@@ -751,174 +660,84 @@ do
             }
         end
     end
+end -- _install_signals
 
-    local _default_instantiate = function(self, ...)
-        if meta.is_table(select(1, ...)) then
-            meta.install(self, select(1, ...))
-        end
-    end
-
-    --- @generic T
-    --- @param typename `T`
-    --- @param super Any
-    --- @param _ Nil
-    --- @return T
-    function meta.class(typename, super, allow_overwrite, _)
-        meta.assert(typename, mt.String, super,  mt.Optional(mt.Type), allow_overwrite, mt.Optional(mt.Boolean),_, mt.Nil)
-
-        if meta._typenames[typename] == true then
-            rt.fatal("In meta.class: a type with typename `", typename, "` already exists")
-        end
-        meta._typenames[typename] = allow_overwrite ~= true
-
-        if super ~= nil then
-            -- check for cyclic inheritance
-            local seen = {}
-            local current = super
-            repeat
-                if seen[current] then
-                    rt.fatal("In meta.class: cyclic inheritance detected for type: `", typename, "`, multiple super types inherit from `", meta.get_typename(current), "`")
-                end
-                seen[current] = true
-                current = _type_to_super[current]
-            until current == nil
-        end
-
-        -- instance metatable
-        local type = {}
-
-        local instance_metatable = {
-            __index = type,
-            __typename = typename
-        }
-
-        local supers = {}
-        local reverse_supers = {}
-        do
-            local current = super
-            while current ~= nil do
-                table.insert(supers, current)
-                table.insert(reverse_supers, 1, current)
-
-                current = _type_to_super[current]
-            end
-        end
-
-        -- create instance
-        local type_metatable = {}
-        type_metatable.__call = function(self, ...)
-            local instance = setmetatable({}, instance_metatable)
-            rawset(instance, _object_hash_index, _current_hash)
-            _current_hash = _current_hash + 1
-            rawset(instance, _object_metatable_index, instance_metatable)
-
-            -- inject signals in reverse order
-            for current_super in values(reverse_supers) do
-                _install_signals(instance, current_super)
-            end
-
-            _install_signals(instance, type)
-
-            -- instantiate in order
-            for current_super in values(supers) do
-                if current_super.instantiate ~= nil then
-                    current_super.instantiate(instance) -- no varargs
-                end
-            end
-
-            if type.instantiate ~= nil then
-                type.instantiate(instance, ...)
-            end
-
-            return instance
-        end
-
-        type_metatable.__tostring = function() return typename end
-        type_metatable.__index = super
-        type_metatable.__typename = meta.Type
-        type_metatable.__signals = {}
-
-        -- wrap all function calls in manual timing
-        type_metatable.__newindex = function(self, key, value)
-            if false then --PROFILE and meta.is_function(value) then
-                local id = typename .. "." .. key
-                rawset(self, key, function(...)
-                    profiler.push(id)
-                    local before = love.timer.getTime()
-                    local capture = { value(...) }
-                    profiler.notify(love.timer.getTime() - before)
-                    profiler.pop(id)
-                    return table.unpack(capture)
-                end)
-            else
-                rawset(self, key, value)
-            end
-        end
-
-        setmetatable(type, type_metatable)
-        rawset(type, _object_hash_index, _current_hash)
-        _current_hash = _current_hash + 1
-        rawset(type, _object_metatable_index, type_metatable)
-
-        _type_to_super[type] = super
-        _type_to_instance_metatable[type] = instance_metatable
-        _typename_to_type[typename] = type
-        _type_to_typename[type] = typename
-
-        -- default instantiate
-        type.instantiate = _default_instantiate
-
-        return type
-    end
-
-    --- @generic T
-    --- @param typename `T`
-    --- @return T
-    function meta.plain_class(typename, constructor, _)
-        meta.assert(typename, mt.String, constructor, mt.Function, _, mt.Nil)
-
-        if meta._typenames[typename] == true then
-            rt.fatal("In meta.class: a type with typename `", typename, "` already exists")
-        end
-
-        local type = {}
-        local instance_metatable = {
-            __typename = typename
-            -- no __index method
-        }
-
-        type.instantiate = constructor
-
-        local type_metatable = {}
-        type_metatable.__call = function(self, ...)
-            local out = {}
-            out.instantiate = type.instantiate
-            out = setmetatable(out, instance_metatable)
-            out:instantiate(...)
-            return out
-        end
-
-        type_metatable.__typename = meta.Type
-        type_metatable.__newindex = function(self, key, value)
-            rt.error("In meta.pod_class.__newindex: trying to modify type `", typename, "`, but a simple class cannot be modified after construction")
-            rawset(self, key, value)
-        end
-
-        setmetatable(type, type_metatable)
-        rawset(type, _object_hash_index, _current_hash)
-        _current_hash = _current_hash + 1
-        rawset(type, _object_metatable_index, type_metatable)
-
-        _type_to_instance_metatable[type] = instance_metatable
-        _typename_to_type[typename] = type
-        _type_to_typename[type] = typename
-
-        return type
+local _default_instantiate = function(self, ...)
+    if meta.is_table(select(1, ...)) then
+        meta.install(self, select(1, ...))
     end
 end
 
+function meta.class(typename, super)
+    meta.assert(typename, meta.String, super, meta.Optional(meta.Type))
+
+    local type = _new_type(typename, super)
+    local type_metatable = getmetatable(type)
+
+    local has_signals = false
+    local supers = {}
+    local reverse_supers = {}
+
+    do
+        local seen = {}
+        local current = type
+        repeat
+            local current_metatable = getmetatable(current)
+            if #current_metatable.__signals > 0 then
+                has_signals = true
+            end
+
+            if seen[current] then
+                -- check for cyclic inheritance
+                rt.fatal("In meta.class: cyclic inheritance detected for type: `", typename, "`, multiple super types inherit from `", _type_to_name[current], "`")
+            end
+            seen[current] = true
+
+            local current_super = current_metatable.__super
+            if current_super ~= nil then
+                table.insert(supers, current_super)
+                table.insert(reverse_supers, 1, current_super)
+            end
+
+            current = current_super
+        until current == nil
+    end
+
+    local instance_metatable = {}
+    instance_metatable.__index = type
+    instance_metatable.__typename = typename
+
+    _class_to_instance_metatable[type] = instance_metatable
+
+    type_metatable.__call = function(self, ...)
+        local instance = {}
+        instance[_metatable_index] = instance_metatable
+        instance[_hash_index] = _current_instance_hash
+        _current_instance_hash = _current_instance_hash + 1
+        instance[_signals_index] = nil
+
+        -- inject signals in reverse order
+        for current_super in values(reverse_supers) do
+            _install_signals(instance, current_super)
+        end
+        _install_signals(instance, self)
+
+        setmetatable(instance, instance_metatable)
+
+        -- instantiate in order
+        for current_super in values(supers) do
+            current_super.instantiate(instance)
+        end
+
+        self.instantiate(instance, ...)
+        return instance
+    end
+
+    type.instantiate = _default_instantiate
+    return type
+end
+
 --- @brief
---- @return meta.Type
 function meta.abstract_class(typename, super)
     local type = meta.class(typename, super)
     local type_metatable = getmetatable(type)
@@ -929,128 +748,52 @@ function meta.abstract_class(typename, super)
 end
 
 --- @brief
-function meta.as_singleton(type, ...)
-    local instance = type(...)
-    getmetatable(instance).__call = function()
-        rt.error("In ", meta.get_typename(type), "(): trying to instantiate type, but is a singleton that cannot be instatiated")
-    end
-
-    return instance
-end
-
---- @brief
 function meta.add_signals(type, ...)
     meta.assert(type, meta.Type)
-    local metatable = rawget(type, _object_metatable_index)
+    local metatable = _get_metatable(type)
     for i = 1, select("#", ...) do
         local id = select(i, ...)
-        rt.assert(meta.typeof(id) == meta.String, "In meta.add_signals: expected `", meta.String, "`, got `", meta.typeof(id), "`")
+        meta.assert_argument_type(id, meta.String, 1 + i)
         table.insert(metatable.__signals, id)
     end
 end
 meta.add_signal = meta.add_signals
 
 --- @brief
-function meta.list_signals(type)
-    meta.assert(type, mt.Type)
-
-    local seen = {} -- possible duplicated in super chain
-    local out = {}
-
-    local current = type
-    while current ~= nil do
-        local signals = rawget(current, _object_metatable_index).__signals
-        for _, signal_id in ipairs(signals) do
-            if not seen[signal_id] then
-                seen[signal_id] = true
-                table.insert(out, signal_id)
-            end
-        end
-        current = _type_to_super[current]
-    end
-
-    return out
-end
-
---- @brief
-function meta.destroy(instance)
-    if meta.is_table(instance) then
-        if meta.is_function(instance.signal_disconnect_all) then
-            instance:signal_disconnect_all()
-        end
-
-        if meta.is_function(instance.destroy) then
-            instance:destroy()
-        end
-
-        for key in pairs(instance) do
-            instance[key] = nil
-        end
-    end
-end
-
-local _enum_to_instances = {}
-
---- @return meta.Enum
 function meta.enum(typename, fields)
-    local enum_metatable = {
-        __index = function(self, key)
-            local result = rawget(fields, key)
-            if result == nil then
-                rt.error("In meta.enum: trying to access field `", key, "` of enum `", typename, "`, but enum has no such field")
-                return nil
-            end
-            return result
-        end,
+    meta.assert(typename, meta.String, fields, meta.Table)
 
-        __newindex = function()
-            rt.error("In meta.enum: trying to modify enum `", typename, "`, but it is immutable")
-            return
-        end,
+    local type = _new_type(typename)
 
-        __typename = meta.Enum,
-        __tostring = function() return typename end,
-        __value_to_is_present = {}
-    }
-
-    for _, value in pairs(fields) do
-        enum_metatable.__value_to_is_present[value] = true
-    end
-
-    local enum = setmetatable({}, enum_metatable)
-    rawset(enum, _object_hash_index, _current_hash)
-    _current_hash = _current_hash + 1
-    rawset(enum, _object_metatable_index, enum_metatable)
-
-    _enum_to_instances[enum] = fields
-    _type_to_typename[enum] = typename
-    return enum
-end
-
---- @brief
-function meta.install(instance, values)
-    for key, value in pairs(values) do
-        if instance[key] == nil then
-            instance[key] = value
+    local type_metatable = getmetatable(type)
+    type_metatable.__index = function(self, key)
+        local result = rawget(fields, key)
+        if result == nil then
+            rt.error("In meta.enum: trying to access field `", key, "` of enum `", typename, "`, but enum has no such field")
+            return nil
         end
+        return result
     end
-    return instance
-end
 
---- @return Boolean
-function meta.is_enum_value(x, enum)
-    return getmetatable(enum).__value_to_is_present[x] == true
-end
+    type_metatable.__newindex = function(_)
+        rt.error("In meta.enum: trying to modify enum `", typename, "`, but it is immutable")
+        return nil
+    end
 
---- @return String
-function meta.get_enum_name(enum)
-    return getmetatable(enum).__tostring()
-end
+    type_metatable.__call = function(_)
+        rt.error("In meta.enum: trying to call enum type `", typename, "`, but it is not callable")
+    end
 
---- @return Number
-function meta.hash(instance)
-    if instance == nil then return -1 end
-    return rawget(instance, _object_hash_index) or -1
+    type_metatable.__typename = _enum_typename
+
+    local is_present = {}
+    for key, value in pairs(fields) do
+        is_present[value] = true
+    end
+
+    _enum_to_value_to_is_present[type] = is_present
+    _enum_to_instances[type] = table.deepcopy(fields)
+    return type
 end
 
 --- @return Table
@@ -1065,11 +808,77 @@ function meta.instances(enum)
 end
 
 --- @brief
-function meta.make_auto_extend(x, recursive)
-    if recursive == nil then recursive = false end
-    local metatable = getmetatable(x)
+function meta.get_instance_metatable(type)
+    meta.assert(type, meta.Type)
+    return _class_to_instance_metatable[type]
+end
+
+--- @return Number
+function meta.hash(instance)
+    if instance == nil then return -1 end
+    return rawget(instance, _hash_index) or -1
+end
+
+--- @brief
+function meta.make_weak(t, weak_keys, weak_values)
+    meta.assert(t, meta.Table, weak_keys, meta.Optional(meta.Boolean), weak_values, meta.Optional(meta.Boolean))
+
+    local metatable = getmetatable(t)
     if metatable == nil then
         metatable = {}
+        setmetatable(t, metatable)
+    end
+
+    if weak_keys == nil then weak_keys = true end
+    if weak_values == nil then weak_values = true end
+
+    if weak_keys == true and weak_values == true then
+        metatable.__mode = "kv"
+    elseif weak_keys == true and weak_values == false then
+        metatable.__mode = "k"
+    elseif weak_keys == false and weak_values == true then
+        metatable.__mode = "v"
+    else
+        metatable.__mode = nil
+    end
+    return t, metatable
+end
+
+--- @brief
+function meta.make_immutable(t)
+    meta.assert(t, meta.Table)
+
+    local metatable = getmetatable(t)
+    if metatable == nil then
+        metatable = {}
+        setmetatable(t, metatable)
+    end
+
+    metatable.__index = function(_, key)
+        local out = rawget(t, key)
+        if out == nil then
+            rt.error("In meta.make_immutable: trying to access `", key, "` of `", tostring(t), "`, but this value does not exist")
+            return nil
+        end
+        return out
+    end
+
+    metatable.__newindex = function(_, key, value)
+        rt.error("trying to modify table `", tostring(t), "`, but it is immutable")
+    end
+
+    return t, metatable
+end
+
+--- @brief
+function meta.make_auto_extend(t, recursive)
+    meta.assert(t, meta.Table, recursive, meta.Optional(meta.Boolean))
+
+    if recursive == nil then recursive = false end
+    local metatable = getmetatable(t)
+    if metatable == nil then
+        metatable = {}
+        setmetatable(t, metatable)
     end
 
     metatable.__index = function(self, key)
@@ -1083,99 +892,36 @@ function meta.make_auto_extend(x, recursive)
         end
     end
 
-    return setmetatable(x, metatable)
+    return t, metatable
 end
 
 --- @brief
-function meta.make_weak(t)
-    local metatable = getmetatable(t)
-    if metatable == nil then
-        metatable = {}
-        setmetatable(t, metatable)
-    end
-
-    metatable.__kv = "kv"
-    return t
-end
-
---- @brief
-function meta.make_immutable(t)
-    local metatable ={
-        __index = function(_, key)
-            local out = t[key]
-            if out == nil then
-                rt.error("In meta.make_immutable: trying to access `", key, "` of `", tostring(t), "`, but this value does not exist")
-                return nil
-            end
-            return out
-        end,
-
-        __newindex = function(_, key, value)
-            rt.error("trying to modify table `", tostring(t), "`, but it is immutable")
+function meta.install(instance, values)
+    meta.assert(instance, meta.Any, values, meta.Table)
+    for key, value in pairs(values) do
+        if instance[key] == nil then
+            instance[key] = value
         end
-    }
-
-    return setmetatable({}, metatable), metatable
+    end
+    return instance
 end
 
 --- @brief
-function meta.make_id_table(t, scope, debug_mode)
-    meta.assert(t, meta.Table, scope, meta.String, debug_mode, meta.Boolean)
-
-    if debug_mode then
-        rt.warning("In meta.make_id_table: debug mode for `", scope, "` is active, ids will be overriden")
-    end
-
-    local _as_immutable = function(t, path)
-        return setmetatable(t, {
-            __index = function(self, key)
-                local value = rawget(self, key)
-                if value == nil then
-                    rt.warning("In ", scope, ": key `", key, "` does not point to valid id")
-                    return nil
-                else
-                    return value
-                end
-            end,
-
-            __newindex = function(self, key, new_value)
-                rt.error("In ", scope, ": trying to modify dictionary, but it is declared immutable")
-            end
-        })
-    end
-
-    local function _make_immutable(t, path)
-        path = path or ""
-        local to_process = {}
-        local n_to_process = 0
-
-        for k, v in pairs(t) do
-            local current_path = path == "" and tostring(k) or (path .. "." .. tostring(k))
-
-            if meta.is_table(v) then
-                t[k] = _as_immutable(v, current_path)
-                table.insert(to_process, {table = v, path = current_path})
-                n_to_process = n_to_process + 1
-            else
-                if debug_mode and t[k] == "todo" then
-                    t[k] = current_path
-                end
-            end
-        end
-
-        for i = 1, n_to_process do
-            _make_immutable(to_process[i].table, to_process[i].path)
-        end
-        return _as_immutable(t, path)
-    end
-
-    return _make_immutable(t, "")
-end
-
---- @brief
-function meta.get_instance_metatable(type)
+function meta.as_singleton(type, ...)
     meta.assert(type, meta.Type)
-    return _type_to_instance_metatable[type]
+    local instance = type(...)
+    _get_metatable(instance).__call = function()
+        rt.error("In ", meta.get_typename(type), "(): trying to instantiate type, but is a singleton that cannot be instatiated")
+    end
+
+    return instance
 end
+
+function meta.validate_schema(x, schema)
+    meta.assert(x, meta.Any, schema, meta.Table)
+
+end
+
 
 return meta
+

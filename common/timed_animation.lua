@@ -72,6 +72,9 @@ function rt.TimedAnimation:get_value()
 
     local x = self._elapsed / self._duration
     if self._should_loop then x = math.fmod(x, 1) end
+
+    if x < 0 then return self._lower elseif x > 1 then return self._upper end
+
     local y = self._f(x, table.unpack(self._args))
 
     local lower, upper = self._lower, self._upper

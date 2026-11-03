@@ -22,10 +22,11 @@ ow.ObjectType = meta.enum("ObjectType", ow.ObjectType)
 ow.PropertyType = {
     NUMBER = mt.Number,
     STRING = mt.String,
-    OBJECT = "Object",
-    INTEGER = "Integer",
+    OBJECT = mt.Any,
+    INTEGER = mt.Number,
     BOOLEAN = mt.Boolean
 }
+error("TODO: schemas")
 ow.PropertyType = meta.enum("PropertyType", ow.PropertyType)
 
 --- @class ow.Number
@@ -967,7 +968,7 @@ function ow.ObjectWrapper:validate_schema(schema, ...)
 
             for type in values(types) do
                 if _valid_types[type] ~= true then
-                    rt.error("In ow.ObjectWrapper: In ow.Stage.validate_schema `", self.stage_id, "`: invalid schema, key `", property_name, "` is not a value of enum ow.PropertyType")
+                    rt.error("In ow.ObjectWrapper: In ow.Stage.validate_schema `", self.stage_id, "`: invalid schema, key `", property_name, "` is not a value of enum `ow.PropertyType`")
                 end
 
                 if type == ow.Number or type == ow.String or type == ow.Boolean then

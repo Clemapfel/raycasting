@@ -5,7 +5,7 @@ bd.apply("overworld/backgrounds", function(_, id)
     id = string.replace(id, ".lua", "")
     local path = "overworld.backgrounds." .. id
     local class = require(path)
-    if not meta.typeof(class) == "Type" then
+    if not meta.isa(class, meta.Type) then
         rt.error("In ow.Background: when trying to include `", path, "`. File does not return a class objects")
     end
     _id_to_class[id] = class

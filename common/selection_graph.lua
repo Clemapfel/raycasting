@@ -63,7 +63,7 @@ meta.add_signals(rt.SelectionGraphNode,
 
 --- @brief
 function rt.SelectionGraphNode:set_bounds(aabb_or_x, y, w, h)
-    if meta.typeof(aabb_or_x) == "AABB" then
+    if meta.isa(aabb_or_x, rt.AABB) then
         self._aabb = aabb_or_x
     else
         self._aabb = rt.AABB(aabb_or_x, y, w, h)

@@ -346,7 +346,7 @@ function rt.Player:instantiate()
             "damping"
         ) do
             local table_id = "_" .. request .. "_requests"
-            self[table_id] = meta.make_weak({})
+            self[table_id] = meta.make_weak({}, true, false)
 
             table.insert(self._request_ids, "_" .. request .. "_requests")
         end

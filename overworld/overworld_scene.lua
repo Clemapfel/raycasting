@@ -385,7 +385,7 @@ end
 function ow.OverworldScene:enter(stage_id, entry_mode, should_reinitialize)
     if not self:get_is_active() or should_reinitialize then
         if entry_mode == nil then entry_mode = ow.StageEntryMode.INSTANT end
-        meta.assert(stage_id, "String", entry_mode, ow.StageEntryMode)
+        meta.assert(stage_id, meta.String, entry_mode, ow.StageEntryMode)
 
         self:set_stage(stage_id, entry_mode)
     end

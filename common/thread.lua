@@ -19,7 +19,7 @@ end
 function rt.Thread:start(...)
     local args = { ... }
     for i, value in ipairs(args) do
-        if meta.is_object(value) and meta.is_function(value.get_native) then
+        if meta.is_table(value) and meta.is_function(value.get_native) then
             args[i] = value:get_native()
         end
     end

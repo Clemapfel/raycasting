@@ -12,7 +12,6 @@ end
 require "common.game_state"
 require "common.scene_manager"
 
-
 rt.GameState:set_draw_debug_information(true) -- TODO
 bd.mount_path("C:/Users/cleme/Workspace/raycasting/website/screenshots", "screenshots")
 DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
@@ -75,7 +74,7 @@ love.load = function(args)
     end
 
     require "overworld.overworld_scene"
-    --rt.SceneManager:push(ow.OverworldScene, "trailer", ow.StageEntryMode.INSTANT)
+    rt.SceneManager:push(ow.OverworldScene, "trailer", ow.StageEntryMode.INSTANT)
 
     require "menu.keybinding_scene"
     --rt.SceneManager:push(mn.KeybindingScene)
@@ -84,7 +83,7 @@ love.load = function(args)
     --rt.SceneManager:push(mn.SettingsScene)
 
     require "menu.menu_scene"
-    rt.SceneManager:push(mn.MenuScene, false)
+    --rt.SceneManager:push(mn.MenuScene, false)
 end
 
 love.update = function(delta)

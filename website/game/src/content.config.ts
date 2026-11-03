@@ -1,5 +1,6 @@
 // src/content/config.ts
-import { defineCollection, z } from "astro:content";
+import { defineCollection } from "astro:content";
+import { z } from "astro/zod";
 import { glob } from "astro/loaders";
 import { FileLoader } from "./common/file_loader.ts";
 
@@ -10,7 +11,8 @@ export const collections = {
             title: z.string(),
             slug: z.string(),
             date: z.string(),
-            shader: z.string()
+            abstract: z.string(),
+            shader: z.string().optional()
         })
     }),
 

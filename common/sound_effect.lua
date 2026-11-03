@@ -86,7 +86,7 @@ local _validate_config = function(scope, config, spec)
                 if config_value < type.min or config_value > type.max then
                     rt.error("In ", scope, ": for config value `", key, "`: expected number in `[", type.min, ", ", type.max, "]`, got `", config_value, "`")
                 end
-            elseif meta.typeof(type) == "Enum" then
+            elseif meta.isa(type, meta.Enum) then
                 if not meta.is_enum_value(config_value, type) then
                     rt.error("In ", scope, ": for config value `", key, "`: expected value of enum `", meta.get_enum_name(type), "`, got `", config_value, "`")
                 end

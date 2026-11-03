@@ -60,6 +60,7 @@ vec3 lch_to_rgb(vec3 lch) {
 
 uniform float elapsed;
 uniform vec4 black;
+uniform float animation; // [0, 1]
 
 vec4 effect(vec4 vertex_color, sampler2D img, vec2 texture_coordinates, vec2 frag_position) {
     float time = elapsed  / 10.0;
@@ -74,15 +75,15 @@ vec4 effect(vec4 vertex_color, sampler2D img, vec2 texture_coordinates, vec2 fra
     float outline_value = texel.r;
     float fill_value = 1.0 - texel.g;
 
-    float fill_center = 0.6;
+    float fill_center = mix(1.0, 0.6, animation);
     float fill_eps = 0.05;
 
-    float outline_center = 0.9;
+    float outline_center = mix(1.0, 0.9, animation);
     float outline_eps = 0.05;
 
-    float fill = smoothstep(max(fill_center - fill_eps, 0.0), min(fill_center + fill_eps, 1.0), fill_value);
+    float fill = smoothstep(fill_center - fill_eps, fill_center + fill_eps, fill_value);
 
-    float outline = smoothstep(max(outline_center - outline_eps, 0.0), min(outline_center + outline_eps, 1.0), 1.0 - outline_value);
+    float outline = smoothstep(outline_center - outline_eps, outline_center + outline_eps, 1.0 - outline_value);
 
     vec3 outline_color = lch_to_rgb(vec3(0.8, 1.0, gradient_noise(vec3(
         frag_position / love_ScreenSize.xy * 10.0,

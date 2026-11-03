@@ -8,11 +8,11 @@ rt.settings.title_banner_scene = {
     sperm = {
         min_radius = 10,
         max_radius = 12,
-        min_velocity = 400, -- px / s
+        min_velocity = 400,
         max_velocity = 800,
         air_resistance = 1 - 1e-6,
         position_history_n = 50,
-        length = 50, -- px
+        length = 50,
         n_particles = 24,
 
         contour_clearance = 1.5,
@@ -31,7 +31,7 @@ rt.settings.title_banner_scene = {
 
     blob = {
         n_blobs = 1024,
-        min_position_velocity = 80, -- px / s
+        min_position_velocity = 80,
         max_position_velocity = 100,
 
         min_scale = 0,
@@ -40,31 +40,31 @@ rt.settings.title_banner_scene = {
         min_radius = 100,
         max_radius = 100,
 
-        min_scale_velocity = 0.1, -- fraction / s
+        min_scale_velocity = 0.1,
         max_scale_velocity = 0.15,
 
-        min_rotation_velocity = 0.05, -- radians / s
+        min_rotation_velocity = 0.05,
         max_rotation_velocity = 0.25,
 
-        min_orbit_velocity = 20, -- px / s
+        min_orbit_velocity = 20,
         max_orbit_velocity = 20,
 
         min_alpha = 0.04,
         max_alpha = 0.1
-    }
+    },
+
+    text_animation_duration = 1
 }
 
---- @class aux.TitleBannerScene
 aux.TitleBannerScene = meta.class("TitleBannerScene", rt.Scene, true)
 
---- @brief
 function aux.TitleBannerScene:size_allocate(x, y, width, height)
     self._sdf_label = rt.LabelSDF(
         rt.Translation.menu_scene.title_screen.title,
         120,
         rt.Font(rt.settings.menu_scene.title_screen.font_roman),
-        20, -- max distance
-        0.05 -- threshold
+        20,
+        0.05
     )
 
     local label_w, label_h = self._sdf_label:measure()
@@ -76,11 +76,17 @@ function aux.TitleBannerScene:size_allocate(x, y, width, height)
         label_w, label_h
     )
 
+    self._text_shader_animation = rt.TimedAnimation(
+        rt.settings.title_banner_scene.text_animation_duration,
+        0, 1,
+        rt.InterpolationFunctions.GAUSSIAN_HIGHPASS
+    )
+
     self._blob_texture_shader = rt.Shader("website/title_banner_scene_blob_texture.glsl")
 
     self._blob_mesh_radius = 0.25 * height
     self._blob_texture_padding = 20
-    self._blob_texture = rt.RenderTexture(1000, 1000);
+    self._blob_texture = rt.RenderTexture(1000, 1000)
 
     love.graphics.push("all")
     self._blob_texture:bind()
@@ -103,8 +109,8 @@ function aux.TitleBannerScene:size_allocate(x, y, width, height)
             local angle = rt.random.number(0, math.tau)
             local offset_x = rt.random.number(0, 0.5 * area_w)
             local offset_y = rt.random.number(0, 0.5 * area_h)
-            local cx = center_x --+ math.cos(angle) * offset_x
-            local cy = center_y --+ math.sin(angle) * offset_y
+            local cx = center_x
+            local cy = center_y
 
             local radius = rt.random.number(settings.min_radius, settings.max_radius)
 
@@ -112,7 +118,8 @@ function aux.TitleBannerScene:size_allocate(x, y, width, height)
             local y_offset = rt.random.number(0, 0.5 * area_h)
 
             local pdx, pdy = math.cos(angle), math.sin(angle)
-            local px, py = cx + pdx * x_offset, cy + pdy * y_offset
+            local px = cx --+ pdx * x_offset
+            local py = cy --+ pdy * y_offset
 
             local vx, vy = math.normalize(math.subtract(px, py, center_x, center_y))
             local vm = rt.random.number(settings.min_position_velocity, settings.max_position_velocity)
@@ -135,20 +142,22 @@ function aux.TitleBannerScene:size_allocate(x, y, width, height)
                 velocity_x = vx,
                 velocity_y = vy,
                 orbit_direction = rt.random.choose(-1, 1),
-                orbit_velocity = 0, --rt.random.number(settings.min_orbit_velocity, settings.max_orbit_velocity),
+                orbit_velocity = 0,
 
                 rotation = rt.random.number(0, math.tau),
                 rotation_velocity = rt.random.number(settings.min_rotation_velocity, settings.max_rotation_velocity),
 
                 x_offset = x_offset,
                 y_offset = y_offset,
-                mass = math.pi * radius * radius, -- ellipse volume
+                mass = math.pi * radius * radius,
 
                 radius = radius,
                 alpha = rt.random.number(settings.min_alpha, settings.max_alpha)
             })
         end
     end
+
+    self:_allocate_particles(x, y, width, height)
 
     free(self._canvas, self._blob_shader)
     self._canvas = rt.RenderTexture(width, height, {
@@ -172,16 +181,21 @@ function aux.TitleBannerScene:size_allocate(x, y, width, height)
 
     self._blob_shader = try_compile("website/title_banner_scene_blob_draw.glsl")
     self._text_shader = try_compile("website/title_banner_scene_text_draw.glsl")
+    self._sperm_shader = try_compile("website/title_banner_scene_sperm_draw.glsl")
 
     for tex in range(self._blob_texture, self._canvas) do
         tex:set_scale_mode(rt.TextureScaleMode.LINEAR)
     end
+
+
+    self._text_shader_animation:reset()
 end
 
 function aux.TitleBannerScene:update(delta)
     local settings = rt.settings.title_banner_scene.blob
 
-    -- ratio of ellipse axes, normalized so the larger axis keeps full speed
+    self._text_shader_animation:update(delta)
+
     local max_radius = math.max(self._radius_x, self._radius_y)
     local velocity_scale_x = self._radius_x / max_radius
     local velocity_scale_y = self._radius_y / max_radius
@@ -218,9 +232,6 @@ function aux.TitleBannerScene:update(delta)
             ax = ax - dx * centripetal
             ay = ay - dy * centripetal
 
-            --blob.velocity_x = blob.velocity_x + ax * delta
-            --blob.velocity_y = blob.velocity_y + ay * delta
-
             blob.x = blob.x + blob.velocity_x * delta
             blob.y = blob.y + blob.velocity_y * delta
 
@@ -255,6 +266,8 @@ function aux.TitleBannerScene:update(delta)
             end
         end
     end
+
+    self:_update_particles(delta)
 end
 
 function aux.TitleBannerScene:draw()
@@ -286,7 +299,7 @@ function aux.TitleBannerScene:draw()
     love.graphics.pop()
 
     love.graphics.setBlendMode("alpha", "premultiplied")
-    love.graphics.clear(rt.Palette.GRAY_8:unpack())
+    love.graphics.clear(0, 0, 0, 0) --rt.Palette.GRAY_8:unpack())
 
     if self._blob_shader ~= nil then
         love.graphics.push("all")
@@ -298,10 +311,13 @@ function aux.TitleBannerScene:draw()
         love.graphics.pop()
     end
 
+    self:_draw_particles()
+
     love.graphics.push("all")
     self._text_shader:bind()
     self._text_shader:send("black", rt.Palette.BLACK)
     self._text_shader:send("elapsed", rt.SceneManager:get_elapsed())
+    self._text_shader:send("animation", self._text_shader_animation:get_value())
     self._sdf_label:draw()
     self._text_shader:unbind()
     love.graphics.pop()
@@ -309,7 +325,7 @@ end
 
 do
 
-    local _TIMESTEP = 1 / 120   -- use this in reformat() too, instead of get_timestep()
+    local _TIMESTEP = 1 / 120
     local _MAX_STEPS_PER_FRAME = 4
 
     local _x_offset = 0
@@ -348,7 +364,6 @@ do
 
         local targets = {}
 
-        -- If one circle contains the other, the outer circle is their convex hull.
         if distance <= math.abs(ra - rb) + math.eps then
             local cx, cy, radius = ax, ay, ra
             if rb > ra then cx, cy, radius = bx, by, rb end
@@ -362,8 +377,6 @@ do
             return targets
         end
 
-        -- At the two common external tangent normals, the support points switch
-        -- from one circle to the other.
         local cosine = (ra - rb) / distance
         cosine = math.max(-1, math.min(1, cosine))
         local beta = math.acos(cosine)
@@ -371,8 +384,6 @@ do
         local theta2 = axis_angle + beta
         local theta3 = theta1 + math.tau
 
-        -- Reserve nodes for both arcs and both tangent runs. Uniform arclength
-        -- sampling can otherwise miss the small tail arc entirely.
         local tail_intervals = math.max(2, math.floor(n_particles * 0.16 + 0.5))
         local head_intervals = math.max(4, math.floor(n_particles * 0.34 + 0.5))
         if tail_intervals + head_intervals > n_particles - 2 then
@@ -387,13 +398,11 @@ do
             targets[#targets + 1] = { x = x, y = y }
         end
 
-        -- Tail-circle arc: start at theta1 and stop just before theta2.
         for k = 0, tail_intervals - 1 do
             local angle = theta1 + (2 * beta) * k / tail_intervals
             add(bx + rb * math.cos(angle), by + rb * math.sin(angle))
         end
 
-        -- Upper external tangent, from the tail circle to the head circle.
         local b2x, b2y = bx + rb * math.cos(theta2), by + rb * math.sin(theta2)
         local a2x, a2y = ax + ra * math.cos(theta2), ay + ra * math.sin(theta2)
         for k = 0, top_intervals - 1 do
@@ -401,14 +410,12 @@ do
             add(b2x + (a2x - b2x) * t, b2y + (a2y - b2y) * t)
         end
 
-        -- Head-circle arc: the long arc from theta2 around to theta1 + 2*pi.
         local head_arc = math.tau - 2 * beta
         for k = 0, head_intervals - 1 do
             local angle = theta2 + head_arc * k / head_intervals
             add(ax + ra * math.cos(angle), ay + ra * math.sin(angle))
         end
 
-        -- Lower tangent, from the head circle back to the tail circle.
         local a1x, a1y = ax + ra * math.cos(theta3), ay + ra * math.sin(theta3)
         local b1x, b1y = bx + rb * math.cos(theta3), by + rb * math.sin(theta3)
         for k = 0, bottom_intervals - 1 do
@@ -416,7 +423,6 @@ do
             add(a1x + (b1x - a1x) * t, a1y + (b1y - a1y) * t)
         end
 
-        -- Defensive fallback for unusually small/custom particle counts.
         while #targets < n_particles do
             local angle = axis_angle + (#targets / n_particles) * math.tau
             targets[#targets + 1] = {
@@ -429,7 +435,6 @@ do
         return targets
     end
 
-    -- XPBD scalar positional attachment: C = position - target = 0.
     local function _enforce_position_axis(position, target, inverse_mass, alpha, lambda_before)
         local denominator = inverse_mass + alpha
         if denominator < math.eps then return 0, lambda_before end
@@ -439,13 +444,16 @@ do
         return inverse_mass * delta_lambda, lambda_before + delta_lambda
     end
 
-    --- @brief
     function aux.TitleBannerScene:_allocate_particles(x, y, width, height)
-        -- ### text
+        self._width = width
+        self._height = height
+        local cx, cy = self._center_x, self._center_y
         do
             self._sperms = {}
             self._particles = {}
             self._n_particles = 0
+
+            local settings = rt.settings.title_banner_scene.sperm
 
             local particles = self._particles
             local n_sperms = rt.settings.title_banner_scene.n_sperms
@@ -460,10 +468,10 @@ do
                 local dir_y = sph_radius * math.sin(theta)
                 local dir_z = z_value
 
-                local velocity = rt.random.number(settings.sperm.min_velocity, settings.sperm.max_velocity)
+                local velocity = rt.random.number(settings.min_velocity, settings.max_velocity)
                 local step = velocity * rt.SceneManager:get_timestep()
 
-                local history_n = math.ceil(settings.sperm.length / step)
+                local history_n = math.ceil(settings.length / step)
                 local position_history = rt.LinkedList()
                 for i = 1, history_n do
                     local back = (history_n - i) * step
@@ -471,19 +479,19 @@ do
                 end
 
                 local length = (history_n - 1) * step
-                local front_radius = rt.random.number(settings.sperm.min_radius, settings.sperm.max_radius)
+                local front_radius = rt.random.number(settings.min_radius, settings.max_radius)
                 local back_radius = 3
 
                 local head_x, head_y = cx, cy
                 local tail_x, tail_y = cx - dir_x * length, cy - dir_y * length
 
-                local n_particles = settings.sperm.n_particles
+                local n_particles = settings.n_particles
                 local particle_start_offset = _particle_i_to_data_offset(self._n_particles + 1)
                 local draw_contour = {}
                 local targets = _build_band_targets(
                     head_x, head_y, front_radius,
                     tail_x, tail_y, back_radius,
-                    n_particles, settings.sperm.contour_clearance
+                    n_particles, settings.contour_clearance
                 )
                 for i = 1, n_particles do
                     local px, py = targets[i].x, targets[i].y
@@ -528,6 +536,7 @@ do
                     front_radius = front_radius,
                     back_radius = back_radius,
                     length = length,
+                    history_n = history_n,
                     hue = hue,
                     color = { rt.lcha_to_rgba(0.8, 1.0, hue, 1.0) },
                     position_history = position_history,
@@ -639,7 +648,6 @@ do
         return correction_ax, correction_ay, correction_bx, correction_by, lambda_new
     end
 
-    --- @brief
     function aux.TitleBannerScene:_update_particles(delta)
         local settings = rt.settings.title_banner_scene.sperm
         local timestep = 1 / 120
@@ -822,7 +830,6 @@ do
                     end
                 end
 
-                -- ### write back contour for drawing
                 local contour = sperm.draw_contour
                 for i = 1, n do
                     local node_i = particle_start_offset + (i - 1) * _particle_stride
@@ -839,22 +846,28 @@ do
         self._interpolation_alpha = self._step_accumulator / timestep
     end
 
-    --- @brief
     function aux.TitleBannerScene:_draw_particles()
         local t = self._interpolation_alpha
         local function lerp(a, b) return a + (b - a) * t end
 
         for sperm in values(self._sperms) do
-            love.graphics.setColor(sperm.color)
-
+            rt.Palette.BLACK:bind()
             local prev, cur, out = sperm.prev_contour, sperm.draw_contour, sperm.render_contour
+            for i = 1, #cur do out[i] = lerp(prev[i], cur[i]) end
+            love.graphics.polygon("fill", out)
+
+            love.graphics.push("all")
+            self._sperm_shader:bind()
+            self._sperm_shader:send("elapsed", rt.SceneManager:get_elapsed())
+
+            rt.Palette.WHITE:bind()
             for i = 1, #cur do out[i] = lerp(prev[i], cur[i]) end
             love.graphics.line(out)
 
-            love.graphics.circle("line",
-                lerp(sperm.prev_x, sperm.x), lerp(sperm.prev_y, sperm.y), sperm.front_radius)
-            love.graphics.circle("line",
-                lerp(sperm.prev_tail_x, sperm.tail_x), lerp(sperm.prev_tail_y, sperm.tail_y), sperm.back_radius)
+            self._sperm_shader:unbind()
+            love.graphics.pop()
         end
+
+
     end
 end

@@ -123,7 +123,7 @@ function ow.StageConfig:instantiate(stage_id)
         if layer_type == "objectgroup" then
             to_add.type = ow.LayerType.OBJECTS
             for object in values(layer_i_to_objects[layer_i]) do
-                assert(meta.typeof(object) == "ObjectWrapper")
+                assert(meta.typeof(object) == ow.ObjectWrapper)
                 table.insert(to_add.objects, object)
 
                 if object.type == ow.ObjectType.SPRITE then

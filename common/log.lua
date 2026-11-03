@@ -77,6 +77,10 @@ local function _print(channel, message_t, prefix, config)
         nothing       = "",
     }
 
+    for i, x in ipairs(message_t) do
+        message_t[i] = tostring(x)
+    end
+
     local message = table.concat(message_t, " ")
 
     -- colors
