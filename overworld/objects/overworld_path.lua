@@ -26,19 +26,18 @@ meta.add_signals(ow.Path,
     "reset"
 )
 
-local schema = {
-    n_cycles = ow.Boolean,
-    should_loop = ow.Boolean,
-    is_smooth = ow.Boolean,
-    cycle_offset = ow.Number,
-    is_paused = ow.Boolean,
-    is_absolute = ow.Boolean,
-    should_reverse = ow.Boolean,
-    velocity = ow.Number,
-    next = ow.Object,
-    target = ow.Object,
-    -- target(.*) = ow.Obejct
-}
+local schema = meta.Schema({
+    n_cycles = mt.Optional(ow.Number),
+    should_loop = mt.Optional(ow.Boolean),
+    is_smooth = mt.Optional(ow.Boolean),
+    cycle_offset = mt.Optional(ow.Number),
+    is_paused = mt.Optional(ow.Boolean),
+    is_absolute = mt.Optional(ow.Boolean),
+    should_reverse = mt.Optional(ow.Boolean),
+    velocity = mt.Optional(ow.Number),
+    next = mt.Optional(ow.Object),
+    target = meta.Union(mt.Nil, ow.Object, mt.Table),
+})
 
 --- @class ow.PathNode
 --- @types Point
@@ -47,12 +46,6 @@ ow.PathNode = meta.class("OverworldPathNode")
 
 --- @brief
 function ow.Path:instantiate(object, stage, scene)
-    local schema = table.deepcopy(schema)
-    for property in values(object:get_property_names()) do
-        if rt.settings.overworld.path.is_target_property_pattern(property) then
-            schema[property] = ow.Object
-        end
-    end
     object:validate_schema(schema, ow.ShapeType.POINT)
 
     self._scene = scene

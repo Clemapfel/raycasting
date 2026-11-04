@@ -6,10 +6,10 @@ rt.settings.overworld.wall = {
     world_size = 2048,
 }
 
-local schema = {
-    opacity = ow.Number,
+local schema = meta.Schema({
+    opacity = mt.Optional(ow.Number),
     type = ow.String
-}
+})
 
 --- @class ow.Wall
 ow.Wall = meta.class("Wall")

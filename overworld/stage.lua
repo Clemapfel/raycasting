@@ -341,7 +341,7 @@ function ow.Stage:instantiate(scene, id)
         -- group similar objects next to each other for better batching
         for entry in values(t) do
             table.sort(entry.objects, function(a, b)
-                return meta.typeof(a) < meta.typeof(b)
+                return tostring(meta.typeof(a)) < tostring(meta.typeof(b))
             end)
         end
     end

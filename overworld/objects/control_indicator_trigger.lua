@@ -4,10 +4,10 @@
 --- @field should_emit_particles Boolean?
 ow.ControlIndicatorTrigger = meta.class("ControlIndicatorTrigger")
 
-local schema = {
+local schema = meta.Schema({
     type = ow.String,
-    should_emit_particles = ow.Boolean
-}
+    should_emit_particles = mt.Optional(ow.Boolean)
+})
 
 local _types
 

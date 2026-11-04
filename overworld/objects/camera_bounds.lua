@@ -2,21 +2,19 @@
 --- @types Rectangle
 ow.CameraBounds = meta.class("CameraBounds")
 
-local schema = {
-    scale = ow.Number,
-    body = ow.Object,
-    should_apply_bounds = ow.Boolean,
-    should_apply_scale = ow.Boolean
-}
-
-local shape_types = {
-    ow.ShapeType.AXIS_ALIGNED_RECTANGLE,
-    ow.ShapeType.POLYGON
-}
+local schema = meta.Schema({
+    scale = mt.Optional(ow.Number),
+    body = mt.Optional(ow.Object),
+    should_apply_bounds = mt.Optional(ow.Boolean),
+    should_apply_scale = mt.Optional(ow.Boolean)
+})
 
 --- @brief
 function ow.CameraBounds:instantiate(object, stage, scene)
-    object:validate_schema(schema, shape_types)
+    object:validate_schema(schema,
+        ow.ShapeType.AXIS_ALIGNED_RECTANGLE,
+        ow.ShapeType.POLYGON
+    )
 
     local bounds
     if object:get_type() == ow.ObjectType.RECTANGLE then

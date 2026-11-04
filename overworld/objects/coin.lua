@@ -21,9 +21,9 @@ rt.settings.overworld.coin = {
 --- @field should_move_in_place Boolean? whether to add noise while stationary
 ow.Coin = meta.class("Coin", ow.MovableObject)
 
-local schema = {
-    should_move_in_place = ow.Boolean
-}
+local schema = meta.Schema({
+    should_move_in_place = mt.Optional(ow.Boolean)
+})
 
 function ow.Coin.index_to_hue(i, n_coins)
     if n_coins - 1 == 0 then return 0 end

@@ -14,9 +14,9 @@ rt.settings.overworld.hook = {
 --- @types Point
 ow.Hook = meta.class("OverworldHook", ow.MovableObject)
 
-local schema = {
-    hue = ow.Number
-}
+local schema = meta.Schema({
+    hue = meta.Union(mt.Nil, ow.Number) -- "player" hue not supported
+})
 
 local _shader = rt.Shader("overworld/objects/hook.glsl")
 

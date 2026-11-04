@@ -46,6 +46,7 @@ local _new_type = function(name, super)
         __typename = _type_typename,
         __tostring = function(self) return name end,--_type_typename .. "<" .. name .. ">" end,
         __is_native = false,
+        __validator = nil
     }
 
     local type = setmetatable({}, metatable)
@@ -61,8 +62,8 @@ local _new_type = function(name, super)
     return type
 end
 
-local _new_native_type = function(typename, ...)
-    local res = _new_type(typename, ...)
+local _new_native_type = function(typename, isa)
+    local res = _new_type(typename)
     local to_override = getmetatable(res)
     to_override.__is_native = true
     return res
@@ -76,6 +77,9 @@ meta.Boolean = _new_native_type("Boolean")
 
 --- @class meta.String
 meta.String = _new_native_type("String")
+
+--- @class meta.Integer
+meta.Integer = _new_native_type("Integer")
 
 --- @class meta.Table
 meta.Table = _new_native_type("Table")
@@ -111,7 +115,6 @@ meta.Union = _new_native_type(_union_typename)
 meta.Optional = _new_native_type("Optional")
 
 do
-
     local function _union_tostring(self)
         local names = {}
         for i, t in ipairs(self.types) do
@@ -175,6 +178,10 @@ end
 
 function meta.is_string(x)
     return _g_type(x) == "string"
+end
+
+function meta.is_integer(x)
+    return meta.is_number(x) and (x % 1 == 0)
 end
 
 function meta.is_function(x)
@@ -298,8 +305,10 @@ function meta.get_typename(type)
     return _get_metatable(type).__name
 end
 
-local _type_to_validator = {
+-- override native type `isa` tests
+for type, validator in pairs({
     [meta.Number] = meta.is_number,
+    [meta.Integer] = meta.is_integer,
     [meta.Boolean] = meta.is_boolean,
     [meta.String] = meta.is_string,
     [meta.Table] = meta.is_table,
@@ -309,13 +318,16 @@ local _type_to_validator = {
     [meta.CData] = meta.is_cdata,
     [meta.UserData] = meta.is_userdata,
     [meta.Any] = meta.is_any,
-    [meta.Type] = meta.is_type,
-    [meta.Enum] = meta.is_enum,
-    [meta.Union] = meta.is_union,
-}
+    [meta.Type] = meta.is_type
+}) do
+    type.isa = validator
+end
 
 function meta.isa(x, type)
-    if type == meta.Any then return true end
+    if not meta.is_type(type) then
+        rt.error("In meta.isa: for argument #2: expected `Type`, got `", meta.typeof(type), "`")
+        return false
+    end
 
     -- union: x must match at least one member
     if meta.is_union(type) then
@@ -330,26 +342,22 @@ function meta.isa(x, type)
         return meta.is_enum_value(x, type)
     end
 
-    -- native types: direct validator
-    local validator = _type_to_validator[type]
+    -- custom validator
+    local validator = type.isa
     if validator ~= nil then
         return validator(x)
-    end
-
-    if not meta.is_type(type) then
-        rt.error("In meta.isa: for argument #2: expected `Type`, got `", meta.typeof(type), "`")
-        return false
     end
 
     -- non-native type: only tables can be instances
     if _g_type(x) ~= "table" then return false end
 
+    -- check inheritance chain
     local seen = {}
     local current = meta.typeof(x)
     while current ~= nil and not seen[current] do
         if current == type then return true end
         seen[current] = true
-        local current_metatable = getmetatable(current)
+        local current_metatable = _get_metatable(current)
         if current_metatable == nil then break end
         current = rawget(current_metatable, "__super")
     end
@@ -971,15 +979,13 @@ do
         return table.concat(parts)
     end
 
-    local function _validate_input(input, schema_node, prefix, is_valid_ref, is_active)
+    local function _validate_input(input, schema_node, prefix, is_active)
         if is_active[input] == true then return end
         is_active[input] = true
 
         for key, value in pairs(input) do
             if schema_node[key] == nil then
-                rt.error("In meta.validate_schema: key `", _to_key(prefix, key), "`, expected `nil`, got `", meta.typeof(value), "`")
-                is_valid_ref[1] = false
-                return
+                return false, string.paste("key `", _to_key(prefix, key), "`, expected `nil`, got `", meta.typeof(value), "`")
             end
         end
 
@@ -987,25 +993,20 @@ do
             local value = input[key]
             if meta.is_type(schema_t) then
                 if not meta.isa(value, schema_t) then
-                    rt.error("In meta.validate_schema: key `", _to_key(prefix, key), "`: expected `", schema_t, "`, got `", meta.typeof(value), "`")
-                    is_valid_ref[1] = false
-                    return
+                    return false, string.paste("key `", _to_key(prefix, key), "`: expected `", schema_t, "`, got `", meta.typeof(value), "`")
                 end
             else -- schema_t confirmed nested table in check_schema_correctness
                 if not meta.is_table(value) then
-                    rt.error("In meta.validate_schema: key `", _to_key(prefix, key), "`: expected nested `Table`, got `", meta.typeof(value), "`")
-                    is_valid_ref[1] = false
-                    return
+                    return false, string.paste("key `", _to_key(prefix, key), "`: expected nested `Table`, got `", meta.typeof(value), "`")
                 end
 
                 local child_prefix = table.deepcopy(prefix)
                 table.insert(child_prefix, key)
-                _validate_input(value, schema_t, child_prefix, is_valid_ref, is_active)
+                _validate_input(value, schema_t, child_prefix, is_active)
             end
         end
 
-        is_active[input] = nil
-        return is_valid_ref[1]
+        return true, ""
     end
 
     local function _validate_schema(node, prefix, seen)
@@ -1032,22 +1033,36 @@ do
 
     --- @brief
     function meta.Schema:instantiate(layout)
-        _validate_schema(layout,
-            {}, -- prefix
-            {} -- seen
-        )
+        self.layout = layout
+        self._is_validated = false
+    end
 
-        self.layout = meta.make_immutable(layout)
+    --- @brief
+    function meta.Schema:try_validate(x)
+        meta.assert(x, meta.Table)
+
+        if self._is_validated ~= true then
+            _validate_schema(self.layout,
+                {}, -- prefix
+                {} -- seen
+            )
+        end
+
+        return _validate_input(x, self.layout,
+            {}, -- prefix
+            {} -- currently active
+        )
     end
 
     --- @brief
     function meta.Schema:validate(x)
         meta.assert(x, meta.Table)
-        return _validate_input(x, self.layout,
-            {}, -- prefix
-            { true }, -- return ref
-            {} -- currently active
-        )
+
+        local success, error = self:try_validate()
+        if success == false then
+            rt.error("In meta.Schema.validate: ", error)
+        end
+        return success
     end
 end
 

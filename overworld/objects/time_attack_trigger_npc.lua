@@ -15,9 +15,11 @@ rt.settings.overworld.time_attack_trigger_npc = {
 --- @class ow.TimeAttackTriggerNPC
 ow.TimeAttackTriggerNPC = meta.class("TimeAttackTriggerNPC")
 
+local schema = meta.Schema({}) -- no custom attributes
+
 --- @brief
 function ow.TimeAttackTriggerNPC:instantiate(object, stage, scene)
-    object:validate_schema({}, ow.ShapeType.POINT)
+    object:validate_schema(schema, ow.ShapeType.POINT)
 
     self._scene = scene
     self._stage = stage

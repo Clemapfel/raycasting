@@ -26,9 +26,9 @@ rt.settings.overworld.checkpoint = {
 --- @types Point
 ow.Checkpoint = meta.class("Checkpoint")
 
-local schema = {
-    is_invisible = ow.Boolean,
-}
+local schema = meta.Schema({
+    is_invisible = mt.Optional(ow.Boolean),
+})
 
 --- @enum ow.CheckpointTye
 ow.CheckpointType = {

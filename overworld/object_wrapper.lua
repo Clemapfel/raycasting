@@ -18,32 +18,6 @@ ow.ObjectType = {
 }
 ow.ObjectType = meta.enum("ObjectType", ow.ObjectType)
 
---- @enum ow.PropertyType
-ow.PropertyType = {
-    NUMBER = mt.Number,
-    STRING = mt.String,
-    OBJECT = mt.Any,
-    INTEGER = mt.Number,
-    BOOLEAN = mt.Boolean
-}
-error("TODO: schemas")
-ow.PropertyType = meta.enum("PropertyType", ow.PropertyType)
-
---- @class ow.Number
-ow.Number = ow.PropertyType.NUMBER
-
---- @class ow.String
-ow.String = ow.PropertyType.STRING
-
---- @class ow.Object
-ow.Object = ow.PropertyType.OBJECT
-
---- @class ow.Integer
-ow.Integer = ow.PropertyType.INTEGER
-
---- @class ow.Boolean
-ow.Boolean = ow.PropertyType.BOOLEAN
-
 --- @enum ow.Shape
 ow.ShapeType = {
     CIRCLE = "Circle",
@@ -57,8 +31,22 @@ ow.ShapeType = {
     NOT_A_POINT = "Not Point",
     ANY = "Any"
 }
-
 ow.ShapeType = meta.enum("ShapeType", ow.ShapeType)
+
+--- @class ow.Number
+ow.Number = mt.Number
+
+--- @class ow.String
+ow.String = mt.String
+
+--- @class ow.Object
+ow.Object = mt.Table
+
+--- @class ow.Integer
+ow.Integer = mt.Integer
+
+--- @class ow.Boolean
+ow.Boolean = mt.Boolean
 
 local _calculate_n_outer_vertices_mesh = function(x_radius, y_radius)
     return rt.Mesh.radius_to_n_vertices(x_radius, y_radius)
@@ -911,106 +899,36 @@ function ow.ObjectWrapper:list_properties()
     return out
 end
 
-local _valid_types = {
-    [ow.Number] = true,
-    [ow.String] = true,
-    [ow.Object] = true,
-    [ow.Boolean] = true,
-    [ow.Integer] = true
-}
-
-for instance in values(meta.instances(ow.ObjectType)) do
-    _valid_types[instance] = true
-end
-
 local _default_schema = {
-    render_priority = ow.Integer,
-    is_visible = ow.Boolean
+    render_priority = mt.Optional(ow.Integer),
+    is_visible = mt.Optional(ow.Boolean)
 }
 
 --- @brief
 function ow.ObjectWrapper:validate_schema(schema, ...)
-    local shapes
-    if not meta.is_table(select(1, ...)) then
-        shapes = { ... }
-    else
-        shapes = select(1, ...)
-    end
+    if select("#", ...) <= 0 then rt.error("In ow.ObjectWrapper.validate_schema: argument #2 is nil, no shape type provided") end
 
-    rt.assert(#shapes > 0, "In ow.ObjectWrapper: no shape types specified alongside schema")
+    for k, v in pairs(_default_schema) do schema.layout[k] = v end
 
-    for shape in values(shapes) do
-        if not meta.is_enum_value(shape, ow.ShapeType) then
-            rt.error("In ow.ObjectWrapper.validate_schema: shape `", shape, "`, is not a value of enum ow.ShapeType")
-        end
-    end
-
-    if DEBUG == nil then return end
-
-    for key, value in pairs(_default_schema) do
-        if schema[key] == nil then schema[key] = value end
-    end
-
-    local valid_names = {}
-    for property_name, types in pairs(schema) do
-        if not meta.is_string(property_name) then
-            rt.error("In ow.ObjectWrapper: for stage invalid schema, key `", property_name, "` is not a string")
-        end
-        valid_names[property_name] = true
-
-        local value = self.properties[property_name]
-        if value ~= nil then
-            local is_valid = true
-
-            if not meta.is_table(types) then
-                types = { types }
-            end
-
-            for type in values(types) do
-                if _valid_types[type] ~= true then
-                    rt.error("In ow.ObjectWrapper: In ow.Stage.validate_schema `", self.stage_id, "`: invalid schema, key `", property_name, "` is not a value of enum `ow.PropertyType`")
-                end
-
-                if type == ow.Number or type == ow.String or type == ow.Boolean then
-                    is_valid = is_valid and meta.typeof(value) == type
-                elseif type == ow.Integer then
-                    is_valid = is_valid and meta.is_number(value) and math.equals(math.fract(math.abs(value)), 0)
-                elseif type == ow.Object then
-                    is_valid = is_valid and meta.is_table(value)
-                elseif meta.is_enum_value(type, ow.ObjectType) then
-                    is_valid = is_valid and meta.is_table(value)
-                        and meta.is_function(value.get_type)
-                        and value:get_type() == type
-                end
-
-                if not is_valid then
-                    rt.error("In ow.ObjectWrapper: In ow.Stage `", self.stage_id, "`: object `", self:get_id(), "` property `", property_name, "` does not adhere to schema: expected `", type, "`, got `", value, "`")
-                end
-            end
-        end
-    end
-
-    for name in keys(self.properties) do
-        if valid_names[name] ~= true then
-            rt.critical("In ow.ObjectWrapper: In ow.Stage `", self.stage_id, "`: property `", name, "` of object `", self.id, "` is not a valid schema key. It will be ignored.")
-        end
+    local success, error = schema:try_validate(self.properties)
+    if not success then
+        rt.error("In ow.ObjectWrapper: in stage `", self.stage_id, "`: object `", self.id, "` of type `", self.class, "`: schema validation failed: ", error)
     end
 
     local is_valid_shape = false
     local type = self:get_type()
-    for shape in values(shapes) do
+    for i = 1, select("#", ...) do
+        local shape = select(i, ...)
         if shape == ow.ShapeType.ANY then
             is_valid_shape = true
         elseif shape == ow.ShapeType.CAPSULE then
             is_valid_shape = type == ow.ObjectType.CAPSULE
         elseif shape == ow.ShapeType.CIRCLE then
-            is_valid_shape = type == ow.ObjectType.ELLIPSE
-                and math.equals(self.x_radius, self.y_radius, 1)
+            is_valid_shape = type == ow.ObjectType.ELLIPSE and math.equals(self.x_radius, self.y_radius, 1)
         elseif shape == ow.ShapeType.ELLIPSE then
             is_valid_shape = type == ow.ObjectType.ELLIPSE
         elseif shape == ow.ShapeType.AXIS_ALIGNED_RECTANGLE then
-            is_valid_shape = type == ow.ObjectType.RECTANGLE
-                and self.rotation == 0
+            is_valid_shape = type == ow.ObjectType.RECTANGLE and self.rotation == 0
         elseif shape == ow.ShapeType.RECTANGLE then
             is_valid_shape = type == ow.ObjectType.RECTANGLE
         elseif shape == ow.ShapeType.POLYGON then
@@ -1020,25 +938,24 @@ function ow.ObjectWrapper:validate_schema(schema, ...)
         elseif shape == ow.ShapeType.SPRITE then
             is_valid_shape = type == ow.ObjectType.SPRITE
         elseif shape == ow.ShapeType.NOT_A_POINT then
-            is_valid_shape = type ~= ow.ObjectType.POINT
-                and type ~= ow.ObjectType.SPRITE
+            is_valid_shape = type ~= ow.ObjectType.POINT and type ~= ow.ObjectType.SPRITE
         else
             rt.error("In ow.ObjectWrapper.validate_schema: invalid object shape type `", shape, "`")
         end
 
-        if is_valid_shape == true then break end
+        if is_valid_shape == true then return end
     end
 
-    if not is_valid_shape then
-        local allowed = {}
-        for i = 1, select("#", ...) do
-            local shape = select(i, ...)
-            if shape ~= ow.ShapeType.ANY then
-                table.insert(allowed, shape)
-            end
+    -- invalid shape
+    local allowed = {}
+    for i = 1, select("#", ...) do
+        local shape = select(i, ...)
+        if shape ~= ow.ShapeType.ANY then
+            table.insert(allowed, shape)
         end
-        rt.error("In ow.ObjectWrapper: in stage `", self.stage_id, "`: object `", self.id, "` must be one of: ", table.concat(allowed, ", "))
     end
+
+    rt.error("In ow.ObjectWrapper: in stage `", self.stage_id, "`: object `", self.id, "` must be one of: ", table.concat(allowed, ", "))
 end
 
 --- @brief

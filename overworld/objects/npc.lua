@@ -14,9 +14,9 @@ rt.settings.overworld.npc = {
 --- @class ow.NPC
 ow.NPC = meta.class("NPC")
 
-local schema = {
+local schema = meta.Schema({
     dialog_id = ow.String
-}
+})
 
 --- @brief
 function ow.NPC:instantiate(object, stage, scene)

@@ -26,16 +26,15 @@ ow.StickyHitbox = function(object, stage, scene)
     return ow.Hitbox(object, stage, scene)
 end
 
-local schema = {
-    slippery = ow.Boolean,
-    sticky = ow.Boolean,
-    unjumpable = ow.Boolean,
-    unwalkable = ow.Boolean,
-    friction = ow.Number,
-    outline_color = ow.Number, -- grayscale value
-    filter = ow.String
-}
-
+local schema = meta.Schema({
+    slippery = mt.Optional(ow.Boolean),
+    sticky = mt.Optional(ow.Boolean),
+    unjumpable = mt.Optional(ow.Boolean),
+    unwalkable = mt.Optional(ow.Boolean),
+    friction = mt.Optional(ow.Number),
+    outline_color = mt.Optional(ow.Number),
+    filter = mt.Optional(ow.String)
+})
 -- manually batched
 ow.Hitbox._slippery_collision_tris = {}
 ow.Hitbox._slipper_mesh_tris = {}

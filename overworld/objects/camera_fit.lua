@@ -5,9 +5,11 @@ ow.CameraFit = meta.class("CameraFit")
 --- @class ow.CameraFitBody
 ow.CameraFitBody = meta.class("CameraFitBody") -- dummy
 
-local schema = {
-    body = ow.Object
-}
+local schema = meta.Schema({
+    body = meta.Optional(ow.Object)
+})
+
+local body_schema = meta.Schema({})
 
 --- @brief
 function ow.CameraFit:instantiate(object, stage, scene)
@@ -30,8 +32,12 @@ function ow.CameraFit:instantiate(object, stage, scene)
     if object:get_object("body") == nil then
         self._body = object:create_physics_body(stage:get_physics_world())
     else
-        self._body = object:get_object("body"):create_physics_body(stage:get_physics_world())
-        self._body:validate_schema({}, shape_types)
+        local foreign = object:get_object("body")
+        self._body = foreign:create_physics_body(stage:get_physics_world())
+        foreign:validate_schema(body_schema,
+            ow.ShapeType.POLYGON,
+            ow.ShapeType.AXIS_ALIGNED_RECTANGLE
+        )
     end
 
     self._body:set_is_sensor(true)

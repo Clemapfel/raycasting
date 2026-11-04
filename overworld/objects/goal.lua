@@ -21,6 +21,8 @@ rt.settings.overworld.goal.time_dilation_duration = rt.settings.overworld.shatte
 --- @types Point
 ow.Goal = meta.class("Goal")
 
+local schema = meta.Schema({}) -- no custom attributes
+
 local _indicator_shader = rt.Shader("overworld/objects/goal_indicator.glsl")
 local _outline_shader = rt.Shader("overworld/objects/checkpoint_platform.glsl")
 
@@ -35,7 +37,7 @@ end
 
 --- @brief
 function ow.Goal:instantiate(object, stage, scene)
-    object:validate_schema({}, ow.ShapeType.RECTANGLE)
+    object:validate_schema(schema, ow.ShapeType.RECTANGLE)
 
     meta.install(self, {
         _scene = scene,

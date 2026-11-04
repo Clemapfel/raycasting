@@ -23,32 +23,28 @@ rt.settings.overworld.air_dash_node = {
     cooldown_delay = 10 / 60
 }
 
-local circle_schema = {
-    angle_range = ow.Number, -- angle range
-    angle = ow.Number,
-    direction = ow.ObjectType.POINT,
-    axis_x = ow.Number,
-    axis_y = ow.Number,
-    velocity = ow.Number -- factor
-}
-
-local point_schema = {
-    other = ow.ObjectType.POINT,
-    angle_range = ow.Number,
-    angle = ow.Number,
-    velocity = ow.Number
-}
-
-local allowed_shapes = {
-    ow.ShapeType.POINT, ow.ShapeType.CIRCLE
-}
-
 --- @class AirDashNode
 --- @types Circle
 ow.AirDashNode = meta.class("AirDashNode", ow.MovableObject)
 
 --- @class AirDashNodeDirection
 ow.AirDashNodeDirection = meta.class("AirDashNodeDirection")
+
+local circle_schema = meta.Schema({
+    angle_range = ow.Number, -- angle range
+    angle = ow.Number,
+    direction = ow.ObjectType.POINT,
+    axis_x = ow.Number,
+    axis_y = ow.Number,
+    velocity = ow.Number -- factor
+})
+
+local point_schema = meta.Schema({
+    other = ow.ObjectType.POINT,
+    angle_range = ow.Number,
+    angle = ow.Number,
+    velocity = ow.Number
+})
 
 local _dash_sound_id = "air_dash_node.dash"
 
@@ -74,11 +70,9 @@ end
 --- @brief
 function ow.AirDashNode:instantiate(object, stage, scene)
     if (object:get_type() == ow.ObjectType.POINT) then
-        rt.assert(object:get_object("other", true):get_type() == ow.ObjectType.POINT)
-        object:validate_schema(point_schema, allowed_shapes)
+        object:validate_schema(point_schema, ow.ShapeType.POINT)
     else
-        rt.assert(object:get_type() == ow.ObjectType.ELLIPSE and math.equals(object.x_radius, object.y_radius), "In ow.AirDashNode: object `" .. object:get_id() .. "` is not a circle")
-        object:validate_schema(circle_schema, allowed_shapes)
+        object:validate_schema(circle_schema, ow.ShapeType.ELLIPSE, ow.ShapeType.CIRCLE)
     end
 
     if stage.air_dash_node_manager_is_first == true then

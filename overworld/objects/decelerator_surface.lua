@@ -10,13 +10,14 @@ rt.settings.overworld.decelerator_surface = {
 --- @class ow.DeceleratorSurface
 ow.DeceleratorSurface = meta.class("DeceleratorSurface") -- not movable: , ow.MovableObject)
 
-local padding = 20
+local schema = meta.Schema({}) -- no custom attributes
 
+local padding = 20
 local first, scale = true, 0
 
 --- @brief
 function ow.DeceleratorSurface:instantiate(object, stage, scene)
-    object:validate_schema({}, ow.ShapeType.POLYGON, ow.ShapeType.RECTANGLE)
+    object:validate_schema(schema, ow.ShapeType.POLYGON, ow.ShapeType.RECTANGLE)
 
     self._scene = scene
     self._stage = stage

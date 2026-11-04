@@ -20,11 +20,11 @@ ow.Portal = meta.class("Portal", ow.MovableObject)
 --- @class ow.PortalNode
 ow.PortalNode = meta.class("PortalNode") -- dummy
 
-local schema = {
-    left_or_right = ow.Boolean,
+local schema = meta.Schema({
     other = ow.Object,
-    object = ow.Object
-}
+    target = mt.Optional(ow.Object),
+    left_or_right = mt.Optional(ow.Boolean)
+})
 
 local _STATE_DEFAULT = 0
 local _STATE_TRANSITIONING = 1

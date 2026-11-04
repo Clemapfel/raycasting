@@ -26,9 +26,9 @@ rt.settings.overworld.accelerator_surface = {
 --- @field friction Number? defaults to -1, negative friction speeds up player
 ow.AcceleratorSurface = meta.class("AcceleratorSurface", ow.MovableObject)
 
-local schema = {
-    friction = ow.Number
-}
+local schema = meta.Schema({
+    friction = mt.Optional(ow.Number)
+})
 
 local _particle_texture, _particle_quads = nil, {}
 

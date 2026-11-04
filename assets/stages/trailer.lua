@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 9,
-  nextobjectid = 1329,
+  nextobjectid = 1337,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -463,8 +463,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = -128,
-          y = -16,
+          x = 1433.45,
+          y = -338.068,
           width = 0,
           height = 0,
           rotation = 0,
@@ -696,6 +696,149 @@ return {
             { x = 0, y = 64 }
           },
           properties = {}
+        },
+        {
+          id = 1329,
+          name = "",
+          type = "Portal",
+          shape = "point",
+          x = 1712,
+          y = -624,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          opacity = 1,
+          visible = true,
+          properties = {
+            ["other"] = { id = 1330 },
+            ["target"] = { id = 1332 }
+          }
+        },
+        {
+          id = 1330,
+          name = "",
+          type = "PortalNode",
+          shape = "point",
+          x = 1984,
+          y = -624,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          opacity = 1,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 1331,
+          name = "",
+          type = "PortalNode",
+          shape = "point",
+          x = 1712,
+          y = -432,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          opacity = 1,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 1332,
+          name = "",
+          type = "Portal",
+          shape = "point",
+          x = 1984,
+          y = -432,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          opacity = 1,
+          visible = true,
+          properties = {
+            ["other"] = { id = 1331 },
+            ["target"] = { id = 1329 }
+          }
+        },
+        {
+          id = 1333,
+          name = "",
+          type = "Hitbox",
+          shape = "polygon",
+          x = 1712,
+          y = -320,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          opacity = 1,
+          visible = true,
+          polygon = {
+            { x = 80, y = 16 },
+            { x = 80, y = 352 },
+            { x = -160, y = 352 },
+            { x = -160, y = 16 }
+          },
+          properties = {}
+        },
+        {
+          id = 1334,
+          name = "",
+          type = "SlipperyHitbox",
+          shape = "polygon",
+          x = 1552,
+          y = -304,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          opacity = 1,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 0, y = -16 },
+            { x = 272, y = -16 },
+            { x = 256, y = 0 }
+          },
+          properties = {}
+        },
+        {
+          id = 1335,
+          name = "",
+          type = "AcceleratorSurface",
+          shape = "polygon",
+          x = 1824,
+          y = -320,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          opacity = 1,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = -16, y = 16 },
+            { x = -32, y = 16 },
+            { x = -32, y = 352 },
+            { x = 480, y = 352 },
+            { x = 480, y = -128 },
+            { x = 448, y = -128 },
+            { x = 448, y = 320 },
+            { x = 0, y = 320 }
+          },
+          properties = {}
+        },
+        {
+          id = 1336,
+          name = "",
+          type = "Bubble",
+          shape = "ellipse",
+          x = 1536,
+          y = -432,
+          width = 64,
+          height = 64,
+          rotation = 0,
+          opacity = 1,
+          visible = true,
+          properties = {
+            ["hue"] = "player"
+          }
         }
       }
     },

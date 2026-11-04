@@ -45,10 +45,10 @@ local _fizz_sound_id = "bubble.fizz"
 local _shader = rt.Shader("overworld/objects/bubble.glsl")
 local _n_hue_steps = 13
 
-local schema = {
-    should_move_in_place = ow.Boolean,
-    hue = ow.Number
-}
+local schema = meta.Schema({
+    should_move_in_place = mt.Optional(ow.Boolean),
+    hue = mt.Union(mt.Nil, ow.Number, ow.String)
+})
 
 function ow.Bubble:instantiate(object, stage, scene)
     object:validate_schema(schema, ow.ShapeType.ELLIPSE)
@@ -120,11 +120,17 @@ function ow.Bubble:instantiate(object, stage, scene)
     if hue == nil then
         self._hue = math.fract(stage.bubble_current_hue_step % _n_hue_steps / _n_hue_steps)
         stage.bubble_current_hue_step = stage.bubble_current_hue_step + 1
+        self._use_player_hue = false
+    elseif meta.is_string(hue) then
+        rt.assert(hue == "player", "In ow.Bubble: property `hue` of object `", object:get_id(), "` is not a number, expected \"player\", got `", tostring(hue), "`")
+        self._hue = self._scene:get_player():get_hue()
+        self._use_player_hue = true
     else
         self._hue = object:get_number("hue", true)
+        self._use_player_hue = false
     end
 
-    self._color = { rt.lcha_to_rgba(0.8, 1, self._hue, 1) }
+    self._color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, self._hue, 1))
 
     self._contour = {}
     self._outline_contour = {}
@@ -409,6 +415,11 @@ function ow.Bubble:update(delta)
     end
 
     if not self._stage:get_is_body_visible(self._body) then return end
+
+    if self._use_player_hue then
+        self._color = self._scene:get_player():get_color()
+    end
+
     self._pop_fraction = math.min(1, self._respawn_elapsed / respawn_duration)
 
     if not self._is_destroyed and self._should_move_in_place then
@@ -446,7 +457,7 @@ function ow.Bubble:draw()
     love.graphics.setLineWidth(rt.settings.overworld.bubble.outline_width)
     love.graphics.line(self._outline_contour)
 
-    r, g, b = table.unpack(self._color)
+    r, g, b = self._color:unpack()
     love.graphics.setColor(r, g, b, opacity)
     love.graphics.setLineWidth(rt.settings.overworld.bubble.line_width)
     love.graphics.line(self._contour)
@@ -496,7 +507,7 @@ function ow.Bubble:draw_bloom()
     love.graphics.setLineStyle("smooth")
     love.graphics.setLineJoin("bevel")
 
-    local r, g, b = table.unpack(self._color)
+    local r, g, b = self._color:unpack()
     love.graphics.setColor(r, g, b, opacity)
     love.graphics.setLineWidth(rt.settings.overworld.bubble.line_width)
     love.graphics.line(self._contour)
@@ -506,7 +517,7 @@ end
 
 --- @brief
 function ow.Bubble:get_color()
-    local r, g, b = table.unpack(self._color)
+    local r, g, b = self._color:unpack()
     local a = math.clamp(self._respawn_elapsed / rt.settings.overworld.bubble.respawn_duration, 0, 1)
     return rt.RGBA(r, g, b, a)
 end

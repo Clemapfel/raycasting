@@ -10,6 +10,8 @@ rt.settings.overworld.eye = {
 --- @class ow.Eye
 ow.Eye = meta.class("OverworldEye")
 
+local schema = meta.Schema({}) -- no custom attributes
+
 local _new_transform = function()
     return {
         scale_x = 1,
@@ -32,7 +34,7 @@ local _lch_texture = rt.LCHTexture(1, 1, 256)
 local n_hue_steps = 64
 
 function ow.Eye:instantiate(object, stage, scene)
-    object:validate_schema({}, ow.ShapeType.ELLIPSE)
+    object:validate_schema(schema, ow.ShapeType.ELLIPSE)
 
     self._camera_body = object:create_physics_body(stage:get_physics_world())
     self._camera_body:set_collides_with(0x0)

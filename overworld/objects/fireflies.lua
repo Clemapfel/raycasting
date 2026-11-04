@@ -11,10 +11,10 @@ rt.settings.overworld.fireflies = {
 --- @class ow.Fireflies
 ow.Fireflies = meta.class("Fireflies", ow.MovableObject)
 
-local schema = {
-    count = ow.Integer,
-    should_move_in_place = ow.Boolean,
-}
+local schema = meta.Schema({
+    count = mt.Optional(ow.Integer),
+    should_move_in_place = mt.Optional(ow.Boolean),
+})
 
 function ow.Fireflies.reinitialize(scene, stage)
     require "overworld.firefly_manager"

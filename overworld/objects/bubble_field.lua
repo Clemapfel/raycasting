@@ -27,9 +27,9 @@ rt.settings.overworld.bubble_field = {
 --- @field inverted Boolean? if false, non-bubble -> bubble, otherwise bubble -> non-bubble
 ow.BubbleField = meta.class("BubbleField", ow.MovableObject)
 
-local schema = {
-    is_inverted = ow.Boolean
-}
+local schema = meta.Schema({
+    is_inverted = mt.Optional(ow.Boolean)
+})
 
 local _base_shader = rt.Shader("overworld/objects/bubble_field_base.glsl")
 local _outline_shader = rt.Shader("overworld/objects/bubble_field_outline.glsl")

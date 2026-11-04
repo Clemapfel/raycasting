@@ -21,12 +21,12 @@ ow.SlipperyMovableHitbox = function(object, stage, scene)
     return ow.MovableHitbox(object, stage, scene)
 end
 
-local schema = {
+local schema = meta.Schema({
     slippery = ow.Boolean,
     sticky = ow.Boolean,
     unjumpable = ow.Boolean,
     unwalkable = ow.Boolean
-}
+})
 
 --- @brief
 function ow.MovableHitbox:instantiate(object, stage, scene)

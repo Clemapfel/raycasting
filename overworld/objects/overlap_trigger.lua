@@ -7,11 +7,11 @@
 ow.OverlapTrigger = meta.class("OverlapTrigger")
 meta.add_signals(ow.OverlapTrigger, "activate")
 
-local schema = {
+local schema = meta.Schema({
     target = ow.Object,
     signal = ow.String,
-    value = { ow.Number, ow.Integer, ow.Boolean, ow.String }
-}
+    value = mt.Union(mt.Nil, ow.Number, ow.Integer, ow.Boolean, ow.String)
+})
 
 --- @brief
 function ow.OverlapTrigger:instantiate(object, stage, scene)

@@ -35,20 +35,20 @@ rt.settings.overworld.boost_field = {
     }
 }
 
-local schema = {
-    axis_x = ow.Number,
-    axis_y = ow.Number,
-    axis = ow.Object,
-    path = ow.Object,
-    use_smoothing = ow.Boolean,
-    is_visible = ow.Boolean,
-    has_outline = ow.Boolean,
-    velocity = ow.Number,
+local schema = meta.Schema({
+    axis_x = mt.Optional(ow.Number),
+    axis_y = mt.Optional(ow.Number),
+    axis = mt.Optional(ow.Object),
+    path = mt.Optional(ow.Object),
+    use_smoothing = mt.Optional(ow.Boolean),
+    is_visible = mt.Optional(ow.Boolean),
+    has_outline = mt.Optional(ow.Boolean),
+    velocity = mt.Optional(ow.Number),
     hue = { ow.String, ow.Number }
-}
+})
 
 local path_node_schema = {
-    next = ow.Object
+    next = mt.Optional(ow.Object)
 }
 
 --- @class ow.BoostField

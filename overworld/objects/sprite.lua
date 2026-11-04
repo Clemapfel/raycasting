@@ -3,6 +3,8 @@
 --- @field render_priority Number?
 ow.Sprite = meta.class("OverworldSprite") -- not a rt.Drawable
 
+local schema = meta.Schema({}) -- image id set natively in ObjectWrapper
+
 -- sprite atlas has to list of sprites, sorted by render priority
 local _render_priority_to_batches = {} -- Table<Number, Table<love.Texture, Table<ow.Sprite>>>
 
@@ -13,7 +15,7 @@ end
 
 --- @brief
 function ow.Sprite:instantiate(object, stage, scene)
-    object:validate_schema({}, ow.ShapeType.SPRITE)
+    object:validate_schema(schema, ow.ShapeType.SPRITE)
 
     self._scene = scene
     self._stage = stage

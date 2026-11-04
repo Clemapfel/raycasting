@@ -20,10 +20,10 @@ rt.settings.overworld.kill_plane = {
 --- @types Polygon, Rectangle, Ellipse
 ow.KillPlane = meta.class("KillPlane", ow.MovableObject)
 
-local schema = {
-    should_explode = ow.Boolean,
-    is_visible = ow.Boolean
-}
+local schema = meta.Schema({
+    should_explode = mt.Optional(ow.Boolean),
+    is_visible = mt.Optional(ow.Boolean)
+})
 
 local _data_mesh_format = {
     { location = 3, name = "particle_position", format = "floatvec2" },

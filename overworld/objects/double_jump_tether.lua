@@ -14,6 +14,8 @@ rt.settings.overworld.double_jump_tether = {
 ow.DoubleJumpTether = meta.class("DoubleJumpThether", ow.MovableObject)
 meta.add_signal(ow.DoubleJumpTether, "removed")
 
+local schema = meta.Schema({}) -- no custom attributes
+
 local _shader
 
 local _hue_steps, _n_hue_steps = {}, 8
@@ -26,9 +28,10 @@ end
 
 local eps = 0.01
 
+
 --- @brief
 function ow.DoubleJumpTether:instantiate(object, stage, scene)
-    object:validate_schema(object, ow.ShapeType.POINT)
+    object:validate_schema(schema, ow.ShapeType.POINT)
 
     self._x, self._y, self._radius = object.x, object.y, rt.settings.player.radius * rt.settings.overworld.double_jump_tether.radius_factor
     self._body = b2.Body(

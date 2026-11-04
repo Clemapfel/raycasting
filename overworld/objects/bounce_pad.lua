@@ -46,7 +46,7 @@ ow.BouncePad = meta.class("BouncePad", ow.MovableObject)
 
 local _sound_id = "bounce_pad.bounce"
 
-local schema = {} -- no custom attributes
+local schema = meta.Schema({}) -- no custom attributes
 
 -- mesh deformation
 local _x_index = 1

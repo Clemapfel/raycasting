@@ -1,9 +1,9 @@
 --- @class ow.DarknessArea
 ow.DarknessArea = meta.class("DarknessArea", ow.MovableObject)
 
-local schema = {
-    strength = ow.Number,
-}
+local schema = meta.Schema({
+    strength = mt.Optional(ow.Number),
+})
 
 --- @brief
 function ow.DarknessArea:instantiate(object, stage, scene)

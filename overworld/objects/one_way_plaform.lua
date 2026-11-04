@@ -17,11 +17,13 @@ rt.settings.overworld.one_way_platform = {
 --- @types Rectangle
 ow.OneWayPlatform = meta.class("OneWayPlatform", ow.MovableObject)
 
-local schema = {
+local schema = meta.Schema({
     other = ow.Object,
-    has_end_cap = ow.Boolean,
-    hue = { ow.Number, ow.String }, -- hue or "player"
-}
+    has_end_cap = mt.Optional(ow.Boolean),
+    hue = mt.Union(mt.Nil, ow.Number, ow.String), -- hue or "player"
+})
+
+local other_schema = meta.Schema({}) -- no custom attributes `other`
 
 --- @class ow.OneWayPlatformNode
 ow.OneWayPlatformNode = meta.class("OneWayPlatformNode", ow.MovableObject)
@@ -51,7 +53,7 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
     end
 
     local other = object:get_object("other", true)
-    other:validate_schema({}, ow.ShapeType.POINT)
+    other:validate_schema(other_schema, ow.ShapeType.POINT)
 
     local x1, y1 = object.x, object.y
     local x2, y2 = other.x, other.y
