@@ -14,6 +14,7 @@ local _g_type = _G.type
 local _type_typename = "Type"
 local _union_typename = "Union"
 local _enum_typename = "Enum"
+local _array_typename = "Array"
 
 -- shared type data
 local _type_to_name = {}
@@ -25,16 +26,42 @@ local _class_to_instance_metatable = {}
 local _current_instance_hash = 0
 
 -- instance properties
-local _metatable_index = 1
-local _hash_index = 2
-local _signals_index = 3
+local _set_metatable, _get_metatable, _set_hash, _get_hash, _set_signal_component, _get_signal_component
+local _is_reserved_key
+do
+    local _metatable_index = 1
+    local _hash_index = 2
+    local _signals_index = 3
 
-local function _set_metatable(x, mt)
-    rawset(x, _metatable_index, mt)
-end
+    function _is_reserved_key(x)
+        return x == _metatable_index or x == _hash_index or x == _signals_index
+    end
 
-local function _get_metatable(x)
-    return rawget(x, _metatable_index)
+    function _set_metatable(x, metatable)
+        setmetatable(x, metatable)
+        rawset(x, _metatable_index, metatable)
+    end
+
+    function _get_metatable(x)
+        return rawget(x, _metatable_index)
+    end
+
+    function _set_hash(x, hash)
+        rawset(x, _hash_index, hash)
+        _current_instance_hash = _current_instance_hash + 1
+    end
+
+    function _get_hash(x)
+        return rawget(x, _hash_index)
+    end
+
+    function _set_signal_component(x, component)
+        rawset(x, _signals_index, component)
+    end
+
+    function _get_signal_component(x)
+        return rawget(x, _signals_index)
+    end
 end
 
 local _new_type = function(name, super)
@@ -49,16 +76,15 @@ local _new_type = function(name, super)
         __validator = nil
     }
 
-    local type = setmetatable({}, metatable)
+    local type = {}
 
     _type_to_name[type] = name
     _name_to_type[name] = type
 
     _set_metatable(type, metatable)
-    rawset(type, _hash_index, _current_instance_hash)
-    _current_instance_hash = _current_instance_hash + 1
-    type[_signals_index] = nil
-
+    _set_hash(type, _current_instance_hash)
+    _set_signal_component(type, nil)
+    
     return type
 end
 
@@ -114,32 +140,62 @@ meta.Union = _new_native_type(_union_typename)
 --- @class meta.Optional
 meta.Optional = _new_native_type("Optional")
 
+--- @class meta.Array
+meta.Array = _new_native_type("Array")
+
 do
     local function _union_tostring(self)
         local names = {}
         for i, t in ipairs(self.types) do
             names[i] = tostring(t)
         end
-        return "Union<" .. table.concat(names, ", ") .. ">"
+        return _union_typename .. "<" .. table.concat(names, ", ") .. ">"
     end
 
     getmetatable(meta.Union).__call = function(self, ...)
         if select("#", ...) == 0 then rt.error("In meta.Union: number of arguments cannot be 0") end
-        local out = _new_native_type("Union")
-        local mt = _get_metatable(out)
-        mt.__typename = _union_typename
-        mt.__tostring = _union_tostring
+        local out = _new_native_type(_union_typename)
+        local metatable = _get_metatable(out)
+        metatable.__typename = _union_typename
+        metatable.__tostring = _union_tostring
+
+        for i = 1, select("#", ...) do
+            rt.assert(meta.is_type(select(i, ...)), "In meta.Union: for argument #1: expected `Type` got `", meta.typeof(select(i, ...)), "`")
+        end
+
         out.types = { ... }
         return out
     end
 
     getmetatable(meta.Optional).__call = function(self, ...)
         if select("#", ...) == 0 then rt.error("In meta.Optional: number of arguments cannot be 0") end
-        local out = _new_native_type("Union")
-        local mt = _get_metatable(out)
-        mt.__typename = _union_typename
-        mt.__tostring = _union_tostring
+        local out = _new_native_type(_union_typename)
+        local metatable = _get_metatable(out)
+        metatable.__typename = _union_typename
+        metatable.__tostring = _union_tostring
+
+        for i = 1, select("#", ...) do
+            rt.assert(meta.is_type(select(i, ...)), "In meta.Optional: for argument #1: expected `Type` got `", meta.typeof(select(i, ...)), "`")
+        end
+
         out.types = { meta.Nil, ... }
+        return out
+    end
+
+    local function _array_tostring(self)
+        return _array_typename .. "<" .. tostring(self.type) .. ">"
+    end
+
+    getmetatable(meta.Array).__call = function(self, ...)
+        if select("#", ...) == nil then rt.error("In meta.Array: wrong number of arguments, expected `2`, got `", select("#", ...), "`") end
+        local out = _new_native_type(_array_typename)
+        local metatable = _get_metatable(out)
+        metatable.__typename = _array_typename
+        metatable.__tostring = _array_tostring
+        out.type = select(1, ...)
+
+        rt.assert(meta.is_type(out.type), "In meta.Array: argument #1 is not a type")
+
         return out
     end
 end
@@ -158,6 +214,7 @@ for type in range(
     meta.Any,
     meta.Table,
     meta.Type,
+    meta.Array,
     meta.Enum,
     meta.Union
 ) do
@@ -212,6 +269,14 @@ function meta.is_table(x)
     return _g_type(x) == "table"
 end
 
+function meta.is_array(x)
+    if _g_type(x) ~= "table" then return false end
+    for i, element in ipairs(x) do
+        if not meta.isa(element, x.type) then return false end
+    end
+    return true
+end
+
 function meta.is_love_type(x, type)
     local valid = _g_type(x) == "userdata" and _g_type(x.typeOf) == "function"
     if type == nil then return valid else return x:typeOf(type) end
@@ -230,6 +295,7 @@ do
         return meta.is_table(mt) and (mt.__typename == _type_typename
             or mt.__typename == _union_typename
             or mt.__typename == _enum_typename
+            or mt.__typename == _array_typename
         )
     end
 
@@ -318,7 +384,8 @@ for type, validator in pairs({
     [meta.CData] = meta.is_cdata,
     [meta.UserData] = meta.is_userdata,
     [meta.Any] = meta.is_any,
-    [meta.Type] = meta.is_type
+    [meta.Type] = meta.is_type,
+    [meta.Array] = meta.is_array
 }) do
     type.isa = validator
 end
@@ -414,7 +481,7 @@ do
         meta.assert(instance, meta.Any, id, meta.String)
 
         local component, entry
-        component = rawget(instance, _signals_index)
+        component = _get_signal_component(instance)
         if component ~= nil then entry = component[id] end
 
         if component == nil or entry == nil then
@@ -431,7 +498,7 @@ do
     local _signal_list_signals = function(instance)
         meta.assert(instance, meta.Any)
 
-        local component = rawget(instance, _signals_index)
+        local component = _get_signal_component(instance)
         if component == nil then return {} end
 
         local out = {}
@@ -445,7 +512,7 @@ do
         local callback = select(1, ...)
         meta.assert(instance, meta.Any, id, meta.String, callback, meta.Function)
 
-        local component = rawget(instance, _signals_index)
+        local component = _get_signal_component(instance)
         local entry = component[id]
         if entry == nil then
             _throw_no_signal("signal_connect", instance, id)
@@ -468,7 +535,7 @@ do
         )
 
         local component, entry
-        component = rawget(instance, _signals_index)
+        component = _get_signal_component(instance)
 
         if component ~= nil then
             entry = component[id]
@@ -499,7 +566,7 @@ do
             callback_id, meta.Optional(meta.Number)
         )
 
-        local component = rawget(instance, _signals_index)
+        local component = _get_signal_component(instance)
         if component == nil then
             return false
         end
@@ -526,7 +593,7 @@ do
     local _signal_disconnect_all = function(instance, id)
         meta.assert(instance, meta.Any, id, meta.Optional(meta.String))
 
-        local component = rawget(instance, _signals_index)
+        local component = _get_signal_component(instance)
         if component == nil then
             rt.error("In ", meta.typeof(instance), ".signal_disconnect_all: object `", meta.typeof(instance), "` does not have any signals")
             return
@@ -553,7 +620,7 @@ do
         meta.assert(instance, meta.Any, id, meta.String, b, meta.Boolean)
 
         local component, entry
-        component = rawget(instance, _signals_index)
+        component = _get_signal_component(instance)
         if component ~= nil then
             entry = component[id]
         end
@@ -570,7 +637,7 @@ do
         meta.assert(instance, meta.Any, id, meta.String)
 
         local component, entry
-        component = rawget(instance, _signals_index)
+        component = _get_signal_component(instance)
         if component ~= nil then entry = component[id] end
 
         if component == nil or entry == nil then
@@ -584,7 +651,7 @@ do
     local _signal_has_signal = function(instance, id)
         meta.assert(instance, meta.Any, id, meta.String)
 
-        local component = rawget(instance, _signals_index)
+        local component = _get_signal_component(instance)
         if component == nil then
             return false
         end
@@ -595,7 +662,7 @@ do
         meta.assert(instance, meta.Any, id, meta.String)
 
         local component, entry
-        component = rawget(instance, _signals_index)
+        component = _get_signal_component(instance)
         if component ~= nil then entry = component[id] end
 
         if component == nil or entry == nil then
@@ -628,7 +695,7 @@ do
         meta.assert(instance, meta.Any, id, meta.String)
 
         local component, entry
-        component = rawget(instance, _signals_index)
+        component = _get_signal_component(instance)
         if component ~= nil then entry = component[id] end
 
         if component == nil or entry == nil or entry.is_blocked then
@@ -673,10 +740,10 @@ do
         type.signal_list_signals = _signal_list_signals
 
         for signal_id in values(signals) do
-            local component = rawget(instance, _signals_index)
+            local component = _get_signal_component(instance)
             if component == nil then
                 component = {}
-                rawset(instance, _signals_index, component)
+                _set_signal_component(instance, component)
             end
 
             component[signal_id] = {
@@ -737,10 +804,9 @@ function meta.class(typename, super)
 
     type_metatable.__call = function(self, ...)
         local instance = {}
-        instance[_metatable_index] = instance_metatable
-        instance[_hash_index] = _current_instance_hash
-        _current_instance_hash = _current_instance_hash + 1
-        instance[_signals_index] = nil
+        _set_metatable(instance, instance_metatable)
+        _set_hash(instance, _current_instance_hash)
+        _set_signal_component(instance, nil)
 
         -- inject signals in reverse order
         for current_super in values(reverse_supers) do
@@ -839,12 +905,15 @@ function meta.get_instance_metatable(type)
     return _class_to_instance_metatable[type]
 end
 
---- @return Number
-function meta.hash(instance)
-    if instance == nil then return -1 end
-    return rawget(instance, _hash_index) or -1
-end
+do
+    local _default_hash = -1
 
+    --- @return Number
+    function meta.hash(instance)
+        if instance == nil then return _default_hash end
+        return _get_hash(instance) or _default_hash
+    end
+end
 --- @brief
 function meta.make_weak(t, weak_keys, weak_values)
     meta.assert(t, meta.Table, weak_keys, meta.Optional(meta.Boolean), weak_values, meta.Optional(meta.Boolean))
@@ -990,19 +1059,35 @@ do
         end
 
         for key, schema_t in pairs(schema_node) do
-            local value = input[key]
-            if meta.is_type(schema_t) then
-                if not meta.isa(value, schema_t) then
-                    return false, string.paste("key `", _to_key(prefix, key), "`: expected `", schema_t, "`, got `", meta.typeof(value), "`")
-                end
-            else -- schema_t confirmed nested table in check_schema_correctness
-                if not meta.is_table(value) then
-                    return false, string.paste("key `", _to_key(prefix, key), "`: expected nested `Table`, got `", meta.typeof(value), "`")
-                end
+            if not _is_reserved_key(key) then
+                local value = input[key]
+                if meta.is_type(schema_t) then
+                    if meta.get_typename(schema_t) == _array_typename then
+                        -- do arrays manually so error message can have the violating index
+                        if not meta.is_table(value) then
+                            return false, string.paste("key `", _to_key(prefix, key), "`: expected `", schema_t, "`, got `", meta.typeof(value), "`")
+                        else
+                            local element_type = schema_t.type
+                            for i, array_value in ipairs(value) do
+                                if not meta.isa(array_value, element_type) then
+                                    return false, string.paste("key `", _to_key(prefix, key), "` wrong element type for `", schema_t, "` at index `", i, "`: expected `", element_type, "`, got, `", meta.typeof(array_value), "`")
+                                end
+                            end
+                        end
+                    else
+                        if not meta.isa(value, schema_t) then
+                            return false, string.paste("key `", _to_key(prefix, key), "`: expected `", schema_t, "`, got `", meta.typeof(value), "`")
+                        end
+                    end
+                else -- schema_t confirmed nested table in check_schema_correctness
+                    if not meta.is_table(value) then
+                        return false, string.paste("key `", _to_key(prefix, key), "`: expected nested `Table`, got `", meta.typeof(value), "`")
+                    end
 
-                local child_prefix = table.deepcopy(prefix)
-                table.insert(child_prefix, key)
-                _validate_input(value, schema_t, child_prefix, is_active)
+                    local child_prefix = table.deepcopy(prefix)
+                    table.insert(child_prefix, key)
+                    _validate_input(value, schema_t, child_prefix, is_active)
+                end
             end
         end
 
@@ -1016,14 +1101,16 @@ do
         seen[node] = true
 
         for key, value in pairs(node) do
-            if meta.is_type(value) then
-                -- valid, continue
-            elseif _g_type(value) == "table" then
-                local child_prefix = table.deepcopy(prefix)
-                table.insert(child_prefix, key)
-                _validate_schema(value, child_prefix, seen)
-            else
-                rt.fatal("In meta.validate_schema: malformed schema at key `", _to_key(prefix, key), "`: expected `Type` or a nested table, got `", meta.typeof(value), "`")
+            if not _is_reserved_key(key) then
+                if meta.is_type(value) then
+                    -- valid, continue
+                elseif _g_type(value) == "table" then
+                    local child_prefix = table.deepcopy(prefix)
+                    table.insert(child_prefix, key)
+                    _validate_schema(value, child_prefix, seen)
+                else
+                    rt.fatal("In meta.validate_schema: malformed schema at key `", _to_key(prefix, key), "`: expected `Type` or a nested table, got `", meta.typeof(value), "`")
+                end
             end
         end
     end
@@ -1031,27 +1118,27 @@ do
     --- @class meta.Schema
     meta.Schema = meta.class("Schema")
 
+    local _schema_to_is_validated = meta.make_weak({}, true, true)
+    -- use external flag so schema can be it's own layout
+
     --- @brief
     function meta.Schema:instantiate(layout)
         _schema_to_is_validated[self] = false
         meta.install(self, layout)
     end
 
-    local _schema_to_is_validated = meta.make_weak({}, true, true)
-    -- use external flag so schema can be it's own layout
-
     --- @brief
     function meta.Schema:try_validate(x)
         meta.assert(x, meta.Table)
 
         if _schema_to_is_validated[self] ~= true then
-            _validate_schema(self.layout,
+            _validate_schema(self,
                 {}, -- prefix
                 {} -- seen
             )
         end
 
-        return _validate_input(x, self.layout,
+        return _validate_input(x, self,
             {}, -- prefix
             {} -- currently active
         )
@@ -1063,7 +1150,7 @@ do
 
         local success, error = self:try_validate(x)
         if success == false then
-            rt.error("In meta.Schema.validate: ", error)
+            rt.error("In meta.Schema.validate:", error)
         end
         return success
     end

@@ -15,7 +15,7 @@ end
 utf8 = require "utf8"
 bit = require "bit"
 
-require "common.alias"
+require "common.log"
 require "common.common"
 require "common.math"
 require "common.meta"

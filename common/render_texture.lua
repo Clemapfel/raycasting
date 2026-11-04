@@ -12,20 +12,20 @@ rt.TextureType = meta.enum("TextureType", rt.TextureType)
 -- @class rt.RenderTexture
 rt.RenderTexture = meta.class("RenderTexture", rt.Texture)
 
-local _valid_settings_keys = {
-    format = rt.TextureFormat,  -- texture format
-    is_compute = mt.Boolean, -- is readable / writable in (compute) shader
-    msaa = mt.Number,  -- msaa
-    use_mipmaps = mt.Boolean, -- automatically generate mipmaps
-    has_stencil = mt.Boolean, -- add same-size stencil buffer
-    stencil_readable = mt.Boolean, -- stencil buffer is shader-readable
-    has_depth = mt.Boolean,   -- add same-size depth buffer
-    depth_readable = mt.Boolean, -- depth buffer is shader-readable
+local _schema = meta.Schema({
+    format = mt.Optional(rt.TextureFormat),  -- texture format
+    is_compute = mt.Optional(mt.Boolean), -- is readable / writable in (compute) shader
+    msaa = mt.Optional(mt.Number),  -- msaa
+    use_mipmaps = mt.Optional(mt.Boolean), -- automatically generate mipmaps
+    has_stencil = mt.Optional(mt.Boolean), -- add same-size stencil buffer
+    stencil_readable = mt.Optional(mt.Boolean), -- stencil buffer is shader-readable
+    has_depth = mt.Optional(mt.Boolean),   -- add same-size depth buffer
+    depth_readable = mt.Optional(mt.Boolean), -- depth buffer is shader-readable
 
-    type = rt.TextureType, -- Normal, Array, or Volume
-    array_n_layers = mt.Number, -- if array texture: number of layers
-    volume_depth = mt.Number -- if volume texture: depth
-}
+    type = mt.Optional(rt.TextureType), -- Normal, Array, or Volume
+    array_n_layers = mt.Optional(mt.Number), -- if array texture: number of layers
+    volume_depth = mt.Optional(mt.Number) -- if volume texture: depth
+})
 
 local _default_settings = {
     format = rt.TextureFormat.NORMAL,
@@ -73,18 +73,7 @@ function rt.RenderTexture:instantiate(width, height, settings)
     end
 
     meta.assert(width, mt.Number, height, mt.Number, settings, mt.Table)
-
-    for key, value in pairs(settings) do
-        local expected = _valid_settings_keys[key]
-        if expected == nil then
-            rt.error("In rt.RenderTexture.instantiate: unrecognized settings key `", key, "`")
-        else
-            if not meta.isa(value, expected) then
-                rt.error("In rt.RenderTexture.instantiate: wrong type for settings key `", key, "`. expected `", expected, "`, got `", meta.typeof(value), "`")
-            end
-        end
-    end
-
+    _schema:validate(settings)
     rt.assert(width > 0 and not math.is_nan(width), "In rt.RenderTexture.instantiate: width `", width, "` is not a positive non-zero integer")
     rt.assert(height > 0 and not math.is_nan(height), "In rt.RenderTexture.instantiate: height `", height, "` is not a positive non-zero integer")
 

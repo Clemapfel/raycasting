@@ -908,7 +908,7 @@ local _default_schema = {
 function ow.ObjectWrapper:validate_schema(schema, ...)
     if select("#", ...) <= 0 then rt.error("In ow.ObjectWrapper.validate_schema: argument #2 is nil, no shape type provided") end
 
-    for k, v in pairs(_default_schema) do schema.layout[k] = v end
+    for k, v in pairs(_default_schema) do schema[k] = v end
 
     local success, error = schema:try_validate(self.properties)
     if not success then
