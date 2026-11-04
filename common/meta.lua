@@ -1033,15 +1033,18 @@ do
 
     --- @brief
     function meta.Schema:instantiate(layout)
-        self.layout = layout
-        self._is_validated = false
+        _schema_to_is_validated[self] = false
+        meta.install(self, layout)
     end
+
+    local _schema_to_is_validated = meta.make_weak({}, true, true)
+    -- use external flag so schema can be it's own layout
 
     --- @brief
     function meta.Schema:try_validate(x)
         meta.assert(x, meta.Table)
 
-        if self._is_validated ~= true then
+        if _schema_to_is_validated[self] ~= true then
             _validate_schema(self.layout,
                 {}, -- prefix
                 {} -- seen
@@ -1058,7 +1061,7 @@ do
     function meta.Schema:validate(x)
         meta.assert(x, meta.Table)
 
-        local success, error = self:try_validate()
+        local success, error = self:try_validate(x)
         if success == false then
             rt.error("In meta.Schema.validate: ", error)
         end
