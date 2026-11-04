@@ -9,7 +9,6 @@ if _G.DEBUG then
     debugger = require "common.debugger"
 end
 
-require "common.game_state"
 require "common.scene_manager"
 
 rt.GameState:set_draw_debug_information(true) -- TODO
@@ -92,6 +91,8 @@ love.update = function(delta)
     end
 
     elapsed = elapsed + delta
+
+    error("test")
 end
 
 love.draw = function()

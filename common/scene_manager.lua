@@ -1,5 +1,6 @@
 require "common.scene"
 require "common.input_subscriber"
+require "common.game_state"
 require "common.fade"
 require "common.palette"
 require "common.cursor"
@@ -23,11 +24,14 @@ rt.settings.scene_manager = {
 rt.SceneManager = meta.class("SceneManager")
 
 --- @brief
-function rt.SceneManager:instantiate()
-    require "common.game_state"
+function rt.SceneManager:instantiate(state)
+    rt.assert(state == rt.GameState, "In rt.SceneManager: argument #1: expected `rt.GameState`, got `", meta.typeof(state), "`")
+
     self._width, self._height = rt.GameState:get_internal_resolution()
 
     meta.install(self, {
+        _state = state,
+
         _scene_type_to_scene = {},
         _scene_stack = {},
         _scene_stack_queue = {},
@@ -729,8 +733,6 @@ function rt.SceneManager:screenshot(path, encoding_format)
     end)
 end
 
-rt.SceneManager = meta.as_singleton(rt.SceneManager)
-
 love.quit = function()
     local temp = bd.get_temp_directory_name()
     if bd.is_directory(temp) then
@@ -905,4 +907,4 @@ love.run = function()
     end
 end
 
-return rt.SceneManager
+rt.SceneManager = meta.as_singleton(rt.SceneManager, rt.GameState)

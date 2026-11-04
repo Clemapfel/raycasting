@@ -458,12 +458,16 @@ do
         rt.error("In ", meta.typeof(instance), ".", scope, ": no signal with id `", signal, "`")
     end
 
+    local _is_blocked = 1
+    local _callback_id_to_callback = 2
+    local _callback_ids_in_order = 3
+    
     local _disconnect_callback = function(entry, callback_id)
-        local callback = entry.callback_id_to_callback[callback_id]
-        entry.callback_id_to_callback[callback_id] = nil
+        local callback = entry[_callback_id_to_callback][callback_id]
+        entry[_callback_id_to_callback][callback_id] = nil
 
         local to_remove = nil
-        for i, other in ipairs(entry.callback_ids_in_order) do
+        for i, other in ipairs(entry[_callback_ids_in_order]) do
             if other == callback_id then
                 to_remove = i
                 break
@@ -471,7 +475,7 @@ do
         end
 
         if to_remove ~= nil then
-            table.remove(entry.callback_ids_in_order, to_remove)
+            table.remove(entry[_callback_ids_in_order], to_remove)
         end
 
     end
@@ -489,7 +493,7 @@ do
         end
 
         local out = {}
-        for callback_id in keys(entry.callback_id_to_callback) do
+        for callback_id in keys(entry[_callback_id_to_callback]) do
             table.insert(out, callback_id)
         end
         return out
@@ -522,8 +526,8 @@ do
         local callback_id = _signal_callback_id
         _signal_callback_id = _signal_callback_id + 1
 
-        entry.callback_id_to_callback[callback_id] = callback
-        table.insert(entry.callback_ids_in_order, callback_id)
+        entry[_callback_id_to_callback][callback_id] = callback
+        table.insert(entry[_callback_ids_in_order], callback_id)
         return callback_id
     end
 
@@ -549,7 +553,7 @@ do
         if callback_id == nil then
             instance:signal_disconnect_all(id)
         else
-            local callback = entry.callback_id_to_callback[callback_id]
+            local callback = entry[_callback_id_to_callback][callback_id]
             if callback == nil then
                 rt.error("In ", meta.typeof(instance), ".signal_disconnect: no callback with id `", tostring(callback_id), "` connected to signal `", id, "`")
                 return
@@ -580,7 +584,7 @@ do
             instance:signal_disconnect_all(id)
             return true
         else
-            local callback = entry.callback_id_to_callback[callback_id]
+            local callback = entry[_callback_id_to_callback][callback_id]
             if callback == nil then
                 return false
             end
@@ -610,7 +614,7 @@ do
                 return
             end
 
-            for callback_id in keys(entry.callback_id_to_callback) do
+            for callback_id in keys(entry[_callback_id_to_callback]) do
                 _disconnect_callback(entry, callback_id)
             end
         end
@@ -630,7 +634,7 @@ do
             return
         end
 
-        entry.is_blocked = b
+        entry[_is_blocked] = b
     end
 
     local _signal_get_is_blocked = function(instance, id)
@@ -645,7 +649,7 @@ do
             return false
         end
 
-        return entry.is_blocked
+        return entry[_is_blocked]
     end
 
     local _signal_has_signal = function(instance, id)
@@ -670,16 +674,16 @@ do
             return
         end
 
-        if entry.is_blocked then return end
+        if entry[_is_blocked] then return end
 
         local callback_ids = {} -- deep copy since signals could be disconnect during emission
-        for _, callback_id in ipairs(entry.callback_ids_in_order) do
+        for _, callback_id in ipairs(entry[_callback_ids_in_order]) do
             table.insert(callback_ids, callback_id)
         end
 
         local to_remove_callback_ids = {}
         for _, callback_id in ipairs(callback_ids) do
-            local callback = entry.callback_id_to_callback[callback_id]
+            local callback = entry[_callback_id_to_callback][callback_id]
             if callback ~= nil then
                 if callback(instance, ...) == meta.DISCONNECT_SIGNAL then
                     instance:signal_try_disconnect(id, callback_id)
@@ -698,18 +702,18 @@ do
         component = _get_signal_component(instance)
         if component ~= nil then entry = component[id] end
 
-        if component == nil or entry == nil or entry.is_blocked then
+        if component == nil or entry == nil or entry[_is_blocked] then
             return false
         end
 
         local callback_ids = {}
-        for _, callback_id in ipairs(entry.callback_ids_in_order) do
+        for _, callback_id in ipairs(entry[_callback_ids_in_order]) do
             table.insert(callback_ids, callback_id)
         end
 
         local invoked = false
         for _, callback_id in ipairs(callback_ids) do
-            local callback = entry.callback_id_to_callback[callback_id]
+            local callback = entry[_callback_id_to_callback][callback_id]
             if callback ~= nil then
                 invoked = true
                 if callback(instance, ...) == meta.DISCONNECT_SIGNAL then
@@ -747,9 +751,9 @@ do
             end
 
             component[signal_id] = {
-                is_blocked = false,
-                callback_id_to_callback = {}, -- Table<Function>
-                callback_ids_in_order = {} -- Table<Integer>
+                [_is_blocked] = false,
+                [_callback_id_to_callback] = {}, -- Table<Function>
+                [_callback_ids_in_order] = {} -- Table<Integer>
             }
         end
     end

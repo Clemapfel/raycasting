@@ -163,10 +163,20 @@ function love.errorhandler(message, depth)
                 value = prefix_message .. "\n\n" .. raw_traceback
             })
 
-            channel:push({
-                type = types.DUMP,
-                value = rt.Log.dump()
-            })
+            if DEBUG then
+                channel:push({
+                    type = types.DUMP,
+                    value = rt.Log.dump()
+                })
+
+                -- dump entire gamestate
+                if type(table.serialize) == "function" and rt.SceneManager ~= nil then
+                    channel:push({
+                        type = types.DUMP,
+                        value = table.serialize(rt.SceneManager)
+                    })
+                end
+            end
 
             _safe_call(log.shutdown_worker)
         end
