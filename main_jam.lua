@@ -5,8 +5,9 @@ io.stderr:setvbuf("no")
 require "common.error_handler" -- TODO
 require "common.scene_manager" -- TODO
 
+require "jam.object"
+require "jam.log"
 require "jam.math"
-require "jam.typecheck"
 require "jam.graphics"
 require "jam.upscaler"
 require "jam.boob"

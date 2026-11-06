@@ -2,7 +2,7 @@ Upscaler_t = "upscaler"
 
 upscaler_new = function(width, height)
     log_typecheck(width, Number_t, height, Number_t)
-    return upscaler_resize(new(Upscaler_t, {
+    return upscaler_resize(object_new(Upscaler_t, {
         translate_x = 0,
         translate_y = 0,
         scale_x = 1,

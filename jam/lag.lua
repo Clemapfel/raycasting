@@ -5,7 +5,7 @@ lag_new = function(value, speed, ramp)
     if ramp == nil then ramp = math_ln(1000) end
     log_typecheck(value, Number_t, speed, Number_t, ramp, Number_t)
 
-    return new(Lag_t, {
+    return object_new(Lag_t, {
         attack_speed = speed,
         decay_speed = speed,
         ramp = ramp,

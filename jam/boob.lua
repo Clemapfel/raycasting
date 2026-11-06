@@ -40,7 +40,7 @@ end
 Boob_t = "boob"
 
 boob_new = function()
-    return new(Boob_t, {
+    return object_new(Boob_t, {
         is_initialized = false
     })
 end

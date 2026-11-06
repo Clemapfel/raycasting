@@ -1,3 +1,5 @@
+local _g_error = _G.error
+local _g_assert = _G.assert
 
 local _paste = function(...)
     local to_concat = {}
