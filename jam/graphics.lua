@@ -15,6 +15,8 @@ graphics_get_height = function()
     return select(2, graphics_get_size())
 end
 
+graphics_get_dpi_scale = love.graphics.getDPIScale
+
 graphics_set_line_state = function(width)
     love.graphics.setLineWidth(width)
     love.graphics.setLineStyle("smooth")
@@ -37,6 +39,10 @@ graphics_set_render_texture = love.graphics.setCanvas
 
 graphics_draw_line = function(...)
     love.graphics.line(...)
+end
+
+graphics_draw_rectangle = function(x, y, w, h, ...)
+    love.graphics.rectangle("fill", x, y, w, h, ...)
 end
 
 graphics_push_state = function()

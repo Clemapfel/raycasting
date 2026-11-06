@@ -36,8 +36,7 @@ local _particle_i_to_data_offset = function(particle_i)
     return (particle_i - 1) * _stride + 1
 end
 
---- @class Boob
-Boob_t = "boob"
+Boob_t = "Boob"
 
 boob_new = function()
     return object_new(Boob_t, {

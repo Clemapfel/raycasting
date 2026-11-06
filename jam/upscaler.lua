@@ -7,6 +7,15 @@ upscaler_new = function(width, height)
         translate_y = 0,
         scale_x = 1,
         scale_y = 1,
+
+        aabb_x = 0,
+        aabb_y = 0,
+        aabb_w = 0,
+        aabb_h = 0,
+
+        fade_active = false,
+        fade_motion = lag_new(0), -- 0: default, 1: fully black
+        fade_callback = nil
     }), width, height)
 end
 
@@ -30,6 +39,11 @@ upscaler_resize = function(self, w, h)
     self.scale_y = texture_h / log_h
     self.translate_x = math_floor((w - texture_w) / 2)
     self.translate_y = math_floor((h - texture_h) / 2)
+
+    self.aabb_x = self.translate_x
+    self.aabb_y = self.translate_y
+    self.aabb_w = texture_w
+    self.aabb_h = texture_h
 
     return self
 end
@@ -55,10 +69,44 @@ end
 
 upscaler_draw = function(self)
     log_typecheck(self, Upscaler_t)
+
     graphics_push_state()
     graphics_reset_state()
-    graphics_set_scale(1 / love.graphics.getDPIScale())
+    graphics_set_scale(1 / graphics_get_dpi_scale())
     graphics_set_translation(self.translate_x, self.translate_y)
     graphics_draw_texture(self.texture)
     graphics_pop_state()
+
+    local t = lag_get_value(self.fade_motion)
+    local w, h = graphics_get_size()
+    graphics_set_color(0, 0, 0, t)
+    graphics_draw_rectangle(self.aabb_x, self.aabb_y, self.aabb_w, self.aabb_h)
+end
+
+upscaler_update = function(self, delta)
+    log_typecheck(self, Upscaler_t, delta, Number_t)
+
+    local lag = self.fade_motion
+    local value = lag_update(lag, delta)
+
+    if self.fade_callback ~= nil and math_equals(
+        lag_get_value(lag),
+        1, -- target value
+        0.001 -- eps
+    ) then
+        log_safe_call(self.fade_callback)
+        self.fade_callback = nil
+        lag_set_target_value(self.fade_motion, 0)
+    end
+end
+
+upscaler_queue_fade = function(self, on_swap)
+    log_typecheck(self, Upscaler_t, on_swap, Function_t)
+
+    if self.fade_callback ~= nil then
+        log_safe_call(self.fade_callback)
+    end
+
+    lag_set_target_value(self.fade_motion, 1)
+    self.fade_callback = on_swap
 end
