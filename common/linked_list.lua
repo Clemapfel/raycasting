@@ -1,5 +1,7 @@
 --- @class rt.LinkedListNode
-rt.LinkedListNode = meta.plain_class("LinkedListNode", function(self, ...)
+rt.LinkedListNode = meta.class("LinkedListNode")
+
+function rt.LinkedListNode:instantiate(...)
     if select("#", ...) <= 1 then
         self.value = select(1, ...)
         self.unpack = function(self)
@@ -14,7 +16,7 @@ rt.LinkedListNode = meta.plain_class("LinkedListNode", function(self, ...)
 
     self.next = nil
     self.previous = nil
-end)
+end
 
 --- @class rt.LinkedList
 rt.LinkedList = meta.class("LinkedList")
@@ -69,6 +71,10 @@ function rt.LinkedList:remove(input_target)
         return false
     end
 
+    if node_to_remove.previous == nil and self._front ~= node_to_remove then
+        return false
+    end
+
     if node_to_remove.previous ~= nil then
         node_to_remove.previous.next = node_to_remove.next
     else
@@ -80,6 +86,9 @@ function rt.LinkedList:remove(input_target)
     else
         self._back = node_to_remove.previous
     end
+
+    node_to_remove.next = nil
+    node_to_remove.previous = nil
 
     self._count = self._count - 1
     return true
@@ -117,13 +126,17 @@ end
 function rt.LinkedList:pop_front()
     if self._front == nil then return nil end
 
-    local value = self._front.value
-    self._front = self._front.next
+    local node = self._front
+    local value = node.value
+    self._front = node.next
     if self._front ~= nil then
         self._front.previous = nil
     else
         self._back = nil
     end
+
+    node.next = nil
+    node.previous = nil
 
     self._count = self._count - 1
     return value
@@ -159,13 +172,17 @@ end
 function rt.LinkedList:pop_back()
     if self._back == nil then return nil end
 
-    local value = self._back.value
-    self._back = self._back.previous
+    local node = self._back
+    local value = node.value
+    self._back = node.previous
     if self._back ~= nil then
         self._back.next = nil
     else
         self._front = nil
     end
+
+    node.next = nil
+    node.previous = nil
 
     self._count = self._count - 1
     return value
@@ -187,22 +204,38 @@ function rt.LinkedList:push_back(...)
 end
 
 --- @brief
+function rt.LinkedList:clear()
+    local current = self._front
+    while current ~= nil do
+        local next = current.next
+        current.next = nil
+        current.previous = nil
+        current = next
+    end
+
+    self._front = nil
+    self._back = nil
+    self._count = 0
+end
+
+--- @brief
 function rt.LinkedList:iterate()
     local current = self._front
     return function()
         if current == nil then return nil end
-        local value = current.value
+        local node = current
         current = current.next
-        return value
+        return node:unpack()
     end
 end
 
+--- @brief
 function rt.LinkedList:iterate_nodes()
     local current = self._front
     return function()
         if current == nil then return nil end
-        local value = current.value
+        local node = current
         current = current.next
-        return value
+        return node
     end
 end

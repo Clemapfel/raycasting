@@ -311,7 +311,7 @@ function aux.TitleBannerScene:draw()
         love.graphics.pop()
     end
 
-    self:_draw_particles()
+    --self:_draw_particles()
 
     love.graphics.push("all")
     self._text_shader:bind()

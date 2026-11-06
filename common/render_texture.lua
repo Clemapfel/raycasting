@@ -67,6 +67,7 @@ function rt.RenderTexture:instantiate(width, height, settings)
     if settings == nil then
         settings = _default_settings
     else
+        meta.assert_argument_type(settings, mt.Table, 3)
         for key, value in pairs(_default_settings) do
             if settings[key] == nil then settings[key] = value end
         end

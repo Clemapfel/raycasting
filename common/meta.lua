@@ -10,6 +10,38 @@ mt = mt or meta
 if _G.type == nil then error("In require(\"common.meta\"): function `type` is not available in the global environment. Was it overwritten or was setfenv called?") end
 local _g_type = _G.type
 
+if rt == nil then
+    rt = {}
+
+    local function _paste(...)
+        local parts = {}
+        for i = 1, select("#", ...) do
+            parts[i] = tostring((select(i, ...)))
+        end
+        return table.concat(parts)
+    end
+
+    function rt.error(...)
+        error(_paste(...), 2)
+    end
+
+    function rt.fatal(...)
+        local message = _paste(...)
+        io.stderr:write("[FATAL] ", debug.traceback(message, 2), "\n")
+        error(message, 2)
+    end
+
+    function rt.assert(condition, ...)
+        if not condition then
+            if select("#", ...) == 0 then
+                error("assertion failed", 2)
+            end
+            error(_paste(...), 2)
+        end
+        return condition
+    end
+end
+
 -- reserved typenames
 local _type_typename = "Type"
 local _union_typename = "Union"

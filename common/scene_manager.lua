@@ -64,6 +64,11 @@ function rt.SceneManager:instantiate(state)
         _draw_fixed_fps = 60,
         _draw_accumulator = 0,
         _draw_interpolation_time = 0,
+
+        _screen_recorder = nil, -- see bottom of file
+
+        _screenshot_texture = nil,
+        _screenshot_jobs = {}
     })
 
     self:set_use_fixed_timestep(self._update_use_fixed_timestep)
@@ -296,6 +301,19 @@ do
         local now = love.timer.getTime()
         self._fade:update(now - _last_frame_time)
         _last_frame_time = now
+
+        local to_remove = {}
+        for i, routine in ipairs(self._screenshot_jobs) do
+            if routine:get_is_done() then
+                table.insert(to_remove, 1, i)
+            else
+                routine:resume()
+            end
+        end
+
+        for i, _ in ipairs(to_remove) do
+            table.remove(self._screenshot_jobs, i)
+        end
     end
 end
 
@@ -404,6 +422,8 @@ function rt.SceneManager:resize(_)
             self._hdr:reinitialize(self._width, self._height)
         end
     end
+
+    self._screen_recorder:notify_resize(self._width, self._height)
 
     local current_scene = self:get_current_scene()
     if current_scene ~= nil then
@@ -726,11 +746,34 @@ function rt.SceneManager:screenshot(path, encoding_format)
     require "common.image"
     meta.assert(path, mt.String, encoding_format, mt.Optional(rt.ImageEncodingFormat))
 
-    love.graphics.captureScreenshot(function(native)
-        local data = rt.Image(native)
-        data:save_to_file(path, encoding_format)
-        rt.log("In rt.SceneManager.screenshot: saved screenshot to `", bd.as_system_path(path), "`.")
-    end)
+    local texture = self._screenshot_texture
+    if texture == nil or texture:get_width() ~= self._width or texture:get_height() ~= self._height then
+        free(texture)
+        texture = rt.RenderTexture(self._width, self._height, {
+            format = rt.TextureFormat.RGBA8
+        })
+        self._screenshot_texture = texture
+    end
+
+    love.graphics.push("all")
+    texture:bind()
+    love.graphics.clear(0, 0, 0, 0)
+    love.draw()
+    texture:unbind()
+    love.graphics.pop()
+
+    local future = love.graphics.readbackTextureAsync(texture:get_native())
+    table.insert(self._screenshot_jobs, rt.Routine(function(self)
+        while true do
+            if future:isComplete() == true then
+                rt.Image(future:getImageData()):save_to_file(path, encoding_format)
+                rt.log("wrote screenshot to ", path, "")
+                return
+            else
+                self:yield()
+            end
+        end
+    end))
 end
 
 love.quit = function()
@@ -908,3 +951,4 @@ love.run = function()
 end
 
 rt.SceneManager = meta.as_singleton(rt.SceneManager, rt.GameState)
+rt.SceneManager._screen_recorder = rt.ScreenRecorder() -- needs singleton instance on init

@@ -9,10 +9,7 @@ server.options.blockSize = 2048;
 server.options.numWireBufs = 256;
 server.options.sampleRate = ~sample_rate;
 server.options.memSize = 2 * (2 ** 16);
-yourActualNight = {
-	var ❤️ = 1234
-	❤️.postln;
-}.();
+
 
 // ### MAIN ###
 
