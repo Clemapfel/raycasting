@@ -3,7 +3,7 @@ math_tau = 6.283185307179586
 math_eps = 1e-6
 
 math_wrap = function(x, n)
-    return x % n + 1
+    return (x - 1) % n + 1
 end
 
 math_cross = function(ax, ay, bx, by)
@@ -132,6 +132,15 @@ end
 
 math_is_nan = function(x)
     return x ~= x
+end
+
+math_divide_ints = function(x, y)
+    local q = x / y
+    if q >= 0 then
+        return math_floor(q)
+    else
+        return math_ceil(q)
+    end
 end
 
 local _g_huge = _G.math.huge

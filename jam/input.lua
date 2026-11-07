@@ -72,9 +72,9 @@ do
         -- snapshot ids to handle disconnect / connect during emission
         local ids = {}
         for id in pairs(handler_to_callback) do
-            table.insert(ids, id)
+            table_push(ids, id)
         end
-        table.sort(ids)
+        table_sort(ids)
 
         for _, id in ipairs(ids) do
             local callback = handler_to_callback[id]
@@ -130,9 +130,9 @@ do
 
         local ids = {}
         for id in pairs(handler_to_callback) do
-            table.insert(ids, id)
+            table_push(ids, id)
         end
-        table.sort(ids)
+        table_sort(ids)
 
         for _, id in ipairs(ids) do
             local callback = handler_to_callback[id]

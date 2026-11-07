@@ -8,7 +8,7 @@ local settings = {
 
     distance_compliance = 2e-6,
     volume_compliance = 1e-7,
-    line_compliance = 0,
+    polygon_compliance = 0,
     bending_compliance = 1e-5,
     angular_compliance = 0,
     particle_collision_compliance = 0,
@@ -717,7 +717,7 @@ do
         local n_constraint_iterations = settings.n_constraint_iterations
 
         local volume_alpha = settings.volume_compliance / (sub_delta^2)
-        local line_alpha = settings.line_compliance / (sub_delta^2)
+        local polygon_alpha = settings.polygon_compliance / (sub_delta^2)
         local distance_alpha = settings.distance_compliance / (sub_delta^2)
         local bending_alpha = settings.bending_compliance / (sub_delta^2)
         local angular_alpha = settings.angular_compliance / (sub_delta^2)
@@ -866,7 +866,7 @@ do
                             inverse_mass,
                             radius,
                             edges, n_edges,
-                            line_alpha,
+                            polygon_alpha,
                             polygon_lambda
                         )
                         x = x + correction_x
