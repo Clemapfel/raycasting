@@ -62,3 +62,37 @@ polyline_close = function(self)
     end
     return self
 end
+
+polyline_is_closed = function(self)
+    log_typecheck(self, Polyline_t)
+
+    local data = self.vertices
+    local n = #data
+    return math_distance(data[1], data[2], data[n - 1], data[n]) <= 1
+end
+
+polyline_get_n_nodes = function(self)
+    log_typecheck(self, Polyline_t)
+
+    local n = table_sizeof(self.vertices) / 2
+    if polyline_is_closed(self) then
+        n = n - 1
+    end
+    return n
+end
+
+polyline_get_signed_area = function(self)
+    log_typecheck(self, Polyline_t)
+
+    local vertices = self.vertices
+    local n = polyline_get_n_nodes(self)
+
+    local area = 0
+    for i = 1, n do
+        local next_i = i % n + 1
+        local ai = (i - 1) * 2 + 1
+        local bi = (next_i - 1) * 2 + 1
+        area = area + 0.5 * math_cross(vertices[ai + 0], vertices[ai + 1], vertices[bi + 0], vertices[bi + 1])
+    end
+    return area
+end

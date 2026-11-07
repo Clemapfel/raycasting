@@ -28,56 +28,30 @@ do
 end
 
 do
-    iter_map = function(f, ...)
-        log_assert(f, Function_t)
-
-        local result = {}
-
-        if select("#", ...) == 1 then
-            local t = ...
-            if object_is_table(t) then
-                for k, v in pairs(t) do
-                    result[k] = log_call(f, v, k)
-                end
-            end
-        else
-            for i = 1, select("#", ...) do
-                result[i] = log_call(f, (select(i, ...)), i)
+    iter_map = function(f, t, ...)
+        for i = 1, table_sizeof(t) do
+            local x = t[i]
+            local res = f(x, ...)
+            if res ~= nil then
+                t[i] = res
             end
         end
 
-        return result
+        return t
     end
 
-    iter_map_recursively = function(f, ...)
-        log_assert(f, Function_t)
-
-        local function _map_inner(v, key)
-            if object_is_table(v) then
-                local out = {}
-                for k, value in pairs(v) do
-                    out[k] = _map_inner(value, k)
+    iter_map_recursively = function(f, x, ...)
+        if object_is_table(x) then
+            for i = 1, table_sizeof(x) do
+                local res = iter_map_recursively(f, x[i], ...)
+                if res ~= nil then
+                    x[i] = res
                 end
-                return out
-            else
-                return log_call(f, v, key)
             end
+            return x
         end
 
-        if select("#", ...) == 1 then
-            local t = ...
-            if object_is_table(t) then
-                return _map_inner(t)
-            end
-        end
-
-        local result = {}
-        for i = 1, select("#", ...) do
-            local e = select(i, ...)
-            result[i] = _map_inner(e, i)
-        end
-
-        return result
+        return f(x, ...)
     end
 end
 

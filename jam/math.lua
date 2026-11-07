@@ -134,6 +134,16 @@ math_is_nan = function(x)
     return x ~= x
 end
 
+math_sign = function(x)
+    if x < 0 then
+        return -1
+    elseif x > 0 then
+        return 1
+    else
+        return 0
+    end
+end
+
 math_divide_ints = function(x, y)
     local q = x / y
     if q >= 0 then

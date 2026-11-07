@@ -32,7 +32,28 @@ setmetatable(_G, {
 
 love.load = function()
     local w, h = graphics_get_size()
-    STATE.player = boob_init(boob_new(), 0.5 * w, 0.5 * h, 64, 32)
+    STATE.boobs = {
+        boob_init(boob_new(), 0.5 * w, 0.5 * h, 64, 32),
+        boob_init(boob_new(), 0.5 * w, 0.25 * h, 64, 32)
+
+    }
+
+    do
+        local x, y = 50, 50
+        local w, h = w - 50, h - 50
+        STATE.level_contour = {
+            polyline_new(
+                x + 0, y + 0,
+                x + w, y + 0,
+                x + w, y + h,
+                x + 0, y + h,
+                x + 0, y + 0
+            )
+        }
+    end
+
+    iter_map(boob_set_collision_contours, STATE.boobs, STATE.level_contour)
+
     STATE.upscaler = upscaler_new(love.graphics.getPixelDimensions())
 
     input_connect_pressed(input_action_accept, function(which)
@@ -51,7 +72,7 @@ love.update = function(delta)
     rt.SceneManager:update(delta) -- TODO
 
     upscaler_update(STATE.upscaler, delta)
-    boob_update(STATE.player, delta)
+    iter_map(boob_update, STATE.boobs, delta)
 end
 
 love.draw = function(delta)
@@ -60,7 +81,8 @@ love.draw = function(delta)
 
     upscaler_bind(STATE.upscaler)
     graphics_clear(1, 0, 1, 1)
-    boob_draw(STATE.player)
+
+    iter_map(boob_draw, STATE.boobs)
     upscaler_unbind(STATE.upscaler)
     upscaler_draw(STATE.upscaler)
 end

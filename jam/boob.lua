@@ -37,6 +37,20 @@ local _polygon_lambda_offset = 15
 
 local _stride = _polygon_lambda_offset + 1
 
+local _edge_x1_offset = 0
+local _edge_y1_offset = 1
+local _edge_dx_offset = 2
+local _edge_dy_offset = 3
+local _edge_inverse_length_squared_offset = 4
+local _edge_normal_x_offset = 5
+local _edge_normal_y_offset = 6
+local _edge_inverse_dy_offset = 7
+
+local _edge_stride = _edge_inverse_dy_offset + 1
+local _edge_i_to_data_offset = function(edge_i)
+    return (edge_i - 1) * _edge_stride + 1
+end
+
 local _particle_i_to_data_offset = function(particle_i, n_particles)
     if n_particles ~= nil then
         particle_i = (particle_i - 1) % n_particles + 1
@@ -190,11 +204,69 @@ end
 boob_set_collision_contours = function(self, ...)
     log_typecheck(self, Boob_t)
 
+    local eps_squared = math_eps * math_eps
+
     for i = 1, select("#", ...) do
         local contour = select(i, ...)
         log_typecheck_arg_i(contour, Polyline_t, i)
 
-        table.insert(self.collision_contours, polyline_close(contour))
+        local closed_contour = polyline_close(contour)
+        local n_corners = polyline_get_n_corners(closed_contour)
+
+        log_assert(n_corners >= 3, "In boob_set_collision_contours: need at least 3 vertices")
+
+        -- positive winding keeps the body inside; negative winding keeps it outside
+        local signed_area = polyline_get_signed_area(closed_contour)
+        log_assert(math.abs(signed_area) > math_eps,
+            "In boob_set_collision_contours: contour must enclose an area")
+
+        local orientation = polyline_get_orientation(closed_contour)
+        local vertices = polyline_get_vertices(closed_contour)
+        local edges = {}
+        local n_edges = 0
+
+        for vertex_i = 1, n_corners do
+            local next_vertex_i = vertex_i % n_corners + 1
+            local ai = (vertex_i - 1) * 2 + 1
+            local bi = (next_vertex_i - 1) * 2 + 1
+            local x1, y1 = vertices[ai + 0], vertices[ai + 1]
+            local x2, y2 = vertices[bi + 0], vertices[bi + 1]
+
+            local dx = x2 - x1
+            local dy = y2 - y1
+            local length_squared = dx * dx + dy * dy
+
+            if length_squared > eps_squared then
+                local length = math.sqrt(length_squared)
+                n_edges = n_edges + 1
+                local base = _edge_i_to_data_offset(n_edges)
+
+                edges[base + _edge_x1_offset] = x1
+                edges[base + _edge_y1_offset] = y1
+                edges[base + _edge_dx_offset] = dx
+                edges[base + _edge_dy_offset] = dy
+                edges[base + _edge_inverse_length_squared_offset] = 1 / length_squared
+                edges[base + _edge_normal_x_offset] = orientation * dy / length
+                edges[base + _edge_normal_y_offset] = -orientation * dx / length
+                edges[base + _edge_inverse_dy_offset] = dy ~= 0 and 1 / dy or 0
+            end
+        end
+
+        log_assert(n_edges >= 3, "In boob_set_collision_contours: need at least 3 non-degenerate edges")
+
+        local collision_contour = {
+            polyline = closed_contour,
+            edges = edges,
+            n_edges = n_edges,
+            keep_outside = orientation < 0,
+            lambdas = {}
+        }
+
+        for particle_i = 1, self.n_particles do
+            collision_contour.lambdas[particle_i] = 0
+        end
+
+        table_push(self.collision_contours, collision_contour)
     end
 
     return self
@@ -222,6 +294,97 @@ boob_draw = function(self)
 end
 
 do -- boob_update
+    local function _enforce_polygon_collision(
+        position_x, position_y, inverse_mass,
+        radius,
+        edges, n_edges,
+        alpha,
+        lambda_before,
+        keep_outside
+    )
+        if inverse_mass <= 0 or n_edges == 0 then
+            return 0, 0, lambda_before
+        end
+
+        local min_dist_squared = math.huge
+        local best_cx, best_cy = position_x, position_y
+        local best_nx, best_ny = 0, 0
+        local inside = false
+
+        for edge_i = 1, n_edges do
+            local i = _edge_i_to_data_offset(edge_i)
+            local x1 = edges[i + _edge_x1_offset]
+            local y1 = edges[i + _edge_y1_offset]
+            local dx = edges[i + _edge_dx_offset]
+            local dy = edges[i + _edge_dy_offset]
+            local inverse_length_squared = edges[i + _edge_inverse_length_squared_offset]
+
+            -- closest point on the edge segment
+            local px = position_x - x1
+            local py = position_y - y1
+            local t = (px * dx + py * dy) * inverse_length_squared
+            if t < 0 then t = 0 elseif t > 1 then t = 1 end
+
+            local cx = x1 + t * dx
+            local cy = y1 + t * dy
+            local distance_x = position_x - cx
+            local distance_y = position_y - cy
+            local distance_squared = distance_x * distance_x + distance_y * distance_y
+
+            if distance_squared < min_dist_squared then
+                min_dist_squared = distance_squared
+                best_cx, best_cy = cx, cy
+                best_nx = edges[i + _edge_normal_x_offset]
+                best_ny = edges[i + _edge_normal_y_offset]
+            end
+
+            -- even-odd point-in-polygon test
+            local y2 = y1 + dy
+            if ((y1 > position_y) ~= (y2 > position_y))
+                and (position_x < x1 + (position_y - y1) * dx * edges[i + _edge_inverse_dy_offset])
+            then
+                inside = not inside
+            end
+        end
+
+        local distance = math.sqrt(min_dist_squared)
+        local signed_distance
+        local normal_x, normal_y
+
+        if keep_outside then
+            signed_distance = inside and -distance or distance
+            normal_x, normal_y = best_nx, best_ny
+        else
+            signed_distance = inside and distance or -distance
+
+            if inside and distance > math_eps then
+                normal_x = (position_x - best_cx) / distance
+                normal_y = (position_y - best_cy) / distance
+            else
+                normal_x, normal_y = -best_nx, -best_ny
+            end
+        end
+
+        local constraint = signed_distance - radius
+        if constraint >= 0 then
+            return 0, 0, lambda_before
+        end
+
+        local denominator = inverse_mass + alpha
+        if denominator < math_eps then
+            return 0, 0, lambda_before
+        end
+
+        local delta_lambda = -(constraint + alpha * lambda_before) / denominator
+        local lambda_new = math.max(lambda_before + delta_lambda, 0)
+        delta_lambda = lambda_new - lambda_before
+
+        local correction_x = inverse_mass * delta_lambda * normal_x
+        local correction_y = inverse_mass * delta_lambda * normal_y
+
+        return correction_x, correction_y, lambda_new
+    end
+
     local function _pre_solve(
         position_x, position_y,
         velocity_x, velocity_y,
@@ -496,21 +659,8 @@ do -- boob_update
         local x = position_x
         local y = position_y
 
-        local floor_y = graphics_get_height() - 100
-        local is_colliding = y > floor_y
-
-        if is_colliding then
-            y = floor_y
-        end
-
         local velocity_x = (x - previous_x) / delta
         local velocity_y = (y - previous_y) / delta
-
-        if is_colliding then
-            -- Apply tangential ground friction to prevent spin/sliding energy build-up
-            velocity_x = velocity_x * 0.95
-            velocity_y = 0
-        end
 
         return x, y, velocity_x, velocity_y
     end
@@ -526,6 +676,7 @@ do -- boob_update
         local n_constraint_iterations = _settings_n_constraint_iterations
 
         local volume_alpha = _settings_volume_compliance / (sub_delta^2)
+        local line_alpha = _settings_line_compliance / (sub_delta^2)
         local distance_alpha = _settings_distance_compliance / (sub_delta^2)
         local bending_alpha = _settings_bending_compliance / (sub_delta^2)
         local angular_alpha = _settings_angular_compliance / (sub_delta^2)
@@ -533,6 +684,8 @@ do -- boob_update
         local ps = self.particles
         local n_particles = self.n_particles
         local segment_length = self.segment_length
+        local collision_contours = self.collision_contours
+        local n_collision_contours = #collision_contours
 
         local gravity_direction_x, gravity_direction_y = 0, 1
         local gravity = _settings_gravity
@@ -551,6 +704,14 @@ do -- boob_update
             end
 
             for _ = 1, n_sub_steps do
+                -- reset polygon collision lambdas
+                for contour_i = 1, n_collision_contours do
+                    local lambdas = collision_contours[contour_i].lambdas
+                    for particle_i = 1, n_particles do
+                        lambdas[particle_i] = 0
+                    end
+                end
+
                 -- pre solve
                 for particle_i = 1, n_particles do
                     local i = _particle_i_to_data_offset(particle_i)
@@ -659,6 +820,34 @@ do -- boob_update
                         angular_alpha,
                         self.angular_lambda
                     )
+                end
+
+                -- polygon collision
+                for _ = 1, n_constraint_iterations do
+                    for contour_i = 1, n_collision_contours do
+                        local collision_contour = collision_contours[contour_i]
+                        local edges = collision_contour.edges
+                        local n_edges = collision_contour.n_edges
+                        local keep_outside = collision_contour.keep_outside
+                        local lambdas = collision_contour.lambdas
+
+                        for particle_i = 1, n_particles do
+                            local i = _particle_i_to_data_offset(particle_i)
+                            local correction_x, correction_y, lambda_new = _enforce_polygon_collision(
+                                ps[i + _x_offset], ps[i + _y_offset],
+                                ps[i + _inverse_mass_offset],
+                                ps[i + _radius_offset],
+                                edges, n_edges,
+                                line_alpha,
+                                lambdas[particle_i],
+                                keep_outside
+                            )
+
+                            ps[i + _x_offset] = ps[i + _x_offset] + correction_x
+                            ps[i + _y_offset] = ps[i + _y_offset] + correction_y
+                            lambdas[particle_i] = lambda_new
+                        end
+                    end
                 end
 
                 -- post solve
