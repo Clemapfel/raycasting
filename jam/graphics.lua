@@ -1,5 +1,5 @@
 graphics_get_size = function()
-    return 800, 600
+    return 800, 800
 end
 
 graphics_get_aspect_ratio = function()
@@ -17,7 +17,8 @@ end
 
 graphics_get_dpi_scale = love.graphics.getDPIScale
 
-graphics_set_line_state = function(width)
+graphics_set_line_state = function(width, style)
+    if style == nil then style = "smooth" end
     love.graphics.setLineWidth(width)
     love.graphics.setLineStyle("smooth")
 end

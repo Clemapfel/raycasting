@@ -119,7 +119,6 @@ local function _print(channel, message_t, prefix, config)
     local styled = prefix .. message .. "\n"
 
 
-
     if DEBUG and channel == io.stderr then
         error(styled)
     else

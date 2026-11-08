@@ -13,9 +13,12 @@ require "jam.input"
 require "jam.math"
 require "jam.random"
 require "jam.graphics"
+require "jam.palette"
 require "jam.polyline"
+require "jam.aabb"
 require "jam.lag"
 require "jam.upscaler"
+require "jam.stage"
 require "jam.boob"
 
 STATE = {}
@@ -34,6 +37,35 @@ setmetatable(_G, {
 love.load = function()
     local w, h = graphics_get_size()
 
+    local stage_list = stage_list_new()
+    if love.getVersion() >= 12 then
+        -- in dev env, export to file
+        -- this is necessary because triangulation is unavailable in release mode
+        local to_mount = love.filesystem.getSource() .. "/jam/assets"
+        local mount_point = "stages"
+        if not love.filesystem.mountFullPath(
+            to_mount,
+            mount_point,
+            "readwrite",
+            false
+        ) then
+            log_error("unable to mount path `", to_mount, "` to mount point `", mount_point, "`")
+        end
+
+        stage_list_export(
+            stage_list,
+            "jam/assets/stages.lua",
+            "stages/stages_exported.lua"
+        )
+
+        love.filesystem.unmountFullPath(to_mount)
+    end
+
+    -- in release mode, import including triangulation
+    stage_list_init(stage_list, "jam/assets/stages_exported.lua")
+
+    STATE.stage_list = stage_list
+    STATE.stage = stage_new(STATE.stage_list, "Stage 01")
     STATE.boobs = {}
     local min_radius, max_radius = 100 - 16, 100 + 16
     local min_x, min_y = 0.5 * w, 0.5 * h
@@ -74,6 +106,10 @@ love.load = function()
     end)
 end
 
+input_connect_pressed(input_action_debug, function(which)
+    love.load()
+end)
+
 love.resize = function()
     rt.SceneManager:resize() -- TODO
     upscaler_resize(STATE.upscaler, love.graphics.getPixelDimensions())
@@ -106,6 +142,8 @@ love.draw = function(delta)
 
     upscaler_bind(STATE.upscaler)
     graphics_clear(1, 0, 1, 1)
+
+    stage_draw(STATE.stage)
 
     iter_map(boob_draw, STATE.boobs)
     upscaler_unbind(STATE.upscaler)

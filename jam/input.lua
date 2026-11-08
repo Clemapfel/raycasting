@@ -8,6 +8,7 @@ input_action_move_right = "right"
 input_action_move_up = "up"
 input_action_move_down = "down"
 input_action_pause = "pause"
+input_action_debug = "debug"
 
 local _input_actions = {
     input_action_accept,
@@ -17,7 +18,8 @@ local _input_actions = {
     input_action_move_right,
     input_action_move_up,
     input_action_move_down,
-    input_action_pause
+    input_action_pause,
+    input_action_debug
 }
 
 do
@@ -180,6 +182,10 @@ love.keypressed = function(key, scancode, isrepeat)
 
     if key == "up" or key == "w" or key == "kp8" then
         input_emit_pressed(input_action_move_up)
+    end
+
+    if key == "^" then
+        input_emit_pressed(input_action_debug)
     end
 end
 

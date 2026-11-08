@@ -84,3 +84,8 @@ end
 object_typeof = function(x)
     return _typeof(x)
 end
+
+object_copy = function(x)
+    log_assert(x, Table_t)
+    return table_deepcopy(x)
+end
