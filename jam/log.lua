@@ -56,7 +56,14 @@ end
 
 log_typecheck_arg_i = function(instance, expected, arg_i)
     if not object_isa(instance, expected) then
-        log_error("argument #", arg_i, " `", object_to_string(instance), "` has wrong type. Expected `", expected, "`, got `", object_typeof(instance), "`")
+        local got
+        if object_is_table(instance) and instance.type ~= nil then
+            got = instance.type
+        else
+            got = object_typeof(instance)
+        end
+
+        log_error("argument #", arg_i, " `", object_to_string(instance), "` has wrong type. Expected `", expected, "`, got `", got, "`")
     end
 end
 

@@ -46,6 +46,42 @@ graphics_draw_rectangle = function(x, y, w, h, ...)
     love.graphics.rectangle("fill", x, y, w, h, ...)
 end
 
+graphics_draw_rectangle_outline = function(x, y, w, h)
+    graphics_draw_line(
+        x, y,
+        x + w, y,
+        x + w, y + h,
+        x, y + h,
+        x, y
+    )
+end
+
+graphics_draw_ellipse = function(x, y, x_radius, y_radius)
+    if y_radius == nil then y_radius = x_radius end
+    love.graphics.ellipse("fill", x, y, x_radius, y_radius)
+end
+
+do
+    local function _radius_to_n_vertices(rx, ry)
+        -- cf. https://github.com/love2d/love/blob/5670df13b6980afd025cd7e7d442a24499bf86a7/src/modules/graphics/Graphics.cpp#L2419C1-L2423C2
+        if ry == nil then ry = rx end
+        return math.max(8, math.floor(math.sqrt(((rx + ry) / 2) * 20.0)))
+    end
+
+    graphics_draw_ellipse_outline = function(x, y, x_radius, y_radius)
+        if y_radius == nil then y_radius = x_radius end
+        local n_vertices = _radius_to_n_vertices(x_radius, y_radius)
+        local vertices = {}
+        for i = 1, n_vertices + 1 do
+            local angle = (i - 1) / n_vertices * math_tau
+            table_push(vertices, x + math_cos(angle) * x_radius)
+            table_push(vertices, y + math_sin(angle) * y_radius)
+        end
+
+        graphics_draw_line(vertices)
+    end
+end
+
 graphics_push_state = function()
     love.graphics.push("all")
 end

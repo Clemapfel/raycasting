@@ -2,10 +2,17 @@ StageList_t = "StageList"
 Stage_t = "Stage"
 
 local _settings_contour_texture_scale = 1 / 100
+local _settings_default_player_radius = 32
+local _settings_spawn_dx = 0
+local _settings_spawn_dy = -1
 
--- config types
+local _settings_outline_width = 3
+local _settings_line_width = 1
+
+-- tiled classes
 local _contour_t = "Contour"
 local _stage_t = "Stage"
+local _spawn_t = "Spawn"
 
 local _winding_clockwise = true
 local _winding_counterclockwise = false
@@ -51,6 +58,10 @@ stage_list_export = function(self, in_path, out_path)
     local name_to_bounds = {}
     local contours = {}
     local contour_to_priority = {}
+
+    local spawn_points = {}
+    local spawn_point_to_radius = {}
+
     local draw_order = 0 -- sequential render priority
     self.stage_name_to_entry = {}
 
@@ -112,6 +123,17 @@ stage_list_export = function(self, in_path, out_path)
                     table_push(contours, polyline)
                     draw_order = draw_order + 1
                     contour_to_priority[polyline] = draw_order
+                elseif class == _spawn_t then
+                    log_assert(object.shape == "point", "object has class `", _spawn_t, "` but is not a `point`")
+                    table_push(spawn_points, {
+                        get(object, "x") + layer_offset_x,
+                        get(object, "y") + layer_offset_y,
+                    })
+
+                    local radius = get(object, "properties").radius
+                    if radius == nil then radius = _settings_default_player_radius end
+                    log_assert(object_is_number(radius), "object has class `", _spawn_t, "`, but property `radius` is not a number")
+                    table_push(spawn_point_to_radius, radius)
                 else
                     assert(false, "unhandled object type `", class, "`")
                 end
@@ -127,17 +149,31 @@ stage_list_export = function(self, in_path, out_path)
     for name, bounds in pairs(name_to_bounds) do
         local entry = {
             bounds = aabb_new(0, 0, bounds.width, bounds.height), -- offset to origin
+            spawns = {},
             contours = {},
             contour_windings = {},
             triangulations = {}
         }
 
-        for contour in iter_values(contours) do
+        for contour_i, contour in ipairs(contours) do
             if aabb_overlaps_polyline(bounds, contour) then
                 table_push(entry.contours, object_copy(polyline_translate( -- offset to origin
                     contour, -bounds.x, -bounds.y
                 )))
                 table_push(entry.contour_windings, polyline_get_winding(contour))
+            end
+        end
+
+        for spawn_i, spawn in ipairs(spawn_points) do
+            local x, y = table_unpack(spawn)
+            local radius = spawn_point_to_radius[spawn_i]
+            if aabb_overlaps_point(bounds, x, y) then
+                table_push(entry.spawns, {
+                    x = x - bounds.x,
+                    y = y - bounds.y,
+                    radius = radius,
+                    index = spawn_i
+                })
             end
         end
 
@@ -155,16 +191,16 @@ stage_list_export = function(self, in_path, out_path)
         self.stage_name_to_entry[name] = entry
     end
 
-    local success, serialized_or_error = pcall(table_serialize, self)
-    if not success then
+    local serialize_success, serialized_or_error = pcall(table_serialize, self)
+    if not serialize_success then
         log_error("In stage_list_export: when serializing instance:", serialized_or_error)
         return self
     end
 
     local serialized = "return " .. serialized_or_error
 
-    local success, love_success = pcall(love.filesystem.write, out_path, serialized)
-    if not success or not love_success then
+    local write_success, love_success = pcall(love.filesystem.write, out_path, serialized)
+    if not write_success or not love_success then
         log_error("In stage_list_export: unable to write file to `", out_path, "`")
         return self
     end
@@ -219,6 +255,8 @@ stage_new = function(stage_list, id)
     self.draw_meshes = {}
     self.draw_mesh_to_is_foreground = {}
 
+    self.spawns = table_deepcopy(entry.spawns)
+
     local to_texture_coords
     do -- compute bounds for normalized, global uv
         local min_x, min_y, max_x, max_y = math_positive_inf, math_positive_inf, math_negative_inf, math_negative_inf
@@ -264,22 +302,57 @@ end
 stage_draw = function(self)
     log_typecheck(self, Stage_t)
 
+    -- background
+    rgba_bind(palette_dark_gray)
+    graphics_draw_rectangle(aabb_unpack(self.bounds))
+
+    -- hitbox
     for i = 1, table_sizeof(self.draw_meshes) do
         if self.draw_mesh_to_is_foreground[i] == true then
-            palette_bind(palette_light_gray)
+            rgba_bind(palette_light_gray)
         else
-            palette_bind(palette_dark_gray)
+            rgba_bind(palette_gray)
         end
         graphics_draw_mesh(self.draw_meshes[i])
 
         local contour = self.contours[i]
 
-        palette_bind(palette_black)
-        graphics_set_line_state(3)
+        rgba_bind(palette_black)
+        graphics_set_line_state(_settings_outline_width)
         polyline_draw(contour)
 
-        palette_bind(palette_white)
-        graphics_set_line_state(1)
+        rgba_bind(palette_white)
+        graphics_set_line_state(_settings_line_width)
         polyline_draw(contour)
+    end
+
+    -- spawns
+    lcha_bind(lcha_new(0.8, 1, math_fract(love.timer.getTime())))
+    graphics_set_line_state(_settings_outline_width)
+    for spawn_i, spawn in ipairs(self.spawns) do
+        local x, y = math_round(spawn.x), math_round(spawn.y)
+        graphics_draw_line(
+            x,
+            y,
+            x + _settings_spawn_dx * spawn.radius,
+            y + _settings_spawn_dy * spawn.radius
+        )
+    end
+
+    rgba_bind(palette_white)
+    graphics_set_line_state(_settings_line_width)
+    for spawn_i, spawn in ipairs(self.spawns) do
+        local x, y = math_round(spawn.x), math_round(spawn.y)
+        graphics_draw_line(
+            x,
+            y,
+            x + _settings_spawn_dx * spawn.radius,
+            y + _settings_spawn_dy * spawn.radius
+        )
+    end
+
+    for spawn_i, spawn in ipairs(self.spawns) do
+        local x, y = math_round(spawn.x), math_round(spawn.y)
+        graphics_draw_ellipse_outline(x, y, spawn.radius)
     end
 end

@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 9,
-  nextobjectid = 1298,
+  nextobjectid = 1300,
   properties = {},
   tilesets = {},
   layers = {
@@ -123,7 +123,7 @@ return {
             { x = -752, y = -16 }
           },
           properties = {
-            ["winding"] = true
+            ["winding"] = false
           }
         }
       }
@@ -167,6 +167,34 @@ return {
           properties = {
             ["winding"] = false
           }
+        },
+        {
+          id = 1298,
+          name = "",
+          type = "Spawn",
+          shape = "point",
+          x = 416,
+          y = -128,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          opacity = 1,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 1299,
+          name = "",
+          type = "Spawn",
+          shape = "point",
+          x = -256,
+          y = -128,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          opacity = 1,
+          visible = true,
+          properties = {}
         }
       }
     },

@@ -18,7 +18,7 @@ aabb_unpack = function(self)
     return self.x, self.y, self.width, self.height
 end
 
-aabb_contains_point = function(self, px, py)
+aabb_overlaps_point = function(self, px, py)
     log_typecheck(self, AABB_t, px, Number_t, py, Number_t)
     local x, y, w, h = aabb_unpack(self)
     return px >= x and px <= x + w and py >= y and py <= y + h

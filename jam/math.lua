@@ -45,6 +45,10 @@ math_clamp = function(x, lower, upper)
     end
 end
 
+math_fract = function(x)
+    return x % 1
+end
+
 math_linlin = function(from_a, from_b, to_a, to_b, t)
     if t <= from_a then return to_a end
     if t >= from_b then return to_b end
@@ -151,6 +155,46 @@ math_sign = function(x)
         return 1
     else
         return 0
+    end
+end
+
+math_sqrt = math.sqrt
+
+do
+    local _g_atan2 = math.atan2
+    local _g_atan = math.atan
+    local _pi = math.pi
+
+    local _atan2_available = _g_atan ~= nil and _g_atan(0, -1) == _pi
+
+    if _g_atan2 ~= nil then
+        math_angle = function(x, y)
+            return _g_atan2(y, x)
+        end
+    elseif _atan2_available then
+        math_angle = function(x, y)
+            return _g_atan(y, x)
+        end
+    else
+        math_angle = function(x, y)
+            if x > 0 then
+                return _g_atan(y / x)
+            elseif x < 0 then
+                if y >= 0 then
+                    return _g_atan(y / x) + _pi
+                else
+                    return _g_atan(y / x) - _pi
+                end
+            else -- x == 0
+                if y > 0 then
+                    return _pi / 2
+                elseif y < 0 then
+                    return -_pi / 2
+                else
+                    return 0
+                end
+            end
+        end
     end
 end
 

@@ -13,6 +13,7 @@ require "jam.input"
 require "jam.math"
 require "jam.random"
 require "jam.graphics"
+require "jam.color"
 require "jam.palette"
 require "jam.polyline"
 require "jam.aabb"
@@ -109,6 +110,9 @@ end
 input_connect_pressed(input_action_debug, function(which)
     love.load()
 end)
+
+require "common.palette"
+dbg(rt.Palette)
 
 love.resize = function()
     rt.SceneManager:resize() -- TODO
