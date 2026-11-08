@@ -11,6 +11,7 @@ require "jam.table"
 require "jam.log"
 require "jam.input"
 require "jam.math"
+require "jam.random"
 require "jam.graphics"
 require "jam.polyline"
 require "jam.lag"
@@ -32,15 +33,27 @@ setmetatable(_G, {
 
 love.load = function()
     local w, h = graphics_get_size()
-    STATE.boobs = {
-        boob_init(boob_new(), 0.5 * w, 0.5 * h, 64, 32),
-        boob_init(boob_new(), 0.5 * w, 0.25 * h, 64, 32)
 
-    }
+    STATE.boobs = {}
+    local min_radius, max_radius = 100 - 16, 100 + 16
+    local min_x, min_y = 0.5 * w, 0.5 * h
+    local max_x, max_y = 0.5 * w, 0.5 * h
+    local n_boobs = 8
+    local radii = iter_collect(iter_range(min_radius, max_radius, (max_radius - min_radius) / n_boobs))
+    for i = 1, n_boobs do
+        table_push(STATE.boobs, boob_init(
+            boob_new(),
+            random_number(min_x, max_x),
+            random_number(min_y, max_y),
+            radii[i],
+            32
+        ))
+    end
 
     do
-        local x, y = 50, 50
-        local w, h = w - 50, h - 50
+        local padding = 50
+        local x, y = padding, padding
+        local w, h = w - 2 * padding, h - 2 * padding
         STATE.level_contour = {
             polyline_new(
                 x + 0, y + 0,
@@ -51,8 +64,6 @@ love.load = function()
             )
         }
     end
-
-    iter_map(boob_set_collision_contours, STATE.boobs, STATE.level_contour)
 
     STATE.upscaler = upscaler_new(love.graphics.getPixelDimensions())
 
@@ -72,7 +83,21 @@ love.update = function(delta)
     rt.SceneManager:update(delta) -- TODO
 
     upscaler_update(STATE.upscaler, delta)
-    iter_map(boob_update, STATE.boobs, delta)
+
+    for boob in iter_values(STATE.boobs) do
+        boob_update(boob, delta)
+    end
+
+    for current in iter_values(STATE.boobs) do
+        local contours = table_deepcopy(STATE.level_contour)
+        for other in iter_values(STATE.boobs) do
+            if current ~= other then
+                table_push(contours, boob_get_contour(other))
+            end
+        end
+
+        boob_set_collision_contours(current, contours)
+    end
 end
 
 love.draw = function(delta)

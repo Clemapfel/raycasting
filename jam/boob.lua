@@ -1,4 +1,4 @@
-local _settings_timestep = 1 / 120
+local _settings_timestep = 1 / 60
 local _settings_max_n_steps = 4
 
 local _settings_n_sub_steps = 4
@@ -6,7 +6,7 @@ local _settings_n_constraint_iterations = 4
 
 local _settings_distance_compliance = 2e-6
 local _settings_volume_compliance = 1e-7
-local _settings_line_compliance = 0
+local _settings_collision_contour_compliance = 0
 local _settings_bending_compliance = 1e-5
 local _settings_angular_compliance = 1e-5
 local _settings_particle_collision_compliance = 0
@@ -17,6 +17,18 @@ local _settings_gravity = 500
 local _settings_texture_zoom = 1 / 0.9
 local _settings_texture_path = "jam/assets/barboach.png"
 local _settings_draw_line_width = 3
+
+local _math_cross = math_cross
+local _math_dot = math_dot
+local _math_normalize = math_normalize
+local _math_sign = math_sign
+local _math_wrap = math_wrap
+local _math_eps = math_eps
+local _math_inf = math_inf
+
+local _table_new = table_new
+local _table_push = table_push
+local _table_clear = table_clear
 
 local _x_offset = 0
 local _y_offset = 1
@@ -76,13 +88,13 @@ boob_init = function(self, center_x, center_y, radius, n_contour_nodes)
         n_contour_nodes, Integer_t
     )
 
-    local cos, sin, tau = math_cos, math_sin, math_tau
+    local cos, sin, tau, pi = math_cos, math_sin, math_tau, math_pi
 
     -- particles
     log_assert(n_contour_nodes >= 5, "In boob_init: need at least 5 contour nodes")
 
-    local n_particles = 0
-    local data = {}
+    local n_particles = n_contour_nodes
+    local data = _table_new(n_particles * _stride)
 
     for particle_i = 1, n_contour_nodes do
         local angle = (particle_i - 1) / n_contour_nodes * tau
@@ -91,7 +103,6 @@ boob_init = function(self, center_x, center_y, radius, n_contour_nodes)
         local mass = 1
 
         local base = _particle_i_to_data_offset(particle_i)
-        n_particles = n_particles + 1
 
         data[base + _x_offset] = px
         data[base + _y_offset] = py
@@ -108,7 +119,7 @@ boob_init = function(self, center_x, center_y, radius, n_contour_nodes)
         data[base + _bending_lambda_offset] = 0
         data[base + _polygon_lambda_offset] = 0
 
-        log_assert(#data == n_particles * _stride)
+        log_assert(#data == particle_i * _stride)
     end
 
     -- volume
@@ -121,15 +132,15 @@ boob_init = function(self, center_x, center_y, radius, n_contour_nodes)
         local ax, ay = data[ai + _x_offset], data[ai + _y_offset]
         local bx, by = data[bi + _x_offset], data[bi + _y_offset]
 
-        area = area + 0.5 * math_cross(ax, ay, bx, by)
+        area = area + 0.5 * _math_cross(ax, ay, bx, by)
     end
 
-    local segment_length = 2 * radius * sin(math.pi / n_particles)
+    local segment_length = 2 * radius * sin(pi / n_particles)
     local rest_area = area
 
     -- drawing
-    local mesh_data = {}
-    local draw_contour = {}
+    local mesh_data = _table_new(3 * n_particles)
+    local draw_contour = _table_new(2 * n_particles + 2)
     local zoom = _settings_texture_zoom
 
     for particle_i = 1, n_particles do
@@ -150,16 +161,16 @@ boob_init = function(self, center_x, center_y, radius, n_contour_nodes)
         local ax, ay = data[ai + _x_offset], data[ai + _y_offset]
         local bx, by = data[bi + _x_offset], data[bi + _y_offset]
 
-        table_push(mesh_data, { center_x, center_y, 0.5, 0.5, 1, 1, 1, 1 })
-        table_push(mesh_data, { ax, ay, u_a, v_a, 1, 1, 1, 1 })
-        table_push(mesh_data, { bx, by, u_b, v_b, 1, 1, 1, 1 })
+        _table_push(mesh_data, { center_x, center_y, 0.5, 0.5, 1, 1, 1, 1 })
+        _table_push(mesh_data, { ax, ay, u_a, v_a, 1, 1, 1, 1 })
+        _table_push(mesh_data, { bx, by, u_b, v_b, 1, 1, 1, 1 })
 
-        table_push(draw_contour, ax)
-        table_push(draw_contour, ay)
+        _table_push(draw_contour, ax)
+        _table_push(draw_contour, ay)
     end
 
-    table_push(draw_contour, draw_contour[1])
-    table_push(draw_contour, draw_contour[2])
+    _table_push(draw_contour, draw_contour[1])
+    _table_push(draw_contour, draw_contour[2])
 
     local mesh = love.graphics.newMesh(mesh_data, "triangles", "stream")
     local mesh_texture = love.graphics.newImage(_settings_texture_path)
@@ -175,13 +186,13 @@ boob_init = function(self, center_x, center_y, radius, n_contour_nodes)
     self.angular_lambda = 0
     self.segment_length = segment_length
 
-    self.volume_gradient = {}
+    self.volume_gradient = _table_new(2 * n_particles)
     for particle_i = 1, n_particles do
         self.volume_gradient[2 * particle_i - 1] = 0
         self.volume_gradient[2 * particle_i] = 0
     end
 
-    self.collision_contours = {}
+    self.collision_contours = _table_new(0)
 
     self.mesh = mesh
     self.mesh_data = mesh_data
@@ -201,32 +212,32 @@ boob_is_initialized = function(self)
     return object_isa(self, Boob_t) and self.is_initialized == true
 end
 
-boob_set_collision_contours = function(self, ...)
-    log_typecheck(self, Boob_t)
+boob_set_collision_contours = function(self, contours)
+    log_typecheck(self, Boob_t, contours, Table_t)
 
-    local eps_squared = math_eps * math_eps
+    local eps_squared = _math_eps * _math_eps
+    local abs = math.abs
+    _table_clear(self.collision_contours)
 
-    for i = 1, select("#", ...) do
-        local contour = select(i, ...)
+    for i = 1, #contours do
+        local contour = contours[i]
         log_typecheck_arg_i(contour, Polyline_t, i)
 
         local closed_contour = polyline_close(contour)
-        local n_corners = polyline_get_n_corners(closed_contour)
+        local n_corners = polyline_get_n_nodes(closed_contour)
 
         log_assert(n_corners >= 3, "In boob_set_collision_contours: need at least 3 vertices")
 
-        -- positive winding keeps the body inside; negative winding keeps it outside
         local signed_area = polyline_get_signed_area(closed_contour)
-        log_assert(math.abs(signed_area) > math_eps,
-            "In boob_set_collision_contours: contour must enclose an area")
+        log_assert(abs(signed_area) > _math_eps, "In boob_set_collision_contours: contour must enclose an area")
 
-        local orientation = polyline_get_orientation(closed_contour)
+        local orientation = _math_sign(signed_area)
         local vertices = polyline_get_vertices(closed_contour)
-        local edges = {}
+        local edges = _table_new(n_corners * _edge_stride)
         local n_edges = 0
 
         for vertex_i = 1, n_corners do
-            local next_vertex_i = vertex_i % n_corners + 1
+            local next_vertex_i = _math_wrap(vertex_i + 1, n_corners)
             local ai = (vertex_i - 1) * 2 + 1
             local bi = (next_vertex_i - 1) * 2 + 1
             local x1, y1 = vertices[ai + 0], vertices[ai + 1]
@@ -234,10 +245,10 @@ boob_set_collision_contours = function(self, ...)
 
             local dx = x2 - x1
             local dy = y2 - y1
-            local length_squared = dx * dx + dy * dy
+            local length_squared = _math_dot(dx, dy, dx, dy)
 
             if length_squared > eps_squared then
-                local length = math.sqrt(length_squared)
+                local normal_x, normal_y = _math_normalize(orientation * dy, -orientation * dx)
                 n_edges = n_edges + 1
                 local base = _edge_i_to_data_offset(n_edges)
 
@@ -246,8 +257,8 @@ boob_set_collision_contours = function(self, ...)
                 edges[base + _edge_dx_offset] = dx
                 edges[base + _edge_dy_offset] = dy
                 edges[base + _edge_inverse_length_squared_offset] = 1 / length_squared
-                edges[base + _edge_normal_x_offset] = orientation * dy / length
-                edges[base + _edge_normal_y_offset] = -orientation * dx / length
+                edges[base + _edge_normal_x_offset] = normal_x
+                edges[base + _edge_normal_y_offset] = normal_y
                 edges[base + _edge_inverse_dy_offset] = dy ~= 0 and 1 / dy or 0
             end
         end
@@ -259,14 +270,14 @@ boob_set_collision_contours = function(self, ...)
             edges = edges,
             n_edges = n_edges,
             keep_outside = orientation < 0,
-            lambdas = {}
+            lambdas = _table_new(self.n_particles)
         }
 
         for particle_i = 1, self.n_particles do
             collision_contour.lambdas[particle_i] = 0
         end
 
-        table_push(self.collision_contours, collision_contour)
+        _table_push(self.collision_contours, collision_contour)
     end
 
     return self
@@ -293,7 +304,33 @@ boob_draw = function(self)
     return self
 end
 
+boob_get_contour = function(self)
+    log_typecheck(self, Boob_t)
+
+    local contour = _table_new(2 * self.n_particles)
+    local data = self.particles
+    for particle_i = self.n_particles, 1, -1 do -- counter clockwise winding for collision query
+        local i = _particle_i_to_data_offset(particle_i)
+        _table_push(contour, data[i + _x_offset])
+        _table_push(contour, data[i + _y_offset])
+    end
+
+    return polyline_new(contour)
+end
+
 do -- boob_update
+    local sqrt = math.sqrt
+    local max = math.max
+    local huge = _math_inf
+    local eps = _math_eps
+    local dot = math_dot
+    local cross = math_cross
+    local magnitude = math_magnitude
+    local distance = math_distance
+    local normalize = math_normalize
+    local clamp = math_clamp
+    local mix = math_mix
+
     local function _enforce_polygon_collision(
         position_x, position_y, inverse_mass,
         radius,
@@ -306,7 +343,7 @@ do -- boob_update
             return 0, 0, lambda_before
         end
 
-        local min_dist_squared = math.huge
+        local min_dist_squared = huge
         local best_cx, best_cy = position_x, position_y
         local best_nx, best_ny = 0, 0
         local inside = false
@@ -319,17 +356,15 @@ do -- boob_update
             local dy = edges[i + _edge_dy_offset]
             local inverse_length_squared = edges[i + _edge_inverse_length_squared_offset]
 
-            -- closest point on the edge segment
             local px = position_x - x1
             local py = position_y - y1
-            local t = (px * dx + py * dy) * inverse_length_squared
-            if t < 0 then t = 0 elseif t > 1 then t = 1 end
+            local t = clamp(dot(px, py, dx, dy) * inverse_length_squared, 0, 1)
 
             local cx = x1 + t * dx
             local cy = y1 + t * dy
             local distance_x = position_x - cx
             local distance_y = position_y - cy
-            local distance_squared = distance_x * distance_x + distance_y * distance_y
+            local distance_squared = dot(distance_x, distance_y, distance_x, distance_y)
 
             if distance_squared < min_dist_squared then
                 min_dist_squared = distance_squared
@@ -338,7 +373,6 @@ do -- boob_update
                 best_ny = edges[i + _edge_normal_y_offset]
             end
 
-            -- even-odd point-in-polygon test
             local y2 = y1 + dy
             if ((y1 > position_y) ~= (y2 > position_y))
                 and (position_x < x1 + (position_y - y1) * dx * edges[i + _edge_inverse_dy_offset])
@@ -347,7 +381,7 @@ do -- boob_update
             end
         end
 
-        local distance = math.sqrt(min_dist_squared)
+        local distance = sqrt(min_dist_squared)
         local signed_distance
         local normal_x, normal_y
 
@@ -357,9 +391,8 @@ do -- boob_update
         else
             signed_distance = inside and distance or -distance
 
-            if inside and distance > math_eps then
-                normal_x = (position_x - best_cx) / distance
-                normal_y = (position_y - best_cy) / distance
+            if inside and distance > eps then
+                normal_x, normal_y = normalize(position_x - best_cx, position_y - best_cy)
             else
                 normal_x, normal_y = -best_nx, -best_ny
             end
@@ -371,12 +404,12 @@ do -- boob_update
         end
 
         local denominator = inverse_mass + alpha
-        if denominator < math_eps then
+        if denominator < eps then
             return 0, 0, lambda_before
         end
 
         local delta_lambda = -(constraint + alpha * lambda_before) / denominator
-        local lambda_new = math.max(lambda_before + delta_lambda, 0)
+        local lambda_new = max(lambda_before + delta_lambda, 0)
         delta_lambda = lambda_new - lambda_before
 
         local correction_x = inverse_mass * delta_lambda * normal_x
@@ -413,22 +446,19 @@ do -- boob_update
         alpha,
         lambda_before
     )
-        local delta_x = bx - ax
-        local delta_y = by - ay
+        local length = distance(ax, ay, bx, by)
 
-        local length = math.sqrt(delta_x^2 + delta_y^2)
-
-        if length < math_eps then
+        if length < eps then
             return 0, 0, 0, 0, lambda_before
         end
 
-        local normal_x, normal_y = delta_x / length, delta_y / length
+        local normal_x, normal_y = (bx - ax) / length, (by - ay) / length
 
         local constraint = length - target_distance
         local weight_sum = inverse_mass_a + inverse_mass_b
         local denominator = weight_sum + alpha
 
-        if denominator < math_eps then
+        if denominator < eps then
             return 0, 0, 0, 0, lambda_before
         end
 
@@ -454,24 +484,22 @@ do -- boob_update
         local chord_x = cx - ax
         local chord_y = cy - ay
 
-        local length = math.sqrt(chord_x * chord_x + chord_y * chord_y)
+        local length = magnitude(chord_x, chord_y)
 
-        if length < math_eps then
+        if length < eps then
             return 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, lambda_before
         end
 
         local inv_length = 1.0 / length
-        local tx = chord_x * inv_length
-        local ty = chord_y * inv_length
-        local nx = -ty
-        local ny = tx
+        local tx, ty = chord_x * inv_length, chord_y * inv_length
+        local nx, ny = -ty, tx
 
-        local ex = 0.5 * (ax + cx) - bx
-        local ey = 0.5 * (ay + cy) - by
+        local ex = mix(ax, cx, 0.5) - bx
+        local ey = mix(ay, cy, 0.5) - by
 
-        local constraint = ex * nx + ey * ny
+        local constraint = dot(ex, ey, nx, ny)
 
-        local k = (ex * tx + ey * ty) * inv_length
+        local k = dot(ex, ey, tx, ty) * inv_length
 
         local wa = 0.5 + k
         local wb = -1.0
@@ -484,7 +512,7 @@ do -- boob_update
 
         local denominator = weight_sum + alpha
 
-        if denominator < math_eps then
+        if denominator < eps then
             return 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, lambda_before
         end
 
@@ -520,15 +548,15 @@ do -- boob_update
             com_y = com_y + m * particles[i + _previous_y_offset]
         end
 
-        if mass_sum < math_eps then
+        if mass_sum < eps then
             return lambda_before
         end
 
         com_x = com_x / mass_sum
         com_y = com_y / mass_sum
 
-        local angular_momentum = 0 -- sum m * (r x dx), achieved this step
-        local inertia = 0          -- sum m * |r|^2
+        local angular_momentum = 0
+        local inertia = 0
         local weight_sum = 0
 
         for particle_i = 1, n_particles do
@@ -543,16 +571,16 @@ do -- boob_update
             local dx = particles[i + _x_offset] - particles[i + _previous_x_offset]
             local dy = particles[i + _y_offset] - particles[i + _previous_y_offset]
 
-            angular_momentum = angular_momentum + m * (rx * dy - ry * dx)
-            inertia = inertia + m * (rx * rx + ry * ry)
+            angular_momentum = angular_momentum + m * cross(rx, ry, dx, dy)
+            inertia = inertia + m * dot(rx, ry, rx, ry)
 
             local gx, gy = -m * ry, m * rx
-            weight_sum = weight_sum + inverse_mass * (gx * gx + gy * gy)
+            weight_sum = weight_sum + inverse_mass * dot(gx, gy, gx, gy)
         end
 
         local denominator = weight_sum + alpha
 
-        if denominator < math_eps then
+        if denominator < eps then
             return lambda_before
         end
 
@@ -605,8 +633,9 @@ do -- boob_update
             local next_x = particles[next_ai + _x_offset]
             local next_y = particles[next_ai + _y_offset]
 
+            -- shoelace formula
             current_area = current_area
-                + 0.5 * (current_x * next_y - next_x * current_y)
+                + 0.5 * cross(current_x, current_y, next_x, next_y)
 
             local grad_x = 0.5 * (next_y - previous_y)
             local grad_y = 0.5 * (previous_x - next_x)
@@ -618,7 +647,7 @@ do -- boob_update
             local inverse_mass = particles[current_ai + _inverse_mass_offset]
 
             weight_sum = weight_sum
-                + inverse_mass * (grad_x * grad_x + grad_y * grad_y)
+                + inverse_mass * dot(grad_x, grad_y, grad_x, grad_y)
 
             previous_ai = current_ai
             current_ai = next_ai
@@ -628,7 +657,7 @@ do -- boob_update
 
         local denominator = weight_sum + alpha
 
-        if denominator < math_eps then
+        if denominator < eps then
             return lambda_before
         end
 
@@ -675,11 +704,11 @@ do -- boob_update
         local n_sub_steps = _settings_n_sub_steps
         local n_constraint_iterations = _settings_n_constraint_iterations
 
-        local volume_alpha = _settings_volume_compliance / (sub_delta^2)
-        local line_alpha = _settings_line_compliance / (sub_delta^2)
-        local distance_alpha = _settings_distance_compliance / (sub_delta^2)
-        local bending_alpha = _settings_bending_compliance / (sub_delta^2)
-        local angular_alpha = _settings_angular_compliance / (sub_delta^2)
+        local volume_alpha = _settings_volume_compliance / (sub_delta * sub_delta)
+        local line_alpha = _settings_collision_contour_compliance / (sub_delta * sub_delta)
+        local distance_alpha = _settings_distance_compliance / (sub_delta * sub_delta)
+        local bending_alpha = _settings_bending_compliance / (sub_delta * sub_delta)
+        local angular_alpha = _settings_angular_compliance / (sub_delta * sub_delta)
 
         local ps = self.particles
         local n_particles = self.n_particles

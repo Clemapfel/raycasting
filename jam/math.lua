@@ -35,6 +35,16 @@ math_mix = function(a, b, t)
     return a * (1 - t) + b * t
 end
 
+math_clamp = function(x, lower, upper)
+    if x < lower then
+        return lower
+    elseif x > upper then
+        return upper
+    else
+        return x
+    end
+end
+
 math_linlin = function(from_a, from_b, to_a, to_b, t)
     if t <= from_a then return to_a end
     if t >= from_b then return to_b end

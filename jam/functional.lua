@@ -102,7 +102,7 @@ do
             return out, state
         end
 
-        iter_foreach = function(...)
+        iter_varargs = function(...)
             if select("#", ...) == 0 then return _noop end
             return _foreach_iterator, { 1, ... }
         end
