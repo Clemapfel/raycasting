@@ -1,8 +1,8 @@
-palette_black = rgba_new(0, 0, 0, 1)
-palette_dark_gray = rgba_new(0.25, 0.25, 0.25, 1)
-palette_gray = rgba_new(0.5, 0.5, 0.5, 1)
-palette_light_gray = rgba_new(0.75, 0.75, 0.75, 1)
-palette_white = rgba_new(1, 1, 1, 1)
+palette_white = rgba_new(0.980, 0.980, 1, 1)
+palette_black = rgba_new(0.125, 0.125, 0.145, 0.8)
+palette_dark_gray = rgba_new(0.188, 0.188, 0.188, 1)
+palette_gray = rgba_new(0.627, 0.627, 0.655, 1)
+palette_light_gray = rgba_new(0.863, 0.863, 0.882, 1)
 
 palette_light_red = rgba_new(1, 0.494, 0.694, 1)
 palette_red = rgba_new(1, 0.114, 0.467, 1)

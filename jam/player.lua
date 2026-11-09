@@ -24,10 +24,10 @@ end
 player_init = function(self, x, y, radius)
     log_typecheck(self, Player_t, x, Number_t, y, Number_t, radius, Number_t)
 
-    local n_nodes = math_max(
+    local n_nodes = math_ceil(math_max(
         _settings_min_node_count,
         _settings_node_density * math_tau * radius
-    )
+    ))
 
     if self.body ~= nil and radius == self.radius then
         self.body = softbody_init(self.body, x, y, radius, n_nodes)
@@ -201,7 +201,7 @@ player_draw = function(self)
     else
         graphics_set_color(palette_white)
     end
-    graphics_draw_mesh(softbody_get_draw_mesh(self.body))
+    mesh_draw(softbody_get_draw_mesh(self.body))
 
     rgba_bind(palette_black)
     graphics_set_line_state(_settings_outline_width + 2)
@@ -222,6 +222,11 @@ player_get_player_collision_contour = function(self)
     log_typecheck(self, Player_t)
 
     return softbody_get_contour(self.body)
+end
+
+player_set_texture = function(self, texture)
+    log_typecheck(self, Player_t, texture, Texture_t)
+    softbody_set_texture(self.body, texture)
 end
 
 

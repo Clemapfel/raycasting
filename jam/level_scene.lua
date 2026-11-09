@@ -4,14 +4,20 @@ local _settings_player_angular_velocity = math_tau -- radians / s
 local _settings_player_linear_velocity = 100
 
 level_scene_new = function(stage)
-    log_typecheck(stage, Stage_t)
-    return level_scene_init(object_new(LevelScene_t, {
+    local res = object_new(LevelScene_t, {
         stage = stage,
         players = {},
 
         mouse_handler = nil,
         pressed_handler = nil
-    }), stage)
+    })
+
+    if stage ~= nil then
+        log_typecheck(stage, Stage_t)
+        return level_scene_init(res)
+    else
+        return res
+    end
 end
 
 level_scene_init = function(self)

@@ -16,7 +16,6 @@ local _settings_damping = 0.9998
 local _settings_gravity = 5000
 
 local _settings_texture_zoom = 1 / 0.9
-local _settings_texture_path = "jam/assets/barboach.png"
 
 local _math_cross = math_cross
 local _math_dot = math_dot
@@ -124,8 +123,6 @@ softbody_init = function(self, center_x, center_y, radius, n_contour_nodes)
         data[base + _distance_lambda_offset] = 0
         data[base + _bending_lambda_offset] = 0
         data[base + _polygon_lambda_offset] = 0
-
-        log_assert(#data == particle_i * _stride)
     end
 
     -- volume
@@ -178,11 +175,7 @@ softbody_init = function(self, center_x, center_y, radius, n_contour_nodes)
     _table_push(draw_contour, draw_contour[1])
     _table_push(draw_contour, draw_contour[2])
 
-    local mesh = love.graphics.newMesh(mesh_data, "triangles", "stream")
-    local mesh_texture = love.graphics.newImage(_settings_texture_path)
-
-    mesh_texture:setFilter("nearest", "nearest")
-    mesh:setTexture(mesh_texture)
+    local mesh = mesh_new(mesh_data, GraphicsBufferUsage.STREAM)
 
     self.particles = data
     self.n_particles = n_particles
@@ -206,7 +199,6 @@ softbody_init = function(self, center_x, center_y, radius, n_contour_nodes)
 
     self.mesh = mesh
     self.mesh_data = mesh_data
-    self.mesh_texture = mesh_texture
     self.draw_contour = polyline_close(polyline_new(draw_contour))
 
     -- control
@@ -292,6 +284,12 @@ softbody_set_collision_contours = function(self, contours)
     end
 
     return self
+end
+
+softbody_set_texture = function(self, texture)
+    log_typecheck_arg_i(self, SoftBody_t, texture, Texture_t)
+    self.mesh_texture = texture
+    mesh_set_texture(self.mesh, texture)
 end
 
 softbody_get_contour = function(self)
@@ -1007,7 +1005,7 @@ do -- softbody_update
             mesh_data[mesh_i + 2][2] = by
         end
 
-        self.mesh:setVertices(mesh_data)
+        mesh_update_vertices(self.mesh, mesh_data)
 
         -- update draw contour
         local contour_vertices = polyline_get_vertices(self.draw_contour)

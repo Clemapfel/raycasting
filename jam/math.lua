@@ -53,6 +53,10 @@ math_fract = function(x)
     return x % 1
 end
 
+math_abs = function(x)
+    return math.abs(x)
+end
+
 math_linlin = function(from_a, from_b, to_a, to_b, t)
     if t <= from_a then return to_a end
     if t >= from_b then return to_b end

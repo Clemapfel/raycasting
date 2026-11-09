@@ -51,9 +51,6 @@ graphics_get_color = function()
     return rgba_new(love.graphics.getColor())
 end
 
-graphics_draw_mesh = love.graphics.draw
-graphics_draw_texture = love.graphics.draw
-
 graphics_clear = love.graphics.clear
 
 graphics_set_render_texture = love.graphics.setCanvas
@@ -107,6 +104,14 @@ graphics_push_state = function()
 end
 
 graphics_pop_state = function()
+    love.graphics.pop()
+end
+
+graphics_push_transform = function()
+    love.graphics.push()
+end
+
+graphics_pop_transform = function()
     love.graphics.pop()
 end
 

@@ -146,6 +146,7 @@ stage_list_export = function(self, in_path, out_path)
         return contour_to_priority[a] < contour_to_priority[b]
     end)
 
+    self.stage_names = {}
     for name, bounds in pairs(name_to_bounds) do
         local entry = {
             bounds = aabb_new(0, 0, bounds.width, bounds.height), -- offset to origin
@@ -189,6 +190,7 @@ stage_list_export = function(self, in_path, out_path)
         end
 
         self.stage_name_to_entry[name] = entry
+        table.insert(self.stage_names, name)
     end
 
     local serialize_success, serialized_or_error = pcall(table_serialize, self)
@@ -237,6 +239,14 @@ stage_list_init = function(self, path)
     return self
 end
 
+stage_list_get_n_levels = function(self)
+    return table_sizeof(self.stage_names)
+end
+
+stage_list_get_names = function(self)
+    return table_deepcopy(self.stage_names)
+end
+
 stage_new = function(stage_list, id)
     log_typecheck(stage_list, StageList_t, id, String_t)
     local entry = stage_list.stage_name_to_entry[id]
@@ -282,7 +292,7 @@ stage_new = function(stage_list, id)
             end
         end
 
-        local draw_mesh = love.graphics.newMesh(mesh_data, "triangles", "static")
+        local draw_mesh = mesh_new(mesh_data, "static")
         local draw_contour = polyline_close(object_copy(contour))
 
         table_push(self.contour_entries, {
@@ -356,7 +366,7 @@ stage_draw = function(self)
         end
 
         graphics_set_translation(entry.offset_x, entry.offset_y)
-        graphics_draw_mesh(entry.draw_mesh)
+        draw_mesh(entry.draw_mesh)
 
         rgba_bind(palette_black)
         graphics_set_line_state(_settings_outline_width)

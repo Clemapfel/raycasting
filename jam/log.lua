@@ -80,12 +80,14 @@ log_typecheck = function(...)
 end
 
 log_call = function(f, ...)
+    if f == nil then return end
     return f(...)
 end
 
 do
     local _g_pcall = _G.pcall
     log_safe_call = function(f, ...)
+        if f == nil then return end
         local res = { _g_pcall(f, ...) }
         if res[1] == true then
             table_remove(res, 1)

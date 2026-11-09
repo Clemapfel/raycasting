@@ -4,12 +4,22 @@ aabb_new = function(...)
     return aabb_init(object_new(AABB_t, {}), ...)
 end
 
-aabb_init = function(self, x, y, width, height)
-    log_typecheck(self, AABB_t, x, Number_t, y, Number_t, width, Number_t, height, Number_t)
-    self.x = x
-    self.y = y
-    self.width = width
-    self.height = height
+aabb_init = function(self, aabb_or_x, y, width, height)
+    if object_is_table(aabb_or_x) then
+        log_typecheck_arg_i(self, AABB_t, aabb_or_x, AABB_t, y, Nil_t, width, Nil_t, height, Nil_t)
+        local other = aabb_or_x
+        self.x = other.x
+        self.y = other.y
+        self.width = other.width
+        self.height = other.height
+    else
+        log_typecheck_arg_i(self, AABB_t, aabb_or_x, Number_t, y, Number_t, width, Number_t, height, Number_t)
+        self.x = aabb_or_x
+        self.y = y
+        self.width = width
+        self.height = height
+    end
+
     return self
 end
 

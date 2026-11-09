@@ -35,12 +35,14 @@ do
     local _pressed_handler_id = 0
     local _handler_id_to_callback = {}
 
-    input_connect_pressed = function(callback)
+    input_connect_pressed = function(callback, to_disconnect)
         log_typecheck(callback, Function_t)
 
         local id = _pressed_handler_id
         _pressed_handler_id = _pressed_handler_id + 1
         _handler_id_to_callback[id] = callback
+
+        if to_disconnect ~= nil then input_disconnect_pressed(to_disconnect) end
         return id
     end
 
@@ -80,12 +82,14 @@ do
     local _released_handler_id = 0
     local _handler_id_to_callback = {}
 
-    input_connect_released = function(callback)
+    input_connect_released = function(callback, to_disconnect)
         log_typecheck(callback, Function_t)
 
         local id = _released_handler_id
         _released_handler_id = _released_handler_id + 1
         _handler_id_to_callback[id] = callback
+
+        if to_disconnect ~= nil then input_disconnect_released(to_disconnect) end
         return id
     end
 
@@ -133,12 +137,14 @@ do
         return upscaler_from_window_position(input_get_cursor_position_raw())
     end
 
-    input_connect_cursor_moved = function(callback)
+    input_connect_cursor_moved = function(callback, to_disconnect)
         log_typecheck(callback, Function_t)
 
         local id = _cursor_moved_handler_id
         _cursor_moved_handler_id = _cursor_moved_handler_id + 1
         _cursor_moved_handler_to_callback[id] = callback
+
+        if to_disconnect ~= nil then input_disconnect_cursor_moved(to_disconnect) end
         return id
     end
 
@@ -173,7 +179,9 @@ do
         if not love.window.hasMouseFocus() then return end
         _cursor_position_x = x
         _cursor_position_y = y
-        input_emit_cursor_moved(upscaler_from_window_position(x, y))
+        if STATE ~= nil then
+            input_emit_cursor_moved(upscaler_from_window_position(STATE.upscaler, x, y))
+        end
     end
 end
 

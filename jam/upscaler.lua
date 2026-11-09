@@ -1,30 +1,27 @@
 Upscaler_t = "upscaler"
 
-local _singleton = object_new(Upscaler_t, {
-    texture = nil, -- created on first upscaler_resize
-
-    translate_x = 0,
-    translate_y = 0,
-    scale_x = 1,
-    scale_y = 1,
-
-    aabb_x = 0,
-    aabb_y = 0,
-    aabb_w = 0,
-    aabb_h = 0,
-
-    fade_active = false,
-    fade_motion = lag_new(0), -- 0: default, 1: fully black
-    fade_callback = nil
-})
-
 upscaler_new = function()
-    log_error("In upscaler_new: trying to instantiate a cursor, but it is a singleton")
+    return object_new(Upscaler_t, {
+        texture = nil, -- created on first upscaler_resize
+
+        translate_x = 0,
+        translate_y = 0,
+        scale_x = 1,
+        scale_y = 1,
+
+        aabb_x = 0,
+        aabb_y = 0,
+        aabb_w = 0,
+        aabb_h = 0,
+
+        fade_active = false,
+        fade_motion = lag_new(0), -- 0: default, 1: fully black
+        fade_callback = nil
+    })
 end
 
-upscaler_resize = function(w, h)
-    local self = _singleton
-    log_typecheck(w, Number_t, h, Number_t)
+upscaler_resize = function(self, w, h)
+    log_typecheck(self, Upscaler_t, w, Number_t, h, Number_t)
 
     local log_w, log_h = graphics_get_size()
     local fit = math_min(w / log_w, h / log_h)
@@ -32,11 +29,11 @@ upscaler_resize = function(w, h)
     local texture_h = math_max(1, math_floor(log_h * fit + 0.5))
 
     if self.texture == nil
-        or self.texture:getWidth() ~= texture_w
-        or self.texture:getHeight() ~= texture_h
+        or render_texture_get_width(self.texture) ~= texture_w
+        or render_texture_get_height(self.texture) ~= texture_h
     then
-        self.texture = love.graphics.newCanvas(texture_w, texture_h)
-        self.texture:setFilter("linear", "linear")
+        self.texture = render_texture_new(texture_w, texture_h)
+        render_texture_set_scale_mode(self.texture, TextureScaleMode.LINEAR)
     end
 
     self.scale_x = texture_w / log_w
@@ -52,31 +49,33 @@ upscaler_resize = function(w, h)
     return self
 end
 
-upscaler_get_size = function()
+upscaler_get_size = function(self)
+    log_typecheck(self, Upscaler_t)
     return graphics_get_size()
 end
 
-upscaler_bind = function()
-    local self = _singleton
+upscaler_bind = function(self)
+    log_typecheck(self, Upscaler_t)
     graphics_push_state()
     graphics_reset_state()
-    graphics_set_render_texture(self.texture)
+    render_texture_bind(self.texture)
     graphics_clear(0, 0, 0, 0)
     graphics_set_scale(self.scale_x, self.scale_y)
 end
 
-upscaler_unbind = function()
+upscaler_unbind = function(self)
+    log_typecheck(self, Upscaler_t)
     graphics_pop_state()
 end
 
-upscaler_draw = function()
-    local self = _singleton
+upscaler_draw = function(self)
+    log_typecheck(self, Upscaler_t)
 
     graphics_push_state()
     graphics_reset_state()
     graphics_set_scale(1 / graphics_get_dpi_scale())
     graphics_set_translation(self.translate_x, self.translate_y)
-    graphics_draw_texture(self.texture)
+    render_texture_draw(self.texture)
     graphics_pop_state()
 
     local t = lag_get_value(self.fade_motion)
@@ -84,9 +83,8 @@ upscaler_draw = function()
     graphics_draw_rectangle(self.aabb_x, self.aabb_y, self.aabb_w, self.aabb_h)
 end
 
-upscaler_update = function(delta)
-    local self = _singleton
-    log_typecheck(delta, Number_t)
+upscaler_update = function(self, delta)
+    log_typecheck(self, Upscaler_t, delta, Number_t)
 
     local lag = self.fade_motion
     lag_update(lag, delta)
@@ -102,9 +100,8 @@ upscaler_update = function(delta)
     end
 end
 
-upscaler_queue_fade = function(on_swap)
-    local self = _singleton
-    log_typecheck(on_swap, Function_t)
+upscaler_queue_fade = function(self, on_swap)
+    log_typecheck(self, Upscaler_t, on_swap, Function_t)
 
     if self.fade_callback ~= nil then
         log_safe_call(self.fade_callback)
@@ -114,16 +111,14 @@ upscaler_queue_fade = function(on_swap)
     self.fade_callback = on_swap
 end
 
-upscaler_to_window_position = function(x, y)
-    local self = _singleton
-    log_typecheck(x, Number_t, y, Number_t)
+upscaler_to_window_position = function(self, x, y)
+    log_typecheck(self, Upscaler_t, x, Number_t, y, Number_t)
     return x * self.scale_x + self.translate_x,
     y * self.scale_y + self.translate_y
 end
 
-upscaler_from_window_position = function(x, y)
-    local self = _singleton
-    log_typecheck(x, Number_t, y, Number_t)
+upscaler_from_window_position = function(self, x, y)
+    log_typecheck(self, Upscaler_t, x, Number_t, y, Number_t)
     return (x - self.translate_x) / self.scale_x,
     (y - self.translate_y) / self.scale_y
 end
