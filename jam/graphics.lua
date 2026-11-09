@@ -2,6 +2,18 @@ graphics_get_size = function()
     return 800, 800
 end
 
+graphics_get_window_size = function()
+    return love.graphics.getPixelDimensions()
+end
+
+graphics_get_window_width = function()
+    return love.graphics.getWidth()
+end
+
+graphics_get_window_height = function()
+    return love.graphics.getHeight()
+end
+
 graphics_get_aspect_ratio = function()
     local a, b = graphics_get_size()
     return a  / b
@@ -23,12 +35,20 @@ graphics_set_line_state = function(width, style)
     love.graphics.setLineStyle("smooth")
 end
 
-graphics_set_color = function(r, g, b, a)
-    if r == nil then r = 1 end
-    if g == nil then g = 1 end
-    if b == nil then b = 1 end
-    if a == nil then a = 1 end
-    love.graphics.setColor(r, g, b, a)
+graphics_set_color = function(r_or_rgba, g, b, a)
+    if object_isa(r_or_rgba, RGBA_t) then
+        rgba_bind(r_or_rgba)
+    else
+        if r_or_rgba == nil then r_or_rgba = 1 end
+        if g == nil then g = 1 end
+        if b == nil then b = 1 end
+        if a == nil then a = 1 end
+        love.graphics.setColor(r_or_rgba, g, b, a)
+    end
+end
+
+graphics_get_color = function()
+    return rgba_new(love.graphics.getColor())
 end
 
 graphics_draw_mesh = love.graphics.draw
@@ -95,4 +115,17 @@ graphics_reset_transform = love.graphics.origin
 graphics_set_translation = love.graphics.translate
 graphics_set_scale = function(x, y)
     love.graphics.scale(x, y or x)
+end
+
+local _frame_index = 1
+graphics_notify_end_of_frame = function()
+    _frame_index = _frame_index + 1
+end
+
+graphics_notify_start_of_frame = function()
+    -- noop
+end
+
+graphics_get_frame_index = function()
+    return _frame_index
 end

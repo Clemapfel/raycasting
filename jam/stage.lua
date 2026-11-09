@@ -149,7 +149,7 @@ stage_list_export = function(self, in_path, out_path)
     for name, bounds in pairs(name_to_bounds) do
         local entry = {
             bounds = aabb_new(0, 0, bounds.width, bounds.height), -- offset to origin
-            spawns = {},
+            spawn_points = {},
             contours = {},
             contour_windings = {},
             triangulations = {}
@@ -168,7 +168,7 @@ stage_list_export = function(self, in_path, out_path)
             local x, y = table_unpack(spawn)
             local radius = spawn_point_to_radius[spawn_i]
             if aabb_overlaps_point(bounds, x, y) then
-                table_push(entry.spawns, {
+                table_push(entry.spawn_points, {
                     x = x - bounds.x,
                     y = y - bounds.y,
                     radius = radius,
@@ -246,16 +246,6 @@ stage_new = function(stage_list, id)
 
     local self = object_new(Stage_t, {})
     self.bounds = table_deepcopy(entry.bounds)
-    self.contours = table_deepcopy(entry.contours)
-    self.triangulations = table_deepcopy(entry.triangulations)
-
-    log_assert(table_sizeof(self.contours) == table_sizeof(self.triangulations), "In stage_new: not all contours are triangulated")
-
-    self.draw_contours = {}
-    self.draw_meshes = {}
-    self.draw_mesh_to_is_foreground = {}
-
-    self.spawns = table_deepcopy(entry.spawns)
 
     local to_texture_coords
     do -- compute bounds for normalized, global uv
@@ -276,13 +266,14 @@ stage_new = function(stage_list, id)
         end
     end
 
-    for contour_i = 1, table_sizeof(entry.contours) do
-        local contour = entry.contours[contour_i]
-        table_push(self.draw_contours, polyline_close(contour))
+    self.contour_entries = {} -- Table<{ contour : Polyline, offset_x, offset_y }>
+    self.n_contour_entries = table_sizeof(entry.contours)
 
-        local triangulation = entry.triangulations[contour_i]
+    for entry_i = 1, self.n_contour_entries do
+        local contour = object_copy(entry.contours[entry_i])
+        local triangulation = object_copy(entry.triangulations[entry_i])
+
         local mesh_data = {}
-
         for _, tri in ipairs(triangulation) do
             for i = 1, #tri, 2 do
                 local x, y = tri[i + 0], tri[i + 1]
@@ -292,11 +283,61 @@ stage_new = function(stage_list, id)
         end
 
         local draw_mesh = love.graphics.newMesh(mesh_data, "triangles", "static")
-        table_push(self.draw_meshes, draw_mesh)
-        table_push(self.draw_mesh_to_is_foreground, entry.contour_windings[contour_i] == true)
+        local draw_contour = polyline_close(object_copy(contour))
+
+        table_push(self.contour_entries, {
+            contour = contour, -- Polyline
+            triangulation = triangulation,
+            offset_x = 0,
+            offset_y = 0,
+
+            draw_contour = draw_contour,
+            draw_mesh = draw_mesh,
+            is_foreground = polyline_get_winding(contour)
+        })
     end
 
+    self.spawn_points = table_deepcopy(entry.spawn_points)
+
     return self
+end
+
+stage_get_spawn_points = function(self)
+    log_typecheck(self, Stage_t)
+
+    local result = {}
+    for _, entry in ipairs(self.spawn_points) do
+        table_push(result, {
+            x = entry.x,
+            y = entry.y,
+            radius = entry.radius
+        })
+    end
+    return result
+end
+
+stage_get_hitbox_collision_contours = function(self)
+    log_typecheck(self, Stage_t)
+
+    local result = {}
+    for _, entry in ipairs(self.contour_entries) do
+        table_push(result, polyline_translate(object_copy(entry.contour), entry.offset_x, entry.offset_y))
+    end
+
+    return result
+end
+
+stage_reset = function(self)
+    log_typecheck(self, Stage_t)
+
+    for entry in iter_values(self.contour_entries) do
+        entry.offset_x = 0
+        entry.offset_y = 0
+    end
+end
+
+stage_update = function(self)
+    log_typecheck(self, Stage_t)
 end
 
 stage_draw = function(self)
@@ -307,29 +348,29 @@ stage_draw = function(self)
     graphics_draw_rectangle(aabb_unpack(self.bounds))
 
     -- hitbox
-    for i = 1, table_sizeof(self.draw_meshes) do
-        if self.draw_mesh_to_is_foreground[i] == true then
+    for _, entry in ipairs(self.contour_entries) do
+        if entry.is_foreground == true then
             rgba_bind(palette_light_gray)
         else
             rgba_bind(palette_gray)
         end
-        graphics_draw_mesh(self.draw_meshes[i])
 
-        local contour = self.contours[i]
+        graphics_set_translation(entry.offset_x, entry.offset_y)
+        graphics_draw_mesh(entry.draw_mesh)
 
         rgba_bind(palette_black)
         graphics_set_line_state(_settings_outline_width)
-        polyline_draw(contour)
+        polyline_draw(entry.draw_contour)
 
         rgba_bind(palette_white)
         graphics_set_line_state(_settings_line_width)
-        polyline_draw(contour)
+        polyline_draw(entry.draw_contour)
     end
 
     -- spawns
     lcha_bind(lcha_new(0.8, 1, math_fract(love.timer.getTime())))
     graphics_set_line_state(_settings_outline_width)
-    for spawn_i, spawn in ipairs(self.spawns) do
+    for spawn_i, spawn in ipairs(self.spawn_points) do
         local x, y = math_round(spawn.x), math_round(spawn.y)
         graphics_draw_line(
             x,
@@ -341,7 +382,7 @@ stage_draw = function(self)
 
     rgba_bind(palette_white)
     graphics_set_line_state(_settings_line_width)
-    for spawn_i, spawn in ipairs(self.spawns) do
+    for spawn_i, spawn in ipairs(self.spawn_points) do
         local x, y = math_round(spawn.x), math_round(spawn.y)
         graphics_draw_line(
             x,
@@ -351,7 +392,7 @@ stage_draw = function(self)
         )
     end
 
-    for spawn_i, spawn in ipairs(self.spawns) do
+    for spawn_i, spawn in ipairs(self.spawn_points) do
         local x, y = math_round(spawn.x), math_round(spawn.y)
         graphics_draw_ellipse_outline(x, y, spawn.radius)
     end

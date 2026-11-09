@@ -47,3 +47,12 @@ palette_dark_purple = rgba_new(0.349, 0.008, 0.761, 1)
 palette_light_lilac = rgba_new(0.922, 0.620, 0.984, 1)
 palette_lilac = rgba_new(0.875, 0.384, 1, 1)
 palette_dark_lilac = rgba_new(0.522, 0, 0.584, 1)
+
+local _frame, _color = nil, nil
+palette_get_current_color = function()
+    local current_frame = graphics_get_frame_index()
+    if current_frame ~= _frame then
+        _color = lcha_to_rgba(lcha_new(0.8, 1, love.timer.getTime() / 40))
+    end
+    return _color
+end

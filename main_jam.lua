@@ -15,12 +15,15 @@ require "jam.random"
 require "jam.graphics"
 require "jam.color"
 require "jam.palette"
+require "jam.cursor"
 require "jam.polyline"
 require "jam.aabb"
 require "jam.lag"
 require "jam.upscaler"
+require "jam.softbody"
+require "jam.player"
 require "jam.stage"
-require "jam.boob"
+require "jam.level_scene"
 
 STATE = {}
 setmetatable(_G, {
@@ -66,49 +69,15 @@ love.load = function()
     stage_list_init(stage_list, "jam/assets/stages_exported.lua")
 
     STATE.stage_list = stage_list
-    STATE.stage = stage_new(STATE.stage_list, "Stage 01")
-    STATE.boobs = {}
-    local min_radius, max_radius = 100 - 16, 100 + 16
-    local min_x, min_y = 0.5 * w, 0.5 * h
-    local max_x, max_y = 0.5 * w, 0.5 * h
-    local n_boobs = 8
-    local radii = iter_collect(iter_range(min_radius, max_radius, (max_radius - min_radius) / n_boobs))
-    for i = 1, n_boobs do
-        table_push(STATE.boobs, boob_init(
-            boob_new(),
-            random_number(min_x, max_x),
-            random_number(min_y, max_y),
-            radii[i],
-            32
-        ))
-    end
-
-    do
-        local padding = 50
-        local x, y = padding, padding
-        local w, h = w - 2 * padding, h - 2 * padding
-        STATE.level_contour = {
-            polyline_new(
-                x + 0, y + 0,
-                x + w, y + 0,
-                x + w, y + h,
-                x + 0, y + h,
-                x + 0, y + 0
-            )
-        }
-    end
-
-    STATE.upscaler = upscaler_new(love.graphics.getPixelDimensions())
-
-    input_connect_pressed(input_action_accept, function(which)
-        upscaler_queue_fade(STATE.upscaler, function()
-            println("called")
-        end)
-    end)
+    STATE.scene = level_scene_new(
+        stage_new(STATE.stage_list, "Stage 01")
+    )
 end
 
-input_connect_pressed(input_action_debug, function(which)
-    love.load()
+input_connect_pressed(function(which)
+    if which == input_action_debug then
+        love.load()
+    end
 end)
 
 require "common.palette"
@@ -116,42 +85,44 @@ dbg(rt.Palette)
 
 love.resize = function()
     rt.SceneManager:resize() -- TODO
-    upscaler_resize(STATE.upscaler, love.graphics.getPixelDimensions())
+    upscaler_resize(love.graphics.getPixelDimensions())
 end
 
 love.update = function(delta)
     rt.SceneManager:update(delta) -- TODO
 
-    upscaler_update(STATE.upscaler, delta)
+    upscaler_update(delta)
 
-    for boob in iter_values(STATE.boobs) do
-        boob_update(boob, delta)
-    end
-
-    for current in iter_values(STATE.boobs) do
-        local contours = table_deepcopy(STATE.level_contour)
-        for other in iter_values(STATE.boobs) do
-            if current ~= other then
-                table_push(contours, boob_get_contour(other))
-            end
-        end
-
-        boob_set_collision_contours(current, contours)
+    local scene = STATE.scene
+    if object_isa(scene, LevelScene_t) then
+        level_scene_update(scene, delta)
+    else
+        log_error("in love.update: unhandled scene type `", object_typeof(STATE.scene), "`")
     end
 end
 
-love.draw = function(delta)
+love.draw = function()
+    graphics_notify_start_of_frame()
+
     graphics_clear(0, 0, 0,0)
     rt.SceneManager:draw() -- TODO
 
-    upscaler_bind(STATE.upscaler)
+    upscaler_bind()
     graphics_clear(1, 0, 1, 1)
 
-    stage_draw(STATE.stage)
+    local scene = STATE.scene
+    if object_isa(scene, LevelScene_t) then
+        level_scene_draw(scene)
+    else
+        log_error("in love.update: unhandled scene type `", object_typeof(STATE.scene), "`")
+    end
 
-    iter_map(boob_draw, STATE.boobs)
-    upscaler_unbind(STATE.upscaler)
-    upscaler_draw(STATE.upscaler)
+    upscaler_unbind()
+    upscaler_draw()
+
+    cursor_draw()
+
+    graphics_notify_end_of_frame()
 end
 
 

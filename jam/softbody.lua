@@ -9,14 +9,14 @@ local _settings_volume_compliance = 1e-7
 local _settings_collision_contour_compliance = 0
 local _settings_bending_compliance = 1e-5
 local _settings_angular_compliance = 1e-5
+local _settings_linear_compliance = 1e-5
 local _settings_particle_collision_compliance = 0
 
 local _settings_damping = 0.9998
-local _settings_gravity = 500
+local _settings_gravity = 5000
 
 local _settings_texture_zoom = 1 / 0.9
 local _settings_texture_path = "jam/assets/barboach.png"
-local _settings_draw_line_width = 3
 
 local _math_cross = math_cross
 local _math_dot = math_dot
@@ -71,17 +71,23 @@ local _particle_i_to_data_offset = function(particle_i, n_particles)
     return (particle_i - 1) * _stride + 1
 end
 
-Boob_t = "Boob"
+SoftBody_t = "SoftBody"
 
-boob_new = function()
-    return object_new(Boob_t, {
+softbody_new = function(...)
+    local self = object_new(SoftBody_t, {
         is_initialized = false
     })
+
+    if select("#", ...) > 0 then
+        return softbody_init(self, ...)
+    else
+        return self
+    end
 end
 
-boob_init = function(self, center_x, center_y, radius, n_contour_nodes)
+softbody_init = function(self, center_x, center_y, radius, n_contour_nodes)
     log_typecheck(
-        self, Boob_t,
+        self, SoftBody_t,
         center_x, Float_t,
         center_y, Float_t,
         radius, Float_t,
@@ -91,7 +97,7 @@ boob_init = function(self, center_x, center_y, radius, n_contour_nodes)
     local cos, sin, tau, pi = math_cos, math_sin, math_tau, math_pi
 
     -- particles
-    log_assert(n_contour_nodes >= 5, "In boob_init: need at least 5 contour nodes")
+    log_assert(n_contour_nodes >= 5, "In softbody_init: need at least 5 contour nodes")
 
     local n_particles = n_contour_nodes
     local data = _table_new(n_particles * _stride)
@@ -182,8 +188,12 @@ boob_init = function(self, center_x, center_y, radius, n_contour_nodes)
     self.n_particles = n_particles
 
     self.volume = rest_area
+    self.volume_multiplier = 1.0
+
     self.volume_lambda = 0
     self.angular_lambda = 0
+    self.linear_lambda_x = 0
+    self.linear_lambda_y = 0
     self.segment_length = segment_length
 
     self.volume_gradient = _table_new(2 * n_particles)
@@ -200,6 +210,8 @@ boob_init = function(self, center_x, center_y, radius, n_contour_nodes)
     self.draw_contour = polyline_close(polyline_new(draw_contour))
 
     -- control
+    self.linear_velocity_x = 0
+    self.linear_velocity_y = 0
     self.angular_velocity = 0
 
     self.is_initialized = true
@@ -208,12 +220,12 @@ boob_init = function(self, center_x, center_y, radius, n_contour_nodes)
     return self
 end
 
-boob_is_initialized = function(self)
-    return object_isa(self, Boob_t) and self.is_initialized == true
+softbody_is_initialized = function(self)
+    return object_isa(self, SoftBody_t) and self.is_initialized == true
 end
 
-boob_set_collision_contours = function(self, contours)
-    log_typecheck(self, Boob_t, contours, Table_t)
+softbody_set_collision_contours = function(self, contours)
+    log_typecheck(self, SoftBody_t, contours, Table_t)
 
     local eps_squared = _math_eps * _math_eps
     local abs = math.abs
@@ -226,10 +238,10 @@ boob_set_collision_contours = function(self, contours)
         local closed_contour = polyline_close(contour)
         local n_corners = polyline_get_n_nodes(closed_contour)
 
-        log_assert(n_corners >= 3, "In boob_set_collision_contours: need at least 3 vertices")
+        log_assert(n_corners >= 3, "In softbody_set_collision_contours: need at least 3 vertices")
 
         local signed_area = polyline_get_signed_area(closed_contour)
-        log_assert(abs(signed_area) > _math_eps, "In boob_set_collision_contours: contour must enclose an area")
+        log_assert(abs(signed_area) > _math_eps, "In softbody_set_collision_contours: contour must enclose an area")
 
         local orientation = _math_sign(signed_area)
         local vertices = polyline_get_vertices(closed_contour)
@@ -263,14 +275,13 @@ boob_set_collision_contours = function(self, contours)
             end
         end
 
-        log_assert(n_edges >= 3, "In boob_set_collision_contours: need at least 3 non-degenerate edges")
+        log_assert(n_edges >= 3, "In softbody_set_collision_contours: need at least 3 non-degenerate edges")
 
         local collision_contour = {
-            polyline = closed_contour,
+            contour = closed_contour,
             edges = edges,
             n_edges = n_edges,
-            keep_outside = orientation < 0,
-            lambdas = _table_new(self.n_particles)
+            lambdas = table_rep(0, self.n_particles)
         }
 
         for particle_i = 1, self.n_particles do
@@ -283,33 +294,12 @@ boob_set_collision_contours = function(self, contours)
     return self
 end
 
-boob_draw = function(self)
-    log_typecheck(self, Boob_t)
-
-    if boob_is_initialized(self) ~= true then
-        log_warning("In boob_draw: trying to draw instance before `boob_init` was called")
-        return
-    end
-
-    graphics_push_state()
-
-    graphics_set_color(1, 1, 1, 1)
-    graphics_set_line_state(_settings_draw_line_width)
-
-    graphics_draw_mesh(self.mesh)
-    love.graphics.line(polyline_get_vertices(self.draw_contour))
-
-    graphics_pop_state()
-
-    return self
-end
-
-boob_get_contour = function(self)
-    log_typecheck(self, Boob_t)
+softbody_get_contour = function(self)
+    log_typecheck(self, SoftBody_t)
 
     local contour = _table_new(2 * self.n_particles)
     local data = self.particles
-    for particle_i = self.n_particles, 1, -1 do -- counter clockwise winding for collision query
+    for particle_i = 1, self.n_particles, 1 do -- clockwise winding
         local i = _particle_i_to_data_offset(particle_i)
         _table_push(contour, data[i + _x_offset])
         _table_push(contour, data[i + _y_offset])
@@ -318,7 +308,15 @@ boob_get_contour = function(self)
     return polyline_new(contour)
 end
 
-do -- boob_update
+softbody_get_draw_contour = function(self)
+    return self.draw_contour
+end
+
+softbody_get_draw_mesh = function(self)
+    return self.mesh
+end
+
+do -- softbody_update
     local sqrt = math.sqrt
     local max = math.max
     local huge = _math_inf
@@ -608,6 +606,60 @@ do -- boob_update
         return lambda_new
     end
 
+    local function _enforce_linear_momentum(
+        particles, n_particles,
+        target_velocity_x, target_velocity_y,
+        sub_delta,
+        alpha,
+        lambda_x_before, lambda_y_before
+    )
+        local mass_sum = 0
+        local weight_sum = 0
+        local momentum_x, momentum_y = 0, 0
+
+        for particle_i = 1, n_particles do
+            local i = _particle_i_to_data_offset(particle_i)
+            local m = particles[i + _mass_offset]
+
+            mass_sum = mass_sum + m
+            weight_sum = weight_sum + particles[i + _inverse_mass_offset] * m * m
+
+            momentum_x = momentum_x + m * (particles[i + _x_offset] - particles[i + _previous_x_offset])
+            momentum_y = momentum_y + m * (particles[i + _y_offset] - particles[i + _previous_y_offset])
+        end
+
+        local denominator = weight_sum + alpha
+        if mass_sum < eps or denominator < eps then
+            return lambda_x_before, lambda_y_before
+        end
+
+        local delta_lambda_x, delta_lambda_y = 0, 0
+        local lambda_x_new, lambda_y_new = lambda_x_before, lambda_y_before
+
+        if target_velocity_x ~= nil then
+            local constraint = momentum_x - mass_sum * target_velocity_x * sub_delta
+            delta_lambda_x = -(constraint + alpha * lambda_x_before) / denominator
+            lambda_x_new = lambda_x_before + delta_lambda_x
+        end
+
+        if target_velocity_y ~= nil then
+            local constraint = momentum_y - mass_sum * target_velocity_y * sub_delta
+            delta_lambda_y = -(constraint + alpha * lambda_y_before) / denominator
+            lambda_y_new = lambda_y_before + delta_lambda_y
+        end
+
+        for particle_i = 1, n_particles do
+            local i = _particle_i_to_data_offset(particle_i)
+            local m = particles[i + _mass_offset]
+            local inverse_mass = particles[i + _inverse_mass_offset]
+
+            particles[i + _x_offset] = particles[i + _x_offset] + inverse_mass * delta_lambda_x * m
+            particles[i + _y_offset] = particles[i + _y_offset] + inverse_mass * delta_lambda_y * m
+        end
+
+        return lambda_x_new, lambda_y_new
+    end
+
     local function _enforce_volume(
         particles, n_particles,
         gradient,
@@ -694,8 +746,8 @@ do -- boob_update
         return x, y, velocity_x, velocity_y
     end
 
-    boob_update = function(self, delta_in)
-        log_typecheck(self, Boob_t, delta_in, Number_t)
+    softbody_update = function(self, delta_in)
+        log_typecheck(self, SoftBody_t, delta_in, Number_t)
 
         local timestep = _settings_timestep
         local sub_delta = timestep / _settings_n_sub_steps
@@ -709,6 +761,7 @@ do -- boob_update
         local distance_alpha = _settings_distance_compliance / (sub_delta * sub_delta)
         local bending_alpha = _settings_bending_compliance / (sub_delta * sub_delta)
         local angular_alpha = _settings_angular_compliance / (sub_delta * sub_delta)
+        local linear_alpha = _settings_linear_compliance / (sub_delta * sub_delta)
 
         local ps = self.particles
         local n_particles = self.n_particles
@@ -773,6 +826,8 @@ do -- boob_update
 
                 self.volume_lambda = 0
                 self.angular_lambda = 0
+                self.linear_lambda_x = 0
+                self.linear_lambda_y = 0
 
                 for _ = 1, n_constraint_iterations do
                     -- distance: pair wise
@@ -849,16 +904,23 @@ do -- boob_update
                         angular_alpha,
                         self.angular_lambda
                     )
+
+                    self.linear_lambda_x, self.linear_lambda_y = _enforce_linear_momentum(
+                        ps, n_particles,
+                        self.linear_velocity_x, self.linear_velocity_y,
+                        sub_delta,
+                        linear_alpha,
+                        self.linear_lambda_x, self.linear_lambda_y
+                    )
                 end
 
                 -- polygon collision
                 for _ = 1, n_constraint_iterations do
                     for contour_i = 1, n_collision_contours do
-                        local collision_contour = collision_contours[contour_i]
-                        local edges = collision_contour.edges
-                        local n_edges = collision_contour.n_edges
-                        local keep_outside = collision_contour.keep_outside
-                        local lambdas = collision_contour.lambdas
+                        local entry = collision_contours[contour_i]
+                        local edges = entry.edges
+                        local n_edges = entry.n_edges
+                        local lambdas = entry.lambdas
 
                         for particle_i = 1, n_particles do
                             local i = _particle_i_to_data_offset(particle_i)
@@ -869,8 +931,8 @@ do -- boob_update
                                 edges, n_edges,
                                 line_alpha,
                                 lambdas[particle_i],
-                                keep_outside
-                            )
+                                polyline_get_winding(entry.contour)
+                        )
 
                             ps[i + _x_offset] = ps[i + _x_offset] + correction_x
                             ps[i + _y_offset] = ps[i + _y_offset] + correction_y
@@ -964,3 +1026,39 @@ do -- boob_update
         return self
     end
 end
+
+softbody_set_target_linear_velocity = function(self, dx, dy)
+    log_typecheck(self, SoftBody_t, dx, Number_t, dy, Number_t)
+    self.linear_velocity_x = dx
+    self.linear_velocity_y = dy
+    self.linear_lambda_x = 0
+    self.linear_lambda_y = 0
+end
+
+softbody_get_target_linear_velocity = function(self)
+    log_typecheck(self, SoftBody_t)
+    return self.linear_velocity_x, self.linear_velocity_y
+end
+
+softbody_set_target_angular_velocity = function(self, dtheta) -- signed radians / s
+    log_typecheck(self, SoftBody_t, dtheta, Number_t)
+    self.angular_velocity = dtheta
+    self.angular_lambda = 0
+end
+
+softbody_get_target_angular_velocity = function(self)
+    log_typecheck(self, SoftBody_t)
+    return self.angular_velocity
+end
+
+softbody_set_target_volume = function(self, fraction) -- fraction
+    log_typecheck(self, SoftBody_t, fraction, Number_t)
+    self.volume_multiplier = fraction
+    self.volume_lambda = 0
+end
+
+softbody_get_target_volume = function(self)
+    log_typecheck(self, SoftBody_t)
+    return self.volume_multiplier
+end
+

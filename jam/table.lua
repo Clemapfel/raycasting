@@ -62,6 +62,13 @@ table_sub = function(t, from, to)
     return _g_unpack(t, from, to)
 end
 
+table_rep = function(to_repeat, n)
+    log_typecheck_arg_i(n, Integer_t)
+    local out = table_new(n)
+    for i = 1, n do out[i] = to_repeat end
+    return out
+end
+
 table_deepcopy = function(t)
     if object_is_table(t) then
         local copy = {}

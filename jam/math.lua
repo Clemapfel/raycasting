@@ -35,6 +35,10 @@ math_mix = function(a, b, t)
     return a * (1 - t) + b * t
 end
 
+math_mix2 = function(ax, ay, bx, by, t)
+    return math_mix(ax, bx, t), math_mix(ay, by, t)
+end
+
 math_clamp = function(x, lower, upper)
     if x < lower then
         return lower
@@ -65,13 +69,18 @@ math_cos = function(x)
     return _g_cos(x)
 end
 
+local _g_tan = _G.math.tan
+math_tan = function(x)
+    return _g_tan(x)
+end
+
 local _g_rad = _G.math.rad
-math_degree_to_radians = function(x)
+math_degrees_to_radians = function(x)
     return _g_rad(x)
 end
 
 local _g_deg = _G.math.deg
-math_radians_to_degree = function(x)
+math_radians_to_degrees = function(x)
     return _g_deg(x)
 end
 

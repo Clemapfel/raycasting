@@ -206,6 +206,37 @@ polyline_test_circle = function(self, px, py, pr)
     return indices
 end
 
+polyline_test_point = function(self, px, py)
+    log_typecheck(self, Polyline_t, px, Number_t, py, Number_t)
+
+    local data = self.vertices
+    local n = polyline_get_n_nodes(self)
+
+    local last = (n - 1) * 2 + 1
+    local ax, ay = data[last + 0], data[last + 1]
+    local winding = 0
+
+    for i = 1, n * 2, 2 do
+        local bx, by = data[i + 0], data[i + 1]
+
+        if ay <= py then
+            if by > py then -- upward crossing
+                if (bx - ax) * (py - ay) - (px - ax) * (by - ay) > 0 then
+                    winding = winding + 1
+                end
+            end
+        elseif by <= py then -- downward crossing
+            if (bx - ax) * (py - ay) - (px - ax) * (by - ay) < 0 then
+                winding = winding - 1
+            end
+        end
+
+        ax, ay = bx, by
+    end
+
+    return winding ~= 0
+end
+
 polyline_test_segment = function(self, origin_x, origin_y, direction_x, direction_y)
     log_typecheck(self, Polyline_t,
         origin_x, Number_t, origin_y, Number_t,

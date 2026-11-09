@@ -28,7 +28,7 @@ do
 end
 
 do
-    iter_map = function(f, t, ...)
+    iter_map = function(t, f, ...)
         for i = 1, table_sizeof(t) do
             local x = t[i]
             local res = f(x, ...)
@@ -40,10 +40,10 @@ do
         return t
     end
 
-    iter_map_recursively = function(f, x, ...)
+    iter_map_recursively = function(x, f, ...)
         if object_is_table(x) then
             for i = 1, table_sizeof(x) do
-                local res = iter_map_recursively(f, x[i], ...)
+                local res = iter_map_recursively(x[i], f, ...)
                 if res ~= nil then
                     x[i] = res
                 end

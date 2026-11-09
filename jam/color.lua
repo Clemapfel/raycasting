@@ -23,6 +23,7 @@ end
 rgba_bind = function(self)
     log_typecheck(self, RGBA_t)
     graphics_set_color(rgba_unpack(self))
+    return self
 end
 
 rgba_darken = function(self, darken)
@@ -30,6 +31,7 @@ rgba_darken = function(self, darken)
     self.r = self.r * (1 - darken)
     self.g = self.g * (1 - darken)
     self.b = self.b * (1 - darken)
+    return self
 end
 
 rgba_lighten = function(self, lighten)
@@ -37,7 +39,9 @@ rgba_lighten = function(self, lighten)
     self.r = math_clamp(self.r * (1 + lighten), 0, 1)
     self.g = math_clamp(self.g * (1 + lighten), 0, 1)
     self.b = math_clamp(self.b * (1 + lighten), 0, 1)
+    return self
 end
+
 
 lcha_new = function(l, c, h, a)
     return lcha_init(object_new(LCHA_t, {}), l, c, h, a)
@@ -61,6 +65,7 @@ end
 lcha_bind = function(self)
     log_typecheck(self, LCHA_t)
     rgba_bind(lcha_to_rgba(self))
+    return self
 end
 
 do

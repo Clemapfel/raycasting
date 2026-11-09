@@ -33,57 +33,43 @@ end
 
 do
     local _pressed_handler_id = 0
-    local _pressed_input_action_to_handler_to_callback = {}
+    local _handler_id_to_callback = {}
 
-    for _, action in ipairs(_input_actions) do
-        _pressed_input_action_to_handler_to_callback[action] = {}
-    end
-
-    input_connect_pressed = function(action, callback)
-        log_typecheck(action, String_t, callback, Function_t)
-        log_assert(input_is_input_action(action), "In input_connect_pressed: `", object_to_string(action), "` is not a valid input action")
+    input_connect_pressed = function(callback)
+        log_typecheck(callback, Function_t)
 
         local id = _pressed_handler_id
         _pressed_handler_id = _pressed_handler_id + 1
-        _pressed_input_action_to_handler_to_callback[action][id] = callback
+        _handler_id_to_callback[id] = callback
         return id
     end
 
     input_disconnect_pressed = function(id)
+        if id == nil then return end
         log_typecheck(id, Number_t)
 
-        local removed = false
-        for _, handler_to_callback in pairs(_pressed_input_action_to_handler_to_callback) do
-            if handler_to_callback[id] ~= nil then
-                handler_to_callback[id] = nil
-                removed = true
-                break
-            end
+        if _handler_id_to_callback[id] == nil then
+            log_warning("In input_disconnect_pressed: no handler with id `", id, "`")
         end
-
-        if not removed then
-            log_warning("In input_disconnect_pressed: no handler with id `", id, "` connected")
-        end
+        _handler_id_to_callback[id] = nil
     end
 
     input_emit_pressed = function(action)
         log_assert(input_is_input_action(action), "In input_emit_pressed: `", object_to_string(action), "` is not a valid input action")
 
-        local handler_to_callback = _pressed_input_action_to_handler_to_callback[action]
-
         -- snapshot ids to handle disconnect / connect during emission
         local ids = {}
-        for id in pairs(handler_to_callback) do
+        for id in pairs(_handler_id_to_callback) do
             table_push(ids, id)
         end
         table_sort(ids)
 
         for _, id in ipairs(ids) do
-            local callback = handler_to_callback[id]
+            local callback = _handler_id_to_callback[id]
             if callback ~= nil then
                 local res = log_call(callback, action)
                 if res == input_should_disconnect then
-                    handler_to_callback[id] = nil
+                    _handler_id_to_callback[id] = nil
                 end
             end
         end
@@ -92,59 +78,102 @@ end
 
 do
     local _released_handler_id = 0
-    local _released_input_action_to_handler_to_callback = {}
+    local _handler_id_to_callback = {}
 
-    for _, action in ipairs(_input_actions) do
-        _released_input_action_to_handler_to_callback[action] = {}
-    end
-
-    input_connect_released = function(action, callback)
-        log_typecheck(action, String_t, callback, Function_t)
-        log_assert(input_is_input_action(action), "In input_connect_released: `", object_to_string(action), "` is not a valid input action")
+    input_connect_released = function(callback)
+        log_typecheck(callback, Function_t)
 
         local id = _released_handler_id
         _released_handler_id = _released_handler_id + 1
-        _released_input_action_to_handler_to_callback[action][id] = callback
+        _handler_id_to_callback[id] = callback
         return id
     end
 
     input_disconnect_released = function(id)
+        if id == nil then return end
         log_typecheck(id, Number_t)
 
-        local removed = false
-        for _, handler_to_callback in pairs(_released_input_action_to_handler_to_callback) do
-            if handler_to_callback[id] ~= nil then
-                handler_to_callback[id] = nil
-                removed = true
-                break
-            end
+        if _handler_id_to_callback[id] == nil then
+            log_warning("In input_disconnect_released: no handler with id `", id , "`")
         end
-
-        if not removed then
-            log_warning("In input_disconnect_released: no handler with id `", id, "` connected")
-        end
+        _handler_id_to_callback[id] = nil
     end
 
     input_emit_released = function(action)
         log_assert(input_is_input_action(action), "In input_emit_released: `", object_to_string(action), "` is not a valid input action")
 
-        local handler_to_callback = _released_input_action_to_handler_to_callback[action]
-
         local ids = {}
-        for id in pairs(handler_to_callback) do
+        for id in pairs(_handler_id_to_callback) do
             table_push(ids, id)
         end
         table_sort(ids)
 
         for _, id in ipairs(ids) do
-            local callback = handler_to_callback[id]
+            local callback = _handler_id_to_callback[id]
             if callback ~= nil then
                 local res = log_call(callback, action)
                 if res == input_should_disconnect then
-                    handler_to_callback[id] = nil
+                    _handler_id_to_callback[id] = nil
                 end
             end
         end
+    end
+end
+
+do
+    local _cursor_moved_handler_id = 0
+    local _cursor_moved_handler_to_callback = {}
+    local _cursor_position_x, _cursor_position_y = love.mouse.getPosition()
+
+    input_get_cursor_position_raw = function()
+        return _cursor_position_x, _cursor_position_y
+    end
+
+    input_get_cursor_position = function()
+        return upscaler_from_window_position(input_get_cursor_position_raw())
+    end
+
+    input_connect_cursor_moved = function(callback)
+        log_typecheck(callback, Function_t)
+
+        local id = _cursor_moved_handler_id
+        _cursor_moved_handler_id = _cursor_moved_handler_id + 1
+        _cursor_moved_handler_to_callback[id] = callback
+        return id
+    end
+
+    input_disconnect_cursor_moved = function(id)
+        if id == nil then return end
+        log_typecheck(id, Number_t)
+        _cursor_moved_handler_to_callback[id] = nil
+    end
+
+    input_emit_cursor_moved = function(x, y)
+        log_typecheck(x, Number_t, y, Number_t)
+
+        local ids = {}
+        for id in pairs(_cursor_moved_handler_to_callback) do
+            table_push(ids, id)
+        end
+        table_sort(ids)
+
+        for _, id in ipairs(ids) do
+            local callback = _cursor_moved_handler_to_callback[id]
+            if callback ~= nil then
+                local res = log_call(callback, x, y)
+                if res == input_should_disconnect then
+                    _cursor_moved_handler_to_callback[id] = nil
+                end
+            end
+        end
+    end
+
+    love.mousemoved = function(x, y, dx, dy, istouch)
+        if istouch then return end
+        if not love.window.hasMouseFocus() then return end
+        _cursor_position_x = x
+        _cursor_position_y = y
+        input_emit_cursor_moved(upscaler_from_window_position(x, y))
     end
 end
 
@@ -221,7 +250,6 @@ love.mousepressed = function(x, y, button, istouch, presses)
 
     if button == 1 then
         input_emit_pressed(input_action_accept)
-        input_emit_pressed(input_action_jump)
     end
 end
 
@@ -230,7 +258,6 @@ love.mousereleased = function(x, y, button, istouch, presses)
 
     if button == 1 then
         input_emit_released(input_action_accept)
-        input_emit_released(input_action_jump)
     end
 end
 
