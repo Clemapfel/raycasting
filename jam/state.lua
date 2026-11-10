@@ -148,10 +148,18 @@ state_draw = function()
 
     _call_scene_f("state_draw", self.scene, _draw_fid)
 
+
+    graphics_set_color(1, 1, 1, 0.75)
+    graphics_set_line_state(1)
     local w, h = graphics_get_size()
     graphics_draw_line(
         0.5 * w, 0,
         0.5 * w, h
+    )
+
+    graphics_draw_line(
+        0, 0.5 * h,
+        w, 0.5 * h
     )
 
     upscaler_unbind(self.upscaler)

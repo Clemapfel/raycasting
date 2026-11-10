@@ -32,13 +32,13 @@ end
 
 lag_set_value = function(self, x)
     log_typecheck(self, Lag_t, x, Number_t)
-    log.current_value = x
+    self.current_value = x
     return self
 end
 
 lag_skip = function(self)
     log_typecheck(self, Lag_t)
-    log.current_value = log.target_value
+    self.current_value = self.target_value
     return self
 end
 

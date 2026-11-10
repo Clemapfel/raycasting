@@ -34,7 +34,7 @@ local _skin_data = {
     },
 
     [SkinID.NSFW] = {
-        name = "<nsfw>",
+        name = "??? (nsfw)",
         path = "jam/assets/skins/nsfw.png",
         n_unlocks_required = 10
     }
@@ -48,13 +48,17 @@ local _skin_order = {
     SkinID.NSFW
 }
 
-local _unlock_message = "(Beat %i Stages to unlock this Skin)"
+local _unlock_message = "(Beat %i Stage%s to unlock this Skin)"
 
 local _settings_command_label_font_size = 80 / 800
 local _question_mark_label_font_size = 350 / 800
 local _settings_name_font_size = 40 / 800
 local _settings_sub_message_font_size = 30 / 800
 local _settings_softbody_radius = 128 / 800
+local _settings_carousel_radius = 1000 / 800
+
+local _skin_wheel_rotation_speed = 3
+local _skin_wheel_min_scale = 0.5
 
 skin_select_scene_new = function()
     return skin_select_scene_init(object_new(SkinSelectScene_t, {}))
@@ -71,13 +75,19 @@ skin_select_scene_init = function(self)
         label_new("Select a Skin!", command_size, TextStyle.BOLD)
     ))
 
-    self.left_label = label_set_is_outlined(label_new(
+    self.left_label = label_set_is_wave(label_set_is_outlined(label_new(
         "<", 2 * command_size, TextStyle.BOLD
-    ))
+    )))
 
-    self.right_label = label_set_is_outlined(label_new(
+    self.right_label = label_set_is_wave(label_set_is_outlined(label_new(
         ">", 2 * command_size, TextStyle.BOLD
-    ))
+    )))
+
+    self.selected_index = 1
+    self.selection_lag = lag_new(1, _skin_wheel_rotation_speed)
+    self.selection_position = 1
+    self.selection_target = 1
+    self.selection_is_animating = false
 
     self.entries = {}
     for _, id in ipairs(_skin_order) do
@@ -101,7 +111,7 @@ skin_select_scene_init = function(self)
         local sub_message_label
 
         sub_message_label = label_new(
-            string.format(_unlock_message, data.n_unlocks_required),
+            string.format(_unlock_message, data.n_unlocks_required, data.n_unlocks_required > 1 and "s" or ""),
             _settings_sub_message_font_size * native_h
         )
 
@@ -110,6 +120,8 @@ skin_select_scene_init = function(self)
         for label in iter_varargs(name_label, sub_message_label, questionmark_label) do
             label_set_is_outlined(label, true)
         end
+
+        label_set_is_wave(questionmark_label)
 
         table_push(self.entries, {
             body = body,
@@ -125,6 +137,28 @@ skin_select_scene_init = function(self)
         })
     end
 
+    self.input_pressed_handler = input_connect_pressed(function(which)
+        local direction
+        if which == input_action_move_left then
+            direction = -1
+        elseif which == input_action_move_right then
+            direction = 1
+        end
+
+        if direction == nil or #self.entries == 0 then
+            return
+        end
+
+        local target = lag_get_target_value(self.selection_lag) + direction
+        lag_set_target_value(self.selection_lag, target)
+        self.selected_index = ((target - 1) % #self.entries) + 1
+        if direction == 1 then
+            audio_replay_sound(self, SoundID.menu_swipe_left)
+        else
+            audio_replay_sound(self, SoundID.menu_swipe_right)
+        end
+    end, self.input_pressed_handler)
+
     return self
 end
 
@@ -138,7 +172,6 @@ skin_select_scene_reformat = function(self, aabb_or_x, y, w, h)
     local content_w = bounds.width - 2 * outer_m
     local center_x = bounds.x + 0.5 * bounds.width
 
-    -- command label: top edge is outer_m below the top of the screen
     local command_w, command_h = label_get_size(self.command_label)
     local command_y = bounds.y + 1 / 4 * bounds.height - 0.5 * command_h
     label_set_justify_mode(self.command_label, JustifyMode.CENTER)
@@ -154,7 +187,7 @@ skin_select_scene_reformat = function(self, aabb_or_x, y, w, h)
     label_reformat(self.left_label,
         bounds.x + outer_m,
         bounds.y + outer_m,
-         bounds.width - 2 * outer_m,
+        bounds.width - 2 * outer_m,
         bounds.height - 2 * outer_m
     )
 
@@ -195,7 +228,20 @@ end
 skin_select_scene_update = function(self, delta)
     log_typecheck(self, SkinSelectScene_t)
 
+    lag_update(self.selection_lag, delta)
+
     local n_completed = state_get_n_levels_completed()
+    if self.selection_is_animating then
+        local distance = self.selection_target - self.selection_position
+        local step = _skin_wheel_rotation_speed * delta
+        if math.abs(distance) <= step then
+            self.selection_position = self.selection_target
+            self.selection_is_animating = false
+        else
+            self.selection_position = self.selection_position + (distance > 0 and step or -step)
+        end
+    end
+
     label_update(self.command_label, delta)
     label_update(self.left_label, delta)
     label_update(self.right_label, delta)
@@ -217,20 +263,58 @@ skin_select_scene_draw = function(self)
 
     local n_completed = state_get_n_levels_completed()
     label_draw(self.command_label)
-    label_draw(self.left_label)
-    label_draw(self.right_label)
 
-    for _, entry in ipairs(self.entries) do
-        if n_completed < entry.n_unlocks_required then
-            label_draw(entry.questionmark_label)
-            label_draw(entry.sub_message_label)
-        else
+    local n_entries = #self.entries
+    local wheel_radius = _settings_carousel_radius * graphics_get_height()
+    local selection_position = lag_get_value(self.selection_lag)
+
+    local draw_entries = {}
+    for i, entry in ipairs(self.entries) do
+        local relative = i - selection_position
+        relative = (math_fract(relative / n_entries + 0.5) - 0.5) * n_entries
+        local angle = relative * (math_tau / n_entries)
+        local depth = math.cos(angle)
+
+        if depth >= 0 then
+            table_push(draw_entries, {
+                entry = entry,
+                angle = angle,
+                depth = depth
+            })
+        end
+    end
+
+    table.sort(draw_entries, function(a, b)
+        return a.depth < b.depth
+    end)
+
+    for _, item in ipairs(draw_entries) do
+        local entry = item.entry
+        local offset_x = math.sin(item.angle) * wheel_radius
+        local scale = _skin_wheel_min_scale + (1 - _skin_wheel_min_scale) * (item.depth + 1) / 2
+
+        if n_completed >= entry.n_unlocks_required then
             graphics_push_transform()
-            graphics_set_translation(entry.body_x, entry.body_y)
+            graphics_set_translation(entry.body_x + offset_x, entry.body_y)
+            graphics_set_scale(scale, scale)
             player_draw(entry.body)
             graphics_pop_transform()
         end
 
+        graphics_push_transform()
+        graphics_set_translation(
+            entry.body_x + offset_x - scale * entry.body_x,
+            entry.body_y - scale * entry.body_y
+        )
+        graphics_set_scale(scale, scale)
+        if n_completed < entry.n_unlocks_required then
+            label_draw(entry.questionmark_label)
+            label_draw(entry.sub_message_label)
+        end
         label_draw(entry.name_label)
+        graphics_pop_transform()
     end
+
+    label_draw(self.left_label)
+    label_draw(self.right_label)
 end
