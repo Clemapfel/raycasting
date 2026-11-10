@@ -138,24 +138,25 @@ skin_select_scene_init = function(self)
     end
 
     self.input_pressed_handler = input_connect_pressed(function(which)
-        local direction
+        local scroll = function(direction)
+            local target = lag_get_target_value(self.selection_lag) + direction
+            lag_set_target_value(self.selection_lag, target)
+            self.selected_index = ((target - 1) % #self.entries) + 1
+            if direction == 1 then
+                audio_replay_sound(self, SoundID.menu_swipe_left)
+            else
+                audio_replay_sound(self, SoundID.menu_swipe_right)
+            end
+        end
+
         if which == input_action_move_left then
-            direction = -1
+            scroll(-1)
         elseif which == input_action_move_right then
-            direction = 1
-        end
-
-        if direction == nil or #self.entries == 0 then
-            return
-        end
-
-        local target = lag_get_target_value(self.selection_lag) + direction
-        lag_set_target_value(self.selection_lag, target)
-        self.selected_index = ((target - 1) % #self.entries) + 1
-        if direction == 1 then
-            audio_replay_sound(self, SoundID.menu_swipe_left)
-        else
-            audio_replay_sound(self, SoundID.menu_swipe_right)
+            scroll(1)
+        elseif which == input_action_accept then
+            local current = self.entries[self.selected_index]
+            audio_replay_sound(self, SoundID.menu_accept)
+            state_set_active_skin(current.texture)
         end
     end, self.input_pressed_handler)
 

@@ -3,10 +3,32 @@ LevelScene_t = "LevelScene"
 local _settings_player_angular_velocity = math_tau -- radians / s
 local _settings_player_linear_velocity = 100
 
+local _item_id_unpause = "unpause"
+local _item_id_respawn = "respawn"
+local _item_id_level_select = "level_select"
+local _item_id_exit = "exit"
+
+local _settings_pause_menu_labels = {
+    [_item_id_unpause] = "Unpause",
+    [_item_id_respawn] = "Respawn",
+    [_item_id_level_select] = "Level Select",
+    [_item_id_exit] = "Exit"
+}
+
+local _settings_pause_menu_labels_in_order = {
+    _item_id_unpause,
+    _item_id_respawn,
+    _item_id_level_select,
+    _item_id_exit
+}
+
+local _settings_pause_menu_font_size = 40 / 800
+
 level_scene_new = function(stage)
     local res = object_new(LevelScene_t, {
         stage = stage,
         players = {},
+        pause_menu_visible = false,
 
         mouse_handler = nil,
         pressed_handler = nil
@@ -35,6 +57,42 @@ level_scene_init = function(self)
     end
 
     stage_reset(self.stage)
+
+    -- pause
+
+    local w, h = graphics_get_size()
+    self.bounds = aabb_new(0, 0, w, h)
+
+    local label_max_h = math_negative_inf
+    local native_h = graphics_get_height()
+
+    self.selected_i = 1
+    self.n_labels = 0
+    self.menu_label_entries = {}
+    for i, key in ipairs(_settings_pause_menu_labels_in_order) do
+        local unselected = label_new(_settings_pause_menu_labels[key], _settings_pause_menu_font_size * native_h, TextStyle.BOLD)
+        local selected = label_new(_settings_pause_menu_labels[key], _settings_pause_menu_font_size * native_h, TextStyle.BOLD)
+
+        label_set_is_rainbow(selected, true)
+        label_set_is_wave(selected, true)
+        label_set_is_outlined(unselected, true)
+        label_set_is_outlined(selected, true)
+
+        table_push(self.menu_label_entries, {
+            unselected_label = unselected,
+            selected_label = selected
+        })
+
+        label_max_h = math_max(
+            label_max_h,
+            label_get_height(unselected),
+            label_get_height(selected)
+        )
+
+        self.n_labels = self.n_labels + 1
+    end
+
+    self.menu_label_height = label_max_h
 
     -- proxies for player requests
     self.left_move_proxy, self.right_move_proxy, self.up_move_proxy, self.down_move_proxy = {}, {}, {}, {}
@@ -94,7 +152,36 @@ level_scene_init = function(self)
     end)
 
     player_set_is_active(self.players[1], true)
+
+    level_scene_reformat(self, 0, 0, graphics_get_size())
     return self
+end
+
+level_scene_reformat = function(self, aabb_or_x, y, w, h)
+    local bounds = aabb_init(self.bounds, aabb_or_x, y, w, h)
+
+    local m = _global_margin_unit
+    local outer_m = _global_outer_margin
+    local label_h = self.menu_label_height + m
+
+    local current_x = bounds.x
+    local current_y = bounds.y + bounds.height - outer_m - self.n_labels * label_h
+
+    for i = 1, self.n_labels do
+        local entry = self.menu_label_entries[i]
+
+        label_set_justify_mode(entry.selected_label, JustifyMode.CENTER)
+        label_reformat(entry.selected_label,
+            current_x, current_y, bounds.width, 0
+        )
+
+        label_set_justify_mode(entry.unselected_label, JustifyMode.CENTER)
+        label_reformat(entry.unselected_label,
+            current_x, current_y, bounds.width, 0
+        )
+
+        current_y = current_y + label_h
+    end
 end
 
 level_scene_update = function(self, delta)
@@ -133,6 +220,11 @@ level_scene_update = function(self, delta)
     end
     stage_update(self.stage, delta)
 
+    for _, entry in ipairs(self.menu_label_entries) do
+        label_update(entry.selected_label, delta)
+        label_update(entry.unselected_label, delta)
+    end
+
     return self
 end
 
@@ -142,6 +234,16 @@ level_scene_draw = function(self)
     stage_draw(self.stage)
     for _, player in ipairs(self.players) do
         player_draw(player)
+    end
+
+    if self.pause_menu_visible then
+        for entry_i, entry in ipairs(self.menu_label_entries) do
+            if entry_i == self.selected_i then
+                label_draw(entry.selected_label)
+            else
+                label_draw(entry.unselected_label)
+            end
+        end
     end
 
     return self
@@ -156,4 +258,9 @@ level_scene_get_active_players = function(self)
         end
     end
     return result
+end
+level_scene_set_pause_menu_visible = function(self, is_visible)
+    log_typecheck(self, LevelScene_t)
+    self.pause_menu_visible = is_visible
+    return self
 end

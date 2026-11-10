@@ -117,6 +117,9 @@ state_init = function()
 
     -- current scene
     self.scene = self.scene_t_to_scene[MainMenuScene_t]
+
+    -- skin
+    self.active_skin = nil -- Texture_t
     return self
 end
 
@@ -188,6 +191,37 @@ state_get_n_levels_completed = function()
         end
     end
     return n
+end
+
+state_set_level_is_completed = function(id, b)
+    log_typecheck(id, String_t)
+    local entry = STATE.level_entries[id]
+    if entry == nil then
+        log_error("In state_set_level_is_completed: no level with id `", id, "`")
+    else
+        entry.is_completed = b
+    end
+end
+
+state_get_level_is_completed = function(id)
+    log_typecheck(id, String_t)
+    local entry = STATE.level_entries[id]
+    if entry == nil then
+        log_error("In state_set_level_is_completed: no level with id `", id, "`")
+        return false
+    else
+        return entry.is_completed
+    end
+end
+
+state_set_active_skin = function(texture)
+    log_typecheck(texture, Texture_t)
+    STATE.active_skin = texture
+end
+
+state_get_acctive_skin = function(texture)
+    log_typecheck(texture, Texture_t)
+    return STATE.active_skin
 end
 
 -- instance singleton
