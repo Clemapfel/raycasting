@@ -2,14 +2,14 @@ MainMenuScene_t = "MainMenuScene"
 
 local _item_id_new_game = "new_game"
 local _item_id_choose_skin = "choose_skin"
-local _item_id_level_select = "level_select"
+local _item_id_stage_select = "stage_select"
 local _item_id_settings = "settings"
 local _item_id_quit = "quit"
 
 local _settings_labels = {
     [_item_id_new_game] = "New Game",
     [_item_id_choose_skin] = "Choose Skin",
-    [_item_id_level_select] = "Select Level",
+    [_item_id_stage_select] = "Select Stage",
     [_item_id_settings] = "Settings",
     [_item_id_quit] = "Quit"
 }
@@ -17,7 +17,7 @@ local _settings_labels = {
 local _settings_labels_in_order = {
     _item_id_new_game,
     _item_id_choose_skin,
-    _item_id_level_select,
+    _item_id_stage_select,
     _item_id_settings,
     _item_id_quit
 }
@@ -91,9 +91,9 @@ main_menu_scene_init = function(self)
             audio_play_sound(self, SoundID.menu_accept)
 
             if id == _item_id_new_game then
-                state_set_scene(SkinSelectScene_t, true) -- queue level after
-            elseif id == _item_id_level_select then
-                state_set_scene(LevelSelect_t)
+                state_set_scene(SkinSelectScene_t, true) -- queue stage after
+            elseif id == _item_id_stage_select then
+                state_set_scene(StageSelect_t)
             elseif id == _item_id_choose_skin then
                 state_set_scene(SkinSelectScene_t, false)
             elseif id == _item_id_settings then

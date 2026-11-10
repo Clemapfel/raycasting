@@ -16,13 +16,13 @@ local _skin_data = {
     },
 
     [SkinID.LOVE_WHALE] = {
-        name = "Whale (Love)",
+        name = "Love",
         path = "jam/assets/skins/love_whale.png",
         n_unlocks_required = 1
     },
 
     [SkinID.HATE_WHALE] = {
-        name = "Whale (Hate)",
+        name = "Hate",
         path = "jam/assets/skins/hate_whale.png",
         n_unlocks_required = 3
     },
@@ -83,7 +83,7 @@ skin_select_scene_init = function(self)
         ">", 2 * command_size, TextStyle.BOLD
     )))
 
-    self.selected_index = 1
+    self.selected_entry_i = 1
     self.selection_lag = lag_new(1, _skin_wheel_rotation_speed)
     self.selection_position = 1
     self.selection_target = 1
@@ -141,7 +141,7 @@ skin_select_scene_init = function(self)
         local scroll = function(direction)
             local target = lag_get_target_value(self.selection_lag) + direction
             lag_set_target_value(self.selection_lag, target)
-            self.selected_index = ((target - 1) % #self.entries) + 1
+            self.selected_entry_i = ((target - 1) % #self.entries) + 1
             if direction == 1 then
                 audio_replay_sound(self, SoundID.menu_swipe_left)
             else
@@ -154,7 +154,7 @@ skin_select_scene_init = function(self)
         elseif which == input_action_move_right then
             scroll(1)
         elseif which == input_action_accept then
-            local current = self.entries[self.selected_index]
+            local current = self.entries[self.selected_entry_i]
             audio_replay_sound(self, SoundID.menu_accept)
             state_set_active_skin(current.texture)
         end
@@ -231,7 +231,7 @@ skin_select_scene_update = function(self, delta)
 
     lag_update(self.selection_lag, delta)
 
-    local n_completed = state_get_n_levels_completed()
+    local n_completed = state_get_n_stages_completed()
     if self.selection_is_animating then
         local distance = self.selection_target - self.selection_position
         local step = _skin_wheel_rotation_speed * delta
@@ -262,7 +262,7 @@ end
 skin_select_scene_draw = function(self)
     log_typecheck(self, SkinSelectScene_t)
 
-    local n_completed = state_get_n_levels_completed()
+    local n_completed = state_get_n_stages_completed()
     label_draw(self.command_label)
 
     local n_entries = #self.entries

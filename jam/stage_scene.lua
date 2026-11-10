@@ -1,31 +1,31 @@
-LevelScene_t = "LevelScene"
+StageScene_t = "StageScene"
 
 local _settings_player_angular_velocity = math_tau -- radians / s
 local _settings_player_linear_velocity = 100
 
 local _item_id_unpause = "unpause"
 local _item_id_respawn = "respawn"
-local _item_id_level_select = "level_select"
+local _item_id_stage_select = "stage_select"
 local _item_id_exit = "exit"
 
 local _settings_pause_menu_labels = {
     [_item_id_unpause] = "Unpause",
     [_item_id_respawn] = "Respawn",
-    [_item_id_level_select] = "Level Select",
+    [_item_id_stage_select] = "Stage Select",
     [_item_id_exit] = "Exit"
 }
 
 local _settings_pause_menu_labels_in_order = {
     _item_id_unpause,
     _item_id_respawn,
-    _item_id_level_select,
+    _item_id_stage_select,
     _item_id_exit
 }
 
 local _settings_pause_menu_font_size = 40 / 800
 
-level_scene_new = function(stage)
-    local res = object_new(LevelScene_t, {
+stage_scene_new = function(stage)
+    local res = object_new(StageScene_t, {
         stage = stage,
         players = {},
         pause_menu_visible = false,
@@ -36,14 +36,14 @@ level_scene_new = function(stage)
 
     if stage ~= nil then
         log_typecheck(stage, Stage_t)
-        return level_scene_init(res)
+        return stage_scene_init(res)
     else
         return res
     end
 end
 
-level_scene_init = function(self)
-    log_typecheck(self, LevelScene_t)
+stage_scene_init = function(self)
+    log_typecheck(self, StageScene_t)
 
     local spawn_points = stage_get_spawn_points(self.stage)
     for i = 1, table_sizeof(spawn_points) do
@@ -99,7 +99,7 @@ level_scene_init = function(self)
 
     input_disconnect_pressed(self.pressed_handler)
     self.pressed_handler = input_connect_pressed(function(which)
-        local active = level_scene_get_active_players(self)
+        local active = stage_scene_get_active_players(self)
         if which == input_action_accept then
             -- on click: select player
             for player in iter_values(self.players) do
@@ -118,7 +118,7 @@ level_scene_init = function(self)
 
     input_disconnect_released(self.released_handler)
     self.released_handler = input_connect_released(function(which)
-        local active = level_scene_get_active_players(self)
+        local active = stage_scene_get_active_players(self)
 
         -- remove requests
         if which == input_action_move_left then
@@ -153,11 +153,11 @@ level_scene_init = function(self)
 
     player_set_is_active(self.players[1], true)
 
-    level_scene_reformat(self, 0, 0, graphics_get_size())
+    stage_scene_reformat(self, 0, 0, graphics_get_size())
     return self
 end
 
-level_scene_reformat = function(self, aabb_or_x, y, w, h)
+stage_scene_reformat = function(self, aabb_or_x, y, w, h)
     local bounds = aabb_init(self.bounds, aabb_or_x, y, w, h)
 
     local m = _global_margin_unit
@@ -184,8 +184,8 @@ level_scene_reformat = function(self, aabb_or_x, y, w, h)
     end
 end
 
-level_scene_update = function(self, delta)
-    log_typecheck(self, LevelScene_t, delta, Number_t)
+stage_scene_update = function(self, delta)
+    log_typecheck(self, StageScene_t, delta, Number_t)
 
     local stage_contours = {}
     for _, contour in ipairs(stage_get_hitbox_collision_contours(self.stage)) do
@@ -228,8 +228,8 @@ level_scene_update = function(self, delta)
     return self
 end
 
-level_scene_draw = function(self)
-    log_typecheck(self, LevelScene_t)
+stage_scene_draw = function(self)
+    log_typecheck(self, StageScene_t)
 
     stage_draw(self.stage)
     for _, player in ipairs(self.players) do
@@ -249,8 +249,8 @@ level_scene_draw = function(self)
     return self
 end
 
-level_scene_get_active_players = function(self)
-    log_typecheck(self, LevelScene_t)
+stage_scene_get_active_players = function(self)
+    log_typecheck(self, StageScene_t)
     local result = {}
     for player in iter_values(self.players) do
         if player_get_is_active(player) then
@@ -259,8 +259,9 @@ level_scene_get_active_players = function(self)
     end
     return result
 end
-level_scene_set_pause_menu_visible = function(self, is_visible)
-    log_typecheck(self, LevelScene_t)
+
+stage_scene_set_pause_menu_visible = function(self, is_visible)
+    log_typecheck(self, StageScene_t)
     self.pause_menu_visible = is_visible
     return self
 end

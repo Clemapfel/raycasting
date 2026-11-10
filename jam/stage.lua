@@ -19,7 +19,7 @@ local _winding_counterclockwise = false
 
 stage_list_new = function()
     return object_new(StageList_t, {
-        stage_name_to_entry = {}
+        stage_id_to_entry = {}
     })
 end
 
@@ -55,7 +55,6 @@ stage_list_export = function(self, in_path, out_path)
         return value
     end
 
-    local name_to_bounds = {}
     local contours = {}
     local contour_to_priority = {}
 
@@ -63,7 +62,7 @@ stage_list_export = function(self, in_path, out_path)
     local spawn_point_to_radius = {}
 
     local draw_order = 0 -- sequential render priority
-    self.stage_name_to_entry = {}
+    self.stage_id_to_entry = {}
 
     local layers = get(config, "layers")
     for layer_i, layer in ipairs(layers) do
@@ -73,20 +72,40 @@ stage_list_export = function(self, in_path, out_path)
         if layer_type == "objectgroup" then
             local objects = get(layer, "objects")
             for object_i, object in ipairs(objects) do
-                local id = get(object, "id")
+                local object_id = get(object, "id")
                 local class = get(object, "type")
 
                 local assert = function(condition, ...)
-                    log_assert(condition, "In stage_list_init: for stage `", self.path, "`, on layer `", layer, "`, for object `", id, "`: ", ...)
+                    log_assert(condition, "In stage_list_init: for stage `", self.path, "`, on layer `", layer, "`, for object `", object_id, "`: ", ...)
                 end
 
                 if class == _stage_t then
                     assert(get(object, "shape") == "rectangle", "object has class `", _stage_t, "`, but it is not a rectangle")
 
-                    local name = get(object, "name")
-                    assert(name ~= nil, "object has class `", _stage_t, "` but it does not have `name` set")
+                    local stage_id = get(object, "name")
+                    assert(stage_id ~= nil, "object has class `", _stage_t, "` but it does not have `name` set")
 
-                    name_to_bounds[name] = aabb_new(
+                    local entry = self.stage_id_to_entry[stage_id]
+                    if entry == nil then
+                        entry = {
+                            name = nil, -- String_t
+                            bounds = nil, -- AABB_t
+                            spawn_points = {},
+                            contours = {},
+                            contour_windings = {},
+                            triangulations = {}
+                        }
+                        self.stage_id_to_entry[stage_id] = entry
+                    end
+
+                    local name = object.name
+                    if not object_is_string(name) then
+                        log_warning("In stage_list_export: stage `", stage_id, "` does not have property `name` set")
+                        name = id
+                    end
+                    entry.name = name
+
+                    entry.bounds = aabb_new(
                         get(object, "x") + layer_offset_x,
                         get(object, "y") + layer_offset_y,
                         get(object, "width"),
@@ -146,15 +165,9 @@ stage_list_export = function(self, in_path, out_path)
         return contour_to_priority[a] < contour_to_priority[b]
     end)
 
-    self.stage_names = {}
-    for name, bounds in pairs(name_to_bounds) do
-        local entry = {
-            bounds = aabb_new(0, 0, bounds.width, bounds.height), -- offset to origin
-            spawn_points = {},
-            contours = {},
-            contour_windings = {},
-            triangulations = {}
-        }
+    for id, entry in pairs(self.stage_id_to_entry) do
+        local bounds = entry.bounds -- global coords
+        entry.bounds = aabb_new(0, 0, bounds.width, bounds.height) -- local coords
 
         for contour_i, contour in ipairs(contours) do
             if aabb_overlaps_polyline(bounds, contour) then
@@ -189,8 +202,7 @@ stage_list_export = function(self, in_path, out_path)
             entry.triangulations[contour_i] = rt.math.triangulate(polyline_get_vertices(contour))
         end
 
-        self.stage_name_to_entry[name] = entry
-        table.insert(self.stage_names, name)
+        self.stage_id_to_entry[id] = entry
     end
 
     local serialize_success, serialized_or_error = pcall(table_serialize, self)
@@ -239,22 +251,29 @@ stage_list_init = function(self, path)
     return self
 end
 
-stage_list_get_n_levels = function(self)
-    return table_sizeof(self.stage_names)
+stage_list_get_n_stages = function(self)
+    return table_count(self.stage_id_to_entry)
 end
 
-stage_list_get_names = function(self)
-    return table_deepcopy(self.stage_names)
+stage_list_get_ids = function(self)
+    local ids = {}
+    for id, _ in pairs(self.stage_id_to_object) do
+        table_push(ids, id)
+    end
+
+    return ids
 end
 
 stage_new = function(stage_list, id)
     log_typecheck(stage_list, StageList_t, id, String_t)
-    local entry = stage_list.stage_name_to_entry[id]
+    local entry = stage_list.stage_id_to_entry[id]
     if entry == nil then
-        log_error("In stage_new: no stage with id `", id, "`, present in `", stage_list.path, "`. Available stages are: ", table_concat(iter_collect(iter_keys(stage_list.stage_name_to_entry))))
+        log_error("In stage_new: no stage with id `", id, "`, present in `", stage_list.path, "`. Available stages are: ", table_concat(iter_collect(iter_keys(stage_list.stage_id_to_entry))))
     end
 
     local self = object_new(Stage_t, {})
+
+    self.name = entry.name
     self.bounds = table_deepcopy(entry.bounds)
 
     local to_texture_coords
@@ -324,6 +343,11 @@ stage_get_spawn_points = function(self)
         })
     end
     return result
+end
+
+stage_get_n_spawn_points = function(self)
+    log_typecheck(self, Stage_t)
+    return table_count(self.spawn_points)
 end
 
 stage_get_hitbox_collision_contours = function(self)

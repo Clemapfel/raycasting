@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="9" nextobjectid="1300">
+<map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="9" nextobjectid="1308">
  <editorsettings>
   <export target="stages.lua" format="lua"/>
  </editorsettings>
@@ -9,12 +9,56 @@
  <objectgroup id="8" name="aux"/>
  <objectgroup id="7" name="background"/>
  <objectgroup id="2" name="base">
-  <object id="1295" name="Stage 01" type="Stage" x="-320" y="-224" width="800" height="800"/>
+  <object id="1295" name="stage_01" type="Stage" x="-320" y="-224" width="800" height="800">
+   <properties>
+    <property name="name" value="First Steps"/>
+   </properties>
+  </object>
   <object id="1296" type="Contour" x="448" y="-192">
    <properties>
     <property name="winding" type="bool" value="false"/>
    </properties>
    <polygon points="16,-16 16,80 -96,80 -160,128 -160,160 16,160 16,752 -96,752 -96,272 -272,272 -400,416 -496,416 -496,752 -752,752 -752,160 -208,160 -208,128 -272,80 -752,80 -752,-16"/>
+  </object>
+  <object id="1300" name="stage_02" type="Stage" x="688" y="-224" width="800" height="1200">
+   <properties>
+    <property name="name" value="Liquidity"/>
+   </properties>
+  </object>
+  <object id="1301" name="temp_01" type="Stage" x="-129.12" y="-1677.07" width="800" height="800">
+   <properties>
+    <property name="name" value="temp #1"/>
+   </properties>
+  </object>
+  <object id="1302" name="temp_01" type="Stage" x="973.75" y="-1502.87" width="800" height="800">
+   <properties>
+    <property name="name" value="temp #2"/>
+   </properties>
+  </object>
+  <object id="1303" name="temp_01" type="Stage" x="2121.77" y="-574.137" width="800" height="800">
+   <properties>
+    <property name="name" value="temp #3"/>
+   </properties>
+  </object>
+  <object id="1304" name="temp_01" type="Stage" x="2050.19" y="639.311" width="800" height="800">
+   <properties>
+    <property name="name" value="temp #4"/>
+   </properties>
+  </object>
+  <object id="1305" name="temp_01" type="Stage" x="14.6473" y="1177.81" width="800" height="800">
+   <properties>
+    <property name="name" value="temp #5"/>
+   </properties>
+  </object>
+  <object id="1306" name="temp_01" type="Stage" x="-1573.94" y="445.45" width="800" height="800">
+   <properties>
+    <property name="name" value="temp #6"/>
+   </properties>
+  </object>
+  <object id="1307" name="temp_01" type="Stage" x="-1590.09" y="-986.968" width="800" height="800">
+   <properties>
+    <property name="name" value="temp #7"/>
+   </properties>
   </object>
  </objectgroup>
  <objectgroup id="6" name="foreground">

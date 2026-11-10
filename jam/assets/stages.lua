@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 9,
-  nextobjectid = 1300,
+  nextobjectid = 1308,
   properties = {},
   tilesets = {},
   layers = {
@@ -76,7 +76,7 @@ return {
       objects = {
         {
           id = 1295,
-          name = "Stage 01",
+          name = "stage_01",
           type = "Stage",
           shape = "rectangle",
           x = -320,
@@ -86,7 +86,9 @@ return {
           rotation = 0,
           opacity = 1,
           visible = true,
-          properties = {}
+          properties = {
+            ["name"] = "First Steps"
+          }
         },
         {
           id = 1296,
@@ -124,6 +126,134 @@ return {
           },
           properties = {
             ["winding"] = false
+          }
+        },
+        {
+          id = 1300,
+          name = "stage_02",
+          type = "Stage",
+          shape = "rectangle",
+          x = 688,
+          y = -224,
+          width = 800,
+          height = 1200,
+          rotation = 0,
+          opacity = 1,
+          visible = true,
+          properties = {
+            ["name"] = "Liquidity"
+          }
+        },
+        {
+          id = 1301,
+          name = "temp_01",
+          type = "Stage",
+          shape = "rectangle",
+          x = -129.12,
+          y = -1677.07,
+          width = 800,
+          height = 800,
+          rotation = 0,
+          opacity = 1,
+          visible = true,
+          properties = {
+            ["name"] = "temp #1"
+          }
+        },
+        {
+          id = 1302,
+          name = "temp_01",
+          type = "Stage",
+          shape = "rectangle",
+          x = 973.75,
+          y = -1502.87,
+          width = 800,
+          height = 800,
+          rotation = 0,
+          opacity = 1,
+          visible = true,
+          properties = {
+            ["name"] = "temp #2"
+          }
+        },
+        {
+          id = 1303,
+          name = "temp_01",
+          type = "Stage",
+          shape = "rectangle",
+          x = 2121.77,
+          y = -574.137,
+          width = 800,
+          height = 800,
+          rotation = 0,
+          opacity = 1,
+          visible = true,
+          properties = {
+            ["name"] = "temp #3"
+          }
+        },
+        {
+          id = 1304,
+          name = "temp_01",
+          type = "Stage",
+          shape = "rectangle",
+          x = 2050.19,
+          y = 639.311,
+          width = 800,
+          height = 800,
+          rotation = 0,
+          opacity = 1,
+          visible = true,
+          properties = {
+            ["name"] = "temp #4"
+          }
+        },
+        {
+          id = 1305,
+          name = "temp_01",
+          type = "Stage",
+          shape = "rectangle",
+          x = 14.6473,
+          y = 1177.81,
+          width = 800,
+          height = 800,
+          rotation = 0,
+          opacity = 1,
+          visible = true,
+          properties = {
+            ["name"] = "temp #5"
+          }
+        },
+        {
+          id = 1306,
+          name = "temp_01",
+          type = "Stage",
+          shape = "rectangle",
+          x = -1573.94,
+          y = 445.45,
+          width = 800,
+          height = 800,
+          rotation = 0,
+          opacity = 1,
+          visible = true,
+          properties = {
+            ["name"] = "temp #6"
+          }
+        },
+        {
+          id = 1307,
+          name = "temp_01",
+          type = "Stage",
+          shape = "rectangle",
+          x = -1590.09,
+          y = -986.968,
+          width = 800,
+          height = 800,
+          rotation = 0,
+          opacity = 1,
+          visible = true,
+          properties = {
+            ["name"] = "temp #7"
           }
         }
       }

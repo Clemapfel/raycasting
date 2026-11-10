@@ -40,6 +40,14 @@ table_sizeof = function(t)
     return #t
 end
 
+table_count = function(t)
+    local n = 0
+    for _, _ in pairs(t) do
+        n = n + 1
+    end
+    return n
+end
+
 local _g_unpack = table.unpack or unpack
 table_unpack = function(t)
     log_typecheck(t, Table_t)

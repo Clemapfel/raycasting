@@ -10,13 +10,13 @@ local _draw_fid = "draw"
 local _reformat_fid = "reformat"
 
 local _scene_t_to_fs = {
-    [LevelScene_t] = {
-        [_new_fid] = level_scene_new,
-        [_init_fid] = level_scene_init,
-        [_make_active_fid] = level_scene_make_active,
-        [_update_fid] = level_scene_update,
-        [_draw_fid] = level_scene_draw,
-        [_reformat_fid] = level_scene_reformat
+    [StageScene_t] = {
+        [_new_fid] = stage_scene_new,
+        [_init_fid] = stage_scene_init,
+        [_make_active_fid] = stage_scene_make_active,
+        [_update_fid] = stage_scene_update,
+        [_draw_fid] = stage_scene_draw,
+        [_reformat_fid] = stage_scene_reformat
     },
 
     [MainMenuScene_t] = {
@@ -37,13 +37,13 @@ local _scene_t_to_fs = {
         [_reformat_fid] = skin_select_scene_reformat
     },
 
-    [LevelSelectScene_t] = {
-        [_new_fid] = level_select_scene_new,
-        [_init_fid] = level_select_scene_init,
-        [_make_active_fid] = level_select_scene_make_active,
-        [_update_fid] = level_select_scene_update,
-        [_draw_fid] = level_select_scene_draw,
-        [_reformat_fid] = level_select_scene_reformat
+    [StageSelectScene_t] = {
+        [_new_fid] = stage_select_scene_new,
+        [_init_fid] = stage_select_scene_init,
+        [_make_active_fid] = stage_select_scene_make_active,
+        [_update_fid] = stage_select_scene_update,
+        [_draw_fid] = stage_select_scene_draw,
+        [_reformat_fid] = stage_select_scene_reformat
     },
 
     [SettingsScene_t] = {
@@ -101,16 +101,16 @@ state_init = function()
 
     self.stage_list = stage_list
 
-    self.level_entries = {}
-    for _, name in ipairs(stage_list_get_names(self.stage_list)) do
-        self.level_entries[name] = {
+    self.stage_entries = {}
+    for _, name in ipairs(stage_list_get_ids(self.stage_list)) do
+        self.stage_entries[name] = {
             is_completed = false
         }
     end
 
     -- preallocate scene
     self.scene_t_to_scene = {
-        [LevelScene_t] = level_scene_new(),
+        [StageScene_t] = stage_scene_new(),
         [MainMenuScene_t] = main_menu_scene_new(),
         [SkinSelectScene_t] = skin_select_scene_new()
     }
@@ -182,10 +182,10 @@ state_get_stage_list = function()
     return STATE.stage_list
 end
 
-state_get_n_levels_completed = function()
+state_get_n_stages_completed = function()
     local self = STATE
     local n = 0
-    for _, entry in pairs(self.level_entries) do
+    for _, entry in pairs(self.stage_entries) do
         if entry.is_completed then
             n = n + 1
         end
@@ -193,21 +193,21 @@ state_get_n_levels_completed = function()
     return n
 end
 
-state_set_level_is_completed = function(id, b)
+state_set_stage_is_completed = function(id, b)
     log_typecheck(id, String_t)
-    local entry = STATE.level_entries[id]
+    local entry = STATE.stage_entries[id]
     if entry == nil then
-        log_error("In state_set_level_is_completed: no level with id `", id, "`")
+        log_error("In state_set_stage_is_completed: no stage with id `", id, "`")
     else
         entry.is_completed = b
     end
 end
 
-state_get_level_is_completed = function(id)
+state_get_stage_is_completed = function(id)
     log_typecheck(id, String_t)
-    local entry = STATE.level_entries[id]
+    local entry = STATE.stage_entries[id]
     if entry == nil then
-        log_error("In state_set_level_is_completed: no level with id `", id, "`")
+        log_error("In state_set_stage_is_completed: no stage with id `", id, "`")
         return false
     else
         return entry.is_completed
@@ -219,7 +219,7 @@ state_set_active_skin = function(texture)
     STATE.active_skin = texture
 end
 
-state_get_acctive_skin = function(texture)
+state_get_active_skin = function(texture)
     log_typecheck(texture, Texture_t)
     return STATE.active_skin
 end
