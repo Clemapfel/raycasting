@@ -28,6 +28,12 @@ aabb_unpack = function(self)
     return self.x, self.y, self.width, self.height
 end
 
+aabb_draw = function(self, corner_radius)
+    log_typecheck(self, AABB_t)
+    local x, y, w, h = aabb_unpack(self)
+    graphics_draw_rectangle(x, y, w, h, corner_radius)
+end
+
 aabb_overlaps_point = function(self, px, py)
     log_typecheck(self, AABB_t, px, Number_t, py, Number_t)
     local x, y, w, h = aabb_unpack(self)

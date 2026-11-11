@@ -296,14 +296,14 @@ skin_select_scene_draw = function(self)
 
         if n_completed >= entry.n_unlocks_required then
             graphics_push_transform()
-            graphics_set_translation(entry.body_x + offset_x, entry.body_y)
+            graphics_translate(entry.body_x + offset_x, entry.body_y)
             graphics_set_scale(scale, scale)
             player_draw(entry.body)
             graphics_pop_transform()
         end
 
         graphics_push_transform()
-        graphics_set_translation(
+        graphics_translate(
             entry.body_x + offset_x - scale * entry.body_x,
             entry.body_y - scale * entry.body_y
         )

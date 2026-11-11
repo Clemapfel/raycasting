@@ -112,34 +112,11 @@ label_new = function(text, font_size, style, color, justify_mode, is_outlined, i
     }), text, font_size, style, color, justify_mode, is_outlined, is_rainbow, is_wave)
 end
 
-label_init = function(self, text, font_size, style, color, justify_mode, is_outlined, is_rainbow, is_wave)
-    if font_size == nil then font_size = _settings_font_size_default end
-    if style == nil then style = TextStyle.REGULAR end
-    if color == nil then color = palette_white end
-    if justify_mode == nil then justify_mode = JustifyMode.LEFT end
-    if is_outlined == nil then is_outlined = false end
-    if is_rainbow == nil then is_rainbow = false end
-    if is_wave == nil then is_wave = false end
-
-    log_typecheck(self, Label_t, text, String_t, font_size, Number_t, style, String_t, color, RGBA_t, justify_mode, String_t, is_outlined, Boolean_t, is_rainbow, Boolean_t, is_wave, Boolean_t)
-    log_assert(JustifyMode[justify_mode] ~= nil, "In label_init: unknown justify mode `", justify_mode, "`")
-
-    self.raw = text
-    self.font_size = font_size
-    self.style = style
-    self.font = _get_font(font_size, style)
-    self.text = love.graphics.newText(self.font)
-    self.color = color
-    self.justify_mode = justify_mode
-    self.is_outlined = is_outlined
-    self.is_rainbow = is_rainbow
-    self.is_wave = is_wave
-    self.elapsed = 0
-    self.bounds = aabb_new(0, 0, 0, 0)
-
+local _rebuild = function(self, text)
     local font = self.font
     local line_height = font:getHeight() * font:getLineHeight()
 
+    self.raw = text
     self.letters = {}
     self.width = 0
     self.height = font:getHeight()
@@ -175,7 +152,48 @@ label_init = function(self, text, font_size, style, color, justify_mode, is_outl
     self.width = math.max(self.width, font:getWidth(line_text))
 
     _update_layout(self)
+end
+
+label_init = function(self, text, font_size, style, color, justify_mode, is_outlined, is_rainbow, is_wave)
+    if font_size == nil then font_size = _settings_font_size_default end
+    if style == nil then style = TextStyle.REGULAR end
+    if color == nil then color = palette_white end
+    if justify_mode == nil then justify_mode = JustifyMode.LEFT end
+    if is_outlined == nil then is_outlined = false end
+    if is_rainbow == nil then is_rainbow = false end
+    if is_wave == nil then is_wave = false end
+
+    log_typecheck(self, Label_t, text, String_t, font_size, Number_t, style, String_t, color, RGBA_t, justify_mode, String_t, is_outlined, Boolean_t, is_rainbow, Boolean_t, is_wave, Boolean_t)
+    log_assert(JustifyMode[justify_mode] ~= nil, "In label_init: unknown justify mode `", justify_mode, "`")
+
+    self.raw = text
+    self.font_size = font_size
+    self.style = style
+    self.font = _get_font(font_size, style)
+    self.text = love.graphics.newText(self.font)
+    self.color = color
+    self.justify_mode = justify_mode
+    self.is_outlined = is_outlined
+    self.is_rainbow = is_rainbow
+    self.is_wave = is_wave
+    self.elapsed = 0
+    self.bounds = aabb_new(0, 0, 0, 0)
+
+    _rebuild(self, text)
     return self
+end
+
+label_set_text = function(self, text)
+    log_typecheck(self, Label_t, text, String_t)
+    if text == self.raw then return self end
+
+    _rebuild(self, text)
+    return self
+end
+
+label_get_text = function(self)
+    log_typecheck(self, Label_t)
+    return self.raw
 end
 
 label_update = function(self, delta)
@@ -288,6 +306,8 @@ end
 label_draw = function(self)
     log_typecheck(self, Label_t)
 
+    graphics_push_state()
+
     local bounds = self.bounds
     local width, height = self.width, self.height
 
@@ -302,9 +322,11 @@ label_draw = function(self)
 
     local y = bounds.y + 0.5 * (bounds.height - height)
 
+    local r, g, b, a = love.graphics.getColor()
+
     if self.is_outlined then
         local offset = _settings_font_size_to_outline_width
-        graphics_set_color(palette_black)
+        graphics_set_color(r * palette_black.r, g * palette_black.g, b * palette_black.b, a * palette_black.a)
         for x_offset = -offset, offset, offset do
             for y_offset = -offset, offset, offset do
                 love.graphics.draw(self.text,
@@ -315,12 +337,13 @@ label_draw = function(self)
         end
     end
 
-    graphics_push_state()
     if self.is_rainbow then
-        graphics_set_color(1, 1, 1, self.color.a)
+        graphics_set_color(r, g, b, a * self.color.a)
     else
-        graphics_set_color(rgba_unpack(self.color))
+        local self_r, self_g, self_b, self_a = rgba_unpack(self.color)
+        graphics_set_color(r * self_r, g * self_g, b * self_b, a * self_a)
     end
     love.graphics.draw(self.text, math_round(x), math_round(y))
+
     graphics_pop_state()
 end

@@ -1,3 +1,7 @@
+palette_true_white = rgba_new(1, 1, 1, 1)
+palette_true_black = rgba_new(0, 0, 0, 1)
+palette_true_magenta = rgba_new(1, 0, 1, 1)
+
 palette_white = rgba_new(0.980, 0.980, 1, 1)
 palette_black = rgba_new(0.125, 0.125, 0.145, 0.8)
 palette_dark_gray = rgba_new(0.188, 0.188, 0.188, 1)

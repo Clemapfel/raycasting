@@ -43,14 +43,14 @@ setmetatable(_G, {
 })
 
 love.load = function()
-    require "jam.level_scene"
+    require "jam.stage_scene"
     require "jam.main_menu_scene"
     require "jam.skin_select_scene"
-    require "jam.level_select_scene"
+    require "jam.stage_select_scene"
     require "jam.settings_scene"
 
     require "jam.state" -- wait for init
-    state_set_scene(SkinSelectScene_t)
+    state_set_scene(StageSelectScene_t)
 end
 
 input_connect_pressed(function(which)

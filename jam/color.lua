@@ -73,8 +73,17 @@ do
         return (value <= 0.04045) and (value / 12.92) or (((value + 0.055) / 1.055) ^ 2.4)
     end
 
-    rgba_to_lcha = function(self)
-        log_typecheck(self, RGBA_t)
+    rgba_to_lcha = function(self_or_r, g, b, a)
+        local self
+
+        if object_is_number(self_or_r) then
+            if a == nil then a = 1 end
+            log_typecheck(self_or_r, Number_t, g, Number_t, b, Number_t, a, Number_t)
+            self = rgba_new(self_or_r, g, b, a)
+        else
+            self = self_or_r
+            log_typecheck(self, RGBA_t)
+        end
 
         local r, g, b = linearize(self.r), linearize(self.g), linearize(self.b)
 
@@ -112,8 +121,15 @@ do
         return (value < 0) and 0 or ((value > 1) and 1 or value)
     end
 
-    lcha_to_rgba = function(self)
-        log_typecheck(self, LCHA_t)
+    lcha_to_rgba = function(self_or_l, c, h, a)
+        if object_is_number(self_or_l) then
+            if a == nil then a = 1 end
+            log_typecheck(self_or_l, Number_t, c, Number_t, h, Number_t, a, Number_t)
+            self = lcha_new(self_or_l, c, h, a)
+        else
+            self = self_or_l
+            log_typecheck(self, LCHA_t)
+        end
 
         local lightness = self.l * 100
         local lab_a = math_cos(self.h * math_tau) * self.c * 100

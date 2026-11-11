@@ -74,6 +74,10 @@ log_typecheck = function(...)
     for i = 1, n, 2 do
         local instance = select(i, ...)
         local expected = select(i + 1, ...)
+        if not object_is_type(expected) then
+            log_error("In log_typecheck: (itself) argument #", i + 1, ": expected `Type_t`, got `", object_typeof(expected), "`")
+        end
+
         log_typecheck_arg_i(instance, expected, arg_i)
         arg_i = arg_i + 1
     end

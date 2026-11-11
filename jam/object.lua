@@ -6,6 +6,7 @@ String_t = "string"
 Function_t = "function"
 Nil_t = "nil"
 Table_t = "table"
+Type_t = String_t
 
 local _g_tostring = _G.tostring
 local _typeof = _G.type
@@ -52,6 +53,10 @@ object_is_table = function(x)
     return _typeof(x) == "table"
 end
 
+object_is_type = function(x)
+    return _typeof(x) == Type_t
+end
+
 local validators = {
     [Float_t] = object_is_float,
     [Integer_t] = object_is_integer,
@@ -72,6 +77,10 @@ object_to_string = function(x)
 end
 
 object_isa = function(x, type)
+    if not object_is_type(type) then
+        log_error("In object_isa: argument #1 is not a `Type`")
+    end
+
     local validator = validators[type]
     if validator ~= nil then
         return validator(x)

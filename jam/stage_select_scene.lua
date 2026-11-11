@@ -23,6 +23,7 @@ stage_select_scene_init = function(self, stage_list)
     self.bounds = aabb_new(0, 0, graphics_get_size())
     self.entries = {}
     self.n_entries = 0
+    self.elapsed = 0
 
     local native_h = graphics_get_height()
     local command_size = _settings_command_label_font_size * native_h
@@ -43,7 +44,7 @@ stage_select_scene_init = function(self, stage_list)
     self.progress_outline_color = rgba_new(0, 0, 0, 1)
 
     local ids = stage_list_get_ids(stage_list)
-    for i, id in ipairs(ids) do
+    for _, id in ipairs(ids) do
         local stage = state_get_stage(id)
         local name_label = label_new(
             stage_get_name(stage),
@@ -109,6 +110,8 @@ stage_select_scene_init = function(self, stage_list)
                 else
                     audio_replay_sound(self, SoundID.menu_swipe_right)
                 end
+
+                self.elapsed = 0
             end
         end
 
@@ -127,14 +130,13 @@ stage_select_scene_reformat = function(self, bounds)
 
     self.bounds = bounds
     local outer_m = _global_outer_margin
-    local m = _global_margin_unit
 
     local content_x = bounds.x + outer_m
     local content_w = bounds.width - 2 * outer_m
     local center_x = bounds.x + 0.5 * bounds.width
     local center_y = bounds.y + 0.5 * bounds.height
 
-    local command_w, command_h = label_get_size(self.command_label)
+    local command_h = label_get_height(self.command_label)
     local command_y = bounds.y + 1 / 5 * bounds.height - 0.5 * command_h
     label_set_justify_mode(self.command_label, JustifyMode.CENTER)
     label_reformat(self.command_label,
@@ -153,7 +155,6 @@ stage_select_scene_reformat = function(self, bounds)
         bounds.width - 2 * outer_m, bounds.height - 2 * outer_m
     )
 
-    local command_bottom = command_y + command_h
     local max_thumbnail_w = bounds.width - label_get_width(self.left_label) - label_get_width(self.left_label)
 
     for _, entry in ipairs(self.entries) do
@@ -176,13 +177,13 @@ stage_select_scene_reformat = function(self, bounds)
             table_push(entry.draw_meshes, draw_meshes[i])
         end
 
-        local name_w, name_h = label_get_size(entry.name_label)
-        local _, beaten_h = label_get_size(entry.beaten_label)
-        local _, not_beaten_h = label_get_size(entry.not_beaten_label)
+        local name_h = label_get_height(entry.name_label)
+        local beaten_h = label_get_height(entry.beaten_label)
+        local not_beaten_h = label_get_height(entry.not_beaten_label)
         local status_h = math.max(beaten_h, not_beaten_h)
 
         entry.beaten_y = bounds.y + bounds.height - outer_m - status_h
-        entry.name_y = entry.beaten_y - beaten_h - 0.5 * outer_m
+        entry.name_y = entry.beaten_y - beaten_h
 
         label_set_justify_mode(entry.name_label, JustifyMode.CENTER)
         label_reformat(entry.name_label, content_x, entry.name_y, content_w, 0)
@@ -213,6 +214,8 @@ end
 
 stage_select_scene_update = function(self, delta)
     log_typecheck(self, StageSelectScene_t)
+
+    self.elapsed = self.elapsed + delta
 
     lag_update(self.selection_lag, delta)
     label_update(self.command_label, delta)
@@ -291,9 +294,9 @@ stage_select_scene_draw = function(self)
 
         label_draw(entry.name_label)
         if state_get_stage_is_completed(entry.id) then
-            label_draw(entry.beaten_label)
+            --label_draw(entry.beaten_label)
         else
-            label_draw(entry.not_beaten_label)
+            --label_draw(entry.not_beaten_label)
         end
 
         graphics_pop_transform()
@@ -315,26 +318,58 @@ stage_select_scene_draw = function(self)
 
     local bounds = self.bounds
     if n_entries > 0 then
-        local outer_m = _global_outer_margin
-        local circle_diameter = _settings_stage_progress_bar_height * graphics_get_height()
-        local circle_radius = 0.5 * circle_diameter
-        local outline_radius = circle_radius + 3
-        local spacing = 3 * circle_radius
+        local n_segments = 24
+        local function make_circle_contour(radius, segments)
+            local points = {}
+            for i = 1, segments + 1 do
+                local angle = ((i - 1) / segments) * math_tau
+                table_push(points, radius * math_cos(angle))
+                table_push(points, radius * math_sin(angle))
+            end
+            return points
+        end
+
+        local radius = 0.5 * _settings_stage_progress_bar_height * graphics_get_height()
+        local spacing = 3 * radius
         local center_x = bounds.x + 0.5 * bounds.width
-        local center_y = bounds.y + bounds.height - outer_m - outline_radius
+        local line_width = 3
+
+        local first_entry = self.entries[1]
+        local beaten_h = label_get_height(first_entry.beaten_label)
+        local not_beaten_h = label_get_height(first_entry.not_beaten_label)
+        local status_h = math.max(beaten_h, not_beaten_h)
+        local center_y = first_entry.beaten_y + 0.5 * status_h
+
+        local contour = make_circle_contour(radius, n_segments)
 
         for i, entry in ipairs(self.entries) do
             local x = center_x + (i - 0.5 * (n_entries + 1)) * spacing
 
-            rgba_bind(self.progress_outline_color)
-            graphics_draw_ellipse(x, center_y, outline_radius, outline_radius)
+            graphics_push_transform()
+            graphics_translate(x, center_y)
+
+            if i == self.selected_entry_i then
+                local t = (1.5 * self.elapsed) % 1
+                graphics_translate(0, 0.5 * radius + -2 * t * (1 - t) * radius)
+            end
+
+            rgba_bind(palette_gray)
+            graphics_draw_polygon("fill", table_unpack(contour))
 
             if state_get_stage_is_completed(entry.id) then
-                rgba_bind(palette_true_white)
-            else
-                rgba_bind(palette_dark_gray)
+                rgba_bind(entry.color)
+                graphics_draw_polygon("fill", table_unpack(contour))
             end
-            graphics_draw_ellipse(x, center_y, circle_radius, circle_radius)
+
+            graphics_set_line_state(line_width + 1.5)
+            rgba_bind(palette_black)
+            graphics_draw_line(contour)
+
+            graphics_set_line_state(line_width)
+            rgba_bind(palette_white)
+            graphics_draw_line(contour)
+
+            graphics_pop_transform()
         end
     end
 end

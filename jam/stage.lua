@@ -26,22 +26,20 @@ end
 stage_list_export = function(self, in_path, out_path)
     log_typecheck(self, StageList_t, in_path, String_t, out_path, String_t)
 
-    self.path = in_path
-
-    local load_success, chunk_or_error, love_error = pcall(love.filesystem.load, self.path)
+    local load_success, chunk_or_error, love_error = pcall(love.filesystem.load, in_path)
     if not load_success then
-        log_error("In stage_list_init: error when parsing file at `", self.path, "`: ", chunk_or_error)
+        log_error("In stage_list_export: error when parsing file at `", in_path, "`: ", chunk_or_error)
         return self
     end
 
     if love_error ~= nil then
-        log_error("In stage_list_init: error when loading file at `", self.path, "`: ", love_error)
+        log_error("In stage_list_export: error when loading file at `", in_path, "`: ", love_error)
         return self
     end
 
     local chunk_success, value_or_error = pcall(chunk_or_error)
     if not chunk_success then
-        log_error("In stage_list_init: error when running file at `", self.path, "`: ", value_or_error)
+        log_error("In stage_list_export: error when running file at `", in_path, "`: ", value_or_error)
         return self
     end
 
@@ -76,7 +74,7 @@ stage_list_export = function(self, in_path, out_path)
                 local class = get(object, "type")
 
                 local assert = function(condition, ...)
-                    log_assert(condition, "In stage_list_init: for stage `", self.path, "`, on layer `", layer, "`, for object `", object_id, "`: ", ...)
+                    log_assert(condition, "In stage_list_init: for stage `", in_path, "`, on layer `", layer, "`, for object `", object_id, "`: ", ...)
                 end
 
                 if class == _stage_t then
@@ -101,9 +99,15 @@ stage_list_export = function(self, in_path, out_path)
                     local name = object.name
                     if not object_is_string(name) then
                         log_warning("In stage_list_export: stage `", stage_id, "` does not have property `name` set")
-                        name = id
+                        name = stage_id
                     end
                     entry.name = name
+
+                    local priority = object.priority
+                    if priority ~= nil and not object_is_number(priority) then
+                        log_error("In stage_list_export: stage `", stage_id, "` has property `priority` specified, but it is not a number")
+                    end
+                    entry.priority = priority or 0
 
                     entry.bounds = aabb_new(
                         get(object, "x") + layer_offset_x,
@@ -199,7 +203,7 @@ stage_list_export = function(self, in_path, out_path)
         end
 
         for contour_i, contour in ipairs(entry.contours) do
-            entry.triangulations[contour_i] = rt.math.triangulate(polyline_get_vertices(contour))
+            entry.triangulations[contour_i] = rt.math.polygonize(3, polyline_get_vertices(contour))
         end
 
         self.stage_id_to_entry[id] = entry
@@ -226,24 +230,24 @@ end
 stage_list_init = function(self, path)
     log_typecheck(self, StageList_t, path, String_t)
 
-    local load_success, chunk_or_error, love_error = pcall(love.filesystem.load, self.path)
+    local load_success, chunk_or_error, love_error = pcall(love.filesystem.load, path)
     if not load_success then
-        log_error("In stage_list_init: error when parsing file at `", self.path, "`: ", chunk_or_error)
+        log_error("In stage_list_init: error when parsing file at `", path, "`: ", chunk_or_error)
         return self
     end
 
     if love_error ~= nil then
-        log_error("In stage_list_init: error when loading file at `", self.path, "`: ", love_error)
+        log_error("In stage_list_init: error when loading file at `", path, "`: ", love_error)
         return self
     end
 
     local chunk_success, value_or_error = pcall(chunk_or_error)
     if not chunk_success then
-        log_error("In stage_list_init: error when running file at `", self.path, "`: ", value_or_error)
+        log_error("In stage_list_init: error when running file at `", path, "`: ", value_or_error)
         return self
     end
 
-    log_assert(object_isa(value_or_error, Stagelist_t), "In stage_list_init: import file at `", self.path, "` does not contain a valid StageList")
+    log_assert(object_isa(value_or_error, StageList_t), "In stage_list_init: import file at `", path, "` does not contain a valid StageList")
     for k, v in pairs(value_or_error) do
         self[k] = v
     end
@@ -252,12 +256,15 @@ stage_list_init = function(self, path)
 end
 
 stage_list_get_n_stages = function(self)
+    log_typecheck(self, StageList_t)
     return table_count(self.stage_id_to_entry)
 end
 
 stage_list_get_ids = function(self)
+    log_typecheck(self, StageList_t)
+
     local ids = {}
-    for id, _ in pairs(self.stage_id_to_object) do
+    for id, _ in pairs(self.stage_id_to_entry) do
         table_push(ids, id)
     end
 
@@ -274,6 +281,7 @@ stage_new = function(stage_list, id)
     local self = object_new(Stage_t, {})
 
     self.name = entry.name
+    self.priority = entry.priority
     self.bounds = table_deepcopy(entry.bounds)
 
     local to_texture_coords
@@ -322,6 +330,7 @@ stage_new = function(stage_list, id)
 
             draw_contour = draw_contour,
             draw_mesh = draw_mesh,
+            draw_mesh_data = mesh_data,
             is_foreground = polyline_get_winding(contour)
         })
     end
@@ -329,6 +338,29 @@ stage_new = function(stage_list, id)
     self.spawn_points = table_deepcopy(entry.spawn_points)
 
     return self
+end
+
+stage_get_draw_contours = function(self)
+    log_typecheck(self, Stage_t)
+    local out = {}
+    for _, entry in ipairs(self.contour_entries) do
+        table_push(out, entry.draw_contour)
+    end
+    return out
+end
+
+stage_get_draw_meshes = function(self)
+    log_typecheck(self, Stage_t)
+    local out = {}
+    for _, entry in ipairs(self.contour_entries) do
+        table_push(out, entry.draw_mesh)
+    end
+    return out
+end
+
+stage_get_name = function(self)
+    log_typecheck(self, Stage_t)
+    return self.name
 end
 
 stage_get_spawn_points = function(self)
@@ -361,6 +393,11 @@ stage_get_hitbox_collision_contours = function(self)
     return result
 end
 
+stage_get_bounds = function(self)
+    log_typecheck(self, Stage_t)
+    return self.bounds
+end
+
 stage_reset = function(self)
     log_typecheck(self, Stage_t)
 
@@ -389,7 +426,7 @@ stage_draw = function(self)
             rgba_bind(palette_gray)
         end
 
-        graphics_set_translation(entry.offset_x, entry.offset_y)
+        graphics_translate(entry.offset_x, entry.offset_y)
         draw_mesh(entry.draw_mesh)
 
         rgba_bind(palette_black)

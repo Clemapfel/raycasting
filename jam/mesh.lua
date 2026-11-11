@@ -24,6 +24,6 @@ mesh_draw = function(self, ...)
 end
 
 mesh_update_vertices = function(self, data)
-    log_typecheck(self, Mesh_t, data, Table_T)
+    log_typecheck(self, Mesh_t, data, Table_t)
     self.native:setVertices(data)
 end

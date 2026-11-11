@@ -63,6 +63,12 @@ graphics_draw_rectangle = function(x, y, w, h, ...)
     love.graphics.rectangle("fill", x, y, w, h, ...)
 end
 
+graphics_draw_polygon = function(first, ...)
+    if select("#", ... ) > 5 or (object_is_table(first) and #first > 6) then
+        love.graphics.polygon("fill", ...)
+    end
+end
+
 graphics_draw_rectangle_outline = function(x, y, w, h)
     graphics_draw_line(
         x, y,
@@ -117,7 +123,7 @@ end
 
 graphics_reset_state = love.graphics.reset
 graphics_reset_transform = love.graphics.origin
-graphics_set_translation = love.graphics.translate
+graphics_translate = love.graphics.translate
 graphics_set_scale = function(x, y)
     love.graphics.scale(x, y or x)
 end
@@ -133,4 +139,8 @@ end
 
 graphics_get_frame_index = function()
     return _frame_index
+end
+
+graphics_get_duration = function()
+    return love.timer.getTime()
 end

@@ -91,35 +91,37 @@ state_init = function()
         stage_list_export(
             stage_list,
             "jam/assets/stages.lua",
-            "stages/stages_exported.lua"
+            mount_point .. "/stages_exported.lua"
         )
 
         love.filesystem.unmountFullPath(to_mount)
     end
 
+    -- allocate stages
     stage_list_init(stage_list, "jam/assets/stages_exported.lua")
-
     self.stage_list = stage_list
-
     self.stage_entries = {}
-    for _, name in ipairs(stage_list_get_ids(self.stage_list)) do
-        self.stage_entries[name] = {
+    for _, stage_id in ipairs(stage_list_get_ids(stage_list)) do
+        self.stage_entries[stage_id] = {
+            stage = stage_new(stage_list, stage_id), -- persistent instance
             is_completed = false
         }
     end
 
-    -- preallocate scene
+    -- skin
+    self.active_skin = nil -- Texture_t
+
+    -- preallocate scenes
     self.scene_t_to_scene = {
         [StageScene_t] = stage_scene_new(),
         [MainMenuScene_t] = main_menu_scene_new(),
-        [SkinSelectScene_t] = skin_select_scene_new()
+        [SkinSelectScene_t] = skin_select_scene_new(),
+        [StageSelectScene_t] = stage_select_scene_new(self.stage_list)
     }
 
     -- current scene
     self.scene = self.scene_t_to_scene[MainMenuScene_t]
 
-    -- skin
-    self.active_skin = nil -- Texture_t
     return self
 end
 
@@ -127,7 +129,7 @@ state_set_scene = function(scene_t, ...)
     local self = STATE
     local scene = self.scene_t_to_scene[scene_t]
     if scene == nil then
-        log_error("In stage_set_scene: unhandled scene type `", scene_t, "`")
+        log_error("In stage_set_scene: no scene with type `", scene_t, "` is allocated")
     end
 
     self.scene = scene
@@ -182,10 +184,21 @@ state_get_stage_list = function()
     return STATE.stage_list
 end
 
+state_get_stage = function(id)
+    local result = STATE.stage_entries[id]
+    if result == nil then
+        log_error("In stage_get_stage: no stage with id `", id, "`")
+    end
+    return result.stage
+end
+
+state_get_n_stages = function()
+    return table_count(STATE.stage_entries)
+end
+
 state_get_n_stages_completed = function()
-    local self = STATE
     local n = 0
-    for _, entry in pairs(self.stage_entries) do
+    for _, entry in pairs(STATE.stage_entries) do
         if entry.is_completed then
             n = n + 1
         end
@@ -210,7 +223,7 @@ state_get_stage_is_completed = function(id)
         log_error("In state_set_stage_is_completed: no stage with id `", id, "`")
         return false
     else
-        return entry.is_completed
+        return not entry.is_completed
     end
 end
 

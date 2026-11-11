@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 9,
-  nextobjectid = 1308,
+  nextobjectid = 1309,
   properties = {},
   tilesets = {},
   layers = {
@@ -87,7 +87,8 @@ return {
           opacity = 1,
           visible = true,
           properties = {
-            ["name"] = "First Steps"
+            ["name"] = "First Steps",
+            ["priority"] = -2
           }
         },
         {
@@ -146,7 +147,7 @@ return {
         },
         {
           id = 1301,
-          name = "temp_01",
+          name = "temp_07",
           type = "Stage",
           shape = "rectangle",
           x = -129.12,
@@ -162,7 +163,7 @@ return {
         },
         {
           id = 1302,
-          name = "temp_01",
+          name = "temp_06",
           type = "Stage",
           shape = "rectangle",
           x = 973.75,
@@ -178,7 +179,7 @@ return {
         },
         {
           id = 1303,
-          name = "temp_01",
+          name = "temp_05",
           type = "Stage",
           shape = "rectangle",
           x = 2121.77,
@@ -194,7 +195,7 @@ return {
         },
         {
           id = 1304,
-          name = "temp_01",
+          name = "temp_04",
           type = "Stage",
           shape = "rectangle",
           x = 2050.19,
@@ -210,7 +211,7 @@ return {
         },
         {
           id = 1305,
-          name = "temp_01",
+          name = "temp_03",
           type = "Stage",
           shape = "rectangle",
           x = 14.6473,
@@ -226,7 +227,7 @@ return {
         },
         {
           id = 1306,
-          name = "temp_01",
+          name = "temp_02",
           type = "Stage",
           shape = "rectangle",
           x = -1573.94,
@@ -255,6 +256,25 @@ return {
           properties = {
             ["name"] = "temp #7"
           }
+        },
+        {
+          id = 1308,
+          name = "",
+          type = "Contour",
+          shape = "polygon",
+          x = 912,
+          y = 96,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          opacity = 1,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = -64, y = 192 },
+            { x = 416, y = 96 }
+          },
+          properties = {}
         }
       }
     },

@@ -74,7 +74,7 @@ upscaler_draw = function(self)
     graphics_push_state()
     graphics_reset_state()
     graphics_set_scale(1 / graphics_get_dpi_scale())
-    graphics_set_translation(self.translate_x, self.translate_y)
+    graphics_translate(self.translate_x, self.translate_y)
     render_texture_draw(self.texture)
     graphics_pop_state()
 

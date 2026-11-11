@@ -1,5 +1,11 @@
 Polyline_t = "Polyline"
 
+--- @enum PolylineWinding
+PolylineWinding = {
+    CLOCKWISE = true,
+    COUNTERCLOCKWISE = false
+}
+
 polyline_new = function(...)
     local self = object_new(Polyline_t, {
         vertices = {},
@@ -120,7 +126,11 @@ end
 
 polyline_get_winding = function(self)
     log_typecheck(self, Polyline_t)
-    return polyline_get_signed_area(self) > 0 -- true: clockwise
+    if polyline_get_signed_area(self) >= 0 then
+        return PolylineWinding.CLOCKWISE
+    else
+        return PolylineWinding.COUNTERCLOCKSWISE
+    end
 end
 
 polyline_get_aabb = function(self)
