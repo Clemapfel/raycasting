@@ -61,7 +61,9 @@ local _skin_wheel_rotation_speed = 3
 local _skin_wheel_min_scale = 0.5
 
 skin_select_scene_new = function()
-    return skin_select_scene_init(object_new(SkinSelectScene_t, {}))
+    return skin_select_scene_init(object_new(SkinSelectScene_t, {
+        is_active = false
+    }))
 end
 
 skin_select_scene_init = function(self)
@@ -138,6 +140,8 @@ skin_select_scene_init = function(self)
     end
 
     self.input_pressed_handler = input_connect_pressed(function(which)
+        if state_get_scene_is_active(self) ~= true then return end
+
         local scroll = function(direction)
             local target = lag_get_target_value(self.selection_lag) + direction
             lag_set_target_value(self.selection_lag, target)
@@ -157,8 +161,20 @@ skin_select_scene_init = function(self)
             local current = self.entries[self.selected_entry_i]
             audio_replay_sound(self, SoundID.menu_accept)
             state_set_active_skin(current.texture)
+            if self.level_id ~= nil then
+                state_set_scene(StageScene_t, self.level_id)
+            end
+        elseif which == input_action_back then
+            state_pop_scene()
         end
     end, self.input_pressed_handler)
+
+    self.control_indicator = control_indicator_new(
+        input_action_move_left, "Scroll Left",
+        input_action_move_right, "Scroll Right",
+        input_action_accept, "Select",
+        input_action_back, "Back"
+    )
 
     return self
 end
@@ -230,6 +246,7 @@ skin_select_scene_update = function(self, delta)
     log_typecheck(self, SkinSelectScene_t)
 
     lag_update(self.selection_lag, delta)
+    control_indicator_update(self.control_indicator, delta)
 
     local n_completed = state_get_n_stages_completed()
     if self.selection_is_animating then
@@ -318,4 +335,19 @@ skin_select_scene_draw = function(self)
 
     label_draw(self.left_label)
     label_draw(self.right_label)
+end
+
+skin_select_scene_get_control_indicator = function(self)
+    log_typecheck(self, SkinSelectScene_t)
+    return self.control_indicator
+end
+
+skin_select_scene_enter = function(self, level_id)
+    log_typecheck(self, SkinSelectScene_t)
+    if level_id ~= nil then log_typecheck(level_id, String_t) end
+    self.level_id = level_id
+end
+
+skin_select_scene_exit = function(self)
+    log_typecheck(self, SkinSelectScene_t)
 end

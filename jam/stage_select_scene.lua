@@ -13,6 +13,7 @@ local _stage_wheel_min_scale = 1
 stage_select_scene_new = function(stage_list)
     log_typecheck(stage_list, StageList_t)
     return stage_select_scene_init(object_new(StageSelectScene_t, {
+        is_active = false
     }), stage_list)
 end
 
@@ -100,6 +101,8 @@ stage_select_scene_init = function(self, stage_list)
     stage_select_scene_reformat(self, self.bounds)
 
     self.input_pressed_handler = input_connect_pressed(function(which)
+        if state_get_scene_is_active(self) ~= true then return end
+
         local scroll = function(direction)
             local target = lag_get_target_value(self.selection_lag) + direction
             if target >= 1 and target <= self.n_entries then
@@ -119,8 +122,20 @@ stage_select_scene_init = function(self, stage_list)
             scroll(-1)
         elseif which == input_action_move_right then
             scroll(1)
+        elseif which == input_action_accept then
+            state_set_scene(StageScene_t, self.entries[self.selected_entry_i].id)
+        elseif which == input_action_back then
+            state_pop_scene()
         end
     end, self.input_pressed_handler)
+
+
+    self.control_indicator = control_indicator_new(
+        input_action_move_left, "Scroll Left",
+        input_action_move_right, "Scroll Right",
+        input_action_accept, "Select",
+        input_action_back, "Back"
+    )
 
     return self
 end
@@ -227,6 +242,8 @@ stage_select_scene_update = function(self, delta)
         label_update(entry.beaten_label, delta)
         label_update(entry.not_beaten_label, delta)
     end
+
+    control_indicator_update(self.control_indicator, delta)
 end
 
 stage_select_scene_draw = function(self)
@@ -372,4 +389,17 @@ stage_select_scene_draw = function(self)
             graphics_pop_transform()
         end
     end
+end
+
+stage_select_scene_get_control_indicator = function(self)
+    log_typecheck(self, StageSelectScene_t)
+    return self.control_indicator
+end
+
+stage_select_scene_enter = function(self)
+    log_typecheck(self, StageSelectScene_t)
+end
+
+stage_select_scene_exit = function(self)
+    log_typecheck(self, StageSelectScene_t)
 end

@@ -26,6 +26,7 @@ require "jam.aabb"
 require "jam.lag"
 require "jam.upscaler"
 require "jam.label"
+require "jam.control_indicator"
 require "jam.softbody"
 require "jam.player"
 require "jam.stage"
@@ -50,7 +51,7 @@ love.load = function()
     require "jam.settings_scene"
 
     require "jam.state" -- wait for init
-    state_set_scene(StageSelectScene_t)
+    state_set_scene(MainMenuScene_t)
 end
 
 input_connect_pressed(function(which)

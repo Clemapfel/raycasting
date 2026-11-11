@@ -45,19 +45,6 @@ end
 stage_scene_init = function(self)
     log_typecheck(self, StageScene_t)
 
-    local spawn_points = stage_get_spawn_points(self.stage)
-    for i = 1, table_sizeof(spawn_points) do
-        local spawn_point = spawn_points[i]
-        local x, y, r = spawn_point.x, spawn_point.y, spawn_point.radius
-        if self.players[i] ~= nil then
-            player_init(self.players[i], x, y, r)
-        else
-            self.players[i] = player_new(x, y, r)
-        end
-    end
-
-    stage_reset(self.stage)
-
     -- pause
 
     local w, h = graphics_get_size()
@@ -99,6 +86,8 @@ stage_scene_init = function(self)
 
     input_disconnect_pressed(self.pressed_handler)
     self.pressed_handler = input_connect_pressed(function(which)
+        if state_get_scene_is_active(self) ~= true then return end
+
         local active = stage_scene_get_active_players(self)
         if which == input_action_accept then
             -- on click: select player
@@ -264,4 +253,25 @@ stage_scene_set_pause_menu_visible = function(self, is_visible)
     log_typecheck(self, StageScene_t)
     self.pause_menu_visible = is_visible
     return self
+end
+
+stage_scene_enter = function(self, level_id)
+    log_typecheck(self, StageScene_t, level_id, String_t)
+    self.stage = state_get_stage(level_id)
+    local spawn_points = stage_get_spawn_points(self.stage)
+    for i = 1, table_sizeof(spawn_points) do
+        local spawn_point = spawn_points[i]
+        local x, y, r = spawn_point.x, spawn_point.y, spawn_point.radius
+        if self.players[i] ~= nil then
+            player_init(self.players[i], x, y, r)
+        else
+            self.players[i] = player_new(x, y, r)
+        end
+    end
+
+    stage_reset(self.stage)
+end
+
+stage_scene_exit = function(self)
+    log_typecheck(self, StageScene_t)
 end

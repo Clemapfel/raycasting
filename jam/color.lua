@@ -122,36 +122,43 @@ do
     end
 
     lcha_to_rgba = function(self_or_l, c, h, a)
+        local l
         if object_is_number(self_or_l) then
             if a == nil then a = 1 end
             log_typecheck(self_or_l, Number_t, c, Number_t, h, Number_t, a, Number_t)
-            self = lcha_new(self_or_l, c, h, a)
+            l = self_or_l
         else
-            self = self_or_l
+            local self = self_or_l
             log_typecheck(self, LCHA_t)
+            l, c, h, a = self.l, self.c, self.h, self.a
         end
 
-        local lightness = self.l * 100
-        local lab_a = math_cos(self.h * math_tau) * self.c * 100
-        local lab_b = math_sin(self.h * math_tau) * self.c * 100
+        local L = l * 100
+        local lab_a = math_cos(h * 6.283185) * c * 100
+        local lab_b = math_sin(h * 6.283185) * c * 100
 
-        local y = (lightness + 16) / 116
-        local x = lab_a / 500 + y
-        local z = y - lab_b / 200
+        local Y = (L + 16) * 0.008620689
+        local X = lab_a * 0.002 + Y
+        local Z = Y - lab_b * 0.005
 
-        local function f_inv(t)
-            local t_cubed = t * t * t
-            return (t_cubed > 0.008856) and t_cubed or ((t - 16 / 116) / 7.787)
-        end
+        local X3, Y3, Z3 = X * X * X, Y * Y * Y, Z * Z * Z
+        X = X3 > 0.008856 and 0.95047 * X3 or 0.95047 * (X - 0.137931) * 0.128419
+        Y = Y3 > 0.008856 and Y3 or (Y - 0.137931) * 0.128419
+        Z = Z3 > 0.008856 and 1.08883 * Z3 or 1.08883 * (Z - 0.137931) * 0.128419
 
-        x = 0.95047 * f_inv(x)
-        y = 1.00000 * f_inv(y)
-        z = 1.08883 * f_inv(z)
+        local R = X * 3.2406 - Y * 1.5372 - Z * 0.4986
+        local G = -X * 0.9689 + Y * 1.8758 + Z * 0.0415
+        local B = X * 0.0557 - Y * 0.2040 + Z * 1.0570
 
-        local r = x * 3.2406 - y * 1.5372 - z * 0.4986
-        local g = -x * 0.9689 + y * 1.8758 + z * 0.0415
-        local b = x * 0.0557 - y * 0.2040 + z * 1.0570
+        R = R > 0.0031308 and 1.055 * R ^ 0.416666667 - 0.055 or 12.92 * R
+        G = G > 0.0031308 and 1.055 * G ^ 0.416666667 - 0.055 or 12.92 * G
+        B = B > 0.0031308 and 1.055 * B ^ 0.416666667 - 0.055 or 12.92 * B
 
-        return rgba_new(gamma(r), gamma(g), gamma(b), self.a)
+        return rgba_new(
+            R < 0 and 0 or (R > 1 and 1 or R),
+            G < 0 and 0 or (G > 1 and 1 or G),
+            B < 0 and 0 or (B > 1 and 1 or B),
+            a
+        )
     end
 end

@@ -27,7 +27,9 @@ local _settings_credits_font_size = 18 / 800
 local _settings_title_texture = "jam/assets/barboach.png"
 
 main_menu_scene_new = function()
-    return main_menu_scene_init(object_new(MainMenuScene_t, {}))
+    return main_menu_scene_init(object_new(MainMenuScene_t, {
+        is_active = false
+    }))
 end
 
 main_menu_scene_init = function(self)
@@ -76,6 +78,8 @@ main_menu_scene_init = function(self)
 
     input_disconnect_pressed(self.pressed_handler)
     self.pressed_handler = input_connect_pressed(function(which)
+        if state_get_scene_is_active(self) ~= true then return end
+
         if which == input_action_move_up then
             if self.selected_i > 1 then
                 self.selected_i = self.selected_i - 1
@@ -91,16 +95,25 @@ main_menu_scene_init = function(self)
             audio_play_sound(self, SoundID.menu_accept)
 
             if id == _item_id_new_game then
-                state_set_scene(SkinSelectScene_t, true) -- queue stage after
+                local level_ids = state_get_level_ids()
+                if #level_ids > 0 then
+                    state_push_scene(SkinSelectScene_t, level_ids[1]) -- queue stage after
+                end
             elseif id == _item_id_stage_select then
-                state_set_scene(StageSelect_t)
+                state_push_scene(StageSelectScene_t)
             elseif id == _item_id_choose_skin then
-                state_set_scene(SkinSelectScene_t, false)
+                state_push_scene(SkinSelectScene_t)
             elseif id == _item_id_settings then
-                state_set_scene(SettingsScene_t)
+                state_pusH_scene(SettingsScene_t)
             end
         end
     end, self.pressed_handler)
+
+    self.control_indicator = control_indicator_new(
+        input_action_move_up, "Up",
+        input_action_move_down, "Down",
+        input_action_accept, "Select"
+    )
 
     -- layout
     main_menu_scene_reformat(self, 0, 0, graphics_get_size())
@@ -160,6 +173,7 @@ main_menu_scene_update = function(self, delta)
     end
 
     label_update(self.credits_label, delta)
+    control_indicator_update(self.control_indicator, delta)
 end
 
 main_menu_scene_draw = function(self)
@@ -175,4 +189,17 @@ main_menu_scene_draw = function(self)
 
     label_draw(self.credits_label)
     label_draw(self.date_label)
+end
+
+main_menu_scene_get_control_indicator = function(self)
+    log_typecheck(self, MainMenuScene_t)
+    return self.control_indicator
+end
+
+main_menu_scene_enter = function(self)
+    log_typecheck(self, MainMenuScene_t)
+end
+
+main_menu_scene_exit = function(self)
+    log_typecheck(self, MainMenuScene_t)
 end
