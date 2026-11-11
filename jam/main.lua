@@ -4,40 +4,45 @@ if unpack == nil then unpack = table.unpack end
 io.stdout:setvbuf("no")
 io.stderr:setvbuf("no")
 
+local _require = _G.require
 if DEBUG then
-    _g_require = require
-    require = function(x)
-        _g_require("jam." .. x)
+    _require = function(x)
+        _G.require("jam." .. x)
     end
 end
 
-require "include.object"
-require "include.functional"
-require "include.table"
-require "include.log"
-require "include.globals"
-require "include.input"
-require "include.math"
-require "include.aabb"
-require "include.polyline"
-require "include.lag"
-require "include.random"
-require "include.graphics"
-require "include.audio"
-require "include.mesh"
-require "include.texture"
-require "include.render_texture"
-require "include.color"
-require "include.palette"
-require "include.cursor"
-require "include.upscaler"
-require "include.label"
-require "include.control_indicator"
-require "include.softbody"
-require "include.player"
-require "include.stage"
+_require "include.object"
+_require "include.functional"
+_require "include.table"
+_require "include.log"
+_require "include.globals"
+_require "include.input"
+_require "include.math"
+_require "include.aabb"
+_require "include.polyline"
+_require "include.lag"
+_require "include.random"
+_require "include.graphics"
+_require "include.audio"
+_require "include.mesh"
+_require "include.shader"
+_require "include.texture"
+_require "include.render_texture"
+_require "include.color"
+_require "include.palette"
+_require "include.cursor"
+_require "include.upscaler"
+_require "include.label"
+_require "include.control_indicator"
+_require "include.softbody"
+_require "include.player"
+_require "include.stage"
 
 if DEBUG then
+    require "include"
+    require "common.error_handler"
+    require "common.scene_manager"
+
     setmetatable(_G, {
         __newindex = function(self, key, value)
             --log_error("In _G.__newindex: trying to modify global `", key, "`, but the environment is immutable")
@@ -52,12 +57,12 @@ if DEBUG then
 end
 
 love.load = function()
-    require "include.stage_scene"
-    require "include.main_menu_scene"
-    require "include.skin_select_scene"
-    require "include.stage_select_scene"
-    require "include.settings_scene"
-    require "include.state"
+    _require "include.stage_scene"
+    _require "include.main_menu_scene"
+    _require "include.skin_select_scene"
+    _require "include.stage_select_scene"
+    _require "include.settings_scene"
+    _require "include.state"
 
     STATE = state_new()
     state_allocate_scenes(STATE)
@@ -87,6 +92,8 @@ love.update = function(delta)
     state_update(STATE, delta)
 end
 
+local shader
+
 love.draw = function()
     graphics_notify_start_of_frame()
 
@@ -94,8 +101,17 @@ love.draw = function()
         rt.SceneManager:draw() -- TODO
     end
 
-    state_draw(STATE)
+    if shader == nil then
+        shader = shader_new("assets/shaders/test.glsl")
+    end
+
+
+    --state_draw(STATE)
     cursor_draw()
+
+    shader_bind(shader)
+    graphics_draw_rectangle(0, 0, love.graphics.getDimensions())
+    shader_unbind(shader)
 
     graphics_notify_end_of_frame()
 end

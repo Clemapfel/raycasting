@@ -11,7 +11,7 @@ $OutDir   = Join-Path $BuildDir "out"
 
 $LoveFile = Join-Path $OutDir "raycasting.love"
 
-$WindowsSource = Join-Path $BuildDir "windows"
+$WindowsSource = Join-Path $BuildDir "windows\love12"
 $LinuxSource   = Join-Path $BuildDir "linux\love12"
 
 $WindowsOut = Join-Path $OutDir "windows"

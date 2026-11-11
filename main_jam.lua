@@ -25,6 +25,7 @@ _require "include.random"
 _require "include.graphics"
 _require "include.audio"
 _require "include.mesh"
+_require "include.shader"
 _require "include.texture"
 _require "include.render_texture"
 _require "include.color"
@@ -91,6 +92,8 @@ love.update = function(delta)
     state_update(STATE, delta)
 end
 
+local shader
+
 love.draw = function()
     graphics_notify_start_of_frame()
 
@@ -98,8 +101,17 @@ love.draw = function()
         rt.SceneManager:draw() -- TODO
     end
 
-    state_draw(STATE)
+    if shader == nil then
+        shader = shader_new("assets/shaders/test.glsl")
+    end
+
+
+    --state_draw(STATE)
     cursor_draw()
+
+    shader_bind(shader)
+    graphics_draw_rectangle(0, 0, love.graphics.getDimensions())
+    shader_unbind(shader)
 
     graphics_notify_end_of_frame()
 end

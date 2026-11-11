@@ -26,6 +26,8 @@ shader_init = function(self, path)
     else
         self.native = shader_or_message
     end
+
+    return self
 end
 
 shader_bind = function(self)
