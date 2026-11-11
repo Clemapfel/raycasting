@@ -4,6 +4,13 @@ if unpack == nil then unpack = table.unpack end
 io.stdout:setvbuf("no")
 io.stderr:setvbuf("no")
 
+if DEBUG then
+    _g_require = require
+    require = function(x)
+        _g_require("jam." .. x)
+    end
+end
+
 require "include.object"
 require "include.functional"
 require "include.table"

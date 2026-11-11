@@ -129,7 +129,7 @@ state_init = function(self)
 
         stage_list_export(
             stage_list,
-            "assets/stages.lua",
+            "jam/assets/stages.lua",
             mount_point .. "/stages_exported.lua"
         )
 
@@ -137,7 +137,7 @@ state_init = function(self)
     end
 
     -- allocate stages
-    stage_list_init(stage_list, "assets/stages_exported.lua")
+    stage_list_init(stage_list, (DEBUG and "jam/" or "") .. "assets/stages_exported.lua")
     self.stage_list = stage_list
     self.stage_entries = {}
     for _, stage_id in ipairs(stage_list_get_ids(stage_list)) do

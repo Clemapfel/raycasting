@@ -6,6 +6,10 @@ TextureScaleMode = {
 }
 
 texture_new = function(path)
+    if DEBUG then
+        path = "jam/" .. path
+    end
+
     return object_new(Texture_t, {
         native = love.graphics.newImage(path)
     })

@@ -1,9 +1,11 @@
 Label_t = "Label"
 
 local _settings_font_size_default = 30
-local _settings_font_path_regular = "assets/baloo_2_regular.ttf"
-local _settings_font_path_bold = "assets/baloo_2_bold.ttf"
-local _settings_font_path_mono = "assets/dejavu_sans_mono.ttf"
+
+local prefix = (DEBUG and "jam/" or "")
+local _settings_font_path_regular = prefix .. "assets/baloo_2_regular.ttf"
+local _settings_font_path_bold = prefix .. "assets/baloo_2_bold.ttf"
+local _settings_font_path_mono = prefix .. "assets/dejavu_sans_mono.ttf"
 local _settings_font_size_to_outline_width = 2
 
 local _settings_rainbow_width = 120.0
@@ -43,7 +45,7 @@ local _get_font = function(size, style)
         local success, font_or_error = pcall(love.graphics.newFont, _text_style_to_path[style], size)
         if not success then
             font_or_error = love.graphics.newFont(size)
-            log_critical("In label_init: unable to load font at `", _text_style_to_path[style], "`: ", font_or_error)
+            log_error("In label_init: unable to load font at `", _text_style_to_path[style], "`: ", font_or_error)
         end
 
         cache[size] = font_or_error
