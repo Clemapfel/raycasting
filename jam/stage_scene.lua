@@ -86,7 +86,7 @@ stage_scene_init = function(self)
 
     input_disconnect_pressed(self.pressed_handler)
     self.pressed_handler = input_connect_pressed(function(which)
-        if state_get_scene_is_active(self) ~= true then return end
+        if state_get_scene_is_active(STATE, self) ~= true then return end
 
         local active = stage_scene_get_active_players(self)
         if which == input_action_accept then
@@ -257,7 +257,7 @@ end
 
 stage_scene_enter = function(self, level_id)
     log_typecheck(self, StageScene_t, level_id, String_t)
-    self.stage = state_get_stage(level_id)
+    self.stage = state_get_stage(STATE, level_id)
     local spawn_points = stage_get_spawn_points(self.stage)
     for i = 1, table_sizeof(spawn_points) do
         local spawn_point = spawn_points[i]

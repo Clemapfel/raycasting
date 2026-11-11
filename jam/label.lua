@@ -1,9 +1,9 @@
 Label_t = "Label"
 
 local _settings_font_size_default = 30
-local _settings_font_path_regular = "jam/assets/baloo_2_regular.ttf"
-local _settings_font_path_bold = "jam/assets/baloo_2_bold.ttf"
-local _settings_font_path_mono = "jam/assets/dejavu_sans_mono.ttf"
+local _settings_font_path_regular = "assets/baloo_2_regular.ttf"
+local _settings_font_path_bold = "assets/baloo_2_bold.ttf"
+local _settings_font_path_mono = "assets/dejavu_sans_mono.ttf"
 local _settings_font_size_to_outline_width = 2
 
 local _settings_rainbow_width = 120.0

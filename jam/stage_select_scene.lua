@@ -46,7 +46,7 @@ stage_select_scene_init = function(self, stage_list)
 
     local ids = stage_list_get_ids(stage_list)
     for _, id in ipairs(ids) do
-        local stage = state_get_stage(id)
+        local stage = state_get_stage(STATE, id)
         local name_label = label_new(
             stage_get_name(stage),
             _settings_stage_name_font_size * native_h,
@@ -101,7 +101,7 @@ stage_select_scene_init = function(self, stage_list)
     stage_select_scene_reformat(self, self.bounds)
 
     self.input_pressed_handler = input_connect_pressed(function(which)
-        if state_get_scene_is_active(self) ~= true then return end
+        if state_get_scene_is_active(STATE, self) ~= true then return end
 
         local scroll = function(direction)
             local target = lag_get_target_value(self.selection_lag) + direction
@@ -123,9 +123,9 @@ stage_select_scene_init = function(self, stage_list)
         elseif which == input_action_move_right then
             scroll(1)
         elseif which == input_action_accept then
-            state_set_scene(StageScene_t, self.entries[self.selected_entry_i].id)
+            state_set_scene(STATE, StageScene_t, self.entries[self.selected_entry_i].id)
         elseif which == input_action_back then
-            state_pop_scene()
+            state_pop_scene(STATE)
         end
     end, self.input_pressed_handler)
 
@@ -310,7 +310,7 @@ stage_select_scene_draw = function(self)
         )
 
         label_draw(entry.name_label)
-        if state_get_stage_is_completed(entry.id) then
+        if state_get_stage_is_completed(STATE, entry.id) then
             --label_draw(entry.beaten_label)
         else
             --label_draw(entry.not_beaten_label)
@@ -373,7 +373,7 @@ stage_select_scene_draw = function(self)
             rgba_bind(palette_gray)
             graphics_draw_polygon("fill", table_unpack(contour))
 
-            if state_get_stage_is_completed(entry.id) then
+            if state_get_stage_is_completed(STATE, entry.id) then
                 rgba_bind(entry.color)
                 graphics_draw_polygon("fill", table_unpack(contour))
             end

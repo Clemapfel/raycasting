@@ -3,6 +3,7 @@ input_should_disconnect = 0x0
 input_action_click = "click"
 input_action_accept = "accept"
 input_action_back = "back"
+input_action_reset = "reset"
 input_action_jump = "jump"
 input_action_move_left = "left"
 input_action_move_right = "right"

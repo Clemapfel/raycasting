@@ -11,31 +11,31 @@ SkinID = {
 local _skin_data = {
     [SkinID.DEFAULT] = {
         name = "Slime",
-        path = "jam/assets/skins/slime.png",
+        path = "assets/skins/slime.png",
         n_unlocks_required = 0
     },
 
     [SkinID.LOVE_WHALE] = {
         name = "Love",
-        path = "jam/assets/skins/love_whale.png",
+        path = "assets/skins/love_whale.png",
         n_unlocks_required = 1
     },
 
     [SkinID.HATE_WHALE] = {
         name = "Hate",
-        path = "jam/assets/skins/hate_whale.png",
+        path = "assets/skins/hate_whale.png",
         n_unlocks_required = 3
     },
 
     [SkinID.TOAST] = {
         name = "Toast",
-        path = "jam/assets/skins/toast.png",
+        path = "assets/skins/toast.png",
         n_unlocks_required = 5
     },
 
     [SkinID.NSFW] = {
         name = "??? (nsfw)",
-        path = "jam/assets/skins/nsfw.png",
+        path = "assets/skins/nsfw.png",
         n_unlocks_required = 10
     }
 }
@@ -140,7 +140,7 @@ skin_select_scene_init = function(self)
     end
 
     self.input_pressed_handler = input_connect_pressed(function(which)
-        if state_get_scene_is_active(self) ~= true then return end
+        if state_get_scene_is_active(STATE, self) ~= true then return end
 
         local scroll = function(direction)
             local target = lag_get_target_value(self.selection_lag) + direction
@@ -160,12 +160,9 @@ skin_select_scene_init = function(self)
         elseif which == input_action_accept then
             local current = self.entries[self.selected_entry_i]
             audio_replay_sound(self, SoundID.menu_accept)
-            state_set_active_skin(current.texture)
-            if self.level_id ~= nil then
-                state_set_scene(StageScene_t, self.level_id)
-            end
+            state_set_active_skin(STATE, current.texture)
         elseif which == input_action_back then
-            state_pop_scene()
+            state_pop_scene(STATE)
         end
     end, self.input_pressed_handler)
 
@@ -248,7 +245,7 @@ skin_select_scene_update = function(self, delta)
     lag_update(self.selection_lag, delta)
     control_indicator_update(self.control_indicator, delta)
 
-    local n_completed = state_get_n_stages_completed()
+    local n_completed = state_get_n_stages_completed(STATE)
     if self.selection_is_animating then
         local distance = self.selection_target - self.selection_position
         local step = _skin_wheel_rotation_speed * delta
@@ -279,7 +276,7 @@ end
 skin_select_scene_draw = function(self)
     log_typecheck(self, SkinSelectScene_t)
 
-    local n_completed = state_get_n_stages_completed()
+    local n_completed = state_get_n_stages_completed(STATE)
     label_draw(self.command_label)
 
     local n_entries = #self.entries
@@ -342,10 +339,8 @@ skin_select_scene_get_control_indicator = function(self)
     return self.control_indicator
 end
 
-skin_select_scene_enter = function(self, level_id)
+skin_select_scene_enter = function(self)
     log_typecheck(self, SkinSelectScene_t)
-    if level_id ~= nil then log_typecheck(level_id, String_t) end
-    self.level_id = level_id
 end
 
 skin_select_scene_exit = function(self)

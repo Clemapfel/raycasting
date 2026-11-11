@@ -19,12 +19,12 @@ local _settings_labels_in_order = {
     _item_id_choose_skin,
     _item_id_stage_select,
     _item_id_settings,
-    _item_id_quit
+    -- _item_id_quit
 }
 
 local _settings_menu_font_size = 40 / 800
 local _settings_credits_font_size = 18 / 800
-local _settings_title_texture = "jam/assets/barboach.png"
+local _settings_title_texture = "assets/barboach.png"
 
 main_menu_scene_new = function()
     return main_menu_scene_init(object_new(MainMenuScene_t, {
@@ -69,7 +69,7 @@ main_menu_scene_init = function(self)
 
     self.title_texture = texture_new(_settings_title_texture)
     self.credits_label = label_new("By: Clem (github.com/clemapfel)", _settings_credits_font_size * native_h, TextStyle.MONO)
-    self.date_label = label_new("v1.0.0 (11/2026)", _settings_credits_font_size * native_h, TextStyle.MONO)
+    self.date_label = label_new("Love2D Jam 2026 [B-Side]", _settings_credits_font_size * native_h, TextStyle.MONO)
 
     label_set_is_outlined(self.credits_label, true)
     label_set_is_outlined(self.date_label, true)
@@ -78,7 +78,7 @@ main_menu_scene_init = function(self)
 
     input_disconnect_pressed(self.pressed_handler)
     self.pressed_handler = input_connect_pressed(function(which)
-        if state_get_scene_is_active(self) ~= true then return end
+        if state_get_scene_is_active(STATE, self) ~= true then return end
 
         if which == input_action_move_up then
             if self.selected_i > 1 then
@@ -95,16 +95,16 @@ main_menu_scene_init = function(self)
             audio_play_sound(self, SoundID.menu_accept)
 
             if id == _item_id_new_game then
-                local level_ids = state_get_level_ids()
+                local level_ids = state_get_level_ids(STATE)
                 if #level_ids > 0 then
-                    state_push_scene(SkinSelectScene_t, level_ids[1]) -- queue stage after
+                    state_push_scene(STATE, SkinSelectScene_t, level_ids[1]) -- queue stage after
                 end
             elseif id == _item_id_stage_select then
-                state_push_scene(StageSelectScene_t)
+                state_push_scene(STATE, StageSelectScene_t)
             elseif id == _item_id_choose_skin then
-                state_push_scene(SkinSelectScene_t)
+                state_push_scene(STATE, SkinSelectScene_t)
             elseif id == _item_id_settings then
-                state_pusH_scene(SettingsScene_t)
+                state_push_scene(STATE, SettingsScene_t)
             end
         end
     end, self.pressed_handler)
@@ -151,7 +151,7 @@ main_menu_scene_reformat = function(self, aabb_or_x, y, w, h)
     local padding = 0.25 * outer_m
     local sub_bounds = aabb_new(
         bounds.x + padding,
-        bounds.y + bounds.height - credits_h - padding,
+        bounds.y + padding,
         bounds.width - 2 * padding,
         credits_h
     )

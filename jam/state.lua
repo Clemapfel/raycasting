@@ -1,7 +1,5 @@
 State_t = "State"
 
-STATE = nil -- global singleton
-
 local _new_fid = "new"
 local _init_fid = "init"
 local _enter_fid = "enter"
@@ -84,10 +82,30 @@ end
 local _lag_full = 1.0
 local _lag_empty = 0.0
 
-state_init = function()
-    local self = STATE
+local function _get_current(self)
+    return self.scene_stack[table_sizeof(self.scene_stack)]
+end
 
+local function _flush_fade(self)
+    if self.fade_motion_routine ~= nil then
+        log_call(self.fade_motion_routine, self)
+        self.fade_motion_routine = nil
+        lag_set_value(self.fade_motion, _lag_empty)
+        self.fade_motion_active = false
+    end
+end
+
+state_new = function()
+    return state_init(object_new(State_t, {}))
+end
+
+state_init = function(self)
+    log_typecheck(self, State_t)
     self.upscaler = upscaler_resize(upscaler_new(), graphics_get_window_size())
+
+    self.sound_effect_volume = 1.0
+    self.music_volume = 1.0
+    self.shaders_enabled = true
 
     self.fade_motion = lag_new(_lag_full, 4)
     self.fade_motion_routine = nil -- Function
@@ -98,7 +116,7 @@ state_init = function()
     if love.getVersion() >= 12 then
         -- in dev env, export to file
         -- this is necessary because triangulation is unavailable in release mode
-        local to_mount = love.filesystem.getSource() .. "/jam/assets"
+        local to_mount = love.filesystem.getSource() .. "/assets"
         local mount_point = "stages"
         if not love.filesystem.mountFullPath(
             to_mount,
@@ -111,7 +129,7 @@ state_init = function()
 
         stage_list_export(
             stage_list,
-            "jam/assets/stages.lua",
+            "assets/stages.lua",
             mount_point .. "/stages_exported.lua"
         )
 
@@ -119,7 +137,7 @@ state_init = function()
     end
 
     -- allocate stages
-    stage_list_init(stage_list, "jam/assets/stages_exported.lua")
+    stage_list_init(stage_list, "assets/stages_exported.lua")
     self.stage_list = stage_list
     self.stage_entries = {}
     for _, stage_id in ipairs(stage_list_get_ids(stage_list)) do
@@ -133,12 +151,7 @@ state_init = function()
     self.active_skin = nil -- Texture_t
 
     -- preallocate scenes
-    self.scene_t_to_scene = {
-        [StageScene_t] = stage_scene_new(),
-        [MainMenuScene_t] = main_menu_scene_new(),
-        [SkinSelectScene_t] = skin_select_scene_new(),
-        [StageSelectScene_t] = stage_select_scene_new(self.stage_list)
-    }
+    self.scene_t_to_scene = {}
 
     -- current scene
     self.scene_stack = {}
@@ -171,17 +184,10 @@ local _create_fade_routine = function(clear_stack, scene_t, ...)
     end
 end
 
+state_push_scene = function(self, scene_t, ...)
+    log_typecheck(self, State_t, scene_t, String_t)
 
-state_push_scene = function(scene_t, ...)
-    log_typecheck(scene_t, String_t)
-    local self = STATE
-
-    if self.fade_motion_routine ~= nil then
-        log_call(self.fade_motion_routine, STATE)
-        self.fade_motion_routine = nil
-        lag_set_value(self.fade_motion, _lag_empty)
-        self.fade_motion_active = false
-    end
+    _flush_fade(self)
 
     input_set_is_active(false)
     self.fade_motion_routine = _create_fade_routine(false, scene_t, ...)
@@ -189,16 +195,10 @@ state_push_scene = function(scene_t, ...)
     self.fade_motion_active = true
 end
 
-state_set_scene = function(scene_t, ...)
-    log_typecheck(scene_t, String_t)
-    local self = STATE
+state_set_scene = function(self, scene_t, ...)
+    log_typecheck(self, State_t, scene_t, String_t)
 
-    if self.fade_motion_routine ~= nil then
-        log_call(self.fade_motion_routine, STATE)
-        self.fade_motion_routine = nil
-        lag_set_value(self.fade_motion, _lag_empty)
-        self.fade_motion_active = false
-    end
+    _flush_fade(self)
 
     input_set_is_active(false)
     self.fade_motion_routine = _create_fade_routine(true, scene_t, ...)
@@ -206,16 +206,9 @@ state_set_scene = function(scene_t, ...)
     self.fade_motion_active = true
 end
 
-state_pop_scene = function(_)
-    log_typecheck(_, Nil_t)
-    local self = STATE
-
-    if self.fade_motion_routine ~= nil then
-        log_call(self.fade_motion_routine, STATE)
-        self.fade_motion_routine = nil
-        lag_set_value(self.fade_motion, _lag_empty)
-        self.fade_motion_active = false
-    end
+state_pop_scene = function(self)
+    log_typecheck(self, State_t)
+    _flush_fade(self)
 
     input_set_is_active(false)
     self.fade_motion_routine = function(self)
@@ -238,11 +231,11 @@ state_pop_scene = function(_)
     self.fade_motion_active = true
 end
 
-state_update = function(delta)
-    local self = STATE
+state_update = function(self, delta)
+    log_typecheck(self, State_t)
     local fade = self.fade_motion
 
-    local current = self.scene_stack[table_sizeof(self.scene_stack)]
+    local current = _get_current(self)
     if current ~= nil then
         _call_scene_f("state_update", current.scene, _update_fid, delta)
     end
@@ -250,10 +243,9 @@ state_update = function(delta)
     lag_update(fade, delta)
     local fade_value = lag_get_value(fade)
 
-    -- once fully opaque, switch scenes
     if self.fade_motion_active then
         if math.greater_than_or_equal(fade_value, _lag_full, 0.001) then
-            log_call(self.fade_motion_routine, STATE)
+            log_call(self.fade_motion_routine, self)
             lag_set_value(self.fade_motion, _lag_full)
 
             self.fade_motion_active = false
@@ -263,11 +255,9 @@ state_update = function(delta)
     end
 end
 
-state_get_current_scene = function(_)
-    log_typecheck(_, Nil_t)
-
-    local self = STATE
-    local current = self.scene_stack[table_sizeof(self.scene_stack)]
+state_get_current_scene = function(self)
+    log_typecheck(self, State_t)
+    local current = _get_current(self)
     if current == nil then
         return nil
     end
@@ -275,20 +265,18 @@ state_get_current_scene = function(_)
     return current.scene
 end
 
-state_get_scene_is_active = function(scene)
-    log_typecheck(scene, Table_t)
-    local self = STATE
-    local current = self.scene_stack[table_sizeof(self.scene_stack)]
+state_get_scene_is_active = function(self, scene)
+    log_typecheck(self, State_t, scene, Table_t)
+    local current = _get_current(self)
     return current ~= nil and current.scene == scene
 end
 
-state_draw = function()
-    local self = STATE
-
+state_draw = function(self)
+    log_typecheck(self, State_t)
     upscaler_bind(self.upscaler)
     graphics_clear(1, 0, 1, 1)
 
-    local current = self.scene_stack[table_sizeof(self.scene_stack)]
+    local current = _get_current(self)
     if current ~= nil then
         _call_scene_f("state_draw", current.scene, _draw_fid)
     end
@@ -317,28 +305,29 @@ state_draw = function()
     graphics_pop_state()
 end
 
-state_resize = function(w, h)
-    local self = STATE
-
-    log_typecheck(w, Number_t, h, Number_t)
+state_resize = function(self, w, h)
+    log_typecheck(self, State_t, w, Number_t, h, Number_t)
     upscaler_resize(self.upscaler, w, h)
 
-    local current = self.scene_stack[table_sizeof(self.scene_stack)]
+    local current = _get_current(self)
     if current ~= nil then
         _call_scene_f("state_resize", current.scene, _reformat_fid, aabb_new(0, 0, graphics_get_size()))
     end
 end
 
-state_get_stage_list = function()
-    return STATE.stage_list
+state_get_stage_list = function(self)
+    log_typecheck(self, State_t)
+    return self.stage_list
 end
 
-state_get_level_ids = function()
-    return stage_list_get_ids(STATE.stage_list)
+state_get_level_ids = function(self)
+    log_typecheck(self, State_t)
+    return stage_list_get_ids(self.stage_list)
 end
 
-state_get_stage = function(id)
-    local result = STATE.stage_entries[id]
+state_get_stage = function(self, id)
+    log_typecheck(self, State_t)
+    local result = self.stage_entries[id]
     if result == nil then
         log_error("In stage_get_stage: no stage with id `", id, "`")
         return nil
@@ -346,13 +335,15 @@ state_get_stage = function(id)
     return result.stage
 end
 
-state_get_n_stages = function()
-    return table_count(STATE.stage_entries)
+state_get_n_stages = function(self)
+    log_typecheck(self, State_t)
+    return table_count(self.stage_entries)
 end
 
-state_get_n_stages_completed = function()
+state_get_n_stages_completed = function(self)
+    log_typecheck(self, State_t)
     local n = 0
-    for _, entry in pairs(STATE.stage_entries) do
+    for _, entry in pairs(self.stage_entries) do
         if entry.is_completed then
             n = n + 1
         end
@@ -360,9 +351,9 @@ state_get_n_stages_completed = function()
     return n
 end
 
-state_set_stage_is_completed = function(id, b)
-    log_typecheck(id, String_t)
-    local entry = STATE.stage_entries[id]
+state_set_stage_is_completed = function(self, id, b)
+    log_typecheck(self, State_t, id, String_t)
+    local entry = self.stage_entries[id]
     if entry == nil then
         log_error("In state_set_stage_is_completed: no stage with id `", id, "`")
         return false
@@ -371,9 +362,9 @@ state_set_stage_is_completed = function(id, b)
     end
 end
 
-state_get_stage_is_completed = function(id)
-    log_typecheck(id, String_t)
-    local entry = STATE.stage_entries[id]
+state_get_stage_is_completed = function(self, id)
+    log_typecheck(self, State_t, id, String_t)
+    local entry = self.stage_entries[id]
     if entry == nil then
         log_error("In state_set_stage_is_completed: no stage with id `", id, "`")
         return false
@@ -382,16 +373,61 @@ state_get_stage_is_completed = function(id)
     end
 end
 
-state_set_active_skin = function(texture)
-    log_typecheck(texture, Texture_t)
-    STATE.active_skin = texture
+state_set_active_skin = function(self, texture)
+    log_typecheck(self, State_t, texture, Texture_t)
+    self.active_skin = texture
 end
 
-state_get_active_skin = function(texture)
-    log_typecheck(texture, Texture_t)
-    return STATE.active_skin
+state_get_active_skin = function(self)
+    log_typecheck(self, State_t)
+    return self.active_skin
 end
 
--- instance singleton
-STATE = object_new(State_t, {})
-state_init(STATE)
+state_allocate_scenes = function(self)
+    log_typecheck(self, State_t)
+
+    self.scene_stack = {}
+    for t, scene in pairs(self.scene_t_to_scene) do
+        _call_scene_f("state_allocate_scenes", scene, _exit_fid)
+    end
+
+    self.scene_t_to_scene = {
+        [StageScene_t] = stage_scene_new(),
+        [MainMenuScene_t] = main_menu_scene_new(),
+        [SkinSelectScene_t] = skin_select_scene_new(),
+        [StageSelectScene_t] = stage_select_scene_new(self.stage_list),
+        [SettingsScene_t] = settings_scene_new()
+    }
+end
+
+state_get_sound_effect_volume = function(self)
+    log_typecheck(self, State_t)
+    return self.sound_effect_volume
+end
+
+state_set_sound_effect_volume = function(self, volume)
+    log_typecheck(self, State_t, volume, Number_t)
+    self.sound_effect_volume = math.max(0, math.min(1, volume))
+end
+
+state_get_music_volume = function(self)
+    log_typecheck(self, State_t)
+    return self.music_volume
+end
+
+state_set_music_volume = function(self, volume)
+    log_typecheck(self, State_t, volume, Number_t)
+    self.music_volume = math.max(0, math.min(1, volume))
+end
+
+state_get_shaders_enabled = function(self)
+    log_typecheck(self, State_t)
+    return self.shaders_enabled
+end
+
+state_set_shaders_enabled = function(self, b)
+    log_typecheck(self, State_t, b, Boolean_t)
+    self.shaders_enabled = b
+end
+
+
