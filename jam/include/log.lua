@@ -83,6 +83,20 @@ log_typecheck = function(...)
     end
 end
 
+log_check_enum = function(x, enum)
+    if not object_is_table(enum) then
+        log_error("In log_check_enum: (itself) argument #1 is not an enum")
+    end
+
+    if x ~= nil then
+        for _, other in pairs(enum) do
+            if other == x then return end
+        end
+    end
+
+    log_error("In log_check_enum: value `", x, "` is not a value of enum")
+end
+
 log_call = function(f, ...)
     if f == nil then return end
     return f(...)

@@ -1,5 +1,10 @@
 Player_t = "Player"
 
+PlayerConstraintMode = {
+    LIQUID = "LIQUID",
+    SOLID = "SOLID"
+}
+
 local _settings_min_node_count = 16
 local _settings_node_density = 1 / 40
 local _settings_outline_width = 4
@@ -139,6 +144,15 @@ player_request_volume_multiplier = function(self, instance, fraction)
     end
 
     return self
+end
+
+player_apply_linear_impulse = function(self)
+    log_typecheck(self, Player_t)
+end
+
+player_set_constraint_mode = function(self, constraint_mode)
+    log_typecheck(self, Player_t)
+    log_checkenum(constraint_mode, PlayerConstraintMode)
 end
 
 player_clear_linear_velocity_requests = function(self)

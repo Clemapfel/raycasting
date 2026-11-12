@@ -113,7 +113,7 @@ function bd.compile(source_file_path, destination_file_path)
         rt.error("In bd.compile: unable to apply loadstring to content of file at  `", source_file_path,  "`: ",  compile_error)
     end
 
-    -- compile to bytecade
+    -- compile to bytecode
     local bytecode = string.dump(compiled_function)
     if bytecode == nil then
         rt.error("In bd.compile: failed to generate bytecode for `", source_file_path,  "`")

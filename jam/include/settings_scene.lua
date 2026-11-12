@@ -75,6 +75,7 @@ settings_scene_init = function(self)
     settings_scene_reformat(self, self.bounds)
 
     self.input_pressed_handler = input_connect_pressed(function(which)
+
         if state_get_scene_is_active(STATE, self) ~= true then return end
 
         local select = function(direction)

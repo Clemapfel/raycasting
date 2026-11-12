@@ -19,8 +19,6 @@ DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
     end
 end)
 
-values
-
 local shader = rt.Shader("website/game/src/content/shaders/bismuth.glsl")
 local elapsed = 0
 

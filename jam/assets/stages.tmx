@@ -9,10 +9,10 @@
  <objectgroup id="8" name="aux"/>
  <objectgroup id="7" name="background"/>
  <objectgroup id="2" name="base">
-  <object id="1295" name="stage_01" type="Stage" x="-320" y="-224" width="800" height="800">
+  <object id="1295" name="jump_introduction" type="Stage" x="-320" y="-224" width="800" height="800">
    <properties>
-    <property name="name" value="First Steps"/>
-    <property name="priority" type="float" value="-2"/>
+    <property name="name" value="First Jumps"/>
+    <property name="priority" type="float" value="-3"/>
    </properties>
   </object>
   <object id="1296" type="Contour" x="448" y="-192">

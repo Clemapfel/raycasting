@@ -41,7 +41,6 @@ _require "include.stage"
 if DEBUG then
     require "include"
     require "common.error_handler"
-    require "common.scene_manager"
 
     setmetatable(_G, {
         __newindex = function(self, key, value)
@@ -67,7 +66,7 @@ love.load = function()
     STATE = state_new()
     state_allocate_scenes(STATE)
     state_set_scene(STATE, MainMenuScene_t)
-    state_push_scene(STATE, SettingsScene_t)
+    state_push_scene(STATE, StageScene_t, "stage_01")
 end
 
 input_connect_pressed(function(which)
@@ -77,18 +76,10 @@ input_connect_pressed(function(which)
 end)
 
 love.resize = function(w, h)
-    if DEBUG then
-        rt.SceneManager:resize() -- TODO
-    end
-
     state_resize(STATE, w, h)
 end
 
 love.update = function(delta)
-    if DEBUG then
-        rt.SceneManager:update(delta) -- TODO
-    end
-
     state_update(STATE, delta)
 end
 
@@ -97,21 +88,10 @@ local shader
 love.draw = function()
     graphics_notify_start_of_frame()
 
-    if DEBUG then
-        rt.SceneManager:draw() -- TODO
-    end
-
     if shader == nil then
         shader = shader_new("assets/shaders/test.glsl")
     end
 
-
-    --state_draw(STATE)
-    cursor_draw()
-
-    shader_bind(shader)
-    graphics_draw_rectangle(0, 0, love.graphics.getDimensions())
-    shader_unbind(shader)
-
+    state_draw(STATE)
     graphics_notify_end_of_frame()
 end

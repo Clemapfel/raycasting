@@ -1,3 +1,4 @@
+
 State_t = "State"
 
 local _new_fid = "new"
@@ -37,9 +38,9 @@ local _scene_t_to_fs = {
         [_init_fid] = skin_select_scene_init,
         [_enter_fid] = skin_select_scene_enter,
         [_exit_fid] = skin_select_scene_exit,
-        [_update_fid] = skin_select_scene_update,
-        [_draw_fid] = skin_select_scene_draw,
-        [_reformat_fid] = skin_select_scene_reformat,
+        [_update_fid] = main_menu_scene_update,
+        [_draw_fid] = main_menu_scene_draw,
+        [_reformat_fid] = main_menu_scene_reformat,
         [_get_control_indicator_fid] = skin_select_scene_get_control_indicator
     },
 
@@ -76,7 +77,9 @@ local function _call_scene_f(scope, scene, fid, ...)
     end
 
     local f = fs[fid]
-    if f ~= nil then log_call(f, scene, ...) end
+    if f ~= nil then
+        return log_call(f, scene, ...)
+    end
 end
 
 local _lag_full = 1.0
@@ -93,6 +96,40 @@ local function _flush_fade(self)
         lag_set_value(self.fade_motion, _lag_empty)
         self.fade_motion_active = false
     end
+end
+
+local function _reformat_control_indicator(self, scene, window_width, window_height)
+    window_width = window_width or graphics_get_window_width()
+    window_height = window_height or graphics_get_window_height()
+
+    local graphics_width, graphics_height = graphics_get_size()
+    local letterbox = (window_width - graphics_width) / 2 -- width of one side bar
+    local offset = 0
+
+    if scene ~= nil then
+        local indicator = _call_scene_f("_reformat_control_indicator", scene, _get_control_indicator_fid)
+        if not object_isa(indicator, ControlIndicator_t) then
+            log_error("In _reformat_control_indicator: scene `", scene.type, "` does not return a `ControlIndicator`")
+        else
+            control_indicator_reformat(indicator,
+                _global_outer_margin,
+                _global_outer_margin,
+                letterbox,
+                window_height
+            )
+
+            local bounds = control_indicator_get_bounds(indicator)
+            local top = (window_height - graphics_height) / 2
+            local overlaps_y = bounds.y < top + graphics_height and bounds.y + bounds.height > top
+
+            if overlaps_y then
+                local wanted = (bounds.x + bounds.width) - letterbox
+                offset = math_clamp(wanted, 0, math_max(letterbox, 0))
+            end
+        end
+    end
+
+    upscaler_resize(self.upscaler, window_width + 2 * offset, window_height)
 end
 
 state_new = function()
@@ -116,7 +153,7 @@ state_init = function(self)
     if DEBUG then
         -- in dev env, export to file
         -- this is necessary because triangulation is unavailable in release mode
-        local to_mount = love.filesystem.getSource() .. "/assets"
+        local to_mount = love.filesystem.getSource() .. "/jam/assets"
         local mount_point = "stages"
         if not love.filesystem.mountFullPath(
             to_mount,
@@ -177,8 +214,9 @@ local _create_fade_routine = function(clear_stack, scene_t, ...)
             table_push(self.scene_stack, next)
         end
 
-        _call_scene_f("state_resize", next.scene, _reformat_fid, aabb_new(0, 0, graphics_get_size()))
-        _call_scene_f("state_push_scene", next.scene, _enter_fid, table_unpack(next.args))
+        _call_scene_f("_create_fade_routine", next.scene, _reformat_fid, aabb_new(0, 0, graphics_get_size()))
+        _call_scene_f("_create_fade_routine", next.scene, _enter_fid, table_unpack(next.args))
+        _reformat_control_indicator(self, next.scene)
 
         input_set_is_active(true)
     end
@@ -217,13 +255,15 @@ state_pop_scene = function(self)
 
         local current = self.scene_stack[table_sizeof(self.scene_stack)]
         if current ~= nil then
-            _call_scene_f("state_push_scene", current.scene, _exit_fid)
+            _call_scene_f("state_pop_scene", current.scene, _exit_fid)
         end
 
         local next = self.scene_stack[n - 1]
         if next ~= nil then
             _call_scene_f("state_pop_scene", next.scene, _enter_fid, table_unpack(next.args))
         end
+
+        _reformat_control_indicator(self, next.scene)
         input_set_is_active(true)
     end
 
@@ -242,6 +282,11 @@ state_update = function(self, delta)
 
     lag_update(fade, delta)
     local fade_value = lag_get_value(fade)
+
+    local control_indicator = _call_scene_f("state_update", current.scene, _get_control_indicator_fid)
+    if control_indicator ~= nil then
+        control_indicator_update(control_indicator, delta)
+    end
 
     if self.fade_motion_active then
         if math_greater_than_or_equal(fade_value, _lag_full, 0.001) then
@@ -303,16 +348,20 @@ state_draw = function(self)
     graphics_set_color(0, 0, 0, lag_get_value(self.fade_motion))
     graphics_draw_rectangle(0, 0, graphics_get_window_size())
     graphics_pop_state()
+
+    if current ~= nil then
+        control_indicator_draw(_call_scene_f("state_draw", current.scene, _get_control_indicator_fid))
+    end
 end
 
 state_resize = function(self, w, h)
     log_typecheck(self, State_t, w, Number_t, h, Number_t)
-    upscaler_resize(self.upscaler, w, h)
 
     local current = _get_current(self)
     if current ~= nil then
         _call_scene_f("state_resize", current.scene, _reformat_fid, aabb_new(0, 0, graphics_get_size()))
     end
+    _reformat_control_indicator(self, current ~= nil and current.scene or nil, w, h)
 end
 
 state_get_stage_list = function(self)
@@ -407,7 +456,7 @@ end
 
 state_set_sound_effect_volume = function(self, volume)
     log_typecheck(self, State_t, volume, Number_t)
-    self.sound_effect_volume = math.max(0, math.min(1, volume))
+    self.sound_effect_volume = math_clamp(volume, 0, 1)
 end
 
 state_get_music_volume = function(self)
@@ -417,7 +466,7 @@ end
 
 state_set_music_volume = function(self, volume)
     log_typecheck(self, State_t, volume, Number_t)
-    self.music_volume = math.max(0, math.min(1, volume))
+    self.music_volume = math_clamp(volume, 0, 1)
 end
 
 state_get_shaders_enabled = function(self)
@@ -429,5 +478,3 @@ state_set_shaders_enabled = function(self, b)
     log_typecheck(self, State_t, b, Boolean_t)
     self.shaders_enabled = b
 end
-
-

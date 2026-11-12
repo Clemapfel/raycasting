@@ -10,7 +10,6 @@ input_action_move_right = "right"
 input_action_move_up = "up"
 input_action_move_down = "down"
 input_action_become_liquid = "become_liquid"
-input_action_become_bouncy = "become_bouncy"
 input_action_become_solid = "become_solid"
 input_action_pause = "pause"
 input_action_debug = "debug"
@@ -32,28 +31,33 @@ local _input_action_to_binding = {
         gamepad  = { "a", "back" },
     },
 
+    [input_action_reset] = {
+        keyboard = { "x", "backspace", },
+        gamepad = { "back" }
+    },
+
     [input_action_jump] = {
-        keyboard = {},
+        keyboard = { "space" },
         gamepad  = {},
     },
 
     [input_action_move_left] = {
-        keyboard = { "left", "a" },
+        keyboard = { "a", "left" },
         gamepad  = { "dpleft" },
     },
 
     [input_action_move_right] = {
-        keyboard = { "right", "d" },
+        keyboard = { "d", "right" },
         gamepad  = { "dpright" },
     },
 
     [input_action_move_down] = {
-        keyboard = { "down", "s" },
+        keyboard = { "s", "down" },
         gamepad  = { "dpdown" },
     },
 
     [input_action_move_up] = {
-        keyboard = { "up", "w" },
+        keyboard = { "w", "up" },
         gamepad  = { "dpup" },
     },
 
@@ -62,18 +66,13 @@ local _input_action_to_binding = {
         gamepad  = { "leftshoulder" },
     },
 
-    [input_action_become_bouncy] = {
-        keyboard = { "e", "m", "p" },
-        gamepad  = { "rightshoulder" },
-    },
-
     [input_action_become_solid] = {
-        keyboard = {},
-        gamepad  = {},
+        keyboard = { "2", "e", "m", "p"},
+        gamepad  = { "rightshould"},
     },
 
     [input_action_pause] = {
-        keyboard = { "escap" },
+        keyboard = { "escape" },
         gamepad  = { "start" },
     },
 
@@ -113,24 +112,27 @@ for input_action, entry in pairs(_input_action_to_binding) do
     end
 end
 
-local _input_actions = {
-    [input_action_accept] = true,
-    [input_action_back] = true,
-    [input_action_jump] = true,
-    [input_action_move_left] = true,
-    [input_action_move_right] = true,
-    [input_action_move_up] = true,
-    [input_action_move_down] = true,
-    [input_action_become_liquid] = true,
-    [input_action_become_bouncy] = true,
-    [input_action_become_solid] = true,
-    [input_action_pause] = true,
-    [input_action_click] = true,
-    [input_action_debug] = true,
-}
+local _is_input_action = {}
+for _, action in ipairs({
+    input_action_accept,
+    input_action_back,
+    input_action_reset,
+    input_action_jump,
+    input_action_move_left,
+    input_action_move_right,
+    input_action_move_up,
+    input_action_move_down,
+    input_action_become_liquid,
+    input_action_become_solid,
+    input_action_pause,
+    input_action_click,
+    input_action_debug
+}) do
+    _is_input_action[action] = true
+end
 
 input_is_input_action = function(x)
-    return _input_actions[x] == true
+    return _is_input_action[x] == true
 end
 
 local _keyboard_key_name_mapping = {

@@ -172,7 +172,11 @@ label_init = function(self, text, font_size, style, color, justify_mode, is_outl
     self.font_size = font_size
     self.style = style
     self.font = _get_font(font_size, style)
-    self.text = love.graphics.newText(self.font)
+    if love.getVersion() >= 12 then
+        self.text = love.graphics.newTextBatch(self.font)
+    else
+        self.text = love.graphics.newText(self.font)
+    end
     self.color = color
     self.justify_mode = justify_mode
     self.is_outlined = is_outlined

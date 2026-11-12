@@ -61,6 +61,8 @@ stage_list_export = function(self, in_path, out_path)
 
     local draw_order = 0 -- sequential render priority
     self.stage_id_to_entry = {}
+    self.stage_id_in_order = {}
+    local stage_id_to_priority = {}
 
     local layers = get(config, "layers")
     for layer_i, layer in ipairs(layers) do
@@ -116,6 +118,7 @@ stage_list_export = function(self, in_path, out_path)
                         get(object, "height")
                     )
 
+                    stage_id_to_priority[name] = get(object, "properties").priority or 0
                 elseif class == _contour_t then
                     assert(get(object, "shape") == "polygon", "object has class `", _contour_t, "`, but it is not a polygon")
                     local offset_x = get(object, "x") + layer_offset_x
@@ -207,7 +210,24 @@ stage_list_export = function(self, in_path, out_path)
         end
 
         self.stage_id_to_entry[id] = entry
+
+        table_push(self.stage_id_in_order, id)
     end
+
+    table_stable_sort(self.stage_id_in_order, function(a_id, b_id)
+        local a_priority = stage_id_to_priority[a_id]
+        local b_priority = stage_id_to_priority[b_id]
+
+        if a_priority == nil then
+            log_error("In stage_list_export: no priority for stage `", a_id, "`")
+        end
+
+        if b_priority == nil then
+            log_error("In stage_list_export: no priority for stage `", b_id, "`")
+        end
+
+        return a_priority < b_priority
+    end)
 
     local serialize_success, serialized_or_error = pcall(table_serialize, self)
     if not serialize_success then
@@ -427,7 +447,7 @@ stage_draw = function(self)
         end
 
         graphics_translate(entry.offset_x, entry.offset_y)
-        draw_mesh(entry.draw_mesh)
+        mesh_draw(entry.draw_mesh)
 
         rgba_bind(palette_black)
         graphics_set_line_state(_settings_outline_width)

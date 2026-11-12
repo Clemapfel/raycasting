@@ -3,13 +3,11 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-
 $ProjectRoot = $PSScriptRoot
 
 $BuildDir = Join-Path $ProjectRoot "build"
 $OutDir   = Join-Path $BuildDir "out"
-
-$LoveFile = Join-Path $OutDir "raycasting.love"
+$LoveFile = Join-Path $OutDir "test.love"
 
 $WindowsSource = Join-Path $BuildDir "windows\love12"
 $LinuxSource   = Join-Path $BuildDir "linux\love12"
@@ -18,8 +16,8 @@ $WindowsOut = Join-Path $OutDir "windows"
 $LinuxOut   = Join-Path $OutDir "linux"
 $WebOut     = Join-Path $OutDir "web"
 
-$GameTitle = "Raycasting"
-$ExeName   = "raycasting"
+$GameTitle = "Test"
+$ExeName   = "test"
 
 $Memory = 67108864
 $Port   = 8765

@@ -2,6 +2,7 @@ StageScene_t = "StageScene"
 
 local _settings_player_angular_velocity = math_tau -- radians / s
 local _settings_player_linear_velocity = 100
+local _settings_jump_impulse = 2000
 
 local _item_id_unpause = "unpause"
 local _item_id_respawn = "respawn"
@@ -24,28 +25,22 @@ local _settings_pause_menu_labels_in_order = {
 
 local _settings_pause_menu_font_size = 40 / 800
 
-stage_scene_new = function(stage)
-    local res = object_new(StageScene_t, {
-        stage = stage,
+stage_scene_new = function()
+    return stage_scene_init(object_new(StageScene_t, {
+        stage = nil,
+        stage_id = nil,
         players = {},
-        pause_menu_visible = false,
+        pause_active = false,
 
         mouse_handler = nil,
         pressed_handler = nil
-    })
-
-    if stage ~= nil then
-        log_typecheck(stage, Stage_t)
-        return stage_scene_init(res)
-    else
-        return res
-    end
+    }))
 end
 
 stage_scene_init = function(self)
     log_typecheck(self, StageScene_t)
 
-    -- pause
+    -- pause menu
 
     local w, h = graphics_get_size()
     self.bounds = aabb_new(0, 0, w, h)
@@ -53,9 +48,9 @@ stage_scene_init = function(self)
     local label_max_h = math_negative_inf
     local native_h = graphics_get_height()
 
-    self.selected_i = 1
-    self.n_labels = 0
-    self.menu_label_entries = {}
+    self.pause_selected_i = 1
+    self.pause_n_labels = 0
+    self.pause_entries = {}
     for i, key in ipairs(_settings_pause_menu_labels_in_order) do
         local unselected = label_new(_settings_pause_menu_labels[key], _settings_pause_menu_font_size * native_h, TextStyle.BOLD)
         local selected = label_new(_settings_pause_menu_labels[key], _settings_pause_menu_font_size * native_h, TextStyle.BOLD)
@@ -65,7 +60,7 @@ stage_scene_init = function(self)
         label_set_is_outlined(unselected, true)
         label_set_is_outlined(selected, true)
 
-        table_push(self.menu_label_entries, {
+        table_push(self.pause_entries, {
             unselected_label = unselected,
             selected_label = selected
         })
@@ -76,32 +71,93 @@ stage_scene_init = function(self)
             label_get_height(selected)
         )
 
-        self.n_labels = self.n_labels + 1
+        self.pause_n_labels = self.pause_n_labels + 1
     end
 
-    self.menu_label_height = label_max_h
+    self.pause_menu_label_height = label_max_h
+
+    -- control indicator
+    self.control_indicator = control_indicator_new(
+        input_action_move_up, "Move Up",
+        input_action_move_left, "Move Left",
+        input_action_move_down, "Move Down",
+        input_action_move_right, "Move Right",
+        input_action_jump, "Jump",
+        input_action_become_liquid, "Liquify",
+        input_action_pause, "Pause",
+        input_action_reset, "Reset Stage",
+        "Mouse", "Select Player"
+    )
+
+end
 
     -- proxies for player requests
-    self.left_move_proxy, self.right_move_proxy, self.up_move_proxy, self.down_move_proxy = {}, {}, {}, {}
+
+    self.input_action_to_proxy = {}
+    for action in iter_varargs(
+        input_action_move_up,
+        input_action_move_left,
+        input_action_move_down,
+        input_action_move_right,
+        input_action_jump,
+        input_action_become_liquid,
+        input_action_become_solid,
+        input_action_pause,
+        input_action_reset,
+        "Mouse"
+    ) do
+        self.input_action_to_proxy[action] = {}
+    end
 
     input_disconnect_pressed(self.pressed_handler)
     self.pressed_handler = input_connect_pressed(function(which)
         if state_get_scene_is_active(STATE, self) ~= true then return end
 
-        local active = stage_scene_get_active_players(self)
-        if which == input_action_accept then
-            -- on click: select player
-            for player in iter_values(self.players) do
-                if player_get_is_clickable(player) then
-                    player_set_is_active(player, not player_get_is_active(player))
-                end
+        if self.pause_active then
+            if which == input_action_move_up then
+                self.pause_selected_i = math.max(1, self.pause_selected_i - 1)
+            elseif which == input_action_move_down then
+                self.pause_selected_i = math.min(self.pause_n_labels, self.pause_selected_i + 1)
+            elseif which == input_action_pause then
+                self.pause_active = false
+            elseif which == input_action_accept then
+                local item_id = self.pause_selected_i
             end
-        elseif which == input_action_move_left then
-            iter_map(active, player_request_angular_velocity, self.left_move_proxy, -1 * _settings_player_angular_velocity)
-            iter_map(active, player_request_linear_velocity, self.left_move_proxy, -1 * _settings_player_linear_velocity, 0)
-        elseif which == input_action_move_right then
-            iter_map(active, player_request_angular_velocity, self.right_move_proxy, _settings_player_angular_velocity)
-            iter_map(active, player_request_linear_velocity, self.right_move_proxy, 1 * _settings_player_linear_velocity, 0)
+        else
+            local active = stage_scene_get_active_players(self)
+            if which == input_action_accept then
+                for player in iter_values(self.players) do
+                    if player_get_is_clickable(player) then
+                        player_set_is_active(player, not player_get_is_active(player))
+                    end
+                end
+            elseif which == input_action_move_left then
+                iter_map(active, player_request_linear_velocity, self.input_action_to_proxy[which],
+                    -1 * _settings_player_linear_velocity, 0
+                )
+            elseif which == input_action_move_right then
+                iter_map(active, player_request_linear_velocity, self.input_action_to_proxy[which],
+                    -1 * _settings_player_linear_velocity, 0
+                )
+            elseif which == input_action_move_up then
+                iter_map(active, player_request_linear_velocity, self.input_action_to_proxy[which],
+                    0, -1 * _settings_player_linear_velocity
+                )
+            elseif which == input_action_move_down then
+                iter_map(active, player_request_linear_velocity, self.input_action_to_proxy[which],
+                    0, 1 * _settings_player_linear_velocity
+                )
+            elseif which == input_action_jump then
+                iter_map(active, player_apply_linear_impulse, self.input_action_to_proxy[which],
+                    0, 1 * _settings_jump_impulse
+                )
+            elseif which == input_action_become_liquid then
+                iter_map(active, player_request_constraint_mode, self.input_action_to_proxy[which],
+                    PlayerConstraintMode.LIQUID
+                )
+            elseif which == input_action_pause then
+                self.pause_active = true
+            end
         end
     end)
 
@@ -140,8 +196,6 @@ stage_scene_init = function(self)
         end
     end)
 
-    player_set_is_active(self.players[1], true)
-
     stage_scene_reformat(self, 0, 0, graphics_get_size())
     return self
 end
@@ -151,13 +205,13 @@ stage_scene_reformat = function(self, aabb_or_x, y, w, h)
 
     local m = _global_margin_unit
     local outer_m = _global_outer_margin
-    local label_h = self.menu_label_height + m
+    local label_h = self.pause_menu_label_height + m
 
     local current_x = bounds.x
-    local current_y = bounds.y + bounds.height - outer_m - self.n_labels * label_h
+    local current_y = bounds.y + bounds.height - outer_m - self.pause_n_labels * label_h
 
-    for i = 1, self.n_labels do
-        local entry = self.menu_label_entries[i]
+    for i = 1, self.pause_n_labels do
+        local entry = self.pause_entries[i]
 
         label_set_justify_mode(entry.selected_label, JustifyMode.CENTER)
         label_reformat(entry.selected_label,
@@ -209,7 +263,7 @@ stage_scene_update = function(self, delta)
     end
     stage_update(self.stage, delta)
 
-    for _, entry in ipairs(self.menu_label_entries) do
+    for _, entry in ipairs(self.pause_entries) do
         label_update(entry.selected_label, delta)
         label_update(entry.unselected_label, delta)
     end
@@ -225,9 +279,9 @@ stage_scene_draw = function(self)
         player_draw(player)
     end
 
-    if self.pause_menu_visible then
-        for entry_i, entry in ipairs(self.menu_label_entries) do
-            if entry_i == self.selected_i then
+    if self.pause_active then
+        for entry_i, entry in ipairs(self.pause_entries) do
+            if entry_i == self.pause_selected_i then
                 label_draw(entry.selected_label)
             else
                 label_draw(entry.unselected_label)
@@ -249,16 +303,26 @@ stage_scene_get_active_players = function(self)
     return result
 end
 
-stage_scene_set_pause_menu_visible = function(self, is_visible)
-    log_typecheck(self, StageScene_t)
-    self.pause_menu_visible = is_visible
-    return self
-end
-
 stage_scene_enter = function(self, level_id)
     log_typecheck(self, StageScene_t, level_id, String_t)
-    self.stage = state_get_stage(STATE, level_id)
+    self.id = level_id
+    stage_scene_reset(self)
+    self.pause_active = false
+end
+
+stage_scene_exit = function(self)
+    log_typecheck(self, StageScene_t)
+end
+
+stage_scene_reset = function(self)
+    self.stage = state_get_stage(STATE, self.id)
     local spawn_points = stage_get_spawn_points(self.stage)
+
+    if table_sizeof(spawn_points) < 1 then
+        log_error("In stage_scene_reset: stage `", self.id, "` does not have a spawn point")
+        return
+    end
+
     for i = 1, table_sizeof(spawn_points) do
         local spawn_point = spawn_points[i]
         local x, y, r = spawn_point.x, spawn_point.y, spawn_point.radius
@@ -269,9 +333,11 @@ stage_scene_enter = function(self, level_id)
         end
     end
 
+    player_set_is_active(self.players[1], true)
     stage_reset(self.stage)
 end
 
-stage_scene_exit = function(self)
+stage_scene_get_control_indicator = function(self)
     log_typecheck(self, StageScene_t)
+    return self.control_indicator
 end
