@@ -4,13 +4,30 @@ local _settings_max_n_steps = 4
 local _settings_n_sub_steps = 4
 local _settings_n_constraint_iterations = 4
 
-local _settings_distance_compliance = 2e-6
-local _settings_volume_compliance = 1e-7
-local _settings_collision_contour_compliance = 0
-local _settings_bending_compliance = 1e-5
-local _settings_angular_compliance = 1e-5
-local _settings_linear_compliance = 1e-5
-local _settings_particle_collision_compliance = 0
+local _settings_impulse_decay = 4
+
+local _settings_default_distance_compliance = 2e-6
+local _settings_default_volume_compliance = 1e-7
+local _settings_default_collision_contour_compliance = 0
+local _settings_default_bending_compliance = 1e-5
+local _settings_default_angular_velocity_compliance = 1e-5
+local _settings_default_linear_velocity_compliance = 1e-5
+local _settings_default_particle_collision_compliance = 0
+
+SoftbodyConstraintMode = {
+    LIQUID = "LIQUID",
+    SOLID = "SOLID"
+}
+
+local _constraint_mode_to_compliance_override = {
+    [SoftbodyConstraintMode.SOLID] = {
+
+    },
+
+    [SoftbodyConstraintMode.LIQUID] = {
+        volume_compliance = 0.02
+    }
+}
 
 local _settings_damping = 0.9998
 local _settings_gravity = 5000
@@ -184,9 +201,9 @@ softbody_init = function(self, center_x, center_y, radius, n_contour_nodes)
     self.volume_multiplier = 1.0
 
     self.volume_lambda = 0
-    self.angular_lambda = 0
-    self.linear_lambda_x = 0
-    self.linear_lambda_y = 0
+    self.angular_velocity_lambda = 0
+    self.linear_velocity_lambda_x = 0
+    self.linear_velocity_lambda_y = 0
     self.segment_length = segment_length
 
     self.volume_gradient = _table_new(2 * n_particles)
@@ -196,6 +213,9 @@ softbody_init = function(self, center_x, center_y, radius, n_contour_nodes)
     end
 
     self.collision_contours = _table_new(0)
+
+    self.linear_impulses = {} -- Table<{ magnitude, dx, dy }>
+    self.constraint_mode = SoftbodyConstraintMode.SOLID
 
     self.mesh = mesh
     self.mesh_data = mesh_data
@@ -287,7 +307,7 @@ softbody_set_collision_contours = function(self, contours)
 end
 
 softbody_set_texture = function(self, texture)
-    log_typecheck_arg_i(self, SoftBody_t, texture, Texture_t)
+    log_typecheck_arg_i(self, SoftBody_t, texture, Optional_t(Texture_t))
     self.mesh_texture = texture
     mesh_set_texture(self.mesh, texture)
 end
@@ -754,14 +774,17 @@ do -- softbody_update
         local n_sub_steps = _settings_n_sub_steps
         local n_constraint_iterations = _settings_n_constraint_iterations
 
-        local volume_alpha = _settings_volume_compliance / (sub_delta * sub_delta)
-        local line_alpha = _settings_collision_contour_compliance / (sub_delta * sub_delta)
-        local distance_alpha = _settings_distance_compliance / (sub_delta * sub_delta)
-        local bending_alpha = _settings_bending_compliance / (sub_delta * sub_delta)
-        local angular_alpha = _settings_angular_compliance / (sub_delta * sub_delta)
-        local linear_alpha = _settings_linear_compliance / (sub_delta * sub_delta)
+        local override = _constraint_mode_to_compliance_override[self.constraint_mode]
 
-        local ps = self.particles
+        local sub_delta_sq = (sub_delta * sub_delta)
+        local volume_alpha  = (override.volume_compliance  or _settings_default_volume_compliance) / sub_delta_sq
+        local contour_alpha = (override.contour_compliance or _settings_default_collision_contour_compliance) / sub_delta_sq
+        local distance_alpha = (override.distance_compliance or _settings_default_distance_compliance) / sub_delta_sq
+        local bending_alpha = (override.bending_compliance or _settings_default_bending_compliance) / sub_delta_sq
+        local angular_alpha = (override.angular_velocity_compliance or _settings_default_angular_velocity_compliance) / sub_delta_sq
+        local linear_alpha = (override.linear_velocity_compliance or _settings_default_linear_velocity_compliance) / sub_delta_sq
+
+        local data = self.particles
         local n_particles = self.n_particles
         local segment_length = self.segment_length
         local collision_contours = self.collision_contours
@@ -776,11 +799,32 @@ do -- softbody_update
             self.elapsed = self.elapsed - timestep
             n_steps = n_steps + 1
 
+            local impulse_dx, impulse_dy = 0, 0
+            local impulse_sub_dx, impulse_sub_dy = 0, 0
+            do
+                local to_remove = {}
+                for entry_i, entry in ipairs(self.linear_impulses) do
+                    impulse_dx = impulse_dx + entry.dx * entry.magnitude
+                    impulse_dy = impulse_dy + entry.dy * entry.magnitude
+                    entry.magnitude = entry.magnitude * math.exp(-_settings_impulse_decay * timestep)
+                    if math.less_than_or_equal(entry.magnitude, 0.01) then
+                        table_push_front(to_remove, entry_i)
+                    end
+                end
+
+                for _, entry_i in ipairs(to_remove) do
+                    table_remove(self.linear_impulses, entry_i)
+                end
+
+                impulse_sub_dx = impulse_dx / n_sub_steps
+                impulse_sub_dy = impulse_dy / n_sub_steps
+            end
+
             -- snapshot for frame interpolation
             for particle_i = 1, n_particles do
                 local i = _particle_i_to_data_offset(particle_i)
-                ps[i + _snapshot_x_offset] = ps[i + _x_offset]
-                ps[i + _snapshot_y_offset] = ps[i + _y_offset]
+                data[i + _snapshot_x_offset] = data[i + _x_offset]
+                data[i + _snapshot_y_offset] = data[i + _y_offset]
             end
 
             for _ = 1, n_sub_steps do
@@ -799,33 +843,33 @@ do -- softbody_update
                     local new_position_x, new_position_y,
                     new_velocity_x, new_velocity_y,
                     previous_x, previous_y = _pre_solve(
-                        ps[i + _x_offset],
-                        ps[i + _y_offset],
-                        ps[i + _velocity_x_offset],
-                        ps[i + _velocity_y_offset],
-                        ps[i + _mass_offset],
+                        data[i + _x_offset],
+                        data[i + _y_offset],
+                        data[i + _velocity_x_offset],
+                        data[i + _velocity_y_offset],
+                        data[i + _mass_offset],
                         gravity_direction_x * gravity,
                         gravity_direction_y * gravity,
                         damping,
                         sub_delta
                     )
 
-                    ps[i + _x_offset] = new_position_x
-                    ps[i + _y_offset] = new_position_y
-                    ps[i + _velocity_x_offset] = new_velocity_x
-                    ps[i + _velocity_y_offset] = new_velocity_y
-                    ps[i + _previous_x_offset] = previous_x
-                    ps[i + _previous_y_offset] = previous_y
+                    data[i + _x_offset] = new_position_x
+                    data[i + _y_offset] = new_position_y
+                    data[i + _velocity_x_offset] = new_velocity_x
+                    data[i + _velocity_y_offset] = new_velocity_y
+                    data[i + _previous_x_offset] = previous_x
+                    data[i + _previous_y_offset] = previous_y
 
-                    ps[i + _distance_lambda_offset] = 0
-                    ps[i + _bending_lambda_offset] = 0
-                    ps[i + _polygon_lambda_offset] = 0
+                    data[i + _distance_lambda_offset] = 0
+                    data[i + _bending_lambda_offset] = 0
+                    data[i + _polygon_lambda_offset] = 0
                 end
 
                 self.volume_lambda = 0
-                self.angular_lambda = 0
-                self.linear_lambda_x = 0
-                self.linear_lambda_y = 0
+                self.angular_velocity_lambda = 0
+                self.linear_velocity_lambda_x = 0
+                self.linear_velocity_lambda_y = 0
 
                 for _ = 1, n_constraint_iterations do
                     -- distance: pair wise
@@ -836,22 +880,22 @@ do -- softbody_update
                         local correction_ax, correction_ay,
                         correction_bx, correction_by,
                         lambda_new = _enforce_exact_distance(
-                            ps[ai + _x_offset], ps[ai + _y_offset],
-                            ps[bi + _x_offset], ps[bi + _y_offset],
-                            ps[ai + _inverse_mass_offset],
-                            ps[bi + _inverse_mass_offset],
+                            data[ai + _x_offset], data[ai + _y_offset],
+                            data[bi + _x_offset], data[bi + _y_offset],
+                            data[ai + _inverse_mass_offset],
+                            data[bi + _inverse_mass_offset],
                             segment_length,
                             distance_alpha,
-                            ps[ai + _distance_lambda_offset]
+                            data[ai + _distance_lambda_offset]
                         )
 
-                        ps[ai + _x_offset] = ps[ai + _x_offset] + correction_ax
-                        ps[ai + _y_offset] = ps[ai + _y_offset] + correction_ay
+                        data[ai + _x_offset] = data[ai + _x_offset] + correction_ax
+                        data[ai + _y_offset] = data[ai + _y_offset] + correction_ay
 
-                        ps[bi + _x_offset] = ps[bi + _x_offset] + correction_bx
-                        ps[bi + _y_offset] = ps[bi + _y_offset] + correction_by
+                        data[bi + _x_offset] = data[bi + _x_offset] + correction_bx
+                        data[bi + _y_offset] = data[bi + _y_offset] + correction_by
 
-                        ps[ai + _distance_lambda_offset] = lambda_new
+                        data[ai + _distance_lambda_offset] = lambda_new
                     end
 
                     -- bending: triplets
@@ -864,31 +908,31 @@ do -- softbody_update
                         correction_bx, correction_by,
                         correction_cx, correction_cy,
                         lambda_new = _enforce_bending(
-                            ps[ai + _x_offset], ps[ai + _y_offset],
-                            ps[bi + _x_offset], ps[bi + _y_offset],
-                            ps[ci + _x_offset], ps[ci + _y_offset],
-                            ps[ai + _inverse_mass_offset],
-                            ps[bi + _inverse_mass_offset],
-                            ps[ci + _inverse_mass_offset],
+                            data[ai + _x_offset], data[ai + _y_offset],
+                            data[bi + _x_offset], data[bi + _y_offset],
+                            data[ci + _x_offset], data[ci + _y_offset],
+                            data[ai + _inverse_mass_offset],
+                            data[bi + _inverse_mass_offset],
+                            data[ci + _inverse_mass_offset],
                             bending_alpha,
-                            ps[ai + _bending_lambda_offset]
+                            data[ai + _bending_lambda_offset]
                         )
 
-                        ps[ai + _x_offset] = ps[ai + _x_offset] + correction_ax
-                        ps[ai + _y_offset] = ps[ai + _y_offset] + correction_ay
+                        data[ai + _x_offset] = data[ai + _x_offset] + correction_ax
+                        data[ai + _y_offset] = data[ai + _y_offset] + correction_ay
 
-                        ps[bi + _x_offset] = ps[bi + _x_offset] + correction_bx
-                        ps[bi + _y_offset] = ps[bi + _y_offset] + correction_by
+                        data[bi + _x_offset] = data[bi + _x_offset] + correction_bx
+                        data[bi + _y_offset] = data[bi + _y_offset] + correction_by
 
-                        ps[ci + _x_offset] = ps[ci + _x_offset] + correction_cx
-                        ps[ci + _y_offset] = ps[ci + _y_offset] + correction_cy
+                        data[ci + _x_offset] = data[ci + _x_offset] + correction_cx
+                        data[ci + _y_offset] = data[ci + _y_offset] + correction_cy
 
-                        ps[ai + _bending_lambda_offset] = lambda_new
+                        data[ai + _bending_lambda_offset] = lambda_new
                     end
 
                     -- volume
                     self.volume_lambda = _enforce_volume(
-                        ps, n_particles,
+                        data, n_particles,
                         self.volume_gradient,
                         self.volume,
                         volume_alpha,
@@ -896,19 +940,20 @@ do -- softbody_update
                     )
 
                     -- rotation
-                    self.angular_lambda = _enforce_angular_momentum(
-                        ps, n_particles,
+                    self.angular_velocity_lambda = _enforce_angular_momentum(
+                        data, n_particles,
                         self.angular_velocity, sub_delta,
                         angular_alpha,
-                        self.angular_lambda
+                        self.angular_velocity_lambda
                     )
 
-                    self.linear_lambda_x, self.linear_lambda_y = _enforce_linear_momentum(
-                        ps, n_particles,
+                    -- velocity
+                    self.linear_velocity_lambda_x, self.linear_velocity_lambda_y = _enforce_linear_momentum(
+                        data, n_particles,
                         self.linear_velocity_x, self.linear_velocity_y,
                         sub_delta,
                         linear_alpha,
-                        self.linear_lambda_x, self.linear_lambda_y
+                        self.linear_velocity_lambda_x, self.linear_velocity_lambda_y
                     )
                 end
 
@@ -923,17 +968,17 @@ do -- softbody_update
                         for particle_i = 1, n_particles do
                             local i = _particle_i_to_data_offset(particle_i)
                             local correction_x, correction_y, lambda_new = _enforce_polygon_collision(
-                                ps[i + _x_offset], ps[i + _y_offset],
-                                ps[i + _inverse_mass_offset],
-                                ps[i + _radius_offset],
+                                data[i + _x_offset], data[i + _y_offset],
+                                data[i + _inverse_mass_offset],
+                                data[i + _radius_offset],
                                 edges, n_edges,
-                                line_alpha,
+                                contour_alpha,
                                 lambdas[particle_i],
                                 polyline_get_winding(entry.contour)
                         )
 
-                            ps[i + _x_offset] = ps[i + _x_offset] + correction_x
-                            ps[i + _y_offset] = ps[i + _y_offset] + correction_y
+                            data[i + _x_offset] = data[i + _x_offset] + correction_x
+                            data[i + _y_offset] = data[i + _y_offset] + correction_y
                             lambdas[particle_i] = lambda_new
                         end
                     end
@@ -942,20 +987,20 @@ do -- softbody_update
                 -- post solve
                 for particle_i = 1, n_particles do
                     local i = _particle_i_to_data_offset(particle_i)
-                    local x, y = ps[i + _x_offset], ps[i + _y_offset]
+                    local x, y = data[i + _x_offset], data[i + _y_offset]
 
                     local new_position_x, new_position_y,
                     new_velocity_x, new_velocity_y = _post_solve(
                         x, y,
-                        ps[i + _previous_x_offset],
-                        ps[i + _previous_y_offset],
+                        data[i + _previous_x_offset],
+                        data[i + _previous_y_offset],
                         sub_delta
                     )
 
-                    ps[i + _x_offset] = new_position_x
-                    ps[i + _y_offset] = new_position_y
-                    ps[i + _velocity_x_offset] = new_velocity_x
-                    ps[i + _velocity_y_offset] = new_velocity_y
+                    data[i + _x_offset] = new_position_x
+                    data[i + _y_offset] = new_position_y
+                    data[i + _velocity_x_offset] = new_velocity_x
+                    data[i + _velocity_y_offset] = new_velocity_y
                 end
             end
         end
@@ -967,14 +1012,14 @@ do -- softbody_update
         for particle_i = 1, n_particles do
             local i = _particle_i_to_data_offset(particle_i)
 
-            local prev_x, prev_y = ps[i + _snapshot_x_offset], ps[i + _snapshot_y_offset]
-            local curr_x, curr_y = ps[i + _x_offset], ps[i + _y_offset]
+            local prev_x, prev_y = data[i + _snapshot_x_offset], data[i + _snapshot_y_offset]
+            local curr_x, curr_y = data[i + _x_offset], data[i + _y_offset]
 
             local x = prev_x + (curr_x - prev_x) * alpha
             local y = prev_y + (curr_y - prev_y) * alpha
 
-            ps[i + _draw_x_offset] = x
-            ps[i + _draw_y_offset] = y
+            data[i + _draw_x_offset] = x
+            data[i + _draw_y_offset] = y
 
             mesh_centroid_x = mesh_centroid_x + x
             mesh_centroid_y = mesh_centroid_y + y
@@ -990,8 +1035,8 @@ do -- softbody_update
             local ai = _particle_i_to_data_offset(particle_i)
             local bi = _particle_i_to_data_offset(particle_i + 1, n_particles)
 
-            local ax, ay = ps[ai + _draw_x_offset], ps[ai + _draw_y_offset]
-            local bx, by = ps[bi + _draw_x_offset], ps[bi + _draw_y_offset]
+            local ax, ay = data[ai + _draw_x_offset], data[ai + _draw_y_offset]
+            local bx, by = data[bi + _draw_x_offset], data[bi + _draw_y_offset]
 
             local mesh_i = (particle_i - 1) * 3 + 1
 
@@ -1014,8 +1059,8 @@ do -- softbody_update
             local i = _particle_i_to_data_offset(particle_i)
             local contour_i = (particle_i - 1) * 2 + 1
 
-            contour_vertices[contour_i + 0] = ps[i + _x_offset]
-            contour_vertices[contour_i + 1] = ps[i + _y_offset]
+            contour_vertices[contour_i + 0] = data[i + _x_offset]
+            contour_vertices[contour_i + 1] = data[i + _y_offset]
         end
 
         contour_vertices[n_particles * 2 + 1] = contour_vertices[1]
@@ -1025,12 +1070,14 @@ do -- softbody_update
     end
 end
 
+-- linear
+
 softbody_set_target_linear_velocity = function(self, dx, dy)
     log_typecheck(self, SoftBody_t, dx, Number_t, dy, Number_t)
     self.linear_velocity_x = dx
     self.linear_velocity_y = dy
-    self.linear_lambda_x = 0
-    self.linear_lambda_y = 0
+    self.linear_velocity_lambda_x = 0
+    self.linear_velocity_lambda_y = 0
 end
 
 softbody_get_target_linear_velocity = function(self)
@@ -1038,16 +1085,20 @@ softbody_get_target_linear_velocity = function(self)
     return self.linear_velocity_x, self.linear_velocity_y
 end
 
+-- angular
+
 softbody_set_target_angular_velocity = function(self, dtheta) -- signed radians / s
     log_typecheck(self, SoftBody_t, dtheta, Number_t)
     self.angular_velocity = dtheta
-    self.angular_lambda = 0
+    self.angular_velocity_lambda = 0
 end
 
 softbody_get_target_angular_velocity = function(self)
     log_typecheck(self, SoftBody_t)
     return self.angular_velocity
 end
+
+-- volume
 
 softbody_set_target_volume = function(self, fraction) -- fraction
     log_typecheck(self, SoftBody_t, fraction, Number_t)
@@ -1059,4 +1110,35 @@ softbody_get_target_volume = function(self)
     log_typecheck(self, SoftBody_t)
     return self.volume_multiplier
 end
+
+-- impulse
+
+softbody_apply_linear_impulse = function(self, dx, dy)
+    log_typecheck(self, SoftBody_t, dx, Number_t, dy, Number_t)
+    local magnitude = math_magnitude(dx, dy)
+    dx, dy = math_normalize(dx, dy)
+    if math_greater_than(magnitude, 0) then
+        table_push(self.linear_impulses, {
+            magnitude = magnitude,
+            dx = dx,
+            dy = dy
+        })
+    end
+end
+
+-- mode
+
+softbody_set_constraint_mode = function(self, mode)
+    log_typecheck(self, SoftBody_t)
+    log_enumcheck(mode, SoftbodyConstraintMode)
+
+    self.constraint_mode = mode
+end
+
+softbody_get_constraint_mode = function(self)
+    log_typecheck(self, SoftyBody_t)
+
+    return self.constraint_mode
+end
+
 
