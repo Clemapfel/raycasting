@@ -7,6 +7,7 @@ require "common.delaunay_triangulation"
 local _instance = rt.DelaunayTriangulation()
 
 rt.math.triangulate = function(points, use_speedup)
+    if use_speedup == nil then use_speedup = true end
     local success, out = pcall(love.math.triangulate, points)
     if not success then
         if use_speedup then

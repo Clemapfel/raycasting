@@ -1,4 +1,20 @@
 table_push = table.insert
+
+table_push_front = function(t, x)
+    table.insert(t, 1, x)
+end
+table_push_back = function(t, x)
+    table.insert(t, x)
+end
+
+table_pop_front = function(t)
+    return table.remove(t, 1)
+end
+
+table_pop_back = function(t)
+    return table.remove(t, #t)
+end
+
 table_remove = table.remove
 
 local _g_table_new

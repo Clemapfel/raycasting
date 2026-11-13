@@ -178,9 +178,9 @@ stage_list_export = function(self, in_path, out_path)
 
         for contour_i, contour in ipairs(contours) do
             if aabb_overlaps_polyline(bounds, contour) then
-                table_push(entry.contours, object_copy(polyline_translate( -- offset to origin
-                    contour, -bounds.x, -bounds.y
-                )))
+                table_push(entry.contours, polyline_translate( -- offset to origin
+                    object_copy(contour), -bounds.x, -bounds.y
+                ))
                 table_push(entry.contour_windings, polyline_get_winding(contour))
             end
         end

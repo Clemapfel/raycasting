@@ -1,12 +1,7 @@
 Player_t = "Player"
 
-PlayerConstraintMode = {
-    LIQUID = "LIQUID",
-    SOLID = "SOLID"
-}
-
-local _settings_min_node_count = 16
-local _settings_node_density = 1 / 40
+local _settings_min_node_count = 32
+local _settings_node_density = 1 / 5
 local _settings_outline_width = 4
 
 player_new = function(...)
@@ -20,6 +15,7 @@ player_new = function(...)
         linear_velocity_requests = {}, -- Table<Any, { dx, dy }>
         angular_velocity_requests = {}, -- Table<Any, { theta }>
         volume_requests = {}, -- Table<Any, { volume }>
+        constraint_mode_requests = {}, -- Table<Any, { mode }>
 
         is_active = false,
         is_clickable = false,
@@ -67,10 +63,22 @@ player_update = function(self, delta)
         volume = volume * entry.volume
     end
 
-    softbody_set_target_linear_velocity(self.body, dx, dy)
-    softbody_set_target_angular_velocity(self.body, theta)
-    softbody_set_target_volume(self.body, volume)
+    local mode = SoftbodyConstraintMode.SOLID
+    for entry in iter_values(self.constraint_mode_requests) do
+        if entry.mode == SoftbodyConstraintMode.LIQUID then
+            mode = SoftbodyConstraintMode.LIQUID
+            break
+        end
+    end
 
+    softbody_remove_linear_force(self.body, self.softbody_linear_force)
+    self.softbody_linear_force = softbody_add_linear_force(self.body, dx, dy)
+
+    softbody_remove_angular_force(self.body, self.softbody_angular_force)
+    self.softbody_angular_force = softbody_add_angular_force(self.body, 0)
+
+    softbody_set_target_volume(self.body, volume)
+    softbody_set_constraint_mode(self.body, mode)
     softbody_update(self.body, delta)
 
     return self
@@ -146,13 +154,26 @@ player_request_volume_multiplier = function(self, instance, fraction)
     return self
 end
 
-player_apply_linear_impulse = function(self)
-    log_typecheck(self, Player_t)
-end
+player_request_constraint_mode = function(self, instance, mode)
+    log_typecheck(self, Player_t, instance, Table_t)
+    if mode ~= nil then
+        log_enumcheck(mode, SoftbodyConstraintMode, 3)
+    end
 
-player_set_constraint_mode = function(self, constraint_mode)
-    log_typecheck(self, Player_t)
-    log_checkenum(constraint_mode, PlayerConstraintMode)
+    if mode == nil then
+        self.constraint_mode_requests[instance] = nil
+    else
+        local current = self.constraint_mode_requests[instance]
+        if current ~= nil then
+            current.mode = mode
+        else
+            self.constraint_mode_requests[instance] = {
+                mode = mode
+            }
+        end
+    end
+
+    return self
 end
 
 player_clear_linear_velocity_requests = function(self)
@@ -176,11 +197,28 @@ player_clear_volume_requests = function(self)
     return self
 end
 
+player_clear_constraint_mode_requests = function(self)
+    log_typecheck(self, Player_t)
+
+    table_clear(self.constraint_mode_requests)
+    return self
+end
+
 player_set_collision_contours = function(self, contours)
     log_typecheck(self, Player_t, contours, Table_t)
     softbody_set_collision_contours(self.body, contours)
 
     return self
+end
+
+player_apply_linear_impulse = function(self, dx, dy)
+    log_typecheck(self, Player_t, dx, Number_t, dy, Number_t)
+    softbody_add_linear_impulse(self.body, dx, dy)
+end
+
+player_set_gravity = function(self, dx, dy)
+    log_typecheck(self, Player_t, dx, Number_t, dy, Number_t)
+    softbody_set_gravity(self.body, dx, dy)
 end
 
 player_set_is_clickable = function(self, b)
@@ -210,12 +248,22 @@ player_draw = function(self)
 
     local outline = softbody_get_draw_contour(self.body)
 
+    local vertices = polyline_get_vertices(outline)
+    if self.triangulator == nil then
+        self.triangulator = delaunay_new()
+    end
+
+    local tris = delaunay_triangulate(self.triangulator, vertices, vertices)
+
     if self.is_active then
         graphics_set_color(palette_get_current_color())
     else
         graphics_set_color(palette_white)
     end
-    mesh_draw(softbody_get_draw_mesh(self.body))
+
+    for tri in iter_values(tris) do
+        graphics_draw_polygon(tri)
+    end
 
     rgba_bind(palette_black)
     graphics_set_line_state(_settings_outline_width + 2)
@@ -239,8 +287,7 @@ player_get_player_collision_contour = function(self)
 end
 
 player_set_texture = function(self, texture)
-    log_typecheck(self, Player_t, texture, Texture_t)
-    softbody_set_texture(self.body, texture)
+    log_typecheck(self, Player_t, texture, Optional_t(Texture_t))
 end
 
 

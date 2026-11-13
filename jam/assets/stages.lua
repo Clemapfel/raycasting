@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 9,
-  nextobjectid = 1309,
+  nextobjectid = 1311,
   properties = {},
   tilesets = {},
   layers = {
@@ -76,7 +76,7 @@ return {
       objects = {
         {
           id = 1295,
-          name = "stage_01",
+          name = "jump_introduction",
           type = "Stage",
           shape = "rectangle",
           x = -320,
@@ -87,8 +87,8 @@ return {
           opacity = 1,
           visible = true,
           properties = {
-            ["name"] = "First Steps",
-            ["priority"] = -2
+            ["name"] = "First Jumps",
+            ["priority"] = -3
           }
         },
         {
@@ -107,20 +107,22 @@ return {
             { x = 16, y = -16 },
             { x = 16, y = 80 },
             { x = -96, y = 80 },
-            { x = -160, y = 128 },
-            { x = -160, y = 160 },
-            { x = 16, y = 160 },
-            { x = 16, y = 752 },
-            { x = -96, y = 752 },
-            { x = -96, y = 272 },
-            { x = -272, y = 272 },
+            { x = -177.985, y = 128 },
+            { x = -218.726, y = 341.681 },
+            { x = -197.453, y = 429.514 },
+            { x = -48, y = 432 },
+            { x = -48, y = 512 },
+            { x = -224, y = 512 },
             { x = -400, y = 416 },
-            { x = -496, y = 416 },
+            { x = -473.813, y = 416 },
+            { x = -544, y = 384 },
+            { x = -544, y = 544 },
             { x = -496, y = 752 },
             { x = -752, y = 752 },
             { x = -752, y = 160 },
-            { x = -208, y = 160 },
-            { x = -208, y = 128 },
+            { x = -288.228, y = 364.398 },
+            { x = -228.727, y = 338.454 },
+            { x = -188.391, y = 127.82 },
             { x = -272, y = 80 },
             { x = -752, y = 80 },
             { x = -752, y = -16 }
@@ -270,9 +272,11 @@ return {
           opacity = 1,
           visible = true,
           polygon = {
-            { x = 0, y = 0 },
+            { x = -64, y = -16 },
             { x = -64, y = 192 },
-            { x = 416, y = 96 }
+            { x = 384, y = 0 },
+            { x = 240, y = -128 },
+            { x = 176, y = 16 }
           },
           properties = {}
         }
@@ -319,26 +323,28 @@ return {
           }
         },
         {
-          id = 1298,
+          id = 1299,
           name = "",
           type = "Spawn",
           shape = "point",
-          x = 416,
-          y = -128,
+          x = 61.3759,
+          y = -138.638,
           width = 0,
           height = 0,
           rotation = 0,
           opacity = 1,
           visible = true,
-          properties = {}
+          properties = {
+            ["radius"] = 60
+          }
         },
         {
-          id = 1299,
+          id = 1309,
           name = "",
           type = "Spawn",
           shape = "point",
-          x = -256,
-          y = -128,
+          x = 984.043,
+          y = 78.0142,
           width = 0,
           height = 0,
           rotation = 0,

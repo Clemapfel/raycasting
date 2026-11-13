@@ -98,35 +98,42 @@ local function _flush_fade(self)
     end
 end
 
-local function _reformat_control_indicator(self, scene, window_width, window_height)
-    window_width = window_width or graphics_get_window_width()
-    window_height = window_height or graphics_get_window_height()
-
+local function _reformat_control_indicator(self)
+    local window_width = graphics_get_window_width()
+    local window_height = graphics_get_window_height()
     local graphics_width, graphics_height = graphics_get_size()
-    local letterbox = (window_width - graphics_width) / 2 -- width of one side bar
-    local offset = 0
+    local letterbox = (window_width - graphics_width) / 2
+    local top = (window_height - graphics_height) / 2
 
-    if scene ~= nil then
+    local min_x, min_y = math_positive_inf, math_positive_inf
+    local max_x, max_y = math_negative_inf, math_negative_inf
+
+    for _, scene in pairs(self.scene_t_to_scene) do
         local indicator = _call_scene_f("_reformat_control_indicator", scene, _get_control_indicator_fid)
-        if not object_isa(indicator, ControlIndicator_t) then
-            log_error("In _reformat_control_indicator: scene `", scene.type, "` does not return a `ControlIndicator`")
-        else
+        if object_isa(indicator, ControlIndicator_t) then
             control_indicator_reformat(indicator,
-                _global_outer_margin,
-                _global_outer_margin,
-                letterbox,
-                window_height
+                _global_outer_margin, _global_outer_margin,
+                letterbox, window_height
             )
-
-            local bounds = control_indicator_get_bounds(indicator)
-            local top = (window_height - graphics_height) / 2
-            local overlaps_y = bounds.y < top + graphics_height and bounds.y + bounds.height > top
-
-            if overlaps_y then
-                local wanted = (bounds.x + bounds.width) - letterbox
-                offset = math_clamp(wanted, 0, math_max(letterbox, 0))
-            end
+            local b = control_indicator_get_bounds(indicator)
+            min_x = math.min(min_x, b.x)
+            min_y = math.min(min_y, b.y)
+            max_x = math.max(max_x, b.x + b.width)
+            max_y = math.max(max_y, b.y + b.height)
         end
+    end
+
+    local bounds = aabb_new(0, 0, 0, 0)
+    if min_x ~= math_positive_inf then
+        bounds = aabb_new(min_x, min_y, (max_x - min_x) + _global_outer_margin, max_y - min_y)
+    end
+    self.control_indicator_bounds = bounds
+
+    local offset = 0
+    local overlaps_y = bounds.y < top + graphics_height and bounds.y + bounds.height > top
+    if overlaps_y then
+        local wanted = (bounds.x + bounds.width) - letterbox
+        offset = math_clamp(wanted, 0, math_max(letterbox, 0))
     end
 
     upscaler_resize(self.upscaler, window_width + 2 * offset, window_height)
@@ -173,6 +180,8 @@ state_init = function(self)
         love.filesystem.unmountFullPath(to_mount)
     end
 
+    self.control_indicator_bounds = aabb_new(0, 0, 1, 1)
+
     -- allocate stages
     stage_list_init(stage_list, (DEBUG and "jam/" or "") .. "assets/stages_exported.lua")
     self.stage_list = stage_list
@@ -185,7 +194,7 @@ state_init = function(self)
     end
 
     -- skin
-    self.active_skin = nil -- Texture_t
+    self.player_skin = nil
 
     -- preallocate scenes
     self.scene_t_to_scene = {}
@@ -357,10 +366,29 @@ end
 state_resize = function(self, w, h)
     log_typecheck(self, State_t, w, Number_t, h, Number_t)
 
+    local indicator_bounds = aabb_new(0, 0, 0, 0)
     local current = _get_current(self)
     if current ~= nil then
         _call_scene_f("state_resize", current.scene, _reformat_fid, aabb_new(0, 0, graphics_get_size()))
+        local indicators = { _call_scene_f("state_resize", current.scene, _get_control_indicator_fid) }
+
+        local min_x, min_y = math_positive_inf, math_positive_inf
+        local max_x, max_y = math_negative_inf, math_negative_inf
+
+        for indicator in iter_values(indicators) do
+            local other = control_indicator_get_bounds(indicator)
+            min_x = math.min(min_x, other.x)
+            min_y = math.min(min_y, other.y)
+            max_x = math.max(max_x, other.x + other.width)
+            max_y = math.max(max_y, other.y + other.height)
+        end
+
+        if min_x ~= math_positive_inf then
+            indicator_bounds = aabb_init(indicator_bounds, min_x, min_y, max_x - min_x, max_y - min_y)
+        end
     end
+
+    self.control_indicator_bounds = indicator_bounds
     _reformat_control_indicator(self, current ~= nil and current.scene or nil, w, h)
 end
 
@@ -422,14 +450,14 @@ state_get_stage_is_completed = function(self, id)
     end
 end
 
-state_set_active_skin = function(self, texture)
+state_set_player_skin = function(self, texture)
     log_typecheck(self, State_t, texture, Texture_t)
-    self.active_skin = texture
+    self.player_skin = texture
 end
 
-state_get_active_skin = function(self)
+state_get_player_skin = function(self)
     log_typecheck(self, State_t)
-    return self.active_skin
+    return self.player_skin
 end
 
 state_allocate_scenes = function(self)
@@ -447,6 +475,8 @@ state_allocate_scenes = function(self)
         [StageSelectScene_t] = stage_select_scene_new(self.stage_list),
         [SettingsScene_t] = settings_scene_new()
     }
+
+    state_set_player_skin(self, skin_select_scene_get_selected_skin(self.scene_t_to_scene[SkinSelectScene_t]))
 end
 
 state_get_sound_effect_volume = function(self)

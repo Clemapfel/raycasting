@@ -160,7 +160,7 @@ skin_select_scene_init = function(self)
         elseif which == input_action_accept then
             local current = self.entries[self.selected_entry_i]
             audio_replay_sound(self, SoundID.menu_accept)
-            state_set_active_skin(STATE, current.texture)
+            state_set_player_skin(STATE, current.texture)
         elseif which == input_action_back then
             state_pop_scene(STATE)
         end
@@ -345,4 +345,9 @@ end
 
 skin_select_scene_exit = function(self)
     log_typecheck(self, SkinSelectScene_t)
+end
+
+skin_select_scene_get_selected_skin = function(self)
+    log_typecheck(self, SkinSelectScene_t)
+    return self.entries[self.selected_entry_i].texture
 end

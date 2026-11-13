@@ -62,7 +62,7 @@ local _input_action_to_binding = {
     },
 
     [input_action_become_liquid] = {
-        keyboard = { "1", "q", "n", "o" },
+        keyboard = { "g", "1", "q", "n", "o" },
         gamepad  = { "leftshoulder" },
     },
 
@@ -376,12 +376,12 @@ end
 
 love.keypressed = function(key, scancode, isrepeat)
     _input_method = InputMethod.KEYBOARD
-    _emit_pressed(scancode, InputMethod.KEYBOARD)
+    _emit_pressed(key, InputMethod.KEYBOARD)
 end
 
 love.keyreleased = function(key, scancode)
     _input_method = InputMethod.KEYBOARD
-    _emit_released(scancode, InputMethod.KEYBOARD)
+    _emit_released(key, InputMethod.KEYBOARD)
 end
 
 love.gamepadpressed = function(joystick, button)

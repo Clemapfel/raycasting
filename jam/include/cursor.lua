@@ -18,10 +18,7 @@ end
 
 cursor_set_type = function(cursor_type)
     local self = _instance -- was a global assignment before
-    log_typecheck(cursor_type, String_t)
-    if CursorType[cursor_type] == nil then -- key = value for enum
-        log_error("In cursor_set_type: invalid cursor type `", cursor_type, "`")
-    end
+    log_enumcheck(cursor_type, CursorType)
     self.cursor_type = cursor_type
     return self
 end

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="9" nextobjectid="1309">
+<map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="9" nextobjectid="1311">
  <editorsettings>
   <export target="stages.lua" format="lua"/>
  </editorsettings>
@@ -19,7 +19,7 @@
    <properties>
     <property name="winding" type="bool" value="false"/>
    </properties>
-   <polygon points="16,-16 16,80 -96,80 -160,128 -160,160 16,160 16,752 -96,752 -96,272 -272,272 -400,416 -496,416 -496,752 -752,752 -752,160 -208,160 -208,128 -272,80 -752,80 -752,-16"/>
+   <polygon points="16,-16 16,80 -96,80 -177.985,128 -218.726,341.681 -197.453,429.514 -48,432 -48,512 -224,512 -400,416 -473.813,416 -544,384 -544,544 -496,752 -752,752 -752,160 -288.228,364.398 -228.727,338.454 -188.391,127.82 -272,80 -752,80 -752,-16"/>
   </object>
   <object id="1300" name="stage_02" type="Stage" x="688" y="-224" width="800" height="1200">
    <properties>
@@ -62,7 +62,7 @@
    </properties>
   </object>
   <object id="1308" type="Contour" x="912" y="96">
-   <polygon points="0,0 -64,192 416,96"/>
+   <polygon points="-64,-16 -64,192 384,0 240,-128 176,16"/>
   </object>
  </objectgroup>
  <objectgroup id="6" name="foreground">
@@ -72,10 +72,13 @@
    </properties>
    <polygon points="-32,-32 -80,48 -128,48 -176,-32 -192,-32 -192,128 -16,128 -16,-32"/>
   </object>
-  <object id="1298" type="Spawn" x="416" y="-128">
+  <object id="1299" type="Spawn" x="61.3759" y="-138.638">
+   <properties>
+    <property name="radius" type="float" value="60"/>
+   </properties>
    <point/>
   </object>
-  <object id="1299" type="Spawn" x="-256" y="-128">
+  <object id="1309" type="Spawn" x="984.043" y="78.0142">
    <point/>
   </object>
  </objectgroup>

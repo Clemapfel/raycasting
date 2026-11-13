@@ -1,8 +1,8 @@
 
 ControlIndicator_t = "ControlIndicator"
 
-local _settings_font_size_binding = 25 / 800
-local _settings_font_size_command = 25 / 800
+local _settings_font_size_binding = 20 / 800
+local _settings_font_size_command = 20 / 800
 local _spacer = ":"
 
 control_indicator_new = function(...)
@@ -98,30 +98,31 @@ control_indicator_reformat = function(self, x, y, width, height)
 
     local max_binding_width = math.max(max_keyboard_binding_width, max_gamepad_binding_width)
 
-    self.keyboard_command_offset = (max_binding_width + 0.25 * _global_outer_margin) + max_spacer_width + 0.25 * _global_outer_margin
-    self.gamepad_command_offset = self.keyboard_command_offset
+    local gap_padding = _global_outer_margin
+    local gap_width = gap_padding + max_spacer_width + gap_padding
 
-    local spacer_x = math_mix(
-        self.bounds.x + max_binding_width,
-        self.bounds.x + self.bounds.width - max_command_width,
-        0.5
-    )
+    self.keyboard_command_offset = max_binding_width + gap_width
+    self.gamepad_command_offset = self.keyboard_command_offset
 
     self.bounds.width = self.keyboard_command_offset + max_command_width
     self.bounds.height = max_label_height * #self.entries
 
-    local bindings_right = self.bounds.x + math.max(max_keyboard_binding_width, max_gamepad_binding_width)
+    self.max_command_width = max_command_width
+    self.max_label_height = max_label_height
+
+    local bindings_right = self.bounds.x + max_binding_width
     local commands_left  = self.bounds.x + self.keyboard_command_offset
-    local gap_width = commands_left - bindings_right
+
+    local spacer_x = bindings_right + gap_padding + 0.5 * max_spacer_width
 
     for i, entry in ipairs(self.entries) do
         local cy = self.bounds.y + (i - 1) * max_label_height
         label_reformat(entry.keyboard_label, self.bounds.x, cy, max_keyboard_binding_width, max_label_height)
         label_reformat(entry.gamepad_label, self.bounds.x, cy, max_gamepad_binding_width, max_label_height)
         label_reformat(entry.command_label, commands_left, cy, max_command_width, max_label_height)
-        label_reformat(entry.spacer_label, spacer_x, cy, gap_width, max_label_height)
+        label_reformat(entry.spacer_label, spacer_x, cy, max_spacer_width, max_label_height)
 
-        local hue = (i - 1) / (self.n_entries - 1)
+        local hue = self.n_entries > 1 and (i - 1) / (self.n_entries - 1) or 0
         entry.color = lcha_to_rgba(0.8, 1, hue, 1)
     end
 

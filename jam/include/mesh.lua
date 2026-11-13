@@ -14,8 +14,13 @@ mesh_new = function(data, usage)
 end
 
 mesh_set_texture = function(self, texture)
-    log_typecheck(self, Mesh_t, texture, Texture_t)
-    self.native:setTexture(texture.native)
+    log_typecheck(self, Mesh_t, texture, Optional_t(Texture_t))
+
+    if texture == nil then
+        self.native:setTexture(nil)
+    else
+        self.native:setTexture(texture.native)
+    end
 end
 
 mesh_draw = function(self, ...)

@@ -20,6 +20,7 @@ _require "include.input"
 _require "include.math"
 _require "include.aabb"
 _require "include.polyline"
+_require "include.delaunay"
 _require "include.lag"
 _require "include.random"
 _require "include.graphics"
@@ -53,6 +54,17 @@ if DEBUG then
             return rawget(self, key)
         end
     })
+
+     input_connect_pressed(function(which)
+        if which == input_action_debug then
+            for k, v in pairs(package.loaded) do
+                package.loaded[k] = nil
+            end
+
+            dbg("called")
+            love.load()
+        end
+    end)
 end
 
 love.load = function()
@@ -66,7 +78,7 @@ love.load = function()
     STATE = state_new()
     state_allocate_scenes(STATE)
     state_set_scene(STATE, MainMenuScene_t)
-    state_push_scene(STATE, StageScene_t, "stage_01")
+    state_push_scene(STATE, StageScene_t, "jump_introduction")
 end
 
 input_connect_pressed(function(which)
