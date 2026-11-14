@@ -11,18 +11,18 @@ return {
 
     input_action_to_string = function(action)
         return ({
-            [rt.InputAction.UP]       = "Move Up",
-            [rt.InputAction.RIGHT]    = "Move Right",
-            [rt.InputAction.DOWN]     = "Move Down",
-            [rt.InputAction.LEFT]     = "Move Left",
-            [rt.InputAction.JUMP]     = "Jump",
-            [rt.InputAction.SPRINT]   = "Sprint",
+            [rt.InputAction.UP] = "Move Up",
+            [rt.InputAction.RIGHT] = "Move Right",
+            [rt.InputAction.DOWN] = "Move Down",
+            [rt.InputAction.LEFT] = "Move Left",
+            [rt.InputAction.JUMP] = "Jump",
+            [rt.InputAction.SPRINT] = "Sprint",
             [rt.InputAction.INTERACT] = "Interact",
-            [rt.InputAction.PAUSE]    = "Pause / Unpause",
-            [rt.InputAction.CONFIRM]  = "Confirm",
-            [rt.InputAction.BACK]     = "Back",
-            [rt.InputAction.RESET]    = "Restored Default",
-            [rt.InputAction.SPECIAL]  = "???"
+            [rt.InputAction.PAUSE] = "Pause / Unpause",
+            [rt.InputAction.CONFIRM] = "Confirm",
+            [rt.InputAction.BACK] = "Back",
+            [rt.InputAction.RESET] = "Restored Default",
+            [rt.InputAction.SPECIAL] = "???"
         })[action]
     end,
 
@@ -394,7 +394,7 @@ return {
     -- error handler
     error_handler = {
         prefix_message = "An Error has occurred and the Application was unable to recover.",
-        postfix_message = "Press ESCAPE to close this window, ENTER to open the log file."
+        footer_message = "Press %s to close this window, %s to open the log file."
     },
 
     -- ## STAGES ## ---

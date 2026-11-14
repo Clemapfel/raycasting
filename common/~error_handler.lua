@@ -1,122 +1,280 @@
-function love.errorhandler(message)
-    local traceback
-    traceback = string.gsub(
-        debug.traceback("Error in " .. tostring(message), 3),
-        "\n[^\n]+$", ""
-    )
 
-    traceback = string.gsub(traceback, "stack traceback:", "Traceback:")
-
-    io.stdout:write(traceback)
-    io.stdout:flush()
-
-    local sanitized = {}
-    for char in string.gmatch(traceback, utf8.charpattern) do
-        table.insert(sanitized, char)
+-- invoke function if possible, cannot throw
+local _safe_call = function(f, ...)
+    if  type(f) ~= "function" or (f == nil and select("#", ...) == 0) then return end
+    local result = { pcall(f, ...) }
+    if result[1] ~= true then
+        if _G.DEBUG then
+            -- handle error inside error handler
+            io.stdout:write("\n")
+            io.stdout:write(debug.traceback("In love.errorhandler:" .. result[2]))
+            io.stdout:write("\n")
+            io.stdout:flush()
+            os.exit(1)
+        end
+        return nil
+    else
+        table.remove(result, 1)
+        return (table.unpack or unpack)(result)
     end
-    traceback = table.concat(sanitized, "")
+end
 
-    traceback = string.gsub(traceback, "\t", "    ")
-    traceback = string.gsub(traceback, "\027%[[%d;]*m", "") -- strip control characters
-
-    local throw_inner_error = function(...)
-        io.stdout:write("\n")
-        io.stdout:write("In love.errorhandler: " .. table.concat({ ... }, ""))
-        io.stdout:write("\n")
-        io.stdout:flush()
+-- get member if possible, cannot throw
+local _safe_get = function(object, ...)
+    local out = nil
+    if object == nil then
+        return nil
     end
 
-    local safe_call = function(f, ...)
-        local success, error_or_result = pcall(f, ...)
-        if not success then
-            throw_inner_error(error_or_result)
+    for i = 1, select("#", ...) do
+        local key = select(i, ...)
+        if key == nil or out == nil or out[key] == nil then
+            return nil
         else
-            return error_or_result
+            out = out[key]
         end
     end
 
-    -- reset state
-    love.mouse.setVisible(true)
-    love.mouse.setGrabbed(false)
-    love.mouse.setRelativeMode(false)
-    if love.mouse.isCursorSupported() then
-        love.mouse.setCursor()
+    return out
+end
+
+
+local _try_call = function(f, ...)
+    if  type(f) ~= "function" or (f == nil and select("#", ...) == 0) then return end
+    local result = { pcall(f, ...) }
+    if result[1] ~= true then
+        return nil
+    else
+        table.remove(result, 1)
+        return (table.unpack or unpack)(result)
+    end
+end
+
+function love.errorhandler(message, depth)
+    local traceback = debug.traceback("Error in " .. message)
+    local raw_traceback = traceback
+    traceback = _safe_call(string.gsub, traceback, "\n[^\n]+$", "")
+
+    local stream = io.stderr
+    _safe_call(stream.setvbuf, stream, "no")
+    _safe_call(stream.write, stream, traceback .. "\n")
+    _safe_call(stream.flush, stream)
+
+    do
+        if utf8 == nil then utf8 =_safe_call(require, "utf8") end
+        if utf8 ~= nil then
+            local sanitized = {}
+            for char in string.gmatch(traceback, utf8.charpattern) do
+                table.insert(sanitized, char)
+            end
+            traceback = table.concat(sanitized, "")
+            traceback = string.gsub(traceback, "\t", "    ")
+            traceback = string.gsub(traceback, "\027%[[%d;]*m", "") -- strip control characters
+            traceback = string.gsub(traceback, "[^\n]*%[C%]:[^\n]*\n?", "") -- strip native C lines
+            traceback = string.gsub(traceback, "stack traceback", "Stack Traceback")
+        end
     end
 
-    for joystick in values(love.joystick.getJoysticks()) do
-        joystick:setVibration(nil)
-    end
-
-    love.audio.stop()
-    love.graphics.reset()
-
-    safe_call(rt.InputManager.reset, rt.InputManager)
-
-    -- set default font
-    love.graphics.setFont(love.graphics.newFont(15))
-
-    local SHOULD_QUIT = true
-    local SHOULD_NOT_QUIT = false
-
-    local restart = function()
-        safe_call(rt.ThreadManager.request_shutdown, rt.ThreadManager)
-        love.event.restart()
-        return SHOULD_NOT_QUIT
-    end
-
-    local function show_messages()
-        if true then return end
-        if rt.Translation == nil then return end
-        local entry = rt.Translation.error_handler
-        if entry == nil then return end
-
-        local buttons
-        if bd.get_operating_system() == bd.OperatingSystem.WINDOWS then
-            buttons = { --[[entry.open_log,]] entry.restart, entry.exit }
-        else
-            buttons = { entry.exit, entry.restart, --[[entry.open_log]] }
+    _safe_call(function()
+        -- reset state
+        if love.mouse ~= nil then
+            love.mouse.setVisible(true)
+            love.mouse.setGrabbed(false)
+            love.mouse.setRelativeMode(false)
+            if love.mouse.isCursorSupported() then
+                love.mouse.setCursor()
+            end
         end
 
-        local result = love.window.showMessageBox(
-            entry.title,
-            entry.message,
-            buttons,
-            "error",
-            false
+        if love.joystick ~= nil then
+            local joysticks = love.joystick.getJoysticks()
+            if joysticks ~= nil and type(joysticks) == "table" then
+                for _, joystick in pairs(joysticks) do
+                    _safe_call(joystick.setVibration, joystick)
+                end
+            end
+        end
+
+        if love.audio ~= nil then
+            _safe_call(love.audio.stop)
+        end
+
+        if love.graphics ~= nil then
+            _safe_call(love.graphics.reset)
+        end
+
+        if rt ~= nil then
+            _safe_call(_safe_get(_safe_get(rt, "InputManager"), "reset"), _safe_get(rt, "InputManager"))
+            _safe_call(_safe_get(_safe_get(rt, "MusicManager"), "reset"), _safe_get(rt, "MusicManager"))
+            _safe_call(_safe_get(rt.SoundManager, "reset"),_safe_get(rt, "SoundManager"))
+            _safe_call(_safe_get(_safe_get(rt, "ThreadManager"), "request_shutdown"), _safe_get(rt, "ThreadManager"))
+        end
+    end)
+
+    if rt ~= nil then
+        local sound_manager = _safe_get(rt, "SoundManager")
+        if sound_manager ~= nil then
+            _safe_call(sound_manager.flush, sound_manager)
+        end
+    end
+
+    local h_margin = 70 -- px
+    local v_margin = 40
+
+    local color_r, color_g, color_b, color_a = 223 / 255, 0, 89 / 255, 1
+    _safe_call(function()
+        local color = _safe_get(rt, "Palette", "RED_6")
+        if color ~= nil then
+            color_r, color_g, color_b, color_a = _safe_call(color.unpack, color)
+        end
+    end)
+
+    love.graphics.clear(color_r, color_g, color_b, color_a)
+    love.graphics.present()
+
+    local pixel_scale = 1
+    if rt ~= nil and rt.SceneManager:get_pixel_scale() ~= nil then
+        pixel_scale = _safe_call(rt.SceneManager:get_pixel_scale()) or pixel_scale
+    end
+
+    local prefix_message = "An Error has occurred and the Application was unable to recover"
+
+    _safe_call(function()
+        if rt ~= nil then
+            _try_call(require, "common.translation")
+            local translation = _safe_get(rt, "Translation", "error_handler")
+            if translation ~= nil then
+                prefix_message = translation.prefix_message
+            end
+        end
+    end)
+
+    traceback = prefix_message .. "\n\n" .. traceback
+
+    -- write to log folder
+
+    local log_path = nil
+    local footer_message = "Press ESCAPE to exit"
+
+    _safe_call(function()
+        require "common.log"
+        local log = rt.Log
+
+        local channel = log._main_to_worker
+        local types = log._message_types
+        if channel ~= nil and types ~= nil then
+            channel:push({
+                type = types.FATAL,
+                value = prefix_message .. "\n\n" .. raw_traceback
+            })
+
+            if DEBUG then
+                channel:push({
+                    type = types.DUMP,
+                    value = rt.Log.dump()
+                })
+
+                -- dump entire gamestate
+                if type(table.serialize) == "function" and rt.SceneManager ~= nil then
+                    channel:push({
+                        type = types.DUMP,
+                        value = table.serialize(rt.SceneManager)
+                    })
+                end
+            end
+
+            _safe_call(log.shutdown_worker)
+        end
+
+        log_path = _safe_call(log.get_active_path)
+
+        if log_path ~= nil
+            and not string.match(log_path, "^/")
+            and not string.match(log_path, "^%a:[/\\]")
+        then
+            log_path = love.filesystem.getSaveDirectory() .. "/" .. log_path
+        end
+    end)
+
+    if log_path ~= nil then
+        footer_message = footer_message .. ", ENTER to open log file"
+    end
+
+    local default_font = love.graphics.newFont(15 * pixel_scale)
+
+    local wrap = function(font, text)
+        local _, wrapped = font:getWrap(text, love.graphics.getWidth() - 2 * h_margin - 10)
+        return table.concat(wrapped, "\n"), #wrapped * font:getHeight()
+    end
+
+    local darken = 0.5
+    local draw_text = function(font, text, y)
+        love.graphics.setFont(font)
+
+        love.graphics.setColor(
+            darken * color_r,
+            darken * color_g,
+            darken * color_b,
+            1
         )
 
-        if buttons[result] == entry.restart then
-            restart()
-            return SHOULD_NOT_QUIT
-        elseif buttons[result] == entry.exit then
-            return SHOULD_QUIT
-        end
+        love.graphics.setColor(1, 1, 1, 1)
+        love.graphics.printf(
+            text,
+            h_margin, v_margin + y,
+            love.graphics.getWidth() - 2 * h_margin - 10
+        )
     end
 
-    return function()
-        love.event.pump()
+    local scroll_y = 0
+    local scroll_bar_background_r, scroll_bar_background_g, scroll_bar_background_b, scroll_bar_background_a = 0.2, 0.2, 0.2, 1
+    local scroll_bar_foreground_r, scroll_bar_foreground_g, scroll_bar_foreground_b, scroll_bar_foreground_a = 0.4, 0.4, 0.4, 1
+    local scroll_bar_divider_r, scroll_bar_divider_g, scroll_bar_divider_b, scroll_bar_divider_a = 0, 0, 0, 1
 
-        -- check for events
+    _safe_call(function()
+        if rt ~= nil and rt.Palette ~= nil then
+            local background = _safe_get(rt.Palette, "RED_10")
+            local foreground = _safe_get(rt.Palette, "RED_3")
+            if background ~= nil and foreground ~= nil then
+                scroll_bar_background_r, scroll_bar_background_g, scroll_bar_background_b, scroll_bar_background_a = background:unpack()
+                scroll_bar_foreground_r, scroll_bar_foreground_g, scroll_bar_foreground_b, scroll_bar_foreground_a = foreground:unpack()
+                scroll_bar_divider_r, scroll_bar_divider_g, scroll_bar_divider_b, scroll_bar_divider_a =
+                darken * scroll_bar_background_r,
+                darken * scroll_bar_background_g,
+                darken * scroll_bar_background_b,
+                1
+            end
+        end
+    end)
+
+    return function()
+        -- input
+        love.event.pump()
         for event, a, b, c, d, e, f in love.event.poll() do
+
             if event == "quit" then
                 if love.quit then love.quit() end
                 return a or 1, b
             elseif event == "keypressed" then
-                local key = b
-                if key == "space" or key == "return" then
-                    restart()
-                elseif key == "escape" then
+                if a == "escape" then
                     return 0 -- quit
-                else
-                    if show_messages() == SHOULD_QUIT then
-                        return 0
+                elseif a == "return" or a == "kpenter" then
+                    if log_path ~= nil then
+                        _safe_call(love.system.openURL, "file://" .. log_path)
                     end
+                elseif a == "up" then
+                    scroll_y = scroll_y - 40 * pixel_scale
+                elseif a == "down" then
+                    scroll_y = scroll_y + 40 * pixel_scale
+                elseif a == "pageup" then
+                    scroll_y = scroll_y - love.graphics.getHeight() / 2
+                elseif a == "pagedown" then
+                    scroll_y = scroll_y + love.graphics.getHeight() / 2
                 end
-            elseif event == "touchpressed"
-                or event == "mousepressed"
-                or event == "gamepadpressed"
-            then
-                if show_messages() == SHOULD_QUIT then
+            elseif event == "wheelmoved" then
+                scroll_y = scroll_y - b * 40 * pixel_scale
+            elseif event == "gamepadpressed" then
+                if b == "start" then
                     return 0
                 end
             end
@@ -124,27 +282,47 @@ function love.errorhandler(message)
 
         -- draw
         if love.graphics.isActive() then
-            if rt and rt.Palette and rt.Palette.RED_5 then
-                love.graphics.clear(rt.Palette.RED_5:unpack())
-            else
-                love.graphics.clear(1, 0, 0.2, 1)
+            love.graphics.clear(color_r, color_g, color_b, color_a)
+
+            local window_height = love.graphics.getHeight()
+            local window_width = love.graphics.getWidth()
+
+            local traceback_wrapped, traceback_height = wrap(default_font, traceback)
+
+            local total_content_height = traceback_height + v_margin
+            local max_scroll = math.max(0, (total_content_height + 2 * v_margin) - window_height)
+            scroll_y = math.max(0, math.min(scroll_y, max_scroll))
+
+            love.graphics.push()
+            love.graphics.translate(0, -scroll_y)
+
+            draw_text(default_font, traceback_wrapped, 0)
+            draw_text(default_font, footer_message, 0 + traceback_height + v_margin)
+
+            love.graphics.pop()
+
+            if max_scroll > 0 then
+                local scroll_bar_w = 10 * pixel_scale
+                local scroll_bar_x = window_width - scroll_bar_w
+                local corner_radius = scroll_bar_w / 2
+
+                local view_ratio = window_height / (total_content_height + 2 * v_margin)
+
+                local cursor_h = math.max(20 * pixel_scale, window_height * view_ratio)
+                local cursor_y = (scroll_y / max_scroll) * (window_height - cursor_h)
+
+                love.graphics.setLineWidth(2)
+                love.graphics.setColor(scroll_bar_divider_r, scroll_bar_divider_g, scroll_bar_divider_b, scroll_bar_divider_a)
+                love.graphics.line(scroll_bar_x, 0, scroll_bar_x, window_height)
+
+                love.graphics.setColor(scroll_bar_background_r, scroll_bar_background_g, scroll_bar_background_b, scroll_bar_background_a)
+                love.graphics.rectangle("fill", scroll_bar_x, 0, scroll_bar_w, window_height)
+
+                love.graphics.setColor(scroll_bar_foreground_r, scroll_bar_foreground_g, scroll_bar_foreground_b, scroll_bar_foreground_a)
+                love.graphics.rectangle("fill", scroll_bar_x, cursor_y, scroll_bar_w, cursor_h, corner_radius, corner_radius)
             end
 
-            local margin = 70
-            love.graphics.printf(
-                traceback,
-                margin, margin,
-                love.graphics.getWidth() - 2 * margin
-            )
             love.graphics.present()
-        end
-
-        -- connect debugger after error is shown on screen
-        if DEBUG and debugger ~= nil and not debugger:get_is_connected() then
-            pcall(debugger.connect)
-            if debugger.get_is_active() then
-                debugger.break_here()
-            end
         end
 
         love.timer.sleep(1 / 1000)

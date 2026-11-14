@@ -116,7 +116,7 @@ local _new_type = function(name, super)
     _set_class_table(type, metatable)
     _set_hash(type, _current_instance_hash)
     _set_signal_component(type, nil)
-    
+
     return type
 end
 
@@ -493,7 +493,7 @@ do
     local _is_blocked = 1
     local _callback_id_to_callback = 2
     local _callback_ids_in_order = 3
-    
+
     local _disconnect_callback = function(entry, callback_id)
         local callback = entry[_callback_id_to_callback][callback_id]
         entry[_callback_id_to_callback][callback_id] = nil
@@ -971,6 +971,297 @@ do
         return _get_hash(instance) or _default_hash
     end
 end
+
+do
+    local _tabspace = "    "
+
+    local _serialize_get_indent = function(n_indent_tabs)
+        return string.rep(_tabspace, n_indent_tabs)
+    end
+
+    local _serialize_insert = function(buffer, ...)
+        if buffer == nil then return end
+        for i = 1, select("#", ...) do
+            local value = select(i, ...)
+            table.insert(buffer, value)
+        end
+    end
+
+    local _serialize_tostring = function(val)
+        local ok, out
+        if _g_type(val) == "table" then
+            local mt = getmetatable(val)
+            if _g_type(mt) == "table" then
+                local before = rawget(mt, "__tostring")
+                rawset(mt, "__tostring", nil)
+                ok, out = pcall(tostring, val)
+                rawset(mt, "__tostring", before)
+            else
+                ok, out = pcall(tostring, val)
+            end
+        else
+            ok, out = pcall(tostring, val)
+        end
+
+        if ok and _g_type(out) == "string" then return out end
+        return "<unprintable " .. _g_type(val) .. ">"
+    end
+
+    local function _serialize_safe_comment_str(val)
+        local out = _serialize_tostring(val)
+        out = string.gsub(out, "[%c]", function(character)
+            return string.format("\\%03d", string.byte(character))
+        end)
+        return string.gsub(out, "%]%]", "] ]")
+    end
+
+    local function _serialize_is_type_serializable(value_type)
+        return value_type ~= "function"
+            and value_type ~= "userdata"
+            and value_type ~= "thread"
+            and value_type ~= "cdata"
+    end
+
+    local function _serialize_is_meta_object(value)
+        if _g_type(value) ~= "table" then return false end
+
+        local class_table = _get_class_table(value)
+        return _g_type(class_table) == "table"
+            and class_table == getmetatable(value)
+    end
+
+    local function _serialize_add_member(entries, seen, key, value, bare_key)
+        if not seen[key] then
+            seen[key] = true
+            table.insert(entries, {
+                key = key,
+                value = value,
+                bare_key = bare_key
+            })
+        end
+    end
+
+    local _typename_key = "__typename"
+    local _hash_key = "__hash"
+
+    local function _serialize_collect_members(value)
+        local entries = {}
+        local seen = {}
+        local value_is_meta = _serialize_is_meta_object(value)
+        local class_table = _get_class_table(value)
+
+        if value_is_meta then
+            local typename = rawget(class_table, _typename_key)
+            if typename ~= nil then
+                _serialize_add_member(entries, seen, _typename_key, typename, true)
+            end
+
+            local hash = _get_hash(value)
+            if hash ~= nil then
+                _serialize_add_member(entries, seen, _hash_key, tostring(hash), true)
+            end
+        end
+
+        for key, member_value in pairs(value) do
+            if not (value_is_meta and _is_reserved_key(key)) then
+                _serialize_add_member(entries, seen, key, member_value, false)
+            end
+        end
+
+        return entries
+    end
+
+    local function _serialize_collect_instance_members(instance)
+        local entries = {}
+        local seen = {}
+        local instance_is_meta = _serialize_is_meta_object(instance)
+        local instance_class_table = _get_class_table(instance)
+
+        if instance_is_meta then
+            local typename = rawget(instance_class_table, "__typename")
+            if typename ~= nil then
+                _serialize_add_member(entries, seen, "__typename", typename, true)
+            end
+
+            local hash = _get_hash(instance)
+            if hash ~= nil then
+                _serialize_add_member(entries, seen, "__hash", tostring(hash), true)
+            end
+        end
+
+        -- Instance members take precedence over members defined by its type.
+        for key, value in pairs(instance) do
+            if not (instance_is_meta and _is_reserved_key(key)) then
+                _serialize_add_member(entries, seen, key, value, false)
+            end
+        end
+
+        -- Walk the type and its complete super chain.
+        local current_type
+        if instance_is_meta then
+            if meta.is_type(instance) then
+                current_type = instance
+            else
+                current_type = rawget(instance_class_table, "__index")
+            end
+        end
+
+        local visited_types = {}
+        while _g_type(current_type) == "table" and not visited_types[current_type] do
+            visited_types[current_type] = true
+
+            local type_class_table = _get_class_table(current_type)
+            local type_is_meta = _serialize_is_meta_object(current_type)
+
+            for key, value in pairs(current_type) do
+                if not (type_is_meta and _is_reserved_key(key)) then
+                    _serialize_add_member(entries, seen, key, value, false)
+                end
+            end
+
+            if type_is_meta then
+                current_type = rawget(type_class_table, "__super")
+            else
+                current_type = nil
+            end
+        end
+
+        return entries
+    end
+
+    local function _serialize_format_key(key, bare_key)
+        if bare_key then return key, key end
+
+        local key_type = _g_type(key)
+        if key_type == "string" then
+            local literal = "[" .. string.format("%q", key) .. "]"
+            return literal, literal
+        elseif key_type == "number" then
+            if key ~= key then
+                return "[ 0 / 0 ]", "[ 0 / 0 ]"
+            elseif key == math.huge then
+                return "[ 1 / 0 ]", "[ 1 / 0 ]"
+            elseif key == -math.huge then
+                return "[ -1 / 0 ]", "[ -1 / 0 ]"
+            end
+
+            local literal = "[" .. tostring(key) .. "]"
+            return literal, literal
+        elseif key_type == "boolean" then
+            local literal = "[" .. tostring(key) .. "]"
+            return literal, literal
+        end
+
+        return nil, "[<unsupported " .. key_type .. " key: " .. _serialize_safe_comment_str(key) .. ">]"
+    end
+
+    local function _serialize_format_value(value)
+        local value_type = _g_type(value)
+        if value_type == "string" then
+            return string.format("%q", value)
+        elseif value_type == "number" then
+            if value == math.huge then
+                return "math.huge"
+            elseif value == -math.huge then
+                return "-math.huge"
+            elseif value ~= value then
+                return "(0/0)" -- NaN
+            end
+            return tostring(value)
+        elseif value_type == "boolean" then
+            return value and "true" or "false"
+        end
+
+        return _serialize_safe_comment_str(value)
+    end
+
+    --- @brief
+    --- Returns a pretty-printed Lua table containing an instance's own properties
+    --- and the properties exposed by its type and its super types.
+    function meta.serialize(instance)
+        meta.assert(instance, meta.Table)
+
+        local buffer = {}
+        local members = _serialize_collect_instance_members(instance)
+        if #members == 0 then return "{}" end
+
+
+        local seen = { [instance] = true }
+        local stack = {
+            {
+                members = members,
+                indent = 1,
+                index = 1,
+                suffix = ""
+            }
+        }
+
+        _serialize_insert(buffer, "{\n")
+
+        while #stack > 0 do
+            local frame = stack[#stack]
+
+            if frame.index > #frame.members then
+                _serialize_insert(buffer,
+                    _serialize_get_indent(frame.indent - 1),
+                    "}", frame.suffix, "\n"
+                )
+                stack[#stack] = nil
+            else
+                local member = frame.members[frame.index]
+                frame.index = frame.index + 1
+
+                local key_literal, key_description = _serialize_format_key(member.key, member.bare_key)
+                local row_indent = _serialize_get_indent(frame.indent)
+                local value_type = _g_type(member.value)
+
+                if key_literal == nil then
+                    _serialize_insert(buffer, row_indent,
+                        "--[[ ", key_description, " = ",
+                        _serialize_safe_comment_str(member.value), " ]]\n"
+                    )
+                elseif value_type == "table" then
+                    if seen[member.value] then
+                        _serialize_insert(buffer, row_indent,
+                            "--[[ ", key_description,
+                            " = <cyclic/shared table: ",
+                            _serialize_safe_comment_str(member.value), "> ]]\n"
+                        )
+                    else
+                        seen[member.value] = true
+                        local nested_members = _serialize_collect_members(member.value)
+
+                        if #nested_members == 0 then
+                            _serialize_insert(buffer, row_indent, key_literal, " = {},\n")
+                        else
+                            _serialize_insert(buffer, row_indent, key_literal, " = {\n")
+                            table.insert(stack, {
+                                members = nested_members,
+                                indent = frame.indent + 1,
+                                index = 1,
+                                suffix = ","
+                            })
+                        end
+                    end
+                else
+                    local value_literal = _serialize_format_value(member.value)
+                    if _serialize_is_type_serializable(value_type) then
+                        _serialize_insert(buffer, row_indent,
+                            key_literal, " = ", value_literal, ",\n"
+                        )
+                    else
+                        _serialize_insert(buffer, row_indent,
+                            "--[[ ", key_description, " = ", value_literal, " ]]\n"
+                        )
+                    end
+                end
+            end
+        end
+
+        return table.concat(buffer, "")
+    end
+end
+
 --- @brief
 function meta.make_weak(t, weak_keys, weak_values)
     meta.assert(t, meta.Table, weak_keys, meta.Optional(meta.Boolean), weak_values, meta.Optional(meta.Boolean))
