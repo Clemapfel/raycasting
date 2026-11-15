@@ -109,21 +109,26 @@ server.waitForBoot {
 	var shaker = SynthDef.new(\shaker, { arg out = 0, amp = 0.5, gate = 1, freq = 2000, dur, which = 0;
 		var noise = WhiteNoise.ar();
 
-		var amp_env = EnvGen.ar(Env.perc(0.02, b32 * dur), doneAction: Done.freeSelf);
+		var amp_env = EnvGen.ar(Env.perc(0.02, b32 * dur));
 
+		var m_min = -1, m_max = 1;
 		var forward_env = EnvGen.kr(
-			Env([0.8, 1.25, 1], [0.02, 0.04], \exp)
-		);
+			Env(1 + [m_min, m_max, 0].midiratio, [0.02, 0.04], \exp)
+		) - 1;
 
 		var backward_env = EnvGen.kr(
-			Env([0.7, 1.05, 0.85], [0.015, 0.035], \exp)
-		);
+			Env(1 + [m_max, m_min, 0].midiratio, [0.02, 0.03], \exp)
+		) - 1;
 
 		var pitch = Select.kr(which, [ forward_env, backward_env ]);
 
-		var sig = BPF.ar(noise, freq * pitch, rq: 2) * amp_env;
+		var sig = ClipNoise.ar.range(0.0, 1.0) * BPF.ar(noise,
+			pitch.linlin(-1.midiratio, 1.midiratio, 600, 2800),
+			rq: 1
+		) * amp_env;
 
 		Out.ar(out, amp * sig.dup);
+		DetectSilence.ar(sig, doneAction: Done.freeSelf);
 	}).add;
 
 	var base_pattern = Pbind(*[
@@ -153,7 +158,8 @@ server.waitForBoot {
 	var shaker_pattern = Pbind(*[
 		instrument: shaker,
 		dur: Pseq([b4, b4, b4, b4], inf),
-		which: Pseq([0, 1, 0, 1], inf)
+		which: Pseq([0, 1, 0, 1], inf),
+		freq: 700
 	]);
 
 
