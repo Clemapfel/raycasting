@@ -9,6 +9,7 @@ var b4 = 4 / 4;   // 1 beat
 var b8 = 4 / 8;   // 1 / 8th
 var b16 = 4 / 16; // 1 / 16th
 var b32 = 4 / 32; // 1 / 32th
+var b64 = 4 / 64;
 
 // dotted
 var b1d = b1 * 1.5;
@@ -25,10 +26,24 @@ var b18t = 4 / 12;
 var b16t = 4 / 24;
 var b32t = 4 / 48;
 
+var r1 = Rest(b1);
+var r2 = Rest(b2);
+var r4 = Rest(b4);
+var r8 = Rest(b8);
+var r16 = Rest(b16);
+var r32 = Rest(b32);
+
+var r1d = Rest(b1d);
+var r2d = Rest(b2d);
+var r4d = Rest(b4d);
+var r8d = Rest(b8d);
+var r16d = Rest(b16d);
+var r32d = Rest(b32d);
+
 var tempo = 120 / 60; // 120 bpm
 var freqs = { |t| t.collect { |x| Degree.new(x.asString).midi }.midicps };
 var transpose = { |freq, offset = 12| (freq.cpsmidi + offset).midicps };
-
+var amp = 1.0;
 
 server.latency = 0.3;
 server.options.blockSize = 2048;
@@ -43,8 +58,8 @@ server.waitForBoot {
 		Out.ar(out, (amp * click).dup);
 	}).add;
 
-	var base = SynthDef.new(\base, { arg out, amp, gate = 1, freq;
-		var env = EnvGen.ar(Env.asr(attackTime: 0.05, releaseTime: b1 / tempo), gate: gate, doneAction: Done.freeSelf);
+	var base = SynthDef.new(\base, { arg out, gate = 1, freq, dur;
+		var env = EnvGen.ar(Env.asr(attackTime: 0.05, releaseTime: b1 * dur), gate: gate, doneAction: Done.freeSelf);
 		var freqs = [
 			transpose.(freq, -12),
 			freq,
@@ -65,12 +80,51 @@ server.waitForBoot {
 		var oscs = Mix.ar([32, 7].normalizeSum * [sins, saws]);
 
 		LocalOut.ar(saws);
-		Out.ar(out, env * Mix.ar(amps * oscs).dup);
-
-		ClipDetector.ar(oscs, 0.0);
+		Out.ar(out, amp * env * Mix.ar(amps * oscs).dup);
 	}).add;
 
-	var tempo = 120;
+	var kick = SynthDef.new(\kick, { arg out, amp, gate = 1, freq = 30, dur = 0.5, filter = 0;
+		var sig;
+		var kick_env = EnvGen.ar(
+			Env.perc(attackTime: 0.001, releaseTime: 0.9),
+			gate: gate
+		);
+
+		var pitch = EnvGen.ar(Env.new(1 + [1, 0], b32 * dur, \exp), gate: gate);
+		var exciter = PinkNoise.ar() * EnvGen.ar(Env.perc(0.001, 0.002));
+		var kick = Ringz.ar(exciter, (freq * pitch).max(20), b64 * dur);
+
+		var base_env = Line.ar(2, 1, b4 * dur) - 1;
+		var base = SinOsc.ar(freq * pitch * Line.kr(2, 0.5, b16d * dur));
+		kick = kick + Limiter.ar(0.5 * Ringz.ar(kick, freq: freq, decaytime: 2));
+
+		sig = Limiter.ar((kick * kick_env) + (base * base_env));
+		sig = XFade2.ar(sig, RHPF.ar(sig, 200), filter.linlin(0, 1, -1, 1));
+
+		Out.ar(out, amp * sig.dup);
+		ClipDetector.ar(sig);
+		DetectSilence.ar(sig, doneAction: Done.freeSelf);
+	}).add;
+
+	var shaker = SynthDef.new(\shaker, { arg out = 0, amp = 0.5, gate = 1, freq = 2000, dur, which = 0;
+		var noise = WhiteNoise.ar();
+
+		var amp_env = EnvGen.ar(Env.perc(0.02, b32 * dur), doneAction: Done.freeSelf);
+
+		var forward_env = EnvGen.kr(
+			Env([0.8, 1.25, 1], [0.02, 0.04], \exp)
+		);
+
+		var backward_env = EnvGen.kr(
+			Env([0.7, 1.05, 0.85], [0.015, 0.035], \exp)
+		);
+
+		var pitch = Select.kr(which, [ forward_env, backward_env ]);
+
+		var sig = BPF.ar(noise, freq * pitch, rq: 2) * amp_env;
+
+		Out.ar(out, amp * sig.dup);
+	}).add;
 
 	var base_pattern = Pbind(*[
 		instrument: base,
@@ -89,13 +143,29 @@ server.waitForBoot {
 		legato: 1
 	]);
 
+	var kick_pattern = Pbind(*[
+		instrument: kick,
+		freq: 40,
+		dur: Pseq([b4, r4, b4, r4], inf),
+		filter: Pseq([0, 0, 0, 0], inf)
+	]);
+
+	var shaker_pattern = Pbind(*[
+		instrument: shaker,
+		dur: Pseq([b4, b4, b4, b4], inf),
+		which: Pseq([0, 1, 0, 1], inf)
+	]);
+
 
 	Pbind(*[
 		instrument: metronome,
-		degree: Pseq([4, 0, 0, 0], inf)
+		degree: Pseq([4, 0, 0, 0], inf),
+		amp: 0.0
 	]).play;
 
-	base_pattern.play;
+	//base_pattern.play;
+	//kick_pattern.play;
+	shaker_pattern.play;
 
 	CmdPeriod.doOnce { server.freeAll }
 }
