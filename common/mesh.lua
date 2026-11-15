@@ -112,19 +112,12 @@ rt.MeshRectangle = function(x, y, width, height)
         {x + 0 * width, y + 1 * height, 0, 1, 1, 1, 1, 1}
     }
 
-    local out = setmetatable({}, meta.get_instance_metatable(rt.Mesh))
-    return meta.install(out, {
-        _native = love.graphics.newMesh(
-            rt.VertexFormat,
-            data,
-            rt.MeshDrawMode.TRIANGLE_FAN,
-            rt.GraphicsBufferUsage.STATIC
-        ),
-        _r = 1,
-        _g = 1,
-        _b = 1,
-        _opacity = 1
-    })
+    return rt.Mesh(love.graphics.newMesh(
+        rt.VertexFormat,
+        data,
+        rt.MeshDrawMode.TRIANGLE_FAN,
+        rt.GraphicsBufferUsage.STATIC
+    ))
 end
 
 local function _radius_to_n_vertices(rx, ry)
@@ -149,7 +142,7 @@ rt.MeshCircle = function(center_x, center_y, x_radius, y_radius, n_outer_vertice
     n_outer_vertices = n_outer_vertices or _radius_to_n_vertices(x_radius, y_radius)
 
     local data = {
-        {center_x, center_y, 0.5, 0.5, 1, 1, 1, 1},
+        { center_x, center_y, 0.5, 0.5, 1, 1, 1, 1 },
     }
 
     local step = math.tau / n_outer_vertices
@@ -182,14 +175,7 @@ rt.MeshCircle = function(center_x, center_y, x_radius, y_radius, n_outer_vertice
     )
     native:setVertexMap(map)
 
-    local out = setmetatable({}, meta.get_instance_metatable(rt.Mesh))
-    return meta.install(out, {
-        _native = native,
-        _r = 1,
-        _g = 1,
-        _b = 1,
-        _opacity = 1
-    })
+    return rt.Mesh(native)
 end
 
 --- @class rt.MeshRectangle3D
@@ -265,23 +251,15 @@ rt.MeshRectangle3D = function(
     add_vertex(top_right_x, top_right_y, top_right_z, 1, 0)
     add_vertex(top_left_x, top_left_y, top_left_z, 0, 0)
 
-    local out = setmetatable({}, meta.get_instance_metatable(rt.Mesh))
-    out = meta.install(out, {
-        _native = love.graphics.newMesh(
+    local out = rt.Mesh(love.graphics.newMesh(
             rt.VertexFormat3D,
-            data,
-            rt.MeshDrawMode.TRIANGLES,
-            rt.GraphicsBufferUsage.STATIC
-        ),
-        _r = 1,
-        _g = 1,
-        _b = 1,
-        _opacity = 1
-    })
+        data,
+        rt.MeshDrawMode.TRIANGLES,
+        rt.GraphicsBufferUsage.STATIC
+    ))
     out:set_vertex_map({ 1, 2, 3, 1, 3, 4 })
     return out
 end
-
 
 --- @class rt.MeshRing
 rt.MeshRing = function(center_x, center_y, inner_radius, outer_radius, fill_center, n_outer_vertices, inner_color, outer_color)
@@ -320,8 +298,6 @@ rt.MeshRing = function(center_x, center_y, inner_radius, outer_radius, fill_cent
           inner_r, inner_g, inner_b, inner_a
       }}
 
-    -- Inner ring vertices (indices 2 .. n_outer_vertices + 2)
-    -- Note: duplicate first vertex at the end to close the seam
     for i = 0, n_outer_vertices do
         local angle = (i % n_outer_vertices) * step
         table.insert(data, {
@@ -333,7 +309,6 @@ rt.MeshRing = function(center_x, center_y, inner_radius, outer_radius, fill_cent
         })
     end
 
-    -- Outer ring vertices (indices n_outer_vertices + 3 .. 2*n_outer_vertices + 3)
     for i = 0, n_outer_vertices do
         local angle = (i % n_outer_vertices) * step
         table.insert(data, {
@@ -346,8 +321,6 @@ rt.MeshRing = function(center_x, center_y, inner_radius, outer_radius, fill_cent
     end
 
     local map = {}
-
-    -- Center fan
     if fill_center then
         for i = 0, n_outer_vertices - 1 do
             local inner_curr = 2 + i
@@ -359,7 +332,6 @@ rt.MeshRing = function(center_x, center_y, inner_radius, outer_radius, fill_cent
         end
     end
 
-    -- Ring quads (two triangles per segment)
     for i = 0, n_outer_vertices - 1 do
         local inner_curr = 2 + i
         local inner_next = inner_curr + 1
@@ -367,35 +339,24 @@ rt.MeshRing = function(center_x, center_y, inner_radius, outer_radius, fill_cent
         local outer_curr = 2 + (n_outer_vertices + 1) + i
         local outer_next = outer_curr + 1
 
-        -- Triangle 1
         table.insert(map, inner_curr)
         table.insert(map, outer_curr)
         table.insert(map, outer_next)
 
-        -- Triangle 2
         table.insert(map, inner_curr)
         table.insert(map, outer_next)
         table.insert(map, inner_next)
     end
 
-    local native = love.graphics.newMesh(
+    local out = rt.Mesh(love.graphics.newMesh(
         rt.VertexFormat,
         data,
         rt.MeshDrawMode.TRIANGLES,
         rt.GraphicsBufferUsage.STATIC
-    )
-    native:setVertexMap(map)
-
-    local out = setmetatable({}, meta.get_instance_metatable(rt.Mesh))
-    return meta.install(out, {
-        _native = native,
-        _r = 1,
-        _g = 1,
-        _b = 1,
-        _opacity = 1
-    })
+    ))
+    out:set_vertex_map(map)
+    return out
 end
-
 
 --- @class rt.MeshLine
 rt.MeshLine = function(x1, y1, x2, y2, thickness)
@@ -422,14 +383,12 @@ rt.MeshLine = function(x1, y1, x2, y2, thickness)
     }
 
     local out = setmetatable({}, meta.get_instance_metatable(rt.Mesh))
-    return meta.install(out, {
-        _native = love.graphics.newMesh(
-            rt.VertexFormat,
-            vertices,
-            rt.MeshDrawMode.TRIANGLE_FAN,
-            rt.GraphicsBufferUsage.STATIC
-        )
-    })
+    return rt.Mesh( love.graphics.newMesh(
+        rt.VertexFormat,
+        vertices,
+        rt.MeshDrawMode.TRIANGLE_FAN,
+        rt.GraphicsBufferUsage.STATIC
+    ))
 end
 
 --- @class rt.MeshPlane
@@ -559,7 +518,6 @@ function rt.MeshSphere(center_x, center_y, center_z, radius, n_rings, n_segments
         end
     end
 
-    require "common.mesh"
     local mesh = rt.Mesh(data, rt.MeshDrawMode.TRIANGLES, rt.VertexFormat3D)
     mesh:set_vertex_map(indices)
     return mesh

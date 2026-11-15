@@ -194,11 +194,6 @@ local function _clamp_point_to_line(ax, ay, bx, by, normal_x, normal_y, x, y)
 end
 
 --- @brief
-function ow.Portal:_update_stencil_body(enabled, px, py)
-
-end
-
---- @brief
 function ow.Portal:update(delta)
     local player = self._scene:get_player()
     local settings = rt.settings.overworld.portal
@@ -277,8 +272,8 @@ function ow.Portal:update(delta)
 
                 -- angle player towards portal
                 self._transition_velocity_x, self._transition_velocity_y =
-                self._nx * self._transition_velocity_magnitude,
-                self._ny * self._transition_velocity_magnitude
+                    self._nx * self._transition_velocity_magnitude,
+                    self._ny * self._transition_velocity_magnitude
                 player:set_velocity(
                     self._transition_velocity_x,
                     self._transition_velocity_y
@@ -293,10 +288,8 @@ function ow.Portal:update(delta)
                 self._entry_t = entry_t
             end
         end
-    end
-
     -- teleport active
-    if self._stage.portal_active_portal == self and self._target ~= nil then
+    elseif self._stage.portal_active_portal == self and self._target ~= nil then
         local target = self._target
         local penetration_r = settings.sensor_width
 
@@ -309,9 +302,9 @@ function ow.Portal:update(delta)
             -- move camera
             local path = rt.Path(rt.Spline(
                 self._start_x, self._start_y,
-                --self_x, self_y,
-                --self_x + self._nx * penetration_r,
-                --self_y + self._ny * penetration_r,
+            --self_x, self_y,
+            --self_x + self._nx * penetration_r,
+            --self_y + self._ny * penetration_r,
                 target_x, target_y
             ):discretize())
 

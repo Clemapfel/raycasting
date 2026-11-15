@@ -157,7 +157,7 @@ meta.add_signals(rt.Player,
     "died" -- when respawning after a death
 )
 
-local _clear = function(t) for key in keys(t) do t[key] = nil end end
+local _clear = table.clear
 
 --- @brief
 function rt.Player:instantiate()
@@ -3326,6 +3326,16 @@ function rt.Player:_update_bubble(is_bubble)
     self._wall_jump_freeze_elapsed = math.huge
     self._jump_freeze_elapsed = math.huge
 
+    local vx, vy, x, y
+
+    if self:get_is_bubble() == true then
+        vx, vy = self._bubble_body:get_velocity()
+        x, y = self._bubble_body:get_position()
+    else
+        vx, vy = self._body:get_velocity()
+        x, y = self._body:get_position()
+    end
+
     -- disable both to avoid interaction
     self._body:set_is_enabled(false)
     for body in values(self._spring_bodies) do
@@ -3340,23 +3350,21 @@ function rt.Player:_update_bubble(is_bubble)
     if self._world == nil then return end
 
     if is_bubble == true then
-        local x, y = self._body:get_position()
         self._bubble_body:set_position(x, y)
-        self._bubble_body:set_velocity(self._body:get_velocity())
+        self._bubble_body:set_velocity(vx, vy)
         for i, body in ipairs(self._bubble_spring_bodies) do
             body:set_position(x, y) -- reset to center so inflating doesn't clip into geometry
-            body:set_velocity(0, 0)
+            body:set_velocity(vx, vy)
         end
     else
-        local x, y = self._bubble_body:get_position()
         self._body:set_position(x, y)
-        self._body:set_velocity(self._bubble_body:get_velocity())
+        self._body:set_velocity(vx, vy)
         for i, body in ipairs(self._spring_bodies) do
             body:set_position(
                 x + self._spring_body_offsets_x[i], -- keep offset here
                 y + self._spring_body_offsets_y[i]
             )
-            body:set_velocity(self._bubble_spring_bodies[i]:get_velocity())
+            body:set_velocity(vx, vy)
         end
     end
 
@@ -3633,7 +3641,7 @@ end
 
 --- @brief
 function rt.Player:get_flow()
-    return self._current_flow
+    return 1 --self._current_flow
 end
 
 --- @brief

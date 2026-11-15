@@ -31,9 +31,8 @@ end
 
 --- @brief
 function ow.Hook:instantiate(object, stage, scene)
-    object:validate_schema(schema, ow.ShapeType.POINT)
+    object:validate_schema(schema, ow.ShapeType.CIRCLE, ow.ShapeType.POINT)
 
-    self._radius = rt.settings.player.radius * rt.settings.overworld.hook.radius_factor
     self._cooldown_elapsed = math.huge
 
     self._scene = scene
@@ -43,7 +42,13 @@ function ow.Hook:instantiate(object, stage, scene)
         stage.hook_current_hue_step = 1
     end
 
-    self._radius = rt.settings.player.radius * rt.settings.overworld.hook.radius_factor
+    local x, y = object:get_centroid()
+    if object:get_type() == ow.ObjectType.ELLIPSE then
+        self._radius = math.max(object.x_radius, object.y_radius)
+    else
+        self._radius = rt.settings.player.radius * rt.settings.overworld.hook.radius_factor
+    end
+
     self._motion = rt.SmoothedMotion1D(1, 1 / rt.settings.overworld.hook.hook_animation_duration)
     self._impulse = rt.ImpulseSubscriber()
 
@@ -114,13 +119,15 @@ function ow.Hook:instantiate(object, stage, scene)
 
     local r = self._radius
     self._outline = {}
-    for angle = 0, math.tau, (2 + math.pi) / 32 do
+
+    local n_vertices = rt.Mesh.radius_to_n_vertices(self._radius)
+    for i = 1, n_vertices do
+        local angle = (i - 1) / n_vertices * math.tau
         table.insert(self._outline, math.cos(angle) * r * 0.95)
         table.insert(self._outline, math.sin(angle) * r * 0.95)
     end
 
-    table.insert(self._outline, self._outline[1])
-    table.insert(self._outline, self._outline[2])
+    rt.contour.close(self._outline)
 end
 
 --- @brief

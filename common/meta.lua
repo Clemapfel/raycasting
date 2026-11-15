@@ -58,7 +58,7 @@ local _class_to_instance_metatable = {}
 local _current_instance_hash = 0
 
 -- instance properties
-local _set_class_table, _get_class_table, _set_hash, _get_hash, _set_signal_component, _get_signal_component
+local _set_class_table, _get_metatable, _set_hash, _get_hash, _set_signal_component, _get_signal_component
 local _is_reserved_key
 do
     local _metatable_index = 1
@@ -74,7 +74,7 @@ do
         rawset(x, _metatable_index, metatable)
     end
 
-    function _get_class_table(x)
+    function _get_metatable(x)
         return rawget(x, _metatable_index)
     end
 
@@ -105,8 +105,16 @@ local _new_type = function(name, super)
         __typename = _type_typename,
         __tostring = function(self) return name end,
         __is_native = false,
-        __validator = nil
+        __validator = nil,
+        __properties = {} -- Table<String, Boolean>
     }
+
+    if DEBUG then
+        metatable.__newindex = function(self, key, value)
+            metatable.__properties[key] = true
+            rawset(self, key, value)
+        end
+    end
 
     local type = {}
 
@@ -187,7 +195,7 @@ do
     getmetatable(meta.Union).__call = function(self, ...)
         if select("#", ...) == 0 then rt.error("In meta.Union: number of arguments cannot be 0") end
         local out = _new_native_type(_union_typename)
-        local metatable = _get_class_table(out)
+        local metatable = _get_metatable(out)
         metatable.__typename = _union_typename
         metatable.__tostring = _union_tostring
 
@@ -202,7 +210,7 @@ do
     getmetatable(meta.Optional).__call = function(self, ...)
         if select("#", ...) == 0 then rt.error("In meta.Optional: number of arguments cannot be 0") end
         local out = _new_native_type(_union_typename)
-        local metatable = _get_class_table(out)
+        local metatable = _get_metatable(out)
         metatable.__typename = _union_typename
         metatable.__tostring = _union_tostring
 
@@ -221,7 +229,7 @@ do
     getmetatable(meta.Array).__call = function(self, ...)
         if select("#", ...) == nil then rt.error("In meta.Array: wrong number of arguments, expected `2`, got `", select("#", ...), "`") end
         local out = _new_native_type(_array_typename)
-        local metatable = _get_class_table(out)
+        local metatable = _get_metatable(out)
         metatable.__typename = _array_typename
         metatable.__tostring = _array_tostring
         out.type = select(1, ...)
@@ -317,13 +325,13 @@ end
 do
     function meta.is_enum(x)
         if _g_type(x) ~= "table" then return false end
-        local mt = _get_class_table(x)
+        local mt = _get_metatable(x)
         return meta.is_table(mt) and mt.__typename == _enum_typename
     end
 
     function meta.is_type(x)
         if _g_type(x) ~= "table" then return false end
-        local mt = _get_class_table(x)
+        local mt = _get_metatable(x)
         return meta.is_table(mt) and (mt.__typename == _type_typename
             or mt.__typename == _union_typename
             or mt.__typename == _enum_typename
@@ -333,8 +341,12 @@ do
 
     function meta.is_union(x)
         if _g_type(x) ~= "table" then return false end
-        local mt = _get_class_table(x)
+        local mt = _get_metatable(x)
         return meta.is_table(mt) and mt.__typename == _union_typename and meta.is_table(x.types)
+    end
+
+    function meta.is_object(x)
+        return getmetatable(x) == _get_metatable(x)
     end
 end
 
@@ -353,7 +365,7 @@ function meta.is_subtype(type, other_type)
     meta.assert(type, meta.Type, other_type, meta.Type)
 
     local seen = {}
-    local current = _get_class_table(type).__super
+    local current = _get_metatable(type).__super
 
     while current ~= nil do
         if current == other_type then
@@ -365,7 +377,7 @@ function meta.is_subtype(type, other_type)
         end
 
         seen[current] = true
-        current = _get_class_table(current).__super
+        current = _get_metatable(current).__super
     end
 
     return type == other_type
@@ -400,7 +412,7 @@ end
 --- @brief
 function meta.get_typename(type)
     meta.assert(type, meta.Type)
-    return _get_class_table(type).__name
+    return _get_metatable(type).__name
 end
 
 -- override native type `isa` tests
@@ -456,7 +468,7 @@ function meta.isa(x, type)
     while current ~= nil and not seen[current] do
         if current == type then return true end
         seen[current] = true
-        local current_metatable = _get_class_table(current)
+        local current_metatable = _get_metatable(current)
         if current_metatable == nil then break end
         current = rawget(current_metatable, "__super")
     end
@@ -760,7 +772,7 @@ do
     end
 
     function _install_signals(instance, type)
-        local signals = _get_class_table(type).__signals
+        local signals = _get_metatable(type).__signals
         if #signals == 0 then return end
 
         type.signal_emit = _signal_emit
@@ -797,11 +809,51 @@ local _default_instantiate = function(self, ...)
     end
 end
 
+local _print_property_warning = function(instance, name)
+    local current = _get_metatable(instance)
+
+    if current.__is_instantiating == true then
+        -- during init, note property as valid
+        current.__properties[name] = true
+        return false
+    else
+        local start = current
+        while current ~= nil do -- iterate supers
+            if _G.type(current.__properties) == "table"
+                and current.__properties[name] ~= nil
+            then
+                start.__properties[name] = true -- accelerate future queries
+                return false -- print warning
+            end
+
+            current = current.__super
+        end
+
+        start.__properties[name] = true -- only print warning once
+        return true
+    end
+end
+
+local _debug_instance_index = function(self, key)
+    local metatable = _get_metatable(self)
+    if _print_property_warning(self, key) then
+        --TODO rt.warning("In `", meta.typeof(self), "`: trying to access property `", key, "`, but it is `nil`")
+    end
+    return metatable.__super[key]
+end
+
+local _debug_instance_newindex = function(self, key, value)
+    if _print_property_warning(self, key) then
+        --TODO rt.warning("In `", meta.typeof(self), "`: trying to access property `", key, "`, but it is `nil`")
+    end
+    return rawset(self, key, value)
+end
+
 function meta.class(typename, super)
     meta.assert(typename, meta.String, super, meta.Optional(meta.Type))
 
-    local type = _new_type(typename, super)
-    local type_metatable = getmetatable(type)
+    local instance_type = _new_type(typename, super)
+    local instance_type_metatable = getmetatable(instance_type)
 
     local has_signals = false
     local supers = {}
@@ -809,7 +861,7 @@ function meta.class(typename, super)
 
     do
         local seen = {}
-        local current = type
+        local current = instance_type
         repeat
             local current_metatable = getmetatable(current)
             if #current_metatable.__signals > 0 then
@@ -834,28 +886,21 @@ function meta.class(typename, super)
 
     local instance_metatable = {}
     instance_metatable.__typename = typename
-
     local instantiate_active = false
 
-    if false then
-        instance_metatable.__index = function(self, key)
-            rt.critical("In `", typename, "`.__index: trying to access property `", key, "`, but it was not assigned")
-            return type[key]
-        end
-
-        instance_metatable.__newindex = function(self, key, value)
-            if not instantiate_active then
-                rt.critical("In `", typename, "`.__newindex: trying to add property `", key, "` after instantiation")
-            end
-            rawset(self, key, value)
-        end
+    if DEBUG then
+        -- in debug mode, safe guard against nil access
+        instance_metatable.__properties = {}
+        instance_metatable.__super = instance_type
+        instance_metatable.__index = _debug_instance_index
+        instance_metatable.__newindex = _debug_instance_newindex
     else
-        instance_metatable.__index = type
+        instance_metatable.__index = instance_type
     end
 
-    _class_to_instance_metatable[type] = instance_metatable
+    _class_to_instance_metatable[instance_type] = instance_metatable
 
-    type_metatable.__call = function(self, ...)
+    instance_type_metatable.__call = function(self, ...)
         local instance = {}
         _set_class_table(instance, instance_metatable)
         _set_hash(instance, _current_instance_hash)
@@ -869,7 +914,9 @@ function meta.class(typename, super)
 
         setmetatable(instance, instance_metatable)
 
-        instantiate_active = true
+        if DEBUG then
+            instance_metatable.__is_instantiating = true
+        end
 
         -- instantiate in order
         for current_super in values(supers) do
@@ -878,12 +925,14 @@ function meta.class(typename, super)
 
         self.instantiate(instance, ...)
 
-        instantiate_active = false
+        if DEBUG then
+            instance_metatable.__is_instantiating = false
+        end
         return instance
     end
 
-    type.instantiate = _default_instantiate
-    return type
+    instance_type.instantiate = _default_instantiate
+    return instance_type
 end
 
 --- @brief
@@ -899,7 +948,7 @@ end
 --- @brief
 function meta.add_signals(type, ...)
     meta.assert(type, meta.Type)
-    local metatable = _get_class_table(type)
+    local metatable = _get_metatable(type)
     for i = 1, select("#", ...) do
         local id = select(i, ...)
         meta.assert_argument_type(id, meta.String, 1 + i)
@@ -1025,7 +1074,7 @@ do
     local function _serialize_is_meta_object(value)
         if _g_type(value) ~= "table" then return false end
 
-        local class_table = _get_class_table(value)
+        local class_table = _get_metatable(value)
         return _g_type(class_table) == "table"
             and class_table == getmetatable(value)
     end
@@ -1048,7 +1097,7 @@ do
         local entries = {}
         local seen = {}
         local value_is_meta = _serialize_is_meta_object(value)
-        local class_table = _get_class_table(value)
+        local class_table = _get_metatable(value)
 
         if value_is_meta then
             local typename = rawget(class_table, _typename_key)
@@ -1075,7 +1124,7 @@ do
         local entries = {}
         local seen = {}
         local instance_is_meta = _serialize_is_meta_object(instance)
-        local instance_class_table = _get_class_table(instance)
+        local instance_class_table = _get_metatable(instance)
 
         if instance_is_meta then
             local typename = rawget(instance_class_table, "__typename")
@@ -1110,7 +1159,7 @@ do
         while _g_type(current_type) == "table" and not visited_types[current_type] do
             visited_types[current_type] = true
 
-            local type_class_table = _get_class_table(current_type)
+            local type_class_table = _get_metatable(current_type)
             local type_is_meta = _serialize_is_meta_object(current_type)
 
             for key, value in pairs(current_type) do
@@ -1354,22 +1403,40 @@ function meta.make_auto_extend(t, recursive)
     return t, metatable
 end
 
---- @brief
-function meta.install(instance, values)
-    meta.assert(instance, meta.Any, values, meta.Table)
-    for key, value in pairs(values) do
-        if instance[key] == nil then
-            instance[key] = value
+if DEBUG then
+    function meta.install(instance, values)
+        meta.assert(instance, meta.Any, values, meta.Table)
+        rt.assert(meta.is_object(instance))
+        local metatable = _get_metatable(instance)
+        for key, value in pairs(values) do
+            if rawget(instance, key) == nil then
+                rawset(instance, key, value)
+            end
+
+            metatable.__properties[key] = true
         end
+
+        return instance
     end
-    return instance
+else
+    --- @brief
+    function meta.install(instance, values)
+        meta.assert(instance, meta.Any, values, meta.Table)
+        for key, value in pairs(values) do
+            if instance[key] == nil then
+                instance[key] = value
+            end
+        end
+
+        return instance
+    end
 end
 
 --- @brief
 function meta.as_singleton(type, ...)
     meta.assert(type, meta.Type)
     local instance = type(...)
-    _get_class_table(instance).__call = function()
+    _get_metatable(instance).__call = function()
         rt.error("In ", meta.get_typename(type), "(): trying to instantiate type, but is a singleton that cannot be instatiated")
     end
 

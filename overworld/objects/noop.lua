@@ -4,7 +4,7 @@ ow.NOOP = meta.class("NOOP", ow.MovableObject)
 --- @brief
 function ow.NOOP:instantiate(object, stage, scene)
     if object:get_type() == ow.ObjectType.POINT then
-        local x, y = object:get_position()
+        local x, y = object:get_centroid()
 
         self._contour = {}
         local n_vertices = 8
@@ -17,7 +17,7 @@ function ow.NOOP:instantiate(object, stage, scene)
 
         self._fill = rt.MeshCircle(x, y, radius)
     else
-        self._contour = object:create_contour()
+        self._contour = rt.contour.close(object:create_contour())
         self._fill = object:create_mesh()
     end
 end

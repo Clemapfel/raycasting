@@ -8,7 +8,7 @@ rt.settings.overworld.wall = {
 
 local schema = meta.Schema({
     opacity = mt.Optional(ow.Number),
-    type = ow.String
+    pattern = mt.Optional(ow.String)
 })
 
 --- @class ow.Wall
@@ -49,7 +49,7 @@ function ow.Wall:instantiate(object, stage, scene)
 
     self._opacity = object:get_number("opacity") or rt.Palette.WALL.a
 
-    local pattern = object:get_string("type") or ow.WallPatternType.FLAT
+    local pattern = object:get_string("pattern") or ow.WallPatternType.FLAT
     self._pattern = string.upper(pattern)
     meta.assert(self._pattern, ow.WallPatternType)
 

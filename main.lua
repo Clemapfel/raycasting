@@ -10,34 +10,10 @@ if _G.DEBUG then
 end
 
 require "common.scene_manager"
-
-
-rt.GameState:set_draw_debug_information(true) -- TODO
-bd.mount_path("C:/Users/cleme/Workspace/raycasting/website/screenshots", "screenshots")
-DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
-    if which == rt.KeyboardKey.M then
-        rt.SceneManager:screenshot("screenshots/" .. string.unique_timestamp() .. ".png")
-    end
-end)
-
-local shader = rt.Shader("website/game/src/content/shaders/bismuth.glsl")
-local elapsed = 0
-
 require "common.log"
 rt.Log.start_worker()
 
 love.load = function(args)
-    DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
-        if which == rt.KeyboardKey.K then
-            local success, error = pcall(shader.recompile, shader)
-            if not success then
-                rt.critical(error)
-            end
-
-            elapsed = 0
-        end
-    end)
-
     if PROFILE then profiler.push("love.load") end
 
     local before = love.timer.getTime()
@@ -90,19 +66,12 @@ love.update = function(delta)
     if rt.SceneManager ~= nil then
         rt.SceneManager:update(delta)
     end
-
-    elapsed = elapsed + delta
 end
 
 love.draw = function()
     if rt.SceneManager ~= nil then
         rt.SceneManager:draw()
     end
-
-    shader:bind()
-    shader:send("elapsed", elapsed)
-    --love.graphics.rectangle("fill", 0, 0, love.graphics.getDimensions())
-    shader:unbind()
 end
 
 love.resize = function(width, height)
@@ -110,4 +79,3 @@ love.resize = function(width, height)
         rt.SceneManager:resize()
     end
 end
-]]

@@ -1,145 +1,158 @@
+local try_get = function(x, name)
+    if x == nil then return nil end
+
+    local success, value = pcall(function()
+        return x[name]
+    end)
+
+    if success then return value end
+end
+
 local try_call = function(x, name, ...)
-    if not type(x) == "table" then return end
-    local success, out = pcall(x[name], x, ...)
-    if success then return out else return nil end
+    if x == nil then return end
+
+    local get_success, method = pcall(function()
+        return x[name]
+    end)
+
+    if not get_success or type(method) ~= "function" then return end
+
+    local success, a, b, c = pcall(method, x, ...)
+
+    if success then return a, b, c end
+end
+
+local try_function = function(x, name, ...)
+    if x == nil then return end
+
+    local get_success, method = pcall(function()
+        return x[name]
+    end)
+
+    if not get_success or type(method) ~= "function" then return end
+
+    local success, a, b, c = pcall(method, ...)
+
+    if success then return a, b, c end
+end
+
+local safe_tostring = function(value)
+    local success, result = pcall(tostring, value)
+
+    if success and type(result) == "string" then
+        return result
+    end
+
+    return "Unknown error"
+end
+
+local write_error = function(text)
+    local stderr = try_get(io, "stderr")
+
+    try_call(stderr, "setvbuf", "no")
+    try_call(stderr, "write", text, "\n")
+    try_call(stderr, "flush")
 end
 
 function love.errorhandler(message, depth)
-    local traceback = debug.traceback("Error in " .. message)
-    local raw_traceback = traceback
-    traceback = string.gsub(traceback, "\n[^\n]+$", "")
+    local error_message = safe_tostring(message)
+    local traceback = "Error in " .. error_message
 
-    -- flush traceback to console
-    io.stdout:setvbuf("no")
-    local stream = io.stderr
-    stream:setvbuf("no")
-    stream:write(traceback .. "\n")
-    stream:flush()
+    local generated_traceback = try_function(
+        debug,
+        "traceback",
+        traceback,
+        2
+    )
 
-    -- strip controls characters in preparation for logging
-    local uft8_success, utf8 = pcall(require, "utf8")
-    if uft8_success and utf8 ~= nil then
-        local sanitized = {}
-        for char in string.gmatch(traceback, utf8.charpattern) do
-            table.insert(sanitized, char)
-        end
-        traceback = table.concat(sanitized, "")
-        traceback = string.gsub(traceback, "\t", "    ")
-        traceback = string.gsub(traceback, "\027%[[%d;]*m", "") -- strip control characters
-        traceback = string.gsub(traceback, "[^\n]*%[C%]:[^\n]*\n?", "") -- strip native C lines
-        traceback = string.gsub(traceback, "stack traceback", "Stack Traceback")
+    if type(generated_traceback) == "string" then
+        traceback = generated_traceback
     end
 
-    -- reset love state
+    local sanitize_success, sanitized = pcall(function()
+        local result = string.gsub(traceback, "\t", "    ")
+        result = string.gsub(result, "\27%[[%d;]*m", "")
+        return result
+    end)
 
-    if love.mouse ~= nil then
-        love.mouse.setVisible(true)
-        love.mouse.setGrabbed(false)
-        love.mouse.setRelativeMode(false)
-        if love.mouse.isCursorSupported() then
-            love.mouse.setCursor()
-        end
+    if sanitize_success and type(sanitized) == "string" then
+        traceback = sanitized
     end
 
-    if love.joystick ~= nil then
-        local joysticks = love.joystick.getJoysticks()
-        if joysticks ~= nil and type(joysticks) == "table" then
-            for _, joystick in pairs(joysticks) do
-                joystick:setVibration(0)
-            end
-        end
-    end
+    write_error(traceback)
+
+    local love_api = love
 
     local log_path = nil
 
     if rt ~= nil then
-        if rt.InputManager ~= nil then try_call(rt.InputManager, "reset") end
-        if rt.MusicManager ~= nil then try_call(rt.MusicManager, "reset") end
-        if rt.SoundManager ~= nil then
-            try_call(rt.SoundManager, "reset")
-            try_call(rt.SoundManager, "flush")
-        end
-        if rt.ThreadManager ~= nil then try_call(rt.ThreadManager, "request_shutdown") end
+        local log_manager = try_get(rt, "Log")
+        log_path = try_call(log_manager, "get_active_path")
+    end
 
-        if rt.Log ~= nil then
-            log_path = try_call(rt.Log, "get_active_path")
+    if type(log_path) ~= "string" or log_path == "" then
+        log_path = nil
+    end
 
-            -- serialize entire gamestate
-            local to_dump
-            if table.serialize ~= nil then
-                to_dump = table.serialize({
-                    InputManager = rt.InputManager,
-                    MusicManager = rt.MusicManager,
-                    SoundManager = rt.SoundManager,
-                    ThreadManager = rt.ThreadManager,
-                    Log = rt.Log,
-                    SceneManager = rt.SceneManager
-                })
+    local mouse_api = try_get(love_api, "mouse")
+
+    try_function(mouse_api, "setVisible", true)
+    try_function(mouse_api, "setGrabbed", false)
+    try_function(mouse_api, "setRelativeMode", false)
+
+    local cursor_supported = try_function(mouse_api, "isCursorSupported")
+
+    if cursor_supported then
+        try_function(mouse_api, "setCursor")
+    end
+
+    local joystick_api = try_get(love_api, "joystick")
+    local joysticks = try_function(joystick_api, "getJoysticks")
+
+    if type(joysticks) == "table" then
+        pcall(function()
+            for _, joystick in pairs(joysticks) do
+                try_call(joystick, "setVibration", 0, 0)
             end
-
-            if DEBUG and to_dump then
-                if love.filesystem ~= nil then
-                    pcall(love.filesystem.append, log_path, rt.Log._message_types.DUMP .. " " .. to_dump)
-                    pcall(love.filesystem.append, log_path, rt.Log._message_types.FATAL .. " " .. traceback)
-                end
-            end
-
-            dbg(to_dump)
-        end
+        end)
     end
 
-    -- drawing
+    local graphics = try_get(love_api, "graphics")
 
-    if love.graphics == nil then return end
+    local pixel_scale_value = tonumber(pixel_scale) or 1
 
-    local color_r, color_g, color_b, color_a = 0.87450980392157, 0, 0.34901960784314, 1
-
-    if love.graphics ~= nil then
-        love.graphics.reset()
-        love.graphics.clear(color_r, color_g, color_b, color_a)
+    if pixel_scale_value <= 0 then
+        pixel_scale_value = 1
     end
 
-    local pixel_scale = 1
-    if rt ~= nil and rt.SceneManager ~= nil then
-        local read = try_call(rt.SceneManager, "get_pixel_scale")
-        if read ~= nil then
-            pixel_scale = read
-        end
+    local font_size = math.max(1, math.floor(15 * pixel_scale_value))
+
+    local font = try_function(graphics, "newFont", font_size)
+
+    if font == nil then
+        font = try_function(graphics, "getFont")
     end
 
-    local prefix_message = "An Error has occurred and the Application was unable to recover"
-    local footer_message = "Press %s to exit, %s to open log file"
-
-    if rt ~= nil and rt.Translation ~= nil then
-        local success = pcall(require, "common.translation")
-        if success and rt.Translation ~= nil then
-            if rt.Translation.error_handler ~= nil then
-                prefix_message = rt.Translation.error_handler.prefix_message or prefix_message
-                footer_message = rt.Translation.error_handler.footer_message or footer_message
-            end
-        end
+    if font ~= nil then
+        try_function(graphics, "setFont", font)
     end
 
-    traceback = prefix_message .. "\n\n" .. traceback
-    footer_message = string.format(footer_message, "ESCAPE", "ENTER")
+    local clear_r = tonumber(color_r) or 0
+    local clear_g = tonumber(color_g) or 0
+    local clear_b = tonumber(color_b) or 0
+    local clear_a = tonumber(color_a) or 1
 
-    -- drawing
+    local footer = footer_message
 
-    local h_margin = 70 -- px
+    if type(footer) ~= "string" then
+        footer = "Press ESC to quit. Press ENTER to open the log file."
+    end
+
+    local h_margin = 70
     local v_margin = 40
-    local font = love.graphics.newFont(15 * pixel_scale)
-    love.graphics.setFont(font)
-
-    local draw_text = function(text, x, y)
-        love.graphics.setColor(1, 1, 1, 1)
-        love.graphics.printf(
-            text,
-            h_margin + x, v_margin + y,
-            love.graphics.getWidth() - 2 * h_margin - 10
-        )
-    end
 
     local scroll_y = 0
+    local scroll_speed = 40 * pixel_scale_value
 
     local scroll_bar_background_r = 0.49411764705882
     local scroll_bar_background_g = 0
@@ -152,96 +165,345 @@ function love.errorhandler(message, depth)
     local scroll_bar_foreground_a = 1
 
     local darken = 0.5
+
     local scroll_bar_divider_r = darken * scroll_bar_background_r
     local scroll_bar_divider_g = darken * scroll_bar_background_g
     local scroll_bar_divider_b = darken * scroll_bar_background_b
     local scroll_bar_divider_a = 1
 
-    local scroll_speed = 40
+    local layout_width = nil
 
-    local wrap = function(text)
-        local _, wrapped = font:getWrap(text, love.graphics.getWidth() - 2 * h_margin - 10)
-        return table.concat(wrapped, "\n"), #wrapped * font:getHeight()
-    end
+    local traceback_wrapped = traceback
+    local traceback_height = 0
 
-    return function()
-        love.event.pump()
-        for event, a, b, c, d, e, f in love.event.poll() do
-            if event == "quit" then
-                if love.quit then love.quit() end
-                return a or 1, b
-            elseif event == "keypressed" then
-                if a == "escape" then
-                    return 0 -- quit
-                elseif a == "return" or a == "kpenter" then
-                    if love.system ~= nil and log_path ~= nil then
-                        love.system.openURL( "file://" .. log_path)
-                    end
-                elseif a == "up" then
-                    scroll_y = scroll_y - scroll_speed * pixel_scale
-                elseif a == "down" then
-                    scroll_y = scroll_y + scroll_speed * pixel_scale
-                elseif a == "pageup" then
-                    scroll_y = scroll_y - love.graphics.getHeight() / 2
-                elseif a == "pagedown" then
-                    scroll_y = scroll_y + love.graphics.getHeight() / 2
-                end
-            elseif event == "wheelmoved" then
-                scroll_y = scroll_y - b * scroll_speed * pixel_scale
-            elseif event == "gamepadpressed" then
-                if b == "start" then
-                    return 0 -- exit
-                elseif b == "x" or b == "y" or b == "a" or b == "b" then
-                    if love.system ~= nil and log_path ~= nil then
-                        love.system.openURL("file://" .. log_path)
-                    end
-                end
+    local footer_wrapped = footer
+    local footer_height = 0
+
+    local wrap = function(text, width)
+        text = safe_tostring(text)
+        width = math.max(1, tonumber(width) or 1)
+
+        local lines = nil
+
+        if font ~= nil then
+            local _, wrapped_lines = try_call(font, "getWrap", text, width)
+
+            if type(wrapped_lines) == "table" then
+                lines = wrapped_lines
             end
         end
 
-        if love.graphics.isActive() then
-            love.graphics.clear(color_r, color_g, color_b, color_a)
+        if type(lines) ~= "table" or #lines == 0 then
+            lines = { text }
+        end
 
-            local window_height = love.graphics.getHeight()
-            local window_width = love.graphics.getWidth()
+        local concat_success, wrapped = pcall(table.concat, lines, "\n")
 
-            local traceback_wrapped, traceback_height = wrap(traceback)
+        if not concat_success or type(wrapped) ~= "string" then
+            wrapped = text
+            lines = { text }
+        end
 
-            local total_content_height = traceback_height + v_margin
-            local max_scroll = math.max(0, (total_content_height + 2 * v_margin) - window_height)
-            scroll_y = math.max(0, math.min(scroll_y, max_scroll))
+        local line_height = font_size
 
-            love.graphics.translate(0, -scroll_y)
+        if font ~= nil then
+            local font_height = tonumber(try_call(font, "getHeight"))
+            local font_line_height = tonumber(try_call(font, "getLineHeight"))
 
-            draw_text(traceback_wrapped, 0, -scroll_y)
-            draw_text(footer_message, 0, traceback_height + v_margin)
+            line_height = (font_height or font_size) * (font_line_height or 1)
+        end
+
+        line_height = math.max(1, line_height)
+
+        return wrapped, math.max(1, #lines) * line_height
+    end
+
+    local update_layout = function(window_width)
+        local width = math.max(1, window_width - 2 * h_margin - 10)
+
+        if width == layout_width then return end
+
+        layout_width = width
+
+        traceback_wrapped, traceback_height = wrap(traceback, width)
+        footer_wrapped, footer_height = wrap(footer, width)
+    end
+
+    local clamp_scroll = function(value, max_value)
+        if type(value) ~= "number" or value ~= value then
+            value = 0
+        end
+
+        if value == math.huge then
+            return max_value
+        elseif value == -math.huge then
+            return 0
+        end
+
+        return math.max(0, math.min(value, max_value))
+    end
+
+    local open_log = function()
+        if log_path == nil then return end
+
+        local system_api = try_get(love_api, "system")
+
+        try_function(system_api, "openURL", "file://" .. log_path)
+    end
+
+    local handle_event = function(event, a, b)
+        if event == "quit" then
+            try_function(love_api, "quit")
+            return a or 1, b
+
+        elseif event == "keypressed" then
+            if a == "escape" then
+                return 0
+
+            elseif a == "return" or a == "kpenter" then
+                open_log()
+
+            elseif a == "up" then
+                scroll_y = scroll_y - scroll_speed
+
+            elseif a == "down" then
+                scroll_y = scroll_y + scroll_speed
+
+            elseif a == "pageup" then
+                local height = tonumber(try_function(graphics, "getHeight")) or 600
+                scroll_y = scroll_y - height / 2
+
+            elseif a == "pagedown" then
+                local height = tonumber(try_function(graphics, "getHeight")) or 600
+                scroll_y = scroll_y + height / 2
+
+            elseif a == "home" then
+                scroll_y = 0
+
+            elseif a == "end" then
+                scroll_y = math.huge
+            end
+
+        elseif event == "wheelmoved" then
+            scroll_y = scroll_y - (tonumber(b) or 0) * scroll_speed
+
+        elseif event == "gamepadpressed" then
+            if b == "start" then
+                return 0
+
+            elseif b == "x" or b == "y" or b == "a" or b == "b" then
+                open_log()
+            end
+        end
+    end
+
+    local draw_screen = function(
+        window_width,
+        window_height,
+        total_height,
+        max_scroll
+    )
+        if not try_function(graphics, "isActive") then return end
+
+        try_function(graphics, "origin")
+        try_function(graphics, "clear", clear_r, clear_g, clear_b, clear_a)
+
+            try_function(graphics, "translate", 0, -scroll_y)
+        try_function(graphics, "setColor", 1, 1, 1, 1)
+
+        try_function(
+            graphics,
+            "printf",
+            traceback_wrapped,
+            h_margin,
+            v_margin,
+            layout_width
+        )
+
+        try_function(
+            graphics,
+            "printf",
+            footer_wrapped,
+            h_margin,
+            v_margin + traceback_height + v_margin,
+            layout_width
+        )
+
+                    try_function(graphics, "origin")
+
+        if max_scroll > 0 then
+            local scroll_bar_w = math.min(
+                10 * pixel_scale_value,
+                window_width
+            )
+
+            local scroll_bar_x = math.max(0, window_width - scroll_bar_w)
+            local corner_radius = scroll_bar_w / 2
+
+            local view_ratio = math.min(
+                1,
+                window_height / math.max(1, total_height)
+            )
+
+            local cursor_h = math.min(
+                window_height,
+                math.max(
+                    math.min(20 * pixel_scale_value, window_height),
+                    window_height * view_ratio
+                )
+            )
+
+            local cursor_travel = math.max(0, window_height - cursor_h)
+
+            local cursor_y = 0
 
             if max_scroll > 0 then
-                local scroll_bar_w = 10 * pixel_scale
-                local scroll_bar_x = window_width - scroll_bar_w
-                local corner_radius = scroll_bar_w / 2
-
-                local view_ratio = window_height / (total_content_height + 2 * v_margin)
-
-                local cursor_h = math.max(20 * pixel_scale, window_height * view_ratio)
-                local cursor_y = (scroll_y / max_scroll) * (window_height - cursor_h)
-
-                love.graphics.setLineWidth(2)
-                love.graphics.setColor(scroll_bar_divider_r, scroll_bar_divider_g, scroll_bar_divider_b, scroll_bar_divider_a)
-                love.graphics.line(scroll_bar_x, 0, scroll_bar_x, window_height)
-
-                love.graphics.setColor(scroll_bar_background_r, scroll_bar_background_g, scroll_bar_background_b, scroll_bar_background_a)
-                love.graphics.rectangle("fill", scroll_bar_x, 0, scroll_bar_w, window_height)
-
-                love.graphics.setColor(scroll_bar_foreground_r, scroll_bar_foreground_g, scroll_bar_foreground_b, scroll_bar_foreground_a)
-                love.graphics.rectangle("fill", scroll_bar_x, cursor_y, scroll_bar_w, cursor_h, corner_radius, corner_radius)
+                cursor_y = (scroll_y / max_scroll) * cursor_travel
             end
 
-            love.graphics.present()
+            cursor_y = math.max(0, math.min(cursor_y, cursor_travel))
+
+            try_function(graphics, "setLineWidth", 2)
+
+            try_function(
+                graphics,
+                "setColor",
+                scroll_bar_divider_r,
+                scroll_bar_divider_g,
+                scroll_bar_divider_b,
+                scroll_bar_divider_a
+            )
+
+            try_function(
+                graphics,
+                "line",
+                scroll_bar_x,
+                0,
+                scroll_bar_x,
+                window_height
+            )
+
+            try_function(
+                graphics,
+                "setColor",
+                scroll_bar_background_r,
+                scroll_bar_background_g,
+                scroll_bar_background_b,
+                scroll_bar_background_a
+            )
+
+            try_function(
+                graphics,
+                "rectangle",
+                "fill",
+                scroll_bar_x,
+                0,
+                scroll_bar_w,
+                window_height
+            )
+
+            try_function(
+                graphics,
+                "setColor",
+                scroll_bar_foreground_r,
+                scroll_bar_foreground_g,
+                scroll_bar_foreground_b,
+                scroll_bar_foreground_a
+            )
+
+            try_function(
+                graphics,
+                "rectangle",
+                "fill",
+                scroll_bar_x,
+                cursor_y,
+                scroll_bar_w,
+                cursor_h,
+                corner_radius,
+                corner_radius
+            )
         end
 
-        love.timer.sleep(1 / 1000)
+        try_function(graphics, "present")
     end
 
+    local event_api = try_get(love_api, "event")
 
+    if event_api == nil then
+        return function()
+            return 1
+        end
+    end
+
+    local timer_api = try_get(love_api, "timer")
+
+    return function()
+        while true do
+            try_function(event_api, "pump")
+
+            local iterator, state, control = try_function(event_api, "poll")
+
+            if type(iterator) ~= "function" then
+                return 1
+            end
+
+            local event_success, exit_code, exit_data = pcall(function()
+                for event, a, b, c, d, e, f in iterator, state, control do
+                    local handled, code, data = pcall(
+                        handle_event,
+                        event,
+                        a,
+                        b,
+                        c,
+                        d,
+                        e,
+                        f
+                    )
+
+                    if handled and code ~= nil then
+                        return code, data
+                    end
+                end
+            end)
+
+            if not event_success then
+                return 1
+            end
+
+            if exit_code ~= nil then
+                return exit_code, exit_data
+            end
+
+            local window_width = tonumber(
+                try_function(graphics, "getWidth")
+            ) or 800
+
+            local window_height = tonumber(
+                try_function(graphics, "getHeight")
+            ) or 600
+
+            window_width = math.max(1, window_width)
+            window_height = math.max(1, window_height)
+
+            update_layout(window_width)
+            local footer_y = v_margin + traceback_height + v_margin
+
+            local total_height = footer_y + footer_height + v_margin
+            local max_scroll = math.max(0, total_height - window_height)
+
+            scroll_y = clamp_scroll(scroll_y, max_scroll)
+
+            if font ~= nil and graphics ~= nil then
+                pcall(
+                    draw_screen,
+                    window_width,
+                    window_height,
+                    total_height,
+                    max_scroll
+                )
+            end
+
+            try_function(timer_api, "sleep", 1 / 1000)
+        end
+    end
 end

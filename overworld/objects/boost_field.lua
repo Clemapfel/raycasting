@@ -44,12 +44,12 @@ local schema = meta.Schema({
     is_visible = mt.Optional(ow.Boolean),
     has_outline = mt.Optional(ow.Boolean),
     velocity = mt.Optional(ow.Number),
-    hue = { ow.String, ow.Number }
+    hue = mt.Union(mt.Nil, ow.String, ow.Number)
 })
 
-local path_node_schema = {
+local path_node_schema = meta.Schema({
     next = mt.Optional(ow.Object)
-}
+})
 
 --- @class ow.BoostField
 ow.BoostField = meta.class("BoostField", ow.MovableObject)

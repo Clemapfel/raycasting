@@ -1,9 +1,11 @@
 ---
-title: "My Post"
+title: "On Flow"
 slug: "flow"
 date: "04.05.2026"
 shader: "red_blood_cells"
-abstract: "TODO"
+abstract: > 
+    The concept of flow is an ill-defined game design concept roughly 
+
 ---
 
 # Test Markdown File
