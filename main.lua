@@ -11,6 +11,7 @@ end
 
 require "common.scene_manager"
 
+
 rt.GameState:set_draw_debug_information(true) -- TODO
 bd.mount_path("C:/Users/cleme/Workspace/raycasting/website/screenshots", "screenshots")
 DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
@@ -91,8 +92,6 @@ love.update = function(delta)
     end
 
     elapsed = elapsed + delta
-
-    error("test")
 end
 
 love.draw = function()
@@ -111,3 +110,4 @@ love.resize = function(width, height)
         rt.SceneManager:resize()
     end
 end
+]]

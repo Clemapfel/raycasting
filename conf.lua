@@ -68,6 +68,9 @@ function love.conf(settings)
 
     settings.window.title = "Chroma Void"
     settings.title = "Choma Void" -- deprecated but still set in 12.0
+    settings.title = "why"
+    settings.window.width = 200
+    settings.window.height = 200
 
     settings.identity = "chroma_void"
     settings.appendidentity = true -- needs to be true, otherwise main.lua can be loaded from appdata

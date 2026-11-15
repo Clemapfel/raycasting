@@ -22,6 +22,7 @@ _require "include.aabb"
 _require "include.polyline"
 _require "include.delaunay"
 _require "include.lag"
+_require "include.lag_2d"
 _require "include.random"
 _require "include.graphics"
 _require "include.audio"
@@ -37,6 +38,7 @@ _require "include.label"
 _require "include.control_indicator"
 _require "include.softbody"
 _require "include.player"
+_require "include.player_impulse"
 _require "include.stage"
 
 if DEBUG then
@@ -106,4 +108,6 @@ love.draw = function()
 
     state_draw(STATE)
     graphics_notify_end_of_frame()
+
+    love.graphics.print(love.timer.getFPS())
 end
