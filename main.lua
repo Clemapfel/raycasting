@@ -11,7 +11,20 @@ end
 
 require "common.scene_manager"
 require "common.log"
+require "common.profiler"
 rt.Log.start_worker()
+
+DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
+    if which == rt.KeyboardKey.K then
+        local pf = rt.Profiler
+        if pf:get_is_recording() == false then
+            pf:set_is_recording(true)
+        else
+            println(pf:report())
+            pf:set_is_recording(false)
+        end
+    end
+end)
 
 love.load = function(args)
     if PROFILE then profiler.push("love.load") end

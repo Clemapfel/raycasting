@@ -411,7 +411,7 @@ function ow.OverworldScene:exit()
     if rt.GameState:get_is_bloom_enabled() then
         local bloom = rt.SceneManager:get_bloom()
         if bloom ~= nil then
-            bloom:reset()
+            bloom:clear()
         end
     end
 end
@@ -443,7 +443,7 @@ function ow.OverworldScene:set_stage(stage_id, entry_mode)
     end
 
     if rt.GameState:get_is_bloom_enabled() then
-        rt.SceneManager:get_bloom():reset()
+        rt.SceneManager:get_bloom():clear()
     end
 
     if entry_mode == ow.StageEntryMode.TITLE_CARD then
@@ -672,14 +672,12 @@ function ow.OverworldScene:update(delta)
     end
 
     for x in range(
-        self._pause_menu,
         self._blur_motion,
         self._fade,
         self._fade_to_black_motion,
+        self._pause_menu,
         self._control_indicator_offset_motion,
         self._control_indicator_opacity_motion,
-        self._title_card,
-        self._countdown,
         self._control_indicator_particle_effect
     ) do
         x:update(delta)
@@ -694,6 +692,9 @@ function ow.OverworldScene:update(delta)
     if (self._state == _STATE_TIME_ATTACK_COUNTDOWN or self._state == _STATE_TITLE_CARD) then
         self._player:request_is_disabled(self, true)
         self._player:request_is_frozen(self, true)
+
+        self._title_card:update(delta)
+        self._countdown:update(delta)
     else
         self._player:request_is_disabled(self, nil)
         self._player:request_is_frozen(self, nil)
@@ -832,6 +833,7 @@ function ow.OverworldScene:draw()
         bloom:flush()
     end
 
+
     local blur_value = self._blur_motion:get_value()
     local use_blur = blur_value > 0.01 and self._screenshot_active ~= true
     if use_blur then
@@ -853,7 +855,6 @@ function ow.OverworldScene:draw()
         draw_player()
         draw_above()
         self._fade:draw()
-        self._title_card:draw()
     end
 
     if use_blur then

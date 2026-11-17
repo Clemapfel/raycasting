@@ -821,8 +821,14 @@ function ow.Stage:reset()
         body:set_is_enabled(body_to_is_enabled[body] or true)
     end
 
-    rt.SceneManager:get_light_map():clear()
-    rt.SceneManager:get_bloom():clear()
+    if rt.GameState:get_is_dynamic_lighting_enabled() then
+        rt.SceneManager:get_light_map():clear()
+    end
+
+    if rt.GameState:get_bloom_quality() ~= rt.BloomQuality.OFF then
+        rt.SceneManager:get_bloom():clear()
+    end
+
     self._light_map_bodies = {}
     self._darkness_mask_bodies = {}
 

@@ -4,6 +4,7 @@ local _noop = function() end
 io.stdout:setvbuf("no")
 
 local DEBUG = false -- TODO
+local PROFILE = true
 
 --- @class meta
 meta = meta or {}
@@ -836,18 +837,20 @@ local _print_property_warning = function(instance, name)
     end
 end
 
-local _debug_instance_index = function(self, key)
+local _override_instance_index = function(self, key)
     local metatable = _get_metatable(self)
-    if _print_property_warning(self, key) then
+    if DEBUG and _print_property_warning(self, key) then
         rt.warning("In `", meta.typeof(self), "`: trying to access property `", key, "`, but it is `nil`")
     end
+
     return metatable.__super[key]
 end
 
-local _debug_instance_newindex = function(self, key, value)
-    if _print_property_warning(self, key) then
+local _override_instance_newindex = function(self, key, value)
+    if DEBUG and _print_property_warning(self, key) then
         rt.warning("In `", meta.typeof(self), "`: trying to access property `", key, "`, but it is `nil`")
     end
+
     return rawset(self, key, value)
 end
 
@@ -894,13 +897,30 @@ function meta.class(typename, super)
         -- in debug mode, safe guard against nil access
         instance_metatable.__properties = {}
         instance_metatable.__super = instance_type
-        instance_metatable.__index = _debug_instance_index
-        instance_metatable.__newindex = _debug_instance_newindex
+        instance_metatable.__index = _override_instance_index
+        instance_metatable.__newindex = _override_instance_newindex
     else
         instance_metatable.__index = instance_type
     end
 
     _class_to_instance_metatable[instance_type] = instance_metatable
+
+    if PROFILE and rt ~= nil and rt.Profiler ~= nil then
+        instance_type_metatable.__newindex = function(self, key, value)
+            if type(value) == "function" and rt.Profiler:is_on_whitelist(key) then
+                local region = typename .. ":" .. key
+                local wrapper = function(...)
+                    rt.Profiler:start_region(region)
+                    local res = { value(...) }
+                    rt.Profiler:end_region(region)
+                    return table.unpack(res)
+                end
+                rawset(self, key, wrapper)
+            else
+                rawset(self, key, value)
+            end
+        end
+    end
 
     instance_type_metatable.__call = function(self, ...)
         local instance = {}

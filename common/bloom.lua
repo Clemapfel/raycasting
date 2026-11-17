@@ -264,7 +264,7 @@ function rt.Bloom:set_should_flush_manually(b)
 end
 
 --- @brief
-function rt.Bloom:reset()
+function rt.Bloom:clear()
     love.graphics.push("all")
     for texture in values(self._textures) do
         texture:bind()

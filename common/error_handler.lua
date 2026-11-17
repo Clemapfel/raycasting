@@ -307,7 +307,7 @@ function love.errorhandler(message, depth)
     if not try_function(graphics, "isActive") then return end
 
     try_function(graphics, "origin")
-    try_function(graphics, "clear", 1, 0.11372549019608, 0.46666666666667, 1)
+    try_function(graphics, "clear", 0.87450980392157, 0, 0.34901960784314, 1)
     try_function(graphics, "translate", 0, -scroll_y)
     try_function(graphics, "setColor", 1, 1, 1, 1)
 
