@@ -20,9 +20,6 @@
   </object>
  </objectgroup>
  <objectgroup id="7" name="background">
-  <object id="1397" type="AcceleratorSurface" x="4848" y="1152">
-   <polygon points="16,0 16,-144 -80,-144 -96,-144 -80,-128 -54.462,-123.153 -32.7916,-116.83 -17.8721,-106.728 -3.88368,-90.3457 0.426335,-68.2761 0,-32 0,0"/>
-  </object>
   <object id="1398" type="Wall" x="4640" y="832" visible="0">
    <polygon points="0,0 0,560 656,560 656,0"/>
   </object>
@@ -31,70 +28,8 @@
   <object id="1314" name="Spawn" type="PlayerSpawn" x="4768" y="1104">
    <point/>
   </object>
-  <object id="1337" type="SlipperyHitbox" x="1504" y="272">
-   <polygon points="144,0 128,16 -112,16 -112,0"/>
-  </object>
-  <object id="1338" type="Hitbox" x="1632" y="288">
-   <polygon points="0,0 0,272 -240,272 -240,0"/>
-  </object>
-  <object id="1339" type="AcceleratorSurface" x="1648" y="272">
-   <polygon points="0,0 -16,16 -16,288 208,288 208,272 128,272 93.9231,266.001 67.0267,256.349 46.1176,239.949 31.2192,221.933 17.5407,203.252 7.67813,179.755 1.86322,154.83 0,128"/>
-  </object>
-  <object id="1341" type="AcceleratorSurface" x="2048" y="272">
-   <polygon points="0,-80 16,-80 16,288 -208,288 -208,272 -128,272 -95.5294,266.001 -69.4361,255.546 -48.5271,239.949 -31.2192,221.933 -17.5407,200.843 -7.67813,177.346 -1.86322,154.83 0,128"/>
-  </object>
-  <object id="1342" type="AcceleratorSurface" x="2048" y="336">
-   <polygon points="0,-128 16,-128 16,-384 -192,-384 -208,-368 -128,-368 -95.5294,-362.001 -68.633,-350.743 -49.3302,-335.146 -31.2192,-317.933 -17.5407,-296.843 -7.67813,-273.346 -1.86322,-250.83 0,-224"/>
-  </object>
-  <object id="1343" type="Hitbox" x="1840" y="-48">
-   <polygon points="0.944644,96 -16,112.059 -16,128.059 -448,128.059 -448,-864 -384,-864 -384.174,-64 384,-64 384,704 224,704 224,0 16,0 0,16"/>
-  </object>
-  <object id="1344" type="SlipperyHitbox" x="1696" y="80">
-   <polygon points="144,16.0589 144,-31.9411 128,-15.9411 128,0.0589458 -304,0 -304,-992 -240,-992 -240,-928 -192,-928 -176,-992 -176,-1088 -160,-1104 -32,-1104 -16,-1088 -16,-784 -13.8623,-775.911 -9.18352,-771.106 0,-768 0,-1184 -320,-1184 -320,16"/>
-  </object>
-  <object id="1345" type="Portal" x="1840" y="-32">
-   <properties>
-    <property name="other" type="object" value="1346"/>
-    <property name="target" type="object" value="1347"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="1346" type="PortalNode" x="1840" y="48">
-   <point/>
-  </object>
-  <object id="1347" type="Portal" x="1472" y="-112">
-   <properties>
-    <property name="other" type="object" value="1348"/>
-    <property name="target" type="object" value="0"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="1348" type="PortalNode" x="1584" y="-112">
-   <point/>
-  </object>
-  <object id="1350" type="Hitbox" x="1616" y="-624">
-   <polygon points="0,-320 0,384 32,384 32,-320"/>
-  </object>
-  <object id="1352" type="SlipperyHitbox" x="1632" y="-848">
-   <polygon points="-16,0 -16,-96 16,-96 16,608 32,608 32,224 496,224 496,208 80,208 60.7026,205.404 46.8019,197.894 38.5729,186.688 32,171.648 32,-144 16,-160 -80,-160 -96,-144 -96,-64 -80,0"/>
-  </object>
-  <object id="1353" type="BoostField" x="1504" y="-848">
-   <properties>
-    <property name="path" type="object" value="1354"/>
-   </properties>
-   <polygon points="0,0 48,0 32,-64 32,-144 48,-160 144,-160 160,-144 160,144 176,144 176,-160 160,-176 32,-176 16,-160 16,-64"/>
-  </object>
   <object id="1368" type="SlipperyHitbox" x="4688" y="1104">
    <polygon points="144,0 128,16 -112,16 -112,0"/>
-  </object>
-  <object id="1370" type="AcceleratorSurface" x="4832" y="1104">
-   <polygon points="0,0 -16,16 -16,256 208,256 208,240 128,240 93.9231,234.001 67.0267,224.349 46.1176,207.949 31.2192,189.933 17.5407,171.252 7.67813,147.755 1.86322,122.83 0,96"/>
-  </object>
-  <object id="1371" type="AcceleratorSurface" x="5232" y="1104">
-   <polygon points="48,-80 64,-80 64,256 -208,256 -208,240 -80,240 -47.5294,234.001 -21.4361,223.546 -0.5271,207.949 16.7808,189.933 30.4593,168.843 40.3219,145.346 46.1368,122.83 48,96"/>
-  </object>
-  <object id="1372" type="AcceleratorSurface" x="5232" y="1168">
-   <polygon points="48,-48 64,-48 64,-304 -192,-304 -208,-288 -80,-288 -47.5294,-282.001 -20.633,-270.743 -1.3302,-255.146 16.7808,-237.933 30.4593,-216.843 40.3219,-193.346 46.1368,-170.83 48,-144"/>
   </object>
   <object id="1373" type="Hitbox" x="5024" y="784">
    <polygon points="-16,208.059 -400,208 -400,223.941 -304,223.941 -304,319.941 -400,319.941 -400,335.941 -208,336 -208,576 272,576 448,704 -528,704 -528,-64 -384.174,-64 448,-64 448,704 272,576 272,80 16,80 -16,80"/>
@@ -109,58 +44,21 @@
   <object id="1376" type="PortalNode" x="5024" y="960">
    <point/>
   </object>
-  <object id="1377" type="Portal" x="4672" y="1008">
+  <object id="1377" type="Portal" x="4720" y="1008">
    <properties>
     <property name="other" type="object" value="1378"/>
     <property name="target" type="object" value="1375"/>
    </properties>
    <point/>
   </object>
-  <object id="1378" type="PortalNode" x="4672" y="1104">
+  <object id="1378" type="PortalNode" x="4720" y="1104">
    <point/>
   </object>
   <object id="1390" type="SlipperyHitbox" x="4688" y="912">
    <polygon points="336,80 336,96 -112,96 -112,80 320,80 320,-48 352,-48 336,-32 336,48 400,48 400,64 336,64"/>
   </object>
  </objectgroup>
- <objectgroup id="6" name="foreground">
-  <object id="1354" type="BoostFieldPathNode" x="1526.51" y="-856.195">
-   <properties>
-    <property name="next" type="object" value="1355"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="1355" type="BoostFieldPathNode" x="1528.09" y="-998.894">
-   <properties>
-    <property name="next" type="object" value="1356"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="1356" type="BoostFieldPathNode" x="1544.94" y="-1015.74">
-   <properties>
-    <property name="next" type="object" value="1357"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="1357" type="BoostFieldPathNode" x="1656.05" y="-1016.27">
-   <properties>
-    <property name="next" type="object" value="1358"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="1358" type="BoostFieldPathNode" x="1671.32" y="-998.368">
-   <properties>
-    <property name="next" type="object" value="1359"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="1359" type="BoostFieldPathNode" x="1671.9" y="-710.366">
-   <properties>
-    <property name="next" type="object" value="0"/>
-   </properties>
-   <point/>
-  </object>
- </objectgroup>
+ <objectgroup id="6" name="foreground"/>
  <layer id="1" name="tiles" width="32" height="32">
   <data encoding="csv"/>
  </layer>

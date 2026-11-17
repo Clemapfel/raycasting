@@ -3,6 +3,8 @@ require "common.common"
 local _noop = function() end
 io.stdout:setvbuf("no")
 
+local DEBUG = false -- TODO
+
 --- @class meta
 meta = meta or {}
 mt = mt or meta
@@ -837,14 +839,14 @@ end
 local _debug_instance_index = function(self, key)
     local metatable = _get_metatable(self)
     if _print_property_warning(self, key) then
-        --TODO rt.warning("In `", meta.typeof(self), "`: trying to access property `", key, "`, but it is `nil`")
+        rt.warning("In `", meta.typeof(self), "`: trying to access property `", key, "`, but it is `nil`")
     end
     return metatable.__super[key]
 end
 
 local _debug_instance_newindex = function(self, key, value)
     if _print_property_warning(self, key) then
-        --TODO rt.warning("In `", meta.typeof(self), "`: trying to access property `", key, "`, but it is `nil`")
+        rt.warning("In `", meta.typeof(self), "`: trying to access property `", key, "`, but it is `nil`")
     end
     return rawset(self, key, value)
 end

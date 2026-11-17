@@ -50,8 +50,6 @@ function rt.GameState:instantiate()
     self._file_io = rt.FileIO()
     self._save_futures = {}
     self._log_futures = {}
-
-    self:load_save()
 end
 
 --- @brief

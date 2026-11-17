@@ -138,6 +138,7 @@ do
 
         -- bloom blur quality
         bloom_quality = ENUM(rt.BloomQuality.NORMAL,
+            rt.BloomQuality.OFF,
             rt.BloomQuality.LOWEST,
             rt.BloomQuality.LOW,
             rt.BloomQuality.NORMAL,

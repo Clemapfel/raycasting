@@ -67,7 +67,7 @@ const platform_to_entry = {
 };
 ---
 
-<BoxLayout orientation={orientation} tooltipPosition={tooltipPosition}>
+<BoxLayout orientation={orientation} tooltipPosition={tooltipPosition} itemsPerLine={1}>
     {Object.entries(platform_to_entry).map(([platform, entry]) => (
             <Tooltip text={entry.title} orientation={tooltipPosition}>
                 <a

@@ -1,5 +1,5 @@
 _G.VERSION = "0.0.1d"
-_G.DEBUG = true
+DEBUG = true
 _G.PROFILE = false
 _G.CONFIG = nil -- assigned below
 

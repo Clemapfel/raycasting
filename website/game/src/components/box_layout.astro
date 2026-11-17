@@ -1,38 +1,58 @@
 ---
-//
-// Usage: <BoxLayout orientation="horizontal" tooltipPosition="top">
-//
 
 interface Props {
     orientation?: "horizontal" | "vertical";
     tooltipPosition?: "top" | "right" | "bottom" | "left";
+    itemsPerLine?: number;
     ariaLabel?: string;
 }
 
 const {
     orientation = "horizontal",
     tooltipPosition = "top",
+    itemsPerLine = 1,
     ariaLabel,
 } = Astro.props;
+
+const horizontal = orientation === "horizontal";
+const lineSize = Math.max(1, Math.floor(itemsPerLine));
+
+const afterFirstLine = `:nth-child(n + ${lineSize + 1})`;
+const notFirstInLine = `:not(:nth-child(${lineSize}n + 1))`;
+const [dividerAbove, dividerBefore] = horizontal
+    ? [notFirstInLine, afterFirstLine]
+    : [afterFirstLine, notFirstInLine];
+
+const scope = `.box-layout${horizontal ? ".horizontal" : ":not(.horizontal)"}[data-items-per-line="${lineSize}"]`;
+const dividerCss = `
+${scope} > ${dividerAbove} { --divider-block: 1px; }
+${scope} > ${dividerBefore} { --divider-inline: 1px; }
+`;
 ---
 
 <nav
-        class:list={["box-layout", { horizontal: orientation === "horizontal" }]}
+        class:list={["box-layout", { horizontal }]}
+        style={{ "--items-per-line": lineSize }}
+        data-items-per-line={lineSize}
         aria-label={ariaLabel}
 >
     <slot />
 </nav>
+<style is:inline set:html={dividerCss}></style>
 
 <style>
     .box-layout {
-        z-index: 1000;
-        display: inline-flex;
-        flex-direction: column;
-        border: 1px solid oklch(
+        --divider-color: oklch(
                 var(--global-color-l)
                 var(--global-color-c)
                 var(--global-color-h)
         );
+
+        z-index: 1000;
+        display: inline-grid;
+        grid-auto-flow: row;
+        grid-template-columns: repeat(var(--items-per-line), 1fr);
+        border: 1px solid var(--divider-color);
         border-radius: 8px;
         background: var(--default-color-background);
         opacity: 0.5;
@@ -40,39 +60,13 @@ const {
     }
 
     .box-layout.horizontal {
-        flex-direction: row;
+        grid-auto-flow: column;
+        grid-template-columns: none;
+        grid-template-rows: repeat(var(--items-per-line), 1fr);
     }
 
     .box-layout:hover {
         opacity: 1;
-    }
-
-    .box-layout :global(.tooltip:not(:first-child) :is(a, button, [role="button"])) {
-        position: relative;
-    }
-
-    .box-layout :global(.tooltip:not(:first-child) :is(a, button, [role="button"]))::before {
-        content: "";
-        position: absolute;
-        top: 0;
-        left: 8px;
-        right: 8px;
-        z-index: 2;
-        height: 1px;
-        background: oklch(
-                var(--global-color-l)
-                var(--global-color-c)
-                var(--global-color-h)
-        );
-    }
-
-    .box-layout.horizontal :global(.tooltip:not(:first-child) :is(a, button, [role="button"]))::before {
-        top: 8px;
-        bottom: 8px;
-        left: 0;
-        right: auto;
-        width: 1px;
-        height: auto;
     }
 
     .box-layout :global(.box-layout-item-hover) {
@@ -94,32 +88,22 @@ const {
         opacity: 1;
     }
 
-    .box-layout > :global(*:not(:first-child)) {
+    .box-layout > :global(*:not(:first-child)),
+    .box-layout :global(.tooltip:not(:first-child) :is(a, button, [role="button"])) {
         position: relative;
     }
 
-    .box-layout > :global(*:not(:first-child))::before {
+    .box-layout > :global(*:not(:first-child))::before,
+    .box-layout :global(.tooltip:not(:first-child) :is(a, button, [role="button"]))::before {
         content: "";
         position: absolute;
-        top: 0;
-        left: 8px;
-        right: 8px;
+        inset: 0;
         z-index: 2;
-        height: 1px;
-        background: oklch(
-                var(--global-color-l)
-                var(--global-color-c)
-                var(--global-color-h)
-        );
         pointer-events: none;
-    }
-
-    .box-layout.horizontal > :global(*:not(:first-child))::before {
-        top: 8px;
-        bottom: 8px;
-        left: 0;
-        right: auto;
-        width: 1px;
-        height: auto;
+        background:
+                linear-gradient(var(--divider-color), var(--divider-color))
+                center top / calc(100% - 16px) var(--divider-block, 0px) no-repeat,
+                linear-gradient(var(--divider-color), var(--divider-color))
+                left center / var(--divider-inline, 0px) calc(100% - 16px) no-repeat;
     }
 </style>

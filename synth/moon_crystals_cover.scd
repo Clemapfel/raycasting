@@ -58,7 +58,7 @@ server.waitForBoot {
 		Out.ar(out, (amp * click).dup);
 	}).add;
 
-	var base = SynthDef.new(\base, { arg out, gate = 1, freq, dur;
+	var bass = SynthDef.new(\bass, { arg out, gate = 1, freq, dur;
 		var env = EnvGen.ar(Env.asr(attackTime: 0.05, releaseTime: b1 * dur), gate: gate, doneAction: Done.freeSelf);
 		var freqs = [
 			transpose.(freq, -12),
@@ -106,7 +106,11 @@ server.waitForBoot {
 		DetectSilence.ar(sig, doneAction: Done.freeSelf);
 	}).add;
 
-	var shaker = SynthDef.new(\shaker, { arg out = 0, amp = 0.5, gate = 1, freq = 2000, dur, which = 0;
+	var clap = SynthDef.new(\clap, { arg out, amp, gate = 1, dur = 0.5, filter = 0;
+
+	}).add;
+
+	var shaker = SynthDef.new(\shaker, { arg out = 0, amp, gate = 1, dur, which = 0;
 		var noise = WhiteNoise.ar();
 
 		var amp_env = EnvGen.ar(Env.perc(0.02, b32 * dur));
@@ -123,7 +127,7 @@ server.waitForBoot {
 		var pitch = Select.kr(which, [ forward_env, backward_env ]);
 
 		var sig = ClipNoise.ar.range(0.0, 1.0) * BPF.ar(noise,
-			pitch.linlin(-1.midiratio, 1.midiratio, 600, 2800),
+			pitch.linlin(-1.midiratio, 1.midiratio, 1800, 3000),
 			rq: 1
 		) * amp_env;
 
@@ -131,8 +135,21 @@ server.waitForBoot {
 		DetectSilence.ar(sig, doneAction: Done.freeSelf);
 	}).add;
 
-	var base_pattern = Pbind(*[
-		instrument: base,
+	var lead = SynthDef.new(\lead, { arg out = 0, freq = 440, gate = 1, amp;
+		var amp_env = EnvGen.ar(Env.asr(0.02, 1.0, 1.0), gate: gate, doneAction: Done.freeSelf);
+		var osc = SinOsc.ar(Lag.ar(freq));
+
+		Out.ar(out, amp * (osc * amp_env).dup);
+	}, [nil, \ar]).add;
+
+
+	var metronome_pattern = Pbind(*[
+		instrument: metronome,
+		degree: Pseq([4, 0, 0, 0], inf)
+	]);
+
+	var bass_pattern = Pbind(*[
+		instrument: bass,
 		freq: Pseq(freqs.([
 			"A2",
 			"E2",
@@ -158,20 +175,54 @@ server.waitForBoot {
 	var shaker_pattern = Pbind(*[
 		instrument: shaker,
 		dur: Pseq([b4, b4, b4, b4], inf),
-		which: Pseq([0, 1, 0, 1], inf),
-		freq: 700
+		which: Pseq([0, 1, 0, 1], inf)
 	]);
 
+	var clap_pattern = Pbind(*[
+		instrument: clap,
+		dur: Pseq([b4, b4, b4, b4], inf)
+	]);
 
-	Pbind(*[
-		instrument: metronome,
-		degree: Pseq([4, 0, 0, 0], inf),
-		amp: 0.0
-	]).play;
+	// https://onlinesequencer.net/3645233
 
-	//base_pattern.play;
+
+	var lead_in = [
+		"D#5", b8
+		,"D#6", b4
+		,"", r4
+		,"C#6", b4
+		,"D#6", b4
+		,"", r4
+		,"C#6", b4
+		,"D#5", b4
+		,"", r16
+		,"D#5", b8
+		,"D#6", b4
+
+
+		,"C#6 ", b4
+		,"D#6", b4
+		,"", r4
+
+		,"C#6", b4
+		, "", r8
+		,"D#6", b8
+		,"D#6", b8
+		,"D#6", b8
+
+	];
+
+	var lead_notes = lead_in.clump(2).flop;
+	var lead_pattern = Pnew(lead.name, *[
+		freq: Pseq(lead_notes[0].collect({ |x| Degree.new(x).freq }), 1),
+	    dur: Pseq(lead_notes[1], inf)
+	]);
+
+	//bass_pattern.play;
 	//kick_pattern.play;
-	shaker_pattern.play;
+	//shaker_pattern.play;
+	//clap_pattern.play;
+	lead_pattern.play;
 
 	CmdPeriod.doOnce { server.freeAll }
 }
