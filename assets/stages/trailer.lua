@@ -299,7 +299,7 @@ return {
         },
         {
           id = 1373,
-          name = "",
+          name = "Speed",
           type = "Hitbox",
           shape = "polygon",
           x = 5024,

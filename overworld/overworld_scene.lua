@@ -83,6 +83,8 @@ function ow.OverworldScene:instantiate(state)
 
         _camera = rt.Camera(),
         _camera_modes = {}, -- cf _update_camera
+        _camera_bounds_need_update = false,
+
         _player = state:get_player(),
         _stage = nil, -- rt.Stage
         _background = nil, -- ow.Background
@@ -727,6 +729,11 @@ function ow.OverworldScene:draw()
         love.graphics.setColor(r, g, b, self._fade_to_black_motion:get_value())
         love.graphics.rectangle("fill", self._bounds:unpack())
 
+        if self._camera_bounds_need_update == true then
+            self._stage:apply_camera_bounds(self._player:get_position())
+            self._camera_bounds_need_update = false
+        end
+
         self._camera:bind()
         self._stage:draw_below_player()
         self._camera:unbind()
@@ -1283,7 +1290,7 @@ do
         if self._camera_state ~= state_before
             and self._camera_state ~= _CAMERA_STATE_CUTSCENE
         then
-            self._stage:apply_camera_bounds(self._player:get_position())
+            self._camera_bounds_need_update = true
         end
     end
 end

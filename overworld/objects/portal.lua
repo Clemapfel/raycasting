@@ -302,9 +302,9 @@ function ow.Portal:update(delta)
             -- move camera
             local path = rt.Path(rt.Spline(
                 self._start_x, self._start_y,
-            --self_x, self_y,
-            --self_x + self._nx * penetration_r,
-            --self_y + self._ny * penetration_r,
+                --self_x, self_y,
+                --self_x + self._nx * penetration_r,
+                --self_y + self._ny * penetration_r,
                 target_x, target_y
             ):discretize())
 
