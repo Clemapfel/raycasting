@@ -50,6 +50,8 @@ function ow.LightMap:instantiate(width, height)
     meta.assert(width, mt.Number, height, mt.Number)
 
     self._width, self._height = width, height
+    self._tile_i_to_n_point_lights = self._tile_i_to_n_point_lights or {}
+    self._tile_i_to_n_segment_lights = self._tile_i_to_n_segment_lights or {}
 
     local settings = rt.settings.overworld.light_map
     self._tile_size = 128
@@ -107,7 +109,7 @@ function ow.LightMap:instantiate(width, height)
         love.graphics.clear(0, 0, 0, 0)
         self._bloom_dummy_texture:unbind()
     end
-    
+
     self._work_group_size_x = settings.work_group_size_x
     self._work_group_size_y = settings.work_group_size_y
 
@@ -233,7 +235,7 @@ function ow.LightMap:_reinitialize(
     then
         self._n_point_lights_per_tile = new_n_point_lights_per_tile
         self._n_segment_lights_per_tile = new_n_segment_lights_per_tile
-        
+
         local width, height = self._light_intensity_texture:get_size()
         self._n_tiles = math.ceil(width / self._tile_size) * math.ceil(height / self._tile_size)
 
@@ -715,9 +717,6 @@ do
         local n_segment_lights = 0
         local n_point_lights = 0
 
-        local point_spatial_hash = {}
-        local segment_spatial_hash = {}
-
         -- early broad-phase rejection
         local bounds_x, bounds_y, bounds_width, bounds_height = stage:get_scene():get_camera():get_world_bounds():unpack()
 
@@ -794,11 +793,13 @@ do
         local n_rows = math.ceil(width / tile_size)
         local n_columns = math.ceil(height / tile_size)
 
-        local tile_i_to_n_point_lights = {}
-        local tile_i_to_n_segment_lights = {}
+        local tile_i_to_n_point_lights = self._tile_i_to_n_point_lights
+        local tile_i_to_n_segment_lights = self._tile_i_to_n_segment_lights
+        table.clear(tile_i_to_n_point_lights)
+        table.clear(tile_i_to_n_segment_lights)
 
         for point_i = 1, current_n_point_lights do
-            local x, y, radius, _, _, _, opacity = get_point_light(point_light_buffer_data, point_i, point_light_buffer_n_elements)
+            local x, y, radius = get_point_light(point_light_buffer_data, point_i, point_light_buffer_n_elements)
 
             local effective_radius = max_threshold + radius
             local first_row = math.max(1, math.floor((x - effective_radius) / tile_size) + 1)
@@ -828,8 +829,7 @@ do
         end
 
         for segment_i = 1, current_n_segment_lights do
-            local data = segment_light_buffer_data[segment_i]
-            local x1, y1, x2, y2, _, _, _, opacity = get_segment_light(segment_light_buffer_data, segment_i, segment_light_buffer_n_elements)
+            local x1, y1, x2, y2 = get_segment_light(segment_light_buffer_data, segment_i, segment_light_buffer_n_elements)
 
             -- only check cells in aabb of segment
             local effective_radius = max_threshold
@@ -1071,7 +1071,7 @@ function ow.LightMap:get_mask()
     return self._mask_texture
 end
 
---- @brief 
+--- @brief
 function ow.LightMap:get_size()
     return self._light_intensity_texture:get_size()
 end

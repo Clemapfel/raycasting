@@ -26,15 +26,20 @@ layout(std430) readonly buffer point_light_source_buffer {
     PointLight point_light_sources[];
 }; // size: MAX_N_POINT_LIGHTS
 
-vec2 closest_point_on_disk(vec2 xy, vec2 circle_xy, float radius) {
-    vec2 difference = xy - circle_xy;
+vec2 closest_point_on_disk_direction(vec2 xy, vec2 circle_xy, float radius, out float distance_squared) {
+    vec2 difference = circle_xy - xy;
     float length_squared = dot(difference, difference);
     float radius_squared = radius * radius;
 
-    if (length_squared <= radius_squared) // inside disk
-    return xy;
+    if (length_squared <= radius_squared) { // inside disk
+        distance_squared = 0.0;
+        return vec2(0.0);
+    }
 
-    return circle_xy + difference * (radius * inversesqrt(length_squared));
+    float inverse_length = inversesqrt(length_squared);
+    float distance = length_squared * inverse_length - radius;
+    distance_squared = distance * distance;
+    return difference * (distance * inverse_length);
 }
 
 // ### SEGMENT LIGHTS ###
@@ -52,17 +57,17 @@ layout(std430) readonly buffer segment_light_sources_buffer {
     SegmentLight segment_light_sources[];
 }; // size: MAX_N_SEGMENT_LIGHTS
 
-vec2 closest_point_on_segment(vec2 xy, vec4 segment) {
+vec2 closest_point_on_segment_direction(vec2 xy, vec4 segment) {
     vec2 a = segment.xy;
     vec2 b = segment.zw;
     vec2 ab = b - a;
     float ab_len2 = dot(ab, ab);
 
-    if (ab_len2 <= 0.0) return a;
+    if (ab_len2 <= 0.0) return a - xy;
 
     vec2 ap = xy - a;
     float t = clamp(dot(ap, ab) / ab_len2, 0.0, 1.0);
-    return a + t * ab;
+    return a + t * ab - xy;
 }
 
 // ### TILE DATA ###
@@ -101,7 +106,7 @@ vec2 closest_point_on_segment(vec2 xy, vec4 segment) {
 
 layout(std430) readonly buffer tile_data_buffer {
     int tile_data_inline[];
-    // layout: n_point_lights | i x N_POINT_LIGHTS_PER_TILE | n_segment_lights | i x N_SEGMENT_LIGHTS_PER_TILE |
+// layout: n_point_lights | i x N_POINT_LIGHTS_PER_TILE | n_segment_lights | i x N_SEGMENT_LIGHTS_PER_TILE |
 };
 
 const int TILE_DATA_STRIDE = 1 + N_POINT_LIGHTS_PER_TILE + 1 + N_SEGMENT_LIGHTS_PER_TILE;
@@ -187,29 +192,11 @@ layout(COMPOSITE_TEXTURE_FORMAT) uniform writeonly image2D composite_texture;
 // rgb weights for luminance computation
 const vec3 luma_coefficients = vec3(0.2126, 0.7152, 0.0722); // BT.709
 
-float gaussian(float x) {
-    return exp(-(x * x));
-}
-
 uniform float light_range;
 uniform float darkness_range;
 
 uniform float frame_interpolation_t;
 uniform float last_frame_delta;
-
-vec4 compute_light(vec4 light_color, float distance) {
-    const float third = 1.0 / 3.0;
-    const float inverse_light_range = 1.0 / float(light_range);
-
-    float attenuation = clamp(gaussian(distance * inverse_light_range), 0.0, 1.0);
-    light_color.rgb *= light_color.a;
-    return light_color * (attenuation * third);
-}
-
-float compute_composite_intensity(float distance) {
-    const float inverse_light_range = 1.0 / float(darkness_range);
-    return clamp(gaussian(distance * inverse_light_range), 0.0, 1.0);
-}
 
 vec4 tonemap(vec4 color) {
     vec3 hdr = color.rgb * INTENSITY;
@@ -262,20 +249,29 @@ void computemain() {
     const int stride = int(WORK_GROUP_SIZE_X * WORK_GROUP_SIZE_Y * WORK_GROUP_SIZE_Z);
 
     // each local invocation may need to load multiple entries; stride by LOCAL_INVOCATIONS.
+    const float third = 1.0 / 3.0;
+
     for (int i = int(local_id); i < n_point_lights; i += stride) {
         int light_index = get_point_light_index(tile_offset, i);
-        shared_point_lights[i] = point_light_sources[light_index];
+        PointLight light = point_light_sources[light_index];
+        light.color.rgb *= light.color.a;
+        shared_point_lights[i] = light;
     }
 
     for (int i = int(local_id); i < n_segment_lights; i += stride) {
         int segment_index = get_segment_light_index(tile_offset, i);
-        shared_segment_lights[i] = segment_light_sources[segment_index];
+        SegmentLight light = segment_light_sources[segment_index];
+        light.color.rgb *= light.color.a;
+        shared_segment_lights[i] = light;
     }
 
     // ensure writes to shared memory are visible to all invocations in this workgroup, then synchronize
     barrier();
 
     if (any(greaterThanEqual(position, image_size))) return;
+
+    bool is_masked = imageLoad(mask_texture, position).r > 0.0;
+    if (!is_masked && !should_compute_composite) return;
 
     // light rgba
     vec4 point_color = vec4(0.0);
@@ -286,6 +282,10 @@ void computemain() {
     float light_direction_weight = 0.0;
 
     const float inv_height = 1.0 / LIGHT_Z_HEIGHT;
+    float inverse_light_range = 1.0 / light_range;
+    float inverse_darkness_range = 1.0 / darkness_range;
+    float inverse_light_range_squared = inverse_light_range * inverse_light_range;
+    float inverse_darkness_range_squared = inverse_darkness_range * inverse_darkness_range;
 
     float point_composite = 0.0;
     float segment_composite = 0.0;
@@ -294,42 +294,47 @@ void computemain() {
     for (int i = 0; i < n_point_lights; ++i) {
         PointLight light = shared_point_lights[i];
 
-        vec2 closest = closest_point_on_disk(vec2(position), light.position, light.radius);
-        vec2 direction = closest - vec2(position);
-        float distance = length(direction);
+        float distance_squared;
+        vec2 direction = closest_point_on_disk_direction(vec2(position), light.position, light.radius, distance_squared);
 
-        // color
-        vec4 light_contribution = compute_light(light.color, distance);
-        point_color += light_contribution;
+        if (is_masked) {
+            float attenuation = exp(-distance_squared * inverse_light_range_squared);
+            vec4 light_contribution = light.color * (attenuation * third);
+            point_color += light_contribution;
 
-        // direction
-        float luminance = dot(light_contribution.rgb, luma_coefficients);
-        light_direction += luminance * (direction * inv_height);
-        light_direction_weight += luminance;
+            float luminance = dot(light_contribution.rgb, luma_coefficients);
+            light_direction += luminance * (direction * inv_height);
+            light_direction_weight += luminance;
+        }
 
-        // composite
-        point_composite += compute_composite_intensity(distance);
+        if (should_compute_composite) {
+            point_composite += exp(-distance_squared * inverse_darkness_range_squared);
+        }
     }
 
     // accumulate segment lights
     for (int i = 0; i < n_segment_lights; ++i) {
         SegmentLight light = shared_segment_lights[i];
 
-        vec2 closest_xy = closest_point_on_segment(vec2(position), light.segment);
-        vec2 direction = closest_xy - vec2(position);
-        float distance = length(direction);
+        vec2 direction = closest_point_on_segment_direction(vec2(position), light.segment);
+        float distance_squared = dot(direction, direction);
 
-        vec4 light_contrib = compute_light(light.color, distance);
-        segment_color += light_contrib;
+        if (is_masked) {
+            float attenuation = exp(-distance_squared * inverse_light_range_squared);
+            vec4 light_contribution = light.color * (attenuation * third);
+            segment_color += light_contribution;
 
-        float luminance = dot(light_contrib.rgb, luma_coefficients);
-        light_direction += luminance * (direction * inv_height);
-        light_direction_weight += luminance;
+            float luminance = dot(light_contribution.rgb, luma_coefficients);
+            light_direction += luminance * (direction * inv_height);
+            light_direction_weight += luminance;
+        }
 
-        segment_composite += compute_composite_intensity(distance);
+        if (should_compute_composite) {
+            segment_composite += exp(-distance_squared * inverse_darkness_range_squared);
+        }
     }
 
-    if (imageLoad(mask_texture, position).r > 0) {
+    if (is_masked) {
         vec4 mapped = tonemap(point_color + segment_color);
         vec4 before = imageLoad(light_intensity_texture, position);
 
