@@ -95,6 +95,9 @@ function ow.NebulaBackground:realize()
 
     self._camera_scale = 1
     self._camera_offset = { 0, 0 }
+
+    self._particle_bounds = nil
+    self._particle_bounds_dirty = true
 end
 
 --- @brief
@@ -180,6 +183,9 @@ function ow.NebulaBackground:size_allocate(x, y, width, height)
             min_z, max_z
         }
 
+        self._particle_bounds_dirty = true
+        self:_update_particle_bounds()
+
         local cell_size = rt.settings.overworld.background.cell_size
         local shape_probability = rt.settings.overworld.background.cell_occupancy_chance
         local bloom_probability = rt.settings.overworld.background.bloom_particle_chance
@@ -226,17 +232,21 @@ function ow.NebulaBackground:size_allocate(x, y, width, height)
             })
 
             if entry.should_rotate then
-                table.insert(entry.data_mesh_data_aux, {
-                    rotation_speed = rt.random.choose(-1, 1) * rt.random.number(
-                        settings.min_rotation_speed,
-                        settings.max_rotation_speed
-                    ),
+                local rotation_speed = rt.random.choose(-1, 1) * rt.random.number(
+                    settings.min_rotation_speed,
+                    settings.max_rotation_speed
+                )
+                local rotation_axis_x, rotation_axis_y, rotation_axis_z = math.normalize3(
+                    rt.random.number(-1, 1),
+                    rt.random.number(-1, 1),
+                    rt.random.number(-1, 1)
+                )
 
-                    rotation_axis = { math.normalize3(
-                        rt.random.number(-1, 1),
-                        rt.random.number(-1, 1),
-                        rt.random.number(-1, 1)
-                    )}
+                table.insert(entry.data_mesh_data_aux, {
+                    rotation_speed = rotation_speed,
+                    rotation_axis_x = rotation_axis_x,
+                    rotation_axis_y = rotation_axis_y,
+                    rotation_axis_z = rotation_axis_z
                 })
             end
         end
@@ -457,6 +467,10 @@ function ow.NebulaBackground:notify_camera_changed(camera)
     self._offset_transform:reset()
     self._offset_transform:translate(world_offset_x, world_offset_y, 0)
 
+    if self._room_bounds ~= nil then
+        self:_update_particle_bounds()
+    end
+
     -- Parallax offsets for clouds
     self._clouds_offset_x = world_offset_x * rt.settings.overworld.background.cloud_x_offset_weight
     self._clouds_offset_y = world_offset_y * rt.settings.overworld.background.cloud_y_offset_weight
@@ -519,6 +533,32 @@ function ow.NebulaBackground:_get_scale_factor()
     return math.max(sx, sy)
 end
 
+--- @brief cache particle bounds in camera-local coordinates
+function ow.NebulaBackground:_update_particle_bounds()
+    local min_x, max_x, min_y, max_y, min_z, max_z = table.unpack(self._room_bounds)
+
+    local transform = self._offset_transform:clone()
+    min_x, min_y, min_z = transform:inverse_transform_point(min_x, min_y, min_z)
+    max_x, max_y, max_z = transform:inverse_transform_point(max_x, max_y, max_z)
+
+    local bounds = self._particle_bounds
+    if bounds == nil
+        or bounds[1] ~= min_x or bounds[2] ~= max_x
+        or bounds[3] ~= min_y or bounds[4] ~= max_y
+        or bounds[5] ~= min_z or bounds[6] ~= max_z
+    then
+        self._particle_bounds = {
+            min_x, max_x,
+            min_y, max_y,
+            min_z, max_z,
+            max_x - min_x,
+            max_y - min_y,
+            max_z - min_z
+        }
+        self._particle_bounds_dirty = true
+    end
+end
+
 --- @brief
 function ow.NebulaBackground:update(delta, override)
     if override ~= nil then
@@ -533,70 +573,123 @@ function ow.NebulaBackground:update(delta, override)
 
     self._projection_needs_update = true
 
-    local min_x, max_x, min_y, max_y, min_z, max_z = table.unpack(self._room_bounds)
+    local bounds_changed = self._particle_bounds_dirty
+    local bounds = self._particle_bounds
+    local min_x, max_x = bounds[1], bounds[2]
+    local min_y, max_y = bounds[3], bounds[4]
+    local min_z, max_z = bounds[5], bounds[6]
+    local width, height, depth = bounds[7], bounds[8], bounds[9]
 
-    local transform = self._offset_transform:clone()
-    min_x, min_y, min_z = transform:inverse_transform_point(min_x, min_y, min_z)
-    max_x, max_y, max_z = transform:inverse_transform_point(max_x, max_y, max_z)
+    local angle_scale = delta * math.tau
+    local quaternion_normalize = math.quaternion.normalize
+    local quaternion_multiply = math.quaternion.multiply
+    local quaternion_from_axis_angle = math.quaternion.from_axis_angle
 
-    for entry in values(self._particles) do
-        for data_i, data in ipairs(entry.data_mesh_data) do
-            local aux_data = entry.data_mesh_data_aux[data_i]
-            local x, y, z = data[1], data[2], data[3]
-            local bx, by, bz = x, y, z
+    if bounds_changed then
+        local mix = math.mix
+        local noise = rt.random.noise
 
-            -- wrap when moving out of visible box
-            local x_wrapped, y_wrapped, z_wrapped = false, false, false
+        for entry in values(self._particles) do
+            local should_rotate = entry.should_rotate
+            local data_mesh_data = entry.data_mesh_data
+            local data_mesh_data_aux = entry.data_mesh_data_aux
+            local entry_needs_upload = false
 
-            local width = max_x - min_x
-            if x > max_x then
-                x = min_x + (x - max_x) % width
-                x_wrapped = true
-            elseif x < min_x then
-                x = max_x - (min_x - x) % width
-                x_wrapped = true
+            for data_i = 1, #data_mesh_data do
+                local data = data_mesh_data[data_i]
+                local x, y, z = data[1], data[2], data[3]
+                local x_wrapped, y_wrapped = false, false
+                local position_changed = false
+
+                -- wrap when moving out of visible box
+                if x > max_x then
+                    x = min_x + (x - max_x) % width
+                    x_wrapped = true
+                    position_changed = true
+                elseif x < min_x then
+                    x = max_x - (min_x - x) % width
+                    x_wrapped = true
+                    position_changed = true
+                end
+
+                if y > max_y then
+                    y = min_y + (y - max_y) % height
+                    y_wrapped = true
+                    position_changed = true
+                elseif y < min_y then
+                    y = max_y - (min_y - y) % height
+                    y_wrapped = true
+                    position_changed = true
+                end
+
+                if z > max_z then
+                    z = min_z + (z - max_z) % depth
+                    position_changed = true
+                elseif z < min_z then
+                    z = max_z - (min_z - z) % depth
+                    position_changed = true
+                end
+
+                if x_wrapped then
+                    y = mix(min_y, max_y, noise(x, y))
+                end
+
+                if y_wrapped then
+                    x = mix(min_x, max_x, noise(y, x))
+                end
+
+                if position_changed then
+                    data[1], data[2], data[3] = x, y, z
+                    entry_needs_upload = true
+                end
+
+                if should_rotate and angle_scale ~= 0 then
+                    local aux_data = data_mesh_data_aux[data_i]
+                    local angle = angle_scale * aux_data.rotation_speed
+                    data[5], data[6], data[7], data[8] = quaternion_normalize(quaternion_multiply(
+                        data[5], data[6], data[7], data[8],
+                        quaternion_from_axis_angle(
+                            aux_data.rotation_axis_x,
+                            aux_data.rotation_axis_y,
+                            aux_data.rotation_axis_z,
+                            angle
+                        )
+                    ))
+                    entry_needs_upload = true
+                end
             end
 
-            local height = max_y - min_y
-            if y > max_y then
-                y = min_y + (y - max_y) % height
-                y_wrapped = true
-            elseif y < min_y then
-                y = max_y - (min_y - y) % height
-                y_wrapped = true
-            end
-
-            local depth = max_z - min_z
-            if z > max_z then
-                z = min_z + (z - max_z) % depth
-                z_wrapped = true
-            elseif z < min_z then
-                z = max_z - (min_z - z) % depth
-                z_wrapped = true
-            end
-
-            if x_wrapped then
-                y = math.mix(min_y, max_y, rt.random.noise(x, y))
-            end
-
-            if y_wrapped then
-                x = math.mix(min_x, max_x, rt.random.noise(y, x))
-            end
-
-            data[1], data[2], data[3] = x, y, z
-
-            if entry.should_rotate then
-                -- rotate
-                local angle = delta * math.tau * aux_data.rotation_speed
-                local axis_x, axis_y, axis_z = table.unpack(aux_data.rotation_axis)
-                data[5], data[6], data[7], data[8] = math.quaternion.normalize(math.quaternion.multiply(
-                    data[5], data[6], data[7], data[8],
-                    math.quaternion.from_axis_angle(axis_x, axis_y, axis_z, angle)
-                ))
+            if entry_needs_upload then
+                entry.data_mesh:replace_data(data_mesh_data)
             end
         end
 
-        entry.data_mesh:replace_data(entry.data_mesh_data)
+        self._particle_bounds_dirty = false
+    elseif angle_scale ~= 0 then
+        -- Positions cannot leave an unchanged camera-local box. Only update rotation.
+        for entry in values(self._particles) do
+            if entry.should_rotate then
+                local data_mesh_data = entry.data_mesh_data
+                local data_mesh_data_aux = entry.data_mesh_data_aux
+
+                for data_i = 1, #data_mesh_data do
+                    local data = data_mesh_data[data_i]
+                    local aux_data = data_mesh_data_aux[data_i]
+                    local angle = angle_scale * aux_data.rotation_speed
+                    data[5], data[6], data[7], data[8] = quaternion_normalize(quaternion_multiply(
+                        data[5], data[6], data[7], data[8],
+                        quaternion_from_axis_angle(
+                            aux_data.rotation_axis_x,
+                            aux_data.rotation_axis_y,
+                            aux_data.rotation_axis_z,
+                            angle
+                        )
+                    ))
+                end
+
+                entry.data_mesh:replace_data(data_mesh_data)
+            end
+        end
     end
 end
 
@@ -834,7 +927,6 @@ function ow.NebulaBackground:_init_dodecahedron_particle()
         return idx
     end
 
-    -- Golden ratio
     local phi = (1 + math.sqrt(5)) / 2
     local inv_phi = 1 / phi
 
