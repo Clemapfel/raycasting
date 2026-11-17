@@ -23,11 +23,10 @@ rt.RequestReduceMode = meta.enum("RequestReduceMode", rt.RequestReduceMode)
 local _id_t = mt.Any
 
 --- @brief
-function rt.RequestHandler:instantiate(reduce_mode, ...)
-    meta.assert(reduce_mode, rt.RequestReduceMode)
+function rt.RequestHandler:instantiate(...)
     if select("#", ...) > 0 then
         for i = 1, select("#", ...) do
-            meta.assert_argument_type(select(1, ...), mt.Union(mt.Boolean, mt.Number), 1 + i)
+            meta.assert_argument_type(select(1, ...), mt.Union(mt.Boolean, mt.Number), i)
         end
     end
 

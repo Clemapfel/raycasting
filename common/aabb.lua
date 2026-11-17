@@ -2,16 +2,24 @@
 rt.AABB = meta.class("AABB")
 
 --- @return rt.AABB
-function rt.AABB:instantiate(x, y, width, height)
-    if x == nil then x = 0 end
-    if y == nil then y = 0 end
-    if width == nil then width = 1 end
-    if height == nil then height = width end
+function rt.AABB:instantiate(other_or_x, y, width, height)
+    if meta.isa(other_or_x, rt.AABB) then
+        local other = other_or_x
+        meta.assert(other, rt.AABB, y, mt.Nil, width, mt.Nil, height, mt.Nil)
+        self:reformat(other:unpack())
+    else
+        local x = other_or_x
+        meta.assert(x, mt.Number, y, mt.Number, width, mt.Number, height, mt.Number)
+        if x == nil then x = 0 end
+        if y == nil then y = 0 end
+        if width == nil then width = 1 end
+        if height == nil then height = width end
 
-    self.x = x
-    self.y = y
-    self.width = width
-    self.height = height
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
+    end
 end
 
 --- @brief
