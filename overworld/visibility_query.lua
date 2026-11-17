@@ -475,27 +475,177 @@ do
         end
 
         if #angles > 0 then
+            -- precompute sector midpoints in sweep order
+            local sector_mid_angles = table.new(#angles, 0)
             for i = 1, #angles do
                 local angle1 = angles[i]
                 local angle2 = angles[i % #angles + 1]
 
                 local diff = angle2 - angle1
                 if diff <= 0 then
-                    diff = diff + (math.tau)
+                    diff = diff + _TAU
                 end
 
-                -- bisect angle sector
-                local mid_angle = math.normalize_angle(angle1 + (diff / 2))
+                sector_mid_angles[i] = angle1 + (diff / 2)
+            end
 
-                -- find closest segment to each critical point
+            -- The quantized angles should describe one ordered revolution.
+            -- Fall back to the original scan if extreme quantization breaks
+            -- that ordering.
+            local sector_mid_angles_sorted = true
+            for i = 2, #sector_mid_angles do
+                if sector_mid_angles[i] < sector_mid_angles[i - 1] then
+                    sector_mid_angles_sorted = false
+                    break
+                end
+            end
+
+            local function _lower_bound(list, value)
+                local low, high = 1, #list + 1
+                while low < high do
+                    local mid = math.floor((low + high) / 2)
+                    if list[mid] < value then
+                        low = mid + 1
+                    else
+                        high = mid
+                    end
+                end
+                return low
+            end
+
+            local function _upper_bound(list, value)
+                local low, high = 1, #list + 1
+                while low < high do
+                    local mid = math.floor((low + high) / 2)
+                    if list[mid] <= value then
+                        low = mid + 1
+                    else
+                        high = mid
+                    end
+                end
+                return low
+            end
+
+            -- Build start/end events for the sectors in which each edge
+            -- can intersect a ray. Midpoints are unwrapped in sweep order,
+            -- so intervals crossing the sweep boundary are represented by
+            -- two clipped intervals when necessary.
+            local edge_start_events = {}
+            local edge_end_events = {}
+            local sweep_start = sector_mid_angles[1]
+            local sweep_end = sector_mid_angles[#angles]
+
+            local function add_edge_interval(edge_i, start_angle, end_angle)
+                local first_sector = _lower_bound(sector_mid_angles, start_angle)
+                local last_sector = _upper_bound(sector_mid_angles, end_angle) - 1
+
+                if first_sector <= last_sector
+                    and first_sector <= #angles
+                    and last_sector >= 1
+                then
+                    local start_event = edge_start_events[first_sector]
+                    if start_event == nil then
+                        start_event = {}
+                        edge_start_events[first_sector] = start_event
+                    end
+                    table.insert(start_event, edge_i)
+
+                    local end_event = edge_end_events[last_sector]
+                    if end_event == nil then
+                        end_event = {}
+                        edge_end_events[last_sector] = end_event
+                    end
+                    table.insert(end_event, edge_i)
+                end
+            end
+
+            if sector_mid_angles_sorted then
+                for edge_i = 1, #edges do
+                    local idx = 2 * edge_i - 1
+                    local interval_start = edge_angle_ranges[idx + 0]
+                    local interval_end = edge_angle_ranges[idx + 1]
+                    if interval_end < interval_start then
+                        interval_end = interval_end + _TAU
+                    end
+
+                    -- Intersect the periodic copies of the angular interval
+                    -- with the range covered by this sweep's sector midpoints.
+                    local first_offset = math.ceil((sweep_start - interval_end) / _TAU)
+                    local last_offset = math.floor((sweep_end - interval_start) / _TAU)
+                    for offset = first_offset, last_offset do
+                        local start_angle = interval_start + offset * _TAU
+                        local end_angle = interval_end + offset * _TAU
+
+                        if start_angle < sweep_start then
+                            start_angle = sweep_start
+                        end
+                        if end_angle > sweep_end then
+                            end_angle = sweep_end
+                        end
+
+                        add_edge_interval(edge_i, start_angle, end_angle)
+                    end
+                end
+            end
+
+            local active_edges = {}
+            local active_positions = {}
+
+            local function add_active_edge(edge_i)
+                if active_positions[edge_i] == nil then
+                    local index = #active_edges + 1
+                    active_edges[index] = edge_i
+                    active_positions[edge_i] = index
+                end
+            end
+
+            local function remove_active_edge(edge_i)
+                local index = active_positions[edge_i]
+                if index ~= nil then
+                    local last_index = #active_edges
+                    local last_edge_i = active_edges[last_index]
+
+                    active_edges[index] = last_edge_i
+                    active_positions[last_edge_i] = index
+                    active_edges[last_index] = nil
+                    active_positions[edge_i] = nil
+                end
+            end
+
+            for i = 1, #angles do
+                local angle1 = angles[i]
+                local angle2 = angles[i % #angles + 1]
+                local mid_angle = math.normalize_angle(sector_mid_angles[i])
+
+                if sector_mid_angles_sorted then
+                    local start_event = edge_start_events[i]
+                    if start_event ~= nil then
+                        for j = 1, #start_event do
+                            add_active_edge(start_event[j])
+                        end
+                    end
+                end
+
+                -- Only test edges whose angular intervals cover this sector.
                 local min_distance = math.huge
                 local min_edge = nil
-                for edge_i, edge in ipairs(edges) do
-                    local idx = 2 * edge_i - 1
-                    local min_angle = edge_angle_ranges[idx + 0]
-                    local max_angle = edge_angle_ranges[idx + 1]
+                local min_edge_i = math.huge
+                local candidate_count = #active_edges
+                if not sector_mid_angles_sorted then
+                    candidate_count = #edges
+                end
 
-                    if _angle_in_range(mid_angle, min_angle, max_angle) then
+                for candidate_i = 1, candidate_count do
+                    local edge_i = candidate_i
+                    if sector_mid_angles_sorted then
+                        edge_i = active_edges[candidate_i]
+                    end
+
+                    local idx = 2 * edge_i - 1
+                    if sector_mid_angles_sorted
+                        or _angle_in_range(mid_angle, edge_angle_ranges[idx + 0], edge_angle_ranges[idx + 1])
+                    then
+                        local edge = edges[edge_i]
                         local distance = _ray_line_intersect(
                             true,
                             x, y,
@@ -503,9 +653,13 @@ do
                             get_segment(edge)
                         )
 
-                        if distance ~= nil and distance < min_distance then
+                        -- Preserve the original edge-order tie break.
+                        if distance ~= nil
+                            and (distance < min_distance or (distance == min_distance and edge_i < min_edge_i))
+                        then
                             min_distance = distance
                             min_edge = edge
+                            min_edge_i = edge_i
                         end
                     end
                 end
@@ -543,6 +697,15 @@ do
                 else
                     -- end of regular segment, push subsegment
                     push_current()
+                end
+
+                if sector_mid_angles_sorted then
+                    local end_event = edge_end_events[i]
+                    if end_event ~= nil then
+                        for j = 1, #end_event do
+                            remove_active_edge(end_event[j])
+                        end
+                    end
                 end
             end
 
