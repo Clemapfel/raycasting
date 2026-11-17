@@ -3641,7 +3641,7 @@ end
 
 --- @brief
 function rt.Player:get_flow()
-    return 1 --self._current_flow
+    return self._current_flow
 end
 
 --- @brief
