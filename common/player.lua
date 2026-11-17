@@ -1,4 +1,4 @@
- require "physics.physics"
+require "physics.physics"
 require "common.input_subscriber"
 require "common.joystick_gesture_detector"
 require "common.player_input_smoothing"
@@ -8,6 +8,7 @@ require "common.random"
 require "common.palette"
 require "common.path"
 require "common.direction"
+require "common.request_handler"
 
 do
     local radius = 13.5
@@ -320,6 +321,33 @@ function rt.Player:instantiate()
     do -- request pattern tables
         self._request_ids = {}
 
+        local name_to_reduce_mode_and_default = {
+            is_visible = { rt.RequestReduceMode.ALL_TRUE, true },
+            is_frozen = { rt.RequestReduceMode.AT_LEAST_ONE_TRUE, false },
+            is_disabled = { rt.RequestReduceMode.AT_LEAST_ONE_TRUE, false },
+            is_ghost = { rt.RequestReduceMode.AT_LEAST_ONE_TRUE, false },
+            is_bubble = { rt.RequestReduceMode.AT_LEAST_ONE_TRUE, false },
+            is_movement_disabled = { rt.RequestReduceMode.AT_LEAST_ONE_TRUE, false },
+            is_jump_disabled = { rt.RequestReduceMode.AT_LEAST_ONE_TRUE, false },
+            is_jump_allowed_override = { rt.RequestReduceMode.MANUAL, false },
+            is_double_jump_disabled = { rt.RequestReduceMode.AT_LEAST_ONE_TRUE, false },
+            is_omnidirectional_movement_allowed = { rt.RequestReduceMode.AT_LEAST_ONE_TRUE, false },
+            is_trail_enabled = { rt.RequestReduceMode.ALL_TRUE, true },
+            is_flow_frozen = { rt.RequestReduceMode.AT_LEAST_ONE_TRUE, false },
+            is_idle_timer_frozen = { rt.RequestReduceMode.AT_LEAST_ONE_TRUE, false },
+            is_contracted = { rt.RequestReduceMode.AT_LEAST_ONE_TRUE, false },
+
+            opacity = { rt.RequestReduceMode.MULTIPLICATION, 1 },
+            time_dilation = { rt.RequestReduceMode.MULTIPLICATION, 1 },
+            gravity_multiplier = { rt.RequestReduceMode.MULTIPLICATION, 1 },
+
+            gravity_direction = { rt.RequestReduceMode.SUM, 0, 1 },
+            force = { rt.RequestReduceMode.SUM, 0, 0 },
+
+            damping = { rt.RequestReduceMode.MANUAL, 1, 1, 1, 1 },
+            flow_override = { rt.RequestReduceMode.MAX, nil },
+        }
+
         for request in range(
             "is_visible",
             "is_frozen",
@@ -339,6 +367,7 @@ function rt.Player:instantiate()
             "opacity",
             "time_dilation",
             "gravity_multiplier",
+            "flow_override",
 
             "gravity_direction",
             "force",
@@ -346,7 +375,7 @@ function rt.Player:instantiate()
             "damping"
         ) do
             local table_id = "_" .. request .. "_requests"
-            self[table_id] = meta.make_weak({}, true, false)
+            self[table_id] = rt.RequestHandler(table.unpack(name_to_reduce_mode_and_default[request]))
 
             table.insert(self._request_ids, "_" .. request .. "_requests")
         end
@@ -835,10 +864,10 @@ function rt.Player:update(delta)
 
     -- input method agnostic button state
     local left_is_down, right_is_down, up_is_down, down_is_down =
-        self._left_button_is_down,
-        self._right_button_is_down,
-        self._up_button_is_down,
-        self._down_button_is_down
+    self._left_button_is_down,
+    self._right_button_is_down,
+    self._up_button_is_down,
+    self._down_button_is_down
 
     local magnitude_x, magnitude_y = self._input_smoothing:get_magnitude()
     if self:get_is_disabled() == true then magnitude_x, magnitude_y = 0, 0 end
@@ -881,7 +910,7 @@ function rt.Player:update(delta)
                 self._left_wall_jump_buffer_elapsed = math.huge
                 self._last_left_wall_timestamp = -math.huge
             end
-        -- else try buffer right wall jump
+            -- else try buffer right wall jump
         elseif self._right_wall_jump_buffer_elapsed < settings.prior_wall_jump_buffer_duration
             and right_allowed
         then
@@ -1026,8 +1055,8 @@ function rt.Player:update(delta)
                         local entry = self._body_to_collision_normal[wall_body]
                         if entry ~= nil then
                             return true,
-                                entry.normal_x, entry.normal_y,
-                                entry.contact_x, entry.contact_y
+                            entry.normal_x, entry.normal_y,
+                            entry.contact_x, entry.contact_y
                         end
                     end
                 end
@@ -1639,7 +1668,7 @@ function rt.Player:update(delta)
             and not is_movement_disabled
             and not is_frozen
             and not ((left_is_down and self._left_wall) or (right_is_down and self._right_wall))
-            -- exclude wall clinging, handled by explicit friction release in apply_friction
+        -- exclude wall clinging, handled by explicit friction release in apply_friction
         then
             local force = 1 / velocity_easing * settings.downwards_force * delta
             if use_analog_input then
@@ -1942,12 +1971,12 @@ function rt.Player:update(delta)
 
     if should_decay_platform_velocity then
         if was_grounded == false and is_grounded == true then
-           self._platform_velocity_x = 0
-           self._platform_velocity_y = 0
+            self._platform_velocity_x = 0
+            self._platform_velocity_y = 0
         else
-           local decay = math.pow(settings.platform_velocity_decay, delta)
-           self._platform_velocity_x = self._platform_velocity_x * decay
-           self._platform_velocity_y = self._platform_velocity_y * decay
+            local decay = math.pow(settings.platform_velocity_decay, delta)
+            self._platform_velocity_x = self._platform_velocity_x * decay
+            self._platform_velocity_y = self._platform_velocity_y * decay
         end
     end
 
@@ -2692,7 +2721,7 @@ function rt.Player:jump()
         -- else try regular jump
         local regular_jump_allowed = self:_get_jump_allowed()
 
-        local jump_allowed_override = self:get_jump_allowed_override()
+        local jump_allowed_override = self:get_is_jump_allowed_override()
         if jump_allowed_override == true then
             self._jump_blocked = false
             self._left_wall_jump_blocked = false
@@ -2935,9 +2964,10 @@ function rt.Player:reset()
         self._gravity_multiplier_requests,
         self._gravity_direction_requests,
         self._force_requests,
+        self._flow_override_requests,
         self._damping_requests
     ) do
-        _clear(which)
+        which:clear()
     end
 
     self:_update_bubble(self:get_is_bubble())
@@ -3043,190 +3073,126 @@ function rt.Player:get_use_analog_input()
 end
 
 --- @brief
-function rt.Player:get_jump_allowed_override()
-    local override = nil
-
-    for key, source in pairs(self._is_jump_allowed_override_requests) do
-        if source.is_allowed == false then override = false end
-        if source.is_allowed == true then return true end
-    end
-
-    return override
+function rt.Player:get_is_jump_allowed_override()
+    return self._is_jump_allowed_override_requests:reduce()
 end
 
 --- @brief
 function rt.Player:get_opacity()
-    local factor = 1
-    for source in values(self._opacity_requests) do
-        factor = factor * source.opacity
-    end
-    return factor
+    return self._opacity_requests:reduce()
 end
 
-
 for tuple in range(
-    --- @alias request_is_visible fun(id: Object, is_visible: Boolean)
+--- @alias request_is_visible fun(id: Object, is_visible: Boolean)
     { "is_visible", { { "is_visible", mt.Boolean } } },
 
-    --- @alias request_is_frozen fun(id: Object, is_frozen: Boolean)
+--- @alias request_is_frozen fun(id: Object, is_frozen: Boolean)
     { "is_frozen", { { "is_frozen", mt.Boolean } } },
 
-    --- @alias request_is_disabled fun(id: Object, is_disabled: Boolean)
-    { "is_disabled", { { "is_disabled", mt.Boolean } } },
-
-    --- @alias request_is_movement_disabled fun(id: Object, is_disabled: Boolean)
+--- @alias request_is_movement_disabled fun(id: Object, is_disabled: Boolean)
     { "is_movement_disabled", { { "is_disabled", mt.Boolean } } },
 
-    --- @alias request_is_jump_disabled fun(id: Object, is_disabled: Boolean)
+--- @alias request_is_jump_disabled fun(id: Object, is_disabled: Boolean)
     { "is_jump_disabled", { { "is_disabled", mt.Boolean } } },
 
-    --- @alias request_is_double_jump_disabled fun(id: Object, is_disabled: Boolean)
+--- @alias request_is_double_jump_disabled fun(id: Object, is_disabled: Boolean)
     { "is_double_jump_disabled", { { "is_disabled", mt.Boolean } } },
 
-    --- @alias request_is_jump_allowed_override fun(id: Object, is_allowed: Boolean)
+--- @alias request_is_jump_allowed_override fun(id: Object, is_allowed: Boolean)
     { "is_jump_allowed_override", { { "is_allowed", mt.Boolean } } },
 
-    --- @alias request_is_omnidirectional_movement_allowed = fun(id: Object, is_allowed: Boolean)
+--- @alias request_is_omnidirectional_movement_allowed = fun(id: Object, is_allowed: Boolean)
     { "is_omnidirectional_movement_allowed", { { "is_allowed", mt.Boolean } } },
 
-    --- @alias request_is_contracted = fun(id: Object, value: Number)
+--- @alias request_is_contracted = fun(id: Object, value: Number)
     { "is_contracted", { { "is_contracted", mt.Boolean } } },
 
-    --- @alias request_is_trail_enabled fun(id: Object, is_visible: Boolean)
+--- @alias request_is_trail_enabled fun(id: Object, is_visible: Boolean)
     { "is_trail_enabled", { { "is_visible", mt.Boolean } } },
 
-    --- @alias request_is_flow_frozen fun(id: Object, is_frozen: Boolean)
+--- @alias request_is_flow_frozen fun(id: Object, is_frozen: Boolean)
     { "is_flow_frozen", { { "is_frozen", mt.Boolean } } },
 
-    --- @alias request_is_idle_timer_frozen fun(id: Object, is_frozen: Boolean)
+--- @alias request_is_idle_timer_frozen fun(id: Object, is_frozen: Boolean)
     { "is_idle_timer_frozen", { { "is_frozen", mt.Boolean } } },
 
-    --- @alias request_opacity fun(id: Object, opacity: Number)
+--- @alias request_opacity fun(id: Object, opacity: Number)
     { "opacity", { { "opacity", mt.Number } } },
 
-    --- @alias request_time_dilation fun(id: Object, factor: Number)
+--- @alias request_time_dilation fun(id: Object, factor: Number)
     { "time_dilation", { { "dilation", mt.Number } } },
 
-    --- @alias request_gravity_multiplier fun(id: Object, factor: Number)
+--- @alias request_gravity_multiplier fun(id: Object, factor: Number)
     { "gravity_multiplier", { { "multiplier", mt.Number } } },
 
-    --- @alias request_gravity_direction fun(id: Object, dx: Number, dy: Number)
+--- @alias request_gravity_direction fun(id: Object, dx: Number, dy: Number)
     { "gravity_direction", { { "dx", mt.Number }, { "dy", mt.Number } } },
 
-    --- @alias request_force fun(id: Object, dx: Number, dy: Number)
-    { "force", { { "dx", mt.Number }, { "dy", mt.Number } } }
+--- @alias request_force fun(id: Object, dx: Number, dy: Number)
+    { "force", { { "dx", mt.Number }, { "dy", mt.Number } } },
+
+--- @alias request_flow_override fun(id: Object, override: Number)
+    { "flow_override", { { "override", mt.Number } } }
 ) do
     local which, args_table = table.unpack(tuple)
     rt.Player["request_" .. which] = function(self, id, ...)
-        if id == nil then
-            rt.error("In ", "request_" .. which, ": argument #1 is nil")
-        end
-
-        local requests = self["_" .. which .. "_requests"]
-
-        local should_remove = true
-        for i = 1, select("#", ...) do
-            if select(i, ...) ~= nil then
-                should_remove = false
-                break
-            end
-        end
-
-        if should_remove then
-            -- remove request
-            requests[id] = nil
-            return id
+        local handler = self["_" .. which .. "_requests"]
+        if select(1, ...) == nil then
+            handler:remove(id)
         else
-            local entry = requests[id]
-            if entry == nil then
-                entry = {}
-                requests[id] = entry
-            end
-
             for arg_i = 1, #args_table do
                 local arg = select(arg_i, ...)
                 local arg_name, arg_type = table.unpack(args_table[arg_i])
                 meta.assert_argument_type(arg, arg_type, arg_i + 1)
-                entry[arg_name] = arg
             end
-
-            return id
+            handler:request(id, ...)
         end
+
+        return id
     end
 end
 
 --- @brief
 function rt.Player:get_is_visible()
-    for source in values(self._is_visible_requests) do
-        if source.is_visible == false then return false end
-    end
-
-    return true
+    return self._is_visible_requests:reduce()
 end
 
 --- @brief
 function rt.Player:get_is_frozen()
-    for source in values(self._is_frozen_requests) do
-        if source.is_frozen == true then return true end
-    end
-
-    return false
+    return self._is_frozen_requests:reduce()
 end
 
- --- @brief
+--- @brief
 
- function rt.Player:request_is_disabled(id, is_disabled)
-     local before = self:get_is_disabled()
+function rt.Player:request_is_disabled(id, is_disabled)
+    if id == nil then
+        rt.error("In request_is_disabled: argument #1 is nil")
+    end
+    meta.assert_argument_type(is_disabled, mt.Optional(mt.Boolean), 2)
+    local before = self:get_is_disabled()
 
-     local requests = self._is_disabled_requests
-     local should_remove = is_disabled == nil
+    if is_disabled == nil then
+        self._is_disabled_requests:remove(id)
+    else
+        self._is_disabled_requests:request(id, is_disabled)
+    end
 
-     if should_remove then
-         requests[id] = nil
-     else
-         local entry = requests[id]
-         if entry == nil then
-             entry = {}
-             requests[id] = entry
-         end
-
-         entry.is_disabled = is_disabled
-     end
-
-     if before ~= self:get_is_disabled() then
-         self:_update_bubble(self:get_is_bubble())
-     end
- end
+    if before ~= self:get_is_disabled() then
+        self:_update_bubble(self:get_is_bubble())
+    end
+    return id
+end
 
 --- @brief
 function rt.Player:get_is_disabled()
-    for source in values(self._is_disabled_requests) do
-        if source.is_disabled == true then return true end
-    end
-
-    return false
+    return self._is_disabled_requests:reduce()
 end
 
 --- @brief
 function rt.Player:request_is_ghost(id, is_ghost)
-    local before = self:get_is_ghost()
-
-    local requests = self._is_ghost_requests
-    local should_remove = is_ghost == nil
-
-    if should_remove then
-        requests[id] = nil
-    else
-        local entry = requests[id]
-        if entry == nil then
-            entry = {}
-            requests[id] = entry
-        end
-
-        entry.is_ghost = is_ghost
-    end
-
+    self._is_ghost_requests:request(id, is_ghost)
     self:_update_ghost(self:get_is_ghost())
+    return id
 end
 
 --- @brief
@@ -3260,49 +3226,31 @@ end
 
 --- @brief
 function rt.Player:get_is_ghost()
-    for source in values(self._is_ghost_requests) do
-        if source.is_ghost == true then return true end
-    end
-
-    return false
+    return self._is_ghost_requests:reduce()
 end
 
 --- @brief
 function rt.Player:get_is_contracted()
-    for source in values(self._is_contracted_requests) do
-        if source.is_contracted == true then return true end
-    end
-    return false
+    return self._is_contracted_requests:reduce()
 end
 
 --- @brief
 function rt.Player:get_is_bubble()
-    for key, source in pairs(self._is_bubble_requests) do
-        if source.is_bubble == true then
-            return true
-        end
-    end
-
-    return false
+    return self._is_bubble_requests:reduce()
 end
 
 --- @brief
 function rt.Player:request_is_bubble(id, is_bubble)
+    if id == nil then
+        rt.error("In request_is_bubble: argument #1 is nil")
+    end
+    meta.assert_argument_type(is_bubble, mt.Optional(mt.Boolean), 2)
     local before = self:get_is_bubble()
 
-    local requests = self._is_bubble_requests
-    local should_remove = is_bubble == nil
-
-    if should_remove then
-        requests[id] = nil
+    if is_bubble == nil then
+        self._is_bubble_requests:remove(id)
     else
-        local entry = requests[id]
-        if entry == nil then
-            entry = {}
-            requests[id] = entry
-        end
-
-        entry.is_bubble = is_bubble
+        self._is_bubble_requests:request(id, is_bubble)
     end
 
     local after = self:get_is_bubble()
@@ -3393,29 +3341,17 @@ end
 
 --- @brief
 function rt.Player:get_is_movement_disabled()
-    for source in values(self._is_movement_disabled_requests) do
-        if source.is_disabled == true then return true end
-    end
-
-    return false
+    return self._is_movement_disabled_requests:reduce()
 end
 
 --- @brief
 function rt.Player:get_is_jump_disabled()
-    for source in values(self._is_jump_disabled_requests) do
-        if source.is_disabled == true then return true end
-    end
-
-    return false
+    return self._is_jump_disabled_requests:reduce()
 end
 
 --- @brief
 function rt.Player:get_is_double_jump_disabled()
-    for source in values(self._is_double_jump_disabled_requests) do
-        if source.is_disabled == true then return true end
-    end
-
-    return false
+    return self._is_double_jump_disabled_requests:reduce()
 end
 
 --- @brief
@@ -3423,85 +3359,55 @@ function rt.Player:get_is_omnidirectional_movement_allowed()
     if self:get_is_bubble() == true then
         return true
     else
-        for source in values(self._is_omnidirectional_movement_allowed_requests) do
-            if source.is_allowed == true then return true end
-        end
-
-        return false
+        return self._is_omnidirectional_movement_allowed_requests:reduce()
     end
 end
 
 --- @brief
 function rt.Player:get_is_trail_enabled()
-    for source in values(self._is_trail_enabled_requests) do
-        if source.is_visible == false then return false end
-    end
-
-    return true
+    return self._is_trail_enabled_requests:reduce()
 end
 
 --- @brief
 function rt.Player:get_is_flow_frozen()
-    for source in values(self._is_flow_frozen_requests) do
-        if source.is_frozen == true then return true end
-    end
-
-    return false
+    return self._is_flow_frozen_requests:reduce()
 end
 
 --- @brief
 function rt.Player:get_is_idle_timer_frozen()
-    for source in values(self._is_idle_timer_frozen_requests) do
-        if source.is_frozen == true then return true end
-    end
-
-    return false
+    return self._is_idle_timer_frozen_requests:reduce()
 end
 
 --- @brief
 function rt.Player:get_time_dilation()
-    local t = 1
-    for source in values(self._time_dilation_requests) do
-        t = t * source.dilation
-    end
-
-    return t
+    return self._time_dilation_requests:reduce()
 end
 
 --- @brief
 function rt.Player:get_gravity_multiplier()
-    local factor = 1
-    for source in values(self._gravity_multiplier_requests) do
-        factor = factor * source.multiplier
-    end
-
-    return factor
+    return self._gravity_multiplier_requests:reduce()
 end
 
 --- @brief
 function rt.Player:get_gravity_direction()
-    local dx, dy = 0, 1
-    for source in values(self._gravity_direction_requests) do
-        dx = dx + source.dx
-        dy = dy + source.dy
-    end
+    local dx, dy = self._gravity_direction_requests:reduce()
+    dx = dx or 0
+    dy = dy or 1
 
     return math.normalize(dx, dy)
 end
 
 --- @brief
 function rt.Player:get_requested_forces()
-    local net_force_x, net_force_y = 0, 0
-    for entry in values(self._force_requests) do
-        net_force_x = net_force_x + (entry.dx or 0)
-        net_force_y = net_force_y + (entry.dy or 0)
-    end
-
-    return net_force_x, net_force_y
+    local net_force_x, net_force_y = self._force_requests:reduce()
+    return net_force_x or 0, net_force_y or 0
 end
 
 --- @brief
 function rt.Player:request_damping(id, up, right, down, left)
+    if id == nil then
+        rt.error("In request_damping: argument #1 is nil")
+    end
     meta.assert(
         id, mt.Any,
         up, mt.Optional(mt.Number),
@@ -3510,7 +3416,6 @@ function rt.Player:request_damping(id, up, right, down, left)
         left, mt.Optional(mt.Number)
     )
 
-    local requests = self._damping_requests
     local should_remove = up == nil and right == nil and down == nil and left == nil
 
     up = up or 1
@@ -3519,31 +3424,23 @@ function rt.Player:request_damping(id, up, right, down, left)
     left = left or 1
 
     if should_remove then
-        requests[id] = nil
+        self._damping_requests:remove(id)
         return id
     else
-        local entry = requests[id]
-        if entry == nil then
-            entry = {}
-            requests[id] = entry
-        end
-
-        entry.up = up or 1
-        entry.right = right or 1
-        entry.down = down or 1
-        entry.left = left or 1
-
+        self._damping_requests:request(id, up, right, down, left)
         return id
     end
 end
 
 --- @brief
 function rt.Player:apply_damping(vx, vy)
-    for entry in values(self._damping_requests) do
-        if vx < 0 then vx = vx * entry.left end
-        if vx > 0 then vx = vx * entry.right end
-        if vy < 0 then vy = vy * entry.up end
-        if vy > 0 then vy = vy * entry.down end
+    local values = self._damping_requests:reduce(rt.RequestReduceMode.MANUAL)
+    for _, v in ipairs(values) do
+        local up, right, down, left = table.unpack(v)
+        if vx < 0 then vx = vx * left end
+        if vx > 0 then vx = vx * right end
+        if vy < 0 then vy = vy * up end
+        if vy > 0 then vy = vy * down end
     end
 
     return vx, vy
@@ -3640,8 +3537,14 @@ function rt.Player:reset_flow(value)
 end
 
 --- @brief
+function rt.Player:get_flow_override()
+    return self._flow_override_requests:reduce() or self._current_flow
+end
+
+--- @brief
 function rt.Player:get_flow()
-    return self._current_flow
+    local override = self:get_flow_override()
+    return override or self._current_flow
 end
 
 --- @brief

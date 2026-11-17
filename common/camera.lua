@@ -1,7 +1,6 @@
 require "common.random"
 require "common.smoothed_motion_2d"
 require "common.transform"
-require "common.envelope"
 
 rt.settings.camera = {
     max_velocity = 500, -- px per second
@@ -12,9 +11,9 @@ rt.settings.camera = {
 
     min_scale = 1 / 4,
     max_scale = 30,
-
     shake_max_frequency = 30,
     shake_max_offset = 6, -- px
+
     shake_impulse = {
         envelope_attack = 0,
         envelope_decay = 0,
@@ -31,6 +30,664 @@ rt.Camera = meta.class("Camera")
 --- @brief
 function rt.Camera:instantiate()
     meta.install(self, {
+        _current_x = 0,
+        _current_y = 0,
+        _target_x = 0,
+        _target_y = 0,
+        _speed = 1, -- fraction
 
+        _current_angle = 0,
+
+        _current_scale = 1,
+        _target_scale = 1,
+        _scale_speed = 1, -- fraction
+
+        _last_x = 0,
+        _last_y = 0,
+
+        _bounds = {}, -- Set<rt.AABB>
+        _apply_bounds = true,
+
+        _is_shaking = false,
+        _shake_intensity = 0,
+        _shake_frequency = 1,
+        _shake_offset_x = 0,
+        _shake_offset_y = 0,
+
+        _shake_elapsed = 0,
+        _shake_from_x = 0,
+        _shake_from_y = 0,
+        _shake_to_x = 0,
+        _shake_to_y = 1,
+        _shake_current_x = 0,
+        _shake_current_y = 0,
+
+        _shake_impulse_sources = {}, -- cf. Camera.shake
+        _shake_impulse_offset_x = 0,
+        _shake_impulse_offset_y = 0,
+
+        _world_bounds = rt.AABB(0, 0, 0, 0),
+
+        _is_enabled = true,
+        _use_pixel_scale = true,
+        _transform = rt.Transform(),
+
+        _is_bound = false
     })
+
+    self:_update_transform()
+    self:set_shake_frequency(1)
+end
+
+local _floor = function(x)
+    if x == nil then print(debug.traceback()) end
+    return math.floor(x)
+end
+
+local _clamp = function(x)
+    local limit = rt.settings.camera.shake_max_offset
+    local sign = math.sign(x)
+    if math.abs(x) > limit then
+        return sign * limit
+    else
+        return x
+    end
+end
+
+--- @brief
+function rt.Camera:bind()
+    love.graphics.push()
+    love.graphics.replaceTransform(self._transform:get_native()) -- rounded
+
+    if self._is_enabled == true and rt.GameState:get_is_screen_shake_enabled() then
+        -- leave shake unrounded, subpixel precision
+        love.graphics.translate(
+            _clamp(self._shake_offset_x + self._shake_impulse_offset_x),
+            _clamp(self._shake_offset_y + self._shake_impulse_offset_y)
+        )
+    end
+
+    self._is_bound = true
+end
+
+--- @brief
+function rt.Camera:unbind()
+    love.graphics.pop()
+
+    self._is_bound = false
+end
+
+--- @brief [internal]
+function rt.Camera:constrain(x, y)
+    meta.assert(x, mt.Number, y, mt.Number)
+
+    if self._apply_bounds ~= true then return x, y end
+
+    local total_scale = self._current_scale * rt.SceneManager:get_pixel_scale()
+
+    local hw = (rt.SceneManager:get_width() / 2) / total_scale
+    local hh = (rt.SceneManager:get_height() / 2) / total_scale
+
+    local angle = self._current_angle
+    local cos_a = math.abs(math.cos(angle))
+    local sin_a = math.abs(math.sin(angle))
+
+    local extent_x = hw * cos_a + hh * sin_a
+    local extent_y = hw * sin_a + hh * cos_a
+
+    for bounds in keys(self._bounds) do
+        local min_x = bounds.x + extent_x
+        local max_x = bounds.x + bounds.width - extent_x
+
+        if max_x < min_x then
+            x = bounds.x + bounds.width / 2
+        else
+            x = math.clamp(x, min_x, max_x)
+        end
+
+        -- Clamp Y
+        local min_y = bounds.y + extent_y
+        local max_y = bounds.y + bounds.height - extent_y
+
+        if max_y < min_y then
+            y = bounds.y + bounds.height / 2
+        else
+            y = math.clamp(y, min_y, max_y)
+        end
+    end
+
+    return x, y
+end
+
+local _distance_easing = function(x, delta, speed)
+    local eps = 0.5
+    local exponent = math.mix(1.5 - eps, 1.5 + eps, speed / 2)
+    return math.sign(x) * math.abs(x)^exponent * delta
+end
+
+local _scale_easing = function(x, delta, speed)
+    local duration = 0.5
+    local eps = 0.2
+    local exponent = math.mix(1.8 - eps, 1.8 + eps, speed / 2)
+    return x * (1 - (1 - delta / duration)^exponent)
+end
+
+--- @brief
+function rt.Camera:update(delta)
+    meta.assert(delta, mt.Number)
+
+    do -- scale
+        -- work in log space, where relative scales are equidistant regardless of value
+        local scale_eps = math.eps
+        local current_scale = math.log(math.max(scale_eps, self._current_scale))
+        local target_scale = math.log(math.max(scale_eps, self._target_scale))
+
+        local delta_scale = _scale_easing(target_scale - current_scale, delta, self._scale_speed)
+
+        -- convert limit to log space
+        local max_scale_velocity = rt.settings.camera.max_scale_velocity
+        local actual_scale_change = self._current_scale * (math.exp(delta_scale) - 1)
+        local max_scale_change = self._current_scale * max_scale_velocity * delta
+
+        if math.abs(actual_scale_change) > max_scale_change then
+            delta_scale = math.sign(delta_scale) * math.log(1 + max_scale_change / self._current_scale)
+        end
+
+        self._current_scale = math.exp(current_scale + delta_scale)
+        self._current_scale = math.clamp(self._current_scale, rt.settings.camera.min_scale, rt.settings.camera.max_scale)
+    end
+
+    if self._apply_bounds then
+        self._target_x, self._target_y = self:constrain(self._target_x, self._target_y)
+    end
+
+    do -- movement
+        local dx = _distance_easing(self._target_x - self._current_x, delta, self._speed)
+        local dy = _distance_easing(self._target_y - self._current_y, delta, self._speed)
+
+        local max_displacement = rt.settings.player.max_velocity * delta
+        dx = math.clamp(dx, -max_displacement, max_displacement)
+        dy = math.clamp(dy, -max_displacement, max_displacement)
+
+        self._last_x, self._last_y = self._current_x, self._current_y
+
+        self._current_x = self._current_x + dx
+        self._current_y = self._current_y + dy
+    end
+
+    -- continuous shaking
+    if self._is_shaking then
+        local max_frequency = rt.settings.camera.shake_max_frequency
+        local offset = rt.settings.camera.shake_max_offset * self._shake_intensity
+
+        local speed = self._shake_frequency * max_frequency
+        local distance_traveled = speed * delta
+        while distance_traveled > 0 do
+            local dist = math.distance(self._shake_current_x, self._shake_current_y, self._shake_to_x, self._shake_to_y)
+            if distance_traveled >= dist then
+                self._shake_current_x = self._shake_to_x
+                self._shake_current_y = self._shake_to_y
+                self._shake_from_x = self._shake_to_x
+                self._shake_from_y = self._shake_to_y
+                self._shake_to_x = math.cos(rt.random.number(0, math.tau))
+                self._shake_to_y = math.sin(rt.random.number(0, math.tau))
+                distance_traveled = distance_traveled - dist
+            else
+                local sdx, sdy = math.normalize(self._shake_to_x - self._shake_from_x, self._shake_to_y - self._shake_from_y)
+                self._shake_current_x = self._shake_current_x + sdx * distance_traveled
+                self._shake_current_y = self._shake_current_y + sdy * distance_traveled
+                self._shake_offset_x, self._shake_offset_y = self._shake_current_x * offset, self._shake_current_y * offset
+                distance_traveled = 0
+                break
+            end
+        end
+    end
+
+    -- impulse shaking
+    do
+        self._shake_impulse_offset_x = 0
+        self._shake_impulse_offset_y = 0
+
+        local settings = rt.settings.camera.shake_impulse
+
+        local envelope = function(x)
+            return rt.InterpolationFunctions.ENVELOPE(x,
+                settings.envelope_attack,
+                settings.envelope_decay
+            )
+        end
+
+        local now = love.timer.getTime()
+        local max_offset = settings.max_offset
+
+        local to_remove = {}
+        for i, entry in ipairs(self._shake_impulse_sources) do
+            local t = math.min(1, (now - entry.start) / entry.duration)
+            local intensity = envelope(t) * entry.intensity
+            local x, y = entry.path:at(t)
+
+            self._shake_impulse_offset_x = self._shake_impulse_offset_x + x * max_offset * intensity
+            self._shake_impulse_offset_y = self._shake_impulse_offset_y + y * max_offset * intensity
+
+            if t >= 1 then
+                table.insert(to_remove, 1, i)
+            end
+        end
+
+        for i in values(to_remove) do
+            table.remove(self._shake_impulse_sources, i)
+        end
+    end
+
+    self:_update_transform()
+end
+
+--- @brief
+function rt.Camera:reset()
+    self._current_x = self._target_x
+    self._current_y = self._target_y
+    self._current_angle = 0
+    self._current_scale = 1
+
+    self:_update_transform()
+end
+
+--- @brief
+function rt.Camera:get_rotation()
+    return self._current_angle
+end
+
+--- @brief
+function rt.Camera:set_rotation(r)
+    if self._current_angle ~= r then
+        self._current_angle = r
+        self:_update_transform()
+    end
+end
+
+--- @brief
+function rt.Camera:get_position()
+    return self._current_x, self._current_y
+end
+
+--- @brief
+function rt.Camera:get_size()
+    local w, h = rt.SceneManager:get_size()
+    return w * self._current_scale, h * self._current_scale
+end
+
+--- @brief
+function rt.Camera:set_position(x, y, override_bounds)
+    meta.assert(
+        x, mt.Number,
+        y, mt.Number,
+        override_bounds, meta.Union(mt.Boolean, mt.Nil)
+    )
+
+    if self._is_enabled ~= true then return end
+
+    if override_bounds ~= true then
+        x, y = self:constrain(x, y)
+    end
+
+    self._target_x = x
+    self._target_y = y
+    self._current_x = x
+    self._current_y = y
+
+    self:_update_transform()
+end
+
+--- @brief
+function rt.Camera:move_to(x, y, override_bounds)
+    meta.assert(x, mt.Number, y, mt.Number)
+
+    if self._is_enabled ~= true then return end
+
+    if override_bounds ~= true then
+        self._target_x, self._target_y = self:constrain(x, y)
+    else
+        self._target_x, self._target_y = x, y
+    end
+end
+
+--- @brief
+function rt.Camera:get_scale()
+    return self._current_scale
+end
+
+--- @brief
+function rt.Camera:get_final_scale()
+    return self._current_scale * self:get_scale_delta()
+end
+
+--- @brief
+function rt.Camera:get_scale_delta()
+    return rt.SceneManager:get_height() / rt.settings.native_height
+end
+
+--- @brief
+function rt.Camera:set_scale(s, override_bounds)
+    meta.assert(s, mt.Boolean, override_bounds, mt.Optional(mt.Boolean))
+
+    if self._is_enabled ~= true then return end
+
+    self._current_scale = s
+    self._target_scale = s
+
+    if override_bounds ~= true then
+        self._target_x, self._target_y = self:constrain(self._target_x, self._target_y)
+    end
+
+    self:_update_transform()
+end
+
+--- @brief
+function rt.Camera:scale_to(s)
+    if self._is_enabled ~= true then return end
+    self._target_scale = s
+end
+
+function rt.Camera:fit_to(bounds, center_x, center_y)
+    meta.assert(bounds, rt.AABB, center_x, mt.Optional(mt.Number), center_y, mt.Optional(mt.Number))
+
+    if self._is_enabled ~= true then return end
+
+    local screen_w, screen_h = rt.SceneManager:get_size()
+
+    local constant_factor = 1 / rt.SceneManager:get_downscaling_factor()
+    if self._use_pixel_scale then
+        constant_factor = constant_factor * rt.SceneManager:get_pixel_scale()
+    end
+
+    local bw = math.max(math.eps, bounds.width)
+    local bh = math.max(math.eps, bounds.height)
+
+    local scale_x = screen_w / (constant_factor * bw)
+    local scale_y = screen_h / (constant_factor * bh)
+    local target_scale = math.min(scale_x, scale_y)
+    target_scale = math.clamp(target_scale, rt.settings.camera.min_scale, rt.settings.camera.max_scale)
+
+    local cx = center_x or (bounds.x + 0.5 * bounds.width)
+    local cy = center_y or (bounds.y + 0.5 * bounds.height)
+
+    self:scale_to(target_scale)
+    self:move_to(cx, cy, true) -- override bounds
+end
+
+--- @brief
+function rt.Camera:add_bounds(bounds)
+    meta.assert(bounds, rt.AABB)
+    self._bounds[bounds] = true
+    self:_update_transform()
+end
+
+--- @brief
+function rt.Camera:remove_bounds(bounds)
+    meta.assert(bounds, rt.AABB)
+    self._bounds[bounds] = nil
+    self:_update_transform()
+end
+
+--- @brief
+function rt.Camera:clear_bounds()
+    for key in keys(self._bounds) do
+        self._bounds[key] = nil
+    end
+end
+
+--- @brief
+function rt.Camera:snap_to_bounds()
+    if self._is_enabled ~= true then return end
+
+    self:set_position(self:constrain(self:get_position()))
+end
+
+--- @brief
+function rt.Camera:get_bounds()
+    local bounds = {}
+    for bound in keys(self._bounds) do
+        table.insert(bounds, bound)
+    end
+
+    return bounds
+end
+
+--- @brief
+function rt.Camera:set_bounds(bounds_or_table, ...)
+    local bounds
+    if select("#", ...) > 0 then
+        bounds = { bounds_or_table, ... }
+    else
+        bounds = bounds_or_table
+    end
+
+    self:reset_bounds()
+    for i, bound in ipairs(bounds) do
+        meta.assert_argument_type(bound, rt.AABB, i)
+        self._bounds[bound] = true
+    end
+end
+
+--- @brief
+function rt.Camera:set_apply_bounds(b)
+    meta.assert(b, mt.Boolean)
+
+    if b ~= self._apply_bounds then
+        self._apply_bounds = b
+        self:set_position(self:constrain(self:get_position()))
+    end
+end
+
+--- @brief
+function rt.Camera:get_apply_bounds()
+    return self._apply_bounds
+end
+
+--- @brief
+function rt.Camera:screen_xy_to_world_xy(screen_x, screen_y)
+    meta.assert(screen_x, mt.Number, screen_y, mt.Number)
+    local x, y, _ = self._transform:inverse_transform_point(screen_x, screen_y, 0)
+    return x, y
+end
+
+--- @brief
+function rt.Camera:world_xy_to_screen_xy(world_x, world_y)
+    meta.assert(world_x, mt.Number, world_x, mt.Number)
+    local x, y, _ = self._transform:transform_point(world_x, world_y, 0)
+    return x, y
+end
+
+--- @brief
+function rt.Camera:get_world_bounds()
+    return self._world_bounds:clone()
+end
+
+--- @brief
+--- @param intensity Number in [0, 1]
+function rt.Camera:set_is_shaking(b)
+    meta.assert(b, mt.Boolean)
+
+    self._is_shaking = b
+    if b == false then
+        self._shake_offset_x = 0
+        self._shake_offset_y = 0
+    end
+end
+
+--- @brief
+function rt.Camera:set_shake_intensity(i)
+    meta.assert(i, mt.Number)
+    self._shake_intensity = math.clamp(i, 0, 1)
+end
+
+--- @brief
+function rt.Camera:set_shake_intensity_in_pixels(n)
+    meta.assert(n, mt.Number)
+    self:set_shake_intensity(n / rt.settings.camera.shake_max_offset)
+end
+
+--- @brief
+function rt.Camera:set_shake_frequency(i)
+    meta.assert(i, mt.Number)
+    self._shake_frequency = math.clamp(i, 0, 1)
+end
+
+--- @brief
+function rt.Camera:shake(intensity, duration)
+    local settings = rt.settings.camera.shake_impulse
+    if duration == nil then duration = settings.default_duration end
+    if intensity == nil then intensity = settings.default_intensity end
+
+    meta.assert(intensity, mt.Number, duration, mt.Optional(mt.Number))
+
+    local n_nodes = math.ceil(settings.frequency * duration)
+
+    -- pre-generate random walk on unit circle with opposing directions
+    local path = { 0, 0 }
+    local current_angle = rt.random.number(0, math.tau)
+
+    for i = 1, n_nodes do
+        local angle_offset = rt.random.number(-math.pi / 4, math.pi / 4)
+        -- always make it so the new point is on the opposite half plane
+        current_angle = current_angle + math.pi + angle_offset
+
+        table.insert(path, math.cos(current_angle))
+        table.insert(path, math.sin(current_angle))
+    end
+
+    table.insert(path, 0)
+    table.insert(path, 0)
+
+    table.insert(self._shake_impulse_sources, {
+        start = love.timer.getTime(),
+        intensity = intensity or settings.default_intensity,
+        duration = duration,
+        path = rt.Path(path)
+    })
+end
+
+--- @brief
+function rt.Camera:get_offset()
+    local w, h = rt.SceneManager:get_size()
+    local x_offset = -_floor(self._current_x + 0.5 * w)
+    local y_offset = -_floor(self._current_y + 0.5 * h)
+
+    if rt.GameState:get_is_screen_shake_enabled() then
+        x_offset = x_offset + _clamp(self._shake_offset_x + self._shake_impulse_offset_x)
+        y_offset = y_offset + _clamp(self._shake_offset_y + self._shake_impulse_offset_y)
+    end
+
+    return x_offset, y_offset
+end
+
+--- @brief
+function rt.Camera:_update_bounds()
+    local w, h = rt.SceneManager:get_size()
+    local screen_corners = {
+        0, 0,
+        w, 0,
+        w, h,
+        0, h
+    }
+
+    local world_corners = {}
+    for i = 1, #screen_corners, 2 do
+        local wx, wy, _ = self._transform:inverse_transform_point(screen_corners[i+0], screen_corners[i+1], 0)
+        table.insert(world_corners, wx)
+        table.insert(world_corners, wy)
+    end
+
+    local min_x = math.huge
+    local min_y = math.huge
+    local max_x = -math.huge
+    local max_y = -math.huge
+
+    for i = 1, #world_corners, 2 do
+        local wx, wy = world_corners[i+0], world_corners[i+1]
+        min_x = math.min(min_x, wx)
+        min_y = math.min(min_y, wy)
+        max_x = math.max(max_x, wx)
+        max_y = math.max(max_y, wy)
+    end
+
+    self._world_bounds:reformat(
+        min_x,
+        min_y,
+        max_x - min_x,
+        max_y - min_y
+    )
+end
+
+--- @brief
+function rt.Camera:get_transform()
+    return self._transform:clone()
+end
+
+--- @brief
+function rt.Camera:set_scale_speed(fraction)
+    self._scale_speed = fraction or 1
+end
+
+--- @brief
+function rt.Camera:get_scale_speed()
+    return self._scale_speed
+end
+
+--- @brief
+function rt.Camera:set_speed(fraction)
+    meta.assert(fraction, mt.Number)
+    self._speed = fraction or 1
+end
+
+--- @brief
+function rt.Camera:get_speed()
+    return self._speed
+end
+
+--- @brief
+function rt.Camera:set_is_enabled(b)
+    meta.assert(b, mt.Boolean)
+    self._is_enabled = b
+end
+
+--- @brief
+function rt.Camera:get_is_enabled()
+    return self._is_enabled
+end
+
+--- @brief
+function rt.Camera:set_use_pixel_scale(b)
+    meta.assert(b, mt.Boolean)
+
+    if self._use_pixel_scale ~= b then
+        self._use_pixel_scale = b
+        self:_update_transform()
+    end
+end
+
+--- @brief
+function rt.Camera:_update_transform()
+    local t = self._transform:reset()
+
+    local screen_w, screen_h = rt.SceneManager:get_size()
+    t:translate(_floor(0.5 * screen_w), _floor(0.5 * screen_h), 0)
+    t:scale(self._current_scale, self._current_scale, 1)
+
+    -- compensate for global resolution scaling
+    t:scale(1 / rt.SceneManager:get_downscaling_factor())
+
+    if self._use_pixel_scale then
+        t:scale(rt.SceneManager:get_pixel_scale())
+    end
+
+    t:rotate_z(self._current_angle)
+    t:translate(-_floor(self._current_x), -_floor(self._current_y), 0)
+
+    self:_update_bounds()
+
+    if self._is_bound then
+        self:unbind()
+        self:bind()
+    end
 end

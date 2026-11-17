@@ -11,57 +11,80 @@ rt.RequestReduceMode = {
     MEAN = 6,
     MAX = 7,
     MIN = 8,
-    MANUAL = 9
+    ADDITION = 5, -- sic
+    SUBTRACTION = 9,
+    MULTIPLICATION = 10,
+    DIVISION = 11,
+    CUSTOM = 12,
+    MANUAL = 13
 }
 rt.RequestReduceMode = meta.enum("RequestReduceMode", rt.RequestReduceMode)
 
-local _instance_t = meta.Object
+local _id_t = mt.Any
 
 --- @brief
-function rt.RequestHandler:instantiate(reduce_mode)
+function rt.RequestHandler:instantiate(reduce_mode, ...)
     meta.assert(reduce_mode, rt.RequestReduceMode)
+    if select("#", ...) > 0 then
+        for i = 1, select("#", ...) do
+            meta.assert_argument_type(select(1, ...), mt.Union(mt.Boolean, mt.Number), 1 + i)
+        end
+    end
 
+    self._default_value = { ... }
     self._reduce_mode = reduce_mode
-    self._instance_to_request = {}
+    self._id_to_request = {}
 end
 
 --- @brief
-function rt.RequestHandler:request(instance, ...)
-    meta.assert(instance, _instance_t)
+function rt.RequestHandler:request(id, ...)
+    meta.assert(id, _id_t)
 
     if select("#", ...) == 0 then
         -- remove request
-        self:remove(instance)
+        self:remove(id)
     else
-        local request = self._instance_to_request[instance]
+        local request = self._id_to_request[id]
         if request == nil then
             request = { values = nil }
-            self._instance_to_request[instance] = request
+            self._id_to_request[id] = request
         end
 
         request.values = { ... }
     end
+    
+    return id
 end
 
 --- @brief
-function rt.RequestHandler:remove(instance)
-    meta.assert(instance, _instance_t)
-    self._instance_to_request[instance] = nil
+function rt.RequestHandler:remove(id)
+    meta.assert(id, _id_t)
+    self._id_to_request[id] = nil
 end
 
 --- @brief
 function rt.RequestHandler:clear()
-    self._instance_to_request = {}
+    self._id_to_request = {}
 end
 
 --- @brief
-function rt.RequestHandler:reduce(mode)
+function rt.RequestHandler:reduce(mode, ...)
     if mode == nil then mode = self._reduce_mode end
+    meta.assert(mode, rt.RequestReduceMode)
 
-    meta.assert(mode, rt.RequestHandler)
-    self._reduce_mode = mode
+    if table.is_empty(self._id_to_request) then
+        if mode == rt.RequestReduceMode.MANUAL then
+            if #self._default_value == 1 then
+                return { table.deepcopy(self._default_value[1]) }
+            else
+                return { table.deepcopy(self._default_value) }
+            end
+        else
+            return table.unpack(self._default_value)
+        end
+    end
 
-    local requests = self._instance_to_request
+    local requests = self._id_to_request
     if mode == rt.RequestReduceMode.AT_LEAST_ONE_TRUE then
         for _, request in pairs(requests) do
             for _, x in ipairs(request.values) do
@@ -98,15 +121,45 @@ function rt.RequestHandler:reduce(mode)
 
         return true
 
-    elseif mode == rt.RequestReduceMode.SUM then
-        local sum = { }
+    elseif mode == rt.RequestReduceMode.SUM or mode == rt.RequestHandler.ADDITION then
+        local res = { ... }
         for _, request in pairs(requests) do
             for i, x in ipairs(request.values) do
-                sum[i] = (sum[i] or 0) + x
+                res[i] = (res[i] or 0) + x
             end
         end
 
-        return table.unpack(sum)
+        return table.unpack(res)
+
+    elseif mode == rt.RequestReduceMode.SUBTRACTION then
+        local res = { ... }
+        for _, request in pairs(requests) do
+            for i, x in ipairs(request.values) do
+                res[i] = (res[i] or 0) - x
+            end
+        end
+
+        return table.unpack(res)
+
+    elseif mode == rt.RequestReduceMode.MULTIPLICATION then
+        local res = { ... }
+        for _, request in pairs(requests) do
+            for i, x in ipairs(request.values) do
+                res[i] = (res[i] or 1) * x
+            end
+        end
+
+        return table.unpack(res)
+
+    elseif mode == rt.RequestReduceMode.DIVISION then
+        local res = { ... }
+        for _, request in pairs(requests) do
+            for i, x in ipairs(request.values) do
+                res[i] = (res[i] or 1) / x
+            end
+        end
+
+        return table.unpack(res)
 
     elseif mode == rt.RequestReduceMode.MEAN then
         local sum = { }
@@ -154,12 +207,12 @@ function rt.RequestHandler:reduce(mode)
 
     elseif mode == rt.RequestReduceMode.MANUAL then
         local res = {}
-        for instance, request in pairs(requests) do
+        for id, request in pairs(requests) do
             if #request.values == 1 then
-                table.insert(res, request.values)
+                table.insert(res, request.values[1])
+            else
+                table.insert(res, table.deepcopy(request.values))
             end
-
-            table.insert(res, table.deepcopy(request.values))
         end
 
         return res

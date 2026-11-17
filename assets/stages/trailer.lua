@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 9,
-  nextobjectid = 1407,
+  nextobjectid = 1410,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -92,6 +92,28 @@ return {
           opacity = 1,
           visible = true,
           properties = {}
+        },
+        {
+          id = 1409,
+          name = "",
+          type = "FlowOverride",
+          shape = "polygon",
+          x = 4496,
+          y = 720,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          opacity = 1,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 976, y = 0 },
+            { x = 976, y = 768 },
+            { x = 0, y = 768 }
+          },
+          properties = {
+            ["value"] = 1
+          }
         }
       }
     },
@@ -299,7 +321,7 @@ return {
         },
         {
           id = 1373,
-          name = "Speed",
+          name = "",
           type = "Hitbox",
           shape = "polygon",
           x = 5024,
