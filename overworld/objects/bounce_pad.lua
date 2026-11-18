@@ -1,4 +1,4 @@
-require "common.contour"
+require "common.polyline"
 require "overworld.movable_object"
 
 rt.settings.overworld.bounce_pad = {
@@ -178,21 +178,10 @@ function ow.BouncePad:instantiate(object, stage, scene)
     end)
 
     if object:get_boolean("is_visible") ~= false then
-        local contour = object:create_contour()
-
-        -- contour
-        self._contour = rt.contour.round(
-            contour,
+        self._contour = object:create_contour(true):round(
             rt.settings.overworld.bounce_pad.corner_radius,
             16
         )
-
-        local center_x, center_y = object:get_centroid()
-        for i = 1, #self._contour, 2 do
-            self._contour[i+0] = self._contour[i+0] - center_x
-            self._contour[i+1] = self._contour[i+1] - center_y
-        end
-        rt.contour.close(self._contour)
 
         -- lights
         self._body:add_tag(b2.Tag.POINT_LIGHT_SOURCE)
@@ -202,9 +191,10 @@ function ow.BouncePad:instantiate(object, stage, scene)
         self._point_lights = {}
         if object:get_type() == ow.ObjectType.POLYGON then
             local raw_contour = object:create_contour()
-            for i = 1, #raw_contour - 2, 2 do
-                local x1, y1 = raw_contour[i+0], raw_contour[i+1]
-                local x2, y2 = raw_contour[math.wrap(i+2, #raw_contour)], raw_contour[math.wrap(i+3, #raw_contour)]
+            local n = raw_contour:get_n_vertices()
+            for i = 1, n do
+                local x1, y1 = raw_contour:get_vertex(i)
+                local x2, y2 = raw_contour:get_vertex(math.wrap(i, n))
                 table.insert(self._segment_lights, { x1, y1, x2, y2 })
             end
         elseif object:get_type() == ow.ObjectType.ELLIPSE then
@@ -224,8 +214,9 @@ function ow.BouncePad:instantiate(object, stage, scene)
 
         local shape_mesh_data = {}
         local offset_mesh_data = {}
-        for i = 1, #self._contour, 2 do
-            local x, y = self._contour[i+0], self._contour[i+1]
+        for i = 1, self._contour:get_n_vertices() do
+            local x, y = self._contour:get_vertex(i)
+
             table.insert(shape_mesh_data, {
                 [_x_index] = x,
                 [_y_index] = y

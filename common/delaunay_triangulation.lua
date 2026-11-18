@@ -178,6 +178,8 @@ local function _is_triangle_in_aabb(ax, ay, bx, by, cx, cy, min_x, min_y, max_x,
 end
 
 function rt.DelaunayTriangulation:triangulate(points, contour)
+    meta.assert(points, mt.Table(mt.Number), contour, mt.Union(rt.Polyline, mt.Table(mt.Number)))
+    if meta.isa(contour, rt.Polyline) then contour = contour:get_vertices() end
     self._constraints = contour or {}
 
     local coords = points
@@ -296,7 +298,7 @@ function rt.DelaunayTriangulation:get_hull()
         table.insert(hull, coords[2 * j - 1])
         table.insert(hull, coords[2 * j])
     end
-    return hull
+    return rt.Polyline(hull)
 end
 
 function rt.DelaunayTriangulation:_link(a, b)

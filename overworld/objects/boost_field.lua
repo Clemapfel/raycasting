@@ -179,7 +179,7 @@ function ow.BoostField:instantiate(object, stage, scene)
     if self._has_outline == nil then self._has_outline = true end
 
     local translate_to_origin = true
-    self._contour = rt.contour.close(object:create_contour(translate_to_origin))
+    self._contour = object:create_contour(translate_to_origin):close()
     local _, tris = object:create_mesh(translate_to_origin)
     self._tris = tris
 
@@ -290,7 +290,7 @@ function ow.BoostField:instantiate(object, stage, scene)
         end
 
         local lights = {}
-        local contour = self._contour
+        local contour = self._contour:get_vertices()
         for i = 1, #contour, 2 do
             for division in values(subdivide(
                 contour[i+0],
@@ -433,7 +433,7 @@ function ow.BoostField:draw(priority)
         love.graphics.setLineStyle("smooth")
         love.graphics.setLineWidth(1.0)
         love.graphics.setColor(1, 1, 1, rt.settings.overworld.boost_field.outline_intensity)
-        love.graphics.line(self._contour)
+        self._contour:draw()
         love.graphics.setBlendMode("alpha")
 
         _mesh_shader:bind()

@@ -84,13 +84,11 @@ function ow.Hitbox:instantiate(object, stage, scene)
     self._body:set_use_continuous_collision(true)
 
     local _, tris = object:create_mesh()
-    local contour = object:create_contour()
-    table.insert(contour, contour[1])
-    table.insert(contour, contour[2])
 
-    self._contour = contour
+    self._contour = object:create_contour():close()
     self._stage = stage
 
+    local contour = self._contour:get_vertices()
     if self._body:has_tag(b2.Tag.SLIPPERY) then
         for tri in values(tris) do
             table.insert(ow.Hitbox._slippery_mesh_tris, tri)
@@ -223,7 +221,7 @@ function ow.Hitbox:draw()
     love.graphics.setLineWidth(self._outline_width)
     love.graphics.setLineJoin("bevel")
     self._color:bind()
-    love.graphics.line(self._contour)
+    self._contour:draw()
 end
 
 --- @brief

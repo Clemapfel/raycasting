@@ -67,9 +67,8 @@ function mn.StagePreview:realize()
         for candidate in values(candidates) do
             local success, contour = pcall(candidate.create_contour, candidate)
             if success then
-                for i = 1, #contour, 2 do
-                    local x = contour[i+0]
-                    local y = contour[i+1]
+                for i = 1, contour:get_n_vertices() do
+                    local x, y = contour:get_vertex(i)
 
                     has_points = true
                     min_x = math.min(min_x, x)
@@ -92,9 +91,8 @@ function mn.StagePreview:realize()
             local success, contour = pcall(candidates[candidate_i].create_contour, candidates[candidate_i])
             if success then
                 local is_inside = false
-                for i = 1, #contour, 2 do
-                    local x = contour[i+0]
-                    local y = contour[i+1]
+                for i = 1, contour:get_n_vertices() do
+                    local x, y = contour:get_vertex(i)
 
                     if thumbnail:contains(x, y) then
                         is_inside = true
@@ -146,16 +144,16 @@ function mn.StagePreview:realize()
         end
 
         local success, contour = pcall(candidate.create_contour, candidate)
-        if success and #contour > 2 then
+        if success and contour:get_n_vertices() > 1 then
             local to_push = {}
-            for i = 1, #contour, 2 do
-                local x, y = project(contour[i+0], contour[i+1])
+            for i = 1, contour:get_n_vertices() do
+                local x, y = project(contour:get_vertex(i))
                 table.insert(to_push, x)
                 table.insert(to_push, y)
             end
 
             if #to_push > 4 then
-                table.insert(self._contours, rt.contour.close(to_push))
+                table.insert(self._contours, rt.Polyline(to_push):close())
             end
         end
     end
@@ -241,12 +239,12 @@ function mn.StagePreview:size_allocate(x, y, width, height)
 
     bind_outline()
     for contour in values(self._contours) do
-        love.graphics.line(contour)
+        contour:draw()
     end
 
     bind_inside()
     for contour in values(self._contours) do
-        love.graphics.line(contour)
+        contour:draw()
     end
 
     -- frame rect expressed in the same (scaled, centered) local space as the contours

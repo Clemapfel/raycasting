@@ -776,9 +776,9 @@ function ow.ObjectWrapper:create_contour(translate_to_origin)
     end
 
     if translate_to_origin then
-        return self.contour_normalized
+        return rt.Polyline(self.contour_normalized)
     else
-        return self.contour
+        return rt.Polyline(self.contour)
     end
 end
 

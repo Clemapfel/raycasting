@@ -1,4 +1,3 @@
-require "common.contour"
 require "overworld.movable_object"
 
 rt.settings.overworld.bubble_field = {
@@ -14,7 +13,7 @@ rt.settings.overworld.bubble_field = {
 
     -- contour
     segment_length = 7,
-    n_smoothing_iterations = 3,
+    n_smoothing_iterations = 4,
     depth = -5, -- negative to account for smoothing contraction
 
     -- base draw
@@ -96,19 +95,10 @@ function ow.BubbleField:instantiate(object, stage, scene)
     local settings = rt.settings.overworld.bubble_field
     
     -- contour
-    local contour = object:create_contour()
-
-    local centroid_x, centroid_y = rt.contour.get_centroid(contour)
-    for i = 1, #contour, 2 do
-        contour[i+0] = contour[i+0] - centroid_x
-        contour[i+1] = contour[i+1] - centroid_y
-    end
-
-    contour = rt.contour.close(contour)
-    contour = rt.contour.subdivide(contour, settings.segment_length)
-    contour = rt.contour.smooth(contour, 4) --settings.n_smoothing_iterations)
-
-    self._contour = {}
+    self._contour = object:create_contour(true)
+        :close()
+        :subdivide(settings.segment_length)
+        :smooth(settings.n_smoothing_iterations)
 
     local shape_mesh_format = {
         { location = 0, name = "origin", format = "floatvec2" }, -- absolute xy
@@ -124,12 +114,13 @@ function ow.BubbleField:instantiate(object, stage, scene)
     local data_mesh_data = {}
     
     do -- compute origin vectors
-        local path = rt.Path():create_from_and_reparameterize(contour)
+        local path = rt.Path():create_from_and_reparameterize(self._contour)
         
         local origins = {}
-        for i = 1, #contour, 2 do
-            local x1, y1 = contour[i+0], contour[i+1]
-            local x2, y2 = contour[math.wrap(i+2, #contour)], contour[math.wrap(i+3, #contour)]
+        local n = self._contour:get_n_vertices()
+        for i = 1, n do
+            local x1, y1 = self._contour:get_vertex(i)
+            local x2, y2 = self._contour:get_vertex(math.wrap(i + 1, n))
             local normal_x, normal_y = math.turn_right(math.normalize(math.subtract(x1, y1, x2, y2)))
             
             table.insert(origins, {
@@ -278,7 +269,7 @@ function ow.BubbleField:update(delta)
         local wave_previous, wave_current, wave_next = self._wave.previous, self._wave.current, self._wave.next
 
         local contour_i = 1
-        local contour = self._contour
+        local contour = self._contour:get_vertices()
 
         local max_offset = 0
 
@@ -357,7 +348,7 @@ function ow.BubbleField:draw()
 
     love.graphics.setLineStyle("smooth")
     love.graphics.setLineJoin("bevel")
-    love.graphics.line(self._contour)
+    self._contour:draw()
 
     _outline_shader:unbind()
 

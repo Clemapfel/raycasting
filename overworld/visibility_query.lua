@@ -39,6 +39,10 @@ function ow.VisibilityQuery:initialize(entries)
             "In ow.VisibilityQuery: entry at position `", i, "` is not a table"
         )
 
+        if meta.isa(entry.contour, rt.Polyline)then
+            entry.contour = entry.contour:get_vertices()
+        end
+
         rt.assert(meta.is_table(entry.contour) and (#entry.contour % 2 == 0) and meta.is_number(entry.contour[1]),
             "In ow.VisibilityQuery: contour at position `", i, "` does not have `contour` set to a valid table of 2d positions"
         )

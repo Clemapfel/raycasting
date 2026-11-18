@@ -11,10 +11,10 @@ rt.RequestReduceMode = {
     MEAN = 6,
     MAX = 7,
     MIN = 8,
-    ADDITION = 5, -- sic
-    SUBTRACTION = 9,
-    MULTIPLICATION = 10,
-    DIVISION = 11,
+    ADD = 5, -- sic
+    SUBTRACT = 9,
+    MULTIPLY = 10,
+    DIVIDE = 11,
     CUSTOM = 12,
     MANUAL = 13
 }
@@ -24,14 +24,7 @@ local _id_t = mt.Any
 
 --- @brief
 function rt.RequestHandler:instantiate(...)
-    if select("#", ...) > 0 then
-        for i = 1, select("#", ...) do
-            meta.assert_argument_type(select(1, ...), mt.Union(mt.Boolean, mt.Number), i)
-        end
-    end
-
     self._default_value = { ... }
-    self._reduce_mode = reduce_mode
     self._id_to_request = {}
 end
 
@@ -120,7 +113,7 @@ function rt.RequestHandler:reduce(mode, ...)
 
         return true
 
-    elseif mode == rt.RequestReduceMode.SUM or mode == rt.RequestHandler.ADDITION then
+    elseif mode == rt.RequestReduceMode.SUM or mode == rt.RequestHandler.ADD then
         local res = { ... }
         for _, request in pairs(requests) do
             for i, x in ipairs(request.values) do
@@ -130,7 +123,7 @@ function rt.RequestHandler:reduce(mode, ...)
 
         return table.unpack(res)
 
-    elseif mode == rt.RequestReduceMode.SUBTRACTION then
+    elseif mode == rt.RequestReduceMode.SUBTRACT then
         local res = { ... }
         for _, request in pairs(requests) do
             for i, x in ipairs(request.values) do
@@ -140,7 +133,7 @@ function rt.RequestHandler:reduce(mode, ...)
 
         return table.unpack(res)
 
-    elseif mode == rt.RequestReduceMode.MULTIPLICATION then
+    elseif mode == rt.RequestReduceMode.MULTIPLY then
         local res = { ... }
         for _, request in pairs(requests) do
             for i, x in ipairs(request.values) do
@@ -150,7 +143,7 @@ function rt.RequestHandler:reduce(mode, ...)
 
         return table.unpack(res)
 
-    elseif mode == rt.RequestReduceMode.DIVISION then
+    elseif mode == rt.RequestReduceMode.DIVIDE then
         local res = { ... }
         for _, request in pairs(requests) do
             for i, x in ipairs(request.values) do

@@ -232,7 +232,7 @@ end
 
 --- @brief
 function ow.BloodSpatter:initialize(contours)
-    meta.assert(contours, mt.Table)
+    meta.assert(contours, mt.Table(mt.Polyline))
 
     local max_length = rt.settings.overworld.blood_splatter.subdivision_length
 

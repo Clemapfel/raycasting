@@ -185,20 +185,10 @@ function ow.AcceleratorSurface:instantiate(object, stage, scene)
 
     -- mesh
 
-    self._contour = rt.contour.round(object:create_contour(), 10)
+    self._outline = object:create_contour(true):close():round(10)
 
     free(self._mesh)
     self._mesh = rt.Mesh(mesh_data, rt.MeshDrawMode.TRIANGLES)
-
-    local contour = object:create_contour()
-    for i = 1, #contour, 2 do
-        contour[i+0] = contour[i+0] - x
-        contour[i+1] = contour[i+1] - y
-    end
-    self._outline = contour
-
-    table.insert(self._outline, self._outline[1])
-    table.insert(self._outline, self._outline[2])
 end
 
 local function _get_friction(nx, ny, vx, vy)
@@ -410,7 +400,7 @@ function ow.AcceleratorSurface:draw(priority)
         love.graphics.setLineWidth(rt.settings.overworld.accelerator_surface.outline_width)
         love.graphics.setLineStyle("smooth")
         love.graphics.setLineJoin("bevel")
-        love.graphics.line(self._outline)
+        self._outline:draw()
         _outline_shader:unbind()
 
         love.graphics.pop()
@@ -450,7 +440,7 @@ function ow.AcceleratorSurface:draw_bloom()
     love.graphics.setLineWidth(rt.settings.overworld.accelerator_surface.outline_width)
     love.graphics.setLineStyle("smooth")
     love.graphics.setLineJoin("bevel")
-    love.graphics.line(self._outline)
+    self._outline:draw()
     _outline_shader:unbind()
 
     love.graphics.pop()

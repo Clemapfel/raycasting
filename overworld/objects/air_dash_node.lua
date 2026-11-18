@@ -201,7 +201,7 @@ function ow.AirDashNode:instantiate(object, stage, scene)
     self._angle = mid
     self._angle_range = angle_range
 
-    self._outline_vertices = {}
+    local outline_vertices = {}
     local n_vertices = rt.Mesh.radius_to_n_vertices(self._radius, self._radius)
 
     -- outline contour
@@ -212,12 +212,12 @@ function ow.AirDashNode:instantiate(object, stage, scene)
         -- full circle
         for i = 1, n_vertices + 1 do
             local t = ((i - 1) / n_vertices) * math.tau
-            table.insert(self._outline_vertices, center_x + math.cos(t) * radius)
-            table.insert(self._outline_vertices, center_y + math.sin(t) * radius)
+            table.insert(outline_vertices, center_x + math.cos(t) * radius)
+            table.insert(outline_vertices, center_y + math.sin(t) * radius)
         end
     elseif angle_range == 0 then
         -- line
-        self._outline_vertices = {
+        outline_vertices = {
             center_x, center_y, center_x, center_y
         }
     else
@@ -228,8 +228,8 @@ function ow.AirDashNode:instantiate(object, stage, scene)
             local n_arc_vertices = n_vertices / (span / (math.tau))
             for i = 1, n_arc_vertices do
                 local t = start_angle + ((i - 1) / n_arc_vertices) * span
-                table.insert(self._outline_vertices, center_x + math.cos(t) * radius)
-                table.insert(self._outline_vertices, center_y + math.sin(t) * radius)
+                table.insert(outline_vertices, center_x + math.cos(t) * radius)
+                table.insert(outline_vertices, center_y + math.sin(t) * radius)
             end
         end
 
@@ -239,13 +239,12 @@ function ow.AirDashNode:instantiate(object, stage, scene)
             local n_arc_vertices = n_vertices / (span / (math.tau))
             for i = n_arc_vertices, 1, -1 do
                 local t = start_angle + ((i - 1) / n_arc_vertices) * span
-                table.insert(self._outline_vertices, center_x + math.cos(t) * radius)
-                table.insert(self._outline_vertices, center_y + math.sin(t) * radius)
+                table.insert(outline_vertices, center_x + math.cos(t) * radius)
+                table.insert(outline_vertices, center_y + math.sin(t) * radius)
             end
         end
 
-        table.insert(self._outline_vertices, self._outline_vertices[1])
-        table.insert(self._outline_vertices, self._outline_vertices[2])
+        self._outline_vertices = rt.Polyline(outline_vertices):close()
     end
 
     if angle_range ~= 0 then
@@ -544,7 +543,7 @@ function ow.AirDashNode:draw(priority)
                 love.graphics.setLineStyle("rough") -- to prevent aa regions overlapping at low opacity
             end
 
-            love.graphics.line(self._outline_vertices)
+            self._outline_vertices:draw()
         end
     elseif priority == _above_player_priority and not self._is_on_cooldown then
         local x, y = 0, 0

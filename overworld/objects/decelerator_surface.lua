@@ -1,6 +1,5 @@
 require "overworld.movable_object"
 require "overworld.decelerator_surface_body"
-require "common.contour"
 
 rt.settings.overworld.decelerator_surface = {
     bubble_damping = 0.8,
@@ -28,14 +27,15 @@ function ow.DeceleratorSurface:instantiate(object, stage, scene)
     self._body:set_user_data(self)
     self._body:set_is_sensor(true)
 
-    local contour = rt.contour.close(object:create_contour())
+    local contour = object:create_contour():close()
     self._graphics_body = ow.DeceleratorSurfaceBody(scene, contour)
     self._centroid_x, self._centroid_y = object:get_centroid()
 
     self._segment_lights = {}
-    for i = 1, #contour - 2, 2 do
-        local x1, y1 = contour[i+0], contour[i+1]
-        local x2, y2 = contour[math.wrap(i+2, #contour)], contour[math.wrap(i+3, #contour)]
+    local n = contour:get_n_vertices()
+    for i = 1, n do
+        local x1, y1 = contour:get_vertex(i)
+        local x2, y2 = contour:get_vertex(math.wrap(i + 1))
         table.insert(self._segment_lights, { x1, y1, x2, y2 })
     end
 end

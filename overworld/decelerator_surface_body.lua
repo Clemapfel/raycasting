@@ -62,6 +62,7 @@ local _instance_draw_shader = rt.Shader("overworld/decelerator_surface_body_inst
 
 --- @brief
 function ow.DeceleratorSurfaceBody:instantiate(scene, contour)
+    meta.assert(scene, ow.OverworldScene, contour, rt.Polyline)
     self._scene = scene
 
     self._target_x, self._target_y = math.huge, math.huge
@@ -95,7 +96,7 @@ function ow.DeceleratorSurfaceBody:instantiate(scene, contour)
         love.graphics.pop()
     end
 
-    self._contour = rt.contour.close(contour)
+    self._contour = contour:get_vertices()
 
     do
         local arc_lengths = { 0 } -- cumulative distances
@@ -263,7 +264,7 @@ function ow.DeceleratorSurfaceBody:instantiate(scene, contour)
     self._arm_length = arm_length
     self._arm_length_extension = 0
 
-    self._aabb = rt.contour.get_aabb(self._contour)
+    self._aabb = self._contour:get_aabb()
 
     local padding = arm_length + 5 -- safety
     self._aabb.x = self._aabb.x - padding
@@ -1103,7 +1104,7 @@ end
 --- @brief
 function ow.DeceleratorSurfaceBody:get_penetration()
     if self._target_t == nil then return nil end
-    if rt.contour.is_inside(self._contour, self._target_x, self._target_y) then
+    if self._contour:contains(self._target_x, self._target_y) then
         -- fully inside body
         return 1
     else

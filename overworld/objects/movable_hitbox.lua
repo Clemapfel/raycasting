@@ -1,5 +1,4 @@
 require "common.path"
-require "common.contour"
 require "overworld.normal_map"
 require "overworld.mirror"
 require "overworld.shadow_cast"
@@ -68,7 +67,7 @@ function ow.MovableHitbox:instantiate(object, stage, scene)
     local mesh, tris = object:create_mesh(true) -- translate to origin
     self._mesh = mesh
     self._tris = tris
-    self._contour = rt.contour.close(object:create_contour(true)) -- translate to origin
+    self._contour = object:create_contour(true):close()
 
     -- graphics
     self._normal_map = ow.NormalMap(
@@ -88,13 +87,13 @@ function ow.MovableHitbox:instantiate(object, stage, scene)
         )
 
         self._mirror:initialize(
-            { self._contour }, -- mirror
+            { self._contour:get_vertices() }, -- mirror
             {} -- occluding
         )
     else
         self._blood_spatter = ow.BloodSpatter(self._scene)
         self._blood_spatter:initialize(
-            { self._contour }
+            { self._contour:get_vertices() }
         )
     end
 
@@ -172,7 +171,7 @@ function ow.MovableHitbox:draw(priority)
     end
 
     love.graphics.setLineJoin("bevel")
-    love.graphics.line(self._contour)
+    self._contour:draw()
 
     love.graphics.pop()
 
@@ -197,18 +196,6 @@ function ow.MovableHitbox:draw_bloom()
         love.graphics.setColor(1, 1, 1, 1)
         self._blood_spatter:draw_bloom()
     end
-end
-
---- @brief
-function ow.MovableHitbox:get_contour()
-    local contour = table.deepcopy(self._contour)
-    local offset_x, offset_y = self._start_x, self._start_y
-    for i = 1, #contour, 2 do
-        contour[i+0] = contour[i+0] + offset_x
-        contour[i+1] = contour[i+1] + offset_y
-    end
-
-    return contour, true -- is dynamic
 end
 
 --- @brief

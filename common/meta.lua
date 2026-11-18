@@ -225,6 +225,10 @@ do
         return out
     end
 
+    getmetatable(meta.Table).__call = function(self, ...)
+        return self -- TODO
+    end
+
     local function _array_tostring(self)
         return _array_typename .. "<" .. tostring(self.type) .. ">"
     end
@@ -481,7 +485,7 @@ end
 
 function meta.assert_argument_type(x, type, index)
     if not meta.isa(x, type) then
-        rt.error("In meta.assert_argument_type: wrong type for argument #", index, ": expected `", _type_to_name[type], "`, got `", meta.typeof(x), "`")
+        rt.error("In meta.assert_argument_type: wrong type for argument #", index, ": expected `", type, "`, got `", meta.typeof(x), "`")
     end
 end
 
@@ -491,7 +495,7 @@ function meta.assert(...)
         local x = select(i + 0, ...)
         local type = select(i + 1, ...)
         if not meta.isa(x, type) then
-            rt.error("In meta.assert: wrong type for argument #", argument_i, ": expected `", _type_to_name[type], "`, got `", meta.typeof(x), "`")
+            rt.error("In meta.assert: wrong type for argument #", argument_i, ": expected `", type, "`, got `", meta.typeof(x), "`")
         end
         argument_i = argument_i + 1
     end

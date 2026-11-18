@@ -9,11 +9,12 @@ function rt.AABB:instantiate(other_or_x, y, width, height)
         self:reformat(other:unpack())
     else
         local x = other_or_x
-        meta.assert(x, mt.Number, y, mt.Number, width, mt.Number, height, mt.Number)
         if x == nil then x = 0 end
         if y == nil then y = 0 end
         if width == nil then width = 1 end
         if height == nil then height = width end
+
+        meta.assert(x, mt.Number, y, mt.Number, width, mt.Number, height, mt.Number)
 
         self.x = x
         self.y = y
@@ -37,13 +38,11 @@ function rt.AABB:clone()
     return rt.AABB(self.x, self.y, self.width, self.height)
 end
 
-local function _contains(px, py, x, y, w, h)
-    return px >= x and px <= x + w and py >= y and py <= y + h
-end
-
 --- @brief
-function rt.AABB:contains(x, y)
-    return _contains(x, y, self.x, self.y, self.width, self.height)
+function rt.AABB:contains(px, py)
+    meta.assert(px, mt.Number, py, mt.Number)
+    local x, y, w, h = self.x, self.y, self.width, self.height
+    return px >= x and px <= x + w and py >= y and py <= y + h
 end
 
 --- @brief check if aabb overlaps another aabb

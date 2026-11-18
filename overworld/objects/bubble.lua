@@ -132,8 +132,8 @@ function ow.Bubble:instantiate(object, stage, scene)
 
     self._color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, self._hue, 1))
 
-    self._contour = {}
-    self._outline_contour = {}
+    local contour = {}
+    local outline_contour = {}
 
     local line_width = rt.settings.overworld.bubble.line_width
     local outline_width = rt.settings.overworld.bubble.outline_width
@@ -160,15 +160,18 @@ function ow.Bubble:instantiate(object, stage, scene)
             1, 1, 1, 1
         })
 
-        table.insert(self._contour, x)
-        table.insert(self._contour, y)
+        table.insert(contour, x)
+        table.insert(contour, y)
 
         local outline_x = mesh_x + math.cos(angle) * (self._x_radius + 0.5 * line_width + 0.5 * outline_width)
         local outline_y = mesh_y + math.sin(angle) * (self._y_radius + 0.5 * line_width + 0.5 * outline_width)
 
-        table.insert(self._outline_contour, outline_x)
-        table.insert(self._outline_contour, outline_y)
+        table.insert(outline_contour, outline_x)
+        table.insert(outline_contour, outline_y)
     end
+
+    self._contour = rt.Polyline(contour)
+    self._outline_contor = rt.Polyline(contour)
 
     free(self._mesh)
     self._mesh = rt.Mesh(data)
@@ -455,12 +458,12 @@ function ow.Bubble:draw()
     local r, g, b = rt.Palette.BLACK:unpack()
     love.graphics.setColor(r, g, b, opacity)
     love.graphics.setLineWidth(rt.settings.overworld.bubble.outline_width)
-    love.graphics.line(self._outline_contour)
+    self._outline_contor:draw()
 
     r, g, b = self._color:unpack()
     love.graphics.setColor(r, g, b, opacity)
     love.graphics.setLineWidth(rt.settings.overworld.bubble.line_width)
-    love.graphics.line(self._contour)
+    self._contour:draw()
 
     -- player position in normalized uv space relative to center
     local px, py = self._scene:get_player():get_position()
@@ -510,7 +513,7 @@ function ow.Bubble:draw_bloom()
     local r, g, b = self._color:unpack()
     love.graphics.setColor(r, g, b, opacity)
     love.graphics.setLineWidth(rt.settings.overworld.bubble.line_width)
-    love.graphics.line(self._contour)
+    self._contour:draw()
 
     love.graphics.pop()
 end

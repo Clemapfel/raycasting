@@ -319,8 +319,6 @@ function rt.Player:instantiate()
     end
 
     do -- request pattern tables
-        self._request_ids = {}
-
         local request_id_and_default_value = {
             { "is_visible", true },
             { "is_frozen", false },
@@ -352,7 +350,6 @@ function rt.Player:instantiate()
             local request, default = def[1], def[2]
 
             local table_id = "_" .. request .. "_requests"
-
             local handler
             if meta.is_table(default) then
                 handler = rt.RequestHandler(table.unpack(default))
@@ -360,7 +357,7 @@ function rt.Player:instantiate()
                 handler = rt.RequestHandler(default)
             end
 
-            table.insert(self._request_ids, table_id)
+            self[table_id] = handler
         end
     end
 
@@ -2412,8 +2409,8 @@ end
 --- @brief
 function rt.Player:teleport_to(x, y, relax_body)
     if relax_body == nil then relax_body = true end
-
     meta.assert(x, mt.Number, y, mt.Number)
+    if self._world == nil then return end
 
     local is_bubble = self:get_is_bubble()
 
@@ -3057,12 +3054,12 @@ end
 
 --- @brief
 function rt.Player:get_is_jump_allowed_override()
-    return self._is_jump_allowed_override_requests:reduce()
+    return self._is_jump_allowed_override_requests:reduce(rt.RequestReduceMode.AT_LEAST_ONE_TRUE)
 end
 
 --- @brief
 function rt.Player:get_opacity()
-    return self._opacity_requests:reduce()
+    return self._opacity_requests:reduce(rt.RequestReduceMode.MULTIPLY)
 end
 
 for tuple in range(
@@ -3137,7 +3134,7 @@ end
 
 --- @brief
 function rt.Player:get_is_visible()
-    return self._is_visible_requests:reduce(rt.RequestReducemode.ALL_TRUE)
+    return self._is_visible_requests:reduce(rt.RequestReduceMode.ALL_TRUE)
 end
 
 --- @brief
@@ -3257,6 +3254,8 @@ function rt.Player:_update_bubble(is_bubble)
     self._wall_jump_freeze_elapsed = math.huge
     self._jump_freeze_elapsed = math.huge
 
+    if self._world == nil then return end
+
     local vx, vy, x, y
 
     if self:get_is_bubble() == true then
@@ -3277,8 +3276,6 @@ function rt.Player:_update_bubble(is_bubble)
     for body in values(self._bubble_spring_bodies) do
         body:set_is_enabled(false)
     end
-
-    if self._world == nil then return end
 
     if is_bubble == true then
         self._bubble_body:set_position(x, y)

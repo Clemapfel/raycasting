@@ -19,7 +19,7 @@ function ow.CameraFit:instantiate(object, stage, scene)
     )
 
     if object:get_type() == ow.ObjectType.POLYGON then
-        self._bounds = rt.contour.get_aabb(object:create_contour())
+        self._bounds = object:create_contour():get_aabb()
     elseif object:get_type() == ow.ObjectType.RECTANGLE then
         self._bounds = rt.AABB(object.x, object.y, object.width, object.height)
     else

@@ -120,7 +120,7 @@ local function _print(channel, message_t, prefix, config)
 
 
     if DEBUG and channel == io.stderr then
-        error(styled)
+        _G.error(styled)
     else
         channel:write(styled)
         channel:flush()

@@ -40,7 +40,7 @@ function ow.Wall:instantiate(object, stage, scene)
 
     free(self._mesh)
     self._mesh = object:create_mesh()
-    self._contour = rt.contour.close(object:create_contour())
+    self._contour = object:create_contour():close()
 
     self._body = object:create_physics_body(stage:get_physics_world())
     self._body:set_collision_group(0x0)
@@ -91,7 +91,7 @@ function ow.Wall:draw()
 
     rt.Palette.WALL_OUTLINE:bind()
     love.graphics.setLineWidth(rt.settings.overworld.hitbox.slippery_outline_width)
-    love.graphics.line(self._contour)
+    self._contour:draw()
 
     love.graphics.pop()
 end

@@ -20,7 +20,7 @@ function ow.CameraBounds:instantiate(object, stage, scene)
     if object:get_type() == ow.ObjectType.RECTANGLE then
         bounds = rt.AABB(object.x, object.y, object.width, object.height)
     else
-        bounds = rt.contour.get_aabb(object:create_contour())
+        bounds = object:create_contour():get_aabb()
     end
 
     self._scene = scene

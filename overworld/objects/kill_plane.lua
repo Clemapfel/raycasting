@@ -1,4 +1,3 @@
-require "common.contour"
 require "overworld.movable_object"
 require "common.quaternion"
 
@@ -82,7 +81,7 @@ function ow.KillPlane:instantiate(object, stage, scene)
     if self._is_visible == nil then self._is_visible = true end
     if self._is_visible == false then return end
 
-    self._contour = rt.contour.close(object:create_contour(true))  -- translate to origin
+    self._contour = object:create_contour(true):close()
 
     -- lights
     self._body:add_tag(b2.Tag.POINT_LIGHT_SOURCE, b2.Tag.SEGMENT_LIGHT_SOURCE)
@@ -93,9 +92,10 @@ function ow.KillPlane:instantiate(object, stage, scene)
     self._segment_lights = {}
     self._point_lights = {}
     if object:get_type() == ow.ObjectType.POLYGON then
-        for i = 1, #self._contour - 2, 2 do
-            local x1, y1 = self._contour[i+0], self._contour[i+1]
-            local x2, y2 = self._contour[math.wrap(i+2, #self._contour)], self._contour[math.wrap(i+3, #self._contour)]
+        local n = self._contour:get_n_vertices()
+        for i = 1, n do
+            local x1, y1 = self._contour:get_vertex(i)
+            local x2, y2 = self._contour:get_vertex(math.wrap(i + 1, n))
             table.insert(self._segment_lights, { x1, y1, x2, y2 })
         end
     elseif object:get_type() == ow.ObjectType.ELLIPSE then
@@ -164,7 +164,7 @@ function ow.KillPlane:instantiate(object, stage, scene)
         local noise_cutoff = 1 - rt.settings.overworld.kill_plane.noise_density
         local not_outline, outline = 0, 1
 
-        local aabb = rt.contour.get_aabb(self._contour)
+        local aabb = self._contour:get_aabb()
         local cell_size = rt.settings.overworld.kill_plane.noise_cell_size
 
         local add = function(x, y)
@@ -412,11 +412,11 @@ function ow.KillPlane:draw()
 
     self._color:bind()
     love.graphics.setLineWidth(self._outline_width)
-    love.graphics.line(self._contour)
+    self._contour:draw()
 
     self._outline_color:bind()
     love.graphics.setLineWidth(self._outline_width - 2)
-    love.graphics.line(self._contour)
+    self._contour:draw()
 
     love.graphics.pop()
 end

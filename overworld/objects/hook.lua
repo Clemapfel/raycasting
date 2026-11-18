@@ -127,7 +127,7 @@ function ow.Hook:instantiate(object, stage, scene)
         table.insert(self._outline, math.sin(angle) * r * 0.95)
     end
 
-    rt.contour.close(self._outline)
+    self._outline = self._outline:close()
 end
 
 --- @brief
