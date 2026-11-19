@@ -45,7 +45,7 @@ function ow.NPC:instantiate(object, stage, scene)
 
     local type = object:get_string("type") or ow.NPCType.EYES
     type = string.upper(type)
-    meta.assert_enum_value(type, ow.NPCType)
+    meta.typecheck_enum_value(type, ow.NPCType)
     self._type = type
 
     self._is_dynamic = object:get_boolean("is_dynamic", false)

@@ -114,7 +114,7 @@ function rt.Label:instantiate(text, font_size, font, use_caching)
     if font_size == nil then font_size = rt.FontSize.REGULAR end
     if use_caching == nil then use_caching = true end
 
-    meta.assert(
+    meta.typecheck(
         text, mt.String,
         font, rt.Font,
         font_size, mt.Union(rt.FontSize, mt.Number),
@@ -192,7 +192,7 @@ function rt.Label._glyph_new(
         outline_glyph = love.graphics.newTextBatch(font_sdf_native, text)
     end
 
-    meta.assert_argument_type(emotion, rt.AnimaleseEmotion, 19)
+    meta.typecheck_arg_i(emotion, rt.AnimaleseEmotion, 19)
 
     local out = {
         text = text, -- necessary for beat weights
@@ -246,7 +246,7 @@ end
 
 --- @brief
 function rt.Label:set_font_size(font_size)
-    meta.assert(font_size, mt.Union(rt.FontSize, mt.Number))
+    meta.typecheck(font_size, mt.Union(rt.FontSize, mt.Number))
     self._font_size = font_size
     if self:get_is_realized() then
         self:reformat()
@@ -292,7 +292,7 @@ end
 
 --- @override
 function rt.Label:update(delta)
-    meta.assert(delta, mt.Number)
+    meta.typecheck(delta, mt.Number)
     self._elapsed = self._elapsed + delta
 
     if self._use_animation then
@@ -302,7 +302,7 @@ end
 
 --- @brief
 function rt.Label:set_justify_mode(mode)
-    meta.assert(mode, rt.JustifyMode)
+    meta.typecheck(mode, rt.JustifyMode)
     self._justify_mode = mode
 end
 
@@ -313,7 +313,7 @@ end
 
 --- @brief
 function rt.Label:set_wrap_mode(mode)
-    meta.assert(mode, rt.LabelWrapMode)
+    meta.typecheck(mode, rt.LabelWrapMode)
     self._wrap_mode = mode
 end
 
@@ -324,7 +324,7 @@ end
 
 --- @brief
 function rt.Label:set_text(text)
-    meta.assert(text, mt.String)
+    meta.typecheck(text, mt.String)
     if self._raw == text then return end
 
     self._raw = text
@@ -344,7 +344,7 @@ end
 
 --- @brief
 function rt.Label:set_n_visible_characters(n)
-    meta.assert(n, mt.Number)
+    meta.typecheck(n, mt.Number)
     self._n_visible_characters = math.min(n, self._n_characters)
     self:_update_n_visible_characters()
     self:_update_texture()
@@ -367,7 +367,7 @@ end
 
 --- @brief
 function rt.Label:set_opacity(alpha)
-    meta.assert(alpha, mt.Number)
+    meta.typecheck(alpha, mt.Number)
     self._opacity = alpha
 end
 
@@ -1162,7 +1162,7 @@ end
 function rt.Label:update_n_visible_characters_from_elapsed(elapsed, n_characters_per_second)
     if self:get_is_realized() ~= true then self:realize() end
     if n_characters_per_second == nil then n_characters_per_second = rt.settings.label.scroll_speed * rt.GameState:get_text_speed() end
-    meta.assert(elapsed, mt.Number, n_characters_per_second, mt.Number)
+    meta.typecheck(elapsed, mt.Number, n_characters_per_second, mt.Number)
 
     local so_far = elapsed
     local step = 1 / n_characters_per_second
@@ -1210,7 +1210,7 @@ end
 function rt.Label:get_scroll_event_map(n_characters_per_second)
     if self:get_is_realized() ~= true then self:realize() end
     if n_characters_per_second == nil then n_characters_per_second = rt.settings.label.scroll_speed * rt.GameState:get_text_speed() end
-    meta.assert(n_characters_per_second, mt.Number)
+    meta.typecheck(n_characters_per_second, mt.Number)
 
     local step = 1 / n_characters_per_second
     local current_time = 0
@@ -1480,7 +1480,7 @@ end
 --- @brief
 function rt.Glyph:instantiate(text, properties)
     if properties == nil then properties = {} end
-    meta.assert(text, mt.String, properties, mt.Table)
+    meta.typecheck(text, mt.String, properties, mt.Table)
 
     self._justify_mode = rt.JustifyMode.LEFT
 
@@ -1568,10 +1568,10 @@ end
 --- @brief
 function rt.Glyph:set_color(r_or_rgba, g, b, a)
     if g ~= nil then
-        meta.assert(r_or_rgba, mt.Number, g, mt.Number, b, mt.Number, a, mt.Number)
+        meta.typecheck(r_or_rgba, mt.Number, g, mt.Number, b, mt.Number, a, mt.Number)
         self._native.color = { r_or_rgba, g, b, a }
     else
-        meta.assert(r_or_rgba, mt.Table)
+        meta.typecheck(r_or_rgba, mt.Table)
         self._native.color = r_or_rgba
     end
 end

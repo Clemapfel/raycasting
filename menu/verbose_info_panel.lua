@@ -223,7 +223,7 @@ end
 
 --- @brief
 function mn.VerboseInfoPanel:set_selection_state(state)
-    meta.assert(state, rt.SelectionState)
+    meta.typecheck(state, rt.SelectionState)
     self._frame:set_selection_state(state)
 end
 

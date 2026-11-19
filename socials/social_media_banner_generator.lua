@@ -24,7 +24,7 @@ local group_x, group_y = 16, 16
 
 --- @brief
 function rt.SocialMediaBannerGenerator:instantiate(platform)
-    meta.assert(platform, rt.SocialMediaPlatform)
+    meta.typecheck(platform, rt.SocialMediaPlatform)
 
     self._resolution_x, self._resolution_y, self._export_name = table.unpack(platform)
     self._elapsed = 0

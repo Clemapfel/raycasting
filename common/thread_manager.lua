@@ -41,7 +41,7 @@ end
 
 --- @brief
 function rt.ThreadManager:_notify_thread_added(thread)
-    meta.assert(thread, rt.Thread)
+    meta.typecheck(thread, rt.Thread)
     table.insert(self._threads, thread)
 end
 

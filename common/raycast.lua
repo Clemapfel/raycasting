@@ -14,7 +14,7 @@ local _static_instances = meta.make_weak({})
 
 --- @brief
 function ow.Raycast:instantiate(world)
-    meta.assert(world, b2.World)
+    meta.typecheck(world, b2.World)
 
     if _particle_texture == nil then
         _particle_texture = rt.Texture("assets/sprites/laser_particle.png")
@@ -138,7 +138,7 @@ function ow.Raycast:start(x, y, dx, dy)
             )
         elseif bit.band(category, ow.RayMaterial.RECEIVER) ~= 0x0 then
             local receiver = shape:getBody():getUserData():get_user_data()
-            meta.assert(receiver, ow.RayReceiver)
+            meta.typecheck(receiver, ow.RayReceiver)
 
             if receiver:signal_try_emit("ray_collision_start", contact_x, contact_y, normal_x, normal_y) then
                 table.insert(self._receivers, receiver)
@@ -146,7 +146,7 @@ function ow.Raycast:start(x, y, dx, dy)
             break -- receiver absorbs
         elseif bit.band(category, ow.RayMaterial.TELEPORTER) ~= 0x0 then
             local teleporter = shape:getBody():getUserData():get_user_data()
-            meta.assert(teleporter, ow.RayTeleporter)
+            meta.typecheck(teleporter, ow.RayTeleporter)
 
             -- move ray origin and direction based on teleporter
             contact_x, contact_y, dx, dy = teleporter:teleport_ray(self._id, contact_x, contact_y, dx, dy, normal_x, normal_y)
@@ -165,7 +165,7 @@ function ow.Raycast:start(x, y, dx, dy)
             )
         elseif bit.band(category, ow.RayMaterial.BEAM_SPLITTER) ~= 0x0 then
             local beam_splitter = shape:getBody():getUserData():get_user_data()
-            meta.assert(beam_splitter, ow.BeamSplitter)
+            meta.typecheck(beam_splitter, ow.BeamSplitter)
 
             table.insert(self._lines[n_lines], contact_x)
             table.insert(self._lines[n_lines], contact_y)

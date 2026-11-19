@@ -16,7 +16,7 @@ function rt.Envelope:instantiate(attack, sustain, release, attack_shape, release
     if attack_shape == nil then attack_shape = rt.EnvelopeCurve.LINEAR end
     if release_shape == nil then release_shape = rt.EnvelopeCurve.LINEAR end
 
-    meta.assert(
+    meta.typecheck(
         attack, mt.Number,
         sustain, mt.Number,
         release, mt.Number,
@@ -132,7 +132,7 @@ end
 
 --- @brief
 function rt.Envelope:at(t)
-    meta.assert(t, mt.Number)
+    meta.typecheck(t, mt.Number)
     return _shape(
         t,
         self._attack,

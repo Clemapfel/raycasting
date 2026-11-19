@@ -49,12 +49,12 @@ function rt.graphics.set_stencil_mode(value, mode, draw_or_compare_mode)
     end
 
     if DEBUG then
-        meta.assert(value, mt.Number)
+        meta.typecheck(value, mt.Number)
         if draw_or_compare_mode ~= nil then
             if mode == rt.StencilMode.TEST then
-                meta.assert_argument_type(draw_or_compare_mode, rt.StencilCompareMode, 3)
+                meta.typecheck_arg_i(draw_or_compare_mode, rt.StencilCompareMode, 3)
             elseif mode == rt.StencilMode.DRAW then
-                meta.assert_argument_type(draw_or_compare_mode, rt.StencilDrawMode, 3)
+                meta.typecheck_arg_i(draw_or_compare_mode, rt.StencilDrawMode, 3)
             end
         end
     end

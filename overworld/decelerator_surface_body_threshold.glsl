@@ -176,11 +176,11 @@ vec4 effect(vec4 color, sampler2D tex, vec2 texture_coordinates, vec2 screen_coo
     vec2 world_position = to_world_position(screen_coords);
     float noise = mask * net_texture(world_position * noise_scale, elapsed / 2.0);
 
-    vec3 texture = mix(body_color.rgb, outline_color.rgb, noise);
+    vec3 body_rgb = mix(body_color.rgb, outline_color.rgb, noise);
 
     float background_noise = gradient_noise(vec3(world_position / 30.0, elapsed / 4.0));
 
-    return 0.25 * mask * mix(body_color, outline_color, background_noise) + min(vec4(1.0), vec4(vec4(texture, 1.0) * body + outline_color * outline));
+    return mask * mix(body_color, outline_color, background_noise) + min(vec4(1.0), vec4(vec4(body_rgb, 1.0) * body + outline_color * outline));
 }
 
 #endif

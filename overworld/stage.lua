@@ -41,7 +41,7 @@ meta.add_signals(ow.Stage,
 
 --- @brief
 function ow.Stage:instantiate(scene, id)
-    meta.assert(scene, ow.OverworldScene, id, mt.String)
+    meta.typecheck(scene, ow.OverworldScene, id, mt.String)
     local config = rt.GameState:stage_get_config(id)
 
     self._id = id
@@ -50,7 +50,6 @@ function ow.Stage:instantiate(scene, id)
         _config = config,
         _is_initialized = false,
         _is_first_spawn = true,
-        _is_respawning = false,
 
         _world = b2.World(),
         _camera_bounds = rt.AABB(-math.huge, -math.huge, math.huge, math.huge),
@@ -506,7 +505,9 @@ function ow.Stage:update(delta)
 
     rt.Animalese:update(delta) -- update global animalese playback
 
-    self._blood_spatter:update(delta) -- needs to check every subframe
+    if not self._is_first_spawn and self._active_checkpoint:get_is_respawning() then
+        self._blood_spatter:update(delta) -- needs to check every subframe
+    end
     self._blood_spatter:notify_camera_changed(self._scene:get_camera())
 
     self._shadow_cast:set_intensity(self._scene:get_player():get_flow())
@@ -581,7 +582,7 @@ end
 
 --- @brief
 function ow.Stage:object_wrapper_to_instance(object)
-    meta.assert(object, ow.ObjectWrapper)
+    meta.typecheck(object, ow.ObjectWrapper)
     if not self._is_initialized then
         rt.error("In ow.Stage:object_wrapper_id_to_instance: stage is not yet fully initialized")
         return nil
@@ -604,7 +605,7 @@ local _no_timestamp = -1
 
 --- @brief
 function ow.Stage:add_checkpoint(checkpoint)
-    meta.assert(checkpoint, ow.Checkpoint)
+    meta.typecheck(checkpoint, ow.Checkpoint)
     self._checkpoints[checkpoint] = _no_timestamp
 
     local type = checkpoint:get_type()
@@ -670,13 +671,13 @@ end
 
 --- @brief
 function ow.Stage:get_is_body_visible(body)
-    meta.assert(body, b2.Body)
+    meta.typecheck(body, b2.Body)
     return self._visible_bodies[body] == true
 end
 
 --- @brief
 function ow.Stage:set_visible_area(bounds)
-    meta.assert(bounds, rt.AABB)
+    meta.typecheck(bounds, rt.AABB)
     self._visible_area = bounds
 
     -- collect light sources and visible bodies
@@ -847,7 +848,7 @@ end
 
 --- @brief
 function ow.Stage:apply_camera_bounds(x, y, should_snap)
-    meta.assert(x, mt.Number, y, mt.Number)
+    meta.typecheck(x, mt.Number, y, mt.Number)
     local camera = self._scene:get_camera()
     camera:clear_bounds()
 

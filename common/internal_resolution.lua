@@ -76,13 +76,13 @@ rt.InternalResolution = meta.enum("InternalResolution", rt.InternalResolution)
 
 --- @brief
 function rt.graphics.internal_resolution_to_native(internal_resolution)
-    meta.assert(internal_resolution, rt.InternalResolution)
+    meta.typecheck(internal_resolution, rt.InternalResolution)
     return internal_resolution[1], internal_resolution[2]
 end
 
 --- @brief
 function rt.graphics.internal_resolution_scaling_mode_to_texture_scale_mode(internal_resolution_scale_mode)
-    meta.assert(internal_resolution_scale_mode, rt.InternalResolutionScalingMode)
+    meta.typecheck(internal_resolution_scale_mode, rt.InternalResolutionScalingMode)
 
     require "common.texture"
     if internal_resolution_scale_mode == rt.InternalResolutionScalingMode.NEAREST then
@@ -229,7 +229,7 @@ do
 
     --- @brief
     function rt.graphics.resolution_to_internal_resolution(resolution_x, resolution_y, scale_factor)
-        meta.assert(resolution_x, mt.Number, resolution_y, mt.Number, scale_factor, rt.InternalResolutionScaling)
+        meta.typecheck(resolution_x, mt.Number, resolution_y, mt.Number, scale_factor, rt.InternalResolutionScaling)
 
         local valid = rt.graphics.internal_resolution_list_valid(resolution_x, resolution_y)
         if #valid == 0 then return resolution_x, resolution_y end

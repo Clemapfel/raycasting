@@ -88,7 +88,7 @@ end
 
 --- @brief
 function rt.GameState:set_vsync_mode(mode)
-    meta.assert(mode, rt.VSyncMode)
+    meta.typecheck(mode, rt.VSyncMode)
     bd.get_config().vsync = mode
     love.window.setVSync(rt.graphics.vsync_mode_to_native(mode))
 end
@@ -100,7 +100,7 @@ end
 
 --- @brief
 function rt.GameState:set_msaa_quality(msaa)
-    meta.assert(msaa, rt.MSAAQuality)
+    meta.typecheck(msaa, rt.MSAAQuality)
     msaa = rt.graphics.msaa_quality_to_native(msaa)
     
     local config = bd.get_config()
@@ -134,7 +134,7 @@ end
 
 --- @brief
 function rt.GameState:set_bloom_quality(quality)
-    meta.assert(quality, rt.BloomQuality)
+    meta.typecheck(quality, rt.BloomQuality)
     bd.get_config().bloom_quality = quality
 end
 
@@ -145,7 +145,7 @@ end
 
 --- @brief
 function rt.GameState:set_is_hdr_enabled(b)
-    meta.assert(b, mt.Boolean)
+    meta.typecheck(b, mt.Boolean)
     bd.get_config().is_hdr_enabled = b
 end
 
@@ -156,7 +156,7 @@ end
 
 --- @brief
 function rt.GameState:set_is_dynamic_lighting_enabled(b)
-    meta.assert(b, mt.Boolean)
+    meta.typecheck(b, mt.Boolean)
     bd.get_config().is_dynamic_lighting_enabled = b
 end
 
@@ -167,7 +167,7 @@ end
 
 --- @brief
 function rt.GameState:set_are_reflections_enabled(b)
-    meta.assert(b, mt.Boolean)
+    meta.typecheck(b, mt.Boolean)
     bd.get_config().are_reflections_enabled = b
 end
 
@@ -178,7 +178,7 @@ end
 
 --- @brief
 function rt.GameState:set_are_dynamic_shadows_enabled(b)
-    meta.assert(b, mt.Boolean)
+    meta.typecheck(b, mt.Boolean)
     bd.get_config().are_dynamic_shadows_enabled = b
 end
 
@@ -189,13 +189,13 @@ end
 
 --- @brief
 function rt.GameState:set_is_background_animated(b)
-    meta.assert(b, mt.Boolean)
+    meta.typecheck(b, mt.Boolean)
     bd.get_config().is_background_animated = b
 end
 
 --- @brief
 function rt.GameState:set_is_fullscreen(b)
-    meta.assert(b, mt.Boolean)
+    meta.typecheck(b, mt.Boolean)
     bd.get_config().is_fullscreen = b
     love.window.setFullscreen(b)
 end
@@ -213,7 +213,7 @@ end
 --- @brief
 function rt.GameState:set_internal_resolution_scaling(scaling)
     require "common.internal_resolution"
-    meta.assert(scaling, rt.InternalResolutionScaling)
+    meta.typecheck(scaling, rt.InternalResolutionScaling)
     bd.get_config().internal_resolution_scaling = scaling
 end
 
@@ -228,7 +228,7 @@ end
 
 --- @brief
 function rt.GameState:set_sound_effect_level(level)
-    meta.assert(level, mt.Number)
+    meta.typecheck(level, mt.Number)
     bd.get_config().sound_effect_level = math.clamp(level, 0, 1)
 end
 
@@ -239,7 +239,7 @@ end
 
 --- @brief
 function rt.GameState:set_music_level(level)
-    meta.assert(level, mt.Number)
+    meta.typecheck(level, mt.Number)
     bd.get_config().music_level = math.clamp(level, 0, 1)
 end
 
@@ -250,7 +250,7 @@ end
 
 --- @brief
 function rt.GameState:set_text_speed(fraction)
-    meta.assert(fraction, mt.Number)
+    meta.typecheck(fraction, mt.Number)
     bd.get_config().text_speed = fraction -- no clamp
 end
 
@@ -261,7 +261,7 @@ end
 
 --- @brief
 function rt.GameState:set_joystick_deadzone(fraction)
-    meta.assert(fraction, mt.Number)
+    meta.typecheck(fraction, mt.Number)
     bd.get_config().joystick_deadzone = math.clamp(fraction, 0, 0.5) -- not 1, or controller would deadlock
 end
 
@@ -272,7 +272,7 @@ end
 
 --- @brief
 function rt.GameState:set_trigger_deadzone(fraction)
-    meta.assert(fraction, mt.Number)
+    meta.typecheck(fraction, mt.Number)
     bd.get_config().trigger_deadzone = math.clamp(fraction, 0, 0.5)
 end
 
@@ -283,7 +283,7 @@ end
 
 --- @brief
 function rt.GameState:set_player_sprint_mode(mode)
-    meta.assert(mode, rt.PlayerSprintMode)
+    meta.typecheck(mode, rt.PlayerSprintMode)
     bd.get_config().player_sprint_mode = mode
 end
 
@@ -304,7 +304,7 @@ end
 --- @brief
 --- @param t Number fraction, in 0, 1
 function rt.GameState:set_double_press_threshold(t)
-    meta.assert(t, mt.Number)
+    meta.typecheck(t, mt.Number)
     bd.get_config().double_press_threshold = t
 end
 
@@ -315,13 +315,13 @@ end
 
 --- @brief
 function rt.GameState:set_is_input_buffering_enabled(is_enabled)
-    meta.assert(is_enabled, mt.Boolean)
+    meta.typecheck(is_enabled, mt.Boolean)
     bd.get_config().is_input_buffering_enabled = is_enabled
 end
 
 --- @brief
 function rt.GameState:set_is_color_blind_mode_enabled(enabled)
-    meta.assert(enabled, mt.Boolean)
+    meta.typecheck(enabled, mt.Boolean)
     bd.get_config().is_color_blind_mode_enabled = enabled
 end
 
@@ -342,7 +342,7 @@ end
 
 --- @brief
 function rt.GameState:set_controller_vibration_strength(t)
-    meta.assert(t, mt.Number)
+    meta.typecheck(t, mt.Number)
     t = math.clamp(t, 0, 1)
     bd.get_config().controller_vibration_strength = t
 end
@@ -354,7 +354,7 @@ end
 
 --- @brief
 function rt.GameState:set_draw_debug_information(b)
-    meta.assert(b, mt.Boolean)
+    meta.typecheck(b, mt.Boolean)
     bd.get_config().draw_debug_information = b
 end
 
@@ -365,7 +365,7 @@ end
 
 --- @brief
 function rt.GameState:set_draw_speedrun_splits(b)
-    meta.assert(b, mt.Boolean)
+    meta.typecheck(b, mt.Boolean)
     bd.get_config().draw_speedrun_splits = b
 end
 
@@ -376,7 +376,7 @@ end
 
 --- @brief
 function rt.GameState:set_player_body_core_type(type)
-    meta.assert(type, rt.PlayerBodyCoreType)
+    meta.typecheck(type, rt.PlayerBodyCoreType)
     self._state.player_body_core_type = type
 end
 
@@ -392,7 +392,7 @@ end
 
 --- @brief
 function rt.GameState:pause_on_focus_lost(b)
-    meta.assert(b, mt.Boolean)
+    meta.typecheck(b, mt.Boolean)
     bd.get_config().pause_on_focus_lost = b
 end
 
@@ -555,7 +555,7 @@ end
 
 --- @brief
 function rt.GameState:get_input_binding(input_action, method)
-    meta.assert(input_action, rt.InputAction)
+    meta.typecheck(input_action, rt.InputAction)
     local keyboard_entry = self._input_action_to_keyboard_key[input_action]
     local controller_entry = self._input_action_to_controller_button[input_action]
 
@@ -583,7 +583,7 @@ function rt.GameState:get_input_binding(input_action, method)
 
         return keyboard, controller
     else
-        meta.assert_argument_type(method, rt.InputMethod, 2) -- always throws
+        meta.typecheck_arg_i(method, rt.InputMethod, 2) -- always throws
     end
 end
 
@@ -599,13 +599,13 @@ function rt.GameState:get_has_input_binding(input_action, method)
     elseif method == nil then
         return keyboard_entry ~= nil, controller_entry ~= nil
     else
-        meta.assert_argument_type(method, rt.InputMethod, 2) -- always throws
+        meta.typecheck_arg_i(method, rt.InputMethod, 2) -- always throws
     end
 end
 
 --- @brief
 function rt.GameState:get_reverse_input_binding(native, method)
-    meta.assert(method, rt.InputMethod)
+    meta.typecheck(method, rt.InputMethod)
     if method == rt.InputMethod.KEYBOARD then
         return self._keyboard_key_to_input_action[native]
     elseif method == rt.InputMethod.CONTROLLER then
@@ -617,7 +617,7 @@ end
 
 --- @brief
 function rt.GameState:set_input_binding(input_action_to_keyboard_key, input_action_to_controller_button)
-    meta.assert(
+    meta.typecheck(
         input_action_to_keyboard_key, mt.Table,
         input_action_to_controller_button, mt.Table
     )
@@ -653,17 +653,17 @@ function rt.GameState:set_input_binding(input_action_to_keyboard_key, input_acti
 
     for action, entry in pairs(input_action_to_keyboard_key) do
         if not meta.is_table(entry) then entry = { entry } end
-        meta.assert(action, rt.InputAction)
+        meta.typecheck(action, rt.InputAction)
         for key in values(entry) do
-            meta.assert(key, rt.KeyboardKey)
+            meta.typecheck(key, rt.KeyboardKey)
         end
     end
 
     for action, entry in pairs(input_action_to_controller_button) do
         if not meta.is_table(entry) then entry = { entry } end
-        meta.assert(action, rt.InputAction)
+        meta.typecheck(action, rt.InputAction)
         for button in values(entry) do
-            meta.assert(button, rt.ControllerButton)
+            meta.typecheck(button, rt.ControllerButton)
         end
     end
 
@@ -839,7 +839,7 @@ end
 
 --- @brief
 function rt.GameState:set_language(language)
-    mt.assert(language, rt.Language)
+   meta.typecheck(language, rt.Language)
     bd.get_config().language = language
 end
 

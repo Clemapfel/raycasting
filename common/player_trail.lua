@@ -15,7 +15,7 @@ local _glow_shader = rt.Shader("common/player_trail_glow.glsl")
 
 --- @brief
 function rt.PlayerTrail:instantiate(player)
-    meta.assert(player, rt.Player)
+    meta.typecheck(player, rt.Player)
 
     self._player = player
     self._radius = rt.settings.player.radius

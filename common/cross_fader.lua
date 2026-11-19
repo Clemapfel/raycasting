@@ -5,7 +5,7 @@ rt.CrossFader = meta.class("CrossFader")
 --- @brief
 function rt.CrossFader:instantiate(initial_t)
     if initial_t == nil then initial_t = 0 end
-    meta.assert(initial_t, mt.Number)
+    meta.typecheck(initial_t, mt.Number)
 
     self._t = initial_t
     self._gain_a = 1
@@ -16,7 +16,7 @@ end
 --- @brief
 --- @param t Number position, -1 (fully source a) to 1 (fully source b)
 function rt.CrossFader:set_fade(t)
-    meta.assert(t, mt.Number)
+    meta.typecheck(t, mt.Number)
 
     if t < -1 then t = -1 end
     if t > 1 then t = 1 end
@@ -34,7 +34,7 @@ end
 --- @return Number, Number first source level, second source level
 function rt.CrossFader:get_gain(t)
     if t ~= nil then
-        meta.assert(t, mt.Number)
+        meta.typecheck(t, mt.Number)
         self:set_fade(t)
     end
 

@@ -23,7 +23,7 @@ local _lch_texture = rt.LCHTexture(1, 1, 256)
 
 --- @brief
 function mn.StageGradeLabel:instantiate(grade, size)
-    meta.assert(grade, rt.StageGrade, size, rt.FontSize)
+    meta.typecheck(grade, rt.StageGrade, size, rt.FontSize)
 
     self._grade = grade
     self._font_size = size
@@ -132,7 +132,7 @@ end
 
 --- @brief
 function mn.StageGradeLabel:set_grade(grade)
-    meta.assert(grade, rt.StageGrade)
+    meta.typecheck(grade, rt.StageGrade)
 
     if self._grade ~= grade then
         self._grade = grade
@@ -147,7 +147,7 @@ end
 
 --- @brief
 function mn.StageGradeLabel:set_font_size(size)
-    meta.assert(size, rt.FontSize)
+    meta.typecheck(size, rt.FontSize)
 
     if self._font_size ~= size then
         self._font_size = size

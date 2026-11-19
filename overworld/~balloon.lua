@@ -16,7 +16,7 @@ local settings = {
 }
 
 function rt.Balloon:instantiate(radius, center_x, center_y)
-    mt.assert(radius, mt.Number, center_x, mt.Number, center_y, mt.Number)
+   meta.typecheck(radius, mt.Number, center_x, mt.Number, center_y, mt.Number)
 
     local n_nodes = 64
 

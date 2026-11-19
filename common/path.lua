@@ -1,3 +1,5 @@
+require "common.polyline"
+
 --- @class rt.Path
 --- @brief arc-length parameterized chain of line segments, unlike spline, extremely fast to evaluate
 rt.Path = meta.class("Path")
@@ -11,6 +13,8 @@ function rt.Path:instantiate(points, ...)
 
     if meta.is_number(points) then
         points = { points, ... }
+    elseif meta.isa(points, rt.Polyline) then
+        points = points:get_vertices()
     end
 
     rt.assert(#points % 2 == 0, "In rt.Path: number of point coordinates must be even")
@@ -214,6 +218,8 @@ end
 function rt.Path:_create_from(reparameterize_as_uniform, use_arclength, points, ...)
     if meta.is_number(points) then
         points = { points, ... }
+    elseif meta.isa(points, rt.Polyline) then
+        points = points:get_vertices()
     end
 
     if points == nil or #points < 2 then
@@ -578,7 +584,7 @@ end
 --- @brief decimate path using Ramer-Douglas-Peucker algorithm
 --- @param epsilon Number maximum perpendicular distance threshold
 function rt.Path:decimate(epsilon)
-    meta.assert(epsilon, mt.Number)
+    meta.typecheck(epsilon, mt.Number)
 
     if self._n_points < 4 then
         return self

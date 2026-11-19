@@ -56,7 +56,7 @@ function rt.Font:instantiate(
     if mono_italic_path == nil then mono_italic_path = mono_regular_path end
     if mono_bold_italic_path == nil then mono_bold_italic_path = mono_italic_path end
 
-    meta.assert(
+    meta.typecheck(
         regular_path, mt.String,
         bold_path, mt.String,
         italic_path, mt.String,
@@ -143,7 +143,7 @@ end
 
 --- @brief
 function rt.Font:get_native(size, style, sdf)
-    meta.assert(
+    meta.typecheck(
         size, mt.Union(rt.FontSize, mt.Number),
         style, mt.Optional(rt.FontStyle),
         sdf, mt.Optional(mt.Boolean)
@@ -168,7 +168,7 @@ end
 
 --- @brief
 function rt.Font:get_actual_size(size)
-    meta.assert(size, mt.Union(rt.FontSize, mt.Number))
+    meta.typecheck(size, mt.Union(rt.FontSize, mt.Number))
     local max = 14 / rt.SceneManager:get_downscaling_factor()
     if meta.is_enum_value(size, rt.FontSize) then
         return math.max(math.ceil(size * rt.SceneManager:get_height()), 14 / rt.SceneManager:get_downscaling_factor())
@@ -179,7 +179,7 @@ end
 
 --- @brief
 function rt.Font:measure(font_size_or_pt, str)
-    meta.assert(font_size_or_pt, mt.Union(rt.FontSize, mt.Number), str, mt.String)
+    meta.typecheck(font_size_or_pt, mt.Union(rt.FontSize, mt.Number), str, mt.String)
 
     local native = self:get_native(font_size_or_pt)
     return native:getWidth(str), native:getHeight()
@@ -187,7 +187,7 @@ end
 
 --- @brief
 function rt.Font:get_line_height(font_size)
-    meta.assert(font_size, rt.FontSize)
+    meta.typecheck(font_size, rt.FontSize)
     return self:get_native(font_size):getHeight()
 end
 
@@ -206,8 +206,8 @@ function rt.Font:add_fallbacks(...)
     for i = 1, select("#", ...), 2 do
         local style = select(i + 0, ...)
         local path = select(i + 1, ...)
-        meta.assert_argument_type(style, rt.FontStyle, i + 0)
-        meta.assert_argument_type(path, mt.String, i + 1)
+        meta.typecheck_arg_i(style, rt.FontStyle, i + 0)
+        meta.typecheck_arg_i(path, mt.String, i + 1)
         if not bd.exists(path) then
             rt.error("In rt.Font.add_fallbacks: file at `", path, "` does not exist")
         end

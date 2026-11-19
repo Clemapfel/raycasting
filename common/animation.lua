@@ -76,7 +76,7 @@ function rt.AnimationQueue:_new_node(...)
     local n_args = select("#", ...)
     if n_args == 0 then return nil end
     for i = 1, n_args do
-        meta.assert_isa(select(i, ...), rt.Animation)
+        meta.typecheck_isa(select(i, ...), rt.Animation)
     end
     return {
         was_started = false,

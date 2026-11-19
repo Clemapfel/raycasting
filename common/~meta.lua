@@ -114,7 +114,7 @@ local _type_to_typename = {}
 
 --- @brief
 function meta.get_typename(type)
-    meta.assert(type, meta.Type)
+    meta.typecheck(type, meta.Type)
     return _type_to_typename[type]
 end
 
@@ -145,7 +145,7 @@ end
 
 --- @brief
 function meta.get_super(type)
-    meta.assert(type, meta.Type)
+    meta.typecheck(type, meta.Type)
     return _type_to_super[type]
 end
 
@@ -163,7 +163,7 @@ end
 --- @param other_type meta.Type
 --- @return meta.Boolean
 function meta.is_subtype(type, other_type)
-    meta.assert(type, meta.Type, other_type, meta.Type)
+    meta.typecheck(type, meta.Type, other_type, meta.Type)
     if type == other_type then return true end
 
     local seen = {}
@@ -352,7 +352,7 @@ do
 
     --- @brief
     function meta.is_love_type(x, type)
-        meta.assert_argument_type(type, meta.String, 2)
+        meta.typecheck_arg_i(type, meta.String, 2)
         return meta.is_userdata(x) and meta.is_function(x.typeOf) and x:typeOf(type) == true
     end
 
@@ -409,7 +409,7 @@ do
         end
 
         if not is_valid then
-            error = string.paste("In meta.assert: for argument #", i, ", expected value of type `", typename, "`, got `", meta.typeof(instance), "`")
+            error = string.paste("In meta.typecheck: for argument #", i, ", expected value of type `", typename, "`, got `", meta.typeof(instance), "`")
         end
 
         if error == nil then error = "" end
@@ -420,7 +420,7 @@ do
 
     if DEBUG then
         --- @brief
-        function meta.assert(...)
+        function meta.typecheck(...)
             local argument_i = 1
             for i = 1, select("#", ...), 2 do
                 local instance, type =
@@ -428,7 +428,7 @@ do
                 select(i+1, ...)
 
                 local is_valid, error = _assert_typeof(
-                    "meta.assert",
+                    "meta.typecheck",
                     instance, type,
                     argument_i
                 )
@@ -442,14 +442,14 @@ do
         end
 
         --- @brief
-        function meta.assert_argument_type(x, type, argument_i)
-            local is_valid, error = _assert_typeof("meta.assert_argument_type", x, type, argument_i)
+        function meta.typecheck_arg_i(x, type, argument_i)
+            local is_valid, error = _assert_typeof("meta.typecheck_arg_i", x, type, argument_i)
             if is_valid ~= true then rt.error(error) end
         end
     else
         -- optimize to noop in release mode
-        meta.assert = _noop
-        meta.assert_argument_type = _noop
+        meta.typecheck = _noop
+        meta.typecheck_arg_i = _noop
     end
 end
 
@@ -477,7 +477,7 @@ do
 
     -- signals
     local _signal_list_handler_ids = function(instance, id)
-        meta.assert(instance, mt.Object, id, mt.String)
+        meta.typecheck(instance, mt.Object, id, mt.String)
 
         local component, entry
         component = rawget(instance, _object_signal_component_index)
@@ -495,7 +495,7 @@ do
     end
 
     local _signal_list_signals = function(instance)
-        meta.assert(instance, mt.Object)
+        meta.typecheck(instance, mt.Object)
 
         local component = rawget(instance, _object_signal_component_index)
         if component == nil then return {} end
@@ -509,7 +509,7 @@ do
 
     local _signal_connect = function(instance, id, ...)
         local callback = select(1, ...)
-        meta.assert(instance, mt.Object, id, mt.String, callback, mt.Function)
+        meta.typecheck(instance, mt.Object, id, mt.String, callback, mt.Function)
 
         local component = rawget(instance, _object_signal_component_index)
         local entry = component[id]
@@ -527,7 +527,7 @@ do
     end
 
     local _signal_disconnect = function(instance, id, callback_id)
-        meta.assert(
+        meta.typecheck(
             instance, mt.Object,
             id, mt.String,
             callback_id, mt.Optional(mt.Number)
@@ -559,7 +559,7 @@ do
     end
 
     local _signal_try_disconnect = function(instance, id, callback_id)
-        meta.assert(
+        meta.typecheck(
             instance, mt.Object,
             id, mt.String,
             callback_id, mt.Number
@@ -590,7 +590,7 @@ do
     end
 
     local _signal_disconnect_all = function(instance, id)
-        meta.assert(instance, mt.Object, id, mt.Optional(mt.String))
+        meta.typecheck(instance, mt.Object, id, mt.Optional(mt.String))
 
         local component = rawget(instance, _object_signal_component_index)
         if component == nil then
@@ -616,7 +616,7 @@ do
     end
 
     local _signal_set_is_blocked = function(instance, id, b)
-        meta.assert(instance, mt.Object, id, mt.String, b, mt.Boolean)
+        meta.typecheck(instance, mt.Object, id, mt.String, b, mt.Boolean)
 
         local component, entry
         component = rawget(instance, _object_signal_component_index)
@@ -633,7 +633,7 @@ do
     end
 
     local _signal_get_is_blocked = function(instance, id)
-        meta.assert(instance, mt.Object, id, mt.String)
+        meta.typecheck(instance, mt.Object, id, mt.String)
 
         local component, entry
         component = rawget(instance, _object_signal_component_index)
@@ -648,7 +648,7 @@ do
     end
 
     local _signal_has_signal = function(instance, id)
-        meta.assert(instance, mt.Object, id, mt.String)
+        meta.typecheck(instance, mt.Object, id, mt.String)
 
         local component = rawget(instance, _object_signal_component_index)
         if component == nil then
@@ -658,7 +658,7 @@ do
     end
 
     local _signal_emit = function(instance, id, ...)
-        meta.assert(instance, mt.Object, id, mt.String)
+        meta.typecheck(instance, mt.Object, id, mt.String)
 
         local component, entry
         component = rawget(instance, _object_signal_component_index)
@@ -691,7 +691,7 @@ do
     end
 
     local _signal_try_emit = function(instance, id, ...)
-        meta.assert(instance, mt.Object, id, mt.String)
+        meta.typecheck(instance, mt.Object, id, mt.String)
 
         local component, entry
         component = rawget(instance, _object_signal_component_index)
@@ -765,7 +765,7 @@ do
     --- @param _ Nil
     --- @return T
     function meta.class(typename, super, allow_overwrite, _)
-        meta.assert(typename, mt.String, super,  mt.Optional(mt.Type), allow_overwrite, mt.Optional(mt.Boolean),_, mt.Nil)
+        meta.typecheck(typename, mt.String, super,  mt.Optional(mt.Type), allow_overwrite, mt.Optional(mt.Boolean),_, mt.Nil)
 
         if meta._typenames[typename] == true then
             rt.fatal("In meta.class: a type with typename `", typename, "` already exists")
@@ -876,7 +876,7 @@ do
     --- @param typename `T`
     --- @return T
     function meta.plain_class(typename, constructor, _)
-        meta.assert(typename, mt.String, constructor, mt.Function, _, mt.Nil)
+        meta.typecheck(typename, mt.String, constructor, mt.Function, _, mt.Nil)
 
         if meta._typenames[typename] == true then
             rt.fatal("In meta.class: a type with typename `", typename, "` already exists")
@@ -941,7 +941,7 @@ end
 
 --- @brief
 function meta.add_signals(type, ...)
-    meta.assert(type, meta.Type)
+    meta.typecheck(type, meta.Type)
     local metatable = rawget(type, _object_metatable_index)
     for i = 1, select("#", ...) do
         local id = select(i, ...)
@@ -953,7 +953,7 @@ meta.add_signal = meta.add_signals
 
 --- @brief
 function meta.list_signals(type)
-    meta.assert(type, mt.Type)
+    meta.typecheck(type, mt.Type)
 
     local seen = {} -- possible duplicated in super chain
     local out = {}
@@ -1121,7 +1121,7 @@ end
 
 --- @brief
 function meta.make_id_table(t, scope, debug_mode)
-    meta.assert(t, meta.Table, scope, meta.String, debug_mode, meta.Boolean)
+    meta.typecheck(t, meta.Table, scope, meta.String, debug_mode, meta.Boolean)
 
     if debug_mode then
         rt.warning("In meta.make_id_table: debug mode for `", scope, "` is active, ids will be overriden")
@@ -1175,7 +1175,7 @@ end
 
 --- @brief
 function meta.get_instance_metatable(type)
-    meta.assert(type, meta.Type)
+    meta.typecheck(type, meta.Type)
     return _type_to_instance_metatable[type]
 end
 

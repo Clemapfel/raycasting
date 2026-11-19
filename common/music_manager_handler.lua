@@ -117,7 +117,7 @@ end
 --- @brief
 function rt.MusicManagerHandler:play(id, skip_fade)
     if skip_fade == nil then skip_fade = false end
-    meta.assert(
+    meta.typecheck(
         id, mt.String,
         skip_fade, mt.Boolean
     )
@@ -131,7 +131,7 @@ end
 
 --- @brief
 function rt.MusicManagerHandler:stop(reset_to_loop_or_file)
-    mt.assert(reset_to_loop_or_file, mt.Optional(mt.Boolean))
+   meta.typecheck(reset_to_loop_or_file, mt.Optional(mt.Boolean))
 
     self._main_to_worker:push({
         type = MessageType.STOP,
@@ -155,7 +155,7 @@ end
 
 --- @brief
 function rt.MusicManagerHandler:add_effect(effect)
-    meta.assert(effect, rt.SoundEffect)
+    meta.typecheck(effect, rt.SoundEffect)
 
     self._main_to_worker:push({
         type = MessageType.ADD_EFFECT,
@@ -165,7 +165,7 @@ end
 
 --- @brief
 function rt.MusicManagerHandler:remove_effect(effect)
-    meta.assert(effect, rt.SoundEffect)
+    meta.typecheck(effect, rt.SoundEffect)
 
     self._main_to_worker:push({
         type = MessageType.REMOVE_EFFECT,
@@ -175,7 +175,7 @@ end
 
 --- @brief
 function rt.MusicManagerHandler:set_filter(t)
-    meta.assert(t, mt.Number)
+    meta.typecheck(t, mt.Number)
 
     self._main_to_worker:push({
         type = MessageType.SET_FILTER,
@@ -191,7 +191,7 @@ end
 
 --- @brief
 function rt.MusicManagerHandler:set_pitch(pitch)
-    meta.assert(pitch, mt.Number)
+    meta.typecheck(pitch, mt.Number)
 
     self._main_to_worker:push({
         type = MessageType.SET_PITCH,
@@ -201,7 +201,7 @@ end
 
 --- @brief
 function rt.MusicManagerHandler:set_volume(volume)
-    meta.assert(volume, mt.Number)
+    meta.typecheck(volume, mt.Number)
 
     self._main_to_worker:push({
         type = MessageType.SET_VOLUME,

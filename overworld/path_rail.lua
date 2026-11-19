@@ -302,7 +302,7 @@ end
 
 --- @brief
 function ow.PathRail:instantiate(path)
-    meta.assert(path, rt.Path)
+    meta.typecheck(path, rt.Path)
 
     self._path = path
     self._points = path:get_points()

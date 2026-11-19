@@ -138,7 +138,7 @@ end
 
 --- @brief
 function rt.SceneManager:preallocate(scene_type)
-    meta.assert(scene_type, meta.Type)
+    meta.typecheck(scene_type, meta.Type)
     local scene = self._scene_type_to_scene[scene_type]
     if scene == nil then
         scene = scene_type(rt.GameState)
@@ -173,7 +173,7 @@ end
 
 --- @brief
 function rt.SceneManager:_enter_scene(add_to_stack, scene, scene_type, ...)
-    meta.assert(add_to_stack, mt.Boolean)
+    meta.typecheck(add_to_stack, mt.Boolean)
 
     scene:enter(...)
     scene:signal_emit("enter")
@@ -384,7 +384,7 @@ end
 
 --- @brief
 function rt.SceneManager:resize(_)
-    meta.assert(_, mt.Nil)
+    meta.typecheck(_, mt.Nil)
 
     self._width, self._height = rt.GameState:get_internal_resolution()
 
@@ -731,7 +731,7 @@ end
 
 --- @brief check whether scene is on scene stack
 function rt.SceneManager:scene_get_is_active(scene)
-    meta.assert(scene, rt.Scene)
+    meta.typecheck(scene, rt.Scene)
     for _, entry in ipairs(self._scene_stack) do
         if entry.scene == scene then
             return true
@@ -744,7 +744,7 @@ end
 --- @brief
 function rt.SceneManager:screenshot(path, encoding_format)
     require "common.image"
-    meta.assert(path, mt.String, encoding_format, mt.Optional(rt.ImageEncodingFormat))
+    meta.typecheck(path, mt.String, encoding_format, mt.Optional(rt.ImageEncodingFormat))
 
     local texture = self._screenshot_texture
     if texture == nil or texture:get_width() ~= self._width or texture:get_height() ~= self._height then

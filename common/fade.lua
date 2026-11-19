@@ -16,7 +16,7 @@ local _lch_texture = rt.LCHTexture(1, 1, 256)
 
 --- @brief
 function rt.Fade:instantiate(duration, shader_path)
-    meta.assert(
+    meta.typecheck(
         duration, mt.Optional(mt.Number),
         shader_path, mt.Optional(mt.String)
     )
@@ -196,7 +196,7 @@ end
 
 --- @brief
 function rt.Fade:set_shader(shader)
-    meta.assert(shader, rt.Shader)
+    meta.typecheck(shader, rt.Shader)
     rt.assert(shader:get_native():hasUniform("value"))
     self._shader = shader
     self._shader:compile()

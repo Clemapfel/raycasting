@@ -20,7 +20,7 @@ end
 
 --- @brief
 function rt.Profiler:start_region(region)
-    meta.assert(region, mt.String)
+    meta.typecheck(region, mt.String)
     if self._is_recording == false then return end
 
     table.insert(self._stack, {
@@ -34,7 +34,7 @@ end
 function rt.Profiler:end_region(region)
     local end_time = love.timer.getTime()
 
-    meta.assert(region, mt.String)
+    meta.typecheck(region, mt.String)
     if self._is_recording == false then return end
 
     local stack = self._stack
@@ -68,7 +68,7 @@ end
 
 --- @brief
 function rt.Profiler:notify(region, duration)
-    meta.assert(region, mt.String, duration, mt.Number)
+    meta.typecheck(region, mt.String, duration, mt.Number)
     if self._is_recording == false then return end
 
     local entry = self._data[region]
@@ -268,7 +268,7 @@ end
 
 --- @brief
 function rt.Profiler:is_on_whitelist(name)
-    meta.assert(name, mt.String)
+    meta.typecheck(name, mt.String)
     for _, x in ipairs(rt.settings.profiler.whitelist) do
         if name == x then
             return true

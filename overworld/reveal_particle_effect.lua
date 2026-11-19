@@ -49,7 +49,7 @@ end
 function ow.RevealParticleEffect:emit(ax, ay, bx, by, side)
     if side == nil then side = 1 end
 
-    meta.assert(
+    meta.typecheck(
         ax, mt.Number,
         ay, mt.Number,
         bx, mt.Number,

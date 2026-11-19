@@ -72,7 +72,7 @@ function rt.SpriteBatch:add(x, y, w, h, tx, ty, tw, th, flip_horizontally, flip_
     if flip_vertically == nil then flip_vertically = false end
     if angle == nil then angle = 0 end
 
-    meta.assert(
+    meta.typecheck(
         x, mt.Number,
         y, mt.Number,
         w, mt.Number,
@@ -106,7 +106,7 @@ function rt.SpriteBatch:set(i, x, y, w, h, tx, ty, tw, th, flip_horizontally, fl
     if flip_vertically == nil then flip_vertically = false end
     if angle == nil then angle = 0 end
 
-    meta.assert(
+    meta.typecheck(
         x, mt.Number,
         y, mt.Number,
         w, mt.Number,

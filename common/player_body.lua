@@ -84,7 +84,7 @@ local _not_squished = 0
 
 --- @brief
 function rt.PlayerBody:instantiate(position_x, position_y)
-    meta.assert(position_x, mt.Number, position_y, mt.Number)
+    meta.typecheck(position_x, mt.Number, position_y, mt.Number)
     self._position_x = position_x
     self._position_y = position_y
     self._relative_velocity_x = 0
@@ -1276,7 +1276,7 @@ function rt.PlayerBody:draw_core()
 end
 --- @brief
 function rt.PlayerBody:set_position(x, y)
-    meta.assert(x, mt.Number, y, mt.Number)
+    meta.typecheck(x, mt.Number, y, mt.Number)
     self._position_x = x
     self._position_y = y
 end
@@ -1302,14 +1302,14 @@ end
 
 --- @brief
 function rt.PlayerBody:set_color(color)
-    meta.assert(color, rt.RGBA)
+    meta.typecheck(color, rt.RGBA)
     self._core_color = color
     self._hue = select(3, rt.rgba_to_lcha(self._core_color:unpack()))
 end
 
 --- @brief
 function rt.PlayerBody:set_body_color(color)
-    meta.assert(color, rt.RGBA)
+    meta.typecheck(color, rt.RGBA)
     self._body_color = color
 end
 

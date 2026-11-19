@@ -8,7 +8,7 @@ rt.DiskOut = meta.class("DiskOut")
 --- @brief
 function rt.DiskOut:instantiate(path, _max_buffer_size)
     if _max_buffer_size == nil then _max_buffer_size = rt.settings.disk_out.buffer_size end
-    meta.assert(path, mt.String, _max_buffer_size, mt.Number)
+    meta.typecheck(path, mt.String, _max_buffer_size, mt.Number)
 
     self._path = path
     bd.create_file(self._path, "")
@@ -43,7 +43,7 @@ end
 local _element_sep = "\030"
 local _line_sep = "\029"
 local _encode = function(to_encode, n)
-    meta.assert(to_encode, mt.Table, n, mt.Number)
+    meta.typecheck(to_encode, mt.Table, n, mt.Number)
     local to_concat = {}
     for i = 1, n do
         local x = to_encode[i]
@@ -65,7 +65,7 @@ local _encode = function(to_encode, n)
 end
 
 local _decode = function(data)
-    meta.assert(data, mt.String)
+    meta.typecheck(data, mt.String)
 
     local result = {}
     local n_elements = 0

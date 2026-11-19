@@ -20,7 +20,7 @@ local _STATE_PLAYBACK = "playback"
 
 --- @brief
 function ow.PlayerRecorder:instantiate(stage, scene)
-    meta.assert(stage, ow.Stage, scene, ow.OverworldScene)
+    meta.typecheck(stage, ow.Stage, scene, ow.OverworldScene)
 
     self._stage = stage
     self._scene = scene

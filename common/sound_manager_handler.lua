@@ -193,7 +193,7 @@ end
 
 --- @brief
 function rt.SoundManagerHandler:set_player_position(position_x, position_y)
-    meta.assert(position_x, mt.Number, position_y, mt.Number)
+    meta.typecheck(position_x, mt.Number, position_y, mt.Number)
 
     self._main_to_worker:push({
         type = MessageType.SET_PLAYER_POSITION,
@@ -204,7 +204,7 @@ end
 
 --- @brief
 function rt.SoundManagerHandler:set_position(handler_id, position_x, position_y)
-    meta.assert(handler_id, mt.Number, position_x, mt.Optional(mt.Number), position_y, mt.Optional(mt.Number))
+    meta.typecheck(handler_id, mt.Number, position_x, mt.Optional(mt.Number), position_y, mt.Optional(mt.Number))
 
     self._main_to_worker:push({
         type = MessageType.SET_POSITION,
@@ -216,7 +216,7 @@ end
 
 --- @brief
 function rt.SoundManagerHandler:play(id, config)
-    meta.assert(id, mt.String, config, mt.Optional(mt.Table))
+    meta.typecheck(id, mt.String, config, mt.Optional(mt.Table))
 
     local handler_id = self._handler_id
     self._handler_id = self._handler_id + 1
@@ -235,7 +235,7 @@ end
 --- @brief
 function rt.SoundManagerHandler:stop(...)
     for i = 1, select("#", ...) do
-        meta.assert_argument_type(select(i, ...), mt.Union(mt.Number, mt.Nil))
+        meta.typecheck_arg_i(select(i, ...), mt.Union(mt.Number, mt.Nil))
     end
 
     if select("#", ...) > 0 then
@@ -248,7 +248,7 @@ end
 
 --- @brief
 function rt.SoundManagerHandler:pause(_)
-    meta.assert(_, mt.Nil)
+    meta.typecheck(_, mt.Nil)
 
     self._main_to_worker:push({
         type = MessageType.PAUSE
@@ -257,7 +257,7 @@ end
 
 --- @brief
 function rt.SoundManagerHandler:unpause(_)
-    meta.assert(_, mt.Nil)
+    meta.typecheck(_, mt.Nil)
 
     self._main_to_worker:push({
         type = MessageType.PAUSE
@@ -266,7 +266,7 @@ end
 
 --- @brief
 function rt.SoundManagerHandler:flush(_)
-    meta.assert(_, mt.Nil)
+    meta.typecheck(_, mt.Nil)
 
     self._main_to_worker:push({
         type = MessageType.FLUSH
@@ -275,7 +275,7 @@ end
 
 --- @brief
 function rt.SoundManagerHandler:reset(_)
-    meta.assert(_, mt.Nil)
+    meta.typecheck(_, mt.Nil)
 
     self._main_to_worker:push({
         type = MessageType.RESET
@@ -284,7 +284,7 @@ end
 
 --- @brief
 function rt.SoundManagerHandler:set_global_volume(value)
-    meta.assert(value, mt.Number)
+    meta.typecheck(value, mt.Number)
 
     self._main_to_worker:push({
         type = MessageType.SET_GLOBAL_VOLUME,
@@ -295,7 +295,7 @@ end
 --- @brief
 function rt.SoundManagerHandler:set_volume(handler_id, volume, use_smoothing)
     if use_smoothing == nil then use_smoothing = true end
-    meta.assert(handler_id, mt.Number, volume, mt.Number, use_smoothing, mt.Boolean)
+    meta.typecheck(handler_id, mt.Number, volume, mt.Number, use_smoothing, mt.Boolean)
 
     self._main_to_worker:push({
         type = MessageType.SET_VOLUME,
@@ -308,7 +308,7 @@ end
 --- @brief
 function rt.SoundManagerHandler:set_pitch(handler_id, pitch, use_smoothing)
     if use_smoothing == nil then use_smoothing = true end
-    meta.assert(handler_id, mt.Number, pitch, mt.Number, use_smoothing, mt.Boolean)
+    meta.typecheck(handler_id, mt.Number, pitch, mt.Number, use_smoothing, mt.Boolean)
 
     self._main_to_worker:push({
         type = MessageType.SET_PITCH,
@@ -320,7 +320,7 @@ end
 
 --- @brief
 function rt.SoundManagerHandler:set_filter(handler_id, t)
-    meta.assert(handler_id, mt.Number, t, mt.Number)
+    meta.typecheck(handler_id, mt.Number, t, mt.Number)
 
     self._main_to_worker:push({
         type = MessageType.SET_FILTER,
@@ -331,7 +331,7 @@ end
 
 --- @brief
 function rt.SoundManagerHandler:remove_filter(handler_id)
-    meta.assert(handler_id, mt.Number)
+    meta.typecheck(handler_id, mt.Number)
 
     self._main_to_worker:push({
         type = MessageType.REMOVE_FILTER,
@@ -341,7 +341,7 @@ end
 
 --- @brief
 function rt.SoundManagerHandler:add_effect(handler_id, effect)
-    meta.assert(handler_id, mt.Number, effect, rt.SoundEffect)
+    meta.typecheck(handler_id, mt.Number, effect, rt.SoundEffect)
 
     self._main_to_worker:push({
         type = MessageType.ADD_EFFECT,
@@ -352,7 +352,7 @@ end
 
 --- @brief
 function rt.SoundManagerHandler:remove_effect(handler_id, effect)
-    meta.assert(handler_id, mt.Number, effect, rt.SoundEffect)
+    meta.typecheck(handler_id, mt.Number, effect, rt.SoundEffect)
 
     self._main_to_worker:push({
         type = MessageType.REMOVE_EFFECT,
@@ -363,7 +363,7 @@ end
 
 --- @brief
 function rt.SoundManagerHandler:list_active_handler_ids(sound_id)
-    meta.assert(sound_id, mt.String)
+    meta.typecheck(sound_id, mt.String)
 
     local ids = self._sound_id_to_active_handlers[sound_id]
     return ids ~= nil and ids or {}
@@ -371,7 +371,7 @@ end
 
 --- @brief
 function rt.SoundManagerHandler:has_handler_id(handler_id)
-    meta.assert(handler_id, mt.Number)
+    meta.typecheck(handler_id, mt.Number)
 
     for sound_id, ids in pairs(self._sound_id_to_active_handlers) do
         for other in values(ids) do
@@ -386,7 +386,7 @@ end
 
 --- @brief
 function rt.SoundManagerHandler:get_duration(id, degree)
-    meta.assert(id, mt.String, degree, mt.Optional(mt.Any))
+    meta.typecheck(id, mt.String, degree, mt.Optional(mt.Any))
 
     local degrees = self._cache.id_to_degrees[id]
     if degrees ~= nil and not table.is_empty(degrees) then

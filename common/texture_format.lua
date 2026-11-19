@@ -50,7 +50,7 @@ rt.TextureFormat = {
 
 --- @brief get fallback for texture format if platform does not support it
 rt.graphics.texture_format_get_fallback = function(format, is_canvas)
-    meta.assert_argument_type(is_canvas, mt.Boolean)
+    meta.typecheck_arg_i(is_canvas, mt.Boolean)
 
     local fallback_chains = {
         NORMAL            = { },

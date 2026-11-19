@@ -30,7 +30,7 @@ end
 
 --- @brief
 function rt.RequestHandler:request(id, ...)
-    meta.assert(id, _id_t)
+    meta.typecheck(id, _id_t)
 
     if select("#", ...) == 0 then
         -- remove request
@@ -50,7 +50,7 @@ end
 
 --- @brief
 function rt.RequestHandler:remove(id)
-    meta.assert(id, _id_t)
+    meta.typecheck(id, _id_t)
     self._id_to_request[id] = nil
 end
 
@@ -62,7 +62,7 @@ end
 --- @brief
 function rt.RequestHandler:reduce(mode, ...)
     if mode == nil then mode = self._reduce_mode end
-    meta.assert(mode, rt.RequestReduceMode)
+    meta.typecheck(mode, rt.RequestReduceMode)
 
     if table.is_empty(self._id_to_request) then
         if mode == rt.RequestReduceMode.MANUAL then

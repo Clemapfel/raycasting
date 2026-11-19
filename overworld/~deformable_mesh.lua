@@ -25,7 +25,7 @@ local _mesh_format = {
 } -- xy stores origin, uv stores dxy, rg stores rest origin, ba stores rest dxy
 
 function ow.DeformableMesh:instantiate(scene, world, contour)
-    meta.assert(scene, ow.OverworldScene, world, b2.World)
+    meta.typecheck(scene, ow.OverworldScene, world, b2.World)
     self._scene = scene
     self._world = world
 
@@ -275,7 +275,7 @@ local function _line_circle_collision(origin_x, origin_y, dx, dy, circle_x, circ
 end
 
 function ow.DeformableMesh:step(delta, outer_x, outer_y, outer_r)
-    meta.assert(delta, mt.Number, outer_x, mt.Number, outer_y, mt.Number, outer_r, mt.Number)
+    meta.typecheck(delta, mt.Number, outer_x, mt.Number, outer_y, mt.Number, outer_r, mt.Number)
 
     local settings = rt.settings.overworld.deformable_mesh
     local elasticity = settings.elasticity

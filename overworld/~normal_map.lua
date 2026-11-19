@@ -40,7 +40,7 @@ local _atlas = {}
 
 --- @brief
 function ow.NormalMap:instantiate(stage)
-    meta.assert(stage, ow.Stage)
+    meta.typecheck(stage, ow.Stage)
 
     self._stage = stage
     if _atlas[self._stage:get_id()] ~= nil then

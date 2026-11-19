@@ -23,19 +23,20 @@ function ow.DeceleratorSurface:instantiate(object, stage, scene)
 
     local world = stage:get_physics_world()
     self._body = object:create_physics_body(world)
-    self._body:add_tag(b2.Tag.STENCIL, b2.Tag.UNJUMABLE, b2.Tag.UNWALKABLE, b2.Tag.SEGMENT_LIGHT_SOURCE)
+    self._body:add_tag(b2.Tag.STENCIL, b2.Tag.UNJUMPABLE, b2.Tag.UNWALKABLE, b2.Tag.SEGMENT_LIGHT_SOURCE)
     self._body:set_user_data(self)
     self._body:set_is_sensor(true)
 
     local contour = object:create_contour():close()
     self._graphics_body = ow.DeceleratorSurfaceBody(scene, contour)
+    self._graphics_body._body = self._body
     self._centroid_x, self._centroid_y = object:get_centroid()
 
     self._segment_lights = {}
     local n = contour:get_n_vertices()
     for i = 1, n do
         local x1, y1 = contour:get_vertex(i)
-        local x2, y2 = contour:get_vertex(math.wrap(i + 1))
+        local x2, y2 = contour:get_vertex(math.wrap(i + 1, n))
         table.insert(self._segment_lights, { x1, y1, x2, y2 })
     end
 end

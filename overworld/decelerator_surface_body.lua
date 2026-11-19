@@ -25,7 +25,7 @@ rt.settings.overworld.decelerator_surface_body = {
     bending_compliance = 0.001,
     retract_compliance = 0.02,
     extend_compliance = 0.00075,
-    collision_compliance = 0.0001,
+    collision_compliance = 0.0000,
 
     threshold = 0.5,
     smoothness = 0.05,
@@ -62,7 +62,7 @@ local _instance_draw_shader = rt.Shader("overworld/decelerator_surface_body_inst
 
 --- @brief
 function ow.DeceleratorSurfaceBody:instantiate(scene, contour)
-    meta.assert(scene, ow.OverworldScene, contour, rt.Polyline)
+    meta.typecheck(scene, ow.OverworldScene, contour, rt.Polyline)
     self._scene = scene
 
     self._target_x, self._target_y = math.huge, math.huge
@@ -96,15 +96,16 @@ function ow.DeceleratorSurfaceBody:instantiate(scene, contour)
         love.graphics.pop()
     end
 
-    self._contour = contour:get_vertices()
+    self._contour = contour
 
     do
         local arc_lengths = { 0 } -- cumulative distances
         local total_perimeter = 0
+        local contour = self._contour:get_vertices()
 
-        for i = 1, #self._contour - 2, 2 do
-            local x1, y1 = self._contour[i+0], self._contour[i+1]
-            local x2, y2 = self._contour[i+2], self._contour[i+3]
+        for i = 1, #contour - 2, 2 do
+            local x1, y1 = contour[i+0], contour[i+1]
+            local x2, y2 = contour[i+2], contour[i+3]
             total_perimeter = total_perimeter + math.distance(x1, y1, x2, y2)
             table.insert(arc_lengths, total_perimeter)
         end
@@ -118,9 +119,9 @@ function ow.DeceleratorSurfaceBody:instantiate(scene, contour)
         local _outer_x1, _outer_y1, _outer_x2, _outer_y2 = 5, 6, 7, 8
 
         local quads = {}
-        for i = 1, #self._contour - 2, 2 do
-            local contour_x1, contour_y1 = self._contour[i+0], self._contour[i+1]
-            local contour_x2, contour_y2 = self._contour[i+2], self._contour[i+3]
+        for i = 1, #contour - 2, 2 do
+            local contour_x1, contour_y1 = contour[i+0], contour[i+1]
+            local contour_x2, contour_y2 = contour[i+2], contour[i+3]
 
             local dx, dy = math.normalize(contour_x2 - contour_x1, contour_y2 - contour_y1)
             dx, dy = math.turn_right(dx, dy)
@@ -266,7 +267,7 @@ function ow.DeceleratorSurfaceBody:instantiate(scene, contour)
 
     self._aabb = self._contour:get_aabb()
 
-    local padding = arm_length + 5 -- safety
+    local padding = arm_length + settings.arm_radius -- safety
     self._aabb.x = self._aabb.x - padding
     self._aabb.y = self._aabb.y - padding
     self._aabb.width = self._aabb.width + 2 * padding
@@ -275,12 +276,12 @@ function ow.DeceleratorSurfaceBody:instantiate(scene, contour)
     free(self._canvas)
     self._canvas = rt.RenderTexture(
         self._aabb.width, self._aabb.height,
-        { format = rt.TextureFormat.RG16F }
+        { format = rt.TextureFormat.RG8 }
     )
     self._canvas_needs_update = true
 
     self._path = rt.Path()
-    self._path:create_from_and_reparameterize(rt.contour.close(self._contour))
+    self._path:create_from_and_reparameterize(self._contour:close())
 
     self._data = {} -- Table<Number>, properties inline
     self._n_particles = 0
@@ -350,7 +351,7 @@ function ow.DeceleratorSurfaceBody:instantiate(scene, contour)
 
     -- initialize t offsets, symmetric around midpoint arm
     local n_slots = math.floor(self._path:get_length() / settings.arm_radius)
-    local offset = settings.arm_radius / 2
+    local offset = settings.arm_radius
     local n_arms_left = n_arms
     for i = 1, n_slots do
         local t = (i - 1) / n_slots
@@ -358,6 +359,7 @@ function ow.DeceleratorSurfaceBody:instantiate(scene, contour)
         local normal_x, normal_y = self._path:get_normal_at(t)
         local arm_slot = {
             arm_i = nil,
+            is_active = true,
             origin_x = anchor_x - normal_x * offset,
             origin_y = anchor_y - normal_y * offset,
             anchor_x = anchor_x - normal_x * offset,
@@ -376,6 +378,8 @@ function ow.DeceleratorSurfaceBody:instantiate(scene, contour)
             n_arms_left = n_arms_left - 1
         end
     end
+
+    self:_update_instance_mesh()
 end
 
 --- @brief
@@ -427,12 +431,15 @@ function ow.DeceleratorSurfaceBody:set_target(x, y, radius)
 
     local dx, dy = math.subtract(self._target_x, self._target_y, final_x, final_y)
     local t_step = 1 / n_slots
-    local n_arms_half = active_arms / 2
-    local left_t = self._target_t - math.ceil(n_arms_half) * t_step
-    local right_t = self._target_t + math.floor(n_arms_half) * t_step
+    local n_left = math.ceil(active_arms / 2)
+    local n_right = math.floor(active_arms / 2)
+    local left_t = self._target_t - n_left * t_step
+    local right_t = self._target_t + n_right * t_step
     local interval_length = right_t - left_t
 
-    local inlay = rt.settings.overworld.decelerator_surface_body.retract_threshold
+    local settings = rt.settings.overworld.decelerator_surface_body
+    local inlay = settings.retract_threshold
+    local slot_offset = -1 * settings.arm_radius
     local mid_point = math.angle(dx, dy)
 
     local is_full_circle = (active_arms == n_slots)
@@ -444,15 +451,77 @@ function ow.DeceleratorSurfaceBody:set_target(x, y, radius)
 
     local function slot_mix_factor(slot_t)
         if interval_length <= 0 then return 0.5 end
-
         local diff = math.fract(slot_t - left_t)
         return diff / interval_length
+    end
+
+    local function circular_distance(a, b)
+        local d = math.abs(math.fract(a) - math.fract(b))
+        return math.min(d, 1 - d)
+    end
+
+    -- re-place all slots that hold no arm, centered on target_t;
+    -- slots with arms are locked and never move
+    do
+        local min_spacing = t_step * 0.5
+        local occupied_ts = {}
+        local free_slots = {}
+
+        for slot_index = 1, n_slots do
+            local slot = self._slots[slot_index]
+            if slot.arm_i ~= nil then
+                table.insert(occupied_ts, slot.t)
+            else
+                slot.is_active = false
+                table.insert(free_slots, slot)
+            end
+        end
+
+        local free_i = 1
+        local function try_place(k)
+            if free_i > #free_slots then return end
+            local t = math.fract(self._target_t + k * t_step)
+
+            for occupied_t in values(occupied_ts) do
+                if circular_distance(t, occupied_t) < min_spacing then return end
+            end
+
+            local slot = free_slots[free_i]
+            free_i = free_i + 1
+
+            -- place slot at t
+            local px, py = self._path:at(t)
+            local normal_x, normal_y = self._path:get_normal_at(t)
+            slot.t = t
+            slot.normal_x, slot.normal_y = normal_x, normal_y
+            slot.origin_x = px - normal_x * slot_offset
+            slot.origin_y = py - normal_y * slot_offset
+            slot.anchor_x, slot.anchor_y = slot.origin_x, slot.origin_y
+            slot.target_x, slot.target_y = px, py
+
+            slot.is_active = true
+            table.insert(occupied_ts, t)
+        end
+
+        -- fill outward from the middle so the center slot is always aligned with the player
+        try_place(0)
+        for step = 1, math.max(n_left, n_right) do
+            if step <= n_right then try_place(step) end
+            if step <= n_left then try_place(-step) end
+        end
+
+        -- unused free slots: park retracted at their last position
+        for i = free_i, #free_slots do
+            local slot = free_slots[i]
+            slot.anchor_x, slot.anchor_y = slot.origin_x, slot.origin_y
+            slot.target_x, slot.target_y = slot.anchor_x, slot.anchor_y
+        end
     end
 
     for slot_index = 1, n_slots do
         local slot = self._slots[slot_index]
 
-        if is_in_interval(slot.t) then
+        if (slot.is_active or slot.arm_i ~= nil) and is_in_interval(slot.t) then
             local attachment_angle = math.mix(
                 mid_point - 0.5 * math.pi,
                 mid_point + 0.5 * math.pi,
@@ -1047,7 +1116,7 @@ function ow.DeceleratorSurfaceBody:draw()
 
         self._canvas:bind()
         love.graphics.clear(0, 0, 0, 0)
-        love.graphics.setBlendMode("add", "premultiplied")
+        rt.graphics.set_blend_mode(rt.BlendMode.ADD, rt.BlendMode.ADD)
 
         love.graphics.translate(
             -mean_x + 0.5 * w, -mean_y + 0.5 * h

@@ -47,7 +47,7 @@ end)
 
 --- @brief
 function ow.LightMap:instantiate(width, height)
-    meta.assert(width, mt.Number, height, mt.Number)
+    meta.typecheck(width, mt.Number, height, mt.Number)
 
     self._width, self._height = width, height
     self._tile_i_to_n_point_lights = self._tile_i_to_n_point_lights or {}
@@ -167,7 +167,7 @@ function ow.LightMap:_reinitialize(
     new_n_point_lights_per_tile,
     new_n_segment_lights_per_tile
 )
-    meta.assert(
+    meta.typecheck(
         new_n_point_lights, mt.Number,
         new_n_segment_lights, mt.Number,
         new_n_point_lights_per_tile, mt.Number,
@@ -473,7 +473,7 @@ do
 
     --- @brief
     function ow.LightMap:update(stage, delta)
-        meta.assert(stage, ow.Stage, delta, ow.Number)
+        meta.typecheck(stage, ow.Stage, delta, ow.Number)
         if rt.GameState:get_is_dynamic_lighting_enabled() == false then return end
 
         if light_functions_initialized ~= true then -- delay init because we need buffer offsets
@@ -750,7 +750,7 @@ do
 
         stage:collect_point_lights(function(x, y, radius, color_r, color_g, color_b, color_a)
             if DEBUG then
-                meta.assert(x, mt.Number, y, mt.Number, radius, mt.Number, color_r, mt.Number, color_g, mt.Number, color_b, mt.Number, color_a, mt.Number)
+                meta.typecheck(x, mt.Number, y, mt.Number, radius, mt.Number, color_r, mt.Number, color_g, mt.Number, color_b, mt.Number, color_a, mt.Number)
             end
 
             local hash = _hash_point(x, y, radius, color_r, color_g, color_b, color_a)
@@ -764,7 +764,7 @@ do
 
         stage:collect_segment_lights(function(x1, y1, x2, y2, color_r, color_g, color_b, color_a)
             if DEBUG then
-                meta.assert(x1, mt.Number, y1, mt.Number, x2, mt.Number, y2, mt.Number, color_r, mt.Number, color_g, mt.Number, color_b, mt.Number, color_a, mt.Number)
+                meta.typecheck(x1, mt.Number, y1, mt.Number, x2, mt.Number, y2, mt.Number, color_r, mt.Number, color_g, mt.Number, color_b, mt.Number, color_a, mt.Number)
             end
 
             local hash = _hash_segment(x1, y1, x2, y2, color_r, color_g, color_b, color_a)
@@ -1031,7 +1031,7 @@ function ow.LightMap:composite(_)
     if not meta.is_nil(_) then
         rt.error("In ow.LightMap.composite: `composite` function does not take any arguments, to control strength of darkness, write to composite mask of `LightMap`")
     end
-    meta.assert(_, mt.Nil)
+    meta.typecheck(_, mt.Nil)
 
     love.graphics.push("all")
     love.graphics.origin()

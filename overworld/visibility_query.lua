@@ -31,7 +31,7 @@ end
 ---     set_offset : Function
 --- }
 function ow.VisibilityQuery:initialize(entries)
-    meta.assert(entries, mt.Table)
+    meta.typecheck(entries, mt.Table)
 
     -- verify entry integrity
     for i, entry in ipairs(entries) do
@@ -60,7 +60,7 @@ function ow.VisibilityQuery:initialize(entries)
     self._cache = nil
 
     local create_raw = function(entry, ax, ay, bx, by)
-        meta.assert(entry, mt.Table, ax, mt.Number, ay, mt.Number, bx, mt.Number, by, mt.Number)
+        meta.typecheck(entry, mt.Table, ax, mt.Number, ay, mt.Number, bx, mt.Number, by, mt.Number)
         return {
             segment = { ax, ay, bx, by },
             splits = {}, -- list of t values where this segment must be cut
@@ -199,7 +199,7 @@ function ow.VisibilityQuery:initialize(entries)
             segment = final.segment,
             entry = final.entry,
             set_offset = function(self, x, y)
-                meta.assert(self, mt.Table, x, mt.Number, y, mt.Number)
+                meta.typecheck(self, mt.Table, x, mt.Number, y, mt.Number)
                 if body ~= nil then
                     body:setPosition(x, y)
                 else
@@ -228,7 +228,7 @@ end
 
 --- @brief
 function ow.VisibilityQuery:get_segments_in_area(aabb)
-    meta.assert(aabb, rt.AABB)
+    meta.typecheck(aabb, rt.AABB)
 
     local shapes = self._world:getShapesInArea(
         aabb.x,
@@ -309,7 +309,7 @@ do
     --- @brief get all subsegments that are visible from a point
     function ow.VisibilityQuery:get_visible_subsegments(x, y, bounds, compute_polygon)
         if compute_polygon == nil then compute_polygon = false end
-        meta.assert(x, mt.Number, y, mt.Number, bounds, rt.AABB, compute_polygon, mt.Boolean)
+        meta.typecheck(x, mt.Number, y, mt.Number, bounds, rt.AABB, compute_polygon, mt.Boolean)
 
         local edges = {}
         local allow_hash = true

@@ -40,7 +40,7 @@ end
 function rt.Texture:set_scale_mode(mode, other, anisotropy)
     if other == nil then other = mode end
 
-    meta.assert(
+    meta.typecheck(
         mode, rt.TextureScaleMode,
         other, mt.Optional(rt.TextureScaleMode),
         anisotropy, mt.Optional(mt.Number)
@@ -61,7 +61,7 @@ function rt.Texture:set_wrap_mode(mode_x, mode_y, mode_z)
     if mode_y == nil then mode_y = mode_x end
     if mode_z == nil then mode_z = mode_y end
 
-    meta.assert(
+    meta.typecheck(
         mode_x, rt.TextureWrapMode,
         mode_y, rt.TextureWrapMode,
         mode_z, rt.TextureWrapMode
@@ -78,7 +78,7 @@ end
 
 --- @brief
 function rt.Texture:set_mipmap_scale_mode(scale_mode, sharpness)
-    meta.assert(scale_mode, rt.TextureScaleMode, sharpness, mt.Optional(mt.Number))
+    meta.typecheck(scale_mode, rt.TextureScaleMode, sharpness, mt.Optional(mt.Number))
     self._native:setMipmapFilter(scale_mode, sharpness)
 end
 

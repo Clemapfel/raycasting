@@ -41,8 +41,8 @@ function rt.ControlIndicator:instantiate(...)
 
     local i = 1
     for button_text in values(layout) do
-        meta.assert_argument_type(button_text[1], rt.ControlIndicatorButton, i)
-        meta.assert_argument_type(button_text[2], mt.String, i)
+        meta.typecheck_arg_i(button_text[1], rt.ControlIndicatorButton, i)
+        meta.typecheck_arg_i(button_text[2], mt.String, i)
         i = i + 1
     end
 

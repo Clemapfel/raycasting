@@ -119,7 +119,7 @@ end
 
 --- @brief
 function mn.CoinParticleSwarm:set_mode(mode)
-    meta.assert(mode, mn.CoinParticleSwarmMode)
+    meta.typecheck(mode, mn.CoinParticleSwarmMode)
     self._mode = mode
 end
 

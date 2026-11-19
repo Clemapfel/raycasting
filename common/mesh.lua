@@ -65,7 +65,7 @@ function rt.Mesh:instantiate(data_or_native, draw_mode, format, usage)
         data_or_native = data_or_native:get_native()
     end
 
-    mt.assert(
+   meta.typecheck(
         data_or_native, mt.Union(mt.Table, mt.UserData),
         draw_mode, mt.Optional(rt.MeshDrawMode),
         format, mt.Optional(mt.Table),
@@ -93,7 +93,7 @@ end
 
 --- @class rt.MeshRectangle
 rt.MeshRectangle = function(x, y, width, height)
-    meta.assert(
+    meta.typecheck(
         x, mt.Optional(mt.Number),
         y, mt.Optional(mt.Number),
         width, mt.Optional(mt.Number),
@@ -130,7 +130,7 @@ rt.Mesh.radius_to_n_vertices = _radius_to_n_vertices
 
 --- @class rt.MeshCircle
 rt.MeshCircle = function(center_x, center_y, x_radius, y_radius, n_outer_vertices)
-    meta.assert(
+    meta.typecheck(
         center_x, mt.Number,
         center_y, mt.Number,
         x_radius, mt.Number,
@@ -184,7 +184,7 @@ rt.MeshRectangle3D = function(
     width, height,
     normal_x, normal_y, normal_z
 )
-    meta.assert(
+    meta.typecheck(
         center_x, mt.Optional(mt.Number),
         center_y, mt.Optional(mt.Number),
         center_z, mt.Optional(mt.Number),
@@ -263,7 +263,7 @@ end
 
 --- @class rt.MeshRing
 rt.MeshRing = function(center_x, center_y, inner_radius, outer_radius, fill_center, n_outer_vertices, inner_color, outer_color)
-   meta.assert(
+   meta.typecheck(
        center_x, mt.Number,
        center_y, mt.Number,
        inner_radius, mt.Number,
@@ -360,7 +360,7 @@ end
 
 --- @class rt.MeshLine
 rt.MeshLine = function(x1, y1, x2, y2, thickness)
-    meta.assert(
+    meta.typecheck(
         x1, mt.Number,
         y1, mt.Number,
         x2, mt.Number,
@@ -455,7 +455,7 @@ end
 
 --- @class rt.MeshSphere
 function rt.MeshSphere(center_x, center_y, center_z, radius, n_rings, n_segments_per_ring)
-    meta.assert(
+    meta.typecheck(
         center_x, mt.Number,
         center_y, mt.Number,
         center_z, mt.Number,

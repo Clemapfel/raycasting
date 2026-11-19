@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 9,
-  nextobjectid = 1410,
+  nextobjectid = 1416,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -95,7 +95,7 @@ return {
         },
         {
           id = 1409,
-          name = "",
+          name = "s",
           type = "FlowOverride",
           shape = "polygon",
           x = 4496,
@@ -200,7 +200,7 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = 4768,
+          x = 4784,
           y = 1104,
           width = 0,
           height = 0,
@@ -369,7 +369,7 @@ return {
           visible = true,
           properties = {
             ["other"] = { id = 1376 },
-            ["target"] = { id = 1377 }
+            ["target"] = { id = 1414 }
           }
         },
         {
@@ -379,37 +379,6 @@ return {
           shape = "point",
           x = 5024,
           y = 960,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          opacity = 1,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 1377,
-          name = "",
-          type = "Portal",
-          shape = "point",
-          x = 4720,
-          y = 1008,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          opacity = 1,
-          visible = true,
-          properties = {
-            ["other"] = { id = 1378 },
-            ["target"] = { id = 1375 }
-          }
-        },
-        {
-          id = 1378,
-          name = "",
-          type = "PortalNode",
-          shape = "point",
-          x = 4720,
-          y = 1104,
           width = 0,
           height = 0,
           rotation = 0,
@@ -443,6 +412,37 @@ return {
             { x = 400, y = 64 },
             { x = 336, y = 64 }
           },
+          properties = {}
+        },
+        {
+          id = 1414,
+          name = "",
+          type = "Portal",
+          shape = "point",
+          x = 4720,
+          y = 1008,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          opacity = 1,
+          visible = true,
+          properties = {
+            ["other"] = { id = 1415 },
+            ["target"] = { id = 1375 }
+          }
+        },
+        {
+          id = 1415,
+          name = "",
+          type = "PortalNode",
+          shape = "point",
+          x = 4720,
+          y = 1104,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          opacity = 1,
+          visible = true,
           properties = {}
         }
       }

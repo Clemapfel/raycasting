@@ -17,7 +17,7 @@ end
 
 --- @brief
 function ow.BoostFieldManager:notify_boost_field_added(instance, is_active)
-    meta.assert(instance, ow.BoostField, is_active, mt.Boolean)
+    meta.typecheck(instance, ow.BoostField, is_active, mt.Boolean)
 
     self._boost_field_to_is_active[instance] = is_active
     if is_active == true then self._is_active = true end
@@ -25,7 +25,7 @@ end
 
 --- @brief
 function ow.BoostFieldManager:notify_is_active(instance, is_active)
-    meta.assert(instance, ow.BoostField, is_active, mt.Boolean)
+    meta.typecheck(instance, ow.BoostField, is_active, mt.Boolean)
 
     self._boost_field_to_is_active[instance] = is_active
 

@@ -49,7 +49,7 @@ end
 
 --- @brief
 function ow.PortalParticles:instantiate(ax, ay, bx, by, left_or_right)
-    meta.assert(ax, mt.Number, ay, mt.Number, bx, mt.Number, by, mt.Number, left_or_right, mt.Boolean)
+    meta.typecheck(ax, mt.Number, ay, mt.Number, bx, mt.Number, by, mt.Number, left_or_right, mt.Boolean)
 
     self._winding = left_or_right -- true = left, false = right
 

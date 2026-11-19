@@ -327,7 +327,7 @@ function rt.Player:instantiate()
             { "is_bubble", false },
             { "is_movement_disabled", false },
             { "is_jump_disabled", false },
-            { "is_jump_allowed_override", false },
+            { "is_jump_allowed_override", nil },
             { "is_double_jump_disabled", false },
             { "is_omnidirectional_movement_allowed", false },
             { "is_trail_enabled", true },
@@ -2106,7 +2106,7 @@ end
 
 function rt.Player:move_to_world(world)
     if world ~= nil then
-        meta.assert(world, b2.World)
+        meta.typecheck(world, b2.World)
     end
 
     if world == nil then
@@ -2409,7 +2409,7 @@ end
 --- @brief
 function rt.Player:teleport_to(x, y, relax_body)
     if relax_body == nil then relax_body = true end
-    meta.assert(x, mt.Number, y, mt.Number)
+    meta.typecheck(x, mt.Number, y, mt.Number)
     if self._world == nil then return end
 
     local is_bubble = self:get_is_bubble()
@@ -2488,12 +2488,20 @@ end
 
 --- @brief
 function rt.Player:set_velocity(x, y)
-    meta.assert(x, mt.Number, y, mt.Number)
+    meta.typecheck(x, mt.Number, y, mt.Number)
 
-    if self:get_is_bubble() and self._bubble_body ~= nil then
+    if self._bubble_body ~= nil then
         self._bubble_body:set_velocity(x, y)
-    elseif self._body ~= nil then
+        for body in values(self._bubble_spring_bodies) do
+            body:set_velocity(x, y)
+        end
+    end
+
+    if self._body ~= nil then
         self._body:set_velocity(x, y)
+        for body in values(self._spring_bodies) do
+            body:set_velocity(x, y)
+        end
     end
 
     self._last_velocity_x, self._last_velocity_y = x, y
@@ -2503,14 +2511,6 @@ end
 
 --- @brief
 function rt.Player:get_velocity()
-    --[[
-    if self:get_is_bubble() then
-        return self._bubble_body:get_velocity()
-    else
-        return self._body:get_velocity()
-    end
-    ]]
-
     return self._last_velocity_x, self._last_velocity_y
 end
 
@@ -3012,7 +3012,7 @@ end
 --- @brief
 function rt.Player:pulse(color_maybe)
     if color_maybe ~= nil then
-        meta.assert(color_maybe, rt.RGBA)
+        meta.typecheck(color_maybe, rt.RGBA)
     end
 
     table.insert(self._pulses, {
@@ -3123,7 +3123,7 @@ for tuple in range(
             for arg_i = 1, #args_table do
                 local arg = select(arg_i, ...)
                 local arg_name, arg_type = table.unpack(args_table[arg_i])
-                meta.assert_argument_type(arg, arg_type, arg_i + 1)
+                meta.typecheck_arg_i(arg, arg_type, arg_i + 1)
             end
             handler:request(id, ...)
         end
@@ -3148,7 +3148,7 @@ function rt.Player:request_is_disabled(id, is_disabled)
     if id == nil then
         rt.error("In request_is_disabled: argument #1 is nil")
     end
-    meta.assert_argument_type(is_disabled, mt.Optional(mt.Boolean), 2)
+    meta.typecheck_arg_i(is_disabled, mt.Optional(mt.Boolean), 2)
     local before = self:get_is_disabled()
 
     if is_disabled == nil then
@@ -3158,7 +3158,7 @@ function rt.Player:request_is_disabled(id, is_disabled)
     end
 
     if before ~= self:get_is_disabled() then
-        self:_update_bubble(self:get_is_bubble())
+        TODOself:_update_bubble(self:get_is_bubble())
     end
     return id
 end
@@ -3224,7 +3224,7 @@ function rt.Player:request_is_bubble(id, is_bubble)
     if id == nil then
         rt.error("In request_is_bubble: argument #1 is nil")
     end
-    meta.assert_argument_type(is_bubble, mt.Optional(mt.Boolean), 2)
+    meta.typecheck_arg_i(is_bubble, mt.Optional(mt.Boolean), 2)
     local before = self:get_is_bubble()
 
     if is_bubble == nil then
@@ -3258,7 +3258,7 @@ function rt.Player:_update_bubble(is_bubble)
 
     local vx, vy, x, y
 
-    if self:get_is_bubble() == true then
+    if self:get_is_bubble() == false then
         vx, vy = self._bubble_body:get_velocity()
         x, y = self._bubble_body:get_position()
     else
@@ -3387,7 +3387,7 @@ function rt.Player:request_damping(id, up, right, down, left)
         rt.error("In request_damping: argument #1 is nil")
     end
 
-    meta.assert(
+    meta.typecheck(
         id, mt.Any,
         up, mt.Optional(mt.Number),
         right, mt.Optional(mt.Number),
@@ -3436,7 +3436,7 @@ function rt.Player:bounce(direction_x, direction_y, magnitude)
         )
     end
 
-    meta.assert(direction_x, mt.Number, direction_y, mt.Number, magnitude, mt.Number)
+    meta.typecheck(direction_x, mt.Number, direction_y, mt.Number, magnitude, mt.Number)
 
     -- keep direction non-normalized
 

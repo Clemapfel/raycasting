@@ -487,7 +487,7 @@ end
 --- @brief
 function mn.MenuScene:enter(skip_title)
     if skip_title == nil then skip_title = false end
-    meta.assert(skip_title, mt.Boolean)
+    meta.typecheck(skip_title, mt.Boolean)
 
     if self._player:get_world() ~= self._world then
         self._player:move_to_world(self._world)

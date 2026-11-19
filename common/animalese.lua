@@ -97,7 +97,7 @@ function rt.Animalese:_tokens_to_english_phonemes(tokens)
     local success, results_or_error = pcall(function(tokens)
         if meta.is_string(tokens) then tokens = { tokens } end
         for i, token in ipairs(tokens) do
-            meta.assert_argument_type(token, mt.String, i)
+            meta.typecheck_arg_i(token, mt.String, i)
         end
 
         bd.create_file(in_file, table.concat(tokens, "\n"), true)
@@ -343,7 +343,7 @@ do
 
     --- @brief
     function rt.Animalese:_english_phonemes_to_animalese_phonemes(phonemes)
-        meta.assert(phonemes, mt.Table)
+        meta.typecheck(phonemes, mt.Table)
 
         if table.is_empty(phonemes) then
             return { rt.AnimalesePhoneme.BEAT }
@@ -469,7 +469,7 @@ function rt.Animalese:translate(texts, update_precomputed)
     if update_precomputed == nil then update_precomputed = true end
 
     for i, text in ipairs(texts) do
-        meta.assert_argument_type(text, mt.String, i)
+        meta.typecheck_arg_i(text, mt.String, i)
     end
 
     -- conver to tokens
@@ -867,11 +867,11 @@ function rt.Animalese:queue(phonemes, gender, emotion)
     if not meta.is_table(phonemes) then phonemes = { phonemes } end
 
     for phoneme in values(phonemes) do
-        meta.assert_argument_type(phoneme, rt.AnimalesePhoneme, 1)
+        meta.typecheck_arg_i(phoneme, rt.AnimalesePhoneme, 1)
     end
 
-    meta.assert_argument_type(gender, rt.AnimaleseGender, 2)
-    meta.assert_argument_type(emotion, rt.AnimaleseEmotion, 3)
+    meta.typecheck_arg_i(gender, rt.AnimaleseGender, 2)
+    meta.typecheck_arg_i(emotion, rt.AnimaleseEmotion, 3)
 
     if gender == rt.AnimaleseGender.NONE then return end
 
@@ -924,8 +924,8 @@ end
 function rt.Animalese:queue_beat(duration, gender, emotion)
     if gender == nil then gender = rt.AnimaleseGender.FEMALE end
     if emotion == nil then emotion = rt.AnimaleseEmotion.NORMAL end
-    meta.assert_argument_type(gender, rt.AnimaleseGender, 2)
-    meta.assert_argument_type(emotion, rt.AnimaleseEmotion, 3)
+    meta.typecheck_arg_i(gender, rt.AnimaleseGender, 2)
+    meta.typecheck_arg_i(emotion, rt.AnimaleseEmotion, 3)
 
     if gender == rt.AnimaleseGender.NONE then return end
 
@@ -954,7 +954,7 @@ function rt.Animalese:talk(text, gender, emotion)
     if gender == nil then gender = rt.AnimaleseGender.FEMALE end
     if emotion == nil then emotion = rt.AnimaleseEmotion.NORMAL end
 
-    meta.assert(
+    meta.typecheck(
         text, mt.String,
         gender, rt.AnimaleseGender,
         emotion, rt.AnimaleseEmotion

@@ -154,7 +154,7 @@ function rt.Frame:set_color(color, g, b, a)
     if meta.is_number(color) then
         color = rt.RGBA(color, g, b, a)
     else
-        meta.assert(color, rt.RGBA)
+        meta.typecheck(color, rt.RGBA)
     end
 
     self._frame_color = color

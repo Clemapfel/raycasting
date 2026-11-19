@@ -39,7 +39,7 @@ function rt.LCHTexture:instantiate(n_lightness_steps, n_chroma_steps, n_hue_step
         })
     end
 
-    meta.assert(
+    meta.typecheck(
         n_lightness_steps, mt.Number,
         n_chroma_steps, mt.Number,
         n_hue_steps, mt.Number

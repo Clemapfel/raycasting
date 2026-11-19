@@ -115,7 +115,7 @@ function rt.FluidSimulation:add(x, y, radius, color, config)
     config = config or table.deepcopy(self._default_config)
     color = color or config.color
 
-    meta.assert(
+    meta.typecheck(
         x, mt.Number,
         y, mt.Number,
         radius, mt.Number,
@@ -171,7 +171,7 @@ end
 --- @param batch_id number id of the batch to remove, acquired from rt.FluidSimulation.add
 --- @return nil
 function rt.FluidSimulation:remove(batch_id)
-    meta.assert(batch_id, mt.Number)
+    meta.typecheck(batch_id, mt.Number)
 
     local batch = self._batch_id_to_batch[batch_id]
     if batch == nil then
@@ -202,7 +202,7 @@ function rt.FluidSimulation:update(delta, step_delta, n_substeps, n_collision_st
     if n_substeps == nil then n_substeps = 2 end
     if n_collision_steps == nil then n_collision_steps = 3 end
 
-    meta.assert(
+    meta.typecheck(
         delta, mt.Number,
         step_delta, mt.Number,
         n_substeps, mt.Number,
@@ -255,13 +255,13 @@ end
 --- @param config table table of properties, see the readme for a list of valid properties
 function rt.FluidSimulation:set_config(batch_id, config)
     if config == nil then config = self._default_config end
-    meta.assert(batch_id, mt.Number, config, mt.Table)
+    meta.typecheck(batch_id, mt.Number, config, mt.Table)
     self:_load_config(batch_id, config)
 end
 
 --- @brief
 function rt.FluidSimulation:get_config(batch_id)
-    meta.assert(batch_id, mt.Number)
+    meta.typecheck(batch_id, mt.Number)
 
     local batch = self._batch_id_to_batch[batch_id]
     if batch == nil then
@@ -277,7 +277,7 @@ end
 --- @param x number x coordinate, in px
 --- @param y number y coordinate, in px
 function rt.FluidSimulation:set_target_position(batch_id, x, y)
-    meta.assert(batch_id, mt.Number, x, mt.Number, y, mt.Number)
+    meta.typecheck(batch_id, mt.Number, x, mt.Number, y, mt.Number)
 
     local batch = self._batch_id_to_batch[batch_id]
     if batch == nil then
@@ -292,7 +292,7 @@ end
 --- @brief get the target position a batch should move to
 --- @return number, number
 function rt.FluidSimulation:get_target_position(batch_id)
-    meta.assert(batch_id, mt.Number)
+    meta.typecheck(batch_id, mt.Number)
 
     local batch = self._batch_id_to_batch[batch_id]
     if batch == nil then
@@ -305,7 +305,7 @@ end
 
 --- @brief get average of all particle positions of a batch
 function rt.FluidSimulation:get_position(batch_id)
-    meta.assert(batch_id, mt.Number)
+    meta.typecheck(batch_id, mt.Number)
 
     local batch = self._batch_id_to_batch[batch_id]
     if batch == nil then
@@ -2326,7 +2326,7 @@ function rt.FluidSimulation:add(x, y, radius, color, config)
     config = config or table.deepcopy(self._default_config)
     color = color or config.color
 
-    meta.assert(
+    meta.typecheck(
         x, mt.Number,
         y, mt.Number,
         radius, mt.Number,
@@ -2380,7 +2380,7 @@ end
 --- @param batch_id number id of the batch to remove, acquired from rt.FluidSimulation.add
 --- @return nil
 function rt.FluidSimulation:remove(batch_id)
-    meta.assert(batch_id, mt.Number)
+    meta.typecheck(batch_id, mt.Number)
 
     local batch = self._batch_id_to_batch[batch_id]
     if batch == nil then
@@ -2411,7 +2411,7 @@ function rt.FluidSimulation:update(delta, step_delta, n_substeps, n_collision_st
     if n_substeps == nil then n_substeps = 2 end
     if n_collision_steps == nil then n_collision_steps = 3 end
 
-    meta.assert(
+    meta.typecheck(
         delta, mt.Number,
         step_delta, mt.Number,
         n_substeps, mt.Number,
@@ -2464,13 +2464,13 @@ end
 --- @param config table table of properties, see the readme for a list of valid properties
 function rt.FluidSimulation:set_config(batch_id, config)
     if config == nil then config = self._default_config end
-    meta.assert(batch_id, mt.Number, config, mt.Table)
+    meta.typecheck(batch_id, mt.Number, config, mt.Table)
     self:_load_config(batch_id, config)
 end
 
 --- @brief
 function rt.FluidSimulation:get_config(batch_id)
-    meta.assert(batch_id, mt.Number)
+    meta.typecheck(batch_id, mt.Number)
 
     local batch = self._batch_id_to_batch[batch_id]
     if batch == nil then
@@ -2486,7 +2486,7 @@ end
 --- @param x number x coordinate, in px
 --- @param y number y coordinate, in px
 function rt.FluidSimulation:set_target_position(batch_id, x, y)
-    meta.assert(batch_id, mt.Number, x, mt.Number, y, mt.Number)
+    meta.typecheck(batch_id, mt.Number, x, mt.Number, y, mt.Number)
 
     local batch = self._batch_id_to_batch[batch_id]
     if batch == nil then
@@ -2501,7 +2501,7 @@ end
 --- @brief get the target position a batch should move to
 --- @return number, number
 function rt.FluidSimulation:get_target_position(batch_id)
-    meta.assert(batch_id, mt.Number)
+    meta.typecheck(batch_id, mt.Number)
 
     local batch = self._batch_id_to_batch[batch_id]
     if batch == nil then
@@ -2514,7 +2514,7 @@ end
 
 --- @brief get average of all particle positions of a batch
 function rt.FluidSimulation:get_position(batch_id)
-    meta.assert(batch_id, mt.Number)
+    meta.typecheck(batch_id, mt.Number)
 
     local batch = self._batch_id_to_batch[batch_id]
     if batch == nil then

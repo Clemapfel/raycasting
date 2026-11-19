@@ -60,7 +60,7 @@ end
 
 --- @brief
 function rt.GranularSynth:initialize(grain_file, start_t, end_t)
-    meta.assert(grain_file, mt.String,
+    meta.typecheck(grain_file, mt.String,
         start_t, mt.Optional(mt.Number),
         end_t, mt.Optional(mt.Number)
     )
@@ -94,7 +94,7 @@ end
 
 --- @brief
 function rt.GranularSynth:set_density(density)
-    meta.assert(density, mt.Number)
+    meta.typecheck(density, mt.Number)
     self._config.density = density
     self._config.type = MessageType.CONFIG
     self._main_to_worker:push(self._config)
@@ -107,7 +107,7 @@ end
 
 --- @brief
 function rt.GranularSynth:set_overlap(overlap)
-    meta.assert(overlap, mt.Number)
+    meta.typecheck(overlap, mt.Number)
     if overlap < 0 then
         rt.error("In rt.GranularSynth:set_overlap: overlap `", overlap, "` cannot be negative")
     end
@@ -123,7 +123,7 @@ end
 
 --- @brief
 function rt.GranularSynth:set_frequency_jitter(jitter)
-    meta.assert(jitter, mt.Number)
+    meta.typecheck(jitter, mt.Number)
     self._config.frequency_jitter = jitter
     self._config.type = MessageType.CONFIG
     self._main_to_worker:push(self._config)
@@ -131,7 +131,7 @@ end
 
 --- @brief
 function rt.GranularSynth:set_pitch_jitter(jitter)
-    meta.assert(jitter, mt.Number)
+    meta.typecheck(jitter, mt.Number)
     self._config.pitch_jitter = jitter
     self._config.type = MessageType.CONFIG
     self._main_to_worker:push(self._config)
@@ -139,7 +139,7 @@ end
 
 --- @brief
 function rt.GranularSynth:set_start_position(start_position)
-    meta.assert(start_position, mt.Number)
+    meta.typecheck(start_position, mt.Number)
     self._config.start_position = start_position
     self._config.type = MessageType.CONFIG
     self._main_to_worker:push(self._config)
@@ -152,7 +152,7 @@ end
 
 --- @brief
 function rt.GranularSynth:set_end_position(end_position)
-    meta.assert(end_position, mt.Number)
+    meta.typecheck(end_position, mt.Number)
     self._config.end_position = end_position
     self._config.type = MessageType.CONFIG
     self._main_to_worker:push(self._config)
@@ -165,7 +165,7 @@ end
 
 --- @brief
 function rt.GranularSynth:set_volume(volume)
-    meta.assert(volume, mt.Number)
+    meta.typecheck(volume, mt.Number)
     self._config.volume = volume
     self._config.type = MessageType.CONFIG
     self._main_to_worker:push(self._config)

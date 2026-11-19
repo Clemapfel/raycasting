@@ -35,8 +35,8 @@ meta.add_signal(mn.MessageDialog,
 --- @param option1 vararg
 --- @signal selection (mn.MessageDialog, Unsigned) -> nil
 function mn.MessageDialog:instantiate(message, submessage, option1, ...)
-    meta.assert(message, mt.String, submessage, mt.String)
-    meta.assert_argument_type(option1, mn.MessageDialogOption, 3)
+    meta.typecheck(message, mt.String, submessage, mt.String)
+    meta.typecheck_arg_i(option1, mn.MessageDialogOption, 3)
 
     local default_option = 1
     local options = { option1, ... }
@@ -74,7 +74,7 @@ function mn.MessageDialog:instantiate(message, submessage, option1, ...)
 
     self._n_buttons = 0
     for i, option in ipairs(self._options) do
-        meta.assert_argument_type(option, mn.MessageDialogOption, 2 + i)
+        meta.typecheck_arg_i(option, mn.MessageDialogOption, 2 + i)
         if option == mn.MessageDialogOption.CANCEL then
             self._selected_item_i = i
         end
@@ -274,7 +274,7 @@ end
 --- @brief
 function mn.MessageDialog:set_message(message, submessage, justify)
     if submessage == nil then submessage = self._submessage end
-    meta.assert(message, mt.String, submessage, mt.String)
+    meta.typecheck(message, mt.String, submessage, mt.String)
     if justify ~= nil then self._message_label:set_justify_mode(justify) end
     self._message_label:set_text(message)
 
@@ -290,7 +290,7 @@ end
 
 --- @brief
 function mn.MessageDialog:set_submessage(submessage, justify)
-    meta.assert(submessage, mt.String)
+    meta.typecheck(submessage, mt.String)
     if justify ~= nil then self._submessage_label:set_justify_mode(justify) end
     self._submessage_label:set_text(submessage)
     if self._is_realized then
@@ -321,7 +321,7 @@ end
 
 --- @brief
 function mn.MessageDialog:set_default_option(option)
-    meta.assert(option, mn.MessageDialogOption)
+    meta.typecheck(option, mn.MessageDialogOption)
 
     for i, other in ipairs(self._options) do
         if option == other then

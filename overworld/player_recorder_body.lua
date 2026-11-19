@@ -19,7 +19,7 @@ local _settings = rt.settings.overworld.player_recorder_body
 
 --- @brief
 function ow.PlayerRecorderBody:instantiate(scene, stage)
-    meta.assert(
+    meta.typecheck(
         scene, ow.OverworldScene,
         stage, ow.Stage
     )
@@ -327,7 +327,7 @@ end
 
 --- @brief
 function ow.PlayerRecorderBody:set_is_bubble(is_bubble)
-    meta.assert(is_bubble, mt.Boolean)
+    meta.typecheck(is_bubble, mt.Boolean)
     self._is_bubble = is_bubble
 
     self._bubble_body:set_is_enabled(false)

@@ -151,7 +151,7 @@ end
 
 --- @brief
 function rt.DirectionIndicator:set_color(color)
-    meta.assert(color, rt.RGBA)
+    meta.typecheck(color, rt.RGBA)
     self._color = color
     self._arrow:set_color(self._color)
     self._ring:set_color(self._color)

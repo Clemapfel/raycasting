@@ -67,7 +67,7 @@ local _data_mesh_format = {
 
 --- @brief
 function ow.NebulaBackground:instantiate(scene)
-    meta.assert(scene, ow.OverworldScene)
+    meta.typecheck(scene, ow.OverworldScene)
     self._scene = scene
 end
 

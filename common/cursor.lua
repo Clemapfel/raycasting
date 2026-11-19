@@ -19,7 +19,7 @@ end
 
 --- @brief
 function rt.Cursor:set_type(type)
-    meta.assert_argument_type(type, rt.CursorType, 1)
+    meta.typecheck_arg_i(type, rt.CursorType, 1)
     self._type = type
 end
 

@@ -387,7 +387,7 @@ end
 function ow.OverworldScene:enter(stage_id, entry_mode, should_reinitialize)
     if not self:get_is_active() or should_reinitialize then
         if entry_mode == nil then entry_mode = ow.StageEntryMode.INSTANT end
-        meta.assert(stage_id, meta.String, entry_mode, ow.StageEntryMode)
+        meta.typecheck(stage_id, meta.String, entry_mode, ow.StageEntryMode)
 
         self:set_stage(stage_id, entry_mode)
     end
@@ -1028,7 +1028,7 @@ end
 
 --- @brief
 function ow.OverworldScene:get_screenshot(draw_player, bounds)
-    meta.assert(draw_player, mt.Boolean, bounds, mt.Optional(rt.AABB))
+    meta.typecheck(draw_player, mt.Boolean, bounds, mt.Optional(rt.AABB))
 
     if bounds ~= nil then
         self._stage:set_visible_area(bounds)
@@ -1097,13 +1097,13 @@ do
 
     --- @brief
     function ow.OverworldScene:push_camera_mode(mode)
-        meta.assert(mode, ow.CameraMode)
+        meta.typecheck(mode, ow.CameraMode)
         self._camera_modes[mode] = self._camera_modes[mode] + 1
     end
 
     --- @brief
     function ow.OverworldScene:pop_camera_mode(mode)
-        meta.assert(mode, ow.CameraMode)
+        meta.typecheck(mode, ow.CameraMode)
         self._camera_modes[mode] = math.max(0, self._camera_modes[mode] - 1)
     end
 
@@ -1307,7 +1307,7 @@ end
 
 --- @brief
 function ow.OverworldScene:set_control_indicator_type(type)
-    meta.assert(type, ow.ControlIndicatorType)
+    meta.typecheck(type, ow.ControlIndicatorType)
     self._control_indicator_type = type
 end
 

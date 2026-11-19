@@ -137,7 +137,7 @@ end
 --- @brief
 function rt.MusicManager:play(id, skip_fade)
     if skip_fade == nil then skip_fade = false end
-    meta.assert(
+    meta.typecheck(
         id, mt.String,
         skip_fade, mt.Boolean
     )
@@ -152,7 +152,7 @@ end
 --- @brief
 function rt.MusicManager:stop(reset_to_loop_or_file)
     if reset_to_loop_or_file == nil then reset_to_loop_or_file = true end
-    meta.assert(reset_to_loop_or_file, mt.Boolean)
+    meta.typecheck(reset_to_loop_or_file, mt.Boolean)
     if self._a.source == nil and self._b.source == nil then return end
 
     self._pause_motion:set_target_value(0)
@@ -194,13 +194,13 @@ end
 
 --- @brief
 function rt.MusicManager:add_effect(effect)
-    meta.assert(effect, rt.SoundEffect)
+    meta.typecheck(effect, rt.SoundEffect)
     self:add_effect_native(effect:get_native())
 end
 
 --- @brief
 function rt.MusicManager:add_effect_native(effect)
-    meta.assert(effect, mt.String)
+    meta.typecheck(effect, mt.String)
 
     self._sound_effects[effect] = true
     self._sound_effects_need_update = true
@@ -208,7 +208,7 @@ end
 
 --- @brief
 function rt.MusicManager:remove_effect(effect)
-    meta.assert(effect, rt.SoundEffect)
+    meta.typecheck(effect, rt.SoundEffect)
 
     local was_removed = self._sound_effects[effect] == true
     self._sound_effects[effect] = nil
@@ -220,7 +220,7 @@ end
 
 --- @brief
 function rt.MusicManager:set_filter(t)
-    meta.assert(t, mt.Number)
+    meta.typecheck(t, mt.Number)
 
     t = math.clamp(t, 0, 1)
     self._filter_motion:set_target_value(t)
@@ -233,13 +233,13 @@ end
 
 --- @brief
 function rt.MusicManager:set_volume(volume)
-    meta.assert(volume, mt.Number)
+    meta.typecheck(volume, mt.Number)
     self._volume_motion:set_target_value(volume)
 end
 
 --- @brief
 function rt.MusicManager:set_pitch(pitch)
-    meta.assert(pitch, mt.Number)
+    meta.typecheck(pitch, mt.Number)
 
     pitch = math.max(pitch, 0)
     self._pitch_motion:set_target_value(pitch)
@@ -323,7 +323,7 @@ function rt.MusicManager:_apply_state(entry)
 end
 
 function rt.MusicManager:update(delta)
-    meta.assert(delta, mt.Number)
+    meta.typecheck(delta, mt.Number)
 
     if _skip_next_delta then _skip_next_delta = false; return end
 

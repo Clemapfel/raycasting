@@ -44,7 +44,7 @@ local _atlas = {}
 --- @param draw_mask_callback Function () -> nil
 function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback)
     id = tostring(id)
-    meta.assert(id, mt.String, get_triangles_callback, mt.Function, draw_mask_callback, mt.Function)
+    meta.typecheck(id, mt.String, get_triangles_callback, mt.Function, draw_mask_callback, mt.Function)
 
     self._start_time = love.timer.getTime()
 
@@ -94,6 +94,8 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
         if not meta.typeof(input_triangles, mt.Table) then
             rt.error("In ow.NormalMap: `get_triangles_callback` does not return a tables of arrays")
         end
+
+        if #input_triangles == 0 then return end
 
         for tri in values(input_triangles) do -- both
             table.insert(tris, tri)
@@ -530,7 +532,7 @@ function ow.NormalMap:draw_light(
 )
     if rt.GameState:get_is_dynamic_lighting_enabled() == false or _is_disabled then return end
 
-    meta.assert(
+    meta.typecheck(
         camera, rt.Camera
     )
 
@@ -598,7 +600,7 @@ end
 function ow.NormalMap:draw_shadow(camera)
     if _is_disabled then return end
 
-    meta.assert(camera, rt.Camera)
+    meta.typecheck(camera, rt.Camera)
 
     if self._is_visible == false or not self._computation_started then return end
 

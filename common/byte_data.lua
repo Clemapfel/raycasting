@@ -50,7 +50,7 @@ rt.ByteData._format_to_getter_setter = {
 
 --- @param count_or_table_or_native Union<Number, Table, love.ByteData>
 function rt.ByteData:instantiate(format, count_or_table_or_native)
-    meta.assert_argument_type(format, rt.ByteDataFormat, 1)
+    meta.typecheck_arg_i(format, rt.ByteDataFormat, 1)
     local should_fill = false
 
     if meta.is_userdata(count_or_table_or_native)
@@ -77,7 +77,7 @@ end
 
 --- @brief
 function rt.ByteData:cast(format)
-    meta.assert_argument_type(format, rt.ByteDataFormat, 1)
+    meta.typecheck_arg_i(format, rt.ByteDataFormat, 1)
     self._format = format
     self._stride = rt.ByteData.format_to_n_bytes(format)
 
@@ -113,7 +113,7 @@ if ffi ~= nil then
 
     --- @brief
     function rt.ByteData:replace_data(data)
-        meta.assert(data, mt.Table)
+        meta.typecheck(data, mt.Table)
 
         local max_n = self._native:getSize() / rt.ByteData.format_to_n_bytes(self._format)
         rt.assert(#data <= max_n, "In rt.ByteData.replace_data: data has `", #data, "` entries, but byte data cast as `", self._format,"` only has `", max_n, "` fields")
@@ -141,7 +141,7 @@ else
 
     --- @brief
     function rt.ByteData:replace_data(data)
-        meta.assert(data, mt.Table)
+        meta.typecheck(data, mt.Table)
 
         local max_n = self._native:getSize() / rt.ByteData.format_to_n_bytes(self._format)
         rt.assert(#data <= max_n, "In rt.ByteData.replace_data: data has `", #data, "` entries, but byte data cast as `", self._format,"` only has `", max_n, "` fields")

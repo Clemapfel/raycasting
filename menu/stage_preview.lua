@@ -293,7 +293,7 @@ end
 
 --- @brief
 function mn.StagePreview:set_color(color)
-    meta.assert(color, rt.RGBA)
+    meta.typecheck(color, rt.RGBA)
     self._color = color
     self:reformat() -- update canvas
 end

@@ -44,9 +44,9 @@ local _math_wrap = math.wrap
 local _math_eps = math.eps
 local _math_inf = math.huge
 
-local _table_new = table_new
-local _table_push = table_push
-local _table_clear = table_clear
+local _table_new = function(n) return table.new(n, 0) end
+local _table_push = table.insert
+local _table_clear = table.clear
 
 local _x_offset = 0
 local _y_offset = 1
@@ -100,7 +100,7 @@ function rt.Softbody:instantiate(...)
 end
 
 function rt.Softbody:initialize(center_x, center_y, radius, n_contour_nodes)
-    meta.assert(
+    meta.typecheck(
         center_x, mt.Number,
         center_y, mt.Number,
         radius, mt.Number,
@@ -232,7 +232,7 @@ function rt.Softbody:is_initialized()
 end
 
 function rt.Softbody:set_collision_contours(contours)
-    meta.assert(contours, mt.Table)
+    meta.typecheck(contours, mt.Table)
 
     local eps_squared = _math_eps * _math_eps
     local abs = math.abs
@@ -240,7 +240,7 @@ function rt.Softbody:set_collision_contours(contours)
 
     for i = 1, #contours do
         local contour = contours[i]
-        meta.assert_argument_type(contour, rt.Polyline, i)
+        meta.typecheck_arg_i(contour, rt.Polyline, i)
 
         local closed_contour = contour:close()
         local n_corners = closed_contour:get_n_nodes()
@@ -304,7 +304,7 @@ function rt.Softbody:set_collision_contours(contours)
 end
 
 function rt.Softbody:get_contour()
-    meta.assert(self, rt.Softbody)
+    meta.typecheck(self, rt.Softbody)
 
     local contour = _table_new(2 * self.n_particles)
     local data = self.particles
@@ -981,7 +981,7 @@ do -- rt.Softbody:update
     end
 
     function rt.Softbody:update(delta_in)
-        meta.assert(delta_in, mt.Number)
+        meta.typecheck(delta_in, mt.Number)
 
         local timestep = _settings_timestep
         local sub_delta = timestep / _settings_n_sub_steps
@@ -1312,18 +1312,18 @@ end
 -- volume
 
 function rt.Softbody:set_target_volume(fraction) -- fraction
-    meta.assert(fraction, mt.Number)
+    meta.typecheck(fraction, mt.Number)
     self.volume_multiplier = fraction
     self.volume_lambda = 0
 end
 
 function rt.Softbody:get_target_volume()
-    meta.assert(self, rt.Softbody)
+    meta.typecheck(self, rt.Softbody)
     return self.volume_multiplier
 end
 
 function rt.Softbody:set_gravity(dx, dy)
-    meta.assert(dx, mt.Number, dy, mt.Number)
+    meta.typecheck(dx, mt.Number, dy, mt.Number)
     self.gravity_x, self.gravity_y = dx, dy
 end
 
@@ -1337,7 +1337,7 @@ end
 -- linear
 
 function rt.Softbody:add_linear_force(dx, dy)
-    meta.assert(dx, mt.Number, dy, mt.Number)
+    meta.typecheck(dx, mt.Number, dy, mt.Number)
     local magnitude = math.magnitude(dx, dy)
     if magnitude <= _math_eps then
         return
@@ -1355,12 +1355,12 @@ end
 
 function rt.Softbody:remove_linear_force(hash)
     if hash == nil then return end
-    meta.assert(hash, mt.Number)
+    meta.typecheck(hash, mt.Number)
     self.linear_forces[hash] = nil
 end
 
 function rt.Softbody:add_linear_impulse(dx, dy)
-    meta.assert(dx, mt.Number, dy, mt.Number)
+    meta.typecheck(dx, mt.Number, dy, mt.Number)
     local magnitude = math.magnitude(dx, dy)
     if magnitude > _math_eps then
         dx, dy = math.normalize(dx, dy)
@@ -1376,14 +1376,14 @@ end
 
 function rt.Softbody:remove_linear_impulse(hash)
     if hash == nil then return end
-    meta.assert(hash, mt.Number)
+    meta.typecheck(hash, mt.Number)
     self.linear_impulses[hash] = nil
 end
 
 -- rotation
 
 function rt.Softbody:add_angular_force(torque)
-    meta.assert(torque, mt.Number)
+    meta.typecheck(torque, mt.Number)
     if torque ~= 0 then
         local id = _get_hash()
         self.angular_forces[id] = {
@@ -1395,12 +1395,12 @@ end
 
 function rt.Softbody:remove_angular_force(hash)
     if hash == nil then return end
-    meta.assert(hash, mt.Number)
+    meta.typecheck(hash, mt.Number)
     self.angular_forces[hash] = nil
 end
 
 function rt.Softbody:add_angular_impulse(angular_impulse)
-    meta.assert(angular_impulse, mt.Number)
+    meta.typecheck(angular_impulse, mt.Number)
     if angular_impulse ~= 0 then
         local id = _get_hash()
         self.angular_impulses[id] = {
@@ -1412,14 +1412,14 @@ end
 
 function rt.Softbody:remove_angular_impulse(hash)
     if hash == nil then return end
-    meta.assert(hash, mt.Number)
+    meta.typecheck(hash, mt.Number)
     self.angular_impulses[hash] = nil
 end
 
 -- mode
 
 function rt.Softbody:set_constraint_mode(mode)
-    meta.assert(self, rt.Softbody)
+    meta.typecheck(self, rt.Softbody)
     rt.assert(
         mode == rt.SoftbodyConstraintMode.SOLID or mode == rt.SoftbodyConstraintMode.LIQUID,
         "In rt.Softbody.set_constraint_mode: invalid constraint mode"
@@ -1429,28 +1429,28 @@ function rt.Softbody:set_constraint_mode(mode)
 end
 
 function rt.Softbody:get_constraint_mode()
-    meta.assert(self, rt.Softbody)
+    meta.typecheck(self, rt.Softbody)
 
     return self.constraint_mode
 end
 
 function rt.Softbody:get_centroid()
-    meta.assert(self, rt.Softbody)
+    meta.typecheck(self, rt.Softbody)
     return self.centroid_x, self.centroid_y
 end
 
 function rt.Softbody:set_anchor(x, y)
-    meta.assert(x, mt.Number, y, mt.Number)
+    meta.typecheck(x, mt.Number, y, mt.Number)
     self.anchor_x, self.anchor_y = x, y
 end
 
 function rt.Softbody:set_is_anchored(b)
-    meta.assert(b, mt.Boolean)
+    meta.typecheck(b, mt.Boolean)
     self.anchor_active = b
 end
 
 function rt.Softbody:clear_forces()
-    meta.assert(self, rt.Softbody)
+    meta.typecheck(self, rt.Softbody)
 
     -- clear pending impulses and persistent forces
     for id in pairs(self.linear_impulses) do
@@ -1480,7 +1480,7 @@ function rt.Softbody:clear_forces()
 end
 
 function rt.Softbody:set_friction(static_friction, kinetic_friction)
-    meta.assert(static_friction, mt.Number, kinetic_friction, mt.Number)
+    meta.typecheck(static_friction, mt.Number, kinetic_friction, mt.Number)
     rt.assert(static_friction >= 0 and kinetic_friction >= 0, "In rt.Softbody.set_friction: coefficients must be non-negative")
     self.static_friction = static_friction
     self.kinetic_friction = math.min(kinetic_friction, static_friction)

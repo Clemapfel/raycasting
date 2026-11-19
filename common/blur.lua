@@ -32,7 +32,7 @@ end
 
 --- @brief
 function rt.Blur:instantiate(width, height, settings)
-    meta.assert(width, mt.Number, height, mt.Number, settings, mt.Optional(mt.Table))
+    meta.typecheck(width, mt.Number, height, mt.Number, settings, mt.Optional(mt.Table))
 
     free(self._texture_a, self._texture_b)
     return meta.install(self, {
@@ -81,7 +81,7 @@ end
 
 --- @brief
 function rt.Blur:set_blur_strength(strength)
-    meta.assert(strength, mt.Number)
+    meta.typecheck(strength, mt.Number)
     strength = math.ceil(math.max(strength, 0))
 
     if self._blur_strength ~= strength then
@@ -97,7 +97,7 @@ end
 
 --- @brief
 function rt.Blur:set_flush_manually(b)
-    meta.assert(b, mt.Boolean)
+    meta.typecheck(b, mt.Boolean)
     self._flush_manually = b
 end
 

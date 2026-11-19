@@ -329,13 +329,13 @@ end
 
 --- @brief
 function ow.AirDashNodeParticle:set_aligned(is_aligned, normal_x, normal_y, normal_z)
-    meta.assert(is_aligned, mt.Boolean)
+    meta.typecheck(is_aligned, mt.Boolean)
     self._is_aligned = is_aligned
 
     if is_aligned == true then
-        meta.assert(normal_x, mt.Number)
-        meta.assert(normal_y, mt.Number)
-        meta.assert(normal_z, mt.Number)
+        meta.typecheck(normal_x, mt.Number)
+        meta.typecheck(normal_y, mt.Number)
+        meta.typecheck(normal_z, mt.Number)
 
         self._target_normal_x = normal_x
         self._target_normal_y = normal_y
@@ -348,13 +348,13 @@ end
 
 --- @brief
 function ow.AirDashNodeParticle:set_brightness_offset(t)
-    meta.assert(t, mt.Number)
+    meta.typecheck(t, mt.Number)
     self._brightness_offset = t
 end
 
 --- @brief
 function ow.AirDashNodeParticle:set_scale_offset(t)
-    meta.assert(t, mt.Number)
+    meta.typecheck(t, mt.Number)
     self._scale_offset = t
 end
 
@@ -462,7 +462,7 @@ function ow.AirDashNodeParticle:set_use_axis(b, nx, ny, nz)
     nx = nx or 0
     ny = ny or 0
     nz = nz or 0
-    meta.assert(b, mt.Boolean, nx, mt.Number, ny, mt.Number, nz, mt.Number)
+    meta.typecheck(b, mt.Boolean, nx, mt.Number, ny, mt.Number, nz, mt.Number)
     self._use_static_axis = b
     self._static_axis_x, self._static_axis_y, self._static_axis_z = nx, ny, nz
 end

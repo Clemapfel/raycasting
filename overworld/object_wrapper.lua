@@ -63,7 +63,7 @@ end
 
 --- @brief
 function ow.ObjectWrapper:instantiate(type, id, scope)
-    meta.assert(type, mt.String, id, mt.Number, scope, mt.String)
+    meta.typecheck(type, mt.String, id, mt.Number, scope, mt.String)
     local class = nil
     if type ~= "" then class = type end
     meta.install(self, {
@@ -522,7 +522,7 @@ end
 
 --- @brief
 function ow.ObjectWrapper:create_physics_body(world, type, is_sensor)
-    meta.assert(world, b2.World)
+    meta.typecheck(world, b2.World)
     if type == nil then
         type = self:get_string("physics_body_type") or self:get_physics_body_type()
     elseif self._should_be_kinematic and type == b2.BodyType.STATIC then
@@ -727,6 +727,12 @@ function ow.ObjectWrapper:_initialize_contour_prototype()
         self.contour[i] = _align(self.contour[i])
     end
 
+    if #self.contour >= 6 then
+        self.contour = rt.Polyline(self.contour)
+            :set_winding(rt.PolylineWinding.CLOCKWISE)
+            :get_vertices()
+    end
+
     local centroid_x = self.physics_body_x
     local centroid_y = self.physics_body_y
 
@@ -906,7 +912,7 @@ local _default_schema = {
 
 --- @brief
 function ow.ObjectWrapper:validate_schema(schema, ...)
-    meta.assert(schema, mt.Schema)
+    meta.typecheck(schema, mt.Schema)
     if select("#", ...) <= 0 then rt.error("In ow.ObjectWrapper.validate_schema: argument #2 is nil, no shape type provided") end
 
     for k, v in pairs(_default_schema) do schema[k] = v end

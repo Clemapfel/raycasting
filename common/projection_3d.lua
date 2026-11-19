@@ -72,14 +72,14 @@ end
 
 --- @brief
 function rt.Projection3D:set_projection_type(type)
-    meta.assert(type, rt.ProjectionType)
+    meta.typecheck(type, rt.ProjectionType)
     self._projection_type = type
     if self._is_bound then self:_bind_transforms() end
 end
 
 --- @brief
 function rt.Projection3D:set_view_transform(transform)
-    meta.assert(transform, rt.Transform)
+    meta.typecheck(transform, rt.Transform)
     self._view = transform
     if self._is_bound then self:_bind_transforms() end
 end
@@ -92,7 +92,7 @@ end
 
 --- @brief
 function rt.Projection3D:set_model_transform(transform)
-    meta.assert(transform, rt.Transform)
+    meta.typecheck(transform, rt.Transform)
     self._model = transform
     if self._is_bound then self:_bind_transforms() end
 end

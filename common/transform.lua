@@ -18,7 +18,7 @@ end
 
 --- @brief apply another transform to this one
 function rt.Transform:apply(other)
-    meta.assert(other, rt.Transform)
+    meta.typecheck(other, rt.Transform)
     self._native:apply(other._native)
     return self
 end
@@ -49,7 +49,7 @@ end
 
 --- @brief
 function rt.Transform:translate(...)
-    meta.assert(
+    meta.typecheck(
         select(1, ...), meta.Number,
         select(2, ...), meta.Number,
         select(3, ...), meta.Optional(meta.Number)

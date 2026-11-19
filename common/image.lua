@@ -17,7 +17,7 @@ function rt.Image:instantiate(width_or_userdata, height, format)
     require "common.debugger"
     if meta.is_userdata(width_or_userdata) then
         local userdata = width_or_userdata
-        meta.assert(
+        meta.typecheck(
             userdata, mt.UserData,
             height, mt.Nil,
             format, mt.Nil
@@ -28,7 +28,7 @@ function rt.Image:instantiate(width_or_userdata, height, format)
     else
         local width = width_or_userdata
         if format == nil then format = rt.TextureFormat.NORMAL end
-        meta.assert(
+        meta.typecheck(
             width, mt.Number,
             height, mt.Number,
             format, rt.TextureFormat
@@ -79,7 +79,7 @@ end
 --- @brief
 function rt.Image:save_to_file(path, encoding_format)
     if encoding_format == nil then encoding_format = rt.ImageEncodingFormat.PNG end
-    meta.assert(path, mt.String, encoding_format, rt.ImageEncodingFormat)
+    meta.typecheck(path, mt.String, encoding_format, rt.ImageEncodingFormat)
     self._native:encode(encoding_format, path)
 end
 

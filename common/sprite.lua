@@ -22,7 +22,7 @@ function rt.Sprite:instantiate(path, n_columns, n_rows, border_x, border_y)
     if border_x == nil then border_x = 0 end
     if border_y == nil then border_y = border_x end
 
-    meta.assert(
+    meta.typecheck(
         path, mt.String,
         n_columns, mt.Number,
         n_rows, mt.Number,

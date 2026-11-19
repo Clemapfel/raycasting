@@ -56,7 +56,7 @@ end
 function rt.VoronoiTesselation:generate_seeds(
     origin_x, origin_y, tl_x, tl_y, tr_x, tr_y, br_x, br_y, bl_x, bl_y
 )
-    meta.assert(
+    meta.typecheck(
         origin_x, mt.Number, origin_y, mt.Number,
         tl_x, mt.Number, tl_y, mt.Number,
         tr_x, mt.Number, tr_y, mt.Number,

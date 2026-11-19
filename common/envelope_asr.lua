@@ -18,7 +18,7 @@ function rt.EnvelopeASR:instantiate(attack, release, attack_shape, release_shape
     if attack_shape == nil then attack_shape = rt.EnvelopeCurve.LINEAR end
     if release_shape == nil then release_shape = rt.EnvelopeCurve.LINEAR end
 
-    meta.assert(
+    meta.typecheck(
         attack, mt.Number,
         release, mt.Number,
         attack_shape, rt.EnvelopeCurve,

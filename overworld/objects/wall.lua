@@ -51,7 +51,7 @@ function ow.Wall:instantiate(object, stage, scene)
 
     local pattern = object:get_string("pattern") or ow.WallPatternType.FLAT
     self._pattern = string.upper(pattern)
-    meta.assert(self._pattern, ow.WallPatternType)
+    meta.typecheck(self._pattern, ow.WallPatternType)
 
     local texture = _pattern_type_to_texture[self._pattern]
     local mesh = self._mesh

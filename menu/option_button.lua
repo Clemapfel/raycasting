@@ -26,7 +26,7 @@ function mn.OptionButton:instantiate(...)
     end
 
     for i, value in ipairs(options) do
-        meta.assert_argument_type(value, mt.String, i)
+        meta.typecheck_arg_i(value, mt.String, i)
     end
 
     meta.install(self, {
@@ -161,7 +161,7 @@ end
 
 --- @brief
 function mn.OptionButton:update(delta)
-    meta.assert(delta, mt.Number)
+    meta.typecheck(delta, mt.Number)
     local target_offset = self._items[self._current_item_i].offset
 
     local offset = delta * rt.settings.menu.option_button.scroll_speed
@@ -243,7 +243,7 @@ end
 
 --- @brief
 function mn.OptionButton:set_option(i_or_text)
-    meta.assert(i_or_text, mt.Union(mt.Number, mt.String))
+    meta.typecheck(i_or_text, mt.Union(mt.Number, mt.String))
 
     if meta.is_number(i_or_text) then
         local i = i_or_text
@@ -255,7 +255,7 @@ function mn.OptionButton:set_option(i_or_text)
         self._current_item_i = i
         self:_emit_selection()
     else
-        meta.assert(i_or_text, mt.String)
+        meta.typecheck(i_or_text, mt.String)
         local text = i_or_text
         local new_i = self._item_label_to_item_i[text]
         if new_i == nil then

@@ -67,13 +67,13 @@ function rt.RenderTexture:instantiate(width, height, settings)
     if settings == nil then
         settings = _default_settings
     else
-        meta.assert_argument_type(settings, mt.Table, 3)
+        meta.typecheck_arg_i(settings, mt.Table, 3)
         for key, value in pairs(_default_settings) do
             if settings[key] == nil then settings[key] = value end
         end
     end
 
-    meta.assert(width, mt.Number, height, mt.Number, settings, mt.Table)
+    meta.typecheck(width, mt.Number, height, mt.Number, settings, mt.Table)
     _schema:validate(settings)
     rt.assert(width > 0 and not math.is_nan(width), "In rt.RenderTexture.instantiate: width `", width, "` is not a positive non-zero integer")
     rt.assert(height > 0 and not math.is_nan(height), "In rt.RenderTexture.instantiate: height `", height, "` is not a positive non-zero integer")
@@ -146,7 +146,7 @@ end
 function rt.Texture:set_scale_mode(mode, other, anisotropy)
     if other == nil then other = mode end
 
-    meta.assert(
+    meta.typecheck(
         mode, rt.TextureScaleMode,
         other, rt.TextureScaleMode,
         anisotropy, mt.Optional(mt.Number)
@@ -167,7 +167,7 @@ function rt.Texture:set_wrap_mode(mode_x, mode_y, mode_z)
     if mode_y == nil then mode_y = mode_x end
     if mode_z == nil then mode_z = mode_y end
 
-    meta.assert(
+    meta.typecheck(
         mode_x, rt.TextureWrapMode,
         mode_y, rt.TextureWrapMode,
         mode_z, rt.TextureWrapMode
@@ -204,7 +204,7 @@ function rt.RenderTexture:bind(array_layer_i)
     if self._type == rt.TextureType.ARRAY
         or self._type == rt.TextureType.VOLUME
     then
-        meta.assert(array_layer_i, mt.Number)
+        meta.typecheck(array_layer_i, mt.Number)
         to_bind = {
             self._native,
             layer = array_layer_i
@@ -243,6 +243,6 @@ end
 
 --- @brief
 function rt.RenderTexture:replace_data(image)
-    meta.assert(image, rt.Image)
+    meta.typecheck(image, rt.Image)
     self._native:replacePixels(image:get_native())
 end

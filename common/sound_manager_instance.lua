@@ -250,7 +250,7 @@ end
 
 --- @brief
 function rt.SoundManager:_play_internal(id, config, handler_id)
-    meta.assert(id, mt.String, config, mt.Optional(mt.Table))
+    meta.typecheck(id, mt.String, config, mt.Optional(mt.Table))
 
     if config == nil then config = {} end
 
@@ -552,14 +552,14 @@ end
 
 --- @brief
 function rt.SoundManager:set_global_volume(value)
-    meta.assert(value, mt.Number)
+    meta.typecheck(value, mt.Number)
     self._volume = value
     -- applied next update
 end
 
 --- @brief
 function rt.SoundManager:list_active_handler_ids(sound_id)
-    meta.assert(sound_id, mt.Optional(mt.String))
+    meta.typecheck(sound_id, mt.Optional(mt.String))
 
     local result = {}
     for handler_id, entry in pairs(self._handler_id_to_entry) do
@@ -573,7 +573,7 @@ end
 
 --- @brief
 function rt.SoundManager:has_handler_id(handler_id)
-    meta.assert(handler_id, mt.Number)
+    meta.typecheck(handler_id, mt.Number)
 
     return self._handler_id_to_entry[handler_id] ~= nil
 end
@@ -583,7 +583,7 @@ function rt.SoundManager:set_player_position(x, y)
     if x == nil then x = 0 end
     if y == nil then y = 0 end
 
-    meta.assert(x, mt.Number, y, mt.Number)
+    meta.typecheck(x, mt.Number, y, mt.Number)
 
     self._listener_x, self._listener_y = x, y
     love.audio.setPosition(
@@ -631,7 +631,7 @@ end
 
 --- @brief
 function rt.SoundManager:set_position(handler_id, x, y)
-    meta.assert(
+    meta.typecheck(
         handler_id, mt.Number,
         x, mt.Optional(mt.Number),
         y, mt.Optional(mt.Number)
@@ -653,7 +653,7 @@ end
 
 --- @brief
 function rt.SoundManager:set_volume(handler_id, volume)
-    meta.assert(handler_id, mt.Number, volume, mt.Number)
+    meta.typecheck(handler_id, mt.Number, volume, mt.Number)
 
     local entry = self:_get_entry(handler_id)
     if entry == nil then return false end
@@ -664,7 +664,7 @@ end
 
 --- @brief
 function rt.SoundManager:set_filter(handler_id, t)
-    meta.assert(handler_id, mt.Number, t, mt.Number)
+    meta.typecheck(handler_id, mt.Number, t, mt.Number)
 
     local entry = self:_get_entry(handler_id)
     if entry == nil then return false end
@@ -680,7 +680,7 @@ end
 
 --- @brief
 function rt.SoundManager:remove_filter(handler_id)
-    meta.assert(handler_id, mt.Number)
+    meta.typecheck(handler_id, mt.Number)
 
     local entry = self:_get_entry(handler_id)
     if entry == nil then return false end
@@ -691,7 +691,7 @@ end
 
 --- @brief
 function rt.SoundManager:add_effect(handler_id, effect)
-    meta.assert(handler_id, mt.Number, effect, mt.Union(mt.String, rt.SoundEffect))
+    meta.typecheck(handler_id, mt.Number, effect, mt.Union(mt.String, rt.SoundEffect))
 
     local entry = self:_get_entry(handler_id)
     if entry == nil then return false end
@@ -709,7 +709,7 @@ end
 
 --- @brief
 function rt.SoundManager:remove_effect(handler_id, effect)
-    meta.assert(handler_id, mt.Number, effect, mt.Union(mt.String, rt.SoundEffect))
+    meta.typecheck(handler_id, mt.Number, effect, mt.Union(mt.String, rt.SoundEffect))
 
     local entry = self:_get_entry(handler_id)
     if entry == nil then return false end
@@ -728,7 +728,7 @@ end
 --- @brief
 function rt.SoundManager:stop(...)
     for i = 1, select("#", ...) do
-        meta.assert_argument_type(select(i, ...), mt.Union(mt.Number, mt.Nil))
+        meta.typecheck_arg_i(select(i, ...), mt.Union(mt.Number, mt.Nil))
     end
 
     local success = false
@@ -752,7 +752,7 @@ end
 
 --- @brief
 function rt.SoundManager:get_duration(id, degree)
-    meta.assert(id, mt.String, degree, mt.Optional(mt.Any))
+    meta.typecheck(id, mt.String, degree, mt.Optional(mt.Any))
 
     local degrees = self._id_to_degrees[id]
     if degree == nil and degrees ~= nil and not table.is_empty(degrees) then
@@ -901,7 +901,7 @@ end
 
 --- @brief
 function rt.SoundManager:update(delta)
-    meta.assert(delta, mt.Number)
+    meta.typecheck(delta, mt.Number)
 
     self._pause_volume_motion:update(delta)
     self._volume_motion:update(delta)

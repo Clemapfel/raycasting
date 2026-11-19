@@ -62,7 +62,7 @@ local _animalese
 
 --- @brief
 function ow.DialogBox:instantiate(id)
-    meta.assert(id, mt.String)
+    meta.typecheck(id, mt.String)
     self._id = id
     self._config = rt.Dialog[id]
 
@@ -207,7 +207,7 @@ function ow.DialogBox:realize()
         end
 
         node.gender = node_entry[gender_key]
-        meta.assert(node.gender, rt.AnimaleseGender)
+        meta.typecheck(node.gender, rt.AnimaleseGender)
 
         local animalese_factor = rt.settings.animalese.scroll_speed_factor
         local event_maps = {}
@@ -1044,7 +1044,7 @@ end
 --- @brief
 --- @param render_callback Function (width, height) -> nil
 function ow.DialogBox:register_speaker_frame(speaker_id, render_callback)
-    meta.assert(speaker_id, mt.String, render_callback, mt.Function)
+    meta.typecheck(speaker_id, mt.String, render_callback, mt.Function)
 
     local seen = false
     for node in values(self._id_to_node) do

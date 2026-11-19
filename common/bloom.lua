@@ -259,7 +259,7 @@ end
 
 --- @brief
 function rt.Bloom:set_should_flush_manually(b)
-    meta.assert(b, mt.Boolean)
+    meta.typecheck(b, mt.Boolean)
     self._flush_manually = b
 end
 

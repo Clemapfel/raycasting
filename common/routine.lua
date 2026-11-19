@@ -13,8 +13,8 @@ _G._coroutine = _G.coroutine
 --- @brief instantiate and start the subroutine
 --- @param f (rt.Routine) -> nil, any...
 function rt.Routine:instantiate(...)
-    meta.assert(select(1, ...), mt.Function)
-    meta.assert(select(2, ...), mt.Nil)
+    meta.typecheck(select(1, ...), mt.Function)
+    meta.typecheck(select(2, ...), mt.Nil)
 
     self._callback = select(1, ...)
     self._native = _G._coroutine.create(self._callback)
@@ -26,7 +26,7 @@ end
 --- @brief
 function rt.Routine:set_should_resume_automatically(b)
     if b == nil then b = true end
-    meta.assert(b, mt.Boolean)
+    meta.typecheck(b, mt.Boolean)
     self._should_resume_automatically = b
     return self
 end
@@ -43,14 +43,14 @@ end
 
 --- @brief
 function rt.Routine:yield()
-    meta.assert(self, rt.Routine)
+    meta.typecheck(self, rt.Routine)
     rt.RoutineManager:yield(self)
     return self
 end
 
 --- @brief
 function rt.Routine:resume()
-    meta.assert(self, rt.Routine)
+    meta.typecheck(self, rt.Routine)
     rt.RoutineManager:resume(self)
     return self
 end

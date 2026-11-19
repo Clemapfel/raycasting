@@ -80,7 +80,7 @@ function love.errorhandler(message, depth)
     end
 
     if font == nil and graphics and graphics.getFont then
-        font = graphics.getFont()
+        font = graphics.getFont(20)
     end
 
     if font ~= nil and graphics and graphics.setFont then
@@ -181,12 +181,12 @@ function love.errorhandler(message, depth)
     local timer_api = love_api and love_api.timer
 
     return function()
-        if love_api ~= nil and love_api.graphics ~= nil then
-            love.graphics.setShader(nil)
-            love.graphics.setCanvas(nil)
-        end
-
         while true do
+            if love_api ~= nil and love_api.graphics ~= nil then
+                love.graphics.reset()
+                love.graphics.setFont(font)
+            end
+
             if event_api.pump then
                 event_api.pump()
             end

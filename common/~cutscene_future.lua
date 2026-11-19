@@ -13,10 +13,10 @@ rt.CutsceneFutureResult = meta.enum("CutsceneFutureResult", rt.CutsceneFutureRes
 --- @param on_update (Number) -> rt.CutsceneFutureResult
 --- @param on_exit () -> ()
 function rt.CutsceneFuture:instantiate(cutscene, on_update, on_exit)
-    meta.assert(cutscene, rt.Cutscene)
+    meta.typecheck(cutscene, rt.Cutscene)
     on_update = on_update or _noop_update
     on_exit = on_exit or _noop_exit
-    meta.assert(on_update, mt.Function, on_exit, mt.Function)
+    meta.typecheck(on_update, mt.Function, on_exit, mt.Function)
 
     self._cutscene = cutscene
     self._on_update = on_update

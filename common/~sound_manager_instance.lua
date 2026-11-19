@@ -283,7 +283,7 @@ function rt.SoundManager:set_player_position(position_x, position_y)
     if position_x == nil then position_x = 0 end
     if position_y == nil then position_y = 0 end
 
-    meta.assert(position_x, mt.Number, position_y, mt.Number)
+    meta.typecheck(position_x, mt.Number, position_y, mt.Number)
 
     self._listener_x, self._listener_y = position_x, position_y
     local x, y, z = self:_map_coordinates(self._listener_x, self._listener_y)
@@ -321,7 +321,7 @@ end
 --- @brief
 --- @return Number handler id
 function rt.SoundManager:play(id, config)
-    meta.assert(id, mt.String, config, mt.Optional(mt.Table))
+    meta.typecheck(id, mt.String, config, mt.Optional(mt.Table))
 
     self._current_handler_id = self._current_handler_id + 1
     return self:_play(self._current_handler_id, id, config)
@@ -329,7 +329,7 @@ end
 
 --- @brief
 function rt.SoundManager:_play(handler_id, id, config)
-    meta.assert(handler_id, mt.Number, id, mt.String, config, mt.Optional(mt.Table))
+    meta.typecheck(handler_id, mt.Number, id, mt.String, config, mt.Optional(mt.Table))
 
     if config == nil then config = {} end
     local position_specified = config.position_x ~= nil or config.position_y ~= nil
@@ -413,7 +413,7 @@ end
 
 --- @brief
 function rt.SoundManager:set_global_volume(value)
-    meta.assert(value, mt.Number)
+    meta.typecheck(value, mt.Number)
     self._volume = value
 
     for entry in keys(self._active_entries) do
@@ -453,7 +453,7 @@ end
 --- @brief
 function rt.SoundManager:set_volume(handler_id, volume, use_smoothing)
     if use_smoothing == nil then use_smoothing = true end
-    meta.assert(handler_id, mt.Number, volume, mt.Number, use_smoothing, mt.Boolean)
+    meta.typecheck(handler_id, mt.Number, volume, mt.Number, use_smoothing, mt.Boolean)
 
     local id = self._handler_id_to_sound_id[handler_id]
     if id == nil then
@@ -486,7 +486,7 @@ end
 --- @brief
 function rt.SoundManager:set_pitch(handler_id, pitch, use_smoothing)
     if use_smoothing == nil then use_smoothing = true end
-    meta.assert(handler_id, mt.Number, pitch, mt.Number, use_smoothing, mt.Boolean)
+    meta.typecheck(handler_id, mt.Number, pitch, mt.Number, use_smoothing, mt.Boolean)
 
     local id = self._handler_id_to_sound_id[handler_id]
     if id == nil then
@@ -515,7 +515,7 @@ end
 
 --- @brief
 function rt.SoundManager:set_filter(handler_id, t)
-    meta.assert(handler_id, mt.Number, t, mt.Number)
+    meta.typecheck(handler_id, mt.Number, t, mt.Number)
 
     local id = self._handler_id_to_sound_id[handler_id]
     if id == nil then
@@ -540,7 +540,7 @@ end
 
 --- @brief
 function rt.SoundManager:remove_filter(handler_id)
-    meta.assert(handler_id, mt.Number)
+    meta.typecheck(handler_id, mt.Number)
 
     local id = self._handler_id_to_sound_id[handler_id]
     if id == nil then
@@ -559,13 +559,13 @@ end
 
 --- @brief
 function rt.SoundManager:add_effect(handler_id, effect)
-    meta.assert(handler_id, mt.Number, effect, rt.SoundEffect)
+    meta.typecheck(handler_id, mt.Number, effect, rt.SoundEffect)
     self:add_effect_native(handler_id, effect:get_native())
 end
 
 --- @brief
 function rt.SoundManager:add_effect_native(handler_id, native)
-    meta.assert(handler_id, mt.Number, native, mt.String)
+    meta.typecheck(handler_id, mt.Number, native, mt.String)
 
     local id = self._handler_id_to_sound_id[handler_id]
     if id == nil then
@@ -588,7 +588,7 @@ function rt.SoundManager:set_position(handler_id, position_x, position_y, use_sm
     if position_x == nil then position_x = 0 end
     if position_y == nil then position_y = 0 end
 
-    meta.assert(handler_id, mt.Number,
+    meta.typecheck(handler_id, mt.Number,
         position_x, mt.Number,
         position_y, mt.Number,
         use_smoothing, mt.Boolean
@@ -622,13 +622,13 @@ end
 
 --- @brief
 function rt.SoundManager:remove_effect(handler_id, effect)
-    meta.assert(handler_id, mt.Number, effect, rt.SoundEffect)
+    meta.typecheck(handler_id, mt.Number, effect, rt.SoundEffect)
     self:remove_effect_native(handler_id, effect:get_native())
 end
 
 --- @brief
 function rt.SoundManager:remove_effect_native(handler_id, native)
-    meta.assert(handler_id, mt.Number, native, mt.String)
+    meta.typecheck(handler_id, mt.Number, native, mt.String)
 
     local id = self._handler_id_to_sound_id[handler_id]
     if id == nil then
@@ -647,7 +647,7 @@ end
 
 --- @brief
 function rt.SoundManager:stop(handler_id, fade_out_duration)
-    meta.assert(handler_id, mt.Number, fade_out_duration, mt.Optional(mt.Number))
+    meta.typecheck(handler_id, mt.Number, fade_out_duration, mt.Optional(mt.Number))
 
     local id = self._handler_id_to_sound_id[handler_id]
     if id == nil then
@@ -688,7 +688,7 @@ end
 
 --- @brief
 function rt.SoundManager:list_active_handler_ids(sound_id)
-    meta.assert(sound_id, mt.String)
+    meta.typecheck(sound_id, mt.String)
 
     local entry = self:_get_entry("list_handler_ids", sound_id)
     local out = {}
@@ -734,7 +734,7 @@ local _step = 1 / 60
 
 --- @brief
 function rt.SoundManager:update(delta)
-    meta.assert(delta, mt.Number)
+    meta.typecheck(delta, mt.Number)
 
     do -- fade out
         local easing = function(t)

@@ -69,7 +69,7 @@ end
 
 --- @brief
 function rt.ParticleEmitter:set_particle(texture)
-    meta.assert_isa(texture, rt.Texture)
+    meta.typecheck_isa(texture, rt.Texture)
     self._particle = texture
     self._native:setTexture(texture._native)
 end

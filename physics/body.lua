@@ -71,7 +71,7 @@ b2.Tag = meta.enum("Tag", b2.Tag)
 --- @param shape b2.Shape
 --- @param ... b2.Shapes
 function b2.Body:instantiate(world, type, x, y, shape, ...)
-    meta.assert(
+    meta.typecheck(
         world, b2.World,
         type, b2.BodyType,
         x, mt.Number,
@@ -347,7 +347,7 @@ end
 
 --- @brief
 function b2.Body:set_is_rotation_fixed(b)
-    meta.assert(b, mt.Boolean)
+    meta.typecheck(b, mt.Boolean)
     self._native:setFixedRotation(b)
 end
 

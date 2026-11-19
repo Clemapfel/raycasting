@@ -321,7 +321,7 @@ end
 
 --- @brief
 function ow.ResultScreenScene:_spawn_fireworks(instance, x, y, hue)
-    meta.assert(instance, mt.Any, x, mt.Number, y, mt.Number, hue, mt.Number)
+    meta.typecheck(instance, mt.Any, x, mt.Number, y, mt.Number, hue, mt.Number)
 
     local settings = rt.settings.overworld.result_screen_scene
     local batch_state = "result_screen_scene_n_batches"
@@ -551,7 +551,7 @@ end
 
 --- @brief
 function ow.ResultScreenScene:enter(player_x, player_y, player_vx, player_vy, screenshot, config)
-    meta.assert(
+    meta.typecheck(
         player_x, mt.Number,
         player_y, mt.Number,
         player_vx, mt.Optional(mt.Number),

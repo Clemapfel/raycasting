@@ -58,7 +58,7 @@ end
 --- @param routine rt.Routine
 --- @param varag any forwarded to routine:yield
 function rt.RoutineManager:resume(routine, ...)
-    meta.assert(routine, mt.Optional(rt.Routine))
+    meta.typecheck(routine, mt.Optional(rt.Routine))
 
     local native = routine:get_native()
     if _G._coroutine.status(native) ~= "dead" then

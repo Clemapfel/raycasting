@@ -11,7 +11,7 @@ local _shader = rt.Shader("overworld/shadow_cast.glsl")
 
 --- @brief
 function ow.ShadowCast:instantiate(scene)
-    meta.assert(scene, ow.OverworldScene)
+    meta.typecheck(scene, ow.OverworldScene)
 
     self._scene = scene
     self._query = ow.VisibilityQuery()
@@ -56,7 +56,7 @@ function ow.ShadowCast:initialize(contour_objects, ...)
         })
     end
 
-    meta.assert(contour_objects, mt.Table)
+    meta.typecheck(contour_objects, mt.Table)
     local userdatas = self._query:initialize(contours)
     self._dynamic_userdatas = {}
     for data in values(userdatas) do

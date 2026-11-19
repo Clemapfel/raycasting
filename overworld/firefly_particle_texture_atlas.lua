@@ -13,7 +13,7 @@ end
 
 --- @brief
 function ow.FireflyParticleTextureAtlas:instantiate(hues, radii)
-    meta.assert(hues, mt.Table, radii, mt.Table)
+    meta.typecheck(hues, mt.Table, radii, mt.Table)
 
     local process = function(to_process, step, min_value)
         for i, r in ipairs(to_process) do
@@ -122,7 +122,7 @@ end
 
 --- @brief
 function ow.FireflyParticleTextureAtlas:draw(hue, radius, x, y, scale)
-    if DEBUG then meta.assert(hue, mt.Number, radius, mt.Number, x, mt.Number, y, mt.Number) end
+    if DEBUG then meta.typecheck(hue, mt.Number, radius, mt.Number, x, mt.Number, y, mt.Number) end
     scale = scale or 1
     scale = scale * (1 / self._canvas_scale)
 

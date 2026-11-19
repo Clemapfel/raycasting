@@ -81,8 +81,8 @@ function rt.Animalese:queue(gender, emotion, ...)
     if gender == nil then gender = rt.AnimaleseGender.FEMALE end
     if emotion == nil then emotion = rt.AnimaleseEmotion.NORMAL end
 
-    meta.assert_argument_type(gender, rt.AnimaleseGender, 2)
-    meta.assert_argument_type(emotion, rt.AnimaleseEmotion, 3)
+    meta.typecheck_arg_i(gender, rt.AnimaleseGender, 2)
+    meta.typecheck_arg_i(emotion, rt.AnimaleseEmotion, 3)
 
     local data = self._data
     local gender_entry = data[gender] or data[rt.AnimaleseGender.FEMALE]

@@ -14,13 +14,13 @@ local _closure_tolerance = 1
 function rt.Polyline:instantiate(first, ...)
     local vertices
     if meta.is_table(first) then
-        meta.assert(first, mt.Table, select(1, ...), mt.Nil)
+        meta.typecheck(first, mt.Table, select(1, ...), mt.Nil)
         vertices = first
     else
         vertices = { first, ... }
         local n = select("#", ...)
         for i = 1, n do
-            meta.assert_argument_type(select(i, ...), mt.Number, i + 1)
+            meta.typecheck_arg_i(select(i, ...), mt.Number, i + 1)
         end
     end
 
@@ -70,12 +70,12 @@ end
 --- @brief
 function rt.Polyline:set_vertices(first, ...)
     if meta.is_table(first) then
-        meta.assert(first, mt.Table, select(1, ...), mt.Nil)
+        meta.typecheck(first, mt.Table, select(1, ...), mt.Nil)
         self.vertices = first
     else
-        meta.assert_argument_type(first, mt.Number, 1)
+        meta.typecheck_arg_i(first, mt.Number, 1)
         for i = 1, select("#", ...) do
-            meta.assert_argument_type(select(i, ...), mt.Number, i + 1)
+            meta.typecheck_arg_i(select(i, ...), mt.Number, i + 1)
         end
         self.vertices = { first, ... }
     end
@@ -116,7 +116,7 @@ end
 
 --- @brief
 function rt.Polyline:get_vertex(index)
-    meta.assert(index, mt.Number)
+    meta.typecheck(index, mt.Number)
 
     local n = self:get_n_vertices()
     rt.assert(index >= 1 and index <= n, "In rt.Polyline.get_vertex: index out of range")
@@ -128,7 +128,7 @@ end
 
 --- @brief
 function rt.Polyline:get_edge(index)
-    meta.assert(index, mt.Number)
+    meta.typecheck(index, mt.Number)
 
     local n = self:get_n_vertices()
     rt.assert(index >= 1 and index <= n, "In rt.Polyline.get_edge: index out of range")
@@ -143,7 +143,7 @@ end
 
 --- @brief
 function rt.Polyline:translate(x, y)
-    meta.assert(x, mt.Number, y, mt.Number)
+    meta.typecheck(x, mt.Number, y, mt.Number)
     local data = self.vertices
     for i = 1, #data, 2 do
         data[i + 0] = data[i + 0] + x
@@ -257,7 +257,7 @@ end
 --- @brief
 --- @param segment_length Number
 function rt.Polyline:subdivide(segment_length)
-    meta.assert(segment_length, mt.Number)
+    meta.typecheck(segment_length, mt.Number)
     local contour = self.vertices
     local out = {}
     local remainder = 0
@@ -561,6 +561,31 @@ function rt.Polyline:get_winding()
     end
 end
 
+--- @brief make sure the polyline has the given winding, reversing if needed
+--- @param winding rt.PolylineWinding
+function rt.Polyline:set_winding(winding)
+    local area = self:get_signed_area()
+    if area == 0 then return self end -- degenerate, no meaningful winding
+
+    if self:get_winding() ~= winding then
+        self:reverse()
+    end
+    return self
+end
+
+--- @brief reverse vertex order in place, flips the winding
+function rt.Polyline:reverse()
+    local data = self.vertices
+    local n = #data / 2
+    for i = 1, math.floor(n / 2) do
+        local a = (i - 1) * 2 + 1
+        local b = (n - i) * 2 + 1
+        data[a + 0], data[b + 0] = data[b + 0], data[a + 0]
+        data[a + 1], data[b + 1] = data[b + 1], data[a + 1]
+    end
+    return self
+end
+
 --- @brief
 function rt.Polyline:get_aabb()
     local vertices = self.vertices
@@ -620,7 +645,7 @@ end
 
 --- @brief
 function rt.Polyline:contains(point_x, point_y)
-    meta.assert(point_x, mt.Number, point_y, mt.Number)
+    meta.typecheck(point_x, mt.Number, point_y, mt.Number)
     local contour = self.vertices
     local crossings = 0
     local count = #contour
@@ -641,7 +666,7 @@ end
 
 --- @brief
 function rt.Polyline:test_point(px, py)
-    meta.assert(px, mt.Number, py, mt.Number)
+    meta.typecheck(px, mt.Number, py, mt.Number)
 
     local data = self.vertices
     local n = self:get_n_vertices()
@@ -670,7 +695,7 @@ end
 
 --- @brief
 function rt.Polyline:test_circle(px, py, pr)
-    meta.assert(px, mt.Number, py, mt.Number, pr, mt.Number)
+    meta.typecheck(px, mt.Number, py, mt.Number, pr, mt.Number)
 
     local vertices = self.vertices
     local n = self:get_n_vertices()
@@ -709,7 +734,7 @@ end
 
 --- @brief
 function rt.Polyline:test_segment(origin_x, origin_y, direction_x, direction_y)
-    meta.assert(
+    meta.typecheck(
         origin_x, mt.Number, origin_y, mt.Number,
         direction_x, mt.Number, direction_y, mt.Number
     )
@@ -784,7 +809,7 @@ end
 
 --- @brief
 function rt.Polyline:cast_ray(x, y, dx, dy)
-    meta.assert(x, mt.Number, y, mt.Number, dx, mt.Number, dy, mt.Number)
+    meta.typecheck(x, mt.Number, y, mt.Number, dx, mt.Number, dy, mt.Number)
 
     local vertices = self.vertices
     local n = self:get_n_vertices()

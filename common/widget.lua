@@ -20,7 +20,7 @@ end
 
 --- @brief
 function rt.Widget:size_allocate(x, y, width, height)
-    meta.assert(x, mt.Number, y, mt.Number, width, mt.Number, height, mt.Number)
+    meta.typecheck(x, mt.Number, y, mt.Number, width, mt.Number, height, mt.Number)
     rt.error("In ", meta.typeof(self), ".size_allocate: abstract method called")
 end
 
@@ -48,7 +48,7 @@ do
     --- @brief
     function rt.Widget:reformat(x, y, width, height)
         if meta.isa(x, rt.AABB) then
-            meta.assert(x, rt.AABB, y, mt.Nil, width, mt.Nil, height, mt.Nil)
+            meta.typecheck(x, rt.AABB, y, mt.Nil, width, mt.Nil, height, mt.Nil)
             x, y, width, height = x:unpack()
         else
             local current_x, current_y, current_w, current_h = self._bounds:unpack()
@@ -57,7 +57,7 @@ do
             if width == nil then width = current_w end
             if height == nil then height = current_h end
 
-            meta.assert(x, mt.Number, y, mt.Number, width, mt.Number, height, mt.Number)
+            meta.typecheck(x, mt.Number, y, mt.Number, width, mt.Number, height, mt.Number)
         end
 
         if math.is_nan(x) then rt.error(_error_prefix(self), "`x` is NaN") end
@@ -126,6 +126,6 @@ end
 
 --- @brief
 function rt.Widget:set_selection_state(state)
-    meta.assert(state, rt.SelectionState)
+    meta.typecheck(state, rt.SelectionState)
     self._selection_state = state
 end

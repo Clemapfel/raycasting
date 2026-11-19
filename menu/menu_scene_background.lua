@@ -63,7 +63,7 @@ local _lch_texture = rt.LCHTexture(1, 1, 256)
 
 --- @brief
 function mn.MenuSceneBackground:instantiate(scene)
-    meta.assert(scene, mn.MenuScene)
+    meta.typecheck(scene, mn.MenuScene)
     self._scene = scene
     self._fraction = 0
     self._speedup = 1

@@ -34,7 +34,7 @@ local _outline_shader = rt.Shader("common/player_body_outline.glsl", { MODE = 1 
 
 --- @brief
 function ow.PlayerRecorderBody:instantiate(stage, scene)
-    meta.assert(
+    meta.typecheck(
         stage, ow.Stage,
         scene, ow.OverworldScene
     )

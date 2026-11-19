@@ -369,7 +369,7 @@ end
 
 --- @brief
 function meta.is_subtype(type, other_type)
-    meta.assert(type, meta.Type, other_type, meta.Type)
+    meta.typecheck(type, meta.Type, other_type, meta.Type)
 
     local seen = {}
     local current = _get_metatable(type).__super
@@ -418,7 +418,7 @@ end
 
 --- @brief
 function meta.get_typename(type)
-    meta.assert(type, meta.Type)
+    meta.typecheck(type, meta.Type)
     return _get_metatable(type).__name
 end
 
@@ -483,19 +483,19 @@ function meta.isa(x, type)
     return false
 end
 
-function meta.assert_argument_type(x, type, index)
+function meta.typecheck_arg_i(x, type, index)
     if not meta.isa(x, type) then
-        rt.error("In meta.assert_argument_type: wrong type for argument #", index, ": expected `", type, "`, got `", meta.typeof(x), "`")
+        rt.error("In meta.typecheck_arg_i: wrong type for argument #", index, ": expected `", type, "`, got `", meta.typeof(x), "`")
     end
 end
 
-function meta.assert(...)
+function meta.typecheck(...)
     local argument_i = 1
     for i = 1, select("#", ...), 2 do
         local x = select(i + 0, ...)
         local type = select(i + 1, ...)
         if not meta.isa(x, type) then
-            rt.error("In meta.assert: wrong type for argument #", argument_i, ": expected `", type, "`, got `", meta.typeof(x), "`")
+            rt.error("In meta.typecheck: wrong type for argument #", argument_i, ": expected `", type, "`, got `", meta.typeof(x), "`")
         end
         argument_i = argument_i + 1
     end
@@ -533,7 +533,7 @@ do
 
     -- signals
     local _signal_list_handler_ids = function(instance, id)
-        meta.assert(instance, meta.Any, id, meta.String)
+        meta.typecheck(instance, meta.Any, id, meta.String)
 
         local component, entry
         component = _get_signal_component(instance)
@@ -551,7 +551,7 @@ do
     end
 
     local _signal_list_signals = function(instance)
-        meta.assert(instance, meta.Any)
+        meta.typecheck(instance, meta.Any)
 
         local component = _get_signal_component(instance)
         if component == nil then return {} end
@@ -565,7 +565,7 @@ do
 
     local _signal_connect = function(instance, id, ...)
         local callback = select(1, ...)
-        meta.assert(instance, meta.Any, id, meta.String, callback, meta.Function)
+        meta.typecheck(instance, meta.Any, id, meta.String, callback, meta.Function)
 
         local component = _get_signal_component(instance)
         local entry = component[id]
@@ -583,7 +583,7 @@ do
     end
 
     local _signal_disconnect = function(instance, id, callback_id)
-        meta.assert(
+        meta.typecheck(
             instance, meta.Any,
             id, meta.String,
             callback_id, meta.Optional(meta.Number)
@@ -615,7 +615,7 @@ do
     end
 
     local _signal_try_disconnect = function(instance, id, callback_id)
-        meta.assert(
+        meta.typecheck(
             instance, meta.Any,
             id, meta.String,
             callback_id, meta.Optional(meta.Number)
@@ -646,7 +646,7 @@ do
     end
 
     local _signal_disconnect_all = function(instance, id)
-        meta.assert(instance, meta.Any, id, meta.Optional(meta.String))
+        meta.typecheck(instance, meta.Any, id, meta.Optional(meta.String))
 
         local component = _get_signal_component(instance)
         if component == nil then
@@ -672,7 +672,7 @@ do
     end
 
     local _signal_set_is_blocked = function(instance, id, b)
-        meta.assert(instance, meta.Any, id, meta.String, b, meta.Boolean)
+        meta.typecheck(instance, meta.Any, id, meta.String, b, meta.Boolean)
 
         local component, entry
         component = _get_signal_component(instance)
@@ -689,7 +689,7 @@ do
     end
 
     local _signal_get_is_blocked = function(instance, id)
-        meta.assert(instance, meta.Any, id, meta.String)
+        meta.typecheck(instance, meta.Any, id, meta.String)
 
         local component, entry
         component = _get_signal_component(instance)
@@ -704,7 +704,7 @@ do
     end
 
     local _signal_has_signal = function(instance, id)
-        meta.assert(instance, meta.Any, id, meta.String)
+        meta.typecheck(instance, meta.Any, id, meta.String)
 
         local component = _get_signal_component(instance)
         if component == nil then
@@ -714,7 +714,7 @@ do
     end
 
     local _signal_emit = function(instance, id, ...)
-        meta.assert(instance, meta.Any, id, meta.String)
+        meta.typecheck(instance, meta.Any, id, meta.String)
 
         local component, entry
         component = _get_signal_component(instance)
@@ -747,7 +747,7 @@ do
     end
 
     local _signal_try_emit = function(instance, id, ...)
-        meta.assert(instance, meta.Any, id, meta.String)
+        meta.typecheck(instance, meta.Any, id, meta.String)
 
         local component, entry
         component = _get_signal_component(instance)
@@ -859,7 +859,7 @@ local _override_instance_newindex = function(self, key, value)
 end
 
 function meta.class(typename, super)
-    meta.assert(typename, meta.String, super, meta.Optional(meta.Type))
+    meta.typecheck(typename, meta.String, super, meta.Optional(meta.Type))
 
     local instance_type = _new_type(typename, super)
     local instance_type_metatable = getmetatable(instance_type)
@@ -973,11 +973,11 @@ end
 
 --- @brief
 function meta.add_signals(type, ...)
-    meta.assert(type, meta.Type)
+    meta.typecheck(type, meta.Type)
     local metatable = _get_metatable(type)
     for i = 1, select("#", ...) do
         local id = select(i, ...)
-        meta.assert_argument_type(id, meta.String, 1 + i)
+        meta.typecheck_arg_i(id, meta.String, 1 + i)
         table.insert(metatable.__signals, id)
     end
 end
@@ -985,7 +985,7 @@ meta.add_signal = meta.add_signals
 
 --- @brief
 function meta.enum(typename, fields)
-    meta.assert(typename, meta.String, fields, meta.Table)
+    meta.typecheck(typename, meta.String, fields, meta.Table)
 
     local type = _new_type(typename)
 
@@ -1033,7 +1033,7 @@ end
 
 --- @brief
 function meta.get_instance_metatable(type)
-    meta.assert(type, meta.Type)
+    meta.typecheck(type, meta.Type)
     return _class_to_instance_metatable[type]
 end
 
@@ -1254,7 +1254,7 @@ do
     --- Returns a pretty-printed Lua table containing an instance's own properties
     --- and the properties exposed by its type and its super types.
     function meta.serialize(instance)
-        meta.assert(instance, meta.Table)
+        meta.typecheck(instance, meta.Table)
 
         local buffer = {}
         local members = _serialize_collect_instance_members(instance)
@@ -1339,7 +1339,7 @@ end
 
 --- @brief
 function meta.make_weak(t, weak_keys, weak_values)
-    meta.assert(t, meta.Table, weak_keys, meta.Optional(meta.Boolean), weak_values, meta.Optional(meta.Boolean))
+    meta.typecheck(t, meta.Table, weak_keys, meta.Optional(meta.Boolean), weak_values, meta.Optional(meta.Boolean))
 
     local metatable = getmetatable(t)
     if metatable == nil then
@@ -1364,7 +1364,7 @@ end
 
 --- @brief
 function meta.make_immutable(t, recursive, _visited)
-    meta.assert(t, meta.Table, recursive, meta.Optional(meta.Boolean))
+    meta.typecheck(t, meta.Table, recursive, meta.Optional(meta.Boolean))
     if recursive == nil then recursive = false end
 
     -- guard against cycles and shared subtables
@@ -1406,7 +1406,7 @@ end
 
 --- @brief
 function meta.make_auto_extend(t, recursive)
-    meta.assert(t, meta.Table, recursive, meta.Optional(meta.Boolean))
+    meta.typecheck(t, meta.Table, recursive, meta.Optional(meta.Boolean))
 
     if recursive == nil then recursive = false end
     local metatable = getmetatable(t)
@@ -1431,7 +1431,7 @@ end
 
 if DEBUG then
     function meta.install(instance, values)
-        meta.assert(instance, meta.Any, values, meta.Table)
+        meta.typecheck(instance, meta.Any, values, meta.Table)
         rt.assert(meta.is_object(instance))
         local metatable = _get_metatable(instance)
         for key, value in pairs(values) do
@@ -1447,7 +1447,7 @@ if DEBUG then
 else
     --- @brief
     function meta.install(instance, values)
-        meta.assert(instance, meta.Any, values, meta.Table)
+        meta.typecheck(instance, meta.Any, values, meta.Table)
         for key, value in pairs(values) do
             if instance[key] == nil then
                 instance[key] = value
@@ -1460,7 +1460,7 @@ end
 
 --- @brief
 function meta.as_singleton(type, ...)
-    meta.assert(type, meta.Type)
+    meta.typecheck(type, meta.Type)
     local instance = type(...)
     _get_metatable(instance).__call = function()
         rt.error("In ", meta.get_typename(type), "(): trying to instantiate type, but is a singleton that cannot be instatiated")
@@ -1570,7 +1570,7 @@ do
 
     --- @brief
     function meta.Schema:try_validate(x)
-        meta.assert(x, meta.Table)
+        meta.typecheck(x, meta.Table)
 
         if _schema_to_is_validated[self] ~= true then
             _validate_schema(self,
@@ -1587,7 +1587,7 @@ do
 
     --- @brief
     function meta.Schema:validate(x)
-        meta.assert(x, meta.Table)
+        meta.typecheck(x, meta.Table)
 
         local success, error = self:try_validate(x)
         if success == false then

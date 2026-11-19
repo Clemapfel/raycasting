@@ -67,7 +67,7 @@ end
 
 --- @brief
 function rt.Cutscene:add_actor(actor)
-    meta.assert(actor, rt.CutsceneActor)
+    meta.typecheck(actor, rt.CutsceneActor)
     rt.CutsceneActor._validate_schema(actor)
 
     local name = actor:get_name()
@@ -80,7 +80,7 @@ end
 
 --- @brief
 function rt.Cutscene:update(delta)
-    meta.assert(delta, mt.Number)
+    meta.typecheck(delta, mt.Number)
 
     if coroutine.status(self._coroutine) ~= "dead" then
         local args = { coroutine.resume(self._coroutine) }

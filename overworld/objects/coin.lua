@@ -323,7 +323,7 @@ end
 
 --- @brief
 function ow.Coin:set_index(i)
-    meta.assert(i, mt.Number)
+    meta.typecheck(i, mt.Number)
     self._index = i
 end
 

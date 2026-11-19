@@ -119,7 +119,7 @@ end
 
 --- @brief [internal]
 function rt.Camera:constrain(x, y)
-    meta.assert(x, mt.Number, y, mt.Number)
+    meta.typecheck(x, mt.Number, y, mt.Number)
 
     if self._apply_bounds ~= true then return x, y end
 
@@ -174,7 +174,7 @@ end
 
 --- @brief
 function rt.Camera:update(delta)
-    meta.assert(delta, mt.Number)
+    meta.typecheck(delta, mt.Number)
 
     do -- scale
         -- work in log space, where relative scales are equidistant regardless of value
@@ -318,7 +318,7 @@ end
 
 --- @brief
 function rt.Camera:set_position(x, y, override_bounds)
-    meta.assert(
+    meta.typecheck(
         x, mt.Number,
         y, mt.Number,
         override_bounds, meta.Union(mt.Boolean, mt.Nil)
@@ -340,7 +340,7 @@ end
 
 --- @brief
 function rt.Camera:move_to(x, y, override_bounds)
-    meta.assert(x, mt.Number, y, mt.Number)
+    meta.typecheck(x, mt.Number, y, mt.Number)
 
     if self._is_enabled ~= true then return end
 
@@ -368,7 +368,7 @@ end
 
 --- @brief
 function rt.Camera:set_scale(s, override_bounds)
-    meta.assert(s, mt.Boolean, override_bounds, mt.Optional(mt.Boolean))
+    meta.typecheck(s, mt.Boolean, override_bounds, mt.Optional(mt.Boolean))
 
     if self._is_enabled ~= true then return end
 
@@ -389,7 +389,7 @@ function rt.Camera:scale_to(s)
 end
 
 function rt.Camera:fit_to(bounds, center_x, center_y)
-    meta.assert(bounds, rt.AABB, center_x, mt.Optional(mt.Number), center_y, mt.Optional(mt.Number))
+    meta.typecheck(bounds, rt.AABB, center_x, mt.Optional(mt.Number), center_y, mt.Optional(mt.Number))
 
     if self._is_enabled ~= true then return end
 
@@ -417,14 +417,14 @@ end
 
 --- @brief
 function rt.Camera:add_bounds(bounds)
-    meta.assert(bounds, rt.AABB)
+    meta.typecheck(bounds, rt.AABB)
     self._bounds[bounds] = true
     self:_update_transform()
 end
 
 --- @brief
 function rt.Camera:remove_bounds(bounds)
-    meta.assert(bounds, rt.AABB)
+    meta.typecheck(bounds, rt.AABB)
     self._bounds[bounds] = nil
     self:_update_transform()
 end
@@ -464,14 +464,14 @@ function rt.Camera:set_bounds(bounds_or_table, ...)
 
     self:reset_bounds()
     for i, bound in ipairs(bounds) do
-        meta.assert_argument_type(bound, rt.AABB, i)
+        meta.typecheck_arg_i(bound, rt.AABB, i)
         self._bounds[bound] = true
     end
 end
 
 --- @brief
 function rt.Camera:set_apply_bounds(b)
-    meta.assert(b, mt.Boolean)
+    meta.typecheck(b, mt.Boolean)
 
     if b ~= self._apply_bounds then
         self._apply_bounds = b
@@ -486,14 +486,14 @@ end
 
 --- @brief
 function rt.Camera:screen_xy_to_world_xy(screen_x, screen_y)
-    meta.assert(screen_x, mt.Number, screen_y, mt.Number)
+    meta.typecheck(screen_x, mt.Number, screen_y, mt.Number)
     local x, y, _ = self._transform:inverse_transform_point(screen_x, screen_y, 0)
     return x, y
 end
 
 --- @brief
 function rt.Camera:world_xy_to_screen_xy(world_x, world_y)
-    meta.assert(world_x, mt.Number, world_x, mt.Number)
+    meta.typecheck(world_x, mt.Number, world_x, mt.Number)
     local x, y, _ = self._transform:transform_point(world_x, world_y, 0)
     return x, y
 end
@@ -506,7 +506,7 @@ end
 --- @brief
 --- @param intensity Number in [0, 1]
 function rt.Camera:set_is_shaking(b)
-    meta.assert(b, mt.Boolean)
+    meta.typecheck(b, mt.Boolean)
 
     self._is_shaking = b
     if b == false then
@@ -517,19 +517,19 @@ end
 
 --- @brief
 function rt.Camera:set_shake_intensity(i)
-    meta.assert(i, mt.Number)
+    meta.typecheck(i, mt.Number)
     self._shake_intensity = math.clamp(i, 0, 1)
 end
 
 --- @brief
 function rt.Camera:set_shake_intensity_in_pixels(n)
-    meta.assert(n, mt.Number)
+    meta.typecheck(n, mt.Number)
     self:set_shake_intensity(n / rt.settings.camera.shake_max_offset)
 end
 
 --- @brief
 function rt.Camera:set_shake_frequency(i)
-    meta.assert(i, mt.Number)
+    meta.typecheck(i, mt.Number)
     self._shake_frequency = math.clamp(i, 0, 1)
 end
 
@@ -539,7 +539,7 @@ function rt.Camera:shake(intensity, duration)
     if duration == nil then duration = settings.default_duration end
     if intensity == nil then intensity = settings.default_intensity end
 
-    meta.assert(intensity, mt.Number, duration, mt.Optional(mt.Number))
+    meta.typecheck(intensity, mt.Number, duration, mt.Optional(mt.Number))
 
     local n_nodes = math.ceil(settings.frequency * duration)
 
@@ -636,7 +636,7 @@ end
 
 --- @brief
 function rt.Camera:set_speed(fraction)
-    meta.assert(fraction, mt.Number)
+    meta.typecheck(fraction, mt.Number)
     self._speed = fraction or 1
 end
 
@@ -647,7 +647,7 @@ end
 
 --- @brief
 function rt.Camera:set_is_enabled(b)
-    meta.assert(b, mt.Boolean)
+    meta.typecheck(b, mt.Boolean)
     self._is_enabled = b
 end
 
@@ -658,7 +658,7 @@ end
 
 --- @brief
 function rt.Camera:set_use_pixel_scale(b)
-    meta.assert(b, mt.Boolean)
+    meta.typecheck(b, mt.Boolean)
 
     if self._use_pixel_scale ~= b then
         self._use_pixel_scale = b
@@ -815,7 +815,7 @@ end
 
 --- @brief [internal]
 function rt.Camera:constrain(x, y)
-    meta.assert(x, mt.Number, y, mt.Number)
+    meta.typecheck(x, mt.Number, y, mt.Number)
 
     if self._apply_bounds ~= true then return x, y end
 
@@ -870,7 +870,7 @@ end
 
 --- @brief
 function rt.Camera:update(delta)
-    meta.assert(delta, mt.Number)
+    meta.typecheck(delta, mt.Number)
 
     do -- scale
         -- work in log space, where relative scales are equidistant regardless of value
@@ -1014,7 +1014,7 @@ end
 
 --- @brief
 function rt.Camera:set_position(x, y, override_bounds)
-    meta.assert(
+    meta.typecheck(
         x, mt.Number,
         y, mt.Number,
         override_bounds, meta.Union(mt.Boolean, mt.Nil)
@@ -1036,7 +1036,7 @@ end
 
 --- @brief
 function rt.Camera:move_to(x, y, override_bounds)
-    meta.assert(x, mt.Number, y, mt.Number)
+    meta.typecheck(x, mt.Number, y, mt.Number)
 
     if self._is_enabled ~= true then return end
 
@@ -1064,7 +1064,7 @@ end
 
 --- @brief
 function rt.Camera:set_scale(s, override_bounds)
-    meta.assert(s, mt.Boolean, override_bounds, mt.Optional(mt.Boolean))
+    meta.typecheck(s, mt.Boolean, override_bounds, mt.Optional(mt.Boolean))
 
     if self._is_enabled ~= true then return end
 
@@ -1085,7 +1085,7 @@ function rt.Camera:scale_to(s)
 end
 
 function rt.Camera:fit_to(bounds, center_x, center_y)
-    meta.assert(bounds, rt.AABB, center_x, mt.Optional(mt.Number), center_y, mt.Optional(mt.Number))
+    meta.typecheck(bounds, rt.AABB, center_x, mt.Optional(mt.Number), center_y, mt.Optional(mt.Number))
 
     if self._is_enabled ~= true then return end
 
@@ -1113,14 +1113,14 @@ end
 
 --- @brief
 function rt.Camera:add_bounds(bounds)
-    meta.assert(bounds, rt.AABB)
+    meta.typecheck(bounds, rt.AABB)
     self._bounds[bounds] = true
     self:_update_transform()
 end
 
 --- @brief
 function rt.Camera:remove_bounds(bounds)
-    meta.assert(bounds, rt.AABB)
+    meta.typecheck(bounds, rt.AABB)
     self._bounds[bounds] = nil
     self:_update_transform()
 end
@@ -1160,14 +1160,14 @@ function rt.Camera:set_bounds(bounds_or_table, ...)
 
     self:reset_bounds()
     for i, bound in ipairs(bounds) do
-        meta.assert_argument_type(bound, rt.AABB, i)
+        meta.typecheck_arg_i(bound, rt.AABB, i)
         self._bounds[bound] = true
     end
 end
 
 --- @brief
 function rt.Camera:set_apply_bounds(b)
-    meta.assert(b, mt.Boolean)
+    meta.typecheck(b, mt.Boolean)
 
     if b ~= self._apply_bounds then
         self._apply_bounds = b
@@ -1182,14 +1182,14 @@ end
 
 --- @brief
 function rt.Camera:screen_xy_to_world_xy(screen_x, screen_y)
-    meta.assert(screen_x, mt.Number, screen_y, mt.Number)
+    meta.typecheck(screen_x, mt.Number, screen_y, mt.Number)
     local x, y, _ = self._transform:inverse_transform_point(screen_x, screen_y, 0)
     return x, y
 end
 
 --- @brief
 function rt.Camera:world_xy_to_screen_xy(world_x, world_y)
-    meta.assert(world_x, mt.Number, world_x, mt.Number)
+    meta.typecheck(world_x, mt.Number, world_x, mt.Number)
     local x, y, _ = self._transform:transform_point(world_x, world_y, 0)
     return x, y
 end
@@ -1202,7 +1202,7 @@ end
 --- @brief
 --- @param intensity Number in [0, 1]
 function rt.Camera:set_is_shaking(b)
-    meta.assert(b, mt.Boolean)
+    meta.typecheck(b, mt.Boolean)
 
     self._is_shaking = b
     if b == false then
@@ -1213,19 +1213,19 @@ end
 
 --- @brief
 function rt.Camera:set_shake_intensity(i)
-    meta.assert(i, mt.Number)
+    meta.typecheck(i, mt.Number)
     self._shake_intensity = math.clamp(i, 0, 1)
 end
 
 --- @brief
 function rt.Camera:set_shake_intensity_in_pixels(n)
-    meta.assert(n, mt.Number)
+    meta.typecheck(n, mt.Number)
     self:set_shake_intensity(n / rt.settings.camera.shake_max_offset)
 end
 
 --- @brief
 function rt.Camera:set_shake_frequency(i)
-    meta.assert(i, mt.Number)
+    meta.typecheck(i, mt.Number)
     self._shake_frequency = math.clamp(i, 0, 1)
 end
 
@@ -1235,7 +1235,7 @@ function rt.Camera:shake(intensity, duration)
     if duration == nil then duration = settings.default_duration end
     if intensity == nil then intensity = settings.default_intensity end
 
-    meta.assert(intensity, mt.Number, duration, mt.Optional(mt.Number))
+    meta.typecheck(intensity, mt.Number, duration, mt.Optional(mt.Number))
 
     local n_nodes = math.ceil(settings.frequency * duration)
 
@@ -1332,7 +1332,7 @@ end
 
 --- @brief
 function rt.Camera:set_speed(fraction)
-    meta.assert(fraction, mt.Number)
+    meta.typecheck(fraction, mt.Number)
     self._speed = fraction or 1
 end
 
@@ -1343,7 +1343,7 @@ end
 
 --- @brief
 function rt.Camera:set_is_enabled(b)
-    meta.assert(b, mt.Boolean)
+    meta.typecheck(b, mt.Boolean)
     self._is_enabled = b
 end
 
@@ -1354,7 +1354,7 @@ end
 
 --- @brief
 function rt.Camera:set_use_pixel_scale(b)
-    meta.assert(b, mt.Boolean)
+    meta.typecheck(b, mt.Boolean)
 
     if self._use_pixel_scale ~= b then
         self._use_pixel_scale = b

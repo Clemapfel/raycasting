@@ -42,7 +42,7 @@ function ow.TetherParticleEffect:emit(
     velocity_x, velocity_y,
     color_r, color_g, color_b, color_a
 )
-    meta.assert(path, rt.Path)
+    meta.typecheck(path, rt.Path)
 
     if velocity_x == nil then velocity_x = 0 end
     if velocity_y == nil then velocity_y = 0 end

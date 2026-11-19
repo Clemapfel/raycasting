@@ -21,7 +21,7 @@ function ow.Mirror:instantiate(
 )
     if draw_mirror_mask_callback == nil then draw_occluding_mask_callback = _noop end
 
-    meta.assert(
+    meta.typecheck(
         scene, "OverworldScene",
         draw_mirror_mask_callback, mt.Function
     )
@@ -157,7 +157,7 @@ end
 
 --- @brief
 function ow.Mirror:create_contour(mirror_contours, occluding_contours, contour_test)
-    meta.assert(mirror_contours, mt.Table, mirror_contours, mt.Table)
+    meta.typecheck(mirror_contours, mt.Table, mirror_contours, mt.Table)
 
     local mirror_segments, occluding_segments = {}, {}
 

@@ -19,7 +19,7 @@ function ow.Mirror:instantiate(
     draw_mirror_mask_callback,
     draw_occluding_mask_callback -- optional
 )
-    meta.assert(
+    meta.typecheck(
         scene, ow.OverworldScene,
         draw_mirror_mask_callback, mt.Function
     )
@@ -38,7 +38,7 @@ end
 
 --- @brief
 function ow.Mirror:initialize(mirror_contours)
-    meta.assert(mirror_contours, mt.Table)
+    meta.typecheck(mirror_contours, mt.Table)
 
     local entries = {}
     for _, contour in ipairs(mirror_contours) do

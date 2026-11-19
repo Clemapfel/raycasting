@@ -59,7 +59,7 @@ end
 --- @brief
 function rt.MusicManager:play(id, restart)
     if restart == nil then restart = false end
-    meta.assert(id, mt.String, restart, mt.Boolean)
+    meta.typecheck(id, mt.String, restart, mt.Boolean)
 
     self._main_to_worker:push({
         message_id = _messages.play,
@@ -91,7 +91,7 @@ end
 
 --- @brief
 function rt.MusicManager:set_volume(v)
-    meta.assert(v, mt.Number)
+    meta.typecheck(v, mt.Number)
 
     v = math.clamp(v, 0, 1)
     self._volume = v
@@ -118,11 +118,11 @@ function rt.MusicManager:preallocate(ids, ...)
     if not meta.is_string(ids) then
         ids = { ids, ... }
         for i = 1, #ids do
-            meta.assert_argument_type(ids[i], mt.String)
+            meta.typecheck_arg_i(ids[i], mt.String)
         end
     else
-        meta.assert_argument_type(ids, mt.Table)
-        meta.assert_argument_type(select(1, ...), mt.Nil)
+        meta.typecheck_arg_i(ids, mt.Table)
+        meta.typecheck_arg_i(select(1, ...), mt.Nil)
     end
 
     self._main_to_worker:push({

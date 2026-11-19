@@ -39,11 +39,11 @@ love.load = function(args)
     local menu = 5
 
     for to_preallocate in range(
-        result_screen
-        , overworld
-        , keybinding
-        , settings
-        , menu
+        --result_screen
+        --, overworld
+        --, keybinding
+        --, settings
+        --, menu
     ) do
         if to_preallocate == result_screen then
             require "overworld.result_screen_scene"

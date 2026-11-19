@@ -20,7 +20,7 @@ end
 --- @brief
 function rt.Cache:instantiate(policy)
     if policy == nil then policy = rt.CachePolicy.FIRST_IN_FIRST_OUT end
-    meta.assert(policy, rt.CachePolicy)
+    meta.typecheck(policy, rt.CachePolicy)
 
     self._policy = policy
     self._current_hash = 0
@@ -94,11 +94,11 @@ function rt.Cache:push(...)
     if select("#", ...) == 1 then
         object = select(1, ...)
         hash_override = nil
-        meta.assert(object, mt.Any)
+        meta.typecheck(object, mt.Any)
     elseif select("#", ...) == 2 then
         hash_override = select(1, ...)
         object = select(2, ...)
-        meta.assert(hash_override, mt.Any, object, mt.Any)
+        meta.typecheck(hash_override, mt.Any, object, mt.Any)
     end
 
     if hash_override ~= nil and self._hash_to_node[hash_override] ~= nil then
@@ -165,7 +165,7 @@ function rt.Cache:pop(hash)
         end
     end
 
-    meta.assert(hash, mt.Any)
+    meta.typecheck(hash, mt.Any)
 
     local object = self._hash_to_node[hash]
     if object == nil then
@@ -178,7 +178,7 @@ end
 
 --- @brief remove an object from the cache
 function rt.Cache:remove(hash)
-    meta.assert(hash, mt.Any)
+    meta.typecheck(hash, mt.Any)
 
     local object = self._hash_to_node[hash]
     if object == nil then
@@ -215,7 +215,7 @@ function rt.Cache:bump(hash, n_steps)
     if n_steps == nil then n_steps = math.huge end
     if n_steps <= 0 then return end
 
-    meta.assert(hash, mt.Any, n_steps, mt.Number)
+    meta.typecheck(hash, mt.Any, n_steps, mt.Number)
 
     if self._hash_to_node[hash] == nil then
         rt.warning("In rt.Cache.bump: no object with hash `", tostring(hash), "`")

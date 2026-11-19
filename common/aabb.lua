@@ -5,7 +5,7 @@ rt.AABB = meta.class("AABB")
 function rt.AABB:instantiate(other_or_x, y, width, height)
     if meta.isa(other_or_x, rt.AABB) then
         local other = other_or_x
-        meta.assert(other, rt.AABB, y, mt.Nil, width, mt.Nil, height, mt.Nil)
+        meta.typecheck(other, rt.AABB, y, mt.Nil, width, mt.Nil, height, mt.Nil)
         self:reformat(other:unpack())
     else
         local x = other_or_x
@@ -14,7 +14,7 @@ function rt.AABB:instantiate(other_or_x, y, width, height)
         if width == nil then width = 1 end
         if height == nil then height = width end
 
-        meta.assert(x, mt.Number, y, mt.Number, width, mt.Number, height, mt.Number)
+        meta.typecheck(x, mt.Number, y, mt.Number, width, mt.Number, height, mt.Number)
 
         self.x = x
         self.y = y
@@ -40,7 +40,7 @@ end
 
 --- @brief
 function rt.AABB:contains(px, py)
-    meta.assert(px, mt.Number, py, mt.Number)
+    meta.typecheck(px, mt.Number, py, mt.Number)
     local x, y, w, h = self.x, self.y, self.width, self.height
     return px >= x and px <= x + w and py >= y and py <= y + h
 end

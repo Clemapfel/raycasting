@@ -107,7 +107,7 @@ function rt.PlayerBody:instantiate(config)
         if which == "k" then _core_shader:recompile() end
     end)
 
-    meta.assert(config, mt.Table)
+    meta.typecheck(config, mt.Table)
 
     local necessary_keys = {
         radius = false,
@@ -668,7 +668,7 @@ rt.PlayerBody.update_rope = function(data)
     local target_x = data.target_x or data.position_x
     local target_y = data.target_y or data.position_y
 
-    meta.assert(
+    meta.typecheck(
         data.delta, mt.Number,
         data.current_positions, mt.Table,
         data.last_positions, mt.Table,
@@ -874,40 +874,40 @@ end
 
 --- @brief
 function rt.PlayerBody:set_color(color)
-    meta.assert(color, rt.RGBA)
+    meta.typecheck(color, rt.RGBA)
     self._color = color
     self._hue = select(3, rt.rgba_to_lcha(self._color:unpack()))
 end
 
 --- @brief
 function rt.PlayerBody:set_body_color(color)
-    meta.assert(color, rt.RGBA)
+    meta.typecheck(color, rt.RGBA)
     self._body_color = color
 end
 
 --- @brief
 function rt.PlayerBody:set_core_color(color)
-    meta.assert(color, rt.RGBA)
+    meta.typecheck(color, rt.RGBA)
     self._core_color = color
 end
 
 --- @brief
 function rt.PlayerBody:set_opacity(opacity)
-    meta.assert(opacity, mt.Number)
+    meta.typecheck(opacity, mt.Number)
     self._opacity = opacity
 end
 
 --- @brief
 function rt.PlayerBody:set_world(physics_world)
     if physics_world ~= nil then
-        meta.assert(physics_world, b2.World)
+        meta.typecheck(physics_world, b2.World)
     end
     self._world = physics_world
 end
 
 --- @brief
 function rt.PlayerBody:set_use_contour(b)
-    meta.assert(b, mt.Boolean)
+    meta.typecheck(b, mt.Boolean)
     if self._use_contour == b then return end
 
     self._use_contour = b
@@ -1411,7 +1411,7 @@ end
 
 --- @brief
 function rt.PlayerBody:set_stretch_factor(t, axis_x, axis_y)
-    meta.assert(t, mt.Number, axis_x, mt.Number, axis_y, mt.Number)
+    meta.typecheck(t, mt.Number, axis_x, mt.Number, axis_y, mt.Number)
     self._stretch_factor = math.clamp(t, 0, 1)
     self._stretch_axis_x = axis_x
     self._stretch_axis_y = axis_y

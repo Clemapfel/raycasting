@@ -30,7 +30,7 @@ local _jump_shader = rt.ComputeShader("common/label_sdf.glsl", defines(1))
 local _export_shader = rt.ComputeShader("common/label_sdf.glsl", defines(2))
 
 function rt.LabelSDF:instantiate(text, font_size, font, max_distance, threshold)
-    meta.assert(
+    meta.typecheck(
         text, mt.String,
         font_size, mt.Union(rt.FontSize, mt.Number),
         font, rt.Font,
@@ -168,7 +168,7 @@ function rt.LabelSDF:measure()
 end
 
 function rt.LabelSDF:export(path, format)
-    meta.assert(path, mt.String, format, mt.Optional(rt.ImageEncodingFormat))
+    meta.typecheck(path, mt.String, format, mt.Optional(rt.ImageEncodingFormat))
     if self._sdf_needs_export then self:_compute() end
     self._export_texture:download():save_to_file(path, format)
 end

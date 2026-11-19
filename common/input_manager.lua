@@ -60,7 +60,7 @@ function rt.InputManager:vibrate(left, right, duration, attack, decay)
     if attack == nil then attack = default_attack / duration end
     if decay == nil then decay = default_attack / duration end
 
-    meta.assert(left, mt.Number, right, mt.Number, duration, mt.Number, attack, mt.Number, decay, mt.Number)
+    meta.typecheck(left, mt.Number, right, mt.Number, duration, mt.Number, attack, mt.Number, decay, mt.Number)
 
     if duration < 0 then
         rt.critical("In rt.InputManager.vibrate: duration `", duration, "` is negative")
@@ -182,7 +182,7 @@ end
 
 --- @brief
 function rt.InputManager:_notify_subscriber_added(subscriber)
-    meta.assert(subscriber, rt.InputSubscriber)
+    meta.typecheck(subscriber, rt.InputSubscriber)
     table.insert(self._subscribers, 1, subscriber)
     self:_notify_priority_changed(subscriber)
 end
@@ -256,7 +256,7 @@ end
 
 --- @brief
 function rt.InputManager:get_mouse_is_down(button)
-    meta.assert(button, rt.MouseButton)
+    meta.typecheck(button, rt.MouseButton)
     return love.mouse.isDown(button)
 end
 

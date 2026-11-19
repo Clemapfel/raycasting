@@ -11,7 +11,7 @@ ow.BloodSpatter = meta.class("BloodSpatter")
 
 --- @brief
 function ow.BloodSpatter:instantiate(scene)
-    meta.assert(scene, ow.OverworldScene)
+    meta.typecheck(scene, ow.OverworldScene)
     meta.install(self, {
         _scene = scene,
         _query = ow.VisibilityQuery(),
@@ -89,7 +89,7 @@ end
 --- @brief
 function ow.BloodSpatter:update(_)
     local player = self._scene:get_player()
-    if not (player:get_is_disabled() or player:get_is_ghost()) then
+    if player:get_is_trail_enabled() and not (player:get_is_disabled() or player:get_is_ghost()) then
         local x, y = player:get_position()
         local radius = player:get_radius()
         local r, g, b, a = player:get_color():unpack()
@@ -232,7 +232,7 @@ end
 
 --- @brief
 function ow.BloodSpatter:initialize(contours)
-    meta.assert(contours, mt.Table(mt.Polyline))
+    meta.typecheck(contours, mt.Table(mt.Polyline))
 
     local max_length = rt.settings.overworld.blood_splatter.subdivision_length
 

@@ -26,7 +26,7 @@ end
 
 --- @brief
 function rt.StateMachine:instantiate(id, config, ...)
-    meta.assert(id, mt.Any, config, mt.Optional(mt.Table))
+    meta.typecheck(id, mt.Any, config, mt.Optional(mt.Table))
     self._states = {}
     self._current_state_id = id
     self:add_state(id, config, ...)
@@ -41,7 +41,7 @@ end
 
 local _validate_config = function(scope, id, config)
     if config ~= nil then
-        meta.assert_argument_type(config, mt.Table)
+        meta.typecheck_arg_i(config, mt.Table)
         for key in keys(config) do
             if _valid_keys[key] == nil then
                 rt.error("In rt.StateMachine.", scope, ": for state `", id, "`, unknown config key `", key, "`")
@@ -63,7 +63,7 @@ function rt.StateMachine:add_state(...)
         local id = select(i + 0, ...)
         local config = select(i + 1, ...)
 
-        meta.assert_argument_type(id, mt.Any, i)
+        meta.typecheck_arg_i(id, mt.Any, i)
 
         if self._states[id] ~= nil then
             rt.warning("In rt.StateMachine.add_state: trying to add state `", id, "`, but it already exists")
@@ -73,7 +73,7 @@ function rt.StateMachine:add_state(...)
         local entry = { id = id }
 
         if config ~= nil then
-            meta.assert_argument_type(config, mt.Table, i +1)
+            meta.typecheck_arg_i(config, mt.Table, i +1)
             _validate_config("add_state", id, config)
             for key, f in pairs(config) do
                 entry[key] = f
@@ -101,7 +101,7 @@ function rt.StateMachine:remove_state(...)
     local to_trigger = {}
     for i = 1, select("#", ...), 1 do
         local id =  select(i + 0, ...)
-        meta.assert_argument_type(id, mt.Any, i)
+        meta.typecheck_arg_i(id, mt.Any, i)
 
         local entry = _get_entry("remove_state", self, id)
         if entry ~= nil then
@@ -129,7 +129,7 @@ end
 
 --- @brief
 function rt.StateMachine:set_state(next_id, ...)
-    meta.assert(next_id, mt.Any)
+    meta.typecheck(next_id, mt.Any)
 
     local previous_id = self._current_state_id
     local previous_state = _get_entry("set_state", self, previous_id)
@@ -164,7 +164,7 @@ end
 
 --- @brief
 function rt.StateMachine:set_state_callbacks(id, config)
-    meta.assert(id, mt.Any, config, mt.Optional(mt.Table))
+    meta.typecheck(id, mt.Any, config, mt.Optional(mt.Table))
     local entry = _get_entry("set_state_callbacks", self, id)
     if entry ~= nil then
         if config ~= nil then
@@ -182,6 +182,6 @@ end
 
 --- @brief
 function rt.StateMachine:has_state(id)
-    meta.assert(id, mt.Any)
+    meta.typecheck(id, mt.Any)
     return self._states[id] ~= nil
 end

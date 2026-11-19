@@ -8,7 +8,7 @@ function rt.SmoothedMotion1D:instantiate(value, speed, ramp)
     end
 
     if speed == nil then speed = 1 end
-    meta.assert(value, mt.Number, speed, mt.Number)
+    meta.typecheck(value, mt.Number, speed, mt.Number)
 
     self._attack_speed = speed
     self._decay_speed = speed
@@ -132,7 +132,7 @@ end
 --- @brief
 function rt.SmoothedMotion1D:set_is_periodic(b, lower, upper)
     if b == true then
-        meta.assert(b, mt.Boolean, lower, mt.Number, upper, mt.Number)
+        meta.typecheck(b, mt.Boolean, lower, mt.Number, upper, mt.Number)
     end
 
     self._is_periodic = b

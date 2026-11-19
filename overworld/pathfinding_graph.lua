@@ -22,7 +22,7 @@ end
 --- @param a ow.PathfindingNode
 --- @param b ow.PathfindingNode
 function ow.PathfindingGraph:add(a, b)
-    meta.assert(a, ow.PathfindingNode, b, ow.PathfindingNode)
+    meta.typecheck(a, ow.PathfindingNode, b, ow.PathfindingNode)
     local distance = math.distance(a.x, a.y, b.x, b.y)
 
     local a_data = self._nodes[a]

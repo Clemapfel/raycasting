@@ -92,7 +92,7 @@ for which in range("_up", "_right", "_down", "_left") do
         elseif meta.is_function(next) then
             self[which] = next
         else
-            meta.assert(next, rt.SelectionGraphNode)
+            meta.typecheck(next, rt.SelectionGraphNode)
             self[which] = function(self)
                 return next
             end
@@ -174,7 +174,7 @@ end
 --- @brief
 function rt.SelectionGraph:add(...)
     for node in range(...) do
-        meta.assert(node, rt.SelectionGraphNode)
+        meta.typecheck(node, rt.SelectionGraphNode)
         if self._nodes[node] == nil then
             self._nodes[node] = true
             node._graph = self

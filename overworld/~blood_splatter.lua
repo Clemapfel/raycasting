@@ -236,7 +236,7 @@ end
 
 --- @brief
 function ow.BloodSpatter:initialize(contours)
-    meta.assert(contours, mt.Table)
+    meta.typecheck(contours, mt.Table)
 
     self._world = love.physics.newWorld(0, 0)
     self._edge_body = love.physics.newBody(self._world, 0, 0, b2.BodyType.STATIC)

@@ -28,7 +28,7 @@ end
 
 --- @brief
 function rt.HDR:reinitialize(width, height)
-    meta.assert(width, mt.Number, height, mt.Number)
+    meta.typecheck(width, mt.Number, height, mt.Number)
 
     if self._texture == nil
         or self._texture:get_width() ~= width

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="9" nextobjectid="1410">
+<map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="9" nextobjectid="1416">
  <editorsettings>
   <export target="trailer.lua" format="lua"/>
  </editorsettings>
@@ -18,7 +18,7 @@
   <object id="1404" type="Coin" x="5044.95" y="994.51">
    <point/>
   </object>
-  <object id="1409" type="FlowOverride" x="4496" y="720">
+  <object id="1409" name="s" type="FlowOverride" x="4496" y="720">
    <properties>
     <property name="value" type="float" value="1"/>
    </properties>
@@ -34,7 +34,7 @@
   </object>
  </objectgroup>
  <objectgroup id="2" name="base">
-  <object id="1314" name="Spawn" type="PlayerSpawn" x="4768" y="1104">
+  <object id="1314" name="Spawn" type="PlayerSpawn" x="4784" y="1104">
    <point/>
   </object>
   <object id="1368" type="SlipperyHitbox" x="4688" y="1104">
@@ -55,25 +55,25 @@
   <object id="1375" type="Portal" x="5024" y="880">
    <properties>
     <property name="other" type="object" value="1376"/>
-    <property name="target" type="object" value="1377"/>
+    <property name="target" type="object" value="1414"/>
    </properties>
    <point/>
   </object>
   <object id="1376" type="PortalNode" x="5024" y="960">
    <point/>
   </object>
-  <object id="1377" type="Portal" x="4720" y="1008">
+  <object id="1390" type="SlipperyHitbox" x="4688" y="912">
+   <polygon points="336,80 336,96 -112,96 -112,80 320,80 320,-48 352,-48 336,-32 336,48 400,48 400,64 336,64"/>
+  </object>
+  <object id="1414" type="Portal" x="4720" y="1008">
    <properties>
-    <property name="other" type="object" value="1378"/>
+    <property name="other" type="object" value="1415"/>
     <property name="target" type="object" value="1375"/>
    </properties>
    <point/>
   </object>
-  <object id="1378" type="PortalNode" x="4720" y="1104">
+  <object id="1415" type="PortalNode" x="4720" y="1104">
    <point/>
-  </object>
-  <object id="1390" type="SlipperyHitbox" x="4688" y="912">
-   <polygon points="336,80 336,96 -112,96 -112,80 320,80 320,-48 352,-48 336,-32 336,48 400,48 400,64 336,64"/>
   </object>
  </objectgroup>
  <objectgroup id="6" name="foreground"/>
