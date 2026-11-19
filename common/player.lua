@@ -3158,7 +3158,7 @@ function rt.Player:request_is_disabled(id, is_disabled)
     end
 
     if before ~= self:get_is_disabled() then
-        TODOself:_update_bubble(self:get_is_bubble())
+        self:_update_bubble(self:get_is_bubble())
     end
     return id
 end
@@ -3258,7 +3258,7 @@ function rt.Player:_update_bubble(is_bubble)
 
     local vx, vy, x, y
 
-    if self:get_is_bubble() == false then
+    if self:get_is_bubble() == true then
         vx, vy = self._bubble_body:get_velocity()
         x, y = self._bubble_body:get_position()
     else
@@ -3281,7 +3281,10 @@ function rt.Player:_update_bubble(is_bubble)
         self._bubble_body:set_position(x, y)
         self._bubble_body:set_velocity(vx, vy)
         for i, body in ipairs(self._bubble_spring_bodies) do
-            body:set_position(x, y) -- reset to center so inflating doesn't clip into geometry
+            body:set_position(
+                x + self._spring_body_offsets_x[i], -- keep offset here
+                y + self._spring_body_offsets_y[i]
+            )
             body:set_velocity(vx, vy)
         end
     else

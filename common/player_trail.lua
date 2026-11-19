@@ -252,6 +252,8 @@ end
 
 --- @brief
 function rt.PlayerTrail:draw_above()
+    if self._player:get_is_trail_enabled() == false then return end
+
     love.graphics.push("all")
     love.graphics.setBlendMode("add")
 

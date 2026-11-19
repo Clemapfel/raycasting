@@ -26,9 +26,9 @@ local schema = meta.Schema({
     left_or_right = mt.Optional(ow.Boolean)
 })
 
-local _STATE_DEFAULT = 0
-local _STATE_TRANSITIONING = 1
-local _STATE_EXITING = 2
+local _STATE_DEFAULT = "default"
+local _STATE_TRANSITIONING = "transitioning"
+local _STATE_EXITING = "exiting"
 
 local _LEFT = 1
 local _RIGHT = -1
@@ -101,7 +101,7 @@ function ow.Portal:instantiate(object, stage, scene)
             b2.Tag.CORE_STENCIL,
             b2.Tag.BODY_STENCIL
         )
-        
+
         for body in range(self._body, self._stencil_body) do
             body:set_collides_with(0x0)
             body:set_collision_group(0x0)
@@ -198,6 +198,10 @@ function ow.Portal:update(delta)
     local player = self._scene:get_player()
     local settings = rt.settings.overworld.portal
 
+    local player_set_velocity = function(vx, vy)
+        player:set_velocity(vx, vy)
+    end
+
     local update_stencil_body = function(self, enabled, px, py)
         local self_x, self_y = self:get_position()
         local ax, ay, bx, by = math.add4(
@@ -216,7 +220,6 @@ function ow.Portal:update(delta)
     end
 
     local is_visible = self._stage:get_is_body_visible(self._body)
-
     if is_visible then
         self._particles:update(delta)
     end
@@ -229,18 +232,18 @@ function ow.Portal:update(delta)
     then
         local px, py = player:get_position()
         local pr = player:get_radius()
+        local vx, vy = player:get_velocity()
 
         local self_x, self_y = self:get_position()
         local ax, ay = math.add2(self._ax, self._ay, self_x, self_y)
         local bx, by = math.add2(self._bx, self._by, self_x, self_y)
 
-        -- get which side of the portal the player is on
-        if _side_of(ax, ay, bx, by, px, py) == self._winding then
+        if _side_of(ax, ay, bx, by, px, py) == self._winding and math.dot(vx, vy, self._nx, self._ny) > 0 then
             local padding = pr
             local lax, lay, lbx, lby = ax - self._dx * padding,
-                ay - self._dy * padding,
-                bx + self._dx * padding,
-                by + self._dy * padding
+            ay - self._dy * padding,
+            bx + self._dx * padding,
+            by + self._dy * padding
 
             local entry_t = math.clamp(_t_on_line(
                 lax, lay, lbx, lby, px, py
@@ -272,9 +275,10 @@ function ow.Portal:update(delta)
 
                 -- angle player towards portal
                 self._transition_velocity_x, self._transition_velocity_y =
-                    self._nx * self._transition_velocity_magnitude,
-                    self._ny * self._transition_velocity_magnitude
-                player:set_velocity(
+                self._nx * self._transition_velocity_magnitude,
+                self._ny * self._transition_velocity_magnitude
+
+                player_set_velocity(
                     self._transition_velocity_x,
                     self._transition_velocity_y
                 )
@@ -288,7 +292,7 @@ function ow.Portal:update(delta)
                 self._entry_t = entry_t
             end
         end
-    -- teleport active
+        -- teleport active
     elseif self._stage.portal_active_portal == self and self._target ~= nil then
         local target = self._target
         local penetration_r = settings.sensor_width
@@ -302,9 +306,9 @@ function ow.Portal:update(delta)
             -- move camera
             local path = rt.Path(rt.Spline(
                 self._start_x, self._start_y,
-                --self_x, self_y,
-                --self_x + self._nx * penetration_r,
-                --self_y + self._ny * penetration_r,
+            --self_x, self_y,
+            --self_x + self._nx * penetration_r,
+            --self_y + self._ny * penetration_r,
                 target_x, target_y
             ):discretize())
 
@@ -322,7 +326,7 @@ function ow.Portal:update(delta)
             t = rt.InterpolationFunctions.SINUSOID_EASE_IN_OUT(t)
             self._scene:get_camera():move_to(path:at(t))
 
-            player:set_velocity(
+            player_set_velocity(
                 self._transition_velocity_x,
                 self._transition_velocity_y
             )
@@ -344,15 +348,13 @@ function ow.Portal:update(delta)
                 update_stencil_body(self, true, px, py)
                 update_stencil_body(self._target, true, self._target:get_position())
             end
-        end
-
         -- exiting target portal
-        if self._state == _STATE_EXITING and self._target ~= nil then
+        elseif self._state == _STATE_EXITING and self._target ~= nil then
             local target_x, target_y = target:get_position()
             local dx, dy = math.normalize(-target._nx, -target._ny)
 
             local target_vx, target_vy = target._body:get_velocity()
-            player:set_velocity(
+            player_set_velocity(
                 dx * self._transition_velocity_magnitude + target_vx,
                 dy * self._transition_velocity_magnitude + target_vy
             )
@@ -370,15 +372,15 @@ function ow.Portal:update(delta)
                 -- player is far enough, disengage transitioning state
                 self._scene:pop_camera_mode(ow.CameraMode.CUTSCENE)
 
-                player:request_is_ghost(self, nil)
-                player:request_is_disabled(self, nil)
-                player:request_is_trail_enabled(self, nil) -- safety
-
                 update_stencil_body(self, false, self:get_position())
                 update_stencil_body(self._target, false, self._target:get_position())
 
                 self._state = _STATE_DEFAULT
                 self._stage.portal_active_portal = nil
+
+                player:request_is_ghost(self, nil)
+                player:request_is_disabled(self, nil)
+                player:request_is_trail_enabled(self, nil) -- safety
             else
                 update_stencil_body(self, false, self:get_position())
                 update_stencil_body(self._target, true, self._target:get_position())
