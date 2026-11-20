@@ -56,6 +56,17 @@ function b2.Rectangle:translate(dx, dy)
     self._y = self._y + dy
 end
 
+--- @brief
+function b2.Rectangle:get_contour()
+    local x, y, w, h = self._x, self._y, self._width, self._height
+    return {
+        x, y,
+        x + w, y,
+        x + w, y + h,
+        x, y + h
+    }
+end
+
 --- @class b2.Circle
 --- @param x Number
 --- @param y Number
@@ -112,6 +123,18 @@ function b2.Circle:translate(dx, dy)
     self._y = self._y + dy
 end
 
+--- @brief
+function b2.Circle:get_contour()
+    local out = {}
+    local n = 16
+    for i = 1, n do
+        local angle = (i - 1) / n * math.tau
+        table.insert(out, self._x + math.cos(angle) * self._radius)
+        table.insert(out, self._y + math.sin(angle) * self._radius)
+    end
+    return out
+end
+
 --- @class b2.Polygon
 --- @param vertices Table<Number>
 b2.Polygon = meta.class("PhysicsPolygon", b2.Shape)
@@ -159,6 +182,11 @@ function b2.Polygon:translate(dx, dy)
     end
 end
 
+--- @brief
+function b2.Polygon:get_contour()
+    return table.deepcopy(self._vertices)
+end
+
 --- @class b2.Segment
 --- @param vertices Table<Number>
 b2.Segment = meta.class("PhysicsSegment", b2.Shape)
@@ -204,4 +232,9 @@ function b2.Segment:translate(dx, dy)
         self._vertices[i] = self._vertices[i] + dx
         self._vertices[i + 1] = self._vertices[i + 1] + dy
     end
+end
+
+--- @brief
+function b2.Segment:get_contour()
+    return table.deepcopy(self._vertices)
 end

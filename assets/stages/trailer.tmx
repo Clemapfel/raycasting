@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="9" nextobjectid="1416">
+<map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="9" nextobjectid="1424">
  <editorsettings>
   <export target="trailer.lua" format="lua"/>
  </editorsettings>
@@ -12,17 +12,17 @@
   <image source="../tilesets/debug_tileset_16x16/tile.png" width="16" height="16"/>
  </imagelayer>
  <objectgroup id="8" name="aux">
-  <object id="1400" type="CameraFit" x="4640" y="832">
-   <polygon points="16,0 16,560 688,560 688,0"/>
-  </object>
   <object id="1404" type="Coin" x="5044.95" y="994.51">
    <point/>
   </object>
-  <object id="1409" name="s" type="FlowOverride" x="4496" y="720">
+  <object id="1409" name="s" type="FlowOverride" x="4496" y="720" visible="0">
    <properties>
     <property name="value" type="float" value="1"/>
    </properties>
    <polygon points="0,0 976,0 976,768 0,768"/>
+  </object>
+  <object id="1423" type="CameraBounds" x="4704" y="832">
+   <polygon points="0,32 0,528 592,528 592,32"/>
   </object>
  </objectgroup>
  <objectgroup id="7" name="background">
@@ -34,7 +34,7 @@
   </object>
  </objectgroup>
  <objectgroup id="2" name="base">
-  <object id="1314" name="Spawn" type="PlayerSpawn" x="4784" y="1104">
+  <object id="1314" name="Spawn" type="PlayerSpawn" x="4789.55" y="1092.3">
    <point/>
   </object>
   <object id="1368" type="SlipperyHitbox" x="4688" y="1104">
@@ -49,7 +49,7 @@
   <object id="1372" type="AcceleratorSurface" x="5232" y="1168">
    <polygon points="48,-48 64,-48 64,-304 -192,-304 -208,-288 -80,-288 -47.5294,-282.001 -20.633,-270.743 -1.3302,-255.146 16.7808,-237.933 30.4593,-216.843 40.3219,-193.346 46.1368,-170.83 48,-144"/>
   </object>
-  <object id="1373" type="Hitbox" x="5024" y="784">
+  <object id="1373" type="Hitbox" x="5024" y="784" visible="0">
    <polygon points="-16,208.059 -400,208 -400,223.941 -304,223.941 -304,319.941 -400,319.941 -400,335.941 -208,336 -208,576 272,576 448,704 -528,704 -528,-64 -384.174,-64 448,-64 448,704 272,576 272,80 16,80 -16,80"/>
   </object>
   <object id="1375" type="Portal" x="5024" y="880">
@@ -74,6 +74,12 @@
   </object>
   <object id="1415" type="PortalNode" x="4720" y="1104">
    <point/>
+  </object>
+  <object id="1416" type="Wall" x="3097.56" y="56.0185">
+   <polygon points="0,0 0,592 880,592 896,-16"/>
+  </object>
+  <object id="1417" type="Hitbox" x="3478.81" y="421.888">
+   <polygon points="0,0 224,0 272,-48 224,-112 320,-112 320,32 -48,32 -16,-80"/>
   </object>
  </objectgroup>
  <objectgroup id="6" name="foreground"/>

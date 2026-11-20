@@ -20,6 +20,7 @@ end
 
 --- @brief
 function rt.SmoothedMotion2D:set_position(x, y)
+    meta.typecheck(x, mt.Number, y, mt.Number)
     self._current_position_x, self._current_position_y = x, y
 end
 
@@ -30,6 +31,8 @@ end
 
 --- @brief
 function rt.SmoothedMotion2D:set_target_position(x, y)
+    meta.typecheck(x, mt.Number, y, mt.Number)
+
     if math.is_nan(x) or math.is_nan(y) then
         rt.error("In rt.SmoothedMotion2D.set_target_position: argument is NaN")
         return
@@ -45,16 +48,20 @@ end
 
 --- @brief
 function rt.SmoothedMotion2D:set_speed(speed)
+    meta.typecheck(speed, mt.Number)
     self._speed = speed
 end
 
 --- @brief set speed such that 99.9% of a step is covered in `seconds`
 function rt.SmoothedMotion2D:set_lag_time(seconds)
+    meta.typecheck(seconds, mt.Number)
     self._speed = 1 / seconds
 end
 
 --- @brief
 function rt.SmoothedMotion2D:update(delta)
+    meta.typecheck(delta, mt.Number)
+
     local alpha = 1 - math.exp(-self._ramp * self._speed * delta)
 
     self._current_position_x = self._current_position_x + (self._target_position_x - self._current_position_x) * alpha

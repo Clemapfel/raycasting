@@ -1255,6 +1255,7 @@ do
     --- and the properties exposed by its type and its super types.
     function meta.serialize(instance)
         meta.typecheck(instance, meta.Table)
+        if instance == nil then return "nil" end
 
         local buffer = {}
         local members = _serialize_collect_instance_members(instance)

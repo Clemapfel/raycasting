@@ -16,7 +16,9 @@ rt.RequestReduceMode = {
     MULTIPLY = 10,
     DIVIDE = 11,
     CUSTOM = 12,
-    MANUAL = 13
+    OLDEST = 13,
+    NEWEST = 14,
+    ENUMERATE = 15
 }
 rt.RequestReduceMode = meta.enum("RequestReduceMode", rt.RequestReduceMode)
 
@@ -28,23 +30,38 @@ function rt.RequestHandler:instantiate(...)
     self._id_to_request = {}
 end
 
+local _timestamp = 0
+
 --- @brief
 function rt.RequestHandler:request(id, ...)
     meta.typecheck(id, _id_t)
 
-    if select("#", ...) == 0 then
+    local n = select("#", ...)
+    local should_remove = n == 0
+    if should_remove ~= true then
+        should_remove = true
+        for i = 1, n do
+            if select(i, ...) ~= nil then
+                should_remove = false
+            end
+        end
+    end
+
+    if should_remove then
         -- remove request
         self:remove(id)
     else
         local request = self._id_to_request[id]
         if request == nil then
-            request = { values = nil }
+            request = {}
             self._id_to_request[id] = request
         end
 
         request.values = { ... }
+        request.timestamp = _timestamp
+        _timestamp = _timestamp + 1
     end
-    
+
     return id
 end
 
@@ -60,24 +77,12 @@ function rt.RequestHandler:clear()
 end
 
 --- @brief
-function rt.RequestHandler:reduce(mode, ...)
-    if mode == nil then mode = self._reduce_mode end
-    meta.typecheck(mode, rt.RequestReduceMode)
+function rt.RequestHandler:get_count()
+    return table.count(self._id_to_request)
+end
 
-    if table.is_empty(self._id_to_request) then
-        if mode == rt.RequestReduceMode.MANUAL then
-            if #self._default_value == 1 then
-                return { table.deepcopy(self._default_value[1]) }
-            else
-                return { table.deepcopy(self._default_value) }
-            end
-        else
-            return table.unpack(self._default_value)
-        end
-    end
-
-    local requests = self._id_to_request
-    if mode == rt.RequestReduceMode.AT_LEAST_ONE_TRUE then
+local _reducers = {
+    [rt.RequestReduceMode.AT_LEAST_ONE_TRUE] = function(requests)
         for _, request in pairs(requests) do
             for _, x in ipairs(request.values) do
                 if x == true then return true end
@@ -85,8 +90,9 @@ function rt.RequestHandler:reduce(mode, ...)
         end
 
         return false
+    end,
 
-    elseif mode == rt.RequestReduceMode.AT_LEAST_ONE_FALSE then
+    [rt.RequestReduceMode.AT_LEAST_ONE_FALSE] = function(requests)
         for _, request in pairs(requests) do
             for _, x in ipairs(request.values) do
                 if x == false then return true end
@@ -94,8 +100,9 @@ function rt.RequestHandler:reduce(mode, ...)
         end
 
         return false
+    end,
 
-    elseif mode == rt.RequestReduceMode.ALL_TRUE then
+    [rt.RequestReduceMode.ALL_TRUE] = function(requests)
         for _, request in pairs(requests) do
             for _, x in ipairs(request.values) do
                 if x ~= true then return false end
@@ -103,8 +110,9 @@ function rt.RequestHandler:reduce(mode, ...)
         end
 
         return true
+    end,
 
-    elseif mode == rt.RequestReduceMode.ALL_FALSE then
+    [rt.RequestReduceMode.ALL_FALSE] = function(requests)
         for _, request in pairs(requests) do
             for _, x in ipairs(request.values) do
                 if x ~= false then return false end
@@ -112,8 +120,9 @@ function rt.RequestHandler:reduce(mode, ...)
         end
 
         return true
+    end,
 
-    elseif mode == rt.RequestReduceMode.SUM or mode == rt.RequestHandler.ADD then
+    [rt.RequestReduceMode.SUM] = function(requests, ...)
         local res = { ... }
         for _, request in pairs(requests) do
             for i, x in ipairs(request.values) do
@@ -122,8 +131,9 @@ function rt.RequestHandler:reduce(mode, ...)
         end
 
         return table.unpack(res)
+    end,
 
-    elseif mode == rt.RequestReduceMode.SUBTRACT then
+    [rt.RequestReduceMode.SUBTRACT] = function(requests, ...)
         local res = { ... }
         for _, request in pairs(requests) do
             for i, x in ipairs(request.values) do
@@ -132,8 +142,9 @@ function rt.RequestHandler:reduce(mode, ...)
         end
 
         return table.unpack(res)
+    end,
 
-    elseif mode == rt.RequestReduceMode.MULTIPLY then
+    [rt.RequestReduceMode.MULTIPLY] = function(requests, ...)
         local res = { ... }
         for _, request in pairs(requests) do
             for i, x in ipairs(request.values) do
@@ -142,8 +153,9 @@ function rt.RequestHandler:reduce(mode, ...)
         end
 
         return table.unpack(res)
+    end,
 
-    elseif mode == rt.RequestReduceMode.DIVIDE then
+    [rt.RequestReduceMode.DIVIDE] = function(requests, ...)
         local res = { ... }
         for _, request in pairs(requests) do
             for i, x in ipairs(request.values) do
@@ -152,10 +164,11 @@ function rt.RequestHandler:reduce(mode, ...)
         end
 
         return table.unpack(res)
+    end,
 
-    elseif mode == rt.RequestReduceMode.MEAN then
-        local sum = { }
-        local ns = { }
+    [rt.RequestReduceMode.MEAN] = function(requests)
+        local sum = {}
+        local ns = {}
         for _, request in pairs(requests) do
             for i, x in ipairs(request.values) do
                 sum[i] = (sum[i] or 0) + x
@@ -164,12 +177,13 @@ function rt.RequestHandler:reduce(mode, ...)
         end
 
         for i, x in ipairs(sum) do
-            sum[i] = sum[i] / ns[i]
+            sum[i] = x / ns[i]
         end
 
         return table.unpack(sum)
+    end,
 
-    elseif mode == rt.RequestReduceMode.MAX then
+    [rt.RequestReduceMode.MAX] = function(requests)
         local maxs = {}
         for _, request in pairs(requests) do
             for i, x in ipairs(request.values) do
@@ -182,8 +196,9 @@ function rt.RequestHandler:reduce(mode, ...)
         end
 
         return table.unpack(maxs)
+    end,
 
-    elseif mode == rt.RequestReduceMode.MIN then
+    [rt.RequestReduceMode.MIN] = function(requests)
         local mins = {}
         for _, request in pairs(requests) do
             for i, x in ipairs(request.values) do
@@ -196,10 +211,37 @@ function rt.RequestHandler:reduce(mode, ...)
         end
 
         return table.unpack(mins)
+    end,
 
-    elseif mode == rt.RequestReduceMode.MANUAL then
+    [rt.RequestReduceMode.NEWEST] = function(requests)
+        local max_request = nil
+        local max_timestamp = -math.huge
+        for _, request in pairs(requests) do
+            if request.timestamp >= max_timestamp then
+                max_timestamp = request.timestamp
+                max_request = request
+            end
+        end
+
+        return table.unpack(max_request.values)
+    end,
+
+    [rt.RequestReduceMode.OLDEST] = function(requests)
+        local min_request = nil
+        local min_timestamp = math.huge
+        for _, request in pairs(requests) do
+            if request.timestamp <= min_timestamp then
+                min_timestamp = request.timestamp
+                min_request = request
+            end
+        end
+
+        return table.unpack(min_request.values)
+    end,
+
+    [rt.RequestReduceMode.ENUMERATE] = function(requests)
         local res = {}
-        for id, request in pairs(requests) do
+        for _, request in pairs(requests) do
             if #request.values == 1 then
                 table.insert(res, request.values[1])
             else
@@ -209,4 +251,25 @@ function rt.RequestHandler:reduce(mode, ...)
 
         return res
     end
+}
+
+--- @brief
+function rt.RequestHandler:reduce(mode, ...)
+    if mode == nil then mode = self._reduce_mode end
+    meta.typecheck(mode, rt.RequestReduceMode)
+
+    if table.is_empty(self._id_to_request) then
+        if mode == rt.RequestReduceMode.ENUMERATE then
+            -- match table of table layout
+            if #self._default_value == 1 then
+                return { table.deepcopy(self._default_value[1]) }
+            else
+                return { table.deepcopy(self._default_value) }
+            end
+        else
+            return table.unpack(self._default_value)
+        end
+    end
+
+    return _reducers[mode](self._id_to_request, ...)
 end

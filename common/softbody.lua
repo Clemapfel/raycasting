@@ -16,23 +16,6 @@ local _settings_default_linear_velocity_compliance = 1e-5
 local _settings_default_particle_collision_compliance = 0
 local _settings_default_anchor_compliance = 0
 
-rt.SoftbodyConstraintMode = {
-    LIQUID = "LIQUID",
-    SOLID = "SOLID"
-}
-
-local _constraint_mode_to_compliance_override = {
-    [rt.SoftbodyConstraintMode.SOLID] = {
-
-    },
-
-    [rt.SoftbodyConstraintMode.LIQUID] = {
-        distance_compliance = 1.5e-4,
-        static_friction = 0.05,
-        kinetic_friction = 0
-    }
-}
-
 local _settings_damping = 0.9998
 local _settings_texture_zoom = 1 / 0.9
 
@@ -47,6 +30,7 @@ local _math_inf = math.huge
 local _table_new = function(n) return table.new(n, 0) end
 local _table_push = table.insert
 local _table_clear = table.clear
+local _table_rep = table.rep
 
 local _x_offset = 0
 local _y_offset = 1
@@ -61,9 +45,10 @@ local _velocity_y_offset = 9
 local _radius_offset = 10
 local _mass_offset = 11
 local _inverse_mass_offset = 12
-local _distance_lambda_offset = 13
-local _bending_lambda_offset = 14
-local _polygon_lambda_offset = 15
+local _segment_length_offset = 13
+local _distance_lambda_offset = 14
+local _bending_lambda_offset = 15
+local _polygon_lambda_offset = 16
 
 local _stride = _polygon_lambda_offset + 1
 
@@ -92,34 +77,52 @@ end
 --- @class rt.Softbody
 rt.Softbody = meta.class("Softbody")
 
+local config_schema = meta.Schema({
+    volume_compliance = mt.Optional(mt.Number),
+    contour_compliance = mt.Optional(mt.Number),
+    distance_compliance = mt.Optional(mt.Number),
+    bending_compliance = mt.Optional(mt.Number),
+    angular_velocity_compliance = mt.Optional(mt.Number),
+    linear_velocity_compliance = mt.Optional(mt.Number),
+    anchor_compliance = mt.Optional(mt.Number),
+    static_friction = mt.Optional(mt.Number),
+    kinetic_friction = mt.Optional(mt.Number)
+})
+
 function rt.Softbody:instantiate(...)
     self.is_initialized = false
+    self._settings_override = {}
+
     if select("#", ...) > 0 then
         self:initialize(...)
     end
 end
 
-function rt.Softbody:initialize(center_x, center_y, radius, n_contour_nodes)
-    meta.typecheck(
-        center_x, mt.Number,
-        center_y, mt.Number,
-        radius, mt.Number,
-        n_contour_nodes, mt.Number
-    )
-    rt.assert(n_contour_nodes % 1 == 0, "In rt.Softbody.initialize: number of contour nodes must be an integer")
+function rt.Softbody:initialize(nodes)
+    meta.typecheck(nodes, rt.Polyline)
+    rt.assert(#nodes % 2 == 0, "In rt.Softbody.initialize: expected flat list of 2d points")
 
     local cos, sin, tau, pi = math.cos, math.sin, math.tau, math.pi
 
-    -- particles
-    rt.assert(n_contour_nodes >= 5, "In rt.Softbody.initialize: need at least 5 contour nodes")
-
-    local n_particles = n_contour_nodes
+    local n_particles = nodes:get_n_vertices()
     local data = _table_new(n_particles * _stride)
 
-    for particle_i = 1, n_contour_nodes do
-        local angle = (particle_i - 1) / n_contour_nodes * tau
-        local px = center_x + radius * cos(angle)
-        local py = center_y + radius * sin(angle)
+    local arc_length = function(cx, cy, x1, y1, x2, y2)
+        -- approximate path length using circular arc
+        local dx1, dy1 = x1 - cx, y1 - cy
+        local dx2, dy2 = x2 - cx, y2 - cy
+
+        local r = math.magnitude(dx1, dy1)
+        local a1 = math.angle(dx1, dy1)
+        local a2 = math.angle(dx2, dy2)
+        local dtheta = math.normalize_angle(a2 - a1)
+        return r * dtheta
+    end
+
+    local cx, cy = nodes:get_centroid()
+
+    for particle_i = 1, n_particles do
+        local px, py = nodes:get_vertex(particle_i)
         local mass = 1
 
         local base = _particle_i_to_data_offset(particle_i)
@@ -137,6 +140,11 @@ function rt.Softbody:initialize(center_x, center_y, radius, n_contour_nodes)
         data[base + _radius_offset] = 1
         data[base + _mass_offset] = mass
         data[base + _inverse_mass_offset] = 1 / mass
+        data[base + _segment_length_offset] = arc_length(
+            cx, cy,
+            px, py,
+            nodes:get_vertex(math.wrap(particle_i, n_particles))
+        )
         data[base + _distance_lambda_offset] = 0
         data[base + _bending_lambda_offset] = 0
         data[base + _polygon_lambda_offset] = 0
@@ -157,7 +165,6 @@ function rt.Softbody:initialize(center_x, center_y, radius, n_contour_nodes)
         area = area + 0.5 * _math_cross(ax, ay, bx, by)
     end
 
-    local segment_length = 2 * radius * sin(pi / n_particles)
     local rest_area = area
 
     -- drawing
@@ -194,8 +201,6 @@ function rt.Softbody:initialize(center_x, center_y, radius, n_contour_nodes)
     self.anchor_lambda_x = 0
     self.anchor_lambda_y = 0
 
-    self.segment_length = segment_length
-
     self.volume_gradient = _table_new(2 * n_particles)
     for particle_i = 1, n_particles do
         self.volume_gradient[2 * particle_i - 1] = 0
@@ -211,8 +216,6 @@ function rt.Softbody:initialize(center_x, center_y, radius, n_contour_nodes)
 
     self.gravity_x = 0
     self.gravity_y = 0
-
-    self.constraint_mode = rt.SoftbodyConstraintMode.SOLID
 
     self.draw_contour = rt.Polyline(draw_contour):close()
 
@@ -243,7 +246,7 @@ function rt.Softbody:set_collision_contours(contours)
         meta.typecheck_arg_i(contour, rt.Polyline, i)
 
         local closed_contour = contour:close()
-        local n_corners = closed_contour:get_n_nodes()
+        local n_corners = closed_contour:get_n_vertices()
 
         rt.assert(n_corners >= 3, "In rt.Softbody.set_collision_contours: need at least 3 vertices")
 
@@ -288,9 +291,9 @@ function rt.Softbody:set_collision_contours(contours)
             contour = closed_contour,
             edges = edges,
             n_edges = n_edges,
-            lambdas = table_rep(0, self.n_particles),
-            normals_x = table_rep(0, self.n_particles),
-            normals_y = table_rep(0, self.n_particles)
+            lambdas = _table_rep(0, self.n_particles),
+            normals_x = _table_rep(0, self.n_particles),
+            normals_y = _table_rep(0, self.n_particles)
         }
 
         for particle_i = 1, self.n_particles do
@@ -301,6 +304,14 @@ function rt.Softbody:set_collision_contours(contours)
     end
 
     return self
+end
+
+function rt.Softbody:get_collision_contours()
+    local out = {}
+    for entry in values(self.collision_contours) do
+        table.insert(out, entry.contour)
+    end
+    return out
 end
 
 function rt.Softbody:get_contour()
@@ -990,8 +1001,7 @@ do -- rt.Softbody:update
         local n_sub_steps = _settings_n_sub_steps
         local n_constraint_iterations = _settings_n_constraint_iterations
 
-        local override = _constraint_mode_to_compliance_override[self.constraint_mode]
-
+        local override = self._settings_override
         local sub_delta_sq = (sub_delta * sub_delta)
         local volume_alpha  = (override.volume_compliance  or _settings_default_volume_compliance) / sub_delta_sq
         local contour_alpha = (override.contour_compliance or _settings_default_collision_contour_compliance) / sub_delta_sq
@@ -1006,7 +1016,6 @@ do -- rt.Softbody:update
 
         local data = self.particles
         local n_particles = self.n_particles
-        local segment_length = self.segment_length
         local collision_contours = self.collision_contours
         local n_collision_contours = #collision_contours
 
@@ -1117,7 +1126,7 @@ do -- rt.Softbody:update
                             data[bi + _x_offset], data[bi + _y_offset],
                             data[ai + _inverse_mass_offset],
                             data[bi + _inverse_mass_offset],
-                            segment_length,
+                            data[ai + _segment_length_offset],
                             distance_alpha,
                             data[ai + _distance_lambda_offset]
                         )
@@ -1417,21 +1426,13 @@ function rt.Softbody:remove_angular_impulse(hash)
 end
 
 -- mode
-
-function rt.Softbody:set_constraint_mode(mode)
-    meta.typecheck(self, rt.Softbody)
-    rt.assert(
-        mode == rt.SoftbodyConstraintMode.SOLID or mode == rt.SoftbodyConstraintMode.LIQUID,
-        "In rt.Softbody.set_constraint_mode: invalid constraint mode"
-    )
-
-    self.constraint_mode = mode
+function rt.Softbody:set_config(settings)
+    config_schema:validate(settings)
+    self.settings_override = settings
 end
 
-function rt.Softbody:get_constraint_mode()
-    meta.typecheck(self, rt.Softbody)
-
-    return self.constraint_mode
+function rt.Softbody:get_config()
+    return self.settings_override
 end
 
 function rt.Softbody:get_centroid()
@@ -1497,4 +1498,8 @@ function rt.Softbody:get_mass()
         end
     end
     return total
+end
+
+function rt.Softbody:relax()
+
 end

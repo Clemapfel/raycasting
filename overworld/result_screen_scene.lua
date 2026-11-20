@@ -474,7 +474,7 @@ function ow.ResultScreenScene:size_allocate(x, y, width, height)
             table.insert(self._bodies, body)
         end
 
-        self._camera:set_position(half_w, half_h)
+        self._camera:request_position(self, half_w, half_h)
         self:_teleport_player(self._entry_x, self._entry_y)
     end
 
@@ -649,7 +649,7 @@ function ow.ResultScreenScene:enter(player_x, player_y, player_vx, player_vy, sc
     -- player position continuity
     self._entry_x, self._entry_y = player_x, player_y
     self:_teleport_player(self._entry_x, self._entry_y)
-    self._camera:set_position(self._bounds.x + 0.5 * self._bounds.width, self._bounds.y + 0.5 * self._bounds.height)
+    self._camera:request_position(self, self._bounds.x + 0.5 * self._bounds.width, self._bounds.y + 0.5 * self._bounds.height)
 
     for entry in values(self._coin_indicators) do
         if entry.body ~= nil then
@@ -707,7 +707,7 @@ function ow.ResultScreenScene:enter(player_x, player_y, player_vx, player_vy, sc
     for body in values(self._bodies) do
         body:set_is_enabled(true)
     end
-    self._camera:set_position(self._bounds.x + 0.5 * self._bounds.width, self._bounds.y + 0.5 * self._bounds.height)
+    self._camera:request_position(self, self._bounds.x + 0.5 * self._bounds.width, self._bounds.y + 0.5 * self._bounds.height)
     self._fade:reset()
     self._fade_active = false
 

@@ -6,7 +6,6 @@ local schema = meta.Schema({
     scale = mt.Optional(ow.Number),
     body = mt.Optional(ow.Object),
     should_apply_bounds = mt.Optional(ow.Boolean),
-    should_apply_scale = mt.Optional(ow.Boolean)
 })
 
 --- @brief
@@ -26,14 +25,10 @@ function ow.CameraBounds:instantiate(object, stage, scene)
     self._scene = scene
     self._stage = stage
 
-    self._scale = object:get_number("scale", false) -- can be nil
-
-    self._should_apply_scale = object:get_boolean("should_apply_scale", false)
-    if self._should_apply_scale == nil then self._should_apply_scale = self._scale ~= nil end
+    self._scale = object:get_number("scale", false)
+    self._should_apply_bounds = object:get_boolean("should_apply_bounds", false)
 
     self._bounds = bounds
-    self._should_apply_bounds = object:get_boolean("should_apply_bounds", false)
-    if self._should_apply_bounds == nil then self._should_apply_bounds = true end
 
     if object:get_object("body") ~= nil then
         self._body = object:get_object("body"):create_physics_body(stage:get_physics_world())
@@ -45,58 +40,53 @@ function ow.CameraBounds:instantiate(object, stage, scene)
     self._body:set_collides_with(rt.settings.player.player_collision_group)
     self._body:set_collision_group(rt.settings.player.ghost_collision_group)
 
-    self._scale_before = nil
-    self._bounds_before = nil
+    self._is_active = false
+    self:update(0, true) -- check if should bind
+end
 
-    self._body:signal_connect("collision_start", function()
+--- @brief
+function ow.CameraBounds:update(delta, override)
+    if override ~= true and not self._stage:get_is_body_visible(self._body) then return end
+
+    local was_active = self._is_active
+    local is_active = self._body:test_point(self._scene:get_player():get_position())
+
+    if was_active == false and is_active == true then
         self:_bind()
-    end)
-
-    self._body:signal_connect("collision_end", function()
+    elseif was_active == true and is_active == false then
         self:_unbind()
-    end)
+    end
 end
 
 --- @brief
 function ow.CameraBounds:_bind()
     local camera = self._scene:get_camera()
-    if self._should_apply_bounds then
-        self._bounds_before = camera:get_bounds()
-        camera:add_bounds(self._bounds)
-        self._scene:push_camera_mode(ow.CameraMode.BOUNDED)
+    if self._should_apply_bounds ~= false then
+        camera:request_bounds(self, self._bounds)
     end
 
-    if self._should_apply_scale then
-        self._scale_before = camera:get_scale()
-        camera:scale_to(self._scale)
+    if self._scale ~= nil then
+        camera:request_scale(self, self._scale)
     end
 end
 
 --- @brief
 function ow.CameraBounds:_unbind()
     local camera = self._scene:get_camera()
-    if self._should_apply_bounds then
-        camera:remove_bounds(self._bounds)
-        self._scene:pop_camera_mode(ow.CameraMode.BOUNDED)
+    if self._should_apply_bounds ~= nil then
+        camera:request_bounds(self, nil)
     end
 
-    if self._should_apply_scale then
-        camera:scale_to(self._scale_before)
+    if self._scale ~= nil then
+        camera:request_scale(self, nil)
     end
-end
-
---- @brief
-function ow.CameraBounds:try_bind(px, py)
-    if self._bounds:contains(px, py) then
-        self:_bind()
-        return true
-    end
-
-    return false
 end
 
 --- @brief
 function ow.CameraBounds:reset()
     self:_unbind()
-    self:try_bind(self._scene:get_camera():get_position())
+
+    -- force check if should bind agai
+    self._is_active = false
+    self:update(0)
 end

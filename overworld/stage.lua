@@ -52,7 +52,6 @@ function ow.Stage:instantiate(scene, id)
         _is_first_spawn = true,
 
         _world = b2.World(),
-        _camera_bounds = rt.AABB(-math.huge, -math.huge, math.huge, math.huge),
 
         _wrapper_id_to_instance = {}, -- Table<Number, Any>
         _instance_to_wrapper = {}, -- Table<Any, Number>
@@ -69,7 +68,6 @@ function ow.Stage:instantiate(scene, id)
 
         -- stage objects
         _coins = {}, -- cf. add_coin
-        _camera_bounds = meta.make_weak({}), -- Table<ow.CameraBounds>
         _checkpoints = meta.make_weak({}), -- Table<ow.Checkpoint, Number>
 
         _blood_spatter = nil, -- ow.BloodSpatter
@@ -180,8 +178,6 @@ function ow.Stage:instantiate(scene, id)
     self._checkpoints = meta.make_weak({})
     local n_goals = 0 -- number ow.Goal, for warning
 
-    self._camera_bounds = meta.make_weak({})
-
     local coins = {}
     local n_time_attack_npcs = 0
 
@@ -217,8 +213,6 @@ function ow.Stage:instantiate(scene, id)
                     table.insert(coins, instance)
                 elseif meta.isa(instance, ow.Goal) then
                     n_goals = n_goals + 1
-                elseif meta.isa(instance, ow.CameraBounds) or meta.isa(instance, ow.CameraFit) then
-                    table.insert(self._camera_bounds, instance)
                 elseif meta.isa(instance, ow.TimeAttackTriggerNPC) then
                     n_time_attack_npcs = n_time_attack_npcs + 1
                 end
@@ -844,21 +838,6 @@ function ow.Stage:reset()
     )
 
     self:signal_emit("reset")
-end
-
---- @brief
-function ow.Stage:apply_camera_bounds(x, y, should_snap)
-    meta.typecheck(x, mt.Number, y, mt.Number)
-    local camera = self._scene:get_camera()
-    camera:clear_bounds()
-
-    for bounds in values(self._camera_bounds) do
-        bounds:try_bind(x, y)
-    end
-
-    if should_snap == true then
-        camera:snap_to_bounds()
-    end
 end
 
 local _instance_sort_function = function(a, b)

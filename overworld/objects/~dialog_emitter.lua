@@ -71,7 +71,6 @@ function ow.DialogEmitter:_start_dialog()
     self._dialog_box_motion:set_target_value(_REVEALED)
 
     if self._should_lock then
-        self._scene:set_camera_mode(ow.CameraMode.MANUAL)
         self._scene:get_player():set_movement_disabled(true)
 
         local camera = self._scene:get_camera()
@@ -102,10 +101,6 @@ end
 function ow.DialogEmitter:_end_dialog()
     if self._dialog_box_active == true then
         self._dialog_box_active = false
-
-        if self._should_lock then
-            self._scene:set_camera_mode(ow.CameraMode.AUTO)
-        end
     end
 
     if self._should_lock then

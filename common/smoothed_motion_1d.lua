@@ -8,7 +8,7 @@ function rt.SmoothedMotion1D:instantiate(value, speed, ramp)
     end
 
     if speed == nil then speed = 1 end
-    meta.typecheck(value, mt.Number, speed, mt.Number)
+    meta.typecheck(value, mt.Number, speed, mt.Number, ramp, mt.Number)
 
     self._attack_speed = speed
     self._decay_speed = speed

@@ -158,6 +158,33 @@ function table.rep(to_repeat, n)
     return out
 end
 
+--- @brief
+function table.count(t)
+    local n = 0
+    for _ in pairs(t) do n = n + 1 end
+    return n
+end
+
+--- @brief
+function table.sub(t, i, j)
+    local n = #t
+    i = i or 1
+    j = j or -1
+
+    if i < 0 then i = n + i + 1 end
+    if j < 0 then j = n + j + 1 end
+
+    if i < 1 then i = 1 end
+    if j > n then j = n
+    end
+
+    local result = {}
+    for k = i, j do
+        table.insert(result, t[k])
+    end
+    return table.unpack(result)
+end
+
 --- @brief clear all values from table
 --- @param t Table
 --- @return nil

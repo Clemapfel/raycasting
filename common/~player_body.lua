@@ -1,1465 +1,502 @@
 require "common.smoothed_motion_1d"
+require "common.lch_texture"
+require "common.player_body_core_type"
 
 rt.settings.player_body = {
+    outline_darkening = 0.5,
+
+    particle_texture_scale = 1,
+    core_outline_width = 2,
+
+    contour_threshold = 0.25,
+    threshold = 0.4,
+
+    texture_scale = 4,
+    msaa = 2,
+
+    particle_texture_radius_factor = 1,
+    contour_radius_factor = 1,
+
+    n_rings = 4,
+    rope_radius = 3,
+    max_rope_length = 56,
+
+    contour_inflation_speed = 2, -- fraction
+    contour_deflation_speed = 1, -- fraction
+    squish_speed = 2, -- fraction
+    squish_magnitude = 0.2, -- fraction
+
     relative_velocity_influence = 1 / 3, -- [0, 1] where 0 no influence
 
-    -- user set params
-    default_n_rings = 7,
-    default_n_ropes_per_ring = 27,
-    default_n_segments_per_rope = 8,
-    default_rope_length_radius_factor = 7, -- * player radius
-
-    -- static params
-    node_mesh_alpha = 0.05,
-    node_mesh_padding = 4,
-    node_mesh_contour_radius = 1,
-    contour_scale_offset = 10,
-    non_contour_scale_offset = 6,
-    node_mesh_radius_factor = 10 / 12.5,
-
-    canvas_padding_radius_factor = 5,
-    canvas_scale = 3,
-
-    highlight_brightness = 0.4,
-    highlight_radius = 8,
-    outline_value_offset = 0.5,
-    outline_width = 1.5,
-
-    -- constraint solver params
     non_contour = {
-        n_velocity_iterations = 4,
-        n_distance_iterations = 8,
-        n_axis_iterations = 0,
-        axis_intensity = 0,
-        n_bending_iterations = 0,
-        velocity_damping = 1 - 0.15,
-        inertia = 0.8,
-        n_inverse_kinematics_iterations = 0,
-        inverse_kinematics_intensity = 0
-    },
+        n_sub_steps = 2,
+        n_constraint_iterations = 5,
+        damping = 1 - 0.2,
 
-    non_contour_performace = {
-        n_velocity_iterations = 4,
-        n_distance_iterations = 6,
-        n_axis_iterations = 0,
-        axis_intensity = 0,
-        n_bending_iterations = 0,
-        velocity_damping = 1 - 0.15,
-        inertia = 0.8,
-        n_inverse_kinematics_iterations = 0,
-        inverse_kinematics_intensity = 0
+        distance_compliance = 0,
+        bending_compliance = 1,
+        axis_compliance = 1,
+        collision_compliance = 0.025,
+        contraction_compliance = 0.003,
+
+        gravity = 500
     },
 
     contour = {
-        n_velocity_iterations = 1,
-        n_distance_iterations = 1,
-        n_axis_iterations = 1,
-        axis_intensity = 1,
-        n_bending_iterations = 0,
-        velocity_damping = 1 - 0.3,
-        inertia = 0,
-        n_inverse_kinematics_iterations = 3,
-        inverse_kinematics_intensity = 0.1
-    },
+        n_sub_steps = 2,
+        n_constraint_iterations = 4,
+        bending_compliance = 1,
+        axis_compliance = 1,
+        distance_compliance = 7e-6,
+        collision_compliance = 0.00055,
+        contraction_compliance = 1,
 
-    contour_performance = {
-        n_velocity_iterations = 1,
-        n_distance_iterations = 1,
-        n_axis_iterations = 1,
-        axis_intensity = 1,
-        n_bending_iterations = 0,
-        velocity_damping = 1 - 0.3,
-        inertia = 0,
-        n_inverse_kinematics_iterations = 2,
-        inverse_kinematics_intensity = 0.1
-    },
+        damping = 1 - 0.4,
 
-    gravity = 2.5,
-
-    squish_speed = 4, -- fraction
-    squish_magnitude = 0.16, -- fraction
-
-    max_stretch = 2,
+        gravity = 0
+    }
 }
 
 --- @class rt.PlayerBody
 rt.PlayerBody = meta.class("PlayerBody")
 
+local _particle_texture_shader = rt.Shader("common/player_body_particle_texture.glsl")
+local _instance_draw_shader = rt.Shader("common/player_body_instanced_draw.glsl")
+local _threshold_shader = rt.Shader("common/player_body_threshold.glsl")
+local _outline_shader = rt.Shader("common/player_body_outline.glsl")
 
---- @enum rt.PlayerBody
-rt.PlayerBodyContourType = meta.enum("PlayerBodyContourType", {
-    CIRCLE = "circle",
-    SQUARE = "square",
-    TRIANGLE = "triangle",
-    TEAR_DROP = "tear_drop"
-})
+local _core_type_to_shader = {
+    [rt.PlayerBodyCoreType.DEFAULT] = rt.Shader("common/player_body_core_default.glsl"),
+    [rt.PlayerBodyCoreType.SOLID] = rt.Shader("common/player_body_core_solid.glsl")
+}
 
-local _settings = rt.settings.player_body
+for x in values(meta.instances(rt.PlayerBodyCoreType)) do
+    if _core_type_to_shader[x] == nil then
+        rt.error("In rt.PlayerBody: not shader is associated with `PlayerBodyCoreType` `", x, "`")
+        _core_type_to_shader[x] = _core_type_to_shader[rt.PlayerBodyCoreType.DEFAULT]
+    end
+end
 
-local _threshold_shader = rt.Shader("common/player_body_outline.glsl", { MODE = 0})
-local _outline_shader = rt.Shader("common/player_body_outline.glsl", { MODE = 1 })
-local _core_shader = rt.Shader("common/player_body_core.glsl")
+local _lch_texture = rt.LCHTexture(256, 64, 256)
+
+local _squished = 1
+local _not_squished = 0
 
 --- @brief
-function rt.PlayerBody:instantiate(config)
-    self._input = rt.InputSubscriber()
-    self._input:signal_connect("keyboard_key_pressed", function(_, which)
-        if which == "k" then _core_shader:recompile() end
-    end)
-
-    meta.typecheck(config, mt.Table)
-
-    local necessary_keys = {
-        radius = false,
-        max_radius = false
-    }
-
-    for key, default in pairs({
-        n_rings = _settings.default_n_rings,
-        n_ropes_per_ring = _settings.default_n_ropes_per_ring,
-        n_segments_per_rope = _settings.default_n_segments_per_rope,
-        rope_length_radius_factor = _settings.default_rope_length_radius_factor,
-        use_performance_mode = false
-    }) do
-        if config[key] == nil then config[key] = default end
-    end
-
-    for key, value in pairs(config) do
-        if necessary_keys[key] ~= nil then necessary_keys[key] = true end
-
-        if key == "radius" then
-            self._radius = value
-        elseif key == "max_radius" then
-            self._max_radius = value
-        elseif key == "n_rings" then
-            self._n_rings = value
-        elseif key == "n_ropes_per_ring" then
-            self._n_ropes_per_ring = value
-        elseif key == "n_segments_per_rope" then
-            self._n_segments_per_rope = value
-        elseif key == "rope_length_radius_factor" then
-            self._rope_length_radius_factor = value
-        elseif key == "use_performance_mode" then
-            self._use_performance_mode = value
-        else
-            rt.error("In rt.PlayerBody: unrecognized key `", key, "`")
-        end
-    end
-
-    for key, is_present in pairs(necessary_keys) do
-        if is_present == false then
-            rt.error("In rt.PlayerBody: key `", key, "` is not present in config")
-        end
-    end
-
-    self._node_mesh_radius = _settings.node_mesh_radius_factor * self._radius
-    self._core_vertices = {}
-    self._ropes = {}
-    self._n_ropes = 0
-    self._is_contour = false
-    self._position_x, self._position_y = 0, 0
-    self._stencil_bodies = {}
-    self._core_stencil_bodies = {}
-    self._shader_elapsed = 0
-    self._is_initialized = false
-    self._queue_relax = false
-    self._color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, 0, 1))
-    self._body_color = rt.Palette.BLACK
-    self._core_color = rt.Palette.TRUE_WHITE
-    self._saturation = 1
-    self._opacity = 1
-    self._hue = 0
-    self._use_stencils = true
-    self._stretch_factor = 1
-    self._stretch_axis_x = 0
-    self._stretch_axis_y = 0
+function rt.PlayerBody:instantiate(position_x, position_y)
+    meta.typecheck(position_x, mt.Number, position_y, mt.Number)
+    self._position_x = position_x
+    self._position_y = position_y
     self._relative_velocity_x = 0
     self._relative_velocity_y = 0
-    self._attraction_x = 0
-    self._attraction_y = 0
-    self._attraction_magnitude = 0
 
-    self._core_canvas_needs_update = true
-    self._body_canvas_needs_update = true
+    self._core_vertices = nil
+    self._core_outline_scale = 1
+    self._core_color = rt.Palette.WHITE
+    self._body_color = rt.Palette.BLACK
+    self._opacity = 1
+    self._saturation = 1
+
+    local squish_speed = rt.settings.player_body.squish_speed
 
     self._down_squish = false
     self._down_squish_normal_x = nil
     self._down_squish_normal_y = nil
     self._down_squish_origin_x = nil
     self._down_squish_normal_y = nil
-    self._down_squish_motion = rt.SmoothedMotion1D(1, _settings.squish_speed)
+    self._down_squish_motion = rt.SmoothedMotion1D(_not_squished, squish_speed)
 
     self._left_squish = false
     self._left_squish_normal_x = nil
     self._left_squish_normal_y = nil
     self._left_squish_origin_x = nil
     self._left_squish_normal_y = nil
-    self._left_squish_motion = rt.SmoothedMotion1D(1, _settings.squish_speed)
+    self._left_squish_motion = rt.SmoothedMotion1D(_not_squished, squish_speed)
 
     self._right_squish = false
     self._right_squish_normal_x = nil
     self._right_squish_normal_y = nil
     self._right_squish_origin_x = nil
     self._right_squish_normal_y = nil
-    self._right_squish_motion = rt.SmoothedMotion1D(1, _settings.squish_speed)
+    self._right_squish_motion = rt.SmoothedMotion1D(_not_squished, squish_speed)
 
     self._up_squish = false
     self._up_squish_normal_x = nil
     self._up_squish_normal_y = nil
     self._up_squish_origin_x = nil
     self._up_squish_normal_y = nil
-    self._up_squish_motion = rt.SmoothedMotion1D(1, _settings.squish_speed)
+    self._up_squish_motion = rt.SmoothedMotion1D(_not_squished, squish_speed)
 
-    -- init metaball ball mesh
+    self._body_stencil_bodies = {}
+    self._core_stencil_bodies = {}
+    self._use_contour = true
+    self._contour_radius = rt.settings.player.radius * rt.settings.player.bubble_radius_factor
+    self._contour_transition_motion = rt.SmoothedMotion1D(0)
+    self._contour_transition_motion:set_speed(
+        rt.settings.player_body.contour_inflation_speed,
+        rt.settings.player_body.contour_deflation_speed
+    )
 
-    self._node_mesh = rt.MeshCircle(0, 0, self._node_mesh_radius)
-    self._node_mesh:set_vertex_color(1, 1, 1, 1, 1)
-    for i = 2, self._node_mesh:get_n_vertices() do
-        self._node_mesh:set_vertex_color(i, 1, 1, 1, 0.0)
+    self._particle_data = {}
+    self._ropes = {}
+    self._n_particles = 0
+
+    self._colliding_lines = {} -- Table<Tuple<4>>
+    self._colliding_lines_to_lambda = {}
+
+    self._contraction = 1.0
+
+    self._particle_texture_radius = nil -- Number
+    self._particle_texture = nil -- rt.RenderTexture
+
+    self._body_texture = nil -- rt.RenderTexture
+    self._body_outline_texture = nil -- rt.RenderTexture
+    self._swap_texture = nil -- rt.RenderTexture
+    self._render_texture_needs_update = false
+
+    self._instance_mesh = nil -- rt.Mesh
+    self._data_mesh_format = nil -- cf. _initialize
+    self._data_mesh_data = {}
+    self._data_mesh = nil -- rt.Mesh
+
+    self._particle_i_to_data_mesh_position = {}
+    self:_initialize()
+end
+
+local _x_offset = 0
+local _y_offset = 1
+local _previous_x_offset = 2 -- last sub step
+local _previous_y_offset = 3
+local _velocity_x_offset = 4
+local _velocity_y_offset = 5
+local _radius_offset = 6 -- radius, px
+local _contour_radius_offset = 7
+local _opacity_offset = 8
+local _mass_offset = 9
+local _inverse_mass_offset = 10
+local _segment_length_offset = 11
+local _contour_segment_length_offset = 12
+local _collision_strength_offset = 13
+local _distance_lambda_offset = 14
+local _bending_lambda_offset = 15
+local _axis_lambda_offset = 16
+local _contraction_lambda_offset = 17
+
+local _stride = _contraction_lambda_offset + 1
+local _particle_i_to_data_offset = function(particle_i)
+    return (particle_i - 1) * _stride + 1 -- 1-based
+end
+
+--- @brief
+function rt.PlayerBody:_initialize()
+    local settings = rt.settings.player_body
+
+    self._particle_data = {}
+    self._ropes = {}
+
+    local particle_texture_radius = rt.settings.player_body.particle_texture_radius_factor * rt.settings.player.radius - 1
+    self._particle_texture_radius = particle_texture_radius
+
+    free(
+        self._particle_texture,
+        self._body_texture,
+        self._body_outline_texture,
+        self._swap_texture
+    )
+
+    do -- particle texture
+        local w = (particle_texture_radius + 2) * 2
+        local h = w
+
+        self._particle_texture = rt.RenderTexture(w, h)
+
+        -- fill particle with density data using shader
+        love.graphics.push("all")
+        love.graphics.reset()
+        self._particle_texture:bind()
+        _particle_texture_shader:bind()
+
+        love.graphics.setColor(1, 1, 1, 1)
+        love.graphics.rectangle("fill",
+            0, 0, w, h
+        )
+
+        _particle_texture_shader:unbind()
+        self._particle_texture:unbind()
+        love.graphics.pop()
     end
 
-    local canvas_w = 2 * self._node_mesh_radius + 2 * _settings.node_mesh_padding
-    self._node_mesh_texture = rt.RenderTexture(canvas_w, canvas_w, 4)
-    self._node_mesh_texture:bind()
-    love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.draw(self._node_mesh:get_native(), 0.5 * canvas_w, 0.5 * canvas_w)
-    self._node_mesh_texture:unbind()
+    local body_radius = rt.settings.player.radius
+    local max_rope_length = rt.settings.player_body.max_rope_length
 
-    -- init canvases
-    self._canvas_scale = _settings.canvas_scale
+    local max_particle_distance = -math.huge
+    local max_particle_radius = -math.huge
 
-    do
-        local padding = 60
-        local r = self._radius * _settings.max_stretch
-        local texture_size = self._canvas_scale * (r + 2 * padding)
-        self._body_canvas_a = rt.RenderTexture(texture_size, texture_size, 4)
-        self._body_canvas_b = rt.RenderTexture(texture_size, texture_size, 4)
+    local radius_easing = function(i, n)
+        -- don't ask
+        local t = ((i - 1) / n)
+        local function f(x) return (1 - x) * math.exp(-x^2) end
+        local sqrt3 = math.sqrt(3)
+        local result = 1 + math.exp(-t^2) * f((0.5 * (1 + sqrt3) * t) + (0.5 - (sqrt3 / 2)))
+        return 1 / math.sqrt(2) * result
+    end
 
-        for canvas in range(self._body_canvas_a, self._body_canvas_b) do
-            canvas:set_scale_mode(rt.TextureScaleMode.LINEAR)
+    local contour_radius = self._contour_radius
+
+    local collision_easing = function(i, n)
+        local progress = (i - 1) / n
+        local t = 0.25
+
+        if progress <= t then
+            return 0
         end
+
+        -- 0 until start of tail, analytically smooth transition to 1
+        local x = (progress - t) / (1 - t)
+        return x * x * (3 - 2 * x)
     end
 
-    do
-        local padding = self._radius
-        local r = self._radius * _settings.max_stretch
-        self._core_canvas = rt.RenderTexture( self._canvas_scale * (r + 2 * padding) , self._canvas_scale * (r + 2 * padding), 8)
-        self._core_canvas:set_scale_mode(rt.TextureScaleMode.LINEAR)
+    local opacity_easing = function(i, n)
+        return (1 - ((i - 1) / n))
     end
 
-    -- highlight mesh
-    local highlight_r = rt.settings.player_body.highlight_radius
-
-    self._highlight_mesh = rt.MeshCircle(0, 0, highlight_r, highlight_r)
-    for i = 1, self._highlight_mesh:get_n_vertices() do
-        if i == 1 then
-            self._highlight_mesh:set_vertex_color(i, 1, 1, 1, 1)
-            self._highlight_mesh:set_vertex_position(i, -0.25 * highlight_r, -0.25 * highlight_r)
-        else
-            self._highlight_mesh:set_vertex_color(i, 1, 1, 1, 0)
-        end
+    local fraction_to_rope_length = function(t)
+        return (1 - t) * max_rope_length
     end
 
-    self:initialize()
-end
-
---- @brief
-function rt.PlayerBody:set_position(x, y)
-    self._position_x, self._position_y = x, y
-end
-
---- @brief
-function rt.PlayerBody:set_use_performance_mode(b)
-    self._use_performance_mode = b
-end
-
---- @brief
-function rt.PlayerBody:set_shape(positions)
-    self._core_vertices = positions
-    table.insert(self._core_vertices, self._core_vertices[1])
-    table.insert(self._core_vertices, self._core_vertices[2])
-end
-
---- @brief
-function rt.PlayerBody:initialize()
-    if self._is_initialized == true then return end
-
-    local n_rings = self._n_rings
-    local n_ropes_per_ring = self._n_ropes_per_ring
-
-    local ring_to_ring_radius = function(ring_i)
-        return ((ring_i - 1) / n_rings) * self._radius
+    local rope_length_to_n_nodes = function(length)
+        return math.ceil(length / (particle_texture_radius / 2))
     end
 
-    local ring_to_n_ropes = function(ring_i)
-        local t = ring_i / (n_rings + 1)
-        local out = math.ceil(t * n_ropes_per_ring)
-        if self._use_performance_mode then
-            out = math.max(1, out - (ring_i - 1))
-        end
-        return out
+    local mass_easing = function(i, n)
+        return 1
     end
 
-    local ring_to_n_segments_per_rope = function(ring_i)
-        local base = self._n_segments_per_rope
-        return base
-    end
+    do -- particles
+        local particle_n = 1
+        self._particle_data = {}
 
-    local mass_easing = function(t)
-        -- only last node affected by gravity
-        return ternary(t == 1, 1, 0.25)
-    end
-
-    -- init ropes
-    local max_rope_length = self._rope_length_radius_factor * self._radius
-    local contour_rope_length = max_rope_length / self._n_segments_per_rope + self._node_mesh_radius / 2
-    self._contour_rope_length = max_rope_length - self._node_mesh_radius / 2
-    self._t_to_ropes = {}
-
-    for ring_i = 1, n_rings do
-        local ring_radius = ring_to_ring_radius(ring_i)
-        local current_n_ropes = ring_to_n_ropes(ring_i)
-        local angle_step = (math.tau) / current_n_ropes
-        for i = 1, current_n_ropes do
-            local angle = (i - 1) * angle_step
-            if ring_i % 2 == 1 then angle = angle + angle_step * 0.5 end
-            local axis_x, axis_y = math.cos(angle), math.sin(angle)
-            local center_x = axis_x * ring_radius
-            local center_y = axis_y * ring_radius
-            local scale = ring_i / (n_rings)
-
-            local rope_length = (1 - scale) * max_rope_length
-            local n_segments = ring_to_n_segments_per_rope(ring_i)
-
+        local add_rope = function(
+            n_particles,
+            length, contour_length,
+            anchor_x, anchor_y,
+            dx, dy
+        )
             local rope = {
-                current_positions = {},
-                last_positions = {},
-                last_velocities = {},
-                masses = {},
-                anchor_x = center_x, -- anchor of first node
-                anchor_y = center_y,
-                target_x = 0, -- inverse kinematics target
-                target_y = 0,
-                axis_x = axis_x, -- axis constraint
-                axis_y = axis_y,
-                scale = scale, -- metaball scale
-                length = rope_length, -- total rope length
-                n_segments = n_segments,
-                segment_length = rope_length / n_segments,
-                contour_segment_length = contour_rope_length / n_segments,
-                contour_length = contour_rope_length
+                anchor_x = anchor_x,
+                anchor_y = anchor_y,
+
+                axis_x = dx,
+                axis_y = dy,
+
+                length = length,
+                contour_length = contour_length,
+
+                start_i = particle_n,
+                end_i = nil
             }
 
-            center_x = center_x + self._position_x
-            center_y = center_y + self._position_y
-            local dx, dy = math.normalize(rope.anchor_x - self._position_x, rope.anchor_y - self._position_y)
+            local segment_length = length / n_particles
+            local contour_segment_length = contour_length / n_particles
 
-            rope.target_x = rope.anchor_x + (rope.contour_length) * rope.axis_x
-            rope.target_y = rope.anchor_y + (rope.contour_length) * rope.axis_y
+            local x, y = self._position_x + anchor_x, self._position_y + anchor_y
+            local data = self._particle_data
+            for rope_node_i = 1, n_particles do
+                -- add particle
+                local i = #data + 1
+                data[i + _x_offset] = x
+                data[i + _y_offset] = y
+                data[i + _velocity_x_offset] = 0
+                data[i + _velocity_y_offset] = 0
+                data[i + _previous_x_offset] = x
+                data[i + _previous_y_offset] = y
 
-            for segment_i = 1, n_segments do
-                table.insert(rope.current_positions, center_x)
-                table.insert(rope.current_positions, center_x)
-                table.insert(rope.last_positions, center_x)
-                table.insert(rope.last_positions, center_x)
-                table.insert(rope.last_velocities, 0)
-                table.insert(rope.last_velocities, 0)
-                table.insert(rope.masses,  mass_easing(segment_i - 1) / n_segments)
+                local radius = particle_texture_radius * radius_easing(rope_node_i, n_particles)
+                max_particle_radius = math.max(max_particle_radius, radius, contour_radius)
+                data[i + _radius_offset] = radius
+                data[i + _contour_radius_offset] = contour_radius
+
+                local mass = mass_easing(rope_node_i, n_particles)
+                data[i + _mass_offset] = mass
+                data[i + _inverse_mass_offset] = 1 / mass
+
+                data[i + _opacity_offset] = opacity_easing(rope_node_i, n_particles)
+
+                data[i + _segment_length_offset] = segment_length
+                data[i + _contour_segment_length_offset] = contour_segment_length
+                data[i + _collision_strength_offset] = collision_easing(rope_node_i, n_particles)
+
+                if rope_node_i == n_particles then
+                    max_particle_distance = math.max(max_particle_distance, math.distance(
+                        anchor_x + dx * math.max(length, contour_length),
+                        anchor_y + dy * math.max(length, contour_length),
+                        0, 0
+                    ))
+                end
+
+                data[i + _distance_lambda_offset] = 0
+                data[i + _bending_lambda_offset] = 0
+                data[i + _axis_lambda_offset] = 0
+                data[i + _contraction_lambda_offset] = 0
+
+                x = x + dx * segment_length
+                y = y + dy * segment_length
+                particle_n = particle_n + 1
             end
 
+            rope.end_i = particle_n - 1
             table.insert(self._ropes, rope)
-
-            local entry = self._t_to_ropes[angle]
-            if entry == nil then
-                entry = meta.make_weak({})
-                self._t_to_ropes[angle] = entry
-            end
-            table.insert(entry, rope)
-
-            self._n_ropes = self._n_ropes + 1
-        end
-    end
-
-    self._use_contour = false
-    self:_update_contour()
-
-    self._is_initialized = true
-    if self._queue_relax == true then
-        self:relax()
-    end
-end
-
-function rt.PlayerBody:relax()
-    if not self._is_initialized then
-        self._queue_relax = true
-        return
-    end
-
-    -- release all rope forces
-    local px, py = self._position_x, self._position_y
-    for rope in values(self._ropes) do
-        local dx, dy = rope.axis_x, rope.axis_y
-        local x, y = px + rope.anchor_x, py + rope.anchor_y
-
-        for i = 0, rope.n_segments - 1 do
-            local step = ternary(self._is_contour, rope.segment_length, rope.contour_segment_length)
-            rope.current_positions[i * 2 + 1] = x + dx * step * i
-            rope.current_positions[i * 2 + 2] = y + dy * step * i
         end
 
-        for i = 1, #rope.last_positions do
-            rope.last_positions[i] = rope.current_positions[i]
-        end
+        local contour_max_length = rt.settings.player.radius * rt.settings.player.bubble_radius_factor
 
-        for i = 1, #rope.last_velocities do
-            rope.last_velocities[i] = 0
-        end
-    end
-end
+        do
+            local n_rings = settings.n_rings
+            local rope_r = settings.rope_radius
+            local max_length = -math.huge
+            for ring_i = 1, n_rings do
+                local ring_t = (ring_i - 1) / n_rings
+                local ring_r = (1 - ring_t) * body_radius / n_rings
+                local n_ropes = math.max(3, math.ceil((math.tau * ring_r) / rope_r))
+                if math.is_even(n_ropes) then n_ropes = n_ropes + 1 end
+                local rope_length = fraction_to_rope_length(ring_t)
+                max_length = math.max(max_length, rope_length)
 
---- @brief
-function rt.PlayerBody:_update_contour()
-    local n_samples = #self._t_to_ropes
-    local center_x, center_y = 0, 0
-    local callback = function(angle, radius)
-        return math.cos(angle) * radius, math.sin(angle) * radius
-    end
+                local n_nodes = rope_length_to_n_nodes(rope_length)
 
-    local max_r = -math.huge
-    for t, ropes in pairs(self._t_to_ropes) do
-        for rope in values(ropes) do
-            local x, y = callback(t, rope.contour_length)
-            rope.target_x = rope.anchor_x + x
-            rope.target_y = rope.anchor_y + y
-            max_r = math.max(max_r, math.magnitude(rope.target_x, rope.target_y))
-        end
-    end
+                local total_radius = 0
+                for node_i = 1, n_nodes do
+                    local radius = particle_texture_radius * radius_easing(node_i, n_nodes)
+                    total_radius = total_radius + radius
+                end
 
-    self._contour_vertices = {}
-    local max_length = max_r + self._node_mesh_radius * 0.5
+                for rope_i = 1, n_ropes do
+                    local angle = (rope_i - 1) / n_ropes * math.tau
+                    local dx, dy = math.cos(angle), math.sin(angle)
+                    local anchor_x, anchor_y = 0 + dx * ring_r, 0 + dy * ring_r
+                    local contour_length = contour_max_length - total_radius - math.magnitude(anchor_x, anchor_y)
 
-    local n = #self._ropes
-    for i = 1, n do
-        local angle = (i - 1) / n * math.tau
-        local x, y = callback(angle, max_length)
-        table.insert(self._contour_vertices, x)
-        table.insert(self._contour_vertices, y)
-    end
-end
-
-rt.PlayerBody._solve_distance_constraint = function(a_x, a_y, b_x, b_y, mass_a, mass_b, rest_length)
-    local current_distance = math.max(1, math.distance(a_x, a_y, b_x, b_y))
-
-    local delta_x = b_x - a_x
-    local delta_y = b_y - a_y
-
-    local distance_correction = (current_distance - rest_length) / current_distance
-    local correction_x = delta_x * distance_correction
-    local correction_y = delta_y * distance_correction
-
-    local total_mass = mass_a + mass_b
-    local blend_a = mass_b / total_mass
-    local blend_b = mass_a / total_mass
-
-    a_x = a_x + correction_x * blend_a
-    a_y = a_y + correction_y * blend_a
-    b_x = b_x - correction_x * blend_b
-    b_y = b_y - correction_y * blend_b
-
-    return a_x, a_y, b_x, b_y
-end
-
-rt.PlayerBody._solve_axis_constraint = function(
-    a_x, a_y, b_x, b_y,
-    axis_x, axis_y,
-    mass_a, mass_b,
-    intensity
-)
-    if intensity == nil then intensity = 1 end
-
-    local delta_x = b_x - a_x
-    local delta_y = b_y - a_y
-
-    local dot_product = math.abs(delta_x * axis_x + delta_y * axis_y)
-    local projection_x = dot_product * axis_x
-    local projection_y = dot_product * axis_y
-
-    local correction_x = (projection_x - delta_x)
-    local correction_y = (projection_y - delta_y)
-
-    local total_mass = mass_a + mass_b
-    local blend_a = math.mix(0, mass_b / total_mass, intensity)
-    local blend_b = math.mix(0, mass_a / total_mass, intensity)
-
-    a_x = a_x - correction_x * blend_a
-    a_y = a_y - correction_y * blend_a
-    b_x = b_x + correction_x * blend_b
-    b_y = b_y + correction_y * blend_b
-
-    return a_x, a_y, b_x, b_y
-end
-
-rt.PlayerBody._solve_bending_constraint = function(
-    a_x, a_y, b_x, b_y, c_x, c_y,
-    mass_a, mass_b, mass_c,
-    stiffness
-)
-    local ab_x = b_x - a_x
-    local ab_y = b_y - a_y
-    local bc_x = c_x - b_x
-    local bc_y = c_y - b_y
-
-    ab_x, ab_y = math.normalize(ab_x, ab_y)
-    bc_x, bc_y = math.normalize(bc_x, bc_y)
-
-    local target_x = ab_x + bc_x
-    local target_y = ab_y + bc_y
-
-    local correction_x = target_x * stiffness
-    local correction_y = target_y * stiffness
-
-    local inv_mass_a = 1 / mass_a
-    local inv_mass_c = 1 / mass_c
-    local inv_mass_sum = inv_mass_a + inv_mass_c
-
-    local blend_a = (inv_mass_a / inv_mass_sum) * 0.5
-    local blend_c = (inv_mass_c / inv_mass_sum) * 0.5
-
-    a_x = a_x - correction_x * blend_a
-    a_y = a_y - correction_y * blend_a
-    c_x = c_x + correction_x * blend_c
-    c_y = c_y + correction_y * blend_c
-
-    return a_x, a_y, c_x, c_y
-end
-
-rt.PlayerBody._solve_inverse_kinematics_constraint = function(positions, base_x, base_y, target_x, target_y, segment_length, intensity, max_iterations)
-    if target_x == nil or target_y == nil then return end
-
-    intensity = math.clamp(intensity or 1, 0, 1)
-    max_iterations = max_iterations or 3
-
-    local n_nodes = math.floor(#positions / 2)
-    if n_nodes < 2 or intensity <= 0 then
-        -- Ensure base is anchored
-        if n_nodes >= 1 then
-            positions[1], positions[2] = base_x, base_y
-        end
-        return
-    end
-
-    -- Copy current chain; enforce base at [1]
-    local px, py = {}, {}
-    px[1], py[1] = base_x, base_y
-    for i = 2, n_nodes do
-        local xi = (i - 1) * 2 + 1
-        px[i], py[i] = positions[xi], positions[xi + 1]
-    end
-
-    local total_length = segment_length * (n_nodes - 1)
-    local dist_to_target = math.distance(base_x, base_y, target_x, target_y)
-    local tolerance = segment_length * 0.01  -- 1% of segment length
-    local length_eps = 1e-10
-
-    local converged
-
-    if dist_to_target >= total_length - tolerance then
-        -- Target unreachable: stretch directly towards target
-        local dir_x, dir_y = target_x - base_x, target_y - base_y
-        local len = math.sqrt(dir_x * dir_x + dir_y * dir_y)
-
-        if len > 1e-10 then
-            dir_x, dir_y = dir_x / len, dir_y / len
-            for i = 1, n_nodes do
-                px[i] = base_x + dir_x * segment_length * (i - 1)
-                py[i] = base_y + dir_y * segment_length * (i - 1)
-            end
-        else
-            -- Degenerate case: maintain current orientation
-            local prev_dx = px[2] - px[1]
-            local prev_dy = py[2] - py[1]
-            local prev_len = math.magnitude(prev_dx, prev_dy)
-
-            if prev_len > length_eps then
-                dir_x, dir_y = prev_dx / prev_len, prev_dy / prev_len
-                for i = 1, n_nodes do
-                    px[i] = base_x + dir_x * segment_length * (i - 1)
-                    py[i] = base_y + dir_y * segment_length * (i - 1)
+                    add_rope(
+                        n_nodes,
+                        rope_length, contour_length,
+                        anchor_x, anchor_y,
+                        dx, dy
+                    )
                 end
             end
         end
-    else
-        -- target reachable: iterative FABRIK step
-        -- forward reaching: start from target
-        px[n_nodes], py[n_nodes] = target_x, target_y
-        for i = n_nodes - 1, 1, -1 do
-            local dx = px[i] - px[i + 1]
-            local dy = py[i] - py[i + 1]
-            local len = math.magnitude(dx, dy)
 
-            if len > length_eps then
-                local scale = segment_length / len
-                px[i] = px[i + 1] + dx * scale
-                py[i] = py[i + 1] + dy * scale
-            end
-        end
-
-        -- backward reaching: restore base position
-        px[1], py[1] = base_x, base_y
-        for i = 1, n_nodes - 1 do
-            local dx = px[i + 1] - px[i]
-            local dy = py[i + 1] - py[i]
-            local len = math.magnitude(dx, dy)
-
-            if len > length_eps then
-                local scale = segment_length / len
-                px[i + 1] = px[i] + dx * scale
-                py[i + 1] = py[i] + dy * scale
-            end
-        end
-
-        -- Check convergence
-        local end_dist = math.distance(px[n_nodes], py[n_nodes], target_x, target_y)
-        if end_dist < tolerance then
-            converged = true
-        end
+        self._n_particles = particle_n - 1
     end
 
-    -- Blend IK solution with intensity
-    positions[1], positions[2] = base_x, base_y
-    for i = 2, n_nodes do
-        local xi = (i - 1) * 2 + 1
-        positions[xi]     = math.mix(positions[xi],     px[i], intensity)
-        positions[xi + 1] = math.mix(positions[xi + 1], py[i], intensity)
-    end
+    do -- render textures
+        local texture_scale = settings.texture_scale
 
-    return converged
-end
+        local texture_r = max_particle_distance
+        local padding = max_particle_radius
+        local texture_w = 2 * (texture_r + padding) * texture_scale
+        local texture_h = texture_w
 
-rt.PlayerBody.update_rope = function(data)
-    if data.use_contour == nil then data.use_contour = false end
-    local use_contour = data.use_contour
+        self._body_texture = rt.RenderTexture(
+            texture_w, texture_h,
+            {
+                msaa = settings.msaa,
+                format = rt.TextureFormat.R32F,
+                has_stencil = true
+            }
+        )
 
-    local contour_segment_length = data.contour_segment_length or data.segment_length or 1
-    local segment_length = ternary(data.use_contour, contour_segment_length, data.segment_length or 1)
+        self._body_outline_texture = rt.RenderTexture(
+            texture_w, texture_h,
+            { msaa = settings.msaa }
+        )
 
-    local n_velocity_iterations = data.n_velocity_iterations or 0
-    local n_distance_iterations = data.n_distance_iterations or 0
-    local n_axis_iterations = data.n_axis_iterations or 0
-    local n_bending_iterations = data.n_bending_iterations or 0
-    local n_inverse_kinematics_iterations = data.n_inverse_kinematics_iterations or 0
-    local axis_intensity = data.axis_intensity or 1
-    local inverse_kinematics_intensity = data.inverse_kinematics_intensity or 1
+        self._swap_texture = rt.RenderTexture(
+            texture_w, texture_h,
+            { msaa = settings.msaa }
+        )
 
-    local inertia = data.inertia or 1
-    local gravity_x = data.gravity_x or 0
-    local gravity_y = data.gravity_y or rt.settings.player_body.gravity
-    local attraction_x = data.attraction_x or 0
-    local attraction_y = data.attraction_y or 0
-    local attraction_magnitude = data.attraction_magnitude or 0
-    local velocity_damping = data.velocity_damping or rt.settings.player_body.non_contour.velocity_damping
-    local platform_delta_x = data.platform_delta_x or 0
-    local platform_delta_y = data.platform_delta_y or 0
-
-    local anchor_x = data.anchor_x or 0
-    local anchor_y = data.anchor_y or 0
-    local axis_x = data.axis_x or 0
-    local axis_y = data.axis_y or 0
-    local target_x = data.target_x or data.position_x
-    local target_y = data.target_y or data.position_y
-
-    meta.typecheck(
-        data.delta, mt.Number,
-        data.current_positions, mt.Table,
-        data.last_positions, mt.Table,
-        data.last_velocities, mt.Table,
-        data.masses, mt.Table,
-        data.position_x, mt.Number,
-        data.position_y, mt.Number
-    )
-
-    local delta = data.delta
-    local position_x = data.position_x
-    local position_y = data.position_y
-    local positions = data.current_positions
-    local last_positions = data.last_positions
-    local last_velocities = data.last_velocities
-    local masses = data.masses
-
-    do -- translate whole physics system into relative velocity
-        local t = 1 - math.clamp(rt.settings.player_body.relative_velocity_influence, 0, 1)
-        for i = 1, #positions, 2 do
-            positions[i] = positions[i] + platform_delta_x * t
-            positions[i+1] = positions[i+1] + platform_delta_y * t
-            last_positions[i] = last_positions[i] + platform_delta_x * t
-            last_positions[i+1] = last_positions[i+1] + platform_delta_y * t
-        end
-    end
-
-    local n_axis_iterations_done = 0
-    local n_distance_iterations_done = 0
-    local n_velocity_iterations_done = 0
-    local n_bending_iterations_done = 0
-    local n_inverse_kinematics_iterations_done = 0
-
-    n_distance_iterations = n_distance_iterations + n_bending_iterations
-
-    local rope_changed = false
-
-    while
-    (n_velocity_iterations_done < n_velocity_iterations)
-        or (n_distance_iterations_done < n_distance_iterations)
-        or (n_axis_iterations_done < n_axis_iterations)
-        or (n_bending_iterations_done < n_bending_iterations)
-        or (n_inverse_kinematics_iterations_done < n_inverse_kinematics_iterations)
-    do
-        -- verlet integration
-        if n_velocity_iterations_done < n_velocity_iterations then
-            local mass_i = 1
-            for i = 1, #positions, 2 do
-                local current_x, current_y = positions[i+0], positions[i+1]
-                if i == 1 then
-                    current_x = position_x + anchor_x
-                    current_y = position_y + anchor_y
-                end
-
-                local old_x, old_y = last_positions[i+0], last_positions[i+1]
-                local mass = masses[mass_i]
-                local before_x, before_y = current_x, current_y
-
-                local velocity_x = (current_x - old_x) * velocity_damping
-                local velocity_y = (current_y - old_y) * velocity_damping
-
-                velocity_x = math.mix(velocity_x, last_velocities[i+0], inertia)
-                velocity_y = math.mix(velocity_y, last_velocities[i+1], inertia)
-
-                local attraction_dx, attraction_dy = 0, 0
-                if attraction_magnitude > 0 then
-                    local dx, dy = math.normalize(attraction_x - current_x, attraction_y - current_y)
-                    attraction_dx, attraction_dy = dx * attraction_magnitude, dy * attraction_magnitude
-                end
-
-                -- sic: mass * gravity is intended
-                local delta_x = velocity_x + mass * gravity_x * delta + attraction_dx * mass
-                local delta_y = velocity_y + mass * gravity_y * delta + attraction_dy * mass
-
-                positions[i+0] = current_x + delta_x
-                positions[i+1] = current_y + delta_y
-
-                if math.magnitude(delta_x, delta_y) > 1 then rope_changed = true end
-
-                last_positions[i+0] = before_x
-                last_positions[i+1] = before_y
-
-                last_velocities[i+0] = velocity_x
-                last_velocities[i+1] = velocity_y
-
-                mass_i = mass_i + 1
-            end
-
-            n_velocity_iterations_done = n_velocity_iterations_done + 1
+        for texture in range(self._body_texture, self._body_outline_texture, self._swap_texture) do
+            texture:set_scale_mode(rt.TextureScaleMode.LINEAR, rt.TextureScaleMode.LINEAR)
         end
 
-        -- axis
-        if n_axis_iterations_done < n_axis_iterations then
-            local mass_i = 1
-            for i = 1, #positions - 2, 2 do
-                local node_1_xi, node_1_yi, node_2_xi, node_2_yi = i+0, i+1, i+2, i+3
-                local node_1_x, node_1_y = positions[node_1_xi], positions[node_1_yi]
-                local node_2_x, node_2_y = positions[node_2_xi], positions[node_2_yi]
-
-                local new_x1, new_y1, new_x2, new_y2 = rt.PlayerBody._solve_axis_constraint(
-                    node_1_x, node_1_y,
-                    node_2_x, node_2_y,
-                    axis_x, axis_y,
-                    masses[mass_i + 0], masses[mass_i + 1],
-                    axis_intensity
-                )
-
-                positions[node_1_xi] = new_x1
-                positions[node_1_yi] = new_y1
-                positions[node_2_xi] = new_x2
-                positions[node_2_yi] = new_y2
-
-                mass_i = mass_i + 1
-            end
-
-            n_axis_iterations_done = n_axis_iterations_done + 1
-        end
-
-        -- bending
-        if n_bending_iterations_done < n_bending_iterations then
-            local mass_i = 1
-            for i = 1, #positions - 4, 2 do
-                local node_1_xi, node_1_yi, node_2_xi, node_2_yi, node_3_xi, node_3_yi = i+0, i+1, i+2, i+3, i+4, i+5
-                local node_1_x, node_1_y = positions[node_1_xi], positions[node_1_yi]
-                local node_2_x, node_2_y = positions[node_2_xi], positions[node_2_yi]
-                local node_3_x, node_3_y = positions[node_3_xi], positions[node_3_yi]
-
-                local new_x1, new_y1, new_x3, new_y3 = rt.PlayerBody._solve_bending_constraint(
-                    node_1_x, node_1_y,
-                    node_2_x, node_2_y,
-                    node_3_x, node_3_y,
-                    masses[mass_i + 0], masses[mass_i + 1], masses[mass_i + 2],
-                    (1 - (i - 1) / (#positions / 2)) -- more bendy the farther away from base
-                )
-
-                positions[node_1_xi] = new_x1
-                positions[node_1_yi] = new_y1
-
-                positions[node_3_xi] = new_x3
-                positions[node_3_yi] = new_y3
-
-                mass_i = mass_i + 1
-            end
-
-            n_bending_iterations_done = n_bending_iterations_done + 1
-        end
-
-        -- inverse kinematics
-        if n_inverse_kinematics_iterations_done < n_inverse_kinematics_iterations then
-            local base_x = position_x + anchor_x
-            local base_y = position_y + anchor_y
-            local final_target_x = position_x + target_x
-            local final_target_y = position_y + target_y
-            local converged = rt.PlayerBody._solve_inverse_kinematics_constraint(
-                positions,
-                base_x, base_y,
-                final_target_x, final_target_y,
-                contour_segment_length or segment_length,
-                inverse_kinematics_intensity
-            )
-            n_inverse_kinematics_iterations_done = n_inverse_kinematics_iterations_done + 1
-            if converged then n_inverse_kinematics_iterations_done = math.huge end
-        end
-
-        -- distance
-        if n_distance_iterations_done < n_distance_iterations then
-            local distance_i = 1
-            local mass_i = 1
-            for i = 1, #positions - 2, 2 do
-                local node_1_xi, node_1_yi, node_2_xi, node_2_yi = i+0, i+1, i+2, i+3
-                local node_1_x, node_1_y = positions[node_1_xi], positions[node_1_yi]
-                local node_2_x, node_2_y = positions[node_2_xi], positions[node_2_yi]
-
-                if i == 1 then
-                    node_1_x = position_x + anchor_x
-                    node_1_y = position_y + anchor_y
-                end
-
-                local rest_length = segment_length
-
-                local new_x1, new_y1, new_x2, new_y2 = rt.PlayerBody._solve_distance_constraint(
-                    node_1_x, node_1_y,
-                    node_2_x, node_2_y,
-                    masses[mass_i+0], masses[mass_i+1],
-                    rest_length
-                )
-
-                positions[node_1_xi] = new_x1
-                positions[node_1_yi] = new_y1
-                positions[node_2_xi] = new_x2
-                positions[node_2_yi] = new_y2
-
-                distance_i = distance_i + 1
-                mass_i = mass_i + 1
-            end
-
-            n_distance_iterations_done = n_distance_iterations_done + 1
-        end
+        self._render_texture_needs_update = true
     end
 
-    return rope_changed
-end
+    do -- instance mesh
+        local x, y, r = 0, 0, 1
+        local mesh = rt.Mesh({
+            { x    , y    , 0.5, 0.5,  1, 1, 1, 1 },
+            { x - r, y - r, 0.0, 0.0,  1, 1, 1, 1 },
+            { x + r, y - r, 1.0, 0.0,  1, 1, 1, 1 },
+            { x + r, y + r, 1.0, 1.0,  1, 1, 1, 1 },
+            { x - r, y + r, 0.0, 1.0,  1, 1, 1, 1 }
+        },
+            rt.MeshDrawMode.TRIANGLES,
+            rt.VertexFormat,
+            rt.GraphicsBufferUsage.STATIC
+        )
 
---- @brief
-function rt.PlayerBody:set_color(color)
-    meta.typecheck(color, rt.RGBA)
-    self._color = color
-    self._hue = select(3, rt.rgba_to_lcha(self._color:unpack()))
-end
-
---- @brief
-function rt.PlayerBody:set_body_color(color)
-    meta.typecheck(color, rt.RGBA)
-    self._body_color = color
-end
-
---- @brief
-function rt.PlayerBody:set_core_color(color)
-    meta.typecheck(color, rt.RGBA)
-    self._core_color = color
-end
-
---- @brief
-function rt.PlayerBody:set_opacity(opacity)
-    meta.typecheck(opacity, mt.Number)
-    self._opacity = opacity
-end
-
---- @brief
-function rt.PlayerBody:set_world(physics_world)
-    if physics_world ~= nil then
-        meta.typecheck(physics_world, b2.World)
+        mesh:set_vertex_map(
+            1, 2, 3,
+            1, 3, 4,
+            1, 4, 5,
+            1, 5, 2
+        )
+        mesh:set_texture(self._particle_texture)
+        self._instance_mesh = mesh
     end
-    self._world = physics_world
-end
 
---- @brief
-function rt.PlayerBody:set_use_contour(b)
-    meta.typecheck(b, mt.Boolean)
-    if self._use_contour == b then return end
+    do -- data mesh
+        self._data_mesh_format = {
+            { location = 3, name = "position", format = "floatvec2" },
+            { location = 4, name = "radius", format = "floatvec2" }, -- x: regular, y: contour
+            { location = 5, name = "opacity", format = "float" }
+        }
 
-    self._use_contour = b
-    self:_update_contour()
-end
-
---- @brief
-function rt.PlayerBody:update(delta)
-
-    -- non rope sim updates
-    self._shader_elapsed = self._shader_elapsed + delta
-    if not self._use_performance_mode then
-        for squish in range(
-            self._down_squish_motion,
-            self._left_squish_motion,
-            self._right_squish_motion,
-            self._up_squish_motion
-        ) do
-            squish:update(delta)
+        self._particle_i_to_data_mesh_position = {}
+        for i = 1, self._n_particles do
+            self._particle_i_to_data_mesh_position[i] = i
         end
-    end
 
-    if self._world ~= nil then
-        self._stencil_bodies = {}
-        self._core_stencil_bodies = {}
+        -- sort so highest radius particles are drawn first
+        table.sort(self._particle_i_to_data_mesh_position, function(a_i, b_i)
+            local i1 = _particle_i_to_data_offset(a_i)
+            local i2 = _particle_i_to_data_offset(b_i)
 
-        if self._use_stencils then
-            local w = self._contour_rope_length
-            local h = w
+            return self._particle_data[i1 + _radius_offset] < self._particle_data[i2 + _radius_offset]
+        end)
 
-            local settings = rt.settings.player
-            local mask = bit.bnot(0x0)
-            mask = bit.band(mask, bit.bnot(settings.player_outer_body_collision_group))
-            mask = bit.band(mask, bit.bnot(settings.player_collision_group))
-            mask = bit.band(mask, bit.bnot(settings.bounce_collision_group))
-
-            local bodies = self._world:query_aabb(
-                self._position_x - 0.5 * w, self._position_y - 0.5 * h, w, h,
-                mask
-            )
-
-            for body in values(bodies) do
-                if body:has_tag("stencil") and not body:get_is_sensor() then
-                    table.insert(self._stencil_bodies, body)
-                end
-
-                if body:has_tag("core_stencil") and not body:get_is_sensor() then
-                    table.insert(self._core_stencil_bodies, body)
-                end
-            end
-        end
-    end
-
-    -- rope sim
-    local gravity_x, gravity_y
-    if self._use_contour then
-        gravity_x, gravity_y = 0, 0
-    else
-        gravity_x, gravity_y = self._gravity_x or 0, self._gravity_y or 1 * _settings.gravity
-    end
-
-    local todo
-    if self._use_performance_mode or rt.GameState:get_is_performance_mode_enabled() then
-        todo = self._use_contour and _settings.contour_performance or _settings.non_contour_performace
-    else
-        todo = self._use_contour and _settings.contour or _settings.non_contour
-    end
-
-    if self._use_performance_mode
-        and self._use_contour
-    then
-        -- noop, use polygon instead of rope nodes for ow.NPC
-    else
-        for i, rope in ipairs(self._ropes) do
-            rt.PlayerBody.update_rope({
-                current_positions = rope.current_positions,
-                last_positions = rope.last_positions,
-                last_velocities = rope.last_velocities,
-                masses = rope.masses,
-                position_x = self._position_x,
-                position_y = self._position_y,
-                target_x = rope.target_x,
-                target_y = rope.target_y,
-                anchor_x = rope.anchor_x,
-                anchor_y = rope.anchor_y,
-                axis_x = rope.axis_x,
-                axis_y = rope.axis_y,
-                delta = delta,
-                segment_length = rope.segment_length,
-                contour_segment_length = rope.contour_segment_length,
-                use_contour = self._use_contour,
-                n_velocity_iterations = todo.n_velocity_iterations,
-                n_distance_iterations = todo.n_distance_iterations,
-                n_axis_iterations = todo.n_axis_iterations,
-                axis_intensity = todo.axis_intensity,
-                n_bending_iterations = todo.n_bending_iterations,
-                inertia = todo.inertia,
-                velocity_damping = todo.velocity_damping,
-                gravity_x = gravity_x,
-                gravity_y = gravity_y * (1 + self._down_squish_motion:get_value()),
-                attraction_x = self._attraction_x,
-                attraction_y = self._attraction_y,
-                attraction_magnitude = self._attraction_magnitude,
-                platform_delta_x = self._relative_velocity_x * delta,
-                platform_delta_y = self._relative_velocity_y * delta,
-                n_inverse_kinematics_iterations = todo.n_inverse_kinematics_iterations,
-                inverse_kinematics_intensity = todo.inverse_kinematics_intensity
+        self._data_mesh_data = {}
+        local data = self._particle_data
+        for particle_i = 1, self._n_particles do
+            local mapped_i = self._particle_i_to_data_mesh_position[particle_i]
+            local i = _particle_i_to_data_offset(mapped_i)
+            table.insert(self._data_mesh_data, {
+                data[i + _x_offset],
+                data[i + _y_offset],
+                data[i + _radius_offset],
+                data[i + _contour_radius_offset],
+                data[i + _opacity_offset]
             })
         end
-    end
 
-    self._core_canvas_needs_update = true
-    self._body_canvas_needs_update = true
-end
-
---- @brief
-function rt.PlayerBody:_apply_squish(factor)
-    if self._use_performance_mode then return end
-
-    local magnitude = _settings.squish_magnitude * (factor or 1)
-    local function apply(is_enabled, motion, nx, ny, ox, oy, default_nx, default_ny, default_ox, default_oy)
-        if motion ~= nil and motion:get_value() < 0 then return end
-        if motion == nil or motion.get_value == nil then return end
-
-        local amount = motion:get_value()
-
-        local squish_nx = (nx ~= nil) and nx or default_nx
-        local squish_ny = (ny ~= nil) and ny or default_ny
-        local origin_x = (ox ~= nil) and ox or default_ox
-        local origin_y = (oy ~= nil) and oy or default_oy
-
-        local angle = math.angle(squish_nx or 0, squish_ny or -1)
-
-        love.graphics.translate(origin_x, origin_y)
-        love.graphics.rotate(angle)
-        love.graphics.scale(1 - amount * magnitude, 1)
-        love.graphics.rotate(-angle)
-        love.graphics.translate(-origin_x, -origin_y)
-    end
-
-    apply(
-        self._down_squish,
-        self._down_squish_motion,
-        self._down_squish_normal_x, self._down_squish_normal_y,
-        self._down_squish_origin_x, self._down_squish_origin_y,
-        0, -1,
-        self._position_x, self._position_y + 0.5 * self._radius
-    )
-
-    apply(
-        self._left_squish,
-        self._left_squish_motion,
-        self._left_squish_normal_x, self._left_squish_normal_y,
-        self._left_squish_origin_x, self._left_squish_origin_y,
-        1, 0,
-        self._position_x - 0.5 * self._radius, self._position_y
-    )
-
-    apply(
-        self._right_squish,
-        self._right_squish_motion,
-        self._right_squish_normal_x, self._right_squish_normal_y,
-        self._right_squish_origin_x, self._right_squish_origin_y,
-        -1, 0,
-        self._position_x + 0.5 * self._radius, self._position_y
-    )
-
-    apply(
-        self._up_squish_squish,
-        self._up_squish_squish_motion,
-        self._up_squish_squish_normal_x, self._up_squish_squish_normal_y,
-        self._up_squish_squish_origin_x, self._up_squish_squish_origin_y,
-        0, 1,
-        self._position_x, self._position_y - 0.5 * self._radius
-    )
-end
-
---- @brief
-function rt.PlayerBody:draw_body()
-    if self._is_initialized ~= true then return end
-
-    local w, h = self._body_canvas_a:get_size()
-
-    if self._body_canvas_needs_update then
-        self._body_canvas_needs_update = false
-        love.graphics.push("all")
-        love.graphics.reset()
-
-        love.graphics.translate(0.5 * w, 0.5 * h)
-        love.graphics.scale(self._canvas_scale, self._canvas_scale)
-        love.graphics.translate(-0.5 * w, -0.5 * h)
-        love.graphics.translate(-self._position_x + 0.5 * w, -self._position_y + 0.5 * h)
-
-        -- draw body
-        self._body_canvas_a:bind()
-        love.graphics.clear(0, 0, 0, 0)
-
-        -- stencil bordering geometry
-        local stencil_value = rt.graphics.get_stencil_value()
-        rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW)
-        for body in values(self._stencil_bodies) do
-            body:draw(true) -- mask only
-        end
-        rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.TEST, rt.StencilCompareMode.NOT_EQUAL)
-
-        -- draw rope nodes
-        rt.graphics.set_blend_mode(rt.BlendMode.ADD, rt.BlendMode.ADD)
-        if self._use_contour then
-            love.graphics.setColor(1, 1, 1, 1)
-        else
-            love.graphics.setColor(1, 1, 1, _settings.node_mesh_alpha)
-        end
-
-        if not (self._use_performance_mode and self._use_contour) then
-            -- function to thin out only very last part of tail
-            local easing = function(t)
-                -- f\left(x\right)=\left(0.045\cdot e^{\ln\left(\frac{1}{0.045}+1\right)x}-0.045\right)^{b}
-                local buldge = 4--2.5 -- the higher, the closer to f(x) = x easing
-                t = t * 0.8
-                local v = (0.045 * math.exp(math.log(1 / 0.045 + 1) * t) - 0.045) ^ buldge
-                return 1 - math.clamp(v, 0, 1)
-            end
-
-            local rope_i, n_ropes = 0, self._n_ropes
-            local tw, th = self._node_mesh_texture:get_size()
-            for rope in values(self._ropes) do
-                local segment_i = 0
-                for i = 1, #rope.current_positions, 2 do
-                    love.graphics.push()
-                    self:_apply_squish(1 + 1 - (i - 1) / (#rope.current_positions / 2))
-                    local scale = easing(segment_i / rope.n_segments) * math.min(1, rope.scale + _settings.non_contour_scale_offset / self._radius)
-                    -- Use current_positions for drawing to reduce visual lag
-                    local x, y = rope.current_positions[i+0], rope.current_positions[i+1]
-                    love.graphics.draw(self._node_mesh_texture:get_native(), x, y, 0, scale, scale, 0.5 * tw, 0.5 * th)
-
-                    love.graphics.pop()
-
-                    segment_i = segment_i + 1
-                end
-            end
-        end
-
-        if self._use_contour then
-            if self._use_performance_mode then
-                love.graphics.push()
-                love.graphics.translate(self._position_x, self._position_y)
-                love.graphics.polygon("fill", self._contour_vertices)
-                love.graphics.pop()
-            end
-        end
-
-        rt.graphics.set_blend_mode(nil)
-
-        self._body_canvas_a:unbind()
-        rt.graphics.set_stencil_mode(nil)
-        love.graphics.pop()
-
-        love.graphics.push("all")
-        love.graphics.reset()
-
-        -- draw a to b: fill
-        self._body_canvas_b:bind()
-        love.graphics.clear(0, 0, 0, 0)
-        _threshold_shader:bind()
-        self._body_canvas_a:draw()
-        _threshold_shader:unbind()
-        self._body_canvas_b:unbind()
-
-        -- draw b to a: outline
-        self._body_canvas_a:bind()
-        love.graphics.clear(0, 0, 0, 0)
-        _outline_shader:bind()
-        self._body_canvas_b:draw()
-        _outline_shader:unbind()
-        self._body_canvas_a:unbind()
-
-        -- b contains fill, a contains outline
-        love.graphics.pop("all")
-    end
-
-    love.graphics.push("all")
-    love.graphics.setBlendMode("alpha", "premultiplied")
-
-    do
-        love.graphics.setShader(nil)
-        local r, g, b, a = self._body_color:unpack()
-        love.graphics.setColor(r * self._opacity, g * self._opacity, b * self._opacity, a * self._opacity)
-        love.graphics.draw(
-            self._body_canvas_b:get_native(),
-            self._position_x,
-            self._position_y,
-            0,
-            1 / self._canvas_scale,
-            1 / self._canvas_scale,
-            0.5 * w,
-            0.5 * h
+        self._data_mesh = rt.Mesh(
+            self._data_mesh_data,
+            rt.MeshDrawMode.POINTS,
+            self._data_mesh_format,
+            rt.GraphicsBufferUsage.STREAM
         )
-    end
 
-    do
-        local r, g, b, a = self._color:unpack()
-        love.graphics.setColor(r * self._opacity, g * self._opacity, b * self._opacity, a * self._opacity)
-        love.graphics.draw(
-            self._body_canvas_a:get_native(),
-            self._position_x,
-            self._position_y,
-            0,
-            1 / self._canvas_scale,
-            1 / self._canvas_scale,
-            0.5 * w,
-            0.5 * h
-        )
-    end
-
-    love.graphics.pop()
-end
-
---- @brief
-function rt.PlayerBody:draw_core()
-    if self._is_initialized ~= true or #self._core_vertices < 6 then return end
-
-    local opacity = self._color.a * self._opacity
-    local w, h = self._core_canvas:get_size()
-
-    if self._core_canvas_needs_update then
-        self._core_canvas_needs_update = false
-
-        -- core canvas for shader inlay
-        self._core_canvas:bind()
-        love.graphics.clear()
-
-        love.graphics.push("all")
-        love.graphics.setStencilMode(nil)
-        rt.graphics.set_blend_mode(nil)
-        love.graphics.origin()
-
-        love.graphics.translate(0.5 * w, 0.5 * h)
-        love.graphics.scale(self._canvas_scale)
-        love.graphics.translate(-0.5 * w, -0.5 * h)
-        love.graphics.translate(-self._position_x + 0.5 * w, -self._position_y + 0.5 * h)
-
-        self._core_color:bind()
-        _core_shader:bind()
-        _core_shader:send("hue", self._hue)
-        _core_shader:send("elapsed", self._shader_elapsed)
-        _core_shader:send("saturation", self._saturation)
-        if self._use_contour then
-            love.graphics.circle("fill", self._position_x, self._position_y, self._radius)
-        else
-            love.graphics.push()
-            love.graphics.translate(self._position_x, self._position_y)
-            love.graphics.polygon("fill", self._core_vertices)
-            love.graphics.pop()
+        for entry in values(self._data_mesh_format) do
+            self._instance_mesh:attach_attribute(
+                self._data_mesh,
+                entry.name,
+                rt.MeshAttributeAttachmentMode.PER_INSTANCE
+            )
         end
-        _core_shader:unbind()
-
-        love.graphics.pop()
-        self._core_canvas:unbind()
-    end
-
-    local outline_width = _settings.outline_width
-    local outside_scale = 1 + outline_width / self._radius
-
-    rt.graphics.push_stencil()
-    local stencil_value = rt.graphics.get_stencil_value()
-    rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW)
-    for body in values(self._core_stencil_bodies) do
-        body:draw(true)
-    end
-    rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.TEST, rt.StencilCompareMode.NOT_EQUAL)
-
-    love.graphics.push()
-    self:_apply_squish()
-
-    -- draw outline
-    local darken = _settings.outline_value_offset
-    love.graphics.setColor(1 - darken, 1 - darken, 1 - darken, opacity)
-    love.graphics.draw(
-        self._core_canvas:get_native(),
-        self._position_x, self._position_y,
-        0,
-        1 / self._canvas_scale * outside_scale,
-        1 / self._canvas_scale * outside_scale,
-        0.5 * w, 0.5 * h
-    )
-
-    -- draw inside
-    love.graphics.setColor(1, 1, 1, opacity)
-    love.graphics.draw(
-        self._core_canvas:get_native(),
-        self._position_x, self._position_y,
-        0,
-        1 / self._canvas_scale * 1,
-        1 / self._canvas_scale * 1,
-        0.5 * w, 0.5 * h
-    )
-
-    -- highlight
-    love.graphics.push()
-    love.graphics.setColor(1, 1, 1, _settings.highlight_brightness * opacity)
-    local offset = self._radius * 1 / 4
-
-    love.graphics.translate(self._position_x, self._position_y)
-    love.graphics.translate(-offset, -offset)
-    self._highlight_mesh:draw()
-
-    rt.graphics.set_blend_mode(nil)
-    love.graphics.pop()
-
-    love.graphics.pop() -- squish
-end
-
---- @brief
-function rt.PlayerBody:draw_bloom()
-    if self._is_initialized ~= true then return end
-
-    local w, h = self._body_canvas_a:get_size()
-    love.graphics.setColor(self._color:unpack())
-    love.graphics.draw(
-        self._body_canvas_a:get_native(),
-        self._position_x,
-        self._position_y,
-        0,
-        1 / self._canvas_scale,
-        1 / self._canvas_scale,
-        0.5 * w,
-        0.5 * h
-    )
-end
-
---- @brief
-function rt.PlayerBody:set_relative_velocity(vx, vy)
-    self._relative_velocity_x = vx
-    self._relative_velocity_y = vy
-end
-
---- @brief
-function rt.PlayerBody:set_down_squish(b, nx, ny, contact_x, contact_y)
-    self._down_squish = b
-    self._down_squish_normal_x = nx or self._down_squish_normal_x
-    self._down_squish_normal_y = ny or self._down_squish_normal_y
-    self._down_squish_origin_x = contact_x or self._down_squish_origin_x
-    self._down_squish_origin_y = contact_y or self._down_squish_origin_y
-
-    if b == true then
-        self._down_squish_motion:set_target_value(1)
-    else
-        self._down_squish_motion:set_target_value(0)
     end
 end
-
---- @brief
-function rt.PlayerBody:set_left_squish(b, nx, ny, contact_x, contact_y)
-    self._left_squish = b
-    self._left_squish_normal_x = nx or self._left_squish_normal_x
-    self._left_squish_normal_y = ny or self._left_squish_normal_y
-    self._left_squish_origin_x = contact_x or self._left_squish_origin_x
-    self._left_squish_origin_y = contact_y or self._left_squish_origin_y
-
-    if b == true then
-        self._left_squish_motion:set_target_value(1)
-    else
-        self._left_squish_motion:set_target_value(0)
-    end
-end
-
---- @brief
-function rt.PlayerBody:set_right_squish(b, nx, ny, contact_x, contact_y)
-    self._right_squish = b
-    self._right_squish_normal_x = nx or self._right_squish_normal_x
-    self._right_squish_normal_y = ny or self._right_squish_normal_y
-    self._right_squish_origin_x = contact_x or self._right_squish_origin_x
-    self._right_squish_origin_y = contact_y or self._right_squish_origin_y
-
-    if b == true then
-        self._right_squish_motion:set_target_value(1)
-    else
-        self._right_squish_motion:set_target_value(0)
-    end
-end
-
---- @brief
-function rt.PlayerBody:set_up_squish(b, nx, ny, contact_x, contact_y)
-    self._up_squish = b
-    self._up_squish_normal_x = nx or self._up_squish_normal_x
-    self._up_squish_normal_y = ny or self._up_squish_normal_y
-    self._up_squish_origin_x = contact_x or self._up_squish_origin_x
-    self._up_squish_origin_y = contact_y or self._up_squish_origin_y
-
-    if b == true then
-        self._up_squish_motion:set_target_value(1)
-    else
-        self._up_squish_motion:set_target_value(0)
-    end
-end
-
---- @brief
-function rt.PlayerBody:set_gravity(gravity_x, gravity_y)
-    self._gravity_x, self._gravity_y = gravity_x, gravity_y -- can be nil
-end
-
---- @brief
-function rt.PlayerBody:set_stretch_factor(t, axis_x, axis_y)
-    meta.typecheck(t, mt.Number, axis_x, mt.Number, axis_y, mt.Number)
-    self._stretch_factor = math.clamp(t, 0, 1)
-    self._stretch_axis_x = axis_x
-    self._stretch_axis_y = axis_y
-end
-
---- @brief
-function rt.PlayerBody:set_saturation(t)
-    self._saturation = t
-end
-
---- @brief
-function rt.PlayerBody:get_saturation()
-    return self._saturation
-end
-
---- @brief
-function rt.PlayerBody:set_attraction(x, y, magnitude)
-    self._attraction_x, self._attraction_y, self._attraction_magnitude = x, y, magnitude
-end
-
---- @brief
-function rt.PlayerBody:get_attraction()
-    return self._attraction_x, self._attraction_y, self._attraction_magnitude
-end
-
---- @brief
-function rt.PlayerBody:set_use_stencils(b)
-    self._use_stencils = b
-end
-
--- [UPDATE] Extend rope creation to allocate XPBD lambdas
--- Insert into rt.PlayerBody:_initialize(), inside local add_rope(...)
--- right after local rope = { ... } and before adding particles:
-
-rope.distance_lambdas = {}     -- size: n_particles - 1
-rope.bending_lambdas  = {}     -- size: n_particles - 2
-rope.axis_lambdas     = {}     -- size: n_particles - 1
-
-for k = 1, math.max(0, n_particles - 1) do
-    rope.distance_lambdas[k] = 0.0
-    rope.axis_lambdas[k] = 0.0
-end
-for k = 1, math.max(0, n_particles - 2) do
-    rope.bending_lambdas[k] = 0.0
-end
-
--- [UPDATE] Prepare collision lambdas per line and particle
--- Replace rt.PlayerBody:set_colliding_lines(t) with the following:
 
 function rt.PlayerBody:set_colliding_lines(t)
     for entry in values(t) do
@@ -1477,449 +514,939 @@ function rt.PlayerBody:set_colliding_lines(t)
     self._colliding_lines = t or {}
 
     -- Allocate XPBD collision lambdas: [line_i][particle_i]
-    self._collision_lambdas = {}
+    self._colliding_lines_to_lambda = {}
     local n_lines = #self._colliding_lines
     local n_particles = self._n_particles or 0
-    for li = 1, n_lines do
+    for line_i = 1, n_lines do
         local row = {}
-        for pi = 1, n_particles do
-            row[pi] = 0.0
+        for particle_i = 1, n_particles do
+            row[particle_i] = 0.0
         end
-        self._collision_lambdas[li] = row
+        self._colliding_lines_to_lambda[line_i] = row
     end
 end
 
--- [UPDATE] Replace the entire 'do -- update helpers' block with XPBD lambdas versions
+--- @brief
+function rt.PlayerBody:_update_data_mesh()
+    local from = self._particle_data
+    for particle_i = 1, self._n_particles do
+        local mapped_i = self._particle_i_to_data_mesh_position[particle_i]
+        local to = self._data_mesh_data[mapped_i]
+        local i = _particle_i_to_data_offset(mapped_i)
+        to[1] = from[i + _x_offset]
+        to[2] = from[i + _y_offset]
+        to[3] = from[i + _radius_offset]
+        to[4] = from[i + _contour_radius_offset]
+        to[5] = from[i + _opacity_offset]
+    end
 
-do -- update helpers (XPBD with lambdas)
-    local _pre_solve = function(
-        particles, n_particles,
+    self._data_mesh:replace_data(self._data_mesh_data)
+end
+
+--- @brief
+function rt.PlayerBody:relax()
+    local data = self._particle_data
+    local center_x, center_y = self._position_x, self._position_y
+    for rope in values(self._ropes) do
+        local dx, dy = rope.axis_x, rope.axis_y
+        local x, y = center_x + rope.anchor_x, center_y + rope.anchor_y
+        for particle_i = rope.start_i, rope.end_i do
+            local i = _particle_i_to_data_offset(particle_i)
+            data[i + _x_offset] = x
+            data[i + _y_offset] = y
+            data[i + _previous_x_offset] = x
+            data[i + _previous_y_offset] = y
+            data[i + _velocity_x_offset] = 0
+            data[i + _velocity_y_offset] = 0
+            data[i + _distance_lambda_offset] = 0
+            data[i + _bending_lambda_offset] = 0
+            data[i + _axis_lambda_offset] = 0
+            data[i + _contraction_lambda_offset] = 0
+
+            if self._use_contour then
+                -- if contour, align with axis, else keep at rope origin
+                local segment_length = data[i + _segment_length_offset]
+                x = x + dx * segment_length
+                y = y + dy * segment_length
+            end
+        end
+    end
+
+    self._render_texture_needs_update = true
+end
+
+function rt.PlayerBody:update(delta)
+    self:_step(delta)
+
+    for motion in range(
+        self._down_squish_motion,
+        self._right_squish_motion,
+        self._up_squish_motion,
+        self._left_squish_motion,
+        self._contour_transition_motion
+    ) do
+        motion:update(delta)
+    end
+end
+
+do
+    local function _pre_solve(
+        position_x, position_y,
+        velocity_x, velocity_y,
+        mass,
         gravity_x, gravity_y,
+        relative_velocity_x, relative_velocity_y,
         damping, delta
     )
-        for particle_i = 1, n_particles do
-            local i = (particle_i - 1) * _stride + 1
-            local x_i = i + _x_offset
-            local y_i = i + _y_offset
-            local velocity_x_i = i + _velocity_x_offset
-            local velocity_y_i = i + _velocity_y_offset
+        local previous_x = position_x
+        local previous_y = position_y
 
-            local x, y = particles[x_i], particles[y_i]
+        local world_velocity_x = velocity_x
+        local world_velocity_y = velocity_y
 
-            particles[i + _previous_x_offset] = x
-            particles[i + _previous_y_offset] = y
+        local relative_x = (world_velocity_x - relative_velocity_x) * damping
+        local relative_y = (world_velocity_y - relative_velocity_y) * damping
 
-            local velocity_x = particles[velocity_x_i] * damping
-            local velocity_y = particles[velocity_y_i] * damping
+        relative_x = relative_x + mass * gravity_x * delta
+        relative_y = relative_y + mass * gravity_y * delta
 
-            local mass = particles[i + _mass_offset]
-            velocity_x = velocity_x + mass * gravity_x * delta
-            velocity_y = velocity_y + mass * gravity_y * delta
+        local world_velocity_new_x = relative_x + relative_velocity_x
+        local world_velocity_new_y = relative_y + relative_velocity_y
 
-            particles[velocity_x_i] = velocity_x
-            particles[velocity_y_i] = velocity_y
+        local position_new_x = position_x + world_velocity_new_x * delta
+        local position_new_y = position_y + world_velocity_new_y * delta
 
-            particles[x_i] = x + delta * velocity_x
-            particles[y_i] = y + delta * velocity_y
-        end
+        return position_new_x, position_new_y, world_velocity_new_x, world_velocity_new_y, previous_x, previous_y
     end
 
-    -- XPBD distance constraint between two particles (A,B)
-    -- C = |b - a| - d0 = 0
-    local function _enforce_distance_xpbd(
+    local function _enforce_distance(
         ax, ay, bx, by,
-        inv_mass_a, inv_mass_b,
+        inverse_mass_a, inverse_mass_b,
         target_distance,
-        alpha,         -- compliance (already scaled by sub_delta^2)
-        lambda_prev    -- accumulated lambda for this constraint
-    )
-        local dx = bx - ax
-        local dy = by - ay
-        local len = math.sqrt(dx * dx + dy * dy)
-        if len < math.eps then
-            return 0, 0, 0, 0, lambda_prev
-        end
-        local nx = dx / len
-        local ny = dy / len
-
-        local C = len - target_distance
-        local wsum = inv_mass_a + inv_mass_b
-        local denom = wsum + alpha
-        if denom < math.eps then
-            return 0, 0, 0, 0, lambda_prev
-        end
-
-        local d_lambda = -(C + alpha * lambda_prev) / denom
-        local lambda_new = lambda_prev + d_lambda
-
-        -- x_i += w_i * d_lambda * gradC_i
-        local axc = inv_mass_a * d_lambda * (-nx) -- grad_a = -n
-        local ayc = inv_mass_a * d_lambda * (-ny)
-        local bxc = inv_mass_b * d_lambda * ( nx) -- grad_b = +n
-        local byc = inv_mass_b * d_lambda * ( ny)
-
-        return axc, ayc, bxc, byc, lambda_new
-    end
-
-    -- XPBD bending as end-to-end AC distance equals target (sum of adjacent segment lengths)
-    -- C = |c - a| - target_ac = 0
-    local function _enforce_bending_xpbd(
-        ax, ay, bx, by, cx, cy,  -- bx,by unused in gradient approx (kept for parity)
-        inv_mass_a, inv_mass_b, inv_mass_c, -- inv_mass_b unused here
-        target_ac_distance,
         alpha,
-        lambda_prev
+        lambda_before
     )
-        local dx = cx - ax
-        local dy = cy - ay
-        local len = math.sqrt(dx * dx + dy * dy)
-        if len < math.eps then
-            return 0, 0, 0, 0, 0, 0, lambda_prev
-        end
-        local nx = dx / len
-        local ny = dy / len
-
-        local C = len - target_ac_distance
-        local wsum = inv_mass_a + inv_mass_c
-        local denom = wsum + alpha
-        if denom < math.eps then
-            return 0, 0, 0, 0, 0, 0, lambda_prev
+        local delta_x = bx - ax
+        local delta_y = by - ay
+        local length = math.magnitude(delta_x, delta_y)
+        if length < math.eps then
+            return 0, 0, 0, 0, lambda_before
         end
 
-        local d_lambda = -(C + alpha * lambda_prev) / denom
-        local lambda_new = lambda_prev + d_lambda
+        local normal_x, normal_y = math.normalize(delta_x, delta_y)
 
-        -- a += w_a * dλ * (-n); c += w_c * dλ * (n)
-        local axc = inv_mass_a * d_lambda * (-nx)
-        local ayc = inv_mass_a * d_lambda * (-ny)
-        local cxc = inv_mass_c * d_lambda * ( nx)
-        local cyc = inv_mass_c * d_lambda * ( ny)
+        local constraint = length - target_distance
+        local weight_sum = inverse_mass_a + inverse_mass_b
+        local denominator = weight_sum + alpha
+        if denominator < math.eps then
+            return 0, 0, 0, 0, lambda_before
+        end
 
-        -- B gets no direct correction in this simplified bending constraint
-        return axc, ayc, 0.0, 0.0, cxc, cyc, lambda_new
+        local delta_lambda = -(constraint + alpha * lambda_before) / denominator
+        local lambda_new = lambda_before + delta_lambda
+
+        local correction_ax = inverse_mass_a * delta_lambda * (-normal_x)
+        local correction_ay = inverse_mass_a * delta_lambda * (-normal_y)
+        local correction_bx = inverse_mass_b * delta_lambda * ( normal_x)
+        local correction_by = inverse_mass_b * delta_lambda * ( normal_y)
+
+        return correction_ax, correction_ay, correction_bx, correction_by, lambda_new
     end
 
-    -- XPBD axis-alignment (1D scalar constraint: perpendicular projection to rotate segment towards axis)
-    -- Let target axis unit be t = (tx,ty), perpendicular p = (-vy, vx) from current segment dir (with sign flip to avoid 180° flip).
-    -- C = (b - (a + t * L)) · p = 0
-    -- grad_a ≈ -p, grad_b ≈ p (treat p as constant - ignore derivative w.r.t positions)
-    local function _enforce_axis_alignment_xpbd(
+    local function _enforce_bending(
+        ax, ay, bx, by, cx, cy,
+        inverse_mass_a, inverse_mass_b, inverse_mass_c,
+        _,
+        alpha,
+        lambda_before
+    )
+        local tx = cx - ax
+        local ty = cy - ay
+        if math.magnitude(tx, ty) < math.eps then
+            return 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, lambda_before
+        end
+        tx, ty = math.normalize(tx, ty)
+
+        local nx, ny = math.turn_left(tx, ty)
+
+        local mx = 0.5 * (ax + cx)
+        local my = 0.5 * (ay + cy)
+
+        local ex = mx - bx
+        local ey = my - by
+        local constraint = math.dot(ex, ey, nx, ny)
+
+        local gax, gay =  0.5 * nx,  0.5 * ny
+        local gbx, gby = -1.0 * nx, -1.0 * ny
+        local gcx, gcy =  0.5 * nx,  0.5 * ny
+
+        local weight_sum = inverse_mass_a * (0.5 * 0.5) +
+            inverse_mass_b * (1.0 * 1.0) +
+            inverse_mass_c * (0.5 * 0.5)
+
+        local denominator = weight_sum + alpha
+        if denominator < math.eps then
+            return 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, lambda_before
+        end
+
+        local delta_lambda = -(constraint + alpha * lambda_before) / denominator
+        local lambda_new = lambda_before + delta_lambda
+
+        local correction_ax = inverse_mass_a * delta_lambda * gax
+        local correction_ay = inverse_mass_a * delta_lambda * gay
+        local correction_bx = inverse_mass_b * delta_lambda * gbx
+        local correction_by = inverse_mass_b * delta_lambda * gby
+        local correction_cx = inverse_mass_c * delta_lambda * gcx
+        local correction_cy = inverse_mass_c * delta_lambda * gcy
+
+        return correction_ax, correction_ay, correction_bx, correction_by, correction_cx, correction_cy, lambda_new
+    end
+
+    local function _enforce_axis_alignment(
         ax, ay,
         bx, by,
-        inv_mass_a, inv_mass_b,
+        inverse_mass_a, inverse_mass_b,
         segment_length,
-        tx, ty,
+        target_x, target_y,
         alpha,
-        lambda_prev
+        lambda_before
     )
-        local vx = bx - ax
-        local vy = by - ay
-        local vlen = math.sqrt(vx * vx + vy * vy)
-        if vlen < 1e-12 then
-            return 0, 0, 0, 0, lambda_prev
+        local vector_x = bx - ax
+        local vector_y = by - ay
+        local vector_length = math.magnitude(vector_x, vector_y)
+        if vector_length < 1e-12 then
+            return 0, 0, 0, 0, lambda_before
         end
-        vx = vx / vlen
-        vy = vy / vlen
+        vector_x, vector_y = math.normalize(vector_x, vector_y)
 
-        -- choose orientation to avoid 180° ambiguity
-        if vx * tx + vy * ty < 0 then
-            vx = -vx
-            vy = -vy
+        if math.dot(vector_x, vector_y, target_x, target_y) < 0 then
+            vector_x = -vector_x
+            vector_y = -vector_y
         end
 
-        -- perpendicular to current segment
-        local px = -vy
-        local py =  vx
+        local perpendicular_x = -vector_y
+        local perpendicular_y =  vector_x
 
-        -- desired endpoint for B along target axis
-        local tbx = ax + tx * segment_length
-        local tby = ay + ty * segment_length
+        local target_b_x = ax + target_x * segment_length
+        local target_b_y = ay + target_y * segment_length
 
-        -- scalar error along perpendicular
-        local ex = tbx - bx
-        local ey = tby - by
-        local C = ex * px + ey * py
+        local error_x = target_b_x - bx
+        local error_y = target_b_y - by
+        local constraint = math.dot(error_x, error_y, perpendicular_x, perpendicular_y)
 
-        local wsum = inv_mass_a + inv_mass_b
-        local denom = wsum + alpha
-        if denom < math.eps then
-            return 0, 0, 0, 0, lambda_prev
+        local weight_sum = inverse_mass_a + inverse_mass_b
+        local denominator = weight_sum + alpha
+        if denominator < math.eps then
+            return 0, 0, 0, 0, lambda_before
         end
 
-        local d_lambda = -(C + alpha * lambda_prev) / denom
-        local lambda_new = lambda_prev + d_lambda
+        local delta_lambda = -(constraint + alpha * lambda_before) / denominator
+        local lambda_new = lambda_before + delta_lambda
 
-        -- x_i += w_i * dλ * gradC_i; grad_a = -p, grad_b = p
-        local axc = inv_mass_a * d_lambda * (-px)
-        local ayc = inv_mass_a * d_lambda * (-py)
-        local bxc = inv_mass_b * d_lambda * ( px)
-        local byc = inv_mass_b * d_lambda * ( py)
+        local correction_ax = inverse_mass_a * delta_lambda * (-perpendicular_x)
+        local correction_ay = inverse_mass_a * delta_lambda * (-perpendicular_y)
+        local correction_bx = inverse_mass_b * delta_lambda * ( perpendicular_x)
+        local correction_by = inverse_mass_b * delta_lambda * ( perpendicular_y)
 
-        return axc, ayc, bxc, byc, lambda_new
+        return correction_ax, correction_ay, correction_bx, correction_by, lambda_new
     end
 
-    -- XPBD line collision (inequality): C = n·(x - c) - r >= 0, λ >= 0
-    local function _enforce_line_collision_xpbd(
-        x, y, inv_mass,
+    local function _enforce_line_collision(
+        position_x, position_y, inverse_mass,
         radius,
         line_contact_x, line_contact_y,
         line_normal_x, line_normal_y,
         alpha,
-        lambda_prev
+        lambda_before
     )
-        local nlen = math.sqrt(line_normal_x * line_normal_x + line_normal_y * line_normal_y)
-        if nlen < math.eps then
-            return 0.0, 0.0, lambda_prev
+        local normal_length = math.magnitude(line_normal_x, line_normal_y)
+        if normal_length < math.eps then
+            return 0.0, 0.0, lambda_before
         end
-        local nx = line_normal_x / nlen
-        local ny = line_normal_y / nlen
+        local normalized_x, normalized_y = math.normalize(line_normal_x, line_normal_y)
 
-        local rx = x - line_contact_x
-        local ry = y - line_contact_y
-        local s = rx * nx + ry * ny
+        local relative_x = position_x - line_contact_x
+        local relative_y = position_y - line_contact_y
+        local signed_distance = math.dot(relative_x, relative_y, normalized_x, normalized_y)
 
-        local C = s - radius
-        -- inactive if satisfied; reset lambda to 0 to avoid stickiness
-        if C >= 0.0 or inv_mass <= 0.0 then
+        local constraint = signed_distance - radius
+        if constraint >= 0.0 or inverse_mass <= 0.0 then
             return 0.0, 0.0, 0.0
         end
 
-        local denom = inv_mass + alpha
-        if denom < math.eps then
-            return 0.0, 0.0, lambda_prev
+        local denominator = inverse_mass + alpha
+        if denominator < math.eps then
+            return 0.0, 0.0, lambda_before
         end
 
-        -- inequality complementarity: clamp λ >= 0
-        local d_lambda = -(C + alpha * lambda_prev) / denom
-        local lambda_new = lambda_prev + d_lambda
-        if lambda_new < 0.0 then
-            lambda_new = 0.0
-        end
-        d_lambda = lambda_new - lambda_prev
+        local delta_lambda = -(constraint + alpha * lambda_before) / denominator
+        local lambda_new = math.clamp(lambda_before + delta_lambda, 0.0, math.huge)
+        delta_lambda = lambda_new - lambda_before
 
-        -- x += w * dλ * n
-        local dx = inv_mass * d_lambda * nx
-        local dy = inv_mass * d_lambda * ny
+        local correction_x = inverse_mass * delta_lambda * normalized_x
+        local correction_y = inverse_mass * delta_lambda * normalized_y
 
-        return dx, dy, lambda_new
+        return correction_x, correction_y, lambda_new
     end
 
-    local function _post_solve(particles, n_particles, delta)
-        for particle_i = 1, n_particles do
-            local i = (particle_i - 1) * _stride + 1
-
-            local x = particles[i + _x_offset]
-            local y = particles[i + _y_offset]
-
-            local velocity_x = (x - particles[i + _previous_x_offset]) / delta
-            local velocity_y = (y - particles[i + _previous_y_offset]) / delta
-            particles[i + _velocity_x_offset] = velocity_x
-            particles[i + _velocity_y_offset] = velocity_y
+    local function _enforce_position(
+        ax, ay,
+        inverse_mass_a,
+        target_x, target_y,
+        alpha,
+        lambda_before
+    )
+        local delta_x = target_x - ax
+        local delta_y = target_y - ay
+        local length = math.magnitude(delta_x, delta_y)
+        if length < math.eps then
+            return 0, 0, lambda_before
         end
+
+        local normal_x, normal_y = math.normalize(delta_x, delta_y)
+
+        local constraint = length
+        local denominator = inverse_mass_a + alpha
+        if denominator < math.eps then
+            return 0, 0, lambda_before
+        end
+
+        local delta_lambda = -(constraint + alpha * lambda_before) / denominator
+        local lambda_new = lambda_before + delta_lambda
+
+        local correction_ax = inverse_mass_a * delta_lambda * (-normal_x)
+        local correction_ay = inverse_mass_a * delta_lambda * (-normal_y)
+
+        return correction_ax, correction_ay, lambda_new
     end
 
-    -- PlayerBody:_step with XPBD lambdas
+    local function _post_solve(
+        position_x, position_y,
+        previous_x, previous_y,
+        delta
+    )
+        local velocity_x = (position_x - previous_x) / delta
+        local velocity_y = (position_y - previous_y) / delta
+
+        return velocity_x, velocity_y
+    end
+
     function rt.PlayerBody:_step(delta)
-        local damping = 1 - 0.1
-        local n_sub_steps = 2
-        local n_constraint_iterations = 4
+        local settings = ternary(self._use_contour, rt.settings.player_body.contour, rt.settings.player_body.non_contour)
+        local sub_delta = delta / settings.n_sub_steps
 
-        local sub_delta = delta / n_sub_steps
+        local damping = settings.damping
+        local n_sub_steps = settings.n_sub_steps
+        local n_constraint_iterations = settings.n_constraint_iterations
 
-        -- compliance alphas (already scaled)
-        local distance_alpha = 0 / (sub_delta^2)
-        local bending_alpha  = 0.001 / (sub_delta^2)
-        local axis_alpha     = 0.00001 / (sub_delta^2)
-
-        -- collision compliance alpha (0 => hard)
-        local collision_alpha = 1 -- example softness; tune or drive from settings
+        local distance_alpha = settings.distance_compliance / (sub_delta^2)
+        local bending_alpha = settings.bending_compliance / (sub_delta^2)
+        local axis_alpha = settings.axis_compliance / (sub_delta^2)
+        local contraction_alpha = math.mix(settings.contraction_compliance, 1, self._contraction) / (sub_delta^2)
+        local collision_alpha = settings.collision_compliance / (sub_delta^2)
 
         local data = self._particle_data
         local n_particles = self._n_particles
 
-        local gravity_dx, gravity_dy = 0, 1
-        local gravity = 250
+        local gravity_direction_x, gravity_direction_y = 0, 1
+        local gravity = settings.gravity
+
+        local influence = 1 - math.clamp(rt.settings.player_body.relative_velocity_influence, 0, 1)
+        local relative_velocity_x, relative_velocity_y = influence * self._relative_velocity_x, influence * self._relative_velocity_y
 
         for _ = 1, n_sub_steps do
-            -- reset XPBD lambdas for this substep (kept across iterations)
-            for rope in values(self._ropes) do
-                for i = 1, #rope.distance_lambdas do rope.distance_lambdas[i] = 0.0 end
-                for i = 1, #rope.bending_lambdas  do rope.bending_lambdas[i]  = 0.0 end
-                for i = 1, #rope.axis_lambdas     do rope.axis_lambdas[i]     = 0.0 end
+            for particle_i = 1, self._n_particles do
+                local offset = _particle_i_to_data_offset(particle_i)
+                local new_position_x, new_position_y, new_velocity_x, new_velocity_y, previous_x, previous_y = _pre_solve(
+                    data[offset + _x_offset],
+                    data[offset + _y_offset],
+                    data[offset + _velocity_x_offset],
+                    data[offset + _velocity_y_offset],
+                    data[offset + _mass_offset],
+                    gravity_direction_x * gravity, gravity_direction_y * gravity,
+                    relative_velocity_x, relative_velocity_y,
+                    damping, sub_delta
+                )
+
+                data[offset + _x_offset] = new_position_x
+                data[offset + _y_offset] = new_position_y
+                data[offset + _velocity_x_offset] = new_velocity_x
+                data[offset + _velocity_y_offset] = new_velocity_y
+                data[offset + _previous_x_offset] = previous_x
+                data[offset + _previous_y_offset] = previous_y
+                data[offset + _distance_lambda_offset] = 0
+                data[offset + _bending_lambda_offset] = 0
+                data[offset + _axis_lambda_offset] = 0
+                data[offset + _contraction_lambda_offset] = 0
             end
-            if self._collision_lambdas ~= nil then
-                for li = 1, #self._collision_lambdas do
-                    local row = self._collision_lambdas[li]
+
+            -- reset collision lambdas
+            if self._colliding_lines_to_lambda ~= nil then
+                for line_i = 1, #self._colliding_lines_to_lambda do
+                    local row = self._colliding_lines_to_lambda[line_i]
                     if row ~= nil then
-                        for pi = 1, n_particles do
-                            row[pi] = 0.0
+                        for particle_i = 1, n_particles do
+                            row[particle_i] = 0.0
                         end
                     end
                 end
             end
 
-            _pre_solve(
-                data, n_particles,
-                gravity_dx * gravity, gravity_dy * gravity,
-                damping,
-                sub_delta
-            )
-
-            for _ = 1, n_constraint_iterations do
+            for __ = 1, n_constraint_iterations do
                 for rope in values(self._ropes) do
                     local anchor_x = self._position_x + rope.anchor_x
                     local anchor_y = self._position_y + rope.anchor_y
 
                     -- pin first node to anchor each iteration
-                    local anchor_i = _particle_i_to_data_offset(rope.start_i)
-                    data[anchor_i + _x_offset] = anchor_x
-                    data[anchor_i + _y_offset] = anchor_y
+                    local anchor_offset = _particle_i_to_data_offset(rope.start_i)
+                    data[anchor_offset + _x_offset] = anchor_x
+                    data[anchor_offset + _y_offset] = anchor_y
 
-                    -- segment distance constraints (XPBD)
-                    for node_i = rope.start_i, rope.end_i - 1, 1 do
-                        local i1 = _particle_i_to_data_offset(node_i + 0)
-                        local i2 = _particle_i_to_data_offset(node_i + 1)
+                    -- segment distance
+                    if settings.distance_compliance < 1 then
+                        for node_i = rope.start_i, rope.end_i - 1, 1 do
+                            local a_i = _particle_i_to_data_offset(node_i + 0)
+                            local b_i = _particle_i_to_data_offset(node_i + 1)
 
-                        local ax, ay = data[i1 + _x_offset], data[i1 + _y_offset]
-                        local bx, by = data[i2 + _x_offset], data[i2 + _y_offset]
+                            local ax, ay = data[a_i + _x_offset], data[a_i + _y_offset]
+                            local bx, by = data[b_i + _x_offset], data[b_i + _y_offset]
 
-                        local inv_a = data[i1 + _inverse_mass_offset]
-                        local inv_b = data[i2 + _inverse_mass_offset]
+                            local inverse_mass_a = data[a_i + _inverse_mass_offset]
+                            local inverse_mass_b = data[b_i + _inverse_mass_offset]
 
-                        local segment_length
-                        if not self._use_contour then
-                            segment_length = data[i1 + _segment_length_offset]
-                        else
-                            segment_length = data[i1 + _contour_segment_length_offset]
+                            local segment_length
+                            if not self._use_contour then
+                                segment_length = data[a_i + _segment_length_offset]
+                            else
+                                segment_length = data[a_i + _contour_segment_length_offset]
+                            end
+
+                            local correction_ax, correction_ay, correction_bx, correction_by, lambda_new = _enforce_distance(
+                                ax, ay, bx, by,
+                                inverse_mass_a, inverse_mass_b,
+                                segment_length,
+                                distance_alpha,
+                                data[a_i + _distance_lambda_offset]
+                            )
+
+                            data[a_i + _x_offset] = ax + correction_ax
+                            data[a_i + _y_offset] = ay + correction_ay
+                            data[b_i + _x_offset] = bx + correction_bx
+                            data[b_i + _y_offset] = by + correction_by
+                            data[a_i + _distance_lambda_offset] = lambda_new
                         end
-
-                        local seg_j = node_i - rope.start_i + 1
-                        local axc, ayc, bxc, byc, lambda_new = _enforce_distance_xpbd(
-                            ax, ay, bx, by,
-                            inv_a, inv_b,
-                            segment_length,
-                            distance_alpha,
-                            rope.distance_lambdas[seg_j] or 0.0
-                        )
-                        rope.distance_lambdas[seg_j] = lambda_new
-
-                        data[i1 + _x_offset] = ax + axc
-                        data[i1 + _y_offset] = ay + ayc
-                        data[i2 + _x_offset] = bx + bxc
-                        data[i2 + _y_offset] = by + byc
                     end
 
-                    if not self._use_contour then goto next_rope end
+                    -- bending constraints
+                    if settings.bending_compliance < 1 then
+                        for node_i = rope.start_i, rope.end_i - 2, 1 do
+                            local a_i = _particle_i_to_data_offset(node_i + 0)
+                            local b_i = _particle_i_to_data_offset(node_i + 1)
+                            local c_i = _particle_i_to_data_offset(node_i + 2)
 
-                    -- bending constraints (XPBD)
-                    for node_i = rope.start_i, rope.end_i - 2, 1 do
-                        local i1 = _particle_i_to_data_offset(node_i + 0)
-                        local i2 = _particle_i_to_data_offset(node_i + 1)
-                        local i3 = _particle_i_to_data_offset(node_i + 2)
+                            local ax, ay = data[a_i + _x_offset], data[a_i + _y_offset]
+                            local bx, by = data[b_i + _x_offset], data[b_i + _y_offset]
+                            local particle_c_x, particle_c_y = data[c_i + _x_offset], data[c_i + _y_offset]
 
-                        local ax, ay = data[i1 + _x_offset], data[i1 + _y_offset]
-                        local bx, by = data[i2 + _x_offset], data[i2 + _y_offset]
-                        local cx, cy = data[i3 + _x_offset], data[i3 + _y_offset]
+                            local inverse_mass_a = data[a_i + _inverse_mass_offset]
+                            local inverse_mass_b = data[b_i + _inverse_mass_offset]
+                            local inverse_mass_c = data[c_i + _inverse_mass_offset]
 
-                        local wa = data[i1 + _inverse_mass_offset]
-                        local wb = data[i2 + _inverse_mass_offset]
-                        local wc = data[i3 + _inverse_mass_offset]
+                            local segment_length_ab = data[a_i + _segment_length_offset]
+                            local segment_length_bc = data[b_i + _segment_length_offset]
+                            local target_length = segment_length_ab + segment_length_bc
 
-                        local segment_length_ab = data[i1 + _segment_length_offset]
-                        local segment_length_bc = data[i2 + _segment_length_offset]
-                        local target_length = segment_length_ab + segment_length_bc
+                            local correction_ax, correction_ay, correction_bx, correction_by, correction_cx, correction_cy, lambda_new = _enforce_bending(
+                                ax, ay, bx, by, particle_c_x, particle_c_y,
+                                inverse_mass_a, inverse_mass_b, inverse_mass_c,
+                                target_length,
+                                bending_alpha,
+                                data[a_i + _bending_lambda_offset]
+                            )
 
-                        local bend_j = node_i - rope.start_i + 1
-                        local axc, ayc, _, _, cxc, cyc, lambda_new = _enforce_bending_xpbd(
-                            ax, ay, bx, by, cx, cy,
-                            wa, wb, wc,
-                            target_length,
-                            bending_alpha,
-                            rope.bending_lambdas[bend_j] or 0.0
-                        )
-                        rope.bending_lambdas[bend_j] = lambda_new
-
-                        data[i1 + _x_offset] = ax + axc
-                        data[i1 + _y_offset] = ay + ayc
-                        data[i3 + _x_offset] = cx + cxc
-                        data[i3 + _y_offset] = cy + cyc
+                            data[a_i + _x_offset] = ax + correction_ax
+                            data[a_i + _y_offset] = ay + correction_ay
+                            data[b_i + _x_offset] = bx + correction_bx
+                            data[b_i + _y_offset] = by + correction_by
+                            data[c_i + _x_offset] = particle_c_x + correction_cx
+                            data[c_i + _y_offset] = particle_c_y + correction_cy
+                            data[a_i + _bending_lambda_offset] = lambda_new
+                        end
                     end
 
-                    -- axis alignment (XPBD, IK-like)
-                    for node_i = rope.start_i, rope.end_i - 1 do
-                        local i1 = _particle_i_to_data_offset(node_i)
-                        local i2 = _particle_i_to_data_offset(node_i + 1)
+                    -- axis alignment
+                    if settings.axis_compliance < 1 then
+                        for node_i = rope.start_i, rope.end_i - 1 do
+                            local a_i = _particle_i_to_data_offset(node_i)
+                            local b_i = _particle_i_to_data_offset(node_i + 1)
 
-                        local ax = data[i1 + _x_offset]
-                        local ay = data[i1 + _y_offset]
-                        local bx = data[i2 + _x_offset]
-                        local by = data[i2 + _y_offset]
+                            local ax = data[a_i + _x_offset]
+                            local ay = data[a_i + _y_offset]
+                            local bx = data[b_i + _x_offset]
+                            local by = data[b_i + _y_offset]
 
-                        local wa = data[i1 + _inverse_mass_offset]
-                        local wb = data[i2 + _inverse_mass_offset]
+                            local inverse_mass_a = data[a_i + _inverse_mass_offset]
+                            local inverse_mass_b = data[b_i + _inverse_mass_offset]
 
-                        local segment_length = data[i1 + _segment_length_offset]
+                            local segment_length = data[a_i + _segment_length_offset]
 
-                        local axis_j = node_i - rope.start_i + 1
-                        local axc, ayc, bxc, byc, lambda_new = _enforce_axis_alignment_xpbd(
-                            ax, ay, bx, by,
-                            wa, wb,
-                            segment_length,
-                            rope.axis_x, rope.axis_y,
-                            axis_alpha,
-                            rope.axis_lambdas[axis_j] or 0.0
-                        )
-                        rope.axis_lambdas[axis_j] = lambda_new
+                            local axis_j = node_i - rope.start_i + 1
+                            local correction_ax, correction_ay, correction_bx, correction_by, lambda_new = _enforce_axis_alignment(
+                                ax, ay, bx, by,
+                                inverse_mass_a, inverse_mass_b,
+                                segment_length,
+                                rope.axis_x, rope.axis_y,
+                                axis_alpha,
+                                data[a_i + _axis_lambda_offset]
+                            )
+                            data[a_i + _axis_lambda_offset] = lambda_new
 
-                        data[i1 + _x_offset] = ax + axc
-                        data[i1 + _y_offset] = ay + ayc
-                        data[i2 + _x_offset] = bx + bxc
-                        data[i2 + _y_offset] = by + byc
+                            data[a_i + _x_offset] = ax + correction_ax
+                            data[a_i + _y_offset] = ay + correction_ay
+                            data[b_i + _x_offset] = bx + correction_bx
+                            data[b_i + _y_offset] = by + correction_by
+                        end
                     end
 
-                    ::next_rope::
+                    -- contraction
+                    if settings.contraction_compliance < 1 then
+                        for node_i = rope.start_i, rope.end_i do
+                            local i = _particle_i_to_data_offset(node_i)
+                            local x = data[i + _x_offset]
+                            local y = data[i + _y_offset]
+                            local inverse_mass_a = data[i + _inverse_mass_offset]
+                            local axis_j = node_i - rope.start_i + 1
+
+                            local correction_x, correction_y, lambda_new = _enforce_position(
+                                x, y, inverse_mass_a,
+                                self._position_x, self._position_y,
+                                contraction_alpha,
+                                data[i + _contraction_lambda_offset]
+                            )
+
+                            data[i + _contraction_lambda_offset] = lambda_new
+                            data[i + _x_offset] = x + correction_x
+                            data[i + _y_offset] = y + correction_y
+                        end
+                    end
                 end
 
-                -- collisions (XPBD inequality per line, per particle)
-                for li, line in ipairs(self._colliding_lines or {}) do
-                    local row = self._collision_lambdas and self._collision_lambdas[li]
+                -- collisions
+                for line_i, line in ipairs(self._colliding_lines or {}) do
+                    local row = self._colliding_lines_to_lambda and self._colliding_lines_to_lambda[line_i]
                     for particle_i = 1, self._n_particles do
-                        local i = _particle_i_to_data_offset(particle_i)
+                        local offset = _particle_i_to_data_offset(particle_i)
 
                         local radius = self._use_contour
-                            and data[i + _contour_radius_offset]
-                            or  data[i + _radius_offset]
+                            and data[offset + _contour_radius_offset]
+                            or  data[offset + _radius_offset]
 
-                        local cx, cy, lambda_new = _enforce_line_collision_xpbd(
-                            data[i + _x_offset],
-                            data[i + _y_offset],
-                            data[i + _inverse_mass_offset],
+                        local alpha_multiplier = data[offset + _collision_strength_offset]
+                        if self._use_contour then alpha_multiplier = 0 end
+
+                        local correction_x, correction_y, lambda_new = _enforce_line_collision(
+                            data[offset + _x_offset],
+                            data[offset + _y_offset],
+                            data[offset + _inverse_mass_offset],
                             radius,
                             line.contact_x,
                             line.contact_y,
                             line.normal_x,
                             line.normal_y,
-                            collision_alpha,
-                            row and row[particle_i] or 0.0
+                            collision_alpha * (1 - alpha_multiplier),
+                            row[particle_i]
                         )
 
-                        data[i + _x_offset] = data[i + _x_offset] + cx
-                        data[i + _y_offset] = data[i + _y_offset] + cy
+                        data[offset + _x_offset] = data[offset + _x_offset] + correction_x
+                        data[offset + _y_offset] = data[offset + _y_offset] + correction_y
 
-                        if row ~= nil then
-                            row[particle_i] = lambda_new
-                        end
+                        row[particle_i] = lambda_new
                     end
                 end
+            end -- constraint iterations
 
-                _post_solve(
-                    data, n_particles,
+            for particle_i = 1, self._n_particles do
+                local i = _particle_i_to_data_offset(particle_i)
+                local new_velocity_x, new_velocity_y = _post_solve(
+                    data[i + _x_offset],
+                    data[i + _y_offset],
+                    data[i + _previous_x_offset],
+                    data[i + _previous_y_offset],
                     sub_delta
                 )
-            end -- constraint iterations
+
+                data[i + _velocity_x_offset] = new_velocity_x
+                data[i + _velocity_y_offset] = new_velocity_y
+            end
         end -- n sub steps
 
-        self:_update_data_mesh()
         self._render_texture_needs_update = true
     end
+
+    -- export for other classes to use
+    rt.PlayerBody._pre_solve = _pre_solve
+    rt.PlayerBody._post_solve = _post_solve
+    rt.PlayerBody._enforce_distance = _enforce_distance
+    rt.PlayerBody._enforce_axis_alignment = _enforce_axis_alignment
+    rt.PlayerBody._enforce_bending = _enforce_bending
+    rt.PlayerBody._enforce_line_collision_xpbd = _enforce_line_collision
+end
+
+--- @brief
+function rt.PlayerBody:set_stencil_bodies(t)
+    self._body_stencil_bodies = t
+end
+
+--- @brief
+function rt.PlayerBody:set_core_stencil_bodies(t)
+    self._core_stencil_bodies = {}
+end
+
+--- @brief
+function rt.PlayerBody:_apply_squish()
+    if self._use_contour then return end
+
+    local magnitude = rt.settings.player_body.squish_magnitude
+    local radius = rt.settings.player.radius
+
+    local function apply(motion, normal_x, normal_y, origin_x, origin_y)
+        local amount = motion:get_value()
+        if amount <= 0.01 then return end
+        normal_x, normal_y = math.normalize(normal_x, normal_y)
+
+        local angle = math.angle(normal_x, normal_y)
+        local scale_x = 1 - magnitude * amount
+
+        love.graphics.translate(origin_x, origin_y)
+        love.graphics.rotate(angle)
+        love.graphics.scale(scale_x, 1)
+        love.graphics.rotate(-angle)
+        love.graphics.translate(-origin_x, -origin_y)
+    end
+
+    apply(self._down_squish_motion,
+        self._down_squish_normal_x, self._down_squish_normal_y,
+        self._down_squish_origin_x, self._down_squish_origin_y
+    )
+
+    apply(self._up_squish_motion,
+        self._up_squish_normal_x, self._up_squish_normal_y,
+        self._up_squish_origin_x, self._up_squish_origin_y
+    )
+
+    apply(self._left_squish_motion,
+        self._left_squish_normal_x, self._left_squish_normal_y,
+        self._left_squish_origin_x, self._left_squish_origin_y
+    )
+
+    apply(self._right_squish_motion,
+        self._right_squish_normal_x, self._right_squish_normal_y,
+        self._right_squish_origin_x, self._right_squish_origin_y
+    )
+end
+
+--- @brief
+function rt.PlayerBody:draw_body()
+    if self._render_texture_needs_update then
+        self:_update_data_mesh()
+
+        -- update body texture
+        love.graphics.push("all")
+        love.graphics.reset()
+        love.graphics.setBlendMode("add", "premultiplied")
+
+        local w, h = self._body_texture:get_size()
+        local texture_scale = rt.settings.player_body.texture_scale
+        love.graphics.translate(0.5 * w, 0.5 * h)
+        love.graphics.scale(texture_scale, texture_scale)
+        love.graphics.translate(-0.5 * w, -0.5 * h)
+
+        love.graphics.translate(
+            -1 * self._position_x + 0.5 * w,
+            -1 * self._position_y + 0.5 * h
+        )
+        self._body_texture:bind()
+        love.graphics.clear(0, 0, 1, 0)
+
+        local stencil_value = rt.graphics.get_stencil_value()
+        rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW)
+        for body in values(self._body_stencil_bodies) do
+            body:draw(true) -- mask only
+        end
+        rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.TEST, rt.StencilCompareMode.NOT_EQUAL)
+
+        rt.Palette.TRUE_WHITE:bind()
+        _instance_draw_shader:bind()
+        _instance_draw_shader:send("texture_scale", rt.settings.player_body.particle_texture_scale)
+        _instance_draw_shader:send("contour_interpolation_factor", self._contour_transition_motion:get_value())
+        self._instance_mesh:draw_instanced(self._n_particles)
+        _instance_draw_shader:unbind()
+
+        rt.graphics.set_stencil_mode(nil)
+
+        self._body_texture:unbind()
+        love.graphics.pop()
+
+        -- threshold body texture
+        love.graphics.push("all")
+        love.graphics.reset()
+
+        self._body_outline_texture:bind()
+        love.graphics.clear(0, 0, 0, 0)
+        _threshold_shader:bind()
+        _threshold_shader:send("threshold", ternary(self._use_contour, rt.settings.player_body.contour_threshold, rt.settings.player_body.threshold))
+        _threshold_shader:send("smoothness", 0.001)
+        self._body_texture:draw()
+        _threshold_shader:unbind()
+        self._body_outline_texture:unbind()
+
+        love.graphics.pop()
+
+        -- paste body to swap
+        love.graphics.push("all")
+        love.graphics.reset()
+        self._swap_texture:bind()
+        love.graphics.clear(true, false, false)
+
+        love.graphics.setColor(1, 1, 1, 1)
+        local body_r, body_g, body_b, body_a = self._body_color:unpack()
+        local outline_r, outline_g, outline_b, outline_a = self._core_color:unpack()
+        _outline_shader:send("body_color", { body_r, body_g, body_b, body_a * self._opacity })
+        _outline_shader:send("outline_color", { outline_r, outline_g, outline_b, outline_a * self._opacity })
+        _outline_shader:send("texture_scale", rt.settings.player_body.texture_scale)
+        _outline_shader:send("outline_thickness", rt.settings.player_body.core_outline_width)
+        _outline_shader:bind()
+        self._body_outline_texture:draw()
+        _outline_shader:unbind()
+
+        self._swap_texture:unbind()
+        love.graphics.pop()
+    end
+
+    love.graphics.push("all")
+    local w, h = self._body_texture:get_size()
+    local texture_scale = rt.settings.player_body.texture_scale
+
+    self:_apply_squish()
+    love.graphics.translate(self._position_x - 0.5 * w, self._position_y - 0.5 * w)
+    love.graphics.translate(0.5 * w, 0.5 * h)
+    love.graphics.scale(1 / texture_scale, 1 / texture_scale)
+    love.graphics.translate(-0.5 * w, -0.5 * h)
+    love.graphics.setColor(1, 1, 1, 1)
+    self._swap_texture:draw()
+    love.graphics.pop()
+end
+
+--- @brief
+function rt.PlayerBody:draw_core()
+    if self._core_vertices == nil then return end
+
+    love.graphics.push("all")
+
+    local stencil_value = rt.graphics.get_stencil_value()
+    rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW)
+    for body in values(self._body_stencil_bodies) do
+        body:draw(true) -- mask only
+    end
+    rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.TEST, rt.StencilCompareMode.NOT_EQUAL)
+
+    self:_apply_squish()
+    local core_r, core_g, core_b, core_a = self._core_color:unpack()
+    love.graphics.translate(self._position_x, self._position_y)
+
+    love.graphics.push()
+    love.graphics.scale(self._core_outline_scale, self._core_outline_scale)
+    love.graphics.setColor(core_r, core_g, core_b, core_a * self._opacity)
+    love.graphics.polygon("fill", self._core_vertices)
+    love.graphics.pop()
+
+    local core_shader = _core_type_to_shader[rt.GameState:get_player_body_core_type()]
+    core_shader:bind()
+    core_shader:send("hue", self._hue)
+    core_shader:send("elapsed", rt.SceneManager:get_elapsed())
+    core_shader:send("saturation",  self._saturation)
+    core_shader:send("lch_texture", _lch_texture)
+    love.graphics.setColor(1, 1, 1, self._opacity)
+    love.graphics.polygon("fill", self._core_vertices)
+    core_shader:unbind()
+
+    rt.graphics.set_stencil_mode(nil)
+
+    love.graphics.pop()
+end
+--- @brief
+function rt.PlayerBody:set_position(x, y)
+    meta.typecheck(x, mt.Number, y, mt.Number)
+    self._position_x = x
+    self._position_y = y
+end
+
+function rt.PlayerBody:set_shape(positions)
+    self._core_vertices = positions
+    local max_r = -math.huge
+    local center_x, center_y, n = 0, 0, 0
+    for i = 1, #positions, 2 do
+        local x, y = positions[i+0], positions[i+1]
+        max_r = math.max(max_r, math.distance(x, y, 0, 0))
+        center_x = center_x + x
+        center_y = center_y + y
+        n = n + 1
+    end
+
+    self._center_x = center_x / n
+    self._center_y = center_y / n
+
+    local outline_width = rt.settings.player_body.core_outline_width
+    self._core_outline_scale = 1 + (outline_width / max_r)
+end
+
+--- @brief
+function rt.PlayerBody:set_color(color)
+    meta.typecheck(color, rt.RGBA)
+    self._core_color = color
+    self._hue = select(3, rt.rgba_to_lcha(self._core_color:unpack()))
+end
+
+--- @brief
+function rt.PlayerBody:set_body_color(color)
+    meta.typecheck(color, rt.RGBA)
+    self._body_color = color
+end
+
+--- @brief
+function rt.PlayerBody:set_core_color(color)
+    self._core_color = color
+end
+
+--- @brief
+function rt.PlayerBody:set_opacity(opacity)
+    self._opacity = opacity
+end
+
+--- @brief
+function rt.PlayerBody:set_use_contour(b)
+    self._use_contour = b
+    self._contour_transition_motion:set_target_value(ternary(b, 1, 0))
+end
+
+--- @brief
+function rt.PlayerBody:draw_bloom()
+    if self._core_vertices == nil then return end
+
+    love.graphics.push()
+    local w, h = self._body_texture:get_size()
+    local texture_scale = rt.settings.player_body.texture_scale
+
+    local stencil_value = rt.graphics.get_stencil_value()
+    rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW)
+    for body in values(self._body_stencil_bodies) do
+        body:draw(true) -- mask only
+    end
+    rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.TEST, rt.StencilCompareMode.NOT_EQUAL)
+
+    self:_apply_squish()
+    love.graphics.translate(self._position_x - 0.5 * w, self._position_y - 0.5 * w)
+    love.graphics.translate(0.5 * w, 0.5 * h)
+    love.graphics.scale(1 / texture_scale, 1 / texture_scale)
+    love.graphics.translate(-0.5 * w, -0.5 * h)
+    love.graphics.setColor(1, 1, 1, 1)
+    self._swap_texture:draw()
+    love.graphics.pop()
+
+    love.graphics.push()
+    love.graphics.translate(self._position_x, self._position_y)
+    love.graphics.setLineWidth(1)
+    love.graphics.setLineStyle("smooth")
+    self._core_color:bind()
+    love.graphics.line(self._core_vertices)
+
+    rt.graphics.set_stencil_mode(nil)
+
+    love.graphics.pop()
+end
+
+--- @brief
+function rt.PlayerBody:set_relative_velocity(vx, vy)
+    self._relative_velocity_x = vx
+    self._relative_velocity_y = vy
+end
+
+--- @brief
+function rt.PlayerBody:set_down_squish(b, nx, ny, contact_x, contact_y)
+    self._down_squish = b
+    self._down_squish_normal_x = nx or self._down_squish_normal_x
+    self._down_squish_normal_y = ny or self._down_squish_normal_y
+    self._down_squish_origin_x = contact_x or self._down_squish_origin_x
+    self._down_squish_origin_y = contact_y or self._down_squish_origin_y
+
+    if b == true then
+        self._down_squish_motion:set_target_value(_squished)
+    else
+        self._down_squish_motion:set_target_value(_not_squished)
+    end
+end
+
+--- @brief
+function rt.PlayerBody:set_left_squish(b, nx, ny, contact_x, contact_y)
+    self._left_squish = b
+    self._left_squish_normal_x = nx or self._left_squish_normal_x
+    self._left_squish_normal_y = ny or self._left_squish_normal_y
+    self._left_squish_origin_x = contact_x or self._left_squish_origin_x
+    self._left_squish_origin_y = contact_y or self._left_squish_origin_y
+
+    if b == true then
+        self._left_squish_motion:set_target_value(_squished)
+    else
+        self._left_squish_motion:set_target_value(_not_squished)
+    end
+end
+
+--- @brief
+function rt.PlayerBody:set_right_squish(b, nx, ny, contact_x, contact_y)
+    self._right_squish = b
+    self._right_squish_normal_x = nx or self._right_squish_normal_x
+    self._right_squish_normal_y = ny or self._right_squish_normal_y
+    self._right_squish_origin_x = contact_x or self._right_squish_origin_x
+    self._right_squish_origin_y = contact_y or self._right_squish_origin_y
+
+    if b == true then
+        self._right_squish_motion:set_target_value(_squished)
+    else
+        self._right_squish_motion:set_target_value(_not_squished)
+    end
+end
+
+--- @brief
+function rt.PlayerBody:set_up_squish(b, nx, ny, contact_x, contact_y)
+    self._up_squish = b
+    self._up_squish_normal_x = nx or self._up_squish_normal_x
+    self._up_squish_normal_y = ny or self._up_squish_normal_y
+    self._up_squish_origin_x = contact_x or self._up_squish_origin_x
+    self._up_squish_origin_y = contact_y or self._up_squish_origin_y
+
+    if b == true then
+        self._up_squish_motion:set_target_value(_squished)
+    else
+        self._up_squish_motion:set_target_value(_not_squished)
+    end
+end
+
+--- @brief
+function rt.PlayerBody:set_gravity(gravity_x, gravity_y)
+    self._gravity_x, self._gravity_y = gravity_x, gravity_y -- can be nil
+end
+
+--- @brief
+function rt.PlayerBody:set_saturation(t)
+    self._saturation = t
+end
+
+--- @brief
+function rt.PlayerBody:get_saturation()
+    return self._saturation
+end
+
+--- @brief
+function rt.PlayerBody:set_contraction(t)
+    self._contraction = t
 end

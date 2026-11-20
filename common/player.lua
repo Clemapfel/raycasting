@@ -586,8 +586,8 @@ function rt.Player:update(delta)
 
                 for body in values(self._spring_bodies) do
                     local x, y = body:get_predicted_position()
-                    table.insert(positions, x + dx - center_x) -- body expects local coords
-                    table.insert(positions, y + dy - center_y)
+                    table.insert(positions, x + dx) -- body expects local coords
+                    table.insert(positions, y + dy)
                 end
             end
 
@@ -596,6 +596,10 @@ function rt.Player:update(delta)
 
             self._graphics_body:set_shape(positions)
             self._graphics_body:set_position(center_x, center_y)
+
+            local gm = self:get_gravity_multiplier()
+            local gx, gy = self:get_gravity_direction()
+            self._graphics_body:set_gravity(gm * gx, gm * gy)
             self._graphics_body:set_color(self._current_color)
             self._graphics_body:set_opacity(self:get_opacity())
             self._graphics_body:set_contraction(ternary(self:get_is_contracted(), 0, 1))
@@ -3236,14 +3240,16 @@ function rt.Player:request_is_bubble(id, is_bubble)
     local after = self:get_is_bubble()
 
     if before ~= after then
-        self:_update_bubble(after)
+        self:_update_bubble(after, before)
     end
 
     return id
 end
 
 --- @brief
-function rt.Player:_update_bubble(is_bubble)
+function rt.Player:_update_bubble(is_bubble, was_bubble)
+    if was_bubble == nil then was_bubble = is_bubble end
+
     self._last_bubble_force_x = 0
     self._last_bubble_force_y = 0
     _clear(self._body_to_collision_normal)
@@ -3257,14 +3263,10 @@ function rt.Player:_update_bubble(is_bubble)
     if self._world == nil then return end
 
     local vx, vy, x, y
+    local source = was_bubble and self._bubble_body or self._body
+    vx, vy = source:get_velocity()
+    x, y = source:get_position()
 
-    if self:get_is_bubble() == true then
-        vx, vy = self._bubble_body:get_velocity()
-        x, y = self._bubble_body:get_position()
-    else
-        vx, vy = self._body:get_velocity()
-        x, y = self._body:get_position()
-    end
 
     -- disable both to avoid interaction
     self._body:set_is_enabled(false)
@@ -3282,8 +3284,8 @@ function rt.Player:_update_bubble(is_bubble)
         self._bubble_body:set_velocity(vx, vy)
         for i, body in ipairs(self._bubble_spring_bodies) do
             body:set_position(
-                x + self._spring_body_offsets_x[i], -- keep offset here
-                y + self._spring_body_offsets_y[i]
+                x + self._bubble_spring_body_offsets_x[i],
+                y + self._bubble_spring_body_offsets_x[i]
             )
             body:set_velocity(vx, vy)
         end
@@ -3292,7 +3294,7 @@ function rt.Player:_update_bubble(is_bubble)
         self._body:set_velocity(vx, vy)
         for i, body in ipairs(self._spring_bodies) do
             body:set_position(
-                x + self._spring_body_offsets_x[i], -- keep offset here
+                x + self._spring_body_offsets_x[i],
                 y + self._spring_body_offsets_y[i]
             )
             body:set_velocity(vx, vy)
@@ -3416,7 +3418,7 @@ end
 
 --- @brief
 function rt.Player:apply_damping(vx, vy)
-    local values = self._damping_requests:reduce(rt.RequestReduceMode.MANUAL)
+    local values = self._damping_requests:reduce(rt.RequestReduceMode.ENUMERATE)
     for _, v in ipairs(values) do
         local up, right, down, left = table.unpack(v)
         if vx < 0 then vx = vx * left end
@@ -3555,7 +3557,7 @@ end
 
 --- @brief
 function rt.Player:collect_point_lights(callback)
-    if self:get_is_visible() then
+    if self:get_is_visible() and self:get_is_trail_enabled() then
         local px, py = self:get_position()
         local radius = self._core_radius
         local opacity = self:get_color().a

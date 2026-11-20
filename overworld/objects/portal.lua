@@ -268,7 +268,6 @@ function ow.Portal:update(delta)
                     math.magnitude(player:get_velocity())
                 )
 
-                self._scene:push_camera_mode(ow.CameraMode.CUTSCENE)
                 player:request_is_disabled(self, true)
                 player:request_is_ghost(self, true)
                 -- trail disabled once player properly crosses portal
@@ -324,7 +323,7 @@ function ow.Portal:update(delta)
             local duration = length / self._transition_velocity_magnitude
             local t = math.min(elapsed / duration, 1)
             t = rt.InterpolationFunctions.SINUSOID_EASE_IN_OUT(t)
-            self._scene:get_camera():move_to(path:at(t))
+            self._scene:get_camera():request_position(self, path:at(t))
 
             player_set_velocity(
                 self._transition_velocity_x,
@@ -360,7 +359,7 @@ function ow.Portal:update(delta)
             )
 
             local px, py = player:get_position()
-            self._scene:get_camera():move_to(px, py)
+            self._scene:get_camera():request_position(self, px, py)
 
             local ax, ay = math.add2(target._ax, target._ay, target_x, target_y)
             local bx, by = math.add2(target._bx, target._by, target_x, target_y)
@@ -370,8 +369,6 @@ function ow.Portal:update(delta)
 
             if math.distance(px, py, target_x, target_y) > penetration_r + player:get_radius() then
                 -- player is far enough, disengage transitioning state
-                self._scene:pop_camera_mode(ow.CameraMode.CUTSCENE)
-
                 update_stencil_body(self, false, self:get_position())
                 update_stencil_body(self._target, false, self._target:get_position())
 
@@ -381,6 +378,7 @@ function ow.Portal:update(delta)
                 player:request_is_ghost(self, nil)
                 player:request_is_disabled(self, nil)
                 player:request_is_trail_enabled(self, nil) -- safety
+                self._scene:get_camera():request_position(self, nil)
             else
                 update_stencil_body(self, false, self:get_position())
                 update_stencil_body(self._target, true, self._target:get_position())
@@ -464,5 +462,5 @@ function ow.Portal:reset()
         self._stage.portal_active_portal = nil
     end
 
-    self._scene:pop_camera_mode(ow.CameraMode.CUTSCENE)
+    self._scene:get_camera():request_position(self, nil)
 end

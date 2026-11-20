@@ -335,23 +335,10 @@ function ow.Checkpoint:_set_state(state)
     local player = self._scene:get_player()
     local camera = self._scene:get_camera()
 
-    if self._state ~= _STATE_DEFAULT then
-        self._scene:clear_camera_mode()
-        self._scene:push_camera_mode(ow.CameraMode.CUTSCENE)
-    else
-        self._scene:pop_camera_mode(ow.CameraMode.CUTSCENE)
-    end
-
     if self._state == _STATE_STAGE_ENTRY then
         self._spawn_elapsed = 0
 
-        camera:set_apply_bounds(true)
-        camera:set_position(self._bottom_x, self._bottom_y)
-        self._stage:apply_camera_bounds(
-            self._bottom_x, self._bottom_y,
-            true -- snap instantly
-        )
-
+        camera:request_position(self, self._bottom_x, self._bottom_y)
         player:reset()
         player:request_is_ghost(self, true)
         player:teleport_to(self._bottom_x, self._bottom_y)
@@ -364,12 +351,8 @@ function ow.Checkpoint:_set_state(state)
         local factor = rt.settings.overworld.checkpoint.explosion_radius_factor
         self._explosion_size = { 2 * factor * player_radius, 2 * factor * player_radius }
 
-        camera:set_apply_bounds(true)
-        camera:move_to(self._explosion_x, self._explosion_y)
-        self._stage:apply_camera_bounds(
-            self._explosion_x, self._explosion_y,
-            false -- snap instantly
-        )
+        camera:request_position(self, self._explosion_x, self._explosion_y)
+
         if self._explosion_visible then
             self:_spawn_explosion_particles(self._explosion_x, self._explosion_y)
         end
@@ -386,12 +369,7 @@ function ow.Checkpoint:_set_state(state)
         self._spawn_elapsed = 0
         self._ray_seed = self._ray_seed + 1
 
-        camera:set_apply_bounds(true)
-        camera:set_position(self._bottom_x, self._bottom_y)
-        self._stage:apply_camera_bounds(
-            self._bottom_x, self._bottom_y,
-            true -- snap instantly
-        )
+        camera:request_position(self, self._bottom_x, self._bottom_y)
 
         self._ray_fraction = 0
         self._ray_fade_out_elapsed = 0
@@ -424,7 +402,7 @@ function ow.Checkpoint:_set_state(state)
         player:request_is_disabled(self, nil) -- remove request
         player:request_is_trail_enabled(self, nil)
         self._stage:signal_emit("respawn")
-        self._stage:apply_camera_bounds(self._bottom_x, self._bottom_y)
+        camera:request_position(self, nil)
     end
 end
 

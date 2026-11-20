@@ -515,12 +515,12 @@ function mn.MenuScene:exit()
     self._player:request_is_disabled(self, nil)
     self._player:request_is_flow_frozen(self, nil)
 
-    self._camera:set_is_shaking(false)
+    self._camera:request_shake(self, nil)
     self._title_screen.input:deactivate()
     self._stage_select.input:deactivate()
 
     if rt.GameState:get_is_bloom_enabled() then
-        rt.SceneManager:get_bloom():reset()
+        rt.SceneManager:get_bloom():clear()
     end
 end
 
@@ -535,11 +535,7 @@ function mn.MenuScene:_set_state(next)
     self._input_blocked = true
 
     local should_shake = next ~= mn.MenuSceneState
-    self._camera:set_is_shaking(should_shake)
-    if should_shake then
-        self._camera:set_shake_intensity_in_pixels(1)
-        self._camera:set_shake_frequency(0) -- modified in update
-    end
+    self._camera:request_shake(self, nil)
 
     if next == mn.MenuSceneState.TITLE_SCREEN then
         self._title_screen.input:activate()
@@ -658,7 +654,7 @@ function mn.MenuScene:update(delta)
         end
 
         -- stay centered, reflect player around walls
-        self._camera:set_position(0, 0)
+        self._camera:request_position(self, 0, 0)
         local magnitude = rt.settings.menu_scene.title_screen.player_velocity
         local offset_magnitude = rt.settings.menu_scene.title_screen.player_offset_magnitude
 
@@ -713,8 +709,10 @@ function mn.MenuScene:update(delta)
         end
         self._player:set_velocity(vx, vy)
         local shake_t = vy / max_velocity * speedup
-        self._camera:set_shake_frequency(shake_t)
-        self._camera:set_shake_intensity_in_pixels(math.min(1, shake_t) * 1)
+        self._camera:request_shake(
+            math.min(1, shake_t), -- intensity
+            shake_t --frequency
+        )
         self._stage_select.coin_particle_swarm:set_speedup(speedup)
 
         -- transition player to left side of screen
@@ -725,9 +723,9 @@ function mn.MenuScene:update(delta)
         local x_offset = offset_fraction * stage_select.player_alignment / rt.SceneManager:get_pixel_scale()
 
         if self._state == mn.MenuSceneState.EXITING then
-            self._camera:move_to(self._exit_x, self._exit_y)
+            self._camera:request_position(self, self._exit_x, self._exit_y)
         else
-            self._camera:move_to(px + x_offset, py)
+            self._camera:request_position(self, px + x_offset, py)
         end
 
         stage_select.n_items = rt.GameState:get_n_stages()
@@ -857,7 +855,7 @@ function mn.MenuScene:draw()
         -- title text
         love.graphics.push("all")
 
-        self._camera:set_use_pixel_scale(false)
+        self._camera:request_use_pixel_scale(self, false)
         self._camera:bind()
 
         -- menu
@@ -899,7 +897,7 @@ function mn.MenuScene:draw()
         love.graphics.draw(title_screen.title_label_no_sdf, title_screen.title_x, title_screen.title_y)
         _title_shader_no_sdf:unbind()
 
-        self._camera:set_use_pixel_scale(true)
+        self._camera:request_use_pixel_scale(self, true)
         self._player:draw()
         self._camera:unbind()
 
@@ -908,7 +906,7 @@ function mn.MenuScene:draw()
             bloom:bind()
             love.graphics.clear(0, 0, 0, 0)
 
-            self._camera:set_use_pixel_scale(true)
+            self._camera:request_use_pixel_scale(self, true)
             self._camera:bind()
             self._player:draw_bloom()
             self._camera:unbind()
@@ -925,7 +923,7 @@ function mn.MenuScene:draw()
             bloom:composite()
         end
 
-        self._camera:set_use_pixel_scale(false)
+        self._camera:request_use_pixel_scale(self, false)
         self._camera:bind()
         self._world:draw()
         title_screen.control_indicator:draw()
@@ -943,7 +941,7 @@ function mn.MenuScene:draw()
         local camera_bounds = self._camera:get_world_bounds()
         stage_select.coin_particle_swarm:set_offset(camera_bounds.x, camera_bounds.y)
 
-        self._camera:set_use_pixel_scale(true)
+        self._camera:request_use_pixel_scale(self, true)
         self._camera:bind()
         stage_select.coin_particle_swarm:draw_below_player()
         self._player:draw()
@@ -957,7 +955,7 @@ function mn.MenuScene:draw()
             bloom:bind()
             love.graphics.clear(0, 0, 0, 0)
 
-            self._camera:set_use_pixel_scale(true)
+            self._camera:request_use_pixel_scale(self, true)
             self._camera:bind()
             self._player:draw_bloom()
             self._camera:unbind()

@@ -2,130 +2,50 @@
 --- @types Rectangle
 ow.CameraFit = meta.class("CameraFit")
 
---- @class ow.CameraFitBody
-ow.CameraFitBody = meta.class("CameraFitBody") -- dummy
-
 local schema = meta.Schema({
-    body = meta.Optional(ow.Object)
+    scale_speed = mt.Optional(ow.Number),
+    move_speed = mt.Optional(ow.Number),
+    body = mt.Optional(ow.Object)
 })
-
-local body_schema = meta.Schema({})
 
 --- @brief
 function ow.CameraFit:instantiate(object, stage, scene)
     object:validate_schema(schema,
-        ow.ShapeType.POLYGON,
-        ow.ShapeType.AXIS_ALIGNED_RECTANGLE
+        ow.ShapeType.AXIS_ALIGNED_RECTANGLE,
+        ow.ShapeType.POLYGON
     )
 
-    if object:get_type() == ow.ObjectType.POLYGON then
-        self._bounds = object:create_contour():get_aabb()
-    elseif object:get_type() == ow.ObjectType.RECTANGLE then
-        self._bounds = rt.AABB(object.x, object.y, object.width, object.height)
+    local fit
+    if object:get_type() == ow.ObjectType.RECTANGLE then
+        fit = rt.AABB(object.x, object.y, object.width, object.height)
     else
-        rt.assert(false, "In ow.CamerBounds: object `", object:get_id(), "` is not a rectangle")
+        fit = object:create_contour():get_aabb()
     end
+    self._fit = fit
+
+    self._scale_speed = object:get_number("scale_speed", false)
+    self._move_speed = object:get_number("move_speed", false)
 
     self._scene = scene
     self._stage = stage
 
-    if object:get_object("body") == nil then
-        self._body = object:create_physics_body(stage:get_physics_world())
+    if object:get_object("body") ~= nil then
+        self._body = object:get_object("body"):create_physics_body(stage:get_physics_world())
     else
-        local foreign = object:get_object("body")
-        self._body = foreign:create_physics_body(stage:get_physics_world())
-        foreign:validate_schema(body_schema,
-            ow.ShapeType.POLYGON,
-            ow.ShapeType.AXIS_ALIGNED_RECTANGLE
-        )
+        self._body = object:create_physics_body(stage:get_physics_world())
     end
 
     self._body:set_is_sensor(true)
-    local native = self._body:get_native()
-
-    for shape in values(native:getShapes()) do
-        shape:setFilterData(
-            bit.bor(rt.settings.player.player_collision_group, rt.settings.player.exempt_collision_group),
-            rt.settings.player.exempt_collision_group,
-            0
-        )
-    end
-
-    --[[
     self._body:set_collides_with(rt.settings.player.player_collision_group)
     self._body:set_collision_group(rt.settings.player.ghost_collision_group)
-    ]]--
-
-    local to_fraction = function(x)
-        if x < 0 then return 1 / math.abs(x) else return x end
-        -- 2 = twice the speed, -2 = half the speed
-        -- this way it's easier to input fractions in tiled
-    end
-
-    self._before = {
-        scale = 1,
-        scale_speed = 1,
-        speed = 1
-    }
-
-    self._scale_speed = to_fraction(object:get_number("scale_speed", false) or 1)
-    self._speed = to_fraction(object:get_number("speed", false) or 1)
 
     self._is_active = false
-    self._stage:signal_connect("respawn", function()
-        if not self._bounds:contains(self._scene:get_player():get_position()) then
-            self:_unbind()
-        else
-            self:_bind()
-        end
-    end)
+    self:update(0, true) -- check if should bind
 end
 
 --- @brief
-function ow.CameraFit:_bind()
-    local camera = self._scene:get_camera()
-
-    self._scene:push_camera_mode(ow.CameraMode.STATIC)
-    camera:set_apply_bounds(true)
-    camera:set_scale_speed(self._scale_speed)
-    camera:set_speed(self._speed)
-    camera:fit_to(self._bounds,
-        self._bounds.x + 0.5 * self._bounds.width,
-        self._bounds.y + 0.5 * self._bounds.height
-    )
-
-    self._is_bound = true
-
-    self._stage:signal_connect("respawn", function()
-        self:_unbind()
-        return meta.DISCONNECT_SIGNAL
-    end)
-
-    self._is_active = true
-end
-
---- @brief
-function ow.CameraFit:_unbind()
-    local camera = self._scene:get_camera()
-    self._scene:pop_camera_mode(ow.CameraMode.STATIC)
-    self._is_bound = false
-    self._is_active = false
-end
-
---- @brief
-function ow.CameraFit:try_bind(x, y)
-    self:reset()
-    if self._body:test_point(x, y) then
-        self:_bind()
-        return true
-    end
-
-    return false
-end
-
---- @brief
-function ow.CameraFit:update(delta)
-    if not self._stage:get_is_body_visible(self._body) then return end
+function ow.CameraFit:update(delta, override)
+    if override ~= true and not self._stage:get_is_body_visible(self._body) then return end
 
     local was_active = self._is_active
     local is_active = self._body:test_point(self._scene:get_player():get_position())
@@ -135,20 +55,39 @@ function ow.CameraFit:update(delta)
     elseif was_active == true and is_active == false then
         self:_unbind()
     end
+end
 
-    self._is_active = is_active
+--- @brief
+function ow.CameraFit:_bind()
+    local camera = self._scene:get_camera()
+    if self._scale_speed ~= nil then
+        camera:request_scale_speed(self, self._scale_speed)
+    end
+
+    if self._move_speed ~= nil then
+        camera:request_scale_speed(self, self._move_speed)
+    end
+
+    camera:request_fit(self, self._fit)
+end
+
+--- @brief
+function ow.CameraFit:_unbind()
+    local camera = self._scene:get_camera()
+    if self._scale_speed ~= nil then
+        camera:request_scale_speed(self, nil)
+    end
+
+    if self._move_speed ~= nil then
+        camera:request_scale_speed(self, nil)
+    end
+
+    camera:request_fit(self, nil)
 end
 
 --- @brief
 function ow.CameraFit:reset()
-    if self._is_bound == true then self:_unbind() end
+    self:_unbind()
+    self._is_active = false
+    self:update(0)
 end
-
---[[
-function ow.CameraFit:draw()
-    if self._stage:get_is_body_visible(self._body) then
-        love.graphics.rectangle("line", self._bounds:unpack())
-    end
-end
-]]
-

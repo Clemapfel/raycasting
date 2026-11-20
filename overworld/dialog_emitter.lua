@@ -96,7 +96,6 @@ function ow.DialogEmitter:present()
 
     self._dialog_box:reset()
     self._queue_dialog_box_start = true
-    self._scene:push_camera_mode(ow.CameraMode.CUTSCENE)
 end
 
 --- @brief
@@ -104,7 +103,6 @@ function ow.DialogEmitter:close()
     self._is_active = false
     self._dialog_box_motion:set_target_value(_HIDDEN)
     self._scene:get_player():request_is_movement_disabled(self, false)
-    self._scene:pop_camera_mode(ow.CameraMode.CUTSCENE)
 end
 
 --- @brief

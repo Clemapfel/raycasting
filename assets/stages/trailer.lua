@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 9,
-  nextobjectid = 1416,
+  nextobjectid = 1424,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -60,26 +60,6 @@ return {
       properties = {},
       objects = {
         {
-          id = 1400,
-          name = "",
-          type = "CameraFit",
-          shape = "polygon",
-          x = 4640,
-          y = 832,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          opacity = 1,
-          visible = true,
-          polygon = {
-            { x = 16, y = 0 },
-            { x = 16, y = 560 },
-            { x = 688, y = 560 },
-            { x = 688, y = 0 }
-          },
-          properties = {}
-        },
-        {
           id = 1404,
           name = "",
           type = "Coin",
@@ -104,7 +84,7 @@ return {
           height = 0,
           rotation = 0,
           opacity = 1,
-          visible = true,
+          visible = false,
           polygon = {
             { x = 0, y = 0 },
             { x = 976, y = 0 },
@@ -114,6 +94,26 @@ return {
           properties = {
             ["value"] = 1
           }
+        },
+        {
+          id = 1423,
+          name = "",
+          type = "CameraBounds",
+          shape = "polygon",
+          x = 4704,
+          y = 832,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          opacity = 1,
+          visible = true,
+          polygon = {
+            { x = 0, y = 32 },
+            { x = 0, y = 528 },
+            { x = 592, y = 528 },
+            { x = 592, y = 32 }
+          },
+          properties = {}
         }
       }
     },
@@ -200,8 +200,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = 4784,
-          y = 1104,
+          x = 4789.55,
+          y = 1092.3,
           width = 0,
           height = 0,
           rotation = 0,
@@ -330,7 +330,7 @@ return {
           height = 0,
           rotation = 0,
           opacity = 1,
-          visible = true,
+          visible = false,
           polygon = {
             { x = -16, y = 208.059 },
             { x = -400, y = 208 },
@@ -443,6 +443,50 @@ return {
           rotation = 0,
           opacity = 1,
           visible = true,
+          properties = {}
+        },
+        {
+          id = 1416,
+          name = "",
+          type = "Wall",
+          shape = "polygon",
+          x = 3097.56,
+          y = 56.0185,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          opacity = 1,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 0, y = 592 },
+            { x = 880, y = 592 },
+            { x = 896, y = -16 }
+          },
+          properties = {}
+        },
+        {
+          id = 1417,
+          name = "",
+          type = "Hitbox",
+          shape = "polygon",
+          x = 3478.81,
+          y = 421.888,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          opacity = 1,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 224, y = 0 },
+            { x = 272, y = -48 },
+            { x = 224, y = -112 },
+            { x = 320, y = -112 },
+            { x = 320, y = 32 },
+            { x = -48, y = 32 },
+            { x = -16, y = -80 }
+          },
           properties = {}
         }
       }
