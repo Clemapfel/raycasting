@@ -569,33 +569,40 @@ function rt.Player:update(delta)
 
         do -- notify body of new anchor positions
             local positions = {}
+            local platform_dx, platform_dy = 0, 0
 
             if is_bubble then
                 center_x, center_y = self._bubble_body:get_predicted_position()
-
-                for i = 1, #self._spring_bodies do
-                    table.insert(positions, self._spring_body_offsets_x[i])
-                    table.insert(positions, self._spring_body_offsets_y[i])
-                end
             else
                 local body_x, body_y = self._body:get_predicted_position()
-                local dx, dy = delta * self._platform_velocity_x, delta * self._platform_velocity_y
-
-                center_x = body_x + dx
-                center_y = body_y + dy
-
-                for body in values(self._spring_bodies) do
-                    local x, y = body:get_predicted_position()
-                    table.insert(positions, x + dx) -- body expects local coords
-                    table.insert(positions, y + dy)
-                end
+                platform_dx = delta * self._platform_velocity_x
+                platform_dy = delta * self._platform_velocity_y
+                center_x = body_x + platform_dx
+                center_y = body_y + platform_dy
             end
 
             center_x = self._position_override_x or center_x
             center_y = self._position_override_y or center_y
 
+            if is_bubble then
+                for i = 1, #self._spring_bodies do
+                    table.insert(positions, self._spring_body_offsets_x[i])
+                    table.insert(positions, self._spring_body_offsets_y[i])
+                end
+            else
+                for _, body in ipairs(self._spring_bodies) do
+                    local x, y = body:get_predicted_position()
+                    table.insert(positions, x + platform_dx - center_x)
+                    table.insert(positions, y + platform_dy - center_y)
+                end
+            end
+
             self._graphics_body:set_shape(positions)
             self._graphics_body:set_position(center_x, center_y)
+
+            local anchor_body = is_bubble and self._bubble_body or self._body
+            local player_velocity_x, player_velocity_y = anchor_body:get_velocity()
+            self._graphics_body:set_player_velocity(player_velocity_x, player_velocity_y)
 
             local gm = self:get_gravity_multiplier()
             local gx, gy = self:get_gravity_direction()
@@ -810,8 +817,6 @@ function rt.Player:update(delta)
             add_collision(bottom_wall_body, bottom_x, bottom_y, bottom_nx, bottom_ny)
             add_collision(bottom_left_wall_body, bottom_left_x, bottom_left_y, bottom_left_nx, bottom_left_ny)
         end
-
-        self._graphics_body:set_colliding_lines(lines) -- empty if non-bubble and mid air
 
         do -- query stencils
             local w = 1.5 * self._bubble_radius
@@ -1785,12 +1790,6 @@ function rt.Player:update(delta)
                 should_decay_platform_velocity = true
                 -- decay, shared after bubble logic
             end
-        end
-
-        if is_touching_platform then
-            self._graphics_body:set_relative_velocity(self._platform_velocity_x, self._platform_velocity_y)
-        else
-            self._graphics_body:set_relative_velocity(0, 0)
         end
 
         -- gravity

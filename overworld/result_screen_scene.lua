@@ -148,10 +148,8 @@ function ow.ResultScreenScene:instantiate()
 
     -- exit animation
     self._transition_active = false
-    self._transition_next = nil -- Type<rt.Scene>
-    self._transition_elapsed = 0
-    self._transition_final_y = nil -- Number
-    self._transition_fraction = 0
+    self._transition_next = nil     self._transition_elapsed = 0
+    self._transition_final_y = nil     self._transition_fraction = 0
     self._fade = rt.Fade(2, "overworld/overworld_scene_fade.glsl")
     self._fade_active = false
 

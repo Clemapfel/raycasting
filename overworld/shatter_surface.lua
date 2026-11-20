@@ -93,8 +93,7 @@ function ow.ShatterSurface:shatter(origin_x, origin_y, velocity_x, velocity_y)
     local start = love.timer.getTime()
     self._callback = rt.Routine(function(routine)
         local tesselation = rt.VoronoiTesselation()
-        -- Generate seeds in axis-aligned local space
-        tesselation:generate_seeds(origin_x, origin_y,
+                tesselation:generate_seeds(origin_x, origin_y,
             -0.5 * w, -0.5 * h,
             0.5 * w, -0.5 * h,
             0.5 * w,  0.5 * h,

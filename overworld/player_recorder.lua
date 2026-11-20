@@ -159,16 +159,14 @@ function ow.PlayerRecorder:update(delta)
         -- find closest two bubble samples, interpolate based on elapsed time
         local n = #self._nodes
         if n > 0 then
-            -- Convert elapsed time to sample index (floating point)
-            local sample_f = self._path_elapsed / step
+                        local sample_f = self._path_elapsed / step
             local i0 = math.floor(sample_f) + 1
             local i1 = i0 + 1
 
             i0 = math.clamp(i0, 1, n)
             i1 = math.clamp(i1, 1, n)
 
-            -- Calculate interpolation factor based on position between samples
-            local alpha = sample_f - (i0 - 1)
+                        local alpha = sample_f - (i0 - 1)
             alpha = math.clamp(alpha, 0, 1)
 
             local b0 = self._nodes[i0].is_bubble
@@ -282,8 +280,7 @@ do
             type = type,
             setter = type_to_setter[type],
             getter = type_to_getter[type],
-            length = n_bytes or 0 -- Store exact byte length for strings
-        }
+            length = n_bytes or 0         }
 
         n_bytes = n_bytes or rt.ByteData.format_to_n_bytes(type)
         format.size = format.size + n_bytes
@@ -345,8 +342,7 @@ do
         local major, minor = rt.get_version()
         set(header_format, GAME_VERSION_MAJOR, major)
         set(header_format, GAME_VERSION_MINOR, minor)
-        set(header_format, DURATION, self._path_duration or 0) -- ADDED
-        set(header_format, FPS, math.floor(1 / rt.SceneManager:get_timestep()))
+        set(header_format, DURATION, self._path_duration or 0)         set(header_format, FPS, math.floor(1 / rt.SceneManager:get_timestep()))
         set(header_format, TIME, os.time())
         set(header_format, N_NODES, #self._nodes)
 

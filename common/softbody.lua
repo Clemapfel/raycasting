@@ -217,6 +217,11 @@ function rt.Softbody:initialize(nodes)
     self.gravity_x = 0
     self.gravity_y = 0
 
+    -- Directional acceleration field used for inertial deformation of pinned
+    -- bodies. Unlike uniform gravity, it varies around the perimeter.
+    self.inertial_acceleration_x = 0
+    self.inertial_acceleration_y = 0
+
     self.draw_contour = rt.Polyline(draw_contour):close()
 
     -- control
@@ -1024,6 +1029,14 @@ do -- rt.Softbody:update
 
         local gravity_x = self.gravity_x
         local gravity_y = self.gravity_y
+        local inertial_acceleration_x = self.inertial_acceleration_x
+        local inertial_acceleration_y = self.inertial_acceleration_y
+        local inertial_magnitude = magnitude(inertial_acceleration_x, inertial_acceleration_y)
+        local inertial_direction_x, inertial_direction_y = 0, 0
+        if inertial_magnitude > eps then
+            inertial_direction_x = inertial_acceleration_x / inertial_magnitude
+            inertial_direction_y = inertial_acceleration_y / inertial_magnitude
+        end
         local linear_force_x, linear_force_y = _sum_linear_sources(self.linear_forces)
         local angular_torque = _sum_angular_sources(self.angular_forces, "torque")
 
@@ -1069,6 +1082,24 @@ do -- rt.Softbody:update
                     local i = _particle_i_to_data_offset(particle_i)
                     local acceleration_x = gravity_x + force_acceleration_x
                     local acceleration_y = gravity_y + force_acceleration_y
+
+                    if inertial_magnitude > eps then
+                        local radial_x, radial_y = normalize(
+                            data[i + _x_offset] - center_x,
+                            data[i + _y_offset] - center_y
+                        )
+                        local alignment = dot(
+                            radial_x, radial_y,
+                            inertial_direction_x, inertial_direction_y
+                        )
+                        -- 1 + alignment ranges from 0 on the leading side to
+                        -- 2 on the trailing side. Its uniform component is
+                        -- canceled by the COM anchor; its directional component
+                        -- stretches/compresses the simulated perimeter.
+                        local weight = 1 + alignment
+                        acceleration_x = acceleration_x + inertial_acceleration_x * weight
+                        acceleration_y = acceleration_y + inertial_acceleration_y * weight
+                    end
 
                     if data[i + _inverse_mass_offset] > 0 and angular_acceleration ~= 0 then
                         local rx = data[i + _x_offset] - center_x
@@ -1200,7 +1231,9 @@ do -- rt.Softbody:update
                     end
                 end
 
-                -- polygon collision
+                -- Polygon collision and anchor constraints are alternated. A
+                -- collision can push the mass center away from the player, so
+                -- anchoring only in the shape-constraint pass is insufficient.
                 for _ = 1, n_constraint_iterations do
                     for contour_i = 1, n_collision_contours do
                         local entry = collision_contours[contour_i]
@@ -1231,6 +1264,16 @@ do -- rt.Softbody:update
                             end
                         end
                     end
+
+                    if anchor_active then
+                        self.anchor_lambda_x, self.anchor_lambda_y = _enforce_anchor(
+                            data, n_particles,
+                            anchor_x, anchor_y,
+                            anchor_alpha,
+                            self.anchor_lambda_x,
+                            self.anchor_lambda_y
+                        )
+                    end
                 end
 
                 -- friction, after the final normal lambdas are known and before the velocity update
@@ -1255,6 +1298,19 @@ do -- rt.Softbody:update
                             data[i + _y_offset] = data[i + _y_offset] + correction_y
                         end
                     end
+                end
+
+                -- Friction also changes particle positions. Finish with an
+                -- exact center projection so the softbody remains pinned even
+                -- when stencil contacts are active.
+                if anchor_active then
+                    self.anchor_lambda_x, self.anchor_lambda_y = _enforce_anchor(
+                        data, n_particles,
+                        anchor_x, anchor_y,
+                        anchor_alpha,
+                        self.anchor_lambda_x,
+                        self.anchor_lambda_y
+                    )
                 end
 
                 -- post solve
@@ -1334,6 +1390,13 @@ end
 function rt.Softbody:set_gravity(dx, dy)
     meta.typecheck(dx, mt.Number, dy, mt.Number)
     self.gravity_x, self.gravity_y = dx, dy
+end
+
+function rt.Softbody:set_inertial_acceleration(dx, dy)
+    meta.typecheck(dx, mt.Number, dy, mt.Number)
+    self.inertial_acceleration_x = dx
+    self.inertial_acceleration_y = dy
+    return self
 end
 
 local _entry_hash = 0
@@ -1428,11 +1491,12 @@ end
 -- mode
 function rt.Softbody:set_config(settings)
     config_schema:validate(settings)
-    self.settings_override = settings
+    self._settings_override = settings
+    return self
 end
 
 function rt.Softbody:get_config()
-    return self.settings_override
+    return self._settings_override
 end
 
 function rt.Softbody:get_centroid()
@@ -1501,5 +1565,48 @@ function rt.Softbody:get_mass()
 end
 
 function rt.Softbody:relax()
+    if self.is_initialized ~= true then return self end
 
+    local data = self.particles
+    local vertices = self.draw_contour:get_vertices()
+    local centroid_x, centroid_y = 0, 0
+
+    for particle_i = 1, self.n_particles do
+        local i = _particle_i_to_data_offset(particle_i)
+        local x = data[i + _x_offset]
+        local y = data[i + _y_offset]
+        local contour_i = (particle_i - 1) * 2 + 1
+
+        data[i + _previous_x_offset] = x
+        data[i + _previous_y_offset] = y
+        data[i + _snapshot_x_offset] = x
+        data[i + _snapshot_y_offset] = y
+        data[i + _draw_x_offset] = x
+        data[i + _draw_y_offset] = y
+        data[i + _velocity_x_offset] = 0
+        data[i + _velocity_y_offset] = 0
+        data[i + _distance_lambda_offset] = 0
+        data[i + _bending_lambda_offset] = 0
+        data[i + _polygon_lambda_offset] = 0
+
+        vertices[contour_i + 0] = x
+        vertices[contour_i + 1] = y
+        centroid_x = centroid_x + x
+        centroid_y = centroid_y + y
+    end
+
+    vertices[self.n_particles * 2 + 1] = vertices[1]
+    vertices[self.n_particles * 2 + 2] = vertices[2]
+
+    self.centroid_x = centroid_x / self.n_particles
+    self.centroid_y = centroid_y / self.n_particles
+    self.elapsed = 0
+    self.volume_lambda = 0
+    self.angular_velocity_lambda = 0
+    self.linear_velocity_lambda_x = 0
+    self.linear_velocity_lambda_y = 0
+    self.anchor_lambda_x = 0
+    self.anchor_lambda_y = 0
+
+    return self
 end

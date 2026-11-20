@@ -83,24 +83,18 @@ function ow.ResultScreenFrame:present()
     self:update(0)
 end
 
--- Create outer rounded rectangle path
 local function create_rect_path(x, y, width, height, radius)
     local path_points = {}
 
-    -- Clamp radius to not exceed half of smaller dimension
-    radius = math.min(radius, width * 0.5, height * 0.5)
+        radius = math.min(radius, width * 0.5, height * 0.5)
 
-    -- Starting point: center of right side
-    table.insert(path_points, x + width)
+        table.insert(path_points, x + width)
     table.insert(path_points, y + 0.5 * height)
 
-    -- Right side to bottom-right corner start
-    table.insert(path_points, x + width)
+        table.insert(path_points, x + width)
     table.insert(path_points, y + height - radius)
 
-    -- Bottom-right rounded corner (quarter circle)
-    local steps = 8 -- Number of steps for corner smoothness
-    for i = 1, steps do
+        local steps = 8     for i = 1, steps do
         local angle = (i / steps) * (math.pi * 0.5) -- 0 to 90 degrees
         local corner_x = x + width - radius + radius * math.cos(angle)
         local corner_y = y + height - radius + radius * math.sin(angle)
@@ -108,12 +102,10 @@ local function create_rect_path(x, y, width, height, radius)
         table.insert(path_points, corner_y)
     end
 
-    -- Bottom side
-    table.insert(path_points, x + radius)
+        table.insert(path_points, x + radius)
     table.insert(path_points, y + height)
 
-    -- Bottom-left rounded corner
-    for i = 1, steps do
+        for i = 1, steps do
         local angle = math.pi * 0.5 + (i / steps) * (math.pi * 0.5) -- 90 to 180 degrees
         local corner_x = x + radius + radius * math.cos(angle)
         local corner_y = y + height - radius + radius * math.sin(angle)
@@ -121,12 +113,10 @@ local function create_rect_path(x, y, width, height, radius)
         table.insert(path_points, corner_y)
     end
 
-    -- Left side
-    table.insert(path_points, x)
+        table.insert(path_points, x)
     table.insert(path_points, y + radius)
 
-    -- Top-left rounded corner
-    for i = 1, steps do
+        for i = 1, steps do
         local angle = math.pi + (i / steps) * (math.pi * 0.5) -- 180 to 270 degrees
         local corner_x = x + radius + radius * math.cos(angle)
         local corner_y = y + radius + radius * math.sin(angle)
@@ -134,12 +124,10 @@ local function create_rect_path(x, y, width, height, radius)
         table.insert(path_points, corner_y)
     end
 
-    -- Top side
-    table.insert(path_points, x + width - radius)
+        table.insert(path_points, x + width - radius)
     table.insert(path_points, y)
 
-    -- Top-right rounded corner
-    for i = 1, steps do
+        for i = 1, steps do
         local angle = math.pi * 1.5 + (i / steps) * (math.pi * 0.5) -- 270 to 360 degrees
         local corner_x = x + width - radius + radius * math.cos(angle)
         local corner_y = y + radius + radius * math.sin(angle)
@@ -147,8 +135,7 @@ local function create_rect_path(x, y, width, height, radius)
         table.insert(path_points, corner_y)
     end
 
-    -- Return to starting point (center of right side) to close the loop
-    table.insert(path_points, x + width)
+        table.insert(path_points, x + width)
     table.insert(path_points, y + 0.5 * height)
 
     -- Build as arc-length parameterized path so t is proportional to distance

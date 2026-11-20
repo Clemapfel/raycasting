@@ -12,8 +12,7 @@ rt.settings.overworld.moving_hitbox_path = {
 ow.PathRail = meta.class("PathRail")
 
 local function normalize_angle_signed(a)
-    -- Normalize to (-pi, pi]
-    local two_pi = math.tau
+        local two_pi = math.tau
     a = (a + math.pi) % two_pi
     if a < 0 then a = a + two_pi end
     return a - math.pi
@@ -24,8 +23,7 @@ local function add_point(out, x, y)
 end
 
 local function add_arc(out, cx, cy, r, a0, a1, max_angle_step)
-    -- Adds points along arc from angle a0 to a1. If a1 < a0, arc is swept CW.
-    local da = a1 - a0
+        local da = a1 - a0
     local steps = math.max(1, math.ceil(math.abs(da) / max_angle_step))
     local step = da / steps
     for i = 0, steps do
@@ -37,11 +35,9 @@ local function add_arc(out, cx, cy, r, a0, a1, max_angle_step)
 end
 
 local function intersect_lines(p1x, p1y, v1x, v1y, p2x, p2y, v2x, v2y, eps)
-    -- Intersect infinite lines: p1 + t*v1 = p2 + s*v2
-    local denom = math.cross(v1x, v1y, v2x, v2y)
+        local denom = math.cross(v1x, v1y, v2x, v2y)
     if math.abs(denom) < eps then
-        -- Parallel or nearly parallel
-        return p1x, p1y, false
+                return p1x, p1y, false
     end
     local dx = p2x - p1x
     local dy = p2y - p1y
@@ -64,8 +60,7 @@ local function dedup_consecutive(points, eps)
 end
 
 local function clean_flat_points(flat, eps)
-    -- Remove consecutive duplicates and separate into xs, ys
-    local xs, ys = {}, {}
+        local xs, ys = {}, {}
     local lastx, lasty
     for i = 1, #flat, 2 do
         local x, y = flat[i], flat[i + 1]
@@ -79,8 +74,7 @@ local function clean_flat_points(flat, eps)
 end
 
 local function build_directions(xs, ys, eps)
-    -- Returns arrays ux[i], uy[i] for segments i=1..m where m = #xs-1
-    local n = #xs
+        local n = #xs
     local ux, uy, valid = {}, {}, {}
     for i = 1, n - 1 do
         local dx = xs[i + 1] - xs[i]
@@ -111,21 +105,18 @@ local function stroke_polyline_contour(flat_points, r, opts)
         error("radius r must be positive")
     end
 
-    -- Clean duplicates
-    local xs, ys = clean_flat_points(flat_points, eps)
+        local xs, ys = clean_flat_points(flat_points, eps)
     local n = #xs
     if n == 0 then
         return {}
     end
 
     if n == 1 then
-        -- Degenerate: single point => circle
-        local cx, cy = xs[1], ys[1]
+                local cx, cy = xs[1], ys[1]
         local circle_pts = {}
         add_arc(circle_pts, cx, cy, r, 0, math.tau, max_angle_step)
         circle_pts = dedup_consecutive(circle_pts, eps)
-        -- Flatten points inline
-        local flat = {}
+                local flat = {}
         for i = 1, #circle_pts do
             flat[#flat + 1] = circle_pts[i].x
             flat[#flat + 1] = circle_pts[i].y
@@ -133,11 +124,9 @@ local function stroke_polyline_contour(flat_points, r, opts)
         return flat
     end
 
-    -- Build segment directions
-    local ux, uy, valid = build_directions(xs, ys, eps)
+        local ux, uy, valid = build_directions(xs, ys, eps)
 
-    -- Find first and last valid segments inline
-    local first_seg, last_seg = nil, nil
+        local first_seg, last_seg = nil, nil
     for i = 1, #valid do
         if valid[i] then
             if not first_seg then first_seg = i end
@@ -146,13 +135,11 @@ local function stroke_polyline_contour(flat_points, r, opts)
     end
 
     if not first_seg or not last_seg then
-        -- All segments degenerate -> treat as single point circle around first
-        local cx, cy = xs[1], ys[1]
+                local cx, cy = xs[1], ys[1]
         local circle_pts = {}
         add_arc(circle_pts, cx, cy, r, 0, math.tau, max_angle_step)
         circle_pts = dedup_consecutive(circle_pts, eps)
-        -- Flatten points inline
-        local flat = {}
+                local flat = {}
         for i = 1, #circle_pts do
             flat[#flat + 1] = circle_pts[i].x
             flat[#flat + 1] = circle_pts[i].y
@@ -160,11 +147,9 @@ local function stroke_polyline_contour(flat_points, r, opts)
         return flat
     end
 
-    -- Build left and right boundary outlines in forward order
-    local left_outline, right_outline = {}, {}
+        local left_outline, right_outline = {}, {}
 
-    -- Start offsets (using first valid segment)
-    do
+        do
         local i = first_seg
         local vx, vy = ux[i], uy[i]
         local nlx, nly = math.turn_left(vx, vy)
@@ -173,11 +158,9 @@ local function stroke_polyline_contour(flat_points, r, opts)
         add_point(right_outline, xs[1] + r * nrx, ys[1] + r * nry)
     end
 
-    -- Interior joins, i = 2..n-1
-    for i = 2, n - 1 do
+        for i = 2, n - 1 do
         if valid[i - 1] and valid[i] then
-            -- LEFT SIDE (y-down: left turn => delta < 0, right turn => delta > 0)
-            do
+                        do
                 local vx_prev, vy_prev = ux[i - 1], uy[i - 1]
                 local vx_next, vy_next = ux[i], uy[i]
                 local nlx_prev, nly_prev = math.turn_left(vx_prev, vy_prev)
@@ -187,11 +170,9 @@ local function stroke_polyline_contour(flat_points, r, opts)
                 local delta = normalize_angle_signed(a_next_left - a_prev_left)
 
                 if delta > eps then
-                    -- Right turn on left side => add CCW arc (positive delta)
-                    add_arc(left_outline, xs[i], ys[i], r, a_prev_left, a_prev_left + delta, max_angle_step)
+                                        add_arc(left_outline, xs[i], ys[i], r, a_prev_left, a_prev_left + delta, max_angle_step)
                 else
-                    -- Left turn or straight => miter via intersection of left offset lines
-                    local p1x = xs[i] + r * nlx_prev
+                                        local p1x = xs[i] + r * nlx_prev
                     local p1y = ys[i] + r * nly_prev
                     local p2x = xs[i] + r * nlx_next
                     local p2y = ys[i] + r * nly_next
@@ -200,8 +181,7 @@ local function stroke_polyline_contour(flat_points, r, opts)
                 end
             end
 
-            -- RIGHT SIDE (y-down: left turn => delta < 0, right turn => delta > 0)
-            do
+                        do
                 local vx_prev, vy_prev = ux[i - 1], uy[i - 1]
                 local vx_next, vy_next = ux[i], uy[i]
                 local nrx_prev, nry_prev = math.turn_right(vx_prev, vy_prev)
@@ -211,8 +191,7 @@ local function stroke_polyline_contour(flat_points, r, opts)
                 local delta = normalize_angle_signed(a_next_right - a_prev_right)
 
                 if delta < -eps then
-                    -- Left turn on right side => add CW arc (negative delta)
-                    add_arc(right_outline, xs[i], ys[i], r, a_prev_right, a_prev_right + delta, max_angle_step)
+                                        add_arc(right_outline, xs[i], ys[i], r, a_prev_right, a_prev_right + delta, max_angle_step)
                 else
                     -- Right turn or straight => miter via intersection of right offset lines
                     local p1x = xs[i] + r * nrx_prev

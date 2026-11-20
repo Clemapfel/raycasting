@@ -98,7 +98,7 @@ return {
         {
           id = 1423,
           name = "",
-          type = "CameraBounds",
+          type = "CameraFit",
           shape = "polygon",
           x = 4704,
           y = 832,

@@ -202,21 +202,18 @@ function ow.Clouds:_init_draw_mesh(size_x, size_y, fov)
     local aspect = size_x / size_y
     local tan_half_fov = math.tan(fov / 2) * 0.5
 
-    -- Compute an equivalent near distance from provided plane sizes so that
-    -- scaled size at near equals size_x/size_y. Using both X and Y-derived near distances
+        -- scaled size at near equals size_x/size_y. Using both X and Y-derived near distances
     -- and picking the larger ensures coverage in both axes.
     local near_d_y = size_y / (2 * tan_half_fov)
     local near_d_x = size_x / (2 * tan_half_fov * aspect)
     local near_d = math.max(near_d_x, near_d_y, 1e-6)
 
-    -- Optional view transform support (4x4, column-major expected). If not provided, identity.
-    local view_from_world = self._view_from_world
+        local view_from_world = self._view_from_world
     local function transform_to_view_space(x, y, z)
         if type(view_from_world) ~= "table" then
             return x, y, z
         end
-        -- Column-major 4x4 multiplication with vec4(x,y,z,1)
-        local m = view_from_world
+                local m = view_from_world
         local vx = m[1] * x + m[5] * y + m[9]  * z + m[13]
         local vy = m[2] * x + m[6] * y + m[10] * z + m[14]
         local vz = m[3] * x + m[7] * y + m[11] * z + m[15]
@@ -227,8 +224,7 @@ function ow.Clouds:_init_draw_mesh(size_x, size_y, fov)
         return vx, vy, vz
     end
 
-    -- Center of the near plane in world space; we keep all slices centered around this.
-    local plane_cx = 0 --bounds.x + size_x * 0.5
+        local plane_cx = 0 --bounds.x + size_x * 0.5
     local plane_cy = bounds.y + size_y * 0.5
 
     local min_uv_u, max_uv_u = 0, 1-- -1, 1
@@ -300,8 +296,7 @@ function ow.Clouds:_init_draw_mesh()
     end
 
     for i = self._n_slices, 1, -1 do
-        -- Calculate z position for this slice (centered within its slice region)
-        local z_normalized = (i - 0.5) / self._n_slices
+                local z_normalized = (i - 0.5) / self._n_slices
         local z = bounds.z + z_normalized * bounds.size_z
         local w = (i - 1) / self._n_slices
 

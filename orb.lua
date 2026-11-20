@@ -92,8 +92,7 @@ function orb.lcha_to_rgba(l, c, h, alpha)
     G = G > 0.0031308 and 1.055 * math.pow(G, 0.416666667) - 0.055 or 12.92 * G
     B = B > 0.0031308 and 1.055 * math.pow(B, 0.416666667) - 0.055 or 12.92 * B
 
-    -- Clamp to [0,1]
-    return
+        return
         R < 0 and 0 or (R > 1 and 1 or R),
         G < 0 and 0 or (G > 1 and 1 or G),
         B < 0 and 0 or (B > 1 and 1 or B),

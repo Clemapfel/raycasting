@@ -21,7 +21,7 @@
    </properties>
    <polygon points="0,0 976,0 976,768 0,768"/>
   </object>
-  <object id="1423" type="CameraBounds" x="4704" y="832">
+  <object id="1423" type="CameraFit" x="4704" y="832">
    <polygon points="0,32 0,528 592,528 592,32"/>
   </object>
  </objectgroup>
