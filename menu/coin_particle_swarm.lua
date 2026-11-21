@@ -217,7 +217,6 @@ function mn.CoinParticleSwarm:update(delta)
     local home_x_offset = settings.circle_width_radius_factor * rt.settings.player.radius
     local max_home_velocity = settings.max_home_velocity * self._speedup
 
-    require "table.clear"
     table.clear(self._above_player)
     table.clear(self._below_player)
 

@@ -6,6 +6,8 @@ rt.DelaunayTriangulation = meta.class("DelaunayTriangulation")
 
 --- @brief
 function rt.DelaunayTriangulation:instantiate(points, contour)
+    if contour == nil then contour = points end
+
     self._triangles = {}
     self._hull = {}
     self._half_edges = {}

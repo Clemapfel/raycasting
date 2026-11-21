@@ -119,8 +119,6 @@ function ow.TetherParticleEffect:_init_batch(
     velocity_x, velocity_y,
     color_r, color_g, color_b, color_a
 )
-    require "table.new"
-
     local length = path:get_length()
     local n_particles = length * rt.settings.overworld.tether_particle_effect.particle_density
 

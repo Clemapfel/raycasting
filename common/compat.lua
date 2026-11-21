@@ -1,27 +1,4 @@
 
-local table_clear = pcall(require, "table.clear")
-if not table_clear then
-    function table.clear(t)
-        local to_clear = {}
-        for k, v in pairs(t) do
-            table.insert(to_clear, k)
-        end
-
-        for _, k in ipairs(t) do
-            t[k] = nil
-        end
-
-        return t
-    end
-end
-
-local table_new = pcall(require, "table.new")
-if not table_new then
-    function table.new(_)
-        return {}
-    end
-end
-
 if true then -- base lua does not have the sep argument
     function string.rep(s, n, sep)
         local n_characters = n

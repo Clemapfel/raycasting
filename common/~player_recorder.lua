@@ -78,7 +78,6 @@ end
 
 --- @brief
 function ow.PlayerRecorder:clear()
-    require "table.clear"
     self._path_duration = 0
     table.clear(self._position_data)
     table.clear(self._input_data)

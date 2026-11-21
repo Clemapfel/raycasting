@@ -550,6 +550,39 @@ function free(...)
     return n_freed == select("#", ...)
 end
 
+do
+    local success, new = pcall(require, "table.new")
+    if success then
+        local _table_new = new
+        table.new = function(array_size, dict_size, ...)
+            if array_size == nil then array_size = 0 end
+            if dict_size == nil then dict_size = 0 end
+            return _table_new(array_size, dict_size, ...)
+        end
+    else
+        table.new = function(array_size, dict_size)
+            return {}
+        end
+    end
+end
+
+do
+    local success, clear = pcall(require, "table.clear")
+    if type(table.clear) == "function" then
+        local _table_clear = clear
+        table.clear = function(...)
+            return _table_clear(...)
+        end
+    else
+        table.clear = function(t)
+            for k, _ in pairs(t) do
+                t[k] = nil
+            end
+            return t
+        end
+    end
+end
+
 --- @brief
 function table.encrypt(t)
     rt.assert(

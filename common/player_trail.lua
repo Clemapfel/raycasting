@@ -1,4 +1,5 @@
 require "common.interpolation_functions"
+require "common.smoothed_motion_1d"
 
 rt.settings.player_trail = {
     glow_radius_factor = 4,

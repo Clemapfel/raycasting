@@ -69,7 +69,6 @@ end
 
 function rt.Matrix:clear(keep_allocated)
     if keep_allocated == true then
-        require "table.clear"
         for row in values(self._data) do
             for column in values(row) do
                 table.clear(column)

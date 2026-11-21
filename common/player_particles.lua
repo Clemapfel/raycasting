@@ -102,8 +102,6 @@ function rt.PlayerParticles:_init_batch(
     ax, ay, bx, by,
     color_r, color_g, color_b, color_a
 )
-    require "table.new"
-
     local hue = select(1, rt.rgba_to_hsva(color_r, color_g, color_b, color_a))
 
     local dx, dy = bx - ax, by - ay

@@ -2,7 +2,6 @@ local n_runs = 5
 local thread_counts = { 8 }
 local particle_counts = { 3e7 }
 
-require "table.new"
 local buffer = require "string.buffer"
 io.stdout:setvbuf("no")
 

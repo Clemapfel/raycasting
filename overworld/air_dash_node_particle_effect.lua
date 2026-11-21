@@ -164,8 +164,6 @@ function ow.AirDashNodeParticleEffect:_init_batch(
     velocity_x, velocity_y,
     color_r, color_g, color_b, color_a
 )
-    require "table.new"
-
     local hue = select(1, rt.rgba_to_hsva(color_r, color_g, color_b, color_a))
 
     local vdx, vdy = math.normalize(math.flip(velocity_x, velocity_y))
