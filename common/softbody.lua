@@ -1,22 +1,24 @@
-local _settings_timestep = 1 / 60
-local _settings_max_n_steps = 8
+rt.settings.softbody = {
+    timestep = 1 / 60,
+    max_n_steps = 8,
 
-local _settings_n_sub_steps = 4
-local _settings_n_constraint_iterations = 4
+    n_sub_steps = 4,
+    n_constraint_iterations = 4,
 
-local _settings_default_static_friction = 0.7
-local _settings_default_kinetic_friction = 0.5
+    default = {
+        static_friction = 0.7,
+        kinetic_friction = 0.5,
 
-local _settings_default_distance_compliance = 1e-6
-local _settings_default_volume_compliance = 0
-local _settings_default_collision_contour_compliance = 0
-local _settings_default_bending_compliance = 1e-6
-local _settings_default_angular_velocity_compliance = 0
-local _settings_default_linear_velocity_compliance = 0
-local _settings_default_particle_collision_compliance = 0
-local _settings_default_anchor_compliance = 0
-
-local SoftBody_t = mt.Table
+        distance_compliance = 1e-6,
+        volume_compliance = 0,
+        collision_contour_compliance = 0,
+        bending_compliance = 1e-6,
+        angular_velocity_compliance = 0,
+        linear_velocity_compliance = 0,
+        particle_collision_compliance = 0,
+        anchor_compliance = 0
+    }
+}
 
 local _settings_damping = 1 - 1e-5
 local _settings_texture_zoom = 1 / 0.9
@@ -64,21 +66,12 @@ local _particle_i_to_data_offset = function(particle_i, n_particles)
     return (particle_i - 1) * _stride + 1
 end
 
-softbody_new = function(...)
-    local self = {
-        is_initialized = false
-    }
+--- @class rt.Softbody
+rt.SoftBody = meta.class("SoftBody")
 
-    if select("#", ...) > 0 then
-        return softbody_init(self, ...)
-    else
-        return self
-    end
-end
-
-softbody_init = function(self, contour)
+function rt.SoftBody:instantiate(contour)
     meta.typecheck(
-        self, SoftBody_t,
+        self, rt.SoftBody,
         contour, rt.Polyline
     )
 
@@ -191,66 +184,64 @@ softbody_init = function(self, contour)
     table.insert(draw_contour, draw_contour[1])
     table.insert(draw_contour, draw_contour[2])
 
-    self.particles = data
-    self.n_particles = n_particles
-    self.centroid_x = centroid_x / n_particles
-    self.centroid_y = centroid_y / n_particles
+    self._particles = data
+    self._n_particles = n_particles
+    self._centroid_x = centroid_x / n_particles
+    self._centroid_y = centroid_y / n_particles
 
-    self.volume = rest_area
-    self.volume_multiplier = 1.0
+    self._volume = rest_area
+    self._volume_multiplier = 1.0
 
-    self.volume_lambda = 0
-    self.angular_velocity_lambda = 0
-    self.linear_velocity_lambda_x = 0
-    self.linear_velocity_lambda_y = 0
+    self._volume_lambda = 0
+    self._angular_velocity_lambda = 0
+    self._linear_velocity_lambda_x = 0
+    self._linear_velocity_lambda_y = 0
 
-    self.rest_angular_velocity = 0
+    self._rest_angular_velocity = 0
 
-    self.anchor_x = 0
-    self.anchor_y = 0
-    self.anchor_active = false
-    self.anchor_lambda_x = 0
-    self.anchor_lambda_y = 0
+    self._anchor_x = nil
+    self._anchor_y = nil
+    self._anchor_particle_i = nil -- particle initially selected by set_anchor; retained while dragging
+    self._anchor_lambda_x = 0
+    self._anchor_lambda_y = 0
 
-    self.volume_gradient = table.new(2 * n_particles)
+    self._volume_gradient = table.new(2 * n_particles)
     for particle_i = 1, n_particles do
-        self.volume_gradient[2 * particle_i - 1] = 0
-        self.volume_gradient[2 * particle_i] = 0
+        self._volume_gradient[2 * particle_i - 1] = 0
+        self._volume_gradient[2 * particle_i] = 0
     end
 
-    self.collision_contours = table.new(0)
+    self._collision_contours = table.new(0)
 
-    self.linear_impulses = {}
-    self.angular_impulses = {}
-    self.linear_forces = {}
-    self.angular_forces = {}
+    self._linear_impulses = {}
+    self._angular_impulses = {}
+    self._linear_forces = {}
+    self._angular_forces = {}
 
-    self.gravity_x = 0
-    self.gravity_y = 0
+    self._gravity_x = 0
+    self._gravity_y = 0
 
-    self.draw_contour = rt.Polyline(draw_contour):close()
-    self.collision_contours = {}
+    self._draw_contour = rt.Polyline(draw_contour):close()
+    self._collision_contours = {}
 
     -- control
-    self.linear_velocity_x = 0
-    self.linear_velocity_y = 0
-    self.angular_velocity = 0
+    self._linear_velocity_x = 0
+    self._linear_velocity_y = 0
+    self._angular_velocity = 0
 
-    self.is_initialized = true
-    self.elapsed = 0
-
-    return self
+    self._is_initialized = true
+    self._elapsed = 0
 end
 
-softbody_is_initialized = function(self)
-    return object_isa(self, SoftBody_t) and self.is_initialized == true
+function rt.SoftBody:is_initialized()
+    return object_isa(self, rt.SoftBody) and self._is_initialized == true
 end
 
-softbody_set_collision_contours = function(self, contours)
+function rt.SoftBody:set_collision_contours(contours)
 
     local eps_squared = math.eps * math.eps
     local abs = math.abs
-    table.clear(self.collision_contours)
+    table.clear(self._collision_contours)
 
     for i = 1, #contours do
         local contour = contours[i]
@@ -299,27 +290,27 @@ softbody_set_collision_contours = function(self, contours)
             contour = closed_contour,
             edges = edges,
             n_edges = n_edges,
-            lambdas = table.rep(0, self.n_particles),
-            normals_x = table.rep(0, self.n_particles),
-            normals_y = table.rep(0, self.n_particles)
+            lambdas = table.rep(0, self._n_particles),
+            normals_x = table.rep(0, self._n_particles),
+            normals_y = table.rep(0, self._n_particles)
         }
 
-        for particle_i = 1, self.n_particles do
+        for particle_i = 1, self._n_particles do
             collision_contour.lambdas[particle_i] = 0
         end
 
-        table.insert(self.collision_contours, collision_contour)
+        table.insert(self._collision_contours, collision_contour)
     end
 
     return self
 end
 
-softbody_get_contour = function(self)
-    meta.typecheck(self, SoftBody_t)
+function rt.SoftBody:get_contour()
+    meta.typecheck(self, rt.SoftBody)
 
-    local contour = table.new(2 * self.n_particles)
-    local data = self.particles
-    for particle_i = 1, self.n_particles, 1 do -- clockwise winding
+    local contour = table.new(2 * self._n_particles)
+    local data = self._particles
+    for particle_i = 1, self._n_particles, 1 do -- clockwise winding
         local i = _particle_i_to_data_offset(particle_i)
         table.insert(contour, data[i + _x_offset])
         table.insert(contour, data[i + _y_offset])
@@ -328,8 +319,8 @@ softbody_get_contour = function(self)
     return rt.Polyline(contour)
 end
 
-softbody_get_draw_contour = function(self)
-    return self.draw_contour
+function rt.SoftBody:get_draw_contour()
+    return self._draw_contour
 end
 
 do -- softbody_update
@@ -522,15 +513,15 @@ do -- softbody_update
     end
 
     local function _apply_pending_impulses(self, particles, n_particles)
-        local impulse_x, impulse_y = _sum_linear_sources(self.linear_impulses)
-        local angular_impulse = _sum_angular_sources(self.angular_impulses, "angular_impulse")
+        local impulse_x, impulse_y = _sum_linear_sources(self._linear_impulses)
+        local angular_impulse = _sum_angular_sources(self._angular_impulses, "angular_impulse")
 
-        for id in pairs(self.linear_impulses) do
-            self.linear_impulses[id] = nil
+        for id in pairs(self._linear_impulses) do
+            self._linear_impulses[id] = nil
         end
 
-        for id in pairs(self.angular_impulses) do
-            self.angular_impulses[id] = nil
+        for id in pairs(self._angular_impulses) do
+            self._angular_impulses[id] = nil
         end
 
         if impulse_x == 0 and impulse_y == 0 and angular_impulse == 0 then
@@ -934,103 +925,81 @@ do -- softbody_update
         return lambda_x_new, lambda_y_new
     end
 
-    -- Pins the mass-weighted center of the body to (anchor_x, anchor_y).
-    -- Constraint: C = center - anchor = 0, with dC/dx_i = m_i / M for every particle.
-    -- Corrections are therefore a shared translation, so the contour keeps all
-    -- of its internal degrees of freedom (shape, rotation, deformation).
+    -- Constrains one material point (a particle) to the world-space anchor.
+    -- The attachment particle is selected once by set_anchor and remains fixed
+    -- for the duration of the drag. Unlike a center-of-mass constraint, this
+    -- lets the remaining particles respond through the shape constraints.
     local function _enforce_anchor(
-        particles, n_particles,
+        particles, particle_i,
         anchor_x, anchor_y,
         alpha,
         lambda_x_before, lambda_y_before
     )
-        local mass_sum = 0
-        local weight_sum = 0
-        local center_x, center_y = 0, 0
-
-        for particle_i = 1, n_particles do
-            local i = _particle_i_to_data_offset(particle_i)
-            local m = particles[i + _mass_offset]
-            local inverse_mass = particles[i + _inverse_mass_offset]
-
-            if inverse_mass > 0 and m > 0 then
-                mass_sum = mass_sum + m
-                center_x = center_x + m * particles[i + _x_offset]
-                center_y = center_y + m * particles[i + _y_offset]
-                weight_sum = weight_sum + inverse_mass * m * m
-            end
-        end
-
-        if mass_sum < eps then
+        if particle_i == nil then
             return lambda_x_before, lambda_y_before
         end
 
-        center_x = center_x / mass_sum
-        center_y = center_y / mass_sum
+        local i = _particle_i_to_data_offset(particle_i)
+        local inverse_mass = particles[i + _inverse_mass_offset]
+        if inverse_mass <= 0 then
+            return lambda_x_before, lambda_y_before
+        end
 
-        -- gradient is m_i / M, so sum of w_i * (m_i / M)^2 = weight_sum / M^2
-        local denominator = weight_sum / (mass_sum * mass_sum) + alpha
+        local denominator = inverse_mass + alpha
         if denominator < eps then
             return lambda_x_before, lambda_y_before
         end
 
-        local constraint_x = center_x - anchor_x
-        local constraint_y = center_y - anchor_y
+        local constraint_x = particles[i + _x_offset] - anchor_x
+        local constraint_y = particles[i + _y_offset] - anchor_y
 
         local delta_lambda_x = -(constraint_x + alpha * lambda_x_before) / denominator
         local delta_lambda_y = -(constraint_y + alpha * lambda_y_before) / denominator
 
-        for particle_i = 1, n_particles do
-            local i = _particle_i_to_data_offset(particle_i)
-            local m = particles[i + _mass_offset]
-            local inverse_mass = particles[i + _inverse_mass_offset]
-
-            if inverse_mass > 0 and m > 0 then
-                local gradient = m / mass_sum
-                particles[i + _x_offset] = particles[i + _x_offset] + inverse_mass * delta_lambda_x * gradient
-                particles[i + _y_offset] = particles[i + _y_offset] + inverse_mass * delta_lambda_y * gradient
-            end
-        end
+        particles[i + _x_offset] = particles[i + _x_offset] + inverse_mass * delta_lambda_x
+        particles[i + _y_offset] = particles[i + _y_offset] + inverse_mass * delta_lambda_y
 
         return lambda_x_before + delta_lambda_x, lambda_y_before + delta_lambda_y
     end
 
-    softbody_update = function(self, delta)
-        meta.typecheck(self, SoftBody_t, delta, mt.Number)
+    function rt.SoftBody:update(delta)
+        meta.typecheck(self, rt.SoftBody, delta, mt.Number)
 
         local timestep = delta
-        local sub_delta = timestep / _settings_n_sub_steps
+        local sub_delta = timestep / rt.settings.softbody.n_sub_steps
 
         local damping = _settings_damping
-        local n_sub_steps = _settings_n_sub_steps
-        local n_constraint_iterations = _settings_n_constraint_iterations
+        local n_sub_steps = rt.settings.softbody.n_sub_steps
+        local n_constraint_iterations = rt.settings.softbody.n_constraint_iterations
 
         local override = {} -- TODO
 
         local sub_delta_sq = (sub_delta * sub_delta)
-        local volume_alpha  = (override.volume_compliance  or _settings_default_volume_compliance) / sub_delta_sq
-        local contour_alpha = (override.contour_compliance or _settings_default_collision_contour_compliance) / sub_delta_sq
-        local distance_alpha = (override.distance_compliance or _settings_default_distance_compliance) / sub_delta_sq
-        local bending_alpha = (override.bending_compliance or _settings_default_bending_compliance) / sub_delta_sq
-        local angular_alpha = (override.angular_velocity_compliance or _settings_default_angular_velocity_compliance) / sub_delta_sq
-        local linear_alpha = (override.linear_velocity_compliance or _settings_default_linear_velocity_compliance) / sub_delta_sq
-        local anchor_alpha = (override.anchor_compliance or _settings_default_anchor_compliance) / sub_delta_sq
+        local volume_alpha  = (override.volume_compliance  or rt.settings.softbody.default.volume_compliance) / sub_delta_sq
+        local contour_alpha = (override.contour_compliance or rt.settings.softbody.default.collision_contour_compliance) / sub_delta_sq
+        local distance_alpha = (override.distance_compliance or rt.settings.softbody.default.distance_compliance) / sub_delta_sq
+        local bending_alpha = (override.bending_compliance or rt.settings.softbody.default.bending_compliance) / sub_delta_sq
+        local angular_alpha = (override.angular_velocity_compliance or rt.settings.softbody.default.angular_velocity_compliance) / sub_delta_sq
+        local linear_alpha = (override.linear_velocity_compliance or rt.settings.softbody.default.linear_velocity_compliance) / sub_delta_sq
+        local anchor_alpha = (override.anchor_compliance or rt.settings.softbody.default.anchor_compliance) / sub_delta_sq
 
-        local static_friction = override.static_friction or _settings_default_static_friction
-        local kinetic_friction = override.kinetic_friction or _settings_default_kinetic_friction
+        local static_friction = override.static_friction or rt.settings.softbody.default.static_friction
+        local kinetic_friction = override.kinetic_friction or rt.settings.softbody.default.kinetic_friction
 
-        local data = self.particles
-        local n_particles = self.n_particles
-        local collision_contours = self.collision_contours
+        local data = self._particles
+        local n_particles = self._n_particles
+        local collision_contours = self._collision_contours
         local n_collision_contours = #collision_contours
 
-        local anchor_active = self.anchor_active
-        local anchor_x, anchor_y = self.anchor_x, self.anchor_y
+        local anchor_x, anchor_y = self._anchor_x, self._anchor_y
+        local anchor_particle_i = self._anchor_particle_i
+        local anchor_active = anchor_particle_i ~= nil
+            and anchor_x ~= nil and anchor_y ~= nil
 
-        local gravity_x = self.gravity_x
-        local gravity_y = self.gravity_y
-        local linear_force_x, linear_force_y = _sum_linear_sources(self.linear_forces)
-        local angular_torque = _sum_angular_sources(self.angular_forces, "torque")
+        local gravity_x = self._gravity_x
+        local gravity_y = self._gravity_y
+        local linear_force_x, linear_force_y = _sum_linear_sources(self._linear_forces)
+        local angular_torque = _sum_angular_sources(self._angular_forces, "torque")
 
         do
 
@@ -1107,12 +1076,12 @@ do -- softbody_update
                     data[i + _polygon_lambda_offset] = 0
                 end
 
-                self.volume_lambda = 0
-                self.angular_velocity_lambda = 0
-                self.linear_velocity_lambda_x = 0
-                self.linear_velocity_lambda_y = 0
-                self.anchor_lambda_x = 0
-                self.anchor_lambda_y = 0
+                self._volume_lambda = 0
+                self._angular_velocity_lambda = 0
+                self._linear_velocity_lambda_x = 0
+                self._linear_velocity_lambda_y = 0
+                self._anchor_lambda_x = 0
+                self._anchor_lambda_y = 0
 
                 for _ = 1, n_constraint_iterations do
                     -- distance: pair wise
@@ -1175,29 +1144,34 @@ do -- softbody_update
                     end
 
                     -- volume
-                    self.volume_lambda = _enforce_volume(
+                    self._volume_lambda = _enforce_volume(
                         data, n_particles,
-                        self.volume_gradient,
-                        self.volume,
+                        self._volume_gradient,
+                        self._volume,
                         volume_alpha,
-                        self.volume_lambda
+                        self._volume_lambda
                     )
 
-                    self.angular_velocity_lambda = _enforce_angular_momentum(
-                        data, n_particles,
-                        0,
-                        sub_delta,
-                        angular_alpha,
-                        self.angular_velocity_lambda
-                    )
+                    -- An active point anchor supplies an external torque. Do not
+                    -- project that angular motion away: doing so makes an off-center
+                    -- drag behave like a translation-only kinematic move.
+                    if not anchor_active then
+                        self._angular_velocity_lambda = _enforce_angular_momentum(
+                            data, n_particles,
+                            0,
+                            sub_delta,
+                            angular_alpha,
+                            self._angular_velocity_lambda
+                        )
+                    end
 
                     if anchor_active then
-                        self.anchor_lambda_x, self.anchor_lambda_y = _enforce_anchor(
-                            data, n_particles,
+                        self._anchor_lambda_x, self._anchor_lambda_y = _enforce_anchor(
+                            data, anchor_particle_i,
                             anchor_x, anchor_y,
                             anchor_alpha,
-                            self.anchor_lambda_x,
-                            self.anchor_lambda_y
+                            self._anchor_lambda_x,
+                            self._anchor_lambda_y
                         )
                     end
                 end
@@ -1283,11 +1257,11 @@ do -- softbody_update
             end
         end
 
-        self.elapsed = math.min(self.elapsed, timestep) -- prevent accumulating death spiral
+        self._elapsed = math.min(self._elapsed, timestep) -- prevent accumulating death spiral
 
         -- update draw contour
-        local draw_contour_vertices = self.draw_contour:get_vertices()
-        local frame_interpolation_alpha = self.elapsed / timestep
+        local draw_contour_vertices = self._draw_contour:get_vertices()
+        local frame_interpolation_alpha = self._elapsed / timestep
 
         local centroid_x, centroid_y = 0, 0
         for particle_i = 1, n_particles do
@@ -1313,8 +1287,8 @@ do -- softbody_update
         draw_contour_vertices[n_particles * 2 + 1] = draw_contour_vertices[1]
         draw_contour_vertices[n_particles * 2 + 2] = draw_contour_vertices[2]
 
-        self.centroid_x = centroid_x / self.n_particles
-        self.centroid_y = centroid_y / self.n_particles
+        self._centroid_x = centroid_x / self._n_particles
+        self._centroid_y = centroid_y / self._n_particles
 
         return self
     end
@@ -1322,20 +1296,20 @@ end
 
 -- volume
 
-softbody_set_target_volume = function(self, fraction) -- fraction
-    meta.typecheck(self, SoftBody_t, fraction, mt.Number)
-    self.volume_multiplier = fraction
-    self.volume_lambda = 0
+function rt.SoftBody:set_target_volume(fraction) -- fraction
+    meta.typecheck(self, rt.SoftBody, fraction, mt.Number)
+    self._volume_multiplier = fraction
+    self._volume_lambda = 0
 end
 
-softbody_get_target_volume = function(self)
-    meta.typecheck(self, SoftBody_t)
-    return self.volume_multiplier
+function rt.SoftBody:get_target_volume()
+    meta.typecheck(self, rt.SoftBody)
+    return self._volume_multiplier
 end
 
-softbody_set_gravity = function(self, dx, dy)
-    meta.typecheck(self, SoftBody_t, dx, mt.Number, dy, mt.Number)
-    self.gravity_x, self.gravity_y = dx, dy
+function rt.SoftBody:set_gravity(dx, dy)
+    meta.typecheck(self, rt.SoftBody, dx, mt.Number, dy, mt.Number)
+    self._gravity_x, self._gravity_y = dx, dy
 end
 
 local _entry_hash = 0
@@ -1347,8 +1321,8 @@ end
 
 -- linear
 
-softbody_add_linear_force = function(self, dx, dy)
-    meta.typecheck(self, SoftBody_t, dx, mt.Number, dy, mt.Number)
+function rt.SoftBody:add_linear_force(dx, dy)
+    meta.typecheck(self, rt.SoftBody, dx, mt.Number, dy, mt.Number)
     local magnitude = math.magnitude(dx, dy)
     if magnitude <= math.eps then
         return
@@ -1356,7 +1330,7 @@ softbody_add_linear_force = function(self, dx, dy)
 
     dx, dy = math.normalize(dx, dy)
     local id = _get_hash()
-    self.linear_forces[id] = {
+    self._linear_forces[id] = {
         magnitude = magnitude,
         dx = dx,
         dy = dy
@@ -1364,19 +1338,19 @@ softbody_add_linear_force = function(self, dx, dy)
     return id
 end
 
-softbody_remove_linear_force = function(self, hash)
+function rt.SoftBody:remove_linear_force(hash)
     if hash == nil then return end
-    meta.typecheck(self, SoftBody_t, hash, mt.Number)
-    self.linear_forces[hash] = nil
+    meta.typecheck(self, rt.SoftBody, hash, mt.Number)
+    self._linear_forces[hash] = nil
 end
 
-softbody_add_linear_impulse = function(self, dx, dy)
-    meta.typecheck(self, SoftBody_t, dx, mt.Number, dy, mt.Number)
+function rt.SoftBody:add_linear_impulse(dx, dy)
+    meta.typecheck(self, rt.SoftBody, dx, mt.Number, dy, mt.Number)
     local magnitude = math.magnitude(dx, dy)
     if magnitude > math.eps then
         dx, dy = math.normalize(dx, dy)
         local id = _get_hash()
-        self.linear_impulses[id] = {
+        self._linear_impulses[id] = {
             magnitude = magnitude,
             dx = dx,
             dy = dy
@@ -1385,85 +1359,117 @@ softbody_add_linear_impulse = function(self, dx, dy)
     end
 end
 
-softbody_remove_linear_impulse = function(self, hash)
+function rt.SoftBody:remove_linear_impulse(hash)
     if hash == nil then return end
-    meta.typecheck(self, SoftBody_t, hash, mt.Number)
-    self.linear_impulses[hash] = nil
+    meta.typecheck(self, rt.SoftBody, hash, mt.Number)
+    self._linear_impulses[hash] = nil
 end
 
 -- rotation
 
-softbody_add_angular_force = function(self, torque)
-    meta.typecheck(self, SoftBody_t, torque, mt.Number)
+function rt.SoftBody:add_angular_force(torque)
+    meta.typecheck(self, rt.SoftBody, torque, mt.Number)
     if torque ~= 0 then
         local id = _get_hash()
-        self.angular_forces[id] = {
+        self._angular_forces[id] = {
             torque = torque
         }
         return id
     end
 end
 
-softbody_remove_angular_force = function(self, hash)
+function rt.SoftBody:remove_angular_force(hash)
     if hash == nil then return end
-    meta.typecheck(self, SoftBody_t, hash, mt.Number)
-    self.angular_forces[hash] = nil
+    meta.typecheck(self, rt.SoftBody, hash, mt.Number)
+    self._angular_forces[hash] = nil
 end
 
-softbody_add_angular_impulse = function(self, angular_impulse)
-    meta.typecheck(self, SoftBody_t, angular_impulse, mt.Number)
+function rt.SoftBody:add_angular_impulse(angular_impulse)
+    meta.typecheck(self, rt.SoftBody, angular_impulse, mt.Number)
     if angular_impulse ~= 0 then
         local id = _get_hash()
-        self.angular_impulses[id] = {
+        self._angular_impulses[id] = {
             angular_impulse = angular_impulse
         }
         return id
     end
 end
 
-softbody_remove_angular_impulse = function(self, hash)
+function rt.SoftBody:remove_angular_impulse(hash)
     if hash == nil then return end
-    meta.typecheck(self, SoftBody_t, hash, mt.Number)
-    self.angular_impulses[hash] = nil
+    meta.typecheck(self, rt.SoftBody, hash, mt.Number)
+    self._angular_impulses[hash] = nil
 end
 
-softbody_get_centroid = function(self)
-    meta.typecheck(self, SoftBody_t)
-    return self.centroid_x, self.centroid_y
+function rt.SoftBody:get_centroid()
+    meta.typecheck(self, rt.SoftBody)
+    return self._centroid_x, self._centroid_y
 end
 
-softbody_set_anchor = function(self, x, y)
-    meta.typecheck(self, SoftBody_t, x, mt.Number, y, mt.Number)
-    self.anchor_x, self.anchor_y = x, y
+function rt.SoftBody:set_anchor(x, y)
+    meta.typecheck(self, rt.SoftBody, x, mt.Number, y, mt.Number)
+
+    -- Select the closest movable contour particle only when a drag starts.
+    -- Repeated set_anchor calls then move the same attachment point instead of
+    -- continually re-selecting whichever particle happens to be nearest.
+    if self._anchor_particle_i == nil then
+        local data = self._particles
+        local nearest_particle_i = nil
+        local nearest_distance_squared = math.huge
+
+        for particle_i = 1, self._n_particles do
+            local i = _particle_i_to_data_offset(particle_i)
+            if data[i + _inverse_mass_offset] > 0 then
+                local dx = data[i + _x_offset] - x
+                local dy = data[i + _y_offset] - y
+                local distance_squared = dx * dx + dy * dy
+
+                if distance_squared < nearest_distance_squared then
+                    nearest_distance_squared = distance_squared
+                    nearest_particle_i = particle_i
+                end
+            end
+        end
+
+        rt.assert(nearest_particle_i ~= nil,
+            "In softbody_set_anchor: cannot anchor a softbody without movable particles")
+        self._anchor_particle_i = nearest_particle_i
+    end
+
+    self._anchor_x, self._anchor_y = x, y
+    return self
 end
 
-softbody_set_is_anchored = function(self, b)
-    meta.typecheck(self, SoftBody_t, b, Boolean_t)
-    self.anchor_active = b
+function rt.SoftBody:clear_anchor()
+    meta.typecheck(self, rt.SoftBody)
+    self._anchor_x, self._anchor_y = nil, nil
+    self._anchor_particle_i = nil
+    self._anchor_lambda_x, self._anchor_lambda_y = 0, 0
+    return self
 end
 
-softbody_clear_forces = function(self)
-    meta.typecheck(self, SoftBody_t)
+function rt.SoftBody:clear_forces()
+    meta.typecheck(self, rt.SoftBody)
 
     -- clear pending impulses and persistent forces
-    for id in pairs(self.linear_impulses) do
-        self.linear_impulses[id] = nil
+    for id in pairs(self._linear_impulses) do
+        self._linear_impulses[id] = nil
     end
 
-    for id in pairs(self.angular_impulses) do
-        self.angular_impulses[id] = nil
+    for id in pairs(self._angular_impulses) do
+        self._angular_impulses[id] = nil
     end
 
-    for id in pairs(self.linear_forces) do
-        self.linear_forces[id] = nil
+    for id in pairs(self._linear_forces) do
+        self._linear_forces[id] = nil
     end
 
-    for id in pairs(self.angular_forces) do
-        self.angular_forces[id] = nil
+    for id in pairs(self._angular_forces) do
+        self._angular_forces[id] = nil
     end
 
-    local data = self.particles
-    for particle_i = 1, self.n_particles do
+    local data = self._particles
+    for particle_i = 1, self._n_particles do
         local i = _particle_i_to_data_offset(particle_i)
         data[i + _velocity_x_offset] = 0
         data[i + _velocity_y_offset] = 0
@@ -1472,18 +1478,18 @@ softbody_clear_forces = function(self)
     return self
 end
 
-softbody_set_friction = function(self, static_friction, kinetic_friction)
-    meta.typecheck(self, SoftBody_t, static_friction, mt.Number, kinetic_friction, mt.Number)
+function rt.SoftBody:set_friction(static_friction, kinetic_friction)
+    meta.typecheck(self, rt.SoftBody, static_friction, mt.Number, kinetic_friction, mt.Number)
     rt.assert(static_friction >= 0 and kinetic_friction >= 0, "In softbody_set_friction: coefficients must be non-negative")
-    self.static_friction = static_friction
-    self.kinetic_friction = math.min(kinetic_friction, static_friction)
+    self._static_friction = static_friction
+    self._kinetic_friction = math.min(kinetic_friction, static_friction)
     return self
 end
 
-softbody_get_mass = function(self)
-    local data = self.particles
+function rt.SoftBody:get_mass()
+    local data = self._particles
     local total = 0
-    for particle_i = 1, self.n_particles do
+    for particle_i = 1, self._n_particles do
         local i = _particle_i_to_data_offset(particle_i)
         if data[i + _inverse_mass_offset] > 0 then
             total = total + data[i + _mass_offset]
