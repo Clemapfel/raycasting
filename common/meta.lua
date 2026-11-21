@@ -1430,6 +1430,29 @@ function meta.make_auto_extend(t, recursive)
     return t, metatable
 end
 
+--- @brief
+function meta.set(x, ...)
+    if not meta.is_table(x) then return nil end
+    for i = 1, select("#", ...), 2 do
+        local k, v = select(i, ...)
+        x[k] = v
+    end
+    return x
+end
+
+do
+    local function _get_internal(x, n, k, ...)
+        if n == 0 then return end
+        return x[k], _get_internal(x, n - 1, ...)
+    end
+
+    --- @brief
+    function meta.get(x, ...)
+        if not meta.is_table(x) then return nil end
+        return _get_internal(x, select("#", ...), ...)
+    end
+end
+
 if DEBUG then
     function meta.install(instance, values)
         meta.typecheck(instance, meta.Any, values, meta.Table)

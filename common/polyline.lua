@@ -28,12 +28,67 @@ function rt.Polyline:instantiate(first, ...)
     self.vertices = vertices
 end
 
-meta.get_instance_metatable(rt.Polyline, {
-    __index = function(_, i)
-        -- TODO
-        rt.fatal("In rt.Polyline: trying to access index `", i, "`. Use get_vertex instead")
+do
+    local _radius_to_n_vertices = function(rx, ry)
+        -- cf. https://github.com/love2d/love/blob/5670df13b6980afd025cd7e7d442a24499bf86a7/src/modules/graphics/Graphics.cpp#L2419C1-L2423C2
+        if ry == nil then ry = rx end
+        return math.max(8, math.floor(math.sqrt(((rx + ry) / 2) * 20.0)))
     end
-})
+
+    --- @brief
+    function rt.PolylineCircle(x, y, x_radius, n_vertices)
+        meta.typecheck(x, mt.Number, y, mt.Number, x_radius, mt.Number, n_vertices, mt.Number)
+        return rt.PolylineEllipse(x, y, x_radius, x_radius, n_vertices)
+    end
+
+    --- @brief
+    function rt.PolylineEllipse(x, y, x_radius, y_radius, n_vertices)
+        meta.typecheck(x, mt.Number, y, mt.Number, x_radius, mt.Number, y_radius, mt.Number, n_vertices, mt.Number)
+        if n_vertices == nil then n_vertices = _radius_to_n_vertices(x_radius, y_radius) end
+
+        local data = {}
+        for i = 1, n_vertices do
+            local angle = (i - 1) / n_vertices * math.tau
+            table.insert(data, x + math.cos(angle) * x_radius)
+            table.insert(data, y + math.sin(angle) * y_radius)
+        end
+        return rt.Polyline(data)
+    end
+
+    --- @brief
+    --- @param x Number top left x
+    --- @param y Number top left y
+    --- @param width Number
+    --- @param height Number
+    function rt.PolylineRectangle(x, y, width, height)
+        meta.typecheck(x, mt.Number, y, mt.Number, width, mt.Number, height, mt.Number)
+        return rt.Polyline({
+            x,         y,
+            x + width, y,
+            x + width, y + height,
+            x,         y + height
+        })
+    end
+
+    --- @brief
+    --- @param x Number center x
+    --- @param y Number center y
+    --- @param radius Number distance from center to each vertex
+    --- @param n Number number of vertices (>= 3)
+    function rt.PolylinePolygon(x, y, radius, n)
+        meta.typecheck(x, mt.Number, y, mt.Number, radius, mt.Number, n, mt.Number)
+        assert(n >= 3, "In rt.PolylinePolygon: n must be at least 3")
+
+        local data = {}
+        local offset = -0.5 * math.pi -- first vertex directly above center
+        for i = 1, n do
+            local angle = offset + (i - 1) / n * math.tau
+            table.insert(data, x + math.cos(angle) * radius)
+            table.insert(data, y + math.sin(angle) * radius)
+        end
+        return rt.Polyline(data)
+    end
+end
 
 --- @brief
 function rt.Polyline:get_vertices()
@@ -871,6 +926,10 @@ function rt.Polyline:cast_ray(x, y, dx, dy)
     end
 
     return x + dx * min_t, y + dy * min_t
+end
+
+function rt.Polyline:triangulate()
+    return rt.math.triangulate(self:get_vertices())
 end
 
 --[[
