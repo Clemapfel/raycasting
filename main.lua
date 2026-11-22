@@ -63,7 +63,7 @@ love.load = function(args)
     end
 
     require "overworld.overworld_scene"
-    --rt.SceneManager:push(ow.OverworldScene, "trailer", ow.StageEntryMode.INSTANT)
+    rt.SceneManager:push(ow.OverworldScene, "trailer", ow.StageEntryMode.INSTANT)
 
     require "menu.keybinding_scene"
     --rt.SceneManager:push(mn.KeybindingScene)
@@ -256,14 +256,18 @@ DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
     end
 end)
 
+DBG = false
+
 love.update = function(delta)
     if rt.SceneManager ~= nil then
         rt.SceneManager:update(delta)
     end
 
-    local x, y = love.mouse.getPosition()
-    _body:set_anchor(x, y)
-    _body:update(delta)
+    if DBG then
+        local x, y = love.mouse.getPosition()
+        _body:set_anchor(x, y, 0, 100)
+        _body:update(delta)
+    end
 end
 
 love.draw = function()
@@ -271,29 +275,31 @@ love.draw = function()
         rt.SceneManager:draw()
     end
 
-    local contour = _body:get_draw_contour()
-    local n = contour:get_n_vertices()
+    if DBG then
+        local contour = _body:get_draw_contour()
+        local n = contour:get_n_vertices()
 
-    _update_mesh()
-    _mesh:draw()
+        _update_mesh()
+        _mesh:draw()
 
-    for i = 1, n do
-        local hue = (i - 1) / n
-        local color = rt.LCHA(0.8, 1, hue, 1)
+        for i = 1, n do
+            local hue = (i - 1) / n
+            local color = rt.LCHA(0.8, 1, hue, 1)
 
-        local ax, ay = contour:get_vertex(i + 0)
-        local bx, by = contour:get_vertex(math.wrap(i + 1, n))
+            local ax, ay = contour:get_vertex(i + 0)
+            local bx, by = contour:get_vertex(math.wrap(i + 1, n))
 
-        color:bind()
-        love.graphics.line(ax, ay, bx, by)
+            color:bind()
+            love.graphics.line(ax, ay, bx, by)
+        end
+
+        for bound in values(_contours) do
+            bound:draw()
+        end
+
+        local x, y = love.mouse.getPosition()
+        love.graphics.circle("fill", x, y, 3)
     end
-
-    for bound in values(_contours) do
-        bound:draw()
-    end
-
-    local x, y = love.mouse.getPosition()
-    love.graphics.circle("fill", x, y, 3)
 end
 
 love.resize = function(width, height)

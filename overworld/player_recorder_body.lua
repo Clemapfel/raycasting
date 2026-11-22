@@ -38,22 +38,6 @@ function ow.PlayerRecorderBody:instantiate(scene, stage)
 
     self._graphics_body:set_color(self._color)
 
-    -- core shape
-    do
-        local n_outer_vertices = rt.settings.player.n_outer_bodies
-        local positions = {}
-        local r = self._radius - (self._radius * math.tau) / rt.settings.player.n_outer_bodies / 1.5
-        self._blood_spatter_radius = r
-        for i = 1, n_outer_vertices do
-            local angle = (i - 1) / n_outer_vertices * math.tau
-            table.insert(positions, math.cos(angle) * r)
-            table.insert(positions, math.sin(angle) * r)
-        end
-
-        self._graphics_body:set_shape(positions)
-        self._graphics_body:set_saturation(0)
-    end
-
     self._graphics_body:set_up_squish(false)
     self._graphics_body:set_down_squish(false)
     self._graphics_body:set_left_squish(false)
@@ -127,7 +111,7 @@ function ow.PlayerRecorderBody:initialize(x, y, body_type, is_collidable)
         body:add_tag(b2.Tag.STENCIL, b2.Tag.CORE_STENCIL)
     end
 
-    self._graphics_body:set_use_contour(self._is_bubble)
+    self._graphics_body:set_state(self._is_bubble and rt.PlayerBodyState.BUBBLE or rt.PlayerBodyState.NON_BUBBLE)
 
     self:set_is_bubble(self._is_bubble)
     self._is_initialized = true
@@ -146,7 +130,7 @@ function ow.PlayerRecorderBody:update(delta)
 
     local px, py = body:get_predicted_position()
     self._graphics_body:set_position(px, py)
-    self._graphics_body:set_use_contour(self._is_bubble)
+    self._graphics_body:set_state(self._is_bubble and rt.PlayerBodyState.BUBBLE or rt.PlayerBodyState.NON_BUBBLE)
 
     do
         local stencils = {}
@@ -339,7 +323,7 @@ function ow.PlayerRecorderBody:set_is_bubble(is_bubble)
         self._body:set_is_enabled(true)
     end
 
-    self._graphics_body:set_use_contour(self._is_bubble)
+    self._graphics_body:set_state(self._is_bubble and rt.PlayerBodyState.BUBBLE or rt.PlayerBodyState.NON_BUBBLE)
 end
 
 --- @brief

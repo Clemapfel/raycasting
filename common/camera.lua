@@ -58,8 +58,10 @@ function rt.Camera:instantiate()
         _final_y = 0,
         _final_scale = 1,
 
+        _fit_was_active = false,
         _fit_requests = rt.RequestHandler(nil), -- aabbs
         _use_pixel_scale_requests = rt.RequestHandler(true), -- booleans
+        _allow_override_requests = rt.RequestHandler(false), -- booleans
 
         _shake_requests = rt.RequestHandler(0, 1),
         _shake_path = rt.Path({ 0, 0, 0, 1 }),
@@ -176,6 +178,25 @@ end
 --- @brief
 function rt.Camera:get_use_pixel_scale()
     return self._use_pixel_scale_requests:reduce(rt.RequestReduceMode.AT_LEAST_ONE_TRUE)
+end
+
+--- @brief
+function rt.Camera:request_allow_override(id, b)
+    meta.typecheck(id, mt.Any, b, mt.Optional(mt.Boolean))
+    self._allow_override_requests:request(id, b)
+    self._resolve_needed = true
+end
+
+--- @brief
+function rt.Camera:remove_request_allow_override(id)
+    meta.typecheck(id, mt.Any)
+    self._allow_override_requests:request(id, nil)
+    self._resolve_needed = true
+end
+
+--- @brief
+function rt.Camera:get_allow_override()
+    return self._allow_override_requests:reduce(rt.RequestReduceMode.AT_LEAST_ONE_TRUE)
 end
 
 --- @brief
@@ -335,7 +356,7 @@ function rt.Camera:_resolve()
     local angle = self._angle_requests:reduce(rt.RequestReduceMode.NEWEST)
     local angle_speed = self._angle_speed_requests:reduce(rt.RequestReduceMode.MAX)
 
-    local scale = self._scale_requests:reduce(rt.RequestReduceMode.MIN)
+    local scale = self._scale_requests:reduce(rt.RequestReduceMode.MULTIPLY)
     local scale_speed = self._scale_speed_requests:reduce(rt.RequestReduceMode.MAX)
 
     self._bounds_requests_union = {}
@@ -565,12 +586,21 @@ local _constrain = function(cx, cy, cw, ch, bounds)
     return rt.AABB(best_x, best_y, best_w, best_h)
 end
 
---- @brief
 function rt.Camera:update(delta)
     meta.typecheck(delta, mt.Number)
 
     if self._resolve_needed then
         self:_resolve()
+    end
+
+    local target_fit = self._fit_requests:reduce(rt.RequestReduceMode.NEWEST) -- aabb
+    local use_override = self._allow_override_requests:reduce(rt.RequestReduceMode.AT_LEAST_ONE_TRUE)
+    local has_fit = target_fit ~= nil
+    local use_fit = has_fit and not use_override
+
+    if self._fit_was_active and has_fit and use_override then
+        self._position_motion:set_position(self._final_x, self._final_y)
+        self._scale_motion:set_value(self._final_scale)
     end
 
     for to_update in range(
@@ -595,18 +625,16 @@ function rt.Camera:update(delta)
     local downscaling_factor = rt.SceneManager:get_downscaling_factor()
 
     local target_x, target_y = position_x, position_y
-    local target_fit = self._fit_requests:reduce(rt.RequestReduceMode.NEWEST) -- aabb
     local bounds = self._bounds_requests_union or {}
 
     local c, s = math.abs(math.cos(angle)), math.abs(math.sin(angle))
-
-    if target_fit == nil and self._scale_requests:get_count() == 0 then
+    if not use_fit and self._scale_requests:get_count() == 0 then
         local default_scale = self:get_use_pixel_scale() and rt.SceneManager:get_pixel_scale() or 1
         scale = math.min(scale, default_scale)
     end
 
     -- constrain to union of bounds
-    if target_fit ~= nil then
+    if use_fit then
         local fit_w = math.dot2(c, s, target_fit.width, target_fit.height)
         local fit_h = math.dot2(s, c, target_fit.width, target_fit.height)
         local scale_x = screen_w * downscaling_factor / math.max(fit_w, 1e-9)
@@ -712,6 +740,7 @@ function rt.Camera:update(delta)
     self._shake_impulse_offset_y = impulse_y
     self._final_x, self._final_y = target_x, target_y
     self._final_scale = scale
+    self._fit_was_active = use_fit
 
     -- update transform
     local t = self._transform:reset()
@@ -743,6 +772,7 @@ function rt.Camera:reset()
     self._bounds_requests:clear()
     self._fit_requests:clear()
     self._use_pixel_scale_requests:clear()
+    self._allow_override_requests:clear()
 
     self._position_motion:set_position(0, 0)
     self._position_motion:set_target_position(0, 0)
@@ -770,5 +800,75 @@ function rt.Camera:reset()
     self._shake_impulse_sources = {}
     self._bounds_requests_union = {}
 
+    self._fit_was_active = false
+    self._resolve_needed = true
+end
+
+--- @brief
+function rt.Camera:remove_request_position(id)
+    meta.typecheck(id, mt.Any)
+    self._position_requests:request(id, nil, nil)
+    self._resolve_needed = true
+end
+
+--- @brief
+function rt.Camera:remove_request_scale(id)
+    meta.typecheck(id, mt.Any)
+    self._scale_requests:request(id, nil)
+    self._resolve_needed = true
+end
+
+--- @brief
+function rt.Camera:remove_request_angle(id)
+    meta.typecheck(id, mt.Any)
+    self._angle_requests:request(id, nil)
+    self._resolve_needed = true
+end
+
+--- @brief
+function rt.Camera:remove_request_fit(id)
+    meta.typecheck(id, mt.Any)
+    self._fit_requests:request(id, nil)
+    self._resolve_needed = true
+end
+
+--- @brief
+function rt.Camera:remove_request_shake(id)
+    meta.typecheck(id, mt.Any)
+    self._shake_requests:request(id, nil, nil)
+end
+
+--- @brief
+function rt.Camera:remove_request_bounds(id)
+    meta.typecheck(id, mt.Any)
+    self._bounds_requests:request(id, nil)
+    self._resolve_needed = true
+end
+
+--- @brief
+function rt.Camera:remove_request_use_pixel_scale(id)
+    meta.typecheck(id, mt.Any)
+    self._use_pixel_scale_requests:request(id, nil)
+    self._resolve_needed = true
+end
+
+--- @brief
+function rt.Camera:remove_request_position_speed(id)
+    meta.typecheck(id, mt.Any)
+    self._position_speed_requests:request(id, nil)
+    self._resolve_needed = true
+end
+
+--- @brief
+function rt.Camera:remove_request_scale_speed(id)
+    meta.typecheck(id, mt.Any)
+    self._scale_speed_requests:request(id, nil)
+    self._resolve_needed = true
+end
+
+--- @brief
+function rt.Camera:remove_request_rotation_speed(id)
+    meta.typecheck(id, mt.Any)
+    self._angle_speed_requests:request(id, nil)
     self._resolve_needed = true
 end

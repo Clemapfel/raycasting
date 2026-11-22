@@ -11,24 +11,49 @@ rt.settings.player_body = {
 
     squish_speed = 2, -- fraction
     squish_magnitude = 0.2, -- fraction
+
+    core_config = {
+        distance_compliance = 1e-7,
+        bending_compliance = 5e-6,
+        anchor_compliance = 0
+    },
+
+    bubble_config = {
+        distance_compliance = 0,
+        bending_compliance = 0
+    }
 }
 
 --- @class rt.PlayerBody
 rt.PlayerBody = meta.class("PlayerBody")
 
-local _lch_texture = rt.LCHTexture(256, 64, 256)
+rt.PlayerBodyState = meta.enum("PlayerBodyState", {
+    BUBBLE = true,
+    NON_BUBBLE = false
+})
 
+local _core_type_to_shader = {
+    [rt.PlayerBodyCoreType.DEFAULT] = rt.Shader("common/player_body_core_default.glsl"),
+    [rt.PlayerBodyCoreType.SOLID] = rt.Shader("common/player_body_core_solid.glsl")
+}
+for x in values(meta.instances(rt.PlayerBodyCoreType)) do
+    if _core_type_to_shader[x] == nil then
+        rt.error("In rt.PlayerBody: not shader is associated with `PlayerBodyCoreType` `", x, "`")
+        _core_type_to_shader[x] = _core_type_to_shader[rt.PlayerBodyCoreType.DEFAULT]
+    end
+end
+
+local _lch_texture = rt.LCHTexture(256, 64, 256)
 local _squished = 1
 local _not_squished = 0
 
---- @brief
 --- @brief
 function rt.PlayerBody:instantiate(position_x, position_y)
     meta.typecheck(position_x, mt.Number, position_y, mt.Number)
 
     -- appearance
     self._core_color = rt.Palette.WHITE
-    self._body_color = rt.Palette.BLACK
+    self._bubble_body_color = rt.Palette.BLACK
     self._hue = select(3, rt.rgba_to_lcha(self._core_color:unpack()))
     self._opacity = 1
     self._saturation = 1
@@ -39,12 +64,10 @@ function rt.PlayerBody:instantiate(position_x, position_y)
     self._relative_velocity_x = 0
     self._relative_velocity_y = 0
     self._gravity_x = 0
-    self._gravity_y = 0
+    self._gravity_y = 200
 
-    self._body = nil -- rt.Softbody
-    self._body_outline = nil -- rt.Polyline
-    self._core = nil -- rt.Softbody
-    self._core_outline = nil -- rt.Polyline
+    self._bubble_body = nil -- rt.SoftBody
+    self._core = nil -- rt.SoftBody
 
     local squish_speed = rt.settings.player_body.squish_speed
 
@@ -76,17 +99,10 @@ function rt.PlayerBody:instantiate(position_x, position_y)
     self._up_squish_origin_y = nil
     self._up_squish_motion = rt.SmoothedMotion1D(_not_squished, squish_speed)
 
-    self._body_stencil_bodies = {}
+    self._bubble_body_stencil_bodies = {}
     self._core_stencil_bodies = {}
 
-    self._use_contour = true
-    self._contour_radius = rt.settings.player.radius * rt.settings.player.bubble_radius_factor
-    self._contour_transition_motion = rt.SmoothedMotion1D(0)
-    self._contour_transition_motion:set_speed(
-        rt.settings.player_body.contour_inflation_speed,
-        rt.settings.player_body.contour_deflation_speed
-    )
-
+    self._state = rt.PlayerBodyState.NON_BUBBLE
     self:_initialize()
 end
 
@@ -94,55 +110,30 @@ local box_r = 200
 
 --- @brief
 function rt.PlayerBody:_initialize()
-    local settings = rt.settings.player_body
-
-    local center_x, center_y = 0, 0
+    local center_x, center_y = self._position_x, self._position_y
     local core_radius = rt.settings.player.radius
-    do
-        local contour = {}
-        local n_vertices = rt.Mesh.radius_to_n_vertices(core_radius)
-        for i = 1, n_vertices do
-            table.insert(contour, center_x + core_radius * math.cos((i - 1) / n_vertices * math.tau))
-            table.insert(contour, center_y + core_radius * math.sin((i - 1) / n_vertices * math.tau))
-        end
+    local bubble_radius_factor = rt.settings.player.bubble_radius_factor
+    local n_vertices = rt.settings.player.n_outer_bodies
 
-        contour = rt.Polyline(contour)
-        --[[
-        self._core = rt.Softbody(contour)
-        self._core:set_anchor(0, 0)
-        self._core:set_is_anchored(true)
-        ]]
-    end
+    self._core = rt.SoftBody(rt.PolylineCircle(center_x, center_y, core_radius, n_vertices))
+    self._core:set_anchor(center_x, center_y)
+    self._core:set_config(rt.settings.player_body.core_config)
+    self._core_mesh = nil
+    self._core_mesh_data = nil
 
-    local x, y, w, h = center_x - box_r, center_y - box_r, 2 * box_r, 2 * box_r
-    local collision = rt.Polyline(
-        x + 0, y + 0,
-        x + w, y + 0,
-        x + w, y + h,
-        x + 0, y + h
-    ):close():reverse()
+    self._bubble_body = rt.SoftBody(rt.PolylineCircle(center_x, center_y, bubble_radius_factor * core_radius, math.ceil(bubble_radius_factor * n_vertices)))
+    self._bubble_body:set_anchor(center_x, center_y)
+    self._bubble_body:set_config(rt.settings.player_body.bubble_config)
+    self._bubble_body_mesh = nil
+    self._bubble_body_mesh_data = nil
 
-    if self._core ~= nil then
-        self._core:set_collision_contours({
-            collision
-        })
-    end
-
-    self._dbg_contour = collision
-
-    self:update(0) -- init draw contours
-end
-
---- @brief
-function rt.PlayerBody:set_shape(vertices)
-    self._core_outline = rt.Polyline(vertices)
-    self._core:set_anchor(self._core_outline:get_centroid())
+    self._bubble_body_anchor_x_offset, self._bubble_body_anchor_y_offset = 0, 0
 end
 
 --- @brief
 function rt.PlayerBody:relax()
-    if self._body ~= nil then
-        self._body:relax()
+    if self._bubble_body ~= nil then
+        self._bubble_body:relax()
     end
 
     if self._core ~= nil then
@@ -151,15 +142,17 @@ function rt.PlayerBody:relax()
 end
 
 function rt.PlayerBody:update(delta)
-    if self._body ~= nil then
-        self._body:update(delta)
-    end
-
     if self._core ~= nil then
         self._core:clear_forces()
         self._core:add_linear_force(-self._relative_velocity_x, -self._relative_velocity_y)
         self._core:set_gravity(self._gravity_x, self._gravity_y)
         self._core:update(delta)
+    end
+
+    if self._bubble_body ~= nil and self._state == rt.PlayerBodyState.BUBBLE then
+        self._bubble_body:add_linear_force(-self._relative_velocity_x, -self._relative_velocity_y)
+        self._bubble_body:set_gravity(self._gravity_x, self._gravity_y)
+        self._bubble_body:update(delta)
     end
 
     for motion in range(
@@ -175,7 +168,7 @@ end
 --- @brief
 function rt.PlayerBody:set_stencil_bodies(t)
 
-    self._body_stencil_bodies = t
+    self._bubble_body_stencil_bodies = t
     local contours = {}
     for body in values(t) do
         for contour in values(body:get_contours()) do
@@ -183,6 +176,7 @@ function rt.PlayerBody:set_stencil_bodies(t)
         end
     end
 
+    self._bubble_body:set_collision_contours(contours)
     self._core:set_collision_contours(contours)
 end
 
@@ -239,31 +233,75 @@ end
 function rt.PlayerBody:draw_body()
     love.graphics.push("all")
     self:_apply_transform()
-    if self._body ~= nil then
-        self._body:draw()
-    end
+    local contour = self._bubble_body:get_draw_contour()
+    contour:draw()
     love.graphics.pop()
+end
+
+local _triangulate = function(mesh, mesh_data, contour)
+    if mesh_data == nil then mesh_data = {} end
+
+    local aabb = contour:get_aabb()
+    local data = contour:get_vertices()
+    local tris = contour:triangulate()
+    local vertex_i = 1
+    for _, tri in ipairs(tris) do
+        for i = 1, #tri, 2 do
+            local x, y = tri[i + 0], tri[i + 1]
+            local u = (x - aabb.x) / aabb.width
+            local v = (y - aabb.y) / aabb.height
+            local entry = mesh_data[vertex_i]
+            if entry == nil then
+                entry = { x, y, u, v, 1, 1, 1, 1 }
+                mesh_data[vertex_i] = entry
+            else
+                entry[1], entry[2], entry[3], entry[4] = x, y, u, v
+            end
+
+            vertex_i = vertex_i + 1
+        end
+    end
+
+    if mesh == nil or mesh:get_n_vertices() ~= vertex_i - 1 then
+        mesh = rt.Mesh(mesh_data,
+            rt.MeshDrawMode.TRIANGLES,
+            rt.VertexFormat,
+            rt.GraphicsBuffer.STREAM
+        )
+    else
+        mesh:replace_data(mesh_data)
+    end
+
+    return mesh, mesh_data
 end
 
 --- @brief
 function rt.PlayerBody:draw_core()
     love.graphics.push("all")
+
     self:_apply_transform()
-    if self._core_outline ~= nil then
-        self._core_outline:draw()
-    end
 
-    --[[
-    love.graphics.origin()
-    love.graphics.translate(box_r, box_r)
+    local contour = self._core:get_draw_contour()
+    self._core_mesh, self._core_mesh_data = _triangulate(
+        self._core_mesh,
+        self._core_mesh_data,
+        contour
+    )
+
+    local core_shader = _core_type_to_shader[rt.GameState:get_player_body_core_type()]
+    core_shader:bind()
+    core_shader:send("hue", self._hue)
+    core_shader:send("elapsed", rt.SceneManager:get_elapsed())
+    core_shader:send("saturation",  self._saturation)
+    core_shader:send("lch_texture", _lch_texture)
+    love.graphics.setColor(1, 1, 1, self._opacity)
+    self._core_mesh:draw()
+    core_shader:unbind()
+
     love.graphics.setLineWidth(2)
-    rt.Palette.TRUE_MAGENTA:bind()
-    for contour in values(self._core:get_collision_contours()) do
-        contour:draw()
-    end
-
-    love.graphics.line(self._dbg_contour:get_vertices())
-    ]]
+    love.graphics.setLineJoin("bevel")
+    self._core_color:clone():lighten(0.2):bind()
+    love.graphics.line(contour:get_vertices())
 
     love.graphics.pop()
 end
@@ -273,6 +311,8 @@ function rt.PlayerBody:set_position(x, y)
     meta.typecheck(x, mt.Number, y, mt.Number)
     self._position_x = x
     self._position_y = y
+    self._core:set_anchor(x, y)
+    self._bubble_body:set_anchor(x + self._bubble_body_anchor_x_offset, y + self._bubble_body_anchor_y_offset)
 end
 
 --- @brief
@@ -285,7 +325,7 @@ end
 --- @brief
 function rt.PlayerBody:set_body_color(color)
     meta.typecheck(color, rt.RGBA)
-    self._body_color = color
+    self._bubble_body_color = color
 end
 
 --- @brief
@@ -299,9 +339,25 @@ function rt.PlayerBody:set_opacity(opacity)
 end
 
 --- @brief
-function rt.PlayerBody:set_use_contour(b)
-    self._use_contour = b
-    self._contour_transition_motion:set_target_value(ternary(b, 1, 0))
+function rt.PlayerBody:set_state(state)
+    local before = self._state
+    self._state = state
+
+    if before ~= rt.PlayerBodyState.BUBBLE and state == rt.PlayerBodyState.BUBBLE then
+        local contour = self._bubble_body:get_contour()
+        local center_x, center_y = contour:get_centroid()
+
+        local data = contour:get_vertices()
+        local radius = rt.settings.player.radius
+        for i = 1, #data, 2 do
+            local current_x, current_y = data[i + 0], data[i + 1]
+            local dx, dy = math.normalize(current_x - center_x, current_y - center_y)
+            data[i + 0] = center_x + dx * radius
+            data[i + 1] = center_y + dy * radius
+        end
+
+        self._bubble_body:set_shape(rt.Polyline(data))
+    end
 end
 
 --- @brief
@@ -309,9 +365,8 @@ function rt.PlayerBody:draw_bloom()
     love.graphics.push("all")
     self:_apply_transform()
     self._core_color:bind()
-    if self._core_outline ~= nil then
-        self._core_outline:draw()
-    end
+    love.graphics.setLineWidth(1)
+    self._core:get_draw_contour():draw()
     love.graphics.pop()
 end
 
@@ -387,7 +442,7 @@ function rt.PlayerBody:set_gravity(gravity_x, gravity_y)
         self._core:set_gravity(gravity_x, gravity_y)
     end
 
-    if self._body ~= nil then
+    if self._bubble_body ~= nil then
         self._core:set_gravity(gravity_x, gravity_y)
     end
 end
@@ -405,4 +460,15 @@ end
 --- @brief
 function rt.PlayerBody:set_contraction(t)
     self._contraction = t
+end
+
+do
+    local once = false
+    --- @brief
+    function rt.PlayerBody:set_player_velocity()
+        if once ~= true then
+            rt.critical("Im rt.PlayerBody: set_player_velocity TODO")
+            once = true
+        end
+    end
 end

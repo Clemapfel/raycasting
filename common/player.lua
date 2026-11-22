@@ -597,7 +597,6 @@ function rt.Player:update(delta)
                 end
             end
 
-            self._graphics_body:set_shape(positions)
             self._graphics_body:set_position(center_x, center_y)
 
             local anchor_body = is_bubble and self._bubble_body or self._body
@@ -610,12 +609,7 @@ function rt.Player:update(delta)
             self._graphics_body:set_color(self._current_color)
             self._graphics_body:set_opacity(self:get_opacity())
             self._graphics_body:set_contraction(ternary(self:get_is_contracted(), 0, 1))
-
-            if self:get_is_bubble() then
-                self._graphics_body:set_use_contour(true, settings.bubble_radius_factor)
-            else
-                self._graphics_body:set_use_contour(false, 1)
-            end
+            self._graphics_body:set_state(self:get_is_bubble() and rt.PlayerBodyState.BUBBLE or rt.PlayerBodyState.NON_BUBBLE)
 
             self._graphics_body:update(delta)
         end
@@ -2957,7 +2951,7 @@ function rt.Player:reset()
     self:_update_ghost(self:get_is_ghost())
 
     local is_bubble = self:get_is_bubble()
-    self._graphics_body:set_use_contour(is_bubble)
+    self._graphics_body:set_state(is_bubble and rt.PlayerBodyState.BUBBLE or rt.PlayerBodyState.NON_BUBBLE)
     self._graphics_body:relax()
     self._graphics_body:set_position(self:get_position())
 

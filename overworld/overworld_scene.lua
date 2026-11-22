@@ -97,7 +97,7 @@ function ow.OverworldScene:instantiate(state)
         _player_is_visible = true,
         _player_canvas_scale = rt.settings.overworld_scene.player_canvas_scale,
         _player_canvas = rt.RenderTexture(
-            2 * rt.settings.player.radius * settings.player_canvas_size_radius_factor * settings.player_canvas_scale, 
+            2 * rt.settings.player.radius * settings.player_canvas_size_radius_factor * settings.player_canvas_scale,
             2 * rt.settings.player.radius * settings.player_canvas_size_radius_factor * settings.player_canvas_scale,
             {
                 msaa = 0,
@@ -139,9 +139,9 @@ function ow.OverworldScene:instantiate(state)
             mn.MessageDialogOption.ACCEPT, mn.MessageDialogOption.CANCEL
         ),
 
-        _input = rt.InputSubscriber(-math.huge),
+        _input = rt.InputSubscriber(-math.huge)
     })
-    
+
     -- init control indicators
     local translation = rt.Translation.overworld_scene
     local function create_non_bubble_indicator()
@@ -325,6 +325,44 @@ function ow.OverworldScene:instantiate(state)
         end
 
         dialog:close()
+    end)
+
+    -- player-controlled camera movement
+    self._camera_override_active = false
+    self._camera_override_scale_motion = rt.SmoothedMotion1D(1)
+    self._camera_override_position_motion = rt.SmoothedMotion2D(
+        0, 0,
+        0.5
+    )
+    
+    self._input:signal_connect("keyboard_key_pressed", function(_, which)
+        if which == rt.KeyboardKey.LEFT_CONTROL or which == rt.KeyboardKey.RIGHT_CONTROL then
+            self._camera_override_active = true
+        end
+    end)
+
+    self._input:signal_connect("keyboard_key_released", function(_, which)
+        if which == rt.KeyboardKey.LEFT_CONTROL or which == rt.KeyboardKey.RIGHT_CONTROL then
+            self._camera_override_active = false
+            self._camera_override_position_motion:set_target_position(0, 0)
+            self._camera_override_scale_motion:set_target_value(1)
+        end
+    end)
+
+    self._input:signal_connect("mouse_wheel_moved", function(_, x, y)
+        if self._camera_override_active then
+            self._camera_override_scale_motion:set_target_value(math.clamp(
+            self._camera_override_scale_motion:get_target_value() + y * settings.scale_override_velocity,
+                settings.scale_override_min,
+                settings.scale_override_max
+            ))
+        end
+    end)
+    
+    self._input:signal_connect("mouse_moved", function(_, x, y)
+        if self._camera_scale_override then
+            self._camera_override_position_motion:set_target_value(self._camera:screen_xy_to_world_xy(x, y))
+        end
     end)
 end
 
@@ -1077,9 +1115,25 @@ function ow.OverworldScene:restart()
 end
 
 --- @brief
-function ow.OverworldScene:_update_camera()
-    self._camera:request_position(self, nil)
-    if self._camera._position_requests:get_count() == 0 then
-        self._camera:request_position(self, self._player:get_position())
+function ow.OverworldScene:_update_camera(delta)
+    self._camera:remove_request_position(self)
+    self._camera:remove_request_scale(self)
+    self._camera:remove_request_allow_override(self)
+
+    self._camera_override_position_motion:update(delta)
+    self._camera_override_scale_motion:update(delta)
+
+    dbg(self._camera._allow_override_requests:get_count())
+
+    local rx, ry = self._player:get_position()
+    if self._camera_override_active then
+        local cx, cy = self._camera_override_position_motion:get_position()
+        self._camera:request_position(self, rx + cx, ry + cy)
+        self._camera:request_scale(self, self._camera_override_scale_motion:get_value())
+        self._camera:request_allow_override(self, true)
+    else
+        if self._camera._position_requests:get_count() == 0 then
+            self._camera:request_position(self, rx, ry)
+        end
     end
 end

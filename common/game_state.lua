@@ -37,7 +37,7 @@ function rt.GameState:instantiate()
             best_flow_percentage,
             collected_coins
         }]]--
-        player_body_core_type = rt.PlayerBodyCoreType.SOLID
+        player_body_core_type = rt.PlayerBodyCoreType.DEFAULT
     }
 
     self._input_action_to_keyboard_key = {}

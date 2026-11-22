@@ -622,12 +622,7 @@ function rt.Player:update(delta)
                 self._graphics_body:set_shape(positions)
                 self._graphics_body:set_position(center_x, center_y)
                 self._graphics_body:set_color(self._current_color)
-
-                if self:get_is_bubble() then
-                    self._graphics_body:set_use_contour(true)
-                else
-                    self._graphics_body:set_use_contour(false)
-                end
+                self._graphics_body:set_state(self:get_is_bubble() and rt.PlayerBodyState.BUBBLE or rt.PlayerBodyState.NON_BUBBLE)
 
                 self._graphics_body:update(delta)
             end

@@ -20,7 +20,21 @@ rt.settings.softbody = {
     }
 }
 
-local _settings_damping = 1 - 1e-5
+local Op = mt.Optional(mt.Number)
+local config_schema = meta.Schema({
+    static_friction = Op,
+    kinetic_friction = Op,
+    distance_compliance = Op,
+    volume_compliance = Op,
+    collision_contour_compliance = Op,
+    bending_compliance = Op,
+    angular_velocity_compliance = Op,
+    linear_velocity_compliance = Op,
+    particle_collision_compliance = Op,
+    anchor_compliance = Op
+})
+
+local _settings_damping = 1 - 1e-4
 local _settings_texture_zoom = 1 / 0.9
 
 local _x_offset = 0
@@ -188,6 +202,12 @@ function rt.SoftBody:instantiate(contour)
 
     self._particles = data
     self._n_particles = n_particles
+
+    -- rest positions, used to express the anchor pivot as a material point
+    self._rest_xs, self._rest_ys = {}, {}
+    for particle_i = 1, n_particles do
+        self._rest_xs[particle_i], self._rest_ys[particle_i] = xs[particle_i], ys[particle_i]
+    end
     self._centroid_x = centroid_x / n_particles
     self._centroid_y = centroid_y / n_particles
 
@@ -205,6 +225,9 @@ function rt.SoftBody:instantiate(contour)
     self._anchor_y = nil
     self._anchor_offset_x = 0
     self._anchor_offset_y = 0
+    self._anchor_weights = nil -- per-particle weights of the pivot material point, sums to 1
+    self._anchor_weights_offset_x = nil
+    self._anchor_weights_offset_y = nil
     self._anchor_particle_i = nil -- particle initially selected by set_anchor; retained while dragging
     self._anchor_lambda_x = 0
     self._anchor_lambda_y = 0
@@ -976,60 +999,51 @@ do -- softbody_update
         return lambda_x_before + delta_lambda_x, lambda_y_before + delta_lambda_y
     end
 
-    -- Pins the mass-weighted center of the body to (anchor_x + offset_x, anchor_y + offset_y).
-    -- Constraint: C = center - (anchor + offset) = 0, with dC/dx_i = m_i / M for every particle.
-    -- Corrections are therefore a shared translation, so the contour keeps all
-    -- of its internal degrees of freedom (shape, rotation, deformation).
+    -- Pins a material point of the body to (anchor_x, anchor_y). The point is a
+    -- fixed affine combination P = sum(w_i * p_i), sum(w_i) = 1, chosen so that P
+    -- sits at (rest center - offset) and follows the body's rotation exactly for
+    -- rigid motion (see _compute_pivot_weights). Constraint: C = P - anchor = 0,
+    -- dC/dp_i = w_i. Since the correction is not a pure translation, the body
+    -- rotates around the anchor instead of around its center.
     local function _enforce_anchor(
         particles, n_particles,
+        weights,
         anchor_x, anchor_y,
-        offset_x, offset_y,
         alpha,
         lambda_x_before, lambda_y_before
     )
-        local mass_sum = 0
-        local weight_sum = 0
-        local center_x, center_y = 0, 0
+        local point_x, point_y = 0, 0
+        local denominator = alpha
 
         for particle_i = 1, n_particles do
             local i = _particle_i_to_data_offset(particle_i)
-            local m = particles[i + _mass_offset]
+            local w = weights[particle_i]
             local inverse_mass = particles[i + _inverse_mass_offset]
 
-            if inverse_mass > 0 and m > 0 then
-                mass_sum = mass_sum + m
-                center_x = center_x + m * particles[i + _x_offset]
-                center_y = center_y + m * particles[i + _y_offset]
-                weight_sum = weight_sum + inverse_mass * m * m
+            point_x = point_x + w * particles[i + _x_offset]
+            point_y = point_y + w * particles[i + _y_offset]
+
+            if inverse_mass > 0 then
+                denominator = denominator + inverse_mass * w * w
             end
         end
 
-        if mass_sum < eps then
-            return lambda_x_before, lambda_y_before
-        end
-
-        center_x = center_x / mass_sum
-        center_y = center_y / mass_sum
-
-        -- gradient is m_i / M, so sum of w_i * (m_i / M)^2 = weight_sum / M^2
-        local denominator = weight_sum / (mass_sum * mass_sum) + alpha
         if denominator < eps then
             return lambda_x_before, lambda_y_before
         end
 
-        local constraint_x = center_x - (anchor_x + offset_x)
-        local constraint_y = center_y - (anchor_y + offset_y)
+        local constraint_x = point_x - anchor_x
+        local constraint_y = point_y - anchor_y
 
         local delta_lambda_x = -(constraint_x + alpha * lambda_x_before) / denominator
         local delta_lambda_y = -(constraint_y + alpha * lambda_y_before) / denominator
 
         for particle_i = 1, n_particles do
             local i = _particle_i_to_data_offset(particle_i)
-            local m = particles[i + _mass_offset]
             local inverse_mass = particles[i + _inverse_mass_offset]
 
-            if inverse_mass > 0 and m > 0 then
-                local gradient = m / mass_sum
+            if inverse_mass > 0 then
+                local gradient = weights[particle_i]
                 particles[i + _x_offset] = particles[i + _x_offset] + inverse_mass * delta_lambda_x * gradient
                 particles[i + _y_offset] = particles[i + _y_offset] + inverse_mass * delta_lambda_y * gradient
             end
@@ -1055,7 +1069,7 @@ do -- softbody_update
         local n_sub_steps = rt.settings.softbody.n_sub_steps
         local n_constraint_iterations = rt.settings.softbody.n_constraint_iterations
 
-        local override = {} -- TODO
+        local override = self._override or {}
 
         local sub_delta_sq = (sub_delta * sub_delta)
         local volume_alpha  = (override.volume_compliance  or rt.settings.softbody.default.volume_compliance) / sub_delta_sq
@@ -1075,10 +1089,11 @@ do -- softbody_update
         local n_collision_contours = #collision_contours
 
         local anchor_x, anchor_y = self._anchor_x, self._anchor_y
-        local anchor_offset_x, anchor_offset_y = self._anchor_offset_x or 0, self._anchor_offset_y or 0
+        local anchor_weights = self._anchor_weights
         local anchor_particle_i = self._anchor_particle_i
         local anchor_active = anchor_particle_i ~= nil
             and anchor_x ~= nil and anchor_y ~= nil
+            and anchor_weights ~= nil
 
         local gravity_x = self._gravity_x
         local gravity_y = self._gravity_y
@@ -1239,13 +1254,15 @@ do -- softbody_update
                     -- An active point anchor supplies an external torque. Do not
                     -- project that angular motion away: doing so makes an off-center
                     -- drag behave like a translation-only kinematic move.
-                    self._angular_velocity_lambda = _enforce_angular_momentum(
-                        data, n_particles,
-                        0,
-                        sub_delta,
-                        angular_alpha,
-                        self._angular_velocity_lambda
-                    )
+                    if not anchor_active then
+                        self._angular_velocity_lambda = _enforce_angular_momentum(
+                            data, n_particles,
+                            0,
+                            sub_delta,
+                            angular_alpha,
+                            self._angular_velocity_lambda
+                        )
+                    end
 
                     if self._pinch_x ~= nil and self._pinch_y ~= nil then
                         self._pinch_lambda_x, self._pinch_lambda_y = _enforce_pinch(
@@ -1260,8 +1277,8 @@ do -- softbody_update
                     if anchor_active then
                         self._anchor_lambda_x, self._anchor_lambda_y = _enforce_anchor(
                             data, n_particles,
+                            anchor_weights,
                             anchor_x, anchor_y,
-                            anchor_offset_x, anchor_offset_y,
                             anchor_alpha,
                             self._anchor_lambda_x,
                             self._anchor_lambda_y
@@ -1504,7 +1521,60 @@ function rt.SoftBody:set_pinch(x, y)
     self._pinch_x, self._pinch_y = x, y
 end
 
---- @brief the body center is pulled towards (x + offset_x, y + offset_y)
+--- @brief weights w_i (sum 1) such that sum(w_i * p_i) is the material point at
+--- (rest center - offset), expressed in the body's rest frame. For a rigid motion
+--- of the body this point moves exactly with it, so pinning it makes the body
+--- rotate around the anchor. Uses the best-fit linear map A = sum(m p q^T) (sum m q q^T)^-1.
+function rt.SoftBody:_compute_pivot_weights(offset_x, offset_y)
+    local data = self._particles
+    local n = self._n_particles
+    local rest_xs, rest_ys = self._rest_xs, self._rest_ys
+
+    local mass_sum, cx, cy = 0, 0, 0
+    for particle_i = 1, n do
+        local m = data[_particle_i_to_data_offset(particle_i) + _mass_offset]
+        mass_sum = mass_sum + m
+        cx = cx + m * rest_xs[particle_i]
+        cy = cy + m * rest_ys[particle_i]
+    end
+    cx, cy = cx / mass_sum, cy / mass_sum
+
+    -- S = sum m q q^T (2x2 symmetric)
+    local sxx, sxy, syy = 0, 0, 0
+    for particle_i = 1, n do
+        local m = data[_particle_i_to_data_offset(particle_i) + _mass_offset]
+        local qx, qy = rest_xs[particle_i] - cx, rest_ys[particle_i] - cy
+        sxx = sxx + m * qx * qx
+        sxy = sxy + m * qx * qy
+        syy = syy + m * qy * qy
+    end
+
+    -- r = vector from rest center to the pivot; S^-1 r via the 2x2 inverse
+    local rx, ry = -offset_x, -offset_y
+    local det = sxx * syy - sxy * sxy
+    local weights = {}
+
+    if math.abs(det) < math.eps then
+        -- degenerate shape: fall back to pinning the center of mass
+        for particle_i = 1, n do
+            weights[particle_i] = data[_particle_i_to_data_offset(particle_i) + _mass_offset] / mass_sum
+        end
+        return weights
+    end
+
+    local ux = (syy * rx - sxy * ry) / det
+    local uy = (-sxy * rx + sxx * ry) / det
+
+    for particle_i = 1, n do
+        local m = data[_particle_i_to_data_offset(particle_i) + _mass_offset]
+        local qx, qy = rest_xs[particle_i] - cx, rest_ys[particle_i] - cy
+        weights[particle_i] = m / mass_sum + m * (qx * ux + qy * uy)
+    end
+
+    return weights
+end
+
+--- @brief the body rotates around and is pulled so that the pivot (rest center - offset) sits on the anchor; at rest orientation the center is at (x + offset_x, y + offset_y)
 function rt.SoftBody:set_anchor(x, y, offset_x, offset_y)
     if offset_x == nil then offset_x = 0 end
     if offset_y == nil then offset_y = 0 end
@@ -1537,6 +1607,16 @@ function rt.SoftBody:set_anchor(x, y, offset_x, offset_y)
     self._anchor_particle_i = 1
     self._anchor_x, self._anchor_y = x, y
     self._anchor_offset_x, self._anchor_offset_y = offset_x, offset_y
+
+    if self._anchor_weights == nil
+        or self._anchor_weights_offset_x ~= offset_x
+        or self._anchor_weights_offset_y ~= offset_y
+    then
+        self._anchor_weights = self:_compute_pivot_weights(offset_x, offset_y)
+        self._anchor_weights_offset_x = offset_x
+        self._anchor_weights_offset_y = offset_y
+    end
+
     return self
 end
 
@@ -1544,6 +1624,8 @@ function rt.SoftBody:clear_anchor()
     meta.typecheck(self, rt.SoftBody)
     self._anchor_x, self._anchor_y = nil, nil
     self._anchor_offset_x, self._anchor_offset_y = 0, 0
+    self._anchor_weights = nil
+    self._anchor_weights_offset_x, self._anchor_weights_offset_y = nil, nil
     self._anchor_particle_i = nil
     self._anchor_lambda_x, self._anchor_lambda_y = 0, 0
     return self
@@ -1690,6 +1772,106 @@ do -- softbody_relax
 
         self._centroid_x = current_centroid_x
         self._centroid_y = current_centroid_y
+
+        self._volume_lambda = 0
+        self._angular_velocity_lambda = 0
+        self._linear_velocity_lambda_x = 0
+        self._linear_velocity_lambda_y = 0
+        self._anchor_lambda_x = 0
+        self._anchor_lambda_y = 0
+        self._pinch_lambda_x = 0
+        self._pinch_lambda_y = 0
+
+        return self
+    end
+end
+
+--- @brief
+function rt.SoftBody:set_config(config)
+    config_schema:validate(config)
+    self._override = config
+end
+
+do -- softbody_set_shape
+    local eps = math.eps
+    local dot = math.dot
+
+    --- @brief
+    function rt.SoftBody:set_shape(contour)
+        meta.typecheck(self, rt.SoftBody)
+        meta.typecheck(contour, rt.Polyline)
+
+        local eps_squared = eps * eps
+        local data = self._particles
+        local n_particles = self._n_particles
+
+        local source = contour:get_vertices()
+        local n_source = math.floor(#source / 2)
+        local xs, ys = {}, {}
+        local n_vertices = 0
+
+        for source_i = 1, n_source do
+            local x, y = source[2 * source_i - 1], source[2 * source_i]
+            local is_new = true
+            if n_vertices > 0 then
+                local dx, dy = x - xs[n_vertices], y - ys[n_vertices]
+                is_new = dot(dx, dy, dx, dy) > eps_squared
+            end
+
+            if is_new then
+                n_vertices = n_vertices + 1
+                xs[n_vertices], ys[n_vertices] = x, y
+            end
+        end
+
+        if n_vertices > 1 then
+            local dx, dy = xs[n_vertices] - xs[1], ys[n_vertices] - ys[1]
+            if dot(dx, dy, dx, dy) <= eps_squared then
+                n_vertices = n_vertices - 1
+            end
+        end
+
+        rt.assert(n_vertices == n_particles, "In softbody_set_shape: contour vertex count does not match particle count")
+
+        local centroid_x, centroid_y = 0, 0
+        for particle_i = 1, n_particles do
+            centroid_x = centroid_x + xs[particle_i]
+            centroid_y = centroid_y + ys[particle_i]
+        end
+        centroid_x = centroid_x / n_particles
+        centroid_y = centroid_y / n_particles
+
+        local draw_contour_vertices = self._draw_contour:get_vertices()
+
+        for particle_i = 1, n_particles do
+            local i = _particle_i_to_data_offset(particle_i)
+            local contour_i = (particle_i - 1) * 2 + 1
+            local x, y = xs[particle_i], ys[particle_i]
+
+            data[i + _x_offset] = x
+            data[i + _y_offset] = y
+            data[i + _previous_x_offset] = x
+            data[i + _previous_y_offset] = y
+            data[i + _snapshot_x_offset] = x
+            data[i + _snapshot_y_offset] = y
+            data[i + _draw_x_offset] = x
+            data[i + _draw_y_offset] = y
+            data[i + _velocity_x_offset] = 0
+            data[i + _velocity_y_offset] = 0
+
+            data[i + _distance_lambda_offset] = 0
+            data[i + _bending_lambda_offset] = 0
+            data[i + _polygon_lambda_offset] = 0
+
+            draw_contour_vertices[contour_i + 0] = x
+            draw_contour_vertices[contour_i + 1] = y
+        end
+
+        draw_contour_vertices[n_particles * 2 + 1] = draw_contour_vertices[1]
+        draw_contour_vertices[n_particles * 2 + 2] = draw_contour_vertices[2]
+
+        self._centroid_x = centroid_x
+        self._centroid_y = centroid_y
 
         self._volume_lambda = 0
         self._angular_velocity_lambda = 0

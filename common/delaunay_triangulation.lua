@@ -181,9 +181,9 @@ end
 
 function rt.DelaunayTriangulation:triangulate(points, contour)
     if meta.isa(contour, rt.Polyline) then contour = contour:get_vertices() end
-    if meta.isa(points, rt.Polyline) then points = points:get_vertices() end
+    if meta.isa(points, rt.Polyline) then points = {} end
 
-    meta.typecheck(points, mt.Table(mt.Number), contour, mt.Table(mt.Number))
+    meta.typecheck(points, mt.Table(mt.Number), contour, mt.Optional(mt.Table(mt.Number)))
 
     self._constraints = contour or {}
 
@@ -203,7 +203,7 @@ function rt.DelaunayTriangulation:triangulate(points, contour)
         self._hull_previous = _new_array(coords_size)
         self._hull_next = _new_array(coords_size)
         self._hull_tri = _new_array(coords_size)
-        self._hullHash = _new_array(self._hashSize)
+        self._hull_hash = _new_array(self._hashSize)
 
         self._ids = _new_array(coords_size)
         self._distances = _new_array(coords_size)
@@ -410,11 +410,13 @@ function rt.DelaunayTriangulation:_legalize(a)
 end
 
 function rt.DelaunayTriangulation:update()
+    if #self._coords == 0 then return end
+
     local coords = self._coords
     local hull_previous = self._hull_previous
     local hull_next = self._hull_next
     local hull_triangles = self._hull_tri
-    local hull_hash = self._hullHash
+    local hull_hash = self._hull_hash
 
     local n = bit.rshift(_sizeof(coords), 1)
 

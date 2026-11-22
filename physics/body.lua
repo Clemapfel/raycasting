@@ -442,8 +442,8 @@ function b2.Body:get_contours()
     local x, y = self:get_position()
     for contour in values(out) do
         for i = 1, #contour, 2 do
-            contour[i + 0] = contour[i + 0] - x
-            contour[i + 1] = contour[i + 1] - y
+            contour[i + 0] = x + contour[i + 0]
+            contour[i + 1] = y + contour[i + 1]
         end
     end
     return out
