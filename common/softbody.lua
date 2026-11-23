@@ -135,6 +135,7 @@ function rt.SoftBody:instantiate(contour)
     )
 
     self._initial_contour = contour
+    self._contraction = 1
 
     local eps_squared = math.eps * math.eps
 
@@ -257,11 +258,9 @@ function rt.SoftBody:instantiate(contour)
     self._volume_multiplier = 1.0
 
     self._volume_lambda = 0
-    self._angular_velocity_lambda = 0
+    self._angular_momentum_lambda = 0
     self._linear_velocity_lambda_x = 0
     self._linear_velocity_lambda_y = 0
-
-    self._rest_angular_velocity = 0
 
     self._anchor_x = nil
     self._anchor_y = nil
@@ -282,20 +281,14 @@ function rt.SoftBody:instantiate(contour)
 
     self._collision_contours = table.new(0)
 
-    self._linear_impulses = {}
-    self._angular_impulses = {}
     self._linear_forces = {}
-    self._angular_forces = {}
+    self._linear_impulses = {}
 
     self._gravity_x = 0
     self._gravity_y = 0
 
     self._draw_contour = rt.Polyline(draw_contour):close()
     self._collision_contours = {}
-
-    self._linear_velocity_x = 0
-    self._linear_velocity_y = 0
-    self._angular_velocity = 0
 
     self._is_initialized = true
     self._elapsed = 0
@@ -496,45 +489,6 @@ do -- softbody_update
         return correction_x, correction_y, lambda_new, normal_x, normal_y
     end
 
-    local function _get_mass_properties(particles, n_particles)
-        local total_mass = 0
-        local center_x, center_y = 0, 0
-
-        for particle_i = 1, n_particles do
-            local i = _particle_i_to_data_offset(particle_i)
-            local inverse_mass = particles[i + _inverse_mass_offset]
-            local mass = particles[i + _mass_offset]
-
-            if inverse_mass > 0 and mass > 0 then
-                total_mass = total_mass + mass
-                center_x = center_x + mass * particles[i + _x_offset]
-                center_y = center_y + mass * particles[i + _y_offset]
-            end
-        end
-
-        if total_mass <= eps then
-            return 0, 0, 0, 0
-        end
-
-        center_x = center_x / total_mass
-        center_y = center_y / total_mass
-
-        local moment_of_inertia = 0
-        for particle_i = 1, n_particles do
-            local i = _particle_i_to_data_offset(particle_i)
-            local inverse_mass = particles[i + _inverse_mass_offset]
-            local mass = particles[i + _mass_offset]
-
-            if inverse_mass > 0 and mass > 0 then
-                local rx = particles[i + _x_offset] - center_x
-                local ry = particles[i + _y_offset] - center_y
-                moment_of_inertia = moment_of_inertia + mass * dot(rx, ry, rx, ry)
-            end
-        end
-
-        return center_x, center_y, total_mass, moment_of_inertia
-    end
-
     local function _enforce_exact_distance(
         position_x, position_y, neighbor_x, neighbor_y,
         inverse_mass, neighbor_inverse_mass,
@@ -624,7 +578,19 @@ do -- softbody_update
         local rx = previous_x - center_x
         local ry = previous_y - center_y
         return inverse_mass * delta_lambda * (-mass * ry),
-            inverse_mass * delta_lambda * (mass * rx)
+        inverse_mass * delta_lambda * (mass * rx)
+    end
+
+    local function _enforce_linear_momentum(
+        mass, inverse_mass,
+        delta_lambda_x, delta_lambda_y
+    )
+        if inverse_mass <= 0 or mass <= 0 then
+            return 0, 0
+        end
+
+        return inverse_mass * mass * delta_lambda_x,
+        inverse_mass * mass * delta_lambda_y
     end
 
     local function _enforce_friction(
@@ -723,11 +689,14 @@ do -- softbody_update
         local sub_delta = timestep / n_sub_steps
         local sub_delta_sq = sub_delta * sub_delta
 
+        local contraction = self._contraction
+
         local volume_alpha = get_setting("volume_compliance") / sub_delta_sq
         local contour_alpha = get_setting("contour_collision_compliance") / sub_delta_sq
         local distance_alpha = get_setting("distance_compliance") / sub_delta_sq
         local bending_alpha = get_setting("bending_compliance") / sub_delta_sq
         local angular_alpha = get_setting("angular_momentum_compliance") / sub_delta_sq
+        local linear_alpha = get_setting("linear_momentum_compliance") / sub_delta_sq
         local anchor_alpha = get_setting("anchor_compliance") / sub_delta_sq
         local pinch_alpha = get_setting("pinch_compliance") / sub_delta_sq
 
@@ -740,10 +709,13 @@ do -- softbody_update
         local enforce_contour_collision = get_setting("enforce_contour_collision")
         local enforce_bending = get_setting("enforce_bending")
         local enforce_angular_momentum = get_setting("enforce_angular_momentum")
+        local enforce_linear_momentum = get_setting("enforce_linear_momentum")
         local enforce_pinch = get_setting("enforce_pinch")
         local enforce_anchor = get_setting("enforce_anchor")
 
         enforce_friction = enforce_friction and (static_friction > 0 or kinetic_friction > 0)
+
+        local target_area = self._volume * self._volume_multiplier * contraction * contraction
 
         local data = self._particles
         local n_particles = self._n_particles
@@ -768,51 +740,33 @@ do -- softbody_update
             linear_force_y = linear_force_y + entry.magnitude * entry.dy
         end
 
-        local angular_torque = 0
-        for _, entry in pairs(self._angular_forces) do
-            angular_torque = angular_torque + entry.torque
-        end
-
         local impulse_x, impulse_y = 0, 0
         for _, entry in pairs(self._linear_impulses) do
             impulse_x = impulse_x + entry.magnitude * entry.dx
             impulse_y = impulse_y + entry.magnitude * entry.dy
         end
-
-        local angular_impulse = 0
-        for _, entry in pairs(self._angular_impulses) do
-            angular_impulse = angular_impulse + entry.angular_impulse
-        end
-
         table.clear(self._linear_impulses)
-        table.clear(self._angular_impulses)
 
-        if impulse_x ~= 0 or impulse_y ~= 0 or angular_impulse ~= 0 then
-            local center_x, center_y, total_mass, moment_of_inertia =
-            _get_mass_properties(data, n_particles)
-
-            local delta_velocity_x, delta_velocity_y = 0, 0
-            if total_mass > eps then
-                delta_velocity_x = impulse_x / total_mass
-                delta_velocity_y = impulse_y / total_mass
-            end
-
-            local delta_angular_velocity = 0
-            if moment_of_inertia > eps then
-                delta_angular_velocity = angular_impulse / moment_of_inertia
-            end
-
+        if impulse_x ~= 0 or impulse_y ~= 0 then
+            local total_mass = 0
             for particle_i = 1, n_particles do
                 local i = _particle_i_to_data_offset(particle_i)
-                if data[i + _inverse_mass_offset] > 0 then
-                    local rx = data[i + _x_offset] - center_x
-                    local ry = data[i + _y_offset] - center_y
+                local inverse_mass = data[i + _inverse_mass_offset]
+                local mass = data[i + _mass_offset]
+                if inverse_mass > 0 and mass > 0 then
+                    total_mass = total_mass + mass
+                end
+            end
 
-                    data[i + _velocity_x_offset] = data[i + _velocity_x_offset]
-                        + delta_velocity_x - delta_angular_velocity * ry
-
-                    data[i + _velocity_y_offset] = data[i + _velocity_y_offset]
-                        + delta_velocity_y + delta_angular_velocity * rx
+            if total_mass > eps then
+                local delta_velocity_x = impulse_x / total_mass
+                local delta_velocity_y = impulse_y / total_mass
+                for particle_i = 1, n_particles do
+                    local i = _particle_i_to_data_offset(particle_i)
+                    if data[i + _inverse_mass_offset] > 0 then
+                        data[i + _velocity_x_offset] = data[i + _velocity_x_offset] + delta_velocity_x
+                        data[i + _velocity_y_offset] = data[i + _velocity_y_offset] + delta_velocity_y
+                    end
                 end
             end
         end
@@ -839,18 +793,20 @@ do -- softbody_update
                     end
                 end
 
-                local center_x, center_y, total_mass, moment_of_inertia =
-                _get_mass_properties(data, n_particles)
+                local total_mass = 0
+                for particle_i = 1, n_particles do
+                    local i = _particle_i_to_data_offset(particle_i)
+                    local inverse_mass = data[i + _inverse_mass_offset]
+                    local mass = data[i + _mass_offset]
+                    if inverse_mass > 0 and mass > 0 then
+                        total_mass = total_mass + mass
+                    end
+                end
 
                 local force_acceleration_x, force_acceleration_y = 0, 0
                 if total_mass > eps then
                     force_acceleration_x = linear_force_x / total_mass
                     force_acceleration_y = linear_force_y / total_mass
-                end
-
-                local angular_acceleration = 0
-                if moment_of_inertia > eps then
-                    angular_acceleration = angular_torque / moment_of_inertia
                 end
 
                 -- integrate
@@ -861,13 +817,6 @@ do -- softbody_update
                     local inverse_mass = data[i + _inverse_mass_offset]
                     local acceleration_x = gravity_x + force_acceleration_x
                     local acceleration_y = gravity_y + force_acceleration_y
-
-                    if inverse_mass > 0 and angular_acceleration ~= 0 then
-                        local rx = position_x - center_x
-                        local ry = position_y - center_y
-                        acceleration_x = acceleration_x - angular_acceleration * ry
-                        acceleration_y = acceleration_y + angular_acceleration * rx
-                    end
 
                     local velocity_x, velocity_y = 0, 0
                     local new_position_x, new_position_y = position_x, position_y
@@ -890,7 +839,7 @@ do -- softbody_update
                 end
 
                 self._volume_lambda = 0
-                self._angular_velocity_lambda = 0
+                self._angular_momentum_lambda = 0
                 self._linear_velocity_lambda_x = 0
                 self._linear_velocity_lambda_y = 0
                 self._anchor_lambda_x = 0
@@ -912,7 +861,7 @@ do -- softbody_update
                             local correction_ax, correction_ay, lambda_new = _enforce_exact_distance(
                                 ax, ay, bx, by,
                                 inverse_mass_a, inverse_mass_b,
-                                data[ai + _rest_length_offset],
+                                data[ai + _rest_length_offset] * contraction,
                                 distance_alpha,
                                 lambda_before
                             )
@@ -920,7 +869,7 @@ do -- softbody_update
                             local correction_bx, correction_by = _enforce_exact_distance(
                                 bx, by, ax, ay,
                                 inverse_mass_b, inverse_mass_a,
-                                data[ai + _rest_length_offset],
+                                data[ai + _rest_length_offset] * contraction,
                                 distance_alpha,
                                 lambda_before
                             )
@@ -947,7 +896,7 @@ do -- softbody_update
                                 data[ai + _inverse_mass_offset],
                                 data[bi + _inverse_mass_offset],
                                 data[ci + _inverse_mass_offset],
-                                data[bi + _bending_rest_offset],
+                                data[bi + _bending_rest_offset] * contraction,
                                 bending_alpha,
                                 data[ai + _bending_lambda_offset]
                             )
@@ -989,7 +938,7 @@ do -- softbody_update
 
                         local volume_denominator = weight_sum + volume_alpha
                         if volume_denominator >= eps then
-                            local volume_constraint = current_area - self._volume
+                            local volume_constraint = current_area - target_area
                             local volume_delta_lambda = -(volume_constraint + volume_alpha * self._volume_lambda)
                                 / volume_denominator
                             local volume_lambda_new = self._volume_lambda + volume_delta_lambda
@@ -1031,7 +980,6 @@ do -- softbody_update
                             com_y = com_y / mass_sum
 
                             local angular_momentum = 0
-                            local inertia = 0
                             local weight_sum = 0
 
                             for particle_i = 1, n_particles do
@@ -1046,7 +994,6 @@ do -- softbody_update
                                     local dy = data[i + _y_offset] - data[i + _previous_y_offset]
 
                                     angular_momentum = angular_momentum + mass * cross(rx, ry, dx, dy)
-                                    inertia = inertia + mass * dot(rx, ry, rx, ry)
                                     local gx, gy = -mass * ry, mass * rx
                                     weight_sum = weight_sum + inverse_mass * dot(gx, gy, gx, gy)
                                 end
@@ -1054,12 +1001,10 @@ do -- softbody_update
 
                             local denominator = weight_sum + angular_alpha
                             if denominator > 0 then
-                                local target_angular_velocity = 0
                                 local constraint = angular_momentum
-                                    - inertia * target_angular_velocity * sub_delta
-                                local delta_lambda = -(constraint + angular_alpha * self._angular_velocity_lambda)
+                                local delta_lambda = -(constraint + angular_alpha * self._angular_momentum_lambda)
                                     / denominator
-                                local lambda_new = self._angular_velocity_lambda + delta_lambda
+                                local lambda_new = self._angular_momentum_lambda + delta_lambda
 
                                 for particle_i = 1, n_particles do
                                     local i = _particle_i_to_data_offset(particle_i)
@@ -1075,8 +1020,51 @@ do -- softbody_update
                                     data[i + _y_offset] = data[i + _y_offset] + correction_y
                                 end
 
-                                self._angular_velocity_lambda = lambda_new
+                                self._angular_momentum_lambda = lambda_new
                             end
+                        end
+                    end
+
+                    if enforce_linear_momentum then
+                        local mass_sum = 0
+                        local momentum_x, momentum_y = 0, 0
+                        local weight_sum = 0
+
+                        for particle_i = 1, n_particles do
+                            local i = _particle_i_to_data_offset(particle_i)
+                            local inverse_mass = data[i + _inverse_mass_offset]
+                            local mass = data[i + _mass_offset]
+                            if inverse_mass > 0 and mass > 0 then
+                                local dx = data[i + _x_offset] - data[i + _previous_x_offset]
+                                local dy = data[i + _y_offset] - data[i + _previous_y_offset]
+                                mass_sum = mass_sum + mass
+                                momentum_x = momentum_x + mass * dx
+                                momentum_y = momentum_y + mass * dy
+                                weight_sum = weight_sum + inverse_mass * mass * mass
+                            end
+                        end
+
+                        local denominator = weight_sum + linear_alpha
+                        if mass_sum > 0 and denominator > 0 then
+                            local delta_lambda_x = -(momentum_x + linear_alpha * self._linear_velocity_lambda_x)
+                                / denominator
+                            local delta_lambda_y = -(momentum_y + linear_alpha * self._linear_velocity_lambda_y)
+                                / denominator
+
+                            for particle_i = 1, n_particles do
+                                local i = _particle_i_to_data_offset(particle_i)
+                                local correction_x, correction_y = _enforce_linear_momentum(
+                                    data[i + _mass_offset],
+                                    data[i + _inverse_mass_offset],
+                                    delta_lambda_x,
+                                    delta_lambda_y
+                                )
+                                data[i + _x_offset] = data[i + _x_offset] + correction_x
+                                data[i + _y_offset] = data[i + _y_offset] + correction_y
+                            end
+
+                            self._linear_velocity_lambda_x = self._linear_velocity_lambda_x + delta_lambda_x
+                            self._linear_velocity_lambda_y = self._linear_velocity_lambda_y + delta_lambda_y
                         end
                     end
 
@@ -1264,7 +1252,7 @@ local _get_hash = function()
     return hash
 end
 
--- linear
+-- linear forces and impulses
 
 function rt.SoftBody:add_linear_force(dx, dy)
     meta.typecheck(self, rt.SoftBody, dx, mt.Number, dy, mt.Number)
@@ -1308,42 +1296,6 @@ function rt.SoftBody:remove_linear_impulse(hash)
     if hash == nil then return end
     meta.typecheck(self, rt.SoftBody, hash, mt.Number)
     self._linear_impulses[hash] = nil
-end
-
--- rotation
-
-function rt.SoftBody:add_angular_force(torque)
-    meta.typecheck(self, rt.SoftBody, torque, mt.Number)
-    if torque ~= 0 then
-        local id = _get_hash()
-        self._angular_forces[id] = {
-            torque = torque
-        }
-        return id
-    end
-end
-
-function rt.SoftBody:remove_angular_force(hash)
-    if hash == nil then return end
-    meta.typecheck(self, rt.SoftBody, hash, mt.Number)
-    self._angular_forces[hash] = nil
-end
-
-function rt.SoftBody:add_angular_impulse(angular_impulse)
-    meta.typecheck(self, rt.SoftBody, angular_impulse, mt.Number)
-    if angular_impulse ~= 0 then
-        local id = _get_hash()
-        self._angular_impulses[id] = {
-            angular_impulse = angular_impulse
-        }
-        return id
-    end
-end
-
-function rt.SoftBody:remove_angular_impulse(hash)
-    if hash == nil then return end
-    meta.typecheck(self, rt.SoftBody, hash, mt.Number)
-    self._angular_impulses[hash] = nil
 end
 
 function rt.SoftBody:get_centroid()
@@ -1459,22 +1411,9 @@ end
 function rt.SoftBody:clear_forces()
     meta.typecheck(self, rt.SoftBody)
 
-    -- clear pending impulses and persistent forces
-    for id in pairs(self._linear_impulses) do
-        self._linear_impulses[id] = nil
-    end
-
-    for id in pairs(self._angular_impulses) do
-        self._angular_impulses[id] = nil
-    end
-
-    for id in pairs(self._linear_forces) do
-        self._linear_forces[id] = nil
-    end
-
-    for id in pairs(self._angular_forces) do
-        self._angular_forces[id] = nil
-    end
+    -- Clear pending linear impulses and persistent linear forces.
+    table.clear(self._linear_impulses)
+    table.clear(self._linear_forces)
 
     local data = self._particles
     for particle_i = 1, self._n_particles do
@@ -1598,7 +1537,7 @@ do -- softbody_relax
         self._centroid_y = current_centroid_y
 
         self._volume_lambda = 0
-        self._angular_velocity_lambda = 0
+        self._angular_momentum_lambda = 0
         self._linear_velocity_lambda_x = 0
         self._linear_velocity_lambda_y = 0
         self._anchor_lambda_x = 0
@@ -1697,7 +1636,7 @@ do -- softbody_set_shape
         self._centroid_y = centroid_y
 
         self._volume_lambda = 0
-        self._angular_velocity_lambda = 0
+        self._angular_momentum_lambda = 0
         self._linear_velocity_lambda_x = 0
         self._linear_velocity_lambda_y = 0
         self._anchor_lambda_x = 0
@@ -1707,4 +1646,11 @@ do -- softbody_set_shape
 
         return self
     end
+end
+
+function rt.SoftBody:set_contraction(factor)
+    meta.typecheck(self, rt.SoftBody, factor, mt.Number)
+    self._contraction = math.max(factor, 0.001)
+    dbg(self._contraction)
+    return self
 end

@@ -27,7 +27,9 @@ DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
 end)
 
 love.load = function(args)
-    if PROFILE then profiler.push("love.load") end
+    getmetatable("").__index = function(_, key)
+        _G.error("In string." .. key .. ": trying to call instance method on a string")
+    end
 
     local before = love.timer.getTime()
 

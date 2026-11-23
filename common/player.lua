@@ -3260,7 +3260,6 @@ function rt.Player:_update_bubble(is_bubble, was_bubble)
     vx, vy = source:get_velocity()
     x, y = source:get_position()
 
-
     -- disable both to avoid interaction
     self._body:set_is_enabled(false)
     for body in values(self._spring_bodies) do
@@ -3277,8 +3276,8 @@ function rt.Player:_update_bubble(is_bubble, was_bubble)
         self._bubble_body:set_velocity(vx, vy)
         for i, body in ipairs(self._bubble_spring_bodies) do
             body:set_position(
-                x + self._bubble_spring_body_offsets_x[i],
-                y + self._bubble_spring_body_offsets_x[i]
+                x + 0, -- reset to center so the solver can smoothly expand the springs
+                y + 0
             )
             body:set_velocity(vx, vy)
         end

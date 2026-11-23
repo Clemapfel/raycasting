@@ -13,14 +13,20 @@ rt.settings.player_body = {
     squish_magnitude = 0.2, -- fraction
 
     core_config = {
+        static_friction = 0,
+        kinetic_friction = 0,
+
         distance_compliance = 1e-7,
         bending_compliance = 5e-6,
-        anchor_compliance = 0
+        anchor_compliance = 0,
+
+        enforce_angular_momentum = false,
+        enforce_linear_momentum = false,
+        enforce_pinch = false
     },
 
     bubble_config = {
-        distance_compliance = 0,
-        bending_compliance = 0
+        
     }
 }
 
@@ -52,9 +58,9 @@ function rt.PlayerBody:instantiate(position_x, position_y)
     meta.typecheck(position_x, mt.Number, position_y, mt.Number)
 
     -- appearance
-    self._core_color = rt.Palette.WHITE
+    self._core_body_color = rt.Palette.WHITE
     self._bubble_body_color = rt.Palette.BLACK
-    self._hue = select(3, rt.rgba_to_lcha(self._core_color:unpack()))
+    self._hue = select(3, rt.rgba_to_lcha(self._core_body_color:unpack()))
     self._opacity = 1
     self._saturation = 1
     self._contraction = 0
@@ -67,7 +73,9 @@ function rt.PlayerBody:instantiate(position_x, position_y)
     self._gravity_y = 200
 
     self._bubble_body = nil -- rt.SoftBody
-    self._core = nil -- rt.SoftBody
+    self._core_body = nil -- rt.SoftBody
+
+    self._bubble_contraction_motion = rt.SmoothedMotion1D(1)
 
     local squish_speed = rt.settings.player_body.squish_speed
 
@@ -100,7 +108,7 @@ function rt.PlayerBody:instantiate(position_x, position_y)
     self._up_squish_motion = rt.SmoothedMotion1D(_not_squished, squish_speed)
 
     self._bubble_body_stencil_bodies = {}
-    self._core_stencil_bodies = {}
+    self._core_body_stencil_bodies = {}
 
     self._state = rt.PlayerBodyState.NON_BUBBLE
     self:_initialize()
@@ -115,15 +123,22 @@ function rt.PlayerBody:_initialize()
     local bubble_radius_factor = rt.settings.player.bubble_radius_factor
     local n_vertices = rt.settings.player.n_outer_bodies
 
-    self._core = rt.SoftBody(rt.PolylineCircle(center_x, center_y, core_radius, n_vertices))
-    self._core:set_anchor(center_x, center_y)
-    self._core:set_config(rt.settings.player_body.core_config)
-    self._core_mesh = nil
-    self._core_mesh_data = nil
+    self._core_body = rt.SoftBody(rt.PolylineCircle(
+        center_x, center_y, core_radius,
+        n_vertices
+    ))
+    self._core_body:set_anchor(center_x, center_y)
+    self._core_body:set_config(rt.settings.player_body.core_config)
+    self._core_body_mesh = nil
+    self._core_body_mesh_data = nil
 
-    self._bubble_body = rt.SoftBody(rt.PolylineCircle(center_x, center_y, bubble_radius_factor * core_radius, math.ceil(bubble_radius_factor * n_vertices)))
+    self._bubble_body = rt.SoftBody(rt.PolylineCircle(
+        center_x, center_y, bubble_radius_factor * core_radius,
+        n_vertices
+    ))
     self._bubble_body:set_anchor(center_x, center_y)
     self._bubble_body:set_config(rt.settings.player_body.bubble_config)
+    self._bubble_body:set_contraction(self._bubble_contraction_motion:get_value())
     self._bubble_body_mesh = nil
     self._bubble_body_mesh_data = nil
 
@@ -136,20 +151,23 @@ function rt.PlayerBody:relax()
         self._bubble_body:relax()
     end
 
-    if self._core ~= nil then
-        self._core:relax()
+    if self._core_body ~= nil then
+        self._core_body:relax()
     end
 end
 
 function rt.PlayerBody:update(delta)
-    if self._core ~= nil then
-        self._core:clear_forces()
-        self._core:add_linear_force(-self._relative_velocity_x, -self._relative_velocity_y)
-        self._core:set_gravity(self._gravity_x, self._gravity_y)
-        self._core:update(delta)
+    self._bubble_contraction_motion:update(delta)
+
+    if self._core_body ~= nil then
+        self._core_body:clear_forces()
+        self._core_body:add_linear_force(-self._relative_velocity_x, -self._relative_velocity_y)
+        self._core_body:set_gravity(self._gravity_x, self._gravity_y)
+        self._core_body:update(delta)
     end
 
-    if self._bubble_body ~= nil and self._state == rt.PlayerBodyState.BUBBLE then
+    if self._bubble_body ~= nil then
+        self._bubble_body:set_contraction(self._bubble_contraction_motion:get_value())
         self._bubble_body:add_linear_force(-self._relative_velocity_x, -self._relative_velocity_y)
         self._bubble_body:set_gravity(self._gravity_x, self._gravity_y)
         self._bubble_body:update(delta)
@@ -177,12 +195,12 @@ function rt.PlayerBody:set_stencil_bodies(t)
     end
 
     self._bubble_body:set_collision_contours(contours)
-    self._core:set_collision_contours(contours)
+    self._core_body:set_collision_contours(contours)
 end
 
 --- @brief
 function rt.PlayerBody:set_core_stencil_bodies(t)
-    self._core_stencil_bodies = t
+    self._core_body_stencil_bodies = t
 end
 
 --- @brief
@@ -281,10 +299,10 @@ function rt.PlayerBody:draw_core()
 
     self:_apply_transform()
 
-    local contour = self._core:get_draw_contour()
-    self._core_mesh, self._core_mesh_data = _triangulate(
-        self._core_mesh,
-        self._core_mesh_data,
+    local contour = self._core_body:get_draw_contour()
+    self._core_body_mesh, self._core_body_mesh_data = _triangulate(
+        self._core_body_mesh,
+        self._core_body_mesh_data,
         contour
     )
 
@@ -295,12 +313,12 @@ function rt.PlayerBody:draw_core()
     core_shader:send("saturation",  self._saturation)
     core_shader:send("lch_texture", _lch_texture)
     love.graphics.setColor(1, 1, 1, self._opacity)
-    self._core_mesh:draw()
+    self._core_body_mesh:draw()
     core_shader:unbind()
 
     love.graphics.setLineWidth(2)
     love.graphics.setLineJoin("bevel")
-    self._core_color:clone():lighten(0.2):bind()
+    self._core_body_color:clone():lighten(0.2):bind()
     love.graphics.line(contour:get_vertices())
 
     love.graphics.pop()
@@ -311,15 +329,15 @@ function rt.PlayerBody:set_position(x, y)
     meta.typecheck(x, mt.Number, y, mt.Number)
     self._position_x = x
     self._position_y = y
-    self._core:set_anchor(x, y)
+    self._core_body:set_anchor(x, y)
     self._bubble_body:set_anchor(x + self._bubble_body_anchor_x_offset, y + self._bubble_body_anchor_y_offset)
 end
 
 --- @brief
 function rt.PlayerBody:set_color(color)
     meta.typecheck(color, rt.RGBA)
-    self._core_color = color
-    self._hue = select(3, rt.rgba_to_lcha(self._core_color:unpack()))
+    self._core_body_color = color
+    self._hue = select(3, rt.rgba_to_lcha(self._core_body_color:unpack()))
 end
 
 --- @brief
@@ -330,7 +348,7 @@ end
 
 --- @brief
 function rt.PlayerBody:set_core_color(color)
-    self._core_color = color
+    self._core_body_color = color
 end
 
 --- @brief
@@ -344,19 +362,10 @@ function rt.PlayerBody:set_state(state)
     self._state = state
 
     if before ~= rt.PlayerBodyState.BUBBLE and state == rt.PlayerBodyState.BUBBLE then
-        local contour = self._bubble_body:get_contour()
-        local center_x, center_y = contour:get_centroid()
-
-        local data = contour:get_vertices()
-        local radius = rt.settings.player.radius
-        for i = 1, #data, 2 do
-            local current_x, current_y = data[i + 0], data[i + 1]
-            local dx, dy = math.normalize(current_x - center_x, current_y - center_y)
-            data[i + 0] = center_x + dx * radius
-            data[i + 1] = center_y + dy * radius
-        end
-
-        self._bubble_body:set_shape(rt.Polyline(data))
+        self._bubble_contraction_motion:set_value(0)
+        self._bubble_contraction_motion:set_target_value(1)
+    elseif before == rt.PlayerBodyState.BUBBLE and state ~= rt.PlayerBodyState.BUBBLE then
+        self._bubble_contraction_motion:set_target_value(0)
     end
 end
 
@@ -364,9 +373,9 @@ end
 function rt.PlayerBody:draw_bloom()
     love.graphics.push("all")
     self:_apply_transform()
-    self._core_color:bind()
+    self._core_body_color:bind()
     love.graphics.setLineWidth(1)
-    self._core:get_draw_contour():draw()
+    self._core_body:get_draw_contour():draw()
     love.graphics.pop()
 end
 
@@ -438,12 +447,12 @@ end
 
 --- @brief
 function rt.PlayerBody:set_gravity(gravity_x, gravity_y)
-    if self._core ~= nil then
-        self._core:set_gravity(gravity_x, gravity_y)
+    if self._core_body ~= nil then
+        self._core_body:set_gravity(gravity_x, gravity_y)
     end
 
     if self._bubble_body ~= nil then
-        self._core:set_gravity(gravity_x, gravity_y)
+        self._core_body:set_gravity(gravity_x, gravity_y)
     end
 end
 
