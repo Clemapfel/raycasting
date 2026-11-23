@@ -12,9 +12,9 @@ rt.settings.player_body = {
     squish_speed = 2, -- fraction
     squish_magnitude = 0.2, -- fraction
 
-    core_config = {
+    core_non_bubble_config = {
         static_friction = 0,
-        kinetic_friction = 0,
+        kinetic_friction = 0.7,
 
         distance_compliance = 1e-7,
         bending_compliance = 5e-6,
@@ -25,8 +25,26 @@ rt.settings.player_body = {
         enforce_pinch = false
     },
 
+    core_bubble_config = {
+        -- turn off everything except anchor
+        enforce_distance = false,
+        enforce_volume = false,
+        enforce_contour_collision = false,
+        enforce_bending = false,
+        enforce_linear_momentum = false,
+        enforce_pinch = false,
+
+        enforce_anchor = true,
+        enforce_angular_momentum = true
+    },
+
     bubble_config = {
-        
+        damping = 0.975, -- reduce induced rotational momentum
+
+        -- keep as circular as possible
+        bending_compliance = 0,
+        distance_compliance = 0,
+        volume_compliance = 0
     }
 }
 
@@ -52,6 +70,7 @@ end
 local _lch_texture = rt.LCHTexture(256, 64, 256)
 local _squished = 1
 local _not_squished = 0
+local _bubble_eps = 0.01
 
 --- @brief
 function rt.PlayerBody:instantiate(position_x, position_y)
@@ -128,7 +147,7 @@ function rt.PlayerBody:_initialize()
         n_vertices
     ))
     self._core_body:set_anchor(center_x, center_y)
-    self._core_body:set_config(rt.settings.player_body.core_config)
+    self._core_body:set_config(rt.settings.player_body.core_non_bubble_config)
     self._core_body_mesh = nil
     self._core_body_mesh_data = nil
 
@@ -159,18 +178,26 @@ end
 function rt.PlayerBody:update(delta)
     self._bubble_contraction_motion:update(delta)
 
+    local gravity_x, gravity_y
+    if self._state == rt.PlayerBodyState.BUBBLE then
+        gravity_x, gravity_y = 0, 0
+    else
+        gravity_x, gravity_y = self._gravity_x, self._gravity_y
+    end
+
     if self._core_body ~= nil then
-        self._core_body:clear_forces()
-        self._core_body:add_linear_force(-self._relative_velocity_x, -self._relative_velocity_y)
-        self._core_body:set_gravity(self._gravity_x, self._gravity_y)
+        self._core_body:set_gravity(gravity_x, gravity_y)
+
         self._core_body:update(delta)
     end
 
     if self._bubble_body ~= nil then
         self._bubble_body:set_contraction(self._bubble_contraction_motion:get_value())
-        self._bubble_body:add_linear_force(-self._relative_velocity_x, -self._relative_velocity_y)
-        self._bubble_body:set_gravity(self._gravity_x, self._gravity_y)
-        self._bubble_body:update(delta)
+        self._core_body:set_gravity(gravity_x, gravity_y)
+
+        if self._bubble_contraction_motion:get_value() >= _bubble_eps then
+            self._bubble_body:update(delta)
+        end
     end
 
     for motion in range(
@@ -251,8 +278,12 @@ end
 function rt.PlayerBody:draw_body()
     love.graphics.push("all")
     self:_apply_transform()
-    local contour = self._bubble_body:get_draw_contour()
-    contour:draw()
+
+    if self._bubble_contraction_motion:get_value() >= _bubble_eps then
+        local contour = self._bubble_body:get_draw_contour()
+        contour:draw()
+    end
+
     love.graphics.pop()
 end
 
@@ -364,8 +395,11 @@ function rt.PlayerBody:set_state(state)
     if before ~= rt.PlayerBodyState.BUBBLE and state == rt.PlayerBodyState.BUBBLE then
         self._bubble_contraction_motion:set_value(0)
         self._bubble_contraction_motion:set_target_value(1)
+        self._core_body:set_config(rt.settings.player_body.core_bubble_config)
+        self._core_body:relax()
     elseif before == rt.PlayerBodyState.BUBBLE and state ~= rt.PlayerBodyState.BUBBLE then
         self._bubble_contraction_motion:set_target_value(0)
+        self._core_body:set_config(rt.settings.player_body.core_non_bubble_config)
     end
 end
 

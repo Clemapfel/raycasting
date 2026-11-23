@@ -3,9 +3,9 @@ rt.settings.softbody = {
 
     default = {
         damping = 1 - 1e-4,
-        n_sub_steps = 4,
-        n_constraint_iterations = 4,
-        timestep = 1 / 60,
+        n_sub_steps = 2,
+        n_constraint_iterations = 2,
+        timestep = 1 / 120,
 
         static_friction = 0.7,
         kinetic_friction = 0.5,
@@ -25,9 +25,6 @@ rt.settings.softbody = {
         angular_momentum_compliance = 0,
         enforce_angular_momentum = true,
 
-        particle_collision_compliance = 0,
-        enforce_particle_collision = true,
-
         linear_momentum_compliance = 0,
         enforce_linear_momentum = true,
 
@@ -35,7 +32,7 @@ rt.settings.softbody = {
         enforce_anchor = true,
 
         pinch_compliance = 1e-8,
-        enforce_pinch = true
+        enforce_pinch = false
     }
 }
 
@@ -773,6 +770,7 @@ do -- softbody_update
 
         self._elapsed = self._elapsed + delta
         local n_steps = 0
+        local reverse_iteration = self._reverse_iteration or false        local n_steps = 0
 
         while self._elapsed >= timestep and n_steps < max_n_steps do
             self._elapsed = self._elapsed - timestep
@@ -786,6 +784,15 @@ do -- softbody_update
             end
 
             for _ = 1, n_sub_steps do
+                -- flip flop gauss-seidel direction to prevent injection angular momentum
+                reverse_iteration = not reverse_iteration
+                local first_particle_i, last_particle_i, particle_step
+                if reverse_iteration then
+                    first_particle_i, last_particle_i, particle_step = n_particles, 1, -1
+                else
+                    first_particle_i, last_particle_i, particle_step = 1, n_particles, 1
+                end
+
                 for contour_i = 1, n_collision_contours do
                     local lambdas = collision_contours[contour_i].lambdas
                     for particle_i = 1, n_particles do
@@ -848,7 +855,7 @@ do -- softbody_update
                 for _ = 1, n_constraint_iterations do
                     -- distance
                     if enforce_distance then
-                        for particle_i = 1, n_particles do
+                        for particle_i = first_particle_i, last_particle_i, particle_step do
                             local ai = _particle_i_to_data_offset(particle_i)
                             local bi = _particle_i_to_data_offset(particle_i + 1, n_particles)
 
@@ -884,7 +891,7 @@ do -- softbody_update
 
                     -- bending
                     if enforce_bending then
-                        for particle_i = 1, n_particles do
+                        for particle_i = first_particle_i, last_particle_i, particle_step do
                             local ai = _particle_i_to_data_offset(particle_i)
                             local bi = _particle_i_to_data_offset(particle_i + 1, n_particles)
                             local ci = _particle_i_to_data_offset(particle_i + 2, n_particles)
@@ -1138,7 +1145,7 @@ do -- softbody_update
                             local normals_x, normals_y = entry.normals_x, entry.normals_y
                             local keep_outside = entry.contour:get_winding()
 
-                            for particle_i = 1, n_particles do
+                            for particle_i = first_particle_i, last_particle_i, particle_step do
                                 local i = _particle_i_to_data_offset(particle_i)
                                 local correction_x, correction_y, lambda_new, normal_x, normal_y = _enforce_polygon_collision(
                                     data[i + _x_offset], data[i + _y_offset],
@@ -1193,6 +1200,7 @@ do -- softbody_update
             end -- n_sub_steps
         end -- timestep
 
+        self._reverse_iteration = reverse_iteration
         self._elapsed = math.min(self._elapsed, timestep) -- prevent accumulating death spiral
 
         -- update draw contour
@@ -1303,12 +1311,12 @@ function rt.SoftBody:get_centroid()
     return self._centroid_x, self._centroid_y
 end
 
---- qbrief
+--- @brief
 function rt.SoftBody:set_pinch(x, y)
     self._pinch_x, self._pinch_y = x, y
 end
 
---- @brief the body rotates around and is pulled so that the pivot (rest center - offset) sits on the anchor; at rest orientation the center is at (x + offset_x, y + offset_y)
+--- @brief
 function rt.SoftBody:set_anchor(x, y, offset_x, offset_y)
     if offset_x == nil then offset_x = 0 end
     if offset_y == nil then offset_y = 0 end
@@ -1358,7 +1366,6 @@ function rt.SoftBody:set_anchor(x, y, offset_x, offset_y)
         end
         center_x, center_y = center_x / mass_sum, center_y / mass_sum
 
-        -- S = sum m q q^T (2x2 symmetric).
         local sxx, sxy, syy = 0, 0, 0
         for particle_i = 1, n_particles do
             local i = _particle_i_to_data_offset(particle_i)
@@ -1370,11 +1377,9 @@ function rt.SoftBody:set_anchor(x, y, offset_x, offset_y)
             syy = syy + mass * qy * qy
         end
 
-        -- Solve S^-1 r, where r is the rest-center-to-pivot vector.
         local rx, ry = -offset_x, -offset_y
         local determinant = sxx * syy - sxy * sxy
         if math.abs(determinant) < math.eps then
-            -- Degenerate shape: use the center-of-mass weights.
             for particle_i = 1, n_particles do
                 local i = _particle_i_to_data_offset(particle_i)
                 data[i + _anchor_weight_offset] = data[i + _mass_offset] / mass_sum
@@ -1651,6 +1656,5 @@ end
 function rt.SoftBody:set_contraction(factor)
     meta.typecheck(self, rt.SoftBody, factor, mt.Number)
     self._contraction = math.max(factor, 0.001)
-    dbg(self._contraction)
     return self
 end
