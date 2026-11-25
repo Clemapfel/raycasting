@@ -929,7 +929,12 @@ function rt.Polyline:cast_ray(x, y, dx, dy)
 end
 
 function rt.Polyline:triangulate()
-    return rt.math.triangulate(self:get_vertices())
+    if self._triangulator == nil then
+        self._triangulator = rt.DelaunayTriangulation()
+    end
+
+    self._triangulator:triangulate(self:get_vertices())
+    return self._triangulator:get_triangles()
 end
 
 --[[

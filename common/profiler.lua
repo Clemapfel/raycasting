@@ -3,8 +3,7 @@ rt.settings.profiler = {
     reference_duration = 1 / 60,
     out_folder = "profile",
     whitelist = {
-        "update",
-        "_update_camera"
+        "triangulate"
     }
 }
 

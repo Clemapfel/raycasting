@@ -8,7 +8,7 @@ rt.settings.softbody = {
         timestep = 1 / 120,
 
         static_friction = 0.7,
-        kinetic_friction = 0.5,
+        kinetic_friction = 0.9,
 
         distance_compliance = 1e-6,
         enforce_distance = true,
@@ -133,6 +133,7 @@ function rt.SoftBody:instantiate(contour)
 
     self._initial_contour = contour
     self._contraction = 1
+    self._use_collision = true
 
     local eps_squared = math.eps * math.eps
 
@@ -399,7 +400,7 @@ do -- softbody_update
     -- Each constraint kernel reads one particle (and, where required, its
     -- neighbourhood) and returns that particle's correction. The update loop
     -- owns all writes and shared-lambda updates.
-    local function _enforce_polygon_collision(
+    rt.SoftBody._enforce_polygon_collision = function(
         position_x, position_y, inverse_mass,
         radius,
         edges, n_edges,
@@ -486,7 +487,7 @@ do -- softbody_update
         return correction_x, correction_y, lambda_new, normal_x, normal_y
     end
 
-    local function _enforce_exact_distance(
+    rt.SoftBody._enforce_exact_distance = function(
         position_x, position_y, neighbor_x, neighbor_y,
         inverse_mass, neighbor_inverse_mass,
         target_distance,
@@ -514,7 +515,63 @@ do -- softbody_update
         return dx * scale, dy * scale, lambda_new
     end
 
-    local function _enforce_bending(
+    -- Constrain the orientation of a segment relative to a rest direction.
+    -- This removes the free rotational degree of freedom at a pinned chain root.
+    -- The scalar constraint is the signed angle between the current segment and
+    -- the rest direction; its gradient is the derivative of atan2(y, x).
+    rt.SoftBody._enforce_relative_angle = function(
+        ax, ay, bx, by,
+        inverse_mass_a, inverse_mass_b,
+        rest_direction_x, rest_direction_y,
+        alpha, lambda_before
+    )
+        local dx, dy = bx - ax, by - ay
+        local length_squared = dx * dx + dy * dy
+        if length_squared < eps * eps then
+            return 0, 0, 0, 0, lambda_before
+        end
+
+        local cross_value = rest_direction_x * dy - rest_direction_y * dx
+        local dot_value = rest_direction_x * dx + rest_direction_y * dy
+
+        -- Portable atan2: LuaJIT exposes math.atan2 while newer Lua versions
+        -- accept two arguments to math.atan, so use the one-argument form.
+        local angle
+        if dot_value > 0 then
+            angle = math.atan(cross_value / dot_value)
+        elseif dot_value < 0 then
+            angle = math.atan(cross_value / dot_value)
+                + (cross_value >= 0 and math.pi or -math.pi)
+        elseif cross_value > 0 then
+            angle = math.pi * 0.5
+        elseif cross_value < 0 then
+            angle = -math.pi * 0.5
+        else
+            angle = 0
+        end
+
+        local inverse_length_squared = 1 / length_squared
+        local gradient_x = -dy * inverse_length_squared
+        local gradient_y = dx * inverse_length_squared
+        local gradient_norm_squared = inverse_length_squared
+        local denominator = (inverse_mass_a + inverse_mass_b) * gradient_norm_squared + alpha
+        if denominator < eps then
+            return 0, 0, 0, 0, lambda_before
+        end
+
+        local delta_lambda = -(angle + alpha * lambda_before) / denominator
+        local correction_ax = -inverse_mass_a * delta_lambda * gradient_x
+        local correction_ay = -inverse_mass_a * delta_lambda * gradient_y
+        local correction_bx = inverse_mass_b * delta_lambda * gradient_x
+        local correction_by = inverse_mass_b * delta_lambda * gradient_y
+
+        return
+        correction_ax, correction_ay,
+        correction_bx, correction_by,
+        lambda_before + delta_lambda
+    end
+
+    rt.SoftBody._enforce_bending = function(
         ax, ay, bx, by, cx, cy,
         inverse_mass_a, inverse_mass_b, inverse_mass_c,
         rest, alpha, lambda_before
@@ -557,12 +614,12 @@ do -- softbody_update
         lambda_before + delta_lambda
     end
 
-    local function _enforce_volume(inverse_mass, gradient_x, gradient_y, delta_lambda)
+    rt.SoftBody._enforce_volume = function(inverse_mass, gradient_x, gradient_y, delta_lambda)
         return inverse_mass * delta_lambda * gradient_x,
         inverse_mass * delta_lambda * gradient_y
     end
 
-    local function _enforce_angular_momentum(
+    rt.SoftBody._enforce_angular_momentum = function(
         mass, inverse_mass,
         previous_x, previous_y,
         center_x, center_y,
@@ -578,7 +635,7 @@ do -- softbody_update
         inverse_mass * delta_lambda * (mass * rx)
     end
 
-    local function _enforce_linear_momentum(
+    rt.SoftBody._enforce_linear_momentum = function(
         mass, inverse_mass,
         delta_lambda_x, delta_lambda_y
     )
@@ -590,7 +647,7 @@ do -- softbody_update
         inverse_mass * mass * delta_lambda_y
     end
 
-    local function _enforce_friction(
+    rt.SoftBody._enforce_friction = function(
         position_x, position_y,
         previous_x, previous_y,
         normal_x, normal_y,
@@ -625,7 +682,7 @@ do -- softbody_update
         return -tangent_x * scale, -tangent_y * scale
     end
 
-    local function _enforce_pinch(
+    rt.SoftBody._enforce_pinch = function(
         position_x, position_y, inverse_mass,
         anchor_x, anchor_y,
         alpha,
@@ -651,7 +708,7 @@ do -- softbody_update
         lambda_y_before + delta_lambda_y
     end
 
-    local function _enforce_anchor(inverse_mass, weight, delta_lambda_x, delta_lambda_y)
+    rt.SoftBody._enforce_anchor = function(inverse_mass, weight, delta_lambda_x, delta_lambda_y)
         if inverse_mass <= 0 then
             return 0, 0
         end
@@ -659,6 +716,17 @@ do -- softbody_update
         return inverse_mass * weight * delta_lambda_x,
         inverse_mass * weight * delta_lambda_y
     end
+
+    -- Public solver kernels shared by SoftBody and HairBody.
+    local _enforce_polygon_collision = rt.SoftBody._enforce_polygon_collision
+    local _enforce_exact_distance = rt.SoftBody._enforce_exact_distance
+    local _enforce_bending = rt.SoftBody._enforce_bending
+    local _enforce_volume = rt.SoftBody._enforce_volume
+    local _enforce_angular_momentum = rt.SoftBody._enforce_angular_momentum
+    local _enforce_linear_momentum = rt.SoftBody._enforce_linear_momentum
+    local _enforce_friction = rt.SoftBody._enforce_friction
+    local _enforce_pinch = rt.SoftBody._enforce_pinch
+    local _enforce_anchor = rt.SoftBody._enforce_anchor
 
     function rt.SoftBody:update(delta)
         meta.typecheck(self, rt.SoftBody, delta, mt.Number)
@@ -710,6 +778,7 @@ do -- softbody_update
         local enforce_pinch = get_setting("enforce_pinch")
         local enforce_anchor = get_setting("enforce_anchor")
 
+        enforce_contour_collision = enforce_contour_collision and (self._use_collision ~= false)
         enforce_friction = enforce_friction and (static_friction > 0 or kinetic_friction > 0)
 
         local target_area = self._volume * self._volume_multiplier * contraction * contraction
@@ -725,7 +794,7 @@ do -- softbody_update
         local anchor_particle_i = self._anchor_particle_i
         enforce_anchor = enforce_anchor and anchor_x ~= nil and anchor_y ~= nil and anchor_particle_i ~= nil
 
-        local pinch_x, pinch_y = self._pinch_x, self._pinch_lambda_y
+        local pinch_x, pinch_y = self._pinch_x, self._pinch_y
         enforce_pinch = enforce_pinch and (pinch_x ~= nil and pinch_y ~= nil)
 
         local gravity_x = self._gravity_x
@@ -770,7 +839,7 @@ do -- softbody_update
 
         self._elapsed = self._elapsed + delta
         local n_steps = 0
-        local reverse_iteration = self._reverse_iteration or false        local n_steps = 0
+        local reverse_iteration = self._reverse_iteration or false
 
         while self._elapsed >= timestep and n_steps < max_n_steps do
             self._elapsed = self._elapsed - timestep
@@ -1657,4 +1726,9 @@ function rt.SoftBody:set_contraction(factor)
     meta.typecheck(self, rt.SoftBody, factor, mt.Number)
     self._contraction = math.max(factor, 0.001)
     return self
+end
+
+--- @brief
+function rt.SoftBody:set_use_collision(b)
+    self._use_collision = b
 end

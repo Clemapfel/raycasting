@@ -1,6 +1,7 @@
 require "common.smoothed_motion_1d"
 require "common.polyline"
 require "common.softbody"
+require "common.hairbody"
 require "common.lch_texture"
 require "common.player_body_core_type"
 
@@ -12,20 +13,26 @@ rt.settings.player_body = {
     squish_speed = 2, -- fraction
     squish_magnitude = 0.2, -- fraction
 
+    core_radius_offset = -2,
+    hair_body_radius_offset = 3,
+
     core_non_bubble_config = {
-        static_friction = 0,
-        kinetic_friction = 0.7,
+        timestep = 1 / 120,
+        static_friction = 0.0,
+        kinetic_friction = 0.0,
 
-        distance_compliance = 1e-7,
-        bending_compliance = 5e-6,
+        damping = 0.98,
+        distance_compliance = 0,
+        bending_compliance = 0,
+        volume_compliance = 0,
         anchor_compliance = 0,
-
-        enforce_angular_momentum = false,
-        enforce_linear_momentum = false,
-        enforce_pinch = false
+        angular_momentum_compliance = 0
     },
 
     core_bubble_config = {
+        static_friction = 0.0,
+        kinetic_friction = 0.0,
+
         -- turn off everything except anchor
         enforce_distance = false,
         enforce_volume = false,
@@ -39,12 +46,17 @@ rt.settings.player_body = {
     },
 
     bubble_config = {
+        static_friction = 1.2,
+        kinetic_friction = 0.9,
         damping = 0.975, -- reduce induced rotational momentum
 
-        -- keep as circular as possible
         bending_compliance = 0,
         distance_compliance = 0,
         volume_compliance = 0
+    },
+
+    hair_config = {
+
     }
 }
 
@@ -91,10 +103,14 @@ function rt.PlayerBody:instantiate(position_x, position_y)
     self._gravity_x = 0
     self._gravity_y = 200
 
+    self._is_disabled = false
+
     self._bubble_body = nil -- rt.SoftBody
     self._core_body = nil -- rt.SoftBody
+    self._hair_body = nil -- rt.HairBody
 
-    self._bubble_contraction_motion = rt.SmoothedMotion1D(1)
+    self._bubble_contraction_motion = rt.SmoothedMotion1D(0)
+    self._hair_contraction_motion = rt.SmoothedMotion1D(0)
 
     local squish_speed = rt.settings.player_body.squish_speed
 
@@ -128,9 +144,10 @@ function rt.PlayerBody:instantiate(position_x, position_y)
 
     self._bubble_body_stencil_bodies = {}
     self._core_body_stencil_bodies = {}
-
-    self._state = rt.PlayerBodyState.NON_BUBBLE
     self:_initialize()
+
+    self._state = rt.PlayerBodyState.BUBBLE
+    self:set_state(rt.PlayerBodyState.NON_BUBBLE) -- force update
 end
 
 local box_r = 200
@@ -140,11 +157,11 @@ function rt.PlayerBody:_initialize()
     local center_x, center_y = self._position_x, self._position_y
     local core_radius = rt.settings.player.radius
     local bubble_radius_factor = rt.settings.player.bubble_radius_factor
-    local n_vertices = rt.settings.player.n_outer_bodies
 
+    local core_body_radius = core_radius + rt.settings.player_body.core_radius_offset
     self._core_body = rt.SoftBody(rt.PolylineCircle(
-        center_x, center_y, core_radius,
-        n_vertices
+        center_x, center_y, core_body_radius,
+        18
     ))
     self._core_body:set_anchor(center_x, center_y)
     self._core_body:set_config(rt.settings.player_body.core_non_bubble_config)
@@ -152,8 +169,8 @@ function rt.PlayerBody:_initialize()
     self._core_body_mesh_data = nil
 
     self._bubble_body = rt.SoftBody(rt.PolylineCircle(
-        center_x, center_y, bubble_radius_factor * core_radius,
-        n_vertices
+        center_x, center_y, bubble_radius_factor * core_body_radius,
+        23
     ))
     self._bubble_body:set_anchor(center_x, center_y)
     self._bubble_body:set_config(rt.settings.player_body.bubble_config)
@@ -161,22 +178,29 @@ function rt.PlayerBody:_initialize()
     self._bubble_body_mesh = nil
     self._bubble_body_mesh_data = nil
 
+    self._hair_body = rt.HairBody(
+        0, 0,
+        rt.settings.player.radius + rt.settings.player_body.hair_body_radius_offset,
+        12
+    )
+
+    self._hair_body:set_anchor(center_x, center_y)
+    self._hair_body:set_contraction(self._hair_contraction_motion:get_value())
+    self._hair_body:set_config(rt.settings.player_body.hair_config)
+
     self._bubble_body_anchor_x_offset, self._bubble_body_anchor_y_offset = 0, 0
 end
 
 --- @brief
 function rt.PlayerBody:relax()
-    if self._bubble_body ~= nil then
-        self._bubble_body:relax()
-    end
-
-    if self._core_body ~= nil then
-        self._core_body:relax()
-    end
+    self._bubble_body:relax()
+    self._core_body:relax()
+    self._hair_body:relax()
 end
 
 function rt.PlayerBody:update(delta)
     self._bubble_contraction_motion:update(delta)
+    self._hair_contraction_motion:update(delta)
 
     local gravity_x, gravity_y
     if self._state == rt.PlayerBodyState.BUBBLE then
@@ -185,19 +209,23 @@ function rt.PlayerBody:update(delta)
         gravity_x, gravity_y = self._gravity_x, self._gravity_y
     end
 
-    if self._core_body ~= nil then
-        self._core_body:set_gravity(gravity_x, gravity_y)
-
-        self._core_body:update(delta)
+    for body in range(self._core_body, self._hair_body, self._bubble_body) do
+        body:set_gravity(gravity_x, gravity_y)
+        body:set_use_collision(not self:get_is_disabled())
     end
 
-    if self._bubble_body ~= nil then
-        self._bubble_body:set_contraction(self._bubble_contraction_motion:get_value())
-        self._core_body:set_gravity(gravity_x, gravity_y)
+    self._core_body:update(delta)
+    self._hair_body:update(delta)
+    self._bubble_body:update(delta)
 
-        if self._bubble_contraction_motion:get_value() >= _bubble_eps then
-            self._bubble_body:update(delta)
-        end
+    do
+        local contraction = self._bubble_contraction_motion:get_value()
+        self._bubble_body:set_contraction(contraction)
+    end
+
+    do
+        local contraction = self._hair_contraction_motion:get_value()
+        self._hair_body:set_contraction(contraction)
     end
 
     for motion in range(
@@ -212,7 +240,6 @@ end
 
 --- @brief
 function rt.PlayerBody:set_stencil_bodies(t)
-
     self._bubble_body_stencil_bodies = t
     local contours = {}
     for body in values(t) do
@@ -223,6 +250,7 @@ function rt.PlayerBody:set_stencil_bodies(t)
 
     self._bubble_body:set_collision_contours(contours)
     self._core_body:set_collision_contours(contours)
+    self._hair_body:set_collision_contours(contours)
 end
 
 --- @brief
@@ -274,18 +302,6 @@ function rt.PlayerBody:_apply_transform()
     love.graphics.setLineWidth(3)
 end
 
---- @brief
-function rt.PlayerBody:draw_body()
-    love.graphics.push("all")
-    self:_apply_transform()
-
-    if self._bubble_contraction_motion:get_value() >= _bubble_eps then
-        local contour = self._bubble_body:get_draw_contour()
-        contour:draw()
-    end
-
-    love.graphics.pop()
-end
 
 local _triangulate = function(mesh, mesh_data, contour)
     if mesh_data == nil then mesh_data = {} end
@@ -324,9 +340,59 @@ local _triangulate = function(mesh, mesh_data, contour)
     return mesh, mesh_data
 end
 
+
+--- @brief
+function rt.PlayerBody:draw_body()
+    love.graphics.push("all")
+    self:_apply_transform()
+
+    love.graphics.setLineWidth(2)
+    love.graphics.setLineJoin("bevel")
+
+    --self._hair_body:_debug_draw()
+
+    if self._hair_contraction_motion:get_value() >= _bubble_eps then
+        local contour = self._hair_body:get_draw_contour()
+        self._hair_body_mesh, self._hair_body_mesh_data = _triangulate(
+            self._hair_body_mesh,
+            self._hair_body_mesh_data,
+            contour
+        )
+
+        rt.Palette.TRUE_MAGENTA:bind()
+        self._hair_body_mesh:draw()
+
+        if self._state ~= rt.PlayerBodyState.BUBBLE then
+            self._core_body_color:bind()
+            contour:draw()
+        end
+    end
+
+
+    -- bubble on top of hair
+    if true then --self._bubble_contraction_motion:get_value() >= _bubble_eps then
+        local contour = self._bubble_body:get_draw_contour()
+        self._bubble_body_mesh, self._bubble_body_mesh_data = _triangulate(
+            self._bubble_body_mesh,
+            self._bubble_body_mesh_data,
+            contour
+        )
+
+        rt.Palette.BLACK:bind()
+        self._bubble_body_mesh:draw()
+        self._core_body_color:bind()
+        contour:draw()
+    end
+
+    love.graphics.pop()
+end
+
 --- @brief
 function rt.PlayerBody:draw_core()
     love.graphics.push("all")
+
+    love.graphics.setLineWidth(2)
+    love.graphics.setLineJoin("bevel")
 
     self:_apply_transform()
 
@@ -362,6 +428,7 @@ function rt.PlayerBody:set_position(x, y)
     self._position_y = y
     self._core_body:set_anchor(x, y)
     self._bubble_body:set_anchor(x + self._bubble_body_anchor_x_offset, y + self._bubble_body_anchor_y_offset)
+    self._hair_body:set_anchor(x, y)
 end
 
 --- @brief
@@ -395,11 +462,15 @@ function rt.PlayerBody:set_state(state)
     if before ~= rt.PlayerBodyState.BUBBLE and state == rt.PlayerBodyState.BUBBLE then
         self._bubble_contraction_motion:set_value(0)
         self._bubble_contraction_motion:set_target_value(1)
+        self._hair_contraction_motion:set_target_value(0)
         self._core_body:set_config(rt.settings.player_body.core_bubble_config)
         self._core_body:relax()
     elseif before == rt.PlayerBodyState.BUBBLE and state ~= rt.PlayerBodyState.BUBBLE then
         self._bubble_contraction_motion:set_target_value(0)
+        self._hair_contraction_motion:set_value(0)
+        self._hair_contraction_motion:set_target_value(1)
         self._core_body:set_config(rt.settings.player_body.core_non_bubble_config)
+        self._core_body:relax()
     end
 end
 
@@ -481,12 +552,8 @@ end
 
 --- @brief
 function rt.PlayerBody:set_gravity(gravity_x, gravity_y)
-    if self._core_body ~= nil then
-        self._core_body:set_gravity(gravity_x, gravity_y)
-    end
-
-    if self._bubble_body ~= nil then
-        self._core_body:set_gravity(gravity_x, gravity_y)
+    for body in range(self._core_body, self._bubble_body, self._hair_body) do
+        body:set_gravity(gravity_x, gravity_y)
     end
 end
 
@@ -503,6 +570,16 @@ end
 --- @brief
 function rt.PlayerBody:set_contraction(t)
     self._contraction = t
+end
+
+--- @brief
+function rt.PlayerBody:set_is_disabled(b)
+    self._is_disabled = b
+end
+
+--- @brief
+function rt.PlayerBody:get_is_disabled()
+    return self._is_disabled
 end
 
 do

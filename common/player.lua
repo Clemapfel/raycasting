@@ -2952,6 +2952,7 @@ function rt.Player:reset()
 
     local is_bubble = self:get_is_bubble()
     self._graphics_body:set_state(is_bubble and rt.PlayerBodyState.BUBBLE or rt.PlayerBodyState.NON_BUBBLE)
+    self._graphics_body:set_is_disabled(self:get_is_disabled())
     self._graphics_body:relax()
     self._graphics_body:set_position(self:get_position())
 

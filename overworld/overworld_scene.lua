@@ -1123,8 +1123,6 @@ function ow.OverworldScene:_update_camera(delta)
     self._camera_override_position_motion:update(delta)
     self._camera_override_scale_motion:update(delta)
 
-    dbg(self._camera._allow_override_requests:get_count())
-
     local rx, ry = self._player:get_position()
     if self._camera_override_active then
         local cx, cy = self._camera_override_position_motion:get_position()
