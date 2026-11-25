@@ -4,22 +4,46 @@ require "common.meta"
 --- @see https://github.com/mapbox/delaunator
 rt.DelaunayTriangulation = meta.class("DelaunayTriangulation")
 
+local EPSILON = 1 / 1000
+local EDGE_BUFFER_SIZE = 512
+
+-- Keep a complete, internally consistent mesh even when the input cannot be
+-- triangulated. The three vertices intentionally share the origin.
+local function _set_degenerate_state(self)
+    self._coords = { 0, 0, 0, 0, 0, 0 }
+    self._constraints = { 0, 0, 0, 0, 0, 0 }
+    self._triangles = { 1, 2, 3 }
+    self._hull = { 1, 2, 3 }
+    self._half_edges = { -1, -1, -1 }
+    self._edge_buffer = {}
+
+    for i = 1, EDGE_BUFFER_SIZE do
+        self._edge_buffer[i] = 0
+    end
+
+    self._current_n_points = 3
+    self._n_triangles = 3
+    self._hashSize = 2
+    self._hull_previous = { 3, 1, 2 }
+    self._hull_next = { 2, 3, 1 }
+    self._hull_tri = { 1, 2, 3 }
+    self._hull_hash = { -1, -1 }
+    self._ids = { 1, 2, 3 }
+    self._distances = { 0, 0, 0 }
+    self._hull_start = 1
+    self._center_x = 0
+    self._center_y = 0
+end
+
 --- @brief
 function rt.DelaunayTriangulation:instantiate(points, contour)
     if contour == nil then contour = points end
 
-    self._triangles = {}
-    self._hull = {}
-    self._half_edges = {}
-    self._current_n_points = -1
-
+    _set_degenerate_state(self)
     if points ~= nil then
         self:triangulate(points, contour)
     end
 end
-
-local EPSILON = 1 / 1000
-local EDGE_BUFFER_SIZE = 512
 
 local function _swap(arr, i, j)
     local tmp = arr[i]
@@ -125,7 +149,10 @@ local function _distance(ax, ay, bx, by)
 end
 
 local function _angle(dx, dy)
-    local p = dx / (math.abs(dx) + math.abs(dy))
+    local magnitude = math.abs(dx) + math.abs(dy)
+    if magnitude == 0 then return 0 end
+
+    local p = dx / magnitude
     if dy < 0 then
         return (3 - p) / 4
     else
@@ -135,6 +162,56 @@ end
 
 local function _get_signed_area(ax, ay, bx, by, cx, cy)
     return -1 * ((bx - ax) * (cy - ay) - (by - ay) * (cx - ax))
+end
+
+local function _is_finite_number(value)
+    return value == value and value ~= math.huge and value ~= -math.huge
+end
+
+-- Check the point cloud rather than relying on a particular vertex order.
+local function _has_nonzero_area(coords)
+    if coords == nil or #coords < 6 or #coords % 2 ~= 0 then return false end
+
+    local n = math.floor(#coords / 2)
+    for i = 1, #coords do
+        if not _is_finite_number(coords[i]) then return false end
+    end
+
+    local ax, ay = coords[1], coords[2]
+    local bx, by
+    for i = 2, n do
+        local x, y = coords[2 * i - 1], coords[2 * i]
+        if x ~= ax or y ~= ay then
+            bx, by = x, y
+            break
+        end
+    end
+    if bx == nil then return false end
+
+    for i = 2, n do
+        local cx, cy = coords[2 * i - 1], coords[2 * i]
+        local cross = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax)
+        if cross ~= 0 then return true end
+    end
+
+    return false
+end
+
+-- A contour is an ordered polygon, so also reject zero signed-area contours.
+local function _has_nonzero_contour_area(contour)
+    if contour == nil or #contour < 6 or #contour % 2 ~= 0 then return false end
+
+    local n = math.floor(#contour / 2)
+    local twice_area = 0
+    for i = 1, n do
+        local j = (i % n) + 1
+        local x1, y1 = contour[2 * i - 1], contour[2 * i]
+        local x2, y2 = contour[2 * j - 1], contour[2 * j]
+        if not _is_finite_number(x1) or not _is_finite_number(y1) then return false end
+        twice_area = twice_area + x1 * y2 - x2 * y1
+    end
+
+    return _is_finite_number(twice_area) and twice_area ~= 0
 end
 
 if table.new == nil then require("table.new") end
@@ -182,8 +259,15 @@ end
 function rt.DelaunayTriangulation:triangulate(points, contour)
     if meta.isa(contour, rt.Polyline) then contour = contour:get_vertices() end
     if meta.isa(points, rt.Polyline) then points = {} end
+    if points == nil then points = {} end
 
     meta.typecheck(points, mt.Table(mt.Number), contour, mt.Optional(mt.Table(mt.Number)))
+
+    -- Degenerate inputs always produce the same safe, non-empty mesh.
+    if not _has_nonzero_area(points) or (contour ~= nil and not _has_nonzero_contour_area(contour)) then
+        _set_degenerate_state(self)
+        return self
+    end
 
     self._constraints = contour or {}
 
@@ -210,6 +294,13 @@ function rt.DelaunayTriangulation:triangulate(points, contour)
     end
 
     self:update()
+
+    -- update() can also encounter an unusable point set when called directly;
+    -- do not let contour filtering operate on an empty hull or mesh.
+    if #self._triangles == 0 or #self._hull < 3 then
+        _set_degenerate_state(self)
+        return self
+    end
 
     if not contour then return self end
 
@@ -258,11 +349,18 @@ function rt.DelaunayTriangulation:triangulate(points, contour)
     end
 
     self._triangles = _trim(constrained, constrained_i)
+    if #self._triangles == 0 then
+        _set_degenerate_state(self)
+    end
     return self
 end
 
 --- @brief
 function rt.DelaunayTriangulation:get_triangle_vertex_map()
+    if self._triangles == nil or #self._triangles == 0 then
+        _set_degenerate_state(self)
+    end
+
     local indices = {}
     local tris = self._triangles
     for i = 1, _sizeof(tris), 3 do
@@ -276,6 +374,10 @@ end
 
 --- @brief
 function rt.DelaunayTriangulation:get_triangles()
+    if self._triangles == nil or #self._triangles == 0 or self._coords == nil then
+        _set_degenerate_state(self)
+    end
+
     local triangles = {}
     local coords = self._coords
     local tris = self._triangles
@@ -296,6 +398,10 @@ end
 
 --- @brief
 function rt.DelaunayTriangulation:get_hull()
+    if self._hull == nil or #self._hull == 0 or self._coords == nil then
+        _set_degenerate_state(self)
+    end
+
     local hull = {}
     local coords = self._coords
     for i = 1, _sizeof(self._hull) do
@@ -410,7 +516,10 @@ function rt.DelaunayTriangulation:_legalize(a)
 end
 
 function rt.DelaunayTriangulation:update()
-    if #self._coords == 0 then return end
+    if not _has_nonzero_area(self._coords) then
+        _set_degenerate_state(self)
+        return
+    end
 
     local coords = self._coords
     local hull_previous = self._hull_previous
@@ -513,8 +622,7 @@ function rt.DelaunayTriangulation:update()
         end
 
         self._hull = _trim(hull, j)
-        self._triangles = _new_array(0)
-        self._half_edges = _new_array(0)
+        _set_degenerate_state(self)
         return
     end
 
