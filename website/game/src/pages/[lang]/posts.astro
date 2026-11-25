@@ -1,39 +1,277 @@
+
 ---
-import { getCollection, getEntry, render } from "astro:content";
-import Layout from "../../layouts/layout.astro"
+import { getCollection } from "astro:content";
+import ContentLayout from "../../layouts/content_layout.astro";
 import { Locale, Translation } from "../../i18n/translation.ts";
-import ShaderCanvas from "../../components/shader_canvas.astro";
-import HeaderBar from "../../components/header_bar.astro";
+import NoisyFrame from "../../components/noisy_frame.astro";
+import PostThumbnail from "../../components/post_thumbnail.astro";
+import BoxLayout from "../../components/box_layout.astro";
 
 export async function getStaticPaths() {
-    const posts = await getCollection("posts");
-    return Object.values(Locale).flatMap((lang) =>
-        posts.map((post) => ({
-            params: { lang: lang, slug: post.id },
-            props: { post },
-        }))
-    );
+    return Object.values(Locale).map((lang) => ({
+        params: { lang: lang },
+    }));
 }
-
-const { post } = Astro.props;
-const { Content } = await render(post);
 
 const locale = Astro.currentLocale ?? Locale.ENGLISH;
 
+const labels = {
+    prefix: Translation.posts.sort_by[locale],
+    newest: Translation.posts.newest[locale],
+    oldest: Translation.posts.oldest[locale],
+    alphabetical: Translation.posts.alphabetical[locale],
+};
+
+const posts = (await getCollection("posts")).sort(
+    (a, b) => b.data.date.valueOf() - a.data.date.valueOf()
+);
 ---
 
 <style>
-    .header-bar-wrapper {
-        --header-margin: 20px;
-        width: calc(100% + var(--header-overflow));
-        margin-top: var(--header-margin);
-        margin-bottom: var(--header-margin);
+    .posts-area {
+        position: relative;
+        width: 100%;
+    }
+
+    .sort-bar {
+        position: absolute;
+        top: 0;
+        left: 0;
+        transform: translateX(calc(-100% - 10px));
+        z-index: 2;
+        padding: 0;
+    }
+
+    .sort-button,
+    .sort-button .label {
+        opacity: 1 !important;
+    }
+
+    .sort-button {
+        position: relative;
+        display: block;
+        padding: 10px 18px;
+        border: none;
+        background: transparent;
+        color: inherit;
+        font: inherit;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: none !important;
+    }
+
+    .sort-button .label {
+        position: relative;
+        z-index: 1;
+        font-family: monospace;
+        color: var(--default-color-foreground);
+    }
+
+    .posts {
+        --masonry-row: 1px;
+        --masonry-gap: 40px;
+
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-auto-rows: var(--masonry-row);
+        grid-auto-flow: row;
+
+        column-gap: var(--masonry-gap);
+        row-gap: 0;
+
+        width: 100%;
+        box-sizing: border-box;
+        padding: 0;
+    }
+
+    .post-tile {
+        min-width: 0;
+        align-self: start;
+        grid-row-end: span 1;
+    }
+
+    .tile-content {
+        padding: 20px;
+    }
+
+    .post-tile:hover {
+        --noisy-frame-canvas-filter: brightness(1.5);
+    }
+
+    @media (max-width: 900px) {
+        .posts {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+
+    @media (max-width: 600px) {
+        .posts {
+            grid-template-columns: minmax(0, 1fr);
+        }
     }
 </style>
 
-<Layout>
-    <ShaderCanvas id="none" />
-    <div class="header-bar-wrapper">
-        <HeaderBar items={["home"]} />
+<ContentLayout shader="none">
+    <div class="posts-area">
+        <div class="sort-bar">
+            <BoxLayout orientation="horizontal">
+                <button
+                        type="button"
+                        class="sort-button"
+                        id="sort-button"
+                        data-order="newest"
+                        data-locale={locale}
+                        data-prefix={labels.prefix}
+                        data-newest={labels.newest}
+                        data-oldest={labels.oldest}
+                        data-alphabetical={labels.alphabetical}
+                >
+                    <span class="box-layout-item-hover"></span>
+                    <span class="label" id="sort-label">
+                        {labels.prefix} {labels.newest}
+                    </span>
+                </button>
+            </BoxLayout>
+        </div>
+
+        <div class="posts-wrapper">
+            <div
+                    class="posts"
+                    id="posts"
+                    role="list"
+                    aria-label="Posts"
+            >
+                {posts.map((post) => (
+                        <div
+                                class="post-tile"
+                                role="listitem"
+                                data-date={post.data.date.valueOf()}
+                                data-title={post.data.title}
+                        >
+                            <NoisyFrame>
+                                <div class="tile-content">
+                                    <PostThumbnail post={post} />
+                                </div>
+                            </NoisyFrame>
+                        </div>
+                ))}
+            </div>
+        </div>
     </div>
-</Layout>
+</ContentLayout>
+
+<script>
+    const button = document.getElementById(
+        "sort-button"
+    ) as HTMLButtonElement | null;
+
+    const label = document.getElementById("sort-label");
+    const container = document.getElementById("posts");
+
+    if (button && label && container) {
+        const orders = [
+            "newest",
+            "oldest",
+            "alphabetical",
+        ] as const;
+
+        type Order = (typeof orders)[number];
+
+        const collator = new Intl.Collator(
+            button.dataset.locale ?? undefined
+        );
+
+        const comparators: Record<
+            Order,
+            (a: HTMLElement, b: HTMLElement) => number
+        > = {
+            newest: (a, b) =>
+                Number(b.dataset.date) - Number(a.dataset.date),
+
+            oldest: (a, b) =>
+                Number(a.dataset.date) - Number(b.dataset.date),
+
+            alphabetical: (a, b) =>
+                collator.compare(
+                    a.dataset.title ?? "",
+                    b.dataset.title ?? ""
+                ),
+        };
+
+        const tiles = Array.from(
+            container.querySelectorAll<HTMLElement>(".post-tile")
+        );
+
+        let layoutFrame = 0;
+
+        const updateMasonryLayout = () => {
+            const styles = getComputedStyle(container);
+
+            const rowSize =
+                Number.parseFloat(
+                    styles.getPropertyValue("--masonry-row")
+                ) || 1;
+
+            const gap =
+                Number.parseFloat(
+                    styles.getPropertyValue("--masonry-gap")
+                ) || 40;
+
+            tiles.forEach((tile) => {
+                const height = tile.getBoundingClientRect().height;
+
+                const rowSpan = Math.max(
+                    1,
+                    Math.ceil((height + gap) / rowSize)
+                );
+
+                tile.style.gridRowEnd = `span ${rowSpan}`;
+            });
+        };
+
+        const scheduleLayoutUpdate = () => {
+            if (layoutFrame) {
+                cancelAnimationFrame(layoutFrame);
+            }
+
+            layoutFrame = requestAnimationFrame(() => {
+                layoutFrame = 0;
+                updateMasonryLayout();
+            });
+        };
+
+        const resizeObserver = new ResizeObserver(
+            scheduleLayoutUpdate
+        );
+
+        tiles.forEach((tile) => {
+            resizeObserver.observe(tile);
+        });
+
+        scheduleLayoutUpdate();
+
+        document.fonts?.ready.then(scheduleLayoutUpdate);
+
+        button.addEventListener("click", () => {
+            const current = button.dataset.order as Order;
+            const currentIndex = orders.indexOf(current);
+
+            const next = orders[
+            (Math.max(0, currentIndex) + 1) % orders.length
+                ];
+
+            button.dataset.order = next;
+
+            tiles.sort(comparators[next]);
+
+            tiles.forEach((tile) => {
+                container.appendChild(tile);
+            });
+
+            label.textContent =
+                `${button.dataset.prefix} ${button.dataset[next]}`;
+
+            scheduleLayoutUpdate();
+        });
+    }
+</script>
