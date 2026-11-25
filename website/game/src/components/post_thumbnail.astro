@@ -1,10 +1,94 @@
 ---
 import type { CollectionEntry } from "astro:content";
+import { Translation, Locale } from "../i18n/translation.ts";
 
 interface Props {
     post: CollectionEntry<"posts">;
 }
 
 const { post } = Astro.props;
-const { title, slug, date, abstract } = post.data;
+const { title, slug, date, abstract, locale } = post.data;
+
+const max_abstract_lines = 4;
+
+const page_locale = Astro.currentLocale ?? Locale.ENGLISH;
+const formatted_date = date.toLocaleDateString(page_locale, {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+});
+
+const language_indicator = page_locale != Locale.ENGLISH ? Translation.post_thumbnail.language[locale] : "";
 ---
+
+<a class="post-thumbnail" href={`/${page_locale}/posts/${slug}`}>
+    <span class="box-layout-item-hover"></span>
+    {language_indicator && (
+            <div class="meta">
+                <span class="language-indicator">{language_indicator}</span>
+            </div>
+    )}
+    <h2>{title}</h2>
+    <p>{abstract}</p>
+    <div class="footer">
+        <time datetime={date.toISOString()}>{formatted_date}</time>
+    </div>
+</a>
+
+<style define:vars={{ max_abstract_lines }}>
+    .post-thumbnail {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        min-width: 0;
+        padding: 20px;
+        color: var(--default-color-foreground);
+        font-family: var(--default-font);
+        text-decoration: none;
+    }
+
+    .meta {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 8px;
+    }
+
+    .footer {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: auto;
+        padding-top: 8px;
+    }
+
+    time, .language-indicator {
+        font-family: var(--default-font-mono);
+    }
+
+    time {
+        opacity: 0.75;
+        font-size: 0.75em;
+    }
+
+    .language-indicator {
+        opacity: 0.75;
+        font-size: 0.85em;
+        font-weight: bold;
+    }
+
+    h2 {
+        margin: 0;
+        font-size: 1.25em;
+    }
+
+    p {
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: var(--max_abstract_lines);
+        line-clamp: var(--max_abstract_lines);
+        overflow: hidden;
+        margin: 0;
+        opacity: 0.9;
+    }
+</style>

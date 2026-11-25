@@ -1,7 +1,8 @@
 ---
+locale: en
 title: "On Flow"
 slug: "flow"
-date: "04.05.2026"
+date: "2026-10-12"
 shader: "red_blood_cells"
 abstract: > 
     The concept of flow is an ill-defined game design concept roughly 

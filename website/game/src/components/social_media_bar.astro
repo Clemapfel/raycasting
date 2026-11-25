@@ -3,6 +3,7 @@
 // Usage <SocialMediaBar orientation="horizontal" />
 //
 
+import { Image } from "astro:assets";
 import BoxLayout from "./box_layout.astro";
 import Tooltip from "./tooltip.astro";
 
@@ -22,6 +23,20 @@ enum SocialMediaPlatform {
     DISCORD = "discord",
     KICKSTARTER = "kickstarter",
     GITHUB = "github",
+}
+
+// Path is from the project root, so it works regardless of where this component lives.
+const icons = import.meta.glob<{ default: ImageMetadata }>(
+    "/src/assets/socials/*.svg",
+    { eager: true },
+);
+
+function getIcon(platform: SocialMediaPlatform): ImageMetadata {
+    const icon = icons[`/src/assets/socials/${platform}.svg`];
+    if (!icon) {
+        throw new Error(`Missing social icon: src/assets/socials/${platform}.svg`);
+    }
+    return icon.default;
 }
 
 const platform_to_entry = {
@@ -78,7 +93,12 @@ const platform_to_entry = {
                         rel="noopener noreferrer"
                 >
                     <span class="box-layout-item-hover" aria-hidden="true"></span>
-                    <img src={`/socials/${platform}.svg`} alt={entry.title} />
+                    <Image
+                            src={getIcon(platform as SocialMediaPlatform)}
+                            alt=""
+                            width={30}
+                            height={30}
+                    />
                 </a>
             </Tooltip>
     ))}

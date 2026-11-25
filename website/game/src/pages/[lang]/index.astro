@@ -1,8 +1,8 @@
 ---
-import { Locale } from "../i18n/translation.ts";
-import Forwarding from "../components/forwarding.astro";
+import { Locale } from "../../i18n/translation.ts";
+import Forwarding from "../../components/forwarding.astro";
 
-// forward /lang to /lang/index
+// forward /lang to /lang/home
 export function getStaticPaths() {
     return Object.values(Locale).map((lang) => ({
         params: { lang },
@@ -10,7 +10,7 @@ export function getStaticPaths() {
 }
 
 const { lang } = Astro.params;
-const target = `/${lang}/index`;
+const target = `/${lang}/home`;
 ---
 
 <Forwarding target={target} canonical data={{ target }}>

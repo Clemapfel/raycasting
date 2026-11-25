@@ -25,12 +25,21 @@
         background: transparent !important;
     }
 
+    /* Set --noisy-frame-background on this element or an ancestor to override the WebGL fill. */
     noisy-frame .noise-frame-canvas {
         position: absolute;
         z-index: 0;
         width: 100%;
         height: 100%;
         pointer-events: none;
+        filter: var(--noisy-frame-canvas-filter, none);
+        transition: filter 150ms ease;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        noisy-frame .noise-frame-canvas {
+            transition: none;
+        }
     }
 
     noisy-frame .slot-wrapper {

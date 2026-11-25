@@ -1,6 +1,7 @@
 ---
 // components/header_bar.astro
 
+import type { ImageMetadata } from "astro";
 import LabelSDF from "./label_sdf.astro";
 import { Locale, Translation } from "../i18n/translation.ts";
 
@@ -22,6 +23,11 @@ const mapping: Readonly<Record<string, string>> = {
     "header_bar/faq_ja": "header_bar/faq_en",
 };
 
+const images = import.meta.glob<{ default: ImageMetadata }>(
+    "/src/assets/header_bar/*.png",
+    { eager: true },
+);
+
 const titles = Translation.header_bar.title;
 const enabledSet = new Set<string>(enabled);
 
@@ -32,10 +38,14 @@ const items = NAV_ITEMS
         const file = mapping[raw] ?? raw;
         const title = titles[name][locale];
 
+        const key = `/src/assets/${file}.png`;
+        const image = images[key]?.default;
+        if (!image) throw new Error(`Missing header image: ${key}`);
+
         return {
             name,
             href: `${base}/${locale}/${name}`,
-            sdfPath: `/${file}.png`,
+            sdfPath: image.src,
             title,
         };
     });

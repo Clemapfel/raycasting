@@ -91,12 +91,13 @@ for id, t in pairs({
     })
 end
 
-require "common.log"
-
 --- @class rt.settings
 rt.settings = meta.make_auto_extend({
     native_height = 600
 }, true)
+
+require "common.profiler"
+
 
 
 

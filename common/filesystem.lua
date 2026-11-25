@@ -137,7 +137,7 @@ function bd.normalize_path(path)
     if path == nil or path == "" then return "" end
 
     -- starts with `/` or drive letter)
-    local is_absolute = path:match("^/") or path:match("^%a:")
+    local is_absolute = string.match(path, "^/") or string.match(path, "^%a:")
 
     -- replace \\
     path = string.gsub(path, "[\\/]+", "/")
@@ -146,7 +146,7 @@ function bd.normalize_path(path)
     path = string.gsub(path, "^(%a):/?", "%1:/")
 
     -- remove trailing /
-    if path ~= "/" and not path:match("^%a:/$") then path = string.gsub(path, "/$", "") end
+    if path ~= "/" and not string.match(path, "^%a:/$") then path = string.gsub(path, "/$", "") end
 
     -- catch `/`
     if path == "" and is_absolute then return "/" end

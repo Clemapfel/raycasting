@@ -10,9 +10,10 @@ export const collections = {
         schema: z.object({
             title: z.string(),
             slug: z.string(),
-            date: z.string(),
+            date: z.coerce.date(),
             abstract: z.string(),
-            shader: z.string().optional()
+            shader: z.string().optional(),
+            locale: z.string()
         })
     }),
 

@@ -255,6 +255,7 @@ DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
     if which == rt.KeyboardKey.CIRCUMFLEX then
         rerequire("common.softbody")
         rerequire("common.player_body")
+        rerequire("common.hairbody")
         _init()
     end
 end)

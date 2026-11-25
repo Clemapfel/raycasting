@@ -14,6 +14,9 @@ const {
     ariaLabel,
 } = Astro.props;
 
+const outlineWidth = "2px";
+const dividerWidth = "2px";
+
 const horizontal = orientation === "horizontal";
 const lineSize = Math.max(1, Math.floor(itemsPerLine));
 
@@ -25,14 +28,18 @@ const [dividerAbove, dividerBefore] = horizontal
 
 const scope = `.box-layout${horizontal ? ".horizontal" : ":not(.horizontal)"}[data-items-per-line="${lineSize}"]`;
 const dividerCss = `
-${scope} > ${dividerAbove} { --divider-block: 1px; }
-${scope} > ${dividerBefore} { --divider-inline: 1px; }
+${scope} > ${dividerAbove} { --divider-block: var(--divider-width); }
+${scope} > ${dividerBefore} { --divider-inline: var(--divider-width); }
 `;
 ---
 
 <nav
         class:list={["box-layout", { horizontal }]}
-        style={{ "--items-per-line": lineSize }}
+        style={{
+            "--items-per-line": lineSize,
+            "--outline-width": outlineWidth,
+            "--divider-width": dividerWidth,
+        }}
         data-items-per-line={lineSize}
         aria-label={ariaLabel}
 >
@@ -52,7 +59,7 @@ ${scope} > ${dividerBefore} { --divider-inline: 1px; }
         display: inline-grid;
         grid-auto-flow: row;
         grid-template-columns: repeat(var(--items-per-line), 1fr);
-        border: 1px solid var(--divider-color);
+        border: var(--outline-width) solid var(--divider-color);
         border-radius: 8px;
         background: var(--default-color-background);
         opacity: 0.5;

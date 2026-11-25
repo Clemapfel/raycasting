@@ -1,0 +1,123 @@
+---
+import Layout from "./layout.astro";
+import ShaderCanvas from "../components/shader_canvas.astro";
+import Footer from "../components/footer.astro";
+import HeaderBar from "../components/header_bar.astro";
+import SocialMediaBar from "../components/social_media_bar.astro";
+import AnimationStateButton from "../components/animation_state_button.astro";
+import BackToTopButton from "../components/back_to_top_button.astro";
+import LanguageChooser from "../components/language_chooser.astro";
+import BoxLayout from "../components/box_layout.astro";
+import Tooltip from "../components/tooltip.astro";
+import { Locale, Translation } from "../i18n/translation.ts";
+
+interface Props {
+    title?: string;
+    /** id of the shader rendered in the background */
+    shader?: string;
+}
+
+const { title, shader = "none" } = Astro.props;
+
+const locale = Astro.currentLocale ?? Locale.ENGLISH;
+const animation_state_text = Translation.animation_state_button[locale];
+const back_to_top_text = Translation.back_to_top_button[locale];
+---
+
+<style>
+    :root {
+        --header-overflow: 5vw;
+        --outer-margin: 5vw;
+        --inner-margin: 8ch;
+        --text-width: 150ch;
+    }
+
+    .page-layout {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 100%;
+        padding: 0 var(--outer-margin);
+        box-sizing: border-box;
+    }
+
+    .page-wrapper {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 100%;
+        max-width: calc(var(--text-width) + (2 * var(--inner-margin)));
+    }
+
+    .header-bar-wrapper {
+        --header-margin: 20px;
+        width: calc(100% + var(--header-overflow));
+        margin-top: var(--header-margin);
+        margin-bottom: var(--header-margin);
+    }
+
+    .content-wrapper {
+        width: 100%;
+    }
+
+    .social-media-bar-wrapper {
+        position: fixed;
+        bottom: var(--global-outer-margin);
+        left: var(--global-outer-margin);
+        max-width: calc(100vw - 2 * var(--outer-margin));
+    }
+
+    .global-control-wrapper {
+        position: fixed;
+        display: flex;
+        flex-direction: column;
+        gap: var(--global-outer-margin);
+        bottom: var(--global-outer-margin);
+        right: var(--global-outer-margin);
+    }
+
+    .footer-wrapper {
+        width: 100%;
+        max-width: calc(var(--text-width) + (2 * var(--inner-margin)));
+        display: flex;
+        justify-content: center;
+    }
+</style>
+
+<Layout title={title}>
+    <div class="page-layout">
+        <ShaderCanvas id={shader} />
+
+        <div class="page-wrapper">
+            <div class="header-bar-wrapper">
+                <HeaderBar />
+            </div>
+
+            <div class="content-wrapper">
+                <slot />
+            </div>
+
+            <div class="social-media-bar-wrapper">
+                <SocialMediaBar orientation="vertical" tooltipPosition="right" />
+            </div>
+
+            <div class="global-control-wrapper">
+                <BoxLayout orientation="vertical">
+                    <Tooltip text={back_to_top_text} position="left">
+                        <BackToTopButton />
+                    </Tooltip>
+
+                    <Tooltip text={animation_state_text} position="left">
+                        <AnimationStateButton />
+                    </Tooltip>
+                </BoxLayout>
+
+                <LanguageChooser orientation="vertical" tooltipPosition="left" />
+            </div>
+        </div>
+
+        <div class="footer-wrapper">
+            <Footer author="C. Cords" />
+        </div>
+    </div>
+</Layout>

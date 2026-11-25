@@ -5,12 +5,12 @@ require "menu.menu_scene"
 rt.log("In export_sdf.lua: starting export...")
 
 bd.mount_path(bd.join_path(bd.get_source_directory(), "website"), "website")
-local export_prefix = "website/game/public/header_bar"
+local export_prefix = "website/game/src/content/images/header_bar"
 if not bd.is_directory(export_prefix) then bd.create_directory(export_prefix) end
 
 local font_roman = rt.Font(rt.settings.menu_scene.title_screen.font_roman)
 local font_japanese = rt.Font(rt.settings.menu_scene.title_screen.font_japanese)
-local font_size = rt.FontSize.MAX
+local font_size = 200
 
 local last
 local before = love.timer.getTime()
@@ -45,7 +45,7 @@ for x in range(
         text,
         font_size,
         font,
-        nil
+        15 -- max distance
     )
 
     local w, h = label:measure()

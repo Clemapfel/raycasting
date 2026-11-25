@@ -83,5 +83,39 @@ export const Translation = {
         en: "Back to top",
         de: "Zurück nach oben",
         ja: "TODO"
+    },
+
+    posts: {
+        sort_by: {
+            en: "Sort By:",
+            de: "Sortieren Nach:",
+            ja: "TODO:"
+        },
+
+        newest: {
+            en: "Newest",
+            de: "Am Neuesten",
+            ja: "TODO"
+        },
+
+        oldest: {
+            en: "Oldest",
+            de: "Am Ältesten",
+            ja: "TODO"
+        },
+
+        alphabetical: {
+            en: "Alphabetical",
+            de: "Alphabetisch",
+            ja: "TODO"
+        }
+    },
+
+    post_thumbnail: {
+        language: {
+            en: "EN",
+            de: "DE",
+            ja: "JP"
+        }
     }
 }

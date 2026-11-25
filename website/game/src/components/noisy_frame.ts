@@ -37,7 +37,10 @@ export class NoisyFrame extends GLWidget {
         const outline_width = style.outlineWidth ? parseFloat(style.outlineWidth) : default_outline_width;
         const margin = style.margin ? parseFloat(style.margin) : 0;
         const border_radius = style.borderRadius ? parseFloat(style.borderRadius) : default_border_radius;
-        let background_color = parseRGBA(DEFAULT_COLOR_BACKGROUND);
+        // The WebGL canvas owns the visible fill, so read its color from an
+        // inherited CSS custom property rather than the element's background.
+        const background_color_value = style.getPropertyValue("--noisy-frame-background").trim();
+        let background_color = parseRGBA(background_color_value || DEFAULT_COLOR_BACKGROUND);
         background_color.a = background_opacity;
 
         this.reinitialize_mesh(

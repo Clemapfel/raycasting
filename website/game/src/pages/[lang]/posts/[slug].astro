@@ -1,0 +1,40 @@
+---
+import { getCollection } from "astro:content";
+import { Locale } from "../../../i18n/translation.ts";
+import ContentLayout from "../../../layouts/content_layout.astro"
+import MarkdownRenderer from "../../../components/markdown.astro"
+import NoisyFrame from "../../../components/noisy_frame.astro";
+
+export async function getStaticPaths() {
+    const posts = await getCollection("posts");
+
+    return Object.values(Locale).flatMap((lang) =>
+        posts.map((post) => ({
+            params: { lang, slug: post.data.slug },
+            props: { post },
+        }))
+    );
+}
+
+const { lang } = Astro.params;
+const { post } = Astro.props;
+---
+
+<style>
+    .frame-content-wrapper {
+        width: 100%;
+        max-width: var(--text-width);
+        margin: 0 auto;
+        box-sizing: border-box;
+        padding-left: var(--inner-margin);
+        padding-right: var(--inner-margin);
+    }
+</style>
+
+<ContentLayout title={post.data.title} shader="none">
+    <NoisyFrame>
+        <div class="frame-content-wrapper">
+            <MarkdownRenderer collection="posts" id={post.id} />
+        </div>
+    </NoisyFrame>
+</ContentLayout>
