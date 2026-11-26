@@ -102,6 +102,8 @@ const back_to_top_text = Translation.back_to_top_button[locale];
             </div>
 
             <div class="global-control-wrapper">
+                <slot name="top-controls" />
+
                 <BoxLayout orientation="vertical">
                     <Tooltip text={back_to_top_text} position="left">
                         <BackToTopButton />

@@ -1,10 +1,11 @@
 ---
-import { getCollection } from "astro:content";
+import { getCollection, getEntry } from "astro:content";
 import ContentLayout from "../../layouts/content_layout.astro";
 import { Locale, Translation } from "../../i18n/translation.ts";
 import NoisyFrame from "../../components/noisy_frame.astro";
 import PostThumbnail from "../../components/post_thumbnail.astro";
 import BoxLayout from "../../components/box_layout.astro";
+import Tooltip from "../../components/tooltip.astro";
 import MarkdownRenderer from "../../components/markdown.astro";
 
 export async function getStaticPaths() {
@@ -22,6 +23,15 @@ const labels = {
     alphabetical: Translation.posts.alphabetical[page_local],
 };
 
+enum SortMode {
+    NEWEST_FIRST = "NEWEST_FIRST",
+    OLDEST_FIRST = "OLDEST_FIRST",
+    ALPHABETICAL = "ALPHABETICAL",
+}
+
+const sortModes = Object.values(SortMode);
+const initialSortMode = SortMode.NEWEST_FIRST;
+
 const posts = (
     await getCollection("posts", ({ data }) =>
         page_local === Locale.ENGLISH
@@ -29,6 +39,9 @@ const posts = (
             : data.locale === page_local || data.locale === Locale.ENGLISH
     )
 ).sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+
+
+const shader = (await getEntry("pages", "posts"))?.data.shader;
 ---
 
 <style>
@@ -37,38 +50,35 @@ const posts = (
         width: 100%;
     }
 
-    .sort-bar {
-        position: absolute;
-        top: 0;
-        left: 0;
-        transform: translateX(calc(-100% - 10px));
-        z-index: 2;
-        padding: 0;
-    }
-
-    .sort-button,
-    .sort-button .label {
-        opacity: 1 !important;
-    }
-
     .sort-button {
         position: relative;
-        display: block;
-        padding: 10px 18px;
+        display: grid;
+        place-items: center;
+        width: 48px;
+        height: 48px;
+        padding: 0;
         border: none;
         background: transparent;
-        color: inherit;
-        font: inherit;
+        color: var(--default-color-foreground);
         cursor: pointer;
-        white-space: nowrap;
         transition: none !important;
     }
 
-    .sort-button .label {
+    .sort-button svg {
         position: relative;
         z-index: 1;
-        font-family: monospace;
-        color: var(--default-color-foreground);
+        width: 20px;
+        height: 20px;
+        stroke: oklch(
+            var(--global-color-l)
+            var(--global-color-c)
+            var(--global-color-h)
+        );
+    }
+
+    .sort-button:focus-visible {
+        outline: 2px solid var(--default-color-foreground);
+        outline-offset: 2px;
     }
 
     .intro-tile {
@@ -124,29 +134,50 @@ const posts = (
     }
 </style>
 
-<ContentLayout shader="guts">
-    <div class="posts-area">
-        <div class="sort-bar">
-            <BoxLayout orientation="horizontal">
+<ContentLayout shader={shader}>
+    <div
+            slot="top-controls"
+            class="sort-control"
+    >
+        <Tooltip text={labels.newest} position="left">
+            <BoxLayout orientation="vertical">
                 <button
                         type="button"
                         class="sort-button"
                         id="sort-button"
-                        data-order="newest"
+                        data-order={initialSortMode}
+                        data-sort-modes={JSON.stringify(sortModes)}
                         data-locale={page_local}
                         data-prefix={labels.prefix}
                         data-newest={labels.newest}
                         data-oldest={labels.oldest}
                         data-alphabetical={labels.alphabetical}
+                        aria-label={`${labels.prefix} ${labels.newest}`}
                 >
                     <span class="box-layout-item-hover"></span>
-                    <span class="label" id="sort-label">
-                        {labels.prefix} {labels.newest}
-                    </span>
+                    <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="1.8"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            aria-hidden="true"
+                            focusable="false"
+                    >
+                        <path d="m3 16 4 4 4-4" />
+                        <path d="M7 20V4" />
+                        <path d="M11 4h10" />
+                        <path d="M11 8h7" />
+                        <path d="M11 12h4" />
+                    </svg>
                 </button>
             </BoxLayout>
-        </div>
+        </Tooltip>
+    </div>
 
+    <div class="posts-area">
         <div class="intro-tile">
             <NoisyFrame>
                 <div class="intro-content">
@@ -186,33 +217,42 @@ const posts = (
         "sort-button"
     ) as HTMLButtonElement | null;
 
-    const label = document.getElementById("sort-label");
     const container = document.getElementById("posts");
+    const tooltip = button?.closest(".sort-control")?.querySelector<HTMLElement>(
+        ".tooltip-bubble"
+    );
 
-    if (button && label && container) {
-        const orders = [
-            "newest",
-            "oldest",
-            "alphabetical",
-        ] as const;
+    if (button && container) {
+        type SortMode =
+            | "NEWEST_FIRST"
+            | "OLDEST_FIRST"
+            | "ALPHABETICAL";
 
-        type Order = (typeof orders)[number];
+        const sortModes = JSON.parse(
+            button.dataset.sortModes ?? "[]"
+        ) as SortMode[];
+
+        const modeLabels: Record<SortMode, string> = {
+            NEWEST_FIRST: button.dataset.newest ?? "",
+            OLDEST_FIRST: button.dataset.oldest ?? "",
+            ALPHABETICAL: button.dataset.alphabetical ?? "",
+        };
 
         const collator = new Intl.Collator(
             button.dataset.locale ?? undefined
         );
 
         const comparators: Record<
-            Order,
+            SortMode,
             (a: HTMLElement, b: HTMLElement) => number
         > = {
-            newest: (a, b) =>
+            NEWEST_FIRST: (a, b) =>
                 Number(b.dataset.date) - Number(a.dataset.date),
 
-            oldest: (a, b) =>
+            OLDEST_FIRST: (a, b) =>
                 Number(a.dataset.date) - Number(b.dataset.date),
 
-            alphabetical: (a, b) =>
+            ALPHABETICAL: (a, b) =>
                 collator.compare(
                     a.dataset.title ?? "",
                     b.dataset.title ?? ""
@@ -273,26 +313,37 @@ const posts = (
 
         document.fonts?.ready.then(scheduleLayoutUpdate);
 
-        button.addEventListener("click", () => {
-            const current = button.dataset.order as Order;
-            const currentIndex = orders.indexOf(current);
+        if (sortModes.length > 0) {
+            const updateButtonDescription = (mode: SortMode) => {
+                const description =
+                    `${button.dataset.prefix ?? "Sort by"} ${modeLabels[mode]}`;
 
-            const next = orders[
-            (Math.max(0, currentIndex) + 1) % orders.length
-                ];
+                button.setAttribute("aria-label", description);
+                if (tooltip) {
+                    tooltip.textContent = description;
+                }
+            };
 
-            button.dataset.order = next;
+            updateButtonDescription(button.dataset.order as SortMode);
 
-            tiles.sort(comparators[next]);
+            button.addEventListener("click", () => {
+                const current = button.dataset.order as SortMode;
+                const currentIndex = sortModes.indexOf(current);
+                const next = sortModes[
+                (Math.max(0, currentIndex) + 1) % sortModes.length
+                    ];
 
-            tiles.forEach((tile) => {
-                container.appendChild(tile);
+                button.dataset.order = next;
+
+                tiles.sort(comparators[next]);
+
+                tiles.forEach((tile) => {
+                    container.appendChild(tile);
+                });
+
+                updateButtonDescription(next);
+                scheduleLayoutUpdate();
             });
-
-            label.textContent =
-                `${button.dataset.prefix} ${button.dataset[next]}`;
-
-            scheduleLayoutUpdate();
-        });
+        }
     }
 </script>
