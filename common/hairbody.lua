@@ -24,7 +24,7 @@ rt.settings.hairbody = {
         angular_momentum_compliance = 1e-7,
         enforce_angular_momentum = true,
 
-        anchor_compliance = 0,
+        anchor_compliance = 2 * math.eps,
         enforce_anchor = true,
 
         density = 1
@@ -164,8 +164,6 @@ function rt.HairBody:instantiate(x, y, base_radius, n_circles, circle_easing, re
         line_vertices[2 * circle_i] = py
     end
 
-    -- Store a per-segment upper bound. The default averages the adjacent
-    -- circle radii while retaining the intentional overlap between circles.
     for particle_i = 1, n_circles - 1 do
         local i = _particle_i_to_data_offset(particle_i)
         local rest_length = rest_segment_length
@@ -177,6 +175,7 @@ function rt.HairBody:instantiate(x, y, base_radius, n_circles, circle_easing, re
 
     self._particles = data
     self._draw_line = rt.Polyline(line_vertices)
+    self._draw_contour_particles = table.new(256 * 3)
 
     self._gravity_x, self._gravity_y = 0, 0
 
@@ -192,26 +191,6 @@ function rt.HairBody:instantiate(x, y, base_radius, n_circles, circle_easing, re
     self._reverse_iteration = false
     self._is_initialized = true
     return self
-end
-
---- @brief
-function rt.HairBody:_debug_draw()
-    local line = {}
-    local data = self._particles
-    love.graphics.setLineWidth(1)
-    love.graphics.setColor(1, 1, 1, 0.5)
-    for particle_i = 1, self._n_particles do
-        local i = _particle_i_to_data_offset(particle_i)
-        local x, y = data[i + _draw_x_offset], data[i + _draw_y_offset]
-        local radius = data[i + _radius_offset]
-        love.graphics.circle("line", x, y, radius)
-        table.insert(line, x)
-        table.insert(line, y)
-    end
-
-    love.graphics.setLineWidth(2)
-    love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.line(line)
 end
 
 function rt.HairBody:set_collision_contours(contours)
@@ -471,6 +450,40 @@ do -- hairbody_update
         local gravity_x, gravity_y = self._gravity_x / damping, self._gravity_y / damping
 
         self._elapsed = self._elapsed + delta
+
+        -- broadphase once per frame
+        if enforce_contour_collision and self._elapsed >= timestep then
+            for contour_i = 1, n_collision_contours do
+                local entry = collision_contours[contour_i]
+                local candidates = entry.candidate_particles
+                table.clear(candidates)
+
+                local aabb_min_x = entry.aabb_min_x
+                local aabb_min_y = entry.aabb_min_y
+                local aabb_max_x = entry.aabb_max_x
+                local aabb_max_y = entry.aabb_max_y
+                local n_candidates = 0
+
+                for particle_i = 1, n_particles do
+                    local i = _particle_i_to_data_offset(particle_i)
+                    if data[i + _inverse_mass_offset] > 0 then
+                        local x = data[i + _x_offset]
+                        local y = data[i + _y_offset]
+                        local radius = data[i + _radius_offset]
+
+                        if x + radius >= aabb_min_x and x - radius <= aabb_max_x
+                            and y + radius >= aabb_min_y and y - radius <= aabb_max_y
+                        then
+                            n_candidates = n_candidates + 1
+                            candidates[n_candidates] = particle_i
+                        end
+                    end
+                end
+
+                entry.n_candidate_particles = n_candidates
+            end
+        end
+
         local n_steps = 0
         local reverse_iteration = self._reverse_iteration or false
 
@@ -488,13 +501,6 @@ do -- hairbody_update
             for _ = 1, n_sub_steps do
                 -- Alternate the Gauss-Seidel sweep direction every substep.
                 reverse_iteration = not reverse_iteration
-                local first_particle_i, last_particle_i, particle_step
-                if reverse_iteration then
-                    first_particle_i, last_particle_i, particle_step = n_particles, 1, -1
-                else
-                    first_particle_i, last_particle_i, particle_step = 1, n_particles, 1
-                end
-
                 for contour_i = 1, n_collision_contours do
                     local lambdas = collision_contours[contour_i].lambdas
                     for particle_i = 1, n_particles do
@@ -605,7 +611,9 @@ do -- hairbody_update
                             local ci = _particle_i_to_data_offset(particle_i + 2)
 
                             local inverse_mass_a = data[ai + _inverse_mass_offset] * inverse_density
-                            if hard_anchor and particle_i == 1 then inverse_mass_a = 0 end
+                            if hard_anchor and particle_i == 1 then
+                                inverse_mass_a = 0
+                            end
 
                             local new_ax, new_ay, new_bx, new_by, new_cx, new_cy, lambda_new = _enforce_bending(
                                 data[ai + _x_offset], data[ai + _y_offset],
@@ -705,10 +713,6 @@ do -- hairbody_update
                     end
                 end
 
-                -- Contacts are solved after the structural constraints and
-                -- intentionally have the final say for this substep. Do not
-                -- reapply the anchor afterward: particle 1 must be able to
-                -- move out of an environment collision.
                 if enforce_contour_collision then
                     for _ = 1, n_constraint_iterations do
                         for contour_i = 1, n_collision_contours do
@@ -717,9 +721,19 @@ do -- hairbody_update
                             local n_edges = entry.n_edges
                             local lambdas = entry.lambdas
                             local normals_x, normals_y = entry.normals_x, entry.normals_y
+                            local candidates = entry.candidate_particles
+                            local n_candidates = entry.n_candidate_particles
                             local keep_outside = entry.contour:get_winding()
 
-                            for particle_i = first_particle_i, last_particle_i, particle_step do
+                            local first_candidate_i, last_candidate_i, candidate_step
+                            if reverse_iteration then
+                                first_candidate_i, last_candidate_i, candidate_step = n_candidates, 1, -1
+                            else
+                                first_candidate_i, last_candidate_i, candidate_step = 1, n_candidates, 1
+                            end
+
+                            for candidate_i = first_candidate_i, last_candidate_i, candidate_step do
+                                local particle_i = candidates[candidate_i]
                                 local i = _particle_i_to_data_offset(particle_i)
                                 local inverse_mass = data[i + _inverse_mass_offset]
 
@@ -749,8 +763,10 @@ do -- hairbody_update
                             local entry = collision_contours[contour_i]
                             local lambdas = entry.lambdas
                             local normals_x, normals_y = entry.normals_x, entry.normals_y
+                            local candidates = entry.candidate_particles
 
-                            for particle_i = first_particle_i, last_particle_i, particle_step do
+                            for candidate_i = 1, entry.n_candidate_particles do
+                                local particle_i = candidates[candidate_i]
                                 local i = _particle_i_to_data_offset(particle_i)
                                 local inverse_mass = data[i + _inverse_mass_offset]
 
@@ -806,9 +822,279 @@ do -- hairbody_update
     end
 end
 
-function rt.HairBody:get_draw_contour()
+function rt.HairBody:_debug_draw()
     meta.typecheck(self, rt.HairBody)
-    return rt.Polyline({0, 0, 0, 0, 0, 0})
+
+    local data = self._particles
+
+    local color_r, color_g, color_b, color_a = love.graphics.getColor()
+
+    if self._draw_buffer == nil then
+        self._draw_buffer = {}
+        for particle_i = 1, self._n_particles do
+            local r = data[_particle_i_to_data_offset(particle_i) + _radius_offset]
+            local current = {}
+            local n_vertices = rt.Mesh.radius_to_n_vertices(r)
+            for i = 0, n_vertices do
+                local angle = (i - 1) / n_vertices * math.tau
+                table.insert(current, math.cos(angle) * r)
+                table.insert(current, math.sin(angle) * r)
+            end
+            table.insert(self._draw_buffer, current)
+        end
+    end
+
+    love.graphics.setLineWidth(3)
+    love.graphics.setLineJoin("bevel")
+    love.graphics.setLineStyle("smooth")
+
+    love.graphics.setColor(color_r, color_g, color_b, color_a)
+    for particle_i = 1, self._n_particles - 1 do
+        local i = _particle_i_to_data_offset(particle_i)
+        local x, y = data[i + _x_offset], data[i + _y_offset]
+
+        love.graphics.push()
+        love.graphics.translate(x, y)
+        love.graphics.line(self._draw_buffer[particle_i])
+        love.graphics.pop()
+    end
+
+    rt.Palette.BLACK:bind()
+    for particle_i = 1, self._n_particles - 1 do
+        local i = _particle_i_to_data_offset(particle_i)
+        local x, y = data[i + _x_offset], data[i + _y_offset]
+        local r = data[i + _radius_offset]
+
+        love.graphics.circle("fill", x, y, r)
+    end
+end
+
+do
+
+    local function get_hull(samples)
+        local sorted = {}
+        for i = 1, #samples do
+            sorted[i] = samples[i]
+        end
+
+        table.sort(sorted, function(a, b)
+            if a[1] == b[1] then return a[2] < b[2] end
+            return a[1] < b[1]
+        end)
+
+        if #sorted <= 2 then return sorted end
+
+        local lower = {}
+        for i = 1, #sorted do
+            local point = sorted[i]
+            while #lower >= 2 do
+                local a = lower[#lower - 1]
+                local b = lower[#lower]
+                local cross = (b[1] - a[1]) * (point[2] - a[2]) -
+                    (b[2] - a[2]) * (point[1] - a[1])
+                if cross > 0 then break end
+                lower[#lower] = nil
+            end
+            lower[#lower + 1] = point
+        end
+
+        local upper = {}
+        for i = #sorted, 1, -1 do
+            local point = sorted[i]
+            while #upper >= 2 do
+                local a = upper[#upper - 1]
+                local b = upper[#upper]
+                local cross = (b[1] - a[1]) * (point[2] - a[2]) -
+                    (b[2] - a[2]) * (point[1] - a[1])
+                if cross > 0 then break end
+                upper[#upper] = nil
+            end
+            upper[#upper + 1] = point
+        end
+
+        local hull = {}
+        for i = 1, #lower - 1 do
+            hull[#hull + 1] = lower[i]
+        end
+        for i = 1, #upper - 1 do
+            hull[#hull + 1] = upper[i]
+        end
+        return hull
+    end
+
+    function rt.HairBody:get_draw_contour()
+        meta.typecheck(self, rt.HairBody)
+
+        local data = self._particles
+        local n_circles = self._n_particles - 1
+        if n_circles <= 0 then
+            return rt.Polyline({})
+        end
+
+        local max_radius = 0
+        for particle_i = 1, n_circles do
+            local i = _particle_i_to_data_offset(particle_i)
+            local radius = data[i + _radius_offset]
+            if radius > max_radius then max_radius = radius end
+        end
+
+        local tolerance = math.max(max_radius * 0.0025, 1e-10)
+        local max_points = math.min(256, math.max(128, n_circles * 8))
+        local duplicate_epsilon = 1
+        local duplicate_epsilon_sq = duplicate_epsilon * duplicate_epsilon
+
+        local samples = {}
+        local function add_sample(x, y)
+            for sample_i = 1, #samples do
+                local point = samples[sample_i]
+                local dx = point[1] - x
+                local dy = point[2] - y
+                if dx * dx + dy * dy <= duplicate_epsilon_sq then
+                    return false
+                end
+            end
+
+            samples[#samples + 1] = { x, y }
+            return true
+        end
+
+        local function get_support(nx, ny)
+            local best_projection = -math.huge
+            local best_x, best_y
+
+            for particle_i = 1, n_circles do
+                local i = _particle_i_to_data_offset(particle_i)
+                local x = data[i + _draw_x_offset]
+                local y = data[i + _draw_y_offset]
+                local radius = data[i + _radius_offset]
+                local projection = x * nx + y * ny + radius
+
+                if projection > best_projection then
+                    best_projection = projection
+                    best_x = x + radius * nx
+                    best_y = y + radius * ny
+                end
+            end
+
+            return best_x, best_y, best_projection
+        end
+
+        local initial_directions = 8
+        for direction_i = 0, initial_directions - 1 do
+            local angle = direction_i / initial_directions * math.tau
+            local nx, ny = math.cos(angle), math.sin(angle)
+            local x, y = get_support(nx, ny)
+            add_sample(x, y)
+        end
+
+        while #samples < max_points do
+            local hull = get_hull(samples)
+            local hull_size = #hull
+            if hull_size < 3 then break end
+
+            local added = false
+            for edge_i = 1, hull_size do
+                local a = hull[edge_i]
+                local b = hull[edge_i % hull_size + 1]
+                local dx = b[1] - a[1]
+                local dy = b[2] - a[2]
+                local length = math.sqrt(dx * dx + dy * dy)
+
+                if length > duplicate_epsilon then
+                    local nx, ny = dy / length, -dx / length
+                    local edge_projection = 0.5 * (
+                        a[1] * nx + a[2] * ny + b[1] * nx + b[2] * ny
+                    )
+                    local x, y, support_projection = get_support(nx, ny)
+
+                    if support_projection - edge_projection > tolerance then
+                        if add_sample(x, y) then
+                            added = true
+                            if #samples >= max_points then break end
+                        end
+                    end
+                end
+            end
+
+            if not added then break end
+        end
+
+        local hull = get_hull(samples)
+        local n_vertices = #hull
+        local draw_particles = self._draw_contour_particles
+
+        -- The scratch particle layout is x, y, lambda. Draw vertices have
+        -- zero radius and unit inverse mass, so neither needs an array slot.
+        for particle_i = 1, n_vertices do
+            local base = (particle_i - 1) * 3 + 1
+            local point = hull[particle_i]
+            draw_particles[base] = point[1]
+            draw_particles[base + 1] = point[2]
+            draw_particles[base + 2] = 0
+        end
+
+        local override = self._override or {}
+        local default = rt.settings.hairbody.default
+        local enforce_collision = override.enforce_contour_collision
+        if enforce_collision == nil then enforce_collision = default.enforce_contour_collision end
+        enforce_collision = enforce_collision and (self._use_collision ~= false)
+
+        local collision_contours = self._collision_contours
+        if enforce_collision and #collision_contours > 0 then
+            local timestep = override.timestep or default.timestep
+            local n_sub_steps = override.n_sub_steps or default.n_sub_steps
+            local n_iterations = override.n_constraint_iterations or default.n_constraint_iterations
+            local compliance = 0
+            if compliance == nil then compliance = default.contour_collision_compliance end
+
+            local sub_delta = timestep / n_sub_steps
+            local alpha = compliance / (sub_delta * sub_delta)
+
+            for contour_i = 1, #collision_contours do
+                local entry = collision_contours[contour_i]
+                local edges = entry.edges
+                local n_edges = entry.n_edges
+
+                if n_edges > 0 then
+                    for particle_i = 1, n_vertices do
+                        local base = (particle_i - 1) * 3 + 1
+                        draw_particles[base + 2] = 0
+                    end
+
+                    local keep_outside = entry.contour:get_winding()
+                    for _ = 1, n_iterations do
+                        for particle_i = 1, n_vertices do
+                            local base = (particle_i - 1) * 3 + 1
+                            local correction_x, correction_y, lambda_new =
+                            rt.SoftBody._enforce_polygon_collision(
+                                draw_particles[base],
+                                draw_particles[base + 1],
+                                1, -- inverse mass
+                                1, -- point particle: no collision radius
+                                edges, n_edges,
+                                alpha,
+                                draw_particles[base + 2],
+                                keep_outside
+                            )
+
+                            draw_particles[base] = draw_particles[base] + correction_x
+                            draw_particles[base + 1] = draw_particles[base + 1] + correction_y
+                            draw_particles[base + 2] = lambda_new
+                        end
+                    end
+                end
+            end
+        end
+
+        local vertices = {}
+        for particle_i = 1, n_vertices do
+            local base = (particle_i - 1) * 3 + 1
+            vertices[2 * particle_i - 1] = draw_particles[base]
+            vertices[2 * particle_i] = draw_particles[base + 1]
+        end
+
+        return rt.Polyline(vertices)
+    end
 end
 
 --- @brief
