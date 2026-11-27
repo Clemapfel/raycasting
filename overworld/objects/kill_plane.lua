@@ -17,7 +17,7 @@ rt.settings.overworld.kill_plane = {
 
 --- @class ow.KillPlane
 --- @types Polygon, Rectangle, Ellipse
-ow.KillPlane = meta.class("KillPlane", ow.MovableObject)
+ow.KillPlane = meta.class("KillPlane", ow.SolidMovableObject)
 
 local schema = meta.Schema({
     should_explode = mt.Optional(ow.Boolean),

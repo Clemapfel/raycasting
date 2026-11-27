@@ -499,7 +499,7 @@ function ow.Stage:update(delta)
 
     rt.Animalese:update(delta) -- update global animalese playback
 
-    if not self._is_first_spawn and self._active_checkpoint:get_is_respawning() then
+    if not self._is_first_spawn and not self._active_checkpoint:get_is_respawning() then
         self._blood_spatter:update(delta) -- needs to check every subframe
     end
     self._blood_spatter:notify_camera_changed(self._scene:get_camera())

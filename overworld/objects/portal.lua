@@ -341,7 +341,7 @@ function ow.Portal:update(delta)
                 self._state = _STATE_EXITING
                 self._start_time = love.timer.getTime()
 
-                target._particles:contract(self._entry_t) -- exit always from center
+                target._particles:contract(0.5) -- exit always from center
             else
                 -- move stencil along with player, automatically clamped behind line
                 update_stencil_body(self, true, px, py)

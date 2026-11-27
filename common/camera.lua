@@ -747,6 +747,11 @@ function rt.Camera:update(delta)
     t:translate(0.5 * screen_w, 0.5 * screen_h, 0)
     t:scale(scale, scale, 1)
     t:scale(1 / downscaling_factor)
+
+    if self._scale_add ~= nil then
+        t:scale(1 + self._scale_add)
+    end
+
     t:rotate_z(angle)
     t:translate(-target_x, -target_y, 0)
 
@@ -871,4 +876,9 @@ function rt.Camera:remove_request_rotation_speed(id)
     meta.typecheck(id, mt.Any)
     self._angle_speed_requests:request(id, nil)
     self._resolve_needed = true
+end
+
+--- @brief
+function rt.Camera:_add_scale(t)
+    self._scale_add = t
 end

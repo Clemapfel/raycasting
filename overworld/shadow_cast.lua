@@ -33,27 +33,30 @@ function ow.ShadowCast:initialize(contour_objects, ...)
     local contours = {}
     for object in values(contour_objects) do
         local contour, is_dynamic = object:get_contour()
-        rt.assert(#contour % 2 == 0, "In ow.ShadowCast.initialize: object `", meta.typeof(object), "`.get_contour does not return a table whos size is a multiple of 2")
-        for i, x in ipairs(contour) do
-            if not meta.is_number(x) then
-                rt.assert(#contour % 2 == 0, "In ow.ShadowCast.initialize: object `", meta.typeof(object), "`.get_contour returns table who does not have a number at position `", i, "`")
+        if is_dynamic == nil then is_dynamic = false end
+        if contour ~= nil then
+            rt.assert(#contour % 2 == 0, "In ow.ShadowCast.initialize: object `", meta.typeof(object), "`.get_contour does not return a table whos size is a multiple of 2")
+            for i, x in ipairs(contour) do
+                if not meta.is_number(x) then
+                    rt.assert(#contour % 2 == 0, "In ow.ShadowCast.initialize: object `", meta.typeof(object), "`.get_contour returns table who does not have a number at position `", i, "`")
+                end
             end
-        end
 
-        if is_dynamic ~= nil then
-            rt.assert(meta.is_boolean(is_dynamic), "In ow.ShadowCast.initialize: object `", meta.typeof(object), "`.get_contour does not return a boolean as the third return value")
-            if is_dynamic == true then
-                rt.assert(meta.is_function(object.get_offset), "In ow.ShadowCast.initialize: object `", meta.typeof(object), "` returns a dynamic contour using `get_contour`, but `get_offset` is undefined")
+            if is_dynamic ~= nil then
+                rt.assert(meta.is_boolean(is_dynamic), "In ow.ShadowCast.initialize: object `", meta.typeof(object), "`.get_contour does not return a boolean as the third return value")
+                if is_dynamic == true then
+                    rt.assert(meta.is_function(object.get_offset), "In ow.ShadowCast.initialize: object `", meta.typeof(object), "` returns a dynamic contour using `get_contour`, but `get_offset` is undefined")
+                end
+            else
+                is_dynamic = false
             end
-        else
-            is_dynamic = false
-        end
 
-        table.insert(contours, {
-            contour = contour,
-            object = object,
-            is_dynamic = is_dynamic
-        })
+            table.insert(contours, {
+                contour = contour,
+                object = object,
+                is_dynamic = is_dynamic
+            })
+        end
     end
 
     meta.typecheck(contour_objects, mt.Table)

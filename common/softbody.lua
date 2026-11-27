@@ -1,11 +1,11 @@
 rt.settings.softbody = {
-    max_n_steps = 8,
+    max_n_steps = 4,
 
     default = {
-        damping = 1 - 1e-4,
+        damping = 0.999,
         n_sub_steps = 2,
         n_constraint_iterations = 2,
-        timestep = 1 / 120,
+        timestep = 1 / 60,
 
         static_friction = 0.7,
         kinetic_friction = 0.9,
@@ -26,7 +26,7 @@ rt.settings.softbody = {
         enforce_angular_momentum = true,
 
         linear_momentum_compliance = 0,
-        enforce_linear_momentum = true,
+        enforce_linear_momentum = false,
 
         anchor_compliance = 1e-8,
         enforce_anchor = true,
@@ -167,6 +167,7 @@ function rt.SoftBody:instantiate(contour)
 
     -- particles
     local data = table.new(n_particles * _stride)
+    local particle_r = contour:get_perimeter() / n_particles / 2
 
     for particle_i = 1, n_particles do
         local px, py = xs[particle_i], ys[particle_i]
@@ -184,7 +185,7 @@ function rt.SoftBody:instantiate(contour)
         data[base + _draw_y_offset] = py
         data[base + _velocity_x_offset] = 0
         data[base + _velocity_y_offset] = 0
-        data[base + _radius_offset] = 1
+        data[base + _radius_offset] = particle_r
         data[base + _mass_offset] = mass
         data[base + _inverse_mass_offset] = 1 / mass
         data[base + _distance_lambda_offset] = 0

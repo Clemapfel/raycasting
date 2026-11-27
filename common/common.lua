@@ -117,11 +117,11 @@ function table.deepcopy(t)
         end
 
         if seen[original] then
-            error("In deepcopy: table `" .. tostring(original) .. "` is recursive, it cannot be deepcopied")
+            _G.error("In deepcopy: table `" .. tostring(original) .. "` is recursive, it cannot be deepcopied")
             return {}
         end
 
-        local copy = {}
+        local copy = table.new(#original, 0)
 
         seen[original] = copy
         for k, v in pairs(original) do

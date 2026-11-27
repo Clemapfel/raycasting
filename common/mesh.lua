@@ -629,7 +629,12 @@ function rt.Mesh:set_vertex_map(map, ...)
         map = { map, ... }
     end
 
-    self._native:setVertexMap(map)
+    if #map == 0 then
+        rt.critical("In rt.Mesh.set_vertex_map: vertex map cannot be empty")
+        self._native:setVertexMap({ 1, 2, 3 })
+    else
+        self._native:setVertexMap(map)
+    end
 end
 
 --- @brief

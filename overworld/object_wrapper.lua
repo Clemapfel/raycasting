@@ -1408,7 +1408,7 @@ function ow.ObjectWrapper.parse_object_groups(scope, layers)
                 else
                     property = object_id_to_wrapper[id]
                     if property == nil then
-                        rt.error("object `", wrapper.id, "` points to `", id, "`, but there is no object with that id in stage `", scope, "`")
+                        rt.error("object `", wrapper.class, "` with id `", wrapper.id, "` points to `", id, "`, but there is no object with that id in stage `", scope, "`")
                     end
                 end
             else

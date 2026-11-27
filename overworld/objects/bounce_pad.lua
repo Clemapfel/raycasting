@@ -42,7 +42,7 @@ rt.settings.overworld.bounce_pad = {
 --- @types Polygon, Rectangle, Ellipse
 --- @field is_single_use Boolean? whether pad pops after being hit
 --- @field respawn_duration Number? if single use, how long to respawn
-ow.BouncePad = meta.class("BouncePad", ow.MovableObject)
+ow.BouncePad = meta.class("BouncePad", ow.SolidMovableObject)
 
 local _sound_id = "bounce_pad.bounce"
 
@@ -178,7 +178,9 @@ function ow.BouncePad:instantiate(object, stage, scene)
     end)
 
     if object:get_boolean("is_visible") ~= false then
-        self._contour = object:create_contour(true):round(
+        self._contour = object:create_contour(
+            true -- translate to origin
+        ):round(
             rt.settings.overworld.bounce_pad.corner_radius,
             16
         )
@@ -194,7 +196,7 @@ function ow.BouncePad:instantiate(object, stage, scene)
             local n = raw_contour:get_n_vertices()
             for i = 1, n do
                 local x1, y1 = raw_contour:get_vertex(i)
-                local x2, y2 = raw_contour:get_vertex(math.wrap(i, n))
+                local x2, y2 = raw_contour:get_vertex(math.wrap(i + 1, n))
                 table.insert(self._segment_lights, { x1, y1, x2, y2 })
             end
         elseif object:get_type() == ow.ObjectType.ELLIPSE then
@@ -238,6 +240,7 @@ function ow.BouncePad:instantiate(object, stage, scene)
             rt.GraphicsBufferUsage.STATIC
         )
 
+
         local triangulation = rt.DelaunayTriangulation(self._contour, self._contour):get_triangle_vertex_map()
         self._shape_mesh:set_vertex_map(triangulation)
 
@@ -253,19 +256,13 @@ function ow.BouncePad:instantiate(object, stage, scene)
         self._shape_mesh:attach_attribute(self._offset_mesh, "axis_offset", "pervertex")
 
         self._draw_contour = {}
-        for i = 1, #self._contour, 2 do
-            local x, y = self._contour[i+0], self._contour[i+1]
+        for i = 1, self._contour:get_n_vertices() do
+            local x, y = self._contour:get_vertex(i)
             table.insert(self._draw_contour, x)
             table.insert(self._draw_contour, y)
         end
 
-
-        do
-            local centroid_x, centroid_y = object:get_centroid()
-            local mass_x, mass_y = self._body:get_position()
-            self._draw_offset_x = centroid_x - mass_x
-            self._draw_offset_y = centroid_y - mass_y
-        end
+        self._draw_contour = rt.Polyline(self._draw_contour):close()
     end
 end
 
@@ -348,21 +345,25 @@ function ow.BouncePad:_update_vertices()
 
     local scale_offset = self._bounce_position * self._bounce_magnitude
     local data_i = 1
-    for i = 1, #self._contour, 2 do
-        local contour_x, contour_y = self._contour[i+0], self._contour[i+1]
+    local vertex_data = self._contour:close():get_vertices()
+    local draw_data = self._draw_contour:get_vertices()
+    for i = 1, #vertex_data, 2 do
+        local contour_x, contour_y = vertex_data[i+0], vertex_data[i+1]
 
         local data = self._offset_mesh_data[data_i]
-        data[_axis_x_index] = axis_x
-        data[_axis_y_index] = axis_y
+        if data ~= nil then
+            data[_axis_x_index] = axis_x -- here
+            data[_axis_y_index] = axis_y
 
-        if get_sign(contour_x, contour_y) == player_sign then
-            self._draw_contour[i+0] = contour_x + axis_x * scale_offset
-            self._draw_contour[i+1] = contour_y + axis_y * scale_offset
-            data[_offset_index] = scale_offset;
-        else
-            self._draw_contour[i+0] = contour_x
-            self._draw_contour[i+1] = contour_y
-            data[_offset_index] = 0;
+            if get_sign(contour_x, contour_y) == player_sign then
+                draw_data[i+0] = contour_x + axis_x * scale_offset
+                draw_data[i+1] = contour_y + axis_y * scale_offset
+                data[_offset_index] = scale_offset;
+            else
+                draw_data[i+0] = contour_x
+                draw_data[i+1] = contour_y
+                data[_offset_index] = 0;
+            end
         end
 
         data_i = data_i + 1
@@ -378,8 +379,8 @@ function ow.BouncePad:draw()
     love.graphics.push()
     local bx, by = self._body:get_position()
     love.graphics.translate(
-        bx + self._draw_offset_x,
-        by + self._draw_offset_y
+        bx,
+        by
     )
 
     local opacity = 1
@@ -407,12 +408,12 @@ function ow.BouncePad:draw()
 
     local r, g, b = rt.Palette.BLACK:unpack()
     love.graphics.setColor(r, g, b, opacity)
-    love.graphics.line(self._draw_contour)
+    self._draw_contour:draw()
 
     local r, g, b = table.unpack(self._draw_outer_color)
     love.graphics.setColor(r, g, b, opacity)
     love.graphics.setLineWidth(line_width - 2)
-    love.graphics.line(self._draw_contour)
+    self._draw_contour:draw()
 
     love.graphics.pop()
 

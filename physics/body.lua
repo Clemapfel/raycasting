@@ -57,6 +57,7 @@ b2.Tag = {
     STICKY = "sticky",
     NO_BLOOD = "no_blood",
     HITBOX = "hitbox",
+    NO_SQUISH = "no_squish",
     USE_DARKNESS = "use_darkness",
     USE_LIGHTING = "use_lighting",
     USE_FRICTION = "use_friction",

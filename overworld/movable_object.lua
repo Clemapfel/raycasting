@@ -7,7 +7,7 @@ ow.SolidMovableObject = meta.abstract_class("SolidMovableObject", ow.MovableObje
 -- check if object has self._body, then forward if possible, otherwise hard throw (type error)
 local _forward_or_throw = function(self, scope, ...)
     if self._body ~= nil and meta.isa(self._body, b2.Body) then
-        assert(self._body:get_type() ~= b2.BodyType.STATIC, "In ow." .. meta.typeof(self) .. "." .. scope .. ": self._body is `STATIC`, it cannot be moved")
+        rt.assert(self._body:get_type() ~= b2.BodyType.STATIC, "In ow.", meta.typeof(self), ".", scope, ": self._body is `STATIC`, it cannot be moved")
         return self._body[scope](self._body, ...)
     else
         rt.error("In ", meta.typeof(self), "." .. scope .. ": for object `", self:get_id(), "`: abstract method called")
@@ -47,6 +47,8 @@ function ow.MovableObject:get_is_visible()
         return self._stage:get_is_body_visible(self._body)
     end
 end
+
+
 --- @brief
 function ow.SolidMovableObject:get_contour()
     if DEBUG then

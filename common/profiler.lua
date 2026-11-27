@@ -3,8 +3,10 @@ rt.settings.profiler = {
     reference_duration = 1 / 60,
     out_folder = "profile",
     whitelist = {
-        "HairBody:update",
-        "SoftBody:update"
+        "HairBody:(.*)"
+    },
+    blacklist = {
+        "LinkedList(.*)"
     }
 }
 
@@ -18,15 +20,18 @@ function rt.Profiler:instantiate()
     self._is_recording = false
 end
 
+local _frame_i = 1
+
 --- @brief
 function rt.Profiler:start_region(region)
     meta.typecheck(region, mt.String)
     if self._is_recording == false then return end
 
+
     table.insert(self._stack, {
         start = love.timer.getTime(),
         time = 0,
-        frame_i = rt.SceneManager:get_frame_index()
+        frame_i = _frame_i
     })
 end
 
@@ -104,6 +109,7 @@ function rt.Profiler:_notify_frame(region, frame_i, duration)
     end
 
     entry.frame_sum = entry.frame_sum + duration
+    _frame_i = _frame_i + 1
 end
 
 local function _median(t)
@@ -267,10 +273,16 @@ function rt.Profiler:report()
 end
 
 --- @brief
-function rt.Profiler:is_on_whitelist(name)
+function rt.Profiler:should_profile(name)
     meta.typecheck(name, mt.String)
+    for _, x in ipairs(rt.settings.profiler.blacklist) do
+        if string.match(name, x) ~= nil then
+            return false
+        end
+    end
+
     for _, x in ipairs(rt.settings.profiler.whitelist) do
-        if name == x then
+        if string.match(name, x) ~= nil then
             return true
         end
     end

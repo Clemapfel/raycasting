@@ -11,7 +11,7 @@ rt.settings.overworld.moving_hitbox = {
 --- @types Polygon, Rectangle
 --- @field velocity Number?
 --- @field target ow.MovableHitboxTarget! pointer to path
-ow.MovableHitbox = meta.class("MovableHitbox", ow.MovableObject)
+ow.MovableHitbox = meta.class("MovableHitbox", ow.SolidMovableObject)
 
 --- @class ow.SlipperyMovableHitbox
 --- @types Polygon, Rectangle, Ellipse
@@ -21,10 +21,10 @@ ow.SlipperyMovableHitbox = function(object, stage, scene)
 end
 
 local schema = meta.Schema({
-    slippery = ow.Boolean,
-    sticky = ow.Boolean,
-    unjumpable = ow.Boolean,
-    unwalkable = ow.Boolean
+    slippery = mt.Optional(ow.Boolean),
+    sticky = mt.Optional(ow.Boolean),
+    unjumpable = mt.Optional(ow.Boolean),
+    unwalkable = mt.Optional(ow.Boolean)
 })
 
 --- @brief
@@ -207,4 +207,16 @@ end
 --- @brief
 function ow.MovableHitbox:get_is_visible()
     return self._stage:get_is_body_visible(self._body)
+end
+
+--- @brief
+function ow.MovableHitbox:get_contour()
+    local x, y = self._body:get_position()
+    local res = table.deepcopy(self._contour:get_vertices())
+    for i = 1, #res, 2 do
+        res[i + 0] = res[i + 0] + x
+        res[i + 1] = res[i + 1] + y
+    end
+
+    return rt.Polyline(res), true
 end

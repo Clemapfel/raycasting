@@ -1,13 +1,13 @@
 require "common.interpolation_functions"
 
 rt.settings.hairbody = {
-    max_n_steps = 8,
+    max_n_steps = 4,
 
     default = {
         damping = 0.95,
-        n_sub_steps = 4,
-        n_constraint_iterations = 4,
-        timestep = 1 / 120,
+        n_sub_steps = 2,
+        n_constraint_iterations = 2,
+        timestep = 1 / 60,
 
         static_friction = 1.2,
         kinetic_friction = 0.9,
@@ -1084,7 +1084,7 @@ do
             vertices[2 * particle_i] = draw_particles[base + 1]
         end
 
-        return rt.Polyline(vertices)
+        return rt.Polyline(vertices):close()
     end
 end
 

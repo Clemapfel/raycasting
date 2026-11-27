@@ -334,10 +334,14 @@ function ow.OverworldScene:instantiate(state)
         0, 0,
         0.5
     )
+
+    self._camera_scale_offset = 0
     
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
         if which == rt.KeyboardKey.LEFT_CONTROL or which == rt.KeyboardKey.RIGHT_CONTROL then
             self._camera_override_active = true
+            self._camera_scale_offset = 0
+            self._camera:_add_scale(0)
         end
     end)
 
@@ -346,16 +350,21 @@ function ow.OverworldScene:instantiate(state)
             self._camera_override_active = false
             self._camera_override_position_motion:set_target_position(0, 0)
             self._camera_override_scale_motion:set_target_value(1)
+            self._camera_scale_offset = 0
+            self._camera:_add_scale(0)
         end
     end)
 
     self._input:signal_connect("mouse_wheel_moved", function(_, x, y)
         if self._camera_override_active then
             self._camera_override_scale_motion:set_target_value(math.clamp(
-            self._camera_override_scale_motion:get_target_value() + y * settings.scale_override_velocity,
+                self._camera_override_scale_motion:get_target_value() + y * settings.scale_override_velocity,
                 settings.scale_override_min,
                 settings.scale_override_max
             ))
+        else
+            self._camera_scale_offset = self._camera_scale_offset + y * settings.scale_override_velocity
+            self._camera:_add_scale(self._camera_scale_offset)
         end
     end)
     

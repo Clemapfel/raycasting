@@ -4,12 +4,12 @@ rt.settings.overworld.portal_particles = {
     transition_min_speed = 600,
     transition_speed_factor = 1.5,
     particle = {
-        radius = 25,
+        radius = 15,
         min_speed = 10, -- px / s
         max_speed = 20,
-        min_scale = 0.3,
-        max_scale = 0.6,
-        coverage = 5,
+        min_scale = 0.5,
+        max_scale = 1,
+        coverage = 1,
         collapse_speed = 10, -- fraction
     },
 

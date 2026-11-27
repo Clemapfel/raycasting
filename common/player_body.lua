@@ -17,13 +17,13 @@ rt.settings.player_body = {
     hair_body_radius_offset = 3,
 
     core_non_bubble_config = {
-        timestep = 1 / 120,
         static_friction = 0.0,
         kinetic_friction = 0.0,
 
-        damping = 0.98,
-        distance_compliance = 4e-7,
-        bending_compliance = 4e-7,
+        n_constraint_iterations = 4,
+        damping = 0.96,
+        distance_compliance = 1e-7,
+        bending_compliance = 1e-7,
         volume_compliance = 1e-7,
         anchor_compliance = 0,
         angular_momentum_compliance = 0
@@ -32,6 +32,10 @@ rt.settings.player_body = {
     core_bubble_config = {
         static_friction = 0.0,
         kinetic_friction = 0.0,
+
+        distance_compliance = 8e-7,
+        bending_compliance = 1e-7,
+        volume_compliance = 10e-6,
 
         -- turn off everything except anchor
         enforce_distance = false,
@@ -48,15 +52,25 @@ rt.settings.player_body = {
     bubble_config = {
         static_friction = 1.2,
         kinetic_friction = 0.9,
-        damping = 0.975, -- reduce induced rotational momentum
+        damping = 0.98,
 
         bending_compliance = 0,
         distance_compliance = 0,
         volume_compliance = 0
     },
 
-    hair_config = {
+    hair_bubble_config = {
+        enforce_distance = true,
+        distance_compliance = 0, -- for contraction
 
+        enforce_contour_collision = false,
+        enforce_bending = false,
+        enforce_anchor = true,
+        enforce_angular_momentum = false
+    },
+
+    hair_non_bubble_config = {
+        -- defaults
     }
 }
 
@@ -104,6 +118,7 @@ function rt.PlayerBody:instantiate(position_x, position_y)
     self._gravity_y = 200
 
     self._is_disabled = false
+    self._triangulate_needed = true
 
     self._bubble_body = nil -- rt.SoftBody
     self._core_body = nil -- rt.SoftBody
@@ -171,7 +186,7 @@ function rt.PlayerBody:_initialize()
 
     self._bubble_body = rt.SoftBody(rt.PolylineCircle(
         center_x, center_y, bubble_radius_factor * core_body_radius,
-        23
+        26
     ))
     self._bubble_body:set_anchor(center_x, center_y)
     self._bubble_body:set_config(rt.settings.player_body.bubble_config)
@@ -188,7 +203,7 @@ function rt.PlayerBody:_initialize()
 
     self._hair_body:set_anchor(center_x, center_y)
     self._hair_body:set_contraction(self._hair_contraction_motion:get_value())
-    self._hair_body:set_config(rt.settings.player_body.hair_config)
+    self._hair_body:set_config(rt.settings.player_body.hair_non_bubble_config)
     self._hair_body_mesh = nil
     self._hair_body_mesh_data = nil
     self._hair_body_contour = nil
@@ -202,7 +217,6 @@ function rt.PlayerBody:relax()
     self._core_body:relax()
     self._hair_body:relax()
 end
-
 
 local _triangulate = function(mesh, mesh_data, contour)
     if mesh_data == nil then mesh_data = {} end
@@ -222,10 +236,16 @@ local _triangulate = function(mesh, mesh_data, contour)
                 mesh_data[vertex_i] = entry
             else
                 entry[1], entry[2], entry[3], entry[4] = x, y, u, v
+                entry[8] = 1
             end
 
             vertex_i = vertex_i + 1
         end
+    end
+
+    -- hide overflow tris
+    for i = vertex_i, #mesh_data do
+        mesh_data[i][8] = 0
     end
 
     if mesh == nil or mesh:get_n_vertices() ~= vertex_i - 1 then
@@ -257,26 +277,7 @@ function rt.PlayerBody:update(delta)
         body:update(delta)
     end
 
-    local hair_body_contour = self._hair_body:get_draw_contour()
-    self._hair_body_mesh, self._hair_body_mesh_datas, self._hair_body_contour = _triangulate(
-        self._hair_body_mesh,
-        self._hair_body_mesh_data,
-        hair_body_contour
-    )
-
-    local bubble_body_contour = self._bubble_body:get_draw_contour()
-    self._bubble_body_mesh, self._bubble_body_mesh_data, self._bubble_body_contour = _triangulate(
-        self._bubble_body_mesh,
-        self._bubble_body_mesh_data,
-        bubble_body_contour
-    )
-
-    local contour = self._core_body:get_draw_contour()
-    self._core_body_mesh, self._core_body_mesh_data, self._core_body_contour = _triangulate(
-        self._core_body_mesh,
-        self._core_body_mesh_data,
-        contour
-    )
+    self._triangulate_needed = true
 
     do
         local contraction = self._bubble_contraction_motion:get_value()
@@ -315,16 +316,18 @@ function rt.PlayerBody:set_colliding_bodies(t)
         local object = body:get_user_data()
         if object ~= nil and meta.is_function(object.get_contour) then
             local contour = object:get_contour()
-            if DEBUG then
-                if not meta.isa(contour, rt.Polyline) then
-                    rt.error("In rt.PlayerBody.set_colliding_bodies: object `", meta.typeof(object), "` has a `get_contour` function, but it does not return a `rt.Polyline`")
+            if contour ~= nil then
+                if DEBUG then
+                    if not meta.isa(contour, rt.Polyline) then
+                        rt.error("In rt.PlayerBody.set_colliding_bodies: object `", meta.typeof(object), "` has a `get_contour` function, but it does not return a `rt.Polyline`")
+                    end
                 end
+                table.insert(contours, contour)
             end
-
-            table.insert(contours, contour)
         end
     end
 
+    self._collision_contours = contours
     self._bubble_body:set_collision_contours(contours)
     self._core_body:set_collision_contours(contours)
     self._hair_body:set_collision_contours(contours)
@@ -369,13 +372,39 @@ function rt.PlayerBody:_apply_transform()
         self._right_squish_normal_x, self._right_squish_normal_y,
         self._right_squish_origin_x, self._right_squish_origin_y
     )
+end
 
-    love.graphics.setLineJoin("bevel")
-    love.graphics.setLineWidth(3)
+--- @brief
+function rt.PlayerBody:_triangulate()
+    local hair_body_contour = self._hair_body:get_draw_contour()
+    self._hair_body_mesh, self._hair_body_mesh_datas, self._hair_body_contour = _triangulate(
+        self._hair_body_mesh,
+        self._hair_body_mesh_data,
+        hair_body_contour
+    )
+
+    local bubble_body_contour = self._bubble_body:get_draw_contour()
+    self._bubble_body_mesh, self._bubble_body_mesh_data, self._bubble_body_contour = _triangulate(
+        self._bubble_body_mesh,
+        self._bubble_body_mesh_data,
+        bubble_body_contour
+    )
+
+    local contour = self._core_body:get_draw_contour()
+    self._core_body_mesh, self._core_body_mesh_data, self._core_body_contour = _triangulate(
+        self._core_body_mesh,
+        self._core_body_mesh_data,
+        contour
+    )
 end
 
 --- @brief
 function rt.PlayerBody:draw_body()
+    if self._triangulate_needed then
+        self:_triangulate()
+        self._triangulate_needed = false
+    end
+
     love.graphics.push("all")
 
     local stencil_value = rt.graphics.get_stencil_value()
@@ -385,9 +414,6 @@ function rt.PlayerBody:draw_body()
     end
     
     self:_apply_transform()
-
-    love.graphics.setLineWidth(2)
-    love.graphics.setLineJoin("bevel")
 
     -- bodies
     rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.TEST, rt.StencilCompareMode.NOT_EQUAL)
@@ -401,8 +427,24 @@ function rt.PlayerBody:draw_body()
     love.graphics.pop()
 end
 
+local _draw_contour = function(contour)
+    local data = contour:get_vertices()
+    love.graphics.line(data)
+
+    local fill_r = love.graphics.getLineWidth() / 2
+    for i = 1, #data, 2 do
+        local x, y = data[i + 0], data[i + 1]
+        love.graphics.circle("fill", x, y, fill_r, 9)
+    end
+end
+
 --- @brief
 function rt.PlayerBody:draw_core()
+    if self._triangulate_needed then
+        self:_triangulate()
+        self._triangulate_needed = false
+    end
+
     love.graphics.push("all")
 
     local stencil_value = rt.graphics.get_stencil_value()
@@ -416,12 +458,22 @@ function rt.PlayerBody:draw_core()
     self:_apply_transform()
 
     love.graphics.setLineWidth(2)
-    love.graphics.setLineJoin("bevel")
+    love.graphics.setLineJoin("none")
 
     -- contours drawn here as they need to check against core stencil, not body stencil
-    self._color:bind()
-    self._hair_body_contour:draw()
-    self._bubble_body_contour:draw()
+    local r, g, b = self._color:unpack()
+
+    local bubble_t = math.clamp(self._bubble_contraction_motion:get_value(), 0, 1)
+
+    local angle = bubble_t * (math.pi / 2)
+    local hair_alpha = math.cos(angle)
+    local bubble_alpha = math.sin(angle)
+
+    love.graphics.setColor(r, g, b, hair_alpha)
+    _draw_contour(self._hair_body_contour)
+
+    love.graphics.setColor(r, g, b, bubble_alpha)
+    _draw_contour(self._bubble_body_contour)
 
     local core_shader = _core_type_to_shader[rt.GameState:get_player_body_core_type()]
     core_shader:bind()
@@ -433,8 +485,10 @@ function rt.PlayerBody:draw_core()
     self._core_body_mesh:draw()
     core_shader:unbind()
 
+    love.graphics.setLineJoin("none")
     self._color:clone():lighten(0.2):bind()
-    love.graphics.line(self._core_body_contour:get_vertices())
+
+    _draw_contour(self._core_body_contour)
 
     rt.graphics.set_stencil_mode(nil)
 
@@ -484,12 +538,14 @@ function rt.PlayerBody:set_state(state)
         self._bubble_contraction_motion:set_target_value(1)
         self._hair_contraction_motion:set_target_value(0)
         self._core_body:set_config(rt.settings.player_body.core_bubble_config)
+        self._hair_body:set_config(rt.settings.player_body.hair_bubble_config)
         self._core_body:relax()
     elseif before == rt.PlayerBodyState.BUBBLE and state ~= rt.PlayerBodyState.BUBBLE then
         self._bubble_contraction_motion:set_target_value(0)
         self._hair_contraction_motion:set_value(0)
         self._hair_contraction_motion:set_target_value(1)
         self._core_body:set_config(rt.settings.player_body.core_non_bubble_config)
+        self._hair_body:set_config(rt.settings.player_body.hair_non_bubble_config)
         self._core_body:relax()
     end
 end

@@ -1021,7 +1021,7 @@ function rt.Player:update(delta)
             if should_duck then
                 for wall_body in range(self._bottom_body, self._bottom_left_body, self._bottom_wall_body) do
                     local entry = self._body_to_collision_normal[wall_body]
-                    if entry ~= nil then
+                    if entry ~= nil and not wall_body:has_tag(b2.Tag.NO_SQUISH) then
                         self._graphics_body:set_down_squish(not self:get_is_disabled(),
                             entry.normal_x, entry.normal_y,
                             entry.contact_x, entry.contact_y
@@ -1041,6 +1041,7 @@ function rt.Player:update(delta)
                 for i = 1, select("#", ...) do
                     local wall_body = select(i, ...)
                     if wall_body ~= nil then
+                        if wall_body:has_tag(b2.Tag.NO_SQUISH) then return false end
                         local entry = self._body_to_collision_normal[wall_body]
                         if entry ~= nil then
                             return true,

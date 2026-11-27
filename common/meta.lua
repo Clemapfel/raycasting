@@ -912,7 +912,7 @@ function meta.class(typename, super)
     if PROFILE and rt ~= nil and rt.Profiler ~= nil then
         instance_type_metatable.__newindex = function(self, key, value)
             local region = typename .. ":" .. key
-            if type(value) == "function" and (rt.Profiler:is_on_whitelist(region) or rt.Profiler:is_on_whitelist(key)) then
+            if type(value) == "function" and rt.Profiler:should_profile(region) then
                 local wrapper = function(...)
                     rt.Profiler:start_region(region)
                     local res = { value(...) }

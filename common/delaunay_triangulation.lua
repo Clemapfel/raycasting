@@ -276,11 +276,17 @@ _set_degenerate_state = function(self)
 end
 
 local function _is_point_on_segment(px, py, ax, ay, bx, by)
-    local cross = (px - ax) * (by - ay) - (py - ay) * (bx - ax)
-    if cross ~= 0 then return false end
+    local dx = bx - ax
+    local dy = by - ay
+    local cross = (px - ax) * dy - (py - ay) * dx
+    local cross_scale = math.abs((px - ax) * dy) + math.abs((py - ay) * dx)
+    if math.abs(cross) > EPSILON * math.max(1, cross_scale) then return false end
 
-    return px >= math.min(ax, bx) and px <= math.max(ax, bx) and
-        py >= math.min(ay, by) and py <= math.max(ay, by)
+    -- Midpoints on decimal-valued edges can miss exact collinearity by a
+    -- few ULPs. Use a coordinate-scaled bound for the segment extents too.
+    local coordinate_epsilon = EPSILON * math.max(1, math.abs(ax), math.abs(ay), math.abs(bx), math.abs(by))
+    return px >= math.min(ax, bx) - coordinate_epsilon and px <= math.max(ax, bx) + coordinate_epsilon and
+        py >= math.min(ay, by) - coordinate_epsilon and py <= math.max(ay, by) + coordinate_epsilon
 end
 
 local function _is_point_in_contour(x, y, contour, n)
@@ -419,7 +425,9 @@ local function _clip_to_contour(self, contour)
 end
 function rt.DelaunayTriangulation:triangulate(points, contour)
     if meta.isa(contour, rt.Polyline) then contour = contour:get_vertices() end
-    if meta.isa(points, rt.Polyline) then points = EMPTY_TABLE end
+    -- A Polyline is a valid point source as well as a contour. Preserve its
+    -- vertices instead of replacing the point set with an empty table.
+    if meta.isa(points, rt.Polyline) then points = points:get_vertices() end
     if points == nil then points = EMPTY_TABLE end
 
     meta.typecheck(points, mt.Table(mt.Number), contour, mt.Optional(mt.Table(mt.Number)))

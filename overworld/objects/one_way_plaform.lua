@@ -12,10 +12,9 @@ rt.settings.overworld.one_way_platform = {
     push_through_coefficient = 0.57 -- the smaller, the more push through force is applied
 }
 
-
 --- @class ow.OneWayPlatform
 --- @types Rectangle
-ow.OneWayPlatform = meta.class("OneWayPlatform", ow.MovableObject)
+ow.OneWayPlatform = meta.class("OneWayPlatform", ow.SolidMovableObject)
 
 local schema = meta.Schema({
     other = ow.Object,
@@ -93,8 +92,20 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
     body_shape = b2.Segment(x1, y1, x2, y2)
     body_shape:set_is_one_sided(true)
 
+    local contour_r = rt.settings.overworld.one_way_platform.line_width
+    self._contour = rt.Polyline(
+        centroid_x + x1 + left_dx  * contour_r,
+        centroid_y + y1 + left_dy  * contour_r,
+        centroid_x + x2 - right_dx * contour_r,
+        centroid_y + y2 - right_dy * contour_r,
+        centroid_x + x2 - left_dx  * contour_r,
+        centroid_y + y2 - left_dy  * contour_r,
+        centroid_x + x1 + right_dx * contour_r,
+        centroid_y + y1 + right_dy * contour_r
+    )
+
     self._body = b2.Body(world, body_type, centroid_x, centroid_y, body_shape)
-    self._body:add_tag(b2.Tag.STENCIL, b2.Tag.HITBOX)
+    self._body:add_tag(b2.Tag.STENCIL, b2.Tag.HITBOX, b2.Tag.NO_SQUISH)
     self._body:add_tag(b2.Tag.SEGMENT_LIGHT_SOURCE)
     self._body:set_user_data(self)
 

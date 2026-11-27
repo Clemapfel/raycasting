@@ -474,12 +474,6 @@ function rt.Polyline:round(radius, samples_per_corner)
         end
     end
 
-    -- close the contour
-    if #new_points >= 2 then
-        new_points[#new_points + 1] = new_points[1]
-        new_points[#new_points + 1] = new_points[2]
-    end
-
     self.vertices = new_points
     return self
 end
@@ -926,6 +920,26 @@ function rt.Polyline:cast_ray(x, y, dx, dy)
     end
 
     return x + dx * min_t, y + dy * min_t
+end
+
+--- @brief
+function rt.Polyline:get_perimeter()
+    local vertices = self.vertices
+    local n = self:get_n_vertices()
+    if n < 2 then return 0 end
+
+    local length = 0
+    for i = 1, n do
+        local j = i % n + 1
+        local ai = (i - 1) * 2 + 1
+        local bi = (j - 1) * 2 + 1
+        length = length + math.distance(
+            vertices[ai + 0], vertices[ai + 1],
+            vertices[bi + 0], vertices[bi + 1]
+        )
+    end
+
+    return length
 end
 
 function rt.Polyline:triangulate()
