@@ -1,28 +1,23 @@
 require "common.meta"
 
---- @class rt.DelaunayTriangulation
---- @see https://github.com/mapbox/delaunator
 rt.DelaunayTriangulation = meta.class("DelaunayTriangulation")
 
-local EPSILON = 1 / 1000
+local EPSILON = 1e-10
 local EDGE_BUFFER_SIZE = 512
 local EMPTY_TABLE = {}
 local DEGENERATE_COORDS = { 0, 0, 0, 0, 0, 0 }
 
--- Forward-declared because instantiate() is defined before the workspace
--- helpers below. All internal numeric arrays share one flat backing buffer.
 local _set_degenerate_state
 local _update
 
---- @brief
 function rt.DelaunayTriangulation:instantiate(points, contour)
     if contour == nil then contour = points end
 
-    -- Avoid allocating a tiny fallback workspace just before triangulate()
-    -- allocates the real one for the supplied point count.
     if points ~= nil then
         self:triangulate(points, contour)
     else
+        self._coords = DEGENERATE_COORDS
+        self._constraints = EMPTY_TABLE
         _set_degenerate_state(self)
     end
 end
@@ -159,7 +154,6 @@ local function _is_finite_number(value)
     return value == value and value ~= math.huge and value ~= -math.huge
 end
 
--- Check the point cloud rather than relying on a particular vertex order.
 local function _has_nonzero_area(coords)
     if coords == nil or #coords < 6 or #coords % 2 ~= 0 then return false end
 
@@ -188,7 +182,6 @@ local function _has_nonzero_area(coords)
     return false
 end
 
--- A contour is an ordered polygon, so also reject zero signed-area contours.
 local function _has_nonzero_contour_area(contour)
     if contour == nil or #contour < 6 or #contour % 2 ~= 0 then return false end
 
@@ -207,9 +200,6 @@ end
 
 if table.new == nil then require("table.new") end
 
--- The backing buffer is one dense, consecutively indexed numeric array.
--- Segment offsets define its logical arrays; the table length is total
--- capacity, while active mesh/hull lengths are tracked separately.
 local function _new_array(n)
     local out = table.new(n, 1)
     for i = 1, n do
@@ -232,7 +222,6 @@ local function _ensure_workspace(self, n)
 
         local triangle_capacity = math.max(2 * capacity - 5, 1) * 3
         local hash_capacity = math.ceil(math.sqrt(capacity))
-        local edge_capacity = math.max(EDGE_BUFFER_SIZE, capacity)
         local offset = 0
 
         self._triangles_offset = offset
@@ -253,13 +242,16 @@ local function _ensure_workspace(self, n)
         offset = offset + capacity
         self._distances_offset = offset
         offset = offset + capacity
-        self._edge_buffer_offset = offset
-        offset = offset + edge_capacity
-
         self._triangle_capacity = triangle_capacity
         self._hash_capacity = hash_capacity
-        self._edge_buffer_capacity = edge_capacity
         self._buffer = _new_array(offset)
+    end
+
+    -- Keep legalization scratch storage separate so it can grow safely if a
+    -- pathological point set creates a deeper flip stack than expected.
+    if self._edge_stack == nil then
+        self._edge_buffer_capacity = EDGE_BUFFER_SIZE
+        self._edge_stack = table.new(self._edge_buffer_capacity, 1)
     end
 
     self._hashSize = math.ceil(math.sqrt(n))
@@ -267,62 +259,164 @@ local function _ensure_workspace(self, n)
 end
 
 _set_degenerate_state = function(self)
+    -- A degenerate triangulation is genuinely empty.  The old fallback wrote
+    -- a synthetic (1, 2, 3) triangle at the origin, which became visible as a
+    -- disconnected triangle and also made empty results look non-empty.
     _ensure_workspace(self, 3)
 
-    -- Immutable fallback coordinates are shared; all instance-owned numeric
-    -- state lives in one reusable flat buffer.
-    self._coords = DEGENERATE_COORDS
-    self._constraints = EMPTY_TABLE
+    if self._coords == nil then
+        self._coords = DEGENERATE_COORDS
+    end
 
-    local buffer = self._buffer
-    local triangles = self._triangles_offset
-    local half_edges = self._half_edges_offset
-    local hull = self._hull_offset
-    local hull_previous = self._hull_previous_offset
-    local hull_next = self._hull_next_offset
-    local hull_tri = self._hull_tri_offset
-    local hull_hash = self._hull_hash_offset
-    local ids = self._ids_offset
-    local distances = self._distances_offset
-
-    buffer[triangles + 1], buffer[triangles + 2], buffer[triangles + 3] = 1, 2, 3
-    buffer[half_edges + 1], buffer[half_edges + 2], buffer[half_edges + 3] = -1, -1, -1
-    buffer[hull + 1], buffer[hull + 2], buffer[hull + 3] = 1, 2, 3
-
-    self._n_triangles = 3
-    self._hull_size = 3
-    self._hashSize = 2
-    buffer[hull_previous + 1], buffer[hull_previous + 2], buffer[hull_previous + 3] = 3, 1, 2
-    buffer[hull_next + 1], buffer[hull_next + 2], buffer[hull_next + 3] = 2, 3, 1
-    buffer[hull_tri + 1], buffer[hull_tri + 2], buffer[hull_tri + 3] = 1, 2, 3
-    buffer[hull_hash + 1], buffer[hull_hash + 2] = -1, -1
-    buffer[ids + 1], buffer[ids + 2], buffer[ids + 3] = 1, 2, 3
-    buffer[distances + 1], buffer[distances + 2], buffer[distances + 3] = 0, 0, 0
-    self._hull_start = 1
+    self._n_triangles = 0
+    self._hull_size = 0
+    self._hull_start = 0
     self._center_x = 0
     self._center_y = 0
+end
+
+local function _is_point_on_segment(px, py, ax, ay, bx, by)
+    local cross = (px - ax) * (by - ay) - (py - ay) * (bx - ax)
+    if cross ~= 0 then return false end
+
+    return px >= math.min(ax, bx) and px <= math.max(ax, bx) and
+        py >= math.min(ay, by) and py <= math.max(ay, by)
 end
 
 local function _is_point_in_contour(x, y, contour, n)
     local inside = false
     local j = n
+
     for i = 1, n do
         local xi, yi = contour[2 * i - 1], contour[2 * i]
         local xj, yj = contour[2 * j - 1], contour[2 * j]
-        if ((yi > y) ~= (yj > y)) and (x < (xj - xi) * (y - yi) / ((yj - yi) + EPSILON) + xi) then
-            inside = not inside
+
+        -- Treat points on the contour as inside.  Do not bias the ray
+        -- denominator: adding EPSILON changes intersections on shallow and
+        -- small-scale edges and can flip the result from frame to frame.
+        if _is_point_on_segment(x, y, xi, yi, xj, yj) then
+            return true
+        end
+
+        if (yi > y) ~= (yj > y) then
+            local intersection_x = xi + (xj - xi) * (y - yi) / (yj - yi)
+            if x < intersection_x then inside = not inside end
         end
         j = i
     end
+
     return inside
 end
 
-local function _is_triangle_in_aabb(ax, ay, bx, by, cx, cy, min_x, min_y, max_x, max_y)
-    return ax >= min_x and ax <= max_x and ay >= min_y and ay <= max_y and
-        bx >= min_x and bx <= max_x and by >= min_y and by <= max_y and
-        cx >= min_x and cx <= max_x and cy >= min_y and cy <= max_y
+local function _segments_properly_intersect(ax, ay, bx, by, cx, cy, dx, dy)
+    -- Only proper crossings are rejected. Shared endpoints and collinear
+    -- boundary edges are valid contacts with the contour.
+    local ab_c = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax)
+    local ab_d = (bx - ax) * (dy - ay) - (by - ay) * (dx - ax)
+    if not ((ab_c > 0 and ab_d < 0) or (ab_c < 0 and ab_d > 0)) then
+        return false
+    end
+
+    local cd_a = (dx - cx) * (ay - cy) - (dy - cy) * (ax - cx)
+    local cd_b = (dx - cx) * (by - cy) - (dy - cy) * (bx - cx)
+    return (cd_a > 0 and cd_b < 0) or (cd_a < 0 and cd_b > 0)
 end
 
+local function _is_triangle_inside_contour(x1, y1, x2, y2, x3, y3, contour, contour_n)
+    if not _is_point_in_contour(x1, y1, contour, contour_n) or
+        not _is_point_in_contour(x2, y2, contour, contour_n) or
+        not _is_point_in_contour(x3, y3, contour, contour_n) then
+        return false
+    end
+
+    -- A triangle can have all vertices inside a concave contour while one
+    -- of its sides crosses outside it. Reject any proper edge/boundary
+    -- crossing; checking the centroid as well catches numerical/touch cases.
+    local cx = (x1 + x2 + x3) / 3
+    local cy = (y1 + y2 + y3) / 3
+    if not _is_point_in_contour(cx, cy, contour, contour_n) then
+        return false
+    end
+    if not _is_point_in_contour((x1 + x2) / 2, (y1 + y2) / 2, contour, contour_n) or
+        not _is_point_in_contour((x2 + x3) / 2, (y2 + y3) / 2, contour, contour_n) or
+        not _is_point_in_contour((x3 + x1) / 2, (y3 + y1) / 2, contour, contour_n) then
+        return false
+    end
+
+    for edge_i = 1, 3 do
+        local ax, ay, bx, by
+        if edge_i == 1 then
+            ax, ay, bx, by = x1, y1, x2, y2
+        elseif edge_i == 2 then
+            ax, ay, bx, by = x2, y2, x3, y3
+        else
+            ax, ay, bx, by = x3, y3, x1, y1
+        end
+        local edge_min_x, edge_max_x = math.min(ax, bx), math.max(ax, bx)
+        local edge_min_y, edge_max_y = math.min(ay, by), math.max(ay, by)
+
+        for contour_i = 1, contour_n do
+            local contour_j = contour_i % contour_n + 1
+            local cx1, cy1 = contour[2 * contour_i - 1], contour[2 * contour_i]
+            local cx2, cy2 = contour[2 * contour_j - 1], contour[2 * contour_j]
+
+            -- Cheap bounding-box rejection before the orientation tests.
+            if edge_max_x >= math.min(cx1, cx2) and edge_min_x <= math.max(cx1, cx2) and
+                edge_max_y >= math.min(cy1, cy2) and edge_min_y <= math.max(cy1, cy2) and
+                _segments_properly_intersect(ax, ay, bx, by, cx1, cy1, cx2, cy2) then
+                return false
+            end
+        end
+    end
+
+    return true
+end
+
+local function _clip_to_contour(self, contour)
+    if contour == nil or contour == EMPTY_TABLE or #contour < 6 then
+        return
+    end
+
+    local contour_n = math.floor(#contour / 2)
+    local min_x, min_y = math.huge, math.huge
+    local max_x, max_y = -math.huge, -math.huge
+    for i = 1, contour_n do
+        local x, y = contour[2 * i - 1], contour[2 * i]
+        if x < min_x then min_x = x end
+        if y < min_y then min_y = y end
+        if x > max_x then max_x = x end
+        if y > max_y then max_y = y end
+    end
+
+    local buffer = self._buffer
+    local triangles = self._triangles_offset
+    local coords = self._coords
+    local n_triangles = self._n_triangles
+    local write_i = 1
+
+    for triangle_i = 1, n_triangles, 3 do
+        local i1 = buffer[triangles + triangle_i]
+        local i2 = buffer[triangles + triangle_i + 1]
+        local i3 = buffer[triangles + triangle_i + 2]
+        local x1, y1 = coords[2 * i1 - 1], coords[2 * i1]
+        local x2, y2 = coords[2 * i2 - 1], coords[2 * i2]
+        local x3, y3 = coords[2 * i3 - 1], coords[2 * i3]
+
+        -- A triangle wholly inside a contour must also have all vertices in
+        -- its AABB.  This is a cheap rejection before point-in-polygon tests.
+        if x1 >= min_x and x1 <= max_x and y1 >= min_y and y1 <= max_y and
+            x2 >= min_x and x2 <= max_x and y2 >= min_y and y2 <= max_y and
+            x3 >= min_x and x3 <= max_x and y3 >= min_y and y3 <= max_y and
+            _is_triangle_inside_contour(x1, y1, x2, y2, x3, y3, contour, contour_n) then
+            buffer[triangles + write_i] = i1
+            buffer[triangles + write_i + 1] = i2
+            buffer[triangles + write_i + 2] = i3
+            write_i = write_i + 3
+        end
+    end
+
+    self._n_triangles = write_i - 1
+end
 function rt.DelaunayTriangulation:triangulate(points, contour)
     if meta.isa(contour, rt.Polyline) then contour = contour:get_vertices() end
     if meta.isa(points, rt.Polyline) then points = EMPTY_TABLE end
@@ -330,134 +424,95 @@ function rt.DelaunayTriangulation:triangulate(points, contour)
 
     meta.typecheck(points, mt.Table(mt.Number), contour, mt.Optional(mt.Table(mt.Number)))
 
-    -- Degenerate inputs always produce the same safe, non-empty mesh.
-    if not _has_nonzero_area(points) or (contour ~= nil and not _has_nonzero_contour_area(contour)) then
-        _set_degenerate_state(self)
-        return self
-    end
-
+    -- Keep the caller's coordinate array even for degenerate inputs.  The
+    -- previous fallback replaced it with a static zero triangle, so a later
+    -- update could no longer observe repaired/mutated input coordinates.
+    self._coords = points
     self._constraints = contour or EMPTY_TABLE
 
-    local coords = points
-    self._coords = coords
-    -- The point-cloud validation above already checked area and finiteness.
-    _update(self, true)
-
-    -- update() can also encounter an unusable point set when called directly;
-    -- do not let contour filtering operate on an empty hull or mesh.
-    if self._n_triangles == 0 or self._hull_size < 3 then
+    if not _has_nonzero_area(points) or
+        (contour ~= nil and not _has_nonzero_contour_area(contour)) then
         _set_degenerate_state(self)
         return self
     end
 
-    if not contour then return self end
-
-    -- Compute AABB for the contour
-    local min_x, min_y, max_x, max_y = math.huge, math.huge, -math.huge, -math.huge
-    local buffer = self._buffer
-    local hull = self._hull_offset
-    local coords = self._coords
-    for i = 1, self._hull_size do
-        local j = buffer[hull + i]
-        local x = coords[2 * j - 1]
-        local y = coords[2 * j]
-        if x < min_x then min_x = x end
-        if y < min_y then min_y = y end
-        if x > max_x then max_x = x end
-        if y > max_y then max_y = y end
-    end
-
-    -- Efficient triangle filtering
-    local triangles = self._triangles_offset
-    local n_triangles = self._n_triangles
-    local contour_n = math.floor(#contour / 2)
-    local constrained_i = 1
-
-    -- Compact accepted triangles into the front of the same buffer. Since the
-    -- write cursor never passes the read cursor, this is safe in-place and
-    -- removes a temporary table allocation on every constrained triangulate.
-    for triangle_i = 1, n_triangles, 3 do
-        local i1 = buffer[triangles + triangle_i]
-        local i2 = buffer[triangles + triangle_i + 1]
-        local i3 = buffer[triangles + triangle_i + 2]
-        local x1 = coords[2 * i1 - 1]
-        local y1 = coords[2 * i1]
-        local x2 = coords[2 * i2 - 1]
-        local y2 = coords[2 * i2]
-        local x3 = coords[2 * i3 - 1]
-        local y3 = coords[2 * i3]
-
-        if _is_triangle_in_aabb(x1, y1, x2, y2, x3, y3, min_x, min_y, max_x, max_y) then
-            local cx = (x1 + x2 + x3) / 3
-            local cy = (y1 + y2 + y3) / 3
-            if _is_point_in_contour(cx, cy, contour, contour_n) then
-                buffer[triangles + constrained_i] = i1
-                buffer[triangles + constrained_i + 1] = i2
-                buffer[triangles + constrained_i + 2] = i3
-                constrained_i = constrained_i + 3
-            end
-        end
-    end
-
-    self._n_triangles = constrained_i - 1
+    _update(self, true)
     if self._n_triangles == 0 then
-        _set_degenerate_state(self)
+        return self
     end
+
+    _clip_to_contour(self, contour)
     return self
 end
-
---- @brief
-function rt.DelaunayTriangulation:get_triangle_vertex_map()
-    if self._buffer == nil or self._n_triangles == 0 then
-        _set_degenerate_state(self)
+-- Optional output tables let frame-by-frame callers reuse allocations.  With
+-- no argument these retain the original fresh-table return semantics.
+function rt.DelaunayTriangulation:get_triangle_vertex_map(out)
+    if out == nil then
+        out = table.new(self._n_triangles or 0, 0)
     end
 
-    local n_triangles = self._n_triangles
-    local indices = table.new(n_triangles, 0)
+    local n_triangles = self._n_triangles or 0
+    for i = #out, n_triangles + 1, -1 do
+        out[i] = nil
+    end
+
+    if self._buffer == nil or n_triangles == 0 then
+        return out
+    end
+
     local buffer = self._buffer
     local triangles_offset = self._triangles_offset
     for i = 1, n_triangles do
-        indices[i] = buffer[triangles_offset + i]
+        out[i] = buffer[triangles_offset + i]
     end
 
-    return indices
+    return out
 end
 
---- @brief
-function rt.DelaunayTriangulation:get_triangles()
-    if self._buffer == nil or self._n_triangles == 0 or self._coords == nil then
-        _set_degenerate_state(self)
+function rt.DelaunayTriangulation:get_triangles(out)
+    local n_triangles = self._n_triangles or 0
+    local n_output = math.floor(n_triangles / 3)
+    if out == nil then
+        out = table.new(n_output, 0)
     end
 
-    local triangles = table.new(self._n_triangles / 3, 0)
+    for i = #out, n_output + 1, -1 do
+        out[i] = nil
+    end
+
+    if self._buffer == nil or n_triangles == 0 or self._coords == nil then
+        return out
+    end
+
     local coords = self._coords
     local buffer = self._buffer
     local triangles_offset = self._triangles_offset
     local out_i = 1
-    for i = 1, self._n_triangles, 3 do
+    for i = 1, n_triangles, 3 do
         local i1 = buffer[triangles_offset + i]
         local i2 = buffer[triangles_offset + i + 1]
         local i3 = buffer[triangles_offset + i + 2]
-        local x1 = coords[2 * i1 - 1]
-        local y1 = coords[2 * i1]
-        local x2 = coords[2 * i2 - 1]
-        local y2 = coords[2 * i2]
-        local x3 = coords[2 * i3 - 1]
-        local y3 = coords[2 * i3]
-        local triangle = table.new(6, 0)
+        local x1, y1 = coords[2 * i1 - 1], coords[2 * i1]
+        local x2, y2 = coords[2 * i2 - 1], coords[2 * i2]
+        local x3, y3 = coords[2 * i3 - 1], coords[2 * i3]
+
+        local triangle = out[out_i]
+        if triangle == nil then
+            triangle = table.new(6, 0)
+            out[out_i] = triangle
+        end
         triangle[1], triangle[2] = x1, y1
         triangle[3], triangle[4] = x2, y2
         triangle[5], triangle[6] = x3, y3
-        triangles[out_i] = triangle
         out_i = out_i + 1
     end
-    return triangles
+
+    return out
 end
 
---- @brief
 function rt.DelaunayTriangulation:get_hull()
-    if self._buffer == nil or self._hull_size == 0 or self._coords == nil then
-        _set_degenerate_state(self)
+    if self._buffer == nil or self._hull_size == nil or self._hull_size == 0 or self._coords == nil then
+        return rt.Polyline({})
     end
 
     local hull_size = self._hull_size
@@ -510,7 +565,7 @@ function rt.DelaunayTriangulation:_legalize(a)
     local half_edges = self._half_edges_offset
     local hull_triangles = self._hull_tri_offset
     local hull_previous = self._hull_previous_offset
-    local edge_buffer = self._edge_buffer_offset
+    local edge_stack = self._edge_stack
     local coords = self._coords
 
     local i = 0
@@ -525,7 +580,7 @@ function rt.DelaunayTriangulation:_legalize(a)
         if b == -1 then
             if i == 0 then break end
             i = i - 1
-            a = buffer[edge_buffer + i + 1]
+            a = edge_stack[i + 1]
             should_continue = true
         end
 
@@ -568,16 +623,22 @@ function rt.DelaunayTriangulation:_legalize(a)
                 self:_link(ar, bl)
 
                 local br = b0 + (b % 3)
-                if i < self._edge_buffer_capacity then
-                    buffer[edge_buffer + i + 1] = br
-                    i = i + 1
-                else
-                    break
+                if i >= self._edge_buffer_capacity then
+                    local new_capacity = self._edge_buffer_capacity * 2
+                    local new_stack = table.new(new_capacity, 1)
+                    for stack_i = 1, i do
+                        new_stack[stack_i] = edge_stack[stack_i]
+                    end
+                    self._edge_stack = new_stack
+                    self._edge_buffer_capacity = new_capacity
+                    edge_stack = new_stack
                 end
+                edge_stack[i + 1] = br
+                i = i + 1
             else
                 if i == 0 then break end
                 i = i - 1
-                a = buffer[edge_buffer + i + 1]
+                a = edge_stack[i + 1]
             end
         end
     end
@@ -623,8 +684,7 @@ _update = function(self, coords_are_valid)
 
     local i0, i1, i2
 
-    do -- pick a seed point close to the center
-        local min_distance = math.huge
+    do         local min_distance = math.huge
         for i = 1, n do
             local d = _distance(cx, cy, coords[2 * i - 1], coords[2 * i])
             if d < min_distance then
@@ -637,8 +697,7 @@ _update = function(self, coords_are_valid)
     local i0x = coords[2 * i0 - 1]
     local i0y = coords[2 * i0]
 
-    do -- find the point closest to the seed
-        local min_distance = math.huge
+    do         local min_distance = math.huge
         for i = 1, n do
             if i ~= i0 then
                 local d = _distance(i0x, i0y, coords[2 * i - 1], coords[2 * i])
@@ -655,7 +714,6 @@ _update = function(self, coords_are_valid)
 
     local min_radius = math.huge
 
-    -- find the third point which forms the smallest circumcircle with the first two
     for i = 1, n do
         if not (i == i0 or i == i1) then
             local r = _get_circumradius(i0x, i0y, i1x, i1y, coords[2 * i - 1], coords[2 * i])
@@ -667,8 +725,6 @@ _update = function(self, coords_are_valid)
     end
 
     if min_radius == math.huge then
-        -- order collinear points by dx (or dy if all x are identical)
-        -- and return the list as a hull
 
         for i = 1, n do
             local x_diff = coords[2 * i - 1] - coords[1]
@@ -721,10 +777,8 @@ _update = function(self, coords_are_valid)
         buffer[distances + i] = _distance(coords[2 * i - 1], coords[2 * i], self._center_x, self._center_y)
     end
 
-    -- sort the points by _distanceance from the seed triangle circumcenter
     _quicksort(buffer, ids, distances, 1, n)
 
-    -- set up the seed triangle as the starting hull
     self._hull_start = i0
     local hull_size = 3
 
@@ -757,8 +811,10 @@ _update = function(self, coords_are_valid)
             local x = coords[2 * i - 1]
             local y = coords[2 * i]
 
-            -- skip near-duplicate points
             local is_duplicate = false
+            -- Only collapse points that are effectively coincident.  The
+            -- former 1e-3 absolute threshold discarded legitimate nearby
+            -- vertices and could leave narrow regions untriangulated.
             is_duplicate = k > 1
                 and math.abs(x - xp) <= EPSILON
                 and math.abs(y - yp) <= EPSILON
@@ -767,14 +823,12 @@ _update = function(self, coords_are_valid)
                 xp = x
                 yp = y
 
-                -- skip seed triangle points
                 local is_seed = false
                 is_seed = i == i0
                     or i == i1
                     or i == i2
 
                 if not is_seed then
-                    -- find a visible edge on the convex hull using edge hash
                     local start = -1
                     local key = self:_hash(x, y)
                     for j = 0, self._hashSize - 1 do
@@ -800,15 +854,11 @@ _update = function(self, coords_are_valid)
 
                     if not is_near_duplicate then
 
-                        -- add the first triangle from the point
                         local t = self:_add_triangle(e, i, buffer[hull_next + e], -1, -1, buffer[hull_triangles + e])
 
-                        -- recursively flip triangles from the point until they satisfy the Delaunay condition
                         buffer[hull_triangles + i] = self:_legalize(t + 2)
-                        buffer[hull_triangles + e] = t -- keep track of boundary triangles on the hull
-                        hull_size = hull_size + 1
+                        buffer[hull_triangles + e] = t                         hull_size = hull_size + 1
 
-                        -- walk forward through the hull, adding more triangles and flipping recursively
                         local vertex_i = buffer[hull_next + e]
                         while true do
                             q = buffer[hull_next + vertex_i]
@@ -817,12 +867,10 @@ _update = function(self, coords_are_valid)
                             end
                             t = self:_add_triangle(vertex_i, i, q, buffer[hull_triangles + i], -1, buffer[hull_triangles + vertex_i])
                             buffer[hull_triangles + i] = self:_legalize(t + 2)
-                            buffer[hull_next + vertex_i] = vertex_i -- mark as removed
-                            hull_size = hull_size - 1
+                            buffer[hull_next + vertex_i] = vertex_i                             hull_size = hull_size - 1
                             vertex_i = q
                         end
 
-                        -- walk backward from the other side, adding more triangles and flipping
                         if e == start then
                             while true do
                                 q = buffer[hull_previous + e]
@@ -832,20 +880,17 @@ _update = function(self, coords_are_valid)
                                 t = self:_add_triangle(q, i, e, -1, buffer[hull_triangles + e], buffer[hull_triangles + q])
                                 self:_legalize(t + 2)
                                 buffer[hull_triangles + q] = t
-                                buffer[hull_next + e] = e -- mark as removed
-                                hull_size = hull_size - 1
+                                buffer[hull_next + e] = e                                 hull_size = hull_size - 1
                                 e = q
                             end
                         end
 
-                        -- update the hull indices
                         buffer[hull_previous + i] = e
                         self._hull_start = e
                         buffer[hull_previous + vertex_i] = i
                         buffer[hull_next + e] = i
                         buffer[hull_next + i] = vertex_i
 
-                        -- save the two new edges in the hash table
                         buffer[hull_hash + self:_hash(x, y)] = i
                         buffer[hull_hash + self:_hash(coords[2 * e - 1], coords[2 * e])] = e
                     end
@@ -863,8 +908,15 @@ _update = function(self, coords_are_valid)
     end
 end
 
--- Public update() always performs validation; triangulate() calls the internal
--- worker directly after its own validation to avoid scanning the point array twice.
 function rt.DelaunayTriangulation:update()
+    local contour = self._constraints
+    if contour ~= nil and contour ~= EMPTY_TABLE and not _has_nonzero_contour_area(contour) then
+        _set_degenerate_state(self)
+        return
+    end
+
     _update(self, false)
+    if self._n_triangles > 0 then
+        _clip_to_contour(self, contour)
+    end
 end

@@ -24,7 +24,7 @@ rt.settings.overworld.accelerator_surface = {
 --- @class ow.AcceleratorSurface
 --- @types Polygon, Rectangle
 --- @field friction Number? defaults to -1, negative friction speeds up player
-ow.AcceleratorSurface = meta.class("AcceleratorSurface", ow.MovableObject)
+ow.AcceleratorSurface = meta.class("AcceleratorSurface", ow.SolidMovableObject)
 
 local schema = meta.Schema({
     friction = mt.Optional(ow.Number)
@@ -172,6 +172,8 @@ function ow.AcceleratorSurface:instantiate(object, stage, scene)
     self._body:set_friction(object:get_number("friction") or -1)
     self._body:set_user_data(self)
     self._body:set_collision_group(rt.settings.overworld.hitbox.collision_group)
+
+    self._contour = object:create_contour()
 
     local x, y = self._body:get_position()
 

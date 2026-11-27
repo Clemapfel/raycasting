@@ -433,23 +433,6 @@ function b2.Body:get_shapes()
 end
 
 --- @brief
-function b2.Body:get_contours()
-    local out = {}
-    for native in values(self._native:getShapes()) do
-        table.insert(out, native:getUserData():get_contour())
-    end
-
-    local x, y = self:get_position()
-    for contour in values(out) do
-        for i = 1, #contour, 2 do
-            contour[i + 0] = x + contour[i + 0]
-            contour[i + 1] = y + contour[i + 1]
-        end
-    end
-    return out
-end
-
---- @brief
 function b2.Body:get_native()
     return self._native
 end

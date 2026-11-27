@@ -295,6 +295,7 @@ end
 function rt.SoftBody:set_collision_contours(contours)
     local eps_squared = math.eps * math.eps
     local abs = math.abs
+    local huge = math.huge
     table.clear(self._collision_contours)
 
     for i = 1, #contours do
@@ -340,10 +341,17 @@ function rt.SoftBody:set_collision_contours(contours)
             end
         end
 
+        local aabb = closed_contour:get_aabb()
         local collision_contour = {
             contour = closed_contour,
             edges = edges,
             n_edges = n_edges,
+            aabb_min_x = aabb.x,
+            aabb_min_y = aabb.y,
+            aabb_max_x = aabb.x + aabb.width,
+            aabb_max_y = aabb.y + aabb.height,
+            candidate_particles = table.new(self._n_particles),
+            n_candidate_particles = 0,
             lambdas = table.rep(0, self._n_particles),
             normals_x = table.rep(0, self._n_particles),
             normals_y = table.rep(0, self._n_particles)
@@ -703,9 +711,9 @@ do -- softbody_update
         local delta_lambda_y = -(constraint_y + alpha * lambda_y_before) / denominator
 
         return inverse_mass * delta_lambda_x,
-        inverse_mass * delta_lambda_y,
-        lambda_x_before + delta_lambda_x,
-        lambda_y_before + delta_lambda_y
+            inverse_mass * delta_lambda_y,
+            lambda_x_before + delta_lambda_x,
+            lambda_y_before + delta_lambda_y
     end
 
     rt.SoftBody._enforce_anchor = function(inverse_mass, weight, delta_lambda_x, delta_lambda_y)
@@ -717,7 +725,6 @@ do -- softbody_update
         inverse_mass * weight * delta_lambda_y
     end
 
-    -- Public solver kernels shared by SoftBody and HairBody.
     local _enforce_polygon_collision = rt.SoftBody._enforce_polygon_collision
     local _enforce_exact_distance = rt.SoftBody._enforce_exact_distance
     local _enforce_bending = rt.SoftBody._enforce_bending
@@ -838,6 +845,41 @@ do -- softbody_update
         end
 
         self._elapsed = self._elapsed + delta
+
+        -- Build the particle/contour broadphase once for this update. The
+        -- candidate lists are reused by every fixed step and substep below.
+        if enforce_contour_collision and self._elapsed >= timestep then
+            for contour_i = 1, n_collision_contours do
+                local entry = collision_contours[contour_i]
+                local candidates = entry.candidate_particles
+                table.clear(candidates)
+
+                local aabb_min_x = entry.aabb_min_x
+                local aabb_min_y = entry.aabb_min_y
+                local aabb_max_x = entry.aabb_max_x
+                local aabb_max_y = entry.aabb_max_y
+                local n_candidates = 0
+
+                for particle_i = 1, n_particles do
+                    local i = _particle_i_to_data_offset(particle_i)
+                    if data[i + _inverse_mass_offset] > 0 then
+                        local x = data[i + _x_offset]
+                        local y = data[i + _y_offset]
+                        local radius = data[i + _radius_offset]
+
+                        if x + radius >= aabb_min_x and x - radius <= aabb_max_x
+                            and y + radius >= aabb_min_y and y - radius <= aabb_max_y
+                        then
+                            n_candidates = n_candidates + 1
+                            candidates[n_candidates] = particle_i
+                        end
+                    end
+                end
+
+                entry.n_candidate_particles = n_candidates
+            end
+        end
+
         local n_steps = 0
         local reverse_iteration = self._reverse_iteration or false
 
@@ -1212,9 +1254,19 @@ do -- softbody_update
                             local n_edges = entry.n_edges
                             local lambdas = entry.lambdas
                             local normals_x, normals_y = entry.normals_x, entry.normals_y
+                            local candidates = entry.candidate_particles
+                            local n_candidates = entry.n_candidate_particles
                             local keep_outside = entry.contour:get_winding()
 
-                            for particle_i = first_particle_i, last_particle_i, particle_step do
+                            local first_candidate_i, last_candidate_i, candidate_step
+                            if reverse_iteration then
+                                first_candidate_i, last_candidate_i, candidate_step = n_candidates, 1, -1
+                            else
+                                first_candidate_i, last_candidate_i, candidate_step = 1, n_candidates, 1
+                            end
+
+                            for candidate_i = first_candidate_i, last_candidate_i, candidate_step do
+                                local particle_i = candidates[candidate_i]
                                 local i = _particle_i_to_data_offset(particle_i)
                                 local correction_x, correction_y, lambda_new, normal_x, normal_y = _enforce_polygon_collision(
                                     data[i + _x_offset], data[i + _y_offset],
@@ -1242,8 +1294,10 @@ do -- softbody_update
                             local entry = collision_contours[contour_i]
                             local lambdas = entry.lambdas
                             local normals_x, normals_y = entry.normals_x, entry.normals_y
+                            local candidates = entry.candidate_particles
 
-                            for particle_i = 1, n_particles do
+                            for candidate_i = 1, entry.n_candidate_particles do
+                                local particle_i = candidates[candidate_i]
                                 local i = _particle_i_to_data_offset(particle_i)
                                 local correction_x, correction_y = _enforce_friction(
                                     data[i + _x_offset], data[i + _y_offset],

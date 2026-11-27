@@ -840,8 +840,14 @@ function rt.Player:update(delta)
                 end
             end
 
-            self._graphics_body:set_stencil_bodies(body_stencil)
+            self._graphics_body:set_body_stencil_bodies(body_stencil)
             self._graphics_body:set_core_stencil_bodies(core_stencil)
+
+            if self:get_is_ghost() == true or self:get_is_disabled() == true then
+                self._graphics_body:set_colliding_bodies({})
+            else
+                self._graphics_body:set_colliding_bodies(body_stencil)
+            end
         end
     end
 

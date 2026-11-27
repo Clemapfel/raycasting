@@ -241,6 +241,8 @@ local projection = rt.Transform():as_perspective_projection(
     0.1, 1000
 )
 ]]
+
+--- @brief
 function rt.Transform:as_perspective_projection(fov, aspect, near, far)
     local top = near * math.tan(fov / 2)
     local bottom = -top
@@ -264,6 +266,8 @@ local projection = rt.Transform():as_orthographic_projection(
     0.1, 1000
 )
 ]]--
+
+--- @brief
 function rt.Transform:as_orthographic_projection(width, height, near, far)
     local half_width = width / 2
     local half_height = -height / 2
@@ -348,7 +352,7 @@ function rt.Transform:set_orientation(
     return self
 end
 
---- @brief Set the translation component of the transform
+--- @brief
 function rt.Transform:set_position(x, y, z)
     local x11, x12, x13, _,
     x21, x22, x23, _,
@@ -365,7 +369,7 @@ function rt.Transform:set_position(x, y, z)
     return self
 end
 
---- @brief Set orientation from a quaternion (i, j, k, w)
+--- @brief
 function rt.Transform:set_to_orientation_from_quaternion(i, j, k, w)
     self._native:setMatrix(
         1 - 2 * j * j - 2 * k * k, 2 * i * j + 2 * w * k, 2 * i * k - 2 * w * j, 0,
@@ -377,27 +381,7 @@ function rt.Transform:set_to_orientation_from_quaternion(i, j, k, w)
     return self
 end
 
---- @brief Remove translation and scale, leaving only normalized rotation axes
-function rt.Transform:set_to_orientation()
-    local x11, x12, x13, _,
-    x21, x22, x23, _,
-    x31, x32, x33 = self._native:getMatrix()
-
-    x11, x12, x13 = math.normalize3(x11, x12, x13)
-    x21, x22, x23 = math.normalize3(x21, x22, x23)
-    x31, x32, x33 = math.normalize3(x31, x32, x33)
-
-    self._native:setMatrix(
-        x11, x12, x13, 0,
-        x21, x22, x23, 0,
-        x31, x32, x33, 0,
-        0, 0, 0, 1
-    )
-
-    return self
-end
-
---- @brief reset to identity
+--- @brief
 function rt.Transform:reset()
     self._native:setMatrix(
         1, 0, 0, 0,
@@ -409,7 +393,7 @@ function rt.Transform:reset()
     return self
 end
 
---- @brief Get the underlying LÖVE transform for direct use
+--- @brief
 function rt.Transform:get_native()
     return self._native
 end

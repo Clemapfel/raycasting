@@ -24,7 +24,7 @@ rt.settings.hairbody = {
         angular_momentum_compliance = 1e-7,
         enforce_angular_momentum = true,
 
-        anchor_compliance = 2 * math.eps,
+        anchor_compliance = math.eps,
         enforce_anchor = true,
 
         density = 1
@@ -443,6 +443,11 @@ do -- hairbody_update
         local collision_contours = self._collision_contours
         local n_collision_contours = #collision_contours
 
+        local anchor_easing = {}
+        for i = 1, self._n_particles do
+            anchor_easing[i] = (i - 1) / self._n_particles
+        end
+
         local anchor_x, anchor_y = self._anchor_x, self._anchor_y
         enforce_anchor = enforce_anchor and anchor_x ~= nil and anchor_y ~= nil
 
@@ -539,14 +544,6 @@ do -- hairbody_update
                 self._anchor_lambda_y = 0
                 self._angular_momentum_lambda = 0
 
-                -- A hard anchor is a kinematic boundary for the structural
-                -- solve. The contact pass below deliberately uses the real
-                -- inverse mass, so particle 1 can still resolve collisions.
-                local hard_anchor = enforce_anchor and anchor_alpha == 0
-
-                -- Chain constraints: only n-1 segment limits and n-2 bends.
-                -- Reapply the anchor before each Gauss-Seidel pass so every
-                -- pass solves the chain relative to the anchored endpoint.
                 for _ = 1, n_constraint_iterations do
                     if enforce_anchor then
                         local i = _particle_i_to_data_offset(1)
@@ -582,7 +579,6 @@ do -- hairbody_update
 
                             local inverse_mass_a = data[ai + _inverse_mass_offset] * inverse_density
                             local inverse_mass_b = data[bi + _inverse_mass_offset] * inverse_density
-                            if hard_anchor and particle_i == 1 then inverse_mass_a = 0 end
 
                             local correction_ax, correction_ay, correction_bx, correction_by, lambda_new = _enforce_max_distance(
                                 ax, ay, bx, by,
@@ -611,17 +607,14 @@ do -- hairbody_update
                             local ci = _particle_i_to_data_offset(particle_i + 2)
 
                             local inverse_mass_a = data[ai + _inverse_mass_offset] * inverse_density
-                            if hard_anchor and particle_i == 1 then
-                                inverse_mass_a = 0
-                            end
+                            local inverse_mass_b = data[bi + _inverse_mass_offset] * inverse_density
+                            local inverse_mass_c = data[ci + _inverse_mass_offset] * inverse_density
 
                             local new_ax, new_ay, new_bx, new_by, new_cx, new_cy, lambda_new = _enforce_bending(
                                 data[ai + _x_offset], data[ai + _y_offset],
                                 data[bi + _x_offset], data[bi + _y_offset],
                                 data[ci + _x_offset], data[ci + _y_offset],
-                                inverse_mass_a,
-                                data[bi + _inverse_mass_offset] * inverse_density,
-                                data[ci + _inverse_mass_offset] * inverse_density,
+                                inverse_mass_a, inverse_mass_b, inverse_mass_c,
                                 0,
                                 bending_alpha,
                                 data[ai + _bending_lambda_offset]
@@ -667,8 +660,7 @@ do -- hairbody_update
                             local i = _particle_i_to_data_offset(particle_i)
                             local inverse_mass = data[i + _inverse_mass_offset] * inverse_density
                             local mass = data[i + _mass_offset] * density
-                            if inverse_mass > 0 and mass > 0
-                                and not (hard_anchor and particle_i == 1) then
+                            if inverse_mass > 0 and mass > 0 then
                                 local rx = data[i + _previous_x_offset] - center_x
                                 local ry = data[i + _previous_y_offset] - center_y
                                 local dx = data[i + _x_offset] - data[i + _previous_x_offset]
@@ -693,7 +685,6 @@ do -- hairbody_update
                             for particle_i = 1, n_particles do
                                 local i = _particle_i_to_data_offset(particle_i)
                                 local inverse_mass = data[i + _inverse_mass_offset] * inverse_density
-                                if hard_anchor and particle_i == 1 then inverse_mass = 0 end
                                 local falloff = 1 - angular_falloff * (particle_i - 1) / falloff_denominator
 
                                 local correction_x, correction_y = _enforce_angular_momentum(

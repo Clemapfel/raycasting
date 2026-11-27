@@ -22,9 +22,9 @@ rt.settings.player_body = {
         kinetic_friction = 0.0,
 
         damping = 0.98,
-        distance_compliance = 0,
-        bending_compliance = 0,
-        volume_compliance = 0,
+        distance_compliance = 4e-7,
+        bending_compliance = 4e-7,
+        volume_compliance = 1e-7,
         anchor_compliance = 0,
         angular_momentum_compliance = 0
     },
@@ -89,9 +89,9 @@ function rt.PlayerBody:instantiate(position_x, position_y)
     meta.typecheck(position_x, mt.Number, position_y, mt.Number)
 
     -- appearance
-    self._core_body_color = rt.Palette.WHITE
+    self._color = rt.Palette.WHITE
     self._bubble_body_color = rt.Palette.BLACK
-    self._hue = select(3, rt.rgba_to_lcha(self._core_body_color:unpack()))
+    self._hue = select(3, rt.rgba_to_lcha(self._color:unpack()))
     self._opacity = 1
     self._saturation = 1
     self._contraction = 0
@@ -167,6 +167,7 @@ function rt.PlayerBody:_initialize()
     self._core_body:set_config(rt.settings.player_body.core_non_bubble_config)
     self._core_body_mesh = nil
     self._core_body_mesh_data = nil
+    self._core_body_contour = nil
 
     self._bubble_body = rt.SoftBody(rt.PolylineCircle(
         center_x, center_y, bubble_radius_factor * core_body_radius,
@@ -177,6 +178,7 @@ function rt.PlayerBody:_initialize()
     self._bubble_body:set_contraction(self._bubble_contraction_motion:get_value())
     self._bubble_body_mesh = nil
     self._bubble_body_mesh_data = nil
+    self._bubble_body_contour = nil
 
     self._hair_body = rt.HairBody(
         0, 0,
@@ -187,6 +189,9 @@ function rt.PlayerBody:_initialize()
     self._hair_body:set_anchor(center_x, center_y)
     self._hair_body:set_contraction(self._hair_contraction_motion:get_value())
     self._hair_body:set_config(rt.settings.player_body.hair_config)
+    self._hair_body_mesh = nil
+    self._hair_body_mesh_data = nil
+    self._hair_body_contour = nil
 
     self._bubble_body_anchor_x_offset, self._bubble_body_anchor_y_offset = 0, 0
 end
@@ -196,6 +201,44 @@ function rt.PlayerBody:relax()
     self._bubble_body:relax()
     self._core_body:relax()
     self._hair_body:relax()
+end
+
+
+local _triangulate = function(mesh, mesh_data, contour)
+    if mesh_data == nil then mesh_data = {} end
+
+    local aabb = contour:get_aabb()
+    local data = contour:get_vertices()
+    local tris = contour:triangulate()
+    local vertex_i = 1
+    for _, tri in ipairs(tris) do
+        for i = 1, #tri, 2 do
+            local x, y = tri[i + 0], tri[i + 1]
+            local u = (x - aabb.x) / aabb.width
+            local v = (y - aabb.y) / aabb.height
+            local entry = mesh_data[vertex_i]
+            if entry == nil then
+                entry = { x, y, u, v, 1, 1, 1, 1 }
+                mesh_data[vertex_i] = entry
+            else
+                entry[1], entry[2], entry[3], entry[4] = x, y, u, v
+            end
+
+            vertex_i = vertex_i + 1
+        end
+    end
+
+    if mesh == nil or mesh:get_n_vertices() ~= vertex_i - 1 then
+        mesh = rt.Mesh(mesh_data,
+            rt.MeshDrawMode.TRIANGLES,
+            rt.VertexFormat,
+            rt.GraphicsBuffer.STREAM
+        )
+    else
+        mesh:replace_data(mesh_data)
+    end
+
+    return mesh, mesh_data, contour
 end
 
 function rt.PlayerBody:update(delta)
@@ -211,12 +254,29 @@ function rt.PlayerBody:update(delta)
 
     for body in range(self._core_body, self._hair_body, self._bubble_body) do
         body:set_gravity(gravity_x, gravity_y)
-        body:set_use_collision(not self:get_is_disabled())
+        body:update(delta)
     end
 
-    self._core_body:update(delta)
-    self._hair_body:update(delta)
-    self._bubble_body:update(delta)
+    local hair_body_contour = self._hair_body:get_draw_contour()
+    self._hair_body_mesh, self._hair_body_mesh_datas, self._hair_body_contour = _triangulate(
+        self._hair_body_mesh,
+        self._hair_body_mesh_data,
+        hair_body_contour
+    )
+
+    local bubble_body_contour = self._bubble_body:get_draw_contour()
+    self._bubble_body_mesh, self._bubble_body_mesh_data, self._bubble_body_contour = _triangulate(
+        self._bubble_body_mesh,
+        self._bubble_body_mesh_data,
+        bubble_body_contour
+    )
+
+    local contour = self._core_body:get_draw_contour()
+    self._core_body_mesh, self._core_body_mesh_data, self._core_body_contour = _triangulate(
+        self._core_body_mesh,
+        self._core_body_mesh_data,
+        contour
+    )
 
     do
         local contraction = self._bubble_contraction_motion:get_value()
@@ -239,23 +299,35 @@ function rt.PlayerBody:update(delta)
 end
 
 --- @brief
-function rt.PlayerBody:set_stencil_bodies(t)
-    self._bubble_body_stencil_bodies = t
+function rt.PlayerBody:set_body_stencil_bodies(t)
+    self._body_stencil_bodies = t
+end
+
+--- @brief
+function rt.PlayerBody:set_core_stencil_bodies(t)
+    self._core_stencil_bodies = t
+end
+
+--- @brief
+function rt.PlayerBody:set_colliding_bodies(t)
     local contours = {}
     for body in values(t) do
-        for contour in values(body:get_contours()) do
-            table.insert(contours, rt.Polyline(contour))
+        local object = body:get_user_data()
+        if object ~= nil and meta.is_function(object.get_contour) then
+            local contour = object:get_contour()
+            if DEBUG then
+                if not meta.isa(contour, rt.Polyline) then
+                    rt.error("In rt.PlayerBody.set_colliding_bodies: object `", meta.typeof(object), "` has a `get_contour` function, but it does not return a `rt.Polyline`")
+                end
+            end
+
+            table.insert(contours, contour)
         end
     end
 
     self._bubble_body:set_collision_contours(contours)
     self._core_body:set_collision_contours(contours)
     self._hair_body:set_collision_contours(contours)
-end
-
---- @brief
-function rt.PlayerBody:set_core_stencil_bodies(t)
-    self._core_body_stencil_bodies = t
 end
 
 --- @brief
@@ -302,87 +374,29 @@ function rt.PlayerBody:_apply_transform()
     love.graphics.setLineWidth(3)
 end
 
-
-local _triangulate = function(mesh, mesh_data, contour)
-    if mesh_data == nil then mesh_data = {} end
-
-    local aabb = contour:get_aabb()
-    local data = contour:get_vertices()
-    local tris = contour:triangulate()
-    local vertex_i = 1
-    for _, tri in ipairs(tris) do
-        for i = 1, #tri, 2 do
-            local x, y = tri[i + 0], tri[i + 1]
-            local u = (x - aabb.x) / aabb.width
-            local v = (y - aabb.y) / aabb.height
-            local entry = mesh_data[vertex_i]
-            if entry == nil then
-                entry = { x, y, u, v, 1, 1, 1, 1 }
-                mesh_data[vertex_i] = entry
-            else
-                entry[1], entry[2], entry[3], entry[4] = x, y, u, v
-            end
-
-            vertex_i = vertex_i + 1
-        end
-    end
-
-    if mesh == nil or mesh:get_n_vertices() ~= vertex_i - 1 then
-        mesh = rt.Mesh(mesh_data,
-            rt.MeshDrawMode.TRIANGLES,
-            rt.VertexFormat,
-            rt.GraphicsBuffer.STREAM
-        )
-    else
-        mesh:replace_data(mesh_data)
-    end
-
-    return mesh, mesh_data
-end
-
-
 --- @brief
 function rt.PlayerBody:draw_body()
     love.graphics.push("all")
+
+    local stencil_value = rt.graphics.get_stencil_value()
+    rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW)
+    for body in values(self._body_stencil_bodies) do
+        body:draw(true) -- mask only
+    end
+    
     self:_apply_transform()
 
     love.graphics.setLineWidth(2)
     love.graphics.setLineJoin("bevel")
 
-    --self._hair_body:_debug_draw()
+    -- bodies
+    rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.TEST, rt.StencilCompareMode.NOT_EQUAL)
+        
+    rt.Palette.BLACK:bind()
+    self._hair_body_mesh:draw()
+    self._bubble_body_mesh:draw()
 
-    if self._hair_contraction_motion:get_value() >= _bubble_eps then
-        local contour = self._hair_body:get_draw_contour()
-        self._hair_body_mesh, self._hair_body_mesh_data = _triangulate(
-            self._hair_body_mesh,
-            self._hair_body_mesh_data,
-            contour
-        )
-
-        rt.Palette.TRUE_MAGENTA:bind()
-        self._hair_body_mesh:draw()
-
-        if self._state ~= rt.PlayerBodyState.BUBBLE then
-            self._core_body_color:bind()
-            contour:draw()
-        end
-    end
-
-
-    -- bubble on top of hair
-    if true then --self._bubble_contraction_motion:get_value() >= _bubble_eps then
-        local contour = self._bubble_body:get_draw_contour()
-        self._bubble_body_mesh, self._bubble_body_mesh_data = _triangulate(
-            self._bubble_body_mesh,
-            self._bubble_body_mesh_data,
-            contour
-        )
-
-        rt.Palette.BLACK:bind()
-        self._bubble_body_mesh:draw()
-        self._core_body_color:bind()
-        contour:draw()
-    end
+    rt.graphics.set_stencil_mode(nil)
 
     love.graphics.pop()
 end
@@ -391,17 +405,23 @@ end
 function rt.PlayerBody:draw_core()
     love.graphics.push("all")
 
-    love.graphics.setLineWidth(2)
-    love.graphics.setLineJoin("bevel")
+    local stencil_value = rt.graphics.get_stencil_value()
+    rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW)
+    for body in values(self._core_stencil_bodies) do
+        body:draw(true) -- mask only
+    end
+
+    rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.TEST, rt.StencilCompareMode.NOT_EQUAL)
 
     self:_apply_transform()
 
-    local contour = self._core_body:get_draw_contour()
-    self._core_body_mesh, self._core_body_mesh_data = _triangulate(
-        self._core_body_mesh,
-        self._core_body_mesh_data,
-        contour
-    )
+    love.graphics.setLineWidth(2)
+    love.graphics.setLineJoin("bevel")
+
+    -- contours drawn here as they need to check against core stencil, not body stencil
+    self._color:bind()
+    self._hair_body_contour:draw()
+    self._bubble_body_contour:draw()
 
     local core_shader = _core_type_to_shader[rt.GameState:get_player_body_core_type()]
     core_shader:bind()
@@ -413,10 +433,10 @@ function rt.PlayerBody:draw_core()
     self._core_body_mesh:draw()
     core_shader:unbind()
 
-    love.graphics.setLineWidth(2)
-    love.graphics.setLineJoin("bevel")
-    self._core_body_color:clone():lighten(0.2):bind()
-    love.graphics.line(contour:get_vertices())
+    self._color:clone():lighten(0.2):bind()
+    love.graphics.line(self._core_body_contour:get_vertices())
+
+    rt.graphics.set_stencil_mode(nil)
 
     love.graphics.pop()
 end
@@ -434,8 +454,8 @@ end
 --- @brief
 function rt.PlayerBody:set_color(color)
     meta.typecheck(color, rt.RGBA)
-    self._core_body_color = color
-    self._hue = select(3, rt.rgba_to_lcha(self._core_body_color:unpack()))
+    self._color = color
+    self._hue = select(3, rt.rgba_to_lcha(self._color:unpack()))
 end
 
 --- @brief
@@ -446,7 +466,7 @@ end
 
 --- @brief
 function rt.PlayerBody:set_core_color(color)
-    self._core_body_color = color
+    self._color = color
 end
 
 --- @brief
@@ -478,7 +498,7 @@ end
 function rt.PlayerBody:draw_bloom()
     love.graphics.push("all")
     self:_apply_transform()
-    self._core_body_color:bind()
+    self._color:bind()
     love.graphics.setLineWidth(1)
     self._core_body:get_draw_contour():draw()
     love.graphics.pop()

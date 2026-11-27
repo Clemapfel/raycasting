@@ -6,6 +6,7 @@ shader: crystals
 
 import Faq from "../../../components/faq.astro";
 import Link from "../../../components/link.astro";
+import Name from "../../../components/name.astro";
 
 <Faq question="When will it come out? What features are still missing?" id="release-date">
     Between now (October 2026) and the release of the demo, the main work left is adding additional sound effects for various gameplay elements. When closed playtesting begins, it is also expected that work on various platform- or driver-specific bugs and optimization are still required, as is always the case when shipping software for various platforms. This process is estimated to have finished by the end of 2026.
@@ -34,7 +35,11 @@ import Link from "../../../components/link.astro";
     **Level design is not procedural**, every object is placed by hand. There is no "random generation" for placement of any gameplay-relevant objects - as would be common in other genres such as rogue-lites.
 </Faq>
 
-<Faq question="What are the minimum specifications my computer needs to play?" id="system-specs">
+<Faq question="How much will it cost?" id="cost">
+    The demo will be freely available at no charge to all. The final game is projected to retail between €12 and €18 in Europe, and between $14 and $19 in the US, with regional pricing for other parts of the world being the same or lower depending on the <region className=""></region>
+</Faq>
+
+<Faq question="What are the minimum specifications my computer needs to play it?" id="system-specs">
     For the best experience, Chroma Void requires
 
     + Windows or Linux operating system, Mac should be possible but is not officially supported
@@ -91,22 +96,21 @@ import Link from "../../../components/link.astro";
 </Faq>
 
 <Faq question="What engine does the game run on? What tools were used during development?" id="tools-used">
-    "Chroma Void" runs on a custom, bespoke engine that is currently not available to the public. It is written in <Link text="LuaJIT" href="https://luajit.me/" /> and <Link text="GLSL" href="https://www.khronos.org/opengl/wiki/Core_Language_(GLSL)" />, with additional <Link text="TypeScript" href="https://www.typescriptlang.org/" />, <Link text="C++" href="https://en.cppreference.com/" />, <Link text="Python" href="https://www.python.org/" />, and <Link text="sclang" href="https://doc.sccode.org/Help.html" /> performing auxiliary functions.
+    <Name /> runs on a custom, bespoke engine that is currently not available to the public. It is written in <Link text="LuaJIT" href="https://luajit.me/" /> and <Link text="GLSL" href="https://www.khronos.org/opengl/wiki/Core_Language_(GLSL)" />, with additional <Link text="TypeScript" href="https://www.typescriptlang.org/" />, <Link text="C++" href="https://en.cppreference.com/" />, <Link text="Python" href="https://www.python.org/" />, and <Link text="sclang" href="https://doc.sccode.org/Help.html" /> performing auxiliary functions.
 
     Programming Libraries used:
 
     + <Link text="Box2D" href="https://box2d.org/" /> for environmental collision and spatial queries
-    + <Link text="Love2D" href="https://love2d.org/" /> for rendering, sound playback, file i/o
-    + <Link text="Slick" href="https://github.com/erinmaus/slick/" /> for polygon triangulation
+    + <Link text="Love2D" href="https://love2d.org/" /> for rendering, sound playback, file I/O
 
-    All other features such as player physics, real-time lighting, particle simulation, and the flow-system, were implemented from scratch.
+    All other features such as player physics, real-time lighting, particle simulation, the flow-system, etc., were implemented from scratch.
 
     Tooling used during development:
 
     + <Link text="SuperCollider" href="https://supercollider.github.io/" /> for sound effect generation
     + <Link text="Tiled2D" href="https://www.mapeditor.org/" /> for level design
     + <Link text="Marmoset Hexel" href="https://marmoset.co/hexels/" /> for pixel art
-    + <Link text="Inkscape" href="https://github.com/inkscape/inkscape" /> for creating certain assets such as icons
+    + <Link text="Inkscape" hrgef="https://github.com/inkscape/inkscape" /> for creating certain assets such as icons
     + <Link text="Astro" href="https://astro.build/" /> for creating this website
 </Faq>
 

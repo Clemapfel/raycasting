@@ -3,7 +3,8 @@ rt.settings.profiler = {
     reference_duration = 1 / 60,
     out_folder = "profile",
     whitelist = {
-        "triangulate"
+        "HairBody:update",
+        "SoftBody:update"
     }
 }
 
